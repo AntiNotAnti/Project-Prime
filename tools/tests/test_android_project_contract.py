@@ -14,8 +14,8 @@ class AndroidNodeProjectContractTests(unittest.TestCase):
         self.assertNotIn('../Server.Worker/Server.Worker.csproj', references)
         self.assertNotIn('../Server.Node/Server.Node.csproj', references)
         compiled = {item.attrib['Include'] for item in project.iter('Compile')}
-        for source in ('Accounts/AccountSession.Nodes.cs', 'Networking/Nodes/NodeControlClient.cs',
-                       'Launcher/Gui/NodeBrowserView.cs'):
+        for source in ('Accounts/AccountSession.Nodes.cs', 'Networking/NodeHealthCache.cs',
+                       'Networking/Nodes/NodeControlClient.cs', 'Launcher/Gui/NodeBrowserView.cs'):
             self.assertIn('../Client/' + source, compiled)
             self.assertTrue((ROOT / 'src/Client' / source).is_file())
 

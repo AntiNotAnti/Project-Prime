@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Security;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading;
 
 namespace MphRead.Mods.Network;
 
@@ -62,8 +64,10 @@ public sealed class ReplayHighlightMetadataService
 
     public string CacheDirectory { get; }
 
-    public ReplayHighlightMetadata Get(string replayPath)
+    public ReplayHighlightMetadata Get(string replayPath,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (String.IsNullOrWhiteSpace(replayPath))
             return Failure(ReplayHighlightMetadataStatus.InvalidReplay,
                 "Replay path is empty.");
@@ -77,9 +81,7 @@ public sealed class ReplayHighlightMetadataService
                 return Failure(ReplayHighlightMetadataStatus.InvalidReplay,
                     "Replay file is missing or exceeds its supported bounds.");
             }
-            using FileStream stream = new(replayPath, FileMode.Open, FileAccess.Read,
-                FileShare.Read);
-            fingerprint = Convert.ToHexString(SHA256.HashData(stream)).ToLowerInvariant();
+            fingerprint = Fingerprint(replayPath, cancellationToken);
         }
         catch (Exception error) when (IsLocalIoFailure(error))
         {
@@ -102,7 +104,8 @@ public sealed class ReplayHighlightMetadataService
         if (TryReadCache(cachePath, fingerprint, reader.ProtocolVersion,
                 out ReplayHighlightMetadata? cached) && cached is not null) return cached;
 
-        if (!TryDecode(reader, out List<ReplayHighlightEvent> events,
+        if (!TryDecode(reader, cancellationToken,
+                out List<ReplayHighlightEvent> events,
                 out List<ReplayHighlightTimelineAnchor> timeline,
                 out string? decodeError))
         {
@@ -141,6 +144,7 @@ public sealed class ReplayHighlightMetadataService
     }
 
     private static bool TryDecode(ReplayReader reader,
+        CancellationToken cancellationToken,
         out List<ReplayHighlightEvent> events,
         out List<ReplayHighlightTimelineAnchor> timeline, out string? error)
     {
@@ -152,6 +156,7 @@ public sealed class ReplayHighlightMetadataService
         int records = 0;
         while (reader.ReadNext() is ReplayRecord record)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (++records > MaximumDecodedRecords)
             {
                 error = "Replay contains too many decoded records.";
@@ -431,6 +436,26 @@ public sealed class ReplayHighlightMetadataService
 
     private static bool IsCacheFailure(Exception error)
         => IsLocalIoFailure(error) || error is JsonException;
+
+    private static string Fingerprint(string path,
+        CancellationToken cancellationToken)
+    {
+        using FileStream stream = new(path, FileMode.Open, FileAccess.Read,
+            FileShare.Read);
+        using IncrementalHash hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        byte[] buffer = ArrayPool<byte>.Shared.Rent(128 * 1024);
+        try
+        {
+            int count;
+            while ((count = stream.Read(buffer, 0, buffer.Length)) != 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                hash.AppendData(buffer, 0, count);
+            }
+            return Convert.ToHexString(hash.GetHashAndReset()).ToLowerInvariant();
+        }
+        finally { ArrayPool<byte>.Shared.Return(buffer); }
+    }
 
     private sealed class CacheDocument
     {

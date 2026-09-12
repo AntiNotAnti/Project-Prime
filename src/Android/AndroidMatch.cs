@@ -57,17 +57,18 @@ namespace MphRead.Droid
         ///
         /// The room comes from the recording itself: a replay carries the
         /// server's own MatchState, which is what <see cref="NetLaunch.ServerRoom"/>
-        /// reads. <see cref="ReplayPlayback.Join"/> has already been called by
-        /// the screen that picked the file -- it reports a bad file there,
-        /// where there is still something to report on -- and calling it again
-        /// here is what re-winds the reader for the run about to start.
+        /// reads. <see cref="ReplayPlayback.Prepare"/> may already have been called
+        /// by the screen that picked the file -- it reports a bad file there,
+        /// where there is still something to report on. Consume that prepared
+        /// reader when the path still matches; otherwise Join rewinds the file
+        /// for the run about to start.
         /// </summary>
         private static Scene BuildReplay(AndroidInput input, Vector2i size,
             LaunchPlan plan, Action close)
         {
-            if (!ReplayPlayback.Join(plan.ReplayPath))
+            if (!ReplayLaunchCoordinator.TryStart(plan, out string? replayError))
             {
-                throw new ProgramException(ReplayPlayback.LastError
+                throw new ProgramException(replayError
                     ?? "That file could not be read as a replay.");
             }
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();

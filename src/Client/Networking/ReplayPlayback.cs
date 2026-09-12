@@ -21,6 +21,7 @@ namespace MphRead.Mods.Network
         public static ReplayTransport Transport => _default.Transport;
         public static bool IsSeeking => _default.IsSeeking;
         public static uint CurrentFrame => _default.CurrentFrame;
+        public static int PerspectiveSlot => _default.PerspectiveSlot;
         public static uint DurationFrames => _default.DurationFrames;
         public static bool CanSeek => _default.CanSeek;
         public static IReadOnlyList<ReplayIndexEntry> Index => _default.Index;
@@ -29,7 +30,11 @@ namespace MphRead.Mods.Network
         public static double LastSeekMilliseconds => _default.LastSeekMilliseconds;
         public static bool AtEnd => _default.AtEnd;
         public static bool ShouldExitAtEnd => _default.ShouldExitAtEnd;
+        public static bool BoundedPlayback => _default.BoundedPlayback;
+        internal static CombatActor? PlaybackFocus => _default.PlaybackFocus;
+        public static int CurrentHighlightIndex => _default.CurrentHighlightIndex;
         public static ReplayHighlight? CurrentHighlight => _default.CurrentHighlight;
+        internal static ReplayHighlight? NextHighlight => _default.NextHighlight;
         public static string? LastError => _default.LastError;
         public static bool Prepare(string path) => _default.Prepare(path);
         internal static bool ConsumePrepared(string path) => _default.ConsumePrepared(path);
@@ -38,7 +43,11 @@ namespace MphRead.Mods.Network
         public static bool SeekEvent(bool next) => _default.SeekEvent(next);
         public static void ConfigureHighlights(IReadOnlyList<ReplayHighlight> highlights)
             => _default.ConfigureHighlights(highlights);
+        public static void ConfigureRange(uint startFrame, uint endFrame,
+            CombatActor? focus = null) => _default.ConfigureRange(startFrame, endFrame, focus);
         internal static bool AdvanceHighlightRange() => _default.AdvanceHighlightRange();
+        internal static bool TryGetActorName(CombatActor actor, out string? name)
+            => _default.TryGetActorName(actor, out name);
         internal static int TakeSimulationSteps() => _default.TakeSimulationSteps();
         internal static bool ProcessSeek(Action simulationStep, Action? beginSeek = null)
             => _default.ProcessSeek(simulationStep, beginSeek);

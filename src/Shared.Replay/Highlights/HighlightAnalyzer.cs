@@ -207,12 +207,14 @@ public static class HighlightScoringPolicy
 
 public sealed class HighlightAnalyzer
 {
-    public const int Version = 1;
+    public const int Version = 2;
     public const int MaximumHighlights = 8;
     public const int MaximumEvents = 65536;
     public const int MaximumTimelinePoints = 131072;
     public const uint DefaultLeadFrames = 240;
     public const uint DefaultTailFrames = 120;
+    private const uint NearbyHighlightFrames = DefaultLeadFrames
+        + DefaultTailFrames;
 
     private enum Family : byte { Combat, Objective, Match, Prime }
 
@@ -292,9 +294,7 @@ public sealed class HighlightAnalyzer
             else Merge(target, candidate);
         }
 
-        var result = new List<ReplayHighlight>(Math.Min(MaximumHighlights,
-            merged.Count));
-        foreach (Group group in merged.OrderByDescending(value => FinalScore(value))
+        Group[] ranked = merged.OrderByDescending(value => FinalScore(value))
             .ThenBy(value => value.FocusFrame)
             .ThenBy(value => value.Featured.Kind)
             .ThenBy(value => value.Featured.Focus.Slot)
@@ -306,8 +306,10 @@ public sealed class HighlightAnalyzer
             .ThenBy(value => value.Markers)
             .ThenBy(value => value.Featured.MatchId)
             .ThenBy(value => value.Featured.Source)
-            .ThenBy(value => value.Featured.EventId)
-            .Take(MaximumHighlights))
+            .ThenBy(value => value.Featured.EventId).ToArray();
+        IReadOnlyList<Group> composed = ComposeReel(ranked);
+        var result = new List<ReplayHighlight>(composed.Count);
+        foreach (Group group in composed)
         {
             int score = FinalScore(group);
             ReplayHighlightEvent featured = group.Featured;
@@ -318,6 +320,99 @@ public sealed class HighlightAnalyzer
         }
         return result.AsReadOnly();
     }
+
+    /// <summary>
+    /// Applies a deterministic diversity pass after authoritative candidates
+    /// have been merged and scored. Score remains the dominant signal; close
+    /// alternatives gain small, bounded preferences for a new event family,
+    /// exact actor, objective kind, and a distinct moment in the match.
+    /// </summary>
+    private static IReadOnlyList<Group> ComposeReel(IReadOnlyList<Group> ranked)
+    {
+        int count = Math.Min(MaximumHighlights, ranked.Count);
+        var selected = new List<Group>(count);
+        if (count == 0) return selected;
+
+        var remaining = new List<Group>(ranked.Count);
+        for (int i = 0; i < ranked.Count; i++) remaining.Add(ranked[i]);
+        while (selected.Count < count)
+        {
+            int bestIndex = 0;
+            int bestScore = CompositionScore(remaining[0], selected);
+            for (int i = 1; i < remaining.Count; i++)
+            {
+                int score = CompositionScore(remaining[i], selected);
+                // The input is already in the complete stable ranking order,
+                // so retaining the first candidate is the final tie-breaker.
+                if (score > bestScore)
+                {
+                    bestIndex = i;
+                    bestScore = score;
+                }
+            }
+            selected.Add(remaining[bestIndex]);
+            remaining.RemoveAt(bestIndex);
+        }
+        // Selection is greedy, but the public/cache order remains the complete
+        // stable score order. Theatre sorts the chosen set chronologically for
+        // playback, while metadata readers can validate one durable contract.
+        var chosen = new HashSet<Group>(selected);
+        var ordered = new List<Group>(selected.Count);
+        for (int i = 0; i < ranked.Count; i++)
+        {
+            if (chosen.Contains(ranked[i])) ordered.Add(ranked[i]);
+        }
+        return ordered;
+    }
+
+    private static int CompositionScore(Group candidate,
+        IReadOnlyList<Group> selected)
+    {
+        int sameActor = 0;
+        int sameFamily = 0;
+        int sameKind = 0;
+        int sameObjectiveKind = 0;
+        uint nearest = uint.MaxValue;
+        for (int i = 0; i < selected.Count; i++)
+        {
+            Group prior = selected[i];
+            if (candidate.Featured.Focus.IsValid
+                && prior.Featured.Focus == candidate.Featured.Focus) sameActor++;
+            if (prior.Family == candidate.Family) sameFamily++;
+            if (prior.Featured.Kind == candidate.Featured.Kind) sameKind++;
+            if (IsObjectiveStory(candidate.Featured.Kind)
+                && prior.Featured.Kind == candidate.Featured.Kind)
+            {
+                sameObjectiveKind++;
+            }
+            uint distance = candidate.FocusFrame >= prior.FocusFrame
+                ? candidate.FocusFrame - prior.FocusFrame
+                : prior.FocusFrame - candidate.FocusFrame;
+            nearest = Math.Min(nearest, distance);
+        }
+
+        int score = FinalScore(candidate) * 32;
+        if (selected.Count > 0)
+        {
+            if (candidate.Featured.Focus.IsValid && sameActor == 0) score += 48;
+            if (sameFamily == 0) score += 32;
+            if (sameKind == 0) score += 16;
+            if (IsObjectiveStory(candidate.Featured.Kind)
+                && sameObjectiveKind == 0) score += 24;
+            score -= sameActor * 12 + sameFamily * 4 + sameKind * 4;
+            if (nearest < NearbyHighlightFrames)
+            {
+                score -= (int)((NearbyHighlightFrames - nearest) * 20
+                    / NearbyHighlightFrames);
+            }
+        }
+        return score;
+    }
+
+    private static bool IsObjectiveStory(HighlightKind kind)
+        => kind is HighlightKind.ObjectiveCapture or HighlightKind.NodeCapture
+            or HighlightKind.Defender or HighlightKind.Interceptor
+            or HighlightKind.PrimeChange;
 
     private static uint MapFrame(ReplayHighlightEvent value,
         IReadOnlyDictionary<uint, ReplayHighlightTimelineAnchor[]> timeline,

@@ -612,6 +612,11 @@ namespace MphRead.Droid
             ClientInputState.WindowFocused = hasFocus;
             if (!hasFocus)
             {
+                // Focus loss ends every pointer lifecycle. GamepadInput.Reset
+                // advances the shared look epoch, so retaining an active pen
+                // here would leave all later motion stale until a physical
+                // lift. OnPause already follows the same cancellation order.
+                _overlay?.CancelInput();
                 GamepadInput.Reset();
                 GamepadInput.State = default;
                 GamepadBridge.Disconnect();
@@ -653,6 +658,13 @@ namespace MphRead.Droid
         {
             if (InMatch)
             {
+                // Killcam owns Back while its replay picture is visible. The
+                // render thread consumes the queued logical skip; the UI
+                // thread must not mutate the scene or open the pause menu.
+                if (_gameView?.QueueKillcamBack() == true)
+                {
+                    return;
+                }
                 // Back used to end the match outright, which is a gesture a
                 // phone makes by accident and an hour of adventure mode thrown
                 // away. It is what Escape is on the desktop now: the menu,
@@ -1077,8 +1089,9 @@ namespace MphRead.Droid
                 _launcherView.Visibility = ViewStates.Visible;
             }
             GoImmersive(true);
-            if (_gameView?.Scene is { } scene)
-                AndroidApp.Home?.ShowPauseMenu(scene, ClosePauseMenu, EndMatch, () => Finish());
+            if (_gameView?.Scene is { } scene && AndroidApp.Home is { } home)
+                home.ShowPauseMenu(scene, ClosePauseMenu, EndMatch, () => Finish(),
+                    home.TransitionMenuActions);
         }
 
         private void ClosePauseMenu()

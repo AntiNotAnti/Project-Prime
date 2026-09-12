@@ -67,6 +67,27 @@ public sealed class TheatreReplayLibraryTests : IDisposable
     }
 
     [Fact]
+    public void RenameAndDeleteKeepDerivedSidecarLifecycleTogether()
+    {
+        var metadata = new ReplayLibraryMetadataService();
+        metadata.GetOrCreate(_replay.Path);
+        string originalSidecar = ReplayLibraryMetadataService.SidecarPath(_replay.Path);
+        Assert.True(File.Exists(originalSidecar));
+
+        Assert.True(_library.Rename(_replay, "renamed"));
+        string renamed = Path.Combine(_directory, "renamed.fpreplay");
+        string renamedSidecar = ReplayLibraryMetadataService.SidecarPath(renamed);
+        Assert.False(File.Exists(originalSidecar));
+        Assert.True(File.Exists(renamedSidecar));
+
+        var entry = new PrimeReplayEntry(renamed, renamed, "renamed.fpreplay", "",
+            DateTime.UtcNow, new FileInfo(renamed).Length);
+        Assert.True(_library.Delete(entry));
+        Assert.False(File.Exists(renamed));
+        Assert.False(File.Exists(renamedSidecar));
+    }
+
+    [Fact]
     public void RenameFinalDestinationMustRemainInsideReplayDirectory()
     {
         Assert.True(ReplayFileNamePolicy.IsWithinDirectory(_directory,

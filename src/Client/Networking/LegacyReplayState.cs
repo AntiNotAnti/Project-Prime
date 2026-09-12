@@ -68,6 +68,28 @@ namespace MphRead.Mods.Network
         public long DamageEventsReceived { get; private set; }
         public int MatchesLoaded { get; private set; }
         public long WorldApplications { get; private set; }
+
+        internal bool TryGetActorName(CombatActor actor, out string? name)
+        {
+            name = null;
+            if (!actor.IsValid || actor.Slot >= _identities.Length
+                || _identities[actor.Slot] != actor.ConnectionId
+                || _lives[actor.Slot] != actor.Life)
+            {
+                return false;
+            }
+            foreach (NetRosterEntry entry in Roster)
+            {
+                if (entry.Slot == actor.Slot
+                    && entry.ConnectionId == actor.ConnectionId
+                    && !String.IsNullOrWhiteSpace(entry.Name))
+                {
+                    name = entry.Name;
+                    return true;
+                }
+            }
+            return false;
+        }
         private uint _appliedWorldRevision;
         private bool _appliedWorld;
         public void DiscardEvents()

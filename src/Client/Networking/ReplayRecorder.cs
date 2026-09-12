@@ -23,10 +23,15 @@ namespace MphRead.Mods.Network
         private static uint _timelineRestoreFrame;
         private static bool _hasWriterKeyframe;
         private static uint _writerKeyframeFrame;
+        private static int _quickCapturePending;
         private static readonly ReplayEventIndexer _markers = new();
         public static bool IsRecording => _writer != null;
         internal static IReplayTimeline Timeline => _timeline;
         public static string? CurrentPath { get; private set; }
+        public static string? LastQuickCapturePath { get; private set; }
+        public static string? LastQuickCaptureError { get; private set; }
+        public static bool QuickCapturePending
+            => System.Threading.Volatile.Read(ref _quickCapturePending) != 0;
         public static string? LastError { get; private set; }
 
         public static bool Start()
@@ -71,14 +76,186 @@ namespace MphRead.Mods.Network
         public static void Stop()
         {
             ReplayWriter? writer = _writer;
+            string? completedPath = CurrentPath;
             _writer = null;
             CurrentPath = null;
             _hasWriterKeyframe = false;
-            try { writer?.Dispose(); }
+            try
+            {
+                writer?.Dispose();
+                if (writer != null && completedPath is not null)
+                    ReplaySidecarGenerationQueue.Queue(completedPath);
+            }
             catch (Exception ex) when (ex is IOException or InvalidDataException)
             {
                 LastError = ex.Message;
                 Console.WriteLine($"[replay] could not finish recording: {LastError}");
+            }
+        }
+
+        /// <summary>
+        /// Saves the most recent authoritative rolling-timeline window without
+        /// starting or stopping full-match recording. The file begins at the
+        /// restore point needed to make the requested window independently
+        /// playable, so it can contain a small checkpoint-aligned pre-roll.
+        /// </summary>
+        public static bool QueueSaveRecent(uint frames, out string? path)
+        {
+            path = null;
+            LastQuickCaptureError = null;
+            if (frames == 0 || ReplayPlayback.IsActive
+                || AuthoritativePlay.Current is not { } play
+                || play.Client.Accepted.MatchId == 0)
+            {
+                LastQuickCaptureError = "Join a live match before saving a replay clip.";
+                return false;
+            }
+            if (System.Threading.Interlocked.CompareExchange(
+                    ref _quickCapturePending, 1, 0) != 0)
+            {
+                LastQuickCaptureError = "A replay clip is already being saved.";
+                return false;
+            }
+            if (!TryFreezeRecentClip(_timeline, frames,
+                    out ReplayTimelineClip? clip, out string? freezeError)
+                || clip == null)
+            {
+                LastQuickCaptureError = freezeError;
+                System.Threading.Volatile.Write(ref _quickCapturePending, 0);
+                return false;
+            }
+
+            string room = SanitizeFileName(play.Client.Accepted.Room);
+            string fileName = $"quick_{room}_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}{ReplayFile.Extension}";
+            string destination = Paths.Combine(Paths.Export, "_replays", fileName);
+            LastQuickCapturePath = null;
+            path = destination;
+            _ = System.Threading.Tasks.Task.Run(() =>
+            {
+                try
+                {
+                    if (TryWriteClip(destination, clip, out string? writeError))
+                    {
+                        LastQuickCapturePath = destination;
+                        ReplaySidecarGenerationQueue.Queue(destination);
+                        Console.WriteLine($"[replay] saved recent clip to {destination}");
+                    }
+                    else
+                    {
+                        LastQuickCaptureError = writeError;
+                        Console.WriteLine($"[replay] quick capture failed: {writeError}");
+                    }
+                }
+                finally
+                {
+                    System.Threading.Volatile.Write(ref _quickCapturePending, 0);
+                }
+            });
+            return true;
+        }
+
+        internal static bool TryWriteRecentClip(IReplayTimeline timeline,
+            string destination, uint frames, out string? error)
+        {
+            if (String.IsNullOrWhiteSpace(destination))
+            {
+                error = "A clip destination is required.";
+                return false;
+            }
+            if (!TryFreezeRecentClip(timeline, frames,
+                    out ReplayTimelineClip? clip, out error) || clip == null)
+                return false;
+            return TryWriteClip(destination, clip, out error);
+        }
+
+        internal static bool TryFreezeRecentClip(IReplayTimeline timeline,
+            uint frames, out ReplayTimelineClip? clip, out string? error)
+        {
+            ArgumentNullException.ThrowIfNull(timeline);
+            clip = null;
+            error = null;
+            if (frames == 0)
+            {
+                error = "A non-empty clip range is required.";
+                return false;
+            }
+            if (timeline.LastRecordingFrame is not uint endFrame)
+            {
+                error = "The rolling replay buffer is empty.";
+                return false;
+            }
+            uint requestedStart = endFrame > frames ? endFrame - frames : 0;
+            uint clipStart = requestedStart;
+            if (!timeline.TryGetRestorePoint(clipStart,
+                    out ReplayRestorePoint? restore) || restore == null)
+            {
+                // Early in a match, the first complete checkpoint can be
+                // newer than the requested start. Save from that checkpoint
+                // rather than producing an unplayable artifact.
+                if (!timeline.TryGetRestorePoint(endFrame, out restore)
+                    || restore == null)
+                {
+                    error = "The rolling replay buffer has no complete checkpoint yet.";
+                    return false;
+                }
+                clipStart = restore.RecordingFrame;
+            }
+            if (!timeline.TryFreeze(clipStart, endFrame, out clip) || clip == null)
+            {
+                error = "The rolling replay buffer could not freeze that range.";
+                return false;
+            }
+            return true;
+        }
+
+        internal static bool TryWriteClip(string destination,
+            ReplayTimelineClip clip, out string? error)
+        {
+            ArgumentNullException.ThrowIfNull(clip);
+            error = null;
+            string fullPath;
+            try { fullPath = Path.GetFullPath(destination); }
+            catch (Exception exception) when (exception is ArgumentException
+                or NotSupportedException or PathTooLongException)
+            {
+                error = exception.Message;
+                return false;
+            }
+            string temporary = fullPath + $".{Guid.NewGuid():N}.tmp";
+            try
+            {
+                using (var writer = new ReplayWriter(temporary,
+                    NetHeader.Version, indexed: true))
+                {
+                    uint origin = clip.RestorePoint.RecordingFrame;
+                    var baseline = new byte[clip.RestorePoint.Records.Count][];
+                    for (int i = 0; i < baseline.Length; i++)
+                        baseline[i] = clip.RestorePoint.Records[i].Data.ToArray();
+                    // Sequential startup ignores index-only keyframe chunks,
+                    // so write the same authoritative opening state as normal
+                    // frame-zero records before adding its seek checkpoint.
+                    foreach (byte[] record in baseline)
+                        writer.WriteRecord(0, record);
+                    writer.WriteKeyframe(0, baseline);
+                    foreach (ReplayTimelineRecord record in clip.Records)
+                    {
+                        if (record.RecordingFrame < origin) continue;
+                        writer.WriteRecord(record.RecordingFrame - origin,
+                            record.Data.Span, record.Marker);
+                    }
+                }
+                File.Move(temporary, fullPath);
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException
+                or UnauthorizedAccessException or InvalidDataException
+                or ArgumentException or NotSupportedException)
+            {
+                error = exception.Message;
+                try { if (File.Exists(temporary)) File.Delete(temporary); }
+                catch (Exception cleanup) when (cleanup is IOException
+                    or UnauthorizedAccessException) { }
+                return false;
             }
         }
 
@@ -329,6 +506,7 @@ namespace MphRead.Mods.Network
             _snapshotCount = -1;
             _hasRoster = _hasWorld = _hasTimelineRestore = _hasWriterKeyframe = false;
             _markers.Reset();
+            LastQuickCapturePath = null;
         }
 
         private static string SanitizeFileName(string name)

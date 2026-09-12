@@ -168,6 +168,61 @@ public sealed class ReplayHighlightTests : IDisposable
     }
 
     [Fact]
+    public void ReelCompositionIncludesEquivalentMomentsFromOtherExactActors()
+    {
+        var events = new List<ReplayHighlightEvent>();
+        for (int index = 0; index < 10; index++)
+        {
+            uint frame = (uint)(300 + index * 500);
+            events.Add(Event(frame, frame, (uint)(index + 1), Actor,
+                HighlightKind.Kill, ReplayMarker.Kill));
+        }
+        events.Add(Event(5300, 5300, 20, OtherActor,
+            HighlightKind.Kill, ReplayMarker.Kill));
+        events.Add(Event(5800, 5800, 21, Victim,
+            HighlightKind.Kill, ReplayMarker.Kill));
+
+        ReplayHighlight[] reel = new HighlightAnalyzer().Analyze(events,
+            Array.Empty<ReplayHighlightTimelineAnchor>(), 6200).ToArray();
+
+        Assert.Equal(HighlightAnalyzer.MaximumHighlights, reel.Length);
+        Assert.Contains(reel, value => value.Focus == OtherActor);
+        Assert.Contains(reel, value => value.Focus == Victim);
+        Assert.Equal(reel.OrderByDescending(value => value.Score)
+            .ThenBy(value => value.FocusFrame), reel);
+    }
+
+    [Fact]
+    public void ReelCompositionUsesEventAndObjectiveDiversityWithoutRandomness()
+    {
+        var events = new List<ReplayHighlightEvent>();
+        for (int index = 0; index < 9; index++)
+        {
+            uint frame = (uint)(300 + index * 500);
+            events.Add(Event(frame, frame, (uint)(index + 1), Actor,
+                HighlightKind.ObjectiveCapture, ReplayMarker.FlagCapture,
+                ReplayHighlightSourceKind.MatchSemantic));
+        }
+        events.Add(Event(5000, 5000, 20, OtherActor,
+            HighlightKind.NodeCapture, ReplayMarker.NodeCapture,
+            ReplayHighlightSourceKind.MatchSemantic));
+        events.Add(Event(5500, 5500, 21, CombatActor.None,
+            HighlightKind.Overtime, ReplayMarker.Overtime,
+            ReplayHighlightSourceKind.MatchSemantic));
+
+        var analyzer = new HighlightAnalyzer();
+        ReplayHighlight[] first = analyzer.Analyze(events,
+            Array.Empty<ReplayHighlightTimelineAnchor>(), 6000).ToArray();
+        ReplayHighlight[] second = analyzer.Analyze(events.AsEnumerable().Reverse()
+                .ToArray(), Array.Empty<ReplayHighlightTimelineAnchor>(), 6000)
+            .ToArray();
+
+        Assert.Equal(first, second);
+        Assert.Contains(first, value => value.Kind == HighlightKind.NodeCapture);
+        Assert.Contains(first, value => value.Kind == HighlightKind.Overtime);
+    }
+
+    [Fact]
     public void EventIdsAreDeduplicatedWithinTheirMatchNotAcrossMatches()
     {
         ReplayHighlightEvent[] events =
@@ -327,6 +382,8 @@ public sealed class ReplayHighlightTests : IDisposable
         Assert.True(first.IsAvailable);
         Assert.False(first.FromCache);
         Assert.True(second.FromCache);
+        Assert.Equal(HighlightAnalyzer.Version, first.AnalyzerVersion);
+        Assert.Equal(HighlightAnalyzer.Version, second.AnalyzerVersion);
         Assert.Equal(first.Highlights, second.Highlights);
         Assert.Contains(first.Highlights, value => value.Kind
             == HighlightKind.DoubleKill);
@@ -364,7 +421,8 @@ public sealed class ReplayHighlightTests : IDisposable
         byte[] canonical = File.ReadAllBytes(firstCache);
 
         string old = System.Text.Encoding.UTF8.GetString(canonical)
-            .Replace("\"analyzerVersion\":1", "\"analyzerVersion\":0",
+            .Replace($"\"analyzerVersion\":{HighlightAnalyzer.Version}",
+                "\"analyzerVersion\":0",
                 StringComparison.Ordinal);
         File.WriteAllText(firstCache, old);
         ReplayHighlightMetadata oldVersion = service.Get(replay);

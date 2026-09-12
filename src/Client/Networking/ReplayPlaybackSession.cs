@@ -23,7 +23,9 @@ namespace MphRead.Mods.Network
         private int? _perspectiveSlot;
         private ReplayHighlight[]? _highlightReel;
         private int _highlightIndex;
-        private uint? _highlightEndFrame;
+        private uint? _playbackEndFrame;
+        private CombatActor? _playbackFocus;
+        private bool _exitAtPlaybackEnd;
         // The launcher may have to validate a replay before it can hand the
         // window to MatchStart.  Keep that validation explicit: an active
         // playback session by itself is not evidence that the next launch is
@@ -65,17 +67,30 @@ namespace MphRead.Mods.Network
         public double LastSeekMilliseconds { get; private set; }
         public string? LastError { get; private set; }
         internal string? PreparedPath => _preparedPath;
-        public bool AtEnd => IsActive && (_highlightEndFrame.HasValue
-            ? _started && _frame >= _highlightEndFrame.Value
+        public bool AtEnd => IsActive && (_playbackEndFrame.HasValue
+            ? _started && _frame >= _playbackEndFrame.Value
             : !HasPending && (_clip != null || _reader?.CanSeek != true
                 || (_started && _frame >= _reader.LastFrame)));
         public bool HighlightPlayback => _highlightReel != null;
-        public bool ShouldExitAtEnd => HighlightPlayback && AtEnd
-            && _highlightIndex >= _highlightReel!.Length - 1;
+        public bool BoundedPlayback => _playbackEndFrame.HasValue;
+        public bool ShouldExitAtEnd => _exitAtPlaybackEnd && AtEnd
+            && (_highlightReel == null || _highlightIndex >= _highlightReel.Length - 1);
+        internal CombatActor? PlaybackFocus => _playbackFocus;
+        public int CurrentHighlightIndex => _highlightReel == null ? -1 : _highlightIndex;
         public ReplayHighlight? CurrentHighlight => _highlightReel != null
             ? _highlightReel[_highlightIndex] : null;
+        internal ReplayHighlight? NextHighlight => _highlightReel != null
+            && _highlightIndex + 1 < _highlightReel.Length
+                ? _highlightReel[_highlightIndex + 1] : null;
 
         private bool HasPending => _clip != null ? _clipCursor < _clip.Records.Count : _pending != null;
+
+        internal bool TryGetActorName(CombatActor actor, out string? name)
+        {
+            if (IsModern) return Modern.TryGetActorName(actor, out name);
+            name = null;
+            return false;
+        }
 
         /// <summary>
         /// Opens and rewinds an exact replay path for a subsequent MatchStart
@@ -299,7 +314,35 @@ namespace MphRead.Mods.Network
             }
             _highlightReel = copy;
             _highlightIndex = 0;
+            _exitAtPlaybackEnd = true;
             BeginHighlight(copy[0]);
+        }
+
+        /// <summary>
+        /// Configures one user-authored bounded range without representing it
+        /// as an authoritative highlight. The optional focus retains exact
+        /// slot/connection/life identity for presentation validation.
+        /// </summary>
+        public void ConfigureRange(uint startFrame, uint endFrame,
+            CombatActor? focus = null)
+        {
+            if (!IsActive || !CanSeek)
+                throw new InvalidOperationException(
+                    "An active seekable replay is required for a bounded range.");
+            if (startFrame >= endFrame || endFrame > DurationFrames)
+                throw new ArgumentException(
+                    "The replay range must be ordered and inside the replay duration.");
+            if (focus is { } actor && !actor.IsValid)
+                throw new ArgumentException("A replay range focus must be an exact actor.");
+            _highlightReel = null;
+            _highlightIndex = 0;
+            _playbackEndFrame = endFrame;
+            _playbackFocus = focus;
+            _exitAtPlaybackEnd = true;
+            SetPerspective(focus is { IsValid: true } exact ? exact.Slot : -1);
+            if (!Seek(startFrame))
+                throw new InvalidOperationException(
+                    "That replay range has no checkpoint inside the bounded seek window.");
         }
 
         internal bool AdvanceHighlightRange()
@@ -312,7 +355,8 @@ namespace MphRead.Mods.Network
 
         private void BeginHighlight(in ReplayHighlight highlight)
         {
-            _highlightEndFrame = highlight.EndFrame;
+            _playbackEndFrame = highlight.EndFrame;
+            _playbackFocus = highlight.Focus.IsValid ? highlight.Focus : null;
             SetPerspective(highlight.Focus.IsValid ? highlight.Focus.Slot : -1);
             Seek(highlight.StartFrame);
         }
@@ -494,7 +538,8 @@ namespace MphRead.Mods.Network
             _reader?.Dispose(); _reader = null; _clip = null; _clipCursor = 0;
             _initialRules = null; _pending = null; _frame = 0; _started = false;
             _perspectiveSlot = null; Modern.Reset();
-            _highlightReel = null; _highlightIndex = 0; _highlightEndFrame = null;
+            _highlightReel = null; _highlightIndex = 0; _playbackEndFrame = null;
+            _playbackFocus = null; _exitAtPlaybackEnd = false;
         }
 
         public void Dispose() => Stop();

@@ -93,6 +93,7 @@
     <Compile Include="../Client/Launcher/Gui/AccountView.cs" Link="Client/Launcher/Gui/AccountView.cs" />
     <Compile Include="../Client/Launcher/Gui/IControllerNavigable.cs" Link="Client/Launcher/Gui/IControllerNavigable.cs" />
     <Compile Include="../Client/Accounts/AccountSession.Nodes.cs" Link="Client/Accounts/AccountSession.Nodes.cs" />
+    <Compile Include="../Client/Networking/NodeHealthCache.cs" Link="Client/Networking/NodeHealthCache.cs" />
     <Compile Include="../Client/Networking/Nodes/NodeControlClient.cs" Link="Client/Networking/Nodes/NodeControlClient.cs" />
     <Compile Include="../Client/Networking/Nodes/NodeLatencyProbe.cs" Link="Client/Networking/Nodes/NodeLatencyProbe.cs" />
     <Compile Include="../Client/Launcher/Gui/NodeBrowserView.cs" Link="Client/Launcher/Gui/NodeBrowserView.cs" />
@@ -198,6 +199,13 @@
     <Compile Include="../Client/Networking/ReplaySessionHost.cs" Link="Client/Networking/ReplaySessionHost.cs" />
     <Compile Include="../Client/Networking/ReplayRecorder.cs" Link="Client/Networking/ReplayRecorder.cs" />
     <Compile Include="../Client/Networking/LegacyReplayState.cs" Link="Client/Networking/LegacyReplayState.cs" />
+    <Compile Include="../Client/Replay/KillcamController.cs" Link="Client/Replay/KillcamController.cs" />
+    <Compile Include="../Client/Replay/ReplayAnalysisCoordinator.cs" Link="Client/Replay/ReplayAnalysisCoordinator.cs" />
+    <Compile Include="../Client/Replay/ReplayLaunchCoordinator.cs" Link="Client/Replay/ReplayLaunchCoordinator.cs" />
+    <Compile Include="../Client/Replay/ReplayLibraryMetadata.cs" Link="Client/Replay/ReplayLibraryMetadata.cs" />
+    <Compile Include="../Client/Replay/ReplayPresentationController.cs" Link="Client/Replay/ReplayPresentationController.cs" />
+    <Compile Include="../Client/Replay/ReplayQuickCapture.cs" Link="Client/Replay/ReplayQuickCapture.cs" />
+    <Compile Include="../Client/Replay/ReplayUserLibraryMetadata.cs" Link="Client/Replay/ReplayUserLibraryMetadata.cs" />
     <Compile Include="../Client/Networking/NetClient.cs" Link="Client/Networking/NetClient.cs" />
     <Compile Include="../Client/Networking/NetDamage.cs" Link="Client/Networking/NetDamage.cs" />
     <Compile Include="../Client/Networking/NetDiagnostics.cs" Link="Client/Networking/NetDiagnostics.cs" />
@@ -245,6 +253,7 @@
     <Compile Include="../Client/Observation/BroadcastDirector.cs" Link="Client/Observation/BroadcastDirector.cs" />
     <Compile Include="../Client/Observation/BroadcastHud.cs" Link="Client/Observation/BroadcastHud.cs" />
     <Compile Include="../Client/Observation/BroadcastObservationJournal.cs" Link="Client/Observation/BroadcastObservationJournal.cs" />
+    <Compile Include="../Client/Observation/BroadcastShotPlanner.cs" Link="Client/Observation/BroadcastShotPlanner.cs" />
     <Compile Include="../Client/Observation/ObservationContext.cs" Link="Client/Observation/ObservationContext.cs" />
     <Compile Include="../Client/Rendering/Crosshair.cs" Link="Client/Rendering/Crosshair.cs" />
     <Compile Include="../Client/Rendering/EffectPresentation.cs" Link="Client/Rendering/EffectPresentation.cs" />
@@ -355,6 +364,7 @@
     <Compile Include="../Client/Rendering/Core/RenderPrimitive.cs" Link="Client/Rendering/Core/RenderPrimitive.cs" />
     <Compile Include="../Client/Rendering/Core/RenderWorldPlan.cs" Link="Client/Rendering/Core/RenderWorldPlan.cs" />
     <Compile Include="../Client/Rendering/Core/WindowKeyEvent.cs" Link="Client/Rendering/Core/WindowKeyEvent.cs" />
+    <Compile Include="../Client/Rendering/Platform/GameWindowFrameLoop.cs" Link="Client/Rendering/Platform/GameWindowFrameLoop.cs" />
     <Compile Include="../Client/Rendering/Core/PipelineKey.cs" Link="Client/Rendering/Core/PipelineKey.cs" />
     <Compile Include="../Client/Rendering/Core/SamplerKey.cs" Link="Client/Rendering/Core/SamplerKey.cs" />
     <Compile Include="../Client/Rendering/Core/CaptureContracts.cs" Link="Client/Rendering/Core/CaptureContracts.cs" />

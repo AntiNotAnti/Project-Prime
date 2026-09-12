@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using Android.Content;
@@ -124,6 +125,8 @@ namespace MphRead.Droid
         /// key at a time is enough; nothing here is chorded.
         /// </summary>
         private Keycode _keyTaken = Keycode.Unknown;
+        private Keycode _killcamKeyTaken = Keycode.Unknown;
+        private Keycode _quickReplayKeyTaken = Keycode.Unknown;
 
         public override bool OnKeyDown(Keycode keyCode, KeyEvent? e)
         {
@@ -138,6 +141,16 @@ namespace MphRead.Droid
             {
                 return true;
             }
+            if (_loop.QueueKillcamKey(keyCode, e))
+            {
+                _killcamKeyTaken = keyCode;
+                return true;
+            }
+            if (_loop.QueueQuickReplayKey(keyCode, e))
+            {
+                _quickReplayKeyTaken = keyCode;
+                return true;
+            }
             if (HandleKey(keyCode, e))
             {
                 _keyTaken = keyCode;
@@ -150,6 +163,16 @@ namespace MphRead.Droid
         {
             if (GamepadBridge.HandleKey(keyCode, e, down: false))
             {
+                return true;
+            }
+            if (_killcamKeyTaken == keyCode)
+            {
+                _killcamKeyTaken = Keycode.Unknown;
+                return true;
+            }
+            if (_quickReplayKeyTaken == keyCode)
+            {
+                _quickReplayKeyTaken = Keycode.Unknown;
                 return true;
             }
             if (_keyTaken == keyCode)
@@ -230,6 +253,7 @@ namespace MphRead.Droid
                 Keycode.Del => Keys.Backspace,
                 Keycode.Space => Keys.Space,
                 Keycode.Tab => Keys.Tab,
+                Keycode.F10 => Keys.F10,
                 _ => Keys.Unknown
             };
         }
@@ -240,6 +264,13 @@ namespace MphRead.Droid
         {
             _loop.RequestStop();
         }
+
+        /// <summary>
+        /// Queue Android's system Back as a killcam skip when the killcam is
+        /// the visible surface. The UI thread only enqueues a value; the GL
+        /// thread consumes and translates it with the other input edges.
+        /// </summary>
+        public bool QueueKillcamBack() => _loop.QueueKillcamBack();
 
         public void OnPause()
         {
@@ -322,6 +353,11 @@ namespace MphRead.Droid
             private readonly Stopwatch _clock = new Stopwatch();
             private readonly object _lock = new object();
             private readonly Thread _thread;
+            private readonly Queue<WindowKeyEvent> _killcamKeyEvents = new();
+            private bool _killcamVisible;
+            private bool _quickReplayRequested;
+            private KillcamController? _killcam;
+            private ReplayPresentationController? _replayPresentation;
 
             private ISurfaceHolder? _holder;
             private Vector2i _wanted;
@@ -357,6 +393,10 @@ namespace MphRead.Droid
 
             public Scene? Scene { get; private set; }
 
+            private ScenePresentation ActivePresentation
+                => _killcam?.RenderedPresentation
+                    ?? ScenePresentation.Get(Scene!);
+
             public RenderLoop(TouchControls controls, StylusInput stylus,
                 AndroidInput input,
                 Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
@@ -381,6 +421,57 @@ namespace MphRead.Droid
                 {
                     _stopping = true;
                     Monitor.PulseAll(_lock);
+                }
+            }
+
+            /// <summary>
+            /// Queue a keyboard edge only while killcam is visible. Android's
+            /// key callbacks run on the UI thread; the command is translated
+            /// by <see cref="KillcamController.SubmitInput"/> on the GL thread.
+            /// </summary>
+            public bool QueueKillcamKey(Keycode keyCode, KeyEvent? e)
+                => QueueKillcamKey(Map(keyCode), e?.RepeatCount > 0);
+
+            public bool QueueKillcamBack()
+                => QueueKillcamKey(Keys.Escape, repeat: false);
+
+            public bool QueueQuickReplayKey(Keycode keyCode, KeyEvent? e)
+            {
+                Keys key = Map(keyCode);
+                bool control = e?.IsCtrlPressed ?? false;
+                bool command = e?.IsMetaPressed ?? false;
+                bool repeat = e?.RepeatCount > 0;
+                if (!ReplayQuickCapture.IsHotkey(key, control, command, repeat))
+                    return false;
+                lock (_lock)
+                {
+                    if (Scene == null || _killcamVisible || ReplayPlayback.IsActive)
+                        return false;
+                    _quickReplayRequested = true;
+                    return true;
+                }
+            }
+
+            private bool QueueKillcamKey(Keys key, bool repeat)
+            {
+                if (key is not (Keys.Space or Keys.Escape))
+                {
+                    return false;
+                }
+                lock (_lock)
+                {
+                    if (!_killcamVisible)
+                    {
+                        return false;
+                    }
+                    if (!repeat)
+                    {
+                        _killcamKeyEvents.Enqueue(new WindowKeyEvent(key,
+                            Down: true, Repeat: false, Modifiers: default));
+                    }
+                    // Repeated Android downs are consumed while visible, but
+                    // they never create another logical rising edge.
+                    return true;
                 }
             }
 
@@ -541,8 +632,12 @@ namespace MphRead.Droid
                     {
                         // A resize is one frame's work here and nothing on the
                         // UI thread is waiting for it.
-                        ScenePresentation.Get(Scene).Size = _size;
-                        ScenePresentation.Get(Scene).OnResize();
+                        ScenePresentation presentation = ScenePresentation.Get(Scene);
+                        presentation.Size = _size;
+                        presentation.OnResize();
+                        _killcam?.Resize(_size);
+                        _replayPresentation?.Reset();
+                        UpdateKillcamTouchMode();
                     }
                 }
                 return true;
@@ -721,7 +816,18 @@ namespace MphRead.Droid
                 try
                 {
                     Scene = _build(_input, _size);
-                    ScenePresentation.Get(Scene).OnLoad();
+                    ScenePresentation presentation = ScenePresentation.Get(Scene);
+                    presentation.OnLoad();
+                    if (AuthoritativePlay.Current != null && !ReplayPlayback.IsActive)
+                    {
+                        _killcam = new KillcamController(presentation, () => _size,
+                            _input.Keyboard, _input.Mouse);
+                    }
+                    else if (ReplayPlayback.IsActive)
+                    {
+                        _replayPresentation = new ReplayPresentationController(presentation);
+                    }
+                    UpdateKillcamTouchMode();
                 }
                 catch (Exception ex)
                 {
@@ -733,6 +839,11 @@ namespace MphRead.Droid
                     Scene? failedScene = Scene;
                     try
                     {
+                        _killcam?.Dispose();
+                        _killcam = null;
+                        _replayPresentation?.Dispose();
+                        _replayPresentation = null;
+                        UpdateKillcamTouchMode();
                         if (failedScene != null) ScenePresentation.Get(failedScene).DoCleanup();
                     }
                     catch (Exception cleanupError)
@@ -777,26 +888,53 @@ namespace MphRead.Droid
             private bool DrawFrame()
             {
                 Scene scene = Scene!;
+                ScenePresentation live = ScenePresentation.Get(scene);
                 double elapsed = WaitForTick();
                 int steps = FrameTiming.Advance(elapsed);
+                SubmitKillcamInput();
+                SubmitQuickReplay();
                 for (int i = 0; i < steps; i++)
                 {
-                    ApplyInput();
-                    ScenePresentation.Get(scene).OnSimulationFrame();
+                    if (_killcam?.IsPresenting == true)
+                    {
+                        // The live world still advances, but its Android
+                        // keyboard/mouse state must be committed neutral while
+                        // a replay-owned picture is visible. This releases any
+                        // bind held before the transition and prevents it from
+                        // latching back in when killcam exits.
+                        CommitNeutralInput();
+                    }
+                    else
+                    {
+                        ApplyInput();
+                    }
+                    live.OnSimulationFrame();
+                    _killcam?.Advance();
+                    UpdateKillcamTouchMode();
                 }
-                RequestFrameRate();
-                ScenePresentation.Get(scene).OnDrawFrame();
-                if (!ScenePresentation.Get(scene).OnRenderFrame())
+                // Replay presentation is render-paced rather than simulation-
+                // paced. Advance exactly once for every host frame, including
+                // a frame whose accumulator produced no simulation steps.
+                _replayPresentation?.Advance();
+                if (_replayPresentation?.ShouldClose == true)
                 {
                     End(scene);
                     return false;
                 }
-                ScenePresentation.Get(scene).AfterRenderFrame();
+                ScenePresentation active = ActivePresentation;
+                RequestFrameRate();
+                active.OnDrawFrame();
+                if (!active.OnRenderFrame())
+                {
+                    End(scene);
+                    return false;
+                }
+                active.AfterRenderFrame();
                 if (_display != null && _eglSurface != null)
                 {
                     if (EGL14.EglSwapBuffers(_display, _eglSurface))
                     {
-                        ScenePresentation.Get(scene).OnFramePresented();
+                        active.OnFramePresented();
                     }
                     else
                     {
@@ -808,6 +946,78 @@ namespace MphRead.Droid
                     }
                 }
                 return true;
+            }
+
+            /// <summary>
+            /// Move UI-thread killcam input into the controller's render-thread
+            /// command seam. The empty snapshot still polls controller pads so
+            /// Menu/Jump/Morph rising edges work on Android too.
+            /// </summary>
+            private void SubmitKillcamInput()
+            {
+                if (_killcam == null)
+                {
+                    return;
+                }
+                WindowKeyEvent[] events;
+                lock (_lock)
+                {
+                    events = _killcamKeyEvents.Count == 0
+                        ? Array.Empty<WindowKeyEvent>()
+                        : _killcamKeyEvents.ToArray();
+                    _killcamKeyEvents.Clear();
+                }
+                if (events.Length == 0)
+                {
+                    _killcam.SubmitInput(default);
+                }
+                else
+                {
+                    _killcam.SubmitInput(new WindowInputSnapshot(
+                        keys: null, mouseButtons: null, mousePosition: Vector2.Zero,
+                        relativeMouse: Vector2.Zero, wheel: Vector2.Zero,
+                        text: string.Empty, focused: true, keyEvents: events));
+                }
+                if (_controls.ConsumeKillcamSkip())
+                {
+                    KillcamCommand command = KillcamController.TranslateCommand(
+                        keyboardPressed: false, gamepadPressed: false,
+                        touchPressed: true);
+                    _killcam.SubmitCommand(command);
+                }
+            }
+
+            private void SubmitQuickReplay()
+            {
+                bool requested;
+                lock (_lock)
+                {
+                    requested = _quickReplayRequested;
+                    _quickReplayRequested = false;
+                }
+                if (requested && _killcam?.State is null or KillcamState.Idle)
+                    ReplayQuickCapture.Execute(ScenePresentation.Get(Scene!));
+            }
+
+            private void UpdateKillcamTouchMode()
+            {
+                bool visible = _killcam?.IsPresenting == true;
+                // Set the shared touch modal first. If a UI-thread pointer down
+                // races this transition, either it is consumed by killcam or
+                // it is immediately cleared as part of entering the mode.
+                _controls.SetKillcamMode(visible);
+                lock (_lock)
+                {
+                    _killcamVisible = visible;
+                    if (!visible)
+                    {
+                        _killcamKeyEvents.Clear();
+                    }
+                    else
+                    {
+                        _quickReplayRequested = false;
+                    }
+                }
             }
 
             /// <summary>
@@ -863,6 +1073,11 @@ namespace MphRead.Droid
                 _ended = true;
                 try
                 {
+                    _killcam?.Dispose();
+                    _killcam = null;
+                    _replayPresentation?.Dispose();
+                    _replayPresentation = null;
+                    UpdateKillcamTouchMode();
                     ScenePresentation.Get(scene).DoCleanup();
                 }
                 finally
@@ -935,6 +1150,12 @@ namespace MphRead.Droid
                 {
                     _input.CommitFrame();
                 }
+            }
+
+            private void CommitNeutralInput()
+            {
+                _input.BeginFrame();
+                _input.CommitFrame();
             }
 
             /// <summary>

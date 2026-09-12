@@ -156,6 +156,107 @@ public sealed class ReplayTimelineTests
         Assert.Equal(400u, clip!.EndRecordingFrame);
     }
 
+    [Fact]
+    public void KillcamPendingCaptureUsesExactStartAndCapturesTheFullTailWhenReady()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(77, 9_000);
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(100, 5_000)));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+
+        Assert.True(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out PendingKillcamCapture capture));
+        Assert.Equal(400u, capture.KillRecordingFrame);
+        Assert.Equal(100u, capture.DesiredStart);
+        Assert.Equal(445u, capture.DesiredEnd);
+        Assert.Equal(400u, capture.FallbackClip.EndRecordingFrame);
+        Assert.Equal(0u, KillcamController.TailFrames(capture.KillRecordingFrame,
+            capture.FallbackClip.EndRecordingFrame));
+
+        Assert.True(timeline.Append(new ReplayTimelineRecord(430, 9_030,
+            new byte[] { (byte)ReplayRecordKind.Event, 1 })));
+        Assert.True(KillcamController.TryFreezeLatestValid(timeline, capture,
+            out ReplayTimelineClip? truncated));
+        Assert.Equal(430u, truncated!.EndRecordingFrame);
+        Assert.Equal(30u, KillcamController.TailFrames(capture.KillRecordingFrame,
+            truncated.EndRecordingFrame));
+
+        Assert.True(timeline.Append(new ReplayTimelineRecord(445, 9_045,
+            new byte[] { (byte)ReplayRecordKind.Event, 2 })));
+        Assert.True(KillcamController.TryFreezeLatestValid(timeline, capture,
+            out ReplayTimelineClip? complete));
+        Assert.Equal(capture.DesiredStart, complete!.StartRecordingFrame);
+        Assert.Equal(capture.DesiredEnd, complete.EndRecordingFrame);
+        Assert.Equal(45u, KillcamController.TailFrames(capture.KillRecordingFrame,
+            complete.EndRecordingFrame));
+    }
+
+    [Fact]
+    public void KillcamCaptureWindowSaturatesAtTheMaximumRecordingFrame()
+    {
+        KillcamCaptureWindow window = KillcamController.GetCaptureWindow(
+            uint.MaxValue - 10);
+        Assert.Equal(uint.MaxValue - 310, window.Start);
+        Assert.Equal(uint.MaxValue, window.End);
+    }
+
+    [Fact]
+    public void KillcamUsesEarliestRestoreWhenEarlyDesiredStartPrecedesFrameOne()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(80, 9_300);
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(1, 5_000)));
+        // A later checkpoint must not become the clip's first frame merely
+        // because the requested lead boundary (zero) has no predecessor.
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(50, 7_000)));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(100, kill.Tick,
+            KillRecord(kill))));
+
+        Assert.True(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out PendingKillcamCapture capture));
+        Assert.Equal(0u, capture.DesiredStart);
+        Assert.Equal(1u, capture.ClipStart);
+        Assert.Equal(1u, capture.FallbackClip.StartRecordingFrame);
+        Assert.Equal(100u, capture.FallbackClip.EndRecordingFrame);
+        Assert.Equal(145u, capture.DesiredEnd);
+        Assert.True(KillcamController.IsUsableClip(capture.FallbackClip, kill,
+            capture.KillRecordingFrame));
+    }
+
+    [Fact]
+    public void KillcamCaptureRequiresARestorePointForTheLeadWindow()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(78, 9_100);
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+
+        Assert.False(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out _));
+    }
+
+    [Fact]
+    public void FrozenKillcamFallbackSurvivesTimelineReset()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(79, 9_200);
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(100, 5_000)));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+        Assert.True(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out PendingKillcamCapture capture));
+
+        timeline.Reset();
+        Assert.True(KillcamController.IsUsableClip(capture.FallbackClip, kill,
+            capture.KillRecordingFrame));
+        Assert.True(KillcamController.TryFreezeLatestValid(timeline, capture,
+            out ReplayTimelineClip? frozen));
+        Assert.Equal(capture.FallbackClip.StartRecordingFrame,
+            frozen!.StartRecordingFrame);
+        Assert.Equal(capture.KillRecordingFrame, frozen.EndRecordingFrame);
+    }
+
     [Theory]
     [InlineData(false, false, false, 0)]
     [InlineData(true, false, false, 1)]
@@ -270,12 +371,78 @@ public sealed class ReplayTimelineTests
         }
     }
 
+    [Fact]
+    public void QuickCaptureWritesAStandaloneIndexedReplayFromTheRollingWindow()
+    {
+        string path = Path.Combine(Path.GetTempPath(),
+            $"quick-replay-{Guid.NewGuid():N}.fpreplay");
+        try
+        {
+            var timeline = new RollingReplayTimeline();
+            Assert.True(timeline.AppendRestorePoint(CompleteRestore(100, 5_000)));
+            Assert.True(timeline.Append(new ReplayTimelineRecord(800, 5_700,
+                ReplayPlaybackTests.Snapshot(1, 2, 1), ReplayMarker.Kill)));
+
+            Assert.True(ReplayRecorder.TryWriteRecentClip(timeline, path,
+                frames: 600, out string? error), error);
+
+            using ReplayReader reader = ReplayReader.Open(path)!;
+            Assert.Equal(ReplayFile.IndexedFormatVersion, reader.FormatVersion);
+            Assert.Equal(NetHeader.Version, reader.ProtocolVersion);
+            Assert.Contains(reader.Index, entry => entry.Keyframe && entry.Frame == 0);
+            Assert.Contains(reader.Index, entry => entry.Marker == ReplayMarker.Kill
+                && entry.Frame == 700);
+            Assert.Equal(700u, reader.LastFrame);
+            ReplayFileTimeline? fileTimeline = ReplayFileTimeline.Open(path);
+            Assert.NotNull(fileTimeline);
+            Assert.True(fileTimeline!.TryFreeze(0, 700,
+                out ReplayTimelineClip? clip));
+            Assert.NotNull(clip);
+            using var playback = new ReplayPlaybackSession();
+            Assert.True(playback.Join(path), playback.LastError);
+            Assert.True(playback.IsModern);
+            Assert.NotNull(playback.InitialRules);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
+    public void QuickCaptureFallsForwardToTheFirstAvailableCheckpointEarlyInMatch()
+    {
+        string path = Path.Combine(Path.GetTempPath(),
+            $"quick-replay-early-{Guid.NewGuid():N}.fpreplay");
+        try
+        {
+            var timeline = new RollingReplayTimeline();
+            Assert.True(timeline.AppendRestorePoint(CompleteRestore(300, 5_000)));
+            Assert.True(timeline.Append(new ReplayTimelineRecord(400, 5_100,
+                ReplayPlaybackTests.Snapshot(1, 2, 1))));
+
+            Assert.True(ReplayRecorder.TryWriteRecentClip(timeline, path,
+                frames: 600, out string? error), error);
+            using ReplayReader reader = ReplayReader.Open(path)!;
+            Assert.Equal(100u, reader.LastFrame);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static ReplayRestorePoint CompleteRestore(uint frame, uint tick)
     {
         Assert.True(ReplayRestorePoint.TryCreate(frame, tick,
             CompleteRestoreRecords(frame, tick), out ReplayRestorePoint? restore));
         return restore!;
     }
+
+    private static KillEvent TestKill(uint id, uint tick)
+        => new(id, tick, 1, 2, new CombatActor(1, 101, 3),
+            new CombatActor(2, 202, 4), 0, KillEventFlags.None,
+            ImmutableArray<CombatActor>.Empty);
 
     private static void AssertTick(ReliableEventType type, ReadOnlySpan<byte> payload,
         uint expected)

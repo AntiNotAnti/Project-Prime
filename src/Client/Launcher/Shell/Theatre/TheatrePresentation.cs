@@ -39,7 +39,17 @@ internal sealed record TheatrePresentationContext(
     Action CancelDelete,
     bool SupportsReveal = false,
     Func<PrimeReplayEntry, Task>? Reveal = null,
-    Func<string, Task<PrimePreviewImage?>>? LoadMapPreview = null);
+    Func<string, Task<PrimePreviewImage?>>? LoadMapPreview = null,
+    Action<TheatreFilters>? ApplyFilters = null,
+    Action<uint>? SetClipIn = null,
+    Action<uint>? SetClipOut = null,
+    Func<string, CombatActor?, Task>? SaveClip = null,
+    Action? ResetClip = null,
+    Func<bool, Task>? FavoriteReplay = null,
+    Func<bool, Task>? FavoriteHighlight = null,
+    Func<Guid, bool, Task>? FavoriteClip = null,
+    Func<ReplayEventTimelineMarker, Task>? PlayEvent = null,
+    Func<ReplayUserClip, Task>? PreviewClip = null);
 
 /// <summary>Local replay presentation. File-picker authority remains in the shell.</summary>
 internal static class TheatrePresentation
@@ -52,8 +62,9 @@ internal static class TheatrePresentation
             "Import, watch, and manage replays stored on this device."));
         if (state.Error != null)
         {
+            TheatreError? failure = state.StructuredError;
             root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
-                Text("Could not refresh replays.", "prime-body"),
+                Text(failure?.Title ?? "Replay operation failed", "prime-body"),
                 new Expander { Header = "Details", Content = Text(state.Error, "prime-muted") },
                 Button("Retry", () => context.Run("Refresh replays", context.Refresh),
                     primary: true))));
@@ -66,6 +77,8 @@ internal static class TheatrePresentation
         actions.Children.Add(Button("Refresh", () => context.Run(
             "Refresh replays", context.Refresh), quiet: true));
         root.Children.Add(actions);
+        if (context.ApplyFilters is not null)
+            root.Children.Add(PrimeControlFactory.SectionPanel(BuildFilters(context)));
 
         var importPath = Input("Import path");
         var exportPath = Input("Export destination");
@@ -156,6 +169,14 @@ internal static class TheatrePresentation
         PrimeReplayPresentation card = PrimeReplayPresentation.From(selected);
         detail.Children.Add(Text(ReplayTitle(selected), "prime-title"));
         detail.Children.Add(Text($"Recorded {card.RecordedLine} · {card.Size}", "prime-muted"));
+        if (selected.Metadata is { } metadata)
+        {
+            detail.Children.Add(Text($"{metadata.Mode} · {metadata.Duration:mm\\:ss} · "
+                + $"{metadata.PlayerCount} players", "prime-body"));
+            detail.Children.Add(Text($"{metadata.CompatibilityStatus} · "
+                + $"{metadata.RecoveryStatus} · protocol {metadata.ReplayProtocol}",
+                "prime-muted"));
+        }
         if (context.LoadMapPreview != null && !String.IsNullOrWhiteSpace(captured.Room))
         {
             detail.Children.Add(PrimeControlFactory.PreviewStage(
@@ -167,6 +188,14 @@ internal static class TheatrePresentation
         watchReplay.HorizontalAlignment = HorizontalAlignment.Left;
         watchReplay.MinWidth = 160;
         detail.Children.Add(watchReplay);
+        if (context.FavoriteReplay is { } favoriteReplay
+            && context.State.UserMetadata is { } userMetadata)
+        {
+            bool favorite = userMetadata.ReplayFavorite;
+            detail.Children.Add(Button(favorite ? "Unfavorite Replay" : "Favorite Replay",
+                () => context.Run("Update replay favorite",
+                    () => favoriteReplay(!favorite)), quiet: true));
+        }
         detail.Children.Add(Text("Highlights", "prime-label"));
         if (context.State.HighlightMetadata == null)
             detail.Children.Add(Text("Analyzing authoritative replay events…", "prime-muted"));
@@ -181,8 +210,9 @@ internal static class TheatrePresentation
             {
                 int capturedIndex = index;
                 ReplayHighlight highlight = context.State.Highlights[index];
-                string time = $"{highlight.FocusFrame / 60 / 60:00}:{highlight.FocusFrame / 60 % 60:00}";
-                AvaloniaButton row = Button($"{highlight.Label}    {time}",
+                string range = $"{FormatTime(highlight.StartFrame)}  ├────●────┤  "
+                    + FormatTime(highlight.EndFrame);
+                AvaloniaButton row = Button($"{highlight.Label}    {range}",
                     () => context.SelectHighlight(capturedIndex), quiet: true);
                 detail.Children.Add(PrimeControlFactory.SelectedRow(row,
                     context.State.SelectedHighlight == index));
@@ -194,7 +224,20 @@ internal static class TheatrePresentation
                 primary: true));
             detail.Children.Add(Button("Play Highlight Reel", () => context.Run(
                 "Play highlight reel", context.PlayHighlightReel)));
+            if (context.FavoriteHighlight is { } favoriteHighlight
+                && context.State.UserMetadata is { } selection)
+            {
+                ReplayHighlight selectedRange = context.State.Highlights[selectedHighlight];
+                bool favorite = selection.FavoriteHighlights.Contains(
+                    ReplayHighlightIdentity.From(selectedRange));
+                detail.Children.Add(Button(favorite ? "Unfavorite Highlight"
+                    : "Favorite Highlight", () => context.Run(
+                        "Update highlight favorite", () => favoriteHighlight(!favorite)),
+                    quiet: true));
+            }
         }
+        AddClipEditor(detail, context);
+        AddEventTimeline(detail, context);
         detail.Children.Add(new Expander
         {
             Header = "Manage replay",
@@ -203,6 +246,85 @@ internal static class TheatrePresentation
         });
         return detail;
     }
+
+    private static void AddClipEditor(StackPanel detail,
+        TheatrePresentationContext context)
+    {
+        if (context.SetClipIn is null || context.SetClipOut is null
+            || context.SaveClip is null || context.ResetClip is null
+            || context.State.UserMetadata is null) return;
+        var input = Input("Frame");
+        input.Text = context.State.SelectedHighlight >= 0
+            && context.State.SelectedHighlight < context.State.HighlightCount
+                ? context.State.Highlights[context.State.SelectedHighlight].FocusFrame.ToString()
+                : "0";
+        var label = Input("Clip label");
+        label.Text = "My Clip";
+        var range = Text(ClipRangeText(context.State), "prime-muted");
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        actions.Children.Add(Button("Set In", () =>
+        {
+            if (UInt32.TryParse(input.Text, out uint frame)) context.SetClipIn(frame);
+        }, quiet: true));
+        actions.Children.Add(Button("Set Out", () =>
+        {
+            if (UInt32.TryParse(input.Text, out uint frame)) context.SetClipOut(frame);
+        }, quiet: true));
+        int selected = context.State.SelectedHighlight;
+        CombatActor? focus = (uint)selected < (uint)context.State.HighlightCount
+            ? context.State.Highlights[selected].Focus : null;
+        actions.Children.Add(Button("Save Clip", () => context.Run("Save clip",
+            () => context.SaveClip(label.Text ?? "", focus)), primary: true));
+        actions.Children.Add(Button("Reset", context.ResetClip, quiet: true));
+        var editor = Stack(Text("Manual clips", "prime-label"),
+            Text("Frames reference the original replay; no replay bytes are duplicated.",
+                "prime-muted"), input, range, label, actions);
+        foreach (ReplayUserClip clip in context.State.UserClips)
+        {
+            ReplayUserClip captured = clip;
+            var clipActions = new WrapPanel { Orientation = Orientation.Horizontal };
+            if (context.PreviewClip is { } preview)
+                clipActions.Children.Add(Button("Open at In", () => context.Run(
+                    "Open replay at Clip In", () => preview(captured)), quiet: true));
+            if (context.FavoriteClip is { } favoriteClip)
+                clipActions.Children.Add(Button(clip.Favorite ? "Unfavorite" : "Favorite",
+                    () => context.Run("Update clip favorite",
+                        () => favoriteClip(captured.Id, !captured.Favorite)), quiet: true));
+            editor.Children.Add(Stack(Text(clip.Label, "prime-body"),
+                Text($"{FormatTime(clip.StartFrame)} ├────────┤ "
+                    + FormatTime(clip.EndFrame), "prime-muted"), clipActions));
+        }
+        editor.Children.Add(Text(
+            "Self-contained clip export is unavailable until an exact checkpoint can be generated at Clip In; export the original replay instead.",
+            "prime-muted"));
+        detail.Children.Add(editor);
+    }
+
+    private static void AddEventTimeline(StackPanel detail,
+        TheatrePresentationContext context)
+    {
+        if (context.State.EventTimeline.Count == 0) return;
+        var timeline = Stack(Text("Replay events", "prime-label"),
+            Text("Indexed authoritative events seek through bounded replay restore.",
+                "prime-muted"));
+        foreach (ReplayEventTimelineMarker marker in context.State.EventTimeline)
+        {
+            ReplayEventTimelineMarker captured = marker;
+            string text = $"{FormatTime(marker.Frame)}  {marker.Label}";
+            timeline.Children.Add(context.PlayEvent is { } play
+                ? Button(text, () => context.Run("Open replay event",
+                    () => play(captured)), quiet: true)
+                : Text(text, "prime-muted"));
+        }
+        detail.Children.Add(timeline);
+    }
+
+    private static string ClipRangeText(TheatreState state)
+        => $"In: {(state.ClipInFrame is uint start ? FormatTime(start) : "not set")} · "
+            + $"Out: {(state.ClipOutFrame is uint end ? FormatTime(end) : "not set")}";
+
+    private static string FormatTime(uint frame)
+        => $"{frame / 3600:00}:{frame / 60 % 60:00}.{frame % 60 * 100 / 60:00}";
 
     private static Control BuildManagementActions(TheatrePresentationContext context,
         PrimeReplayEntry replay)
@@ -248,11 +370,108 @@ internal static class TheatrePresentation
     }
 
     private static Control BuildTechnicalDetails(PrimeReplayEntry replay)
-        => Stack(Text($"File name: {replay.FileName}", "prime-muted"),
+    {
+        var stack = Stack(Text($"File name: {replay.FileName}", "prime-muted"),
             Text($"Replay path: {replay.Path}", "prime-muted"),
             Text($"Room key: {replay.Room}", "prime-muted"),
             Text($"Recorded value: {replay.Recorded:O}", "prime-muted"),
             Text($"Byte count: {replay.Bytes}", "prime-muted"));
+        if (replay.Metadata is { } metadata)
+        {
+            stack.Children.Add(Text($"Replay id: {metadata.ReplayId}", "prime-muted"));
+            stack.Children.Add(Text($"Format / protocol: {metadata.ReplayFormat} / "
+                + metadata.ReplayProtocol, "prime-muted"));
+            stack.Children.Add(Text($"Duration: {metadata.Duration} · players: "
+                + $"{metadata.PlayerCount} · highlights: {metadata.HighlightCount}",
+                "prime-muted"));
+        }
+        return stack;
+    }
+
+    private static Control BuildFilters(TheatrePresentationContext context)
+    {
+        TheatreFilters current = context.State.Filters ?? new TheatreFilters();
+        var search = Input("Search replay, map, or file");
+        search.Text = current.Search;
+        var map = new ComboBox
+        {
+            ItemsSource = new[] { "All maps" }.Concat(context.State.Replays
+                .Select(value => value.Metadata?.MapKey ?? value.Room)
+                .Where(value => !String.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(value => value, StringComparer.OrdinalIgnoreCase)).ToArray(),
+            SelectedItem = current.Map ?? "All maps",
+            MinWidth = 160
+        };
+        var mode = new ComboBox
+        {
+            ItemsSource = new[] { "All modes" }.Concat(Enum.GetValues<GameMode>()
+                .Where(value => value is not GameMode.None and not GameMode.SinglePlayer)
+                .Select(value => value.ToString())).ToArray(),
+            SelectedItem = current.Mode?.ToString() ?? "All modes",
+            MinWidth = 140
+        };
+        var highlights = new ComboBox
+        {
+            ItemsSource = new[] { "Any highlights", "Has highlights", "No highlights" },
+            SelectedIndex = current.HasHighlights switch { true => 1, false => 2, _ => 0 },
+            MinWidth = 140
+        };
+        var recovery = new ComboBox
+        {
+            ItemsSource = new[] { "Any condition", "Complete", "Recovered", "Damaged" },
+            SelectedIndex = current.Recovery switch
+            {
+                ReplayRecoveryStatus.Complete => 1,
+                ReplayRecoveryStatus.Recovered => 2,
+                ReplayRecoveryStatus.Damaged => 3,
+                _ => 0
+            },
+            MinWidth = 130
+        };
+        var sort = new ComboBox
+        {
+            ItemsSource = Enum.GetNames<TheatreSortOrder>(),
+            SelectedItem = current.Sort.ToString(),
+            MinWidth = 140
+        };
+        var from = Input("From YYYY-MM-DD");
+        from.Text = current.DateFrom?.ToString("yyyy-MM-dd");
+        from.MinWidth = 140;
+        var to = Input("To YYYY-MM-DD");
+        to.Text = current.DateTo?.ToString("yyyy-MM-dd");
+        to.MinWidth = 140;
+        var fields = new WrapPanel { Orientation = Orientation.Horizontal };
+        foreach (Control field in new Control[] { map, mode, highlights, recovery, sort,
+            from, to }) fields.Children.Add(field);
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal };
+        buttons.Children.Add(Button("Apply", () =>
+        {
+            string? mapValue = map.SelectedItem as string;
+            string? modeValue = mode.SelectedItem as string;
+            GameMode? selectedMode = Enum.TryParse(modeValue, out GameMode parsedMode)
+                ? parsedMode : null;
+            TheatreSortOrder selectedSort = Enum.TryParse(sort.SelectedItem as string,
+                out TheatreSortOrder parsedSort) ? parsedSort : TheatreSortOrder.Newest;
+            DateTime? dateFrom = DateTime.TryParse(from.Text, out DateTime parsedFrom)
+                ? parsedFrom.Date : null;
+            DateTime? dateTo = DateTime.TryParse(to.Text, out DateTime parsedTo)
+                ? parsedTo.Date.AddDays(1).AddTicks(-1) : null;
+            context.ApplyFilters!(new TheatreFilters(search.Text ?? "",
+                mapValue == "All maps" ? null : mapValue, selectedMode, dateFrom,
+                dateTo, highlights.SelectedIndex switch { 1 => true, 2 => false, _ => null },
+                recovery.SelectedIndex switch
+                {
+                    1 => ReplayRecoveryStatus.Complete,
+                    2 => ReplayRecoveryStatus.Recovered,
+                    3 => ReplayRecoveryStatus.Damaged,
+                    _ => null
+                }, selectedSort));
+        }, primary: true));
+        buttons.Children.Add(Button("Reset", () => context.ApplyFilters!(new TheatreFilters()),
+            quiet: true));
+        return Stack(Text("Find replays", "prime-heading"), search, fields, buttons);
+    }
 
     private static string ReplayTitle(PrimeReplayEntry replay)
         => String.IsNullOrWhiteSpace(replay.Room)
