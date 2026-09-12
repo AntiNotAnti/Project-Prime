@@ -39,21 +39,28 @@ namespace MphRead
                 hash.AppendData(Encoding.UTF8.GetBytes(role + "\0" + dataVersion + "\0"));
                 if (String.IsNullOrEmpty(root) || !System.IO.Directory.Exists(root)) continue;
                 string fullRoot = Path.GetFullPath(root);
-                foreach (string file in System.IO.Directory.EnumerateFiles(fullRoot, "*", SearchOption.AllDirectories)
-                    .Order(StringComparer.Ordinal))
+                var resources = System.IO.Directory.EnumerateFiles(fullRoot, "*", SearchOption.AllDirectories)
+                    .Select(file =>
+                    {
+                        string relative = Path.GetRelativePath(fullRoot, file);
+                        // On Unix a literal backslash is a filename character, while game paths
+                        // normalize it to a separator. Such a file has no unambiguous resource key.
+                        if (Path.DirectorySeparatorChar != '\\' && relative.Contains('\\'))
+                            throw new InvalidDataException("Content contains an ambiguous resource path.");
+                        return (File: file, Relative: relative.Replace('\\', '/'));
+                    })
+                    // Native separators sort differently ('/' on Unix, '\\' on Windows). Sort the
+                    // canonical resource key so identical content has one cross-platform identity.
+                    .OrderBy(resource => resource.Relative, StringComparer.Ordinal);
+                foreach ((string file, string relative) in resources)
                 {
-                    string relative = Path.GetRelativePath(fullRoot, file);
-                    // On Unix a literal backslash is a filename character, while game paths
-                    // normalize it to a separator. Such a file has no unambiguous resource key.
-                    if (Path.DirectorySeparatorChar != '\\' && relative.Contains('\\'))
-                        throw new InvalidDataException("Content contains an ambiguous resource path.");
                     string fullPath = Path.GetFullPath(file);
                     if (!files.TryGetValue(fullPath, out byte[]? bytes))
                     {
                         bytes = File.ReadAllBytes(file);
                         files.Add(fullPath, bytes);
                     }
-                    hash.AppendData(Encoding.UTF8.GetBytes(relative.Replace('\\', '/') + "\0"));
+                    hash.AppendData(Encoding.UTF8.GetBytes(relative + "\0"));
                     hash.AppendData(SHA256.HashData(bytes));
                 }
             }

@@ -3,6 +3,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using MphRead.Formats;
@@ -195,6 +196,37 @@ public sealed class WorkerContentIsolationTests
                 File.WriteAllBytes(Path.Combine(directory, "ambiguous\\name.bin"), new byte[] { 3 });
                 Assert.Throws<InvalidDataException>(() => new WorkerContent("AMHE1", directory, "", "AMFE0", null));
             }
+        }
+        finally { Directory.Delete(directory, recursive: true); }
+    }
+
+    [Fact]
+    public void SnapshotHashSortsCanonicalRelativePathsAcrossPlatforms()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "worker-order-" + Guid.NewGuid());
+        Directory.CreateDirectory(Path.Combine(directory, "a"));
+        try
+        {
+            var expectedFiles = new[]
+            {
+                (Path: "a/b.bin", Bytes: new byte[] { 1, 2 }),
+                (Path: "a0.bin", Bytes: new byte[] { 3, 4 })
+            };
+            foreach ((string path, byte[] bytes) in expectedFiles)
+                File.WriteAllBytes(Path.Combine(directory, path.Replace('/', Path.DirectorySeparatorChar)), bytes);
+
+            using var expected = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+            expected.AppendData(Encoding.UTF8.GetBytes("AMHE1\n"));
+            expected.AppendData(Encoding.UTF8.GetBytes("mph\0AMHE1\0"));
+            foreach ((string path, byte[] bytes) in expectedFiles)
+            {
+                expected.AppendData(Encoding.UTF8.GetBytes(path + "\0"));
+                expected.AppendData(SHA256.HashData(bytes));
+            }
+            expected.AppendData(Encoding.UTF8.GetBytes("fh\0AMFE0\0"));
+
+            var content = new WorkerContent("AMHE1", directory, "", "AMFE0", null);
+            Assert.Equal(Convert.ToHexString(expected.GetHashAndReset()).ToLowerInvariant(), content.ContentHash);
         }
         finally { Directory.Delete(directory, recursive: true); }
     }
