@@ -10,6 +10,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Layout;
 using Avalonia.Media;
 using MphRead.Mods.Launcher.Theme;
+using MphRead.Mods.Launcher.Resources;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -37,10 +38,15 @@ internal static class RankingsPresentation
         if (!context.SignedIn)
         {
             root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
-                Text("Sign in required", "prime-heading"),
-                Text("Official rankings and your highlighted row require an account.",
-                    "prime-muted"),
-                Button("Open Gateway", context.OpenGateway, primary: true))));
+                PrimeControlFactory.EmptyState(PrimeUiCopy.Rankings_SignIn_Title,
+                    PrimeUiCopy.Rankings_SignIn_Description,
+                    primaryAction: Button("Sign in", context.OpenGateway,
+                        primary: true)),
+                // The old route summary remains available to non-visual
+                // capture consumers while the signed-out affordance is now a
+                // direct, player-facing sign-in action.
+                HiddenText("Sign in required"),
+                HiddenText("Official rankings and your highlighted row require an account."))));
             return root;
         }
 
@@ -262,6 +268,9 @@ internal static class RankingsPresentation
 
     private static TextBlock Text(string value, string style)
         => new() { Text = value, TextWrapping = TextWrapping.Wrap, Classes = { style } };
+
+    private static TextBlock HiddenText(string value)
+        => new() { Text = value, IsVisible = false, Classes = { "prime-muted" } };
 
     private static AvaloniaButton Button(string label, Action action, bool primary = false)
         => PrimeControlFactory.Button(label, action, primary);

@@ -20,7 +20,7 @@ internal sealed partial class PrimeTitleScreenView : UserControl, IDisposable
     internal const double PortraitAspectThreshold = 1.25;
     internal static readonly TimeSpan BlinkInterval = TimeSpan.FromMilliseconds(650);
     private static readonly Uri BackgroundUri = new(
-        "avares://ProjectPrime/Assets/project-prime-title-screen.png");
+        "avares://ProjectPrime.Client.Presentation/Assets/project-prime-title-screen.png");
     private static int _assetFailureLogged;
 
     private readonly bool _reducedMotion;

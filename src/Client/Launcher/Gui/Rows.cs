@@ -525,6 +525,9 @@ namespace MphRead.Mods.Launcher.Gui
     {
         public TextBox Box { get; }
 
+        /// <summary>Raised for user edits as well as an explicit draft update.</summary>
+        public event EventHandler? Changed;
+
         public string Value
         {
             get => Box.Text ?? "";
@@ -559,6 +562,7 @@ namespace MphRead.Mods.Launcher.Gui
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
+            Box.TextChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
             Children.Add(caption);
             Children.Add(Box);
         }

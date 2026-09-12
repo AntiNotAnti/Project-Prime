@@ -149,7 +149,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static void Run()
         {
             LauncherPrefs.Load();
-            AccountSessions.ConfigurePlatformStore();
+            AccountSessions.UseSecureStore(
+                SecureSessionStoreFactory.CreateDefault());
             if (GameFiles.Ready)
             {
                 // Upstream's CheckSetup does this before anything runs; the
@@ -159,7 +160,7 @@ namespace MphRead.Mods.Launcher.Gui
                 GameFiles.ApplyPaths();
                 // A map added after the install was set up has no picture and
                 // no sweep coming to give it one.
-                Mods.ThumbnailGenerator.EnsureCustomPreviews();
+                Mods.DesktopThumbnailGenerator.EnsureCustomPreviews();
             }
             IReadOnlyList<string> rooms = Array.Empty<string>();
 
@@ -252,7 +253,8 @@ namespace MphRead.Mods.Launcher.Gui
                         return;
                     }
                     if (coordinator.Phase == ClientSessionPhase.ReturningToLobby)
-                        coordinator.ShowHome(NodeSessions.Current != null, NodeSessions.Current?.Lobby != null);
+                        coordinator.ShowHome(persistentWindow?.Online.Node != null,
+                            persistentWindow?.Online.Node?.Lobby != null);
                     try
                     {
                         coordinator.BeginLaunch();
@@ -320,7 +322,7 @@ namespace MphRead.Mods.Launcher.Gui
                         lastResult = MatchStart.Run(settings, plan, coordinator.NotifyMatchStarted,
                             presentResults,
                             persistentHost, transitionGeneration, firstFramePresented,
-                            progress, windowPrepared);
+                            progress, windowPrepared, persistentWindow?.Online);
                         if (!ClassicUi && lastResult.Reason is MatchExitReason.FailedToStart
                             or MatchExitReason.ClientError)
                             presentationCoordinator.FailLaunch(transitionGeneration,
@@ -334,7 +336,7 @@ namespace MphRead.Mods.Launcher.Gui
                             presentationCoordinator.BeginContinuation(
                                 TransitionState(plan, MatchTransitionStage.LoadingNextRound,
                                     "Preparing the next match.",
-                                    NodeSessions.Current?.Lobby?.MapKey ?? plan.RoomKey));
+                                    persistentWindow?.Online.Node?.Lobby?.MapKey ?? plan.RoomKey));
                         }
                         coordinator.NotifyMatchEnded(lastResult);
                     }
@@ -352,6 +354,8 @@ namespace MphRead.Mods.Launcher.Gui
                         // The Worker UDP client is the only gameplay resource this
                         // client owns. Public hosting is Node-owned and has no
                         // local server process to stop here.
+                        (persistentWindow?.Online ?? ClientOnlineRuntime.Current)
+                            ?.ReleaseMatch(dispose: true);
                         NetSession.Stop();
                         // Close a settings window opened from the pause menu on the
                         // frame the match ended.

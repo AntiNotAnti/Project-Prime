@@ -64,7 +64,7 @@ internal sealed class LobbyChatPanel : Border
         _content = new StackPanel { Spacing = 8 };
         StackPanel content = _content;
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        header.Children.Add(new TextBlock { Text = "LOBBY CHAT", Classes = { "prime-heading" } });
+        header.Children.Add(new TextBlock { Text = "LOBBY CHAT", Classes = { "prime-kicker" } });
         _unreadChip = new PrimeStatusChip("") { IsVisible = false };
         header.Children.Add(_unreadChip);
         Grid.SetColumn(_unreadChip, 1);
@@ -180,7 +180,7 @@ internal sealed class LobbyChatPanel : Border
     internal double HistoryMaxHeight
     {
         get => _historyScroll.MaxHeight;
-        set => _historyScroll.MaxHeight = Math.Max(28, value);
+        set => _historyScroll.MaxHeight = Math.Max(64, value);
     }
 
     internal bool CompactChrome

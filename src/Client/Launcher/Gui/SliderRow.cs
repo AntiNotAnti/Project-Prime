@@ -80,7 +80,7 @@ namespace MphRead.Mods.Launcher.Gui
         ///
         /// This was 64, which fits "100%" and every other percentage these
         /// rows carried before the FPS limit. That row's longest readings --
-        /// "Display (VSync)" and "Unlimited" -- are wider, and at a value near
+        /// "Display refresh (VSync)" and "Unlimited" -- are wider, and at a value near
         /// the top of the range the text landed on the slider's own handle.
         /// Widened for every row rather than for that one, because the tracks
         /// ending in a column is what makes the page read as a column.

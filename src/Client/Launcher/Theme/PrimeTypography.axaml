@@ -57,8 +57,17 @@
     <Setter Property="FontSize" Value="13" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
+  <Style Selector="TextBlock.prime-subtitle">
+    <Setter Property="FontSize" Value="14" />
+    <Setter Property="LineHeight" Value="20" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
   <Style Selector="TextBlock.prime-muted">
     <Setter Property="FontSize" Value="12" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-caption">
+    <Setter Property="FontSize" Value="11" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-mono">
@@ -76,6 +85,17 @@
     <Setter Property="FontSize" Value="11" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.9" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-status">
+    <Setter Property="FontSize" Value="12" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTechBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-section-label">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.65" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
 

@@ -59,7 +59,13 @@ namespace MphRead.Mods.Launcher.Gui
         private MenuEntry? _confirmTransition;
         private MenuEntry? _cancelTransition;
         private MenuEntry? _transitionFocusRestore;
+        private MenuEntry? _leaveMatch;
+        private MenuEntry? _confirmLeave;
+        private MenuEntry? _cancelLeave;
+        private TextBlock? _leaveConfirmationTitle;
+        private TextBlock? _leaveConfirmation;
         private TransitionIntent _pendingTransition;
+        private bool _leaveConfirmationPending;
 
         private enum TransitionIntent
         {
@@ -86,7 +92,7 @@ namespace MphRead.Mods.Launcher.Gui
             var stack = new StackPanel { Spacing = 10 };
             stack.Children.Add(BuildHeader());
 
-            _resume = Entry("Resume session",
+            _resume = Entry("Resume",
                 () => Resumed?.Invoke(this, EventArgs.Empty), GuiTheme.Accent, primary: true);
             _resume.Height = 48;
             stack.Children.Add(_resume);
@@ -137,16 +143,41 @@ namespace MphRead.Mods.Launcher.Gui
                     record.Accent = ReplayRecorder.IsRecording ? GuiTheme.Warm : GuiTheme.Accent;
                 }
             }
-            stack.Children.Add(BuildGroup("System & session", session));
+            stack.Children.Add(BuildGroup("Session", session));
 
             var exit = new StackPanel { Spacing = 2 };
-            MenuEntry leave = Add(exit, "Leave match",
-                () => LeaveRequested?.Invoke(this, EventArgs.Empty));
-            leave.Accent = GuiTheme.Warm;
-            MenuEntry quit = Add(exit, "Quit game",
+            _leaveMatch = Add(exit, "Leave match", BeginLeaveConfirmation);
+            _leaveMatch.Accent = GuiTheme.Warm;
+            _leaveConfirmationTitle = new TextBlock
+            {
+                Text = "Leave match?",
+                FontSize = 14,
+                FontWeight = FontWeight.SemiBold,
+                Foreground = GuiTheme.WarmBrush,
+                IsVisible = false
+            };
+            exit.Children.Add(_leaveConfirmationTitle);
+            _leaveConfirmation = new TextBlock
+            {
+                Text = "You will leave the current match.",
+                Height = 34,
+                TextWrapping = TextWrapping.Wrap,
+                Foreground = GuiTheme.WarmBrush,
+                FontSize = 12,
+                IsVisible = false
+            };
+            exit.Children.Add(_leaveConfirmation);
+            _confirmLeave = Add(exit, "Leave match", ConfirmLeave);
+            _confirmLeave.Accent = GuiTheme.Bad;
+            _confirmLeave.Primary = true;
+            _confirmLeave.IsVisible = false;
+            _cancelLeave = Add(exit, "Stay", CancelLeaveConfirmation);
+            _cancelLeave.Accent = GuiTheme.TextDim;
+            _cancelLeave.IsVisible = false;
+            MenuEntry quit = Add(exit, "Quit to desktop",
                 () => QuitRequested?.Invoke(this, EventArgs.Empty));
             quit.Accent = GuiTheme.Bad;
-            stack.Children.Add(BuildGroup("Disengage", exit));
+            stack.Children.Add(BuildGroup("Leave", exit));
             stack.Children.Add(BuildFooter());
 
             var panel = new Border
@@ -210,6 +241,47 @@ namespace MphRead.Mods.Launcher.Gui
         internal bool TransitionConfirmationVisible
             => _pendingTransition != TransitionIntent.None;
 
+        internal bool LeaveConfirmationPending => _leaveConfirmationPending;
+
+        private void BeginLeaveConfirmation()
+        {
+            if (_leaveConfirmationPending) return;
+            _leaveConfirmationPending = true;
+            if (_leaveMatch != null) _leaveMatch.IsVisible = false;
+            if (_leaveConfirmationTitle != null) _leaveConfirmationTitle.IsVisible = true;
+            if (_leaveConfirmation != null) _leaveConfirmation.IsVisible = true;
+            if (_confirmLeave != null) _confirmLeave.IsVisible = true;
+            if (_cancelLeave != null) _cancelLeave.IsVisible = true;
+            _confirmLeave?.Focus();
+        }
+
+        private void ConfirmLeave()
+        {
+            if (!_leaveConfirmationPending) return;
+            _leaveConfirmationPending = false;
+            if (_leaveConfirmationTitle != null) _leaveConfirmationTitle.IsVisible = false;
+            if (_leaveConfirmation != null) _leaveConfirmation.IsVisible = false;
+            if (_confirmLeave != null) _confirmLeave.IsVisible = false;
+            if (_cancelLeave != null) _cancelLeave.IsVisible = false;
+            if (_leaveMatch != null) _leaveMatch.IsVisible = true;
+            LeaveRequested?.Invoke(this, EventArgs.Empty);
+        }
+
+        internal void CancelLeaveConfirmation()
+        {
+            if (!_leaveConfirmationPending) return;
+            _leaveConfirmationPending = false;
+            if (_leaveConfirmationTitle != null) _leaveConfirmationTitle.IsVisible = false;
+            if (_leaveConfirmation != null) _leaveConfirmation.IsVisible = false;
+            if (_confirmLeave != null) _confirmLeave.IsVisible = false;
+            if (_cancelLeave != null) _cancelLeave.IsVisible = false;
+            if (_leaveMatch != null)
+            {
+                _leaveMatch.IsVisible = true;
+                _leaveMatch.Focus();
+            }
+        }
+
         private bool CanShowTransitionMenu()
             => _transitionActions?.TransitionMenuSupported == true
                 && !ReplayPlayback.IsActive && !ReplayPlayback.IsModern
@@ -240,7 +312,7 @@ namespace MphRead.Mods.Launcher.Gui
             _restartMatch.Subtitle = "Ask the lobby to start a fresh arena.";
             _changeMap = Add(entries, "Change map",
                 () => BeginTransitionConfirmation(TransitionIntent.ChangeMap));
-            _changeMap.Subtitle = "Choose another map hosted by this Node.";
+            _changeMap.Subtitle = "Choose another hosted map.";
             _voteYes = Add(entries, "Vote yes",
                 () => TransitionVoteRequested?.Invoke(true));
             _voteYes.Accent = GuiTheme.Accent;
@@ -351,7 +423,11 @@ namespace MphRead.Mods.Launcher.Gui
             bool busy = _transitionActions.TransitionRequestInFlight;
             if (_transitionStatus != null)
             {
-                string? error = _transitionActions.TransitionError;
+                string? error = _transitionActions.TransitionError is { Length: > 0 }
+                    ? PrimeRoutePresentation.PlayerFacingNetworkError(
+                        _transitionActions.TransitionError,
+                        "The transition request failed. Try again.")
+                    : null;
                 _transitionStatus.Text = busy ? "Sending transition request…"
                     : error is { Length: > 0 } ? error : TransitionStatus(vote);
                 _transitionStatus.Foreground = error is { Length: > 0 }
@@ -453,7 +529,7 @@ namespace MphRead.Mods.Launcher.Gui
             var content = new StackPanel { Spacing = 2 };
             content.Children.Add(new TextBlock
             {
-                Text = $"SYSTEM OVERLAY // {SessionStatus()}",
+                Text = "SESSION",
                 FontFamily = GuiTheme.Display,
                 FontSize = 11,
                 FontWeight = FontWeight.SemiBold,
@@ -461,7 +537,7 @@ namespace MphRead.Mods.Launcher.Gui
             });
             content.Children.Add(new TextBlock
             {
-                Text = "START MENU",
+                Text = "PAUSED",
                 FontFamily = GuiTheme.Display,
                 FontSize = 27,
                 FontWeight = FontWeight.SemiBold,
@@ -469,7 +545,7 @@ namespace MphRead.Mods.Launcher.Gui
             });
             content.Children.Add(new TextBlock
             {
-                Text = "Session controls remain available while the match is active.",
+                Text = "Manage your active match.",
                 FontFamily = GuiTheme.Display,
                 FontSize = 11,
                 Foreground = GuiTheme.TextDimBrush
@@ -483,23 +559,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Padding = new Thickness(14, 10),
                 Child = content
             };
-        }
-
-        private static string SessionStatus()
-        {
-            if (ReplayPlayback.IsActive)
-            {
-                return "REPLAY PLAYBACK";
-            }
-            if (SpectatorMode.IsSpectating)
-            {
-                return "SPECTATOR SESSION";
-            }
-            if (AuthoritativePlay.Current != null)
-            {
-                return "AUTHORITATIVE SESSION";
-            }
-            return "GAME SESSION";
         }
 
         private static Border BuildGroup(string title, StackPanel entries)

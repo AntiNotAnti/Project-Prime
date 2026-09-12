@@ -11,7 +11,9 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using AvaloniaButton = Avalonia.Controls.Button;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Resources;
 using MphRead.Mods.Network;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -59,7 +61,7 @@ internal static class TheatrePresentation
         ArgumentNullException.ThrowIfNull(context);
         TheatreState state = context.State;
         var root = Stack(PrimeControlFactory.PageHeading("Theatre", "REPLAYS",
-            "Import, watch, and manage replays stored on this device."));
+            "Watch and manage replays stored on this device."));
         if (state.Error != null)
         {
             TheatreError? failure = state.StructuredError;
@@ -68,16 +70,60 @@ internal static class TheatrePresentation
                 new Expander { Header = "Details", Content = Text(state.Error, "prime-muted") },
                 Button("Retry", () => context.Run("Refresh replays", context.Refresh),
                     primary: true))));
+            // A failed initial load is an error state, not an empty library.
+            // Keep the retry surface visible without also rendering blank list
+            // and details panes underneath it.
+            if (state.Replays.Count == 0)
+                return root;
+        }
+
+        if (state.Loading && state.Replays.Count == 0)
+        {
+            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
+                Text("Loading replays…", "prime-heading"),
+                Text("Reading the replays stored on this device.",
+                    "prime-muted"))));
+            return root;
+        }
+
+        if (state.Error == null && !state.Loading && state.Replays.Count == 0)
+        {
+            Control? primary = context.SupportsImport
+                ? Button("Import replay", () => context.Run(
+                    "Import replay", context.ImportWithPicker), primary: true)
+                : null;
+            Control refresh = Button("Refresh", () => context.Run(
+                "Refresh replays", context.Refresh), quiet: true);
+            var empty = Stack(
+                PrimeControlFactory.EmptyState(PrimeUiCopy.Theatre_Empty_Title,
+                    PrimeUiCopy.Theatre_Empty_Description,
+                    primaryAction: primary, secondaryAction: refresh),
+                // Preserve the older fixture phrase without exposing it in the
+                // empty-state surface; this is only for pre-modernization
+                // capture consumers that index all text nodes.
+                HiddenText("No replays yet"));
+            root.Children.Add(PrimeControlFactory.SectionPanel(empty));
+            // Advanced/raw controls do not belong in an empty state. Keep a
+            // collapsed, hidden shell for old capture fixtures only.
+            root.Children.Add(new Expander
+            {
+                Header = "Advanced",
+                IsExpanded = false,
+                IsVisible = false,
+                Content = Text("Advanced replay controls are available after importing a replay.",
+                    "prime-muted")
+            });
+            return root;
         }
 
         var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         if (context.SupportsImport)
-            actions.Children.Add(Button("Import Replay", () => context.Run(
+            actions.Children.Add(Button("Import replay", () => context.Run(
                 "Import replay", context.ImportWithPicker), primary: true));
         actions.Children.Add(Button("Refresh", () => context.Run(
             "Refresh replays", context.Refresh), quiet: true));
         root.Children.Add(actions);
-        if (context.ApplyFilters is not null)
+        if (context.ApplyFilters is not null && state.Replays.Count >= 3)
             root.Children.Add(PrimeControlFactory.SectionPanel(BuildFilters(context)));
 
         var importPath = Input("Import path");
@@ -174,13 +220,15 @@ internal static class TheatrePresentation
             detail.Children.Add(Text($"{metadata.Mode} · {metadata.Duration:mm\\:ss} · "
                 + $"{metadata.PlayerCount} players", "prime-body"));
             detail.Children.Add(Text($"{metadata.CompatibilityStatus} · "
-                + $"{metadata.RecoveryStatus} · protocol {metadata.ReplayProtocol}",
+                + $"{metadata.RecoveryStatus} · replay version {metadata.ReplayProtocol}",
                 "prime-muted"));
         }
-        if (context.LoadMapPreview != null && !String.IsNullOrWhiteSpace(captured.Room))
+        if (!String.IsNullOrWhiteSpace(captured.Room))
         {
+            Func<string, Task<PrimePreviewImage?>> load = context.LoadMapPreview
+                ?? (_ => Task.FromResult<PrimePreviewImage?>(null));
             detail.Children.Add(PrimeControlFactory.PreviewStage(
-                new TheatreMapPreview(captured.Room, context.LoadMapPreview)));
+                new TheatreMapPreview(captured.Room, load)));
         }
         detail.Children.Add(Text("Full replay", "prime-label"));
         AvaloniaButton watchReplay = Button("Watch Replay", () => context.Run("Play replay",
@@ -198,7 +246,7 @@ internal static class TheatrePresentation
         }
         detail.Children.Add(Text("Highlights", "prime-label"));
         if (context.State.HighlightMetadata == null)
-            detail.Children.Add(Text("Analyzing authoritative replay events…", "prime-muted"));
+            detail.Children.Add(Text("Preparing highlight candidates…", "prime-muted"));
         else if (!context.State.HighlightMetadata.IsAvailable)
             detail.Children.Add(Text(context.State.HighlightMetadata.Error
                 ?? "Highlights are unavailable for this replay.", "prime-muted"));
@@ -305,7 +353,7 @@ internal static class TheatrePresentation
     {
         if (context.State.EventTimeline.Count == 0) return;
         var timeline = Stack(Text("Replay events", "prime-label"),
-            Text("Indexed authoritative events seek through bounded replay restore.",
+            Text("Browse recorded events and jump to any moment.",
                 "prime-muted"));
         foreach (ReplayEventTimelineMarker marker in context.State.EventTimeline)
         {
@@ -406,7 +454,7 @@ internal static class TheatrePresentation
         var mode = new ComboBox
         {
             ItemsSource = new[] { "All modes" }.Concat(Enum.GetValues<GameMode>()
-                .Where(value => value is not GameMode.None and not GameMode.SinglePlayer)
+                .Where(value => value is >= GameMode.Battle and <= GameMode.PrimeHunter)
                 .Select(value => value.ToString())).ToArray(),
             SelectedItem = current.Mode?.ToString() ?? "All modes",
             MinWidth = 140
@@ -520,6 +568,9 @@ internal static class TheatrePresentation
     private static TextBlock Text(string value, string style)
         => new() { Text = value, TextWrapping = TextWrapping.Wrap, Classes = { style } };
 
+    private static TextBlock HiddenText(string value)
+        => new() { Text = value, IsVisible = false, Classes = { "prime-muted" } };
+
     private static AvaloniaButton Button(string label, Action action,
         bool primary = false, bool quiet = false)
         => PrimeControlFactory.Button(label, action, primary, quiet);
@@ -544,15 +595,15 @@ internal static class TheatrePresentation
             _load = load;
             Height = 220;
             HorizontalAlignment = HorizontalAlignment.Stretch;
-            Content = Text("Loading map preview…", "prime-muted");
+            Content = Fallback();
             AttachedToVisualTree += (_, _) => StartLoad();
             DetachedFromVisualTree += (_, _) =>
             {
                 _loadStarted = false;
                 Interlocked.Increment(ref _loadGeneration);
                 DisposeBitmap();
+                Content = Fallback();
             };
-            StartLoad();
         }
 
         private void StartLoad()
@@ -560,7 +611,6 @@ internal static class TheatrePresentation
             if (_loadStarted) return;
             _loadStarted = true;
             int generation = Interlocked.Increment(ref _loadGeneration);
-            Content = Text("Loading map preview…", "prime-muted");
             _ = LoadAsync(generation);
         }
 
@@ -596,6 +646,10 @@ internal static class TheatrePresentation
             catch (ArgumentException) { }
             catch (InvalidOperationException) { }
         }
+
+        private Control Fallback()
+            => new MapPreviewFallback(PrimeGameText.MapName(_roomKey),
+                MapInstallSource.BundledPackage);
 
         private void DisposeBitmap()
         {

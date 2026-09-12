@@ -46,9 +46,10 @@ public sealed class BrandPresentationTests
 
             AvaloniaButton[] actions = gateway.GetVisualDescendants()
                 .OfType<AvaloniaButton>()
-                .Where(button => button.Content is string)
+                .Where(button => button.Content is string
+                    && button.IsEffectivelyVisible)
                 .ToArray();
-            Assert.Equal(["Play as Guest", "Sign In", "Create Account"],
+            Assert.Equal(["Continue as guest", "Sign in", "Create account"],
                 actions.Select(button => (string)button.Content!).ToArray());
             Assert.Contains("prime-primary", actions[0].Classes);
             Assert.DoesNotContain("prime-primary", actions[1].Classes);

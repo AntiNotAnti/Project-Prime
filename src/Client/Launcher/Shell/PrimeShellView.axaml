@@ -7,7 +7,7 @@
              FontFamily="avares://Avalonia.Fonts.Inter/Assets#Inter"
              Background="{DynamicResource PrimeBackgroundBrush}">
   <UserControl.Styles>
-    <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeTheme.axaml" />
+    <StyleInclude Source="avares://ProjectPrime.Client.Presentation/Launcher/Theme/PrimeTheme.axaml" />
   </UserControl.Styles>
 
   <Grid>
@@ -75,6 +75,10 @@
       </ScrollViewer>
       <Grid x:Name="ActionBar" Grid.Row="1"
             HorizontalAlignment="Stretch" Margin="0,10,0,0" />
+      <Border x:Name="RouteScanAccent" Grid.RowSpan="2" Height="2"
+              VerticalAlignment="Top" HorizontalAlignment="Stretch"
+              Background="{DynamicResource PrimeTechBrush}"
+              Opacity="0" IsHitTestVisible="False" ZIndex="20" />
     </Grid>
 
     <!-- Toasts sit above the page viewport so a transient status never

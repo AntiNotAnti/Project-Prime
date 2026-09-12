@@ -13,7 +13,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Gui;
 using OpenTK.Mathematics;
-using Keys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
+using Keys = MphRead.Mods.Input.PrimeKey;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -29,6 +29,8 @@ public sealed class SettingsRouteActionBarTests
             Walk(embedded).OfType<SettingsActionBar>());
         Assert.True(embedded.HasEmbeddedActionBar);
         Assert.Equal("Changes apply to this device.", embeddedBar.ContextCopy);
+        Assert.False(embeddedBar.IsVisible);
+        Assert.False(embeddedBar.IsDirty);
 
         PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
             Array.Empty<string>(), PrimeRoute.Settings);
@@ -42,6 +44,27 @@ public sealed class SettingsRouteActionBarTests
             SettingsActionBar routeBar = Assert.Single(shell.GetVisualDescendants()
                 .OfType<SettingsActionBar>());
             Assert.Equal("Changes apply to this device.", routeBar.ContextCopy);
+            Assert.False(routeBar.IsVisible);
+
+            SliderRow routeFieldOfView = GetPrivateField<SliderRow>(route, "_fieldOfView");
+            routeFieldOfView.Value++;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(routeBar.IsVisible);
+            Assert.True(routeBar.IsDirty);
+            Assert.Equal(1, route.UnsavedChangeCount);
+            Assert.Contains(Walk(routeBar).OfType<MenuEntry>(),
+                entry => entry.Title == "Discard");
+            Assert.Contains(Walk(routeBar).OfType<MenuEntry>(),
+                entry => entry.Title == "Save changes");
+
+            routeFieldOfView.Value--;
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(route.IsDirty);
+            Assert.False(routeBar.IsVisible);
+
+            routeFieldOfView.Value++;
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(routeBar.IsVisible);
 
             Panel shellActionBar = Find<Panel>(shell, "ActionBar");
             Assert.Single(shellActionBar.Children);
@@ -107,9 +130,11 @@ public sealed class SettingsRouteActionBarTests
             Assert.Same(settingsHost, surface.Content);
             Assert.Equal(Keys.Q, InputSettings.ChatKey);
 
-            MenuEntry cancel = Assert.Single(Walk(actionBar).OfType<MenuEntry>(),
-                entry => entry.Title == "Cancel");
-            ((IControllerNavigable)cancel).ControllerActivate();
+            SliderRow fieldOfView = GetPrivateField<SliderRow>(settings, "_fieldOfView");
+            fieldOfView.Value++;
+            MenuEntry discard = Assert.Single(Walk(actionBar).OfType<MenuEntry>(),
+                entry => entry.Title == "Discard");
+            ((IControllerNavigable)discard).ControllerActivate();
 
             Assert.Equal(DesktopOverlayMode.Pause, coordinator.Mode);
             Assert.IsType<PauseMenuView>(surface.Content);
@@ -150,9 +175,11 @@ public sealed class SettingsRouteActionBarTests
             Assert.True(settings.HasEmbeddedActionBar);
             SettingsActionBar actionBar = Assert.Single(settings.GetVisualDescendants()
                 .OfType<SettingsActionBar>());
-            MenuEntry cancel = Assert.Single(actionBar.GetVisualDescendants()
-                .OfType<MenuEntry>(), entry => entry.Title == "Cancel");
-            ((IControllerNavigable)cancel).ControllerActivate();
+            SliderRow fieldOfView = GetPrivateField<SliderRow>(settings, "_fieldOfView");
+            fieldOfView.Value++;
+            MenuEntry discard = Assert.Single(actionBar.GetVisualDescendants()
+                .OfType<MenuEntry>(), entry => entry.Title == "Discard");
+            ((IControllerNavigable)discard).ControllerActivate();
             Dispatcher.UIThread.RunJobs();
 
             PauseMenuView returnedPause = Assert.Single(shell.GetVisualDescendants()
@@ -178,6 +205,11 @@ public sealed class SettingsRouteActionBarTests
     private static T Find<T>(Control root, string name) where T : Control
         => root.GetVisualDescendants().OfType<T>().Single(control =>
             String.Equals(control.Name, name, StringComparison.Ordinal));
+
+    private static T GetPrivateField<T>(SettingsView view, string name)
+        => (T)(typeof(SettingsView).GetField(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)?.GetValue(view)
+            ?? throw new InvalidOperationException($"Missing SettingsView field {name}."));
 
     private static IEnumerable<Control> Walk(Control control)
     {

@@ -45,6 +45,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         public event EventHandler? Rebound;
 
+        /// <summary>Stable presentation value used by the Settings draft tracker.</summary>
+        internal string CurrentValue => PadBindings.Describe(PadBindings.Get(_action));
+
         public PadRow(PadAction action, double labelWidth = 160)
         {
             _action = action;
@@ -101,9 +104,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void Listen()
         {
             _listening = true;
-#if !ANDROID
-            GamepadDesktop.PollForMenu();
-#endif
+            GamepadInput.PollPlatformForMenu();
             _baseline = GamepadInput.EffectiveButtons;
             _watch?.Stop();
             _watch = new DispatcherTimer(TimeSpan.FromMilliseconds(30),
@@ -128,9 +129,7 @@ namespace MphRead.Mods.Launcher.Gui
             // Android fills the state from events and needs nothing here; the
             // desktop's pad is polled, and with no game window running there
             // is nothing else pumping GLFW.
-#if !ANDROID
-            GamepadDesktop.PollForMenu();
-#endif
+            GamepadInput.PollPlatformForMenu();
             GamepadButtons current = GamepadInput.EffectiveButtons;
             GamepadButtons pressed = current & ~_baseline;
             // Whatever is no longer held stops shielding: a player who was

@@ -23,7 +23,7 @@ internal sealed class PrimeBrandMark : Grid, IDisposable
     internal const double MinimumSize = 16;
     internal const double MaximumSize = 256;
     internal static readonly Uri AssetUri = new(
-        "avares://ProjectPrime/Assets/project-prime-mark.png");
+        "avares://ProjectPrime.Client.Presentation/Assets/project-prime-mark.png");
 
     private static readonly Lazy<Bitmap?> SharedBitmap = new(LoadSharedBitmap,
         LazyThreadSafetyMode.ExecutionAndPublication);

@@ -125,7 +125,9 @@ namespace MphRead.Mods.Launcher.Gui
             new("play-browser", CreatePlayBrowser),
             new("play-browser-full", CreatePlayBrowserFull),
             new("play-network-error", CreatePlayNetworkError),
-            new("play-advanced-network", CreatePlayAdvancedNetwork),
+            // Retain the fixture name for capture compatibility; the route
+            // now renders the compact network summary on this state.
+            new("play-advanced-network", CreatePlayNetworkSummary),
             new("play-directory-not-loaded", CreatePlayDirectoryNotLoaded),
             new("play-directory-loading", CreatePlayDirectoryLoading),
             new("play-directory-empty", CreatePlayDirectoryEmpty),
@@ -505,7 +507,7 @@ namespace MphRead.Mods.Launcher.Gui
                     Loading: false, Revision: 2),
                 Identity: PrimeShellCaptureIdentity.SignedIn));
 
-        private static Control CreatePlayAdvancedNetwork(MenuSettings settings,
+        private static Control CreatePlayNetworkSummary(MenuSettings settings,
             IReadOnlyList<string> rooms)
             => CreatePlayCapture(settings, rooms, new PrimeShellCaptureState(
                 Play: new PlayState(PlayPhase.Connected, CaptureNodes(),

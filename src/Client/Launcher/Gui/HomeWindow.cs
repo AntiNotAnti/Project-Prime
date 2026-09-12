@@ -31,6 +31,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>What the screen decided. Kind None means it was closed.</summary>
         public LaunchPlan Plan => IsClosed ? default : _view.Plan;
         internal ClientSessionCoordinator SessionCoordinator => _view.Online.Flow;
+        internal ClientOnlineRuntime Online => _view.Online;
         internal IMatchTransitionMenuActions TransitionMenuActions => _view.Play;
         internal bool WaitingForContinuation => _waitingForContinuation;
         public bool IsClosed { get; private set; }
@@ -57,10 +58,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _waitingForContinuation = true;
                 _continuationIsTransitioning = true;
                 _continuationMatchId = result.MatchId
-                    ?? AuthoritativePlay.Current?.NodeMatchId;
+                    ?? _view.Online.Match?.Play?.NodeMatchId;
                 _continuationTransitionId = _continuationMatchId is { } matchId
-                    ? NodeSessions.Current?.ExpectedTransitionFor(matchId)?.TransitionId
-                    : AuthoritativePlay.Current?.ExpectedTransition?.TransitionId;
+                    ? _view.Online.Node?.ExpectedTransitionFor(matchId)?.TransitionId
+                    : _view.Online.Match?.Play?.ExpectedTransition?.TransitionId;
                 _view.Activate();
                 _view.SetMenuInputEnabled(false);
                 if (_view.Play.State.Lobby != null)
@@ -78,7 +79,7 @@ namespace MphRead.Mods.Launcher.Gui
             _view.Reset();
             if (result != null) _view.ShowMatchOutcome(result);
             _waitingForContinuation = result?.Reason == MatchExitReason.Completed
-                && NodeSessions.Current?.State is { Handoff: { } handoff, MatchEnded: false }
+                && _view.Online.Node?.State is { Handoff: { } handoff, MatchEnded: false }
                 && handoff.MatchId != result.MatchId;
             _view.Activate();
             _view.SetMenuInputEnabled(result == null && !_waitingForContinuation);
@@ -203,7 +204,8 @@ namespace MphRead.Mods.Launcher.Gui
             Func<bool> pump, Action resultsVisible,
             Action<MatchTransitionState> continuationSelected)
         {
-            Guid? completed = AuthoritativePlay.Current?.NodeMatchId ?? NodeSessions.Current?.State.JoinedMatchId;
+            Guid? completed = _view.Online.Match?.Play?.NodeMatchId
+                ?? _view.Online.Node?.State.JoinedMatchId;
             if (!completed.HasValue) return new();
             if (_overlay != null)
             {

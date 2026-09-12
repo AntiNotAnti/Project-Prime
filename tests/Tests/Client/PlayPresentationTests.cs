@@ -61,6 +61,42 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
+    public async Task SignedOutPlayUsesAccountAndGuestCopyWithoutGatewayTerminology()
+    {
+        var shell = new PrimeShellState();
+        var controller = new PlayController(shell);
+        try
+        {
+            bool signInOpened = false;
+            PlayPresentationContext context = Context(shell, controller, lobby: null) with
+            {
+                OpenGateway = () => signInOpened = true
+            };
+            Control view = PlayPresentation.Build(context);
+
+            string text = VisibleText(view);
+            Assert.Contains("Sign in or continue as a guest", text,
+                StringComparison.Ordinal);
+            Assert.Contains("Use an account or explicit guest access before browsing lobbies or joining one.",
+                text, StringComparison.Ordinal);
+            Assert.Contains("Your identity stays explicit", text, StringComparison.Ordinal);
+            Assert.Contains("Guest access is separate from account identity", text,
+                StringComparison.Ordinal);
+            Assert.DoesNotContain("Gateway", text, StringComparison.OrdinalIgnoreCase);
+
+            PrimeButton signIn = Assert.Single(view.GetVisualDescendants()
+                .OfType<PrimeButton>(), button => Equals(button.Content, "Sign in"));
+            signIn.Invoke();
+            Assert.True(signInOpened);
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
     public async Task TeamSelectorAndLobbyCopyRemainAuthoritativeAndPlayerFacing()
     {
         var shell = new PrimeShellState();
@@ -88,8 +124,8 @@ public sealed class PlayPresentationTests
                 Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text?.Contains("Request Team", StringComparison.Ordinal) == true);
                 Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "Not ready.");
-                Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "Not ready");
+                Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text == "Choose your Hunter, then Ready.");
                 PrimeSelectedRow localRow = Assert.Single(view.GetVisualDescendants()
                     .OfType<PrimeSelectedRow>());
@@ -147,15 +183,14 @@ public sealed class PlayPresentationTests
                     button => Equals(button.Content, "Quick Play")
                         && button.Classes.Contains("prime-primary"));
                 Assert.All(home.GetVisualDescendants().OfType<PrimeButton>()
-                    .Where(button => Equals(button.Content, "Browse Matches")
-                        || Equals(button.Content, "Host Match")),
+                    .Where(button => Equals(button.Content, "Browse lobbies")
+                        || Equals(button.Content, "Host lobby")),
                     button => Assert.DoesNotContain("prime-primary", button.Classes));
-                Expander advanced = Assert.Single(home.GetVisualDescendants()
-                    .OfType<Expander>());
-                Assert.False(advanced.IsExpanded);
-                Assert.Contains("prime-tech", Assert.IsType<TextBlock>(advanced.Header).Classes);
-                Assert.Contains("prime-tech",
-                    Assert.IsType<PrimeSectionPanel>(advanced.Content).Classes);
+                Assert.Empty(home.GetVisualDescendants().OfType<Expander>());
+                Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "Automatic region");
+                Assert.Contains(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
+                    panel => panel.Classes.Contains("prime-network-summary"));
 
                 string cardText = String.Join('\n', card.GetVisualDescendants()
                     .OfType<TextBlock>().Select(text => text.Text));
@@ -189,7 +224,173 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
-    public async Task PlayLandingUsesOneLoadedEmptyDirectoryStateWithHostAndRefresh()
+    public async Task PlayLandingUsesLobbyCopyAndCompactNetworkSummary()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            bool settingsOpened = false;
+            PlayPresentationContext context = Context(shell, controller, lobby: null) with
+            {
+                OpenNetworkSettings = () => settingsOpened = true
+            };
+            Control home = PlayPresentation.Build(context);
+            var window = new Window { Width = 940, Height = 560, Content = home };
+            try
+            {
+                window.Show();
+                string text = VisibleText(home);
+                Assert.Contains("Find a match or host one.", text,
+                    StringComparison.Ordinal);
+                Assert.Contains("Join the best available open match.", text,
+                    StringComparison.Ordinal);
+                Assert.Contains("BROWSE LOBBIES", text, StringComparison.Ordinal);
+                Assert.Contains("Browse open lobbies.", text, StringComparison.Ordinal);
+                Assert.Contains("HOST LOBBY", text, StringComparison.Ordinal);
+                Assert.Contains("Create a new lobby.", text, StringComparison.Ordinal);
+                Assert.Contains("Automatic region", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("Advanced Network", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("Browse Matches", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("Host Match", text, StringComparison.Ordinal);
+                PrimeButton networkSettings = Assert.Single(home.GetVisualDescendants()
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Network settings"));
+                networkSettings.Invoke();
+                Assert.True(settingsOpened);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task EmptyLobbyDirectoryDoesNotDuplicateHostAction()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            PlayState state = PlayState.Initial with
+            {
+                Phase = PlayPhase.Connected,
+                BrowsedLobbies = new LobbyListSnapshot([], null)
+            };
+            Control home = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                state: state));
+            Assert.Equal(1, home.GetVisualDescendants().OfType<PrimeButton>()
+                .Count(button => Equals(button.Content, "Host lobby")));
+            Assert.Single(home.GetVisualDescendants().OfType<PrimeButton>(),
+                button => Equals(button.Content, "Refresh"));
+            Assert.DoesNotContain(home.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text == "Host a new lobby here.");
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task LobbyStatusAndReadinessKeepCapacityAndHostContextConcise()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            Guid sessionId = Guid.NewGuid();
+            LobbySnapshot lobby = Lobby(sessionId, MatchMode.Battle,
+                team: 0, ready: false, owner: true);
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby));
+            var window = new Window { Width = 940, Height = 560, Content = view };
+            try
+            {
+                window.Show();
+                string text = VisibleText(view);
+                Assert.Contains("● OPEN    1 / 4 PLAYERS    0 / 2 OBSERVERS", text,
+                    StringComparison.Ordinal);
+                Assert.Contains("YOUR HUNTER", text, StringComparison.Ordinal);
+                Assert.Contains("Not ready", text, StringComparison.Ordinal);
+                Assert.Contains("Waiting for all players.", text,
+                    StringComparison.Ordinal);
+                Assert.Contains("Samus · YOU · HOST", text,
+                    StringComparison.Ordinal);
+                Assert.Contains("No observers.", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("open player seats", text,
+                    StringComparison.OrdinalIgnoreCase);
+                Assert.DoesNotContain("Choose your Hunter", text,
+                    StringComparison.Ordinal);
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Ready"));
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Start Match"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task HostLobbyShowsEffectiveDefaultsWithoutPlaceholderCopy()
+    {
+        var shell = new PrimeShellState();
+        shell.SelectGuest("Local Pilot");
+        var controller = new PlayController(shell);
+        try
+        {
+            controller.SetCaptureMapCatalog(new[] { "MP1 SANCTORUS" });
+            var ui = new PlayPresentationState { Subsection = PlaySubsection.HostMatch };
+            MphRead.MatchRules defaults = LobbyRuleDefaults.For(MatchMode.Battle);
+            ui.HostDraft.FriendlyFire = defaults.FriendlyFire;
+            ui.HostDraft.DamageLevel = defaults.DamageLevel;
+            Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
+                ui: ui));
+            var window = new Window { Width = 1280, Height = 720, Content = view };
+            try
+            {
+                window.Show();
+                TextBox time = FieldEditor<TextBox>(view, "Time limit");
+                TextBox score = FieldEditor<TextBox>(view, "Score limit");
+                Assert.Equal("7:00", time.Text);
+                Assert.Equal("7", score.Text);
+                Assert.Equal("", time.Watermark);
+                Assert.Equal("", score.Watermark);
+                Assert.DoesNotContain("(default)", VisibleText(view),
+                    StringComparison.Ordinal);
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Create lobby"));
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            await controller.DisposeAsync();
+            shell.Dispose();
+        }
+    }
+
+    [AvaloniaFact]
+    public async Task PlayLandingUsesOneLoadedEmptyDirectoryStateWithRefresh()
     {
         var shell = new PrimeShellState();
         shell.SelectGuest("Local Pilot");
@@ -211,13 +412,15 @@ public sealed class PlayPresentationTests
                 Assert.Single(view.GetVisualDescendants().OfType<PrimeSectionPanel>(),
                     panel => panel.Classes.Contains("prime-directory-empty"));
                 Assert.Equal(1, view.GetVisualDescendants().OfType<TextBlock>()
-                    .Count(text => text.Text == "NO OPEN MATCHES"));
+                    .Count(text => text.Text == "NO OPEN LOBBIES"));
                 Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "No public matches are available right now.");
+                    text => text.Text == "No public lobbies are open right now.");
                 Assert.DoesNotContain(view.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text?.Contains("No match directory loaded", StringComparison.Ordinal) == true);
                 Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
                     button => Equals(button.Content, "Refresh"));
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Host lobby"));
             }
             finally
             {
@@ -262,9 +465,9 @@ public sealed class PlayPresentationTests
                 Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
                     button => Equals(button.Content, "Quick Play"));
                 Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
-                    button => Equals(button.Content, "Browse Matches"));
+                    button => Equals(button.Content, "Browse lobbies"));
                 Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
-                    button => Equals(button.Content, "Host Match"));
+                    button => Equals(button.Content, "Host lobby"));
             }
             finally
             {
@@ -303,13 +506,13 @@ public sealed class PlayPresentationTests
             {
                 window.Show();
                 PrimeButton host = Assert.Single(view.GetVisualDescendants()
-                    .OfType<PrimeButton>(), button => Equals(button.Content, "Host Match"));
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Host lobby"));
 
                 host.Invoke();
 
                 Assert.Equal(PlaySubsection.HostMatch, ui.Subsection);
                 Assert.Equal(1, ui.HostStep);
-                Assert.Equal("Prepare host match", operation);
+                Assert.Equal("Prepare host lobby", operation);
                 Assert.Equal(1, commandCount);
                 Assert.NotNull(prepare);
                 Assert.Equal(1, refreshCount);
@@ -846,11 +1049,11 @@ public sealed class PlayPresentationTests
                 Assert.Equal("typed while the lobby updates", chat.DraftEditor.Text);
                 Assert.Equal(chat.DraftEditor.Text, ui.ChatDraft);
                 Assert.Contains(secondView.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "Ready.");
+                    text => text.Text == "✓ Ready");
                 Assert.Contains(secondView.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text == "Ready when you are.");
                 Assert.Contains(secondView.GetVisualDescendants().OfType<PrimeButton>(),
-                    button => Equals(button.Content, "Not Ready"));
+                    button => Equals(button.Content, "Cancel ready"));
             }
             finally
             {
@@ -885,13 +1088,13 @@ public sealed class PlayPresentationTests
                 string text = VisibleText(view);
                 foreach (string required in new[]
                 {
-                    "Match name", "Map", "Mode", "Player seats", "Observer seats",
+                    "Lobby name", "Map", "Mode", "Player seats", "Observer seats",
                     "Bots", "Seat policy", "Time limit", "Score limit", "Damage level",
                     "Friendly fire", "Affinity weapons", "Player radar"
                 })
                     Assert.Contains(required, text, StringComparison.Ordinal);
                 PrimeButton create = Assert.Single(view.GetVisualDescendants()
-                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create Match"));
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create lobby"));
                 Assert.True(create.IsVisible);
                 Assert.DoesNotContain(VisibleTextBlocks(view),
                     item => item.Text?.Contains("Lobby seats", StringComparison.Ordinal) == true);
@@ -926,7 +1129,7 @@ public sealed class PlayPresentationTests
             {
                 window.Show();
                 PrimeButton create = Assert.Single(view.GetVisualDescendants()
-                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create Match"));
+                    .OfType<PrimeButton>(), button => Equals(button.Content, "Create lobby"));
                 Assert.False(create.IsEnabled);
             }
             finally

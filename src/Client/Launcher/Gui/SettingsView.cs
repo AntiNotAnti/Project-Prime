@@ -123,10 +123,12 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Grid _grid = new();
         private readonly Border _railPanel;
         private Control? _heading;
-        private readonly SettingsActionBar? _footerPanel;
+        private SettingsActionBar? _footerPanel;
         private readonly ScrollViewer _railScroll;
         private bool _narrow;
         private bool _laidOut;
+        private readonly List<(string Id, Control Control)> _trackedRows = new();
+        private SettingsDirtyTracker? _dirtyTracker;
 
         /// <summary>Below this width the rail goes across the top.</summary>
         private const double _narrowWidth = 720;
@@ -183,7 +185,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private static readonly (string Label, int Cap)[] _fpsLimitStops = new[]
         {
-            ("Display (VSync)", FrameTiming.DisplayRate),
+            ("Display refresh (VSync)", FrameTiming.DisplayRate),
             ("30 fps", 30),
             ("60 fps", 60),
             ("75 fps", 75),
@@ -274,8 +276,10 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold;
         private bool _mouseSensitivityEdited, _stylusSensitivityEdited;
         private ChoiceRow? _stylusPrimary, _stylusSecondary;
+        private ChoiceRow? _bottomScreenMode;
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
+        private ToggleRow _showOnlinePresence = null!;
         private ChoiceRow _autoUpdate = null!;
         private ChoiceRow _preferredRegion = null!;
         private IReadOnlyList<PreferredRegionOption> _preferredRegionOptions
@@ -399,16 +403,12 @@ namespace MphRead.Mods.Launcher.Gui
                 BorderThickness = new Thickness(0, 0, 1, 0),
                 Child = _railScroll
             };
-            _footerPanel = _embedActionBar
-                ? new SettingsActionBar(this, _inGame)
-                : null;
             // A grid rather than a docked panel so that the sections come
             // before the footer in the tab order: a DockPanel fills with its
-            // *last* child, which would have put Save and Cancel first and made
+            // *last* child, which would have put Save and Discard first and made
             // the first Tab in the window a press away from closing it.
             _grid.Children.Add(_railPanel);
             _grid.Children.Add(_pages);
-            if (_footerPanel != null) _grid.Children.Add(_footerPanel);
             ApplyLayout(narrow: false);
             Content = _grid;
             SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < _narrowWidth);
@@ -418,10 +418,81 @@ namespace MphRead.Mods.Launcher.Gui
             BuildPages();
             // The sections did not exist when the first layout ran, so the one
             // that is wanted is chosen again now that they do.
+            InitializeDirtyTracking();
+            if (_embedActionBar)
+            {
+                _footerPanel = new SettingsActionBar(this, _inGame);
+                _grid.Children.Add(_footerPanel);
+            }
             _laidOut = false;
             ApplyLayout(_narrow);
             ShowPage(_sections[0].Page);
         }
+
+        /// <summary>
+        /// Attach one change stream after every row has been populated. This
+        /// ordering is important: a setter used while initialising a row is a
+        /// presentation update, while the same setter after construction is a
+        /// player edit. The tracker compares the complete draft, so returning
+        /// to the opening value becomes clean again automatically.
+        /// </summary>
+        private void InitializeDirtyTracking()
+        {
+            _dirtyTracker = new SettingsDirtyTracker(CaptureDraftValues);
+            foreach ((string _, Control control) in _trackedRows)
+            {
+                switch (control)
+                {
+                    case ChoiceRow row:
+                        row.Changed += DraftControlChanged;
+                        break;
+                    case SliderRow row:
+                        row.ValueChanged += DraftControlChanged;
+                        break;
+                    case ToggleRow row:
+                        row.Changed += DraftControlChanged;
+                        break;
+                    case FieldRow row:
+                        row.Changed += DraftControlChanged;
+                        break;
+                    case KeyRow row:
+                        row.Rebound += DraftControlChanged;
+                        break;
+                    case PadRow row:
+                        row.Rebound += DraftControlChanged;
+                        break;
+                }
+            }
+        }
+
+        private void DraftControlChanged(object? sender, EventArgs e)
+            => _dirtyTracker?.Refresh();
+
+        private IReadOnlyDictionary<string, string?> CaptureDraftValues()
+        {
+            var values = new Dictionary<string, string?>(StringComparer.Ordinal);
+            foreach ((string id, Control control) in _trackedRows)
+            {
+                string? value = control switch
+                {
+                    ChoiceRow row => row.Value,
+                    SliderRow row => row.Value.ToString(CultureInfo.InvariantCulture),
+                    ToggleRow row => row.On ? "on" : "off",
+                    FieldRow row => row.Value,
+                    KeyRow row => row.CurrentValue,
+                    PadRow row => row.CurrentValue,
+                    _ => null
+                };
+                if (value != null)
+                {
+                    values[id] = value;
+                }
+            }
+            return values;
+        }
+
+        private IDisposable? SuppressDirtyTracking()
+            => _dirtyTracker?.Suppress();
 
         /// <summary>
         /// A rail beside the pages, or a strip of sections above them.
@@ -659,6 +730,10 @@ namespace MphRead.Mods.Launcher.Gui
             if (_closed) return;
             _closed = true;
             CompleteDraftSnapshot();
+            if (!Saved)
+            {
+                _dirtyTracker?.MarkDiscarded();
+            }
             Closed?.Invoke(this, EventArgs.Empty);
         }
 
@@ -679,8 +754,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
-        /// <summary>Cancel this draft and restore eager preview mutations.</summary>
-        internal void Cancel() => Close();
+        /// <summary>Discard this draft and restore eager preview mutations.</summary>
+        internal void DiscardChanges() => Close();
+
+        /// <summary>
+        /// Compatibility name for hosts that still call the close action
+        /// Cancel. The action bar presents the player-facing Discard label.
+        /// </summary>
+        internal void Cancel() => DiscardChanges();
 
         private void CompleteDraftSnapshot()
         {
@@ -693,10 +774,16 @@ namespace MphRead.Mods.Launcher.Gui
             _draftSnapshotCompleted = true;
         }
 
-        /// <summary>Test seam for the rollback path used by Cancel and Escape.</summary>
+        /// <summary>Test seam for the rollback path used by Discard and Escape.</summary>
         internal void CancelForTests() => Cancel();
 
         internal bool HasEmbeddedActionBar => _embedActionBar;
+        internal bool IsDirty => _dirtyTracker?.IsDirty == true;
+        internal int UnsavedChangeCount => _dirtyTracker?.ChangedCount ?? 0;
+        internal SettingsDirtyTracker DirtyTracker
+            => _dirtyTracker ?? throw new InvalidOperationException(
+                "Settings dirty tracking has not been initialized.");
+        internal bool IsSettingsFooterVisible => _footerPanel?.IsVisible == true;
 
         // ----------------------------------------------------------- structure
 
@@ -826,7 +913,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionTitle(string name) => name switch
         {
-            "Player" => "PLAYER PROFILE",
+            "Player" => "PLAYER",
             "Controls" => "CONTROLS",
             "Graphics" => "DISPLAY & GRAPHICS",
             "Audio" => "AUDIO",
@@ -839,14 +926,14 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionDescription(string name) => name switch
         {
-            "Player" => "Configure your account or guest display name and preferred hunter. Online match rules belong to the lobby host.",
+            "Player" => "Manage your display name and preferred Hunter.",
             "Controls" => "Tune mouse, gamepad, stylus, touch and direct action bindings.",
-            "Graphics" => "Set the display path, render budget, visual quality and combat HUD.",
-            "Audio" => "Balance the mix and select installed presentation content.",
-            "System" => "Check updates, game-file readiness and local diagnostics.",
-            "Network" => "Choose a preferred discovery region and control connection diagnostics.",
-            "Accessibility" => "Reduce optional interface motion without changing gameplay animation.",
-            "About" => "Project attribution, upstream foundations and support information.",
+            "Graphics" => "Choose a preset, display settings, visual quality, and HUD.",
+            "Audio" => "Adjust volume and presentation packs.",
+            "System" => "Manage updates, game files, and diagnostics.",
+            "Network" => "Choose a region and manage network diagnostics.",
+            "Accessibility" => "Reduce menu transitions and visual motion. Gameplay is unchanged.",
+            "About" => "Credits, project history, and support.",
             _ => "Configure Project Prime."
         };
 
@@ -881,8 +968,15 @@ namespace MphRead.Mods.Launcher.Gui
         /// transferring its command or persistence ownership to SettingsView.</summary>
         internal void AddNetworkAdvanced(Control control)
         {
-            Heading(_networkPage, "Online service");
-            Add(_networkPage, control);
+            ArgumentNullException.ThrowIfNull(control);
+            var advanced = new Expander
+            {
+                Header = "Advanced",
+                Content = control,
+                IsExpanded = false,
+                Margin = new Thickness(0, 2, 0, 0)
+            };
+            Add(_networkPage, advanced);
         }
 
         private void ShowPage(Control page)
@@ -937,6 +1031,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 control.Name = rowId;
                 _renderedRowIds.Add(rowId);
+                _trackedRows.Add((rowId, control));
             }
             ActiveSector(page).Children.Add(control);
             return control;
@@ -966,15 +1061,20 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildCredits()
         {
             StackPanel page = AddSection("About");
+            Heading(page, "Project Prime");
+            Explain(page, $"{Mods.Branding.NameAndVersion}\n"
+                + $"Protocol {Mods.Network.NetHeader.Version}\n"
+                + $"Build {BuildVersion.Display}");
             Heading(page, "About Project Prime");
             Explain(page, Mods.Credits.Summary);
             Add(page, new Caption(Mods.Credits.Author));
-            Add(page, new Note(Mods.Credits.ForkWork));
+            Explain(page, "Project Prime adds multiplayer infrastructure, dedicated servers, "
+                + "the launcher, custom maps, Android support, and the Pro HUD.");
             // The address is put in the row itself when there is no browser to
             // hand it to -- a headless session, or a handler that refused --
             // so the button says something either way rather than appearing to
             // do nothing. Same fallback the update badge uses.
-            var support = new MenuEntry("\u2615 Support this project", titleSize: 15);
+            var support = new MenuEntry("Support Project Prime", titleSize: 15);
             support.Click += (_, _) =>
             {
                 if (!Mods.Update.Updater.OpenLink(Mods.Credits.SupportUrl))
@@ -1001,10 +1101,22 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildDisplay()
         {
             StackPanel page = AddSection("Graphics");
+            Heading(page, "Graphics preset");
+            _graphicsPresetBase = RenderOptions.GraphicsPreset;
+            bool graphicsPresetCustom = GraphicsQualityHasOverrides(_graphicsPresetBase);
+            _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
+                _graphicsPresetChoices,
+                graphicsPresetCustom ? CustomGraphicsPresetIndex : (int)_graphicsPresetBase),
+                SettingRowIds.GraphicsPreset);
+            _graphicsPresetNote = Explain(page, graphicsPresetCustom
+                ? GraphicsPresetCustomDescription()
+                : "The quality preset supplies defaults for the detail rows below; adjust them for a custom mix.");
+            _graphicsPresetRow.Changed += (_, _) => ApplyGraphicsPresetToRows();
+
             // A phone has one window, it is already the whole screen, and it
             // has no F11. Everything in this group is about a desktop window.
-            Heading(page, "Window");
-            _windowRow = Add(page, new ChoiceRow("Mode",
+            Heading(page, "Display");
+            _windowRow = Add(page, new ChoiceRow("Window mode",
                 new[] { "Windowed", "Fullscreen (borderless)" },
                 LauncherPrefs.WindowMode == WindowStartMode.BorderlessFullscreen ? 1 : 0),
                 SettingRowIds.WindowMode);
@@ -1014,7 +1126,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Explain(page, "Window mode is managed by Android and cannot be changed here.");
             }
 
-            Heading(page, "View");
             _fieldOfView = Add(page, new SliderRow("Field of view",
                 RenderOptions.FieldOfView,
                 v => v == RenderOptions.DefaultFieldOfView
@@ -1037,17 +1148,11 @@ namespace MphRead.Mods.Launcher.Gui
             // from both ends -- how much picture, and how often -- and because
             // the two of them are what somebody who is not getting a smooth
             // game comes to this page to change.
-            _fpsLimitRow = Add(page, new SliderRow("FPS limit",
+            _fpsLimitRow = Add(page, new SliderRow("Frame limit",
                 FpsLimitStopIndex(FrameTiming.FrameRateCap),
                 v => _fpsLimitStops[Math.Clamp(v, 0, _fpsLimitStops.Length - 1)].Label,
                 min: 0, max: _fpsLimitStops.Length - 1, keyStep: 1), SettingRowIds.FpsLimit);
             Heading(page, "Quality");
-            _graphicsPresetBase = RenderOptions.GraphicsPreset;
-            bool graphicsPresetCustom = GraphicsQualityHasOverrides(_graphicsPresetBase);
-            _graphicsPresetRow = Add(page, new ChoiceRow("Graphics quality",
-                _graphicsPresetChoices,
-                graphicsPresetCustom ? CustomGraphicsPresetIndex : (int)_graphicsPresetBase),
-                SettingRowIds.GraphicsPreset);
             _textureFilteringPresetRow = Add(page, new ChoiceRow("Texture filtering",
                 RenderOptions.TextureFilteringLabels, (int)RenderOptions.TextureFilteringPreset), SettingRowIds.TextureFiltering);
             _anisotropyRow = Add(page, new ChoiceRow("Texture detail",
@@ -1057,10 +1162,6 @@ namespace MphRead.Mods.Launcher.Gui
             _bloomRow = Add(page, new ToggleRow("Bloom", RenderOptions.Bloom), SettingRowIds.Bloom);
             _dynamicVisualLightsRow = Add(page,
                 new ToggleRow("Dynamic lighting", RenderOptions.DynamicVisualLights), SettingRowIds.DynamicLighting);
-            _graphicsPresetNote = Explain(page, graphicsPresetCustom
-                ? GraphicsPresetCustomDescription()
-                : "The quality preset supplies defaults for the detail rows below; adjust them for a custom mix.");
-            _graphicsPresetRow.Changed += (_, _) => ApplyGraphicsPresetToRows();
             _textureFilteringPresetRow.Changed += (_, _) => MarkGraphicsPresetCustom();
             _anisotropyRow.Changed += (_, _) => MarkGraphicsPresetCustom();
             _msaaRow.Changed += (_, _) => MarkGraphicsPresetCustom();
@@ -1170,6 +1271,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             GraphicsPreset preset = (GraphicsPreset)_graphicsPresetRow.Index;
+            IDisposable? suppression = SuppressDirtyTracking();
             _graphicsPresetBase = preset;
             _refreshingGraphicsRows = true;
             try
@@ -1183,6 +1285,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingGraphicsRows = false;
+                suppression?.Dispose();
             }
             UpdateGraphicsPresetDescription(custom: false);
         }
@@ -1206,7 +1309,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private string GraphicsPresetCustomDescription()
-            => $"Custom detail overrides are active; {_graphicsPresetBase} remains the compatibility baseline when saved.";
+            => "Custom quality settings are active.";
 
         private static bool GraphicsQualityHasOverrides(GraphicsPreset preset)
         {
@@ -1223,6 +1326,7 @@ namespace MphRead.Mods.Launcher.Gui
             _radarScaleRow.Value = RadarScaleToSlider(1f);
             _radarOffsetXRow.Value = 0;
             _radarOffsetYRow.Value = 0;
+            _dirtyTracker?.Refresh();
         }
 
         private void ShowProHudRows()
@@ -1260,6 +1364,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             _synchronizingControllerPairs = true;
+            IDisposable? suppression = SuppressDirtyTracking();
             try
             {
                 // The runtime setters use the activation/press value as the
@@ -1270,6 +1375,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _synchronizingControllerPairs = false;
+                suppression?.Dispose();
             }
         }
 
@@ -1304,6 +1410,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControllerPresetRow()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             bool wasRefreshing = _refreshingControllerRows;
             _refreshingControllerRows = true;
             try
@@ -1313,11 +1420,13 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = wasRefreshing;
+                suppression?.Dispose();
             }
         }
 
         private void RefreshControllerRows()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             _refreshingControllerRows = true;
             try
             {
@@ -1332,6 +1441,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = false;
+                suppression?.Dispose();
             }
             // Every controller slider was repopulated from authoritative
             // state, so no old UI edit marker may survive this full reset.
@@ -1340,6 +1450,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControllerAimRows()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             _refreshingControllerRows = true;
             try
             {
@@ -1348,6 +1459,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = false;
+                suppression?.Dispose();
             }
             ClearEditedControllerSliders(
                 _gamepadHorizontalSensitivity, _gamepadVerticalSensitivity,
@@ -1358,6 +1470,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControllerGeneralRows()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             _refreshingControllerRows = true;
             try
             {
@@ -1374,6 +1487,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = false;
+                suppression?.Dispose();
             }
             ClearEditedControllerSliders(_gamepadHorizontalSensitivity,
                 _gamepadVerticalSensitivity, _gamepadZoomMultiplier,
@@ -1382,6 +1496,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControllerGyroRows()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             _refreshingControllerRows = true;
             try
             {
@@ -1394,6 +1509,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = false;
+                suppression?.Dispose();
             }
             ClearEditedControllerSliders(_gamepadGyroSensitivity);
         }
@@ -1421,6 +1537,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControllerAdvancedRows()
         {
+            IDisposable? suppression = SuppressDirtyTracking();
             _refreshingControllerRows = true;
             try
             {
@@ -1429,6 +1546,7 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 _refreshingControllerRows = false;
+                suppression?.Dispose();
             }
             ClearEditedControllerSliders(
                 _gamepadDeadZone, _gamepadLookDeadZone, _gamepadOuterDeadZone,
@@ -1462,38 +1580,47 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshControlRows()
         {
-            _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
-            _invertY.On = InputSettings.InvertMouseY;
-            _invertX.On = InputSettings.InvertMouseX;
-            _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
-            _morphBallMouseFlickBoost.On = InputSettings.MorphBallMouseFlickBoost;
-            _morphBallStickFlickBoost.On = InputSettings.MorphBallStickFlickBoost;
-            if (_morphBallSwipeBoost != null)
+            IDisposable? suppression = SuppressDirtyTracking();
+            try
             {
-                _morphBallSwipeBoost.On = InputSettings.MorphBallSwipeBoost;
-            }
-            RefreshControllerRows();
-            if (_touchButtonsRow != null)
-            {
-                _touchButtonsRow.On = Mods.Input.TouchSettings.ButtonsVisible;
-                foreach ((Mods.Input.TouchControl control, ToggleRow row) in _touchRows)
+                _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
+                _invertY.On = InputSettings.InvertMouseY;
+                _invertX.On = InputSettings.InvertMouseX;
+                _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
+                _morphBallMouseFlickBoost.On = InputSettings.MorphBallMouseFlickBoost;
+                _morphBallStickFlickBoost.On = InputSettings.MorphBallStickFlickBoost;
+                if (_morphBallSwipeBoost != null)
                 {
-                    row.On = Mods.Input.TouchSettings.IsEnabled(control);
+                    _morphBallSwipeBoost.On = InputSettings.MorphBallSwipeBoost;
+                }
+                RefreshControllerRows();
+                if (_touchButtonsRow != null)
+                {
+                    _touchButtonsRow.On = Mods.Input.TouchSettings.ButtonsVisible;
+                    foreach ((Mods.Input.TouchControl control, ToggleRow row) in _touchRows)
+                    {
+                        row.On = Mods.Input.TouchSettings.IsEnabled(control);
+                    }
+                }
+                if (_stylusAiming != null)
+                {
+                    _stylusAiming.On = InputSettings.StylusAimingEnabled;
+                    _stylusSensitivity!.Value = LookToSlider(InputSettings.StylusSensitivity);
+                    _stylusInvertY!.On = InputSettings.StylusInvertY;
+                    _stylusPrimary!.Index = (int)InputSettings.StylusPrimaryAction;
+                    _stylusSecondary!.Index = (int)InputSettings.StylusSecondaryAction;
+                    _stylusClassicGestures!.On = InputSettings.StylusClassicGestures;
+                    _stylusDoubleTapJump!.On = InputSettings.StylusDoubleTapJump;
+                    _stylusFlickBoost!.On = InputSettings.StylusFlickBoost;
+                    _stylusPressureToFire!.On = InputSettings.StylusPressureToFire;
+                    _stylusPressureThreshold!.Value = (int)Math.Round(
+                        InputSettings.StylusPressureThreshold * 100);
+                    _bottomScreenMode!.Index = (int)InputSettings.BottomScreenMode;
                 }
             }
-            if (_stylusAiming != null)
+            finally
             {
-                _stylusAiming.On = InputSettings.StylusAimingEnabled;
-                _stylusSensitivity!.Value = LookToSlider(InputSettings.StylusSensitivity);
-                _stylusInvertY!.On = InputSettings.StylusInvertY;
-                _stylusPrimary!.Index = (int)InputSettings.StylusPrimaryAction;
-                _stylusSecondary!.Index = (int)InputSettings.StylusSecondaryAction;
-                _stylusClassicGestures!.On = InputSettings.StylusClassicGestures;
-                _stylusDoubleTapJump!.On = InputSettings.StylusDoubleTapJump;
-                _stylusFlickBoost!.On = InputSettings.StylusFlickBoost;
-                _stylusPressureToFire!.On = InputSettings.StylusPressureToFire;
-                _stylusPressureThreshold!.Value = (int)Math.Round(
-                    InputSettings.StylusPressureThreshold * 100);
+                suppression?.Dispose();
             }
         }
 
@@ -1528,9 +1655,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             StackPanel page = AddSection("Audio");
             Heading(page, "Volume");
-            _feedbackVolume = Add(page, new SliderRow("Combat feedback", (int)(Combat.FeedbackAudio.Volume * 100), v => $"{v}%"), SettingRowIds.FeedbackVolume);
             _sfxVolume = Add(page, new SliderRow("Sound effects",
                 Percent(_settings.SfxVolume, 35)), SettingRowIds.SfxVolume);
+            _feedbackVolume = Add(page, new SliderRow("Combat feedback", (int)(Combat.FeedbackAudio.Volume * 100), v => $"{v}%"), SettingRowIds.FeedbackVolume);
             _musicVolume = Add(page, new SliderRow("Music", Percent(_settings.MusicVolume, 50)), SettingRowIds.MusicVolume);
             Heading(page, "Presentation packs");
             ClientPresentationContentState content = ClientPresentationContent.Refresh();
@@ -1542,7 +1669,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PackTechnicalDetails(_announcerPacks, _announcerPackRow.Index));
             _announcerPackDetailsExpander = Add(page, new Expander
             {
-                Header = "Advanced details",
+                Header = "Details",
                 Content = _announcerPackDetails,
                 IsExpanded = false,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -1556,7 +1683,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PackTechnicalDetails(_musicPacks, _musicPackRow.Index));
             _musicPackDetailsExpander = Add(page, new Expander
             {
-                Header = "Advanced details",
+                Header = "Details",
                 Content = _musicPackDetails,
                 IsExpanded = false,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -1564,8 +1691,7 @@ namespace MphRead.Mods.Launcher.Gui
             _musicPackRow.Changed += (_, _) =>
                 _musicPackDetails.Text = PackTechnicalDetails(
                     _musicPacks, _musicPackRow.Index);
-            Explain(page, $"Data-only packs are discovered in {LauncherPrefs.OptionalContentDirectory}. "
-                + "Missing or invalid selections use built-in presentation; changes apply to the next match.");
+            Explain(page, "Missing or invalid selections use built-in presentation; changes apply to the next match.");
             Heading(page, "Language");
             string[] languages = Enum.GetNames<Language>();
             _languageRow = Add(page, new ChoiceRow("Text", languages,
@@ -1606,11 +1732,13 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (index <= 0 || index > packs.Count)
             {
-                return "Built-in presentation has no package ID or content hash.";
+                return "Built-in presentation has no package ID or content hash.\n"
+                    + $"Content folder: {LauncherPrefs.OptionalContentDirectory}";
             }
             ContentPackIdentity identity = packs[index - 1].Identity;
             return $"Package ID: {identity.StableId}\n"
-                + $"Content Hash: {identity.ContentHash}";
+                + $"Content Hash: {identity.ContentHash}\n"
+                + $"Content folder: {LauncherPrefs.OptionalContentDirectory}";
         }
 
         private static int SelectedPackIndex(IReadOnlyList<InstalledOptionalPresentationPack> packs,
@@ -1803,6 +1931,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.ResetControllerAimSettings();
                 RefreshControllerAimRows();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetAim, SettingRowIds.ControllerHorizontalSensitivity + ".reset");
 
@@ -1817,6 +1946,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.ResetControllerGeneral();
                 RefreshControllerGeneralRows();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetGeneral, SettingRowIds.ControllerHorizontalSensitivity + ".reset-general");
 
@@ -1824,7 +1954,7 @@ namespace MphRead.Mods.Launcher.Gui
             var advancedPage = new StackPanel { Spacing = 10 };
             _advancedControllerExpander = new Expander
             {
-                Header = "Gamepad advanced",
+                Header = "Advanced controller tuning",
                 Content = advancedPage,
                 // The capture seam controls only the initial presentation of
                 // this real production section. Live settings start collapsed
@@ -1874,6 +2004,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.ResetControllerGyro();
                 RefreshControllerGyroRows();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetGyro, SettingRowIds.ControllerGyro + ".reset");
             Heading(page, "Feedback and diagnostics");
@@ -1968,7 +2099,15 @@ namespace MphRead.Mods.Launcher.Gui
                     _gamepadResponseCurve.Index;
                 if (preset == Mods.Input.GamepadResponseCurvePreset.Custom) return;
                 InputSettings.GamepadResponseCurve = preset;
-                _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+                IDisposable? suppression = SuppressDirtyTracking();
+                try
+                {
+                    _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+                }
+                finally
+                {
+                    suppression?.Dispose();
+                }
             };
             _gamepadTurnAcceleration.Changed += (_, _) =>
             {
@@ -1976,18 +2115,26 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.GamepadTurnAcceleration =
                     (Mods.Input.GamepadTurnAccelerationPreset)
                     _gamepadTurnAcceleration.Index;
-                _gamepadOuterBoost.On = InputSettings.GamepadOuterBoostEnabled;
-                _gamepadOuterBoostStart.Value = ThresholdToSlider(
-                    InputSettings.GamepadOuterBoostStart);
-                _gamepadOuterYawBoost.Value = (int)Math.Round(
-                    InputSettings.GamepadOuterYawBoost);
-                _gamepadOuterPitchBoost.Value = (int)Math.Round(
-                    InputSettings.GamepadOuterPitchBoost);
-                _gamepadBoostDelay.Value = BoostSecondsToSlider(
-                    InputSettings.GamepadBoostDelaySeconds);
-                _gamepadBoostRamp.Value = BoostSecondsToSlider(
-                    InputSettings.GamepadBoostRampSeconds, .001f);
-                ShowOuterBoostRows();
+                IDisposable? suppression = SuppressDirtyTracking();
+                try
+                {
+                    _gamepadOuterBoost.On = InputSettings.GamepadOuterBoostEnabled;
+                    _gamepadOuterBoostStart.Value = ThresholdToSlider(
+                        InputSettings.GamepadOuterBoostStart);
+                    _gamepadOuterYawBoost.Value = (int)Math.Round(
+                        InputSettings.GamepadOuterYawBoost);
+                    _gamepadOuterPitchBoost.Value = (int)Math.Round(
+                        InputSettings.GamepadOuterPitchBoost);
+                    _gamepadBoostDelay.Value = BoostSecondsToSlider(
+                        InputSettings.GamepadBoostDelaySeconds);
+                    _gamepadBoostRamp.Value = BoostSecondsToSlider(
+                        InputSettings.GamepadBoostRampSeconds, .001f);
+                    ShowOuterBoostRows();
+                }
+                finally
+                {
+                    suppression?.Dispose();
+                }
             };
 
             var resetAdvanced = new MenuEntry("Reset advanced tuning",
@@ -2001,6 +2148,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 InputSettings.ResetControllerAdvancedTuning();
                 RefreshControllerAdvancedRows();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetAdvanced, SettingRowIds.ControllerOuterBoost + ".reset");
 
@@ -2065,6 +2213,7 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.ResetController();
                 RefreshControllerRows();
                 foreach (PadRow row in padRows) row.InvalidateVisual();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetController, SettingRowIds.ControllerPreset + ".reset-all");
 
@@ -2095,6 +2244,7 @@ namespace MphRead.Mods.Launcher.Gui
                     row.InvalidateVisual();
                 }
                 _chatKeyRow.InvalidateVisual();
+                _dirtyTracker?.Refresh();
             };
             Add(page, reset, SettingRowIds.ChatKey + ".reset");
 
@@ -2118,6 +2268,7 @@ namespace MphRead.Mods.Launcher.Gui
                     row.InvalidateVisual();
                 }
                 _chatKeyRow.InvalidateVisual();
+                _dirtyTracker?.Refresh();
             };
             Add(page, resetAll, SettingRowIds.ChatKey + ".reset-all-input");
             ApplyControllerCapabilities(ControllerCapabilities.Current);
@@ -2171,6 +2322,11 @@ namespace MphRead.Mods.Launcher.Gui
             Explain(page, "A compatible pen takes over aiming automatically while it touches "
                 + "the play area. Classic gestures mirror the Nintendo DS controls: double tap "
                 + "to jump and flick while in Morph Ball to boost.");
+            _bottomScreenMode = Add(page, new ChoiceRow("DS bottom screen",
+                new[] { "Off", "Popup", "Always visible" },
+                (int)InputSettings.BottomScreenMode), SettingRowIds.BottomScreenMode);
+            Explain(page, "Popup opens from the HudOverlay binding or the on-screen tab. "
+                + "Only the six native affinity weapons are shown.");
             _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
                 InputSettings.StylusAimingEnabled), SettingRowIds.StylusAiming);
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
@@ -2318,15 +2474,16 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildMatch()
         {
             StackPanel page = AddSection("Player");
-            Heading(page, _identity.IsAuthenticated ? "Account identity" : "Guest profile");
+            Heading(page, "Profile");
             BuildProfile(page);
         }
 
         private void BuildProfile(StackPanel page)
         {
             bool authenticated = _identity.IsAuthenticated;
+            Add(page, new Caption(authenticated ? "Account" : "Guest"));
             _playerName = Add(page, new FieldRow(
-                authenticated ? "Account display name" : "Guest display name",
+                "Display name",
                 authenticated || _identity.IsGuest
                     ? _identity.DisplayName : LauncherPrefs.PlayerName,
                 boxWidth: 200), SettingRowIds.PlayerName);
@@ -2351,15 +2508,20 @@ namespace MphRead.Mods.Launcher.Gui
             }
             else
             {
-                Explain(page, "This guest display name is local to this device and is never used as an account identity.");
+                Explain(page, "Your guest name is saved only on this device.");
             }
             string[] hunters = Enumerable.Range(0, 7)
                 .Select(i => ((Hunter)i).ToString())
                 .Append(Hunter.Random.ToString()).ToArray();
-            _hunterRow = Add(page, new ChoiceRow("Hunter", hunters,
+            _hunterRow = Add(page, new ChoiceRow("Preferred Hunter", hunters,
                 Math.Max(0, Array.IndexOf(hunters, LauncherPrefs.LastHunter.ToString()))),
                 SettingRowIds.Hunter);
-            Explain(page, "Online match rules are selected by the lobby host and cannot be changed from a local profile.");
+            Explain(page, "Match rules are controlled by the lobby host.");
+
+            Heading(page, "Online");
+            _showOnlinePresence = Add(page, new ToggleRow("Show me in Online Players",
+                LauncherPrefs.ShowOnlinePresence), SettingRowIds.ShowOnlinePresence);
+            Explain(page, "Allow other players to see your display name and activity.");
         }
 
         /// <summary>
@@ -2385,8 +2547,9 @@ namespace MphRead.Mods.Launcher.Gui
                 ? "Automatic downloads and stages signed updates. Notify only keeps installation manual. Off skips automatic checks."
                 : "Updates are unavailable in this build because no signed update repository is configured.");
 
-            Heading(page, "Game files and diagnostics");
-            var files = new MenuEntry("Game files", GameFiles.Describe(), titleSize: 15);
+            Heading(page, "Game files");
+            var files = new MenuEntry("Metroid Prime Hunters",
+                GameFiles.Ready ? "Ready" : GameFiles.Describe(), titleSize: 15);
             files.SubtitleColor = GameFiles.Ready ? GuiTheme.Good : GuiTheme.Warm;
             files.Click += (_, _) =>
             {
@@ -2395,6 +2558,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Add(page, files, SettingRowIds.GameFiles);
 
+            Heading(page, "Diagnostics");
             _debugLogging = Add(page, new ToggleRow("Debug logging", LauncherPrefs.DebugLogs),
                 SettingRowIds.DebugLogging);
             Explain(page, "Writes local diagnostics for troubleshooting; no account or session identity is included.");
@@ -2541,7 +2705,7 @@ namespace MphRead.Mods.Launcher.Gui
             _preferredRegion = Add(page, new ChoiceRow("Preferred region", regionLabels,
                 Math.Max(0, selectedRegion)),
                 SettingRowIds.PreferredRegion);
-            Explain(page, "Automatic chooses the best available server. Friendly labels are presentation only; the saved value remains the exact region ID observed from discovery.");
+            Explain(page, "Automatic selects the best available region.");
             Heading(page, "Diagnostics");
             _advancedNetworkRow = Add(page, new ToggleRow("Network diagnostics",
                 global::MphRead.Hud.Network.NetworkHealthSettings.Advanced), SettingRowIds.NetworkDiagnostics);
@@ -2554,7 +2718,7 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "Motion");
             _reducedMotion = Add(page, new ToggleRow("Reduce interface motion",
                 LauncherPrefs.ReducedMotion), SettingRowIds.ReducedMotion);
-            Explain(page, "Disables optional Project Prime shell transitions and decorative motion. Gameplay animation is unchanged.");
+            Explain(page, "Reduce menu transitions and visual motion. Gameplay is unchanged.");
         }
 
         /// <summary>Test seam for exercising the same save path as the footer.</summary>
@@ -2685,10 +2849,14 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.StylusFlickBoost = _stylusFlickBoost!.On;
                 InputSettings.StylusPressureToFire = _stylusPressureToFire!.On;
                 InputSettings.StylusPressureThreshold = _stylusPressureThreshold!.Value / 100f;
+                InputSettings.BottomScreenMode = (Mods.Input.NativeBottomScreenMode)
+                    _bottomScreenMode!.Index;
             }
             InputSettings.Save();
             // The players in the match already have their own copies of these.
-            if (_scene != null) InputSettings.ApplyToPlayers(_scene);
+            if (_scene != null)
+                InputSettings.ApplyToPlayers(_scene.Players.Select(
+                    player => player.GetPresentation().Bindings));
             // Launcher preferences
             if (!_identity.IsAuthenticated && _playerName.Value.Trim().Length > 0)
             {
@@ -2704,9 +2872,18 @@ namespace MphRead.Mods.Launcher.Gui
             }
             LauncherPrefs.DebugLogs = _debugLogging.On;
             LauncherPrefs.ReducedMotion = _reducedMotion.On;
+            LauncherPrefs.ShowOnlinePresence = _showOnlinePresence.On;
             ApplyDebugLogging();
             ClientSettings.CommitSettings(_settings);
-            LauncherPrefs.Save();
+            if (!LauncherPrefs.Save(notifyPresenceChange: true))
+            {
+                // Keep the draft open and dirty when the launcher preference
+                // file could not be written. In particular, do not let the
+                // action bar report a saved presence value that never reached
+                // disk or publish the live-update seam.
+                throw new InvalidOperationException(
+                    "Launcher preferences could not be saved.");
+            }
             ClientPresentationContent.Refresh();
             // Written and *applied*: the volumes, the language and the match
             // rules were only ever put in the file, so a music slider moved
@@ -2714,6 +2891,7 @@ namespace MphRead.Mods.Launcher.Gui
             // during a match as well as before one, since this same window
             // opens from the pause menu.
             Mods.GameSettings.Apply(_settings);
+            _dirtyTracker?.MarkSaved();
             Saved = true;
             Close();
         }

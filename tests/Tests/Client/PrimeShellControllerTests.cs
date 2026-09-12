@@ -16,6 +16,7 @@ using Xunit;
 
 namespace MphRead.Tests;
 
+[Collection("Match baseline globals")]
 public sealed class PrimeShellControllerTests
 {
     [Fact]

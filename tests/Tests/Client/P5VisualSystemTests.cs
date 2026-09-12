@@ -13,6 +13,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Resources;
 using MphRead.Mods.Launcher.Theme;
 using Xunit;
 
@@ -59,6 +60,34 @@ public sealed class P5VisualSystemTests
     }
 
     [AvaloniaFact]
+    public void ReducedMotionDoesNotAllocateRouteScan()
+    {
+        var control = new Border { Opacity = 0.12 };
+
+        Assert.Null(PrimeMotion.AnimateScan(control, 480,
+            reducedMotion: true));
+        Assert.Equal(0, control.Opacity);
+        Assert.Null(control.Transitions);
+        Assert.Null(control.RenderTransform);
+    }
+
+    [AvaloniaFact]
+    public void RouteScanIsOneShotBoundedAndLeaseOwned()
+    {
+        var control = new Border();
+        PrimeScanAccentLease? lease = PrimeMotion.AnimateScan(control, 480,
+            reducedMotion: false);
+
+        Assert.NotNull(lease);
+        Assert.InRange(control.Opacity, 0.11, 0.13);
+        Assert.IsType<TranslateTransform>(control.RenderTransform);
+        lease!.Dispose();
+        Assert.True(lease.IsDisposed);
+        Assert.Equal(1, control.Opacity);
+        Assert.Null(control.RenderTransform);
+    }
+
+    [AvaloniaFact]
     public void NormalMotionCreatesOpacityAndTranslationTransitions()
     {
         Assert.Single(PrimeMotion.CreateTransitions(reducedMotion: false)!);
@@ -76,7 +105,7 @@ public sealed class P5VisualSystemTests
             new ToggleRow("Invert aim", false),
             new SliderRow("Sensitivity", 50),
             new KeyRow("Chat", () => new Keybind(
-                    OpenTK.Windowing.GraphicsLibraryFramework.Keys.T),
+                    PrimeKey.T),
                 (_, _, _) => { }),
             new PadRow(PadAction.Jump)
         ];
@@ -310,6 +339,56 @@ public sealed class P5VisualSystemTests
             AutomationProperties.GetLiveSetting(status));
         Assert.Contains("prime-status-error", status.Classes);
         Assert.DoesNotContain("prime-status-success", status.Classes);
+    }
+
+    [AvaloniaFact]
+    public void ReusableCardsEmptyStatesAndStatusChipsExposeSemanticState()
+    {
+        PrimeHeroCard hero = PrimeControlFactory.HeroCard(new TextBlock());
+        PrimeActionCard action = PrimeControlFactory.ActionCard(new TextBlock(),
+            selected: true);
+        PrimeEmptyState empty = PrimeControlFactory.EmptyState("NO MATCHES",
+            "Host a lobby to get started.",
+            PrimeControlFactory.Button("Host lobby"));
+        var status = new PrimeStatusChip("Online", PrimeStatusKind.Success);
+
+        Assert.Contains("prime-hero-card", hero.Classes);
+        Assert.True(action.IsSelected);
+        Assert.NotNull(action.Transitions);
+        Assert.Equal("NO MATCHES", empty.Title);
+        Assert.NotNull(empty.PrimaryAction);
+        Assert.Equal("Online", AutomationProperties.GetItemStatus(status));
+        Assert.Equal(AutomationLiveSetting.Polite,
+            AutomationProperties.GetLiveSetting(status));
+    }
+
+    [Fact]
+    public void PlayerFacingResourceCopyExcludesInternalTerminology()
+    {
+        XDocument resource = XDocument.Load(FindRepositoryFile(
+            "src/Client/Launcher/Resources/PrimeUiCopy.resx"));
+        string copy = String.Join("\n", resource.Descendants()
+            .Where(element => element.Name.LocalName == "value")
+            .Select(element => element.Value));
+
+        foreach (string forbidden in new[]
+        {
+            "Open Gateway",
+            "authoritative session",
+            "local builds are never replaced automatically",
+            "exact region ID",
+            "presentation only",
+            "worker",
+            "node directory"
+        })
+        {
+            Assert.DoesNotContain(forbidden, copy,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Equal("Quick Play", PrimeUiCopy.Play_QuickPlay_Title);
+        Assert.Equal("Updates are unavailable for local builds.",
+            PrimeUiCopy.Update_LocalBuild);
     }
 
     [Fact]

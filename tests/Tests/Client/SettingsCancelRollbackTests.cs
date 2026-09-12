@@ -8,7 +8,8 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
-using OpenTK.Windowing.GraphicsLibraryFramework;
+using Keys = MphRead.Mods.Input.PrimeKey;
+using MouseButton = MphRead.Mods.Input.PrimeMouseButton;
 using Xunit;
 
 namespace MphRead.Tests.Client;

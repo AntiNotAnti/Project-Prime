@@ -12,7 +12,7 @@ using MphRead.Mods.Launcher.Theme;
 namespace MphRead.Mods.Launcher.Gui;
 
 /// <summary>
-/// A bounded, authoritative match-list card.  It intentionally accepts only
+/// A bounded, authoritative lobby-list card.  It intentionally accepts only
 /// <see cref="LobbyListEntry"/> data: there is no fabricated ping, trust score,
 /// or region value hiding in this presentation component.
 /// </summary>
@@ -24,10 +24,10 @@ internal sealed class PrimeMatchCard : Border
         Classes.Add("prime-card");
         Padding = new Thickness(16);
         Margin = new Thickness(0, 0, 0, 10);
-        string displayName = string.IsNullOrWhiteSpace(entry.Name) ? "Unnamed match" : entry.Name;
-        PrimeAccessibility.SetName(this, $"Match: {displayName}");
+        string displayName = string.IsNullOrWhiteSpace(entry.Name) ? "Unnamed lobby" : entry.Name;
+        PrimeAccessibility.SetName(this, $"Lobby: {displayName}");
         PrimeAccessibility.SetDescription(this,
-            $"{PrimeGameText.ModeLabel(entry.Mode)} match on "
+            $"{PrimeGameText.ModeLabel(entry.Mode)} lobby on "
             + $"{PrimeGameText.MapName(entry.MapKey)}.");
 
         int openPlayers = MatchBrowserFiltering.OpenPlayerSlots(entry);
@@ -100,8 +100,8 @@ internal sealed class PrimeMatchCard : Border
             actions.Children.Add(new TextBlock
             {
                 Text = entry.Phase == LobbyPhase.Open
-                    ? "This match is full."
-                    : "This match is not accepting new players.",
+                    ? "This lobby is full."
+                    : "This lobby is not accepting new players.",
                 Classes = { "prime-muted" }
             });
         body.Children.Add(actions);
@@ -117,9 +117,9 @@ internal sealed class PrimeMatchCard : Border
         button.MinWidth = label == "Waitlist" ? 110 : 92;
         PrimeAccessibility.SetName(button, label switch
         {
-            "Join" => "Join match",
-            "Waitlist" => "Join match player queue",
-            "Spectate" => "Spectate match",
+            "Join" => "Join lobby",
+            "Waitlist" => "Join lobby player queue",
+            "Spectate" => "Spectate lobby",
             _ => label
         });
         panel.Children.Add(button);

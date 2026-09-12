@@ -7,9 +7,8 @@ using Avalonia.Input;
 using Avalonia.Media;
 using MphRead.Entities;
 using MphRead.Mods;
+using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Theme;
-using GlfwKeys = OpenTK.Windowing.GraphicsLibraryFramework.Keys;
-using GlfwMouse = OpenTK.Windowing.GraphicsLibraryFramework.MouseButton;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -28,12 +27,15 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private readonly string _label;
         private readonly Func<Keybind> _binding;
-        private readonly Action<ButtonType, GlfwKeys, GlfwMouse> _rebind;
+        private readonly Action<ButtonType, PrimeKey, PrimeMouseButton> _rebind;
         private readonly double _labelWidth;
         private bool _listening;
         private bool _hot;
 
         public event EventHandler? Rebound;
+
+        /// <summary>Stable presentation value used by the Settings draft tracker.</summary>
+        internal string CurrentValue => InputSettings.Describe(_binding());
 
         public KeyRow(PropertyInfo property, double labelWidth = 160)
         {
@@ -55,7 +57,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// and never becomes a fake gameplay binding.
         /// </summary>
         public KeyRow(string label, Func<Keybind> binding,
-            Action<ButtonType, GlfwKeys, GlfwMouse> rebind, double labelWidth = 160)
+            Action<ButtonType, PrimeKey, PrimeMouseButton> rebind, double labelWidth = 160)
         {
             _label = label;
             _binding = binding;
@@ -87,18 +89,18 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             // Already listening: this press is the new binding.
-            GlfwMouse? button = properties.PointerUpdateKind switch
+            PrimeMouseButton? button = properties.PointerUpdateKind switch
             {
-                PointerUpdateKind.LeftButtonPressed => GlfwMouse.Left,
-                PointerUpdateKind.RightButtonPressed => GlfwMouse.Right,
-                PointerUpdateKind.MiddleButtonPressed => GlfwMouse.Middle,
-                PointerUpdateKind.XButton1Pressed => GlfwMouse.Button4,
-                PointerUpdateKind.XButton2Pressed => GlfwMouse.Button5,
+                PointerUpdateKind.LeftButtonPressed => PrimeMouseButton.Left,
+                PointerUpdateKind.RightButtonPressed => PrimeMouseButton.Right,
+                PointerUpdateKind.MiddleButtonPressed => PrimeMouseButton.Middle,
+                PointerUpdateKind.XButton1Pressed => PrimeMouseButton.Button4,
+                PointerUpdateKind.XButton2Pressed => PrimeMouseButton.Button5,
                 _ => null
             };
             if (button != null)
             {
-                _rebind(ButtonType.Mouse, GlfwKeys.Unknown, button.Value);
+                _rebind(ButtonType.Mouse, PrimeKey.Unknown, button.Value);
                 Done();
             }
             e.Handled = true;
@@ -111,7 +113,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _rebind(
                     e.Delta.Y > 0 ? ButtonType.ScrollUp : ButtonType.ScrollDown,
-                    GlfwKeys.Unknown, GlfwMouse.Left);
+                    PrimeKey.Unknown, PrimeMouseButton.Left);
                 Done();
                 e.Handled = true;
             }
@@ -155,14 +157,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (e.Key == Key.Back || e.Key == Key.Delete)
             {
-                _rebind(ButtonType.Key, GlfwKeys.Unknown, GlfwMouse.Left);
+                _rebind(ButtonType.Key, PrimeKey.Unknown, PrimeMouseButton.Left);
                 Done();
                 return;
             }
-            GlfwKeys? key = Translate(e.Key);
+            PrimeKey? key = Translate(e.Key);
             if (key != null)
             {
-                _rebind(ButtonType.Key, key.Value, GlfwMouse.Left);
+                _rebind(ButtonType.Key, key.Value, PrimeMouseButton.Left);
                 Done();
             }
         }
@@ -193,60 +195,60 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>The toolkit's key to the one the game's input layer speaks.</summary>
-        private static GlfwKeys? Translate(Key key)
+        private static PrimeKey? Translate(Key key)
         {
             if (key >= Key.A && key <= Key.Z)
             {
-                return GlfwKeys.A + (key - Key.A);
+                return PrimeKey.A + (key - Key.A);
             }
             if (key >= Key.D0 && key <= Key.D9)
             {
-                return GlfwKeys.D0 + (key - Key.D0);
+                return PrimeKey.D0 + (key - Key.D0);
             }
             if (key >= Key.NumPad0 && key <= Key.NumPad9)
             {
-                return GlfwKeys.KeyPad0 + (key - Key.NumPad0);
+                return PrimeKey.KeyPad0 + (key - Key.NumPad0);
             }
             if (key >= Key.F1 && key <= Key.F12)
             {
-                return GlfwKeys.F1 + (key - Key.F1);
+                return PrimeKey.F1 + (key - Key.F1);
             }
             return key switch
             {
-                Key.Space => GlfwKeys.Space,
-                Key.Tab => GlfwKeys.Tab,
-                Key.Enter => GlfwKeys.Enter,
-                Key.LeftShift => GlfwKeys.LeftShift,
-                Key.RightShift => GlfwKeys.RightShift,
-                Key.LeftCtrl => GlfwKeys.LeftControl,
-                Key.RightCtrl => GlfwKeys.RightControl,
-                Key.LeftAlt => GlfwKeys.LeftAlt,
-                Key.RightAlt => GlfwKeys.RightAlt,
-                Key.Left => GlfwKeys.Left,
-                Key.Right => GlfwKeys.Right,
-                Key.Up => GlfwKeys.Up,
-                Key.Down => GlfwKeys.Down,
-                Key.Insert => GlfwKeys.Insert,
-                Key.Home => GlfwKeys.Home,
-                Key.End => GlfwKeys.End,
-                Key.PageUp => GlfwKeys.PageUp,
-                Key.PageDown => GlfwKeys.PageDown,
-                Key.CapsLock => GlfwKeys.CapsLock,
-                Key.OemMinus => GlfwKeys.Minus,
-                Key.OemPlus => GlfwKeys.Equal,
-                Key.OemOpenBrackets => GlfwKeys.LeftBracket,
-                Key.OemCloseBrackets => GlfwKeys.RightBracket,
-                Key.OemSemicolon => GlfwKeys.Semicolon,
-                Key.OemQuotes => GlfwKeys.Apostrophe,
-                Key.OemComma => GlfwKeys.Comma,
-                Key.OemPeriod => GlfwKeys.Period,
-                Key.OemQuestion => GlfwKeys.Slash,
-                Key.OemBackslash or Key.OemPipe => GlfwKeys.Backslash,
-                Key.OemTilde => GlfwKeys.GraveAccent,
-                Key.Add => GlfwKeys.KeyPadAdd,
-                Key.Subtract => GlfwKeys.KeyPadSubtract,
-                Key.Multiply => GlfwKeys.KeyPadMultiply,
-                Key.Divide => GlfwKeys.KeyPadDivide,
+                Key.Space => PrimeKey.Space,
+                Key.Tab => PrimeKey.Tab,
+                Key.Enter => PrimeKey.Enter,
+                Key.LeftShift => PrimeKey.LeftShift,
+                Key.RightShift => PrimeKey.RightShift,
+                Key.LeftCtrl => PrimeKey.LeftControl,
+                Key.RightCtrl => PrimeKey.RightControl,
+                Key.LeftAlt => PrimeKey.LeftAlt,
+                Key.RightAlt => PrimeKey.RightAlt,
+                Key.Left => PrimeKey.Left,
+                Key.Right => PrimeKey.Right,
+                Key.Up => PrimeKey.Up,
+                Key.Down => PrimeKey.Down,
+                Key.Insert => PrimeKey.Insert,
+                Key.Home => PrimeKey.Home,
+                Key.End => PrimeKey.End,
+                Key.PageUp => PrimeKey.PageUp,
+                Key.PageDown => PrimeKey.PageDown,
+                Key.CapsLock => PrimeKey.CapsLock,
+                Key.OemMinus => PrimeKey.Minus,
+                Key.OemPlus => PrimeKey.Equal,
+                Key.OemOpenBrackets => PrimeKey.LeftBracket,
+                Key.OemCloseBrackets => PrimeKey.RightBracket,
+                Key.OemSemicolon => PrimeKey.Semicolon,
+                Key.OemQuotes => PrimeKey.Apostrophe,
+                Key.OemComma => PrimeKey.Comma,
+                Key.OemPeriod => PrimeKey.Period,
+                Key.OemQuestion => PrimeKey.Slash,
+                Key.OemBackslash or Key.OemPipe => PrimeKey.Backslash,
+                Key.OemTilde => PrimeKey.GraveAccent,
+                Key.Add => PrimeKey.KeyPadAdd,
+                Key.Subtract => PrimeKey.KeyPadSubtract,
+                Key.Multiply => PrimeKey.KeyPadMultiply,
+                Key.Divide => PrimeKey.KeyPadDivide,
                 _ => null
             };
         }

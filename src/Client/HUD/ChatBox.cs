@@ -344,7 +344,7 @@ namespace MphRead.Mods.Chat
         /// </summary>
         public static void Send(string text)
         {
-            if (AuthoritativePlay.Current is { } play)
+            if (ClientOnlineRuntime.Current?.Match?.Play is { } play)
             {
                 if (play.Client.SendChat(text)) { Sent++; }
                 else { System("Chat could not be sent. Try again when connected."); }
@@ -413,7 +413,7 @@ namespace MphRead.Mods.Chat
                 // every key this build does not map as Unknown -- so without
                 // this, unbinding chat would open it on any key at all.
                 if (canOpen && key != Keys.Unknown
-                    && key == InputSettings.ChatKey && !alt && !control)
+                    && key == (Keys)(int)InputSettings.ChatKey && !alt && !control)
                 {
                     Open(swallowOpeningChar);
                     return true;

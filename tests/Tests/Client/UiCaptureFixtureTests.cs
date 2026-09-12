@@ -315,6 +315,71 @@ public sealed class UiCaptureFixtureTests
     }
 
     [AvaloniaFact]
+    public void PlayP1BAndP1CCaptureFixturesExposeTheCompactHierarchy()
+    {
+        Control home = UiCapture.BuildFixture("play-advanced-network",
+            new MenuSettings(), Array.Empty<string>());
+        var homeWindow = new Window { Width = 940, Height = 560, Content = home };
+        try
+        {
+            homeWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Empty(Walk(home).OfType<Expander>());
+            Assert.Single(Walk(home).OfType<PrimeSectionPanel>(), panel =>
+                panel.Classes.Contains("prime-network-summary"));
+            Assert.Contains("Automatic region", TextOf(home), StringComparison.Ordinal);
+        }
+        finally
+        {
+            homeWindow.Close();
+            DisposeView(home);
+        }
+
+        Control empty = UiCapture.BuildFixture("play-directory-empty",
+            new MenuSettings(), Array.Empty<string>());
+        var emptyWindow = new Window { Width = 940, Height = 560, Content = empty };
+        try
+        {
+            emptyWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("NO OPEN LOBBIES", TextOf(empty), StringComparison.Ordinal);
+            Assert.Contains("No public lobbies are open right now.", TextOf(empty),
+                StringComparison.Ordinal);
+            Assert.Equal(1, Walk(empty).OfType<PrimeButton>()
+                .Count(button => Equals(button.Content, "Host lobby")));
+            Assert.Single(Walk(empty).OfType<PrimeButton>(),
+                button => Equals(button.Content, "Refresh"));
+        }
+        finally
+        {
+            emptyWindow.Close();
+            DisposeView(empty);
+        }
+
+        Control lobby = UiCapture.BuildFixture("lobby-owner-ffa-wide",
+            new MenuSettings(), new[] { "MP3 PROVING GROUND" });
+        var lobbyWindow = new Window { Width = 1280, Height = 720, Content = lobby };
+        try
+        {
+            lobbyWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            string text = TextOf(lobby);
+            Assert.Contains("● OPEN    3 / 8 PLAYERS    0 / 16 OBSERVERS", text,
+                StringComparison.Ordinal);
+            Assert.Contains("YOUR HUNTER", text, StringComparison.Ordinal);
+            Assert.Contains("✓ Ready", text, StringComparison.Ordinal);
+            Assert.Contains("Samus · YOU · HOST", text,
+                StringComparison.Ordinal);
+            Assert.Contains("No observers.", text, StringComparison.Ordinal);
+        }
+        finally
+        {
+            lobbyWindow.Close();
+            DisposeView(lobby);
+        }
+    }
+
+    [AvaloniaFact]
     public void MapsCaptureFixturesUseTheirRequestedPlayerSurfaces()
     {
         Control libraryFixture = UiCapture.BuildFixture("maps-library",
@@ -504,7 +569,7 @@ public sealed class UiCaptureFixtureTests
                         .Where(control => control is TextBox { Watermark: not null }
                             || control is ComboBox
                             || control is PrimeButton button
-                                && Equals(button.Content, "Create Match"))
+                                && Equals(button.Content, "Create lobby"))
                     : view.GetVisualDescendants().OfType<Control>()
                         .Where(control => control is LobbyChatPanel
                             || control is ComboBox
@@ -1852,12 +1917,15 @@ public sealed class UiCaptureFixtureTests
         UiCaptureSize captureSize, string fixtureName)
     {
         Rect viewport = new(captureSize.AvaloniaSize);
-        Control[] targets = view.GetVisualDescendants().OfType<Control>()
+        Control[] focusable = view.GetVisualDescendants().OfType<Control>()
             .Where(control => control.Focusable && control.IsEffectivelyVisible
-                && control.IsEffectivelyEnabled
-                && !control.GetVisualAncestors().OfType<ScrollViewer>().Any())
+                && control.IsEffectivelyEnabled)
             .ToArray();
-        Assert.NotEmpty(targets);
+        Assert.True(focusable.Length > 0,
+            $"{fixtureName}: fixture has no visible focusable target.");
+        Control[] targets = focusable
+            .Where(control => !control.GetVisualAncestors().OfType<ScrollViewer>().Any())
+            .ToArray();
 
         foreach (Control target in targets)
         {

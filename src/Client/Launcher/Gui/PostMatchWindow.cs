@@ -66,7 +66,7 @@ internal sealed class PostMatchWindow : Window
     {
         _play = play;
         _completedMatch = completedMatch;
-        _view = new PostMatchView(results, AuthoritativePlay.Current?.LocalSlot ?? -1);
+        _view = new PostMatchView(results, play.Online.Match?.Play?.LocalSlot ?? -1);
         Content = _view;
         Title = Branding.Name + " — Results";
         Icon = GuiTheme.AppIcon.Value;
@@ -152,9 +152,9 @@ internal sealed class PostMatchWindow : Window
             if (!_pump()) { Transition = PostMatchFlow.Evaluate(_play.State.Node, _completedMatch, gameWindowOpen: false); CloseForTransition(); return; }
             PauseMenuWindow.CoverGameWindow(this);
         }
-        else GamepadDesktop.PollForMenu();
+        else GamepadInput.PollPlatformForMenu();
         PollGamepad();
-        if (NodeSessions.Current?.Connected != true)
+        if (_play.Online.Node?.Connected != true)
         {
             Failure = "Results unavailable because the server connection was lost. Reconnect to continue.";
             Transition = PostMatchTransition.Lobby;

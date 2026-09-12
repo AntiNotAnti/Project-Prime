@@ -35,7 +35,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 using Stream stream = AssetLoader.Open(
-                    new Uri("avares://ProjectPrime/Assets/project-prime-title-screen.png"));
+                    new Uri("avares://ProjectPrime.Client.Presentation/Assets/project-prime-title-screen.png"));
                 return new Bitmap(stream);
             }
             catch (Exception)

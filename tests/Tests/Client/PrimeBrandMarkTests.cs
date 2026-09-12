@@ -26,7 +26,7 @@ public sealed class PrimeBrandMarkTests
         Assert.Equal(PrimeBrandMark.MaximumSize, mark.MaxWidth);
         Assert.Equal(PrimeBrandMark.MaximumSize, mark.MaxHeight);
         Assert.Equal("avares", PrimeBrandMark.AssetUri.Scheme);
-        Assert.Equal("avares://ProjectPrime/Assets/project-prime-mark.png",
+        Assert.Equal("avares://ProjectPrime.Client.Presentation/Assets/project-prime-mark.png",
             PrimeBrandMark.AssetUri.ToString());
     }
 

@@ -11,6 +11,7 @@ using MphRead.Formats;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -26,6 +27,12 @@ internal sealed class AccountView : UserControl
     private readonly TextBox _code = new() { Watermark = "Email confirmation code" };
     private readonly ComboBox _hunter = new() { ItemsSource = Enumerable.Range(0, 7).Select(i => ((Hunter)i).ToString()).ToArray(), SelectedIndex = 0 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextDimBrush };
+    private readonly TextBlock _validation = new()
+    {
+        TextWrapping = TextWrapping.Wrap,
+        Foreground = GuiTheme.ErrorBrush,
+        IsVisible = false
+    };
     private readonly TextBlock _license = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextBrush };
     private readonly TextBlock _career = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextBrush };
     private readonly TextBlock _history = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextBrush };
@@ -48,8 +55,16 @@ internal sealed class AccountView : UserControl
         AddField(stack, "Account service", _backend);
         AddField(_actions, "Email", _email);
         AddField(_actions, "Password", _password);
+        var passwordToggle = new MenuEntry("Show password", titleSize: 13);
+        passwordToggle.Click += (_, _) =>
+        {
+            _password.RevealPassword = !_password.RevealPassword;
+            passwordToggle.Title = _password.RevealPassword
+                ? "Hide password" : "Show password";
+        };
+        _actions.Children.Add(passwordToggle);
         AddField(_actions, "Display name", _name);
-        _actions.Children.Add(Action("Use Guest access", async session =>
+        _actions.Children.Add(Action("Continue as guest", async session =>
         {
             // Explicit guest selection must clear a previously restored
             // account identity so Node admission uses the anonymous route.
@@ -117,6 +132,7 @@ internal sealed class AccountView : UserControl
             _status.Text = "Signed out. Account credentials were cleared from memory.";
         }));
         stack.Children.Add(_actions);
+        stack.Children.Add(_validation);
         stack.Children.Add(_license);
         stack.Children.Add(_status);
         var close = new MenuEntry("Back", titleSize: 15);
@@ -145,6 +161,9 @@ internal sealed class AccountView : UserControl
         var entry = new MenuEntry(title, titleSize: 15);
         entry.Click += async (_, _) =>
         {
+            if (title is "Sign in" or "Create account"
+                && !ValidateCredentials(title == "Create account"))
+                return;
             _actions.IsEnabled = false;
             _status.Text = "Working…";
             try
@@ -165,6 +184,32 @@ internal sealed class AccountView : UserControl
             finally { _actions.IsEnabled = true; }
         };
         return entry;
+    }
+
+    private bool ValidateCredentials(bool registration)
+    {
+        string email = _email.Text?.Trim() ?? "";
+        int separator = email.IndexOf('@');
+        if (separator <= 0 || separator == email.Length - 1)
+            return ShowValidation("Enter a valid email address.");
+        if (String.IsNullOrWhiteSpace(_password.Text))
+            return ShowValidation("Enter your password.");
+        if (registration)
+        {
+            string name = _name.Text?.Trim() ?? "";
+            if (name.Length is < 1 or > 16)
+                return ShowValidation("Use 1–16 characters for your display name.");
+        }
+        _validation.IsVisible = false;
+        return true;
+    }
+
+    private bool ShowValidation(string message)
+    {
+        _validation.Text = message;
+        _validation.IsVisible = true;
+        PrimeAccessibility.SetStatus(_validation, message, PrimeStatusKind.Error);
+        return false;
     }
 
     private async Task RefreshLicense(AccountSession session)

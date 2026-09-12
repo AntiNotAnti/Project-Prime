@@ -38,6 +38,13 @@ public static class PrimeRoutePresentation
             || value.Contains("Worker", StringComparison.OrdinalIgnoreCase)
             || value.Contains("Backend", StringComparison.OrdinalIgnoreCase)
             || value.Contains("handoff", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("exception", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("stack trace", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("password", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("token", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("authorization", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("http://", StringComparison.OrdinalIgnoreCase)
+            || value.Contains("https://", StringComparison.OrdinalIgnoreCase)
                 ? fallback : value;
     }
 
@@ -72,14 +79,26 @@ public static class PrimeRoutePresentation
             ? PrimeRoute.Hunter : route;
 
     public static string GatewaySummary(GatewayPhase phase, string? detail)
-        => phase switch
+    {
+        string value = detail?.Trim() ?? "";
+        if ((phase is GatewayPhase.Gateway or GatewayPhase.Failed)
+            && value.Contains("saved session", StringComparison.OrdinalIgnoreCase))
+        {
+            bool invalid = value.Contains("no longer valid",
+                StringComparison.OrdinalIgnoreCase);
+            return invalid
+                ? "Your saved session is no longer valid. Sign in or continue as a guest."
+                : "No saved session. Sign in or continue as a guest.";
+        }
+        return phase switch
         {
             GatewayPhase.SigningIn => "Signing in…",
             GatewayPhase.Registering => "Creating your account…",
             GatewayPhase.Confirming => "Confirming your email…",
             GatewayPhase.Failed => "Could not complete that request. Check your details and try again.",
-            _ => String.IsNullOrWhiteSpace(detail) ? "Choose how you want to play." : detail.Trim()
+            _ => value.Length == 0 ? "Choose how you want to play." : value
         };
+    }
 
     public static string GatewayDetails(string? detail)
     {

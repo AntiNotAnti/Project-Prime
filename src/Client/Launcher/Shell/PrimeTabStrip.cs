@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -57,6 +58,7 @@ internal sealed class PrimeTabButton : AvaloniaButton
         _select = select;
         Content = label;
         Classes.Add("prime-tab");
+        Transitions = PrimeMotion.CreateInteractiveTransitions();
         if (selected) Classes.Add("prime-selected");
         AutomationProperties.SetName(this, label);
         AutomationProperties.SetItemStatus(this, selected ? "Selected" : "Not selected");

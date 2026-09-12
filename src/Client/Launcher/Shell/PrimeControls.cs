@@ -5,6 +5,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
+using MphRead.Mods.Launcher.Theme;
 using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Mods.Launcher.Gui;
@@ -40,6 +41,24 @@ internal static class PrimeControlFactory
 
     public static PrimeStatTile StatTile(string label, string value, string? detail = null)
         => new(label, value, detail);
+
+    /// <summary>Creates a named surface-level panel for reusable route content.</summary>
+    public static PrimePanel Panel(Control child, bool secondary = false,
+        bool compact = false)
+        => new(child, secondary, compact);
+
+    public static PrimeCompactPanel CompactPanel(Control child)
+        => new(child);
+
+    public static PrimeHeroCard HeroCard(Control child) => new(child);
+
+    public static PrimeActionCard ActionCard(Control child, bool selected = false)
+        => new(child, selected);
+
+    public static PrimeEmptyState EmptyState(string? title, string? body,
+        Control? primaryAction = null, Control? secondaryAction = null,
+        string? glyph = null, bool compact = false)
+        => new(title, body, primaryAction, secondaryAction, glyph, compact);
 }
 
 /// <summary>
@@ -174,11 +193,25 @@ internal sealed class PrimeDivider : Border
 
 internal sealed class PrimeSelectedRow : Border
 {
+    private bool _selected;
+
     public PrimeSelectedRow(Control child, bool selected)
     {
         Child = child;
         Classes.Add("prime-selected-row");
+        SetSelected(selected);
+    }
+
+    public bool IsSelected => _selected;
+
+    /// <summary>
+    /// Changes persistent selection without touching focus or layout geometry.
+    /// </summary>
+    public void SetSelected(bool selected)
+    {
+        _selected = selected;
         if (selected) Classes.Add("prime-selected");
+        else Classes.Remove("prime-selected");
     }
 }
 
@@ -213,6 +246,7 @@ internal sealed class PrimeButton : AvaloniaButton
     {
         Content = label;
         _action = action;
+        Transitions = PrimeMotion.CreateInteractiveTransitions();
         if (action != null) Click += (_, _) => action();
     }
 
@@ -225,6 +259,51 @@ internal sealed class PrimeCard : Border
     {
         Child = child;
         Classes.Add("prime-card");
+    }
+}
+
+internal class PrimePanel : Border
+{
+    public PrimePanel(Control child, bool secondary, bool compact)
+    {
+        Child = child;
+        Classes.Add("prime-panel");
+        if (secondary) Classes.Add("prime-panel-secondary");
+        if (compact) Classes.Add("prime-compact-panel");
+    }
+}
+
+internal sealed class PrimeCompactPanel : PrimePanel
+{
+    public PrimeCompactPanel(Control child)
+        : base(child, secondary: true, compact: true) { }
+}
+
+internal sealed class PrimeHeroCard : Border
+{
+    public PrimeHeroCard(Control child)
+    {
+        Child = child;
+        Classes.Add("prime-hero-card");
+    }
+}
+
+internal sealed class PrimeActionCard : Border
+{
+    public PrimeActionCard(Control child, bool selected)
+    {
+        Child = child;
+        Classes.Add("prime-action-card");
+        Transitions = PrimeMotion.CreateSurfaceTransitions();
+        if (selected) Classes.Add("prime-selected");
+    }
+
+    public bool IsSelected => Classes.Contains("prime-selected");
+
+    public void SetSelected(bool selected)
+    {
+        if (selected) Classes.Add("prime-selected");
+        else Classes.Remove("prime-selected");
     }
 }
 
@@ -243,6 +322,21 @@ internal sealed class PrimeStatusChip : Border
         Child = _text;
     }
 
+    public PrimeStatusChip(string text, PrimeStatusKind kind)
+        : this(text)
+    {
+        SetStatus(text, kind);
+    }
+
+    public void SetStatus(string text, PrimeStatusKind kind)
+    {
+        if (String.IsNullOrWhiteSpace(text))
+            throw new ArgumentException("A status label is required.", nameof(text));
+        Text = text.Trim();
+        PrimeAccessibility.SetStatus(this, Text, kind);
+        PrimeAccessibility.SetStatus(_text, Text, kind);
+    }
+
     public string Text
     {
         get => _text.Text ?? "";
@@ -253,12 +347,68 @@ internal sealed class PrimeStatusChip : Border
 internal sealed class PrimeEmptyState : StackPanel
 {
     public PrimeEmptyState(string message)
+        : this(null, message, null, null, null, compact: true) { }
+
+    public PrimeEmptyState(string? title, string? body,
+        Control? primaryAction = null, Control? secondaryAction = null,
+        string? glyph = null, bool compact = false)
     {
-        Spacing = 4;
+        Title = String.IsNullOrWhiteSpace(title) ? null : title.Trim();
+        Body = String.IsNullOrWhiteSpace(body) ? null : body.Trim();
+        PrimaryAction = primaryAction;
+        SecondaryAction = secondaryAction;
+        Glyph = String.IsNullOrWhiteSpace(glyph) ? null : glyph.Trim();
+        Compact = compact;
+
+        Spacing = compact ? 4 : 8;
         HorizontalAlignment = HorizontalAlignment.Stretch;
-        Children.Add(new TextBlock { Text = message, TextWrapping = TextWrapping.Wrap,
-            Classes = { "prime-muted" } });
+        Classes.Add("prime-empty-state");
+        if (compact) Classes.Add("prime-compact");
+
+        if (Glyph != null)
+        {
+            var glyphBlock = new TextBlock
+            {
+                Text = Glyph,
+                TextWrapping = TextWrapping.NoWrap,
+                Classes = { "prime-empty-glyph" }
+            };
+            Children.Add(glyphBlock);
+        }
+        if (Title != null)
+        {
+            Children.Add(new TextBlock
+            {
+                Text = Title,
+                TextWrapping = TextWrapping.Wrap,
+                Classes = { "prime-empty-title" }
+            });
+        }
+        if (Body != null)
+        {
+            Children.Add(new TextBlock
+            {
+                Text = Body,
+                TextWrapping = TextWrapping.Wrap,
+                Classes = { "prime-empty-body", "prime-muted" }
+            });
+        }
+        if (PrimaryAction != null || SecondaryAction != null)
+        {
+            var actions = new WrapPanel { Orientation = Orientation.Horizontal,
+                ItemSpacing = 8, LineSpacing = 4 };
+            if (PrimaryAction != null) actions.Children.Add(PrimaryAction);
+            if (SecondaryAction != null) actions.Children.Add(SecondaryAction);
+            Children.Add(actions);
+        }
     }
+
+    public string? Title { get; }
+    public string? Body { get; }
+    public string? Glyph { get; }
+    public bool Compact { get; }
+    public Control? PrimaryAction { get; }
+    public Control? SecondaryAction { get; }
 }
 
 internal sealed class PrimeLocalImage : Image

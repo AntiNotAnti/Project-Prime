@@ -367,10 +367,10 @@ public static class SettingRegistry
                 minimum: RenderOptions.MinFieldOfView,
                 maximum: RenderOptions.MaxFieldOfView, step: 1,
                 defaultValue: RenderOptions.DefaultFieldOfView.ToString(CultureInfo.InvariantCulture)),
-            Json("graphics.fps-limit", "FPS limit", SettingCategory.Graphics,
+            Json("graphics.fps-limit", "Frame limit", SettingCategory.Graphics,
                 SettingControlKind.Slider, "FrameRateCap", SettingRowIds.FpsLimit,
                 minimum: 0, maximum: 12, step: 1),
-            Json("graphics.quality", "Graphics quality", SettingCategory.Graphics,
+            Json("graphics.quality", "Graphics preset", SettingCategory.Graphics,
                 SettingControlKind.Choice, "GraphicsPreset", SettingRowIds.GraphicsPreset,
                 choices: ChoiceList("Original", "Enhanced", "Performance")),
             Json("graphics.texture-filtering", "Texture filtering", SettingCategory.Graphics,
@@ -586,11 +586,14 @@ public static class SettingRegistry
             Controls("controls.controller-telemetry", "Local input-balance diagnostics", SettingControlKind.Toggle,
                 "input_balance_telemetry", SettingRowIds.ControllerTelemetry, group: "Feedback and diagnostics"),
 
-            Launcher("gameplay.player-name", "Guest display name", SettingCategory.Player,
+            Launcher("gameplay.player-name", "Display name", SettingCategory.Player,
                 SettingControlKind.Text, "player_name", SettingRowIds.PlayerName),
-            Launcher("gameplay.hunter", "Preferred hunter", SettingCategory.Player,
+            Launcher("gameplay.hunter", "Preferred Hunter", SettingCategory.Player,
                 SettingControlKind.Choice, "hunter", SettingRowIds.Hunter,
                 choices: ChoiceList("Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Random")),
+            Launcher("gameplay.show-online-presence", "Show me in Online Players",
+                SettingCategory.Player, SettingControlKind.Toggle, "show_online_presence",
+                SettingRowIds.ShowOnlinePresence, defaultValue: true),
             Launcher("system.updates", "Updates", SettingCategory.System,
                 SettingControlKind.Choice, "update_policy", SettingRowIds.Updates,
                 choices: ChoiceList("Automatic", "Notify only", "Off")),
@@ -637,7 +640,10 @@ public static class SettingRegistry
                 "stylus_pressure_to_fire", SettingRowIds.StylusPressureToFire, group: "Advanced"),
             Controls("controls.stylus-pressure-threshold", "Pressure threshold", SettingControlKind.Slider,
                 "stylus_pressure_threshold", SettingRowIds.StylusPressureThreshold, group: "Advanced",
-                minimum: 0, maximum: 1, step: .01)
+                minimum: 0, maximum: 1, step: .01),
+            Controls("controls.stylus-bottom-screen-mode", "DS bottom screen", SettingControlKind.Choice,
+                "bottom_screen_mode", SettingRowIds.BottomScreenMode, group: "General",
+                choices: ChoiceList("Off", "Popup", "Always visible"))
         };
 
         foreach (PropertyInfo property in InputSettings.Bindings)

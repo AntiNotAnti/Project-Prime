@@ -8,7 +8,7 @@
              VerticalAlignment="Center"
              MaxWidth="720">
   <UserControl.Styles>
-    <StyleInclude Source="avares://ProjectPrime/Launcher/Theme/PrimeTheme.axaml" />
+    <StyleInclude Source="avares://ProjectPrime.Client.Presentation/Launcher/Theme/PrimeTheme.axaml" />
   </UserControl.Styles>
 
   <Border x:Name="TransitionCard"

@@ -4,6 +4,7 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Media;
+using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MphRead.Mods.Launcher;
 
@@ -154,6 +155,98 @@ public static class PrimeMotion
     public static Transitions? CreateTranslationTransitions(
         TimeSpan? duration = null)
         => CreateTranslationTransitions(ReducedMotion, duration);
+
+    /// <summary>
+    /// Creates the short color transition shared by Prime buttons and tabs.
+    /// The transition deliberately excludes geometry and transforms: hover
+    /// and press feedback must never move controls or change their measured
+    /// size. Reduced motion returns before allocating the collection.
+    /// </summary>
+    public static Transitions? CreateInteractiveTransitions(bool reducedMotion,
+        TimeSpan? duration = null)
+    {
+        if (reducedMotion)
+            return null;
+
+        TimeSpan resolvedDuration = NormalizeDuration(duration ?? FastDuration);
+        return new Transitions
+        {
+            new BrushTransition
+            {
+                Property = Avalonia.Controls.Primitives.TemplatedControl.BackgroundProperty,
+                Duration = resolvedDuration,
+                Easing = new CubicEaseOut()
+            },
+            new BrushTransition
+            {
+                Property = Avalonia.Controls.Primitives.TemplatedControl.BorderBrushProperty,
+                Duration = resolvedDuration,
+                Easing = new CubicEaseOut()
+            },
+            new BrushTransition
+            {
+                Property = Avalonia.Controls.Primitives.TemplatedControl.ForegroundProperty,
+                Duration = resolvedDuration,
+                Easing = new CubicEaseOut()
+            }
+        };
+    }
+
+    public static Transitions? CreateInteractiveTransitions(
+        TimeSpan? duration = null)
+        => CreateInteractiveTransitions(ReducedMotion, duration);
+
+    /// <summary>
+    /// Creates the matching surface transition for cards and status rows.
+    /// Only paint properties are animated; border thickness, padding, and
+    /// transforms remain fixed so selection feedback cannot reflow a route.
+    /// </summary>
+    public static Transitions? CreateSurfaceTransitions(bool reducedMotion,
+        TimeSpan? duration = null)
+    {
+        if (reducedMotion)
+            return null;
+
+        TimeSpan resolvedDuration = NormalizeDuration(duration ?? FastDuration);
+        return new Transitions
+        {
+            new BrushTransition
+            {
+                Property = Border.BackgroundProperty,
+                Duration = resolvedDuration,
+                Easing = new CubicEaseOut()
+            },
+            new BrushTransition
+            {
+                Property = Border.BorderBrushProperty,
+                Duration = resolvedDuration,
+                Easing = new CubicEaseOut()
+            }
+        };
+    }
+
+    public static Transitions? CreateSurfaceTransitions(
+        TimeSpan? duration = null)
+        => CreateSurfaceTransitions(ReducedMotion, duration);
+
+    /// <summary>
+    /// Runs one low-opacity scan across a dedicated route overlay. It uses the
+    /// same bounded transition system as every other Prime effect and creates
+    /// no lease or animation objects when reduced motion is enabled.
+    /// </summary>
+    public static PrimeScanAccentLease? AnimateScan(Control control,
+        double distance, bool? reducedMotion = null)
+    {
+        ArgumentNullException.ThrowIfNull(control);
+        if (reducedMotion ?? ReducedMotion)
+        {
+            control.Opacity = 0;
+            return null;
+        }
+        if (!Double.IsFinite(distance) || distance <= 0)
+            throw new ArgumentOutOfRangeException(nameof(distance));
+        return new PrimeScanAccentLease(control, distance, MaximumDuration);
+    }
 
     /// <summary>
     /// Starts an optional fade/translation when the control is attached. The
@@ -385,5 +478,100 @@ public sealed class PrimeMotionLease : IDisposable
         _control.Opacity = 1;
         _motionTransform.X = 0;
         _motionTransform.Y = 0;
+    }
+}
+
+/// <summary>Owns one non-repeating route scan accent.</summary>
+public sealed class PrimeScanAccentLease : IDisposable
+{
+    private readonly Control _control;
+    private readonly double _distance;
+    private readonly ITransform? _previousTransform;
+    private readonly Transitions? _previousControlTransitions;
+    private readonly double _previousOpacity;
+    private readonly TranslateTransform _translation;
+    private readonly Transitions? _previousTransformTransitions;
+    private readonly Transitions _opacityTransitions;
+    private readonly Transitions _translationTransitions;
+    private bool _started;
+    private bool _disposed;
+
+    internal PrimeScanAccentLease(Control control, double distance,
+        TimeSpan duration)
+    {
+        _control = control;
+        _distance = distance;
+        _previousTransform = control.RenderTransform;
+        _previousControlTransitions = control.Transitions;
+        _previousOpacity = control.Opacity;
+        _translation = new TranslateTransform();
+        _previousTransformTransitions = _translation.Transitions;
+        _opacityTransitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = Visual.OpacityProperty,
+                Duration = duration,
+                Easing = new CubicEaseOut()
+            }
+        };
+        _translationTransitions = new Transitions
+        {
+            new DoubleTransition
+            {
+                Property = TranslateTransform.YProperty,
+                Duration = duration,
+                Easing = new CubicEaseOut()
+            }
+        };
+
+        control.Transitions = null;
+        control.RenderTransform = _translation;
+        control.Opacity = 0.12;
+        _translation.Y = 0;
+        control.DetachedFromVisualTree += Detached;
+        if (control.IsAttachedToVisualTree()) Start();
+        else control.AttachedToVisualTree += Attached;
+    }
+
+    public bool IsStarted => _started;
+    public bool IsDisposed => _disposed;
+
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+        _control.AttachedToVisualTree -= Attached;
+        _control.DetachedFromVisualTree -= Detached;
+        if (ReferenceEquals(_control.Transitions, _opacityTransitions))
+            _control.Transitions = _previousControlTransitions;
+        if (ReferenceEquals(_translation.Transitions, _translationTransitions))
+            _translation.Transitions = _previousTransformTransitions;
+        if (ReferenceEquals(_control.RenderTransform, _translation))
+            _control.RenderTransform = _previousTransform as Transform;
+        _control.Opacity = _previousOpacity;
+    }
+
+    private void Attached(object? sender, VisualTreeAttachmentEventArgs args)
+    {
+        _control.AttachedToVisualTree -= Attached;
+        Start();
+    }
+
+    private void Detached(object? sender, VisualTreeAttachmentEventArgs args)
+        => Dispose();
+
+    private void Start()
+    {
+        if (_started || _disposed) return;
+        _started = true;
+        _control.Transitions = _opacityTransitions;
+        _translation.Transitions = _translationTransitions;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (_disposed) return;
+            _control.Opacity = 0;
+            _translation.Y = _distance;
+        }, DispatcherPriority.Render);
     }
 }

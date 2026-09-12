@@ -51,7 +51,7 @@ internal sealed class PostMatchSession : IDisposable
         _play = play ?? throw new ArgumentNullException(nameof(play));
         _inputOwner = inputOwner ?? throw new ArgumentNullException(nameof(inputOwner));
         _completedMatch = completedMatch;
-        _view = new PostMatchView(results, AuthoritativePlay.Current?.LocalSlot ?? -1);
+        _view = new PostMatchView(results, play.Online.Match?.Play?.LocalSlot ?? -1);
         _view.VoteRequested += Vote;
         _view.HunterRequested += SelectHunter;
         _view.LeaveRequested += Leave;
@@ -131,9 +131,9 @@ internal sealed class PostMatchSession : IDisposable
             CloseForTransition();
             return;
         }
-        if (_pump == null) GamepadDesktop.PollForMenu();
+        if (_pump == null) GamepadInput.PollPlatformForMenu();
         PollGamepad();
-        if (NodeSessions.Current?.Connected != true)
+        if (_play.Online.Node?.Connected != true)
         {
             Failure = "Connection lost.";
             Transition = PostMatchTransition.Lobby;

@@ -239,7 +239,7 @@ public sealed class Ui4ShellCorrectnessTests
         AssertSourceExcludes("src/Client/Launcher/Gui/PostMatchWindow.cs",
             "Node connection lost. Reconnect to continue.");
         AssertSourceExcludes(
-            "src/Client/Launcher/Shell/Results/PostMatchResultsModel.cs",
+            "src/Client.Core/Launcher/Shell/Results/PostMatchResultsModel.cs",
             "Node's immutable Worker result");
         AssertSourceExcludes("src/Client/Launcher/Gui/UiCapture.cs",
             "Project Prime Backend", "capture Backend", "The Node directory",

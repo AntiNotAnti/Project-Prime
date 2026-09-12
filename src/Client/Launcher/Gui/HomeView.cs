@@ -55,7 +55,8 @@ namespace MphRead.Mods.Launcher.Gui
         // same canonical controller/runtime pair alive behind it so the old
         // overlay cannot grow its own account, directory, or lobby owner.
         private readonly PrimeShellState _classicShell = new();
-        private readonly ClientOnlineRuntime _classicOnline = new(enabled: false);
+        private readonly ClientOnlineRuntime _classicOnline;
+        private readonly bool _ownsOnline;
         private readonly PlayController _classicPlay;
 
         private readonly ProgressRow _setupProgress = new();
@@ -83,10 +84,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         /// <summary>The same narrow transition boundary used by the shell.</summary>
         internal IMatchTransitionMenuActions TransitionMenuActions => _classicPlay;
+        internal ClientOnlineRuntime Online => _classicOnline;
 
-        public HomeView(MenuSettings settings, IReadOnlyList<string> rooms)
+        public HomeView(MenuSettings settings, IReadOnlyList<string> rooms,
+            ClientOnlineRuntime? onlineRuntime = null)
         {
             _settings = settings;
+            ClientOnlineRuntime? existingOnline = onlineRuntime ?? ClientOnlineRuntime.Current;
+            _classicOnline = existingOnline ?? new ClientOnlineRuntime();
+            _ownsOnline = existingOnline == null;
             foreach (string room in rooms)
             {
                 _playable.Add(room);
@@ -325,7 +331,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _observingUpdates = false;
             }
             await _classicPlay.DisposeAsync().ConfigureAwait(false);
-            await _classicOnline.DisposeAsync().ConfigureAwait(false);
+            if (_ownsOnline) await _classicOnline.DisposeAsync().ConfigureAwait(false);
             _classicShell.Dispose();
         }
 
