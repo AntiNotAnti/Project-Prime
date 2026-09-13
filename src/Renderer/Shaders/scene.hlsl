@@ -16,7 +16,8 @@ cbuffer FrameConstants : register(b0, space1)
 cbuffer FrameConstants : register(b0, space3)
 {
     float4 fog;          // rgb colour, a enabled
-    float4 frameOptions; // x fog, y cel bands, z enhanced per-pixel lighting, w lighting
+    // y: 0 original, positive cel bands, -1 flat, -2 pixelated, -3 retro
+    float4 frameOptions;
     float4 fogRange;     // x minimum depth, y maximum depth
     float4 cameraWorldPosition;
     float4 visualLightPositionRadius[32];
@@ -299,6 +300,47 @@ float3 SRGBToLinear(float3 value)
 {
     return float3(SRGBToLinearComponent(value.r),
         SRGBToLinearComponent(value.g), SRGBToLinearComponent(value.b));
+}
+
+float LinearToSRGBComponent(float value)
+{
+    value = max(value, 0.0f);
+    return value <= 0.0031308f ? value * 12.92f
+        : 1.055f * pow(value, 1.0f / 2.4f) - 0.055f;
+}
+
+float3 LinearToSRGB(float3 value)
+{
+    return float3(LinearToSRGBComponent(value.r),
+        LinearToSRGBComponent(value.g), LinearToSRGBComponent(value.b));
+}
+
+float2 styled_texture_uv(float2 uv)
+{
+    if (frameOptions.y > -1.5f || frameOptions.y < -2.5f) return uv;
+    uint width;
+    uint height;
+    sceneTexture.GetDimensions(width, height);
+    float2 dimensions = max(float2(width, height), float2(1.0f, 1.0f));
+    return (floor(uv * dimensions) + 0.5f) / dimensions;
+}
+
+float bayer4(float2 pixelPosition)
+{
+    uint x = ((uint)pixelPosition.x) & 3u;
+    uint y = ((uint)pixelPosition.y) & 3u;
+    if (y == 0u) return x == 0u ? 0.0f : x == 1u ? 8.0f : x == 2u ? 2.0f : 10.0f;
+    if (y == 1u) return x == 0u ? 12.0f : x == 1u ? 4.0f : x == 2u ? 14.0f : 6.0f;
+    if (y == 2u) return x == 0u ? 3.0f : x == 1u ? 11.0f : x == 2u ? 1.0f : 9.0f;
+    return x == 0u ? 15.0f : x == 1u ? 7.0f : x == 2u ? 13.0f : 5.0f;
+}
+
+float3 retro_color(float3 color, float2 pixelPosition, bool linearColor)
+{
+    float3 displayColor = linearColor ? LinearToSRGB(color) : color;
+    float dither = ((bayer4(pixelPosition) + 0.5f) / 16.0f - 0.5f) / 31.0f;
+    displayColor = floor(saturate(displayColor + dither) * 31.0f + 0.5f) / 31.0f;
+    return linearColor ? SRGBToLinear(displayColor) : displayColor;
 }
 
 float PresentationNoise(float2 coordinate)
@@ -595,8 +637,9 @@ float4 main_ps(VertexOutput input) : SV_Target0
         : saturate(surfaceColor + visualLighting);
 
     bool useTexture = drawOptions.x > 0.5f;
+    float2 textureUv = styled_texture_uv(input.texcoord);
     float4 textureColor = useTexture
-        ? sceneTexture.Sample(sceneSampler, input.texcoord)
+        ? sceneTexture.Sample(sceneSampler, textureUv)
         : float4(1.0f, 1.0f, 1.0f, 1.0f);
     if (drawOptions.z > 0.5f)
     {
@@ -771,6 +814,12 @@ float4 main_ps(VertexOutput input) : SV_Target0
         // Keep emission after lit-surface processing. Future ambient occlusion
         // must modulate the lit surface before this additive term.
         result.rgb += materialEmission;
+    }
+
+    if (frameOptions.y < -2.5f)
+    {
+        result.rgb = retro_color(result.rgb, input.position.xy,
+            enhancedPerPixel);
     }
 
     if (frameOptions.x > 0.5f)

@@ -204,7 +204,7 @@ public sealed class DirectionalShadowPolicyTests
     public void RendererRequiresEnhancedLightingBeforeCapturingShadows()
     {
         string renderer = File.ReadAllText(Path.Combine(FindRepositoryRoot(),
-            "src", "Client", "Rendering", "Renderer.cs"));
+            "src", "Client.Presentation", "Rendering", "Renderer.cs"));
         Assert.Contains("frameQuality.GraphicsPreset == Mods.GraphicsPreset.Enhanced\n"
             + "                && LightingOn", renderer,
             StringComparison.Ordinal);

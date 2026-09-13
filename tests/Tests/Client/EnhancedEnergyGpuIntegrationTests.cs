@@ -134,7 +134,7 @@ public sealed class EnhancedEnergyGpuIntegrationTests
     [Fact]
     public void AllEvidenceBackedTrailBuildersAttachBeamMetadata()
     {
-        string presentation = ReadRepositoryFile("src", "Client",
+        string presentation = ReadRepositoryFile("src", "Client.Presentation",
             "Rendering", "Entities", "BeamProjectileEntityPresentation.cs");
         Assert.Equal(4, presentation.Split(
             "enhancedBeam: GetEnhancedBeamDrawState()",

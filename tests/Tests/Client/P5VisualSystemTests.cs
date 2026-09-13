@@ -226,7 +226,7 @@ public sealed class P5VisualSystemTests
     public void XamlAndCodeBuiltPalettesStaySynchronized()
     {
         Dictionary<string, XElement> palette = LoadElements(
-            "src/Client/Launcher/Theme/PrimeColors.axaml", "SolidColorBrush");
+            "src/Client.Presentation/Launcher/Theme/PrimeColors.axaml", "SolidColorBrush");
 
         AssertBrushColor(palette, "PrimeBackgroundBrush", GuiTheme.Ink);
         AssertBrushColor(palette, "PrimePrimarySurfaceBrush", GuiTheme.Panel);
@@ -262,10 +262,10 @@ public sealed class P5VisualSystemTests
     public void ThemeStylesKeepBrandTechSelectionAndFocusDistinct()
     {
         Dictionary<string, XElement> controls = LoadElements(
-            "src/Client/Launcher/Theme/PrimeControls.axaml", "Style",
+            "src/Client.Presentation/Launcher/Theme/PrimeControls.axaml", "Style",
             "Selector");
         Dictionary<string, XElement> typography = LoadElements(
-            "src/Client/Launcher/Theme/PrimeTypography.axaml", "Style",
+            "src/Client.Presentation/Launcher/Theme/PrimeTypography.axaml", "Style",
             "Selector");
 
         AssertSetter(controls, ":is(Button).prime-button", "Background",
@@ -313,9 +313,9 @@ public sealed class P5VisualSystemTests
             "{DynamicResource PrimeBrandBrush}");
 
         Assert.DoesNotContain("PrimeAccent", File.ReadAllText(FindRepositoryFile(
-            "src/Client/Launcher/Theme/PrimeControls.axaml")));
+            "src/Client.Presentation/Launcher/Theme/PrimeControls.axaml")));
         Assert.DoesNotContain("PrimeAccent", File.ReadAllText(FindRepositoryFile(
-            "src/Client/Launcher/Theme/PrimeTypography.axaml")));
+            "src/Client.Presentation/Launcher/Theme/PrimeTypography.axaml")));
     }
 
     [AvaloniaFact]
@@ -366,7 +366,7 @@ public sealed class P5VisualSystemTests
     public void PlayerFacingResourceCopyExcludesInternalTerminology()
     {
         XDocument resource = XDocument.Load(FindRepositoryFile(
-            "src/Client/Launcher/Resources/PrimeUiCopy.resx"));
+            "src/Client.Presentation/Launcher/Resources/PrimeUiCopy.resx"));
         string copy = String.Join("\n", resource.Descendants()
             .Where(element => element.Name.LocalName == "value")
             .Select(element => element.Value));

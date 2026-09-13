@@ -3,6 +3,7 @@ using MphRead.Entities;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using ProjectPrime.Server.Shared;
 using MapPreparation = MphRead.Mods.MapGen.MapPreparation;
@@ -16,7 +17,8 @@ namespace MphRead.Droid
     internal static class AndroidMatch
     {
         /// <summary>Runs on the GL thread: everything below it touches GL.</summary>
-        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close)
+        public static Scene Build(AndroidInput input, Vector2i size, LaunchPlan plan, Action close,
+            FrameTiming timing)
         {
             plan.Validate();
             ClientOnlineRuntime? runtime = ClientOnlineRuntime.Current;
@@ -28,7 +30,7 @@ namespace MphRead.Droid
             AndroidMaps.RefreshCatalog();
             if (plan.Kind == LaunchKind.Replay)
             {
-                return BuildReplay(input, size, plan, close, runtime);
+                return BuildReplay(input, size, plan, close, runtime, timing);
             }
             (string RoomKey, GameMode Mode)? room = NetLaunch.ServerRoom();
             if (room == null || String.IsNullOrWhiteSpace(room.Value.RoomKey))
@@ -47,7 +49,8 @@ namespace MphRead.Droid
                 .GetAwaiter().GetResult();
             MapPreparation.RequirePreparedRoom(preparation);
             var scene = new Scene(features: ClientMatchFeatures.Capture());
-            var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse, _ => { }, close);
+            var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse,
+                _ => { }, close, timing);
             bool teamPlay = room.Value.Mode.IsTeamMode();
             NetLaunch.BuildPlayers(scene, plan.Hunter, localRecolor: 0,
                 teamId: teamPlay ? 0 : -1);
@@ -75,7 +78,7 @@ namespace MphRead.Droid
         /// for the run about to start.
         /// </summary>
         private static Scene BuildReplay(AndroidInput input, Vector2i size,
-            LaunchPlan plan, Action close, ClientOnlineRuntime? runtime)
+            LaunchPlan plan, Action close, ClientOnlineRuntime? runtime, FrameTiming timing)
         {
             if (!ReplayLaunchCoordinator.TryStart(plan, out string? replayError))
             {
@@ -105,7 +108,7 @@ namespace MphRead.Droid
             MapPreparation.RequirePreparedRoom(preparation);
             var scene = new Scene(features: ClientMatchFeatures.Capture());
             var presentation = new ScenePresentation(scene, size, input.Keyboard, input.Mouse,
-                _ => { }, close,
+                _ => { }, close, timing,
                 runtime?.Match is { } match ? new ClientSceneServices(match, runtime.Node) : null);
             NetLaunch.BuildPlayers(scene, Hunter.Samus, localRecolor: 0, teamId: -1, localSlot: -1);
             presentation.AddRoom(room.Value.RoomKey, room.Value.Mode, playerCount: NetLaunch.RoomPlayerCount);

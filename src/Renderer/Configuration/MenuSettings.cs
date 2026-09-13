@@ -54,8 +54,14 @@ namespace MphRead
         public string RadarRange { get; set; } = "40";
         public string RadarOpacity { get; set; } = "1.0";
         public string RadarElevationIndicators { get; set; } = "on";
+        public string? RadarProfileJson { get; set; }
+        public string? RadarModeProfilesJson { get; set; }
+        public string? RadarDeviceProfilesJson { get; set; }
         public string ShowFps { get; set; } = "off";
         public string FrameRateCap { get; set; } = "display";
+        public string? VisualStyle { get; set; }
+        public string? TexturePack { get; set; }
+        // Migration key for settings written before VisualStyle existed.
         public string CelShading { get; set; } = "off";
         public string CelBands { get; set; } = "8";
         public string CelEdge { get; set; } = "50";

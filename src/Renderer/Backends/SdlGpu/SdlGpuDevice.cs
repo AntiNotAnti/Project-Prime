@@ -4,6 +4,43 @@ using SDL;
 
 namespace MphRead
 {
+    internal static unsafe class SdlGpuSamplerBindingAbi
+    {
+        // SDL 3.4.16's D3D12 backend checks only whether its 2,048-entry
+        // sampler heap is already full before copying a complete binding
+        // batch. Use one divisor-sized batch for every sampler-bearing shader
+        // so no draw can begin a copy that crosses the native heap boundary.
+        public const int D3D12BatchSize = 8;
+
+        public static int BindingCountForDriver(string driver,
+            int shaderSamplerCount)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(shaderSamplerCount);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(shaderSamplerCount,
+                D3D12BatchSize);
+            if (shaderSamplerCount == 0) return 0;
+            return driver.Equals("direct3d12", StringComparison.OrdinalIgnoreCase)
+                ? D3D12BatchSize : shaderSamplerCount;
+        }
+
+        public static void Pad(SDL_GPUTextureSamplerBinding* bindings,
+            int populatedCount, int bindingCount, SDL_GPUTexture* fallbackTexture,
+            SDL_GPUSampler* fallbackSampler)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(populatedCount);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(populatedCount,
+                bindingCount);
+            for (int i = populatedCount; i < bindingCount; i++)
+            {
+                bindings[i] = new SDL_GPUTextureSamplerBinding
+                {
+                    texture = fallbackTexture,
+                    sampler = fallbackSampler
+                };
+            }
+        }
+    }
+
     /// <summary>
     /// SDL GPU device lifetime and capability discovery. The window is claimed
     /// here on the calling thread; no worker thread may create or claim an SDL

@@ -112,7 +112,7 @@ public sealed class TransientVisualLightPresentationIntegrationTests
     {
         string root = FindRepositoryRoot();
         string source = File.ReadAllText(Path.Combine(root,
-            "src", "Client", "Rendering", "Renderer.cs"));
+            "src", "Client.Presentation", "Rendering", "Renderer.cs"));
         int draw = source.IndexOf("public void OnDrawFrame()",
             StringComparison.Ordinal);
         int getDrawItems = source.IndexOf("GetDrawItems();", draw,
@@ -130,7 +130,7 @@ public sealed class TransientVisualLightPresentationIntegrationTests
             source[draw..submit], StringComparison.Ordinal);
 
         string combatPresentation = File.ReadAllText(Path.Combine(root,
-            "src", "Client", "Presentation", "Players",
+            "src", "Client.Presentation", "Presentation", "Players",
             "PresentationPlayerEntityCombat.cs"));
         int muzzleAdmission = combatPresentation.IndexOf(
             "TransientVisualLightSourceKind.MuzzleFlash, value.Id",

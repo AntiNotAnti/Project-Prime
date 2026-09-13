@@ -61,18 +61,42 @@ namespace MphRead
 
     internal static class SdlGpuCelSurface
     {
+        public static VisualStyle Style(RenderFrameOptions options)
+            => options.VisualStyle
+                ?? (options.CelShading ? VisualStyle.Cel : VisualStyle.Original);
+
+        // Positive values retain the existing cel-band ABI. Negative values
+        // identify the other mutually exclusive shader styles without adding
+        // another frame constant.
+        public static int ShaderStyleCode(RenderFrameOptions options)
+            => Style(options) switch
+            {
+                VisualStyle.Cel => Math.Clamp(options.CelBands, 2, 8),
+                VisualStyle.Flat => -1,
+                VisualStyle.Pixelated => -2,
+                VisualStyle.Retro => -3,
+                _ => 0
+            };
+
+        // Compatibility name retained for focused renderer tests and callers
+        // that only need to know whether cel banding is active.
         public static int BandCount(RenderFrameOptions options)
-            => options.CelShading ? options.CelBands : 0;
+            => ShaderStyleCode(options) > 0 ? ShaderStyleCode(options) : 0;
+
+        public static bool UsesEnhancedTextures(RenderFrameOptions options)
+            => options.EnhancedTextures
+                ?? options.Quality.GraphicsPreset == GraphicsPreset.Enhanced;
 
         public static bool TryGetFlatColor(RenderFrameOptions options,
             IReadOnlyDictionary<TextureIdentity, RenderTexturePixels> textures,
             RenderMaterial material, out Vector3 color)
         {
-            TextureIdentity? requested = options.Quality.GraphicsPreset
-                == GraphicsPreset.Enhanced
+            TextureIdentity? requested = UsesEnhancedTextures(options)
                     ? material.Enhanced?.Albedo ?? material.Texture
                     : material.Texture;
-            if (options.CelShading && options.ShowTextures && material.Textured
+            VisualStyle style = Style(options);
+            if (style is VisualStyle.Cel or VisualStyle.Flat
+                && options.ShowTextures && material.Textured
                 && requested is TextureIdentity identity
                 && textures.TryGetValue(identity, out RenderTexturePixels? pixels))
             {
@@ -82,6 +106,15 @@ namespace MphRead
             color = Vector3.One;
             return false;
         }
+    }
+
+    internal static class SdlGpuVisualStyleSampler
+    {
+        public static SamplerKey From(RenderFrameOptions options,
+            RenderMaterial material)
+            => SdlGpuCelSurface.Style(options) == VisualStyle.Pixelated
+                ? SamplerKey.From(material, filtering: false)
+                : SamplerKey.From(material, options.Quality);
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -353,7 +386,7 @@ namespace MphRead
         public const int Shadow = 5;
         public const int SurfaceData = 6;
         public const int Count = 7;
-        public const int D3D12PaddedCount = 8;
+        public const int D3D12PaddedCount = SdlGpuSamplerBindingAbi.D3D12BatchSize;
 
         // SDL 3.4.16's D3D12 descriptor writer only checks whether a heap is
         // already full before copying a complete binding batch. Seven-entry
@@ -362,8 +395,7 @@ namespace MphRead
         // keeps every batch aligned with that pinned native heap while the
         // shader continues to consume the first seven slots.
         public static int BindingCountForDriver(string driver)
-            => driver.Equals("direct3d12", StringComparison.OrdinalIgnoreCase)
-                ? D3D12PaddedCount : Count;
+            => SdlGpuSamplerBindingAbi.BindingCountForDriver(driver, Count);
     }
 
     internal readonly record struct SdlGpuReflectionResourceConfiguration(
@@ -607,7 +639,7 @@ namespace MphRead
                     specializedFormat, Path.Combine(shaderDirectory,
                         $"depth_stencil.frag.{specializedSuffix}"), "main_ps",
                     SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
-                    samplers: 1, uniforms: 1);
+                    samplers: checked((uint)SamplerBindingCount(1)), uniforms: 1);
                 var whiteIdentity = new TextureIdentity(this, variant: "white-fallback");
                 _whiteTexture = GpuTexture.Create(_device, new RenderTexturePixels(
                     whiteIdentity, 1, 1, new byte[] { 255, 255, 255, 255 }, onlyOpaque: true),
@@ -804,7 +836,7 @@ namespace MphRead
                     new Vector4(enhancedOutput
                             ? frame.EnhancedFog.Enabled ? 1 : 0
                             : frame.HasFog && frame.Options.Fog ? 1 : 0,
-                        SdlGpuCelSurface.BandCount(frame.Options),
+                        SdlGpuCelSurface.ShaderStyleCode(frame.Options),
                         SdlGpuEnhancedLightingPolicy.UsesPerPixelLighting(
                             frame.Options.Quality.GraphicsPreset) ? 1 : 0,
                         frame.Options.Lighting ? 1 : 0),
@@ -1481,7 +1513,7 @@ namespace MphRead
                 SDL_GPUShader* fragment = CreateShader(_device.Handle, format,
                     Path.Combine(directory, $"shadow.frag.{suffix}"), "main_ps",
                     SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
-                    samplers: 1, uniforms: 1);
+                    samplers: checked((uint)SamplerBindingCount(1)), uniforms: 1);
                 _shadowVertexShader = vertex;
                 _shadowFragmentShader = fragment;
             }
@@ -1540,6 +1572,9 @@ namespace MphRead
                 };
                 PushVertex(commandBuffer, 0, shadowFrame);
                 int encoded = 0;
+                int bindingCount = SamplerBindingCount(1);
+                SDL_GPUTextureSamplerBinding* bindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
                 foreach (DrawSubmission draw in frame.OpaqueItems)
                 {
                     if (!DirectionalShadowCasterPolicy.ShouldRender(draw)
@@ -1557,15 +1592,15 @@ namespace MphRead
                     SDL3.SDL_BindGPUIndexBuffer(pass, &index,
                         SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
                     GpuTexture albedo = ResolveBoundTexture(frame, draw);
-                    SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(
-                        draw.Material, frame.Options.Quality));
-                    SDL_GPUTextureSamplerBinding binding = new()
-                    {
-                        texture = albedo.Handle,
-                        sampler = sampler
-                    };
-                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
-                    SdlGpuTelemetryContext.SamplerBind(1);
+                    SDL_GPUSampler* sampler = GetSampler(
+                        SdlGpuVisualStyleSampler.From(frame.Options, draw.Material));
+                    bindings[0] = new()
+                        { texture = albedo.Handle, sampler = sampler };
+                    SdlGpuSamplerBindingAbi.Pad(bindings, 1, bindingCount,
+                        _whiteTexture!.Handle, sampler);
+                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                        checked((uint)bindingCount));
+                    SdlGpuTelemetryContext.SamplerBind(bindingCount);
                     LegacyDrawConstants constants = BuildLegacyDrawConstants(frame, draw,
                         RenderPassKind.Opaque, RenderTopology.Triangles);
                     PushVertex(commandBuffer, 1, constants);
@@ -1657,7 +1692,7 @@ namespace MphRead
                 $"surface.frag.{suffix}");
             _surfaceFragmentShader = CreateShader(_device.Handle, format, path,
                 "main_ps", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
-                samplers: 2, uniforms: 1);
+                samplers: checked((uint)SamplerBindingCount(2)), uniforms: 1);
         }
 
         private bool TryEncodeEnhancedSurface(SDL_GPUCommandBuffer* commandBuffer,
@@ -1759,14 +1794,18 @@ namespace MphRead
                 SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
             GpuTexture albedo = ResolveBoundTexture(frame, draw);
             GpuTexture normal = ResolveBoundNormalTexture(frame, draw);
-            SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
-                frame.Options.Quality));
+            SDL_GPUSampler* sampler = GetSampler(
+                SdlGpuVisualStyleSampler.From(frame.Options, draw.Material));
+            int bindingCount = SamplerBindingCount(2);
             SDL_GPUTextureSamplerBinding* bindings
-                = stackalloc SDL_GPUTextureSamplerBinding[2];
+                = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
             bindings[0] = new() { texture = albedo.Handle, sampler = sampler };
             bindings[1] = new() { texture = normal.Handle, sampler = sampler };
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
-            SdlGpuTelemetryContext.SamplerBind(2);
+            SdlGpuSamplerBindingAbi.Pad(bindings, 2, bindingCount,
+                _whiteTexture!.Handle, sampler);
+            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                checked((uint)bindingCount));
+            SdlGpuTelemetryContext.SamplerBind(bindingCount);
 
             LegacyDrawConstants constants = BuildLegacyDrawConstants(frame, draw,
                 RenderPassKind.Opaque, RenderTopology.Triangles);
@@ -2059,8 +2098,8 @@ namespace MphRead
             GpuTexture texture = ResolveBoundTexture(frame, draw);
             GpuTexture normalTexture = ResolveBoundNormalTexture(frame, draw);
             GpuTexture emissiveTexture = ResolveBoundEmissiveTexture(frame, draw);
-            SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
-                frame.Options.Quality));
+            SDL_GPUSampler* sampler = GetSampler(
+                SdlGpuVisualStyleSampler.From(frame.Options, draw.Material));
             SDL_GPUTextureSamplerBinding* bindings
                 = stackalloc SDL_GPUTextureSamplerBinding[_sceneSamplerBindingCount];
             bindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture.Handle, sampler = sampler };
@@ -2191,17 +2230,20 @@ namespace MphRead
             SDL3.SDL_BindGPUIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
             GpuTexture texture = ResolveBoundTexture(frame, draw);
-            SDL_GPUSampler* sampler = GetSampler(SamplerKey.From(draw.Material,
-                frame.Options.Quality));
+            SDL_GPUSampler* sampler = GetSampler(
+                SdlGpuVisualStyleSampler.From(frame.Options, draw.Material));
             if (specializedDepthStencil)
             {
-                SDL_GPUTextureSamplerBinding binding = new()
-                {
-                    texture = texture.Handle,
-                    sampler = sampler
-                };
-                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, &binding, 1);
-                SdlGpuTelemetryContext.SamplerBind(1);
+                int bindingCount = SamplerBindingCount(1);
+                SDL_GPUTextureSamplerBinding* bindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
+                bindings[0] = new()
+                    { texture = texture.Handle, sampler = sampler };
+                SdlGpuSamplerBindingAbi.Pad(bindings, 1, bindingCount,
+                    _whiteTexture!.Handle, sampler);
+                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                    checked((uint)bindingCount));
+                SdlGpuTelemetryContext.SamplerBind(bindingCount);
             }
             else
             {
@@ -2286,13 +2328,13 @@ namespace MphRead
         private void PadD3D12SceneSampler(SDL_GPUTextureSamplerBinding* bindings,
             SDL_GPUSampler* sampler)
         {
-            if (_sceneSamplerBindingCount == SdlGpuSceneSamplerAbi.Count) return;
-            bindings[SdlGpuSceneSamplerAbi.Count] = new()
-            {
-                texture = _whiteTexture!.Handle,
-                sampler = sampler
-            };
+            SdlGpuSamplerBindingAbi.Pad(bindings, SdlGpuSceneSamplerAbi.Count,
+                _sceneSamplerBindingCount, _whiteTexture!.Handle, sampler);
         }
+
+        private int SamplerBindingCount(int shaderSamplerCount)
+            => SdlGpuSamplerBindingAbi.BindingCountForDriver(_device.Driver,
+                shaderSamplerCount);
 
         private LegacyDrawConstants BuildLegacyDrawConstants(RenderFrame frame, DrawSubmission draw,
             RenderPassKind passKind, RenderTopology topology, float bloomStrength = 0)
@@ -2602,7 +2644,7 @@ namespace MphRead
 
         private static TextureIdentity? ResolveAlbedoIdentity(RenderFrame frame,
             RenderMaterial material)
-            => frame.Options.Quality.GraphicsPreset == GraphicsPreset.Enhanced
+            => SdlGpuCelSurface.UsesEnhancedTextures(frame.Options)
                 && material.Enhanced?.Albedo is TextureIdentity enhanced
                     ? enhanced : material.Texture;
 

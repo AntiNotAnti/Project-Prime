@@ -179,14 +179,19 @@ namespace MphRead
                 SdlGpuTelemetryContext.PipelineBind();
                 SDL_GPUBufferBinding vertex = new() { buffer = _quadBuffer };
                 SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
+                int bindingCount = SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                    _device.Driver, 2);
                 SDL_GPUTextureSamplerBinding* bindings
-                    = stackalloc SDL_GPUTextureSamplerBinding[2];
+                    = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
                 bindings[0] = new() { texture = surface,
                     sampler = (SDL_GPUSampler*)sampler };
                 bindings[1] = new() { texture = occlusion,
                     sampler = (SDL_GPUSampler*)sampler };
-                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
-                SdlGpuTelemetryContext.SamplerBind(2);
+                SdlGpuSamplerBindingAbi.Pad(bindings, 2, bindingCount,
+                    surface, (SDL_GPUSampler*)sampler);
+                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                    checked((uint)bindingCount));
+                SdlGpuTelemetryContext.SamplerBind(bindingCount);
                 SsaoConstants constants = new()
                 {
                     InverseProjection = SdlGpuMatrixAbi.Upload(
@@ -272,7 +277,9 @@ namespace MphRead
             {
                 _fragmentShader = CreateShader(format,
                     Path.Combine(directory, $"ssao.frag.{suffix}"), "main_ps",
-                    SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, 2, 1);
+                    SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                    checked((uint)SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                        _device.Driver, 2)), 1);
             }
             if (_quadBuffer == null)
             {

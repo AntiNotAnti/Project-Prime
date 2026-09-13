@@ -180,7 +180,7 @@ public sealed class ImpactDecalRuntimeIntegrationTests
         Assert.Contains("staticRoomCollision", beam[staticBranch..notification],
             StringComparison.Ordinal);
 
-        string renderer = File.ReadAllText(Path.Combine(root, "src", "Client",
+        string renderer = File.ReadAllText(Path.Combine(root, "src", "Client.Presentation",
             "Rendering", "Renderer.cs"));
         int draw = renderer.IndexOf("public void OnDrawFrame()",
             StringComparison.Ordinal);
@@ -202,7 +202,7 @@ public sealed class ImpactDecalRuntimeIntegrationTests
         }, RenderWorldPlan.Passes.ToArray().Select(pass => pass.Kind));
 
         string integration = File.ReadAllText(Path.Combine(root, "src",
-            "Client", "Rendering", "ScenePresentation.ImpactDecals.cs"));
+            "Client.Presentation", "Rendering", "ScenePresentation.ImpactDecals.cs"));
         Assert.Contains("submission.RenderMode = RenderMode.Decal;", integration,
             StringComparison.Ordinal);
         Assert.Contains("_renderFrame.CaptureTexture(item.Texture.Pixels);",

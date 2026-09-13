@@ -15,6 +15,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 
 namespace MphRead.Droid
 {
@@ -56,6 +57,7 @@ namespace MphRead.Droid
         private volatile bool _renderingHere;
         private readonly TouchControls _controls = new TouchControls();
         private readonly MphRead.Mods.Input.StylusInput _stylus = new();
+        private readonly FrameTiming _frameTiming = new();
         private ScreenOrientation _orientationBefore = ScreenOrientation.Unspecified;
         private IDisposable? _playLease;
 
@@ -952,8 +954,9 @@ namespace MphRead.Droid
                 ReleasePlayLease();
                 return;
             }
-            _gameView = new GameView(this, _controls, _stylus, input,
-                (i, size) => AndroidMatch.Build(i, size, plan, () => RunOnUiThread(EndMatch)),
+            _gameView = new GameView(this, _controls, _stylus, input, _frameTiming,
+                (i, size, timing) => AndroidMatch.Build(i, size, plan,
+                    () => RunOnUiThread(EndMatch), timing),
                 () => RunOnUiThread(EndMatch),
                 () => RunOnUiThread(MatchLoaded),
                 error => RunOnUiThread(() => FailMatch(error)),

@@ -279,6 +279,18 @@ public sealed class VisualEnhancementTests
         Assert.Equal(8, SdlGpuSceneSamplerAbi.BindingCountForDriver("DIRECT3D12"));
         Assert.Equal(7, SdlGpuSceneSamplerAbi.BindingCountForDriver("vulkan"));
         Assert.Equal(7, SdlGpuSceneSamplerAbi.BindingCountForDriver("metal"));
+        Assert.Equal(0,
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("direct3d12", 0));
+        Assert.Equal(8,
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("direct3d12", 1));
+        Assert.Equal(8,
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("direct3d12", 2));
+        Assert.Equal(8,
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("direct3d12", 6));
+        Assert.Equal(2,
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("vulkan", 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SdlGpuSamplerBindingAbi.BindingCountForDriver("direct3d12", 9));
 
         RenderQualitySnapshot enhanced = new(GraphicsPreset.Enhanced,
             TextureFilteringPreset.Enhanced, AnisotropyLevel.X4, MsaaLevel.X4,

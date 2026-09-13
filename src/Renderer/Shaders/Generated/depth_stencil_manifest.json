@@ -4,7 +4,7 @@
       "entrypoint": "main_ps",
       "format": "DXIL",
       "path": "depth_stencil.frag.dxil",
-      "sha256": "b0b98075e8c3f2392d31c715079f477176c2144733bc6ed518b5486eee27bc35",
+      "sha256": "9672e10b2aa28e819c2e5653bfd9bc18847fc8f3bdea7dbd91a7a99bfb3c1d72",
       "stage": "fragment"
     },
     "fragment_msl": {
@@ -25,7 +25,7 @@
       "entrypoint": "main_vs",
       "format": "DXIL",
       "path": "depth_stencil.vert.dxil",
-      "sha256": "d0e49ad92dc798a974f207ca912fec8761d1f4ee2da95261c1c58656bcb73fa2",
+      "sha256": "e0af41293752f6510b606de3f0da836ee662697712eaf53df3d7a751d3ecdc8f",
       "stage": "vertex"
     },
     "vertex_msl": {
@@ -48,7 +48,7 @@
   },
   "provenance": {
     "cli": "SDL_shadercross official cli.c",
-    "cli_sha256": "9a40050cd515710428a46d2975c17f930bc6022ac96b79a8bffba3c9caf93d27",
+    "cli_sha256": "1f11762a7d77d9304a713bd28c43f8e893ba1f18612b3754b770b1560ac4873f",
     "mode": "offline-build-only",
     "msl_version": "1.2.0 (SDL_shadercross default)",
     "native_package": "SDL3-CS.MacOS.Shadercross",

@@ -3,22 +3,22 @@
     "fragment_dxil": {
       "format": "DXIL",
       "path": "scene.frag.dxil",
-      "sha256": "ea6b71bb90a76a78a832f9f9d89e5d684f31d9e5d44f51ecc65981e82da2b2c4"
+      "sha256": "9cb3e79ab20fd6cb6ad29ccbf14fd20c176761970b500c255cb435696611027d"
     },
     "fragment_msl": {
       "format": "MSL",
       "path": "scene.frag.msl",
-      "sha256": "b49fafb2c69e8151d69664b14e642c1b61204df77a2c3ce9e4dd60f81267da6e"
+      "sha256": "cd6e0f3d524f38fcfec27542300a255e0a86e1203e614396b1da57bae2839553"
     },
     "fragment_spirv": {
       "format": "SPIRV",
       "path": "scene.frag.spv",
-      "sha256": "fdcad18bf3a8b9fd6bbe6eb4fc588ec7aed8e77302676f716740a57f7da692a5"
+      "sha256": "769f6ecfad1a407d8e51f4de22a4604b96f82dc366616524e339f1e02ed9ff40"
     },
     "vertex_dxil": {
       "format": "DXIL",
       "path": "scene.vert.dxil",
-      "sha256": "f4b25f9ac86d93b5c43ff53ce0529fd048d38a2a6975b1331e195d253c299cb4"
+      "sha256": "3a5901505b19807eab5028bffe2465660aae7345b6d71146b9603390088177ad"
     },
     "vertex_msl": {
       "format": "MSL",
@@ -36,7 +36,7 @@
   },
   "provenance": {
     "cli": "SDL_shadercross official cli.c",
-    "cli_sha256": "9a40050cd515710428a46d2975c17f930bc6022ac96b79a8bffba3c9caf93d27",
+    "cli_sha256": "1f11762a7d77d9304a713bd28c43f8e893ba1f18612b3754b770b1560ac4873f",
     "mode": "offline-build-only",
     "msl_version": "1.2.0 (SDL_shadercross default)",
     "native_package": "SDL3-CS.MacOS.Shadercross",
@@ -49,5 +49,5 @@
   },
   "schema": 2,
   "source": "scene.hlsl",
-  "source_sha256": "579225863870546cfaa1f7f442056bc8728969bfde37c860962dc2f51f4e6fef"
+  "source_sha256": "b594eb5d3c5eff99ef3f9ae6fb33913503c35fa4bfd5d8cb06a71c9b73ce72a7"
 }

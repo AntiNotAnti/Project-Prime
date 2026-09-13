@@ -106,7 +106,8 @@ namespace MphRead.Droid
                 // the scene local player's camera info.
                 scene = new Scene(features: ClientMatchFeatures.Capture());
                 var presentation = new ScenePresentation(scene, new Vector2i(width, height),
-                    input.Keyboard, input.Mouse, _ => { }, () => { });
+                    input.Keyboard, input.Mouse, _ => { }, () => { },
+                    new MphRead.Mods.Render.FrameTiming());
                 scene.AddPlayer(Hunter.Samus, recolor: 0, team: -1);
                 presentation.AddRoom(room, GameMode.Battle, playerCount: 1);
                 presentation.OnLoad();

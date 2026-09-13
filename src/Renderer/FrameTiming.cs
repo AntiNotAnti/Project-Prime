@@ -29,10 +29,10 @@ namespace MphRead.Mods.Render
     /// steps that are owed regardless of how long the frame took, up to
     /// <see cref="MaxCatchUpSteps"/>.
     /// </summary>
-    public static class FrameTiming
+    public sealed class FrameTiming
     {
         /// <summary>The rate the simulation runs at, and the only one it can.</summary>
-        public const int SimulationHz = 60;
+        public const int SimulationHz = MphRead.SimTicks.Hz;
 
         public const double StepSeconds = 1.0 / SimulationHz;
 
@@ -84,10 +84,10 @@ namespace MphRead.Mods.Render
         /// frame and never come through here, so their timing is untouched
         /// whatever this says.
         /// </summary>
-        public static bool Active { get; private set; }
+        public bool Active { get; private set; }
 
-        private static double _accumulator;
-        public static float RenderAlpha => Active ? (float)Math.Clamp(_accumulator / StepSeconds, 0, 1) : 1;
+        private double _accumulator;
+        public float RenderAlpha => Active ? (float)Math.Clamp(_accumulator / StepSeconds, 0, 1) : 1;
         /// <summary>
         /// The wall-clock interval after the last fixed step that has not yet
         /// been represented by simulation. Render-side stateful input uses
@@ -95,12 +95,12 @@ namespace MphRead.Mods.Render
         /// latter can include time spent outside the frame loop and over-predict
         /// a controller between ticks.
         /// </summary>
-        public static double SimulationRemainderSeconds
+        public double SimulationRemainderSeconds
             => Active ? Math.Clamp(_accumulator, 0, StepSeconds) : 0;
-        public static long Discontinuities { get; private set; }
+        public long Discontinuities { get; private set; }
 
         /// <summary>Steps run for the frame <see cref="Advance"/> last answered.</summary>
-        public static int StepsThisFrame { get; private set; }
+        public int StepsThisFrame { get; private set; }
 
         #region diagnostics
 
@@ -108,36 +108,65 @@ namespace MphRead.Mods.Render
         // question these answer -- "is the simulation actually still running
         // at 60 while the picture runs at 144" -- is the whole point of the
         // split, and it cannot be asked after the fact.
-        public static long TotalSteps { get; private set; }
-        public static long TotalFrames { get; private set; }
-        public static long DroppedSteps { get; private set; }
-        public static long Stalls { get; private set; }
+        public long TotalSteps { get; private set; }
+        public long TotalFrames { get; private set; }
+        public long DroppedSteps { get; private set; }
+        public long Stalls { get; private set; }
 
         private const int RuntimeSampleCapacity = 256;
-        private static readonly BoundedPercentileSampler _simulationFrameTimes
+        private readonly BoundedPercentileSampler _inputFrameTimes
             = new(RuntimeSampleCapacity);
-        private static readonly BoundedPercentileSampler _renderFrameTimes
+        private readonly BoundedPercentileSampler _simulationFrameTimes
             = new(RuntimeSampleCapacity);
-        private static long _gcAllocatedBaseline;
-        private static long _gcAllocatedBytes;
-        private static double _gcElapsedSeconds;
-        private static int _gcGen0Baseline;
-        private static int _gcGen1Baseline;
-        private static int _gcGen2Baseline;
-        private static bool _gcBaselineInitialized;
+        private readonly BoundedPercentileSampler _scenePreparationFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _drawListBuildFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _renderEncodeFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _renderSubmitFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _presentFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _overlayUiFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _afterFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _wholeFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _legacyTotalRenderFrameTimes
+            = new(RuntimeSampleCapacity);
+        private long _gcAllocatedBaseline;
+        private long _gcAllocatedBytes;
+        private double _gcElapsedSeconds;
+        private int _gcGen0Baseline;
+        private int _gcGen1Baseline;
+        private int _gcGen2Baseline;
+        private bool _gcBaselineInitialized;
 
         /// <summary>
-        /// Bounded presentation observations captured by the shared frame
-        /// loop. The render and simulation samples are CPU wall time around
-        /// their existing callbacks; they never alter scheduling or authority.
+        /// Bounded observations captured by the owning host's frame loop. The
+        /// phase samples are CPU wall time around existing callbacks; they
+        /// never alter scheduling or authority.
         /// </summary>
-        public static FrameTimingDiagnosticsSnapshot CaptureDiagnostics()
+        public FrameTimingDiagnosticsSnapshot CaptureDiagnostics()
         {
+            _inputFrameTimes.TrySnapshot(out BoundedPercentileSnapshot input);
             _simulationFrameTimes.TrySnapshot(out BoundedPercentileSnapshot simulation);
-            _renderFrameTimes.TrySnapshot(out BoundedPercentileSnapshot render);
+            _scenePreparationFrameTimes.TrySnapshot(out BoundedPercentileSnapshot scenePreparation);
+            _drawListBuildFrameTimes.TrySnapshot(out BoundedPercentileSnapshot drawListBuild);
+            _renderEncodeFrameTimes.TrySnapshot(out BoundedPercentileSnapshot renderEncode);
+            _renderSubmitFrameTimes.TrySnapshot(out BoundedPercentileSnapshot renderSubmit);
+            _presentFrameTimes.TrySnapshot(out BoundedPercentileSnapshot present);
+            _overlayUiFrameTimes.TrySnapshot(out BoundedPercentileSnapshot overlayUi);
+            _afterFrameTimes.TrySnapshot(out BoundedPercentileSnapshot afterFrame);
+            _wholeFrameTimes.TrySnapshot(out BoundedPercentileSnapshot wholeFrame);
+            _legacyTotalRenderFrameTimes.TrySnapshot(out BoundedPercentileSnapshot legacyTotalRender);
             double allocationRate = _gcElapsedSeconds > 0
                 ? _gcAllocatedBytes / _gcElapsedSeconds : 0;
-            return new FrameTimingDiagnosticsSnapshot(simulation, render,
+            return new FrameTimingDiagnosticsSnapshot(input, simulation, scenePreparation,
+                drawListBuild, renderEncode, renderSubmit, present, overlayUi, afterFrame,
+                wholeFrame, legacyTotalRender,
                 TotalFrames, TotalSteps, DroppedSteps, Stalls, allocationRate,
                 _gcBaselineInitialized ? Math.Max(0,
                     GC.CollectionCount(0) - _gcGen0Baseline) : 0,
@@ -152,14 +181,20 @@ namespace MphRead.Mods.Render
         /// deterministic hosts and focused tests can feed the same core as a
         /// platform window without constructing a GPU surface.
         /// </summary>
-        public static void RecordRuntimeFrame(double simulationMilliseconds,
-            double renderMilliseconds, double elapsedSeconds)
+        public void RecordRuntimeFrame(in FramePhaseTimingSample sample)
         {
-            if (Double.IsFinite(simulationMilliseconds) && simulationMilliseconds >= 0)
-                _simulationFrameTimes.Record(simulationMilliseconds);
-            if (Double.IsFinite(renderMilliseconds) && renderMilliseconds >= 0)
-                _renderFrameTimes.Record(renderMilliseconds);
-            if (!Double.IsFinite(elapsedSeconds) || elapsedSeconds <= 0)
+            _inputFrameTimes.Record(sample.InputMilliseconds);
+            _simulationFrameTimes.Record(sample.SimulationMilliseconds);
+            _scenePreparationFrameTimes.Record(sample.ScenePreparationMilliseconds);
+            _drawListBuildFrameTimes.Record(sample.DrawListBuildMilliseconds);
+            _renderEncodeFrameTimes.Record(sample.RenderEncodeMilliseconds);
+            _renderSubmitFrameTimes.Record(sample.RenderSubmitMilliseconds);
+            _presentFrameTimes.Record(sample.PresentMilliseconds);
+            _overlayUiFrameTimes.Record(sample.OverlayUiMilliseconds);
+            _afterFrameTimes.Record(sample.AfterFrameMilliseconds);
+            _wholeFrameTimes.Record(sample.WholeFrameMilliseconds);
+            _legacyTotalRenderFrameTimes.Record(sample.LegacyTotalRenderMilliseconds);
+            if (!Double.IsFinite(sample.ElapsedSeconds) || sample.ElapsedSeconds <= 0)
                 return;
 
             long allocated = GC.GetTotalAllocatedBytes(false);
@@ -178,7 +213,7 @@ namespace MphRead.Mods.Render
             if (allocated >= _gcAllocatedBaseline)
                 _gcAllocatedBytes += allocated - _gcAllocatedBaseline;
             _gcAllocatedBaseline = allocated;
-            _gcElapsedSeconds += elapsedSeconds;
+            _gcElapsedSeconds += sample.ElapsedSeconds;
         }
 
         /// <summary>
@@ -186,16 +221,16 @@ namespace MphRead.Mods.Render
         /// 144 Hz run is mostly 0s and 1s in roughly 84/60 proportion; a run
         /// with 2s and 3s in it is a machine that is not keeping up.
         /// </summary>
-        public static readonly long[] StepHistogram = new long[MaxCatchUpSteps + 1];
+        public readonly long[] StepHistogram = new long[MaxCatchUpSteps + 1];
 
-        public static double MeasuredSimulationHz { get; private set; }
-        public static double MeasuredFrameHz { get; private set; }
+        public double MeasuredSimulationHz { get; private set; }
+        public double MeasuredFrameHz { get; private set; }
 
-        private static double _windowSeconds;
-        private static long _windowSteps;
-        private static long _windowFrames;
+        private double _windowSeconds;
+        private long _windowSteps;
+        private long _windowFrames;
 
-        public static void ResetDiagnostics()
+        public void ResetDiagnostics()
         {
             TotalSteps = 0;
             TotalFrames = 0;
@@ -207,8 +242,17 @@ namespace MphRead.Mods.Render
             _windowSeconds = 0;
             _windowSteps = 0;
             _windowFrames = 0;
+            _inputFrameTimes.Clear();
             _simulationFrameTimes.Clear();
-            _renderFrameTimes.Clear();
+            _scenePreparationFrameTimes.Clear();
+            _drawListBuildFrameTimes.Clear();
+            _renderEncodeFrameTimes.Clear();
+            _renderSubmitFrameTimes.Clear();
+            _presentFrameTimes.Clear();
+            _overlayUiFrameTimes.Clear();
+            _afterFrameTimes.Clear();
+            _wholeFrameTimes.Clear();
+            _legacyTotalRenderFrameTimes.Clear();
             _gcAllocatedBaseline = 0;
             _gcAllocatedBytes = 0;
             _gcElapsedSeconds = 0;
@@ -218,7 +262,7 @@ namespace MphRead.Mods.Render
             _gcBaselineInitialized = false;
         }
 
-        public static string Describe()
+        public string Describe()
         {
             return $"sim {MeasuredSimulationHz:0.00} Hz / draw {MeasuredFrameHz:0.0} Hz, "
                 + $"{TotalSteps} steps over {TotalFrames} frames, "
@@ -229,7 +273,7 @@ namespace MphRead.Mods.Render
 
         #endregion
 
-        public static void Reset()
+        public void Reset()
         {
             _accumulator = 0;
             Discontinuities++;
@@ -241,7 +285,7 @@ namespace MphRead.Mods.Render
         /// Take the wall-clock time one drawn frame took and answer how many
         /// simulation steps are owed before it is drawn.
         /// </summary>
-        public static int Advance(double elapsedSeconds)
+        public int Advance(double elapsedSeconds)
         {
             Active = true;
             TotalFrames++;
@@ -285,14 +329,14 @@ namespace MphRead.Mods.Render
         /// wall-clock debt to create additional fixed ticks. The host calls
         /// <see cref="Reset"/> immediately before this method.
         /// </summary>
-        public static int ManualStep()
+        public int ManualStep()
         {
             Active = true;
             StepsThisFrame = 1;
             return 1;
         }
 
-        private static void Tally(double elapsedSeconds, int steps)
+        private void Tally(double elapsedSeconds, int steps)
         {
             _windowSeconds += elapsedSeconds;
             _windowSteps += steps;
@@ -314,9 +358,9 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static int _windowsSinceReport;
-        private static long _reportedDrops;
-        private static long _reportedStalls;
+        private int _windowsSinceReport;
+        private long _reportedDrops;
+        private long _reportedStalls;
 
         /// <summary>
         /// What the debug log gets, and when.
@@ -328,7 +372,7 @@ namespace MphRead.Mods.Render
         /// HUD reports the picture. A quiet run says so every five seconds; a
         /// run that dropped a step or hit a stall says so the moment it does.
         /// </summary>
-        private static void ReportWindow()
+        private void ReportWindow()
         {
             bool trouble = DroppedSteps != _reportedDrops || Stalls != _reportedStalls
                 || Math.Abs(MeasuredSimulationHz - SimulationHz) > SimulationHz * 0.02;
@@ -379,9 +423,37 @@ namespace MphRead.Mods.Render
         }
     }
 
+    public readonly record struct FramePhaseTimingSample(
+        double InputMilliseconds,
+        double SimulationMilliseconds,
+        double ScenePreparationMilliseconds,
+        double DrawListBuildMilliseconds,
+        double RenderEncodeMilliseconds,
+        double RenderSubmitMilliseconds,
+        double PresentMilliseconds,
+        double OverlayUiMilliseconds,
+        double AfterFrameMilliseconds,
+        double WholeFrameMilliseconds,
+        double LegacyTotalRenderMilliseconds,
+        double ElapsedSeconds);
+
     public readonly record struct FrameTimingDiagnosticsSnapshot(
-        BoundedPercentileSnapshot Simulation, BoundedPercentileSnapshot Render,
+        BoundedPercentileSnapshot Input,
+        BoundedPercentileSnapshot Simulation,
+        BoundedPercentileSnapshot ScenePreparation,
+        BoundedPercentileSnapshot DrawListBuild,
+        BoundedPercentileSnapshot RenderEncode,
+        BoundedPercentileSnapshot RenderSubmit,
+        BoundedPercentileSnapshot Present,
+        BoundedPercentileSnapshot OverlayUi,
+        BoundedPercentileSnapshot AfterFrame,
+        BoundedPercentileSnapshot WholeFrame,
+        BoundedPercentileSnapshot LegacyTotalRender,
         long TotalFrames, long TotalSteps, long DroppedSteps, long Stalls,
         double GcAllocatedBytesPerSecond, int Gen0Collections,
-        int Gen1Collections, int Gen2Collections);
+        int Gen1Collections, int Gen2Collections)
+    {
+        /// <summary>Compatibility alias for the original broad render window.</summary>
+        public BoundedPercentileSnapshot Render => LegacyTotalRender;
+    }
 }

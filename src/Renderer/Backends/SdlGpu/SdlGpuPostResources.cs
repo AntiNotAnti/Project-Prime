@@ -696,7 +696,11 @@ namespace MphRead
                 SDL_GPUViewport viewport = new() { w = width, h = height, min_depth = 0, max_depth = 1 };
                 SDL3.SDL_SetGPUViewport(pass, &viewport);
                 uint firstVertex = 0;
-                SDL_GPUTextureSamplerBinding* bindings = stackalloc SDL_GPUTextureSamplerBinding[2];
+                const int populatedBindingCount = 2;
+                int bindingCount = SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                    _device.Driver, populatedBindingCount);
+                SDL_GPUTextureSamplerBinding* bindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
                 foreach (RenderOverlayCommand command in frame.OverlayCommands)
                 {
                     if (command.Kind == RenderOverlayKind.StageMarker) continue;
@@ -733,8 +737,11 @@ namespace MphRead
                     SDL_GPUSampler* sampler = (SDL_GPUSampler*)resources.NearestClampSamplerHandle;
                     bindings[0] = new SDL_GPUTextureSamplerBinding { texture = source, sampler = sampler };
                     bindings[1] = new SDL_GPUTextureSamplerBinding { texture = mask, sampler = (SDL_GPUSampler*)resources.NearestClampSamplerHandle };
-                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 2);
-                    SdlGpuTelemetryContext.SamplerBind(2);
+                    SdlGpuSamplerBindingAbi.Pad(bindings,
+                        populatedBindingCount, bindingCount, source, sampler);
+                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                        checked((uint)bindingCount));
+                    SdlGpuTelemetryContext.SamplerBind(bindingCount);
                     HudConstants constants = new()
                     {
                         Options = new Vector4(command.Alpha, command.UseTexture ? 1 : 0,
@@ -819,14 +826,22 @@ namespace MphRead
                 SdlGpuTelemetryContext.PipelineBind();
                 SDL_GPUBufferBinding vertex = new() { buffer = _quadBuffer, offset = 0 };
                 SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-                int count = shader is PostShader.Fullscreen or PostShader.Cel
-                    or PostShader.Bloom or PostShader.ColorGrade
-                    or PostShader.DistortionWarp ? 2 : 1;
-                SDL_GPUTextureSamplerBinding* bindings = stackalloc SDL_GPUTextureSamplerBinding[2];
+                int count = SamplerCount(shader);
+                int bindingCount = SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                    _device.Driver, count);
+                SDL_GPUTextureSamplerBinding* bindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
                 bindings[0] = new SDL_GPUTextureSamplerBinding { texture = source, sampler = (SDL_GPUSampler*)samplerOne };
-                bindings[1] = new SDL_GPUTextureSamplerBinding { texture = mask, sampler = (SDL_GPUSampler*)samplerTwo };
-                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, checked((uint)count));
-                SdlGpuTelemetryContext.SamplerBind(count);
+                if (count == 2)
+                {
+                    bindings[1] = new SDL_GPUTextureSamplerBinding
+                        { texture = mask, sampler = (SDL_GPUSampler*)samplerTwo };
+                }
+                SdlGpuSamplerBindingAbi.Pad(bindings, count, bindingCount,
+                    source, (SDL_GPUSampler*)samplerOne);
+                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                    checked((uint)bindingCount));
+                SdlGpuTelemetryContext.SamplerBind(bindingCount);
                 SDL3.SDL_PushGPUFragmentUniformData(commandBuffer, 0, (IntPtr)constants, constantsSize);
                 SdlGpuTelemetryContext.FragmentUniform(constantsSize);
                 SDL3.SDL_DrawGPUPrimitives(pass, 4, 1, 0, 0);
@@ -922,19 +937,18 @@ namespace MphRead
             };
             (SDL_GPUShaderFormat format, string suffix) = SelectFormat();
             string directory = ShaderArtifactManifest.Directory;
-            uint samplers = shader switch
-            {
-                PostShader.Bloom or PostShader.ColorGrade => 2,
-                PostShader.Disruption or PostShader.ToneMap or PostShader.Visor => 1,
-                _ => 2
-            };
+            uint samplers = checked((uint)SamplerCount(shader));
+            uint bindingCount = checked((uint)
+                SdlGpuSamplerBindingAbi.BindingCountForDriver(_device.Driver,
+                    checked((int)samplers)));
             SDL_GPUShader* vertex = CreateShader(format, Path.Combine(directory, $"{stem}.vert.{suffix}"),
                 "main_vs", SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_VERTEX, 0, 0);
             try
             {
                 return new ShaderPair(vertex,
                     CreateShader(format, Path.Combine(directory, $"{stem}.frag.{suffix}"), "main_ps",
-                        SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT, samplers, 1));
+                        SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
+                        bindingCount, 1));
             }
             catch
             {
@@ -942,6 +956,17 @@ namespace MphRead
                 throw;
             }
         }
+
+        internal static int SamplerCount(PostShader shader)
+            => shader switch
+            {
+                PostShader.Fullscreen or PostShader.Hud or PostShader.Cel
+                    or PostShader.Bloom or PostShader.ColorGrade
+                    or PostShader.DistortionWarp => 2,
+                PostShader.Disruption or PostShader.ToneMap
+                    or PostShader.Reconstruction or PostShader.Visor => 1,
+                _ => throw new ArgumentOutOfRangeException(nameof(shader))
+            };
 
         private SDL_GPUShader* CreateShader(SDL_GPUShaderFormat format, string path, string entrypoint,
             SDL_GPUShaderStage stage, uint samplers, uint uniforms)
@@ -1264,7 +1289,7 @@ namespace MphRead
             if (_quadBuffer != null) SDL3.SDL_ReleaseGPUBuffer(_device.Handle, _quadBuffer);
         }
 
-        private enum PostShader : byte
+        internal enum PostShader : byte
         {
             Fullscreen,
             Hud,

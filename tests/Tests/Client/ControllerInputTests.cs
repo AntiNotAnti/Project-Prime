@@ -242,15 +242,17 @@ public sealed class ControllerInputTests
     {
         LookInputCoordinator coordinator = GamepadInput.LookCoordinator;
         var stylus = new StylusInput(coordinator);
-        FrameTiming.Reset();
+        var timing = new FrameTiming();
+        timing.Reset();
         GamepadInput.Reset();
         try
         {
             Assert.True(stylus.PointerDown(Pen(22, 0, 0, 1000)));
             Assert.True(stylus.PointerMove(Pen(22, 20, 0, 1020)));
 
-            FrameTiming.Reset();
-            GamepadInput.BeginFrame(allowLook: false);
+            timing.Reset();
+            GamepadInput.BeginFrame(allowLook: false,
+                timingGeneration: timing.Discontinuities);
             LocalLookFrame first = coordinator.ConsumeForSimulation(
                 1f / 60f, 1);
             Assert.NotEqual(Vector2.Zero, first.StylusDeltaDegrees);
@@ -264,7 +266,7 @@ public sealed class ControllerInputTests
         {
             stylus.Cancel();
             GamepadInput.Reset();
-            FrameTiming.Reset();
+            timing.Reset();
         }
     }
 
@@ -805,29 +807,30 @@ public sealed class ControllerInputTests
     [Fact]
     public void StatefulPredictionUsesTheFixedStepAccumulatorRemainder()
     {
-        FrameTiming.Reset();
+        var timing = new FrameTiming();
+        timing.Reset();
         try
         {
             var prediction = new LookPredictionBuffer();
             prediction.SetAngularVelocity(new Vector2(10, 0));
 
-            Assert.Equal(0, FrameTiming.Advance(FrameTiming.StepSeconds / 2));
+            Assert.Equal(0, timing.Advance(FrameTiming.StepSeconds / 2));
             Assert.Equal(FrameTiming.StepSeconds / 2,
-                FrameTiming.SimulationRemainderSeconds, 10);
+                timing.SimulationRemainderSeconds, 10);
             Assert.Equal(10 * FrameTiming.StepSeconds / 2,
                 prediction.PeekStatefulForRender(null, simulationActive: true,
-                    FrameTiming.SimulationRemainderSeconds).X, 5);
+                    timing.SimulationRemainderSeconds).X, 5);
 
-            Assert.Equal(1, FrameTiming.Advance(FrameTiming.StepSeconds));
+            Assert.Equal(1, timing.Advance(FrameTiming.StepSeconds));
             Assert.Equal(FrameTiming.StepSeconds / 2,
-                FrameTiming.SimulationRemainderSeconds, 10);
+                timing.SimulationRemainderSeconds, 10);
             Assert.Equal(10 * FrameTiming.StepSeconds / 2,
                 prediction.PeekStatefulForRender(null, simulationActive: true,
-                    FrameTiming.SimulationRemainderSeconds).X, 5);
+                    timing.SimulationRemainderSeconds).X, 5);
         }
         finally
         {
-            FrameTiming.Reset();
+            timing.Reset();
         }
     }
 
@@ -835,7 +838,8 @@ public sealed class ControllerInputTests
     public void TimingDiscontinuityDoesNotRetriggerHeldGamepadButton()
     {
         GamepadState previousState = GamepadInput.State;
-        FrameTiming.Reset();
+        var timing = new FrameTiming();
+        timing.Reset();
         GamepadInput.Reset();
         try
         {
@@ -844,21 +848,24 @@ public sealed class ControllerInputTests
                 Connected = true,
                 Buttons = GamepadButtons.RightBumper
             };
-            GamepadInput.BeginFrame(allowLook: false);
+            GamepadInput.BeginFrame(allowLook: false,
+                timingGeneration: timing.Discontinuities);
             Assert.Equal(GamepadButtons.RightBumper,
                 GamepadInput.PressedButtons & GamepadButtons.RightBumper);
 
             // A stall/dropped-step reset must not manufacture another weapon
             // cycle edge while the same physical button remains held.
-            FrameTiming.Reset();
-            GamepadInput.BeginFrame(allowLook: false);
+            timing.Reset();
+            GamepadInput.BeginFrame(allowLook: false,
+                timingGeneration: timing.Discontinuities);
             Assert.Equal(GamepadButtons.None,
                 GamepadInput.PressedButtons & GamepadButtons.RightBumper);
             Assert.Equal(GamepadButtons.RightBumper,
                 GamepadInput.EffectiveButtons & GamepadButtons.RightBumper);
 
             GamepadInput.State = new GamepadState { Connected = true };
-            GamepadInput.BeginFrame(allowLook: false);
+            GamepadInput.BeginFrame(allowLook: false,
+                timingGeneration: timing.Discontinuities);
             Assert.Equal(GamepadButtons.RightBumper,
                 GamepadInput.ReleasedButtons & GamepadButtons.RightBumper);
 
@@ -867,7 +874,8 @@ public sealed class ControllerInputTests
                 Connected = true,
                 Buttons = GamepadButtons.RightBumper
             };
-            GamepadInput.BeginFrame(allowLook: false);
+            GamepadInput.BeginFrame(allowLook: false,
+                timingGeneration: timing.Discontinuities);
             Assert.Equal(GamepadButtons.RightBumper,
                 GamepadInput.PressedButtons & GamepadButtons.RightBumper);
         }
@@ -875,7 +883,7 @@ public sealed class ControllerInputTests
         {
             GamepadInput.State = previousState;
             GamepadInput.Reset();
-            FrameTiming.Reset();
+            timing.Reset();
         }
     }
 

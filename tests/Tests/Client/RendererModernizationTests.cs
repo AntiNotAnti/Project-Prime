@@ -196,8 +196,18 @@ public sealed class RendererModernizationTests
             immediateSupported: false);
         Assert.Equal(SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_VSYNC, fallback.NativeMode);
         Assert.Equal("vsync-fallback", fallback.Label);
-        Assert.True(fallback.UsesSoftwarePacing);
+        Assert.False(fallback.UsesSoftwarePacing);
         Assert.True(fallback.ImmediateFallback);
+    }
+
+    [Fact]
+    public void SdlFramePacingDisablesExplicitWaitForVsyncFallback()
+    {
+        SdlSoftwarePacingPolicy fallback = SdlSoftwarePacingPolicy.Resolve(60,
+            minimized: false, allowExplicitPacing: false);
+
+        Assert.Equal(SdlSoftwarePacingMode.Disabled, fallback.Mode);
+        Assert.Equal(0, fallback.EffectiveRate);
     }
 
     [Fact]
@@ -1403,7 +1413,7 @@ public sealed class RendererModernizationTests
         Assert.Equal(new[]
         {
             "-thumbnail", "ROOM A", "-thumbnail", "ROOM B",
-            expectedArgument, "-size", "320x180"
+            "--internal-preview-worker", expectedArgument, "-size", "320x180"
         }, arguments);
     }
 
@@ -1412,7 +1422,8 @@ public sealed class RendererModernizationTests
     {
         var client = new RecordingFrameClient();
         var backend = new RecordingBackend { BeginResult = false };
-        new GameWindowFrameLoop().Tick(1 / 60d, default, client, backend);
+        var loop = new GameWindowFrameLoop(new FrameTiming());
+        loop.Tick(1 / 60d, default, client, backend);
 
         Assert.Equal(0, client.Presented);
         Assert.Equal(0, client.AfterRender);
@@ -1420,7 +1431,7 @@ public sealed class RendererModernizationTests
 
         backend.BeginResult = true;
         backend.SubmitResult = true;
-        new GameWindowFrameLoop().Tick(1 / 60d, default, client, backend);
+        loop.Tick(1 / 60d, default, client, backend);
         Assert.Equal(1, client.Presented);
         Assert.Equal(1, client.AfterRender);
         Assert.Equal(2, client.PausePumps);
@@ -1431,7 +1442,7 @@ public sealed class RendererModernizationTests
     {
         var client = new RecordingFrameClient();
         var backend = new RecordingBackend { BeginResult = true, SubmitResult = false };
-        new GameWindowFrameLoop().Tick(1 / 60d, default, client, backend);
+        new GameWindowFrameLoop(new FrameTiming()).Tick(1 / 60d, default, client, backend);
 
         Assert.Equal(0, client.Presented);
         Assert.Equal(0, client.AfterRender);
@@ -1442,20 +1453,21 @@ public sealed class RendererModernizationTests
     [Fact]
     public void FrameLoopManualAdvanceResetsClockAndRunsExactlyOneStep()
     {
-        FrameTiming.Reset();
+        var timing = new FrameTiming();
+        timing.Reset();
         // Establish real wall-clock debt first. Entering manual mode must
         // discard it; otherwise the next ordinary frame can pay the old debt
         // in addition to the one explicitly requested presentation tick.
-        Assert.InRange(FrameTiming.Advance(0.20), 1, FrameTiming.MaxCatchUpSteps);
+        Assert.InRange(timing.Advance(0.20), 1, FrameTiming.MaxCatchUpSteps);
         var client = new RecordingFrameClient();
         var backend = new RecordingBackend { BeginResult = true, SubmitResult = true };
-        new GameWindowFrameLoop().Tick(0.25, new WindowInputSnapshot(
+        new GameWindowFrameLoop(timing).Tick(0.25, new WindowInputSnapshot(
             null, null, default, default, default, string.Empty, true,
             frameAdvanceMode: true), client, backend);
 
         Assert.Equal(1, client.SimulationSteps);
-        Assert.Equal(1, FrameTiming.StepsThisFrame);
-        Assert.Equal(0, FrameTiming.Advance(0));
+        Assert.Equal(1, timing.StepsThisFrame);
+        Assert.Equal(0, timing.Advance(0));
     }
 
     [Fact]
@@ -1463,7 +1475,7 @@ public sealed class RendererModernizationTests
     {
         var client = new RecordingFrameClient();
         var backend = new RecordingBackend { BeginResult = true, SubmitResult = true };
-        new GameWindowFrameLoop().Tick(0, default, client, backend);
+        new GameWindowFrameLoop(new FrameTiming()).Tick(0, default, client, backend);
         Assert.Equal(new[] { "presented", "pause", "after" }, client.Order);
     }
 
@@ -1472,7 +1484,7 @@ public sealed class RendererModernizationTests
     {
         var client = new RecordingFrameClient { CanRender = false };
         var backend = new RecordingBackend { BeginResult = true, SubmitResult = true };
-        new GameWindowFrameLoop().Tick(0, default, client, backend);
+        new GameWindowFrameLoop(new FrameTiming()).Tick(0, default, client, backend);
 
         Assert.Equal(0, backend.BeginCalls);
         Assert.Equal(0, backend.RenderCalls);

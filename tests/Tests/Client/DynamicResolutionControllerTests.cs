@@ -56,7 +56,7 @@ public sealed class DynamicResolutionControllerTests
         string host = ReadRepositoryFile(
             "src/Client/Rendering/Platform/SdlGameHost.cs");
         string presentation = ReadRepositoryFile(
-            "src/Client/Rendering/Renderer.cs");
+            "src/Client.Presentation/Rendering/Renderer.cs");
 
         Assert.Contains("ActivePresentation.UpdateDynamicResolution(_telemetry.Telemetry)",
             host, StringComparison.Ordinal);

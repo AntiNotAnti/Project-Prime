@@ -157,6 +157,21 @@ public sealed class GlesEnhancedShaderTests
     }
 
     [Fact]
+    public void ReplacementAlbedoIsAvailableWithoutEnhancedLighting()
+    {
+        string backend = ReadRepositoryFile(
+            "src/Renderer/Backends/Gles/GlesBackend.cs");
+        string runtime = ReadRepositoryFile(
+            "src/Renderer/Backends/Gles/GlesEnhancedRuntime.cs");
+
+        Assert.Contains("TextureRuntime?.ResolveAlbedo", backend);
+        Assert.Contains("textureRuntime ?? enhancedRuntime", backend);
+        Assert.Contains("public int ResolveAlbedo", runtime);
+        Assert.Contains("SdlGpuCelSurface.UsesEnhancedTextures(frame.Options)",
+            runtime);
+    }
+
+    [Fact]
     public void FullscreenShaderUsesUniversalPackedTexcoordAttribute()
     {
         string source = GlesEnhancedShaders.FullscreenVertexShader;

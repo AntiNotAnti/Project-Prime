@@ -221,18 +221,23 @@ namespace MphRead
             }
         }
 
-        private static void BindTextures(SDL_GPURenderPass* pass,
+        private void BindTextures(SDL_GPURenderPass* pass,
             IReadOnlyList<nint> textures, SDL_GPUSampler* sampler)
         {
+            int bindingCount = SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                _device.Driver, 6);
             SDL_GPUTextureSamplerBinding* bindings
-                = stackalloc SDL_GPUTextureSamplerBinding[6];
+                = stackalloc SDL_GPUTextureSamplerBinding[bindingCount];
             for (int i = 0; i < 6; i++)
             {
                 bindings[i] = new SDL_GPUTextureSamplerBinding
                     { texture = (SDL_GPUTexture*)textures[i], sampler = sampler };
             }
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings, 6);
-            SdlGpuTelemetryContext.SamplerBind(6);
+            SdlGpuSamplerBindingAbi.Pad(bindings, 6, bindingCount,
+                (SDL_GPUTexture*)textures[0], sampler);
+            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                checked((uint)bindingCount));
+            SdlGpuTelemetryContext.SamplerBind(bindingCount);
         }
 
         private static void PushConstants(SDL_GPUCommandBuffer* commandBuffer,
@@ -270,7 +275,9 @@ namespace MphRead
                     samplers: 0, uniforms: 0);
                 _fragmentShader = CreateShader(format, Path.Combine(directory,
                     $"sky.frag.{suffix}"), SDL_GPUShaderStage.SDL_GPU_SHADERSTAGE_FRAGMENT,
-                    samplers: 6, uniforms: 1);
+                    samplers: checked((uint)
+                        SdlGpuSamplerBindingAbi.BindingCountForDriver(
+                            _device.Driver, 6)), uniforms: 1);
                 _opaquePipeline = CreatePipeline(configuration, blend: false);
                 if (needsAlpha) _alphaPipeline = CreatePipeline(configuration, blend: true);
                 _resourceConfiguration = configuration;

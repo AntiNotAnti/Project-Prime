@@ -616,5 +616,7 @@ namespace MphRead
         int VolumeEdges,
         bool ShowInvisible,
         bool NoLines,
-        RenderQualitySnapshot Quality = default);
+        RenderQualitySnapshot Quality = default,
+        VisualStyle? VisualStyle = null,
+        bool? EnhancedTextures = null);
 }

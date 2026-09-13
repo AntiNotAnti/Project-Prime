@@ -15,6 +15,16 @@ namespace MphRead.Mods
         Performance
     }
 
+    /// <summary>Mutually exclusive treatments applied to world surfaces.</summary>
+    public enum VisualStyle : byte
+    {
+        Original,
+        Cel,
+        Flat,
+        Pixelated,
+        Retro
+    }
+
     /// <summary>Texture filtering choices exposed by the settings screen.</summary>
     public enum TextureFilteringPreset : byte
     {
@@ -91,16 +101,24 @@ namespace MphRead.Mods
         private static readonly string[] _textureFilteringLabels = { "Original", "Smooth", "Enhanced" };
         private static readonly string[] _anisotropyLabels = { "Off", "2x", "4x", "8x", "16x" };
         private static readonly string[] _msaaLabels = { "Off", "2x", "4x" };
+        private static readonly string[] _visualStyleLabels
+            = { "Original", "Cel shaded", "Flat", "Pixelated", "Retro" };
 
         public static IReadOnlyList<string> GraphicsPresetLabels => _graphicsPresetLabels;
         public static IReadOnlyList<string> TextureFilteringLabels => _textureFilteringLabels;
         public static IReadOnlyList<string> AnisotropyLabels => _anisotropyLabels;
         public static IReadOnlyList<string> MsaaLabels => _msaaLabels;
+        public static IReadOnlyList<string> VisualStyleLabels => _visualStyleLabels;
 
         private static GraphicsPreset _graphicsPreset = GraphicsPreset.Original;
         private static TextureFilteringPreset _textureFilteringPreset = TextureFilteringPreset.Original;
         private static AnisotropyLevel _anisotropy = AnisotropyLevel.Off;
         private static MsaaLevel _msaa = MsaaLevel.Off;
+        private static VisualStyle _visualStyle = VisualStyle.Original;
+        private static string _texturePackId = OriginalTexturePackId;
+
+        public const string OriginalTexturePackId = "original";
+        public const string DefaultTexturePackId = "default";
 
         /// <summary>
         /// The selected high-level bundle.  Original is intentionally the
@@ -183,7 +201,42 @@ namespace MphRead.Mods
         /// scene left behind, which is what makes the picture read as drawn
         /// rather than merely posterised.
         /// </summary>
-        public static bool CelShading { get; set; }
+        public static bool CelShading
+        {
+            get => VisualStyle == VisualStyle.Cel;
+            set
+            {
+                if (value)
+                {
+                    VisualStyle = VisualStyle.Cel;
+                }
+                else if (VisualStyle == VisualStyle.Cel)
+                {
+                    VisualStyle = VisualStyle.Original;
+                }
+            }
+        }
+
+        /// <summary>The selected world-surface treatment.</summary>
+        public static VisualStyle VisualStyle
+        {
+            get => _visualStyle;
+            set => _visualStyle = NormalizeVisualStyle(value);
+        }
+
+        /// <summary>
+        /// Replacement albedo pack identity. Original disables replacements;
+        /// every other value names one bounded directory under enhancements.
+        /// </summary>
+        public static string TexturePackId
+        {
+            get => _texturePackId;
+            set => _texturePackId = NormalizeTexturePackId(value);
+        }
+
+        public static bool TexturePackEnabled
+            => !String.Equals(TexturePackId, OriginalTexturePackId,
+                StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Draw the frame rate over the game.
@@ -316,6 +369,65 @@ namespace MphRead.Mods
                 _ => "original"
             };
 
+        public static VisualStyle ParseVisualStyle(string? value,
+            VisualStyle fallback = VisualStyle.Original)
+        {
+            string token = QualityToken(value);
+            return token switch
+            {
+                "original" or "off" or "none" => VisualStyle.Original,
+                "cel" or "celshaded" or "celshading" => VisualStyle.Cel,
+                "flat" => VisualStyle.Flat,
+                "pixel" or "pixelated" => VisualStyle.Pixelated,
+                "retro" => VisualStyle.Retro,
+                _ => NormalizeVisualStyle(fallback)
+            };
+        }
+
+        public static string FormatVisualStyle(VisualStyle value)
+            => NormalizeVisualStyle(value) switch
+            {
+                VisualStyle.Cel => "cel",
+                VisualStyle.Flat => "flat",
+                VisualStyle.Pixelated => "pixelated",
+                VisualStyle.Retro => "retro",
+                _ => "original"
+            };
+
+        public static string ResolveTexturePackId(string? value,
+            GraphicsPreset legacyPreset)
+        {
+            if (String.IsNullOrWhiteSpace(value))
+            {
+                return NormalizeGraphicsPreset(legacyPreset) == GraphicsPreset.Enhanced
+                    ? DefaultTexturePackId : OriginalTexturePackId;
+            }
+            return NormalizeTexturePackId(value);
+        }
+
+        public static string NormalizeTexturePackId(string? value)
+        {
+            string candidate = value?.Trim() ?? String.Empty;
+            if (candidate.Length == 0 || candidate.Length > 64
+                || candidate is "." or "..")
+            {
+                return OriginalTexturePackId;
+            }
+            foreach (char character in candidate)
+            {
+                if (!Char.IsAsciiLetterOrDigit(character)
+                    && character is not '.' and not '_' and not '-')
+                {
+                    return OriginalTexturePackId;
+                }
+            }
+            if (String.Equals(candidate, OriginalTexturePackId,
+                StringComparison.OrdinalIgnoreCase)) return OriginalTexturePackId;
+            if (String.Equals(candidate, DefaultTexturePackId,
+                StringComparison.OrdinalIgnoreCase)) return DefaultTexturePackId;
+            return candidate;
+        }
+
         public static TextureFilteringPreset ParseTextureFilteringPreset(string? value,
             TextureFilteringPreset fallback = TextureFilteringPreset.Original)
         {
@@ -445,6 +557,9 @@ namespace MphRead.Mods
 
         private static GraphicsPreset NormalizeGraphicsPreset(GraphicsPreset value)
             => Enum.IsDefined(value) ? value : GraphicsPreset.Original;
+
+        private static VisualStyle NormalizeVisualStyle(VisualStyle value)
+            => Enum.IsDefined(value) ? value : VisualStyle.Original;
 
         private static TextureFilteringPreset NormalizeTextureFilteringPreset(TextureFilteringPreset value)
             => Enum.IsDefined(value) ? value : TextureFilteringPreset.Original;

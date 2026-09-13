@@ -59,12 +59,12 @@ namespace MphRead.Droid
         private readonly RenderLoop _loop;
 
         public GameView(Context context, TouchControls controls, StylusInput stylus,
-            AndroidInput input,
-            Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
+            AndroidInput input, FrameTiming timing,
+            Func<AndroidInput, Vector2i, FrameTiming, Scene> build, Action onEnd, Action onLoaded,
             Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             : base(context)
         {
-            _loop = new RenderLoop(controls, stylus, input, build, onEnd, onLoaded, onError,
+            _loop = new RenderLoop(controls, stylus, input, timing, build, onEnd, onLoaded, onError,
                 onPauseMenu, onSoftKeyboard);
             Holder?.AddCallback(this);
             // So this view can receive key events at all: from a keyboard
@@ -346,7 +346,8 @@ namespace MphRead.Droid
             private readonly TouchControls _controls;
             private readonly StylusInput _stylus;
             private readonly AndroidInput _input;
-            private readonly Func<AndroidInput, Vector2i, Scene> _build;
+            private readonly FrameTiming _timing;
+            private readonly Func<AndroidInput, Vector2i, FrameTiming, Scene> _build;
             private readonly Action _onEnd;
             private readonly Action _onLoaded;
             private readonly Action<string> _onError;
@@ -398,8 +399,8 @@ namespace MphRead.Droid
                     ?? ScenePresentation.Get(Scene!);
 
             public RenderLoop(TouchControls controls, StylusInput stylus,
-                AndroidInput input,
-                Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
+                AndroidInput input, FrameTiming timing,
+                Func<AndroidInput, Vector2i, FrameTiming, Scene> build, Action onEnd, Action onLoaded,
                 Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             {
                 _onPauseMenu = onPauseMenu;
@@ -407,6 +408,7 @@ namespace MphRead.Droid
                 _controls = controls;
                 _stylus = stylus;
                 _input = input;
+                _timing = timing ?? throw new ArgumentNullException(nameof(timing));
                 _build = build;
                 _onEnd = onEnd;
                 _onLoaded = onLoaded;
@@ -815,7 +817,7 @@ namespace MphRead.Droid
                 }
                 try
                 {
-                    Scene = _build(_input, _size);
+                    Scene = _build(_input, _size, _timing);
                     ScenePresentation presentation = ScenePresentation.Get(Scene);
                     presentation.OnLoad();
                     AuthoritativePlay? play =
@@ -868,7 +870,7 @@ namespace MphRead.Droid
                 _clock.Start();
                 _nextFrame = _clock.Elapsed.TotalSeconds;
                 _lastFrameStart = _nextFrame;
-                FrameTiming.Reset();
+                _timing.Reset();
                 _onLoaded();
             }
 
@@ -892,62 +894,125 @@ namespace MphRead.Droid
                 Scene scene = Scene!;
                 ScenePresentation live = ScenePresentation.Get(scene);
                 double elapsed = WaitForTick();
-                int steps = FrameTiming.Advance(elapsed);
-                SubmitKillcamInput();
-                SubmitQuickReplay();
-                for (int i = 0; i < steps; i++)
+                long wholeFrameStart = Stopwatch.GetTimestamp();
+                int steps = _timing.Advance(elapsed);
+                long simulationStart = Stopwatch.GetTimestamp();
+                long simulationEnd = 0;
+                long legacyRenderStart = 0;
+                long drawListBuildStart = 0;
+                long drawListBuildEnd = 0;
+                long renderEncodeStart = 0;
+                long renderEncodeEnd = 0;
+                long presentStart = 0;
+                long presentEnd = 0;
+                long afterFrameStart = 0;
+                long afterFrameEnd = 0;
+                try
                 {
-                    if (_killcam?.IsPresenting == true)
+                    SubmitKillcamInput();
+                    SubmitQuickReplay();
+                    for (int i = 0; i < steps; i++)
                     {
-                        // The live world still advances, but its Android
-                        // keyboard/mouse state must be committed neutral while
-                        // a replay-owned picture is visible. This releases any
-                        // bind held before the transition and prevents it from
-                        // latching back in when killcam exits.
-                        CommitNeutralInput();
+                        if (_killcam?.IsPresenting == true)
+                        {
+                            // The live world still advances, but its Android
+                            // keyboard/mouse state must be committed neutral while
+                            // a replay-owned picture is visible. This releases any
+                            // bind held before the transition and prevents it from
+                            // latching back in when killcam exits.
+                            CommitNeutralInput();
+                        }
+                        else
+                        {
+                            ApplyInput();
+                        }
+                        live.OnSimulationFrame();
+                        _killcam?.Advance();
+                        UpdateKillcamTouchMode();
                     }
-                    else
+                    // Replay presentation is render-paced rather than simulation-
+                    // paced. Advance exactly once for every host frame, including
+                    // a frame whose accumulator produced no simulation steps.
+                    _replayPresentation?.Advance();
+                    simulationEnd = Stopwatch.GetTimestamp();
+                    if (_replayPresentation?.ShouldClose == true)
                     {
-                        ApplyInput();
+                        End(scene);
+                        return false;
                     }
-                    live.OnSimulationFrame();
-                    _killcam?.Advance();
-                    UpdateKillcamTouchMode();
+                    ScenePresentation active = ActivePresentation;
+                    RequestFrameRate();
+                    legacyRenderStart = simulationEnd;
+                    drawListBuildStart = legacyRenderStart;
+                    active.OnDrawFrame();
+                    drawListBuildEnd = Stopwatch.GetTimestamp();
+                    renderEncodeStart = drawListBuildEnd;
+                    bool rendered = active.OnRenderFrame();
+                    renderEncodeEnd = Stopwatch.GetTimestamp();
+                    if (!rendered)
+                    {
+                        End(scene);
+                        return false;
+                    }
+                    afterFrameStart = Stopwatch.GetTimestamp();
+                    active.AfterRenderFrame();
+                    afterFrameEnd = Stopwatch.GetTimestamp();
+                    if (_display != null && _eglSurface != null)
+                    {
+                        presentStart = Stopwatch.GetTimestamp();
+                        if (EGL14.EglSwapBuffers(_display, _eglSurface))
+                        {
+                            active.OnFramePresented();
+                            presentEnd = Stopwatch.GetTimestamp();
+                        }
+                        else
+                        {
+                            presentEnd = Stopwatch.GetTimestamp();
+                            // The framework took the surface back. Let go of it and
+                            // wait for the next one rather than drawing into nothing.
+                            Console.WriteLine("[android] the surface stopped accepting frames; "
+                                + $"waiting for another (0x{EGL14.EglGetError():X})");
+                            ReleaseSurface();
+                        }
+                    }
+                    return true;
                 }
-                // Replay presentation is render-paced rather than simulation-
-                // paced. Advance exactly once for every host frame, including
-                // a frame whose accumulator produced no simulation steps.
-                _replayPresentation?.Advance();
-                if (_replayPresentation?.ShouldClose == true)
+                finally
                 {
-                    End(scene);
-                    return false;
+                    long now = Stopwatch.GetTimestamp();
+                    var sample = new FramePhaseTimingSample(
+                        // Android applies input inside each fixed simulation step;
+                        // reporting it separately would double-count simulation.
+                        InputMilliseconds: double.NaN,
+                        SimulationMilliseconds: Milliseconds(simulationStart,
+                            simulationEnd, now),
+                        // This host has no separate scene-preparation callback.
+                        ScenePreparationMilliseconds: double.NaN,
+                        DrawListBuildMilliseconds: Milliseconds(drawListBuildStart,
+                            drawListBuildEnd, now),
+                        RenderEncodeMilliseconds: Milliseconds(renderEncodeStart,
+                            renderEncodeEnd, now),
+                        // OnRenderFrame owns encoding and submission together on
+                        // Android, so a distinct submit sample is unavailable.
+                        RenderSubmitMilliseconds: double.NaN,
+                        PresentMilliseconds: Milliseconds(presentStart, presentEnd, now),
+                        // Android overlay UI is driven outside this render loop.
+                        OverlayUiMilliseconds: double.NaN,
+                        AfterFrameMilliseconds: Milliseconds(afterFrameStart,
+                            afterFrameEnd, now),
+                        WholeFrameMilliseconds: Milliseconds(wholeFrameStart, now, now),
+                        LegacyTotalRenderMilliseconds: Milliseconds(legacyRenderStart,
+                            now, now),
+                        ElapsedSeconds: elapsed);
+                    _timing.RecordRuntimeFrame(in sample);
                 }
-                ScenePresentation active = ActivePresentation;
-                RequestFrameRate();
-                active.OnDrawFrame();
-                if (!active.OnRenderFrame())
-                {
-                    End(scene);
-                    return false;
-                }
-                active.AfterRenderFrame();
-                if (_display != null && _eglSurface != null)
-                {
-                    if (EGL14.EglSwapBuffers(_display, _eglSurface))
-                    {
-                        active.OnFramePresented();
-                    }
-                    else
-                    {
-                        // The framework took the surface back. Let go of it and
-                        // wait for the next one rather than drawing into nothing.
-                        Console.WriteLine("[android] the surface stopped accepting frames; "
-                            + $"waiting for another (0x{EGL14.EglGetError():X})");
-                        ReleaseSurface();
-                    }
-                }
-                return true;
+            }
+
+            private static double Milliseconds(long start, long end, long fallback)
+            {
+                if (start == 0) return double.NaN;
+                long completed = end != 0 ? end : fallback;
+                return (completed - start) * 1000.0 / Stopwatch.Frequency;
             }
 
             /// <summary>

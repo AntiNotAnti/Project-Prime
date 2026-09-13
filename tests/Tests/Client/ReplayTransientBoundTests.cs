@@ -4,6 +4,7 @@ using System.Linq;
 using System.IO;
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Xunit;
@@ -42,11 +43,12 @@ public sealed class ReplayTransientBoundTests
                 (KeyboardState)Activator.CreateInstance(typeof(KeyboardState), nonPublic: true)!,
                 (MouseState)Activator.CreateInstance(typeof(MouseState), nonPublic: true)!,
                 static _ => { }, static () => { },
-                session.SceneServices, session);
+                new FrameTiming(), session.SceneServices, session);
             session.BuildPlayers(scene);
             presentation.AddRoom("MP1 SANCTORUS", GameMode.Battle,
                 playerCount: session.Modern.Roster.Length);
             presentation.OnLoad();
+            Assert.True(scene.LocalPlayer!.GetPresentation().HudReady);
             PlayerEntity[] initial = scene.Players.ToArray();
 
             session.Modern.RequestSceneReload();

@@ -24,16 +24,23 @@ namespace MphRead
 
         public ShaderLocations ShaderLocations { get; private set; } = null!;
         public GlesEnhancedRuntime? EnhancedRuntime { get; private set; }
+        private GlesEnhancedRuntime? TextureRuntime { get; set; }
 
         public void BeginFrame(ShaderLocations shaderLocations,
-            GlesEnhancedRuntime? enhancedRuntime = null)
+            GlesEnhancedRuntime? enhancedRuntime = null,
+            GlesEnhancedRuntime? textureRuntime = null)
         {
             ShaderLocations = shaderLocations
                 ?? throw new ArgumentNullException(nameof(shaderLocations));
             _draws.Clear();
             _sealed = false;
             EnhancedRuntime = enhancedRuntime;
+            TextureRuntime = textureRuntime ?? enhancedRuntime;
             EnhancedRuntime?.BeginResourceFrame();
+            if (!ReferenceEquals(TextureRuntime, EnhancedRuntime))
+            {
+                TextureRuntime?.BeginResourceFrame();
+            }
         }
 
         public void Add(DrawSubmission submission, int textureBinding, RenderFrame frame)
@@ -45,7 +52,12 @@ namespace MphRead
             Vector3? flatColor = null;
             if (submission.Material.Textured)
             {
-                if (submission.Material.Texture is not TextureIdentity identity)
+                TextureIdentity? requested = SdlGpuCelSurface.UsesEnhancedTextures(
+                    frame.Options)
+                        ? submission.Material.Enhanced?.Albedo
+                            ?? submission.Material.Texture
+                        : submission.Material.Texture;
+                if (requested is not TextureIdentity identity)
                 {
                     throw new InvalidOperationException(
                         $"Textured scene submission polygon {submission.PolygonId} has no texture identity.");
@@ -59,7 +71,12 @@ namespace MphRead
             }
             GlesEnhancedDrawResources? enhanced = EnhancedRuntime?.ResolveResources(
                 submission, frame, textureBinding);
-            _draws.Add(submission, new GlesDrawResources(textureBinding, flatColor, enhanced));
+            int resolvedTexture = enhanced is GlesEnhancedDrawResources enhancedResources
+                ? enhancedResources.AlbedoTexture
+                : TextureRuntime?.ResolveAlbedo(submission, frame, textureBinding)
+                    ?? textureBinding;
+            _draws.Add(submission, new GlesDrawResources(
+                resolvedTexture, flatColor, enhanced));
         }
 
         public void Seal() => _sealed = true;
@@ -279,10 +296,12 @@ namespace MphRead
             if (material.Textured)
             {
                 GL.BindTexture(TextureTarget.Texture2D, resources.TextureBinding);
+                bool filtering = options.Filtering
+                    && SdlGpuCelSurface.Style(options) != Mods.VisualStyle.Pixelated;
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                    options.Filtering ? (int)TextureMinFilter.Linear : (int)TextureMinFilter.Nearest);
+                    filtering ? (int)TextureMinFilter.Linear : (int)TextureMinFilter.Nearest);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                    options.Filtering ? (int)TextureMagFilter.Linear : (int)TextureMagFilter.Nearest);
+                    filtering ? (int)TextureMagFilter.Linear : (int)TextureMagFilter.Nearest);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
                     Wrap(material.WrapX));
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
@@ -294,7 +313,8 @@ namespace MphRead
 
             bool useTexture = material.Textured && options.ShowTextures;
             GL.Uniform1(locations.UseTexture, useTexture ? 1 : 0);
-            if (options.CelShading && useTexture && resources.FlatColor is Vector3 flatColor)
+            if (SdlGpuCelSurface.Style(options) is Mods.VisualStyle.Cel or Mods.VisualStyle.Flat
+                && useTexture && resources.FlatColor is Vector3 flatColor)
             {
                 GL.Uniform1(locations.UseFlat, 1);
                 GL.Uniform3(locations.FlatColor, flatColor);

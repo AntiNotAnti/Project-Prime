@@ -18,5 +18,6 @@
     <PackageReference Include="Avalonia.Desktop" />
     <ProjectReference Include="../../src/Client.Core/Client.Core.csproj" />
     <ProjectReference Include="../../src/Client.Presentation/Client.Presentation.csproj" />
+    <ProjectReference Include="../../src/Renderer/Renderer.csproj" />
   </ItemGroup>
 </Project>

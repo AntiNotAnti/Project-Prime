@@ -141,18 +141,19 @@ public class RenderInterpolationTests
     [Fact]
     public void ClockAlphaIsBoundedAndResetStallDebtHaveBarriers()
     {
-        FrameTiming.Reset();
-        Assert.Equal(1, FrameTiming.RenderAlpha);
-        long generation = FrameTiming.Discontinuities;
-        Assert.Equal(0, FrameTiming.Advance(FrameTiming.StepSeconds / 2));
-        Assert.Equal(.5f, FrameTiming.RenderAlpha, 5);
-        Assert.Equal(1, FrameTiming.Advance(1));
-        Assert.True(FrameTiming.Discontinuities > generation);
-        generation = FrameTiming.Discontinuities;
-        Assert.Equal(5, FrameTiming.Advance(.2));
-        Assert.True(FrameTiming.Discontinuities > generation);
-        Assert.InRange(FrameTiming.RenderAlpha, 0, 1);
-        FrameTiming.Reset();
+        var timing = new FrameTiming();
+        timing.Reset();
+        Assert.Equal(1, timing.RenderAlpha);
+        long generation = timing.Discontinuities;
+        Assert.Equal(0, timing.Advance(FrameTiming.StepSeconds / 2));
+        Assert.Equal(.5f, timing.RenderAlpha, 5);
+        Assert.Equal(1, timing.Advance(1));
+        Assert.True(timing.Discontinuities > generation);
+        generation = timing.Discontinuities;
+        Assert.Equal(5, timing.Advance(.2));
+        Assert.True(timing.Discontinuities > generation);
+        Assert.InRange(timing.RenderAlpha, 0, 1);
+        timing.Reset();
     }
 
     [Fact]

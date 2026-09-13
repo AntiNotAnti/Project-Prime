@@ -27,9 +27,9 @@ public sealed class EnhancedMaterialPresentationTests
     [Fact]
     public void ProductionEffectAndHunterDrawsForwardPersistentKeysToMaterialResolution()
     {
-        string effects = Read("src/Client/Rendering/EffectPresentation.cs");
-        string players = Read("src/Client/Presentation/Players/PresentationPlayerDraw.cs");
-        string renderer = Read("src/Client/Rendering/Renderer.cs");
+        string effects = Read("src/Client.Presentation/Rendering/EffectPresentation.cs");
+        string players = Read("src/Client.Presentation/Presentation/Players/PresentationPlayerDraw.cs");
+        string renderer = Read("src/Client.Presentation/Rendering/Renderer.cs");
         // Both node effects and billboard effects must carry the same effect namespace.
         Assert.Equal(2, effects.Split(
             "textureAssetKey: ScenePresentation.GetEffectTextureAssetKey(particle.Owner.EffectName, material)",

@@ -181,6 +181,19 @@ vec3 srgb_to_linear(vec3 value)
         srgb_to_linear_component(value.g), srgb_to_linear_component(value.b));
 }
 
+float linear_to_srgb_component(float value)
+{
+    value = max(value, 0.0);
+    return value <= 0.0031308 ? value * 12.92
+        : 1.055 * pow(value, 1.0 / 2.4) - 0.055;
+}
+
+vec3 linear_to_srgb(vec3 value)
+{
+    return vec3(linear_to_srgb_component(value.r),
+        linear_to_srgb_component(value.g), linear_to_srgb_component(value.b));
+}
+
 vec3 resolve_normal_map(vec3 geometry_normal)
 {
     vec3 tangent = world_tangent.xyz
@@ -279,6 +292,30 @@ vec3 cel_shade(vec3 color_value)
     return max(mix(vec3(grey), banded, 1.35), vec3(0.0));
 }
 
+vec2 styled_texture_uv(vec2 uv)
+{
+    if (cel_bands != -2) return uv;
+    vec2 dimensions = vec2(max(textureSize(albedo_tex, 0), ivec2(1)));
+    return (floor(uv * dimensions) + vec2(0.5)) / dimensions;
+}
+
+float bayer4(vec2 pixel_position)
+{
+    ivec2 p = ivec2(pixel_position) & ivec2(3);
+    if (p.y == 0) return p.x == 0 ? 0.0 : p.x == 1 ? 8.0 : p.x == 2 ? 2.0 : 10.0;
+    if (p.y == 1) return p.x == 0 ? 12.0 : p.x == 1 ? 4.0 : p.x == 2 ? 14.0 : 6.0;
+    if (p.y == 2) return p.x == 0 ? 3.0 : p.x == 1 ? 11.0 : p.x == 2 ? 1.0 : 9.0;
+    return p.x == 0 ? 15.0 : p.x == 1 ? 7.0 : p.x == 2 ? 13.0 : 5.0;
+}
+
+vec3 retro_color(vec3 linear_color)
+{
+    vec3 display_color = linear_to_srgb(linear_color);
+    float dither = ((bayer4(gl_FragCoord.xy) + 0.5) / 16.0 - 0.5) / 31.0;
+    display_color = floor(clamp(display_color + dither, 0.0, 1.0) * 31.0 + 0.5) / 31.0;
+    return srgb_to_linear(display_color);
+}
+
 void main()
 {
     vec3 normal_value = safe_normalize(world_normal, vec3(0.0, 1.0, 0.0));
@@ -301,7 +338,8 @@ void main()
     }
     surface_color = max(surface_color + visual_lighting, vec3(0.0));
 
-    vec4 texture_color = use_texture ? texture(albedo_tex, texcoord) : vec4(1.0);
+    vec2 texture_uv = styled_texture_uv(texcoord);
+    vec4 texture_color = use_texture ? texture(albedo_tex, texture_uv) : vec4(1.0);
     if (use_pal_override) texture_color = vec4(pal_override_color.rgb, texture_color.a);
     else if (use_flat) texture_color.rgb = flat_color;
     texture_color.rgb = srgb_to_linear(texture_color.rgb);
@@ -337,6 +375,8 @@ void main()
             * enhanced_emission.rgb * max(enhanced_emission.a, 0.0)
         : srgb_to_linear(emission);
     result.rgb += material_emission;
+
+    if (cel_bands == -3) result.rgb = retro_color(result.rgb);
 
     if (alpha_test == 1 && result.a != 1.0) discard;
     if (alpha_test == 2 && result.a >= 1.0) discard;

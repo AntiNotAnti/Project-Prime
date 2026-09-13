@@ -22,7 +22,7 @@ namespace MphRead
                     "immediate", UsesSoftwarePacing: true, ImmediateFallback: false);
             }
             return new SdlGpuPresentPolicy(SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_VSYNC,
-                "vsync-fallback", UsesSoftwarePacing: true, ImmediateFallback: true);
+                "vsync-fallback", UsesSoftwarePacing: false, ImmediateFallback: true);
         }
     }
 
@@ -89,7 +89,7 @@ namespace MphRead
         public DeviceRenderCaches Caches => _device.Caches;
         public RenderTelemetrySnapshot Telemetry => _telemetry.Latest;
 
-        internal void ApplyPresentPolicy(int frameRateCap)
+        internal SdlGpuPresentPolicy ApplyPresentPolicy(int frameRateCap)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             // Present parameters belong to the swapchain boundary. A cap
@@ -97,7 +97,8 @@ namespace MphRead
             // after that frame has submitted.
             if (_currentFrame != null || _commandBuffer != null)
             {
-                return;
+                return SdlGpuPresentPolicy.Resolve(frameRateCap,
+                    _device.SupportsImmediatePresent);
             }
 
             SdlGpuPresentPolicy policy = SdlGpuPresentPolicy.Resolve(frameRateCap,
@@ -113,8 +114,10 @@ namespace MphRead
             {
                 _loggedImmediateFallback = true;
                 Console.WriteLine("[render] SDL GPU immediate present mode is unavailable; "
-                    + "using vsync-fallback with the requested software frame cap.");
+                    + "using vsync-fallback without software pacing to avoid double-throttling; "
+                    + "the requested explicit cap is display-rate limited.");
             }
+            return policy;
         }
 
         public bool TryBeginFrame(out RenderBackendFrame frame)

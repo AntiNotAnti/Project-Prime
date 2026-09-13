@@ -495,6 +495,15 @@ namespace MphRead
                 enhanced.Smoothness, enhanced.EmissionTint, enhanced.EmissionStrength);
         }
 
+        public int ResolveAlbedo(DrawSubmission submission, RenderFrame frame,
+            int originalTexture)
+        {
+            TextureIdentity? albedo = SdlGpuCelSurface.UsesEnhancedTextures(frame.Options)
+                ? submission.Material.Enhanced?.Albedo
+                : null;
+            return Resolve(albedo, frame, originalTexture);
+        }
+
         public void BeginResourceFrame()
         {
             _pinnedTextures.Clear();

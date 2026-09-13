@@ -10,18 +10,19 @@ namespace MphRead.Export
         private static readonly CaptureRecordingConsumer _recorder =
             new CaptureRecordingConsumer(new CaptureRecordingQueue(capacity: 8), Write);
 
-        public static void Screenshot(int width, int height, string? name = null)
+        public static void Screenshot(int width, int height, long originatingFrame,
+            string? name = null)
         {
             byte[] buffer = new byte[width * height * 3];
             GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
             name ??= DateTimeOffset.Now.ToUnixTimeMilliseconds().ToString();
-            var result = new RenderCaptureResult(Guid.NewGuid(), MphRead.Mods.Render.FrameTiming.TotalFrames,
+            var result = new RenderCaptureResult(Guid.NewGuid(), originatingFrame,
                 CaptureTargetKind.FinalPresentedFrame, width, height, CapturePixelFormat.Rgb8,
                 CaptureRowOrientation.BottomUp, buffer, name, CaptureDeliveryKind.Screenshot);
             Write(result);
         }
 
-        public static void Record(int width, int height, string name)
+        public static void Record(int width, int height, string name, long originatingFrame)
         {
             _recorder.StartRecording();
             int length = checked(width * height * 3);
@@ -29,7 +30,7 @@ namespace MphRead.Export
             try
             {
                 GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-                var result = new RenderCaptureResult(Guid.NewGuid(), MphRead.Mods.Render.FrameTiming.TotalFrames,
+                var result = new RenderCaptureResult(Guid.NewGuid(), originatingFrame,
                     CaptureTargetKind.FinalPresentedFrame, width, height, CapturePixelFormat.Rgb8,
                     CaptureRowOrientation.BottomUp, buffer.AsSpan(0, length), name,
                     CaptureDeliveryKind.Recording);

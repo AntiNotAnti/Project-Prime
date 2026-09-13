@@ -23,7 +23,7 @@
          physically local; no Client implementation is source-linked here. -->
     <None Update="Shaders/Generated/**/*" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
-          Link="Rendering/Shaders/Generated/%(RecursiveDir)%(Filename)%(Extension)" />
+          Link="Rendering/%(RecursiveDir)%(Filename)%(Extension)" />
     <None Update="Shaders/*.hlsl" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest"
           Link="Rendering/Shaders/%(Filename)%(Extension)" />

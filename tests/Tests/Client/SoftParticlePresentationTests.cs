@@ -225,9 +225,9 @@ public sealed class SoftParticlePresentationTests
     {
         string root = FindRepositoryRoot();
         string renderer = File.ReadAllText(Path.Combine(root,
-            "src", "Client", "Rendering", "Renderer.cs"));
+            "src", "Client.Presentation", "Rendering", "Renderer.cs"));
         string effects = File.ReadAllText(Path.Combine(root,
-            "src", "Client", "Rendering", "EffectPresentation.cs"));
+            "src", "Client.Presentation", "Rendering", "EffectPresentation.cs"));
         Assert.Contains("SetSoftParticleProfile(entry, effect.Id, elementIndex)",
             renderer, StringComparison.Ordinal);
         Assert.Contains("ClearSoftParticleProfile(element)", renderer,

@@ -5,4 +5,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("MphRead.Tests")]
 [assembly: InternalsVisibleTo("ProjectPrime.MapPlatform.Tests")]
 [assembly: InternalsVisibleTo("ProjectPrime.Renderer.Tests")]
+[assembly: InternalsVisibleTo("ProjectPrime.Client.Tests")]
 [assembly: InternalsVisibleTo("ProjectPrimeEnhancedMaterials")]

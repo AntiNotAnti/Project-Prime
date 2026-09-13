@@ -34,6 +34,13 @@ public sealed class SdlGpuReconstructionTests
     }
 
     [Fact]
+    public void ReconstructionShaderAndDrawShareOneSamplerBinding()
+    {
+        Assert.Equal(1, SdlGpuPostResources.SamplerCount(
+            SdlGpuPostResources.PostShader.Reconstruction));
+    }
+
+    [Fact]
     public void ShaderCombinesWindowedSincReconstructionWithBoundedSharpening()
     {
         string shader = File.ReadAllText(Path.Combine(AppContext.BaseDirectory,

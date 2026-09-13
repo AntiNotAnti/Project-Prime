@@ -19,6 +19,7 @@ namespace MphRead.Mods.Network
         private int _count;
         private long _totalCount;
         private long _evictions;
+        private double _sum;
         private int _sequence;
         private readonly object _snapshotGate = new();
 
@@ -44,8 +45,13 @@ namespace MphRead.Mods.Network
         {
             if (!Double.IsFinite(value) || value < 0) return;
             int sequence = Interlocked.Increment(ref _sequence);
-            if (_count == _values.Length) _evictions++;
+            if (_count == _values.Length)
+            {
+                _sum -= _values[_next];
+                _evictions++;
+            }
             _values[_next] = value;
+            _sum += value;
             _next++;
             if (_next == _values.Length) _next = 0;
             if (_count < _values.Length) _count++;
@@ -61,6 +67,7 @@ namespace MphRead.Mods.Network
             _count = 0;
             _totalCount = 0;
             _evictions = 0;
+            _sum = 0;
             Volatile.Write(ref _sequence, unchecked(sequence + 1));
         }
 
@@ -83,6 +90,7 @@ namespace MphRead.Mods.Network
                     int count = _count;
                     long totalCount = _totalCount;
                     long evictions = _evictions;
+                    double sum = _sum;
                     Array.Copy(_values, _sorted, count);
                     Thread.MemoryBarrier();
                     int completed = Volatile.Read(ref _sequence);
@@ -95,7 +103,8 @@ namespace MphRead.Mods.Network
                     Array.Sort(_sorted, 0, count);
                     snapshot = new BoundedPercentileSnapshot(count, totalCount, evictions,
                         _sorted[Rank(count, 0.50)], _sorted[Rank(count, 0.95)],
-                        _sorted[Rank(count, 0.99)], _sorted[Rank(count, 0.999)], _sorted[count - 1]);
+                        _sorted[Rank(count, 0.99)], _sorted[Rank(count, 0.999)], _sorted[count - 1],
+                        sum / count);
                     return true;
                 }
             }
@@ -110,7 +119,8 @@ namespace MphRead.Mods.Network
             Array.Sort(_sorted, 0, _count);
             return new BoundedPercentileSnapshot(_count, _totalCount, _evictions,
                 _sorted[Rank(_count, 0.50)], _sorted[Rank(_count, 0.95)],
-                _sorted[Rank(_count, 0.99)], _sorted[Rank(_count, 0.999)], _sorted[_count - 1]);
+                _sorted[Rank(_count, 0.99)], _sorted[Rank(_count, 0.999)], _sorted[_count - 1],
+                _sum / _count);
         }
 
         private static int Rank(int count, double percentile)
@@ -123,7 +133,8 @@ namespace MphRead.Mods.Network
     }
 
     public readonly record struct BoundedPercentileSnapshot(int Count, long TotalCount,
-        long Evictions, double P50, double P95, double P99, double P999, double Max);
+        long Evictions, double P50, double P95, double P99, double P999, double Max,
+        double Mean);
 
     /// <summary>
     /// Single-writer running statistics with a lazily initialized bounded
