@@ -20,7 +20,7 @@ namespace MphRead.Tests
             // Live protocol 18 carries the authoritative team count in addition
             // to the input epoch and frame timing denominator; older replay fixtures below
             // intentionally keep their historical protocol versions.
-            Assert.Equal(19, NetHeader.Version);
+            Assert.Equal(20, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);

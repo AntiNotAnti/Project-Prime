@@ -89,6 +89,31 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
+    public void FpsCounterDefaultsOnAndCanBeDisabled()
+    {
+        MenuSettings restore = GameSettings.Current ?? new MenuSettings();
+        try
+        {
+            var defaults = new MenuSettings();
+            SettingDescriptor descriptor = SettingRegistry.Get("graphics.fps-counter");
+
+            Assert.Equal("on", defaults.ShowFps);
+            Assert.Equal(nameof(MenuSettings.ShowFps), descriptor.PersistenceKey);
+            Assert.Equal(SettingControlKind.Toggle, descriptor.Kind);
+            Assert.Equal("on", JsonSerializer.Deserialize<MenuSettings>("{}")!.ShowFps);
+
+            GameSettings.Apply(defaults);
+            Assert.True(RenderOptions.ShowFps);
+            GameSettings.Apply(new MenuSettings { ShowFps = "off" });
+            Assert.False(RenderOptions.ShowFps);
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
+    }
+
+    [Fact]
     public void RadarAppearancePreferencesPersistAndClampWithoutChangingRevealPolicy()
     {
         MenuSettings restore = GameSettings.Current ?? new MenuSettings();
@@ -253,6 +278,11 @@ public sealed class SettingsRegistryTests
             Assert.Equal(DynamicCrosshairTuning.DefaultTurnSpeed,
                 InputSettings.DynamicCrosshairTurnSpeed);
 
+            InputSettings.DynamicCrosshairSensitivity = 100;
+            InputSettings.DynamicCrosshairTurnSpeed = 100;
+            Assert.Equal(10, InputSettings.DynamicCrosshairSensitivity);
+            Assert.Equal(10, InputSettings.DynamicCrosshairTurnSpeed);
+
             SettingDescriptor travel = SettingRegistry.Get(
                 SettingRowIds.DynamicCrosshairTravel);
             SettingDescriptor sensitivity = SettingRegistry.Get(
@@ -262,6 +292,8 @@ public sealed class SettingsRegistryTests
             Assert.Equal(SettingCategory.Controls, travel.Category);
             Assert.Equal("Dynamic crosshair", travel.Group);
             Assert.Equal(SettingControlKind.Slider, sensitivity.Kind);
+            Assert.Equal(DynamicCrosshairTuning.MaximumMovementSensitivity,
+                sensitivity.Maximum);
             Assert.Equal(DynamicCrosshairTuning.MaximumTurnSpeed,
                 turnSpeed.Maximum);
         }

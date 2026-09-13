@@ -54,8 +54,76 @@ namespace MphRead.Entities
             return false;
         }
 
-        /// <summary>Where this player's gun points. Sent as the aim in every intent.</summary>
+        /// <summary>Where this player's gun points.</summary>
         internal Vector3 ModGunVector => _gunVec1;
+
+        /// <summary>
+        /// Rolling forms use the existing Aim field for their stable control
+        /// heading. They cannot fire a biped weapon, and sending the retained
+        /// heading prevents the authority from rebuilding WASD axes from the
+        /// ball's changing velocity.
+        /// </summary>
+        internal Vector3 ModInputAim => ResolveNetworkInputAim(IsAltForm,
+            IsMorphing, Values.AltFormStrafe, _gunVec1,
+            new Vector3(_altRollFbX, 0, _altRollFbZ));
+
+        internal static Vector3 ResolveNetworkInputAim(bool isAltForm,
+            bool isMorphing, int altFormStrafe, Vector3 gunAim,
+            Vector3 rollingForward)
+        {
+            if ((isAltForm || isMorphing) && altFormStrafe == 0)
+            {
+                return VectorMath.NormalizeHorizontalOr(rollingForward,
+                    VectorMath.NormalizeHorizontalOr(gunAim, -Vector3.UnitZ));
+            }
+            return VectorMath.NormalizeOr(gunAim, -Vector3.UnitZ);
+        }
+
+        /// <summary>
+        /// The camera origin may follow a replicated position only while the
+        /// player is in first person. Alternate-form cameras are collision
+        /// adjusted presentation state; replacing their position from network
+        /// aim would feed an eye-height origin into the third-person camera on
+        /// every simulation tick.
+        /// </summary>
+        internal static bool ShouldRecenterNetworkAimCamera(CameraType cameraType,
+            bool isAltForm)
+            => cameraType == CameraType.First && !isAltForm;
+
+        /// <summary>
+        /// Resolve the stable horizontal control basis for a rolling form from
+        /// the replicated absolute aim. Aim pitch has no bearing on ground
+        /// movement; a vertical or malformed aim therefore retains the last
+        /// finite heading rather than producing a zero/NaN basis.
+        /// </summary>
+        internal static (Vector3 Forward, Vector3 Left)
+            ResolveRollingAltControlBasis(Vector3 absoluteAim,
+                Vector3 retainedForward)
+        {
+            Vector3 fallback = VectorMath.TryNormalizeHorizontal(
+                retainedForward, out Vector3 normalizedRetained)
+                ? normalizedRetained : -Vector3.UnitZ;
+            Vector3 forward = VectorMath.TryNormalizeHorizontal(
+                absoluteAim, out Vector3 normalizedAim)
+                ? normalizedAim : fallback;
+            Vector3 left = new(forward.Z, 0, -forward.X);
+            return (forward, left);
+        }
+
+        internal void ModRefreshRollingAltControlBasis()
+        {
+            if (IsBot || !_networkInputActive
+                && !_scene.Services.IsRemoteControlled(SlotIndex))
+            {
+                return;
+            }
+            (Vector3 forward, Vector3 left) = ResolveRollingAltControlBasis(
+                _gunVec1, new Vector3(_altRollFbX, 0, _altRollFbZ));
+            _altRollFbX = forward.X;
+            _altRollFbZ = forward.Z;
+            _altRollLrX = left.X;
+            _altRollLrZ = left.Z;
+        }
 
 
         internal void ModRefreshNetworkAim()
@@ -85,7 +153,8 @@ namespace MphRead.Entities
             {
                 return;
             }
-            if (_networkInputActive || _scene.Services.IsRemoteControlled(SlotIndex))
+            if ((_networkInputActive || _scene.Services.IsRemoteControlled(SlotIndex))
+                && ShouldRecenterNetworkAimCamera(CameraType, IsAltForm))
             {
                 // A remote player's camera is not the authoritative state.
                 // Repositioning the player without moving this cached camera

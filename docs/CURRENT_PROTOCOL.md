@@ -1,7 +1,7 @@
 # Current Project Prime protocol
 
-Status: authoritative live-wire reference, 2026-09-12. The current
-authoritative wire family is `Authoritative`, protocol **17**. Protocol 16 and
+Status: authoritative live-wire reference, 2026-09-13. The current
+authoritative wire family is `Authoritative`, protocol **20**. Protocol 19 and
 older peers are intentionally incompatible with the live build.
 
 ## Envelope and admission
@@ -24,10 +24,13 @@ from client-supplied hints.
 | 14 | authenticated established-connection datagrams |
 | 15 | explicit optional quantized radial movement axes |
 | 16 | authoritative Spire alternate-form attack presentation flag |
-| **17** | authoritative remote weapon charge presentation state |
+| 17 | authoritative remote weapon charge presentation state |
+| 18 | authoritative two-to-four team count |
+| 19 | presentation-only cosmetic IDs in reliable roster state |
+| **20** | stable rolling-form control heading in input `Aim` |
 
 This table records wire history; it does not make old live peers compatible
-with protocol 17.
+with protocol 20.
 
 ## Input command (introduced in protocol 15)
 
@@ -48,6 +51,14 @@ unchanged, including keyboard diagonals, opposing keys, touch, bots, and
 alternate forms. Mixed keyboard/controller capture preserves digital intent
 and adds/clamps the controller contribution once; it does not reapply
 controller-derived digital buttons on the server.
+
+For a biped or a strafe-capable alternate form, `Aim` remains the normalized
+weapon aim ray. While a rolling form is active or morphing, `Aim` instead
+carries the normalized retained horizontal control heading. The Worker uses
+that heading to resolve the same camera-relative WASD axes as local prediction;
+ball velocity and collision-adjusted camera motion cannot redefine those axes.
+This conditional semantic change introduced protocol 20 without changing the
+43-byte command layout.
 
 ## Snapshot player (protocol 17)
 
@@ -73,7 +84,7 @@ or gameplay timing. Boost/flick does not acquire invented analog semantics.
 ## Replay compatibility
 
 Live admission is exact-family/exact-protocol. Stored protocol-14 through
-protocol-16 replay timelines remain readable through their replay codecs when they
+protocol-19 replay timelines remain readable through their replay codecs when they
 do not contain live `InputCommand` payloads; this is storage compatibility, not
 live wire compatibility. The frozen protocol-8–16 snapshot adapter supplies a
 zero charge level because those 96-byte records never encoded one. Historical

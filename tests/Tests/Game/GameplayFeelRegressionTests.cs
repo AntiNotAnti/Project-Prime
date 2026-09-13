@@ -99,6 +99,52 @@ public sealed class GameplayFeelRegressionTests
     }
 
     [Fact]
+    public void DynamicCrosshairFollowDoesNotAlternateBetweenStoppingAndJumping()
+    {
+        Vector3 facing = Vector3.UnitZ;
+        float previousFacingDegrees = 0;
+        for (int gunDegrees = 1; gunDegrees <= 24; gunDegrees++)
+        {
+            facing = PlayerEntity.ResolveAimFacingAfterInput(
+                FacingAtDegrees(gunDegrees), facing,
+                appliedAngle: MathHelper.DegreesToRadians(1),
+                travelDegrees: 15, turnSpeed: 1);
+            float facingDegrees = MathHelper.RadiansToDegrees(
+                MathF.Atan2(facing.X, facing.Z));
+            if (gunDegrees <= 15)
+            {
+                Assert.Equal(0, facingDegrees, 4);
+            }
+            else
+            {
+                Assert.Equal(1, facingDegrees - previousFacingDegrees, 4);
+            }
+            previousFacingDegrees = facingDegrees;
+        }
+    }
+
+    [Fact]
+    public void DynamicCrosshairTravelIsLeftRightSymmetric()
+    {
+        Vector3 rightFacing = Vector3.UnitZ;
+        Vector3 leftFacing = Vector3.UnitZ;
+        for (int gunDegrees = 1; gunDegrees <= 30; gunDegrees++)
+        {
+            float step = MathHelper.DegreesToRadians(1);
+            rightFacing = PlayerEntity.ResolveAimFacingAfterInput(
+                FacingAtDegrees(gunDegrees), rightFacing, step,
+                travelDegrees: 15, turnSpeed: .65f);
+            leftFacing = PlayerEntity.ResolveAimFacingAfterInput(
+                FacingAtDegrees(-gunDegrees), leftFacing, -step,
+                travelDegrees: 15, turnSpeed: .65f);
+
+            Assert.Equal(rightFacing.X, -leftFacing.X, 5);
+            Assert.Equal(rightFacing.Y, leftFacing.Y, 5);
+            Assert.Equal(rightFacing.Z, leftFacing.Z, 5);
+        }
+    }
+
+    [Fact]
     public void NoxusOverlapUsesAttackerFacingAndKeepsOneEighthMagnitude()
     {
         Vector3 direction = PlayerEntity.ResolveHorizontalKnockbackDirection(

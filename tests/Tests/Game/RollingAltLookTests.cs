@@ -1,4 +1,6 @@
+using System;
 using MphRead.Entities;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
 
@@ -6,6 +8,164 @@ namespace MphRead.Tests;
 
 public sealed class RollingAltLookTests
 {
+    [Theory]
+    [InlineData(1, 0, 0, 1)]
+    [InlineData(0, 0, -1, 0)]
+    [InlineData(-1, 0, 0, -1)]
+    public void AbsoluteAimProvidesUnitOrthogonalHorizontalBasis(
+        float aimX, float aimY, float aimZ, float expectedForwardX)
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.ResolveRollingAltControlBasis(
+                new Vector3(aimX, aimY, aimZ), Vector3.UnitZ);
+
+        Assert.Equal(expectedForwardX, forward.X, 5);
+        Assert.Equal(1, forward.Length, 5);
+        Assert.Equal(1, left.Length, 5);
+        Assert.Equal(0, forward.Y, 5);
+        Assert.Equal(0, left.Y, 5);
+        Assert.Equal(0, Vector3.Dot(forward, left), 5);
+    }
+
+    [Fact]
+    public void PitchOnlyAimPreservesRetainedHeading()
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.ResolveRollingAltControlBasis(
+                new Vector3(0, 1, 0), new Vector3(1, 0, 1));
+
+        Assert.Equal(new Vector3(1, 0, 1).Normalized(), forward);
+        Assert.Equal(new Vector3(forward.Z, 0, -forward.X), left);
+    }
+
+    [Fact]
+    public void InvalidAimFallsBackToFiniteRetainedHeading()
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.ResolveRollingAltControlBasis(
+                new Vector3(float.NaN, float.PositiveInfinity, 0),
+                new Vector3(-2, 0, 0));
+
+        Assert.Equal(-Vector3.UnitX, forward);
+        Assert.Equal(new Vector3(0, 0, 1), left);
+        Assert.True(VectorMath.IsFinite(forward));
+        Assert.True(VectorMath.IsFinite(left));
+    }
+
+    [Fact]
+    public void MissingRollingHeadingUsesCanonicalForward()
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.ResolveRollingAltControlBasis(Vector3.Zero,
+                Vector3.Zero);
+
+        Assert.Equal(-Vector3.UnitZ, forward);
+        Assert.Equal(-Vector3.UnitX, left);
+    }
+
+    [Theory]
+    [InlineData(1, 0, 0, 0, -1)]
+    [InlineData(-1, 0, 0, 0, 1)]
+    [InlineData(0, -1, -1, 0, 0)]
+    [InlineData(0, 1, 1, 0, 0)]
+    public void WasdUsesStableScreenRelativeDirections(float forwardInput,
+        float lateralInput, float expectedX, float expectedY, float expectedZ)
+    {
+        Vector3 movement = PlayerEntity.ResolveRollingAltMovement(
+            -Vector3.UnitZ, -Vector3.UnitX, forwardInput, lateralInput, 1);
+
+        Assert.Equal(new Vector3(expectedX, expectedY, expectedZ), movement);
+    }
+
+    [Fact]
+    public void ExplicitYawRotatesControlBasisWhilePitchAndVelocityCannot()
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.RotateRollingAltControlBasis(-Vector3.UnitZ, 90);
+        (Vector3 unchanged, _) =
+            PlayerEntity.RotateRollingAltControlBasis(forward, 0);
+
+        Assert.Equal(-1, forward.X, 5);
+        Assert.Equal(0, forward.Z, 5);
+        Assert.Equal(0, left.X, 5);
+        Assert.Equal(1, left.Z, 5);
+        Assert.Equal(forward.X, unchanged.X, 5);
+        Assert.Equal(forward.Z, unchanged.Z, 5);
+
+        Vector3 transmitted = PlayerEntity.ResolveNetworkInputAim(
+            isAltForm: true, isMorphing: false, altFormStrafe: 0,
+            gunAim: Vector3.UnitX, rollingForward: forward);
+        Assert.Equal(forward.X, transmitted.X, 5);
+        Assert.Equal(forward.Z, transmitted.Z, 5);
+    }
+
+    [Theory]
+    [InlineData(true, false, 0, true)]
+    [InlineData(false, true, 0, true)]
+    [InlineData(true, false, 1, false)]
+    [InlineData(false, false, 0, false)]
+    public void InputAimUsesRollingHeadingOnlyDuringRollingControl(
+        bool isAltForm, bool isMorphing, int altFormStrafe,
+        bool expectedRolling)
+    {
+        Vector3 gun = Vector3.UnitX;
+        Vector3 rolling = -Vector3.UnitZ;
+
+        Vector3 result = PlayerEntity.ResolveNetworkInputAim(isAltForm,
+            isMorphing, altFormStrafe, gun, rolling);
+
+        Assert.Equal(expectedRolling ? rolling : gun, result);
+    }
+
+    [Fact]
+    public void WireAndPacketLossFallbackRetainRollingHeading()
+    {
+        var command = new InputCommand(4, 4, 3, InputButtons.RollForward,
+            InputButtons.RollForward, -Vector3.UnitZ,
+            InputCommand.NoWeapon);
+        Span<byte> wire = stackalloc byte[InputCommand.Size];
+
+        command.Write(wire);
+
+        Assert.True(InputCommand.TryRead(wire, out InputCommand decoded));
+        Assert.Equal(command.Aim, decoded.Aim);
+        Assert.Equal(command.Aim, decoded.WithoutEdges().Aim);
+    }
+
+    [Fact]
+    public void LocalAndAuthorityResolveTheSameRollingAcceleration()
+    {
+        (Vector3 localForward, Vector3 localLeft) =
+            PlayerEntity.RotateRollingAltControlBasis(-Vector3.UnitZ, 37);
+        Vector3 sentHeading = PlayerEntity.ResolveNetworkInputAim(
+            isAltForm: true, isMorphing: false, altFormStrafe: 0,
+            gunAim: Vector3.UnitX, rollingForward: localForward);
+        (Vector3 authorityForward, Vector3 authorityLeft) =
+            PlayerEntity.ResolveRollingAltControlBasis(sentHeading,
+                Vector3.UnitX);
+
+        Vector3 local = PlayerEntity.ResolveRollingAltMovement(localForward,
+            localLeft, forwardInput: 1, lateralInput: -1, traction: .125f);
+        Vector3 authority = PlayerEntity.ResolveRollingAltMovement(
+            authorityForward, authorityLeft, forwardInput: 1,
+            lateralInput: -1, traction: .125f);
+
+        Assert.Equal(local.X, authority.X, 6);
+        Assert.Equal(local.Z, authority.Z, 6);
+    }
+
+    [Theory]
+    [InlineData(CameraType.First, false, true)]
+    [InlineData(CameraType.First, true, false)]
+    [InlineData(CameraType.Third1, false, false)]
+    [InlineData(CameraType.Third2, false, false)]
+    public void NetworkAimRecentersOnlyAFirstPersonBipedCamera(
+        CameraType cameraType, bool isAltForm, bool expected)
+    {
+        Assert.Equal(expected, PlayerEntity.ShouldRecenterNetworkAimCamera(
+            cameraType, isAltForm));
+    }
+
     [Fact]
     public void HorizontalLookRotatesTheOrbitAndMovementBasisTogether()
     {

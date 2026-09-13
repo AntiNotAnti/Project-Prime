@@ -99,7 +99,7 @@ namespace MphRead.Entities
             {
                 moveX = moveY = 0;
             }
-            return new InputCommand(sequence, sequence, viewServerTick, held, pressed, _gunVec1,
+            return new InputCommand(sequence, sequence, viewServerTick, held, pressed, ModInputAim,
                 (byte)CurrentWeapon, boostIntent, inputEpoch, moveX, moveY,
                 analogPresent);
         }

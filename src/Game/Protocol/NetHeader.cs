@@ -48,8 +48,10 @@ namespace MphRead.Mods.Network
         // authoritative Spire alternate-form attack presentation state, and
         // protocol 17 carries remote weapon charge presentation state, and
         // protocol 18 carries the authoritative two-to-four team count, and
-        // protocol 19 freezes presentation-only cosmetic IDs in reliable roster state.
-        public const byte Version = 19;
+        // protocol 19 freezes presentation-only cosmetic IDs in reliable
+        // roster state, and protocol 20 gives rolling forms a stable control
+        // heading in the existing input Aim field.
+        public const byte Version = 20;
 
         public void Write(Span<byte> destination)
         {

@@ -343,8 +343,8 @@ namespace MphRead.Entities
             }
             travelDegrees = DynamicCrosshairTuning.TravelDegrees(travelDegrees);
             turnSpeed = DynamicCrosshairTuning.TurnSpeed(turnSpeed);
-            if (travelDegrees == DynamicCrosshairTuning.DefaultTravelDegrees
-                && turnSpeed == DynamicCrosshairTuning.DefaultTurnSpeed)
+            if (DynamicCrosshairTuning.UsesLegacyCameraResponse(
+                travelDegrees, turnSpeed))
             {
                 return ResolveAimFacing(gunVector, facingVector);
             }
@@ -352,29 +352,33 @@ namespace MphRead.Entities
             gunVector = VectorMath.NormalizeOr(gunVector, facingVector);
             facingVector = VectorMath.NormalizeOr(facingVector, gunVector);
             float dot = Math.Clamp(Vector3.Dot(gunVector, facingVector), -1, 1);
-            float travelCos = MathF.Cos(MathHelper.DegreesToRadians(travelDegrees));
-            if (dot >= travelCos)
+            float separation = MathF.Acos(dot);
+            float travel = MathHelper.DegreesToRadians(travelDegrees);
+            if (separation <= travel)
             {
                 return facingVector;
             }
 
-            // Preserve the original 15-degree safety envelope unless the
-            // player explicitly asks for a wider free-aim region.
-            float maximumDegrees = Math.Max(15, travelDegrees);
-            float maximumCos = MathF.Cos(MathHelper.DegreesToRadians(maximumDegrees));
-            if (dot < maximumCos)
+            // Once outside the free-aim region, follow the input itself rather
+            // than a percentage of the whole gun/camera offset. Percentage
+            // chasing can overshoot back inside the threshold, pause for a
+            // frame, then jump again. Keeping the result on or outside the
+            // boundary gives continuous camera and character-facing motion.
+            float maximum = MathHelper.DegreesToRadians(travelDegrees
+                + DynamicCrosshairTuning.FollowRangeDegrees);
+            float turnStep = MathF.Abs(appliedAngle) * turnSpeed;
+            float targetSeparation = Math.Max(travel,
+                Math.Min(separation, maximum) - turnStep);
+            if (targetSeparation < separation)
             {
                 Vector3 tangent = facingVector - gunVector * dot;
                 if (!VectorMath.TryNormalize(tangent, out tangent))
                 {
                     tangent = VectorMath.Perpendicular(gunVector, facingVector);
                 }
-                float maximumSin = MathF.Sin(
-                    MathHelper.DegreesToRadians(maximumDegrees));
-                facingVector = maximumCos * gunVector + maximumSin * tangent;
+                facingVector = MathF.Cos(targetSeparation) * gunVector
+                    + MathF.Sin(targetSeparation) * tangent;
             }
-            float blend = DynamicCrosshairTuning.TurnBlend(turnSpeed);
-            facingVector += (gunVector - facingVector) * blend;
             return VectorMath.NormalizeOr(facingVector, gunVector);
         }
 
@@ -859,9 +863,11 @@ namespace MphRead.Entities
                     }
                     if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                     {
+                        bool zoomActivated = false;
                         if (Controls.Zoom.IsPressed)
                         {
-                            UpdateZoom(!EquipInfo.Zoomed);
+                            zoomActivated = !EquipInfo.Zoomed;
+                            UpdateZoom(zoomActivated);
                         }
                         if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
                         {
@@ -902,7 +908,7 @@ namespace MphRead.Entities
                             CheckZoomTargets(EntityType.Object);
                             zoomFov *= 2;
                             CameraInfo.Fov = ZoomFovTransition.StepToward(
-                                CameraInfo.Fov, zoomFov);
+                                CameraInfo.Fov, zoomFov, zoomActivated);
                         }
                     }
                     if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= SimTicks.From30HzFrames(1)
@@ -1145,7 +1151,7 @@ namespace MphRead.Entities
                 {
                     Flags1 &= ~PlayerFlags1.AltDirOverride;
                 }
-                if (_timeSinceMorphCamera > SimTicks.From30HzFrames(10) && !Flags1.TestFlag(PlayerFlags1.AltDirOverride)
+                if (IsBot && _timeSinceMorphCamera > SimTicks.From30HzFrames(10) && !Flags1.TestFlag(PlayerFlags1.AltDirOverride)
                     && (MathF.Abs(CameraInfo.Field48) >= 1 / 4096f || MathF.Abs(CameraInfo.Field4C) >= 1 / 4096f))
                 {
                     _altRollFbX = CameraInfo.Field48;
@@ -1354,6 +1360,12 @@ namespace MphRead.Entities
                             rollingLook += new Vector2(_buttonAimX, _buttonAimY);
                         }
                     }
+                    // Only network-controlled rolling forms rebuild this
+                    // basis from the heading sent in InputCommand.Aim. Local
+                    // control rotates the retained basis from explicit yaw in
+                    // ApplyRollingAltLook; ProcessMovement is free to point
+                    // _gunVec1 along velocity without feeding it back into WASD.
+                    ModRefreshRollingAltControlBasis();
                     ApplyRollingAltLook(rollingLook);
                     float traction = Fixed.ToFloat(Values.RollAltTraction);
                     if (_jumpPadControlLockMin > 0)
@@ -1366,26 +1378,10 @@ namespace MphRead.Entities
                     float rollLateralSign = ResolveMovementAxis(
                         Controls.RollRight.IsDown ? 1 : Controls.RolltLeft.IsDown ? -1 : 0,
                         _analogMovement.X, horizontal: true, roll: true);
-                    if (rollForwardSign > 0)
-                    {
-                        speedDelta.X += _altRollFbX * traction * rollForwardSign;
-                        speedDelta.Z += _altRollFbZ * traction * rollForwardSign;
-                    }
-                    else if (rollForwardSign < 0)
-                    {
-                        speedDelta.X += _altRollFbX * traction * rollForwardSign;
-                        speedDelta.Z += _altRollFbZ * traction * rollForwardSign;
-                    }
-                    if (rollLateralSign < 0)
-                    {
-                        speedDelta.X -= _altRollLrX * traction * rollLateralSign;
-                        speedDelta.Z -= _altRollLrZ * traction * rollLateralSign;
-                    }
-                    else if (rollLateralSign > 0)
-                    {
-                        speedDelta.X -= _altRollLrX * traction * rollLateralSign;
-                        speedDelta.Z -= _altRollLrZ * traction * rollLateralSign;
-                    }
+                    speedDelta += ResolveRollingAltMovement(
+                        new Vector3(_altRollFbX, 0, _altRollFbZ),
+                        new Vector3(_altRollLrX, 0, _altRollLrZ),
+                        rollForwardSign, rollLateralSign, traction);
                 }
                 if (!IsMorphing)
                 {
@@ -1611,16 +1607,65 @@ namespace MphRead.Entities
             {
                 return;
             }
-            (Vector3 position, Vector3 forward, Vector3 right) = RotateRollingAltCamera(
+            (Vector3 position, Vector3 cameraForward, Vector3 cameraLeft) = RotateRollingAltCamera(
                 CameraInfo.Position, CameraInfo.Target, lookDegrees);
             CameraInfo.Position = position;
-            _altRollFbX = forward.X;
-            _altRollFbZ = forward.Z;
-            _altRollLrX = right.X;
-            _altRollLrZ = right.Z;
+            // Bots keep their existing camera-driven navigation. A local
+            // player rotates the retained control basis by explicit yaw only;
+            // pitch and collision-adjusted camera position cannot affect it.
+            if (IsBot)
+            {
+                _altRollFbX = cameraForward.X;
+                _altRollFbZ = cameraForward.Z;
+                _altRollLrX = cameraLeft.X;
+                _altRollLrZ = cameraLeft.Z;
+            }
+            else if (!_networkInputActive
+                && !_scene.Services.IsRemoteControlled(SlotIndex))
+            {
+                (Vector3 forward, Vector3 left) = RotateRollingAltControlBasis(
+                    new Vector3(_altRollFbX, 0, _altRollFbZ), lookDegrees.X);
+                _altRollFbX = forward.X;
+                _altRollFbZ = forward.Z;
+                _altRollLrX = left.X;
+                _altRollLrZ = left.Z;
+            }
         }
 
-        internal static (Vector3 Position, Vector3 Forward, Vector3 Right)
+        internal static (Vector3 Forward, Vector3 Left)
+            RotateRollingAltControlBasis(Vector3 retainedForward,
+                float yawDegrees)
+        {
+            Vector3 forward = VectorMath.NormalizeHorizontalOr(retainedForward,
+                -Vector3.UnitZ);
+            if (float.IsFinite(yawDegrees) && yawDegrees != 0)
+            {
+                float yaw = MathHelper.DegreesToRadians(yawDegrees);
+                float cos = MathF.Cos(yaw);
+                float sin = MathF.Sin(yaw);
+                forward = new Vector3(forward.X * cos + forward.Z * sin, 0,
+                    forward.X * -sin + forward.Z * cos);
+                forward = VectorMath.NormalizeHorizontalOr(forward,
+                    -Vector3.UnitZ);
+            }
+            return (forward, new Vector3(forward.Z, 0, -forward.X));
+        }
+
+        internal static Vector3 ResolveRollingAltMovement(Vector3 forward,
+            Vector3 left, float forwardInput, float lateralInput,
+            float traction)
+        {
+            if (!VectorMath.IsFinite(forward) || !VectorMath.IsFinite(left)
+                || !float.IsFinite(forwardInput)
+                || !float.IsFinite(lateralInput) || !float.IsFinite(traction))
+            {
+                return Vector3.Zero;
+            }
+            return forward * (forwardInput * traction)
+                - left * (lateralInput * traction);
+        }
+
+        internal static (Vector3 Position, Vector3 Forward, Vector3 Left)
             RotateRollingAltCamera(Vector3 position, Vector3 target, Vector2 lookDegrees)
         {
             if (!VectorMath.IsFinite(position) || !VectorMath.IsFinite(target)
