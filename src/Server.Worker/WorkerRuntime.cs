@@ -241,7 +241,9 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         entry.Tickets = new WorkerTicketAuthority(entry.Spec, Placement(entry), _keyId!, _publicKey!);
                     entry.Instance = new MatchInstance(new(entry.Spec, entry.WireId.Value)
                     {
-                        BotFill = entry.Spec.BotFillPolicy == SharedBotPolicy.FillVacancies ? new BotPolicy(entry.Spec.Rules.MaxPlayers) : new BotPolicy(),
+                        BotFill = entry.Spec.BotFillPolicy == SharedBotPolicy.FillVacancies
+                            ? new BotPolicy(entry.Spec.Rules.MaxPlayers, entry.Spec.BotDifficulty)
+                            : new BotPolicy(),
                         ReplayDirectory = _options.ReplayDirectory,
                         RequireReplay = entry.Spec.ReplayPolicy == ReplayPolicy.Record,
                         CollectTelemetry = entry.Spec.TelemetryPolicy == TelemetryPolicy.Record,

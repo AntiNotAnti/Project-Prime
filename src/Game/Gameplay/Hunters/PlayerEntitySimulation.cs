@@ -28,7 +28,15 @@ namespace MphRead.Entities
             Team = _scene.Match.Rules.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
             Recolor = _scene.Match.Rules.Teams ? team == 0 ? 4 : 5 : 0;
             IsBot = botSkill.HasValue;
-            if (botSkill.HasValue) { BotLevel = Math.Clamp(botSkill.Value, 0, 2); MphRead.Formats.AiPersonality.Load(this, _scene.Match.Rules.Mode.ToLegacyMode()); AiData.InitializeAtLoad(); }
+            if (botSkill.HasValue)
+            {
+                Difficulty = (BotDifficulty)Math.Clamp(botSkill.Value,
+                    (int)BotDifficulty.Beginner, (int)BotDifficulty.Expert);
+                BotLevel = Difficulty.LegacyLevel();
+                MphRead.Formats.AiPersonality.Load(this,
+                    _scene.Match.Rules.Mode.ToLegacyMode());
+                AiData.InitializeAtLoad();
+            }
             LoadFlags = LoadFlags.SlotActive | LoadFlags.Active | LoadFlags.Initial
                 | LoadFlags.Connected | LoadFlags.WasConnected;
             Controls.ClearAll();

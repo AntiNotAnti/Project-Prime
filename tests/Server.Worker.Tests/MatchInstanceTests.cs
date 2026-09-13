@@ -105,6 +105,30 @@ public sealed class MatchInstanceTests
         Assert.Throws<ArgumentException>(() => new MatchInstance(new(spec, 1) { RequireReplay = true }, new SilentTransport()));
     }
 
+    [Theory]
+    [InlineData(BotDifficulty.Beginner, 0)]
+    [InlineData(BotDifficulty.Easy, 0)]
+    [InlineData(BotDifficulty.Normal, 1)]
+    [InlineData(BotDifficulty.Hard, 2)]
+    [InlineData(BotDifficulty.Expert, 2)]
+    public void BotDifficultiesUseSafeRetailBehaviorBands(
+        BotDifficulty difficulty, int retailBand)
+    {
+        Assert.Equal(retailBand, difficulty.LegacyLevel());
+        new MphRead.Mods.Network.BotFillPolicy(2, difficulty).Validate(8);
+    }
+
+    [Fact]
+    public void BotFillPolicyPreservesLegacySkillMeaningAndRejectsUnknownDifficulty()
+    {
+        Assert.Equal(BotDifficulty.Normal,
+            new MphRead.Mods.Network.BotFillPolicy(2, 1).Difficulty);
+        Assert.Equal(BotDifficulty.Hard,
+            new MphRead.Mods.Network.BotFillPolicy(2, 2).Difficulty);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new MphRead.Mods.Network.BotFillPolicy(2, (BotDifficulty)5).Validate(8));
+    }
+
     [Trait("RequiresGameContent", "true")]
     [Fact]
     public void MatchInstanceDrainsItsSemanticSinkIntoTelemetry()

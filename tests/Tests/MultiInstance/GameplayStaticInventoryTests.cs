@@ -54,10 +54,16 @@ public sealed class GameplayStaticInventoryTests
         "MphRead.Entities.PlayerEntity._weaponOrder",
         "MphRead.Entities.PlayerEntity.<PlayerVolumes>k__BackingField",
         "MphRead.Entities.PlayerEntity+PlayerAiData._aimValues",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._aimDistanceErrorDivisor",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._aimMinimumError",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._aimMotionErrorScale",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._aimPredictionFrames",
         "MphRead.Entities.PlayerEntity+PlayerAiData._botLevelRandomValues1",
         "MphRead.Entities.PlayerEntity+PlayerAiData._botLevelRandomValues2",
         "MphRead.Entities.PlayerEntity+PlayerAiData._dotValues",
         "MphRead.Entities.PlayerEntity+PlayerAiData._func4Ids",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._judicatorChargeDistanceSquared",
+        "MphRead.Entities.PlayerEntity+PlayerAiData._shotDelayFrames",
         // A4 content-generation caches are synchronized on ContentEnvironment.SyncRoot;
         // their published read-only snapshots cannot change while a scene lease lives.
         "MphRead.Entities.PlayerEntity._altAttackNames",

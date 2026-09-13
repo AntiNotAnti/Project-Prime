@@ -500,11 +500,12 @@ Spectator**; extra Duel joins use observers when capacity is available. A delaye
 observer waits for a complete historical baseline and receives no live fallback.
 Only the Backend's explicit trusted-observer capability can bypass delay.
 
-Optional `PRIME_BOT_FILL` sets a target participant count and `PRIME_BOT_SKILL`
-selects 0–2. Bots use normal authoritative entities without network connections;
-human joins retire them at safe boundaries and release objectives. Duel requires
-bot fill disabled. The launcher's **Practice** action starts an unlisted,
-loopback-only authoritative server with bots. See [docs/G5_BOTS.md](docs/G5_BOTS.md).
+The lobby owner selects bot count and Beginner, Easy, Normal, Hard, or Expert
+difficulty during match setup. Bots use normal authoritative entities without
+network connections; human joins retire them at safe boundaries and release
+objectives. Difficulty changes deterministic reaction, aim, prediction, and firing
+profiles, never combat statistics or hidden-information access. Duel requires bot
+fill disabled. See [docs/G5_BOTS.md](docs/G5_BOTS.md).
 
 ## Map telemetry
 

@@ -95,7 +95,8 @@ public sealed class ServerBotManager
     public void Activate(BotParticipant bot)
     {
         _simulation.Scene.Roster.Nicknames[bot.Slot] = bot.Name;
-        _simulation.Scene.Players[bot.Slot].ServerActivate(bot.Identity, bot.Hunter, bot.TeamIndex, Policy.Skill);
+        _simulation.Scene.Players[bot.Slot].ServerActivate(bot.Identity, bot.Hunter,
+            bot.TeamIndex, (int)Policy.Difficulty);
     }
     private void Retire(int slot, ServerNetwork network, uint tick)
     {

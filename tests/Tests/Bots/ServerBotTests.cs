@@ -155,7 +155,20 @@ public sealed class ServerBotTests
     public void InvalidSkillAndPopulationFailBeforeWorldMutation()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new BotFillPolicy(9).Validate(8));
-        Assert.Throws<ArgumentOutOfRangeException>(() => new BotFillPolicy(4,3).Validate(8));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new BotFillPolicy(4, 5).Validate(8));
+    }
+
+    [Theory]
+    [InlineData(BotDifficulty.Beginner, 0)]
+    [InlineData(BotDifficulty.Easy, 0)]
+    [InlineData(BotDifficulty.Normal, 1)]
+    [InlineData(BotDifficulty.Hard, 2)]
+    [InlineData(BotDifficulty.Expert, 2)]
+    public void FiveDifficultiesMapToSafeRetailBehaviorBands(
+        BotDifficulty difficulty, int legacyLevel)
+    {
+        Assert.Equal(legacyLevel, difficulty.LegacyLevel());
+        new BotFillPolicy(4, difficulty).Validate(8);
     }
     [Trait("RequiresGameContent", "true")]
     [Fact]

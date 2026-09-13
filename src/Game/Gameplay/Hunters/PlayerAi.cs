@@ -13,6 +13,7 @@ namespace MphRead.Entities
         public PlayerAiData AiData { get; init; }
         public NodeData3? ClosestNode { get; set; } = null;
         public int BotLevel { get; set; } = 0;
+        public BotDifficulty Difficulty { get; private set; } = BotDifficulty.Normal;
 
         public class PlayerAiData
         {
@@ -479,16 +480,22 @@ namespace MphRead.Entities
             private static readonly IReadOnlyList<IReadOnlyList<uint>> _botLevelRandomValues1
                 = [
                     [ 45, 45, 90, 45, 60, 45, 45, 45 ],
+                    [ 30, 30, 45, 30, 35, 30, 30, 30 ],
                     [ 15, 15, 10, 10, 10, 10, 10, 10 ],
-                    [ 7, 7, 2, 2, 2, 2, 2, 2 ]
+                    [ 7, 7, 2, 2, 2, 2, 2, 2 ],
+                    [ 4, 4, 1, 1, 1, 1, 1, 1 ]
                 ];
 
-            private static readonly IReadOnlyList<uint> _botLevelRandomValues2 = [150, 45, 10];
+            private static readonly IReadOnlyList<uint> _botLevelRandomValues2
+                = [150, 90, 45, 10, 5];
+
+            private int DifficultyIndex => Math.Clamp((int)_player.Difficulty,
+                (int)BotDifficulty.Beginner, (int)BotDifficulty.Expert);
 
             private void InitializeSub()
             {
                 // note: the game uses index 1, not index 2, for out-of-range bot levels
-                int index = Math.Clamp(_player.BotLevel, 0, 2);
+                int index = DifficultyIndex;
                 _field102C = _botLevelRandomValues1[index][(int)_player.Hunter] * SimTicks.TicksPer30HzFrame;
                 _field1030 = _botLevelRandomValues2[index] * SimTicks.TicksPer30HzFrame;
 
@@ -6443,8 +6450,15 @@ namespace MphRead.Entities
             }
 
             // todo: member name -- dword_214C75C, dword_214C750
-            private static readonly IReadOnlyList<float> _dotValues = [255 / 256f, 3956 / 4096f, 3849 / 4096f];
-            private static readonly IReadOnlyList<float> _aimValues = [5, 15, 20];
+            private static readonly IReadOnlyList<float> _dotValues
+                = [255 / 256f, 4025 / 4096f, 3956 / 4096f, 3849 / 4096f, 3780 / 4096f];
+            private static readonly IReadOnlyList<float> _aimValues = [5, 10, 15, 20, 24];
+            private static readonly IReadOnlyList<int> _aimPredictionFrames = [15, 10, 7, 3, 2];
+            private static readonly IReadOnlyList<float> _aimMotionErrorScale = [5, 3.5f, 2, 0.2f, 0.08f];
+            private static readonly IReadOnlyList<float> _aimMinimumError = [0.25f, 0.18f, 0.1f, 0.01f, 0.005f];
+            private static readonly IReadOnlyList<float> _aimDistanceErrorDivisor = [2, 4, 9, 50, 100];
+            private static readonly IReadOnlyList<int> _shotDelayFrames = [60, 30, 15, 5, 2];
+            private static readonly IReadOnlyList<float> _judicatorChargeDistanceSquared = [9, 10, 11, 13, 16];
 
             // todo: member name -- Func2145C14() updates X, Func21447E8() updates X and Y
             private void Func2145C14(Vector3 position)
@@ -6472,13 +6486,13 @@ namespace MphRead.Entities
                 }
                 if (dot < 1)
                 {
-                    if (dot > _dotValues[_player.BotLevel])
+                    if (dot > _dotValues[DifficultyIndex])
                     {
                         _buttonAimX = MathHelper.RadiansToDegrees(MathF.Acos(dot));
                     }
                     else
                     {
-                        _buttonAimX = _aimValues[_player.BotLevel];
+                        _buttonAimX = _aimValues[DifficultyIndex];
                     }
                     if (Vector3.Cross(vec1, vec2).Y < 0)
                     {
@@ -6493,10 +6507,10 @@ namespace MphRead.Entities
                 var vec1 = new Vector3(_player.CameraInfo.Field48, 0, _player.CameraInfo.Field4C);
                 Vector3 vec2 = _field1038.X != 0 || _field1038.Z != 0 ? _field1038.WithY(0).Normalized() : vec1;
                 float dot = Vector3.Dot(vec1, vec2);
-                float value = _aimValues[_player.BotLevel];
+                float value = _aimValues[DifficultyIndex];
                 if (dot < 1)
                 {
-                    if (dot > _dotValues[_player.BotLevel])
+                    if (dot > _dotValues[DifficultyIndex])
                     {
                         _buttonAimX = MathHelper.RadiansToDegrees(MathF.Acos(dot));
                     }
@@ -6561,18 +6575,8 @@ namespace MphRead.Entities
                     {
                         _field1020 = 0; // bug? always overwritten
                     }
-                    if (_player.BotLevel == 0)
-                    {
-                        _field1020 = SimTicks.From30HzFrames(15);
-                    }
-                    else if (_player.BotLevel == 1)
-                    {
-                        _field1020 = SimTicks.From30HzFrames(7);
-                    }
-                    else
-                    {
-                        _field1020 = SimTicks.From30HzFrames(3);
-                    }
+                    _field1020 = SimTicks.From30HzFrames(
+                        _aimPredictionFrames[DifficultyIndex]);
                     if (_field1020 < _player._disruptedTimer)
                     {
                         _field1020 += (int)_scene.Random.GetRandomInt2(_player._disruptedTimer - _field1020);
@@ -6659,35 +6663,15 @@ namespace MphRead.Entities
                     float dot2 = MathF.Abs(Vector3.Dot(speedDiff, _player.CameraInfo.UpVector));
                     float v52;
                     float v66;
-                    if (_player.BotLevel == 0)
+                    int difficulty = DifficultyIndex;
+                    v52 = dot1 * _aimMotionErrorScale[difficulty]
+                        + _aimMinimumError[difficulty];
+                    v66 = dot2 * _aimMotionErrorScale[difficulty]
+                        + _aimMinimumError[difficulty];
+                    if (!Flags4.TestFlag(AiFlags4.Bit2))
                     {
-                        v52 = (dot1 * 5) + 0.25f;
-                        v66 = (dot2 * 5) + 0.25f;
-                        if (!Flags4.TestFlag(AiFlags4.Bit2))
-                        {
-                            v52 += targetDist / 2;
-                            v66 += targetDist / 2;
-                        }
-                    }
-                    else if (_player.BotLevel == 1)
-                    {
-                        v52 = (dot1 * 2) + 0.1f;
-                        v66 = (dot2 * 2) + 0.1f;
-                        if (!Flags4.TestFlag(AiFlags4.Bit2))
-                        {
-                            v52 += targetDist / 9;
-                            v66 += targetDist / 9;
-                        }
-                    }
-                    else
-                    {
-                        v52 = (dot1 * 0.2f) + 0.01f;
-                        v66 = (dot2 * 0.2f) + 0.01f;
-                        if (!Flags4.TestFlag(AiFlags4.Bit2))
-                        {
-                            v52 += targetDist / 50;
-                            v66 += targetDist / 50;
-                        }
+                        v52 += targetDist / _aimDistanceErrorDivisor[difficulty];
+                        v66 += targetDist / _aimDistanceErrorDivisor[difficulty];
                     }
                     if (_player._disruptedTimer > 0)
                     {
@@ -6732,7 +6716,7 @@ namespace MphRead.Entities
                 Func2145738(_field1048);
                 if (Flags4.TestFlag(AiFlags4.Bit2))
                 {
-                    float aimValue = _aimValues[_player.BotLevel] / 2;
+                    float aimValue = _aimValues[DifficultyIndex] / 2;
                     _buttonAimX = Math.Clamp(_buttonAimX, -aimValue, aimValue);
                     _buttonAimY = Math.Clamp(_buttonAimY, -aimValue, aimValue);
                 }
@@ -6758,11 +6742,11 @@ namespace MphRead.Entities
                 toPos = toPos.WithY(0);
                 toPos = toPos != Vector3.Zero ? toPos.Normalized() : toTarget;
                 float dot = Vector3.Dot(toTarget, toPos);
-                float value = _aimValues[_player.BotLevel];
+                float value = _aimValues[DifficultyIndex];
                 if (dot < 1)
                 {
                     // sktodo-ai: add a common function for this
-                    if (dot > _dotValues[_player.BotLevel])
+                    if (dot > _dotValues[DifficultyIndex])
                     {
                         _buttonAimX = MathHelper.RadiansToDegrees(MathF.Acos(dot));
                     }
@@ -6849,19 +6833,7 @@ namespace MphRead.Entities
             {
                 EquipInfo equip = _player.EquipInfo;
                 WeaponInfo weapon = _player.EquipWeapon;
-                int shotDelay;
-                if (_player.BotLevel == 0)
-                {
-                    shotDelay = 60;
-                }
-                else if (_player.BotLevel == 1)
-                {
-                    shotDelay = 15;
-                }
-                else
-                {
-                    shotDelay = 5;
-                }
+                int shotDelay = _shotDelayFrames[DifficultyIndex];
                 if (Flags2.TestFlag(AiFlags2.Bit21))
                 {
                     shotDelay /= 2;
@@ -6996,9 +6968,8 @@ namespace MphRead.Entities
                                 Debug.Assert(_targetPlayer != null);
                                 Vector3 toTarget = _targetPlayer.Position - _player.Position;
                                 float distSqr = toTarget.LengthSquared;
-                                if (distSqr > 3 * 3 && _player.BotLevel == 0
-                                    || distSqr > 11 && _player.BotLevel == 1
-                                    || distSqr > 13)
+                                if (distSqr
+                                    > _judicatorChargeDistanceSquared[DifficultyIndex])
                                 {
                                     SetRandomDelay();
                                 }
@@ -7245,7 +7216,7 @@ namespace MphRead.Entities
                 if (facingY != 0)
                 {
                     float aimY = MathHelper.RadiansToDegrees(MathF.Acos(facingY)) - 90;
-                    float value = _aimValues[_player.BotLevel];
+                    float value = _aimValues[DifficultyIndex];
                     _buttonAimY = Math.Clamp(aimY, -value, value);
                 }
             }
@@ -7662,13 +7633,13 @@ namespace MphRead.Entities
                 // sktodo-ai: common
                 if (dot < 1)
                 {
-                    if (dot > _dotValues[_player.BotLevel])
+                    if (dot > _dotValues[DifficultyIndex])
                     {
                         _buttonAimX = MathHelper.RadiansToDegrees(MathF.Acos(dot));
                     }
                     else
                     {
-                        _buttonAimX = _aimValues[_player.BotLevel];
+                        _buttonAimX = _aimValues[DifficultyIndex];
                     }
                     if (Vector3.Cross(altVec, toNode).Y < 0)
                     {
