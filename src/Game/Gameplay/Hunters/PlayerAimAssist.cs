@@ -25,18 +25,22 @@ namespace MphRead.Entities
         float EscapeNeutralDot)
     {
         internal static AimAssistProfile Default => new(
-            AcquireConeDegrees: 5f,
-            RetainConeDegrees: 6.5f,
-            FrictionOuterConeDegrees: 6f,
-            FrictionStrongConeDegrees: 2f,
-            MaxSlowdown: 0.30f,
-            RotationConeDegrees: 4.5f,
-            MaxYawRate: 30f,
-            MaxPitchRate: 22f,
+            // Double the rotational correction while widening acquisition
+            // and friction more conservatively. This makes controller assist
+            // materially stronger without doubling slowdown and making the
+            // stick feel trapped on a target.
+            AcquireConeDegrees: 8f,
+            RetainConeDegrees: 11f,
+            FrictionOuterConeDegrees: 8f,
+            FrictionStrongConeDegrees: 2.5f,
+            MaxSlowdown: 0.40f,
+            RotationConeDegrees: 7f,
+            MaxYawRate: 60f,
+            MaxPitchRate: 44f,
             MinimumStickIntent: 0.08f,
             MaximumDistance: 80f,
             DistanceScoreWeight: 0.0025f,
-            SwitchingMarginDegrees: 0.35f,
+            SwitchingMarginDegrees: 0.50f,
             EscapeNeutralDot: 0.10f);
     }
 

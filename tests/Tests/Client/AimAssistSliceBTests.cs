@@ -10,6 +10,24 @@ namespace MphRead.Tests;
 public sealed class AimAssistSliceBTests
 {
     [Fact]
+    public void DefaultProfileDoublesRotationWithoutDoublingStickiness()
+    {
+        AimAssistProfile profile = PlayerAimAssist.DefaultProfile;
+
+        Assert.Equal(60f, profile.MaxYawRate);
+        Assert.Equal(44f, profile.MaxPitchRate);
+        Assert.Equal(8f, profile.AcquireConeDegrees);
+        Assert.Equal(11f, profile.RetainConeDegrees);
+        Assert.Equal(.40f, profile.MaxSlowdown);
+
+        Vector2 assisted = PlayerAimAssist.ApplyAssistance(Vector2.Zero,
+            new Vector2(20, -20), angularDistance: 0, stickMagnitude: 1,
+            strength: 1, deltaSeconds: 1f / 60f);
+        Assert.Equal(1f, assisted.X, 5);
+        Assert.Equal(-44f / 60f, assisted.Y, 5);
+    }
+
+    [Fact]
     public void EscapeIntentCoversAxesTangentAndInversion()
     {
         Assert.Equal(0, PlayerAimAssist.ComputeEscapeIntent(
