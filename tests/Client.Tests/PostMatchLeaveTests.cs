@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Immutable;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading.Tasks;
+using MphRead;
+using MphRead.Mods.Network;
 using ProjectPrime.Server.Shared;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;
@@ -51,5 +54,36 @@ public sealed class PostMatchLeaveTests
         var lobby = Lobby();
         await Assert.ThrowsAsync<InvalidOperationException>(() => PlayController.LeaveLobbyWithRetryAsync(() => lobby,
             (_, _) => Task.FromResult(Left(Guid.NewGuid()))));
+    }
+
+    [Fact]
+    public async Task LobbyLeftInvalidatesCurrentLobbyAndCachedDirectory()
+    {
+        Guid nodeId = Guid.NewGuid();
+        Guid sessionId = Guid.NewGuid();
+        Guid playerId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid();
+        await using var node = new NodeControlClient(nodeId);
+        node.ApplyEvent(NodeControlCodec.Write("node.session", 1, null,
+            new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId,
+                new string('a', 43))));
+        node.ApplyEvent(NodeControlCodec.Write("lobby.list", 2, null,
+            new LobbyListSnapshot(ImmutableArray.Create(
+                new LobbyListEntry(lobbyId, "Room", LobbyPhase.Open,
+                    1, 8, 0, 1)), null)));
+        node.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 3, null,
+            new LobbySnapshot(lobbyId, "Room", LobbyVisibility.Public,
+                sessionId, LobbyPhase.Open, 1, 8, 16,
+                ImmutableArray.Create(new LobbyMember(sessionId, playerId,
+                    "Hunter", Hunter.Samus, 0, false, false)), [])));
+
+        Assert.NotNull(node.Lobby);
+        Assert.NotNull(node.Lobbies);
+
+        node.ApplyEvent(NodeControlCodec.Write("lobby.left", 4, null,
+            new LobbyLeft(lobbyId)));
+
+        Assert.Null(node.Lobby);
+        Assert.Null(node.Lobbies);
     }
 }

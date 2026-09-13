@@ -330,6 +330,7 @@ public sealed class NodeControlClient : IAsyncDisposable
                 if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with
                 {
                     Lobby = null,
+                    Lobbies = null,
                     Round = null,
                     Handoff = null,
                     MatchEnded = false,

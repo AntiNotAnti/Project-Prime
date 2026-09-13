@@ -291,8 +291,15 @@ public sealed partial class LobbyManager
                         throw Error("transitioning", "Match transition is preparing.");
                     bool postMatchHunter = lobby.Phase == LobbyPhase.PostMatch
                         && command is LobbySelectHunter;
+                    // The active MatchInstance already owns an immutable roster.
+                    // Updating lobby state here affects only the next frozen
+                    // MatchSpec and cannot mutate the running simulation.
+                    bool activeMatchHunter = lobby.Phase == LobbyPhase.InMatch
+                        && command is LobbySelectHunter
+                        && (!_matchTransitions.TryGetValue(lobby.Id, out var transition)
+                            || !transition.Started);
                     if (lobby.Phase != LobbyPhase.Open && command is not LobbyChat
-                        && !postMatchHunter)
+                        && !postMatchHunter && !activeMatchHunter)
                         throw Error("phase", "Lobby settings are frozen.");
                     switch (command)
                     {

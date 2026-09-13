@@ -86,6 +86,33 @@ public sealed class MatchTransitionTests
     }
 
     [Fact]
+    public void ActiveHunterChangeAppliesOnlyToTheReplacementMatch()
+    {
+        var h = new LobbyHarness(1);
+        MatchSpec first = h.Start();
+        Assert.Equal(Hunter.Samus, Assert.Single(first.Roster
+            .Where(seat => seat.Role == SeatRole.Player)).Hunter);
+
+        LobbySnapshot selected = Assert.IsType<LobbySnapshot>(h.Manager.Execute(
+            h.Players[0], new LobbySelectHunter(Hunter.Trace, h.Revision)));
+        Assert.Equal(Hunter.Trace, selected.Members.Single().Hunter);
+
+        var proposal = Assert.IsType<NodeMatchTransitionVoteSnapshot>(h.Manager.Execute(
+            h.Players[0], new LobbyMatchTransitionPropose(h.Revision,
+                first.MatchId.Value, MatchTransitionChoice.Restart)));
+        Assert.True(h.Manager.TryBeginMatchTransition(first.MatchId.Value,
+            proposal.TransitionId, out LobbyMatchTransitionSelection? transition));
+        Assert.Equal(Hunter.Trace, transition!.Members.Single().Hunter);
+        Assert.True(h.Manager.CompleteMatchTransition(first.MatchId.Value,
+            proposal.TransitionId));
+
+        MatchSpec replacement = Assert.Single(h.Manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+        Assert.Equal(Hunter.Trace, Assert.Single(replacement.Roster
+            .Where(seat => seat.Role == SeatRole.Player)).Hunter);
+    }
+
+    [Fact]
     public void ElectoratePruningCanApproveBallotForCoordinatorDiscovery()
     {
         var h = new LobbyHarness(3);

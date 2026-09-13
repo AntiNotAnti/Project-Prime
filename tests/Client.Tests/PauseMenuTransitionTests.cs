@@ -50,13 +50,19 @@ public sealed class PauseMenuTransitionTests
                 .OfType<MenuEntry>(), entry => entry.Title == "Confirm");
             MenuEntry voteYes = Assert.Single(desktop.GetVisualDescendants()
                 .OfType<MenuEntry>(), entry => entry.Title == "Vote yes");
+            ComboBox hunter = Assert.Single(desktop.GetVisualDescendants()
+                .OfType<ComboBox>(), combo => combo.Name == "PauseNextHunter");
 
             int proposals = 0;
             int mapChanges = 0;
             bool? vote = null;
+            Hunter? changedHunter = null;
             desktop.RestartMatchRequested += (_, _) => proposals++;
             desktop.ChangeMapRequested += (_, _) => mapChanges++;
             desktop.TransitionVoteRequested += accept => vote = accept;
+            desktop.HunterChangeRequested += selected => changedHunter = selected;
+            hunter.SelectedItem = Hunter.Trace;
+            Assert.Equal(Hunter.Trace, changedHunter);
             desktop.BeginRestartConfirmation();
             Assert.True(desktop.TransitionConfirmationVisible);
             Assert.True(confirm.IsFocused);
@@ -126,6 +132,7 @@ public sealed class PauseMenuTransitionTests
         public string? TransitionError { get; set; }
         public NodeMatchTransitionVoteSnapshot? TransitionVote { get; set; }
         public string? CurrentMapKey { get; set; }
+        public Hunter? CurrentHunter { get; set; } = Hunter.Samus;
         public IReadOnlyList<string> AvailableTransitionMaps { get; set; }
             = Array.Empty<string>();
         public event EventHandler? Changed;
@@ -133,6 +140,9 @@ public sealed class PauseMenuTransitionTests
         public Task RequestRestartMatchAsync(CancellationToken cancellationToken = default)
             => Task.CompletedTask;
         public Task RequestChangeMapAsync(string mapKey,
+            CancellationToken cancellationToken = default)
+            => Task.CompletedTask;
+        public Task RequestHunterChangeAsync(Hunter hunter,
             CancellationToken cancellationToken = default)
             => Task.CompletedTask;
         public Task RequestTransitionVoteAsync(bool accept,

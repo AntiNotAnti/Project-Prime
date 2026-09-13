@@ -179,6 +179,46 @@ public sealed class MatchTransitionLifecycleTests
         Assert.Contains("Press Start to vote", notice);
     }
 
+    [Fact]
+    public void PreparedRequiredMapAutoReadiesOnlyTheApprovedContinuation()
+    {
+        Guid nodeId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid();
+        Guid sessionId = Guid.NewGuid();
+        Guid playerId = Guid.NewGuid();
+        Guid matchId = Guid.NewGuid();
+        Guid transitionId = Guid.NewGuid();
+        MapRequirement requirement = new("custom.transition", "1.0.0",
+            new string('b', 64), new string('c', 64), 128,
+            MapRequirement.ComputeMatchContentHash(new string('a', 64),
+                "custom.transition", "1.0.0", new string('b', 64), "test", 8));
+        NodeSessionSnapshot session = new(sessionId, playerId, "Hunter", nodeId,
+            new string('d', 43));
+        LobbySnapshot lobby = new(lobbyId, "Room", LobbyVisibility.Public,
+            sessionId, LobbyPhase.Open, 2, 8, 16,
+            [new LobbyMember(sessionId, playerId, "Hunter", Hunter.Samus, 0,
+                false, false)], [], "custom", MatchMode.Battle,
+            RequiredMap: requirement);
+        NodeMatchTransitionStarted started = new(lobbyId, matchId, transitionId,
+            MatchTransitionChoice.ChangeMap, "custom", MatchMode.Battle);
+        NodeMatchTransitionVoteSnapshot vote = new(lobbyId, matchId, transitionId,
+            1, sessionId, "Hunter", MatchTransitionChoice.ChangeMap, "custom",
+            MatchMode.Battle, 1, 1, 0, 1, DateTimeOffset.UtcNow.AddSeconds(30),
+            MatchTransitionVoteState.Approved, true);
+        NodeControlClient.ViewState state = new(Session: session, Lobby: lobby,
+            TransitionVote: vote, ExpectedTransition: started,
+            ExpectedTransitionEnded: true);
+
+        Assert.True(PlayController.ShouldAutoReadyTransitionMap(state, requirement));
+        Assert.False(PlayController.ShouldAutoReadyTransitionMap(
+            state with { ExpectedTransitionEnded = false }, requirement));
+        Assert.False(PlayController.ShouldAutoReadyTransitionMap(
+            state with { Lobby = lobby with
+                {
+                    Members = [lobby.Members[0] with { Ready = true }]
+                } }, requirement));
+    }
+
     private static byte[] Event<T>(string type, long eventId, T payload)
         => NodeControlCodec.Write(type, eventId, null, payload);
 

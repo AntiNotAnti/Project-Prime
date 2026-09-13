@@ -316,7 +316,10 @@ public sealed class NodeMatchCoordinatorTests
         Assert.NotEqual(refreshed.Ticket, retry.Ticket);
         await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));
         await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(new(Guid.NewGuid(), Guid.NewGuid(), "Intruder"), new NodeMatchRejoin(handoff.MatchId)));
-        Assert.Throws<LobbyCommandException>(() => lobbies.Execute(owner, new LobbySelectHunter(Hunter.Kanden, placed.Revision)));
+        var selected = Assert.IsType<LobbySnapshot>(lobbies.Execute(owner,
+            new LobbySelectHunter(Hunter.Kanden, placed.Revision)));
+        Assert.Equal(Hunter.Kanden, selected.Members.Single().Hunter);
+        Assert.Equal(Hunter.Samus, handoff.Hunter);
         Assert.True(lobbies.MatchEnded(new(handoff.MatchId), false));
         Assert.False(lobbies.MatchEnded(new(handoff.MatchId), true));
         var ended = lobbies.ForSession(owner.SessionId)!;

@@ -133,6 +133,28 @@ public sealed class LobbyTests
         manager.Disconnect(b.SessionId); Assert.Equal(0, manager.Count);
     }
     [Fact]
+    public void LeavingLastLobbyAllowsSameSessionToCreateAnotherLobby()
+    {
+        var manager = new LobbyManager();
+        var owner = Person("Owner");
+        var first = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("First", LobbyVisibility.Public));
+
+        var left = Assert.IsType<LobbyLeft>(manager.Execute(owner,
+            new LobbyLeave(first.Revision)));
+
+        Assert.Equal(first.LobbyId, left.LobbyId);
+        Assert.Null(manager.ForSession(owner.SessionId));
+        Assert.Equal(0, manager.Count);
+
+        var second = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Second", LobbyVisibility.Public));
+
+        Assert.NotEqual(first.LobbyId, second.LobbyId);
+        Assert.Equal(second.LobbyId, manager.ForSession(owner.SessionId)!.LobbyId);
+        Assert.Equal(1, manager.Count);
+    }
+    [Fact]
     public void CapacityRoleAndOneLobbyChecksDoNotPartiallyMutate()
     {
         var manager = new LobbyManager(); var a = Person("A"); var b = Person("B");
