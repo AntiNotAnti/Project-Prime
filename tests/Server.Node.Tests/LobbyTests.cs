@@ -14,7 +14,10 @@ public sealed class LobbyTests
     {
         var manager = new LobbyManager(); var owner = Person("Owner"); var other = Person("Other");
         var lobby = (LobbySnapshot)manager.Execute(owner, new LobbyCreate("Bots", LobbyVisibility.Public, 3, 0));
-        lobby = (LobbySnapshot)manager.Execute(owner, new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, 2, 3, 11));
+        lobby = (LobbySnapshot)manager.Execute(owner, new LobbyConfigure(lobby.Revision,
+            "unit", MatchMode.Battle, 2, 3, 11,
+            BotDifficulty: BotDifficulty.Expert));
+        Assert.Equal(BotDifficulty.Expert, lobby.BotDifficulty);
         Assert.Throws<LobbyCommandException>(() => manager.Execute(other, new LobbyJoin(lobby.LobbyId, lobby.Revision)));
         lobby = (LobbySnapshot)manager.Execute(owner, new LobbySetReady(true, lobby.Revision));
         var spec = manager.PrepareMatch(owner.SessionId, lobby.Revision, new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
@@ -30,6 +33,7 @@ public sealed class LobbyTests
             Assert.Null(bot.GuestSessionId);
         });
         Assert.Equal(BotFillPolicy.FillVacancies, spec.BotFillPolicy);
+        Assert.Equal(BotDifficulty.Expert, spec.BotDifficulty);
         Assert.Equal(3, spec.Roster.Select(s => s.SeatId).Distinct().Count());
     }
 
@@ -43,11 +47,14 @@ public sealed class LobbyTests
             new LobbySetReady(true, lobby.Revision));
 
         lobby = (LobbySnapshot)manager.Execute(owner,
-            new LobbyConfigure(lobby.Revision, "MP1 SANCTORUS", MatchMode.Survival, 2, 600, 4));
+            new LobbyConfigure(lobby.Revision, "MP1 SANCTORUS",
+                MatchMode.Survival, 2, 600, 4,
+                BotDifficulty: BotDifficulty.Hard));
 
         Assert.Equal("MP1 SANCTORUS", lobby.MapKey);
         Assert.Equal(MatchMode.Survival, lobby.Mode);
         Assert.Equal(2, lobby.BotCount);
+        Assert.Equal(BotDifficulty.Hard, lobby.BotDifficulty);
         Assert.Equal(600, lobby.TimeLimitSeconds);
         Assert.Equal(4, lobby.PointGoal);
         Assert.All(lobby.Members, member => Assert.False(member.Ready));
@@ -58,6 +65,7 @@ public sealed class LobbyTests
         Assert.Equal(4, spec.Rules.StartingLives);
         Assert.Equal(0, spec.Rules.ScoreGoal);
         Assert.Equal(TimeSpan.FromMinutes(10), spec.Rules.TimeLimit);
+        Assert.Equal(BotDifficulty.Hard, spec.BotDifficulty);
     }
 
     [Fact]

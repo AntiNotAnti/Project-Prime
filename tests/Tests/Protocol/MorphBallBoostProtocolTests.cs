@@ -40,7 +40,7 @@ public sealed class MorphBallBoostProtocolTests
     {
         Assert.Equal(43, InputCommand.Size);
         Assert.Equal(353, InputBundle.MaxSize);
-        Assert.Equal(18, NetHeader.Version);
+        Assert.Equal(19, NetHeader.Version);
         Assert.True(BoostIntent.TryCreateFlick(new Vector2(.25f, -1),
             out BoostIntent flick));
         InputCommand[] commands =

@@ -8,6 +8,7 @@ using System.Text;
 using ProjectPrime.Server.Shared;
 using ProjectPrime.Server.Node.Lobbies.Queue;
 using MphRead;
+using MphRead.Cosmetics;
 using Microsoft.Extensions.Logging;
 
 namespace ProjectPrime.Server.Node.Lobbies;
@@ -45,6 +46,7 @@ public sealed partial class LobbyManager
         public string MapKey = "";
         public MatchMode Mode = MatchMode.Battle;
         public int BotCount;
+        public BotDifficulty BotDifficulty = BotDifficulty.Normal;
         // Host rules have one owner. Legacy snapshot fields are projections
         // generated from this value and are never stored independently.
         public LobbyRulesOptions HostRules = LobbyRulesOptions.Empty;
@@ -59,7 +61,8 @@ public sealed partial class LobbyManager
             MapRequirement? requiredMap = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
             Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount,
             HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self),
-            HostRules.LegacyPointGoal(Mode), HostRules, requiredMap, LifecycleEpoch);
+            HostRules.LegacyPointGoal(Mode), HostRules, requiredMap, LifecycleEpoch,
+            BotDifficulty);
     }
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
@@ -227,7 +230,8 @@ public sealed partial class LobbyManager
                         l.Phase, l.Members.Values.Count(m => !m.Observer), l.Rules.PlayerLimit,
                         l.Members.Values.Count(m => m.Observer), l.Revision, l.Waitlist.Count, l.Rules.ObserverLimit, l.BotCount,
                         l.MapKey, l.Mode, l.HostRules.TimeLimitSeconds, l.HostRules.LegacyPointGoal(l.Mode),
-                        l.HostRules.ObjectiveTimeGoalSeconds, l.Rules.SeatPolicy)).ToImmutableArray(),
+                        l.HostRules.ObjectiveTimeGoalSeconds, l.Rules.SeatPolicy,
+                        l.BotDifficulty)).ToImmutableArray(),
                         rows.Length > list.Limit ? list.Offset + list.Limit : null);
                 case LobbyCreate create:
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
@@ -285,6 +289,7 @@ public sealed partial class LobbyManager
                     long revision = command switch
                     {
                         LobbySetReady c => c.ExpectedRevision, LobbySelectHunter c => c.ExpectedRevision,
+                        LobbySelectCosmetics c => c.ExpectedRevision,
                         LobbyRequestTeam c => c.ExpectedRevision, LobbyChat c => c.ExpectedRevision,
                         LobbyConfigure c => c.ExpectedRevision, _ => -1
                     };
@@ -292,17 +297,17 @@ public sealed partial class LobbyManager
                     if (_transitionContinuations.ContainsKey(lobby.Id)
                         && command is not (LobbySetReady or LobbyChat))
                         throw Error("transitioning", "Match transition is preparing.");
-                    bool postMatchHunter = lobby.Phase == LobbyPhase.PostMatch
-                        && command is LobbySelectHunter;
+                    bool postMatchSelection = lobby.Phase == LobbyPhase.PostMatch
+                        && command is LobbySelectHunter or LobbySelectCosmetics;
                     // The active MatchInstance already owns an immutable roster.
                     // Updating lobby state here affects only the next frozen
                     // MatchSpec and cannot mutate the running simulation.
-                    bool activeMatchHunter = lobby.Phase == LobbyPhase.InMatch
-                        && command is LobbySelectHunter
+                    bool activeMatchSelection = lobby.Phase == LobbyPhase.InMatch
+                        && command is LobbySelectHunter or LobbySelectCosmetics
                         && (!_matchTransitions.TryGetValue(lobby.Id, out var transition)
                             || !transition.Started);
                     if (lobby.Phase != LobbyPhase.Open && command is not LobbyChat
-                        && !postMatchHunter && !activeMatchHunter)
+                        && !postMatchSelection && !activeMatchSelection)
                         throw Error("phase", "Lobby settings are frozen.");
                     switch (command)
                     {
@@ -311,6 +316,8 @@ public sealed partial class LobbyManager
                             if (!Text(configure.MapKey, 128) || !Enum.IsDefined(configure.Mode)) throw Error("invalid", "Invalid map or mode.");
                             if (configure.BotCount < 0 || configure.BotCount + lobby.Members.Values.Count(m => !m.Observer) > lobby.Rules.PlayerLimit)
                                 throw Error("invalid", "Invalid bot count or player capacity.");
+                            if (!Enum.IsDefined(configure.BotDifficulty))
+                                throw Error("invalid", "Invalid bot difficulty.");
                             LobbyRulesOptions normalized;
                             try
                             {
@@ -326,7 +333,9 @@ public sealed partial class LobbyManager
                             Round(lobby.Id).AwaitingMapReadiness = false;
                             Round(lobby.Id).Resolved = null;
                             lobby.MapKey = configure.MapKey; lobby.Mode = configure.Mode;
-                            lobby.BotCount = configure.BotCount; lobby.HostRules = normalized;
+                            lobby.BotCount = configure.BotCount;
+                            lobby.BotDifficulty = configure.BotDifficulty;
+                            lobby.HostRules = normalized;
                             NormalizeTeams(lobby);
                             foreach (var item in lobby.Members.ToArray()) lobby.Members[item.Key] = item.Value with { Ready = false };
                             AdvanceWaitlist(lobby);
@@ -339,7 +348,7 @@ public sealed partial class LobbyManager
                         case LobbySelectHunter hunter:
                             if (member.Observer || !Enum.IsDefined(hunter.Hunter) || hunter.Hunter > Hunter.Guardian)
                                 throw Error("invalid", "Invalid hunter selection.");
-                            if (postMatchHunter)
+                            if (postMatchSelection)
                             {
                                 RoundState round = Round(lobby.Id);
                                 if (round.Resolved != null || round.Deadline is not { } deadline
@@ -347,7 +356,36 @@ public sealed partial class LobbyManager
                                     throw Error("phase", "Hunter selection is locked for the next round.");
                             }
                             if (member.Hunter == hunter.Hunter) return SnapshotFor(lobby, identity.IdentityKey);
-                            lobby.Members[identity.SessionId] = member with { Hunter = hunter.Hunter, Ready = false };
+                            lobby.Members[identity.SessionId] = member with
+                            {
+                                Hunter = hunter.Hunter,
+                                Cosmetics = CosmeticLoadoutIds.Default,
+                                Ready = false
+                            };
+                            break;
+                        case LobbySelectCosmetics cosmetics:
+                            if (member.Observer || !CosmeticCatalog.BuiltIn.IsValid(cosmetics.Cosmetics, member.Hunter))
+                            {
+                                _logger?.LogWarning(
+                                    "[cosmetics/network] Rejected cosmetic selection in lobby {LobbyId} for hunter {Hunter}: skin={SkinId}, armor={ArmorEffectId}, death={DeathEffectId}",
+                                    lobby.Id, member.Hunter, cosmetics.Cosmetics.SkinId,
+                                    cosmetics.Cosmetics.ArmorEffectId,
+                                    cosmetics.Cosmetics.DeathEffectId);
+                                throw Error("invalid", "Invalid cosmetic selection.");
+                            }
+                            if (postMatchSelection)
+                            {
+                                RoundState round = Round(lobby.Id);
+                                if (round.Resolved != null || round.Deadline is not { } deadline
+                                    || RoundClock.GetUtcNow() >= deadline)
+                                    throw Error("phase", "Cosmetic selection is locked for the next round.");
+                            }
+                            if (member.Cosmetics == cosmetics.Cosmetics) return SnapshotFor(lobby, identity.IdentityKey);
+                            lobby.Members[identity.SessionId] = member with
+                            {
+                                Cosmetics = cosmetics.Cosmetics,
+                                Ready = false
+                            };
                             break;
                         case LobbyRequestTeam team:
                             if (member.Observer || !lobby.Mode.IsTeamMode()
@@ -406,7 +444,8 @@ public sealed partial class LobbyManager
             int teamCount = ConfiguredTeamCount(lobby);
             for (int bot = 0; bot < lobby.BotCount; bot++)
                 seats.Add(new((byte)seats.Count, null, null, "Bot" + (bot + 1),
-                    botHunters[bot], (byte)((players.Length + bot) % teamCount), SeatRole.Bot, false));
+                    botHunters[bot], (byte)((players.Length + bot) % teamCount), SeatRole.Bot, false,
+                    CosmeticLoadoutIds.Default));
             if (lobby.Mode.IsTeamMode()
                 && seats.Select(s => s.Team).Distinct().Count() != teamCount)
                 throw Error("teams", "Every configured team needs a player.");
@@ -431,7 +470,8 @@ public sealed partial class LobbyManager
                 null, null, seats.ToImmutable(), lobby.BotCount == 0 ? BotFillPolicy.Disabled : BotFillPolicy.FillVacancies,
                 lobby.Rules.ObserverLimit > 0 ? ObserverPolicy.Allowed : ObserverPolicy.Disabled,
                 _replayPolicy, TelemetryPolicy.Record,
-                gameplaySeed, cosmeticSeed, lobby.LifecycleEpoch);
+                gameplaySeed, cosmeticSeed, lobby.LifecycleEpoch,
+                lobby.BotDifficulty);
             spec = ApplyRoundIdentity(lobby.Id, spec);
             spec.Validate();
             lobby.MatchId = spec.MatchId.Value; lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
@@ -857,7 +897,7 @@ public sealed partial class LobbyManager
         return new(seatId,
             key.Kind == HumanIdentityKind.Registered ? new PlayerId(key.Value) : null,
             key.Kind == HumanIdentityKind.Guest ? key.Value : null,
-            member.DisplayName, member.Hunter, member.Team, role, false);
+            member.DisplayName, member.Hunter, member.Team, role, false, member.Cosmetics);
     }
     private void LeaveCore(Guid sessionId)
     {

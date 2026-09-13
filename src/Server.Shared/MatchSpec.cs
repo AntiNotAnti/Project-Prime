@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using MphRead;
+using MphRead.Cosmetics;
 using MphRead.Identity;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Network;
@@ -47,7 +48,8 @@ public sealed record MapRequirement(string StableId, string Version, string Cont
 public sealed record ContentIdentity(string MapKey, string ContentHash, string ContentVersion,
     string BuildVersion, byte ProtocolVersion, MapRequirement? RequiredMap = null);
 public sealed record RosterSeat(byte SeatId, PlayerId? PlayerId, Guid? GuestSessionId,
-    string DisplayName, Hunter Hunter, byte Team, SeatRole Role, bool RankingEligible);
+    string DisplayName, Hunter Hunter, byte Team, SeatRole Role, bool RankingEligible,
+    CosmeticLoadoutIds Cosmetics = default);
 
 /// <summary>A frozen launch description; collections and existing Game rules are immutable.
 /// No admission tokens or passwords belong in this contract.</summary>
@@ -55,7 +57,8 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
     MatchRules Rules, ContentIdentity Content, MatchTrustClass TrustClass, Guid? TournamentId,
     Guid? RoundId, ImmutableArray<RosterSeat> Roster, BotFillPolicy BotFillPolicy,
     ObserverPolicy ObserverPolicy, ReplayPolicy ReplayPolicy, TelemetryPolicy TelemetryPolicy,
-    uint Rng1Seed, uint Rng2Seed, MatchLifecycleEpoch LifecycleEpoch = default)
+    uint Rng1Seed, uint Rng2Seed, MatchLifecycleEpoch LifecycleEpoch = default,
+    BotDifficulty BotDifficulty = BotDifficulty.Normal)
 {
     public void Validate()
     {
@@ -70,6 +73,7 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
         if (!String.Equals(Content.MapKey, Rules.RoomKey, StringComparison.Ordinal)) throw new ArgumentException("Content and rules map identities differ.");
         if (Content.ProtocolVersion == 0) throw new ArgumentException("Protocol is required.");
         ContractGuard.Defined(TrustClass); ContractGuard.Defined(BotFillPolicy);
+        ContractGuard.Defined(BotDifficulty);
         ContractGuard.Defined(ObserverPolicy); ContractGuard.Defined(ReplayPolicy); ContractGuard.Defined(TelemetryPolicy);
         if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
         if (TournamentId == Guid.Empty || RoundId == Guid.Empty || RoundId.HasValue && !TournamentId.HasValue)
@@ -90,6 +94,9 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
             if (seat.GuestSessionId is { } guest && (guest == Guid.Empty || !guests.Add(guest))) throw new ArgumentException("Invalid guest identity.");
             if (seat.Role == SeatRole.Bot ? seat.PlayerId.HasValue || seat.GuestSessionId.HasValue : seat.PlayerId.HasValue == seat.GuestSessionId.HasValue)
                 throw new ArgumentException("Seat identity does not match its role.");
+            if ((seat.Role == SeatRole.Bot && seat.Cosmetics != CosmeticLoadoutIds.Default)
+                || (seat.Role != SeatRole.Bot && !CosmeticCatalog.BuiltIn.IsValid(seat.Cosmetics, seat.Hunter)))
+                throw new ArgumentException($"Seat {seat.SeatId} has an invalid cosmetic loadout.");
             if (seat.RankingEligible && (seat.Role != SeatRole.Player || !seat.PlayerId.HasValue)) throw new ArgumentException("Only registered players can rank.");
             if (seat.Role == SeatRole.Observer && ObserverPolicy == ObserverPolicy.Disabled) throw new ArgumentException("Observers are disabled.");
             if (seat.Role != SeatRole.Observer) active++;

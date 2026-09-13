@@ -27,10 +27,25 @@ public sealed class ControlCodecTests
         var older = Assert.IsType<LobbyConfigure>(NodeControlCodec.Read(Frame("lobby.configure",
             "{\"expectedRevision\":1,\"mapKey\":\"unit\",\"mode\":\"Battle\"}")).Command);
         Assert.Null(older.PointGoal);
+        Assert.Equal(BotDifficulty.Normal, older.BotDifficulty);
 
         var current = Assert.IsType<LobbyConfigure>(NodeControlCodec.Read(Frame("lobby.configure",
             "{\"expectedRevision\":2,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"pointGoal\":12}")).Command);
         Assert.Equal(12, current.PointGoal);
+    }
+
+    [Fact]
+    public void LobbyConfigureCarriesFiveLevelBotDifficultyAndRejectsUnknownValues()
+    {
+        var expert = Assert.IsType<LobbyConfigure>(NodeControlCodec.Read(Frame(
+            "lobby.configure",
+            "{\"expectedRevision\":1,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"botCount\":2,\"botDifficulty\":\"Expert\"}"))
+            .Command);
+        Assert.Equal(BotDifficulty.Expert, expert.BotDifficulty);
+
+        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Frame(
+            "lobby.configure",
+            "{\"expectedRevision\":1,\"mapKey\":\"unit\",\"mode\":\"Battle\",\"botCount\":2,\"botDifficulty\":9}")));
     }
     [Fact]
     public void LobbyConfigureReadsStructuredRulesWhileMissingRulesRemainsCompatible()

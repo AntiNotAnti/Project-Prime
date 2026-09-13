@@ -166,7 +166,7 @@ public sealed class GeneratedProtocolTests
     [Fact]
     public void ProductionGeneratedPacketsRetainTheirIntroductionProtocol()
     {
-        Assert.Equal(18, NetHeader.Version);
+        Assert.Equal(19, NetHeader.Version);
         Assert.Equal(9, JoinPendingPacket.Protocol);
         Assert.Equal(9, MatchAwardPacket.Protocol);
         Assert.Equal(9, MatchSemanticEventPacket.Protocol);

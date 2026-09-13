@@ -34,7 +34,7 @@ namespace MphRead.Tests
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
             Assert.Equal(834, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(18, NetHeader.Version);
+            Assert.Equal(19, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
@@ -44,7 +44,9 @@ namespace MphRead.Tests
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 13));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 15));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 16));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 17));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 17));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 18));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 19));
         }
 
         [Theory]

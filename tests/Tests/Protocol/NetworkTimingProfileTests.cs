@@ -58,7 +58,7 @@ public sealed class NetworkTimingProfileTests
     [Fact]
     public void CurrentProtocolRecognizesTheBoundedTimingDatagram()
     {
-        Assert.Equal(18, NetHeader.Version);
+        Assert.Equal(19, NetHeader.Version);
         Span<byte> datagram = stackalloc byte[NetHeader.Size];
         new NetHeader(NetMessageType.TimingTelemetry, NetHeaderFlags.None, 1, 2, 0, 0)
             .Write(datagram);

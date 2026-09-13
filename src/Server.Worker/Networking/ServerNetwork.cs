@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Security.Cryptography;
 using System.Threading;
+using MphRead.Cosmetics;
 using MphRead.Identity;
 using ProjectPrime.Server.Shared;
 
@@ -519,6 +520,9 @@ namespace MphRead.Mods.Network
         }
         public Func<int, bool>? CanClaimPlayerSlot { get; set; }
         public Func<int, NetRosterEntry?>? BotRosterEntry { get; set; }
+        /// <summary>Match-owned immutable presentation metadata. Join packets
+        /// and reconnecting peers never supply or mutate these slot values.</summary>
+        internal Func<int, CosmeticLoadoutIds>? FrozenRosterCosmetics { get; set; }
         public Action<int, byte>? BotTeamAssigned { get; set; }
         public void InvalidateRoster() => _rosterDirty = true;
 
@@ -804,12 +808,21 @@ namespace MphRead.Mods.Network
                     byte team = peer.TeamIndex;
                     ushort ping = MeasuredPing(peer);
                     _rosterPings[peer.Slot] = ping;
-                    _rosterEntries[count++] = new(peer.Slot, peer.Connection.Id, peer.Hunter, team, peer.Name, ping);
+                    CosmeticLoadoutIds cosmetics = FrozenRosterCosmetics?.Invoke(peer.Slot)
+                        ?? CosmeticLoadoutIds.Default;
+                    _rosterEntries[count++] = new(peer.Slot, peer.Connection.Id, peer.Hunter, team,
+                        peer.Name, ping, false, cosmetics.SkinId, cosmetics.ArmorEffectId,
+                        cosmetics.DeathEffectId);
                 }
                 if (BotRosterEntry != null)
                     for (int slot = 0; slot < _capacity; slot++)
                         if (_peers[slot] == null && BotRosterEntry(slot) is NetRosterEntry bot)
-                            _rosterEntries[count++] = bot;
+                            _rosterEntries[count++] = bot with
+                            {
+                                SkinId = 0,
+                                ArmorEffectId = 0,
+                                DeathEffectId = 0
+                            };
                 _rosterRevision++;
                 BinaryPrimitives.WriteUInt32LittleEndian(_rosterPayload, MatchId);
                 _rosterLength = 4 + SessionRosterPacket.Write(_rosterPayload.AsSpan(4), _rosterRevision,

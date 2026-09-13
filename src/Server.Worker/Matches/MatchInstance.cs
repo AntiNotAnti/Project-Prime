@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Admin;
 using MphRead.Replay;
+using MphRead.Cosmetics;
 using MphRead.Identity;
 using MphRead.Reporting;
 using MphRead.Telemetry;
@@ -294,6 +295,15 @@ public sealed class MatchInstance : IDisposable
             Network.CancelBotClaim = slot => Simulation.Bots.CancelClaim(slot);
             Network.CanClaimPlayerSlot = slot => Simulation.Bots.Claim(slot, Network, Network.Tick);
             Network.BotRosterEntry = slot => Simulation.Bots.Roster(slot);
+            // Cosmetics are frozen presentation metadata owned by this match.
+            // A reconnect resolves the immutable loadout by reserved slot and
+            // cannot override it through JoinPacket or mutable peer state.
+            var frozenCosmetics = new CosmeticLoadoutIds[RosterPacket.MaxSlots];
+            foreach (RosterSeat seat in Spec.Roster)
+                if (seat.Role != SeatRole.Observer)
+                    frozenCosmetics[seat.SeatId] = seat.Role == SeatRole.Bot
+                        ? CosmeticLoadoutIds.Default : seat.Cosmetics;
+            Network.FrozenRosterCosmetics = slot => frozenCosmetics[slot];
             Network.BotTeamAssigned = (slot, team) => Simulation.Bots.AssignTeam(slot, team);
             Network.ParticipantLeaving = (peer, reason, leftTick) => Simulation.Reports?.Leave(Simulation.Scene, peer, reason, leftTick);
             Network.StatusProvider = () => new MatchStatePacket

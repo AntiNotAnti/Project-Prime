@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json.Serialization;
 using MphRead;
+using MphRead.Cosmetics;
 
 namespace ProjectPrime.Server.Shared;
 
@@ -183,7 +184,7 @@ public sealed record LobbyRulesOptions(
 }
 
 public sealed record LobbyMember(Guid SessionId, Guid? PlayerId, string DisplayName, Hunter Hunter, byte Team, bool Ready, bool Observer,
-    Guid? GuestSessionId = null)
+    Guid? GuestSessionId = null, CosmeticLoadoutIds Cosmetics = default)
 {
     [JsonIgnore]
     public HumanIdentityKey IdentityKey => HumanIdentityValidation.Require(PlayerId, GuestSessionId);
@@ -193,7 +194,8 @@ public sealed record LobbyMember(Guid SessionId, Guid? PlayerId, string DisplayN
         if (DisplayName is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(DisplayName)
             || DisplayName.Any(ch => ch < 32 || ch > 126)) throw new ArgumentException("Invalid lobby member.");
         if (!Enum.IsDefined(Hunter) || Hunter > Hunter.Guardian
-            || Team >= MphRead.MatchRules.MaximumTeamCount) throw new ArgumentException("Invalid lobby member.");
+            || Team >= MphRead.MatchRules.MaximumTeamCount
+            || !CosmeticCatalog.BuiltIn.IsValid(Cosmetics, Hunter)) throw new ArgumentException("Invalid lobby member.");
     }
 }
 public sealed record LobbyChatEntry(long Sequence, Guid SessionId, string DisplayName, string Text);
@@ -213,11 +215,13 @@ public sealed record LobbySnapshot(Guid LobbyId, string Name, LobbyVisibility Vi
     LobbyWaitlistSnapshot? Waitlist = null, int? PointGoal = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MapRequirement? RequiredMap = null,
-    MatchLifecycleEpoch LifecycleEpoch = default);
+    MatchLifecycleEpoch LifecycleEpoch = default,
+    BotDifficulty BotDifficulty = BotDifficulty.Normal);
 public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase, int Players, int PlayerLimit, int Observers, long Revision,
     int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
     int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
-    LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat);
+    LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat,
+    BotDifficulty BotDifficulty = BotDifficulty.Normal);
 public sealed record LobbyListSnapshot(ImmutableArray<LobbyListEntry> Lobbies, int? NextOffset);
 public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string DisplayName, Guid NodeId, string ResumeToken,
     Guid? GuestSessionId = null, bool PublicPresence = true)
@@ -297,12 +301,16 @@ public sealed record LobbyQueueDecline(Guid LobbyId, long ExpectedRevision, Guid
 public sealed record LobbyLeave(long ExpectedRevision) : NodeCommand;
 public sealed record LobbySetReady(bool Ready, long ExpectedRevision) : NodeCommand;
 public sealed record LobbySelectHunter(Hunter Hunter, long ExpectedRevision) : NodeCommand;
+/// <summary>Submits this authenticated session's explicit official cosmetic
+/// selection. Registered and guest sessions use the same catalog semantics.</summary>
+public sealed record LobbySelectCosmetics(CosmeticLoadoutIds Cosmetics, long ExpectedRevision) : NodeCommand;
 public sealed record LobbyRequestTeam(byte Team, long ExpectedRevision) : NodeCommand;
 public sealed record LobbyChat(string Text, long ExpectedRevision) : NodeCommand;
 [method: JsonConstructor]
 public sealed record LobbyConfigure(long ExpectedRevision, string MapKey, MatchMode Mode, int BotCount = 0,
     int? TimeLimitSeconds = null, int? PointGoal = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null) : NodeCommand
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null,
+    BotDifficulty BotDifficulty = BotDifficulty.Normal) : NodeCommand
 {
     public LobbyConfigure(long expectedRevision, string mapKey, MatchMode mode,
         LobbyRulesOptions? rules)

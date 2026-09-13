@@ -3,11 +3,13 @@ using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network
 {
-    public readonly record struct NetRosterEntry(byte Slot, ulong ConnectionId, Hunter Hunter, byte Team, string Name, ushort PingMs = 0, bool IsBot = false);
+    public readonly record struct NetRosterEntry(byte Slot, ulong ConnectionId, Hunter Hunter, byte Team,
+        string Name, ushort PingMs = 0, bool IsBot = false, ushort SkinId = 0,
+        ushort ArmorEffectId = 0, ushort DeathEffectId = 0);
 
     public static class SessionRosterPacket
     {
-        public const int EntrySize = 30;
+        public const int EntrySize = 36;
         public const int HeaderSize = 5;
         public const int MaxSize = HeaderSize + 8 * EntrySize;
 
@@ -27,6 +29,9 @@ namespace MphRead.Mods.Network
                 NetText.Write(target.Slice(11, ChatPacket.MaxNameBytes), entry.Name);
                 BinaryPrimitives.WriteUInt16LittleEndian(target[27..], entry.PingMs);
                 target[29] = entry.IsBot ? (byte)1 : (byte)0;
+                BinaryPrimitives.WriteUInt16LittleEndian(target[30..], entry.SkinId);
+                BinaryPrimitives.WriteUInt16LittleEndian(target[32..], entry.ArmorEffectId);
+                BinaryPrimitives.WriteUInt16LittleEndian(target[34..], entry.DeathEffectId);
             }
             return HeaderSize + entries.Length * EntrySize;
         }
@@ -61,7 +66,10 @@ namespace MphRead.Mods.Network
             {
                 ReadOnlySpan<byte> entry = source.Slice(HeaderSize + i * EntrySize, EntrySize);
                 entries[i] = new(entry[0], identities[i], (Hunter)entry[9], entry[10], NetText.Read(entry.Slice(11, ChatPacket.MaxNameBytes)),
-                    BinaryPrimitives.ReadUInt16LittleEndian(entry[27..]), entry[29] == 1);
+                    BinaryPrimitives.ReadUInt16LittleEndian(entry[27..]), entry[29] == 1,
+                    BinaryPrimitives.ReadUInt16LittleEndian(entry[30..]),
+                    BinaryPrimitives.ReadUInt16LittleEndian(entry[32..]),
+                    BinaryPrimitives.ReadUInt16LittleEndian(entry[34..]));
             }
             return true;
         }

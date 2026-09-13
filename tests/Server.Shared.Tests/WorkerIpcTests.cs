@@ -49,6 +49,18 @@ public sealed class WorkerIpcTests
     }
 
     [Fact]
+    public void CreateMatchPreservesAndValidatesBotDifficulty()
+    {
+        MatchSpec spec = Spec() with { BotDifficulty = BotDifficulty.Expert };
+        CreateMatch decoded = Assert.IsType<CreateMatch>(
+            WorkerIpcCodec.Decode(WorkerIpcCodec.Encode(new CreateMatch(spec))));
+
+        Assert.Equal(BotDifficulty.Expert, decoded.Spec.BotDifficulty);
+        Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(
+            new CreateMatch(spec with { BotDifficulty = (BotDifficulty)5 })));
+    }
+
+    [Fact]
     public void CanonicalFrameBytesAndMemoryDecodeRemainStable()
     {
         byte[] encoded = WorkerIpcCodec.Encode(new Drain("ok"));

@@ -259,7 +259,8 @@ public sealed partial class LobbyManager
                 { throw Error("invalid", ex.Message); }
                 Reopen(lobby, identity);
                 Execute(identity, new LobbyConfigure(lobby.Revision, select.MapKey, select.Mode,
-                    lobby.BotCount, nextRules));
+                    lobby.BotCount, Rules: nextRules,
+                    BotDifficulty: lobby.BotDifficulty));
                 state.Round = select.RoundId; state.ConfigurationRevision++; state.Paused = true;
                 state.Options = []; state.Votes.Clear(); state.Deadline = null; break;
             case LobbyTournamentAssignTeam assign:

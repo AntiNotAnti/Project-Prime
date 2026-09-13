@@ -63,6 +63,7 @@ public static class NodeControlCodec
             "lobby.leave" => Decode(p, NodeJsonContext.Default.LobbyLeave),
             "lobby.ready.set" => Decode(p, NodeJsonContext.Default.LobbySetReady),
             "lobby.hunter.select" => Decode(p, NodeJsonContext.Default.LobbySelectHunter),
+            "lobby.cosmetics.select" => Decode(p, NodeJsonContext.Default.LobbySelectCosmetics),
             "lobby.team.request" => Decode(p, NodeJsonContext.Default.LobbyRequestTeam),
             "lobby.chat" => Decode(p, NodeJsonContext.Default.LobbyChat),
             "lobby.configure" => Decode(p, NodeJsonContext.Default.LobbyConfigure),
@@ -115,7 +116,8 @@ public static class NodeControlCodec
             case LobbyConfigure configure:
                 if (configure.ExpectedRevision < 0 || configure.MapKey is not { Length: > 0 and <= 128 }
                     || configure.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(configure.Mode)
-                    || configure.BotCount is < 0 or > 8)
+                    || configure.BotCount is < 0 or > 8
+                    || !Enum.IsDefined(configure.BotDifficulty))
                     throw new ArgumentException("Invalid lobby configuration.");
                 try { _ = configure.NormalizeRules(); }
                 catch (ArgumentException ex) { throw new ArgumentException("Invalid lobby rules.", ex); }
@@ -157,6 +159,7 @@ public static class NodeControlCodec
                     || lobby.BotCount < 0 || lobby.BotCount > lobby.PlayerLimit
                     || lobby.TimeLimitSeconds is < 1 or > 3600 || lobby.PointGoal is < 1 or > ushort.MaxValue
                     || lobby.MapKey is null || lobby.MapKey.Length > 128 || lobby.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(lobby.Mode)
+                    || !Enum.IsDefined(lobby.BotDifficulty)
                     || !Enum.IsDefined(lobby.SeatPolicy) || !Enum.IsDefined(lobby.DuelQueuePolicy)
                     || lobby.Members.IsDefault || lobby.Chat.IsDefault) throw new ArgumentException("Invalid lobby snapshot.");
                 try
@@ -195,7 +198,8 @@ public static class NodeControlCodec
                     || l.BotCount < 0 || l.BotCount > l.PlayerLimit || l.WaitlistCount < 0 || l.WaitlistCount > 1024
                     || l.Name is not { Length: > 0 and <= 64 } || l.Name.Any(char.IsControl)
                     || l.MapKey is null || l.MapKey.Length > 128 || l.MapKey.Any(c => c is < ' ' or > '~') || !Enum.IsDefined(l.Phase)
-                    || !Enum.IsDefined(l.Mode) || l.TimeLimitSeconds is < 1 or > 3600
+                    || !Enum.IsDefined(l.Mode) || !Enum.IsDefined(l.BotDifficulty)
+                    || l.TimeLimitSeconds is < 1 or > 3600
                     || l.PointGoal is < 1 or > ushort.MaxValue || l.ObjectiveTimeGoalSeconds is < 1 or > 3600
                     || !Enum.IsDefined(l.SeatPolicy) || InvalidListRuleMetadata(l)))
                     throw new ArgumentException("Invalid lobby list.");
@@ -207,6 +211,9 @@ public static class NodeControlCodec
     {
         switch (command)
         {
+            case LobbyConfigure configure:
+                ValidateEventPayload(configure);
+                break;
             case LobbyMatchTransitionPropose propose:
                 if (type != "match.transition.propose") throw new ArgumentException("Transition command route does not match payload.");
                 propose.Validate();
@@ -313,6 +320,7 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(LobbyLeave))]
 [JsonSerializable(typeof(LobbySetReady))]
 [JsonSerializable(typeof(LobbySelectHunter))]
+[JsonSerializable(typeof(LobbySelectCosmetics))]
 [JsonSerializable(typeof(LobbyRequestTeam))]
 [JsonSerializable(typeof(LobbyChat))]
 [JsonSerializable(typeof(LobbyConfigure))]
