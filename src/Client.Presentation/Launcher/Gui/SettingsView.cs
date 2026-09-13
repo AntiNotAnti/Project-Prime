@@ -223,6 +223,10 @@ namespace MphRead.Mods.Launcher.Gui
             ("240 fps", 240),
             ("Unlimited", FrameTiming.MaxCap)
         };
+        private static readonly string[] _windowModeChoices = new[]
+        {
+            "Windowed", "Fullscreen (borderless)"
+        };
 
         private static int FpsLimitStopIndex(int cap)
         {
@@ -1175,7 +1179,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             Heading(displayColumn, "Display");
             _windowRow = Add(displayColumn, new ChoiceRow("Window mode",
-                new[] { "Windowed", "Fullscreen (borderless)" },
+                _windowModeChoices,
                 LauncherPrefs.WindowMode == WindowStartMode.BorderlessFullscreen ? 1 : 0),
                 SettingRowIds.WindowMode);
             if (OperatingSystem.IsAndroid())

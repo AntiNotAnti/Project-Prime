@@ -539,7 +539,7 @@ public sealed class NodeMatchCoordinator : IDisposable
             ?? throw new LobbyCommandException("interrupted", "Match preparation is no longer current.");
         MatchLifecycle pending = CreatePending(spec, prepared.Members.ToArray(), prepared);
         lock (_gate) _matches.Add(spec.MatchId, pending);
-        await PlaceAsync(spec);
+        await PlaceAsync(spec, cancellationToken);
         return _lobbies.ForSession(identity.SessionId) ?? before;
     }
     public async Task RunContinuationsAsync(CancellationToken ct)

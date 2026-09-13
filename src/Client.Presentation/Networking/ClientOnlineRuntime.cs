@@ -437,7 +437,7 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
 
     internal static TimeSpan ReconnectDelay(int attempt, double jitter)
     {
-        if (attempt < 1) throw new ArgumentOutOfRangeException(nameof(attempt));
+        ArgumentOutOfRangeException.ThrowIfLessThan(attempt, 1);
         if (!double.IsFinite(jitter) || jitter is < 0 or > 1)
             throw new ArgumentOutOfRangeException(nameof(jitter));
         if (attempt == 1) return TimeSpan.Zero;

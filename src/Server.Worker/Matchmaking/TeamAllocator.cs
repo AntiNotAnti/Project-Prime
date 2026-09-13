@@ -18,7 +18,8 @@ public static class TeamAllocator
         if (teamCount == 2 && counts[0] == counts[1]
             && favorTrailingScore && orangeScore != greenScore)
             return orangeScore < greenScore ? (byte)0 : (byte)1;
-        if (tieBreak >= teamCount) throw new ArgumentOutOfRangeException(nameof(tieBreak));
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(
+            tieBreak, (byte)teamCount, nameof(tieBreak));
         if (counts[tieBreak] == minimum) return tieBreak;
         for (byte team = 0; team < teamCount; team++)
             if (counts[team] == minimum) return team;
