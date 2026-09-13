@@ -64,7 +64,8 @@ namespace MphRead.Mods.Network
         /// about it would be playing subtly different levels.
         /// </summary>
         private static bool LiveMatch => ClientOnlineRuntime.Current?.Match != null;
-        public static int RoomPlayerCount => NetSession.Active || LiveMatch ? NetConfig.RoomPlayerCount : 0;
+        public static int RoomPlayerCount => NetSession.Active || LiveMatch
+            ? NetLaunch.RoomPlayerCount : 0;
 
         /// <summary>True while a networked session is rebuilding its players for a new room.</summary>
         public static bool Rebuilding => NetSession.Active || LiveMatch;

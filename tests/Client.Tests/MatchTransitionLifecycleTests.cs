@@ -138,6 +138,64 @@ public sealed class MatchTransitionLifecycleTests
     }
 
     [Fact]
+    public async Task LifecycleEpochAndHandoffGenerationFenceLateControlEvents()
+    {
+        Guid nodeId = Guid.NewGuid();
+        Guid currentMatch = Guid.NewGuid();
+        Guid replacementMatch = Guid.NewGuid();
+        await using var node = NewNode(nodeId, out _, new NodeSessionSnapshot(
+            Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43)));
+
+        NodeMatchHandoff current = new(currentMatch, 11, "127.0.0.1", 5000,
+            "ticket", 1, false, Hunter.Samus, Guid.Empty, "", false,
+            new HandoffGeneration(3), new MatchLifecycleEpoch(7));
+        node.ApplyEvent(Event("match.handoff", 2, current));
+        node.ApplyEvent(Event("match.handoff", 3, current with
+        {
+            Nonce = 2,
+            HandoffGeneration = new HandoffGeneration(2)
+        }));
+        node.ApplyEvent(Event("match.ended", 4,
+            new NodeMatchEnded(currentMatch, true, new MatchLifecycleEpoch(6))));
+
+        Assert.Equal(current, node.Handoff);
+        Assert.False(node.MatchEnded);
+        Assert.Equal((ulong)7, node.State.LifecycleEpoch.Value);
+        Assert.Equal((ulong)3, node.State.HandoffGeneration.Value);
+
+        NodeMatchHandoff replacement = current with
+        {
+            MatchId = replacementMatch,
+            WireMatchId = 12,
+            Nonce = 3,
+            HandoffGeneration = HandoffGeneration.Initial,
+            LifecycleEpoch = new MatchLifecycleEpoch(8)
+        };
+        node.ApplyEvent(Event("match.handoff", 5, replacement));
+        node.ApplyEvent(Event("match.completion", 6,
+            new NodeMatchCompletion(Completion(currentMatch),
+                new MatchLifecycleEpoch(7))));
+
+        Assert.Equal(replacementMatch, node.Handoff!.MatchId);
+        Assert.False(node.MatchEnded);
+        Assert.Equal((ulong)8, node.State.LifecycleEpoch.Value);
+    }
+
+    [Fact]
+    public async Task DeliveryOverflowRequiresAuthoritativeResume()
+    {
+        Guid nodeId = Guid.NewGuid();
+        await using var node = NewNode(nodeId, out _);
+
+        node.ApplyEvent(Event("control.delivery_overflow", 2,
+            new NodeControlDeliveryOverflow()));
+
+        Assert.True(node.State.ResumeRequired);
+        Assert.Equal("delivery_overflow", node.State.ErrorCode);
+        Assert.Contains("resume", node.Error!, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void TransitionExitAndSessionPhasesAreExplicit()
     {
         Assert.Equal(MatchExitReason.Transitioning,

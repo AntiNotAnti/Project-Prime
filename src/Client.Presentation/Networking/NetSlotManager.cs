@@ -110,7 +110,8 @@ namespace MphRead.Mods.Network
             // own index, exactly as PlayerEntity.Initialize does.
             if (player.TeamIndex < 0 || player.TeamIndex >= scene.Players.MaxPlayers)
             {
-                player.TeamIndex = scene.Match.Rules.Teams ? slot % 2 : slot;
+                player.TeamIndex = scene.Match.Rules.Teams
+                    ? slot % scene.Match.Rules.TeamCount : slot;
                 player.Team = player.TeamIndex % 2 == 0 ? Team.Orange : Team.Green;
             }
             // The hunter comes from the server's roster, not from this

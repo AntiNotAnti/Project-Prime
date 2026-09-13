@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
+using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.WebSockets;
 using System.Text.Json;
 using System.Threading;
@@ -12,6 +15,20 @@ using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 
 namespace MphRead.Mods.Network;
+
+public enum NodeControlConnectFailure
+{
+    RateLimited,
+    AuthenticationRejected
+}
+
+public sealed class NodeControlConnectException(
+    NodeControlConnectFailure failure, string message, TimeSpan? retryAfter,
+    Exception innerException) : IOException(message, innerException)
+{
+    public NodeControlConnectFailure Failure { get; } = failure;
+    public TimeSpan? RetryAfter { get; } = retryAfter;
+}
 
 /// <summary>Persistent control transport. It owns no UDP gameplay state.</summary>
 public sealed class NodeControlClient : IAsyncDisposable
@@ -38,7 +55,11 @@ public sealed class NodeControlClient : IAsyncDisposable
         MatchCompletionSummary? LastCompletionSummary = null, MatchCompletionSummary? JoinedCompletionSummary = null,
         NodeMatchTransitionVoteSnapshot? TransitionVote = null,
         NodeMatchTransitionStarted? ExpectedTransition = null,
-        bool ExpectedTransitionEnded = false);
+        bool ExpectedTransitionEnded = false,
+        MatchLifecycleEpoch LifecycleEpoch = default,
+        HandoffGeneration HandoffGeneration = default,
+        string? ErrorCode = null,
+        bool ResumeRequired = false);
     private ViewState _state = new();
     public ViewState State => Volatile.Read(ref _state);
     private void Publish(Func<ViewState, ViewState> update)
@@ -128,6 +149,7 @@ public sealed class NodeControlClient : IAsyncDisposable
         _nodeId = nodeId; Endpoint = endpoint;
         _socket.Options.SetRequestHeader("Authorization", authorization);
         _socket.Options.KeepAliveInterval = TimeSpan.FromSeconds(20);
+        _socket.Options.CollectHttpResponseDetails = true;
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancel, _stop.Token);
         deadline.CancelAfter(TimeSpan.FromSeconds(15));
         try
@@ -137,7 +159,44 @@ public sealed class NodeControlClient : IAsyncDisposable
             await _greeting.Task.WaitAsync(deadline.Token).ConfigureAwait(false);
             _heartbeat = HeartbeatLoop();
         }
-        catch { _stop.Cancel(); _socket.Abort(); throw; }
+        catch (Exception error)
+        {
+            _stop.Cancel();
+            _socket.Abort();
+            if (error is WebSocketException && _socket.HttpStatusCode is { } status)
+            {
+                if (status == HttpStatusCode.TooManyRequests)
+                {
+                    IEnumerable<string>? retryValues = null;
+                    _socket.HttpResponseHeaders?.TryGetValue(
+                        "Retry-After", out retryValues);
+                    throw new NodeControlConnectException(
+                        NodeControlConnectFailure.RateLimited,
+                        "The Node rate-limited the control connection.",
+                        ParseRetryAfter(retryValues, DateTimeOffset.UtcNow), error);
+                }
+                if (status is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                    throw new NodeControlConnectException(
+                        NodeControlConnectFailure.AuthenticationRejected,
+                        "The Node rejected control authentication.", null, error);
+            }
+            throw;
+        }
+    }
+
+    internal static TimeSpan? ParseRetryAfter(IEnumerable<string>? values,
+        DateTimeOffset now)
+    {
+        string? value = values?.FirstOrDefault();
+        if (value == null) return null;
+        if (long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture,
+            out long seconds) && seconds >= 0)
+            return TimeSpan.FromSeconds(Math.Min(seconds, 300));
+        if (DateTimeOffset.TryParse(value, CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeUniversal, out DateTimeOffset deadline))
+            return TimeSpan.FromSeconds(Math.Clamp(
+                (deadline - now).TotalSeconds, 0, 300));
+        return null;
     }
     public Task SendAsync(string type, NodeCommand command, CancellationToken cancel = default)
         => SendAsyncCore(type, command, cancel, null);
@@ -301,11 +360,14 @@ public sealed class NodeControlClient : IAsyncDisposable
                     || lobby.Members.Select(x => x.SessionId).Distinct().Count() != lobby.Members.Length)
                     throw new JsonException("Invalid lobby snapshot.");
                 if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
+                if (IsOlderEpoch(State.LifecycleEpoch, lobby.LifecycleEpoch)) break;
                 Publish(state => ClearOpenMatch(state.Lobby?.LobbyId == lobby.LobbyId
-                    ? state with { Lobby = lobby, LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId }
+                    ? state with { Lobby = lobby, LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId,
+                        LifecycleEpoch = AdvanceEpoch(state.LifecycleEpoch, lobby.LifecycleEpoch) }
                     : state with { Lobby = lobby, Round = null, Handoff = null, MatchEnded = false,
                         LastLobbyMatchId = lobby.CurrentMatchId, TransitionVote = null,
-                        ExpectedTransition = null, ExpectedTransitionEnded = false })); break;
+                        ExpectedTransition = null, ExpectedTransitionEnded = false,
+                        LifecycleEpoch = lobby.LifecycleEpoch, HandoffGeneration = default })); break;
             case "lobby.round":
                 var round = value.Payload.Deserialize(NodeJsonContext.Default.NodeRoundSnapshot)
                     ?? throw new JsonException("Missing round snapshot.");
@@ -350,7 +412,10 @@ public sealed class NodeControlClient : IAsyncDisposable
                     ?? throw new JsonException("Missing match transition ballot.");
                 try { NodeControlCodec.ValidateEventPayload(transitionVote); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match transition ballot.", ex); }
-                Publish(state => AcceptTransitionVote(state, transitionVote));
+                Publish(state => IsOlderEpoch(state.LifecycleEpoch, transitionVote.LifecycleEpoch)
+                    ? state
+                    : AcceptTransitionVote(AdvanceLifecycle(state,
+                        transitionVote.LifecycleEpoch, transitionVote.MatchId), transitionVote));
                 break;
             case "match.transition.started":
                 NodeMatchTransitionStarted transitionStarted = value.Payload.Deserialize(
@@ -358,16 +423,20 @@ public sealed class NodeControlClient : IAsyncDisposable
                     ?? throw new JsonException("Missing match transition start.");
                 try { NodeControlCodec.ValidateEventPayload(transitionStarted); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match transition start.", ex); }
-                Publish(state => AcceptTransitionStarted(state, transitionStarted));
+                Publish(state => IsOlderEpoch(state.LifecycleEpoch, transitionStarted.LifecycleEpoch)
+                    ? state
+                    : AcceptTransitionStarted(AdvanceLifecycle(state,
+                        transitionStarted.LifecycleEpoch, transitionStarted.PreviousMatchId), transitionStarted));
                 break;
             case "match.handoff":
                 var handoff = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff) ?? throw new JsonException("Missing match handoff.");
                 if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
                     || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes }) throw new JsonException("Invalid match handoff.");
-                Publish(state => state with { Handoff = handoff, MatchEnded = false }); break;
+                Publish(state => AcceptHandoff(state, handoff)); break;
             case "match.ended":
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
-                if (ended != null && (ended.MatchId == State.JoinedMatchId
+                if (ended != null && !IsOlderEpoch(State.LifecycleEpoch, ended.LifecycleEpoch)
+                    && (ended.MatchId == State.JoinedMatchId
                     || ended.MatchId == Handoff?.MatchId
                     || ended.MatchId == State.LastLobbyMatchId
                     || ended.MatchId == State.ExpectedTransition?.PreviousMatchId))
@@ -400,6 +469,7 @@ public sealed class NodeControlClient : IAsyncDisposable
                 try { completion.Summary.Validate(); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match completion.", ex); }
                 Guid completionMatch = completion.Summary.MatchId.Value;
+                if (IsOlderEpoch(State.LifecycleEpoch, completion.LifecycleEpoch)) break;
                 if (completionMatch != State.JoinedMatchId && completionMatch != Handoff?.MatchId
                     && completionMatch != State.LastLobbyMatchId
                     && completionMatch != State.ExpectedTransition?.PreviousMatchId) break;
@@ -427,11 +497,93 @@ public sealed class NodeControlClient : IAsyncDisposable
                         ? completion.Summary : state.JoinedCompletionSummary
                 });
                 break;
-            case "error": Publish(state => state with { Error = value.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message is { Length: <= 512 } error ? error : "Node rejected the command." }); break;
+            case "control.delivery_overflow":
+                NodeControlDeliveryOverflow overflow = value.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeControlDeliveryOverflow)
+                    ?? throw new JsonException("Missing delivery overflow state.");
+                if (overflow.Code != "delivery_overflow" || !overflow.ResumeRequired)
+                    throw new JsonException("Invalid delivery overflow state.");
+                Publish(state => state with
+                {
+                    Error = "Control delivery overflowed; resume is required.",
+                    ErrorCode = overflow.Code,
+                    ResumeRequired = true
+                });
+                break;
+            case "error":
+                NodeControlError? controlError = value.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeControlError);
+                Publish(state => state with
+                {
+                    Error = controlError?.Message is { Length: <= 512 } error
+                        ? error : "Node rejected the command.",
+                    ErrorCode = controlError?.Code
+                });
+                break;
         }
         if (EventReceived != null) foreach (Action<NodeControlEvent> handler in EventReceived.GetInvocationList())
             try { handler(value); } catch { Publish(state => state with { Error = "A Node event listener failed." }); }
         NotifyChanged();
+    }
+
+    private static bool IsOlderEpoch(MatchLifecycleEpoch current,
+        MatchLifecycleEpoch incoming)
+        => current.Value != 0 && incoming.Value != 0
+            && incoming.Value < current.Value;
+
+    private static MatchLifecycleEpoch AdvanceEpoch(MatchLifecycleEpoch current,
+        MatchLifecycleEpoch incoming)
+        => incoming.Value > current.Value ? incoming : current;
+
+    private static ViewState AdvanceLifecycle(ViewState state,
+        MatchLifecycleEpoch incoming, Guid matchId)
+    {
+        if (incoming.Value == 0 || incoming.Value <= state.LifecycleEpoch.Value)
+            return state;
+        return state with
+        {
+            LifecycleEpoch = incoming,
+            HandoffGeneration = default,
+            Handoff = state.Handoff?.MatchId == matchId ? state.Handoff : null,
+            MatchEnded = false
+        };
+    }
+
+    private static ViewState AcceptHandoff(ViewState state, NodeMatchHandoff incoming)
+    {
+        if (IsOlderEpoch(state.LifecycleEpoch, incoming.LifecycleEpoch)) return state;
+        // Epoch 1 is also emitted by the source-compatible legacy handoff
+        // constructor. Strict cross-MatchId identity fencing begins once the
+        // server has supplied an explicitly advanced lifecycle epoch.
+        if (incoming.LifecycleEpoch.Value > MatchLifecycleEpoch.Initial.Value
+            && incoming.LifecycleEpoch.Value == state.LifecycleEpoch.Value
+            && state.Handoff is { } currentMatch && currentMatch.MatchId != incoming.MatchId)
+            throw new JsonException("Conflicting immutable match lifecycle identity.");
+
+        if (state.Handoff is { MatchId: var currentId } current && currentId == incoming.MatchId
+            && state.HandoffGeneration.Value != 0 && incoming.HandoffGeneration.Value != 0)
+        {
+            if (incoming.HandoffGeneration.Value < state.HandoffGeneration.Value) return state;
+            if (incoming.HandoffGeneration == state.HandoffGeneration)
+            {
+                if (current.AdmissionId != incoming.AdmissionId
+                    || current.WireMatchId != incoming.WireMatchId
+                    || current.Port != incoming.Port
+                    || current.Observer != incoming.Observer
+                    || current.Hunter != incoming.Hunter
+                    || !StringComparer.Ordinal.Equals(current.Host, incoming.Host))
+                    throw new JsonException("Conflicting immutable match handoff generation.");
+                return state;
+            }
+        }
+
+        return state with
+        {
+            Handoff = incoming,
+            MatchEnded = false,
+            LifecycleEpoch = AdvanceEpoch(state.LifecycleEpoch, incoming.LifecycleEpoch),
+            HandoffGeneration = incoming.HandoffGeneration
+        };
     }
 
     private static ViewState AcceptTransitionVote(ViewState state,

@@ -190,14 +190,13 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// Entity layer to load a networked room with.
         ///
-        /// Fixed rather than derived from how many players happen to be
-        /// connected: SceneSetup picks the room's entity layout from the
-        /// player count, so a client that joined alone and one that joined
-        /// into a full match would lay out different spawn points, doors and
-        /// items for the same map. Everyone loads the two-player layout, so
-        /// everyone gets the same world.
+        /// Derived from the frozen match capacity rather than how many players
+        /// happen to be connected. Retail data provides layouts through four
+        /// players; larger matches use that richest authored layer.
         /// </summary>
-        public const int RoomPlayerCount = NetConfig.RoomPlayerCount;
+        public static int RoomPlayerCount
+            => AuthoritativePlay.Current?.Client.Accepted.Rules.EntityLayerPlayerCount
+                ?? NetConfig.RoomPlayerCount;
 
         /// <summary>
         /// Create one player entity per slot, before the room loads.

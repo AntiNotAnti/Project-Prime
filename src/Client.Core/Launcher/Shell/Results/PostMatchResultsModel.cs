@@ -183,6 +183,8 @@ public sealed record PostMatchBallotModel
         LobbyVoteChoice.NextMap => "Next map",
         LobbyVoteChoice.ReturnToLobby => "Return to lobby",
         LobbyVoteChoice.Map when !string.IsNullOrWhiteSpace(entry.MapKey) => entry.MapKey,
+        LobbyVoteChoice.SpawnPolicy when entry.SpawnPolicy is { } policy
+            => $"{SpawnPolicyLabel(policy)} spawns",
         _ => $"Option {entry.Id.ToString(CultureInfo.InvariantCulture)}"
     };
 
@@ -190,12 +192,21 @@ public sealed record PostMatchBallotModel
     {
         LobbyVoteChoice.Rematch => "Play this map again",
         LobbyVoteChoice.ReturnToLobby => "Return to the lobby together",
+        LobbyVoteChoice.SpawnPolicy when entry.SpawnPolicy is { } policy
+            => $"Use {SpawnPolicyLabel(policy).ToLowerInvariant()} spawn selection next round",
         LobbyVoteChoice.NextMap or LobbyVoteChoice.Map => string.IsNullOrWhiteSpace(entry.MapKey)
             ? "Continue to the next match"
             : entry.RequiredMap is { } map
                 ? $"{entry.MapKey} · {ModeLabel(entry.Mode)} · {map.StableId} {map.Version}"
                 : $"{entry.MapKey} · {ModeLabel(entry.Mode)}",
         _ => "Continue to the next match"
+    };
+
+    private static string SpawnPolicyLabel(SpawnPolicy policy) => policy switch
+    {
+        SpawnPolicy.Enhanced => "Enhanced",
+        SpawnPolicy.Duel => "Duel",
+        _ => "Classic"
     };
 
     public static string ModeLabel(MatchMode mode) => mode switch

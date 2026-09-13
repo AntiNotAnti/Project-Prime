@@ -10,11 +10,21 @@ namespace MphRead.Mods.Network;
 public enum OnlineRecoveryState
 {
     Connected,
-    ConnectionLost,
-    Reconnecting,
-    RejoiningMatch,
-    AwaitingMatchSnapshot,
-    SessionExpired
+    ControlDisconnected,
+    ResumingControl,
+    AwaitingRejoinGrant,
+    RejoiningWorker,
+    AwaitingAuthoritativeSnapshot,
+    Expired,
+    Failed,
+
+    // Source-compatible presentation aliases. The runtime itself uses the
+    // canonical lifecycle names above.
+    ConnectionLost = ControlDisconnected,
+    Reconnecting = ResumingControl,
+    RejoiningMatch = RejoiningWorker,
+    AwaitingMatchSnapshot = AwaitingAuthoritativeSnapshot,
+    SessionExpired = Expired
 }
 
 internal readonly record struct RejoinCompletion(ulong ConnectionId, uint InputEpoch);
@@ -61,12 +71,18 @@ public sealed class MatchClientContext : IDisposable
     public NetClient Client => Play.Client;
     public ClientPrediction Prediction => Play.Prediction;
     public Guid MatchId { get; }
+    public MatchLifecycleEpoch LifecycleEpoch { get; private set; }
+    public HandoffGeneration HandoffGeneration { get; private set; }
 
-    internal MatchClientContext(AuthoritativePlay play, Guid matchId)
+    internal MatchClientContext(AuthoritativePlay play, Guid matchId,
+        MatchLifecycleEpoch lifecycleEpoch = default,
+        HandoffGeneration handoffGeneration = default)
     {
         Play = play ?? throw new ArgumentNullException(nameof(play));
         if (matchId == Guid.Empty) throw new ArgumentException("Match identity is required.", nameof(matchId));
         MatchId = matchId;
+        LifecycleEpoch = lifecycleEpoch;
+        HandoffGeneration = handoffGeneration;
         play.AttachOnlineContext(this);
     }
 
@@ -80,17 +96,42 @@ public sealed class MatchClientContext : IDisposable
     {
         cancellationToken.ThrowIfCancellationRequested();
         RejoinRequest request;
+        Task<RejoinCompletion>? idempotent = null;
         lock (_rejoinGate)
         {
             ObjectDisposedException.ThrowIf(_disposed != 0, this);
-            request = new RejoinRequest(++_nextRejoinEpoch, handoff, cancellationToken);
-            _queuedRejoin?.TrySetCanceled();
-            _activeRejoin?.TrySetCanceled();
-            _queuedRejoin = request;
+            if (handoff.MatchId != MatchId)
+                throw new InvalidOperationException("A rejoin handoff cannot change MatchId.");
+            if ((LifecycleEpoch.Value != 0 && handoff.LifecycleEpoch.Value != 0
+                    && handoff.LifecycleEpoch.Value < LifecycleEpoch.Value)
+                || (HandoffGeneration.Value != 0 && handoff.HandoffGeneration.Value != 0
+                    && handoff.HandoffGeneration.Value < HandoffGeneration.Value))
+                throw new InvalidOperationException("The rejoin handoff is stale.");
+            if (HandoffGeneration.Value != 0
+                && handoff.HandoffGeneration == HandoffGeneration)
+            {
+                RejoinRequest? existing = _queuedRejoin ?? _activeRejoin;
+                if (existing?.Handoff.AdmissionId != handoff.AdmissionId)
+                    throw new InvalidOperationException("The rejoin handoff conflicts with the current generation.");
+                request = existing;
+                idempotent = existing.Completion;
+            }
+            else
+            {
+                if (handoff.LifecycleEpoch.Value != 0)
+                    LifecycleEpoch = handoff.LifecycleEpoch;
+                if (handoff.HandoffGeneration.Value != 0)
+                    HandoffGeneration = handoff.HandoffGeneration;
+                request = new RejoinRequest(++_nextRejoinEpoch, handoff, cancellationToken);
+                _queuedRejoin?.TrySetCanceled();
+                _activeRejoin?.TrySetCanceled();
+                _queuedRejoin = request;
+            }
         }
         try
         {
-            return await request.Completion.WaitAsync(cancellationToken).ConfigureAwait(false);
+            return await (idempotent ?? request.Completion).WaitAsync(cancellationToken)
+                .ConfigureAwait(false);
         }
         finally
         {
@@ -201,6 +242,8 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
     private int _disposed;
     private long _recoveryEpoch;
     private CancellationTokenSource? _recoveryOperation;
+    private int _resumeAttempts;
+    private DateTimeOffset _resumeNotBefore;
 
     // Online runtime ownership is no longer a rollout choice. Keeping this
     // property makes older callers source-compatible while making the
@@ -256,7 +299,11 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
                     throw new InvalidOperationException("An online match context is already active.");
                 return current;
             }
-            next = new MatchClientContext(play, matchId);
+            NodeMatchHandoff? handoff = _node?.Handoff is { MatchId: var handoffMatchId } activeHandoff
+                && handoffMatchId == matchId ? activeHandoff : null;
+            next = new MatchClientContext(play, matchId,
+                handoff?.LifecycleEpoch ?? default,
+                handoff?.HandoffGeneration ?? default);
             _match = next;
             _recoveryEpoch++;
             RecoveryState = OnlineRecoveryState.Connected;
@@ -301,40 +348,58 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
             _recoveryOperation = linked;
         }
         CancelRecoveryOperation(priorOperation);
-        SetRecovery(recoveryEpoch, OnlineRecoveryState.Reconnecting);
+        SetRecovery(recoveryEpoch, OnlineRecoveryState.ResumingControl);
         try
         {
+            int attempt = Interlocked.Increment(ref _resumeAttempts);
+            TimeSpan delay = ReconnectDelay(attempt, Random.Shared.NextDouble());
+            lock (_gate)
+            {
+                TimeSpan retryAfter = _resumeNotBefore - DateTimeOffset.UtcNow;
+                if (retryAfter > delay) delay = retryAfter;
+            }
+            if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, linked.Token).ConfigureAwait(false);
             NodeControlClient node = await NodeSessions.ResumeAsync(linked.Token).ConfigureAwait(false);
             EnsureRecoveryCurrent(recoveryEpoch, linked.Token);
             MatchClientContext? match = Match;
             if (!Enabled || match == null)
             {
+                Interlocked.Exchange(ref _resumeAttempts, 0);
                 SetRecovery(recoveryEpoch, OnlineRecoveryState.Connected);
                 return node;
             }
 
-            SetRecovery(recoveryEpoch, OnlineRecoveryState.RejoiningMatch);
+            SetRecovery(recoveryEpoch, OnlineRecoveryState.AwaitingRejoinGrant);
             NodeControlEvent response = await node.SendAndWaitAsync("match.rejoin",
                 new NodeMatchRejoin(match.MatchId), linked.Token).ConfigureAwait(false);
             EnsureRecoveryCurrent(recoveryEpoch, linked.Token);
             if (response.Type == "error")
             {
-                SetRecovery(recoveryEpoch, OnlineRecoveryState.SessionExpired);
-                throw new InvalidOperationException(response.Payload.Deserialize(NodeJsonContext.Default.NodeControlError)?.Message
-                    ?? "The multiplayer session expired.");
+                NodeControlError error = response.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeControlError)
+                    ?? new NodeControlError("unknown", "The multiplayer recovery request failed.");
+                MatchControlFailure failure = MatchControlFailureCodes.Parse(error.Code);
+                SetRecovery(recoveryEpoch, failure is MatchControlFailure.SessionExpired
+                        or MatchControlFailure.NotFound or MatchControlFailure.NotActive
+                    ? OnlineRecoveryState.Expired : OnlineRecoveryState.Failed);
+                throw new MatchControlException(failure, error.Message);
             }
             if (response.Type != "match.handoff")
                 throw new InvalidOperationException("The Node returned an unexpected rejoin response.");
             NodeMatchHandoff handoff = response.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff)
                 ?? throw new InvalidOperationException("The Node returned an invalid rejoin handoff.");
-            SetRecovery(recoveryEpoch, OnlineRecoveryState.AwaitingMatchSnapshot);
+            SetRecovery(recoveryEpoch, OnlineRecoveryState.RejoiningWorker);
             EnsureRecoveryCurrent(recoveryEpoch, linked.Token);
+            SetRecovery(recoveryEpoch, OnlineRecoveryState.AwaitingAuthoritativeSnapshot);
             RejoinCompletion completion = await match.QueueRejoinAsync(handoff, linked.Token).ConfigureAwait(false);
             EnsureRecoveryCurrent(recoveryEpoch, linked.Token);
             if (!ReferenceEquals(Match, match)) throw new OperationCanceledException(linked.Token);
             if (completion.ConnectionId == 0 || !match.Play.IsObserver && completion.InputEpoch == 0)
                 throw new InvalidOperationException("The Worker rejoin did not establish a valid input epoch.");
             node.MarkGameplayJoined(match.MatchId);
+            Interlocked.Exchange(ref _resumeAttempts, 0);
+            lock (_gate) _resumeNotBefore = default;
             SetRecovery(recoveryEpoch, OnlineRecoveryState.Connected);
             return node;
         }
@@ -343,9 +408,21 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
         {
             throw;
         }
-        catch when (RecoveryState != OnlineRecoveryState.SessionExpired)
+        catch (NodeControlConnectException error)
         {
-            if (IsRecoveryCurrent(recoveryEpoch)) SetRecovery(recoveryEpoch, OnlineRecoveryState.ConnectionLost);
+            if (error.Failure == NodeControlConnectFailure.RateLimited
+                && error.RetryAfter is { } retryAfter)
+                lock (_gate)
+                    _resumeNotBefore = DateTimeOffset.UtcNow + retryAfter;
+            if (IsRecoveryCurrent(recoveryEpoch))
+                SetRecovery(recoveryEpoch,
+                    RecoveryStateForConnectFailure(error.Failure));
+            throw;
+        }
+        catch when (RecoveryState is not (OnlineRecoveryState.Expired or OnlineRecoveryState.Failed))
+        {
+            if (IsRecoveryCurrent(recoveryEpoch))
+                SetRecovery(recoveryEpoch, OnlineRecoveryState.ControlDisconnected);
             throw;
         }
         finally
@@ -357,6 +434,30 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
             linked.Dispose();
         }
     }
+
+    internal static TimeSpan ReconnectDelay(int attempt, double jitter)
+    {
+        if (attempt < 1) throw new ArgumentOutOfRangeException(nameof(attempt));
+        if (!double.IsFinite(jitter) || jitter is < 0 or > 1)
+            throw new ArgumentOutOfRangeException(nameof(jitter));
+        if (attempt == 1) return TimeSpan.Zero;
+        double minimumMilliseconds = attempt switch
+        {
+            2 => 250,
+            3 => 500,
+            4 => 1_000,
+            _ => Math.Min(5_000, 2_000 * Math.Pow(2, attempt - 5))
+        };
+        double maximumMilliseconds = Math.Min(5_000, minimumMilliseconds * 2);
+        return TimeSpan.FromMilliseconds(minimumMilliseconds
+            + (maximumMilliseconds - minimumMilliseconds) * jitter);
+    }
+
+    internal static OnlineRecoveryState RecoveryStateForConnectFailure(
+        NodeControlConnectFailure failure)
+        => failure == NodeControlConnectFailure.AuthenticationRejected
+            ? OnlineRecoveryState.Expired
+            : OnlineRecoveryState.ControlDisconnected;
 
     private void NodeChanged(NodeControlClient? node)
     {
@@ -374,7 +475,7 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
             if (node != null) node.Changed += NodeStateChanged;
         }
         if (Volatile.Read(ref _disposed) != 0) return;
-        if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ConnectionLost);
+        if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ControlDisconnected);
         else Changed?.Invoke();
     }
 
@@ -382,7 +483,7 @@ public sealed class ClientOnlineRuntime : IDisposable, IAsyncDisposable
     {
         if (Volatile.Read(ref _disposed) != 0) return;
         NodeControlClient? node = Node;
-        if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ConnectionLost);
+        if (node is { Connected: false }) SetRecovery(OnlineRecoveryState.ControlDisconnected);
         else Changed?.Invoke();
     }
 

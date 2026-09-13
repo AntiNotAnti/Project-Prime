@@ -35,7 +35,7 @@ public sealed class SeamlessLifecycleStressTests
             Assert.Same(oldContext, runtime.AdoptMatch(oldPlay, oldMatchId));
 
             Task<RejoinCompletion> stale = oldContext.QueueRejoinAsync(
-                Handoff(round, 2), CancellationToken.None);
+                Handoff(oldMatchId, round, 2), CancellationToken.None);
             Assert.True(oldContext.TryTakeRejoin(out RejoinRequest staleRequest));
             Assert.True(oldContext.IsCurrentRejoin(staleRequest));
 
@@ -61,7 +61,7 @@ public sealed class SeamlessLifecycleStressTests
                 new RejoinCompletion((ulong)(round + 1), (uint)(round + 1)));
 
             Task<RejoinCompletion> current = currentContext.QueueRejoinAsync(
-                Handoff(round, 4), CancellationToken.None);
+                Handoff(currentMatchId, round, 4), CancellationToken.None);
             Assert.True(currentContext.TryTakeRejoin(
                 out RejoinRequest currentRequest));
             Assert.True(currentContext.IsCurrentRejoin(currentRequest));
@@ -76,8 +76,8 @@ public sealed class SeamlessLifecycleStressTests
         }
     }
 
-    private static NodeMatchHandoff Handoff(int round, int slot)
-        => new(Id(round, slot), 1, "127.0.0.1", 5000,
+    private static NodeMatchHandoff Handoff(Guid matchId, int round, int slot)
+        => new(matchId, 1, "127.0.0.1", 5000,
             $"ticket-{round}", (ulong)(round + 1), false, Hunter.Samus);
 
     private static Guid Id(int round, int slot)

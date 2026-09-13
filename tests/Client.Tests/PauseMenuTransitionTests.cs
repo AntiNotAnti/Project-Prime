@@ -3,11 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Theme;
 using ProjectPrime.Server.Shared;
 using Xunit;
 
@@ -110,6 +112,38 @@ public sealed class PauseMenuTransitionTests
             actions.RaiseChanged();
             Dispatcher.UIThread.RunJobs();
             Assert.Contains("Transition vote rejected.", Text(desktop));
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PauseMenuUsesTechFrameNeutralExitAndBoundedEntryMotion()
+    {
+        var menu = new PauseMenuView(offerWindowMode: false);
+        var window = new Window { Width = 940, Height = 720, Content = menu };
+        window.Show();
+        try
+        {
+            PrimeTechFrame frame = Assert.Single(menu.GetVisualDescendants()
+                .OfType<PrimeTechFrame>());
+            Assert.Contains("prime-pause-frame", frame.Classes);
+
+            MenuEntry quit = Assert.Single(menu.GetVisualDescendants()
+                .OfType<MenuEntry>(), entry => entry.Title == "Quit to desktop");
+            Assert.Contains("prime-pause-destructive", quit.Classes);
+            Assert.Equal(GuiTheme.TextDim, quit.Accent);
+
+            PrimeMotionSpec motion = menu.MenuMotionSpec;
+            Assert.Equal(PrimeMotion.ReducedMotion, motion.IsImmediate);
+            if (!PrimeMotion.ReducedMotion)
+            {
+                Assert.Equal(PrimeMotion.FastDuration, motion.Duration);
+                Assert.Equal(new Vector(0, 5), motion.Translation);
+            }
         }
         finally
         {

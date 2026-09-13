@@ -48,7 +48,7 @@ namespace MphRead.Mods.Network
                 {
                     play.BuildPlayers(scene, hunter, recolor);
                     presentation.AddRoom(play.Client.Accepted.Room, play.Client.Accepted.Mode,
-                        playerCount: NetConfig.RoomPlayerCount);
+                        playerCount: play.Client.Accepted.Rules.EntityLayerPlayerCount);
                 }, suspendFrame: () => PumpSceneCompletion(play, scene, sdlHost),
                     sceneServices: new ClientSceneServices(match, runtime.Node));
             }

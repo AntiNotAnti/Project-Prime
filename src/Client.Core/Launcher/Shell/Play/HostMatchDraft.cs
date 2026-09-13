@@ -33,6 +33,9 @@ internal sealed class HostMatchDraft
     public bool? PlayerRadar { get; set; }
     public bool? OctolithReset { get; set; }
     public KillcamPolicy? KillcamPolicy { get; set; }
+    public int? TeamCount { get; set; }
+    public SpawnPolicy? SpawnPolicy { get; set; }
+    public bool? CancelSpawnProtectionOnOffensiveAction { get; set; }
 
     public static HostMatchDraft FromLobby(LobbySnapshot lobby)
     {
@@ -57,7 +60,11 @@ internal sealed class HostMatchDraft
             AffinityWeapons = rules.AffinityWeapons,
             PlayerRadar = rules.PlayerRadar,
             OctolithReset = rules.OctolithReset,
-            KillcamPolicy = rules.KillcamPolicy
+            KillcamPolicy = rules.KillcamPolicy,
+            TeamCount = rules.TeamCount,
+            SpawnPolicy = rules.SpawnPolicy,
+            CancelSpawnProtectionOnOffensiveAction =
+                rules.CancelSpawnProtectionOnOffensiveAction
         };
     }
 
@@ -105,8 +112,22 @@ internal sealed class HostMatchDraft
 
         try
         {
-            rules = new LobbyRulesOptions(time, score, lives, objective, DamageLevel,
-                FriendlyFire, AffinityWeapons, PlayerRadar, OctolithReset, KillcamPolicy).ForMode(Mode);
+            rules = new LobbyRulesOptions(
+                TimeLimitSeconds: time,
+                ScoreGoal: score,
+                StartingLives: lives,
+                ObjectiveTimeGoalSeconds: objective,
+                DamageLevel: DamageLevel,
+                FriendlyFire: FriendlyFire,
+                AffinityWeapons: AffinityWeapons,
+                PlayerRadar: PlayerRadar,
+                OctolithReset: OctolithReset,
+                KillcamPolicy: KillcamPolicy,
+                TeamCount: Mode.IsTeamMode() ? TeamCount : null,
+                SpawnPolicy: SpawnPolicy,
+                CancelSpawnProtectionOnOffensiveAction:
+                    CancelSpawnProtectionOnOffensiveAction).ForMode(Mode);
+            _ = rules.ToMatchRules(Mode, "host-draft-validation", PlayerLimit);
             error = "";
             return true;
         }
