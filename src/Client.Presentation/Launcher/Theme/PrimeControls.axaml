@@ -110,12 +110,18 @@
     <Setter Property="BorderThickness" Value="0,0,0,2" />
   </Style>
   <Style Selector="#NavPanel :is(Button).prime-button.prime-primary:focus">
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
+    <!-- Keep the persistent amber selection rail visible while focus uses a
+         separate surface/text cue. Neither state changes the control bounds. -->
+    <Setter Property="Background" Value="{DynamicResource PrimeFocusSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,2" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeFocusBrush}" />
   </Style>
   <Style Selector="#NavPanel :is(Button).prime-button.prime-primary:focus-visible">
-    <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
+    <Setter Property="Background" Value="{DynamicResource PrimeFocusSurfaceBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,2" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeFocusBrush}" />
   </Style>
   <Style Selector=":is(Button).prime-tab">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
@@ -144,11 +150,27 @@
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeFocusBrush}" />
     <Setter Property="BorderThickness" Value="0,0,0,2" />
   </Style>
+  <Style Selector=":is(Button).prime-tab.prime-selected:focus">
+    <Setter Property="Background" Value="{DynamicResource PrimeFocusSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeFocusBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
+  <Style Selector=":is(Button).prime-tab.prime-selected:focus-visible">
+    <Setter Property="Background" Value="{DynamicResource PrimeFocusSurfaceBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeFocusBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeBrandBrush}" />
+    <Setter Property="BorderThickness" Value="0,0,0,2" />
+  </Style>
   <Style Selector=":is(Button).prime-tab:disabled">
     <Setter Property="Background" Value="Transparent" />
     <Setter Property="BorderBrush" Value="Transparent" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
     <Setter Property="Opacity" Value="0.58" />
+  </Style>
+  <Style Selector=":is(Grid).prime-page-heading">
+    <Setter Property="ColumnSpacing" Value="12" />
+    <Setter Property="Margin" Value="0,0,0,4" />
   </Style>
   <Style Selector="ComboBox">
     <Setter Property="FocusAdorner" Value="{x:Null}" />
@@ -296,6 +318,12 @@
     <Setter Property="Padding" Value="12" />
     <Setter Property="MinHeight" Value="180" />
   </Style>
+  <Style Selector=":is(Border).prime-preview-stage.prime-host-preview">
+    <Setter Property="MinHeight" Value="96" />
+  </Style>
+  <Style Selector=":is(Border).prime-preview-stage.prime-lobby-hunter-preview">
+    <Setter Property="MinHeight" Value="120" />
+  </Style>
   <Style Selector=":is(Border).prime-stat-tile">
     <Setter Property="Background" Value="{DynamicResource PrimeSurfaceMutedBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
@@ -303,6 +331,21 @@
     <Setter Property="CornerRadius" Value="5" />
     <Setter Property="Padding" Value="12" />
     <Setter Property="Margin" Value="0,0,8,8" />
+  </Style>
+  <!-- A rail is a compact inline summary, not a row of independent cards.
+       Flatten tiles when they are hosted by PrimeStatRail and use a divider
+       edge for separation without changing the reusable tile API. -->
+  <Style Selector=":is(Border).prime-stat-tile.prime-stat-rail-item">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeDividerBrush}" />
+    <Setter Property="BorderThickness" Value="1,0,0,0" />
+    <Setter Property="CornerRadius" Value="0" />
+    <Setter Property="Padding" Value="12,4,0,4" />
+    <Setter Property="Margin" Value="0" />
+  </Style>
+  <Style Selector=":is(Border).prime-stat-tile.prime-stat-rail-first">
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Padding" Value="0,4,12,4" />
   </Style>
   <Style Selector=":is(Border).prime-status-chip">
     <Setter Property="Background" Value="{DynamicResource PrimeSecondarySurfaceBrush}" />
@@ -324,6 +367,22 @@
     <Setter Property="BorderThickness" Value="1" />
     <Setter Property="CornerRadius" Value="5" />
     <Setter Property="Padding" Value="12,8" />
+  </Style>
+  <Style Selector="Border.prime-notification.prime-status-info">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeInfoBrush}" />
+    <Setter Property="BorderThickness" Value="3,1,1,1" />
+  </Style>
+  <Style Selector="Border.prime-notification.prime-status-success">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeSuccessBrush}" />
+    <Setter Property="BorderThickness" Value="3,1,1,1" />
+  </Style>
+  <Style Selector="Border.prime-notification.prime-status-warning">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeWarningBrush}" />
+    <Setter Property="BorderThickness" Value="3,1,1,1" />
+  </Style>
+  <Style Selector="Border.prime-notification.prime-status-error">
+    <Setter Property="BorderBrush" Value="{DynamicResource PrimeErrorBrush}" />
+    <Setter Property="BorderThickness" Value="3,1,1,1" />
   </Style>
 
   <!-- Hierarchy primitives. Existing card/section selectors remain available
@@ -356,6 +415,21 @@
   <Style Selector=":is(Border).prime-panel-modal">
     <Setter Property="Background" Value="{DynamicResource PrimeModalSurfaceBrush}" />
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeEdgeStrongBrush}" />
+  </Style>
+  <Style Selector=":is(Grid).prime-tech-frame">
+    <Setter Property="Margin" Value="0,0,0,16" />
+  </Style>
+  <Style Selector="Border.prime-tech-frame-rail">
+    <Setter Property="Background" Value="{DynamicResource PrimeTechBrush}" />
+  </Style>
+  <Style Selector="Border.prime-tech-frame-left">
+    <Setter Property="Background" Value="{DynamicResource PrimeBrandBrush}" />
+  </Style>
+  <Style Selector="Border.prime-tech-frame-corner">
+    <Setter Property="Background" Value="{DynamicResource PrimeEdgeStrongBrush}" />
+  </Style>
+  <Style Selector=":is(WrapPanel).prime-stat-rail">
+    <Setter Property="Margin" Value="0,4,0,4" />
   </Style>
   <Style Selector=":is(Border).prime-tech">
     <Setter Property="BorderBrush" Value="{DynamicResource PrimeTechBrush}" />

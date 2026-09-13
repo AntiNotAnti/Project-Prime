@@ -152,6 +152,8 @@ namespace MphRead.Mods.Launcher.Gui
     {
         private readonly string _label;
         private IReadOnlyList<string> _options;
+        private readonly double _measuredLabelWidth;
+        private double _valueColumn;
         private int _index;
         private bool _leftHot;
         private bool _rightHot;
@@ -185,11 +187,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _label = label;
             _options = options;
+            _measuredLabelWidth = PrimeLegacyControlVisuals.MeasureLabel(label);
+            _valueColumn = PrimeLegacyControlVisuals.MeasureValueColumn(options);
             _index = options.Count == 0 ? 0 : Math.Clamp(index, 0, options.Count - 1);
-            Height = PrimeTouchTargets.MinimumDip;
+            Height = PrimeLegacyControlVisuals.RowHeight;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             PrimeAccessibility.SetName(this, label);
+            PrimeAccessibility.SetDescription(this,
+                $"{label}. Use the left and right arrows to choose an option.");
             AutomationProperties.SetItemStatus(this, Value);
         }
 
@@ -197,6 +203,7 @@ namespace MphRead.Mods.Launcher.Gui
         public void SetItems(IReadOnlyList<string> options, int index = 0)
         {
             _options = options;
+            _valueColumn = PrimeLegacyControlVisuals.MeasureValueColumn(options);
             _index = options.Count == 0 ? 0 : Math.Clamp(index, 0, options.Count - 1);
             AutomationProperties.SetItemStatus(this, Value);
             InvalidateVisual();
@@ -207,7 +214,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// in between them.
         /// </summary>
         private const double ArrowWidth = 28;
-        private const double ValueColumn = 180;
+        private const double ArrowGap = 8;
 
         /// <summary>
         /// Drawn in a square at the right-hand end of the row, past the
@@ -225,7 +232,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // points across, and a row of the ordinary height cannot show
                 // that without shrinking it -- which would defeat a preview
                 // whose job is partly to answer "how big is Big".
-                Height = value == null ? PrimeTouchTargets.MinimumDip : 48;
+                Height = value == null ? PrimeLegacyControlVisuals.RowHeight : 48;
                 InvalidateVisual();
             }
         }
@@ -255,14 +262,35 @@ namespace MphRead.Mods.Launcher.Gui
         {
             get
             {
-                double x = Bounds.Width - PreviewRoom - ArrowWidth - ValueColumn - ArrowWidth;
-                // Never over the label, on a card too narrow for the column.
-                return new Rect(Math.Max(110, x), 0, ArrowWidth, Bounds.Height);
+                double rightX = Math.Max(0, Bounds.Width - PreviewRoom - ArrowWidth);
+                double preferred = Math.Max(_measuredLabelWidth
+                    + PrimeLegacyControlVisuals.LabelInset,
+                    rightX - ArrowGap - _valueColumn - ArrowWidth);
+                double maximum = Math.Max(0, rightX - ArrowGap - ArrowWidth);
+                // The value column is measured from its actual options and
+                // yields first on compact screens. The label is clipped to the
+                // remaining space in Render, so the arrows never overlap text.
+                double x = Math.Clamp(preferred, 0, maximum);
+                return new Rect(x, 0, Math.Min(ArrowWidth,
+                    Math.Max(0, Bounds.Width - x)), Bounds.Height);
             }
         }
 
-        private Rect RightArrow =>
-            new(Bounds.Width - PreviewRoom - ArrowWidth, 0, ArrowWidth, Bounds.Height);
+        private Rect RightArrow
+        {
+            get
+            {
+                double x = Math.Max(0, Bounds.Width - PreviewRoom - ArrowWidth);
+                return new Rect(x, 0,
+                    Math.Min(ArrowWidth, Math.Max(0, Bounds.Width - x)),
+                    Bounds.Height);
+            }
+        }
+
+        internal Rect RenderedLeftArrow => LeftArrow;
+        internal Rect RenderedRightArrow => RightArrow;
+        internal double RenderedValueWidth
+            => Math.Max(0, RightArrow.X - LeftArrow.Right - ArrowGap);
 
         protected override void OnPointerMoved(PointerEventArgs e)
         {
@@ -337,6 +365,7 @@ namespace MphRead.Mods.Launcher.Gui
             // Wrapping, because the lists are short and running off the end of
             // one is more annoying than useful.
             _index = (_index + direction + _options.Count) % _options.Count;
+            AutomationProperties.SetItemStatus(this, Value);
             InvalidateVisual();
             Changed?.Invoke(this, EventArgs.Empty);
         }
@@ -346,30 +375,30 @@ namespace MphRead.Mods.Launcher.Gui
 
         public override void Render(DrawingContext context)
         {
-            // See MenuEntry.Render: hit testing follows the drawing.
-            context.FillRectangle(Brushes.Transparent,
-                new Rect(0, 0, Bounds.Width, Bounds.Height));
-            if (IsFocused)
-            {
-                context.FillRectangle(GuiTheme.PanelLightBrush,
-                    new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
-            }
-            IBrush text = IsEnabled ? GuiTheme.TextDimBrush
-                : new SolidColorBrush(Color.FromRgb(70, 76, 90));
+            Rect body = new(0, 0, Bounds.Width, Bounds.Height);
+            PrimeLegacyControlVisuals.DrawHitSurface(context, body);
+            PrimeLegacyControlVisuals.DrawFocusedSurface(context, body, IsFocused,
+                IsEnabled);
+            IBrush text = IsEnabled ? PrimeLegacyControlVisuals.MutedTextBrush
+                : PrimeLegacyControlVisuals.DisabledTextBrush;
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, GuiTheme.Face(false), 13, text);
-            context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
+            Rect left = LeftArrow;
+            using (context.PushClip(new Rect(0, 0,
+                Math.Max(0, left.X - PrimeLegacyControlVisuals.LabelValueGap),
+                Bounds.Height)))
+            {
+                context.DrawText(label, new Point(PrimeLegacyControlVisuals.LabelInset,
+                    (Bounds.Height - label.Height) / 2));
+            }
 
-            // The value lives in the fixed column between the arrows, and is
-            // trimmed to it rather than pushing them apart.
             var value = new FormattedText(Value, CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, GuiTheme.Face(true), 13,
-                IsEnabled ? GuiTheme.TextBrush : text);
-            Rect left = LeftArrow;
-            double room = RightArrow.X - left.Right - 8;
+                IsEnabled ? PrimeLegacyControlVisuals.TextBrush : text);
+            double room = RenderedValueWidth;
             if (value.Width > room)
             {
-                value.MaxTextWidth = Math.Max(20, room);
+                value.MaxTextWidth = Math.Max(1, room);
                 value.Trimming = TextTrimming.CharacterEllipsis;
             }
             double centre = (left.Right + RightArrow.X) / 2;
@@ -381,9 +410,14 @@ namespace MphRead.Mods.Launcher.Gui
             if (_preview != null)
             {
                 const double inset = 3;
-                _preview(context, new Rect(Bounds.Width - PreviewWidth + inset, inset,
-                    PreviewWidth - inset * 2, Bounds.Height - inset * 2));
+                double previewX = Math.Max(0, Bounds.Width - PreviewWidth + inset);
+                _preview(context, new Rect(previewX, inset,
+                    Math.Max(0, Math.Min(PreviewWidth - inset * 2,
+                        Bounds.Width - previewX - inset)),
+                    Math.Max(0, Bounds.Height - inset * 2)));
             }
+            PrimeLegacyControlVisuals.DrawFocusMarker(context, body, IsFocused,
+                IsEnabled);
         }
 
         private static void Arrow(DrawingContext context, Rect area, bool pointsLeft, bool hot)
@@ -446,10 +480,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _label = label;
             _on = on;
-            Height = PrimeTouchTargets.MinimumDip;
+            Height = PrimeLegacyControlVisuals.RowHeight;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             PrimeAccessibility.SetName(this, label);
+            PrimeAccessibility.SetDescription(this, $"{label}. Toggle on or off.");
             AutomationProperties.SetItemStatus(this, on ? "On" : "Off");
         }
 
@@ -492,31 +527,37 @@ namespace MphRead.Mods.Launcher.Gui
 
         public override void Render(DrawingContext context)
         {
-            // See MenuEntry.Render: hit testing follows the drawing.
-            context.FillRectangle(Brushes.Transparent,
-                new Rect(0, 0, Bounds.Width, Bounds.Height));
-            if (IsFocused)
-            {
-                context.FillRectangle(GuiTheme.PanelLightBrush,
-                    new Rect(0, 0, Bounds.Width, Bounds.Height), 4);
-            }
-            IBrush text = IsEnabled ? GuiTheme.TextDimBrush
-                : new SolidColorBrush(Color.FromRgb(70, 76, 90));
+            Rect body = new(0, 0, Bounds.Width, Bounds.Height);
+            PrimeLegacyControlVisuals.DrawHitSurface(context, body);
+            PrimeLegacyControlVisuals.DrawFocusedSurface(context, body, IsFocused,
+                IsEnabled);
+            IBrush text = IsEnabled ? PrimeLegacyControlVisuals.MutedTextBrush
+                : PrimeLegacyControlVisuals.DisabledTextBrush;
             var label = new FormattedText(_label, CultureInfo.InvariantCulture,
                 FlowDirection.LeftToRight, GuiTheme.Face(false), 13, text);
-            context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
+            context.DrawText(label, new Point(PrimeLegacyControlVisuals.LabelInset,
+                (Bounds.Height - label.Height) / 2));
 
             const double w = 40;
             const double h = 20;
-            var track = new Rect(Bounds.Width - w - 4, (Bounds.Height - h) / 2, w, h);
-            context.DrawRectangle(
-                new SolidColorBrush(!IsEnabled ? Color.FromRgb(70, 76, 90)
-                    : _on ? GuiTheme.Accent : GuiTheme.Edge), null,
-                new RoundedRect(track, h / 2));
+            double trackWidth = Math.Min(w, Math.Max(0, Bounds.Width));
+            var track = new Rect(Math.Max(0, Bounds.Width - trackWidth - 4),
+                (Bounds.Height - h) / 2, trackWidth, h);
+            IBrush trackBrush = !IsEnabled
+                ? PrimeLegacyControlVisuals.DisabledTrackBrush
+                : _on ? PrimeLegacyControlVisuals.AccentBrush(GuiTheme.Accent)
+                : PrimeLegacyControlVisuals.EdgeBrush;
+            context.DrawRectangle(trackBrush, null,
+                new RoundedRect(track, (float)(h / 2)));
+            double knobRadius = Math.Max(1, h / 2 - 3);
             double knob = _on ? track.Right - h / 2 : track.X + h / 2;
-            context.DrawEllipse(new SolidColorBrush(!IsEnabled ? Color.FromRgb(120, 126, 140)
-                : _on ? GuiTheme.Ink : GuiTheme.TextDim),
-                null, new Point(knob, track.Y + h / 2), h / 2 - 3, h / 2 - 3);
+            IBrush knobBrush = !IsEnabled ? PrimeLegacyControlVisuals.DisabledKnobBrush
+                : _on ? PrimeLegacyControlVisuals.OnBrush
+                : PrimeLegacyControlVisuals.MutedTextBrush;
+            context.DrawEllipse(knobBrush, null,
+                new Point(knob, track.Y + h / 2), knobRadius, knobRadius);
+            PrimeLegacyControlVisuals.DrawFocusMarker(context, body, IsFocused,
+                IsEnabled);
         }
     }
 
@@ -536,7 +577,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         public FieldRow(string label, string value, double boxWidth = 150)
         {
-            Height = 36;
+            Height = PrimeLegacyControlVisuals.FieldHeight;
+            PrimeAccessibility.SetName(this, label);
+            PrimeAccessibility.SetDescription(this, $"{label}. Enter a value.");
             var caption = new TextBlock
             {
                 Text = label,
@@ -562,6 +605,8 @@ namespace MphRead.Mods.Launcher.Gui
                 VerticalAlignment = VerticalAlignment.Center,
                 HorizontalAlignment = HorizontalAlignment.Right
             };
+            PrimeAccessibility.SetName(Box, label);
+            PrimeAccessibility.SetDescription(Box, "Enter a value.");
             Box.TextChanged += (_, _) => Changed?.Invoke(this, EventArgs.Empty);
             Children.Add(caption);
             Children.Add(Box);

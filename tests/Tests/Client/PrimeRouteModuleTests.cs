@@ -107,6 +107,67 @@ public sealed class PrimeRouteModuleTests
         Assert.Empty(Walk(mobile).OfType<ScrollViewer>());
     }
 
+    [Fact]
+    public void RankingsModuleShowsActualPodiumAndIdentityBasedCurrentRank()
+    {
+        PlayerId current = new(Guid.NewGuid());
+        RankingsState state = RankingsState.Initial with
+        {
+            Metric = "rp",
+            Rows = ImmutableArray.Create(
+                new PrimeLeaderboardRow(new LeaderboardEntry(
+                    new PlayerId(Guid.NewGuid()), "First", 20, 5, 10, 30, 30,
+                    0.75m), false),
+                new PrimeLeaderboardRow(new LeaderboardEntry(
+                    current, "JARRETT", 18, 4, 9, 25, 25, 0.72m), true),
+                new PrimeLeaderboardRow(new LeaderboardEntry(
+                    new PlayerId(Guid.NewGuid()), "Third", 16, 4, 8, 20, 20,
+                    0.70m), false))
+        };
+
+        Control view = RankingsPresentation.Build(new RankingsPresentationContext(
+            SignedIn: true, state, () => { }, (_, _) => { },
+            _ => Task.CompletedTask, _ => Task.CompletedTask,
+            _ => Task.CompletedTask));
+
+        Grid podium = Assert.Single(Walk(view).OfType<Grid>(), grid =>
+            grid.Classes.Contains("prime-ranking-podium"));
+        Assert.Equal(3, podium.Children.Count);
+        Assert.Contains(Walk(podium).OfType<TextBlock>(), text =>
+            text.Text == "1st place");
+        Assert.Contains(Walk(podium).OfType<TextBlock>(), text =>
+            text.Text == "2nd place");
+        Assert.Contains(Walk(podium).OfType<TextBlock>(), text =>
+            text.Text == "3rd place");
+
+        Control currentCard = Assert.Single(Walk(view), control =>
+            control.Classes.Contains("prime-current-rank"));
+        Assert.Contains("YOUR RANK", TextOf(currentCard), StringComparison.Ordinal);
+        Assert.Contains("#2", TextOf(currentCard), StringComparison.Ordinal);
+        Assert.Contains("JARRETT", TextOf(currentCard), StringComparison.Ordinal);
+        Assert.Contains(Walk(view), control =>
+            control.Classes.Contains("prime-rank-current"));
+    }
+
+    [Fact]
+    public void RankingsModuleDoesNotInventCurrentRankWithoutCurrentRow()
+    {
+        RankingsState state = RankingsState.Initial with
+        {
+            Rows = ImmutableArray.Create(new PrimeLeaderboardRow(
+                new LeaderboardEntry(new PlayerId(Guid.NewGuid()), "Rival", 10,
+                    2, 4, 8, 8, 0.5m), false))
+        };
+
+        Control view = RankingsPresentation.Build(new RankingsPresentationContext(
+            SignedIn: true, state, () => { }, (_, _) => { },
+            _ => Task.CompletedTask, _ => Task.CompletedTask,
+            _ => Task.CompletedTask));
+
+        Assert.DoesNotContain(Walk(view), control =>
+            control.Classes.Contains("prime-current-rank"));
+    }
+
     [Theory]
     [InlineData("rp", "1499.5", "1,499.5")]
     [InlineData("kd", "2.345", "2.35")]

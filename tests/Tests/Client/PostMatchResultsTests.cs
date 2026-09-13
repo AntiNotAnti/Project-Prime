@@ -133,7 +133,7 @@ public sealed class PostMatchResultsTests
     }
 
     [Fact]
-    public void CapturedInconsistentTeamRanksStayUnknown()
+    public void CapturedMultiPlayerTeamRanksRemainConsistent()
     {
         using var state = new MatchBaselineTests.State();
         var match = state.Configure(GameMode.BattleTeams);
@@ -147,9 +147,9 @@ public sealed class PostMatchResultsTests
         match.CaptureResult(12);
         var snapshot = new MatchResultsSnapshot("team-contradiction", GameMode.BattleTeams, match.Result!);
 
-        Assert.Equal(PostMatchOutcome.Unknown,
+        Assert.Equal(PostMatchOutcome.Victory,
             PostMatchResultsBuilder.Build(snapshot, localSlot: 0).Outcome);
-        Assert.Equal(PostMatchOutcome.Unknown,
+        Assert.Equal(PostMatchOutcome.Defeat,
             PostMatchResultsBuilder.Build(snapshot, localSlot: 1).Outcome);
     }
 

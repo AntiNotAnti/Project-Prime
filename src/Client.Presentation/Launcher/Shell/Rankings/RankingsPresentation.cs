@@ -80,16 +80,7 @@ internal static class RankingsPresentation
 
         PrimeLeaderboardRow? current = state.Rows.FirstOrDefault(row => row.IsCurrentPlayer);
         if (current is { } currentPlayer)
-        {
-            root.Children.Add(PrimeControlFactory.SectionPanel(Stack(
-                Text("Your position", "prime-heading"),
-                Text($"{currentPlayer.Entry.DisplayName} YOU", "prime-title"),
-                Text($"{MetricValue(state.Metric, currentPlayer.Entry.Score)} "
-                    + PrimeLeaderboardMetrics.Label(state.Metric),
-                    "prime-body"),
-                Text($"{currentPlayer.Entry.Matches} matches · "
-                    + $"{currentPlayer.Entry.Kills} kills", "prime-muted"))));
-        }
+            root.Children.Add(BuildCurrentPlayerCard(state, currentPlayer));
 
         Control desktop = BuildDesktopLeaderboard(context, state);
         Control mobile = BuildMobileLeaderboard(context, state);
@@ -101,6 +92,11 @@ internal static class RankingsPresentation
         RankingsState state)
     {
         var table = Stack();
+        if (state.Rows.Length >= 3)
+        {
+            table.Children.Add(BuildPodium(state));
+            table.Children.Add(Text("Full leaderboard", "prime-heading"));
+        }
         // This row remains outside any future vertical paging host, making it
         // the stable table header without introducing a custom grid control.
         table.Children.Add(BuildRow("#", "Player", "Score", "Matches", "Kills",
@@ -109,12 +105,16 @@ internal static class RankingsPresentation
         foreach (PrimeLeaderboardRow row in state.Rows)
         {
             rank++;
-            table.Children.Add(PrimeControlFactory.SelectedRow(BuildRow(
+            PrimeSelectedRow selectedRow = PrimeControlFactory.SelectedRow(BuildRow(
                 rank.ToString(CultureInfo.InvariantCulture), PlayerLabel(row),
                 MetricValue(state.Metric, row.Entry.Score),
                 row.Entry.Matches.ToString(CultureInfo.InvariantCulture),
                 row.Entry.Kills.ToString(CultureInfo.InvariantCulture)),
-                row.IsCurrentPlayer));
+                row.IsCurrentPlayer);
+            selectedRow.Classes.Add("prime-rank-row");
+            if (row.IsCurrentPlayer)
+                selectedRow.Classes.Add("prime-rank-current");
+            table.Children.Add(selectedRow);
         }
         if (state.CanLoadMore)
             table.Children.Add(Button("Next page", () => context.Run(
@@ -127,6 +127,88 @@ internal static class RankingsPresentation
         };
         scroller.Classes.Add("prime-rankings-desktop");
         return scroller;
+    }
+
+    private static Control BuildCurrentPlayerCard(RankingsState state,
+        PrimeLeaderboardRow current)
+    {
+        int rank = RankOf(state, current);
+        var content = Stack(
+            Text("YOUR RANK", "prime-kicker"),
+            Text(rank > 0 ? $"#{rank.ToString(CultureInfo.InvariantCulture)}" : "—",
+                "prime-hero"),
+            Text(current.Entry.DisplayName, "prime-heading"),
+            Text($"{MetricValue(state.Metric, current.Entry.Score)} "
+                + PrimeLeaderboardMetrics.Label(state.Metric), "prime-body"),
+            Text($"{current.Entry.Matches.ToString("N0", CultureInfo.InvariantCulture)} matches · "
+                + $"{current.Entry.Kills.ToString("N0", CultureInfo.InvariantCulture)} kills",
+                "prime-muted"));
+        var card = PrimeControlFactory.HeroCard(content);
+        card.Classes.Add("prime-current-rank");
+        card.Classes.Add("prime-current-player");
+        PrimeAccessibility.SetName(card, "Your rank");
+        PrimeAccessibility.SetDescription(card,
+            rank > 0
+                ? $"Rank {rank.ToString(CultureInfo.InvariantCulture)} for {current.Entry.DisplayName}."
+                : $"Current rank for {current.Entry.DisplayName}.");
+        return card;
+    }
+
+    private static Control BuildPodium(RankingsState state)
+    {
+        // Keep the winner in the visual center while preserving the server's
+        // authoritative ordering. The full table below remains the source of
+        // truth for every row and metric.
+        var podium = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+            ColumnSpacing = 10,
+            HorizontalAlignment = HorizontalAlignment.Stretch
+        };
+        podium.Classes.Add("prime-ranking-podium");
+        int[] order = { 1, 0, 2 };
+        for (int column = 0; column < order.Length; column++)
+        {
+            int rank = order[column];
+            PrimeLeaderboardRow row = state.Rows[rank];
+            var content = Stack(
+                Text(PodiumLabel(rank), "prime-kicker"),
+                Text(row.Entry.DisplayName, "prime-heading"),
+                Text(MetricValue(state.Metric, row.Entry.Score), "prime-body"),
+                Text($"{row.Entry.Matches.ToString("N0", CultureInfo.InvariantCulture)} matches",
+                    "prime-muted"));
+            PrimePanel place = PrimeControlFactory.Panel(content,
+                secondary: true, compact: true);
+            place.Classes.Add("prime-podium-place");
+            place.Classes.Add(rank == 0
+                ? "prime-podium-first"
+                : rank == 1 ? "prime-podium-second" : "prime-podium-third");
+            PrimeAccessibility.SetName(place,
+                $"{PodiumLabel(rank)}: {row.Entry.DisplayName}");
+            podium.Children.Add(place);
+            Grid.SetColumn(place, column);
+        }
+        return podium;
+    }
+
+    private static string PodiumLabel(int rank)
+        => rank switch
+        {
+            0 => "1st place",
+            1 => "2nd place",
+            2 => "3rd place",
+            _ => $"Place {rank + 1}"
+        };
+
+    private static int RankOf(RankingsState state, PrimeLeaderboardRow current)
+    {
+        for (int index = 0; index < state.Rows.Length; index++)
+        {
+            if (ReferenceEquals(state.Rows[index], current)
+                || state.Rows[index].Entry.PlayerId == current.Entry.PlayerId)
+                return index + 1;
+        }
+        return 0;
     }
 
     private static Control BuildMobileLeaderboard(RankingsPresentationContext context,
@@ -145,8 +227,14 @@ internal static class RankingsPresentation
                 Text($"{row.Entry.Matches.ToString("N0", CultureInfo.InvariantCulture)} Matches · "
                     + $"{row.Entry.Kills.ToString("N0", CultureInfo.InvariantCulture)} Kills",
                     "prime-muted"));
-            cards.Children.Add(PrimeControlFactory.SelectedRow(content,
-                row.IsCurrentPlayer));
+            PrimeSelectedRow selectedRow = PrimeControlFactory.SelectedRow(content,
+                row.IsCurrentPlayer);
+            selectedRow.Classes.Add("prime-rank-row");
+            if (row.IsCurrentPlayer)
+                selectedRow.Classes.Add("prime-rank-current");
+            PrimeAccessibility.SetName(selectedRow,
+                $"Rank {rank.ToString(CultureInfo.InvariantCulture)}: {row.Entry.DisplayName}");
+            cards.Children.Add(selectedRow);
         }
         if (state.CanLoadMore)
             cards.Children.Add(Button("Next page", () => context.Run(

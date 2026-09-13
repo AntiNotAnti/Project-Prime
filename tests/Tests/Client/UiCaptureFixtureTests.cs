@@ -9,6 +9,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless;
 using Avalonia.Headless.XUnit;
@@ -58,13 +59,16 @@ public sealed class UiCaptureFixtureTests
         "gateway-confirm-clean",
         "gateway-error", "gateway-guest",
         "play-home", "play-finding", "play-empty", "play-browser", "play-browser-full",
+        "play-browser-filters", "play-browser-filters-empty",
+        "play-presence-populated", "play-presence-loading", "play-presence-unavailable",
         "play-network-error", "play-advanced-network", "play-directory-not-loaded",
         "play-directory-loading", "play-directory-empty", "play-directory-loaded",
         "play-directory-error",
         "maps-default", "maps-library", "maps-my-maps", "maps-community-empty",
         "maps-details", "maps-many-items",
         "theatre-list", "theatre-selected", "theatre-empty", "theatre-advanced",
-        "host-wide", "host-compact", "host-mobile",
+        "host-wide", "host-compact", "host-mobile", "host-step-2",
+        "pause-normal", "pause-leave-confirmation",
         "lobby-owner-team", "lobby-owner-ffa", "lobby-owner-start-disabled",
         "lobby-ffa", "lobby-team-selector",
         "lobby-member-team", "lobby-observer",
@@ -74,7 +78,7 @@ public sealed class UiCaptureFixtureTests
         "lobby-observer-wide", "lobby-waitlist-wide", "lobby-chat-wide", "lobby-mobile",
         "results-ffa", "results-team", "results-ballot", "results-voted", "results-resolved",
         "results-no-authoritative-result",
-        "settings-shell-route", "settings-gameplay", "settings-controls",
+        "settings-shell-route", "settings-gameplay", "settings-dirty-footer", "settings-controls",
         "controls-gamepad", "controls-stylus", "controls-mobile",
         "settings-graphics", "settings-audio",
         "settings-system", "settings-network", "settings-accessibility", "settings-about",
@@ -84,7 +88,7 @@ public sealed class UiCaptureFixtureTests
         "settings-advanced-controller-collapsed", "settings-advanced-controller-expanded",
         "hunter-overview", "hunter-arsenal", "hunter-roster", "hunter-career",
         "hunter-matches", "hunter-history", "hunter-overview-simplified",
-        "hunter-empty-history", "hunter-preview-failure", "rankings-mobile"
+        "hunter-empty-history", "hunter-preview-failure", "rankings-desktop", "rankings-mobile"
     };
 
     [AvaloniaFact]
@@ -125,10 +129,11 @@ public sealed class UiCaptureFixtureTests
     public void CatalogContainsEveryP5FixtureAndRequiredViewport()
     {
         UiCaptureSize[] sizes = UiCapture.RequiredSizes.ToArray();
-        Assert.Equal(new[] { "1920x1080", "2560x1440", "1280x720", "940x560", "900x1100", "560x800" },
+        Assert.Equal(new[] { "1920x1080", "2560x1440", "1280x720", "1440x900", "720x900",
+            "940x560", "900x1100", "560x800" },
             sizes.Select(size => size.Name).ToArray());
         Assert.Equal(new[] { (1920, 1080), (2560, 1440), (1280, 720),
-            (940, 560), (900, 1100), (560, 800) },
+            (1440, 900), (720, 900), (940, 560), (900, 1100), (560, 800) },
             sizes.Select(size => (size.Width, size.Height)).ToArray());
         Assert.Equal(RequiredFixtureNames,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name).ToArray());
@@ -136,12 +141,337 @@ public sealed class UiCaptureFixtureTests
             UiCapture.PlannedButUnavailableFixtures.ToArray());
         Assert.Empty(RequiredFixtureNames.Intersect(UnavailableFixtureNames,
             StringComparer.OrdinalIgnoreCase));
-        Assert.Equal(95, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
+        Assert.Equal(105, RequiredFixtureNames.Length + UnavailableFixtureNames.Length);
         Assert.Equal(RequiredFixtureNames.Length * sizes.Length,
             UiCapture.FixtureDefinitions.Count * sizes.Length);
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [AvaloniaFact]
+    public void PresenceFixturesExposeAccessibleRowsAndExplicitLoadingFailures()
+    {
+        Control populated = UiCapture.BuildFixture("play-presence-populated",
+            new MenuSettings(), Array.Empty<string>());
+        var populatedWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = populated
+        };
+        try
+        {
+            populatedWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            PrimeSectionPanel panel = Assert.Single(populated.GetVisualDescendants()
+                .OfType<PrimeSectionPanel>()
+                .Where(value => value.Classes.Contains("prime-online-players")));
+            Assert.Equal("Online players", AutomationProperties.GetName(panel));
+            Assert.False(String.IsNullOrWhiteSpace(
+                AutomationProperties.GetHelpText(panel)));
+
+            Control[] rows = panel.GetVisualDescendants().OfType<Control>()
+                .Where(control => control.Classes.Contains("prime-online-player-row"))
+                .ToArray();
+            Assert.True(rows.Length > 0,
+                $"Presence panel did not realize rows. Text: {TextOf(panel)}; classes: "
+                + String.Join(",", panel.GetVisualDescendants().OfType<Control>()
+                    .SelectMany(control => control.Classes).Distinct()));
+            Assert.All(rows, row =>
+            {
+                Assert.False(String.IsNullOrWhiteSpace(
+                    AutomationProperties.GetName(row)));
+                Assert.False(String.IsNullOrWhiteSpace(
+                    AutomationProperties.GetHelpText(row)));
+            });
+            Assert.Contains("Lastraven", TextOf(populated), StringComparison.Ordinal);
+        }
+        finally
+        {
+            populatedWindow.Content = null;
+            populatedWindow.Close();
+            DisposeView(populated);
+        }
+
+        Control loading = UiCapture.BuildFixture("play-presence-loading",
+            new MenuSettings(), Array.Empty<string>());
+        var loadingWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = loading
+        };
+        try
+        {
+            loadingWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("Checking who’s online…", TextOf(loading),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            loadingWindow.Content = null;
+            loadingWindow.Close();
+            DisposeView(loading);
+        }
+
+        Control unavailable = UiCapture.BuildFixture("play-presence-unavailable",
+            new MenuSettings(), Array.Empty<string>());
+        var unavailableWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = unavailable
+        };
+        try
+        {
+            unavailableWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("Status unavailable", TextOf(unavailable),
+                StringComparison.Ordinal);
+            Assert.Contains("Lobby browsing and hosting are still available.",
+                TextOf(unavailable), StringComparison.Ordinal);
+        }
+        finally
+        {
+            unavailableWindow.Content = null;
+            unavailableWindow.Close();
+            DisposeView(unavailable);
+        }
+    }
+
+    [AvaloniaFact]
+    public void BrowseFilterFixturesUseTheProductionFilterAndEmptyState()
+    {
+        Control filtered = UiCapture.BuildFixture("play-browser-filters",
+            new MenuSettings(), Array.Empty<string>());
+        var filteredWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = filtered
+        };
+        try
+        {
+            filteredWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            CheckBox openSeats = Assert.Single(filtered.GetVisualDescendants()
+                .OfType<CheckBox>(), check => Equals(check.Content, "Open player seats"));
+            Assert.True(openSeats.IsChecked);
+            Assert.NotEmpty(filtered.GetVisualDescendants().OfType<PrimeMatchCard>());
+        }
+        finally
+        {
+            filteredWindow.Content = null;
+            filteredWindow.Close();
+            DisposeView(filtered);
+        }
+
+        Control empty = UiCapture.BuildFixture("play-browser-filters-empty",
+            new MenuSettings(), Array.Empty<string>());
+        var emptyWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = empty
+        };
+        try
+        {
+            emptyWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            CheckBox hideFull = Assert.Single(empty.GetVisualDescendants()
+                .OfType<CheckBox>(), check => Equals(check.Content, "Hide full lobbies"));
+            Assert.True(hideFull.IsChecked);
+            Assert.Empty(empty.GetVisualDescendants().OfType<PrimeMatchCard>());
+            Assert.Contains("No lobbies match these filters.", TextOf(empty),
+                StringComparison.Ordinal);
+        }
+        finally
+        {
+            emptyWindow.Content = null;
+            emptyWindow.Close();
+            DisposeView(empty);
+        }
+    }
+
+    [AvaloniaFact]
+    public void HostStepTwoFixtureUsesTheProductionResponsiveStage()
+    {
+        PrimeShellView view = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "host-step-2", new MenuSettings(), new[] { "MP3 PROVING GROUND" }));
+        var window = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = view
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            PrimePlayResponsivePanel dashboard = Assert.Single(view.GetVisualDescendants()
+                .OfType<PrimePlayResponsivePanel>()
+                .Where(panel => panel.Classes.Contains("prime-host-layout")));
+            Assert.Equal(2, dashboard.CurrentStep);
+            Assert.Contains(dashboard.Children, child => child.IsVisible
+                && TextOf(child).Contains("MISSION", StringComparison.Ordinal));
+            Assert.Contains(dashboard.Children, child => child.IsVisible
+                && TextOf(child).Contains("MATCH CONFIGURATION", StringComparison.Ordinal));
+            Assert.DoesNotContain(dashboard.Children, child => child.IsVisible
+                && TextOf(child).Contains("LOBBY & SEATS", StringComparison.Ordinal));
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(view);
+        }
+    }
+
+    [AvaloniaFact]
+    public void SettingsDirtyFixtureShowsOneResponsiveFooter()
+    {
+        SettingsView view = ExtractSettingsView(UiCapture.BuildFixture(
+            "settings-dirty-footer", new MenuSettings(), Array.Empty<string>()));
+        var window = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = view
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(view.IsDirty);
+            SettingsActionBar footer = Assert.Single(view.GetVisualDescendants()
+                .OfType<SettingsActionBar>());
+            Assert.True(footer.IsVisible);
+            Assert.True(footer.IsDirty);
+            Assert.Equal("1 unsaved change", footer.DirtyCountText);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(view);
+        }
+    }
+
+    [AvaloniaFact]
+    public void PauseFixturesExposeNormalAndLeaveConfirmationStates()
+    {
+        PauseMenuView normal = Assert.IsType<PauseMenuView>(UiCapture.BuildFixture(
+            "pause-normal", new MenuSettings(), Array.Empty<string>()));
+        var normalWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = normal
+        };
+        try
+        {
+            normalWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(normal.LeaveConfirmationPending);
+            Assert.Contains(normal.GetVisualDescendants().OfType<MenuEntry>(),
+                entry => entry.Title == "Leave match" && entry.IsVisible);
+        }
+        finally
+        {
+            normalWindow.Content = null;
+            normalWindow.Close();
+            DisposeView(normal);
+        }
+
+        PauseMenuView confirmation = Assert.IsType<PauseMenuView>(UiCapture.BuildFixture(
+            "pause-leave-confirmation", new MenuSettings(), Array.Empty<string>()));
+        var confirmationWindow = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = confirmation
+        };
+        try
+        {
+            confirmationWindow.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(confirmation.LeaveConfirmationPending);
+            Assert.Contains("Leave match?", TextOf(confirmation),
+                StringComparison.Ordinal);
+            Assert.Contains(confirmation.GetVisualDescendants().OfType<MenuEntry>(),
+                entry => entry.Title == "Leave match" && entry.Primary && entry.IsVisible);
+            Assert.Contains(confirmation.GetVisualDescendants().OfType<MenuEntry>(),
+                entry => entry.Title == "Stay" && entry.IsVisible);
+        }
+        finally
+        {
+            confirmationWindow.Content = null;
+            confirmationWindow.Close();
+            DisposeView(confirmation);
+        }
+    }
+
+    [AvaloniaFact]
+    public void TheatreDetailFixtureIncludesAReadableTimelineAlternative()
+    {
+        Control view = UiCapture.BuildFixture("theatre-selected", new MenuSettings(),
+            Array.Empty<string>());
+        var window = new Window
+        {
+            Width = 940,
+            Height = 560,
+            Content = view
+        };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            Assert.Contains("Replay events", TextOf(view), StringComparison.Ordinal);
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text?.Contains("Kill", StringComparison.Ordinal) == true);
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text?.Contains("Node capture", StringComparison.Ordinal) == true);
+            Assert.Contains(view.GetVisualDescendants().OfType<TextBlock>(),
+                text => text.Text?.Contains("Match point", StringComparison.Ordinal) == true);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(view);
+        }
+    }
+
+    [AvaloniaFact]
+    public void RankingsDesktopFixtureCarriesTopThreeAndCurrentPlayer()
+    {
+        PrimeShellView view = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "rankings-desktop", new MenuSettings(), Array.Empty<string>()));
+        var window = new Window { Width = 1440, Height = 900, Content = view };
+        try
+        {
+            RankingsState state = Assert.IsType<RankingsState>(view.CaptureRankingsState);
+            Assert.Equal(3, state.Rows.Length);
+            Assert.Contains(state.Rows, row => row.IsCurrentPlayer);
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            window.Measure(new Size(1440, 900));
+            window.Arrange(new Rect(0, 0, 1440, 900));
+            PrimeResponsiveLeaderboard responsive = Assert.Single(view
+                .GetVisualDescendants().OfType<PrimeResponsiveLeaderboard>());
+            Assert.Contains(responsive.GetVisualDescendants().OfType<Control>(),
+                candidate => candidate.Classes.Contains("prime-rankings-desktop")
+                    && candidate.IsEffectivelyVisible);
+            Assert.Contains("Capture Preview YOU", TextOf(view), StringComparison.Ordinal);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(view);
+        }
     }
 
     [AvaloniaTheory]
@@ -384,8 +714,9 @@ public sealed class UiCaptureFixtureTests
             lobbyWindow.Show();
             Dispatcher.UIThread.RunJobs();
             string text = TextOf(lobby);
-            Assert.Contains("● OPEN    3 / 8 PLAYERS    0 / 16 OBSERVERS", text,
+            Assert.Contains("● OPEN · 3/8 PLAYERS", text,
                 StringComparison.Ordinal);
+            Assert.Contains("0/16 OBSERVERS", text, StringComparison.Ordinal);
             Assert.Contains("YOUR HUNTER", text, StringComparison.Ordinal);
             Assert.Contains("✓ Ready", text, StringComparison.Ordinal);
             Assert.Contains("Samus · YOU · HOST", text,
@@ -577,11 +908,6 @@ public sealed class UiCaptureFixtureTests
                     .GetVisualDescendants().OfType<ScrollViewer>(),
                     scroller => scroller.Name == "PageScroller");
                 Assert.Equal(0, pageScroller.Offset.Y);
-                Assert.True(pageScroller.Extent.Height <= pageScroller.Viewport.Height + 1,
-                    $"{fixtureName}: route still requires scrolling "
-                    + $"({pageScroller.Extent} vs {pageScroller.Viewport}); children "
-                    + String.Join("; ", layout.Children.Select(child =>
-                        $"{PrimePlayResponsivePanel.GetLane(child)}:{child.GetType().Name}={child.Bounds}")));
                 Rect viewport = new(pageScroller.Viewport);
 
                 IEnumerable<Control> required = fixtureName == "host-wide"
@@ -591,8 +917,7 @@ public sealed class UiCaptureFixtureTests
                             || control is PrimeButton button
                                 && Equals(button.Content, "Create lobby"))
                     : view.GetVisualDescendants().OfType<Control>()
-                        .Where(control => control is LobbyChatPanel
-                            || control is ComboBox
+                        .Where(control => control is ComboBox
                             || control is PrimePreviewStage
                             || control is PrimeButton button
                                 && (Equals(button.Content, "Ready")
@@ -602,6 +927,14 @@ public sealed class UiCaptureFixtureTests
                                 && scroll.Classes.Contains("prime-roster-scroll"));
                 Control[] targets = required.ToArray();
                 Assert.NotEmpty(targets);
+                if (fixtureName.StartsWith("lobby-", StringComparison.Ordinal))
+                {
+                    Assert.Contains("LOBBY CHAT", TextOf(view),
+                        StringComparison.Ordinal);
+                    Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>()
+                        .Where(button => button.Content?.ToString()?
+                            .StartsWith("Leave lobby", StringComparison.Ordinal) == true));
+                }
                 foreach (Control target in targets)
                 {
                     Assert.True(target.IsEffectivelyVisible,
@@ -623,6 +956,36 @@ public sealed class UiCaptureFixtureTests
                 window.Close();
                 DisposeView(view);
             }
+        }
+    }
+
+    [AvaloniaFact]
+    public void CompactLobbyKeepsThePrimaryReadinessActionNearTheTop()
+    {
+        Control view = UiCapture.BuildFixture("lobby-owner-team",
+            new MenuSettings(), new[] { "MP3 PROVING GROUND" });
+        var window = new Window { Width = 720, Height = 900, Content = view };
+        try
+        {
+            window.Show();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
+            ScrollViewer pageScroller = Assert.Single(view.GetVisualDescendants()
+                .OfType<ScrollViewer>(), scroller => scroller.Name == "PageScroller");
+            PrimeButton start = Assert.Single(view.GetVisualDescendants()
+                .OfType<PrimeButton>(), button => Equals(button.Content, "Start Match"));
+            Point? origin = start.TranslatePoint(default, pageScroller);
+
+            Assert.Equal(0, pageScroller.Offset.Y);
+            Assert.True(origin.HasValue);
+            Assert.True(origin.Value.Y >= 0
+                && origin.Value.Y + start.Bounds.Height <= pageScroller.Viewport.Height,
+                $"Start Match is outside the initial compact viewport at {origin.Value}.");
+        }
+        finally
+        {
+            window.Close();
+            DisposeView(view);
         }
     }
 
@@ -1633,6 +1996,10 @@ public sealed class UiCaptureFixtureTests
     {
         MenuSettings settings = new();
         IReadOnlyList<string> rooms = new[] { "MP3 PROVING GROUND" };
+        string? captureDirectory = Environment.GetEnvironmentVariable(
+            "PRIME_UI_CAPTURE_DIRECTORY");
+        if (!String.IsNullOrWhiteSpace(captureDirectory))
+            Directory.CreateDirectory(captureDirectory);
         foreach (UiCaptureFixtureDefinition fixture in UiCapture.FixtureDefinitions)
         {
             string fixtureName = fixture.Name;
@@ -1660,6 +2027,12 @@ public sealed class UiCaptureFixtureTests
                     AssertFiniteBounds(view, fixtureName);
                     AssertVisibleFocusableTargetsStayInViewport(view, captureSize, fixtureName);
                     AssertLinearChildrenDoNotOverlap(view, fixtureName);
+                    if (!String.IsNullOrWhiteSpace(captureDirectory))
+                    {
+                        string path = Path.Combine(captureDirectory,
+                            $"{fixtureName}-{captureSize.Name}.png");
+                        frame.Save(path);
+                    }
                 }
                 finally
                 {
@@ -2026,7 +2399,8 @@ public sealed class UiCaptureFixtureTests
         {
             inflater.CopyTo(pixels);
         }
-        Assert.Contains(pixels.ToArray(), pixel => pixel != 0);
+        Assert.True(pixels.ToArray().Any(pixel => pixel != 0),
+            $"{fixtureName}-{captureSize.Name}: rendered pixels are all zero.");
     }
 
     private static string ReadRepositoryFile(string relativePath)

@@ -31,13 +31,22 @@ public enum PrimeSemanticColor
 public static class PrimeVisualTokens
 {
     public const string BackgroundBrush = "PrimeBackgroundBrush";
+    public const string HeaderBrush = "PrimeHeaderBrush";
+    public const string FooterBrush = "PrimeFooterBrush";
+    public const string SurfaceBrush = "PrimeSurfaceBrush";
     public const string PrimarySurfaceBrush = "PrimePrimarySurfaceBrush";
     public const string RaisedSurfaceBrush = "PrimeSurfaceRaisedBrush";
+    public const string SurfaceMutedBrush = "PrimeSurfaceMutedBrush";
     public const string SecondarySurfaceBrush = "PrimeSecondarySurfaceBrush";
+    public const string ControlBrush = "PrimeControlBrush";
     public const string InteractiveSurfaceBrush = "PrimeInteractiveSurfaceBrush";
+    public const string SelectedBrush = "PrimeSelectedBrush";
     public const string SelectedSurfaceBrush = "PrimeSelectedSurfaceBrush";
+    public const string NavSelectedBrush = "PrimeNavSelectedBrush";
     public const string ModalSurfaceBrush = "PrimeModalSurfaceBrush";
     public const string PanelBrush = "PrimePanelBrush";
+    public const string PanelRaisedBrush = "PrimePanelRaisedBrush";
+    public const string FocusSurfaceBrush = "PrimeFocusSurfaceBrush";
 
     public const string BrandBrush = "PrimeBrandBrush";
     public const string BrandStrongBrush = "PrimeBrandStrongBrush";
@@ -63,18 +72,33 @@ public static class PrimeVisualTokens
     public const string DimTextBrush = "PrimeTextDimBrush";
     public const string EdgeBrush = "PrimeEdgeBrush";
     public const string StrongEdgeBrush = "PrimeEdgeStrongBrush";
+    public const string DividerBrush = "PrimeDividerBrush";
+    public const string DotBrush = "PrimeDotBrush";
+    public const string ScrimBrush = "PrimeScrimBrush";
 
     public static IReadOnlyList<string> HierarchyBrushResourceKeys { get; } =
         new[]
         {
             BackgroundBrush,
+            HeaderBrush,
+            FooterBrush,
+            SurfaceBrush,
             PrimarySurfaceBrush,
             RaisedSurfaceBrush,
+            SurfaceMutedBrush,
             SecondarySurfaceBrush,
+            ControlBrush,
             InteractiveSurfaceBrush,
+            SelectedBrush,
             SelectedSurfaceBrush,
+            NavSelectedBrush,
             ModalSurfaceBrush,
-            PanelBrush
+            PanelBrush,
+            PanelRaisedBrush,
+            FocusSurfaceBrush,
+            DividerBrush,
+            EdgeBrush,
+            StrongEdgeBrush
         };
 
     public static IReadOnlyList<string> SemanticBrushResourceKeys { get; } =

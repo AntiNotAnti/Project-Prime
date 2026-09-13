@@ -8,6 +8,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Theme;
 using MphRead.Mods.Network;
 using ProjectPrime.Server.Shared;
 
@@ -71,6 +72,7 @@ namespace MphRead.Mods.Launcher.Gui
         private TransitionIntent _pendingTransition;
         private bool _leaveConfirmationPending;
         private bool _synchronizingHunter;
+        private PrimeMotionLease? _menuMotion;
 
         private enum TransitionIntent
         {
@@ -84,7 +86,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// window, it is already the whole screen, and there is no F11.
         /// </param>
         public PauseMenuView(bool offerWindowMode,
-            IMatchTransitionMenuActions? transitionActions = null)
+            IMatchTransitionMenuActions? transitionActions = null,
+            bool captureMode = false)
         {
             _transitionActions = transitionActions;
             // The host is the size of the game, on every platform: a phone's
@@ -152,7 +155,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             var exit = new StackPanel { Spacing = 2 };
             _leaveMatch = Add(exit, "Leave match", BeginLeaveConfirmation);
-            _leaveMatch.Accent = GuiTheme.Warm;
+            _leaveMatch.Accent = GuiTheme.TextDim;
             _leaveConfirmationTitle = new TextBlock
             {
                 Text = "Leave match?",
@@ -181,7 +184,10 @@ namespace MphRead.Mods.Launcher.Gui
             _cancelLeave.IsVisible = false;
             MenuEntry quit = Add(exit, "Quit to desktop",
                 () => QuitRequested?.Invoke(this, EventArgs.Empty));
-            quit.Accent = GuiTheme.Bad;
+            // Keep destructive actions neutral until confirmation. The red
+            // primary treatment is reserved for the explicit confirmation.
+            quit.Accent = GuiTheme.TextDim;
+            quit.Classes.Add("prime-pause-destructive");
             stack.Children.Add(BuildGroup("Leave", exit));
             stack.Children.Add(BuildFooter());
 
@@ -201,6 +207,7 @@ namespace MphRead.Mods.Launcher.Gui
             panel.CornerRadius = new CornerRadius(6);
             panel.HorizontalAlignment = HorizontalAlignment.Center;
             panel.VerticalAlignment = VerticalAlignment.Center;
+            panel.Background = GuiTheme.ScrimBrush;
             // What the panel needs, worked out from what was just put in it
             // rather than measured later: every entry states its own height,
             // so this is a fact about the menu and not a guess about layout.
@@ -224,9 +231,20 @@ namespace MphRead.Mods.Launcher.Gui
             // seven entries in a column, just smaller. It only ever shrinks --
             // a menu that grew to fill a 4K window would be a menu in
             // 40-point type.
+            PrimeTechFrame frame = PrimeControlFactory.TechFrame(panel);
+            frame.Classes.Add("prime-pause-frame");
+            PrimeAccessibility.SetName(frame, "Pause menu");
+            PrimeAccessibility.SetDescription(frame,
+                "Session controls for the active match.");
+            _menuMotion = captureMode ? null : PrimeMotion.AnimateEntry(frame,
+                PrimeMotionPreset.FadeAndSlide,
+                reducedMotion: PrimeMotion.ReducedMotion,
+                duration: PrimeMotion.FastDuration,
+                translation: new Vector(0, 5));
+
             _scaler = new LayoutTransformControl
             {
-                Child = panel,
+                Child = frame,
                 HorizontalAlignment = HorizontalAlignment.Center,
                 VerticalAlignment = VerticalAlignment.Center
             };
@@ -247,6 +265,11 @@ namespace MphRead.Mods.Launcher.Gui
             => _pendingTransition != TransitionIntent.None;
 
         internal bool LeaveConfirmationPending => _leaveConfirmationPending;
+
+        internal PrimeMotionSpec MenuMotionSpec
+            => PrimeMotion.Resolve(PrimeMotion.ReducedMotion,
+                PrimeMotionPreset.FadeAndSlide, PrimeMotion.FastDuration,
+                new Vector(0, 5));
 
         private void BeginLeaveConfirmation()
         {
@@ -617,7 +640,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             int count = entries.Children.Count;
             entries.Children.Insert(0, new Caption(title));
-            return new Border
+            var group = new Border
             {
                 Height = 18 + 26 + count * 42 + count * entries.Spacing,
                 Background = new SolidColorBrush(GuiTheme.Shade(GuiTheme.Panel, -0.12)),
@@ -627,6 +650,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Padding = new Thickness(10, 8, 10, 10),
                 Child = entries
             };
+            group.Classes.Add("prime-pause-group");
+            return group;
         }
 
         private static Border BuildFooter()
@@ -676,6 +701,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Accent = accent,
                 Primary = primary
             };
+            entry.Classes.Add("prime-pause-entry");
             entry.Click += (_, _) => action();
             return entry;
         }

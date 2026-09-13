@@ -7,7 +7,9 @@ using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Layout;
 using AvaloniaButton = Avalonia.Controls.Button;
+using MphRead;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Network;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -109,6 +111,66 @@ public sealed class TheatrePresentationTests
         Assert.Equal(new[] { "Delete" }, labels);
     }
 
+    [AvaloniaFact]
+    public void PopulatedReplayUsesPreviewFirstCardsAndAccessibleBoundedTimeline()
+    {
+        ReplayLibraryMetadata metadata = new(
+            new string('a', 64), "/private/replays/generated-123.fpreplay",
+            "generated-123.fpreplay", "AD2 ALINOS PERCH", "Alinos Perch",
+            GameMode.BattleTeams, new DateTime(2026, 9, 9, 18, 42, 0),
+            TimeSpan.FromSeconds(12), 2_500_000, ReplayFile.IndexedFormatVersion,
+            NetHeader.Version, 4, 0, ReplayRecoveryStatus.Complete,
+            ReplayCompatibilityStatus.Ready);
+        PrimeReplayEntry replay = Replay() with { Metadata = metadata };
+        TheatreState state = new([replay], replay, Loading: false, Error: null,
+            Timeline:
+            [
+                new ReplayEventTimelineMarker(0, ReplayMarker.Kill, "KILL"),
+                new ReplayEventTimelineMarker(720, ReplayMarker.MatchEnd, "MATCH_END")
+            ]);
+        Control view = TheatrePresentation.Build(Context(state, replay,
+            supportsImport: false, supportsExport: false, supportsRename: false,
+            supportsReveal: false));
+
+        PrimeSelectedRow listRow = Assert.Single(Walk(view).OfType<PrimeSelectedRow>());
+        Assert.Contains("prime-replay-row", listRow.Classes);
+        Assert.Contains(Walk(listRow), control =>
+            control.Classes.Contains("prime-replay-card-preview"));
+
+        PrimeSectionPanel detail = Assert.Single(
+            Walk(view).OfType<PrimeSectionPanel>(), panel =>
+                TextOf(panel).Contains("Replay details", StringComparison.Ordinal));
+        PrimePreviewStage preview = Assert.Single(Walk(detail)
+            .OfType<PrimePreviewStage>());
+        StackPanel detailContent = Assert.IsType<StackPanel>(detail.Child);
+        Assert.Same(preview, detailContent.Children[1]);
+        string detailText = TextOf(detail);
+        Assert.Contains("Team Battle", detailText, StringComparison.Ordinal);
+        Assert.Contains("00:12", detailText, StringComparison.Ordinal);
+        Assert.Contains("Outcome unavailable", detailText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Compatibility", detailText, StringComparison.Ordinal);
+        Assert.DoesNotContain("Replay protocol", detailText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ReplayTimelineMarkerRatioAndLabelsHandleZeroDuration()
+    {
+        Assert.Equal(0.5, TheatrePresentation.ReplayTimelineMarkerRatio(
+            frame: 0, durationFrames: 0, index: 0, count: 1));
+        Assert.Equal(1, TheatrePresentation.ReplayTimelineMarkerRatio(
+            frame: 1_800, durationFrames: 1_800, index: 0, count: 1));
+        Assert.Equal(0, TheatrePresentation.ReplayTimelineMarkerRatio(
+            frame: 900, durationFrames: 0, index: 0, count: 3));
+        Assert.Equal(1, TheatrePresentation.ReplayTimelineMarkerRatio(
+            frame: 0, durationFrames: 0, index: 2, count: 3));
+        Assert.Equal(156, TheatrePresentation.ReplayTimelineMarkerLeft(
+            canvasWidth: 200, markerWidth: 44, ratio: 1));
+        Assert.Equal(0, TheatrePresentation.ReplayTimelineMarkerLeft(
+            canvasWidth: 200, markerWidth: 44, ratio: 0));
+        Assert.Equal("Match end", TheatrePresentation.ReplayEventLabel("MATCH_END"));
+        Assert.Equal("Event", TheatrePresentation.ReplayEventLabel("_"));
+    }
+
     private static PrimeReplayEntry Replay()
         => new("generated-id", "/private/replays/generated-123.fpreplay",
             "generated-123.fpreplay", "AD2 ALINOS PERCH",
@@ -117,8 +179,14 @@ public sealed class TheatrePresentationTests
     private static TheatrePresentationContext Context(PrimeReplayEntry replay,
         bool supportsImport, bool supportsExport, bool supportsRename,
         bool supportsReveal)
+        => Context(new TheatreState([replay], replay, Loading: false, Error: null),
+            replay, supportsImport, supportsExport, supportsRename, supportsReveal);
+
+    private static TheatrePresentationContext Context(TheatreState state,
+        PrimeReplayEntry replay, bool supportsImport, bool supportsExport,
+        bool supportsRename, bool supportsReveal)
         => new(
-            new TheatreState([replay], replay, Loading: false, Error: null),
+            state,
             supportsImport,
             supportsExport,
             supportsRename,

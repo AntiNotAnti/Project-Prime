@@ -97,6 +97,20 @@ public sealed class HunterPresentationTests
     }
 
     [Fact]
+    public void OverviewIdentityNamesSelectedHunterAndBountyRoleWithoutPreviewArt()
+    {
+        Control identity = HunterOverviewPresentation.BuildIdentityHeader(
+            Hunters().Single(hunter => hunter.Hunter == Hunter.Kanden));
+
+        Assert.Contains("HUNTER PROFILE", TextOf(identity), StringComparison.Ordinal);
+        Assert.Contains("Kanden", TextOf(identity), StringComparison.Ordinal);
+        Assert.Contains("Bounty Hunter", TextOf(identity), StringComparison.Ordinal);
+        Assert.Contains("prime-hunter-identity", identity.Classes);
+        Assert.DoesNotContain("Preview unavailable", TextOf(identity),
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProfileEditingRemainsAvailableWithoutExpandingTheOverview()
     {
         string? saved = null;

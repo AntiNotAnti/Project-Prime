@@ -4,6 +4,7 @@ using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.VisualTree;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -11,6 +12,7 @@ internal enum PrimeContentLayout
 {
     Mobile,
     Compact,
+    Medium,
     Wide
 }
 
@@ -30,14 +32,16 @@ internal enum PrimePlayStage
 
 internal static class PrimePlayLayout
 {
-    internal const double CompactWidth = 720;
-    internal const double WideWidth = 1080;
+    internal const double CompactWidth = PrimeLayoutMetrics.CompactWidth;
+    internal const double MediumWidth = PrimeLayoutMetrics.MediumWidth;
+    internal const double WideWidth = PrimeLayoutMetrics.WideWidth;
 
     internal static PrimeContentLayout ResolveContentLayout(double width)
     {
         if (!double.IsFinite(width) || width <= 0) return PrimeContentLayout.Mobile;
         if (width < CompactWidth) return PrimeContentLayout.Mobile;
-        if (width < WideWidth) return PrimeContentLayout.Compact;
+        if (width < MediumWidth) return PrimeContentLayout.Compact;
+        if (width < WideWidth) return PrimeContentLayout.Medium;
         return PrimeContentLayout.Wide;
     }
 }
@@ -142,10 +146,12 @@ internal sealed class PrimePlayResponsivePanel : Panel
         LayoutTransitionCount++;
         Classes.Remove("prime-layout-mobile");
         Classes.Remove("prime-layout-compact");
+        Classes.Remove("prime-layout-medium");
         Classes.Remove("prime-layout-wide");
         Classes.Add(next switch
         {
             PrimeContentLayout.Wide => "prime-layout-wide",
+            PrimeContentLayout.Medium => "prime-layout-medium",
             PrimeContentLayout.Compact => "prime-layout-compact",
             _ => "prime-layout-mobile"
         });
@@ -192,7 +198,7 @@ internal sealed class PrimePlayResponsivePanel : Panel
             ? Math.Max(0, availableSize.Width) : Math.Max(0, Bounds.Width);
         PrimeContentLayout layout = Layout;
         bool columns = layout == PrimeContentLayout.Wide
-            || layout == PrimeContentLayout.Compact && _compactColumns;
+            || layout == PrimeContentLayout.Medium && _compactColumns;
         if (!columns)
             return MeasureStack(VisibleChildren(), measuredWidth);
 
@@ -213,7 +219,7 @@ internal sealed class PrimePlayResponsivePanel : Panel
         ApplyLayout(finalSize.Width);
         PrimeContentLayout layout = Layout;
         bool columns = layout == PrimeContentLayout.Wide
-            || layout == PrimeContentLayout.Compact && _compactColumns;
+            || layout == PrimeContentLayout.Medium && _compactColumns;
         if (!columns)
         {
             ArrangeLane(VisibleChildren(), 0, 0, finalSize.Width);

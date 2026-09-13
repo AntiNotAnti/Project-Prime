@@ -648,6 +648,11 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         }
     }
 
+    /// <summary>Supplies deterministic public-presence data to offline UI tests.</summary>
+    internal void SetPresenceForCapture(PresencePresentationState state)
+        => Volatile.Write(ref _presence,
+            state ?? throw new ArgumentNullException(nameof(state)));
+
     public void SetHandoffEnabled(bool enabled)
     {
         int desired = enabled ? 1 : 0;
@@ -988,9 +993,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     {
         if (!Enum.IsDefined(requestedRole))
             throw new ArgumentOutOfRangeException(nameof(requestedRole));
-        if (requestedTeam is > 1)
+        if (requestedTeam is >= MatchRules.MaximumTeamCount)
             throw new ArgumentOutOfRangeException(nameof(requestedTeam),
-                "Team must be 0, 1, or unspecified.");
+                "Team must be 0 through 3, or unspecified.");
         return new(ValidateLobbyId(lobbyId), ValidateRevision(revision), requestedRole,
             requestedTeam);
     }
@@ -1012,7 +1017,8 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
 
     internal static LobbyRequestTeam CreateTeamCommand(byte team, long revision)
     {
-        if (team > 1) throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 or 1.");
+        if (team >= MatchRules.MaximumTeamCount)
+            throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 through 3.");
         return new(team, ValidateRevision(revision));
     }
 
@@ -1225,6 +1231,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         if (ContainsSecurityFailure(error)) return NodeConnectFailureKind.Permanent;
         if (error is AccountServiceException accountService)
             return IsTransientAccountFailure(accountService.Kind)
+                ? NodeConnectFailureKind.Transient : NodeConnectFailureKind.Permanent;
+        if (error is NodeControlConnectException nodeConnect)
+            return nodeConnect.Failure == NodeControlConnectFailure.RateLimited
                 ? NodeConnectFailureKind.Transient : NodeConnectFailureKind.Permanent;
         if (error is ArgumentException or JsonException
             or InvalidDataException or FormatException or NotSupportedException
@@ -1514,7 +1523,8 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     /// </summary>
     public Task RequestTeamAsync(byte team, CancellationToken cancellationToken = default)
     {
-        if (team > 1) throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 or 1.");
+        if (team >= MatchRules.MaximumTeamCount)
+            throw new ArgumentOutOfRangeException(nameof(team), "Team must be 0 through 3.");
         return SendLobbyCommandAndWaitAsync((lobby, _) => CreateTeamCommand(team, lobby.Revision),
             "lobby.team.request", cancellationToken);
     }
@@ -2499,7 +2509,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
 
         HashSet<string> hosted = hostedMapKeys.ToHashSet(StringComparer.Ordinal);
         string[] available = localMaps.Where(hosted.Contains).Distinct(StringComparer.Ordinal)
-            .OrderBy(map => map, StringComparer.Ordinal).ToArray();
+            .OrderByDescending(map => StringComparer.Ordinal.Equals(
+                map, "MP3 PROVING GROUND"))
+            .ThenBy(map => map, StringComparer.Ordinal).ToArray();
         return available.Length == 0
             ? (NodeMapCatalogState.Disjoint, available)
             : (NodeMapCatalogState.Available, available);

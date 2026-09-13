@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -11,8 +13,10 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using AvaloniaButton = Avalonia.Controls.Button;
+using MphRead;
 using MphRead.Mods.MapGen;
 using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Theme;
 using MphRead.Mods.Launcher.Resources;
 using MphRead.Mods.Network;
 
@@ -175,14 +179,35 @@ internal static class TheatrePresentation
         foreach (PrimeReplayEntry replay in state.Replays)
         {
             PrimeReplayEntry captured = replay;
-            PrimeReplayPresentation card = PrimeReplayPresentation.From(replay);
-            var content = Stack(Text(ReplayTitle(replay), "prime-heading"),
-                Text(card.RecordedLine, "prime-body"),
-                Text(card.Size, "prime-muted"));
+            PrimeReplayPresentation presentation = PrimeReplayPresentation.From(replay);
+            Func<string, Task<PrimePreviewImage?>> load = context.LoadMapPreview
+                ?? (_ => Task.FromResult<PrimePreviewImage?>(null));
+            var content = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("132,*,Auto"),
+                ColumnSpacing = 12,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
+            content.Classes.Add("prime-replay-card");
+            var cardPreview = PrimeControlFactory.PreviewStage(
+                new TheatreMapPreview(captured.Room, load, height: 104,
+                    loadOnAttach: true));
+            cardPreview.Classes.Add("prime-replay-card-preview");
+            content.Children.Add(cardPreview);
+            var cardDetails = Stack(
+                Text(ReplayTitle(replay), "prime-heading"),
+                Text(ReplayModeLine(replay), "prime-body"),
+                Text(ReplayDateLine(replay), "prime-muted"),
+                Text(ReplayPlayersLine(replay), "prime-muted"),
+                Text(ReplayOutcomeLine(replay), "prime-muted"),
+                Text(presentation.Size, "prime-muted"));
+            content.Children.Add(cardDetails);
+            Grid.SetColumn(cardDetails, 1);
             AvaloniaButton select = Button("", () => context.Select(captured), quiet: true);
             select.Content = content;
             select.HorizontalContentAlignment = HorizontalAlignment.Stretch;
             select.HorizontalAlignment = HorizontalAlignment.Stretch;
+            PrimeAccessibility.SetName(select, $"Select replay {ReplayTitle(replay)}");
 
             var row = new Grid
             {
@@ -193,10 +218,15 @@ internal static class TheatrePresentation
             AvaloniaButton watch = Button("Watch", () => context.Run("Play replay",
                 () => context.Play(captured)));
             watch.VerticalAlignment = VerticalAlignment.Center;
+            PrimeAccessibility.SetName(watch, $"Watch {ReplayTitle(replay)}");
             row.Children.Add(watch);
             Grid.SetColumn(watch, 1);
-            list.Children.Add(PrimeControlFactory.SelectedRow(row,
-                selected?.Id == replay.Id));
+            PrimeSelectedRow selectedRow = PrimeControlFactory.SelectedRow(row,
+                selected?.Id == replay.Id);
+            selectedRow.Classes.Add("prime-replay-row");
+            if (selected?.Id == replay.Id)
+                selectedRow.Classes.Add("prime-replay-selected");
+            list.Children.Add(selectedRow);
         }
         return list;
     }
@@ -212,23 +242,26 @@ internal static class TheatrePresentation
         }
 
         PrimeReplayEntry captured = selected;
-        PrimeReplayPresentation card = PrimeReplayPresentation.From(selected);
-        detail.Children.Add(Text(ReplayTitle(selected), "prime-title"));
-        detail.Children.Add(Text($"Recorded {card.RecordedLine} · {card.Size}", "prime-muted"));
+        Func<string, Task<PrimePreviewImage?>> load = context.LoadMapPreview
+            ?? (_ => Task.FromResult<PrimePreviewImage?>(null));
+        detail.Children.Add(PrimeControlFactory.PreviewStage(
+            new TheatreMapPreview(captured.Room, load, height: 220,
+                loadOnAttach: true)));
+        detail.Children.Add(Text(ReplayTitle(selected), "prime-hero"));
         if (selected.Metadata is { } metadata)
         {
-            detail.Children.Add(Text($"{metadata.Mode} · {metadata.Duration:mm\\:ss} · "
-                + $"{metadata.PlayerCount} players", "prime-body"));
-            detail.Children.Add(Text($"{metadata.CompatibilityStatus} · "
-                + $"{metadata.RecoveryStatus} · replay version {metadata.ReplayProtocol}",
+            detail.Children.Add(Text(
+                $"{ReplayModeLabel(metadata.Mode)} · {FormatDuration(metadata.Duration)} · "
+                + $"{PlayerCount(metadata.PlayerCount)}", "prime-body"));
+            detail.Children.Add(Text(
+                $"{RecordedDate(metadata.RecordedAt, selected.Recorded)} · {ReplayOutcomeLine(selected)}",
                 "prime-muted"));
         }
-        if (!String.IsNullOrWhiteSpace(captured.Room))
+        else
         {
-            Func<string, Task<PrimePreviewImage?>> load = context.LoadMapPreview
-                ?? (_ => Task.FromResult<PrimePreviewImage?>(null));
-            detail.Children.Add(PrimeControlFactory.PreviewStage(
-                new TheatreMapPreview(captured.Room, load)));
+            detail.Children.Add(Text(
+                $"{ReplayDateLine(selected)} · {ReplayOutcomeLine(selected)}",
+                "prime-muted"));
         }
         detail.Children.Add(Text("Full replay", "prime-label"));
         AvaloniaButton watchReplay = Button("Watch Replay", () => context.Run("Play replay",
@@ -285,7 +318,7 @@ internal static class TheatrePresentation
             }
         }
         AddClipEditor(detail, context);
-        AddEventTimeline(detail, context);
+        AddEventTimeline(detail, context, captured);
         detail.Children.Add(new Expander
         {
             Header = "Manage replay",
@@ -349,23 +382,96 @@ internal static class TheatrePresentation
     }
 
     private static void AddEventTimeline(StackPanel detail,
-        TheatrePresentationContext context)
+        TheatrePresentationContext context, PrimeReplayEntry selected)
     {
         if (context.State.EventTimeline.Count == 0) return;
         var timeline = Stack(Text("Replay events", "prime-label"),
             Text("Browse recorded events and jump to any moment.",
                 "prime-muted"));
-        foreach (ReplayEventTimelineMarker marker in context.State.EventTimeline)
-        {
-            ReplayEventTimelineMarker captured = marker;
-            string text = $"{FormatTime(marker.Frame)}  {marker.Label}";
-            timeline.Children.Add(context.PlayEvent is { } play
-                ? Button(text, () => context.Run("Open replay event",
-                    () => play(captured)), quiet: true)
-                : Text(text, "prime-muted"));
-        }
+        uint durationFrames = selected.Metadata?.DurationFrames
+            ?? context.State.EventTimeline.Max(marker => marker.Frame);
+        timeline.Children.Add(new PrimeReplayTimeline(
+            context.State.EventTimeline, durationFrames, marker =>
+            {
+                if (context.PlayEvent is { } play)
+                    context.Run("Open replay event", () => play(marker));
+            }, context.PlayEvent is not null));
         detail.Children.Add(timeline);
     }
+
+    private static string ReplayModeLine(PrimeReplayEntry replay)
+    {
+        if (replay.Metadata is not { } metadata)
+            return "Mode unavailable · Duration unavailable";
+        return $"{ReplayModeLabel(metadata.Mode)} · {FormatDuration(metadata.Duration)}";
+    }
+
+    private static string ReplayModeLabel(GameMode mode)
+    {
+        try
+        {
+            return PrimeGameText.ModeLabel(mode.ToMatchMode());
+        }
+        catch (ArgumentOutOfRangeException)
+        {
+            return "Mode unavailable";
+        }
+    }
+
+    private static string ReplayDateLine(PrimeReplayEntry replay)
+        => replay.Metadata is { } metadata
+            ? RecordedDate(metadata.RecordedAt, replay.Recorded)
+            : RecordedDate(replay.Recorded, replay.Recorded);
+
+    private static string ReplayPlayersLine(PrimeReplayEntry replay)
+        => replay.Metadata is { } metadata
+            ? PlayerCount(metadata.PlayerCount)
+            : "Players unavailable";
+
+    private static string ReplayOutcomeLine(PrimeReplayEntry replay)
+        => "Outcome unavailable";
+
+    private static string PlayerCount(int count)
+        => count switch
+        {
+            1 => "1 player",
+            > 1 => $"{count.ToString(CultureInfo.InvariantCulture)} players",
+            _ => "Players unavailable"
+        };
+
+    private static string RecordedDate(DateTime value, DateTime fallback)
+    {
+        DateTime chosen = value == default ? fallback : value;
+        return chosen.ToString("MMM d, yyyy · HH:mm", CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatDuration(TimeSpan duration)
+    {
+        if (duration < TimeSpan.Zero) duration = TimeSpan.Zero;
+        return duration.TotalHours >= 1
+            ? $"{(int)duration.TotalHours:00}:{duration.Minutes:00}:{duration.Seconds:00}"
+            : $"{duration.Minutes:00}:{duration.Seconds:00}";
+    }
+
+    private static string FriendlyEventLabel(string? value)
+    {
+        string text = String.Join(' ', (value ?? "Event").Split(
+            [' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries));
+        if (text.Length == 0) return "Event";
+        text = text.ToLowerInvariant();
+        return Char.ToUpperInvariant(text[0]) + text[1..];
+    }
+
+    internal static double ReplayTimelineMarkerRatio(uint frame,
+        uint durationFrames, int index, int count)
+        => PrimeReplayTimeline.MarkerRatio(frame, durationFrames, index, count);
+
+    internal static double ReplayTimelineMarkerLeft(double canvasWidth,
+        double markerWidth, double ratio)
+        => PrimeReplayTimeline.MarkerLeft(canvasWidth, markerWidth, ratio);
+
+    internal static string ReplayEventLabel(string? value)
+        => FriendlyEventLabel(value);
 
     private static string ClipRangeText(TheatreState state)
         => $"In: {(state.ClipInFrame is uint start ? FormatTime(start) : "not set")} · "
@@ -522,9 +628,11 @@ internal static class TheatrePresentation
     }
 
     private static string ReplayTitle(PrimeReplayEntry replay)
-        => String.IsNullOrWhiteSpace(replay.Room)
-            ? "Replay"
-            : PrimeGameText.MapName(replay.Room);
+        => replay.Metadata is { MapName: { Length: > 0 } mapName }
+            ? mapName
+            : String.IsNullOrWhiteSpace(replay.Room)
+                ? "Replay"
+                : PrimeGameText.MapName(replay.Room);
 
     private static Grid ResponsiveSplit(Control left, Control right)
     {
@@ -576,6 +684,121 @@ internal static class TheatrePresentation
         => PrimeControlFactory.Button(label, action, primary, quiet);
 
     /// <summary>
+    /// Static replay event track. Markers are positioned from immutable replay
+    /// frames and the full event list remains visible for keyboard/controller
+    /// users who cannot target a small visual marker.
+    /// </summary>
+    private sealed class PrimeReplayTimeline : Border
+    {
+        private readonly Canvas _canvas = new() { Height = 54, ClipToBounds = true };
+        private readonly IReadOnlyList<ReplayEventTimelineMarker> _markers;
+        private readonly uint _durationFrames;
+        private readonly Action<ReplayEventTimelineMarker> _activate;
+        private readonly bool _interactive;
+        private readonly List<AvaloniaButton> _markerButtons = new();
+        private readonly Border _track = new() { Height = 2 };
+
+        internal PrimeReplayTimeline(
+            IReadOnlyList<ReplayEventTimelineMarker> markers,
+            uint durationFrames,
+            Action<ReplayEventTimelineMarker> activate,
+            bool interactive)
+        {
+            _markers = markers ?? throw new ArgumentNullException(nameof(markers));
+            _durationFrames = durationFrames;
+            _activate = activate ?? throw new ArgumentNullException(nameof(activate));
+            _interactive = interactive;
+            Classes.Add("prime-replay-timeline");
+            PrimeAccessibility.SetName(this, "Replay event timeline");
+            PrimeAccessibility.SetDescription(this,
+                "Static event markers with an accessible event list.");
+            _track.Background = GuiTheme.EdgeBrush;
+            _canvas.Children.Add(_track);
+            for (int index = 0; index < _markers.Count; index++)
+            {
+                ReplayEventTimelineMarker marker = _markers[index];
+                int capturedIndex = index;
+                AvaloniaButton button = PrimeControlFactory.Button("•", () =>
+                    _activate(_markers[capturedIndex]), quiet: true);
+                button.Width = PrimeTouchTargets.MinimumDip;
+                button.Height = PrimeTouchTargets.MinimumDip;
+                button.IsEnabled = _interactive;
+                string label = FriendlyEventLabel(marker.Label);
+                PrimeAccessibility.SetName(button,
+                    $"{label} at {FormatTime(marker.Frame)}");
+                _markerButtons.Add(button);
+                _canvas.Children.Add(button);
+            }
+
+            var eventList = new StackPanel { Spacing = 2 };
+            eventList.Classes.Add("prime-replay-event-list");
+            eventList.Children.Add(Text("Event list", "prime-label"));
+            for (int index = 0; index < _markers.Count; index++)
+            {
+                ReplayEventTimelineMarker marker = _markers[index];
+                string label = FriendlyEventLabel(marker.Label);
+                if (_interactive)
+                {
+                    int capturedIndex = index;
+                    AvaloniaButton item = Button(
+                        $"{label} · {FormatTime(marker.Frame)}",
+                        () => _activate(_markers[capturedIndex]), quiet: true);
+                    PrimeAccessibility.SetName(item,
+                        $"Open {label} at {FormatTime(marker.Frame)}");
+                    eventList.Children.Add(item);
+                }
+                else
+                    eventList.Children.Add(Text(
+                        $"{label} · {FormatTime(marker.Frame)}", "prime-muted"));
+            }
+
+            Child = Stack(_canvas, eventList);
+            SizeChanged += (_, _) => LayoutMarkers();
+            AttachedToVisualTree += (_, _) => LayoutMarkers();
+        }
+
+        internal static double MarkerRatio(uint frame, uint durationFrames,
+            int index, int count)
+        {
+            if (durationFrames > 0)
+                return Math.Clamp(frame / (double)durationFrames, 0, 1);
+            if (count <= 1) return 0.5;
+            return index / (double)(count - 1);
+        }
+
+        internal static double MarkerLeft(double canvasWidth,
+            double markerWidth, double ratio)
+        {
+            double width = Math.Max(PrimeTouchTargets.MinimumDip, canvasWidth);
+            double boundedMarkerWidth = Math.Max(PrimeTouchTargets.MinimumDip,
+                markerWidth);
+            return Math.Clamp(Math.Clamp(ratio, 0, 1) * width
+                - boundedMarkerWidth / 2, 0,
+                Math.Max(0, width - boundedMarkerWidth));
+        }
+
+        private void LayoutMarkers()
+        {
+            double width = Math.Max(PrimeTouchTargets.MinimumDip,
+                _canvas.Bounds.Width);
+            _track.Width = Math.Max(0, width - 24);
+            Canvas.SetLeft(_track, 12);
+            Canvas.SetTop(_track, 26);
+            for (int index = 0; index < _markerButtons.Count; index++)
+            {
+                AvaloniaButton button = _markerButtons[index];
+                double ratio = MarkerRatio(_markers[index].Frame,
+                    _durationFrames, index, _markerButtons.Count);
+                double markerWidth = Math.Max(PrimeTouchTargets.MinimumDip,
+                    button.Bounds.Width > 0 ? button.Bounds.Width : button.Width);
+                double left = MarkerLeft(width, markerWidth, ratio);
+                Canvas.SetLeft(button, left);
+                Canvas.SetTop(button, 8);
+            }
+        }
+    }
+
+    /// <summary>
     /// Owns only the decoded bitmap for this rendered card. The map service
     /// and its bounded cache remain shell-owned and are supplied through the
     /// context hook.
@@ -589,14 +812,17 @@ internal static class TheatrePresentation
         private bool _loadStarted;
 
         internal TheatreMapPreview(string roomKey,
-            Func<string, Task<PrimePreviewImage?>> load)
+            Func<string, Task<PrimePreviewImage?>> load,
+            double height = 220,
+            bool loadOnAttach = true)
         {
             _roomKey = roomKey;
             _load = load;
-            Height = 220;
+            Height = height;
             HorizontalAlignment = HorizontalAlignment.Stretch;
             Content = Fallback();
-            AttachedToVisualTree += (_, _) => StartLoad();
+            if (loadOnAttach)
+                AttachedToVisualTree += (_, _) => StartLoad();
             DetachedFromVisualTree += (_, _) =>
             {
                 _loadStarted = false;
@@ -608,7 +834,7 @@ internal static class TheatrePresentation
 
         private void StartLoad()
         {
-            if (_loadStarted) return;
+            if (_loadStarted || String.IsNullOrWhiteSpace(_roomKey)) return;
             _loadStarted = true;
             int generation = Interlocked.Increment(ref _loadGeneration);
             _ = LoadAsync(generation);
@@ -648,7 +874,7 @@ internal static class TheatrePresentation
         }
 
         private Control Fallback()
-            => new MapPreviewFallback(PrimeGameText.MapName(_roomKey),
+            => new PrimeMapFallback(PrimeGameText.MapName(_roomKey),
                 MapInstallSource.BundledPackage);
 
         private void DisposeBitmap()

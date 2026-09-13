@@ -13,9 +13,9 @@
   <Grid>
   <!-- One native tree for desktop and Android. The dot grid is a static
        drawing surface; it does not tick, animate, or own any page state. -->
-  <Grid x:Name="ShellGrid" RowDefinitions="64,*,48"
+  <Grid x:Name="ShellGrid" RowDefinitions="58,*,34"
         Background="{DynamicResource PrimeBackgroundBrush}">
-    <Border x:Name="HeaderBorder" Grid.Row="0" Height="64"
+    <Border x:Name="HeaderBorder" Grid.Row="0" Height="58"
             Background="{DynamicResource PrimeHeaderBrush}"
             BorderBrush="{DynamicResource PrimeEdgeBrush}"
             BorderThickness="0,0,0,1"
@@ -96,7 +96,7 @@
       </Grid>
     </Border>
 
-    <Border x:Name="FooterBorder" Grid.Row="2" Height="48"
+    <Border x:Name="FooterBorder" Grid.Row="2" Height="34"
             Background="{DynamicResource PrimeFooterBrush}"
             BorderBrush="{DynamicResource PrimeEdgeBrush}"
             BorderThickness="0,1,0,0"

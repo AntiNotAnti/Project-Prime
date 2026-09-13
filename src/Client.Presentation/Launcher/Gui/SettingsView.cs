@@ -83,7 +83,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// no second window to open it in. <c>SettingsWindow</c> is the frame
     /// the desktop puts around it.
     ///
-    /// Below <see cref="_narrowWidth"/> the rail turns into a strip across the
+    /// Below <see cref="NarrowWidth"/> the rail turns into a strip across the
     /// top and the footer drops to the bottom. The sections, the rows and every
     /// value they read and write are the same objects either way.
     /// </summary>
@@ -131,11 +131,18 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<(string Id, Control Control)> _trackedRows = new();
         private SettingsDirtyTracker? _dirtyTracker;
 
-        /// <summary>Below this width the rail goes across the top.</summary>
-        private const double _narrowWidth = 720;
+        /// <summary>Below the shared compact breakpoint the rail wraps above the page.</summary>
+        private static double NarrowWidth => PrimeLayoutMetrics.CompactWidth;
 
         /// <summary>Raised when this view is finished with, saved or not.</summary>
         public event EventHandler? Closed;
+
+        /// <summary>
+        /// Raised after the persisted settings and launcher preferences have
+        /// both succeeded, immediately before the view closes. The action bar
+        /// uses this as a polite live-region seam for assistive clients.
+        /// </summary>
+        internal event EventHandler? SaveSucceeded;
 
         /// <summary>
         /// The player asked for the game-files screen, which lives on the
@@ -432,7 +439,7 @@ namespace MphRead.Mods.Launcher.Gui
             _grid.Children.Add(_pages);
             ApplyLayout(narrow: false);
             Content = _grid;
-            SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < _narrowWidth);
+            SizeChanged += (_, e) => ApplyLayout(e.NewSize.Width < NarrowWidth);
 
             _heading = BuildRailHeading();
             _rail.Children.Add(_heading);
@@ -546,7 +553,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _footerPanel.Width = Double.NaN;
                     _footerPanel.Padding = new Thickness(12, 6, 12, 10);
-                    _footerPanel.ApplyLayout(narrow: true);
+                    _footerPanel.ApplyLayout(narrow: true, honorRequested: true);
                 }
                 Place(_railPanel, 0, 0, rowSpan: 1);
                 Place(_pages, 1, 0, rowSpan: 1);
@@ -566,7 +573,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _footerPanel.Width = Double.NaN;
                 _footerPanel.Padding = new Thickness(26, 10, 26, 12);
-                _footerPanel.ApplyLayout(narrow: false);
+                _footerPanel.ApplyLayout(narrow: false, honorRequested: true);
             }
             Place(_railPanel, 0, 0, rowSpan: _embedActionBar ? 2 : 1);
             Place(_pages, 0, 1, rowSpan: 1);
@@ -862,7 +869,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         private StackPanel AddSection(string name)
         {
-            var page = new SettingsPage { Spacing = 10 };
+            bool complex = String.Equals(name, "Controls", StringComparison.Ordinal)
+                || String.Equals(name, "Graphics", StringComparison.Ordinal);
+            var page = new SettingsPage
+            {
+                Spacing = 10,
+                MaxWidth = complex ? PrimeLayoutMetrics.ComplexFormMaxWidth
+                    : PrimeLayoutMetrics.SimpleFormMaxWidth,
+                HorizontalAlignment = HorizontalAlignment.Stretch
+            };
             // The inset is the page's margin rather than the scroll viewer's
             // padding: padding is not taken off the width the content is
             // measured with, so every wrapped note ran off the right edge of
@@ -873,7 +888,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Content = page,
                 IsVisible = false,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                HorizontalContentAlignment = HorizontalAlignment.Center
             };
             var button = new MenuEntry(name, SectionSubtitle(name), titleSize: 13)
             {
@@ -889,34 +905,10 @@ namespace MphRead.Mods.Launcher.Gui
 
         private Control BuildPageHeader(string name)
         {
-            var title = new TextBlock
-            {
-                Text = SectionTitle(name),
-                FontFamily = GuiTheme.Display,
-                FontSize = 22,
-                FontWeight = FontWeight.SemiBold,
-                Foreground = GuiTheme.TextBrush,
-                Margin = new Thickness(0, 4, 0, 2)
-            };
-            var detail = new TextBlock
-            {
-                Text = SectionDescription(name),
-                FontFamily = GuiTheme.Display,
-                FontSize = 12,
-                Foreground = GuiTheme.TextDimBrush,
-                TextWrapping = TextWrapping.Wrap
-            };
-            var stack = new StackPanel();
-            stack.Children.Add(title);
-            stack.Children.Add(detail);
-            return new Border
-            {
-                BorderBrush = GuiTheme.EdgeBrush,
-                BorderThickness = new Thickness(0, 0, 0, 1),
-                Padding = new Thickness(2, 0, 2, 12),
-                Margin = new Thickness(0, 0, 0, 2),
-                Child = stack
-            };
+            var heading = PrimeControlFactory.PageHeading(SectionTitle(name),
+                $"SETTINGS / {name.ToUpperInvariant()}", SectionDescription(name));
+            heading.Margin = new Thickness(2, 4, 2, 8);
+            return heading;
         }
 
         private static string SectionSubtitle(string name) => name switch
@@ -934,15 +926,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string SectionTitle(string name) => name switch
         {
-            "Player" => "PLAYER",
-            "Controls" => "CONTROLS",
-            "Graphics" => "DISPLAY & GRAPHICS",
-            "Audio" => "AUDIO",
-            "System" => "SYSTEM",
-            "Network" => "NETWORK",
-            "Accessibility" => "ACCESSIBILITY",
-            "About" => "ABOUT PROJECT PRIME",
-            _ => name.ToUpperInvariant()
+            "Player" => "Player",
+            "Controls" => "Controls",
+            "Graphics" => "Graphics",
+            "Audio" => "Audio",
+            "System" => "System",
+            "Network" => "Network",
+            "Accessibility" => "Accessibility",
+            "About" => "About Project Prime",
+            _ => name
         };
 
         private static string SectionDescription(string name) => name switch
@@ -953,7 +945,7 @@ namespace MphRead.Mods.Launcher.Gui
             "Audio" => "Adjust volume and presentation packs.",
             "System" => "Manage updates, game files, and diagnostics.",
             "Network" => "Choose a region and manage network diagnostics.",
-            "Accessibility" => "Reduce menu transitions and visual motion. Gameplay is unchanged.",
+            "Accessibility" => "Choose how much motion appears in launcher menus.",
             "About" => "Credits, project history, and support.",
             _ => "Configure Project Prime."
         };
@@ -1015,19 +1007,15 @@ namespace MphRead.Mods.Launcher.Gui
             if (page is SettingsPage settingsPage)
             {
                 target = new StackPanel { Spacing = 2 };
-                var panel = new Border
-                {
-                    Background = GuiTheme.PanelBrush,
-                    BorderBrush = GuiTheme.EdgeBrush,
-                    BorderThickness = new Thickness(1),
-                    CornerRadius = new CornerRadius(5),
-                    Padding = new Thickness(14, 10, 14, 12),
-                    Child = target
-                };
+                PrimeSectionPanel panel = PrimeControlFactory.SectionPanel(target);
                 settingsPage.Children.Add(panel);
                 settingsPage.ActiveSector = target;
             }
-            var caption = new Caption(text) { Height = 28, Margin = new Thickness(0, 0, 0, 4) };
+            var caption = new Caption(text)
+            {
+                Height = 28,
+                Margin = new Thickness(0, 0, 0, 4)
+            };
             target.Children.Add(caption);
             return caption;
         }
@@ -1037,6 +1025,15 @@ namespace MphRead.Mods.Launcher.Gui
             return page is SettingsPage settingsPage && settingsPage.ActiveSector != null
                 ? settingsPage.ActiveSector
                 : page;
+        }
+
+        private static void AddPageRoot(StackPanel page, Control control)
+        {
+            if (page is SettingsPage settingsPage)
+            {
+                settingsPage.ActiveSector = null;
+            }
+            page.Children.Add(control);
         }
 
         private static Note Explain(StackPanel page, string text, Color? color = null)
@@ -1083,9 +1080,18 @@ namespace MphRead.Mods.Launcher.Gui
         {
             StackPanel page = AddSection("About");
             Heading(page, "Project Prime");
-            Explain(page, $"{Mods.Branding.NameAndVersion}\n"
-                + $"Protocol {Mods.Network.NetHeader.Version}\n"
-                + $"Build {BuildVersion.Display}");
+            Explain(page, Mods.Branding.NameAndVersion);
+            // Protocol and build metadata is useful when troubleshooting, but
+            // it is not part of the normal project story. Keep it available
+            // without making the About page lead with implementation details.
+            Add(page, new Expander
+            {
+                Header = "Build details",
+                Content = new Note($"Protocol version: {Mods.Network.NetHeader.Version}\n"
+                    + $"Build: {BuildVersion.Display}"),
+                IsExpanded = false,
+                Margin = new Thickness(0, 0, 0, 2)
+            });
             Heading(page, "About Project Prime");
             Explain(page, Mods.Credits.Summary);
             Add(page, new Caption(Mods.Credits.Author));
@@ -1136,18 +1142,49 @@ namespace MphRead.Mods.Launcher.Gui
 
             // A phone has one window, it is already the whole screen, and it
             // has no F11. Everything in this group is about a desktop window.
-            Heading(page, "Display");
-            _windowRow = Add(page, new ChoiceRow("Window mode",
+            // The two compact panels share a row on wide Settings pages and
+            // naturally stack when the available width becomes narrow.
+            var displayColumn = new StackPanel { Spacing = 10 };
+            var performanceColumn = new StackPanel { Spacing = 10 };
+            var displayPerformance = new Grid
+            {
+                ColumnDefinitions = new ColumnDefinitions("*,*"),
+                ColumnSpacing = 12
+            };
+            displayPerformance.Children.Add(
+                PrimeControlFactory.SectionPanel(displayColumn));
+            displayPerformance.Children.Add(
+                PrimeControlFactory.SectionPanel(performanceColumn));
+            void ApplyDisplayPerformanceLayout(double width)
+            {
+                bool compact = width < PrimeLayoutMetrics.CompactWidth;
+                displayPerformance.ColumnDefinitions = compact
+                    ? new ColumnDefinitions("*")
+                    : new ColumnDefinitions("*,*");
+                Grid.SetColumn(displayPerformance.Children[0], 0);
+                Grid.SetColumn(displayPerformance.Children[1], compact ? 0 : 1);
+                Grid.SetRow(displayPerformance.Children[0], 0);
+                Grid.SetRow(displayPerformance.Children[1], compact ? 1 : 0);
+                displayPerformance.RowDefinitions = compact
+                    ? new RowDefinitions("Auto,Auto") : new RowDefinitions("Auto");
+            }
+            displayPerformance.SizeChanged += (_, args) =>
+                ApplyDisplayPerformanceLayout(args.NewSize.Width);
+            ApplyDisplayPerformanceLayout(PrimeLayoutMetrics.WideWidth);
+            AddPageRoot(page, displayPerformance);
+
+            Heading(displayColumn, "Display");
+            _windowRow = Add(displayColumn, new ChoiceRow("Window mode",
                 new[] { "Windowed", "Fullscreen (borderless)" },
                 LauncherPrefs.WindowMode == WindowStartMode.BorderlessFullscreen ? 1 : 0),
                 SettingRowIds.WindowMode);
             if (OperatingSystem.IsAndroid())
             {
                 _windowRow.IsEnabled = false;
-                Explain(page, "Window mode is managed by Android and cannot be changed here.");
+                Explain(displayColumn, "Window mode is managed by Android and cannot be changed here.");
             }
 
-            _fieldOfView = Add(page, new SliderRow("Field of view",
+            _fieldOfView = Add(displayColumn, new SliderRow("Field of view",
                 RenderOptions.FieldOfView,
                 v => v == RenderOptions.DefaultFieldOfView
                     ? $"{v}° · Original" : $"{v}°",
@@ -1156,12 +1193,12 @@ namespace MphRead.Mods.Launcher.Gui
                 keyStep: 1), SettingRowIds.FieldOfView);
             _fieldOfView.ValueChanged += (_, _) =>
                 RenderOptions.FieldOfView = _fieldOfView.Value;
-            Explain(page, "Vertical camera angle, previewed immediately. 78° is the "
+            Explain(displayColumn, "Vertical camera angle, previewed immediately. 78° is the "
                 + "original view. Weapon zoom keeps the same ratio; cutscenes and "
                 + "spectator cameras keep their authored values.");
 
-            Heading(page, "Performance");
-            _resolutionScale = Add(page, new SliderRow("Render scale",
+            Heading(performanceColumn, "Performance");
+            _resolutionScale = Add(performanceColumn, new SliderRow("Render scale",
                 Math.Max(RenderOptions.MinScale, RenderOptions.ResolutionScale),
                 v => $"{Math.Max(RenderOptions.MinScale, v)}%",
                 min: RenderOptions.MinScale), SettingRowIds.RenderScale);
@@ -1169,7 +1206,7 @@ namespace MphRead.Mods.Launcher.Gui
             // from both ends -- how much picture, and how often -- and because
             // the two of them are what somebody who is not getting a smooth
             // game comes to this page to change.
-            _fpsLimitRow = Add(page, new SliderRow("Frame limit",
+            _fpsLimitRow = Add(performanceColumn, new SliderRow("Frame limit",
                 FpsLimitStopIndex(FrameTiming.FrameRateCap),
                 v => _fpsLimitStops[Math.Clamp(v, 0, _fpsLimitStops.Length - 1)].Label,
                 min: 0, max: _fpsLimitStops.Length - 1, keyStep: 1), SettingRowIds.FpsLimit);
@@ -1475,7 +1512,11 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private string GraphicsPresetCustomDescription()
-            => "Custom quality settings are active.";
+        {
+            int index = Math.Clamp((int)_graphicsPresetBase, 0,
+                RenderOptions.GraphicsPresetLabels.Count - 1);
+            return $"Custom · Modified from {RenderOptions.GraphicsPresetLabels[index]}.";
+        }
 
         private static bool GraphicsQualityHasOverrides(GraphicsPreset preset)
         {
@@ -1964,7 +2005,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PackTechnicalDetails(_announcerPacks, _announcerPackRow.Index));
             _announcerPackDetailsExpander = Add(page, new Expander
             {
-                Header = "Details",
+                Header = "Package details",
                 Content = _announcerPackDetails,
                 IsExpanded = false,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -1978,7 +2019,7 @@ namespace MphRead.Mods.Launcher.Gui
                 PackTechnicalDetails(_musicPacks, _musicPackRow.Index));
             _musicPackDetailsExpander = Add(page, new Expander
             {
-                Header = "Details",
+                Header = "Package details",
                 Content = _musicPackDetails,
                 IsExpanded = false,
                 Margin = new Thickness(0, 0, 0, 2)
@@ -2149,7 +2190,7 @@ namespace MphRead.Mods.Launcher.Gui
             StackPanel page = _mouseKeyboardControlsPage;
             if (!IsAndroidSettingsPlatform)
             {
-                Heading(page, "Mouse & keyboard");
+                Heading(page, "Aiming");
             }
             _sensitivity = Add(page, new SliderRow("Sensitivity",
                 SensitivityToSlider(InputSettings.MouseSensitivity),
@@ -2157,6 +2198,7 @@ namespace MphRead.Mods.Launcher.Gui
             _sensitivity.ValueChanged += (_, _) => _mouseSensitivityEdited = true;
             _invertY = Add(page, new ToggleRow("Invert vertical aim", InputSettings.InvertMouseY), SettingRowIds.MouseInvertY);
             _invertX = Add(page, new ToggleRow("Invert horizontal aim", InputSettings.InvertMouseX), SettingRowIds.MouseInvertX);
+            Heading(page, "Weapons and chat");
             _scrollAllWeapons = Add(page, new ToggleRow("Wheel cycles every weapon",
                 InputSettings.ScrollAllWeapons), SettingRowIds.ScrollAllWeapons);
             _morphBallMouseFlickBoost = Add(page, new ToggleRow(
@@ -2198,6 +2240,7 @@ namespace MphRead.Mods.Launcher.Gui
             // and on a phone the touch controls now step aside for a pad by
             // themselves and come back at the first touch, so the one thing
             // the toggle was ever asked to do is done without asking.
+            Heading(page, "Basic");
             _gamepadPresetRow = Add(page, new ChoiceRow("Preset",
                 Enum.GetNames<Mods.Input.ControllerPreset>(),
                 (int)InputSettings.ControllerPreset), SettingRowIds.ControllerPreset);
@@ -2800,7 +2843,29 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildProfile(StackPanel page)
         {
             bool authenticated = _identity.IsAuthenticated;
-            Add(page, new Caption(authenticated ? "Account" : "Guest"));
+            var identityContent = new StackPanel { Spacing = 3 };
+            identityContent.Children.Add(new TextBlock
+            {
+                Text = authenticated ? "ACCOUNT" : "GUEST",
+                Classes = { "prime-kicker" }
+            });
+            identityContent.Children.Add(new TextBlock
+            {
+                Text = _identity.DisplayName,
+                Classes = { "prime-heading" }
+            });
+            identityContent.Children.Add(new TextBlock
+            {
+                Text = authenticated ? "Signed in" : "Saved on this device",
+                Classes = { "prime-muted" }
+            });
+            var identityHeader = PrimeControlFactory.CompactPanel(identityContent);
+            PrimeAccessibility.SetName(identityHeader,
+                $"{(authenticated ? "Account" : "Guest")}: {_identity.DisplayName}");
+            PrimeAccessibility.SetDescription(identityHeader, authenticated
+                ? "Your account identity and preferred Hunter."
+                : "Your guest identity is saved only on this device.");
+            page.Children.Add(identityHeader);
             _playerName = Add(page, new FieldRow(
                 "Display name",
                 authenticated || _identity.IsGuest
@@ -2810,7 +2875,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _playerName.Box.IsReadOnly = true;
                 _playerName.Box.IsEnabled = false;
-                _hunterProfileAction = new MenuEntry("Hunter Profile",
+                _hunterProfileAction = new MenuEntry("Hunter profile",
                     "Manage the account display name and favorite Hunter", titleSize: 13)
                 {
                     Height = 42,
@@ -2860,8 +2925,12 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)LauncherPrefs.UpdatePolicy);
             _autoUpdate.IsEnabled = Update.Updater.Configured;
             Add(page, _autoUpdate, SettingRowIds.Updates);
-            _updateStatus = Explain(page, DescribeUpdateStatus(),
+            string initialUpdateStatus = DescribeUpdateStatus();
+            _updateStatus = Explain(page, initialUpdateStatus,
                 Update.Updater.Configured ? null : GuiTheme.Warm);
+            SetUpdateStatusAccessibility(initialUpdateStatus,
+                Update.Updater.Configured ? PrimeStatusKind.Info
+                    : PrimeStatusKind.Warning);
             Explain(page, Update.Updater.Configured
                 ? "Automatic downloads and stages signed updates. Notify only keeps installation manual. Off skips automatic checks."
                 : "Updates are unavailable in this build because no signed update repository is configured.");
@@ -2919,9 +2988,20 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 if (_observingUpdates)
                 {
-                    _updateStatus.Text = DescribeUpdateStatus();
+                    SetUpdateStatusAccessibility(DescribeUpdateStatus(),
+                        PrimeStatusKind.Info);
                 }
             });
+        }
+
+        private void SetUpdateStatusAccessibility(string status,
+            PrimeStatusKind kind)
+        {
+            string value = String.IsNullOrWhiteSpace(status)
+                ? "Update status unavailable."
+                : status;
+            _updateStatus.Text = value;
+            PrimeAccessibility.SetStatus(_updateStatus, value, kind);
         }
 
         private void RefreshShareLogs()
@@ -3051,7 +3131,6 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "Motion");
             _reducedMotion = Add(page, new ToggleRow("Reduce interface motion",
                 LauncherPrefs.ReducedMotion), SettingRowIds.ReducedMotion);
-            Explain(page, "Reduce menu transitions and visual motion. Gameplay is unchanged.");
         }
 
         /// <summary>Test seam for exercising the same save path as the footer.</summary>
@@ -3252,6 +3331,7 @@ namespace MphRead.Mods.Launcher.Gui
             Mods.GameSettings.Apply(_settings);
             _dirtyTracker?.MarkSaved();
             Saved = true;
+            SaveSucceeded?.Invoke(this, EventArgs.Empty);
             Close();
         }
 

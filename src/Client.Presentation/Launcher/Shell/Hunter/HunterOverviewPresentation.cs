@@ -7,6 +7,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -38,6 +39,7 @@ internal static class HunterOverviewPresentation
             throw new ArgumentException("A loaded Hunter license is required.", nameof(state));
 
         HunterDossier profile = SelectProfile(hunters, selectedHunter);
+        Control identityHeader = BuildIdentityHeader(profile, state.License);
         var hero = new Grid
         {
             ColumnDefinitions = new ColumnDefinitions("210,*"),
@@ -69,11 +71,39 @@ internal static class HunterOverviewPresentation
         stats.Children.Add(PrimeControlFactory.StatTile("RP",
             state.License.Points.ToString("N0", CultureInfo.InvariantCulture)));
 
-        var summary = Stack(hero, stats);
+        var summary = Stack(identityHeader, hero, stats);
         if (updateDisplayName != null)
             summary.Children.Add(BuildProfileEditor(state.License.DisplayName,
                 updateDisplayName));
         return PrimeControlFactory.SectionPanel(summary);
+    }
+
+    /// <summary>
+    /// Gives the selected Hunter a durable identity block before the overview
+    /// metrics. The route must still read clearly when preview art is absent,
+    /// so identity is never encoded only by the preview surface.
+    /// </summary>
+    internal static Control BuildIdentityHeader(HunterDossier profile,
+        HunterLicense? license = null)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        string hunter = PrimeGameText.HunterLabel(profile.Hunter);
+        var content = Stack(
+            Text("HUNTER PROFILE", "prime-kicker"),
+            Text(hunter, "prime-hero"),
+            Text("Bounty Hunter", "prime-subtitle"));
+        if (license is { } current)
+        {
+            content.Children.Add(Text(
+                $"{current.DisplayName} · {current.Points.ToString("N0", CultureInfo.InvariantCulture)} RP",
+                "prime-muted"));
+        }
+        var header = PrimeControlFactory.HeroCard(content);
+        header.Classes.Add("prime-hunter-identity");
+        PrimeAccessibility.SetName(header, $"Hunter profile: {hunter}");
+        PrimeAccessibility.SetDescription(header,
+            $"Selected Hunter {hunter}. Bounty Hunter profile.");
+        return header;
     }
 
     private static Control BuildProfileEditor(string currentName,

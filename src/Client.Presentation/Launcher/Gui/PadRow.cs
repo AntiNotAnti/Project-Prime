@@ -51,16 +51,28 @@ namespace MphRead.Mods.Launcher.Gui
         public PadRow(PadAction action, double labelWidth = 160)
         {
             _action = action;
-            _labelWidth = labelWidth;
-            Height = PrimeTouchTargets.MinimumDip;
+            string label = PadBindings.Name(action);
+            _labelWidth = PrimeLegacyControlVisuals.ResolveLabelColumn(label,
+                labelWidth);
+            Height = PrimeLegacyControlVisuals.RowHeight;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
-            PrimeAccessibility.SetName(this, PadBindings.Name(action));
+            PrimeAccessibility.SetName(this, label);
+            PrimeAccessibility.SetDescription(this,
+                $"{label}. Select to assign a button on the gamepad.");
             UpdateAccessibleValue();
         }
 
-        private Rect Box => new(_labelWidth, 2,
-            Math.Max(60, Bounds.Width - _labelWidth - 4), Bounds.Height - 4);
+        private Rect Box
+        {
+            get
+            {
+                double x = Math.Min(_labelWidth,
+                    Math.Max(0, Bounds.Width - PrimeLegacyControlVisuals.MinimumControlWidth));
+                return new Rect(x, 2, Math.Max(0, Bounds.Width - x - 4),
+                    Math.Max(0, Bounds.Height - 4));
+            }
+        }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
@@ -220,25 +232,32 @@ namespace MphRead.Mods.Launcher.Gui
             context.FillRectangle(Brushes.Transparent,
                 new Rect(0, 0, Bounds.Width, Bounds.Height));
             FormattedText label = TrackedText.Make(PadBindings.Name(_action), 12,
-                bold: true, GuiTheme.TextBrush);
-            context.DrawText(label, new Point(4, (Bounds.Height - label.Height) / 2));
-
+                bold: true, PrimeLegacyControlVisuals.TextBrush);
             Rect box = Box;
-            context.DrawRectangle(GuiTheme.PanelLightBrush,
-                new Pen(new SolidColorBrush(_listening ? GuiTheme.Warm
-                    : IsFocused || _hot ? GuiTheme.Accent : GuiTheme.Edge), 1),
-                new RoundedRect(box, 4));
+            using (context.PushClip(new Rect(0, 0,
+                Math.Max(0, box.X - PrimeLegacyControlVisuals.LabelValueGap),
+                Bounds.Height)))
+            {
+                context.DrawText(label, new Point(PrimeLegacyControlVisuals.LabelInset,
+                    (Bounds.Height - label.Height) / 2));
+            }
+
+            PrimeLegacyControlVisuals.DrawControlOutline(context, box,
+                IsFocused || _hot, _listening, IsEnabled && box.Width > 0);
 
             string text = _listening
                 ? "press a button on the pad"
                 : PadBindings.Describe(PadBindings.Get(_action));
             FormattedText value = TrackedText.Make(text, 12, bold: true,
-                new SolidColorBrush(_listening ? GuiTheme.Warm : GuiTheme.Text));
+                _listening ? GuiTheme.WarmBrush : PrimeLegacyControlVisuals.TextBrush);
             value.MaxTextWidth = Math.Max(20, box.Width - 12);
             value.MaxTextHeight = Math.Max(1, box.Height);
             value.Trimming = TextTrimming.CharacterEllipsis;
             context.DrawText(value, new Point(box.X + (box.Width - value.Width) / 2,
                 box.Y + (box.Height - value.Height) / 2));
+            PrimeLegacyControlVisuals.DrawFocusMarker(context,
+                new Rect(0, 0, Bounds.Width, Bounds.Height), IsFocused,
+                IsEnabled);
         }
     }
 }

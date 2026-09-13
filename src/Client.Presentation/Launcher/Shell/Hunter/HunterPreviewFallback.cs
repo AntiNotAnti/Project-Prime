@@ -17,13 +17,30 @@ namespace MphRead.Mods.Launcher.Gui;
 internal sealed class HunterPreviewFallback : Border
 {
     private HunterPreviewFallback(string title, string kicker, string detail,
-        int seed)
+        int seed, bool compact = false)
     {
         Classes.Add("prime-technical-preview");
         Background = GuiTheme.InkBrush;
-        Padding = new Thickness(16);
+        Padding = new Thickness(compact ? 10 : 16);
         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch;
         VerticalAlignment = Avalonia.Layout.VerticalAlignment.Stretch;
+        if (compact)
+        {
+            Child = new Grid
+            {
+                RowDefinitions = new RowDefinitions("*,Auto"),
+                RowSpacing = 4,
+                Children =
+                {
+                    new HunterPreviewGlyph(seed),
+                    Label(title, "prime-card-heading")
+                }
+            };
+            Grid compactGrid = (Grid)Child;
+            Grid.SetRow((Control)compactGrid.Children[0], 0);
+            Grid.SetRow((Control)compactGrid.Children[1], 1);
+            return;
+        }
         Child = new Grid
         {
             RowDefinitions = new RowDefinitions("*,Auto,Auto,Auto"),
@@ -49,6 +66,14 @@ internal sealed class HunterPreviewFallback : Border
             "HUNTER PROFILE",
             "Local preview art keeps this hunter visible while the full image is unavailable.",
             StableSeed(hunter.ToString()));
+
+    internal static HunterPreviewFallback ForHunterCompact(Hunter hunter)
+        => new(
+            PrimeGameText.HunterLabel(hunter),
+            "HUNTER PROFILE",
+            String.Empty,
+            StableSeed(hunter.ToString()),
+            compact: true);
 
     internal static HunterPreviewFallback ForWeapon(PrimeWeaponDetails weapon)
     {

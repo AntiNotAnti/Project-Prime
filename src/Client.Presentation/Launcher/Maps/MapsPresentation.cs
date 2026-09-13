@@ -14,6 +14,8 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using MphRead.Mods.MapGen;
+using MphRead.Mods.Launcher.Presentation;
+using MphRead.Mods.Launcher.Theme;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -67,7 +69,8 @@ internal static class MapsPresentation
     {
         if (Double.IsNaN(width) || Double.IsInfinity(width) || width < 0)
             throw new ArgumentOutOfRangeException(nameof(width));
-        return width >= 1120 ? 3 : width >= 640 ? 2 : 1;
+        return width >= PrimeLayoutMetrics.WideWidth ? 3
+            : width >= PrimeLayoutMetrics.CompactWidth ? 2 : 1;
     }
 
     internal static string ModeLabel(MapMode mode) => mode switch
@@ -115,7 +118,7 @@ internal sealed class MapsPresentationView : UserControl, IDisposable
         var root = new StackPanel
         {
             Spacing = 18,
-            MaxWidth = 1180,
+            MaxWidth = PrimeLayoutMetrics.MaxContentWidth,
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
         root.Children.Add(PrimeControlFactory.PageHeading("Maps", "MAP LIBRARY",
@@ -263,7 +266,7 @@ internal sealed class MapsPresentationView : UserControl, IDisposable
         content.Children.Add(preview);
 
         var details = new StackPanel { Spacing = 4 };
-        details.Children.Add(Text(map.DisplayName, "prime-title"));
+        details.Children.Add(Text(map.DisplayName, "prime-card-heading"));
         if (!String.IsNullOrWhiteSpace(map.Author))
             details.Children.Add(Text(map.Author, "prime-muted"));
         if (!map.SupportedModes.IsDefaultOrEmpty)
@@ -272,7 +275,12 @@ internal sealed class MapsPresentationView : UserControl, IDisposable
         details.Children.Add(new PrimeStatusChip(
             MapsPresentation.BuildStateLabel(map.BuildState)));
         if (!String.IsNullOrWhiteSpace(map.Description))
-            details.Children.Add(Text(map.Description.Trim(), "prime-muted"));
+        {
+            TextBlock description = Text(map.Description.Trim(), "prime-muted");
+            description.MaxHeight = 54;
+            description.TextTrimming = TextTrimming.CharacterEllipsis;
+            details.Children.Add(description);
+        }
         content.Children.Add(details);
 
         var actions = new WrapPanel { Orientation = Orientation.Horizontal };
@@ -463,84 +471,16 @@ internal sealed class MapsPreviewView : Border, IDisposable
             && !cancellationToken.IsCancellationRequested;
 
     private Control Fallback()
-        => new MapPreviewFallback(_map.DisplayName, _map.Source);
+        => new PrimeMapFallback(_map.DisplayName, _map.Source);
 }
 
 /// <summary>
-/// Deterministic code-native map art used while authored previews are absent.
-/// It gives every map a visual identity without allocating a bitmap or
-/// invoking the renderer, and the same map always produces the same geometry.
+/// Source-compatible bridge for routes that have not migrated their preview
+/// owner yet. Rendering remains entirely in <see cref="PrimeMapFallback"/>;
+/// this type can be removed once those callers use the shared helper directly.
 /// </summary>
-internal sealed class MapPreviewFallback : Control
+internal sealed class MapPreviewFallback : PrimeMapFallback
 {
-    private readonly string _title;
-    private readonly MapInstallSource _source;
-    private readonly int _seed;
-
     internal MapPreviewFallback(string title, MapInstallSource source)
-    {
-        _title = String.IsNullOrWhiteSpace(title) ? "Map" : title.Trim();
-        _source = source;
-        _seed = StableSeed(_title);
-        Classes.Add("prime-map-preview-fallback");
-        HorizontalAlignment = HorizontalAlignment.Stretch;
-        VerticalAlignment = VerticalAlignment.Stretch;
-    }
-
-    public override void Render(DrawingContext context)
-    {
-        base.Render(context);
-        if (Bounds.Width < 8 || Bounds.Height < 8) return;
-
-        Rect area = new(0, 0, Bounds.Width, Bounds.Height);
-        context.DrawRectangle(GuiTheme.InkBrush, null, area);
-        var gridPen = new Pen(new SolidColorBrush(Color.FromArgb(70,
-            GuiTheme.Tech.R, GuiTheme.Tech.G, GuiTheme.Tech.B)), 1);
-        double spacing = Math.Max(18, Math.Min(30, area.Width / 10));
-        for (double x = spacing / 2; x < area.Width; x += spacing)
-            context.DrawLine(gridPen, new Point(x, 0), new Point(x, area.Height));
-        for (double y = spacing / 2; y < area.Height; y += spacing)
-            context.DrawLine(gridPen, new Point(0, y), new Point(area.Width, y));
-
-        var amberPen = new Pen(GuiTheme.BrandBrush, 2);
-        double inset = Math.Max(14, Math.Min(area.Width, area.Height) * 0.12);
-        Rect route = area.Deflate(inset);
-        double bend = 0.2 + (_seed % 4) * 0.1;
-        var points = new[]
-        {
-            new Point(route.Left, route.Top + route.Height * bend),
-            new Point(route.Left + route.Width * 0.35, route.Top),
-            new Point(route.Right, route.Top + route.Height * 0.32),
-            new Point(route.Left + route.Width * 0.68, route.Bottom),
-            new Point(route.Left, route.Top + route.Height * 0.74),
-            new Point(route.Left, route.Top + route.Height * bend)
-        };
-        for (int index = 1; index < points.Length; index++)
-            context.DrawLine(amberPen, points[index - 1], points[index]);
-
-        FormattedText title = TrackedText.Make(_title.ToUpperInvariant(), 14,
-            bold: true, GuiTheme.TextBrush);
-        title.MaxTextWidth = Math.Max(40, area.Width - 24);
-        title.Trimming = TextTrimming.CharacterEllipsis;
-        context.DrawText(title, new Point(12, Math.Max(8, area.Height - 40)));
-        string source = _source switch
-        {
-            MapInstallSource.LocalProject or MapInstallSource.LegacyRecipe => "LOCAL MAP",
-            _ => "PROJECT PRIME MAP"
-        };
-        FormattedText sourceText = TrackedText.Make(source, 9, bold: true,
-            GuiTheme.TechBrush);
-        context.DrawText(sourceText, new Point(12, Math.Max(8, area.Height - 20)));
-    }
-
-    private static int StableSeed(string value)
-    {
-        unchecked
-        {
-            int hash = 17;
-            foreach (char character in value)
-                hash = hash * 31 + character;
-            return Math.Abs(hash == Int32.MinValue ? Int32.MaxValue : hash);
-        }
-    }
+        : base(title, source) { }
 }

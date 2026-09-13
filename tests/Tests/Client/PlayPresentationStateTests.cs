@@ -18,9 +18,11 @@ public sealed class PlayPresentationStateTests
     [InlineData(560, "Mobile")]
     [InlineData(719, "Mobile")]
     [InlineData(720, "Compact")]
-    [InlineData(1000, "Compact")]
-    [InlineData(1079, "Compact")]
-    [InlineData(1080, "Wide")]
+    [InlineData(979, "Compact")]
+    [InlineData(980, "Medium")]
+    [InlineData(1000, "Medium")]
+    [InlineData(1199, "Medium")]
+    [InlineData(1200, "Wide")]
     [InlineData(1280, "Wide")]
     [InlineData(1920, "Wide")]
     public void PlayContentLayoutUsesStableContentWidthBoundaries(double width,
@@ -124,19 +126,45 @@ public sealed class PlayPresentationStateTests
             TimeLimitText = "10:00",
             StartingLivesText = "4",
             ScoreGoalText = "not applicable",
-            KillcamPolicy = KillcamPolicy.Disabled
+            KillcamPolicy = KillcamPolicy.Disabled,
+            SpawnPolicy = SpawnPolicy.Enhanced,
+            CancelSpawnProtectionOnOffensiveAction = true
         };
         Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules, out string error), error);
         Assert.Equal(600, rules.TimeLimitSeconds);
         Assert.Equal(4, rules.StartingLives);
         Assert.Null(rules.ScoreGoal);
         Assert.Equal(KillcamPolicy.Disabled, rules.KillcamPolicy);
+        Assert.Equal(SpawnPolicy.Enhanced, rules.SpawnPolicy);
+        Assert.True(rules.CancelSpawnProtectionOnOffensiveAction);
 
         draft.Mode = MatchMode.Defender;
         draft.ObjectiveTimeGoalText = "120";
         Assert.True(draft.TryBuildRules(out rules, out error), error);
         Assert.Equal(120, rules.ObjectiveTimeGoalSeconds);
         Assert.Null(rules.ScoreGoal);
+    }
+
+    [Fact]
+    public void DuelSpawnPolicyRequiresTwoPlayerBattleDraft()
+    {
+        var draft = new HostMatchDraft
+        {
+            Mode = MatchMode.Battle,
+            PlayerLimit = 2,
+            SpawnPolicy = SpawnPolicy.Duel
+        };
+        Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules,
+            out string error), error);
+        Assert.Equal(SpawnPolicy.Duel, rules.SpawnPolicy);
+
+        draft.PlayerLimit = 8;
+        Assert.False(draft.TryBuildRules(out _, out error));
+        Assert.Contains("two-player", error, StringComparison.OrdinalIgnoreCase);
+        draft.PlayerLimit = 2;
+        draft.Mode = MatchMode.TeamBattle;
+        Assert.True(draft.TryBuildRules(out rules, out error), error);
+        Assert.Null(rules.SpawnPolicy);
     }
 
     [Fact]

@@ -11,6 +11,7 @@ using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using ProjectPrime.Server.Shared;
 using MphRead.Entities;
 using MphRead.Identity;
@@ -77,6 +78,11 @@ namespace MphRead.Mods.Launcher.Gui
             new("1920x1080", 1920, 1080),
             new("2560x1440", 2560, 1440),
             new("1280x720", 1280, 720),
+            new("1440x900", 1440, 900),
+            // The 720-DIP boundary is the compact/mobile handoff used by the
+            // route layouts. Keep a portrait companion height so wrapping and
+            // the bottom navigation seam are captured at that breakpoint.
+            new("720x900", 720, 900),
             new("940x560", 940, 560),
             new("900x1100", 900, 1100),
             new("560x800", 560, 800)
@@ -124,6 +130,11 @@ namespace MphRead.Mods.Launcher.Gui
             new("play-empty", CreatePlayEmpty),
             new("play-browser", CreatePlayBrowser),
             new("play-browser-full", CreatePlayBrowserFull),
+            new("play-browser-filters", CreatePlayBrowserFilters),
+            new("play-browser-filters-empty", CreatePlayBrowserFiltersEmpty),
+            new("play-presence-populated", CreatePlayPresencePopulated),
+            new("play-presence-loading", CreatePlayPresenceLoading),
+            new("play-presence-unavailable", CreatePlayPresenceUnavailable),
             new("play-network-error", CreatePlayNetworkError),
             // Retain the fixture name for capture compatibility; the route
             // now renders the compact network summary on this state.
@@ -147,6 +158,9 @@ namespace MphRead.Mods.Launcher.Gui
             new("host-wide", CreateHostMatch),
             new("host-compact", CreateHostMatch),
             new("host-mobile", CreateHostMatch),
+            new("host-step-2", CreateHostMatchStepTwo),
+            new("pause-normal", CreatePauseNormal),
+            new("pause-leave-confirmation", CreatePauseLeaveConfirmation),
 
             new("lobby-owner-team", CreateLobby),
             new("lobby-owner-ffa", CreateLobbyOwnerFfa),
@@ -179,6 +193,7 @@ namespace MphRead.Mods.Launcher.Gui
 
             new("settings-shell-route", CreateSettingsShellRoute),
             new("settings-gameplay", (settings, _) => CreateSettings(settings, "Gameplay")),
+            new("settings-dirty-footer", CreateSettingsDirtyFooter),
             new("settings-controls", (settings, _) => CreateSettings(settings, "Controls")),
             new("controls-gamepad", CreateControlsGamepad),
             new("controls-stylus", CreateControlsStylus),
@@ -209,6 +224,7 @@ namespace MphRead.Mods.Launcher.Gui
             new("hunter-empty-history", CreateHunterEmptyHistory),
             new("hunter-preview-failure", CreateHunterPreviewFailure),
 
+            new("rankings-desktop", CreateRankingsDesktop),
             new("rankings-mobile", CreateRankingsMobile),
         };
 
@@ -497,6 +513,84 @@ namespace MphRead.Mods.Launcher.Gui
                 PlaySubsection: PlaySubsection.Browser,
                 Identity: PrimeShellCaptureIdentity.SignedIn));
 
+        private static Control CreatePlayBrowserFilters(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            PrimeShellView view = (PrimeShellView)CreatePlayBrowser(settings, rooms);
+            WithAttachedCaptureWindow(view, () =>
+            {
+                CheckBox openSeats = view.GetVisualDescendants().OfType<CheckBox>()
+                    .Single(check => Equals(check.Content, "Open player seats"));
+                // Exercise the production filter handler rather than supplying a
+                // second synthetic filtered snapshot. Both capture lobbies have
+                // an open seat, so the active filter remains populated.
+                openSeats.IsChecked = true;
+            });
+            return view;
+        }
+
+        private static Control CreatePlayBrowserFiltersEmpty(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            PrimeShellView view = (PrimeShellView)CreatePlayBrowserFull(settings, rooms);
+            WithAttachedCaptureWindow(view, () =>
+            {
+                CheckBox hideFull = view.GetVisualDescendants().OfType<CheckBox>()
+                    .Single(check => Equals(check.Content, "Hide full lobbies"));
+                // Both source entries are full. This is the same user action that
+                // produces the empty-after-filter state in the live browser.
+                hideFull.IsChecked = true;
+            });
+            return view;
+        }
+
+        private static Control CreatePlayPresencePopulated(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePresenceCapture(settings, rooms,
+                new PresencePresentationState(PresenceLoadState.Ready, 6, 6,
+                    ImmutableArray.Create(
+                        new PublicPresenceEntry("Lastraven", PlayerPresenceActivity.Online,
+                            "US-East"),
+                        new PublicPresenceEntry("Vuum", PlayerPresenceActivity.InLobby,
+                            "EU-West"),
+                        new PublicPresenceEntry("Sambot-7", PlayerPresenceActivity.InMatch,
+                            "US-East"),
+                        new PublicPresenceEntry("Kikere", PlayerPresenceActivity.Online,
+                            "JP-East"),
+                        new PublicPresenceEntry("Trace", PlayerPresenceActivity.InLobby,
+                            "US-West"),
+                        new PublicPresenceEntry("Sylux", PlayerPresenceActivity.InMatch,
+                            "EU-West")),
+                    Revision: 7,
+                    GeneratedAt: new DateTimeOffset(2026, 9, 4, 18, 22, 7,
+                        TimeSpan.Zero)));
+
+        private static Control CreatePlayPresenceLoading(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePresenceCapture(settings, rooms,
+                new PresencePresentationState(PresenceLoadState.Loading, 0, 0,
+                    ImmutableArray<PublicPresenceEntry>.Empty, Revision: 7,
+                    GeneratedAt: new DateTimeOffset(2026, 9, 4, 18, 22, 7,
+                        TimeSpan.Zero)));
+
+        private static Control CreatePlayPresenceUnavailable(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => CreatePresenceCapture(settings, rooms,
+                new PresencePresentationState(PresenceLoadState.Failed, 0, 0,
+                    ImmutableArray<PublicPresenceEntry>.Empty, Revision: 7,
+                    GeneratedAt: new DateTimeOffset(2026, 9, 4, 18, 22, 7,
+                        TimeSpan.Zero),
+                    Error: "Presence service unavailable during capture."));
+
+        private static Control CreatePresenceCapture(MenuSettings settings,
+            IReadOnlyList<string> rooms, PresencePresentationState state)
+        {
+            var panel = new OnlinePlayersPanel(state, expanded: false,
+                requestedPage: 0, showAll: () => { }, close: () => { },
+                selectPage: _ => { }, refresh: () => { });
+            return CreateShellRouteCapture(settings, rooms, PrimeRoute.Play, panel);
+        }
+
         private static Control CreatePlayNetworkError(MenuSettings settings,
             IReadOnlyList<string> rooms)
             => CreatePlayCapture(settings, rooms, new PrimeShellCaptureState(
@@ -726,7 +820,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             PrimeReplayEntry[] replays = CaptureTheatreReplays();
             return CreateTheatreCapture(settings, rooms, new TheatreState(replays, replays[1],
-                Loading: false, Error: null));
+                Loading: false, Error: null,
+                Timeline:
+                [
+                    new ReplayEventTimelineMarker(142, ReplayMarker.Kill, "KILL"),
+                    new ReplayEventTimelineMarker(516, ReplayMarker.NodeCapture,
+                        "NODE CAPTURE"),
+                    new ReplayEventTimelineMarker(1_884, ReplayMarker.MatchPoint,
+                        "MATCH POINT")
+                ]));
         }
 
         private static Control CreateTheatreEmpty(MenuSettings settings,
@@ -818,6 +920,82 @@ namespace MphRead.Mods.Launcher.Gui
                     PlaySubsection: PlaySubsection.HostMatch,
                     Identity: PrimeShellCaptureIdentity.SignedIn));
 
+        private static Control CreateHostMatchStepTwo(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            PrimeShellView view = (PrimeShellView)CreateHostMatch(settings, rooms);
+            WithAttachedCaptureWindow(view, () =>
+            {
+                PrimePlayResponsivePanel dashboard = view.GetVisualDescendants()
+                    .OfType<PrimePlayResponsivePanel>()
+                    .Single(panel => panel.Classes.Contains("prime-host-layout"));
+                // The production dashboard owns the stage visibility and keeps
+                // both steps in one stable tree. Set the existing stateful seam
+                // after construction so this fixture does not duplicate host UI.
+                dashboard.CurrentStep = 2;
+            });
+            return view;
+        }
+
+        private static Control CreatePauseNormal(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => new PauseMenuView(offerWindowMode: true, captureMode: true);
+
+        private static Control CreatePauseLeaveConfirmation(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            var view = new PauseMenuView(offerWindowMode: true, captureMode: true);
+            WithAttachedCaptureWindow(view, () =>
+            {
+                MenuEntry leave = view.GetVisualDescendants().OfType<MenuEntry>()
+                    .First(entry => entry.Title == "Leave match" && entry.IsVisible);
+                ((IControllerNavigable)leave).ControllerActivate();
+            });
+            return view;
+        }
+
+        private static Control CreateSettingsDirtyFooter(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+        {
+            SettingsView view = CreateSettings(settings, "Graphics");
+            WithAttachedCaptureWindow(view, () =>
+            {
+                SliderRow fieldOfView = view.GetVisualDescendants().OfType<SliderRow>()
+                    .FirstOrDefault()
+                    ?? throw new InvalidOperationException(
+                        "Settings capture has no editable slider for dirty-state coverage.");
+                fieldOfView.Value = fieldOfView.Value == 100
+                    ? fieldOfView.Value - 1 : fieldOfView.Value + 1;
+            });
+            return view;
+        }
+
+        private static void WithAttachedCaptureWindow(Control view, Action action)
+        {
+            var window = new Window
+            {
+                Width = 940,
+                Height = 560,
+                Content = view,
+                ShowInTaskbar = false,
+                ShowActivated = false,
+                WindowStartupLocation = WindowStartupLocation.Manual,
+                Position = new PixelPoint(-4000, -4000)
+            };
+            try
+            {
+                window.Show();
+                Dispatcher.UIThread.RunJobs();
+                action();
+                Dispatcher.UIThread.RunJobs();
+            }
+            finally
+            {
+                window.Content = null;
+                window.Close();
+            }
+        }
+
         private static Control CreatePlayCapture(MenuSettings settings,
             IReadOnlyList<string> rooms, PrimeShellCaptureState captureState)
             => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Play, captureState);
@@ -878,6 +1056,12 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         private static Control CreateRankingsMobile(MenuSettings settings,
+            IReadOnlyList<string> rooms)
+            => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Rankings,
+                new PrimeShellCaptureState(Rankings: CaptureRankings(),
+                    Identity: PrimeShellCaptureIdentity.SignedIn));
+
+        private static Control CreateRankingsDesktop(MenuSettings settings,
             IReadOnlyList<string> rooms)
             => PrimeShellView.CreateCapture(settings, rooms, PrimeRoute.Rankings,
                 new PrimeShellCaptureState(Rankings: CaptureRankings(),

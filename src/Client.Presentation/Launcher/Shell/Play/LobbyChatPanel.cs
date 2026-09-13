@@ -28,6 +28,8 @@ internal sealed class LobbyChatPanel : Border
     private readonly Action<bool> _setEditing;
     private readonly Action<double> _setScrollOffset;
     private readonly Action _markRead;
+    private LobbyChatEntry[] _lastHistory = Array.Empty<LobbyChatEntry>();
+    private Guid? _historyLocalSession;
     private double _initialScrollOffset;
     private bool _scrollPositionKnown;
     private Guid? _localSessionId;
@@ -121,7 +123,9 @@ internal sealed class LobbyChatPanel : Border
 
         var input = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 8 };
         input.Children.Add(_draft);
-        AvaloniaButton sendButton = PrimeControlFactory.Button("Send", SendDraft, primary: true);
+        AvaloniaButton sendButton = PrimeControlFactory.Button("Send", SendDraft,
+            quiet: true);
+        sendButton.Classes.Add("prime-chat-send-secondary");
         sendButton.MinHeight = 44;
         sendButton.MinWidth = 90;
         PrimeAccessibility.SetName(sendButton, "Send lobby message");
@@ -256,8 +260,13 @@ internal sealed class LobbyChatPanel : Border
 
     private void RebuildHistory(IReadOnlyList<LobbyChatEntry> history)
     {
+        LobbyChatEntry[] entries = history.TakeLast(HistoryLimit).ToArray();
+        if (_localSessionId == _historyLocalSession
+            && _lastHistory.SequenceEqual(entries)) return;
+        _historyLocalSession = _localSessionId;
+        _lastHistory = entries;
         _historyLines.Children.Clear();
-        foreach (LobbyChatEntry entry in history.TakeLast(HistoryLimit))
+        foreach (LobbyChatEntry entry in entries)
             _historyLines.Children.Add(CreateHistoryLine(entry));
         if (_historyLines.Children.Count == 0)
             _historyLines.Children.Add(new TextBlock

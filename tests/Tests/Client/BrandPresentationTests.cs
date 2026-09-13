@@ -49,7 +49,7 @@ public sealed class BrandPresentationTests
                 .Where(button => button.Content is string
                     && button.IsEffectivelyVisible)
                 .ToArray();
-            Assert.Equal(["Continue as guest", "Sign in", "Create account"],
+            Assert.Equal(["Sign in", "Continue as guest", "Create account"],
                 actions.Select(button => (string)button.Content!).ToArray());
             Assert.Contains("prime-primary", actions[0].Classes);
             Assert.DoesNotContain("prime-primary", actions[1].Classes);

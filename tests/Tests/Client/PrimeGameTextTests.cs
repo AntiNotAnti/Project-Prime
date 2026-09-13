@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using MphRead;
 using MphRead.Formats;
 using MphRead.Identity;
@@ -114,6 +115,18 @@ public sealed class PrimeGameTextTests
     [Fact]
     public void MissingMapKeyUsesSafeUnavailableCopy()
         => Assert.Equal("Map unavailable", PrimeGameText.MapName("  "));
+
+    [Fact]
+    public void EveryRetailMultiplayerMapUsesItsAuthoredDisplayName()
+    {
+        foreach (RoomMetadata room in Metadata.RoomList.Where(room =>
+            room.Id is >= 93 and <= 118 && room.Multiplayer
+            && !room.FirstHunt && !room.Hybrid))
+        {
+            Assert.False(String.IsNullOrWhiteSpace(room.InGameName));
+            Assert.Equal(room.InGameName, PrimeGameText.MapName(room.Name));
+        }
+    }
 
     [Fact]
     public void MatchHistoryUsesReviewedOutcomeMissionAndModeCopies()

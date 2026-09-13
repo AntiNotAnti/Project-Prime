@@ -69,6 +69,16 @@ public static class PrimeSafeArea
 /// <summary>Single facade for later Android shell layout code.</summary>
 public static class PrimeLayoutMetrics
 {
+    // Shared content breakpoints. Keep these in one place so route builders
+    // agree on the same responsive contract and capture sizes remain useful
+    // across the launcher.
+    public const double CompactWidth = 720;
+    public const double MediumWidth = 980;
+    public const double WideWidth = 1200;
+    public const double MaxContentWidth = 1440;
+    public const double SimpleFormMaxWidth = 900;
+    public const double ComplexFormMaxWidth = 1100;
+
     public const double DesktopHeaderHorizontalPaddingDip = 20;
     public const double MobileFooterTopPaddingDip = 4;
     public const double MobileNavigationHeightDip = 72;

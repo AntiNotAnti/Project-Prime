@@ -53,13 +53,13 @@ public sealed class PrimeShellControllerTests
     }
 
     [Fact]
-    public void LobbyStartEligibilityRequiresBothTeamsAndAccountsForBots()
+    public void LobbyStartEligibilityRequiresEveryConfiguredTeamAndAccountsForBots()
     {
         LobbyStartEligibility missingTeam = LobbyStartEligibility.Evaluate(LobbySnapshotFor(
             mapKey: "MP1 SANCTORUS", mode: MatchMode.TeamBattle,
             members: [Member(team: 0, ready: true)]));
         Assert.False(missingTeam.CanStart);
-        Assert.Contains("both teams", missingTeam.Message, StringComparison.Ordinal);
+        Assert.Contains("every configured team", missingTeam.Message, StringComparison.Ordinal);
 
         LobbyStartEligibility botTeam = LobbyStartEligibility.Evaluate(LobbySnapshotFor(
             mapKey: "MP1 SANCTORUS", mode: MatchMode.TeamBattle, botCount: 1,
@@ -252,6 +252,11 @@ public sealed class PrimeShellControllerTests
         var intersection = PlayController.ResolveMapCatalog(["zeta", "alpha", "zeta", "beta"], ["beta", "zeta"]);
         Assert.Equal(NodeMapCatalogState.Available, intersection.State);
         Assert.Equal(new[] { "beta", "zeta" }, intersection.Available);
+
+        var combatHall = PlayController.ResolveMapCatalog(
+            ["MP11 BREAKTHROUGH", "MP3 PROVING GROUND", "MP12 SIC TRANSIT"],
+            ["MP12 SIC TRANSIT", "MP11 BREAKTHROUGH", "MP3 PROVING GROUND"]);
+        Assert.Equal("MP3 PROVING GROUND", combatHall.Available[0]);
     }
 
     [Fact]

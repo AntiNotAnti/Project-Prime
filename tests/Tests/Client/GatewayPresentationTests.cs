@@ -12,6 +12,7 @@ using MphRead.Identity;
 using MphRead.Mods;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Theme;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -140,6 +141,73 @@ public sealed class GatewayPresentationTests
             Assert.Contains("p•••••@example.com", VisibleCopy(shell));
             Assert.Contains("Confirm", VisibleCopy(shell));
             Assert.Contains("Resend Code", VisibleCopy(shell));
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void GatewayUsesWideTwoColumnFrameAndCollapsesToOneColumn()
+    {
+        var capture = new PrimeShellCaptureState(
+            Gateway: new GatewayState(GatewayPhase.Gateway, "Ready", false,
+                false, false, false, null, "Guest"));
+        PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Gateway, capture);
+        var window = new Window { Width = 1120, Height = 700, Content = shell };
+        window.Show();
+        try
+        {
+            PrimeTechFrame frame = Assert.Single(shell.GetVisualDescendants()
+                .OfType<PrimeTechFrame>());
+            Assert.Contains("prime-tech-frame", frame.Classes);
+            Grid layout = Assert.IsType<Grid>(frame.Child);
+            Assert.Equal(2, layout.ColumnDefinitions.Count);
+            Assert.Single(shell.GetVisualDescendants(), control =>
+                control.Classes.Contains("prime-gateway-side"));
+            Assert.Contains(shell.GetVisualDescendants().OfType<PrimeButton>(),
+                button => button.Content?.ToString() == "Sign in"
+                    && button.Classes.Contains("prime-primary"));
+
+            window.Width = 700;
+            Dispatcher.UIThread.RunJobs();
+            Assert.Single(layout.ColumnDefinitions);
+            Assert.Equal(2, layout.RowDefinitions.Count);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void GatewayValidationAppearsBesideTheInvalidField()
+    {
+        PrimeShellView shell = CreateShell(new AccountFake());
+        var window = new Window { Width = 940, Height = 560, Content = shell };
+        window.Show();
+        try
+        {
+            Click(shell, "Sign in");
+            TextBox email = FindInput(shell, "Email address");
+            TextBox password = FindInput(shell, "Password");
+            Click(shell, "Sign in");
+
+            Assert.Contains("Enter a valid email address.", VisibleCopy(shell));
+            Assert.Contains("prime-field-error", email.Classes);
+            Assert.DoesNotContain("prime-field-error", password.Classes);
+
+            email.Text = "pilot@example.test";
+            Click(shell, "Sign in");
+            Assert.Contains("Enter your password.", VisibleCopy(shell));
+            Assert.Contains("prime-field-error", password.Classes);
+            Assert.DoesNotContain("prime-field-error", email.Classes);
         }
         finally
         {

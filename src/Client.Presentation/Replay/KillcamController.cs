@@ -97,6 +97,9 @@ internal sealed class KillcamController : IDisposable
     private readonly MouseState _mouse;
     private AuthoritativePlay? _play;
     private PendingKillcamCapture? _pending;
+    private KillEvent? _deferredKill;
+    private KillcamPolicy _deferredPolicy;
+    private uint _deferredWaitFrames;
     private ReplayTimelineClip? _pendingClip;
     private bool _pendingClipFinal;
     private uint _captureWaitFrames;
@@ -226,16 +229,37 @@ internal sealed class KillcamController : IDisposable
 
     private void OnLocalPlayerKilled(KillEvent kill)
     {
-        if (_last == (kill.MatchId, kill.Id, kill.Victim)) return;
-        _last = (kill.MatchId, kill.Id, kill.Victim);
+        if (_last == (kill.MatchId, kill.Id, kill.Victim)
+            || _deferredKill is { } deferred
+                && (deferred.MatchId, deferred.Id, deferred.Victim)
+                    == (kill.MatchId, kill.Id, kill.Victim)) return;
         KillcamPolicy policy = Mods.GameSettings.ResolveKillcamPolicy(
             _play?.Client.Accepted.Rules.KillcamPolicy ?? KillcamPolicy.Disabled);
         if (policy == KillcamPolicy.Disabled) return;
         if (!TryCreatePendingKillcamCapture(ReplayRecorder.Timeline, kill, policy,
-                out PendingKillcamCapture capture)) return;
+                out PendingKillcamCapture capture))
+        {
+            // Reliable combat delivery can precede the first complete rolling
+            // restore by one fixed step. Keep the exact authoritative event
+            // for a short bounded retry instead of silently losing this life's
+            // only killcam opportunity.
+            _deferredKill = kill;
+            _deferredPolicy = policy;
+            _deferredWaitFrames = 0;
+            return;
+        }
+        BeginCapture(capture);
+    }
+
+    private void BeginCapture(in PendingKillcamCapture capture)
+    {
+        KillEvent kill = capture.Kill;
+        _last = (kill.MatchId, kill.Id, kill.Victim);
+        _deferredKill = null;
+        _deferredWaitFrames = 0;
 
         _kill = kill;
-        _policy = policy;
+        _policy = capture.Policy;
         _killFrame = capture.KillRecordingFrame;
         _clipStart = capture.FallbackClip.StartRecordingFrame;
         _clipEnd = capture.FallbackClip.EndRecordingFrame;
@@ -448,6 +472,22 @@ internal sealed class KillcamController : IDisposable
 
     private void AdvanceCore()
     {
+        if (_replay == null && _pending == null && _deferredKill is { } deferred)
+        {
+            if (_play == null || _play.KillcamLiveContextChanged(deferred,
+                    includeNewLife: false)
+                || CaptureFallbackExpired(++_deferredWaitFrames))
+            {
+                _deferredKill = null;
+                _deferredWaitFrames = 0;
+            }
+            else if (TryCreatePendingKillcamCapture(ReplayRecorder.Timeline,
+                    deferred, _deferredPolicy, out PendingKillcamCapture capture))
+            {
+                BeginCapture(capture);
+            }
+        }
+
         if (_replay != null && _pendingCommand == KillcamCommand.Skip)
         {
             _pendingCommand = KillcamCommand.None;
@@ -761,6 +801,8 @@ internal sealed class KillcamController : IDisposable
         _replay = null;
         _session = null;
         _pending = null;
+        _deferredKill = null;
+        _deferredWaitFrames = 0;
         _pendingClip = null;
         _pendingClipFinal = false;
         _captureWaitFrames = 0;

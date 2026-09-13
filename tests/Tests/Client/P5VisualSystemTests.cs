@@ -8,6 +8,7 @@ using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Input;
@@ -95,6 +96,38 @@ public sealed class P5VisualSystemTests
             reducedMotion: false)!.Count);
     }
 
+    [Fact]
+    public void DecorativeMotionHasNoRecurringScheduler()
+    {
+        string source = File.ReadAllText(FindRepositoryFile(
+            "src/Client.Presentation/Launcher/Theme/PrimeMotion.cs"));
+
+        // Route motion is a bounded entry/scan lease. A render-clock timer or
+        // repeating animation would make captures nondeterministic and would
+        // keep work alive after a route leaves the visual tree.
+        Assert.DoesNotContain("DispatcherTimer", source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Threading.Timer", source,
+            StringComparison.Ordinal);
+        Assert.DoesNotContain("new Timer", source, StringComparison.Ordinal);
+        Assert.Contains("AnimateScan", source, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResponsiveMetricsKeepTheSharedCompactBoundary()
+    {
+        Assert.Equal(720, PrimeLayoutMetrics.CompactWidth);
+        Assert.Equal(PrimeContentLayout.Mobile,
+            PrimePlayLayout.ResolveContentLayout(719.99));
+        Assert.Equal(PrimeContentLayout.Compact,
+            PrimePlayLayout.ResolveContentLayout(PrimeLayoutMetrics.CompactWidth));
+        Assert.Equal(PrimeContentLayout.Compact,
+            PrimePlayLayout.ResolveContentLayout(979.99));
+        Assert.Equal(PrimeContentLayout.Wide,
+            PrimePlayLayout.ResolveContentLayout(PrimePlayLayout.WideWidth));
+        Assert.Equal(1440, PrimeLayoutMetrics.MaxContentWidth);
+    }
+
     [AvaloniaFact]
     public void CustomSettingsControlsExposeNamesAndTouchSizedTargets()
     {
@@ -104,7 +137,7 @@ public sealed class P5VisualSystemTests
             new ChoiceRow("Input type", ["Mouse", "Stylus"]),
             new ToggleRow("Invert aim", false),
             new SliderRow("Sensitivity", 50),
-            new KeyRow("Chat", () => new Keybind(
+            new KeyRow("Chat", () => new MphRead.Entities.Keybind(
                     PrimeKey.T),
                 (_, _, _) => { }),
             new PadRow(PadAction.Jump)
@@ -229,8 +262,20 @@ public sealed class P5VisualSystemTests
             "src/Client.Presentation/Launcher/Theme/PrimeColors.axaml", "SolidColorBrush");
 
         AssertBrushColor(palette, "PrimeBackgroundBrush", GuiTheme.Ink);
+        AssertBrushColor(palette, "PrimeHeaderBrush", GuiTheme.Header);
+        AssertBrushColor(palette, "PrimeFooterBrush", GuiTheme.Footer);
+        AssertBrushColor(palette, "PrimeSurfaceBrush", GuiTheme.Surface);
         AssertBrushColor(palette, "PrimePrimarySurfaceBrush", GuiTheme.Panel);
         AssertBrushColor(palette, "PrimeSurfaceRaisedBrush", GuiTheme.PanelLight);
+        AssertBrushColor(palette, "PrimeSurfaceMutedBrush", GuiTheme.SurfaceMuted);
+        AssertBrushColor(palette, "PrimeControlBrush", GuiTheme.Control);
+        AssertBrushColor(palette, "PrimeInteractiveSurfaceBrush",
+            GuiTheme.InteractiveSurface);
+        AssertBrushColor(palette, "PrimeSelectedSurfaceBrush",
+            GuiTheme.SelectedSurface);
+        AssertBrushColor(palette, "PrimeFocusSurfaceBrush", GuiTheme.FocusSurface);
+        AssertBrushColor(palette, "PrimeDividerBrush", GuiTheme.Divider);
+        AssertBrushColor(palette, "PrimeEdgeStrongBrush", GuiTheme.EdgeStrong);
         AssertBrushColor(palette, "PrimeTextBrush", GuiTheme.Text);
         AssertBrushColor(palette, "PrimeTextMutedBrush", GuiTheme.TextDim);
         AssertBrushColor(palette, "PrimeBrandBrush", GuiTheme.Brand);
@@ -289,6 +334,15 @@ public sealed class P5VisualSystemTests
             "BorderBrush", "{DynamicResource PrimeBrandBrush}");
         AssertSetter(controls, ":is(Button).prime-tab:focus", "BorderBrush",
             "{DynamicResource PrimeFocusBrush}");
+        AssertSetter(controls,
+            ":is(Button).prime-tab.prime-selected:focus", "BorderBrush",
+            "{DynamicResource PrimeBrandBrush}");
+        AssertSetter(controls,
+            ":is(Button).prime-tab.prime-selected:focus-visible", "BorderBrush",
+            "{DynamicResource PrimeBrandBrush}");
+        AssertSetter(controls,
+            "#NavPanel :is(Button).prime-button.prime-primary:focus",
+            "BorderBrush", "{DynamicResource PrimeBrandBrush}");
         AssertSetter(controls, ":is(Button).prime-button:disabled", "Opacity",
             "0.58");
         AssertSetter(controls, ":is(Button).prime-primary:disabled", "Background",
@@ -316,6 +370,92 @@ public sealed class P5VisualSystemTests
             "src/Client.Presentation/Launcher/Theme/PrimeControls.axaml")));
         Assert.DoesNotContain("PrimeAccent", File.ReadAllText(FindRepositoryFile(
             "src/Client.Presentation/Launcher/Theme/PrimeTypography.axaml")));
+    }
+
+    [Fact]
+    public void SharedLayoutMetricsMatchTheCaptureAndRouteContract()
+    {
+        Assert.Equal(720, PrimeLayoutMetrics.CompactWidth);
+        Assert.Equal(980, PrimeLayoutMetrics.MediumWidth);
+        Assert.Equal(1200, PrimeLayoutMetrics.WideWidth);
+        Assert.Equal(1440, PrimeLayoutMetrics.MaxContentWidth);
+        Assert.Equal(900, PrimeLayoutMetrics.SimpleFormMaxWidth);
+        Assert.Equal(1100, PrimeLayoutMetrics.ComplexFormMaxWidth);
+    }
+
+    [Fact]
+    public void TypographyDeclaresCardHeadingWithoutUsingPageTitleScale()
+    {
+        Dictionary<string, XElement> typography = LoadElements(
+            "src/Client.Presentation/Launcher/Theme/PrimeTypography.axaml", "Style",
+            "Selector");
+
+        Assert.Equal("32", typography["TextBlock.prime-title"]
+            .Elements().Single(element => element.Name.LocalName == "Setter"
+                && element.Attribute("Property")?.Value == "FontSize")
+            .Attribute("Value")?.Value);
+        Assert.Equal("18", typography["TextBlock.prime-card-heading"]
+            .Elements().Single(element => element.Name.LocalName == "Setter"
+                && element.Attribute("Property")?.Value == "FontSize")
+            .Attribute("Value")?.Value);
+        Assert.Equal("36", typography["TextBlock.prime-hero"]
+            .Elements().Single(element => element.Name.LocalName == "Setter"
+                && element.Attribute("Property")?.Value == "FontSize")
+            .Attribute("Value")?.Value);
+    }
+
+    [AvaloniaFact]
+    public void PageHeadingUpdatesThroughExplicitPropertiesAndTrailingSlot()
+    {
+        var trailing = new PrimeStatusChip("Online", PrimeStatusKind.Success);
+        var heading = new PrimePageHeading("Play", "ONLINE MULTIPLAYER",
+            "Find a match.", trailing);
+
+        Assert.Equal("Play", heading.Title);
+        Assert.Equal("ONLINE MULTIPLAYER", heading.Kicker);
+        Assert.Equal("Find a match.", heading.Subtitle);
+        Assert.Same(trailing, heading.TrailingContent);
+
+        heading.Title = "Maps";
+        heading.Kicker = null;
+        heading.Subtitle = "Browse installed maps.";
+        heading.TrailingContent = null;
+
+        Assert.Equal("Maps", heading.Title);
+        Assert.Null(heading.Kicker);
+        Assert.Equal("Browse installed maps.", heading.Subtitle);
+        Assert.Null(heading.TrailingContent);
+        Assert.Contains(heading.Children, child => child is TextBlock text
+            && text.Classes.Contains("prime-title") && text.Text == "Maps");
+    }
+
+    [AvaloniaFact]
+    public void TechFrameDecorationsAreStaticNonInteractiveAndAutomationHidden()
+    {
+        var frame = new PrimeTechFrame(new Border());
+
+        Assert.Same(frame.Child, frame.Children[0]);
+        Assert.NotEmpty(frame.Decorations);
+        Assert.All(frame.Decorations, decoration =>
+        {
+            Assert.False(decoration.IsHitTestVisible);
+            Assert.False(decoration.Focusable);
+            Assert.Equal(AccessibilityView.Raw,
+                AutomationProperties.GetAccessibilityView(decoration));
+        });
+    }
+
+    [AvaloniaFact]
+    public void StatRailOwnsACompactSetOfReusableStatTiles()
+    {
+        var first = new PrimeStatTile("ONLINE", "17");
+        var second = new PrimeStatTile("LOBBIES", "3");
+        var rail = new PrimeStatRail(new[] { first, second });
+
+        Assert.Contains("prime-stat-rail", rail.Classes);
+        Assert.Equal(new[] { first, second }, rail.Tiles);
+        Assert.Equal(new[] { first, second }, rail.Children);
+        Assert.Equal(8, rail.ItemSpacing);
     }
 
     [AvaloniaFact]
@@ -347,6 +487,11 @@ public sealed class P5VisualSystemTests
         PrimeHeroCard hero = PrimeControlFactory.HeroCard(new TextBlock());
         PrimeActionCard action = PrimeControlFactory.ActionCard(new TextBlock(),
             selected: true);
+        PrimeTechFrame frame = PrimeControlFactory.TechFrame(new TextBlock());
+        PrimeStatRail rail = PrimeControlFactory.StatRail(new[]
+        {
+            ("STATUS", "READY"), ("PLAYERS", "6")
+        });
         PrimeEmptyState empty = PrimeControlFactory.EmptyState("NO MATCHES",
             "Host a lobby to get started.",
             PrimeControlFactory.Button("Host lobby"));
@@ -355,11 +500,92 @@ public sealed class P5VisualSystemTests
         Assert.Contains("prime-hero-card", hero.Classes);
         Assert.True(action.IsSelected);
         Assert.NotNull(action.Transitions);
+        Assert.Contains("prime-tech-frame", frame.Classes);
+        Assert.Equal(2, rail.Tiles.Count);
+        Assert.Contains("prime-stat-rail", rail.Classes);
         Assert.Equal("NO MATCHES", empty.Title);
         Assert.NotNull(empty.PrimaryAction);
         Assert.Equal("Online", AutomationProperties.GetItemStatus(status));
         Assert.Equal(AutomationLiveSetting.Polite,
             AutomationProperties.GetLiveSetting(status));
+    }
+
+    [AvaloniaFact]
+    public void ProductionRoutesExposeSharedHeroAndActionSurfaces()
+    {
+        PrimeShellView play = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "play-home", new MenuSettings(), Array.Empty<string>()));
+        var playWindow = new Window { Width = 940, Height = 560, Content = play };
+        try
+        {
+            playWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.NotEmpty(play.GetVisualDescendants().OfType<PrimeHeroCard>());
+            Assert.NotEmpty(play.GetVisualDescendants().OfType<PrimeActionCard>());
+            Assert.Contains(play.GetVisualDescendants().OfType<PrimeHeroCard>(),
+                card => !String.IsNullOrWhiteSpace(AutomationProperties.GetName(card)));
+            Assert.All(play.GetVisualDescendants().OfType<PrimeActionCard>(), card =>
+                Assert.False(String.IsNullOrWhiteSpace(
+                    AutomationProperties.GetName(card))));
+        }
+        finally
+        {
+            playWindow.Content = null;
+            playWindow.Close();
+            play.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        PrimeShellView rankings = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "rankings-desktop", new MenuSettings(), Array.Empty<string>()));
+        var rankingsWindow = new Window
+        {
+            Width = 1440,
+            Height = 900,
+            Content = rankings
+        };
+        try
+        {
+            rankingsWindow.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            Assert.NotEmpty(rankings.GetVisualDescendants().OfType<PrimeHeroCard>());
+        }
+        finally
+        {
+            rankingsWindow.Content = null;
+            rankingsWindow.Close();
+            rankings.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void FocusAndSelectionRemainDistinctForTabs()
+    {
+        var tabs = new PrimeTabStrip(
+        [
+            new PrimeTabItem("Overview", true, () => { }),
+            new PrimeTabItem("History", false, () => { })
+        ]);
+        var window = new Window { Width = 420, Height = 120, Content = tabs };
+        try
+        {
+            window.Show();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            PrimeTabButton selected = tabs.SelectedTab;
+            Assert.Contains("prime-selected", selected.Classes);
+            Assert.Equal("Selected",
+                AutomationProperties.GetItemStatus(selected));
+            Assert.True(selected.Focus());
+            Assert.True(selected.IsFocused);
+            Assert.Contains("prime-selected", selected.Classes);
+            Assert.Equal("Overview", AutomationProperties.GetName(selected));
+            Assert.Equal("Not selected",
+                AutomationProperties.GetItemStatus(tabs.Tabs[1]));
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+        }
     }
 
     [Fact]

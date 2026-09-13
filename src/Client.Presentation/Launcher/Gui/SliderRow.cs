@@ -29,6 +29,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly string _label;
         private readonly double _labelWidth;
         private readonly double _measuredLabelWidth;
+        private readonly double _measuredValueWidth;
         private readonly Func<int, string> _format;
         private readonly int _min;
         private readonly int _max;
@@ -44,17 +45,24 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _label = label;
             _labelWidth = labelWidth;
-            _measuredLabelWidth = TrackedText.Measure(
-                label.ToUpperInvariant(), LabelFontSize, LabelTracking);
+            _measuredLabelWidth = PrimeLegacyControlVisuals.MeasureLabel(label,
+                LabelFontSize, LabelTracking);
             _min = min;
             _max = Math.Max(min + 1, max);
             _keyStep = Math.Max(1, keyStep);
             _value = Math.Clamp(value, _min, _max);
             _format = format ?? (v => $"{v.ToString(CultureInfo.InvariantCulture)}%");
-            Height = PrimeTouchTargets.MinimumDip;
+            _measuredValueWidth = Math.Max(
+                PrimeLegacyControlVisuals.MeasureValueColumn(
+                    new[] { _format(_min), _format(_max), _format(_value) },
+                    size: 12, minimum: 0, maximum: 180),
+                0);
+            Height = PrimeLegacyControlVisuals.RowHeight;
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
             PrimeAccessibility.SetName(this, label);
+            PrimeAccessibility.SetDescription(this,
+                $"{label}. Drag the track or use the left and right arrows to adjust.");
             AutomationProperties.SetItemStatus(this, _format(_value));
         }
 
@@ -85,12 +93,14 @@ namespace MphRead.Mods.Launcher.Gui
         /// Widened for every row rather than for that one, because the tracks
         /// ending in a column is what makes the page read as a column.
         /// </summary>
-        private const double LabelInset = 4;
-        private const double LabelTrackGap = 12;
+        private const double LabelInset = PrimeLegacyControlVisuals.LabelInset;
+        private const double LabelTrackGap = PrimeLegacyControlVisuals.LabelValueGap;
         private const double LabelFontSize = 11;
-        private const double LabelTracking = 1;
-        private const double MinimumTrackWidth = 72;
-        private const double ValueGutter = 112;
+        private const double LabelTracking = 0;
+        private const double MinimumTrackWidth =
+            PrimeLegacyControlVisuals.MinimumValueColumn;
+
+        private double ValueGutter => Math.Max(112, _measuredValueWidth + 8);
 
         private double TrackStart
         {
@@ -217,25 +227,26 @@ namespace MphRead.Mods.Launcher.Gui
 
         public override void Render(DrawingContext context)
         {
-            // See MenuEntry.Render: hit testing follows the drawing.
-            context.FillRectangle(Brushes.Transparent,
-                new Rect(0, 0, Bounds.Width, Bounds.Height));
-            var dim = new SolidColorBrush(Color.FromRgb(70, 76, 90));
+            Rect body = new(0, 0, Bounds.Width, Bounds.Height);
+            PrimeLegacyControlVisuals.DrawHitSurface(context, body);
+            PrimeLegacyControlVisuals.DrawFocusedSurface(context, body, IsFocused,
+                IsEnabled);
+            IBrush dim = PrimeLegacyControlVisuals.DisabledTextBrush;
             Rect track = Track;
             using (context.PushClip(new Rect(0, 0,
                 Math.Max(0, track.X - LabelTrackGap), Bounds.Height)))
             {
-                TrackedText.Draw(context, _label.ToUpperInvariant(), LabelFontSize,
+                TrackedText.Draw(context, _label, LabelFontSize,
                     IsEnabled ? GuiTheme.TextDimBrush : dim,
                     LabelInset,
                     (Bounds.Height - TrackedText.LineHeight(LabelFontSize)) / 2,
                     tracking: LabelTracking);
             }
 
-            context.FillRectangle(GuiTheme.PanelLightBrush, track);
+            context.FillRectangle(PrimeLegacyControlVisuals.HoverSurfaceBrush, track);
             double filled = track.Width * ((_value - _min) / (double)(_max - _min));
             IBrush accent = IsEnabled
-                ? new SolidColorBrush(IsFocused || _hot
+                ? PrimeLegacyControlVisuals.AccentBrush(IsFocused || _hot
                     ? GuiTheme.Shade(GuiTheme.Accent, 0.15) : GuiTheme.Accent)
                 : dim;
             context.FillRectangle(accent, new Rect(track.X, track.Y, filled, track.Height));
@@ -246,6 +257,8 @@ namespace MphRead.Mods.Launcher.Gui
                 IsEnabled ? GuiTheme.TextBrush : dim);
             context.DrawText(value, new Point(Bounds.Width - 4 - value.Width,
                 (Bounds.Height - value.Height) / 2));
+            PrimeLegacyControlVisuals.DrawFocusMarker(context, body, IsFocused,
+                IsEnabled);
         }
     }
 }

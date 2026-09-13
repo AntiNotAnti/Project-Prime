@@ -15,12 +15,118 @@ using MphRead.Mods.Launcher.Presentation;
 using MphRead.Mods.Launcher.Theme;
 using MphRead.Mods.Network;
 using Xunit;
+using AvaloniaButton = Avalonia.Controls.Button;
 
 namespace MphRead.Tests.Client;
 
 [Collection(AvaloniaUiCollection.Name)]
 public sealed class PlayPresentationTests
 {
+    [AvaloniaFact]
+    public void PresenceRefreshRetainsHomeActionsAndTheirFocus()
+    {
+        PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Play);
+        var window = new Window { Width = 1280, Height = 720, Content = shell };
+        window.Show();
+        try
+        {
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            AvaloniaButton quickPlay = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Quick Play"));
+            Assert.True(quickPlay.Focus());
+
+            Assert.True(shell.RefreshPlayHomePresenceForTest());
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            Assert.Same(quickPlay, Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Quick Play")));
+            Assert.True(quickPlay.IsFocused);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PresenceRefreshRestoresFocusedPaginationAction()
+    {
+        PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Play);
+        var window = new Window { Width = 1280, Height = 900, Content = shell };
+        window.Show();
+        try
+        {
+            var players = Enumerable.Range(1, 105)
+                .Select(index => new PublicPresenceEntry($"Pilot {index}",
+                    PlayerPresenceActivity.Online, "US-East"))
+                .ToImmutableArray();
+            var presence = new PresencePresentationState(PresenceLoadState.Ready,
+                105, 105, players, 1, DateTimeOffset.UtcNow);
+            Assert.True(shell.RefreshPlayHomePresenceForTest(presence));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            AvaloniaButton viewAll = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "View all"));
+            Assert.IsType<PrimeButton>(viewAll).Invoke();
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            AvaloniaButton next = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Next"));
+            Assert.True(next.Focus());
+
+            Assert.True(shell.RefreshPlayHomePresenceForTest(presence with { Revision = 2 }));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            AvaloniaButton refreshedNext = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Next"));
+            Assert.NotSame(next, refreshedNext);
+            Assert.True(refreshedNext.IsFocused);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PresenceRefreshRestoresFocusedRetryAction()
+    {
+        PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Play);
+        var window = new Window { Width = 1280, Height = 720, Content = shell };
+        window.Show();
+        try
+        {
+            var failed = new PresencePresentationState(PresenceLoadState.Failed,
+                0, 0, ImmutableArray<PublicPresenceEntry>.Empty, 1,
+                DateTimeOffset.UtcNow, "Online player status is unavailable.");
+            Assert.True(shell.RefreshPlayHomePresenceForTest(failed));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+            AvaloniaButton retry = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Retry"));
+            Assert.True(retry.Focus());
+
+            Assert.True(shell.RefreshPlayHomePresenceForTest(failed with { Revision = 2 }));
+            Avalonia.Threading.Dispatcher.UIThread.RunJobs();
+
+            AvaloniaButton refreshedRetry = Assert.Single(shell.GetVisualDescendants()
+                .OfType<AvaloniaButton>(), button => Equals(button.Content, "Retry"));
+            Assert.NotSame(retry, refreshedRetry);
+            Assert.True(refreshedRetry.IsFocused);
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
     [Theory]
     [InlineData(MatchMode.Battle)]
     [InlineData(MatchMode.Survival)]
@@ -175,21 +281,27 @@ public sealed class PlayPresentationTests
             try
             {
                 window.Show();
-                PrimeCard hero = Assert.Single(home.GetVisualDescendants()
-                    .OfType<PrimeCard>(), candidate => candidate.BorderBrush == GuiTheme.BrandBrush);
+                PrimeHeroCard hero = Assert.Single(home.GetVisualDescendants()
+                    .OfType<PrimeHeroCard>());
                 Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text == "QUICK PLAY");
+                Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "FIND A MATCH");
+                Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "Join the best available open lobby.");
                 Assert.Contains(hero.GetVisualDescendants().OfType<PrimeButton>(),
                     button => Equals(button.Content, "Quick Play")
                         && button.Classes.Contains("prime-primary"));
+                Assert.Equal(2, home.GetVisualDescendants().OfType<PrimeActionCard>().Count());
+                Assert.Empty(home.GetVisualDescendants().OfType<PrimeCard>());
                 Assert.All(home.GetVisualDescendants().OfType<PrimeButton>()
                     .Where(button => Equals(button.Content, "Browse lobbies")
                         || Equals(button.Content, "Host lobby")),
                     button => Assert.DoesNotContain("prime-primary", button.Classes));
                 Assert.Empty(home.GetVisualDescendants().OfType<Expander>());
                 Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "Automatic region");
-                Assert.Contains(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
+                    text => text.Text == "AUTO REGION");
+                Assert.DoesNotContain(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
                     panel => panel.Classes.Contains("prime-network-summary"));
 
                 string cardText = String.Join('\n', card.GetVisualDescendants()
@@ -244,16 +356,18 @@ public sealed class PlayPresentationTests
                 string text = VisibleText(home);
                 Assert.Contains("Find a match or host one.", text,
                     StringComparison.Ordinal);
-                Assert.Contains("Join the best available open match.", text,
+                Assert.Contains("Join the best available open lobby.", text,
                     StringComparison.Ordinal);
                 Assert.Contains("BROWSE LOBBIES", text, StringComparison.Ordinal);
                 Assert.Contains("Browse open lobbies.", text, StringComparison.Ordinal);
                 Assert.Contains("HOST LOBBY", text, StringComparison.Ordinal);
                 Assert.Contains("Create a new lobby.", text, StringComparison.Ordinal);
-                Assert.Contains("Automatic region", text, StringComparison.Ordinal);
+                Assert.Contains("AUTO REGION", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Advanced Network", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Browse Matches", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Host Match", text, StringComparison.Ordinal);
+                Assert.DoesNotContain(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
+                    panel => panel.Classes.Contains("prime-network-summary"));
                 PrimeButton networkSettings = Assert.Single(home.GetVisualDescendants()
                     .OfType<PrimeButton>(), button => Equals(button.Content, "Network settings"));
                 networkSettings.Invoke();
@@ -317,8 +431,9 @@ public sealed class PlayPresentationTests
             {
                 window.Show();
                 string text = VisibleText(view);
-                Assert.Contains("● OPEN    1 / 4 PLAYERS    0 / 2 OBSERVERS", text,
+                Assert.Contains("● OPEN · 1/4 PLAYERS", text,
                     StringComparison.Ordinal);
+                Assert.Contains("0/2 OBSERVERS", text, StringComparison.Ordinal);
                 Assert.Contains("YOUR HUNTER", text, StringComparison.Ordinal);
                 Assert.Contains("Not ready", text, StringComparison.Ordinal);
                 Assert.Contains("Waiting for all players.", text,
@@ -760,7 +875,7 @@ public sealed class PlayPresentationTests
                 layout.ApplyLayout(1300);
                 Assert.Equal(initialTransitions, layout.LayoutTransitionCount);
                 layout.ApplyLayout(1000);
-                Assert.Equal(PrimeContentLayout.Compact, layout.Layout);
+                Assert.Equal(PrimeContentLayout.Medium, layout.Layout);
                 layout.ApplyLayout(560);
                 Assert.Equal(PrimeContentLayout.Mobile, layout.Layout);
                 layout.ApplyLayout(1280);
@@ -815,7 +930,7 @@ public sealed class PlayPresentationTests
 
                 layout.ApplyLayout(1000);
 
-                Assert.Equal(PrimeContentLayout.Compact, layout.Layout);
+                Assert.Equal(PrimeContentLayout.Medium, layout.Layout);
                 Assert.Equal(2, layout.CurrentStep);
                 Assert.Equal(2, ui.HostStep);
                 Assert.Same(time, FieldEditor<TextBox>(view, "Time limit"));
@@ -825,8 +940,8 @@ public sealed class PlayPresentationTests
                 Assert.Equal(4, time.SelectionEnd);
                 WrapPanel rail = Assert.Single(layout.Children.OfType<WrapPanel>());
                 PrimeStatusChip[] steps = rail.Children.OfType<PrimeStatusChip>().ToArray();
-                Assert.Equal("✓ · Lobby seats", steps[0].Text);
-                Assert.Equal("2 · Mission and rules", steps[1].Text);
+                Assert.Equal("✓ · Lobby & seats", steps[0].Text);
+                Assert.Equal("2 · Mission & rules", steps[1].Text);
             }
             finally
             {
@@ -1021,6 +1136,10 @@ public sealed class PlayPresentationTests
                 Assert.Equal(chat.DraftEditor.Text, ui.ChatDraft);
                 Assert.NotNull(preview);
                 Control firstPreview = preview!;
+                PrimeStatRail firstStats = Assert.Single(firstView.GetVisualDescendants()
+                    .OfType<PrimeStatRail>());
+                PrimeSelectedRow firstRosterRow = Assert.Single(firstView
+                    .GetVisualDescendants().OfType<PrimeSelectedRow>());
 
                 LobbyMember readyMember = first.Members[0] with { Ready = true };
                 var message = new LobbyChatEntry(1, Guid.NewGuid(), "Squadmate",
@@ -1045,6 +1164,10 @@ public sealed class PlayPresentationTests
                 Assert.Equal(1, previewBuilds);
                 Assert.Same(chat, Assert.Single(secondView.GetVisualDescendants()
                     .OfType<LobbyChatPanel>()));
+                Assert.Same(firstStats, Assert.Single(secondView.GetVisualDescendants()
+                    .OfType<PrimeStatRail>()));
+                Assert.Same(firstRosterRow, Assert.Single(secondView.GetVisualDescendants()
+                    .OfType<PrimeSelectedRow>()));
                 Assert.True(chat.DraftEditor.IsFocused);
                 Assert.Equal("typed while the lobby updates", chat.DraftEditor.Text);
                 Assert.Equal(chat.DraftEditor.Text, ui.ChatDraft);

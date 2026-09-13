@@ -654,7 +654,6 @@ namespace MphRead.Entities
         private const float DynamicReticleRangeScale = 2.2f;
         private const float ReticleEdgeInset = 0.02f;
         private const float DynamicReticleFollowHalfLife = 0.025f;
-        private const float DynamicReticleReturnHalfLife = 0.14f;
         private TimeSpan _reticlePresentationTime;
         private bool _reticlePresentationInitialized;
         public Vector2 CurrentReticlePosition { get; private set; } = new Vector2(0.5f, 0.5f);
@@ -729,9 +728,17 @@ namespace MphRead.Entities
             // one camera/FOV sample.
             float w = Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix,
                 Presentation.PerspectiveMatrix, out Vector2 projected);
-            Vector2 target = ExpandDynamicReticleRange(
-                NormalizeReticlePosition(w, projected));
             TimeSpan sampleTime = Presentation.CapturedPresentationTime;
+            if (!TryNormalizeReticlePosition(w, projected, out Vector2 normalized))
+            {
+                // A transient invalid projection should not manufacture a
+                // center target. Hold the last trustworthy screen position
+                // and resume from the current presentation timestamp.
+                _reticlePresentationInitialized = true;
+                _reticlePresentationTime = sampleTime;
+                return;
+            }
+            Vector2 target = ExpandDynamicReticleRange(normalized);
             float deltaSeconds = 1f / SimTicks.Hz;
             if (_reticlePresentationInitialized)
             {
@@ -756,9 +763,23 @@ namespace MphRead.Entities
 
         internal static Vector2 NormalizeReticlePosition(float w, Vector2 projected)
         {
-            if (!float.IsFinite(w) || w <= 0 || !float.IsFinite(projected.X) || !float.IsFinite(projected.Y))
-                return new Vector2(0.5f, 0.5f);
-            return new Vector2(MathF.Round(projected.X, 5), MathF.Round(projected.Y, 5));
+            return TryNormalizeReticlePosition(w, projected, out Vector2 normalized)
+                ? normalized
+                : ReticleCenter;
+        }
+
+        internal static bool TryNormalizeReticlePosition(float w, Vector2 projected,
+            out Vector2 normalized)
+        {
+            normalized = ReticleCenter;
+            if (!float.IsFinite(w) || w <= 0
+                || !float.IsFinite(projected.X) || !float.IsFinite(projected.Y))
+            {
+                return false;
+            }
+            normalized = new Vector2(MathF.Round(projected.X, 5),
+                MathF.Round(projected.Y, 5));
+            return true;
         }
 
         internal static Vector2 ExpandDynamicReticleRange(Vector2 position)
@@ -783,24 +804,24 @@ namespace MphRead.Entities
         internal static Vector2 SmoothDynamicReticlePosition(Vector2 current,
             Vector2 target, float deltaSeconds)
         {
-            if (!float.IsFinite(target.X) || !float.IsFinite(target.Y))
-                target = ReticleCenter;
             if (!float.IsFinite(current.X) || !float.IsFinite(current.Y))
-                return target;
+            {
+                return float.IsFinite(target.X) && float.IsFinite(target.Y)
+                    ? target
+                    : ReticleCenter;
+            }
+            if (!float.IsFinite(target.X) || !float.IsFinite(target.Y))
+                return current;
             if (!float.IsFinite(deltaSeconds) || deltaSeconds <= 0)
                 return current;
 
-            Vector2 currentOffset = current - ReticleCenter;
-            Vector2 targetOffset = target - ReticleCenter;
-            bool returningToCenter = Vector2.Dot(currentOffset, targetOffset) >= 0
-                && targetOffset.LengthSquared < currentOffset.LengthSquared;
-            float halfLife = returningToCenter
-                ? DynamicReticleReturnHalfLife
-                : DynamicReticleFollowHalfLife;
+            // Use the same response in every direction. Center is not a
+            // preferred target; the reticle follows only the projected aim.
             // Exponential half-life response is stable across refresh rates.
             // Cap a single sample so a stalled frame cannot look like a snap.
             float elapsed = Math.Min(deltaSeconds, 0.05f);
-            float blend = 1 - MathF.Pow(0.5f, elapsed / halfLife);
+            float blend = 1 - MathF.Pow(0.5f,
+                elapsed / DynamicReticleFollowHalfLife);
             return Vector2.Lerp(current, target, blend);
         }
 
@@ -1471,7 +1492,7 @@ namespace MphRead.Entities
 
             if (_player._scene.Match.Rules.Teams)
             {
-                available -= 2 * _scoreTeamLineSpace;
+                available -= _player._scene.Match.Rules.TeamCount * _scoreTeamLineSpace;
             }
 
             return Math.Clamp(available / rows, _scoreMinPlayerSpace, _scorePlayerSpace);

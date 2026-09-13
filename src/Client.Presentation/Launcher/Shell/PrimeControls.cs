@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -25,8 +27,8 @@ internal static class PrimeControlFactory
 
     /// <summary>Shared compact heading with an optional system kicker.</summary>
     public static PrimePageHeading PageHeading(string title, string? kicker = null,
-        string? subtitle = null)
-        => new(title, kicker, subtitle);
+        string? subtitle = null, Control? trailingContent = null)
+        => new(title, kicker, subtitle, trailingContent);
 
     public static PrimeSectionPanel SectionPanel(Control child)
         => new(child);
@@ -54,6 +56,19 @@ internal static class PrimeControlFactory
 
     public static PrimeActionCard ActionCard(Control child, bool selected = false)
         => new(child, selected);
+
+    public static PrimeTechFrame TechFrame(Control child) => new(child);
+
+    public static PrimeStatRail StatRail(params PrimeStatTile[] tiles)
+        => new(tiles);
+
+    public static PrimeStatRail StatRail(
+        IEnumerable<(string Label, string Value)> stats)
+        => new(stats);
+
+    public static PrimeStatRail StatRail(
+        IEnumerable<(string Label, string Value, string? Detail)> stats)
+        => new(stats);
 
     public static PrimeEmptyState EmptyState(string? title, string? body,
         Control? primaryAction = null, Control? secondaryAction = null,
@@ -153,26 +168,235 @@ internal sealed class PrimeDotGrid : Control
     }
 }
 
-/// <summary>Reusable compact heading primitive for future Prime routes.</summary>
-internal sealed class PrimePageHeading : StackPanel
+/// <summary>
+/// Reusable page heading with an explicit trailing slot. Text is kept as
+/// properties rather than being rediscovered through child traversal so route
+/// refreshes can update copy without depending on a particular visual tree.
+/// </summary>
+internal sealed class PrimePageHeading : Grid
 {
-    public PrimePageHeading(string title, string? kicker, string? subtitle)
+    private readonly TextBlock _kickerText = new()
     {
-        Spacing = 4;
+        TextWrapping = TextWrapping.Wrap,
+        Classes = { "prime-kicker" }
+    };
+    private readonly TextBlock _titleText = new()
+    {
+        TextWrapping = TextWrapping.Wrap,
+        Classes = { "prime-title" }
+    };
+    private readonly TextBlock _subtitleText = new()
+    {
+        TextWrapping = TextWrapping.Wrap,
+        Classes = { "prime-muted" }
+    };
+    private readonly Border _trailingHost = new()
+    {
+        HorizontalAlignment = HorizontalAlignment.Right,
+        VerticalAlignment = VerticalAlignment.Center
+    };
+
+    public PrimePageHeading(string title, string? kicker, string? subtitle,
+        Control? trailingContent = null)
+    {
         Classes.Add("prime-page-heading");
-        if (!string.IsNullOrWhiteSpace(kicker))
-            Children.Add(new TextBlock { Text = kicker, TextWrapping = TextWrapping.Wrap,
-                Classes = { "prime-kicker" } });
-        Children.Add(new TextBlock { Text = title, TextWrapping = TextWrapping.Wrap,
-            Classes = { "prime-title" } });
-        if (!string.IsNullOrWhiteSpace(subtitle))
-            Children.Add(new TextBlock { Text = subtitle, TextWrapping = TextWrapping.Wrap,
-                Classes = { "prime-muted" } });
+        ColumnDefinitions = new ColumnDefinitions("*,Auto");
+        RowDefinitions = new RowDefinitions("Auto,Auto,Auto");
+        RowSpacing = 4;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+
+        Children.Add(_kickerText);
+        Grid.SetRow(_kickerText, 0);
+        Children.Add(_trailingHost);
+        Grid.SetRow(_trailingHost, 0);
+        Grid.SetColumn(_trailingHost, 1);
+        Children.Add(_titleText);
+        Grid.SetRow(_titleText, 1);
+        Grid.SetColumnSpan(_titleText, 2);
+        Children.Add(_subtitleText);
+        Grid.SetRow(_subtitleText, 2);
+        Grid.SetColumnSpan(_subtitleText, 2);
+
+        Update(title, kicker, subtitle, trailingContent);
+    }
+
+    public string Title
+    {
+        get => _titleText.Text ?? String.Empty;
+        set => _titleText.Text = value ?? throw new ArgumentNullException(nameof(value));
+    }
+
+    public string? Kicker
+    {
+        get => _kickerText.IsVisible ? _kickerText.Text : null;
+        set
+        {
+            _kickerText.Text = value;
+            _kickerText.IsVisible = !String.IsNullOrWhiteSpace(value);
+        }
+    }
+
+    public string? Subtitle
+    {
+        get => _subtitleText.IsVisible ? _subtitleText.Text : null;
+        set
+        {
+            _subtitleText.Text = value;
+            _subtitleText.IsVisible = !String.IsNullOrWhiteSpace(value);
+        }
+    }
+
+    public Control? TrailingContent
+    {
+        get => _trailingHost.Child;
+        set
+        {
+            _trailingHost.Child = value;
+            _trailingHost.IsVisible = value != null;
+        }
+    }
+
+    public void Update(string title, string? kicker = null, string? subtitle = null,
+        Control? trailingContent = null)
+    {
+        Title = title;
+        Kicker = kicker;
+        Subtitle = subtitle;
+        TrailingContent = trailingContent;
+    }
+}
+
+/// <summary>
+/// Signature Project Prime framing for high-priority content. Corner and rail
+/// decorations are ordinary static controls, so content remains the only hit
+/// target and the frame adds no render-clock or animation work.
+/// </summary>
+internal sealed class PrimeTechFrame : Grid
+{
+    private Control _child = null!;
+    private readonly List<Control> _decorations = new();
+
+    public PrimeTechFrame(Control child)
+    {
+        Classes.Add("prime-tech-frame");
+        Child = child;
+        AddDecoration("prime-tech-frame-rail prime-tech-frame-top",
+            HorizontalAlignment.Stretch, VerticalAlignment.Top, Double.NaN, 1,
+            new Thickness(18, 0, 18, 0));
+        AddDecoration("prime-tech-frame-rail prime-tech-frame-left",
+            HorizontalAlignment.Left, VerticalAlignment.Stretch, 2, Double.NaN,
+            new Thickness(0, 18, 0, 18));
+        AddDecoration("prime-tech-frame-corner prime-tech-frame-corner-top-left",
+            HorizontalAlignment.Left, VerticalAlignment.Top, 20, 2,
+            new Thickness(0));
+        AddDecoration("prime-tech-frame-corner prime-tech-frame-corner-top-left",
+            HorizontalAlignment.Left, VerticalAlignment.Top, 2, 20,
+            new Thickness(0));
+        AddDecoration("prime-tech-frame-corner prime-tech-frame-corner-bottom-right",
+            HorizontalAlignment.Right, VerticalAlignment.Bottom, 20, 2,
+            new Thickness(0));
+        AddDecoration("prime-tech-frame-corner prime-tech-frame-corner-bottom-right",
+            HorizontalAlignment.Right, VerticalAlignment.Bottom, 2, 20,
+            new Thickness(0));
+    }
+
+    public Control Child
+    {
+        get => _child;
+        set
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            if (ReferenceEquals(_child, value)) return;
+            if (_child?.Parent == this) Children.Remove(_child);
+            _child = value;
+            Children.Insert(0, _child);
+        }
+    }
+
+    public Control Content
+    {
+        get => _child;
+        set => Child = value;
+    }
+
+    public IReadOnlyList<Control> Decorations => _decorations;
+
+    private void AddDecoration(string classes, HorizontalAlignment horizontal,
+        VerticalAlignment vertical, double width, double height, Thickness margin)
+    {
+        var decoration = new Border
+        {
+            HorizontalAlignment = horizontal,
+            VerticalAlignment = vertical,
+            Width = width,
+            Height = height,
+            Margin = margin,
+            IsHitTestVisible = false,
+            Focusable = false
+        };
+        foreach (string @class in classes.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            decoration.Classes.Add(@class);
+        AutomationProperties.SetAccessibilityView(decoration,
+            AccessibilityView.Raw);
+        decoration.ZIndex = 1;
+        _decorations.Add(decoration);
+        Children.Add(decoration);
+    }
+}
+
+/// <summary>Compact horizontal/wrapping summary of related values.</summary>
+internal sealed class PrimeStatRail : WrapPanel
+{
+    private readonly List<PrimeStatTile> _tiles = new();
+
+    public PrimeStatRail(IEnumerable<PrimeStatTile> tiles)
+    {
+        ArgumentNullException.ThrowIfNull(tiles);
+        Classes.Add("prime-stat-rail");
+        Orientation = Orientation.Horizontal;
+        ItemSpacing = 8;
+        LineSpacing = 8;
+        HorizontalAlignment = HorizontalAlignment.Stretch;
+        int index = 0;
+        foreach (PrimeStatTile tile in tiles)
+        {
+            ArgumentNullException.ThrowIfNull(tile);
+            tile.Classes.Add("prime-stat-rail-item");
+            if (index++ == 0)
+                tile.Classes.Add("prime-stat-rail-first");
+            _tiles.Add(tile);
+            Children.Add(tile);
+        }
+    }
+
+    public PrimeStatRail(IEnumerable<(string Label, string Value)> stats)
+        : this(CreateTiles(stats)) { }
+
+    public PrimeStatRail(
+        IEnumerable<(string Label, string Value, string? Detail)> stats)
+        : this(CreateTiles(stats)) { }
+
+    public IReadOnlyList<PrimeStatTile> Tiles => _tiles;
+
+    private static IEnumerable<PrimeStatTile> CreateTiles(
+        IEnumerable<(string Label, string Value)> stats)
+    {
+        ArgumentNullException.ThrowIfNull(stats);
+        foreach ((string label, string value) in stats)
+            yield return new PrimeStatTile(label, value);
+    }
+
+    private static IEnumerable<PrimeStatTile> CreateTiles(
+        IEnumerable<(string Label, string Value, string? Detail)> stats)
+    {
+        ArgumentNullException.ThrowIfNull(stats);
+        foreach ((string label, string value, string? detail) in stats)
+            yield return new PrimeStatTile(label, value, detail);
     }
 }
 
 /// <summary>Reusable section panel with the shell's thinner edge treatment.</summary>
-internal sealed class PrimeSectionPanel : Border
+internal class PrimeSectionPanel : Border
 {
     public PrimeSectionPanel(Control child)
     {

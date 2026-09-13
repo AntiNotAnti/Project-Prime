@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -15,8 +14,9 @@ namespace MphRead.Mods.Launcher.Gui
     /// <c>MenuButton</c>, painted to the same design.
     ///
     /// Custom-rendered rather than a styled Button for the same reason the
-    /// WinForms one is: what is wanted is a marker bar and tracked capitals,
-    /// and expressing that as a control template is more code than drawing it.
+    /// WinForms one is: the rail and compact custom states are easier to keep
+    /// stable here than in a control template. User-facing labels remain in the
+    /// sentence case supplied by the route.
     /// </summary>
     internal sealed class MenuEntry : Control, IControllerNavigable
     {
@@ -99,10 +99,6 @@ namespace MphRead.Mods.Launcher.Gui
                 SubtitleColorProperty, PrimaryProperty, SelectedProperty, IsEnabledProperty);
         }
 
-        /// <summary>Two line heights: one for a bare label, one with a line under it.</summary>
-        private const double PlainHeight = PrimeTouchTargets.MinimumDip;
-        private const double SubtitledHeight = 54;
-
         /// <summary>
         /// The height follows the subtitle, rather than being decided once in
         /// the constructor.
@@ -119,10 +115,27 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnPropertyChanged(change);
             if (change.Property == SubtitleProperty)
             {
-                Height = Subtitle.Length > 0 ? SubtitledHeight : PlainHeight;
+                Height = Subtitle.Length > 0
+                    ? PrimeLegacyControlVisuals.SubtitledRowHeight
+                    : PrimeLegacyControlVisuals.RowHeight;
+                if (!String.IsNullOrWhiteSpace(Subtitle))
+                {
+                    PrimeAccessibility.SetDescription(this, Subtitle);
+                }
             }
             if (change.Property == TitleProperty && !String.IsNullOrWhiteSpace(Title))
                 PrimeAccessibility.SetName(this, Title);
+            if (change.Property == PrimaryProperty)
+            {
+                if (Primary)
+                {
+                    Classes.Add("prime-primary");
+                }
+                else
+                {
+                    Classes.Remove("prime-primary");
+                }
+            }
         }
 
         public MenuEntry(string title, string subtitle = "", double titleSize = 21)
@@ -135,8 +148,14 @@ namespace MphRead.Mods.Launcher.Gui
             // Escape expects to be able to answer "play again?".
             Focusable = true;
             Cursor = new Cursor(StandardCursorType.Hand);
-            Height = subtitle.Length > 0 ? SubtitledHeight : PlainHeight;
+            Height = subtitle.Length > 0
+                ? PrimeLegacyControlVisuals.SubtitledRowHeight
+                : PrimeLegacyControlVisuals.RowHeight;
             PrimeAccessibility.SetName(this, title);
+            if (!String.IsNullOrWhiteSpace(subtitle))
+            {
+                PrimeAccessibility.SetDescription(this, subtitle);
+            }
         }
 
         /// <summary>
@@ -156,8 +175,8 @@ namespace MphRead.Mods.Launcher.Gui
         protected override Size MeasureOverride(Size availableSize)
         {
             Size size = base.MeasureOverride(availableSize);
-            double tracking = Primary ? 2 : 1;
-            double width = TrackedText.Measure(Title.ToUpperInvariant(), _titleSize, tracking);
+            double tracking = Primary ? 1 : 0;
+            double width = TrackedText.Measure(Title, _titleSize, tracking);
             if (Subtitle.Length > 0)
             {
                 width = Math.Max(width, TrackedText.Measure(Subtitle, 12, tracking: 0));
@@ -270,58 +289,71 @@ namespace MphRead.Mods.Launcher.Gui
 
         public override void Render(DrawingContext context)
         {
-            bool lit = (IsPointerOver || IsFocused) && IsEnabled;
-            bool marked = lit || (Selected && IsEnabled);
+            bool hovered = IsPointerOver && IsEnabled;
+            bool focused = IsFocused && IsEnabled;
+            bool selected = Selected && IsEnabled;
             var body = new Rect(0, 0, Bounds.Width, Bounds.Height);
             // Avalonia hit-tests what was drawn, not the bounds: without this
             // the row only answers the pointer over its glyphs.
             context.FillRectangle(Brushes.Transparent, body);
             if (Primary)
             {
-                RenderPrimary(context, body, lit);
+                RenderPrimary(context, body, hovered || _pressed, focused);
                 return;
             }
-            if (lit)
+            PrimeLegacyControlVisuals.DrawHoverSurface(context, body,
+                hovered, _pressed, IsEnabled);
+            if (selected)
             {
-                context.FillRectangle(new SolidColorBrush(_pressed
-                    ? GuiTheme.Shade(GuiTheme.PanelLight, -0.2)
-                    : GuiTheme.PanelLight), body);
+                context.FillRectangle(PrimeLegacyControlVisuals.SelectedSurfaceBrush,
+                    body, (float)PrimeLegacyControlVisuals.ControlRadius);
             }
-            const double bar = 3;
-            context.FillRectangle(
-                new SolidColorBrush(marked ? Accent : Color.FromRgb(48, 56, 72)),
-                new Rect(0, 0, bar, body.Height));
+            PrimeLegacyControlVisuals.DrawSelectedRail(context, body, selected,
+                IsEnabled, Accent);
 
-            double textLeft = bar + 14;
-            Color titleColor = !IsEnabled ? GuiTheme.TextDim : marked ? Accent : GuiTheme.Text;
+            double textLeft = PrimeLegacyControlVisuals.MarkerRailWidth + 14;
+            IBrush titleBrush = !IsEnabled
+                ? PrimeLegacyControlVisuals.DisabledTextBrush
+                : selected ? PrimeLegacyControlVisuals.AccentBrush(Accent)
+                : PrimeLegacyControlVisuals.TextBrush;
             double lineHeight = TrackedText.LineHeight(_titleSize);
             double top = Subtitle.Length > 0 ? 8 : (body.Height - lineHeight) / 2;
-            TrackedText.Draw(context, Title.ToUpperInvariant(), _titleSize,
-                new SolidColorBrush(titleColor), textLeft, top, tracking: 1);
+            TrackedText.Draw(context, Title, _titleSize, titleBrush, textLeft, top,
+                tracking: 0);
 
             if (Subtitle.Length > 0)
             {
                 FormattedText sub = TrackedText.Make(Subtitle, 12, bold: false,
-                    new SolidColorBrush(IsEnabled ? SubtitleColor : GuiTheme.TextDim));
+                    IsEnabled ? PrimeLegacyControlVisuals.Brush(SubtitleColor)
+                        : PrimeLegacyControlVisuals.DisabledTextBrush);
                 context.DrawText(sub, new Point(textLeft - 1, top + lineHeight + 1));
             }
+            PrimeLegacyControlVisuals.DrawFocusMarker(context, body, focused,
+                IsEnabled);
         }
 
-        private void RenderPrimary(DrawingContext context, Rect body, bool lit)
+        private void RenderPrimary(DrawingContext context, Rect body, bool hovered,
+            bool focused)
         {
-            Color fill = !IsEnabled
-                ? GuiTheme.PanelLight
-                : _pressed ? GuiTheme.Shade(Accent, -0.25)
-                : lit ? GuiTheme.Shade(Accent, 0.18) : Accent;
-            context.DrawRectangle(new SolidColorBrush(fill), null,
+            IBrush fill = !IsEnabled
+                ? PrimeLegacyControlVisuals.DisabledSurfaceBrush
+                : _pressed ? PrimeLegacyControlVisuals.Brush(
+                    GuiTheme.Shade(Accent, -0.18))
+                : hovered ? PrimeLegacyControlVisuals.Brush(
+                    GuiTheme.Shade(Accent, 0.12))
+                : PrimeLegacyControlVisuals.AccentBrush(Accent);
+            context.DrawRectangle(fill, null,
                 new RoundedRect(body, 5));
-            string text = Title.ToUpperInvariant();
-            Color ink = IsEnabled ? Color.FromRgb(8, 12, 18) : GuiTheme.TextDim;
-            const double tracking = 2;
+            string text = Title;
+            IBrush ink = IsEnabled ? GuiTheme.InkBrush
+                : PrimeLegacyControlVisuals.DisabledTextBrush;
+            const double tracking = 0;
             double width = TrackedText.Measure(text, _titleSize, tracking) - tracking;
-            TrackedText.Draw(context, text, _titleSize, new SolidColorBrush(ink),
+            TrackedText.Draw(context, text, _titleSize, ink,
                 (body.Width - width) / 2,
                 (body.Height - TrackedText.LineHeight(_titleSize)) / 2, tracking);
+            PrimeLegacyControlVisuals.DrawFocusMarker(context, body, focused,
+                IsEnabled);
         }
 
     }

@@ -23,8 +23,11 @@ internal readonly record struct LobbyStartEligibility(bool CanStart, string Mess
         if (players.Any(member => !member.Ready))
             return new(false, "All players must be Ready. Changing settings resets readiness.");
 
-        if (snapshot.Mode.IsTeamMode() && RepresentedTeams(snapshot, players) < 2)
-            return new(false, "Team mode needs players on both teams.");
+        int teamCount = snapshot.Mode.IsTeamMode()
+            ? snapshot.Rules?.TeamCount ?? 2 : 1;
+        if (snapshot.Mode.IsTeamMode()
+            && RepresentedTeams(snapshot, players) < teamCount)
+            return new(false, "Team mode needs players on every configured team.");
 
         return new(true, "");
     }
@@ -34,8 +37,10 @@ internal readonly record struct LobbyStartEligibility(bool CanStart, string Mess
         LobbyMember[] humanPlayers = players?.ToArray()
             ?? snapshot.Members.Where(member => !member.Observer).ToArray();
         HashSet<byte> teams = humanPlayers.Select(member => member.Team).ToHashSet();
+        int teamCount = snapshot.Mode.IsTeamMode()
+            ? snapshot.Rules?.TeamCount ?? 2 : 1;
         for (int bot = 0; bot < snapshot.BotCount; bot++)
-            teams.Add((byte)((humanPlayers.Length + bot) % 2));
+            teams.Add((byte)((humanPlayers.Length + bot) % teamCount));
         return teams.Count;
     }
 }

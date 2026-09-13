@@ -41,7 +41,7 @@ internal sealed class PrimeMatchCard : Border
         title.Children.Add(new TextBlock
         {
             Text = displayName,
-            Classes = { "prime-heading" },
+            Classes = { "prime-card-heading" },
             TextWrapping = TextWrapping.Wrap
         });
         title.Children.Add(new TextBlock
@@ -128,4 +128,96 @@ internal sealed class PrimeMatchCard : Border
     private static PrimeStatTile Metric(string label, string value)
         => PrimeControlFactory.StatTile(label, value);
 
+}
+
+/// <summary>
+/// A compact landing-page lobby row. The browser keeps the detailed card above;
+/// Play only needs the identity, mode, capacity, and one obvious next action.
+/// </summary>
+internal sealed class PrimeCompactLobbyRow : Border
+{
+    public PrimeCompactLobbyRow(LobbyListEntry entry, Action? join,
+        Action? waitlist, Action? spectate)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        Classes.Add("prime-compact-lobby-row");
+        Padding = new Thickness(12, 10);
+        Margin = new Thickness(0, 0, 0, 6);
+
+        string displayName = string.IsNullOrWhiteSpace(entry.Name)
+            ? "Unnamed lobby" : entry.Name.Trim();
+        int openPlayers = MatchBrowserFiltering.OpenPlayerSlots(entry);
+        int occupied = entry.Players + entry.BotCount;
+        string capacity = $"{occupied}/{entry.PlayerLimit} players"
+            + (openPlayers > 0 ? $" · {openPlayers} open" : " · Full");
+        string detail = $"{PrimeGameText.MapName(entry.MapKey)} · "
+            + PrimeGameText.ModeLabel(entry.Mode);
+        PrimeAccessibility.SetName(this, $"Lobby: {displayName}");
+        PrimeAccessibility.SetDescription(this, $"{detail}. {capacity}.");
+
+        var text = new StackPanel { Spacing = 2 };
+        text.Children.Add(new TextBlock
+        {
+            Text = displayName,
+            Classes = { "prime-card-heading" },
+            TextWrapping = TextWrapping.Wrap
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = detail,
+            Classes = { "prime-muted" },
+            TextWrapping = TextWrapping.Wrap
+        });
+        text.Children.Add(new TextBlock
+        {
+            Text = capacity,
+            Classes = { "prime-telemetry" },
+            TextWrapping = TextWrapping.Wrap
+        });
+
+        var actions = new WrapPanel
+        {
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right
+        };
+        AddAction(actions, "Join", join, primary: true);
+        AddAction(actions, "Waitlist", waitlist);
+        AddAction(actions, "Spectate", spectate);
+        if (actions.Children.Count == 0)
+            actions.Children.Add(new TextBlock
+            {
+                Text = entry.Phase == LobbyPhase.Open
+                    ? "Full" : "Not accepting players",
+                Classes = { "prime-muted" }
+            });
+
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            ColumnSpacing = 12,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        row.Children.Add(text);
+        row.Children.Add(actions);
+        Grid.SetColumn(actions, 1);
+        Child = row;
+    }
+
+    private static void AddAction(Panel panel, string label, Action? action,
+        bool primary = false)
+    {
+        if (action == null) return;
+        var button = PrimeControlFactory.Button(label, action, primary: primary,
+            quiet: !primary);
+        button.MinHeight = 44;
+        button.MinWidth = label == "Waitlist" ? 100 : 86;
+        PrimeAccessibility.SetName(button, label switch
+        {
+            "Join" => "Join lobby",
+            "Waitlist" => "Join lobby player queue",
+            "Spectate" => "Spectate lobby",
+            _ => label
+        });
+        panel.Children.Add(button);
+    }
 }

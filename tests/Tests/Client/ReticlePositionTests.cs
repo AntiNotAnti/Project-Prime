@@ -26,6 +26,8 @@ public sealed class ReticlePositionTests
     {
         Assert.Equal(new Vector2(0.5f, 0.5f), PlayerPresentation.NormalizeReticlePosition(
             (float)w, new Vector2((float)x, (float)y)));
+        Assert.False(PlayerPresentation.TryNormalizeReticlePosition(
+            (float)w, new Vector2((float)x, (float)y), out _));
     }
 
     [Fact]
@@ -47,7 +49,7 @@ public sealed class ReticlePositionTests
     }
 
     [Fact]
-    public void DynamicReticleFollowsAimQuicklyButReturnsToCenterGently()
+    public void DynamicReticleHasNoCenterBiasedResponse()
     {
         var center = new Vector2(0.5f);
         var displaced = new Vector2(0.9f, 0.5f);
@@ -57,9 +59,18 @@ public sealed class ReticlePositionTests
         Vector2 returning = PlayerPresentation.SmoothDynamicReticlePosition(
             displaced, center, 1f / 60);
 
-        Assert.True(outward.X - center.X > displaced.X - returning.X);
+        Assert.Equal(outward.X - center.X, displaced.X - returning.X, 5);
         Assert.InRange(outward.X, 0.64f, 0.66f);
-        Assert.InRange(returning.X, 0.86f, 0.88f);
+        Assert.InRange(returning.X, 0.74f, 0.76f);
+    }
+
+    [Fact]
+    public void DynamicReticleHoldsLastPositionForInvalidTarget()
+    {
+        var current = new Vector2(0.82f, 0.21f);
+
+        Assert.Equal(current, PlayerPresentation.SmoothDynamicReticlePosition(
+            current, new Vector2(float.NaN, 0.5f), 1f / 60));
     }
 
     [Fact]

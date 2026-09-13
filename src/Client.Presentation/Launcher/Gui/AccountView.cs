@@ -50,9 +50,17 @@ internal sealed class AccountView : UserControl
         _name.Text = LauncherPrefs.PlayerName;
         Background = GuiTheme.PanelBrush;
         var stack = new StackPanel { Spacing = 12, Margin = new Thickness(20), MaxWidth = 600, HorizontalAlignment = HorizontalAlignment.Stretch };
-        stack.Children.Add(new TextBlock { Text = "Hunter License", FontSize = 24, Foreground = GuiTheme.TextBrush });
-        stack.Children.Add(new TextBlock { Text = "Sign in to your account service to keep your Hunter License across devices. Guest play remains available.", TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextDimBrush });
-        AddField(stack, "Account service", _backend);
+        stack.Children.Add(PrimeControlFactory.PageHeading("Hunter license", "ACCOUNT",
+            "Keep your profile and official results with you across devices."));
+        stack.Children.Add(new TextBlock { Text = "Sign in to your account service to keep your Hunter license across devices. Guest play remains available.", TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextDimBrush });
+        var advanced = new StackPanel { Spacing = 8 };
+        AddField(advanced, "Account service", _backend);
+        stack.Children.Add(new Expander
+        {
+            Header = "Advanced",
+            IsExpanded = false,
+            Content = advanced
+        });
         AddField(_actions, "Email", _email);
         AddField(_actions, "Password", _password);
         var passwordToggle = new MenuEntry("Show password", titleSize: 13);
@@ -64,14 +72,7 @@ internal sealed class AccountView : UserControl
         };
         _actions.Children.Add(passwordToggle);
         AddField(_actions, "Display name", _name);
-        _actions.Children.Add(Action("Continue as guest", async session =>
-        {
-            // Explicit guest selection must clear a previously restored
-            // account identity so Node admission uses the anonymous route.
-            await session.SignOutAsync(_cancel.Token);
-            _status.Text = "Online service configured. Guest play is ready from Host or Join.";
-        }));
-        _actions.Children.Add(Action("Sign in", async session =>
+        MenuEntry signIn = Action("Sign in", async session =>
         {
             ResetQueryState();
             string password = _password.Text ?? "";
@@ -80,6 +81,15 @@ internal sealed class AccountView : UserControl
             _playerId.Text = session.Identity!.PlayerId.ToString();
             await RefreshLicense(session);
             _status.Text = session.Identity.EmailEligibleForOfficialPlay ? "Signed in." : "Signed in. Confirm your email before official play.";
+        });
+        signIn.Primary = true;
+        _actions.Children.Add(signIn);
+        _actions.Children.Add(Action("Continue as guest", async session =>
+        {
+            // Explicit guest selection must clear a previously restored
+            // account identity so Node admission uses the anonymous route.
+            await session.SignOutAsync(_cancel.Token);
+            _status.Text = "Online service configured. Guest play is ready from Host or Join.";
         }));
         _actions.Children.Add(Action("Create account", async session =>
         {
@@ -102,14 +112,14 @@ internal sealed class AccountView : UserControl
             await session.ResendConfirmationAsync(_email.Text?.Trim() ?? "", _cancel.Token);
             _status.Text = "If confirmation is needed, a new code will be sent.";
         }));
-        AddField(_actions, "Favorite Hunter", _hunter);
+        AddField(_actions, "Favorite hunter", _hunter);
         _actions.Children.Add(Action("Save profile", async session =>
         {
             await session.UpdateProfileAsync(_name.Text?.Trim() ?? "", _hunter.SelectedIndex, _cancel.Token);
             await RefreshLicense(session);
             _status.Text = "Profile saved.";
         }));
-        _actions.Children.Add(Action("Refresh Hunter License", RefreshLicense));
+        _actions.Children.Add(Action("Refresh hunter license", RefreshLicense));
         _actions.Children.Add(_career);
         _actions.Children.Add(Action("Recent matches", session => RefreshHistory(session, older: false)));
         _actions.Children.Add(Action("Older matches", session => RefreshHistory(session, older: true)));
@@ -138,7 +148,12 @@ internal sealed class AccountView : UserControl
         var close = new MenuEntry("Back", titleSize: 15);
         close.Click += (_, _) => { _cancel.Cancel(); _password.Text = ""; Closed?.Invoke(this, EventArgs.Empty); };
         stack.Children.Add(close);
-        Content = new ScrollViewer { Content = stack };
+        PrimeTechFrame frame = PrimeControlFactory.TechFrame(stack);
+        frame.Classes.Add("prime-account-frame");
+        PrimeAccessibility.SetName(frame, "Hunter license account");
+        PrimeAccessibility.SetDescription(frame,
+            "Sign in, manage your Hunter profile, and review official results.");
+        Content = new ScrollViewer { Content = frame };
         DetachedFromVisualTree += (_, _) => { _cancel.Cancel(); _password.Text = ""; };
     }
 

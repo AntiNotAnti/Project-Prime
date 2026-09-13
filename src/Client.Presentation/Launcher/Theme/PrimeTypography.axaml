@@ -36,13 +36,13 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimeBrandBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-title">
-    <Setter Property="FontSize" Value="26" />
+    <Setter Property="FontSize" Value="32" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.8" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-heading">
-    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontSize" Value="21" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="LetterSpacing" Value="0.35" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
@@ -54,7 +54,7 @@
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextMutedBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-body">
-    <Setter Property="FontSize" Value="13" />
+    <Setter Property="FontSize" Value="14" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-subtitle">
@@ -102,18 +102,24 @@
   <!-- Explicit semantic scale for new views. The existing classes above stay
        available so routes can migrate without renaming their style contract. -->
   <Style Selector="TextBlock.prime-hero">
-    <Setter Property="FontSize" Value="30" />
+    <Setter Property="FontSize" Value="36" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-section-heading">
-    <Setter Property="FontSize" Value="19" />
+    <Setter Property="FontSize" Value="22" />
     <Setter Property="FontWeight" Value="SemiBold" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-button-label">
     <Setter Property="FontSize" Value="14" />
     <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
+  </Style>
+  <Style Selector="TextBlock.prime-card-heading">
+    <Setter Property="FontSize" Value="18" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="LetterSpacing" Value="0.35" />
     <Setter Property="Foreground" Value="{DynamicResource PrimeTextBrush}" />
   </Style>
   <Style Selector="TextBlock.prime-telemetry">

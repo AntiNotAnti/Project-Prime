@@ -237,6 +237,24 @@ public sealed class ReplayTimelineTests
     }
 
     [Fact]
+    public void DeferredKillcamPreparationSucceedsWhenTheExactEventBecomesVisible()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(81, 9_400);
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(100, 5_000)));
+
+        Assert.False(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out _));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+        Assert.True(KillcamController.TryPrepareCapture(timeline, kill,
+            KillcamPolicy.Immediate, out PendingKillcamCapture capture));
+        Assert.Equal(400u, capture.KillRecordingFrame);
+        Assert.True(KillcamController.IsUsableClip(capture.FallbackClip, kill,
+            capture.KillRecordingFrame));
+    }
+
+    [Fact]
     public void FrozenKillcamFallbackSurvivesTimelineReset()
     {
         var timeline = new RollingReplayTimeline();

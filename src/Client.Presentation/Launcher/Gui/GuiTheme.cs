@@ -20,16 +20,26 @@ namespace MphRead.Mods.Launcher.Gui
     /// </summary>
     internal static class GuiTheme
     {
-        public static readonly Color Ink = Color.FromRgb(9, 12, 16);
-        public static readonly Color Panel = Color.FromRgb(21, 25, 30);
-        public static readonly Color PanelLight = Color.FromRgb(28, 33, 39);
-        public static readonly Color Gunmetal = Color.FromRgb(52, 59, 67);
+        public static readonly Color Ink = Color.FromRgb(8, 11, 15);
+        public static readonly Color Header = Color.FromRgb(10, 15, 20);
+        public static readonly Color Footer = Color.FromRgb(10, 15, 20);
+        public static readonly Color Surface = Color.FromRgb(15, 20, 26);
+        public static readonly Color SurfaceMuted = Color.FromRgb(11, 16, 22);
+        public static readonly Color Control = Color.FromRgb(12, 18, 24);
+        public static readonly Color InteractiveSurface = Color.FromRgb(20, 27, 34);
+        public static readonly Color SelectedSurface = Color.FromRgb(51, 35, 19);
+        public static readonly Color FocusSurface = Color.FromRgb(16, 37, 43);
+        public static readonly Color Panel = Surface;
+        public static readonly Color PanelLight = Color.FromRgb(27, 36, 45);
+        public static readonly Color Gunmetal = Color.FromRgb(52, 66, 79);
         public static readonly Color Edge = Gunmetal;
+        public static readonly Color EdgeStrong = Color.FromRgb(89, 105, 120);
+        public static readonly Color Divider = Color.FromRgb(39, 49, 59);
         public static readonly Color Text = Color.FromRgb(228, 231, 234);
         public static readonly Color TextDim = Color.FromRgb(155, 163, 170);
         public static readonly Color Brand = Color.FromRgb(242, 154, 46);
         public static readonly Color BrandStrong = Color.FromRgb(255, 180, 65);
-        public static readonly Color BrandSurface = Color.FromRgb(48, 34, 20);
+        public static readonly Color BrandSurface = Color.FromRgb(51, 35, 19);
         public static readonly Color Tech = Color.FromRgb(25, 207, 230);
         public static readonly Color TechStrong = Color.FromRgb(81, 230, 245);
         public static readonly Color Success = Color.FromRgb(101, 214, 138);
@@ -44,9 +54,22 @@ namespace MphRead.Mods.Launcher.Gui
         public static readonly Color Bad = Error;
 
         public static readonly IBrush InkBrush = new SolidColorBrush(Ink);
+        public static readonly IBrush HeaderBrush = new SolidColorBrush(Header);
+        public static readonly IBrush FooterBrush = new SolidColorBrush(Footer);
+        public static readonly IBrush SurfaceBrush = new SolidColorBrush(Surface);
+        public static readonly IBrush SurfaceMutedBrush = new SolidColorBrush(SurfaceMuted);
+        public static readonly IBrush ControlBrush = new SolidColorBrush(Control);
+        public static readonly IBrush InteractiveSurfaceBrush =
+            new SolidColorBrush(InteractiveSurface);
+        public static readonly IBrush SelectedSurfaceBrush =
+            new SolidColorBrush(SelectedSurface);
+        public static readonly IBrush FocusSurfaceBrush =
+            new SolidColorBrush(FocusSurface);
         public static readonly IBrush PanelBrush = new SolidColorBrush(Panel);
         public static readonly IBrush PanelLightBrush = new SolidColorBrush(PanelLight);
         public static readonly IBrush EdgeBrush = new SolidColorBrush(Edge);
+        public static readonly IBrush EdgeStrongBrush = new SolidColorBrush(EdgeStrong);
+        public static readonly IBrush DividerBrush = new SolidColorBrush(Divider);
         public static readonly IBrush TextBrush = new SolidColorBrush(Text);
         public static readonly IBrush TextDimBrush = new SolidColorBrush(TextDim);
         public static readonly IBrush BrandBrush = new SolidColorBrush(Brand);

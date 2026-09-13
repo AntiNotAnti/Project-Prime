@@ -1002,6 +1002,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             var settings = new SettingsView(_settings, inGame: true, scene: scene,
                 identity: SettingsIdentityContext.From(_shell,
                     () => CloseAndNavigate(PrimeRoute.Hunter)));
+            settings.SaveSucceeded += (_, _) =>
+            {
+                _shell.NotifyGlobal("settings-saved", PrimeNotificationKind.Success,
+                    "Settings saved to this device.");
+                RefreshChrome();
+            };
             settings.Closed += (_, _) =>
             {
                 Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
@@ -1363,6 +1369,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         RememberCurrentNavigationFocus();
         _routeMotion?.Dispose();
         _routeMotion = null;
+        _routeScanMotion?.Dispose();
+        _routeScanMotion = null;
         if (route == PrimeRoute.Armory)
             _routeViewState.SelectHunterSection(HunterSection.Arsenal);
         if (PageHost.Content != null)
@@ -1417,8 +1425,6 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             else if (routeChanged)
                 _routeMotion = PrimeMotion.AnimateEntry(routeContent);
         }
-        _routeScanMotion?.Dispose();
-        _routeScanMotion = null;
         if (!_captureMode && routeChanged)
             _routeScanMotion = PrimeMotion.AnimateScan(RouteScanAccent,
                 Math.Max(240, PageGrid.Bounds.Height));
@@ -1448,13 +1454,36 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             }
             : pending is not null ? GatewayForm.Confirm : _gatewayForm;
         var root = new Grid { HorizontalAlignment = HorizontalAlignment.Stretch };
-        var content = Stack();
-        content.HorizontalAlignment = HorizontalAlignment.Center;
-        content.Width = 580;
-        content.MaxWidth = 580;
-        content.Margin = new Thickness(0, 16);
+        var frameContent = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,320"),
+            RowDefinitions = new RowDefinitions("Auto"),
+            ColumnSpacing = 32,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            MaxWidth = 1080,
+            Margin = new Thickness(24, 16)
+        };
+        frameContent.Classes.Add("prime-gateway-layout");
 
-        var heading = PrimeControlFactory.PageHeading("Sign in", "SIGN IN",
+        GatewayForm activeForm = form;
+        string headingTitle = activeForm switch
+        {
+            GatewayForm.Register => "Create account",
+            GatewayForm.Confirm => "Confirm your email",
+            _ => "Sign in"
+        };
+        string headingKicker = activeForm switch
+        {
+            GatewayForm.Register => "ACCOUNT SETUP",
+            GatewayForm.Confirm => "ACCOUNT ACCESS",
+            _ => "SIGN IN"
+        };
+        var content = Stack();
+        content.HorizontalAlignment = HorizontalAlignment.Stretch;
+        content.MaxWidth = 580;
+        content.HorizontalAlignment = HorizontalAlignment.Center;
+
+        var heading = PrimeControlFactory.PageHeading(headingTitle, headingKicker,
             subtitle: "Welcome to Project Prime.");
         CenterHeading(heading);
         content.Children.Add(heading);
@@ -1513,17 +1542,53 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     "prime-muted")
             });
         }
-        root.Children.Add(content);
+        frameContent.Children.Add(content);
+        Grid.SetColumn(content, 0);
+        var side = BuildGatewaySidePanel();
+        frameContent.Children.Add(side);
+        Grid.SetColumn(side, 1);
+
+        PrimeTechFrame frame = PrimeControlFactory.TechFrame(frameContent);
+        frame.HorizontalAlignment = HorizontalAlignment.Center;
+        frame.MaxWidth = 1080;
+        root.Children.Add(frame);
         root.SizeChanged += (_, e) =>
         {
-            if (e.NewSize.Width > 0)
-            {
-                double width = Math.Min(580, Math.Max(0, e.NewSize.Width - 24));
-                content.Width = width;
-                cardHost.Width = width;
-            }
+            bool narrow = e.NewSize.Width > 0 && e.NewSize.Width < 860;
+            frameContent.ColumnDefinitions = new ColumnDefinitions(narrow ? "*" : "*,320");
+            frameContent.RowDefinitions = new RowDefinitions(narrow ? "Auto,Auto" : "Auto");
+            frameContent.ColumnSpacing = narrow ? 0 : 32;
+            content.MaxWidth = 580;
+            Grid.SetColumn(side, 0);
+            Grid.SetRow(side, narrow ? 1 : 0);
+            Grid.SetColumn(side, narrow ? 0 : 1);
+            Grid.SetColumnSpan(side, narrow ? 1 : 1);
+            Grid.SetRow(content, 0);
+            side.Margin = narrow ? new Thickness(0, 16, 0, 0) : new Thickness(0);
         };
         return root;
+    }
+
+    private static Control BuildGatewaySidePanel()
+    {
+        var side = PrimeControlFactory.Panel(Stack(
+            Text("ACCOUNT SERVICE", "prime-kicker"),
+            Text("Play together", "prime-heading"),
+            Text("Sign in to keep your Hunter profile and official results with you.",
+                "prime-body"),
+            PrimeControlFactory.Divider(),
+            Text("Online service", "prime-label"),
+            Text("Account access is optional; ranked eligibility is checked after sign-in.",
+                "prime-muted"),
+            Text("Connection", "prime-label"),
+            Text("No connection is opened until you choose an action.", "prime-muted"),
+            Text("Version", "prime-label"),
+            Text(BuildVersion.Display, "prime-muted")), secondary: true);
+        side.Classes.Add("prime-gateway-side");
+        PrimeAccessibility.SetName(side, "Project Prime account information");
+        PrimeAccessibility.SetDescription(side,
+            "Online service, connection, and version information.");
+        return side;
     }
 
     private Control BuildGatewayLandingForm()
@@ -1536,8 +1601,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         Action signIn = () => ShowGatewayForm(GatewayForm.SignIn);
         Action createAccount = () => ShowGatewayForm(GatewayForm.Register);
         var content = Stack(
-            MakeButton("Continue as guest", guest, primary: true),
-            MakeButton("Sign in", signIn),
+            MakeButton("Sign in", signIn, primary: true),
+            MakeButton("Continue as guest", guest),
             MakeButton("Create account", createAccount, quiet: true));
         if (_captureMode)
         {
@@ -1551,7 +1616,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private Control BuildGatewaySignInForm()
     {
         var email = Input("", "Email address");
+        var emailError = FieldError();
         var password = Input("", "Password");
+        var passwordError = FieldError();
         password.PasswordChar = '•';
         AvaloniaButton? reveal = null;
         reveal = MakeButton("Show", () =>
@@ -1570,16 +1637,23 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         passwordHost.Children.Add(reveal);
         Grid.SetColumn(reveal, 1);
         var validation = InlineValidation();
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        email.TextChanged += (_, _) => ClearFieldError(email, emailError);
+        password.TextChanged += (_, _) => ClearFieldError(password, passwordError);
         AvaloniaButton? submit = null;
         submit = MakeButton("Sign in", () =>
         {
             string address = email.Text?.Trim() ?? "";
             string secret = password.Text ?? "";
-            if (!ValidateCredentials(address, secret, validation)) return;
+            if (!ValidateCredentials(address, secret, email, emailError,
+                password, passwordError, validation)) return;
             password.Text = "";
             submit!.IsEnabled = false;
-            validation.Text = "Signing in…";
-            validation.IsVisible = true;
+            email.IsEnabled = false;
+            password.IsEnabled = false;
+            reveal!.IsEnabled = false;
+            actions.IsEnabled = false;
+            SetInlineStatus(validation, "Signing in…", PrimeStatusKind.Info);
             RunCommand("Sign in", async () =>
             {
                 try
@@ -1593,32 +1667,38 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     PostUi(() =>
                     {
                         if (submit != null) submit.IsEnabled = true;
+                        email.IsEnabled = true;
+                        password.IsEnabled = true;
+                        reveal!.IsEnabled = true;
+                        actions.IsEnabled = true;
                         if (validation.Text == "Signing in…")
                             validation.IsVisible = false;
                     });
                 }
             });
         }, primary: true);
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(submit);
         actions.Children.Add(MakeButton("Resend Verification", () =>
         {
             string address = email.Text?.Trim() ?? "";
-            if (!ValidateEmail(address, validation)) return;
+            if (!ValidateEmail(address, email, emailError, validation)) return;
             RunCommand("Resend verification", () =>
                 _gateway.ResendForEmailAsync(address, _lifetime.Token));
         }));
         actions.Children.Add(MakeButton("Back", () => ShowGatewayForm(
             GatewayForm.Landing), quiet: true));
         return Stack(Text("Sign in", "prime-heading"),
-            Text("Email", "prime-label"), email,
-            Text("Password", "prime-label"), passwordHost, validation, actions);
+            FormField("Email", email, emailError),
+            FormField("Password", passwordHost, passwordError),
+            validation, actions);
     }
 
     private Control BuildGatewayRegistrationForm()
     {
         var email = Input("", "Email address");
+        var emailError = FieldError();
         var password = Input("", "Password");
+        var passwordError = FieldError();
         password.PasswordChar = '•';
         AvaloniaButton? reveal = null;
         reveal = MakeButton("Show", () =>
@@ -1637,19 +1717,29 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         passwordHost.Children.Add(reveal);
         Grid.SetColumn(reveal, 1);
         var displayName = Input(LauncherPrefs.PlayerName, "Display name");
+        var displayNameError = FieldError();
         var validation = InlineValidation();
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
+        email.TextChanged += (_, _) => ClearFieldError(email, emailError);
+        password.TextChanged += (_, _) => ClearFieldError(password, passwordError);
+        displayName.TextChanged += (_, _) => ClearFieldError(displayName, displayNameError);
         AvaloniaButton? submit = null;
         Action submitRegistration = () =>
         {
             string address = email.Text?.Trim() ?? "";
             string secret = password.Text ?? "";
             string name = displayName.Text?.Trim() ?? "";
-            if (!ValidateRegistration(address, secret, name, validation)) return;
+            if (!ValidateRegistration(address, secret, name, email, emailError,
+                password, passwordError, displayName, displayNameError, validation)) return;
             GatewayForm submittedForm = _gatewayForm;
             password.Text = "";
             submit!.IsEnabled = false;
-            validation.Text = "Creating account…";
-            validation.IsVisible = true;
+            email.IsEnabled = false;
+            password.IsEnabled = false;
+            displayName.IsEnabled = false;
+            reveal!.IsEnabled = false;
+            actions.IsEnabled = false;
+            SetInlineStatus(validation, "Creating account…", PrimeStatusKind.Info);
             RunCommand("Register", async () =>
             {
                 try
@@ -1682,6 +1772,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                     PostUi(() =>
                     {
                         if (submit != null) submit.IsEnabled = true;
+                        email.IsEnabled = true;
+                        password.IsEnabled = true;
+                        displayName.IsEnabled = true;
+                        reveal!.IsEnabled = true;
+                        actions.IsEnabled = true;
                         if (validation.Text == "Creating account…")
                             validation.IsVisible = false;
                     });
@@ -1689,48 +1784,80 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             });
         };
         submit = MakeButton("Create account", submitRegistration, primary: true);
-        var actions = new WrapPanel { Orientation = Orientation.Horizontal };
         actions.Children.Add(submit);
         actions.Children.Add(LegacyButtonAlias("Register", submitRegistration));
         actions.Children.Add(MakeButton("Resend Verification", () =>
         {
             string address = email.Text?.Trim() ?? "";
-            if (!ValidateEmail(address, validation)) return;
+            if (!ValidateEmail(address, email, emailError, validation)) return;
             RunCommand("Resend verification", () =>
                 _gateway.ResendForEmailAsync(address, _lifetime.Token));
         }));
         actions.Children.Add(MakeButton("Back", () => ShowGatewayForm(
             GatewayForm.Landing), quiet: true));
         return Stack(Text("Create account", "prime-heading"),
-            Text("Email", "prime-label"), email,
-            Text("Password", "prime-label"), passwordHost,
-            Text("Display name", "prime-label"), displayName, validation, actions);
+            FormField("Email", email, emailError),
+            FormField("Password", passwordHost, passwordError),
+            FormField("Display name", displayName, displayNameError),
+            validation, actions);
     }
 
     private Control BuildGatewayConfirmationForm(PendingRegistration? pending)
     {
         var confirmation = Input("", "Confirmation code");
+        var confirmationError = FieldError();
+        var validation = InlineValidation();
+        confirmation.TextChanged += (_, _) => ClearFieldError(confirmation,
+            confirmationError);
         string maskedEmail = pending is not null
             ? MaskEmail(pending.Email)
             : "your email address";
+        AvaloniaButton? confirm = null;
         var actions = new WrapPanel { Orientation = Orientation.Horizontal };
-        actions.Children.Add(MakeButton("Confirm", () =>
+        confirm = MakeButton("Confirm", () =>
         {
             string code = confirmation.Text?.Trim() ?? "";
+            if (String.IsNullOrWhiteSpace(code))
+            {
+                ShowFieldError(confirmation, confirmationError,
+                    "Enter the confirmation code.");
+                return;
+            }
+            ClearFieldError(confirmation, confirmationError);
+            confirmation.IsEnabled = false;
+            confirm!.IsEnabled = false;
+            actions.IsEnabled = false;
+            SetInlineStatus(validation, "Confirming your email…", PrimeStatusKind.Info);
             RunCommand("Confirm email", async () =>
             {
-                if (await _gateway.ConfirmPendingAsync(code, _lifetime.Token)
-                    .ConfigureAwait(false))
-                    PostUi(() => ShowGatewayForm(GatewayForm.SignIn));
+                try
+                {
+                    if (await _gateway.ConfirmPendingAsync(code, _lifetime.Token)
+                        .ConfigureAwait(false))
+                        PostUi(() => ShowGatewayForm(GatewayForm.SignIn));
+                }
+                finally
+                {
+                    PostUi(() =>
+                    {
+                        confirmation.IsEnabled = true;
+                        confirm!.IsEnabled = true;
+                        actions.IsEnabled = true;
+                        if (validation.Text == "Confirming your email…")
+                            validation.IsVisible = false;
+                    });
+                }
             });
-        }, primary: true));
+        }, primary: true);
+        actions.Children.Add(confirm);
         actions.Children.Add(MakeButton("Resend Code", () =>
             RunCommand("Resend confirmation", () =>
                 _gateway.ResendPendingAsync(_lifetime.Token))));
         return Stack(Text("CHECK YOUR EMAIL", "prime-heading"),
             Text("We sent a confirmation code to:", "prime-muted"),
             Text(maskedEmail, "prime-body"),
-            Text("Confirmation Code", "prime-label"), confirmation, actions);
+            FormField("Confirmation code", confirmation, confirmationError),
+            validation, actions);
     }
 
     private void ShowGatewayForm(GatewayForm form)
@@ -1856,7 +1983,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     private Control BuildPlayPresentation(PlayState state)
     {
-        return PlayPresentation.Build(new PlayPresentationContext(
+        return PlayPresentation.Build(CreatePlayPresentationContext(state));
+    }
+
+    private PlayPresentationContext CreatePlayPresentationContext(PlayState state)
+        => new(
             _shell,
             _play,
             state,
@@ -1876,7 +2007,21 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             ExpandAdvancedNetwork: _captureExpandAdvancedNetwork,
             OpenNetworkSettings: OpenNetworkSettings,
             SeatOffersHandledExternally: true,
-            TrackChatPanel: panel => _activeLobbyChatPanel = panel));
+            TrackChatPanel: panel => _activeLobbyChatPanel = panel);
+
+    private bool TryUpdatePlayHomePresence()
+        => PageHost.Content is Control content
+            && PlayPresentation.TryUpdateHomePresence(content,
+                CreatePlayPresentationContext(_capturePlayState ?? _play.State));
+
+    internal bool RefreshPlayHomePresenceForTest(
+        PresencePresentationState? presence = null)
+    {
+        if (!_captureMode)
+            throw new InvalidOperationException(
+                "The presence refresh test seam is available only in capture mode.");
+        if (presence != null) _play.SetPresenceForCapture(presence);
+        return TryUpdatePlayHomePresence();
     }
 
     private void TrackHunterSelection(ComboBox combo,
@@ -2065,13 +2210,18 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             }, quiet: true);
             button.Content = row;
             button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            roster.Children.Add(PrimeControlFactory.SelectedRow(button,
-                dossier.Hunter == selected.Hunter));
+            PrimeAccessibility.SetName(button, $"Select Hunter {dossier.Name}");
+            PrimeSelectedRow selectedRow = PrimeControlFactory.SelectedRow(button,
+                dossier.Hunter == selected.Hunter);
+            selectedRow.Classes.Add("prime-hunter-row");
+            if (dossier.Hunter == selected.Hunter)
+                selectedRow.Classes.Add("prime-hunter-selected");
+            roster.Children.Add(selectedRow);
         }
 
         var preview = Stack(Text("Preview", "prime-heading"),
             BuildHunterPreviewStage(selected.Hunter));
-        var detail = Stack(Text(selected.Name, "prime-title"),
+        var detail = Stack(HunterOverviewPresentation.BuildIdentityHeader(selected),
             Text($"Affinity weapon · {selected.AffinityWeapon}", "prime-body"));
         AddHunterBadges(detail, selected);
         detail.Children.Add(PrimeControlFactory.Divider());
@@ -2127,9 +2277,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             text.VerticalAlignment = VerticalAlignment.Center;
         }
         var stage = PrimeControlFactory.PreviewStage(content);
+        stage.Classes.Add("prime-hunter-preview");
         stage.Height = HunterPreviewHeight(compactFailure);
-        if (compactFailure)
-            stage.MinHeight = 260;
         return stage;
     }
 
@@ -2189,33 +2338,60 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             }, quiet: true);
             button.Content = row;
             button.HorizontalContentAlignment = HorizontalAlignment.Stretch;
-            roster.Children.Add(PrimeControlFactory.SelectedRow(button,
-                weapon.Beam == selected.Beam));
+            PrimeAccessibility.SetName(button, $"Select weapon {weapon.Name}");
+            PrimeSelectedRow selectedRow = PrimeControlFactory.SelectedRow(button,
+                weapon.Beam == selected.Beam);
+            selectedRow.Classes.Add("prime-weapon-row");
+            if (weapon.Beam == selected.Beam)
+                selectedRow.Classes.Add("prime-weapon-selected");
+            roster.Children.Add(selectedRow);
         }
 
         var preview = Stack(Text("Preview", "prime-heading"), BuildWeaponPreviewStage(selected.Beam));
-        var detail = Stack(Text(selected.Name, "prime-title"),
+        var detail = Stack(Text(selected.Name, "prime-hero"),
             Text(selected.Description, "prime-body"),
             Text($"Affinity hunters · {selected.AffinityHunters}", "prime-muted"));
         detail.Children.Add(PrimeControlFactory.Divider());
-        var statTiles = new WrapPanel { Orientation = Orientation.Horizontal };
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Uncharged",
-            selected.UnchargedDamage.ToString(CultureInfo.InvariantCulture), "damage"));
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Charged",
-            selected.ChargedDamage.ToString(CultureInfo.InvariantCulture), "damage"));
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Ammo cost",
-            selected.AmmoCost.ToString(CultureInfo.InvariantCulture), "per shot"));
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Projectiles",
-            selected.ChargedProjectiles.ToString(CultureInfo.InvariantCulture),
-            $"charged speed {selected.ChargedSpeed}"));
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Projectile speed",
-            selected.ChargedSpeed.ToString(CultureInfo.InvariantCulture), "charged"));
-        statTiles.Children.Add(PrimeControlFactory.StatTile("Affinity",
-            selected.AffinityHunters, "compatible Hunters"));
-        detail.Children.Add(statTiles);
+        detail.Children.Add(BuildWeaponStatGrid(selected));
         root.Children.Add(ResponsiveThreeColumn(PrimeControlFactory.SectionPanel(roster),
             PrimeControlFactory.SectionPanel(preview), PrimeControlFactory.SectionPanel(detail)));
         return root;
+    }
+
+    private static Control BuildWeaponStatGrid(PrimeWeaponDetails weapon)
+    {
+        var stats = new StackPanel { Spacing = 0 };
+        stats.Classes.Add("prime-weapon-stat-grid");
+        AddWeaponStat(stats, "Uncharged damage",
+            $"{weapon.UnchargedDamage.ToString(CultureInfo.InvariantCulture)} damage");
+        AddWeaponStat(stats, "Charged damage",
+            $"{weapon.ChargedDamage.ToString(CultureInfo.InvariantCulture)} damage");
+        AddWeaponStat(stats, "Ammo cost",
+            $"{weapon.AmmoCost.ToString(CultureInfo.InvariantCulture)} per shot");
+        AddWeaponStat(stats, "Projectiles",
+            weapon.ChargedProjectiles.ToString(CultureInfo.InvariantCulture));
+        AddWeaponStat(stats, "Projectile speed",
+            weapon.ChargedSpeed.ToString(CultureInfo.InvariantCulture));
+        AddWeaponStat(stats, "Affinity", weapon.AffinityHunters);
+        return stats;
+    }
+
+    private static void AddWeaponStat(StackPanel stats, string label, string value)
+    {
+        if (stats.Children.Count > 0)
+            stats.Children.Add(PrimeControlFactory.Divider());
+        var row = new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("*,Auto"),
+            MinHeight = 34,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        row.Children.Add(Text(label, "prime-label"));
+        TextBlock valueText = Text(value, "prime-body");
+        valueText.HorizontalAlignment = HorizontalAlignment.Right;
+        row.Children.Add(valueText);
+        Grid.SetColumn(valueText, 1);
+        stats.Children.Add(row);
     }
 
     private Control BuildWeaponPreviewStage(BeamType beam)
@@ -2597,6 +2773,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             }), primary: true));
         existing.AddNetworkAdvanced(backendCard);
         existing.ShowSection(_settingsFocusCategory);
+        existing.SaveSucceeded += (_, _) =>
+        {
+            _shell.NotifyGlobal("settings-saved", PrimeNotificationKind.Success,
+                "Settings saved to this device.");
+            RefreshChrome();
+        };
         bool openingGameFiles = false;
         existing.Closed += (_, _) =>
         {
@@ -2897,6 +3079,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private void PlayChanged(object? sender, EventArgs args)
         => PostUi(() =>
         {
+            if (_captureMode) return;
             if (_shell.CurrentRoute == PrimeRoute.Play && IsPlayEditorFocused())
             {
                 _playRefreshPending = true;
@@ -2913,12 +3096,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private void PlayPresenceChanged(object? sender, EventArgs args)
         => PostUi(() =>
         {
+            if (_captureMode) return;
             if (_shell.CurrentRoute != PrimeRoute.Play
                 || _playPresentation.Subsection != PlaySubsection.Home)
                 return;
             if (IsPlayEditorFocused())
                 _playRefreshPending = true;
-            else
+            else if (!TryUpdatePlayHomePresence())
                 RenderRoute(PrimeRoute.Play);
         });
 
@@ -2991,6 +3175,13 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             NotificationBar.IsVisible = true;
             NotificationText.Text = notificationMessage;
+            PrimeStatusKind statusKind = notification.Kind switch
+            {
+                PrimeNotificationKind.Success => PrimeStatusKind.Success,
+                PrimeNotificationKind.Warning => PrimeStatusKind.Warning,
+                PrimeNotificationKind.Error => PrimeStatusKind.Error,
+                _ => PrimeStatusKind.Info
+            };
             NotificationText.Foreground = notification.Kind switch
             {
                 PrimeNotificationKind.Success => GuiTheme.SuccessBrush,
@@ -2998,6 +3189,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 PrimeNotificationKind.Error => GuiTheme.ErrorBrush,
                 _ => GuiTheme.TextBrush
             };
+            PrimeAccessibility.SetStatus(NotificationBar, notificationMessage!,
+                statusKind);
             if (!StringComparer.Ordinal.Equals(_renderedNotificationKey,
                     notification.Key))
             {
@@ -3202,7 +3395,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         FooterBorder.IsVisible = !narrow;
         MobileNavigationBorder.IsVisible = narrow;
         MobileNavigationBorder.Height = PrimeLayoutMetrics.MobileNavigationHeightDip;
-        ShellGrid.RowDefinitions = new RowDefinitions(narrow ? "64,*,72" : "64,*,48");
+        HeaderBorder.Height = narrow ? 64 : 58;
+        FooterBorder.Height = 34;
+        ShellGrid.RowDefinitions = new RowDefinitions(narrow ? "64,*,72" : "58,*,34");
         PageGrid.Margin = narrow
             ? PrimeLayoutMetrics.ResolveMobileContentMargin(default)
             : new Thickness(24, 20);
@@ -3651,16 +3846,38 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             IsVisible = false,
             TextWrapping = TextWrapping.Wrap,
-            Classes = { "prime-status-text", "prime-status-error" }
+            Classes = { "prime-status-text" }
         };
 
-    private static bool ValidateCredentials(string address, string secret,
-        TextBlock validation)
+    private static TextBlock FieldError()
+        => new()
+        {
+            Text = "",
+            IsVisible = false,
+            TextWrapping = TextWrapping.Wrap,
+            Classes = { "prime-field-error-text", "prime-status-error" }
+        };
+
+    private static Control FormField(string label, Control input,
+        TextBlock error)
     {
-        if (!ValidateEmail(address, validation)) return false;
+        var field = new StackPanel { Spacing = 4 };
+        field.Children.Add(Text(label, "prime-label"));
+        field.Children.Add(input);
+        field.Children.Add(error);
+        return field;
+    }
+
+    private static bool ValidateCredentials(string address, string secret,
+        TextBox email, TextBlock emailError, TextBox password,
+        TextBlock passwordError, TextBlock validation)
+    {
+        ClearFieldError(email, emailError);
+        ClearFieldError(password, passwordError);
+        if (!ValidateEmail(address, email, emailError, validation)) return false;
         if (String.IsNullOrWhiteSpace(secret))
         {
-            ShowInlineValidation(validation, "Enter your password.");
+            ShowFieldError(password, passwordError, "Enter your password.");
             return false;
         }
         validation.IsVisible = false;
@@ -3668,17 +3885,22 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     }
 
     private static bool ValidateRegistration(string address, string secret,
-        string displayName, TextBlock validation)
+        string displayName, TextBox email, TextBlock emailError,
+        TextBox password, TextBlock passwordError, TextBox displayNameInput,
+        TextBlock displayNameError, TextBlock validation)
     {
-        if (!ValidateCredentials(address, secret, validation)) return false;
+        ClearFieldError(displayNameInput, displayNameError);
+        if (!ValidateCredentials(address, secret, email, emailError,
+            password, passwordError, validation)) return false;
         if (String.IsNullOrWhiteSpace(displayName))
         {
-            ShowInlineValidation(validation, "Choose a display name.");
+            ShowFieldError(displayNameInput, displayNameError,
+                "Choose a display name.");
             return false;
         }
         if (displayName.Length is < 1 or > 16)
         {
-            ShowInlineValidation(validation,
+            ShowFieldError(displayNameInput, displayNameError,
                 "Use 1–16 characters for your display name.");
             return false;
         }
@@ -3686,23 +3908,44 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         return true;
     }
 
-    private static bool ValidateEmail(string address, TextBlock validation)
+    private static bool ValidateEmail(string address, TextBox email,
+        TextBlock emailError, TextBlock validation)
     {
         int separator = address.IndexOf('@');
         if (separator <= 0 || separator == address.Length - 1)
         {
-            ShowInlineValidation(validation, "Enter a valid email address.");
+            ShowFieldError(email, emailError, "Enter a valid email address.");
             return false;
         }
+        ClearFieldError(email, emailError);
         validation.IsVisible = false;
         return true;
     }
 
-    private static void ShowInlineValidation(TextBlock validation, string message)
+    private static void ClearFieldError(TextBox field, TextBlock error)
     {
-        validation.Text = message;
-        validation.IsVisible = true;
-        PrimeAccessibility.SetStatus(validation, message, PrimeStatusKind.Error);
+        error.Text = "";
+        error.IsVisible = false;
+        field.Classes.Remove("prime-field-error");
+        field.ClearValue(TemplatedControl.BorderBrushProperty);
+    }
+
+    private static void ShowFieldError(TextBox field, TextBlock error,
+        string message)
+    {
+        error.Text = message;
+        error.IsVisible = true;
+        field.Classes.Add("prime-field-error");
+        field.BorderBrush = GuiTheme.ErrorBrush;
+        PrimeAccessibility.SetStatus(error, message, PrimeStatusKind.Error);
+    }
+
+    private static void SetInlineStatus(TextBlock status, string message,
+        PrimeStatusKind kind)
+    {
+        status.Text = message;
+        status.IsVisible = true;
+        PrimeAccessibility.SetStatus(status, message, kind);
     }
 
     private static AvaloniaButton MakeButton(string label, Action action,
