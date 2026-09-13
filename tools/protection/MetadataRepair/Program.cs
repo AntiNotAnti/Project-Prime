@@ -3,6 +3,7 @@ using Mono.Cecil.Cil;
 
 const string InputOption = "--input-dir";
 const string OutputOption = "--output-dir";
+const string SearchPathOption = "--search-path";
 string[] expectedModules =
 [
     "ProjectPrime.dll",
@@ -16,7 +17,8 @@ string[] expectedModules =
 
 try
 {
-    Dictionary<string, string> options = ParseOptions(args);
+    (Dictionary<string, string> options, IReadOnlyList<string> searchDirectories) =
+        ParseOptions(args);
     string inputDirectory = AbsoluteDirectory(options, InputOption);
     string outputDirectory = AbsoluteDirectory(options, OutputOption);
 
@@ -27,7 +29,7 @@ try
         RequireFile(inputPath, "protection input");
         RequireFile(outputPath, "Obfuscar output");
         (int marshalDescriptors, int genericConstraints, int interfaceBodies) =
-            RepairMetadata(inputPath, outputPath);
+            RepairMetadata(inputPath, outputPath, searchDirectories);
         Console.WriteLine($"{moduleName}: preserved {marshalDescriptors} marshal descriptor(s), "
             + $"repaired {genericConstraints} generic constraint(s), "
             + $"restored {interfaceBodies} default interface body/bodies");
@@ -43,14 +45,29 @@ catch (Exception exception) when (exception is ArgumentException
     return 1;
 }
 
-static Dictionary<string, string> ParseOptions(string[] arguments)
+static (Dictionary<string, string> Options, IReadOnlyList<string> SearchDirectories)
+    ParseOptions(string[] arguments)
 {
     var result = new Dictionary<string, string>(StringComparer.Ordinal);
+    var searchDirectories = new List<string>();
     for (int index = 0; index < arguments.Length; index += 2)
     {
-        if (index + 1 >= arguments.Length || arguments[index] is not (InputOption or OutputOption))
+        if (index + 1 >= arguments.Length
+            || arguments[index] is not (InputOption or OutputOption or SearchPathOption))
         {
-            throw new ArgumentException($"usage: {InputOption} ABSOLUTE_PATH {OutputOption} ABSOLUTE_PATH");
+            throw new ArgumentException(Usage());
+        }
+        if (arguments[index] == SearchPathOption)
+        {
+            string path = arguments[index + 1];
+            if (!Path.IsPathFullyQualified(path))
+                throw new ArgumentException($"{SearchPathOption} must be an absolute path: {path}");
+            path = Path.GetFullPath(path);
+            if (!Directory.Exists(path))
+                throw new ArgumentException($"{SearchPathOption} does not exist: {path}");
+            if (!searchDirectories.Contains(path, StringComparer.Ordinal))
+                searchDirectories.Add(path);
+            continue;
         }
         if (!result.TryAdd(arguments[index], arguments[index + 1]))
         {
@@ -59,10 +76,13 @@ static Dictionary<string, string> ParseOptions(string[] arguments)
     }
     if (result.Count != 2 || !result.ContainsKey(InputOption) || !result.ContainsKey(OutputOption))
     {
-        throw new ArgumentException($"usage: {InputOption} ABSOLUTE_PATH {OutputOption} ABSOLUTE_PATH");
+        throw new ArgumentException(Usage());
     }
-    return result;
+    return (result, searchDirectories);
 }
+
+static string Usage() => $"usage: {InputOption} ABSOLUTE_PATH {OutputOption} ABSOLUTE_PATH "
+    + $"[{SearchPathOption} ABSOLUTE_PATH ...]";
 
 static string AbsoluteDirectory(IReadOnlyDictionary<string, string> options, string name)
 {
@@ -88,12 +108,14 @@ static void RequireFile(string path, string label)
 }
 
 static (int MarshalDescriptors, int GenericConstraints, int InterfaceBodies) RepairMetadata(
-    string inputPath, string outputPath)
+    string inputPath, string outputPath, IReadOnlyList<string> searchDirectories)
 {
     var resolver = new DefaultAssemblyResolver();
     // Resolve renamed first-party references from the Obfuscar output graph.
     resolver.AddSearchDirectory(Path.GetDirectoryName(outputPath)!);
     resolver.AddSearchDirectory(Path.GetDirectoryName(inputPath)!);
+    foreach (string directory in searchDirectories)
+        resolver.AddSearchDirectory(directory);
     var reader = new ReaderParameters
     {
         AssemblyResolver = resolver,

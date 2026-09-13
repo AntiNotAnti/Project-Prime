@@ -235,12 +235,15 @@ class ClientProtectionTests(unittest.TestCase):
             checker = target.index("check-obfuscation.py&quot; protected")
             self.assertLess(obfuscar, repair, path)
             self.assertLess(repair, checker, path)
+            self.assertIn("--search-path", target[repair:checker], path)
 
         source = (ROOT / "tools/protection/MetadataRepair/Program.cs").read_text(
             encoding="utf-8")
         self.assertIn("field.HasMarshalInfo", source)
         self.assertIn("parameter.HasMarshalInfo", source)
         self.assertIn("method.MethodReturnType.HasMarshalInfo", source)
+        self.assertIn("SearchPathOption", source)
+        self.assertIn("resolver.AddSearchDirectory(directory)", source)
         self.assertIn(
             "ValidateMetadata(verified.MainModule, expectedMarshalDescriptors,",
             source)

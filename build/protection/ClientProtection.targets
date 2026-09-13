@@ -66,7 +66,7 @@
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="dotnet tool run obfuscar.console &quot;$(_PrimeProtectionConfig)&quot;" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
-          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot;" />
+          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot; @(_PrimeSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)&quot; --output-dir &quot;$(_PrimeProtectionOutput)&quot; --mapping &quot;$(_PrimeProtectionMap)&quot; --config &quot;$(_PrimeProtectionConfig)&quot;" />
 

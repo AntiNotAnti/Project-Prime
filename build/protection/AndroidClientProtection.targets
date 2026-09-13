@@ -85,7 +85,7 @@
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="dotnet tool run obfuscar.console &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot;" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
-          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot;" />
+          Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; @(_PrimeAndroidSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot; --allow-zero-module &quot;ProjectPrime.dll&quot;" />
 
