@@ -10,6 +10,7 @@ using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
+using MphRead.Mods.Launcher.Settings;
 using Keys = MphRead.Mods.Input.PrimeKey;
 using MouseButton = MphRead.Mods.Input.PrimeMouseButton;
 using Xunit;
