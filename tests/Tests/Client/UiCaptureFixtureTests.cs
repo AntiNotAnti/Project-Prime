@@ -87,6 +87,26 @@ public sealed class UiCaptureFixtureTests
         "hunter-empty-history", "hunter-preview-failure", "rankings-mobile"
     };
 
+    [AvaloniaFact]
+    public async Task GameFilesSetupPageIncludesProgressFeedback()
+    {
+        PrimeShellView view = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Gateway);
+        try
+        {
+            MethodInfo build = typeof(PrimeShellView).GetMethod("BuildGameFilesPage",
+                BindingFlags.Instance | BindingFlags.NonPublic)!;
+            Control page = Assert.IsAssignableFrom<Control>(build.Invoke(view, null));
+
+            ProgressRow progress = Assert.Single(Walk(page).OfType<ProgressRow>());
+            Assert.False(progress.IsVisible);
+        }
+        finally
+        {
+            await view.DisposeAsync();
+        }
+    }
+
     private static readonly string[] UnavailableFixtureNames = Array.Empty<string>();
 
     private static readonly string[] SettingsFixtureNames =

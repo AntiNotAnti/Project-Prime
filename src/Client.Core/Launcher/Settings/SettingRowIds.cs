@@ -22,7 +22,8 @@ public static class SettingRowIds
     public const string Lighting = "graphics.lighting";
     public const string Fog = "graphics.fog";
     public const string FpsCounter = "graphics.fps-counter";
-    public const string CelShading = "graphics.cel-shading";
+    public const string TexturePack = "graphics.texture-pack";
+    public const string VisualStyle = "graphics.visual-style";
 
     public const string ProHud = "hud.pro";
     public const string ProHudWeapon = "hud.pro-weapon";
@@ -44,6 +45,40 @@ public static class SettingRowIds
     public const string RadarRange = "hud.radar.range";
     public const string RadarOpacity = "hud.radar.opacity";
     public const string RadarElevation = "hud.radar.elevation";
+    public const string RadarPreset = "hud.radar.preset";
+    public const string RadarColors = "hud.radar.colors";
+    public const string RadarMarkerScale = "hud.radar.marker-scale";
+    public const string RadarMarkerOpacity = "hud.radar.marker-opacity";
+    public const string RadarMarkerOutline = "hud.radar.marker-outline";
+    public const string RadarEdgeArrows = "hud.radar.edge-arrows";
+    public const string RadarLabels = "hud.radar.labels";
+    public const string RadarObjectiveEmphasis = "hud.radar.objective-emphasis";
+    public const string RadarEnemies = "hud.radar.enemies";
+    public const string RadarTeammates = "hud.radar.teammates";
+    public const string RadarObjectives = "hud.radar.objectives";
+    public const string RadarFlags = "hud.radar.flags";
+    public const string RadarBases = "hud.radar.bases";
+    public const string RadarNodes = "hud.radar.nodes";
+    public const string RadarDefenders = "hud.radar.defenders";
+    public const string RadarFloors = "hud.radar.floors";
+    public const string RadarElevationThreshold = "hud.radar.elevation-threshold";
+    public const string RadarZoom = "hud.radar.zoom";
+    public const string RadarAutoMinimum = "hud.radar.auto-minimum";
+    public const string RadarAutoMaximum = "hud.radar.auto-maximum";
+    public const string RadarZoomSmoothing = "hud.radar.zoom-smoothing";
+    public const string RadarMapFill = "hud.radar.map-fill";
+    public const string RadarMapOutlines = "hud.radar.map-outlines";
+    public const string RadarFloorBrightness = "hud.radar.floor-brightness";
+    public const string RadarAdjacentOpacity = "hud.radar.adjacent-opacity";
+    public const string RadarBackgroundDim = "hud.radar.background-dim";
+    public const string RadarBackgroundBlur = "hud.radar.background-blur";
+    public const string RadarGrid = "hud.radar.grid";
+    public const string RadarRings = "hud.radar.rings";
+    public const string RadarCompass = "hud.radar.compass";
+    public const string RadarPersistence = "hud.radar.persistence";
+    public const string RadarPulse = "hud.radar.pulse";
+    public const string RadarEdgeScale = "hud.radar.edge-scale";
+    public const string RadarPriority = "hud.radar.priority";
 
     public const string FeedbackVolume = "audio.feedback-volume";
     public const string SfxVolume = "audio.sfx-volume";
@@ -103,6 +138,13 @@ public static class SettingRowIds
     public const string StylusPressureToFire = "controls.stylus.pressure-to-fire";
     public const string StylusPressureThreshold = "controls.stylus.pressure-threshold";
     public const string BottomScreenMode = "controls.stylus.bottom-screen-mode";
+    public const string BottomScreenActivation = "controls.stylus.bottom-screen-activation";
+    public const string BottomScreenStyle = "controls.stylus.bottom-screen-style";
+    public const string BottomScreenScale = "controls.stylus.bottom-screen-scale";
+    public const string BottomScreenCenterX = "controls.stylus.bottom-screen-center-x";
+    public const string BottomScreenCenterY = "controls.stylus.bottom-screen-center-y";
+    public const string BottomScreenOpacity = "controls.stylus.bottom-screen-opacity";
+    public const string BottomScreenLabels = "controls.stylus.bottom-screen-labels";
 
     public const string PlayerName = "gameplay.player-name";
     public const string Hunter = "gameplay.hunter";
@@ -125,10 +167,17 @@ public static class SettingRowIds
     [
         WindowMode, RenderScale, FieldOfView, FpsLimit, GraphicsPreset, TextureFiltering,
         Anisotropy, Msaa, Bloom, DynamicLighting, Lighting, Fog, FpsCounter,
-        CelShading, ProHud, ProHudWeapon, ReticleOpacity, ReticleScale, CrosshairSize,
+        TexturePack, VisualStyle, ProHud, ProHudWeapon, ReticleOpacity, ReticleScale, CrosshairSize,
         CrosshairStyle, HitMarkers, HitMarkerTiming, HeadshotCue,
         KillConfirmation, Killcam, RadarStyle, RadarOrientation, RadarAnchor, RadarScale,
         RadarOffsetX, RadarOffsetY, RadarRange, RadarOpacity, RadarElevation,
+        RadarPreset, RadarColors, RadarMarkerScale, RadarMarkerOpacity, RadarMarkerOutline, RadarEdgeArrows,
+        RadarLabels, RadarObjectiveEmphasis, RadarEnemies, RadarTeammates, RadarObjectives,
+        RadarFlags, RadarBases, RadarNodes, RadarDefenders, RadarFloors, RadarElevationThreshold,
+        RadarZoom, RadarAutoMinimum, RadarAutoMaximum, RadarZoomSmoothing, RadarMapFill,
+        RadarMapOutlines, RadarFloorBrightness, RadarAdjacentOpacity, RadarBackgroundDim,
+        RadarBackgroundBlur, RadarGrid, RadarRings, RadarCompass, RadarPersistence,
+        RadarPulse, RadarEdgeScale, RadarPriority,
         FeedbackVolume, SfxVolume, MusicVolume,
         AnnouncerPack, MusicPack, Language, MouseSensitivity, MouseInvertY,
         MouseInvertX, ScrollAllWeapons, MorphBallMouseFlickBoost,
@@ -146,7 +195,9 @@ public static class SettingRowIds
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,
         StylusDoubleTapJump, StylusFlickBoost, StylusPressureToFire,
-        StylusPressureThreshold, BottomScreenMode,
+        StylusPressureThreshold, BottomScreenMode, BottomScreenActivation, BottomScreenStyle,
+        BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
+        BottomScreenOpacity, BottomScreenLabels,
         PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, DebugLogging, ShareLogs,
         PreferredRegion, NetworkDiagnostics, ReducedMotion
     ];

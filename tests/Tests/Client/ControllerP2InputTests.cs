@@ -62,6 +62,13 @@ public sealed class ControllerP2InputTests
     }
 
     [Fact]
+    public void ActiveStylusStrokeCannotChangeOwnershipToBottomScreen()
+    {
+        Assert.True(SdlGameHost.ShouldOfferPenToBottomScreen(stylusActive: false));
+        Assert.False(SdlGameHost.ShouldOfferPenToBottomScreen(stylusActive: true));
+    }
+
+    [Fact]
     public void OnFootFastStylusMotionRemainsLookInputWithoutFlickBoost()
     {
         var coordinator = new LookInputCoordinator(() => 1);

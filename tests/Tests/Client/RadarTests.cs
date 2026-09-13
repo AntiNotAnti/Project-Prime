@@ -392,6 +392,186 @@ public sealed class RadarTests
         Assert.Equal(new Vector2(3, 1), geometry.Max);
     }
 
+    [Fact]
+    public void BuiltInProfilesCoverClassicCompetitiveMinimalAccessibilityObjectiveAndBroadcast()
+    {
+        Assert.Equal(RadarStyle.Classic, RadarProfile.Create(RadarPreset.ClassicMph).Style);
+        Assert.Equal(RadarStyle.Enhanced, RadarProfile.Create(RadarPreset.Competitive).Style);
+        Assert.False(RadarProfile.Create(RadarPreset.Minimal).Labels);
+        Assert.Equal(RadarColorPreset.HighContrast,
+            RadarProfile.Create(RadarPreset.Accessibility).ColorPreset);
+        Assert.False(RadarProfile.Create(RadarPreset.ObjectiveFocus).ShowEnemies);
+        Assert.Equal(RadarFloorMode.All, RadarProfile.Create(RadarPreset.Broadcast).FloorMode);
+    }
+
+    [Fact]
+    public void ProfileNormalizationClampsImportedValuesAndResolvesPalette()
+    {
+        RadarProfile profile = (new RadarProfile
+        {
+            Name = new string('x', 100), Scale = float.NaN, Range = 999,
+            MarkerScale = -4, ElevationThreshold = float.PositiveInfinity,
+            AutomaticMinimumRange = -1, AutomaticMaximumRange = 900,
+            ColorPreset = RadarColorPreset.Deuteranopia
+        }).Normalize();
+
+        Assert.Equal(48, profile.Name.Length);
+        Assert.Equal(1, profile.Scale);
+        Assert.Equal(80, profile.Range);
+        Assert.Equal(.5f, profile.MarkerScale);
+        Assert.Equal(2, profile.ElevationThreshold);
+        Assert.Equal(20, profile.AutomaticMinimumRange);
+        Assert.Equal(80, profile.AutomaticMaximumRange);
+        Assert.Equal(RadarColors.For(RadarColorPreset.Deuteranopia).Enemy, profile.Colors.Enemy);
+    }
+
+    [Fact]
+    public void ProfileImportExportPreservesCustomColorsAndLayout()
+    {
+        RadarProfile source = new RadarProfile
+        {
+            Name = "My radar", Preset = RadarPreset.Custom, ColorPreset = RadarColorPreset.Custom,
+            Colors = new RadarColors { Enemy = new RadarColor(1, 2, 3, 4) },
+            Anchor = RadarAnchor.Custom, OffsetX = 17, OffsetY = -9, Scale = 1.2f,
+            ZoomMode = RadarZoomMode.CombatSensitive
+        };
+
+        RadarProfile restored = RadarProfileSerializer.Import(RadarProfileSerializer.Export(source));
+
+        Assert.Equal(source.Name, restored.Name);
+        Assert.Equal(new RadarColor(1, 2, 3, 4), restored.Colors.Enemy);
+        Assert.Equal(RadarAnchor.Custom, restored.Anchor);
+        Assert.Equal(17, restored.OffsetX);
+        Assert.Equal(RadarZoomMode.CombatSensitive, restored.ZoomMode);
+    }
+
+    [Fact]
+    public void PresentationFiltersOnlyRemoveAlreadyApprovedContacts()
+    {
+        RadarProfile profile = new RadarProfile
+        {
+            ShowEnemies = false, ShowTeammates = true, ShowObjectives = true,
+            ShowFlags = false, ShowBases = true
+        };
+
+        Assert.False(RadarPresentationPolicy.IsVisible(profile, Contact(Vector3.Zero)));
+        Assert.True(RadarPresentationPolicy.IsVisible(profile,
+            new RadarContact(RadarContactType.Teammate, Vector3.Zero, 0, RadarObjective.None, 1)));
+        Assert.False(RadarPresentationPolicy.IsVisible(profile, Objective(RadarObjective.Flag)));
+        Assert.True(RadarPresentationPolicy.IsVisible(profile, Objective(RadarObjective.Base)));
+    }
+
+    [Fact]
+    public void ApprovedObjectiveReplacesLowerPriorityContactAtCapacity()
+    {
+        var frame = NewFrame();
+        for (int i = 0; i < RadarFrame.Capacity; i++)
+            Assert.True(frame.AddApproved(Contact(new Vector3(i, 0, 0))));
+
+        Assert.True(frame.AddApproved(Objective(RadarObjective.Flag)));
+
+        Assert.Equal(RadarFrame.Capacity, frame.Contacts.Length);
+        Assert.Equal(1, frame.Dropped);
+        Assert.Contains(frame.Contacts.ToArray(), contact => contact.Objective == RadarObjective.Flag);
+    }
+
+    [Fact]
+    public void ContactAgeFadesWithinApprovedPersistenceWindow()
+    {
+        var profile = new RadarProfile { ContactPersistenceSeconds = 1, ContactPulse = false };
+        RadarContact fresh = Contact(Vector3.Zero) with { AgeTicks = 0 };
+        RadarContact half = fresh with { AgeTicks = 30 };
+        RadarContact expired = fresh with { AgeTicks = 60 };
+
+        Assert.Equal(1, RadarPresentationPolicy.Alpha(profile, fresh), 3);
+        Assert.Equal(.5f, RadarPresentationPolicy.Alpha(profile, half), 3);
+        Assert.Equal(0, RadarPresentationPolicy.Alpha(profile, expired), 3);
+    }
+
+    [Fact]
+    public void AdaptiveZoomUsesPreparedContactsAndCombatSensitiveMinimum()
+    {
+        var frame = NewFrame();
+        frame.AddApproved(Contact(new Vector3(0, 0, 50)));
+        var automatic = new RadarProfile
+        {
+            ZoomMode = RadarZoomMode.Automatic, AutomaticMinimumRange = 20,
+            AutomaticMaximumRange = 80
+        };
+        var combat = automatic with { ZoomMode = RadarZoomMode.CombatSensitive };
+
+        Assert.InRange(RadarZoomController.Target(automatic, Vector3.Zero, frame.Contacts), 57.4f, 57.6f);
+        Assert.Equal(20, RadarZoomController.Target(combat, Vector3.Zero, frame.Contacts));
+    }
+
+    [Fact]
+    public void FloorModesReturnDeterministicCurrentAdjacentAndAllOrdering()
+    {
+        Assert.Equal(new[] { 2 }, RadarPresentationPolicy.VisibleFloors(RadarFloorMode.Current, 2, 5));
+        Assert.Equal(new[] { 1, 3, 2 }, RadarPresentationPolicy.VisibleFloors(RadarFloorMode.Adjacent, 2, 5));
+        Assert.Equal(new[] { 0, 1, 3, 4, 2 }, RadarPresentationPolicy.VisibleFloors(RadarFloorMode.All, 2, 5));
+    }
+
+    [Fact]
+    public void LayoutEditorSnapsDragsResizesAndResets()
+    {
+        RadarProfile moved = RadarLayoutEditor.Drag(
+            new RadarProfile { Anchor = RadarAnchor.Custom }, new Vector2(5.9f, -6.1f));
+        Assert.Equal(RadarAnchor.Custom, moved.Anchor);
+        Assert.Equal(4, moved.OffsetX);
+        Assert.Equal(-8, moved.OffsetY);
+        Assert.Equal(1.1f, RadarLayoutEditor.Resize(moved, .08f).Scale, 3);
+
+        RadarProfile reset = RadarLayoutEditor.Reset(moved);
+        Assert.Equal(RadarAnchor.TopRight, reset.Anchor);
+        Assert.Equal(0, reset.OffsetX);
+        Assert.Equal(1, reset.Scale);
+    }
+
+    [Fact]
+    public void ModeProfileOverridesDeviceProfileThenFallsBackToDefault()
+    {
+        RadarProfile previous = RadarSettings.DefaultProfile;
+        try
+        {
+            RadarSettings.Apply(new RadarProfile { Name = "Default", Range = 40 });
+            RadarSettings.SetDeviceProfile(RadarDeviceClass.Handheld,
+                new RadarProfile { Name = "Handheld", Range = 30 });
+            RadarSettings.SetModeProfile("Capture", new RadarProfile { Name = "Capture", Range = 60 });
+
+            Assert.Equal(60, RadarSettings.ForContext("Capture", RadarDeviceClass.Handheld).Range);
+            Assert.Equal(30, RadarSettings.ForContext("Battle", RadarDeviceClass.Handheld).Range);
+            Assert.Equal(40, RadarSettings.ForContext("Battle", RadarDeviceClass.Desktop).Range);
+        }
+        finally
+        {
+            RadarSettings.ClearModeProfiles();
+            RadarSettings.ClearDeviceProfiles();
+            RadarSettings.Apply(previous);
+        }
+    }
+
+    [Fact]
+    public void RasterizerCanProduceIndependentFillAndOutlineLayers()
+    {
+        var polygon = new RadarPolygon(new[]
+        {
+            new Vector2(-2, -2), new Vector2(2, -2), new Vector2(2, 2), new Vector2(-2, 2)
+        }, 0, RadarSurfaceKind.Floor);
+        var bounds = new RadarPolygon(new[]
+        {
+            new Vector2(-4, -4), new Vector2(4, -4), new Vector2(4, 4), new Vector2(-4, 4)
+        }, 0, RadarSurfaceKind.Floor);
+        RadarMapGeometry geometry = RadarMapBuilder.BuildGeometry(new[] { bounds, polygon });
+        RadarMap fill = RadarMapRasterizer.Rasterize(geometry, 32, RadarMapRasterLayers.Fill);
+        RadarMap outline = RadarMapRasterizer.Rasterize(geometry, 32, RadarMapRasterLayers.Outline);
+
+        int center = 16 * 32 + 16;
+        Assert.True(fill.Floors[0].Pixels[center].Alpha > 0);
+        Assert.Equal(0, outline.Floors[0].Pixels[center].Alpha);
+        Assert.Contains(outline.Floors[0].Pixels, pixel => pixel.Alpha > 0);
+    }
+
     private static FhCollisionVector FhVector(ushort point)
         => Struct<FhCollisionVector>((nameof(FhCollisionVector.Point2Index), point));
 

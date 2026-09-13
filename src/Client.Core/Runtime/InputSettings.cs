@@ -429,6 +429,46 @@ namespace MphRead.Mods
         /// </summary>
         public static NativeBottomScreenMode BottomScreenMode { get; set; }
             = NativeBottomScreenMode.Off;
+        /// <summary>
+        /// Desktop HudOverlay activation semantics. Toggle closes after a
+        /// completed selection (or a second press); Hold remains focused until
+        /// the binding is released.
+        /// </summary>
+        public static NativeBottomScreenActivationMode BottomScreenActivation
+        {
+            get => _bottomScreenActivation;
+            set => _bottomScreenActivation = Enum.IsDefined(value)
+                ? value : NativeBottomScreenActivationMode.Toggle;
+        }
+        private static NativeBottomScreenActivationMode _bottomScreenActivation
+            = NativeBottomScreenActivationMode.Toggle;
+        public static NativeBottomScreenStyle BottomScreenStyle { get; set; }
+            = NativeBottomScreenStyle.ClassicDs;
+        public static float BottomScreenScale
+        {
+            get => _bottomScreenScale;
+            set => _bottomScreenScale = Clamp(value, 1, .4f, 1);
+        }
+        private static float _bottomScreenScale = 1;
+        public static float BottomScreenCenterX
+        {
+            get => _bottomScreenCenterX;
+            set => _bottomScreenCenterX = Clamp(value, .5f, 0, 1);
+        }
+        private static float _bottomScreenCenterX = .5f;
+        public static float BottomScreenCenterY
+        {
+            get => _bottomScreenCenterY;
+            set => _bottomScreenCenterY = Clamp(value, .685f, 0, 1);
+        }
+        private static float _bottomScreenCenterY = .685f;
+        public static float BottomScreenOpacity
+        {
+            get => _bottomScreenOpacity;
+            set => _bottomScreenOpacity = Clamp(value, .22f, .05f, 1);
+        }
+        private static float _bottomScreenOpacity = .22f;
+        public static bool BottomScreenLabels { get; set; } = true;
 
         public static Input.StylusBindings CurrentStylusBindings
             => new(StylusPrimaryAction, StylusSecondaryAction);
@@ -620,6 +660,8 @@ namespace MphRead.Mods
         {
             string name = property.Name == nameof(ClientPlayerBindings.Pause)
                 ? "Scoreboard"
+                : property.Name == nameof(ClientPlayerBindings.HudOverlay)
+                    ? "Touch screen"
                 : property.Name == nameof(ClientPlayerBindings.RolltLeft) ? "Roll left" : property.Name;
             var builder = new StringBuilder(name.Length + 4);
             for (int i = 0; i < name.Length; i++)
@@ -967,6 +1009,26 @@ namespace MphRead.Mods
                         BottomScreenMode = bottomScreenMode;
                     }
                     return true;
+                case "bottom_screen_activation":
+                    if (Enum.TryParse(value, true,
+                        out NativeBottomScreenActivationMode activationMode)
+                        && Enum.IsDefined(activationMode))
+                    {
+                        BottomScreenActivation = activationMode;
+                    }
+                    return true;
+                case "bottom_screen_style":
+                    if (Enum.TryParse(value, true, out NativeBottomScreenStyle bottomScreenStyle)
+                        && Enum.IsDefined(bottomScreenStyle))
+                    {
+                        BottomScreenStyle = bottomScreenStyle;
+                    }
+                    return true;
+                case "bottom_screen_scale": if (parsed) BottomScreenScale = number; return true;
+                case "bottom_screen_center_x": if (parsed) BottomScreenCenterX = number; return true;
+                case "bottom_screen_center_y": if (parsed) BottomScreenCenterY = number; return true;
+                case "bottom_screen_opacity": if (parsed) BottomScreenOpacity = number; return true;
+                case "bottom_screen_labels": if (boolean) BottomScreenLabels = flag; return true;
                 default: return false;
             }
         }
@@ -1130,6 +1192,13 @@ namespace MphRead.Mods
                     $"stylus_pressure_to_fire={StylusPressureToFire.ToString().ToLowerInvariant()}",
                     "stylus_pressure_threshold=" + Float(StylusPressureThreshold),
                     $"bottom_screen_mode={BottomScreenMode}",
+                    $"bottom_screen_activation={BottomScreenActivation}",
+                    $"bottom_screen_style={BottomScreenStyle}",
+                    "bottom_screen_scale=" + Float(BottomScreenScale),
+                    "bottom_screen_center_x=" + Float(BottomScreenCenterX),
+                    "bottom_screen_center_y=" + Float(BottomScreenCenterY),
+                    "bottom_screen_opacity=" + Float(BottomScreenOpacity),
+                    $"bottom_screen_labels={BottomScreenLabels.ToString().ToLowerInvariant()}",
                     "gamepad_deadzone=" + LegacyFloat(GamepadDeadZone),
                     "gamepad_look=" + LegacyFloat(GamepadLookSensitivity),
                     $"gamepad_invert_y={GamepadInvertY.ToString().ToLowerInvariant()}"
@@ -1190,6 +1259,13 @@ namespace MphRead.Mods
             StylusPressureToFire = false;
             StylusPressureThreshold = 0.35f;
             BottomScreenMode = NativeBottomScreenMode.Off;
+            BottomScreenActivation = NativeBottomScreenActivationMode.Toggle;
+            BottomScreenStyle = NativeBottomScreenStyle.ClassicDs;
+            BottomScreenScale = 1;
+            BottomScreenCenterX = .5f;
+            BottomScreenCenterY = .685f;
+            BottomScreenOpacity = .22f;
+            BottomScreenLabels = true;
         }
 
         /// <summary>
