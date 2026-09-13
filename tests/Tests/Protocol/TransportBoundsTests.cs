@@ -23,6 +23,15 @@ namespace MphRead.Tests
         public TransportBoundsTests(ITestOutputHelper output) => _output = output;
 
         [Fact]
+        public void ImmediateDisposalDoesNotRaceReceiveWorkerStartup()
+        {
+            for (int i = 0; i < 128; i++)
+            {
+                using var transport = new NetTransport(0);
+            }
+        }
+
+        [Fact]
         public void InboxKeepsNewestPacketsAndEachPollHasFixedWorkBudget()
         {
             using var transport = new NetTransport(0);

@@ -17,6 +17,8 @@ namespace MphRead.Mods.Network
     public sealed class UdpTransport : INetTransport, IAcceptedNetDatagramSink
     {
         private readonly UdpClient _socket;
+        private readonly Socket _socketHandle;
+        private readonly AddressFamily _addressFamily;
         private readonly Thread _worker;
         private readonly Queue<ReceivedPacket> _inbox = new();
         private int _disposed;
@@ -326,8 +328,10 @@ namespace MphRead.Mods.Network
             if (effectiveBind.AddressFamily is not
                 (AddressFamily.InterNetwork or AddressFamily.InterNetworkV6))
                 throw new ArgumentException("UDP bind address must be IPv4 or IPv6.", nameof(bindAddress));
-            _socket = new UdpClient(effectiveBind.AddressFamily);
-            if (dualStack) _socket.Client.DualMode = true;
+            _addressFamily = effectiveBind.AddressFamily;
+            _socket = new UdpClient(_addressFamily);
+            _socketHandle = _socket.Client;
+            if (dualStack) _socketHandle.DualMode = true;
             if (OperatingSystem.IsWindows())
             {
                 // SIO_UDP_CONNRESET. Without it, a peer that vanishes makes
@@ -335,12 +339,12 @@ namespace MphRead.Mods.Network
                 // would kill the worker. The control code is Windows-only and
                 // throws PlatformNotSupportedException elsewhere, so it is
                 // guarded rather than swallowed.
-                _socket.Client.IOControl(unchecked((int)0x9800000C), new byte[] { 0, 0, 0, 0 }, null);
+                _socketHandle.IOControl(unchecked((int)0x9800000C), new byte[] { 0, 0, 0, 0 }, null);
             }
             try
             {
-                _socket.Client.ReceiveBufferSize = SocketBufferBytes;
-                _socket.Client.SendBufferSize = SocketBufferBytes;
+                _socketHandle.ReceiveBufferSize = SocketBufferBytes;
+                _socketHandle.SendBufferSize = SocketBufferBytes;
             }
             catch (SocketException)
             {
@@ -349,9 +353,9 @@ namespace MphRead.Mods.Network
             }
             // Only so the worker notices _running going false; nothing waits
             // on this in normal operation.
-            _socket.Client.ReceiveTimeout = 500;
-            _socket.Client.Bind(new IPEndPoint(effectiveBind, port));
-            LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
+            _socketHandle.ReceiveTimeout = 500;
+            _socketHandle.Bind(new IPEndPoint(effectiveBind, port));
+            LocalPort = ((IPEndPoint)_socketHandle.LocalEndPoint!).Port;
             _running = true;
             _worker = new Thread(ReceiveLoop)
             {
@@ -405,8 +409,9 @@ namespace MphRead.Mods.Network
 
         private void ReceiveLoop()
         {
-            var any = new IPEndPoint(_socket.Client.AddressFamily == AddressFamily.InterNetworkV6
+            var any = new IPEndPoint(_addressFamily == AddressFamily.InterNetworkV6
                 ? IPAddress.IPv6Any : IPAddress.Any, 0);
+            byte[] receiveBuffer = new byte[ushort.MaxValue];
             while (_running)
             {
                 try
@@ -444,16 +449,18 @@ namespace MphRead.Mods.Network
                     // more. Blocking costs nothing -- the thread exists for
                     // this and does nothing else -- and hands the packet over
                     // the moment the kernel has it.
-                    IPEndPoint sender = any;
-                    byte[] data;
+                    EndPoint senderEndpoint = any;
+                    int length;
                     try
                     {
-                        data = _socket.Receive(ref sender);
+                        length = _socketHandle.ReceiveFrom(receiveBuffer, ref senderEndpoint);
                     }
                     catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
                     {
                         continue;
                     }
+                    var sender = (IPEndPoint)senderEndpoint;
+                    byte[] data = receiveBuffer.AsSpan(0, length).ToArray();
                     sender = CopyEndpoint(sender);
                     Metrics.Received(data.Length);
                     if (data.Length == 0 || data.Length > NetConfig.MaxPacketSize)
@@ -724,17 +731,22 @@ namespace MphRead.Mods.Network
             try
             {
                 IPEndPoint socketTarget = target;
-                if (_socket.Client.AddressFamily == AddressFamily.InterNetworkV6
+                if (_addressFamily == AddressFamily.InterNetworkV6
                     && target.AddressFamily == AddressFamily.InterNetwork)
                 {
                     socketTarget = new IPEndPoint(target.Address.MapToIPv6(), target.Port);
                 }
-                else if (_socket.Client.AddressFamily == AddressFamily.InterNetwork
+                else if (_addressFamily == AddressFamily.InterNetwork
                     && target.Address.IsIPv4MappedToIPv6)
                 {
                     socketTarget = new IPEndPoint(target.Address.MapToIPv4(), target.Port);
                 }
-                _socket.Send(datagram, socketTarget);
+                int sent = _socketHandle.SendTo(datagram, SocketFlags.None, socketTarget);
+                if (sent != datagram.Length)
+                {
+                    Metrics.SendFailed();
+                    return false;
+                }
                 Metrics.Sent(datagram.Length);
                 Interlocked.Increment(ref TotalPacketsSent);
                 return true;
