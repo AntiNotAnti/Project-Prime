@@ -60,6 +60,45 @@ public sealed class GameplayFeelRegressionTests
     }
 
     [Fact]
+    public void DynamicCrosshairTravelDelaysCameraFollowUntilItsThreshold()
+    {
+        Vector3 gun = Vector3.UnitZ;
+        Vector3 insideTravel = FacingAtDegrees(10);
+        Vector3 outsideTravel = FacingAtDegrees(20);
+
+        Vector3 insideResult = PlayerEntity.ResolveAimFacingAfterInput(
+            gun, insideTravel, appliedAngle: 0.01f, travelDegrees: 15,
+            turnSpeed: 1);
+        Vector3 outsideResult = PlayerEntity.ResolveAimFacingAfterInput(
+            gun, outsideTravel, appliedAngle: 0.01f, travelDegrees: 15,
+            turnSpeed: 1);
+
+        Assert.Equal(insideTravel.X, insideResult.X, 6);
+        Assert.Equal(insideTravel.Z, insideResult.Z, 6);
+        Assert.True(Vector3.Dot(outsideResult, gun) > Vector3.Dot(outsideTravel, gun));
+    }
+
+    [Fact]
+    public void DynamicCrosshairTurnSpeedControlsCameraResponse()
+    {
+        Vector3 gun = Vector3.UnitZ;
+        Vector3 facing = FacingAtDegrees(20);
+
+        Vector3 slow = PlayerEntity.ResolveAimFacingAfterInput(
+            gun, facing, appliedAngle: 0.01f, travelDegrees: 5,
+            turnSpeed: 0.5f);
+        Vector3 fast = PlayerEntity.ResolveAimFacingAfterInput(
+            gun, facing, appliedAngle: 0.01f, travelDegrees: 5,
+            turnSpeed: 3);
+
+        Assert.True(Vector3.Dot(fast, gun) > Vector3.Dot(slow, gun));
+        Assert.Equal(PlayerEntity.ResolveAimFacing(gun, facing),
+            PlayerEntity.ResolveAimFacingAfterInput(
+                gun, facing, appliedAngle: 0.01f, travelDegrees: 0,
+                turnSpeed: 1));
+    }
+
+    [Fact]
     public void NoxusOverlapUsesAttackerFacingAndKeepsOneEighthMagnitude()
     {
         Vector3 direction = PlayerEntity.ResolveHorizontalKnockbackDirection(
@@ -213,5 +252,11 @@ public sealed class GameplayFeelRegressionTests
         for (int row = 0; row < 4; row++)
         for (int column = 0; column < 4; column++)
             Assert.True(float.IsFinite(value[row, column]));
+    }
+
+    private static Vector3 FacingAtDegrees(float degrees)
+    {
+        float radians = MathHelper.DegreesToRadians(degrees);
+        return new Vector3(MathF.Sin(radians), 0, MathF.Cos(radians));
     }
 }

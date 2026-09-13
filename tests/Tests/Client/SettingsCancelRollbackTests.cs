@@ -58,6 +58,9 @@ public sealed class SettingsCancelRollbackTests
             InputSettings.Reset();
             var moveUp = InputSettings.Bindings.Single(property =>
                 property.Name == nameof(ClientPlayerBindings.MoveUp));
+            InputSettings.DynamicCrosshairTravelDegrees = 17.25f;
+            InputSettings.DynamicCrosshairSensitivity = 1.765432f;
+            InputSettings.DynamicCrosshairTurnSpeed = .654321f;
             InputSettings.MouseSensitivity = 1.234567f;
             InputSettings.ChatKey = Keys.Y;
             InputSettings.GamepadResponseCurve = GamepadResponseCurvePreset.Precision;
@@ -85,6 +88,9 @@ public sealed class SettingsCancelRollbackTests
             InputSettings.Reset();
             view.CancelForTests();
 
+            Assert.Equal(17.25f, InputSettings.DynamicCrosshairTravelDegrees);
+            Assert.Equal(1.765432f, InputSettings.DynamicCrosshairSensitivity);
+            Assert.Equal(.654321f, InputSettings.DynamicCrosshairTurnSpeed);
             Assert.Equal(1.234567f, InputSettings.MouseSensitivity);
             Assert.Equal(Keys.Y, InputSettings.ChatKey);
             Assert.Equal(GamepadResponseCurvePreset.Precision,
@@ -151,6 +157,44 @@ public sealed class SettingsCancelRollbackTests
             view?.Dispose();
             prior.Restore();
             RenderOptions.FieldOfView = priorFieldOfView;
+            LauncherPrefs.Directory = previousDirectory;
+            Directory.Delete(temporaryDirectory, recursive: true);
+        }
+    }
+
+    [AvaloniaFact]
+    public void DynamicCrosshairSlidersCommitSharedTuningValues()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        string previousDirectory = LauncherPrefs.Directory;
+        string temporaryDirectory = Directory.CreateTempSubdirectory(
+            "project-prime-crosshair-settings-").FullName;
+        SettingsView? view = null;
+        try
+        {
+            LauncherPrefs.Directory = temporaryDirectory;
+            InputSettings.Reset();
+            view = new SettingsView(new MenuSettings());
+
+            Assert.Contains(SettingRowIds.DynamicCrosshairTravel, view.RenderedRowIds);
+            Assert.Contains(SettingRowIds.DynamicCrosshairSensitivity,
+                view.RenderedRowIds);
+            Assert.Contains(SettingRowIds.DynamicCrosshairTurnSpeed,
+                view.RenderedRowIds);
+            Slider(view, "_dynamicCrosshairTravel").Value = 18;
+            Slider(view, "_dynamicCrosshairSensitivity").Value = 175;
+            Slider(view, "_dynamicCrosshairTurnSpeed").Value = 60;
+
+            view.CommitForTests();
+
+            Assert.Equal(18, InputSettings.DynamicCrosshairTravelDegrees);
+            Assert.Equal(1.75f, InputSettings.DynamicCrosshairSensitivity);
+            Assert.Equal(.6f, InputSettings.DynamicCrosshairTurnSpeed);
+        }
+        finally
+        {
+            view?.Dispose();
+            prior.Restore();
             LauncherPrefs.Directory = previousDirectory;
             Directory.Delete(temporaryDirectory, recursive: true);
         }
@@ -231,6 +275,9 @@ public sealed class SettingsCancelRollbackTests
     }
 
     private static SliderRow FieldOfViewSlider(SettingsView view)
-        => Assert.IsType<SliderRow>(typeof(SettingsView).GetField("_fieldOfView",
+        => Slider(view, "_fieldOfView");
+
+    private static SliderRow Slider(SettingsView view, string field)
+        => Assert.IsType<SliderRow>(typeof(SettingsView).GetField(field,
             BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(view));
 }

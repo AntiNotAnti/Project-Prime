@@ -276,6 +276,9 @@ namespace MphRead.Mods.Launcher.Gui
         private Expander _announcerPackDetailsExpander = null!;
         private Expander _musicPackDetailsExpander = null!;
         private ChoiceRow _languageRow = null!;
+        private SliderRow _dynamicCrosshairTravel = null!;
+        private SliderRow _dynamicCrosshairSensitivity = null!;
+        private SliderRow _dynamicCrosshairTurnSpeed = null!;
         private SliderRow _sensitivity = null!;
         private ToggleRow _invertY = null!;
         private ToggleRow _invertX = null!;
@@ -312,7 +315,9 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold,
             _bottomScreenScale, _bottomScreenCenterX, _bottomScreenCenterY,
             _bottomScreenOpacity;
-        private bool _mouseSensitivityEdited, _stylusSensitivityEdited;
+        private bool _dynamicCrosshairTravelEdited, _dynamicCrosshairSensitivityEdited,
+            _dynamicCrosshairTurnSpeedEdited, _mouseSensitivityEdited,
+            _stylusSensitivityEdited;
         private ChoiceRow? _stylusPrimary, _stylusSecondary;
         private ChoiceRow? _bottomScreenMode, _bottomScreenActivation,
             _bottomScreenStyle;
@@ -1931,6 +1936,15 @@ namespace MphRead.Mods.Launcher.Gui
             IDisposable? suppression = SuppressDirtyTracking();
             try
             {
+                _dynamicCrosshairTravel.Value = (int)Math.Round(
+                    InputSettings.DynamicCrosshairTravelDegrees);
+                _dynamicCrosshairSensitivity.Value = (int)Math.Round(
+                    InputSettings.DynamicCrosshairSensitivity * 100);
+                _dynamicCrosshairTurnSpeed.Value = (int)Math.Round(
+                    InputSettings.DynamicCrosshairTurnSpeed * 100);
+                _dynamicCrosshairTravelEdited = false;
+                _dynamicCrosshairSensitivityEdited = false;
+                _dynamicCrosshairTurnSpeedEdited = false;
                 _sensitivity.Value = SensitivityToSlider(InputSettings.MouseSensitivity);
                 _invertY.On = InputSettings.InvertMouseY;
                 _invertX.On = InputSettings.InvertMouseX;
@@ -2475,6 +2489,27 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildControls()
         {
             SettingsPage section = (SettingsPage)AddSection("Controls");
+            Heading(section, "Dynamic crosshair");
+            Explain(section, "Shared by mouse, controller, touch and stylus aiming.");
+            _dynamicCrosshairTravel = Add(section, new SliderRow("Free-aim travel",
+                (int)Math.Round(InputSettings.DynamicCrosshairTravelDegrees),
+                value => $"{value}°", min: 0, max: 30, keyStep: 1),
+                SettingRowIds.DynamicCrosshairTravel);
+            _dynamicCrosshairSensitivity = Add(section, new SliderRow(
+                "Crosshair sensitivity",
+                (int)Math.Round(InputSettings.DynamicCrosshairSensitivity * 100),
+                value => $"{value / 100f:0.00}x", min: 10, max: 400, keyStep: 10),
+                SettingRowIds.DynamicCrosshairSensitivity);
+            _dynamicCrosshairTurnSpeed = Add(section, new SliderRow("Camera turn speed",
+                (int)Math.Round(InputSettings.DynamicCrosshairTurnSpeed * 100),
+                value => $"{value / 100f:0.00}x", min: 10, max: 400, keyStep: 10),
+                SettingRowIds.DynamicCrosshairTurnSpeed);
+            _dynamicCrosshairTravel.ValueChanged += (_, _) =>
+                _dynamicCrosshairTravelEdited = true;
+            _dynamicCrosshairSensitivity.ValueChanged += (_, _) =>
+                _dynamicCrosshairSensitivityEdited = true;
+            _dynamicCrosshairTurnSpeed.ValueChanged += (_, _) =>
+                _dynamicCrosshairTurnSpeedEdited = true;
             BuildControlsTabs(section);
             StackPanel page = _mouseKeyboardControlsPage;
             if (!IsAndroidSettingsPlatform)
@@ -3553,6 +3588,19 @@ namespace MphRead.Mods.Launcher.Gui
                 ? null : _musicPacks[_musicPackRow.Index - 1].Identity;
             _settings.Language = _languageRow.Value;
             // Controls
+            if (_dynamicCrosshairTravelEdited)
+            {
+                InputSettings.DynamicCrosshairTravelDegrees = _dynamicCrosshairTravel.Value;
+            }
+            if (_dynamicCrosshairSensitivityEdited)
+            {
+                InputSettings.DynamicCrosshairSensitivity
+                    = _dynamicCrosshairSensitivity.Value / 100f;
+            }
+            if (_dynamicCrosshairTurnSpeedEdited)
+            {
+                InputSettings.DynamicCrosshairTurnSpeed = _dynamicCrosshairTurnSpeed.Value / 100f;
+            }
             if (_mouseSensitivityEdited)
                 InputSettings.MouseSensitivity = SliderToSensitivity(_sensitivity.Value);
             InputSettings.InvertMouseY = _invertY.On;

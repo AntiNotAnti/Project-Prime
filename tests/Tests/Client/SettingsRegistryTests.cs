@@ -220,6 +220,58 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
+    public void DynamicCrosshairSettingsPersistClampAndHaveSharedControls()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.Reset();
+            InputSettings.LoadLines(new[]
+            {
+                "dynamic_crosshair_travel_degrees=18",
+                "dynamic_crosshair_sensitivity=1.75",
+                "dynamic_crosshair_turn_speed=0.6"
+            });
+
+            Assert.Equal(18, InputSettings.DynamicCrosshairTravelDegrees);
+            Assert.Equal(1.75f, InputSettings.DynamicCrosshairSensitivity);
+            Assert.Equal(.6f, InputSettings.DynamicCrosshairTurnSpeed);
+            Assert.Contains("dynamic_crosshair_travel_degrees=18",
+                InputSettings.GetSaveLines());
+            Assert.Contains("dynamic_crosshair_sensitivity=1.75",
+                InputSettings.GetSaveLines());
+            Assert.Contains("dynamic_crosshair_turn_speed=0.6",
+                InputSettings.GetSaveLines());
+
+            InputSettings.DynamicCrosshairTravelDegrees = 100;
+            InputSettings.DynamicCrosshairSensitivity = 0;
+            InputSettings.DynamicCrosshairTurnSpeed = float.NaN;
+            Assert.Equal(DynamicCrosshairTuning.MaximumTravelDegrees,
+                InputSettings.DynamicCrosshairTravelDegrees);
+            Assert.Equal(DynamicCrosshairTuning.MinimumMovementSensitivity,
+                InputSettings.DynamicCrosshairSensitivity);
+            Assert.Equal(DynamicCrosshairTuning.DefaultTurnSpeed,
+                InputSettings.DynamicCrosshairTurnSpeed);
+
+            SettingDescriptor travel = SettingRegistry.Get(
+                SettingRowIds.DynamicCrosshairTravel);
+            SettingDescriptor sensitivity = SettingRegistry.Get(
+                SettingRowIds.DynamicCrosshairSensitivity);
+            SettingDescriptor turnSpeed = SettingRegistry.Get(
+                SettingRowIds.DynamicCrosshairTurnSpeed);
+            Assert.Equal(SettingCategory.Controls, travel.Category);
+            Assert.Equal("Dynamic crosshair", travel.Group);
+            Assert.Equal(SettingControlKind.Slider, sensitivity.Kind);
+            Assert.Equal(DynamicCrosshairTuning.MaximumTurnSpeed,
+                turnSpeed.Maximum);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
     public void AimAssistPersistsInternallyButHasNoPlayerConfigurableDescriptor()
     {
         InputSettings.Reset();
