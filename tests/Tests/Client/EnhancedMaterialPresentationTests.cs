@@ -35,7 +35,9 @@ public sealed class EnhancedMaterialPresentationTests
             "textureAssetKey: ScenePresentation.GetEffectTextureAssetKey(particle.Owner.EffectName, material)",
             StringSplitOptions.None).Length - 1);
         Assert.Contains("textureAssetKey: ScenePresentation.GetModelTextureAssetKey(\n                    particle.ParticleDefinition.Model, material, 0)", effects);
-        Assert.Contains("textureAssetKey: ScenePresentation.GetModelTextureAssetKey(model, material, resolvedRecolor)", players);
+        Assert.Contains("TextureAssetKey? textureAssetKey = ScenePresentation.GetModelTextureAssetKey(\n                        model, material, initialRecolor);", players);
+        Assert.Contains("SkinAppearanceResolution skin = ResolveSkinAppearance(\n                        canonicalRecolor, textureAssetKey, materialFeedback);", players);
+        Assert.Contains("textureAssetKey: textureAssetKey", players);
         int start = renderer.IndexOf("public void AddRenderItem(RenderPrimitive type, float alpha", StringComparison.Ordinal);
         int end = renderer.IndexOf("// for Morph Ball trails", start, StringComparison.Ordinal);
         string particleSubmission = renderer[start..end];

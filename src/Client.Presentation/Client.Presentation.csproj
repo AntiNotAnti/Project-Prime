@@ -50,6 +50,10 @@
     <AvaloniaXaml Remove="**/*.axaml" />
     <AvaloniaResource Include="Assets/project-prime-title-screen.png" />
     <AvaloniaResource Include="Assets/project-prime-mark.png" />
+    <AvaloniaResource Include="Assets/Cosmetics/**"
+                      Exclude="Assets/Cosmetics/DeathAnimations/**" />
+    <EmbeddedResource Include="Assets/Cosmetics/DeathAnimations/*.pda"
+                      LogicalName="MphRead.Cosmetics.DeathAnimations.%(Filename)%(Extension)" />
     <AvaloniaXaml Include="Launcher/**/*.axaml" />
     <EmbeddedResource Include="Launcher/Resources/PrimeUiCopy.resx"
                       LogicalName="MphRead.Mods.Launcher.Resources.PrimeUiCopy.resources" />

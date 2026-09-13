@@ -388,6 +388,7 @@ namespace MphRead.Mods.Network
                 player.BotLevel = 0;
                 player.LoadFlags &= ~LoadFlags.Active;
             }
+            Modern.ApplyRoster(scene);
             scene.Players.ActiveCount = 0;
         }
 
@@ -409,6 +410,7 @@ namespace MphRead.Mods.Network
                 player.IsBot = false;
                 player.BotLevel = 0;
             }
+            Modern.ApplyRoster(scene);
             scene.Players.ActiveCount = 0;
             return scene.LocalPlayer
                 ?? throw new ProgramException("Replay scene has no local player after rebuild.");

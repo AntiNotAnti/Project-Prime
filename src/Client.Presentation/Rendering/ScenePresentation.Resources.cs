@@ -155,15 +155,21 @@ namespace MphRead
 
         internal void ResolveEnhancedMaterial(DrawSubmission submission)
         {
-            if (!RenderOptions.TexturePackEnabled
-                || submission.TextureAssetKey is not TextureAssetKey key
-                || !key.IsValid)
-            {
+            TextureAssetKey? packKey = submission.TextureAssetKey;
+            bool hasPackMaterial = RenderOptions.TexturePackEnabled
+                && packKey is TextureAssetKey candidate && candidate.IsValid;
+            if (!hasPackMaterial && submission.CosmeticMaterialOverride is null)
                 return;
-            }
             submission.FreezeMaterial();
-            EnhancedMaterial material = _enhancedTextureResolver.Resolve(key,
-                submission.Material);
+            EnhancedMaterial material = EnhancedMaterial.FromOriginal(submission.Material);
+            if (hasPackMaterial)
+            {
+                material = _enhancedTextureResolver.Resolve(packKey!.Value,
+                    submission.Material);
+            }
+            material = CosmeticMaterialPipeline.Resolve(material,
+                submission.CosmeticMaterialOverride,
+                submission.GameplayMaterialFeedback);
             submission.EnhancedMaterial = material;
             RegisterEnhancedTexture(material.Albedo);
             RegisterEnhancedTexture(material.Normal);

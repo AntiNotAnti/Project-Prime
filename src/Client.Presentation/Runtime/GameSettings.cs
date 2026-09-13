@@ -163,6 +163,9 @@ namespace MphRead.Mods
             // Quality parsing lives in RenderOptions so every frontend uses
             // the same preset defaults and legacy settings.json mapping.
             RenderOptions.ApplyQuality(settings);
+            Cosmetics.Presentation.CosmeticPresentationPreferences.Apply(settings,
+                OperatingSystem.IsAndroid()
+                    || RenderOptions.GraphicsPreset == GraphicsPreset.Performance);
             RenderOptions.ShowFps = RenderOptions.ParseOnOff(settings.ShowFps, RenderOptions.ShowFps);
             // How often the picture is drawn. It does not touch the
             // simulation, which runs at 60 Hz whatever this says -- see

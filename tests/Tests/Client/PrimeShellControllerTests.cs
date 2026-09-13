@@ -138,7 +138,7 @@ public sealed class PrimeShellControllerTests
         Assert.Equal(first, same);
         Assert.NotEqual(first, changed);
         Assert.Equal("hunters", new DirectoryInfo(Path.GetDirectoryName(first)!).Name);
-        Assert.StartsWith($"samus-v{ModelPreviewCatalog.RendererVersion}-",
+        Assert.StartsWith($"samus-r0-v{ModelPreviewCatalog.RendererVersion}-",
             Path.GetFileName(first), StringComparison.Ordinal);
         Assert.EndsWith(".png", first, StringComparison.Ordinal);
     }

@@ -23,6 +23,8 @@ public sealed class DeathPresentationGate
     private bool _killObserved;
     private bool _presented;
     private bool _altForm;
+    private bool _hasKillTick;
+    private uint _killTick;
 
     public CombatActor Actor => _actor;
     public bool Presented => _presented;
@@ -33,6 +35,8 @@ public sealed class DeathPresentationGate
         _actor = CombatActor.None;
         _observed = _dead = _killObserved = _presented = false;
         _altForm = false;
+        _hasKillTick = false;
+        _killTick = 0;
     }
 
     /// <summary>
@@ -110,6 +114,8 @@ public sealed class DeathPresentationGate
         }
 
         _killObserved = true;
+        _hasKillTick = true;
+        _killTick = tick;
         if (!_observed || !_dead || _presented)
         {
             return default;
@@ -121,13 +127,18 @@ public sealed class DeathPresentationGate
     private DeathPresentationCue Present(uint tick, bool presentationAlreadyHandled)
     {
         _presented = true;
-        return presentationAlreadyHandled
-            ? default
-            : new DeathPresentationCue(_actor, tick, _altForm);
+        // A reliable KillEvent carries the authoritative simulation tick. If
+        // it arrived before the dead snapshot, retain that tick instead of
+        // accidentally anchoring presentation to packet receipt/snapshot
+        // order. Snapshot-only fallback remains fail-soft for lost events.
+        uint presentationTick = _hasKillTick ? _killTick : tick;
+        return new DeathPresentationCue(_actor, presentationTick, _altForm,
+            presentationAlreadyHandled);
     }
 }
 
-public readonly record struct DeathPresentationCue(CombatActor Actor, uint Tick, bool AltForm)
+public readonly record struct DeathPresentationCue(CombatActor Actor, uint Tick, bool AltForm,
+    bool EnginePresentationHandled = false)
 {
     public bool IsValid => Actor.IsValid;
 }

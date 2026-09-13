@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using MphRead.Cosmetics;
 using MphRead.Entities;
 using MphRead.Mods.Audio;
 using MphRead.Mods.Hud;
@@ -251,7 +252,8 @@ namespace MphRead.Mods.Network
                 : Protocol7ReplayCodec.TryReadSnapshot(body, players, out packet, out count);
 
         private bool TryReadRoster(ReadOnlySpan<byte> body, Span<NetRosterEntry> entries, out int count)
-            => _protocol >= 8 ? SessionRosterPacket.TryRead(body, entries, out _, out count)
+            => _protocol >= 19 ? SessionRosterPacket.TryRead(body, entries, out _, out count)
+                : _protocol >= 8 ? Protocol18ReplayRoster.TryRead(body, entries, out _, out count)
                 : Protocol7ReplayRoster.TryRead(body, entries, out _, out count);
 
         private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
@@ -292,7 +294,25 @@ namespace MphRead.Mods.Network
         internal void ApplyRoster(Scene scene)
         {
             foreach (NetRosterEntry entry in Roster)
+            {
                 scene.Roster.Nicknames[entry.Slot] = entry.Name;
+                if (entry.Slot < scene.Players.Count)
+                {
+                    PlayerEntity player = scene.Players[entry.Slot];
+                    // Historical/data-only replay inspection intentionally has
+                    // no client presentation. Preserve roster restoration there
+                    // without manufacturing renderer ownership for cosmetics.
+                    PlayerPresentation? presentation = player.Presentation
+                        as PlayerPresentation;
+                    if (presentation == null
+                        && scene.Presentation is ScenePresentation)
+                    {
+                        presentation = player.GetPresentation();
+                    }
+                    presentation?.SetCosmeticLoadout(new CosmeticLoadoutIds(
+                        entry.SkinId, entry.ArmorEffectId, entry.DeathEffectId));
+                }
+            }
         }
 
         public void BeforeSimulation(Scene scene)

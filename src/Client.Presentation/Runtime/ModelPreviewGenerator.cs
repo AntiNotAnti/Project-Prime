@@ -15,6 +15,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Cosmetics;
 using MphRead.Mods.Launcher;
 #if !ANDROID
 using MphRead.Entities;
@@ -30,14 +31,20 @@ internal enum ModelPreviewKind
 }
 
 internal sealed record ModelPreviewSpec(ModelPreviewKind Kind, string Key,
-    string ModelName, float Scale, float FrameMargin)
+    string ModelName, float Scale, float FrameMargin, byte BaseRecolor = 0,
+    string? SkinKey = null, ushort ArmorEffectId = 0,
+    ushort DeathEffectId = 0, uint DeathSampleTick = 0)
 {
     public string WorkerKey => $"{Kind switch
     {
         ModelPreviewKind.Hunter => "hunter",
         ModelPreviewKind.Weapon => "weapon",
         _ => throw new InvalidOperationException($"Unsupported preview kind {(int)Kind}.")
-    }}:{Key}";
+    }}:{Key}" + (Kind == ModelPreviewKind.Hunter && DeathEffectId != 0
+        ? $":{BaseRecolor}:death-{DeathEffectId}-t{DeathSampleTick}"
+            + (ArmorEffectId == 0 ? "" : $"-a{ArmorEffectId}")
+        : Kind == ModelPreviewKind.Hunter && BaseRecolor != 0
+            ? $":{BaseRecolor}" : "");
 }
 
 /// <summary>
@@ -46,11 +53,16 @@ internal sealed record ModelPreviewSpec(ModelPreviewKind Kind, string Key,
 /// </summary>
 internal static class ModelPreviewCatalog
 {
-    internal const int RendererVersion = 1;
+    internal const int RendererVersion = 2;
     internal const int Width = 640;
     internal const int Height = 640;
+    internal const uint DeathStageSampleTick = 36;
 
     public static bool TryHunter(Hunter hunter, out ModelPreviewSpec? spec)
+        => TryHunter(hunter, skin: null, out spec);
+
+    public static bool TryHunter(Hunter hunter, SkinDefinition? skin,
+        out ModelPreviewSpec? spec)
     {
         spec = null;
         if (hunter is < Hunter.Samus or > Hunter.Weavel
@@ -61,8 +73,11 @@ internal static class ModelPreviewCatalog
         }
         float scale = Metadata.HunterScales.TryGetValue(hunter, out float authored)
             ? authored : 1;
+        if (skin != null && skin.Hunter != hunter)
+            return false;
         spec = new ModelPreviewSpec(ModelPreviewKind.Hunter,
-            hunter.ToString().ToLowerInvariant(), models[0], scale, 1.3f);
+            hunter.ToString().ToLowerInvariant(), models[0], scale, 1.3f,
+            skin?.BaseRecolor ?? 0, skin?.Key);
         return true;
     }
 
@@ -92,15 +107,82 @@ internal static class ModelPreviewCatalog
         return true;
     }
 
+    public static bool TryHunterDeath(Hunter hunter, SkinDefinition? skin,
+        DeathEffectDefinition effect, out ModelPreviewSpec? spec,
+        ArmorEffectDefinition? armorEffect = null)
+    {
+        ArgumentNullException.ThrowIfNull(effect);
+        if (effect.Id == 0 || !CosmeticCatalog.BuiltIn.TryGetDeathEffect(effect.Id,
+                out DeathEffectDefinition official)
+            || !String.Equals(official.Key, effect.Key, StringComparison.Ordinal)
+            || official.Hunter is Hunter restricted && restricted != hunter
+            || armorEffect != null
+                && (!CosmeticCatalog.BuiltIn.TryGetArmorEffect(armorEffect.Id,
+                        out ArmorEffectDefinition officialArmor)
+                    || !String.Equals(officialArmor.Key, armorEffect.Key,
+                        StringComparison.Ordinal))
+            || !TryHunter(hunter, skin, out spec) || spec == null)
+        {
+            spec = null;
+            return false;
+        }
+        spec = spec with
+        {
+            ArmorEffectId = armorEffect?.Id ?? 0,
+            DeathEffectId = official.Id,
+            DeathSampleTick = DeathStageSampleTick
+        };
+        return true;
+    }
+
     public static bool TryWorkerKey(string value, out ModelPreviewSpec? spec)
     {
         spec = null;
-        string[] parts = value.Split(':', 2, StringSplitOptions.TrimEntries);
-        if (parts.Length != 2) return false;
-        return parts[0].Equals("hunter", StringComparison.OrdinalIgnoreCase)
-            ? Enum.TryParse(parts[1], true, out Hunter hunter) && TryHunter(hunter, out spec)
-            : parts[0].Equals("weapon", StringComparison.OrdinalIgnoreCase)
-                && Enum.TryParse(parts[1], true, out BeamType beam) && TryWeapon(beam, out spec);
+        string[] parts = value.Split(':', 4, StringSplitOptions.TrimEntries);
+        if (parts.Length is < 2 or > 4) return false;
+        byte recolor = 0;
+        if (parts.Length >= 3 && !Byte.TryParse(parts[2], out recolor)) return false;
+        if (parts[0].Equals("hunter", StringComparison.OrdinalIgnoreCase)
+            && Enum.TryParse(parts[1], true, out Hunter hunter)
+            && TryHunter(hunter, skin: null, out spec))
+        {
+            if (parts.Length == 4)
+            {
+                string marker = parts[3];
+                int tickMarker = marker.IndexOf("-t", StringComparison.Ordinal);
+                int armorMarker = marker.IndexOf("-a", StringComparison.Ordinal);
+                if (!marker.StartsWith("death-", StringComparison.Ordinal)
+                    || tickMarker <= "death-".Length
+                    || armorMarker >= 0 && armorMarker <= tickMarker + 2)
+                    return false;
+                ReadOnlySpan<char> tickValue = armorMarker < 0
+                    ? marker.AsSpan(tickMarker + 2)
+                    : marker.AsSpan(tickMarker + 2, armorMarker - tickMarker - 2);
+                if (!UInt16.TryParse(marker.AsSpan("death-".Length,
+                        tickMarker - "death-".Length), out ushort deathId)
+                    || !UInt32.TryParse(tickValue, out uint sampleTick)
+                    || sampleTick != DeathStageSampleTick
+                    || !CosmeticCatalog.BuiltIn.TryGetDeathEffect(deathId,
+                        out DeathEffectDefinition effect)
+                    || !TryHunterDeath(hunter, skin: null, effect, out spec))
+                    return false;
+                if (armorMarker >= 0)
+                {
+                    if (armorMarker <= tickMarker + 2
+                        || !UInt16.TryParse(marker.AsSpan(armorMarker + 2),
+                            out ushort armorId)
+                        || !CosmeticCatalog.BuiltIn.TryGetArmorEffect(armorId,
+                            out ArmorEffectDefinition armor))
+                        return false;
+                    spec = spec! with { ArmorEffectId = armor.Id };
+                }
+            }
+            spec = spec! with { BaseRecolor = recolor };
+            return true;
+        }
+        return parts[0].Equals("weapon", StringComparison.OrdinalIgnoreCase)
+            && parts.Length == 2
+            && Enum.TryParse(parts[1], true, out BeamType beam) && TryWeapon(beam, out spec);
     }
 
     public static string PathFor(ModelPreviewSpec spec, string contentVersion,
@@ -110,8 +192,12 @@ internal static class ModelPreviewCatalog
             $"{contentVersion}|{contentHash}|model-preview-v{RendererVersion}")))
             .ToLowerInvariant()[..16];
         string kind = spec.Kind == ModelPreviewKind.Hunter ? "hunters" : "weapons";
+        string variant = spec.Kind == ModelPreviewKind.Hunter
+            ? $"-r{spec.BaseRecolor}" + (spec.DeathEffectId == 0 ? ""
+                : $"-d{spec.DeathEffectId}-t{spec.DeathSampleTick}"
+                    + (spec.ArmorEffectId == 0 ? "" : $"-a{spec.ArmorEffectId}")) : "";
         return Path.Combine(GameFiles.Root, "cache", "previews", kind,
-            $"{spec.Key}-v{RendererVersion}-{identity}.png");
+            $"{spec.Key}{variant}-v{RendererVersion}-{identity}.png");
     }
 
     public static string CurrentPath(ModelPreviewSpec spec)
@@ -342,6 +428,7 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
         Presentation = host.CreatePresentation(Scene);
         ModelInstance source = Read.GetModelInstance(spec.ModelName);
         EntityBase model = Presentation.AddModel(spec.ModelName);
+        model.Recolor = spec.BaseRecolor;
         Vector3 scale = source.Model.Scale * spec.Scale;
         model.Scale = new Vector3(spec.Scale);
         model.Rotation = new Vector3(0, MathF.PI, 0);

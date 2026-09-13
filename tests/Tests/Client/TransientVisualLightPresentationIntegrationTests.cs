@@ -147,6 +147,41 @@ public sealed class TransientVisualLightPresentationIntegrationTests
             combatPresentation, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void IsolatedPreviewSubmitsCosmeticsAfterEntityPoseAndBeforeFrameSeal()
+    {
+        string root = FindRepositoryRoot();
+        string renderer = File.ReadAllText(Path.Combine(root,
+            "src", "Client.Presentation", "Rendering", "Renderer.cs"));
+        int getDrawItems = renderer.IndexOf("private void GetDrawItems()",
+            StringComparison.Ordinal);
+        int entityLoop = renderer.IndexOf("foreach (EntityBase entity in World.Entities)",
+            getDrawItems, StringComparison.Ordinal);
+        int isolatedSubmission = renderer.IndexOf(
+            "IsolatedPresentationSubmission?.Invoke();", entityLoop,
+            StringComparison.Ordinal);
+        int particleLoop = renderer.IndexOf(
+            "for (int i = 0; i < _activeElements.Count; i++)",
+            isolatedSubmission, StringComparison.Ordinal);
+
+        Assert.True(getDrawItems >= 0);
+        Assert.True(entityLoop > getDrawItems);
+        Assert.True(isolatedSubmission > entityLoop);
+        Assert.True(particleLoop > isolatedSubmission);
+
+        string preview = File.ReadAllText(Path.Combine(root,
+            "src", "Client", "Runtime", "ModelPreviewCapture.cs"));
+        Assert.Contains(
+            "Presentation.IsolatedPresentationSubmission = SubmitPreviewCosmetics;",
+            preview, StringComparison.Ordinal);
+        int onFrame = preview.IndexOf("public void OnFrame()",
+            StringComparison.Ordinal);
+        int submitCallback = preview.IndexOf("private void SubmitPreviewCosmetics()",
+            onFrame, StringComparison.Ordinal);
+        Assert.DoesNotContain("AddArmorStage();", preview[onFrame..submitCallback],
+            StringComparison.Ordinal);
+    }
+
     private static string FindRepositoryRoot()
     {
         string? directory = AppContext.BaseDirectory;

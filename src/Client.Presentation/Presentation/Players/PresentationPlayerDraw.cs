@@ -6,6 +6,7 @@ using MphRead.Combat;
 using MphRead.Formats;
 using OpenTK.Mathematics;
 using MphRead.Hud;
+using MphRead.Cosmetics.Presentation;
 
 namespace MphRead.Entities
 {
@@ -13,6 +14,7 @@ namespace MphRead.Entities
     {
         public void Draw()
         {
+            BeginArmorSubmission();
             if (_player.Flags2.TestFlag(PlayerFlags2.Spectating))
             {
                 // Before the shadow, not after it. A spectator is out of the
@@ -90,6 +92,10 @@ namespace MphRead.Entities
                         GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0], _player._curAlpha);
                     }
 
+                    SubmitArmorPrimitives(_player._altModel.Model,
+                        _player._modelTransform,
+                        interpolatedAlt ? altNodes : null);
+
                     _player.PaletteOverride = null;
                     if (_player._frozenGfxTimer > 0)
                     {
@@ -161,6 +167,11 @@ namespace MphRead.Entities
                         GetDrawItems(_player._bipedModel2, _player._bipedModel2.Model.Nodes[0], alpha,
                             nodePoses: interpolated ? renderedNodes : null,
                             nodeStack: interpolated ? renderedStack : null);
+                        SubmitArmorPrimitives(model, transform,
+                            interpolated ? renderedNodes : null);
+                        CaptureAliveDeathPose(model, transform,
+                            interpolated ? renderedNodes : null,
+                            interpolated ? renderedStack : null, alpha);
                         _player.PaletteOverride = null;
                         if (_player._chargeEffect != null || _player._muzzleEffect != null)
                         {
@@ -203,28 +214,55 @@ namespace MphRead.Entities
                     _player._modelTransform = transform;
                     if (_player._health == 0)
                     {
-                        DrawDeathParticles(interpolated ? renderedNodes : null);
+                        if (TryGetDeathPresentation(_player._scene.Services.WorldServerTick,
+                            out DeathPresentationSample death) && CapturedDeathModel is Model deathModel)
+                        {
+                            _player._bipedModel2.SetModel(deathModel);
+                            _deathEmissionTint = death.EmissionTint;
+                            _deathEmissionStrength = death.EmissionStrength;
+                            UpdateMaterials(_player._bipedModel2, _capturedDeathPose.Appearance.Recolor);
+                            GetDrawItems(_player._bipedModel2, deathModel.Nodes[0],
+                                death.BodyAlpha * _capturedDeathPose.Appearance.Alpha,
+                                recolor: _capturedDeathPose.Appearance.Recolor,
+                                nodePoses: death.Nodes, nodeStack: death.MatrixStack);
+                            SubmitDeathPrimitives();
+                            _deathEmissionStrength = 0;
+                        }
+                        else
+                        {
+                            DrawDeathParticles(interpolated ? renderedNodes : null);
+                        }
                     }
 
                     _player.Flags2 |= PlayerFlags2.DrawnThirdPerson;
                 }
-                else if (!_player._field6D0 && _player.Hunter != Hunter.Guardian)
+                else
                 {
-                    Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
-                    UpdateTransforms(_player._gunModel, transform, _player.Recolor);
-                    // The gun transform is already camera-relative. Feeding a
-                    // world-root pose history through the active camera
-                    // submission delta applies camera translation twice and
-                    // produces a visible 60 Hz sawtooth while moving.
-                    GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0], _player._curAlpha);
-                    if (_player.Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
+                    // A normal local first-person frame does not submit the
+                    // biped, but a later authoritative death still needs the
+                    // last full-body presentation pose. Keep that retained
+                    // copy current without exposing the model to rendering.
+                    if (_player._health > 0)
+                        CaptureHiddenAliveDeathPose();
+
+                    if (!_player._field6D0 && _player.Hunter != Hunter.Guardian)
                     {
-                        // todo?: the game uses an alternate projection matrix to draw this
-                        var drawPos = new Vector3(0, 0, Fixed.ToFloat(_player.Values.MuzzleOffset));
-                        drawPos = Matrix.Vec3MultMtx4(drawPos, transform);
-                        transform.Row3.Xyz = drawPos;
-                        UpdateTransforms(_player._gunSmokeModel, transform, recolor: 0);
-                        GetDrawItems(_player._gunSmokeModel, _player._gunSmokeModel.Model.Nodes[0], _player._smokeAlpha, recolor: 0);
+                        Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
+                        UpdateTransforms(_player._gunModel, transform, _player.Recolor);
+                        // The gun transform is already camera-relative. Feeding a
+                        // world-root pose history through the active camera
+                        // submission delta applies camera translation twice and
+                        // produces a visible 60 Hz sawtooth while moving.
+                        GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0], _player._curAlpha);
+                        if (_player.Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
+                        {
+                            // todo?: the game uses an alternate projection matrix to draw this
+                            var drawPos = new Vector3(0, 0, Fixed.ToFloat(_player.Values.MuzzleOffset));
+                            drawPos = Matrix.Vec3MultMtx4(drawPos, transform);
+                            transform.Row3.Xyz = drawPos;
+                            UpdateTransforms(_player._gunSmokeModel, transform, recolor: 0);
+                            GetDrawItems(_player._gunSmokeModel, _player._gunSmokeModel.Model.Nodes[0], _player._smokeAlpha, recolor: 0);
+                        }
                     }
                 }
             }
@@ -324,13 +362,33 @@ namespace MphRead.Entities
                     Vector4? color = null;
                     SelectionType selectionType = SelectionType.None;
                     int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
-                    int resolvedRecolor = recolor == -1 ? _player.Recolor : recolor;
-                    TextureIdentity? textureIdentity = GetTextureIdentity(inst, material, mesh.MaterialId, resolvedRecolor);
+                    int canonicalRecolor = recolor == -1 ? _player.Recolor : recolor;
+                    GameplayMaterialFeedback materialFeedback = GameplayMaterialFeedback.None;
+                    if (_player.PaletteOverride != null) materialFeedback |= GameplayMaterialFeedback.DamageFlash;
+                    if (_player._frozenGfxTimer > 0) materialFeedback |= GameplayMaterialFeedback.Frozen;
+                    if (_player.Flags2.TestFlag(PlayerFlags2.Cloaking)) materialFeedback |= GameplayMaterialFeedback.Cloaked;
+                    if (_player._doubleDmgTimer > 0) materialFeedback |= GameplayMaterialFeedback.DoubleDamage;
+                    if (selectionType != SelectionType.None) materialFeedback |= GameplayMaterialFeedback.Selection;
+                    bool teamMode = _player._scene.Match.Rules.Teams
+                        && _player.Team != Team.None;
+                    int initialRecolor = teamMode ? canonicalRecolor
+                        : Skin.ResolveRecolor(canonicalRecolor);
+                    TextureAssetKey? textureAssetKey = ScenePresentation.GetModelTextureAssetKey(
+                        model, material, initialRecolor);
+                    SkinAppearanceResolution skin = ResolveSkinAppearance(
+                        canonicalRecolor, textureAssetKey, materialFeedback);
+                    int resolvedRecolor = skin.Recolor;
+                    TextureIdentity? textureIdentity = GetTextureIdentity(inst, material,
+                        mesh.MaterialId, resolvedRecolor);
                     Matrix4 nodeAnimation = nodePoses == null ? node.Animation : nodePoses[nodeIndex];
                     IReadOnlyList<float> stack = nodeStack == null ? model.MatrixStackValues : nodeStack;
                     Presentation.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix, nodeAnimation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, stack, color, _player.PaletteOverride, selectionType, node.BillboardMode, _player._drawScale, bindingOverride, textureIdentity,
-                        textureAssetKey: ScenePresentation.GetModelTextureAssetKey(model, material, resolvedRecolor),
-                        castsDirectionalShadow: castsDirectionalShadow);
+                        textureAssetKey: textureAssetKey,
+                        enhancedForceField: TakeDeathDistortion(inst) ?? TakeArmorDistortion(inst),
+                        castsDirectionalShadow: castsDirectionalShadow,
+                        cosmeticMaterialOverride: ResolveDeathMaterial(
+                            ResolveCosmeticMaterial(skin, materialFeedback)),
+                        gameplayMaterialFeedback: materialFeedback);
                 }
 
                 if (node.ChildIndex != -1)
@@ -390,7 +448,47 @@ namespace MphRead.Entities
                 return Metadata.EmissionGreen;
             }
 
-            return base.GetEmission(inst, material, index);
+            Vector3 emission = base.GetEmission(inst, material, index);
+            return _deathEmissionStrength > 0
+                ? emission + _deathEmissionTint * _deathEmissionStrength : emission;
+        }
+
+        private Vector3 _deathEmissionTint;
+        private float _deathEmissionStrength;
+
+        private void CaptureHiddenAliveDeathPose()
+        {
+            Vector3 facing = _player._facingVector;
+            float angle = PlayerEntity.GetBipedPitch(facing);
+            Model model = _player._bipedModel2.Model;
+            float scale = Metadata.HunterScales[_player.Hunter];
+            float bottom = Fixed.ToFloat(_player.Values.MinPickupHeight);
+            var lateral = new Vector3(_player._field70, 0, _player._field74);
+            Matrix4 transform = Matrix4.Identity;
+            transform.Row0.Xyz = -_player._gunVec2;
+            transform.Row1.Xyz = Vector3.Cross(lateral, _player._gunVec2);
+            transform.Row2.Xyz = -lateral;
+            transform.Row3.Xyz = _player.Position;
+            transform.Row3.Y += bottom + bottom * (1 - scale);
+            transform.Row0.Xyz *= scale;
+            transform.Row1.Xyz *= scale;
+            transform.Row2.Xyz *= scale;
+
+            bool interpolated = Presentation.ResolvePlayerBipedSubmission(
+                _player, _player._bipedModel2, transform,
+                out Matrix4[] renderedNodes, out float[] renderedStack);
+            if (!interpolated)
+            {
+                PlayerEntity.AnimateBipedPose(model,
+                    _player._bipedModel1.AnimInfo,
+                    _player._bipedModel2.AnimInfo, angle);
+                for (int i = 0; i < model.Nodes.Count; i++)
+                    model.Nodes[i].Animation *= transform;
+                model.UpdateMatrixStack();
+            }
+            CaptureAliveDeathPose(model, transform,
+                interpolated ? renderedNodes : null,
+                interpolated ? renderedStack : null, _player._curAlpha);
         }
 
         protected override Matrix4 GetTexcoordMatrix(ModelInstance inst, Material material, int materialId, Node node, int recolor)

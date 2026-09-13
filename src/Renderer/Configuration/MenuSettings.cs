@@ -61,6 +61,14 @@ namespace MphRead
         public string FrameRateCap { get; set; } = "display";
         public string? VisualStyle { get; set; }
         public string? TexturePack { get; set; }
+        // Null quality preserves platform-aware first-run defaults: Full on
+        // desktop and Reduced on Android/low-power configurations.
+        public string? CosmeticQuality { get; set; }
+        public string ShowOtherPlayerCosmetics { get; set; } = "on";
+        public string ReduceCosmeticFlashes { get; set; } = "off";
+        public string ForceStrongTeamColors { get; set; } = "off";
+        public string DisableCosmeticDistortion { get; set; } = "off";
+        public string DisableCosmeticParticles { get; set; } = "off";
         // Migration key for settings written before VisualStyle existed.
         public string CelShading { get; set; } = "off";
         public string CelBands { get; set; } = "8";

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using MphRead.Cosmetics;
 using MphRead.Entities;
 using MphRead.Formats.Culling;
 using OpenTK.Mathematics;
@@ -246,6 +247,7 @@ namespace MphRead.Mods.Network
                 // room loads. Spawn selection remains disabled on clients.
                 if (slot != LocalSlot) { player.LoadFlags &= ~LoadFlags.Active; }
             }
+            ApplyCosmeticRoster(scene);
             scene.LocalPlayerSlot = IsObserver ? 0 : LocalSlot;
             scene.Players.ActiveCount = IsObserver ? 0 : 1;
             if (IsObserver) SpectatorMode.Start(scene);
@@ -364,6 +366,7 @@ namespace MphRead.Mods.Network
                 _hasInputViewTick = _interpolation.TryCaptureViewTick(out _inputViewTick);
             _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
             foreach (NetRosterEntry entry in Client.Roster) { scene.Roster.Nicknames[entry.Slot] = entry.Name; }
+            ApplyCosmeticRoster(scene);
             if (scene.Presentation is ScenePresentation feedbackPresentation)
                 feedbackPresentation.CombatFeedback.Bind(_loadedMatch,
                     LocalSlot is >= 0 and < 8 ? new CombatActor((byte)LocalSlot, _identities[LocalSlot], _lives[LocalSlot]) : CombatActor.None,
@@ -414,6 +417,7 @@ namespace MphRead.Mods.Network
                 player.IsBot = false;
                 player.TeamIndex = GetAssignedTeam(slot);
             }
+            ApplyCosmeticRoster(scene);
             scene.LocalPlayerSlot = IsObserver ? 0 : LocalSlot;
             scene.Players.ActiveCount = IsObserver ? 0 : 1;
             if (IsObserver) SpectatorMode.Start(scene);
@@ -426,6 +430,17 @@ namespace MphRead.Mods.Network
             { if (entry.Slot == slot) { return entry.Team; } }
             // Before the first authoritative roster/snapshot, do not infer a team.
             return -1;
+        }
+
+        private void ApplyCosmeticRoster(Scene scene)
+        {
+            foreach (NetRosterEntry entry in Client.Roster)
+            {
+                if (entry.Slot >= scene.Players.Count) continue;
+                scene.Players[entry.Slot].GetPresentation().SetCosmeticLoadout(
+                    new CosmeticLoadoutIds(entry.SkinId, entry.ArmorEffectId,
+                        entry.DeathEffectId));
+            }
         }
 
         private void DrainEvents()

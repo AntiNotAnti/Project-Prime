@@ -50,6 +50,10 @@ namespace MphRead
         public TextureAssetKey? TextureAssetKey { get; set; }
         /// <summary>Optional pack material resolved before the frame is sealed.</summary>
         public EnhancedMaterial? EnhancedMaterial { get; internal set; }
+        /// <summary>Optional player skin layer, resolved after the base enhancement pack.</summary>
+        public CosmeticMaterialOverride? CosmeticMaterialOverride { get; set; }
+        /// <summary>Authoritative gameplay feedback that must remain visually dominant.</summary>
+        public GameplayMaterialFeedback GameplayMaterialFeedback { get; set; }
         /// <summary>Explicit authored depth-fade opt-in for this particle draw.</summary>
         public SoftParticleProfile? SoftParticleProfile { get; internal set; }
         internal EnhancedBeamDrawState? EnhancedBeam { get; set; }
@@ -117,6 +121,8 @@ namespace MphRead
             TextureIdentity = null;
             TextureAssetKey = null;
             EnhancedMaterial = null;
+            CosmeticMaterialOverride = null;
+            GameplayMaterialFeedback = GameplayMaterialFeedback.None;
             SoftParticleProfile = null;
             EnhancedBeam = null;
             EnhancedForceField = null;

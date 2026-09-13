@@ -270,7 +270,15 @@ public class CombatFeedbackTests : IDisposable
         Assert.False(gate.ObserveKill(actor, 31).IsValid);
         cue = gate.ObserveSnapshot(actor, dead: true, altForm: true, tick: 32);
         Assert.True(cue.IsValid);
+        Assert.Equal(31u, cue.Tick);
         Assert.True(cue.AltForm);
+
+        gate.Reset();
+        Assert.False(gate.ObserveSnapshot(actor, dead: false, altForm: false, tick: 33).IsValid);
+        cue = gate.ObserveSnapshot(actor, dead: true, altForm: false, tick: 34,
+            presentationAlreadyHandled: true);
+        Assert.True(cue.IsValid);
+        Assert.True(cue.EnginePresentationHandled);
 
         gate.Reset();
         Assert.False(gate.ObserveSnapshot(actor with { Life = 2 }, dead: true,

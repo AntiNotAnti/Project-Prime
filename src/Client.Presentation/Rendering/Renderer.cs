@@ -1445,9 +1445,9 @@ namespace MphRead
                     Music.UpdateMusic();
                 }
             }
-            if (ProcessFrame && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active))
+            if (ProcessFrame)
             {
-                World.LocalPlayer!.GetPresentation().UpdateHud();
+                UpdateLocalHud();
             }
             if (ProcessFrame)
             {
@@ -1468,6 +1468,18 @@ namespace MphRead
             _pendingFadeSteps = Math.Min(_pendingFadeSteps + 1,
                 Mods.Render.FrameTiming.MaxCatchUpSteps);
             if (PlaybackSeeking) UpdateFade(updateDevice: false);
+        }
+
+        private void UpdateLocalHud()
+        {
+            if (World.LocalPlayer is not { } localPlayer
+                || !localPlayer.LoadFlags.TestFlag(LoadFlags.Active)) return;
+            // Replay checkpoints can change the local perspective without
+            // going through the spectator target-selection path. Only the
+            // original local player had a HUD prepared at scene load.
+            PlayerPresentation localPresentation = localPlayer.GetPresentation();
+            if (!localPresentation.HudReady) localPresentation.SetUpHud();
+            localPresentation.UpdateHud();
         }
 
         /// <summary>
@@ -4311,7 +4323,9 @@ namespace MphRead
             SelectionType selectionType, BillboardMode billboardMode, float scaleFactor = 1, int? bindingOverride = null,
             TextureIdentity? textureIdentity = null, TextureAssetKey? textureAssetKey = null,
             EnhancedForceFieldDrawState? enhancedForceField = null,
-            bool castsDirectionalShadow = true)
+            bool castsDirectionalShadow = true,
+            CosmeticMaterialOverride? cosmeticMaterialOverride = null,
+            GameplayMaterialFeedback gameplayMaterialFeedback = GameplayMaterialFeedback.None)
         {
             transform.Row0.X *= scaleFactor;
             transform.Row0.Y *= scaleFactor;
@@ -4378,6 +4392,8 @@ namespace MphRead
             item.TextureIdentity = item.HasTexture ? textureIdentity : null;
             item.TextureAssetKey = item.HasTexture && !bindingOverride.HasValue
                 ? textureAssetKey : null;
+            item.CosmeticMaterialOverride = cosmeticMaterialOverride;
+            item.GameplayMaterialFeedback = gameplayMaterialFeedback;
             item.EnhancedForceField = enhancedForceField;
             SetLegacyList(item, listId);
             Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
@@ -4616,6 +4632,14 @@ namespace MphRead
 
         private int _nextPolygonId = 1;
 
+        /// <summary>
+        /// Optional isolated-tool submission phase. Model-preview tooling uses
+        /// this after its model has produced a draw-time pose, but before
+        /// particles, transient lights, presentation resources, and the render
+        /// frame are sealed. Normal gameplay scenes never install a callback.
+        /// </summary>
+        internal Action? IsolatedPresentationSubmission { get; set; }
+
         public int GetNextPolygonId()
         {
             return _nextPolygonId++;
@@ -4628,6 +4652,7 @@ namespace MphRead
                 EntityPresentation.Get(World.Room, this).GetDrawInfo();
                 EntityPresentation.Get(World.Room, this).GetDisplayVolumes();
             }
+            PrepareArmorEffects();
             foreach (PlayerEntity player in World.GetPlayerEntities())
             {
                 if (!player.Initialized)
@@ -4643,6 +4668,7 @@ namespace MphRead
                     EntityPresentation.Get(player, this).GetDisplayVolumes();
                 }
             }
+            FlushArmorEffects();
             foreach (EntityBase entity in World.Entities)
             {
                 if (!entity.Initialized || entity.Type == EntityType.Player || entity.Type == EntityType.Room)
@@ -4660,6 +4686,9 @@ namespace MphRead
                     EntityPresentation.Get(entity, this).GetDisplayVolumes();
                 }
             }
+
+            if (_isolatedPresentation)
+                IsolatedPresentationSubmission?.Invoke();
 
             // A host-authorized, server-selected QZ1 diagnostic is rendered
             // as bounded world geometry. It never feeds the simulation or

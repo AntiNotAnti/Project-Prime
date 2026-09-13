@@ -2,7 +2,9 @@ using System;
 using System.Buffers.Binary;
 using System.Linq;
 using System.IO;
+using System.Reflection;
 using MphRead.Entities;
+using MphRead.Cosmetics;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -49,13 +51,43 @@ public sealed class ReplayTransientBoundTests
                 playerCount: session.Modern.Roster.Length);
             presentation.OnLoad();
             Assert.True(scene.LocalPlayer!.GetPresentation().HudReady);
+            PlayerEntity replayPerspective = scene.Players[7];
+            Assert.False(replayPerspective.GetPresentation().HudReady);
+            replayPerspective.LoadFlags |= LoadFlags.Active;
+            scene.LocalPlayerSlot = 7;
+            Exception? perspectiveError = Record.Exception(
+                () => typeof(ScenePresentation).GetMethod("UpdateLocalHud",
+                    BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(
+                        presentation, null));
+            Assert.Null(perspectiveError);
+            Assert.True(replayPerspective.GetPresentation().HudReady);
             PlayerEntity[] initial = scene.Players.ToArray();
+
+            PlayerPresentation oldDeath = scene.Players[7].GetPresentation();
+            Assert.Equal(new CosmeticLoadoutIds(0, BuiltInCosmeticIds.ArmorInferno,
+                BuiltInCosmeticIds.DeathSpectral), oldDeath.CosmeticLoadoutIds);
+            var actor = new CombatActor(7, 99, 1);
+            oldDeath.ObserveAuthoritativeDeath(actor, dead: false, altForm: false,
+                tick: 100, presentationAlreadyHandled: false, suppressSound: true);
+            oldDeath.ObserveAuthoritativeDeath(actor, dead: true, altForm: false,
+                tick: 110, presentationAlreadyHandled: false, suppressSound: true);
+            Assert.True(oldDeath.TryGetNetworkDeathParticleTime(120, out float firstAge));
+            oldDeath.ObserveAuthoritativeDeath(actor, dead: true, altForm: false,
+                tick: 120, presentationAlreadyHandled: false, suppressSound: true);
+            Assert.True(oldDeath.TryGetNetworkDeathParticleTime(120, out float duplicateAge));
+            Assert.Equal(firstAge, duplicateAge); // duplicate snapshot did not restart the death cue
 
             session.Modern.RequestSceneReload();
             Exception? error = Record.Exception(() => session.Modern.BeforeSimulation(scene));
             Assert.Null(error);
             session.Modern.AfterSimulation(scene);
             AssertRebuilt(scene, initial, snapshot, expectedLocalSlot: 5);
+            PlayerPresentation restored = scene.Players[7].GetPresentation();
+            Assert.NotSame(oldDeath, restored);
+            Assert.Equal(new CosmeticLoadoutIds(0, BuiltInCosmeticIds.ArmorInferno,
+                BuiltInCosmeticIds.DeathSpectral), restored.CosmeticLoadoutIds);
+            Assert.False(restored.TryGetNetworkDeathParticleTime(120, out _));
+            Assert.False(restored.DeathPresentationActive);
 
             PlayerEntity[] firstRebuild = scene.Players.ToArray();
             session.Modern.Reset(NetHeader.Version);
@@ -122,7 +154,13 @@ public sealed class ReplayTransientBoundTests
     {
         byte[] body = new byte[4 + SessionRosterPacket.MaxSize];
         BinaryPrimitives.WriteUInt32LittleEndian(body, matchId);
-        NetRosterEntry[] entries = { new(5, 99, Hunter.Weavel, 0, "Replay") };
+        NetRosterEntry[] entries =
+        {
+            new(5, 55, Hunter.Weavel, 0, "Replay"),
+            new(7, 99, Hunter.Sylux, 0, "Seven", SkinId: 0,
+                ArmorEffectId: BuiltInCosmeticIds.ArmorInferno,
+                DeathEffectId: BuiltInCosmeticIds.DeathSpectral)
+        };
         int length = SessionRosterPacket.Write(body.AsSpan(4), 1, entries);
         byte[] record = new byte[1 + 4 + length];
         record[0] = (byte)ReplayRecordKind.Roster;

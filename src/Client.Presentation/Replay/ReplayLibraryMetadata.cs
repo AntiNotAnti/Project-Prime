@@ -145,9 +145,14 @@ public sealed class ReplayLibraryMetadataService
                     }
                     break;
                 case ReplayRecordKind.Roster:
-                    if (body.Length >= 4
-                        && SessionRosterPacket.TryRead(body[4..], roster,
-                            out _, out int count))
+                    int count = 0;
+                    bool rosterValid = body.Length >= 4
+                        && (reader.ProtocolVersion >= 19
+                            ? SessionRosterPacket.TryRead(body[4..], roster, out _, out count)
+                            : reader.ProtocolVersion >= 8
+                                ? Protocol18ReplayRoster.TryRead(body[4..], roster, out _, out count)
+                                : Protocol7ReplayRoster.TryRead(body[4..], roster, out _, out count));
+                    if (rosterValid)
                         playerCount = Math.Max(playerCount, count);
                     break;
             }
