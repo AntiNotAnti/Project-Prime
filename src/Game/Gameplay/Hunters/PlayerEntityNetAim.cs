@@ -1095,6 +1095,10 @@ namespace MphRead.Entities
                 controller *= Math.Clamp(_scene.Services.ControllerZoomMultiplier,
                     0.01f, 10f);
             }
+            float crosshairSensitivity = DynamicCrosshairTuning.MovementSensitivity(
+                _scene.Services.DynamicCrosshairSensitivity);
+            controller *= crosshairSensitivity;
+            precision *= crosshairSensitivity;
             frame = frame.WithComponents(controller, precision);
             Vector2 delta = _aimAssist.Process(this, frame,
                 1f / 60f);

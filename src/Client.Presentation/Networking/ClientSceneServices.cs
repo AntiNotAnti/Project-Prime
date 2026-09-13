@@ -77,6 +77,12 @@ namespace MphRead.Mods.Network
                 : LocalLookFrame.Empty;
         }
         public float ControllerZoomMultiplier => InputSettings.GamepadZoomMultiplier;
+        public float DynamicCrosshairTravelDegrees
+            => InputSettings.DynamicCrosshairTravelDegrees;
+        public float DynamicCrosshairSensitivity
+            => InputSettings.DynamicCrosshairSensitivity;
+        public float DynamicCrosshairTurnSpeed
+            => InputSettings.DynamicCrosshairTurnSpeed;
         public bool TryGetScriptedAimDelta(int slot, out Vector2 delta)
         {
             if (NetSession.Active && slot == LocalSlot && NetTestScript.Enabled)

@@ -35,6 +35,12 @@ namespace MphRead
         LocalLookFrame LocalLookFrame => LocalLookFrame.Empty;
         void BeginLocalLookFrame(bool allowAimAssist) { }
         float ControllerZoomMultiplier => 1;
+        float DynamicCrosshairTravelDegrees
+            => DynamicCrosshairTuning.DefaultTravelDegrees;
+        float DynamicCrosshairSensitivity
+            => DynamicCrosshairTuning.DefaultMovementSensitivity;
+        float DynamicCrosshairTurnSpeed
+            => DynamicCrosshairTuning.DefaultTurnSpeed;
         bool TryGetScriptedAimDelta(int slot, out Vector2 delta) { delta = default; return false; }
         void NoteCollisionRange(int slot, Vector3 previous, Vector3 current) { }
         void NoteEvent(string message) { }

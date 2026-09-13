@@ -315,11 +315,20 @@ namespace MphRead.Entities
         {
             _gunVec1 = VectorMath.NormalizeOr(_gunVec1, _facingVector);
             _facingVector = ResolveAimFacingAfterInput(
-                _gunVec1, _facingVector, appliedAngle);
+                _gunVec1, _facingVector, appliedAngle,
+                _scene.Services.DynamicCrosshairTravelDegrees,
+                _scene.Services.DynamicCrosshairTurnSpeed);
         }
 
         internal static Vector3 ResolveAimFacingAfterInput(Vector3 gunVector,
             Vector3 facingVector, float appliedAngle)
+            => ResolveAimFacingAfterInput(gunVector, facingVector, appliedAngle,
+                DynamicCrosshairTuning.DefaultTravelDegrees,
+                DynamicCrosshairTuning.DefaultTurnSpeed);
+
+        internal static Vector3 ResolveAimFacingAfterInput(Vector3 gunVector,
+            Vector3 facingVector, float appliedAngle, float travelDegrees,
+            float turnSpeed)
         {
             // The legacy mouse/button paths call both aim axes every tick,
             // including a zero delta. Treating that neutral sample as aim
@@ -332,7 +341,41 @@ namespace MphRead.Entities
             {
                 return VectorMath.NormalizeOr(facingVector, gunVector);
             }
-            return ResolveAimFacing(gunVector, facingVector);
+            travelDegrees = DynamicCrosshairTuning.TravelDegrees(travelDegrees);
+            turnSpeed = DynamicCrosshairTuning.TurnSpeed(turnSpeed);
+            if (travelDegrees == DynamicCrosshairTuning.DefaultTravelDegrees
+                && turnSpeed == DynamicCrosshairTuning.DefaultTurnSpeed)
+            {
+                return ResolveAimFacing(gunVector, facingVector);
+            }
+
+            gunVector = VectorMath.NormalizeOr(gunVector, facingVector);
+            facingVector = VectorMath.NormalizeOr(facingVector, gunVector);
+            float dot = Math.Clamp(Vector3.Dot(gunVector, facingVector), -1, 1);
+            float travelCos = MathF.Cos(MathHelper.DegreesToRadians(travelDegrees));
+            if (dot >= travelCos)
+            {
+                return facingVector;
+            }
+
+            // Preserve the original 15-degree safety envelope unless the
+            // player explicitly asks for a wider free-aim region.
+            float maximumDegrees = Math.Max(15, travelDegrees);
+            float maximumCos = MathF.Cos(MathHelper.DegreesToRadians(maximumDegrees));
+            if (dot < maximumCos)
+            {
+                Vector3 tangent = facingVector - gunVector * dot;
+                if (!VectorMath.TryNormalize(tangent, out tangent))
+                {
+                    tangent = VectorMath.Perpendicular(gunVector, facingVector);
+                }
+                float maximumSin = MathF.Sin(
+                    MathHelper.DegreesToRadians(maximumDegrees));
+                facingVector = maximumCos * gunVector + maximumSin * tangent;
+            }
+            float blend = DynamicCrosshairTuning.TurnBlend(turnSpeed);
+            facingVector += (gunVector - facingVector) * blend;
+            return VectorMath.NormalizeOr(facingVector, gunVector);
         }
 
         internal static Vector3 ResolveAimFacing(Vector3 gunVector, Vector3 facingVector)

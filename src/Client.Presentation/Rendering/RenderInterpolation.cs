@@ -411,6 +411,8 @@ namespace MphRead
                     }
                 }
                 aim += controllerAim;
+                aim *= DynamicCrosshairTuning.MovementSensitivity(
+                    Mods.InputSettings.DynamicCrosshairSensitivity);
                 float pitch = MathHelper.RadiansToDegrees(MathF.Asin(Math.Clamp(player._gunVec1.Y, -1, 1)));
                 camera = RenderLookAccumulator.ApplyCameraLook(camera, aim, pitch);
             }

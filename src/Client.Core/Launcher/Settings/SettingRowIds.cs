@@ -88,6 +88,9 @@ public static class SettingRowIds
     public const string Language = "audio.language";
 
     public const string MouseSensitivity = "controls.mouse-sensitivity";
+    public const string DynamicCrosshairTravel = "controls.dynamic-crosshair.travel";
+    public const string DynamicCrosshairSensitivity = "controls.dynamic-crosshair.sensitivity";
+    public const string DynamicCrosshairTurnSpeed = "controls.dynamic-crosshair.turn-speed";
     public const string MouseInvertY = "controls.mouse-invert-y";
     public const string MouseInvertX = "controls.mouse-invert-x";
     public const string ScrollAllWeapons = "controls.scroll-all-weapons";
@@ -185,7 +188,9 @@ public static class SettingRowIds
         RadarBackgroundBlur, RadarGrid, RadarRings, RadarCompass, RadarPersistence,
         RadarPulse, RadarEdgeScale, RadarPriority,
         FeedbackVolume, SfxVolume, MusicVolume,
-        AnnouncerPack, MusicPack, Language, MouseSensitivity, MouseInvertY,
+        AnnouncerPack, MusicPack, Language, MouseSensitivity,
+        DynamicCrosshairTravel, DynamicCrosshairSensitivity,
+        DynamicCrosshairTurnSpeed, MouseInvertY,
         MouseInvertX, ScrollAllWeapons, MorphBallMouseFlickBoost,
         MorphBallStickFlickBoost, MorphBallSwipeBoost, ChatKey, ControllerPreset,
         ControllerHorizontalSensitivity, ControllerVerticalSensitivity,

@@ -48,6 +48,36 @@ namespace MphRead.Mods
         /// <summary>Multiplier on mouse movement. 1.0 is the original feel.</summary>
         public static float MouseSensitivity { get; set; } = 1;
 
+        public static float DynamicCrosshairTravelDegrees
+        {
+            get => _dynamicCrosshairTravelDegrees;
+            set => _dynamicCrosshairTravelDegrees
+                = DynamicCrosshairTuning.TravelDegrees(value);
+        }
+
+        private static float _dynamicCrosshairTravelDegrees
+            = DynamicCrosshairTuning.DefaultTravelDegrees;
+
+        public static float DynamicCrosshairSensitivity
+        {
+            get => _dynamicCrosshairSensitivity;
+            set => _dynamicCrosshairSensitivity
+                = DynamicCrosshairTuning.MovementSensitivity(value);
+        }
+
+        private static float _dynamicCrosshairSensitivity
+            = DynamicCrosshairTuning.DefaultMovementSensitivity;
+
+        public static float DynamicCrosshairTurnSpeed
+        {
+            get => _dynamicCrosshairTurnSpeed;
+            set => _dynamicCrosshairTurnSpeed
+                = DynamicCrosshairTuning.TurnSpeed(value);
+        }
+
+        private static float _dynamicCrosshairTurnSpeed
+            = DynamicCrosshairTuning.DefaultTurnSpeed;
+
         public static bool InvertMouseY { get; set; }
         public static bool InvertMouseX { get; set; }
 
@@ -783,6 +813,27 @@ namespace MphRead.Mods
                             MouseSensitivity = Math.Clamp(parsed, 0.05f, 10f);
                         continue;
                     }
+                    if (key == "dynamic_crosshair_travel_degrees"
+                        && Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float crosshairTravel))
+                    {
+                        DynamicCrosshairTravelDegrees = crosshairTravel;
+                        continue;
+                    }
+                    if (key == "dynamic_crosshair_sensitivity"
+                        && Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float crosshairSensitivity))
+                    {
+                        DynamicCrosshairSensitivity = crosshairSensitivity;
+                        continue;
+                    }
+                    if (key == "dynamic_crosshair_turn_speed"
+                        && Single.TryParse(value, NumberStyles.Float,
+                            CultureInfo.InvariantCulture, out float crosshairTurnSpeed))
+                    {
+                        DynamicCrosshairTurnSpeed = crosshairTurnSpeed;
+                        continue;
+                    }
                     if (key == "invert_y" && Boolean.TryParse(value, out bool invertY))
                     {
                         InvertMouseY = invertY;
@@ -1141,6 +1192,9 @@ namespace MphRead.Mods
                     $"# {Branding.Name} controls. Delete a line to go back to the default.",
                     "input_schema=4",
                     $"sensitivity={Float(MouseSensitivity)}",
+                    "dynamic_crosshair_travel_degrees=" + Float(DynamicCrosshairTravelDegrees),
+                    "dynamic_crosshair_sensitivity=" + Float(DynamicCrosshairSensitivity),
+                    "dynamic_crosshair_turn_speed=" + Float(DynamicCrosshairTurnSpeed),
                     $"invert_y={InvertMouseY.ToString().ToLowerInvariant()}",
                     $"invert_x={InvertMouseX.ToString().ToLowerInvariant()}",
                     $"scroll_all_weapons={ScrollAllWeapons.ToString().ToLowerInvariant()}",
@@ -1231,6 +1285,12 @@ namespace MphRead.Mods
             _current = ClientPlayerBindings.GetDefault();
             _creating = false;
             MouseSensitivity = 1;
+            DynamicCrosshairTravelDegrees
+                = DynamicCrosshairTuning.DefaultTravelDegrees;
+            DynamicCrosshairSensitivity
+                = DynamicCrosshairTuning.DefaultMovementSensitivity;
+            DynamicCrosshairTurnSpeed
+                = DynamicCrosshairTuning.DefaultTurnSpeed;
             InvertMouseY = false;
             InvertMouseX = false;
             ScrollAllWeapons = true;
