@@ -443,6 +443,199 @@ public sealed class AccountSessionTests
         RequestLog revoke = Assert.Single(handler.Snapshot(), request => request.Uri.AbsolutePath == "/v1/auth/revoke-sessions");
         Assert.Equal("Bearer access-token", revoke.Authorization);
         Assert.DoesNotContain("refresh-token", revoke.Body, StringComparison.Ordinal);
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task FailedServerRevocationStillClearsProtectedAndMemorySessions()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "access-token", expiresIn = 3600,
+                refreshToken = "refresh-token"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+            "/v1/auth/revoke-sessions" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent("{\"code\":\"service_unavailable\"}", Encoding.UTF8, "application/problem+json")
+            }),
+            _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(backend, handler, sessionStore: store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+
+        AccountServiceException error = await Assert.ThrowsAsync<AccountServiceException>(
+            () => session.RevokeSessionsAsync());
+
+        Assert.Equal(AccountFailureKind.ServiceUnavailable, error.Kind);
+        Assert.False(session.IsSignedIn);
+        Assert.Null(session.Identity);
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        Assert.False(store.LastDeleteCancellationToken.CanBeCanceled);
+        RequestLog revoke = Assert.Single(handler.Snapshot(), request => request.Uri.AbsolutePath == "/v1/auth/revoke-sessions");
+        Assert.Equal("Bearer access-token", revoke.Authorization);
+        Assert.Empty(revoke.Body);
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task SuccessfulServerRevocationRethrowsCleanupFailureAfterReleasingGate()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var cleanupError = new IOException("The protected store is unavailable.");
+        store.DeleteError = cleanupError;
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "access-token", expiresIn = 3600,
+                refreshToken = "refresh-token"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+            "/v1/auth/revoke-sessions" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)),
+            _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(backend, handler, sessionStore: store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+
+        IOException error = await Assert.ThrowsAsync<IOException>(() => session.RevokeSessionsAsync());
+
+        Assert.Same(cleanupError, error);
+        Assert.False(session.IsSignedIn);
+        Assert.Null(session.Identity);
+        Assert.False(store.LastDeleteCancellationToken.CanBeCanceled);
+
+        store.DeleteError = null;
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Null(store.Read(backend.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task FailedServerRevocationAggregatesCleanupFailureAfterReleasingGate()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var cleanupError = new IOException("The protected store is unavailable.");
+        store.DeleteError = cleanupError;
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "access-token", expiresIn = 3600,
+                refreshToken = "refresh-token"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+            "/v1/auth/revoke-sessions" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.ServiceUnavailable)
+            {
+                Content = new StringContent("{\"code\":\"service_unavailable\"}", Encoding.UTF8, "application/problem+json")
+            }),
+            _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(backend, handler, sessionStore: store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+
+        AggregateException error = await Assert.ThrowsAsync<AggregateException>(() => session.RevokeSessionsAsync());
+
+        Assert.Equal(2, error.InnerExceptions.Count);
+        Assert.IsType<AccountServiceException>(error.InnerExceptions[0]);
+        Assert.Same(cleanupError, error.InnerExceptions[1]);
+        Assert.False(session.IsSignedIn);
+        Assert.Null(session.Identity);
+        Assert.False(store.LastDeleteCancellationToken.CanBeCanceled);
+
+        store.DeleteError = null;
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Null(store.Read(backend.AbsoluteUri));
+    }
+
+    [Fact]
+    public async Task CanceledServerRevocationStillClearsProtectedAndMemorySessions()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var requestStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handler = new RecordingHandler(async (request, cancel) =>
+        {
+            switch (request.RequestUri!.AbsolutePath)
+            {
+                case "/v1/auth/login":
+                    return JsonResponse(new
+                    {
+                        tokenType = "Bearer", accessToken = "access-token", expiresIn = 3600,
+                        refreshToken = "refresh-token"
+                    });
+                case "/v1/me":
+                    return JsonResponse(new AccountIdentity(new PlayerId(player), true, true));
+                case "/v1/auth/revoke-sessions":
+                    requestStarted.SetResult();
+                    await Task.Delay(Timeout.InfiniteTimeSpan, cancel);
+                    throw new InvalidOperationException("The canceled revocation must not continue.");
+                default:
+                    throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.");
+            }
+        });
+        using var session = new AccountSession(backend, handler, sessionStore: store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+        using var stop = new CancellationTokenSource();
+
+        Task revoke = session.RevokeSessionsAsync(stop.Token);
+        await requestStarted.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        stop.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => revoke);
+        Assert.False(session.IsSignedIn);
+        Assert.Null(session.Identity);
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        Assert.False(store.LastDeleteCancellationToken.CanBeCanceled);
+
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
+    }
+
+    [Fact]
+    public async Task ServerRevocationUsesRotatedAccessTokenWhenRefreshIsRequired()
+    {
+        Guid player = Guid.NewGuid();
+        var backend = new Uri("https://accounts.example.test/");
+        var store = new FakeSecureSessionStore();
+        var clock = new TestTimeProvider(DateTimeOffset.UtcNow);
+        var handler = new RecordingHandler((request, _) => request.RequestUri!.AbsolutePath switch
+        {
+            "/v1/auth/login" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "expiring-access-token", expiresIn = 10,
+                refreshToken = "refresh-token"
+            })),
+            "/v1/auth/refresh" => Task.FromResult(JsonResponse(new
+            {
+                tokenType = "Bearer", accessToken = "rotated-access-token", expiresIn = 3600,
+                refreshToken = "rotated-refresh-token"
+            })),
+            "/v1/me" => Task.FromResult(JsonResponse(new AccountIdentity(new PlayerId(player), true, true))),
+            "/v1/auth/revoke-sessions" => Task.FromResult(new HttpResponseMessage(HttpStatusCode.NoContent)),
+            _ => throw new InvalidOperationException($"Unexpected account path {request.RequestUri.AbsolutePath}.")
+        });
+        using var session = new AccountSession(backend, handler, clock, store);
+        await session.SignInAsync("hunter@example.test", "A-long-password-1!");
+        clock.Advance(TimeSpan.FromSeconds(1));
+
+        await session.RevokeSessionsAsync();
+
+        RequestLog refresh = Assert.Single(handler.Snapshot(), request => request.Uri.AbsolutePath == "/v1/auth/refresh");
+        Assert.Contains("refresh-token", refresh.Body, StringComparison.Ordinal);
+        RequestLog revoke = Assert.Single(handler.Snapshot(), request => request.Uri.AbsolutePath == "/v1/auth/revoke-sessions");
+        Assert.Equal("Bearer rotated-access-token", revoke.Authorization);
+        Assert.Empty(revoke.Body);
+        Assert.Null(store.Read(backend.AbsoluteUri));
+        await session.SignOutAsync().WaitAsync(TimeSpan.FromSeconds(2));
     }
 
     [Fact]
@@ -538,6 +731,8 @@ public sealed class AccountSessionTests
         private readonly Dictionary<string, byte[]> _records = new(StringComparer.Ordinal);
         private int _deletes;
         public int DeleteCount => Volatile.Read(ref _deletes);
+        public Exception? DeleteError { get; set; }
+        public CancellationToken LastDeleteCancellationToken { get; private set; }
 
         public byte[]? Read(string scope)
         {
@@ -566,6 +761,8 @@ public sealed class AccountSessionTests
         public ValueTask DeleteAsync(string backendScope, CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            LastDeleteCancellationToken = cancellationToken;
+            if (DeleteError is { } error) throw error;
             lock (_gate) _records.Remove(backendScope);
             Interlocked.Increment(ref _deletes);
             return ValueTask.CompletedTask;

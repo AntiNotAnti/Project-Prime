@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Linq;
+using System.Runtime.ExceptionServices;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -249,31 +250,42 @@ public sealed partial class AccountSession : IDisposable
     {
         await _tokensGate.WaitAsync(cancel).ConfigureAwait(false);
         Exception? operationError = null;
+        Exception? cleanupError = null;
         try
         {
-            string accessToken = await AccessTokenLockedAsync(cancel).ConfigureAwait(false);
-            await SendAsync<JsonElement>(HttpMethod.Post, "v1/auth/revoke-sessions", null,
-                accessToken, cancel).ConfigureAwait(false);
-        }
-        catch (Exception exception)
-        {
-            operationError = exception;
-            throw;
-        }
-        finally
-        {
+            try
+            {
+                string accessToken = await AccessTokenLockedAsync(cancel).ConfigureAwait(false);
+                await SendAsync<JsonElement>(HttpMethod.Post, "v1/auth/revoke-sessions", null,
+                    accessToken, cancel).ConfigureAwait(false);
+            }
+            catch (Exception exception)
+            {
+                operationError = exception;
+            }
+
             ResetMemory();
             try
             {
                 await _sessionStore.DeleteAsync(BackendScope, CancellationToken.None).ConfigureAwait(false);
             }
-            catch (Exception cleanupError) when (operationError != null)
+            catch (Exception exception)
             {
-                throw new AggregateException("Session revocation failed and protected session material could not be cleared.",
-                    operationError, cleanupError);
+                cleanupError = exception;
             }
-            finally { _tokensGate.Release(); }
         }
+        finally
+        {
+            _tokensGate.Release();
+        }
+
+        if (operationError is not null && cleanupError is not null)
+            throw new AggregateException("Session revocation failed and protected session material could not be cleared.",
+                operationError, cleanupError);
+        if (operationError is not null)
+            ExceptionDispatchInfo.Capture(operationError).Throw();
+        if (cleanupError is not null)
+            ExceptionDispatchInfo.Capture(cleanupError).Throw();
     }
 
     internal async Task ClearStoredSessionAsync(CancellationToken cancel = default)
