@@ -85,10 +85,11 @@ startup and `-rooms` prints 27 again. The three maps that used to travel with th
 its stripped `.bsp` and its baked `.tex` -- were taken out, along with the GPL
 notice they needed.
 
-Everything lives in `src/MphRead/Mods/MapGen/`. Two upstream files carry a
-change and both are one token: `RepackCollision` gained the word `partial`,
-and `Metadata`'s two room tables are wrapped in a call that appends the custom
-rooms. `Scene` was already `partial`, so the preview camera needed nothing.
+Portable map preparation and compilation live under `src/MapPlatform/`; CLI
+conversion and bundle/report commands live under `src/Tools/Conversion/`.
+Runtime room/content integration remains in Game. Android consumes cooked map
+artifacts and these normal project references rather than a copied Client map
+generator tree.
 
 ## What a room is, and what had to be built
 

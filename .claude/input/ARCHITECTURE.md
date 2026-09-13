@@ -15,8 +15,10 @@ LookInputCoordinator
 
 `GamepadState` and `PointerSample` contain no SDL, Avalonia, or Android types.
 The platform adapters update those values; `GamepadInput`, `StylusInput`, and
-`GyroLookProcessor` perform deterministic conditioning. Android and Client
-compile the same platform-neutral files through `Client.SharedInput.props`.
+`GyroLookProcessor` perform deterministic conditioning. Portable input
+contracts and settings compile once in `Client.Core`; shared scene-facing input
+compiles once in `Client.Presentation`. Client and Android reference those
+assemblies and keep only their platform event adapters in the head projects.
 
 The coordinator distinguishes ownership from contribution. `Device` is the
 winning source for the fixed step, while `Contributors` retains every source

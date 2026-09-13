@@ -1,5 +1,11 @@
 # Multiplayer — match end, rotation and the double-counted kill
 
+Status: historical account of the former client-authority/`DedicatedServer`
+rotation. Current match end and continuation are owned by Server.Node and its
+managed Worker; use `docs/CURRENT_ARCHITECTURE.md` and
+`docs/CURRENT_PROTOCOL.md`. The legacy names below are retained only as
+evidence for the bug that was fixed at that time.
+
 A match that somebody won used to end the session for that client alone:
 `GameState.ProcessFrame` ran the winner's camera, then the scoreboard, then
 faded to black -- correct offline, and on a server it meant every client

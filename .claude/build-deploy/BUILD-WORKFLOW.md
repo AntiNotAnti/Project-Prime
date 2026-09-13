@@ -6,7 +6,7 @@ Workflows
 
 | Workflow | When | What |
 |---|---|---|
-| `.github/workflows/build.yml` | fast guards on every source push/PR; integration on `main`; full publish nightly or by hand | compiles the gameplay/client layers and content-free focused tests for every source change; the scheduled/manual confidence tier publishes `win-x64`, `linux-x64`, `linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on one Ubuntu runner (every target is `net10.0`, so none needs a runner of its own), plus the protected Android/server jobs |
+| `.github/workflows/build.yml` | fast guards on every source push/PR; integration on `main`; full publish nightly or by hand | compiles the gameplay/client layers and content-free focused tests for every source change; the scheduled/manual confidence tier publishes desktop/server RIDs and the separate `net10.0-android36.0` protected Android build; native desktop runtime smoke is scheduled on Linux, Windows, and macOS runners |
 | `.github/workflows/network-tests.yml` | integration on `main`; nightly or by hand for content/WAN evidence | runs content-free protocol, Worker, Backend and deployment checks on `main`; authoritative content, rendered/fresh-package and synthetic WAN checks are reserved for nightly/manual runs |
 | `.github/workflows/release.yml` | a `v*` tag, or by hand -- naming a tag or picking a bump that creates one | those six plus the Windows server: seven packages attached to a GitHub release |
 
@@ -70,34 +70,20 @@ Rerunning the same tag updates the draft instead of failing: the
 create-vs-upload arms are chosen by `gh release view`, so the notes are
 regenerated and the assets `--clobber`ed.
 
-Two Windows executables, one PE header field
+Separate client and server packages
 
-`ProjectPrime.exe` is `WinExe` (no console; double-clicking opens the
-launcher). That same property makes it useless as a server: cmd/PowerShell do
-not wait for it and its exit code never reaches `%ERRORLEVEL%`.
-`dotnet publish -r win-x64 -p:MphReadServer=true` publishes the same sources
-without the launcher and with a console header, as `ProjectPrimeServer.exe`.
-`tools/check-subsystem.sh gui|console <exe>` asserts each one in both
-workflows, since it comes out of a csproj condition nothing else would notice
-changing.
+`src/Client/Client.csproj` publishes `ProjectPrime.exe` as a Windows GUI
+application. Server publishing is not a Client build personality. The whole
+stack package contains Backend, the persistent `Server.Node` apphost named
+`ProjectPrimeServer`, and its managed `Server.Worker` below `worker/`.
+`tools/package-server.sh` owns that package shape.
 
-`-p:MphReadServer=true` is published three times: `win-x64-server`,
-`linux-x64-server` and `linux-arm64` (the Pi is server-only; plain x64 server
-covers a VPS/spare desktop). Only the Windows server package is renamed --
-Linux keeps the plain `ProjectPrime` name, and the Pi's own
-`deploy-server.sh` migrates a systemd unit still pointing at the old name,
-`MphRead`.
-
-Both x64 Linux builds (game's server capability, and the standalone server
-package) are started on the Ubuntu release runner, since it can actually run
-x64; the Windows server gets the same proof on a Windows runner. The ARM64
-package is cross-compiled and never started by CI -- only the Pi, through
-`deploy-server.sh`, has ever run it.
-`tools/check-dedicated-server.sh` runs on the Windows runner too, in Git
-Bash rather than a parallel PowerShell script: the binary is
-`MphReadServer.exe`, `python3` may only be `python`, and a path has to go
-through `cygpath` before .NET reads it as anything but a path on the current
-drive.
+The build workflow also schedules a content-free desktop native runtime smoke
+on Linux, Windows, and macOS. It initializes the real SDL video/GPU path,
+submits a bounded frame, and disposes. A local Apple Silicon/Metal run passed
+on 2026-09-12; scheduled Windows/Linux results must be recorded before they are
+claimed. Linux ARM64 is cross-published and still requires execution on its
+target machine.
 
 Asset guard
 
@@ -114,13 +100,13 @@ tools/check-no-game-assets.sh publish/win-x64    # a build
 
 Notes
 
-- The repository was renamed from `AntiNotAnti/MphRead` to `AntiNotAnti/Project-Prime`. `Mods/Branding.cs.Repository` contains the current name; GitHub's old-slug redirect covers `gh`/API calls but should not be relied on.
+- The repository was renamed from `AntiNotAnti/MphRead` to `AntiNotAnti/Project-Prime`. `src/Client.Core/Runtime/Branding.cs` contains the current name; GitHub's old-slug redirect covers `gh`/API calls but should not be relied on.
 - `MPHREAD_SERVER` (defined on server builds) is a different question from "has no launcher": it is what makes a bare invocation print what the binary is for, instead of falling through to upstream's setup check.
 
 ## Updating in place
 
 The front screen has always checked GitHub for a newer release
-(`Mods/Update/UpdateCheck.cs`) and shown a badge. Two things are new: the
+(`src/Client.Presentation/Update/UpdateCheck.cs`) and shown a badge. Two things are new: the
 build is named in the corner of the picture, and on **Android** the update is
 fetched and installed rather than pointed at.
 
@@ -143,17 +129,11 @@ fetched and installed rather than pointed at.
   where an out-of-date copy is most likely to be -- still sees it, and that
   card has no version corner. On the front card the two would be the same
   offer in opposite corners of one picture, so the badge hides there.
-- **`BuildVersion` reads *this* assembly when there is no entry assembly**,
-  which is every Android launch: the system starts an activity, so the process
-  has no managed entry point and `Assembly.GetEntryAssembly()` answers null.
-  Every APK therefore called itself "a local build", release or not, and the
-  version line could never be anything but grey. The fallback is right on that
-  platform because the Android head *compiles* MphRead's sources into its own
-  assembly (`<Compile Include="..\MphRead\**\*.cs" />`) rather than
-  referencing the project, so the file this class lives in is part of the APK's
-  assembly -- and that assembly is the one `release.yml` stamps. Checked in
-  `obj/.../MphRead.Android.AssemblyInfo.cs` against a build with
-  `-p:InformationalVersion=1.2.3`.
+- **`BuildVersion` delegates to the shared stamped `BuildIdentity`.** Android
+  references Client.Core and Client.Presentation rather than compiling desktop
+  sources into the app assembly. Release stamping must therefore cover the
+  shared identity assembly as well as the platform head; an unstamped local
+  graph still reports "a local build".
 - **Only a *tagged release* APK is stamped.** `build.yml`'s android job passes
   no version, so the `ProjectPrime-android` artifact from a push says "a local
   build" and that is correct, not a bug: an unstamped build has no way to tell
@@ -165,7 +145,7 @@ fetched and installed rather than pointed at.
   on every phone. `UpdateInfo` now carries the asset's **URL and size** as
   GitHub gave them, never composed from the tag -- a release whose files were
   named differently gets no download rather than a guess.
-- **`Mods/Update/UpdateInstall.cs` is the seam**, and both platforms now fill
+- **`src/Client.Presentation/Update/UpdateInstall.cs` is the seam**, and both platforms now fill
   it. They have almost nothing in common; what they share is the shape of the
   conversation with the player, which is all the front screen wants. The split
   between `Prepare` and `Install` is the point of no return: everything that
@@ -173,7 +153,7 @@ fetched and installed rather than pointed at.
   put the reason on screen. Left null, the front screen opens the release page
   exactly as before.
 
-### The phone: `MphRead.Android/ApkInstaller.cs`
+### The phone: `src/Android/ApkInstaller.cs`
 
 `PackageInstaller` rather than the deprecated `Intent.ACTION_INSTALL_PACKAGE`
 that every example uses. Three things come of that: no `FileProvider` is
@@ -199,7 +179,7 @@ it and there is no supported way to survive that, so anything that must be on
 disk has to be on disk before `Commit`. `Finished` is therefore only ever seen
 when something went *wrong*.
 
-### The desktop: `Mods/Update/DesktopUpdate.cs`
+### The desktop: `src/Client/Update/DesktopUpdate.cs`
 
 A program cannot overwrite the file it is running from -- Windows refuses, and
 Unix allows it in a way that is worse than refusing. So the swap is done by **a

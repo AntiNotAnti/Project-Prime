@@ -1,7 +1,14 @@
 # Replays: recording a match and watching it back
 
-`Mods/Network/ReplayRecorder.cs`, `ReplayFile.cs`, `ReplayPlayback.cs`,
-`ReplayInfo.cs`. Started and stopped from the pause menu ("Record replay",
+Status: current source locations with legacy packet-replay rationale retained
+where identified. Current live authority is the Worker; references below to a
+client authority or `DedicatedServer` describe the older replay format/path and
+must not be used as current network ownership guidance.
+
+`src/Client.Presentation/Networking/ReplayRecorder.cs`,
+`src/Shared.Replay/ReplayFile.cs`, and
+`src/Client.Presentation/Networking/ReplayPlayback.cs` and `ReplayInfo.cs`.
+Started and stopped from the pause menu ("Record replay",
 online matches only) and from `-netcheck ... -recordreplay`; watched from the
 front screen's replay entry, which runs `MatchStart.LaunchReplay`.
 

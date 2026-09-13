@@ -3,10 +3,11 @@
 Two halves, in two different places. `Shaders.FragmentShader` paints every
 surface in one flat colour and bands what is left of the shading;
 `Shaders.CelFragmentShader` runs over the finished offscreen target and draws
-the ink line. `Mods/RenderOptions.cs` holds the three knobs (`CelShading`,
+the ink line. `src/Renderer/Configuration/RenderOptions.cs` holds the knobs (`CelShading`,
 `CelBands`, `CelEdge`) and the launcher's Settings page shows them.
 
-The ES copies of both live in `Mods/Render/EsShaders.cs` and are checked
+The ES copies live in `src/Client.Presentation/Rendering/EsShaders.cs`; the
+desktop SDL GPU path uses its generated shader artifacts. GLES sources are checked
 against the SHA-256 of the desktop source they were written from, so a change
 here that is not carried across throws by name at the first compile rather
 than rendering differently on a phone. Recompute after editing `Shaders.cs`:

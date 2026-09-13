@@ -1,7 +1,8 @@
 # Launcher — settings
 
 Details about the settings window: layout, saving, and key toggles.
-It is `Mods/Launcher/Gui/SettingsWindow.cs`, and it is the same window on every
+The shared view is `src/Client.Presentation/Launcher/Gui/SettingsView.cs`;
+desktop hosts it from `src/Client/Launcher/Gui/SettingsWindow.cs`, and it is the same presentation on every
 platform and from both places that open it (the front screen, and the pause menu
 during a match).
 
@@ -59,8 +60,9 @@ Notable toggles
   which is pinned at 60 Hz whatever is chosen. Display is the default and the
   only tear-free entry: a number turns VSync off, because 120 on a 144 Hz
   screen with VSync on gets 72. Saves to `settings.json` as `FrameRateCap`.
-  There is no motion-interpolation row any more, and no interpolation behind
-  it -- see `.claude/render/FRAME-PACING.md` for why it was taken out.
+  There is no motion-interpolation row: bounded presentation interpolation is
+  an implementation policy rather than a user toggle. See
+  `.claude/render/FRAME-PACING.md` for the current allowlist and reset barriers.
 - **The two crosshair rows are children of Pro mode HUD** and are shown only
   while it is on: nothing else in the game draws that crosshair, and the DS HUD
   has its own reticle sprite. **Crosshair size** (Small / Medium / Big) and
@@ -70,13 +72,13 @@ Notable toggles
   setting it also raises the row's height from 34 to 48 -- a crosshair at Big is
   36 points across and a preview that had to shrink it could not answer "how big
   is Big". One point in the preview is one pixel in the game, and both it and
-  the renderer read their shapes from `Mods/Render/Crosshair.cs`, so the picture
+  the renderer read their shapes from `src/Client.Presentation/Rendering/Crosshair.cs`, so the picture
   cannot drift away from what a match draws. The size row invalidates the type
   row, since the preview answers for both. Saved through `Features.Commit` as
   `CrosshairStyle` and `CrosshairSize`, by name -- so the enum can gain or lose
   a member without invalidating anyone's file, which it already has.
 - **On-screen buttons** (Controls page, Android only) is a master switch plus one
-  toggle per button, in `controls.txt` via `Mods/Input/TouchSettings.cs`. The
+  toggle per button, in `controls.txt` via `src/Client.Core/Input/TouchSettings.cs`. The
   desktop does not show the group at all: eleven switches that decide nothing
   are worse than no group.
 - **`SliderRow` is no longer 0-100.** It takes `min`, `max` and `keyStep`,
@@ -110,7 +112,7 @@ Notable toggles
   the six has a row any more and none is written to `settings.json` -- only
   `ProHud` and `ReticleOpacity` are. The setters remain, because `-nohelmet`
   and upstream's console menu still write several of them. It also draws its
-  own energy, ammo and score (`Mods/Render/PlayerEntityProHud.cs`) in place of
+  own energy, ammo and score (`src/Client.Presentation/Presentation/Players/PresentationPlayerEntityProHud.cs`) in place of
   the game's, which are suppressed in `DrawHudObjects` and `DrawModeScore`.
 - **No explanations under the rows.** Every `Explain` call is gone from the
   page except the one on Credits; a settings screen where each answer is a
@@ -129,5 +131,5 @@ Notable toggles
 - Controls: `Mods.InputSettings` holds the canonical `PlayerControls` and writes
   it to `controls.txt`. A rebind made from the pause menu also goes through
   `ApplyToPlayers`, because the players in a running match already hold their
-  own copies. `KeyRow` maps the toolkit's key enumeration to GLFW's, and refuses
-  anything unmapped rather than binding it to whatever key shares its number.
+  own copies. `KeyRow` edits the Prime-owned key vocabulary; the desktop SDL
+  adapter converts native events at the host boundary and rejects unmapped keys.

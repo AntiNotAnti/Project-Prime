@@ -1,5 +1,11 @@
 # Testing — the hard cases
 
+Status: historical Pi tour and legacy authority-handover evidence. Reuse the
+measurement cautions, but do not treat old client-authority commands or counts
+as the current Node/Worker acceptance procedure. Current gates are in
+`docs/CURRENT_RELEASE_GATES.md`; unresolved capacity and compatibility claims
+are in `.claude/KNOWN-GAPS.md`.
+
 `TEST-HARNESS.md` covers the normal run: several real clients playing the
 tour and cross-checking what they saw. This file covers the runs where
 something is deliberately wrong — a player disconnects, a line goes away, a

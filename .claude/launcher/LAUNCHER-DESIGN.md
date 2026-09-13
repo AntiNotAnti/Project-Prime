@@ -10,7 +10,8 @@ for Windows and an Avalonia one for everything else, over shared logic. That
 split cost a second implementation of every screen, and the two halves were not
 equal -- the settings window, the map grid and the pause menu existed only in
 WinForms, so a Linux player was told to go and use the console menu instead.
-Everything is now in `Mods/Launcher/Gui/`:
+Shared views/controls live in `src/Client.Presentation/Launcher/Gui/`; desktop
+window and event-loop integration lives in `src/Client/Launcher/Gui/`:
 
 | File | What |
 |---|---|
@@ -38,8 +39,9 @@ will not let you move is a trap, and there are many window managers.
 
 Logo and assets
 
-One source image, chroma-keyed and cropped into four files under
-`src/MphRead/Assets/`. All four allow-listed in `tools/asset-guard-allow.txt`
+Presentation branding lives under `src/Client.Presentation/Assets/`; desktop
+ICO/tool assets remain under `src/Client/Assets/`. The shipped files are
+allow-listed in `tools/asset-guard-allow.txt`
 (PNG and JPEG are otherwise banned extensions).
 
 | File | What | Used by |
@@ -86,7 +88,7 @@ Menu entries
 
 Pause menu
 
-- `Escape` in a match opens it on every platform now (`Mods/PauseMenu.cs` +
+- `Escape` in a match opens it on every platform now (`src/Client/Runtime/PauseMenu.cs` +
   `Gui/PauseMenuWindow.cs`): Resume, Fullscreen/Windowed, Settings, Spectate or
   Rejoin, Record replay, Leave match, Quit.
 - **It scales itself down rather than being cut off.** The panel's natural
@@ -98,7 +100,7 @@ Pause menu
   A display at 150% is what made this ordinary -- the panel needs ~500
   device-independent pixels, which is 750 real ones, and the game window's
   floor was 600. That floor is now 1024x720 and the default window 1280x768.
-- **Spectating starts on the free camera** (`Mods/SpectatorMode.cs`): "Spectate"
+- **Spectating starts on the free camera** (`src/Client.Presentation/Runtime/SpectatorMode.cs`): "Spectate"
   puts you on the map with no HUD, a left click moves into the players and
   cycles through them, and Space toggles between the two -- `ToggleView`, not
   the camera directly, because the camera on its own would put you back behind
@@ -127,8 +129,8 @@ Pause menu
   `Scene.OnRenderFrame` acts on -- the same shape as this menu's own window
   work. Replay playback is the exception: it calls `Start(watchSomeone: true)`
   and goes straight to a player, having no view of its own to have just left.
-- It talks to the game through volatile flags. GLFW window calls -- closing it,
-  changing its border -- belong to the thread that created the window, so the
+- It talks to the game through explicit presentation state and commands. SDL
+  window calls -- closing it, changing its border -- belong to the host thread, so the
   menu asks and `PauseMenu.Poll` does it on the game's own thread.
 - **It is the size of the game window and laid straight over it**, so it reads
   as the game's own pause screen rather than as a dialog the game opened. It was
@@ -138,12 +140,12 @@ Pause menu
 - **It follows the game window, every frame.** Sampling that rectangle once at
   open time is not enough: drag the game and the menu stays where it was, which
   is the floating popup all over again. `PauseMenu.TakeWindowRect` re-reads the
-  GLFW client rect from `Poll` -- already called once a frame while the menu is
+  SDL client rect from `Poll` -- already called once a frame while the menu is
   up -- and `PauseMenuWindow.FollowGameWindow` re-lays both the menu and the
   in-game settings when it changes. It remains a borderless window *over* the
   game rather than something drawn *inside* it, because Avalonia cannot render
   into the GL context; following is what makes that difference invisible.
-- The rectangle is in client **pixels** (what GLFW reports, and what Avalonia's
+- The rectangle is in client **pixels** (what the SDL host reports, and what Avalonia's
   `Position` is in) while `Width`/`Height` are device-independent, so the
   display scaling has to come back out of them. Take it from
   `Screens.ScreenFromPoint(...).Scaling`, **not** `RenderScaling`: the latter
@@ -155,7 +157,7 @@ Pause menu
   game window is whatever size it has been dragged to. Seven entries need about
   470 px of height, and below that the fixed-size version drew "Leave match"
   and "Quit" off the bottom -- a player who cannot get out of the match.
-  `RenderWindow.MinimumSize` is 800x600 as well, so that case needs a window
+  The SDL game window minimum is 800x600 as well, so that case needs a window
   smaller than the game allows; `-uishot` renders a `pausemenu-small` at
   560x320 to keep the scroll path checked anyway.
 - The entries are a 420-wide panel centred in it -- the same shape the Android

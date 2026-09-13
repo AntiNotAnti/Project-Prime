@@ -1,5 +1,11 @@
 # Multiplayer — diagnostics, and the damage bug (resolved 2026-08-23)
 
+Status: historical diagnosis of the former client-authority protocol. Current
+architecture is Node-controlled and Worker-authoritative; use
+`docs/CURRENT_ARCHITECTURE.md` and `docs/CURRENT_PROTOCOL.md` for present
+ownership. Names such as `DedicatedServer` below identify the recorded legacy
+path and are not current implementation instructions.
+
 The long-running "one remote slot receives zero damage for the whole match" bug
 was two faults, both from commit `bbb13b8`, and **neither was latency**. Full
 account in `CLAUDE.md`, "The damage bug, and what it actually was".
@@ -173,7 +179,7 @@ ProjectPrime -netcheck rebooty.xyz -port 27888 ... -netlag 200:20 -netloss 2
 ./run-lag.sh 60 90 Samus Kanden Trace
 ```
 
-`-netlag MS[:JITTER]` (`Mods/Network/NetLag.cs`) holds half the round trip on
+`-netlag MS[:JITTER]` (`src/Game/Protocol/NetLag.cs`) holds half the round trip on
 the way out and half on the way in, inside `NetTransport`, with the queue
 drained from the head only while the head is due -- so jitter delays a
 datagram and never overtakes the one in front of it. `-netloss PCT` throws

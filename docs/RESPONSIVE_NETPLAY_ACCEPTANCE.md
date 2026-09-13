@@ -8,9 +8,10 @@ afflictions, objectives, collision history, and lag-compensation selection.
 The later NetPlay fidelity pass changed the input wire contract to protocol 12
 only after a deterministic death/respawn regression proved that unseen
 pre-death commands needed an explicit life epoch. The current wire contract is
-protocol 16: it preserves the protocol-15 presented-frame denominator,
-authenticated UDP envelope, and explicit optional radial movement sample, and
-adds authoritative Spire alternate-form attack presentation state. The movement sample
+protocol 17: it preserves the protocol-15 presented-frame denominator,
+authenticated UDP envelope, explicit optional radial movement sample, and the
+protocol-16 Spire alternate-form attack state, and adds authoritative remote
+weapon charge presentation state. The movement sample
 is quantized to signed axes in the inclusive range -127..127; -128 is reserved
 and malformed radial values are rejected. This does not grant the client gameplay
 authority; the Worker
@@ -25,8 +26,8 @@ before body validation and state application. Enabled mode drops unknown or
 unauthenticated joins and has no keyless fallback. `UdpAuthenticationEnabled`
 is enabled for production; disabling it is an explicit legacy/test seam only.
 Keys are redacted from logs, string representations, tickets, CLI arguments,
-and environment values. Protocol 15 and older peers are intentionally
-incompatible with this live wire contract. Protocol-14 replay timelines remain
+and environment values. Protocol 16 and older peers are intentionally
+incompatible with this live wire contract. Protocol-14 through protocol-16 replay timelines remain
 readable when their stored timeline format is independent of the current
 input-command payload.
 

@@ -1,7 +1,7 @@
 # Current Project Prime protocol
 
 Status: authoritative live-wire reference, 2026-09-12. The current
-authoritative wire family is `Authoritative`, protocol **16**. Protocol 15 and
+authoritative wire family is `Authoritative`, protocol **17**. Protocol 16 and
 older peers are intentionally incompatible with the live build.
 
 ## Envelope and admission
@@ -23,10 +23,11 @@ from client-supplied hints.
 | 13 | bounded frame/timing telemetry |
 | 14 | authenticated established-connection datagrams |
 | 15 | explicit optional quantized radial movement axes |
-| **16** | authoritative Spire alternate-form attack presentation flag |
+| 16 | authoritative Spire alternate-form attack presentation flag |
+| **17** | authoritative remote weapon charge presentation state |
 
 This table records wire history; it does not make old live peers compatible
-with protocol 16.
+with protocol 17.
 
 ## Input command (introduced in protocol 15)
 
@@ -48,14 +49,21 @@ alternate forms. Mixed keyboard/controller capture preserves digital intent
 and adds/clamps the controller contribution once; it does not reapply
 controller-derived digital buttons on the server.
 
-## Snapshot player (protocol 16)
+## Snapshot player (protocol 17)
 
-`SnapshotPlayer.Size` remains 96 bytes. Bit 14 of its existing 16-bit flags
+`SnapshotPlayer.Size` is 98 bytes. Bit 14 of its existing 16-bit flags
 field is `SpireAltAttack`; the Worker sets it only while a spawned Spire is in
 alternate form and its authored rock attack is active. Remote clients and
 modern replay playback use the edge to start or stop the matching animation,
 sound, and rock presentation. It grants no client authority and does not add a
 new input or gameplay mutation path.
+
+The final two bytes at offset 96 are `ChargeLevel`, an unsigned count of 60 Hz
+simulation ticks. The Worker copies its authoritative equipped-weapon charge;
+remote clients use it only to select the authored charging gun animation and
+muzzle effect. Local prediction is not overwritten during ordinary snapshot
+application. Charge is clamped to the equipped weapon's full-charge threshold
+before presentation.
 
 `InputBundle` carries up to eight contiguous commands from one input epoch.
 `WithoutEdges` retains held axes; `Neutral` clears axes and analog presence.
@@ -64,11 +72,12 @@ or gameplay timing. Boost/flick does not acquire invented analog semantics.
 
 ## Replay compatibility
 
-Live admission is exact-family/exact-protocol. Stored protocol-14 and
-protocol-15 replay timelines remain readable through their replay codecs when they
+Live admission is exact-family/exact-protocol. Stored protocol-14 through
+protocol-16 replay timelines remain readable through their replay codecs when they
 do not contain live `InputCommand` payloads; this is storage compatibility, not
-live wire compatibility. Historical replay format identifiers are retained as
-on-disk contracts.
+live wire compatibility. The frozen protocol-8–16 snapshot adapter supplies a
+zero charge level because those 96-byte records never encoded one. Historical
+replay format identifiers are retained as on-disk contracts.
 
 ## Evidence boundary
 

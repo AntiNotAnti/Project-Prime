@@ -15,16 +15,18 @@ Publish commands (Windows client and server)
 
 ```bash
 # Windows client
-dotnet publish src/MphRead/MphRead.csproj -c Release -r win-x64 \
+dotnet publish src/Client/Client.csproj -c Release -r win-x64 \
   --self-contained true -p:PublishSingleFile=true -o publish/win-x64
 
 # Windows dedicated server
-dotnet publish src/MphRead/MphRead.csproj -c Release -r win-x64 \
-  -p:MphReadServer=true --self-contained true -p:PublishSingleFile=true \
-  -o publish/win-x64-server
+tools/package-server.sh --rid win-x64 \
+  --map-artifacts artifacts/maps/current --output publish/server-win-x64
 ```
 
 Notes
 
-- The exe may be locked by a running game; write `MphRead.new.exe` then `mv`.
-- Any protocol change requires server and every client to be the same build. `NetConfig.ProtocolVersion` is **4** in this build — a mismatched client is refused outright at Hello. Deploy the server before handing out a client built against a new version.
+- The client and Node/Worker are separate projects and packages; there is no
+  server build personality inside Client.
+- Protocol compatibility is enforced by the current protocol constants and
+  refusal handshake. Do not copy a historical numeric version from this guide;
+  inspect `src/Game/Protocol` and `docs/CURRENT_PROTOCOL.md`.

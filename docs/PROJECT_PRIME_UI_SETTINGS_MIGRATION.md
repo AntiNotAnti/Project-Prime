@@ -27,7 +27,7 @@ Source of truth for this record:
   [LocalLookFrame](../src/Game/Runtime/LocalLookFrame.cs), and
   [PlayerAimAssist](../src/Game/Gameplay/Hunters/PlayerAimAssist.cs)
 * [LauncherPrefs](../src/Client/Launcher/Portable/LauncherPrefs.cs) and
-  [SettingsView](../src/Client/Launcher/Gui/SettingsView.cs)
+  [SettingsView](../src/Client.Presentation/Launcher/Gui/SettingsView.cs)
 * [NodeContracts](../src/Server.Shared/NodeContracts.cs),
   [NodeControlCodec](../src/Server.Shared/NodeControlCodec.cs), and
   [LobbyManager](../src/Server.Node/Lobbies/LobbyManager.cs)
@@ -235,14 +235,17 @@ written by `InputSettings.GetSaveLines`. The canonical static settings are:
 | `StylusFlickBoost` / `stylus_flick_boost` | Platform; `true` | I/S; Android touch/stylus gesture | `controls.stylus.flick-boost`, Controls/Stylus, Android |
 | `StylusPressureToFire` / `stylus_pressure_to_fire` | Platform; `false` | I/S; Android pressure input | `controls.stylus.pressure-to-fire`, Controls/Stylus advanced, Android |
 | `StylusPressureThreshold` / `stylus_pressure_threshold` | Platform; `.35` | I/S; Android pressure input | `controls.stylus.pressure-threshold`, Controls/Stylus advanced, Android |
-| `BottomScreenMode` / `bottom_screen_mode` | Platform; `Off` | I/S; scene-owned native six-affinity selector popup | `controls.stylus.bottom-screen-mode`, Controls/Stylus, desktop SDL pen + Android touch/stylus |
+| `BottomScreenMode` / `bottom_screen_mode` | Platform; `Off` | I/S; scene-owned DS lower-screen overlay | `controls.stylus.bottom-screen-mode`, Controls/Stylus, desktop + Android |
+| `BottomScreenActivation` / `bottom_screen_activation` | Platform; `Toggle` | I/S; desktop virtual-cursor lifetime (`Toggle` or `Hold`) | `controls.stylus.bottom-screen-activation`, Controls/Stylus, desktop |
 
-The bottom-screen implementation is a client-only in-renderer 4:3 panel. The
-verified slice is the six-affinity weapon selector: it reuses the native HUD
-selector assets and sector math, routes pointer input through the current scene,
-and submits a `WeaponSelectionIntent` that is revalidated by the existing
-authority path. Full native lower-screen radar/background art and unverified
-hotspots remain staged work; no gameplay mapping is inferred for them.
+The bottom-screen implementation is a client-only in-renderer 4:3 panel. Direct
+touch/pen input retains its existing ownership, while the customizable
+`HudOverlay` binding is presented as **Touch screen** on desktop. Activating it
+centers a virtual cursor, confines relative mouse motion to the panel, and routes
+left-click contacts through the same scene-owned pointer queue. Toggle sessions
+close after a completed action; Hold sessions close when the binding is released.
+Both the Classic DS controls and the nested six-affinity selector submit through
+the existing, revalidated weapon/action intent paths.
 
 Controller aim assist is currently an internal always-on behavior at its default
 strength. It has no settings descriptor or UI row, and `controls.txt` no longer

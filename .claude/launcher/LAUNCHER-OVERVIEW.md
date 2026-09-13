@@ -19,16 +19,18 @@ sessions and recorded replays; it has no Adventure/save-slot or offline/bot entr
 | Game files | where the .nds goes. Shown first, before the other launcher entries become available, when there is nothing set up yet |
 | Quit | close the launcher |
 
-The text launcher keeps the same multiplayer flow and can also start a self-hosted server. A
-dedicated server remains the separate path for running a server on its own machine. The old
+The text launcher keeps the same multiplayer flow. Hosting still goes through
+the persistent Node and its managed Worker; the client does not start a private
+Worker. The old
 local-gameplay path no longer accepts the CLI switches `-mode` and `-players`; `-room` and `-model`
 still open the multiplayer room/model asset viewer.
 
 Key implementation notes
 
-- **One launcher, in Avalonia, on every platform.** Windows, Linux and macOS run
-  the same screens; there is no second toolkit and no per-platform launcher any
-  more. `Mods/Launcher/Gui/` is the whole of it.
+- **One launcher presentation, in Avalonia, on every platform.** Shared views,
+  XAML, themes, and controllers live in `src/Client.Presentation/Launcher/`.
+  Desktop windows/event integration live in `src/Client/Launcher/`; Android
+  supplies its activity host.
 - Every control is painted by this code (`GuiTheme`, `MenuEntry`, `ChoiceRow`,
   `SliderRow`, `KeyRow`, `SplashView`); only the text boxes and scroll bars are
   stock, under Fluent dark.
@@ -37,9 +39,10 @@ Key implementation notes
   picture.
 - Choices live in `launcher.txt` beside the exe (`LauncherPrefs`) and keys in
   `controls.txt` (`InputSettings`).
-- Two front screens coexist: the window (`Mods/Launcher/Gui/`) and the text one
-  (`Mods/Launcher/Portable/TextLauncher.cs`), over shared logic in
-  `Mods/Launcher/Portable/`.
+- Two desktop front ends coexist: the shared Avalonia presentation and
+  `src/Client/Launcher/Portable/TextLauncher.cs`. Portable preferences and
+  session coordination live in Client.Core; shared views and plans live in
+  Client.Presentation.
 - `-launcher -text` forces the text launcher; the code falls back to text when
   there is no display.
 
@@ -61,24 +64,18 @@ First-run behaviour and progress
 
 macOS and Android
 
-- **macOS** publishes like any other desktop target (`osx-x64`/`osx-arm64`,
-  cross-compiled on the Linux runner), and OpenAL ships with it
-  (`libopenal.1.dylib`, keyed on RID rather than a Windows/Linux special
-  case). **Nobody has started one.** Both packages are cross-compiled and
-  unrun; the thing to watch is GLFW and AppKit sharing a process and a main
-  thread, which the one-thread launcher arrangement is designed for and no
-  Mac has confirmed.
-- **Android** is `src/MphRead.Android/`, a head project compiling the same
-  sources with `ANDROID` defined. It now builds a front screen **and a
-  match**: the engine's desktop GL is redirected to OpenGL ES 3.0 by a single
-  using alias pointing `GL` at `Mods/Render/GlEs.cs`, and the keyboard and
-  mouse it reads are synthesised from on-screen controls, so no call site in
-  the renderer or the input path changed. Full account:
-  `.claude/android/ANDROID-PORT.md`. The front screen has been run on an
-  emulator; **the match has not been loaded anywhere** -- see
-  `.claude/KNOWN-GAPS.md`.
-- The head is still a compile check on shared code: it **stops building** the
-  moment that code grows something desktop-only. It already forced out
+- **macOS** publishes as `osx-x64`/`osx-arm64`. On 2026-09-12, the content-free
+  SDL GPU runtime smoke passed locally on Apple Silicon/Metal. That does not
+  verify the actual launcher, content-backed match, input, or audio; those
+  remain in `.claude/KNOWN-GAPS.md`.
+- **Android** is `src/Android/Android.csproj`. It references Client.Core and an
+  explicit Android evaluation of Client.Presentation, while owning lifecycle,
+  EGL, touch/gamepad, storage, and update adapters. An API 30 x86_64/SwiftShader
+  emulator has loaded an offline match; physical ARM64 behavior and appearance
+  remain unverified. Full account: `.claude/android/ANDROID-PORT.md`.
+- The explicit Android Presentation evaluation remains a compile check on
+  shared code, while project guards prevent platform APIs from entering Core.
+  The separation already forced out
   `LauncherPrefs.Directory` (an Android package's directory is read-only, so
   the head points `launcher.txt` at the app's data directory), the matching
   `GameFiles.Root` for `paths.txt`, and the `ANDROID` guard in `GuiLauncher`
@@ -89,14 +86,11 @@ macOS and Android
   ```bash
   export JAVA_HOME=$HOME/jdk21
   dotnet workload install android
-  dotnet build src/MphRead.Android/MphRead.Android.csproj -c Debug \
+  dotnet build src/Android/Android.csproj -c Debug \
     -p:AndroidSdkDirectory=$HOME/android-sdk
   ```
-  `EnableAvaloniaXamlCompilation=false` is deliberate: there is no XAML in
-  this project (every screen is C#), and with AvaloniaResource items present
-  the XAML compiler runs anyway and disagrees with the Android SDK about
-  where it left the assembly, failing the build after a clean compile. The
-  `avares://` assets are embedded by a different target and are unaffected.
+  Android opts Client.Presentation into `net10.0-android36.0`; ordinary and
+  desktop Presentation evaluation remains `net10.0` only.
 
 ## ⚠️ "Random" is a menu entry, not a hunter
 
@@ -109,7 +103,7 @@ the desktop, and `Arg_KeyNotFoundWithKey` on Android, which is the same
 exception with the message strings trimmed out. Every platform, every match
 kind, since Random was added.
 
-`Hunters.Resolve` (`Mods/Launcher/Portable/LaunchPlan.cs`) rolls it, and
+`Hunters.Resolve` (`src/Client.Presentation/Launcher/Portable/LaunchPlan.cs`) rolls it, and
 `LaunchPlan.Hunter` resolves on the way in, so no consumer of a plan can see
 Random. Two things about it are not obvious:
 

@@ -1,5 +1,9 @@
 # Testing — metrics and interpreting results
 
+Status: interpretation guide containing both current cautions and explicitly
+dated historical tour results. Current Node/Worker ownership and release gates
+come from `docs/CURRENT_ARCHITECTURE.md` and `docs/CURRENT_RELEASE_GATES.md`.
+
 This file describes how to read netcheck and maptest results and common traps.
 
 Key lines and their meaning
@@ -52,23 +56,27 @@ Common traps
   disagree: the owner's side now counts what it *decided* (`SpectatorMode`).
 - Reading `damage pipeline` as healthy just because both ends are non-zero: `25/0` against `0/258` is a byte counter that ran backwards and nearly wrapped forward, not noise on a working pipeline — the three-digit number is the tell.
 
-## Frame pacing verification (2026-09-05)
+## Historical OpenTK frame-pacing verification (2026-09-05)
 
-The decoupled frame loop (`.claude/render/FRAME-PACING.md`): the simulation
-pinned at 60 Hz under a picture drawn at the display's rate.
+These measurements established the fixed-step arithmetic before the SDL desktop
+cutover. Rows naming `RenderWindow` are historical evidence for that retired
+host, not current SDL runtime results. Current contracts and repeatable
+synthetic baselines are in `.claude/render/FRAME-PACING.md` and
+`docs/testing/PERFORMANCE_BASELINES.md`.
 
 | Check | Result |
 |---|---|
 | `-frametimingcheck` | all 9 cases pass. 60.000 Hz of simulation under 60 / 144 / 165 / 240 Hz displays and under jitter; **60.000 Hz under a 40 Hz display**, where the old single-rate loop played in slow motion; a 2 s stall returns 1 step, not 120; alpha visits 10/10 tenths at 144 Hz |
 | `-maptest -drawrate 1 / 3 / 4`, TEST ARENA + MP1 SANCTORUS + AD2 ALINOS PERCH | MAPTEST line **identical** at every draw rate; `draws advancing the game: 0`; blend ratio 0.666 at N=3 and 0.749 at N=4, the predicted `(N-1)/N` |
-| Real `RenderWindow`, `-fpscap display` under Mesa | sim **60.05 Hz** while the picture ran at **180 Hz** (Mesa ignores VSync here, which makes it the better test), measured over 22 s from the debug log. 0 dropped, 0 stalls |
-| Real `RenderWindow`, `-fpscap 120` / `-fpscap 144` | draw 119.9 / 143.8 Hz, sim 59.93 Hz, histogram a clean alternation of 0 and 1 step per frame |
+| Historical OpenTK `RenderWindow`, `-fpscap display` under Mesa | sim **60.05 Hz** while the picture ran at **180 Hz**, measured over 22 s from the debug log; 0 dropped, 0 stalls. This does not validate SDL |
+| Historical OpenTK `RenderWindow`, `-fpscap 120` / `-fpscap 144` | draw 119.9 / 143.8 Hz, sim 59.93 Hz, histogram a clean alternation of 0 and 1 step per frame. This does not validate SDL |
 | Performance against the unmodified build | 1832 identical frames in **32.9 s vs 33.1 s** -- marginally faster, not slower |
 | `run-check.sh 130`, 3 clients, x3 | **0 mismatches every run**, matching the 2026-08-23 baseline |
 | `run-check.sh 150`, 6 clients, x4 | 5, 5, 3, 0 mismatches -- inside the unmodified build's own range, see below |
 | Output frame rate, `-room "MP3 PROVING GROUND" -fpscap 240 -debuglog` (WSL, Mesa llvmpipe) | **sim 60.14 Hz / draw 81.0 Hz**, steps per frame `[534, 1310, 3, 0, 0, 1]` -- 534 of 1848 frames drew with no step behind them, which a 60 Hz loop could not produce. 81 is this box's software rasteriser, not the loop: a quarter render scale only reached 88 |
 | Scoreboard, 8 players, `-bots`, every game mode, players 2-8, pro HUD on and off | no crash and no `MAPFAIL` anywhere. The reported Android crash **was not reproduced here** |
-| Android head | builds (`-p:AndroidSdkDirectory=$HOME/android-sdk`); **not run on a device** -- no emulator here has game files, so a match cannot be loaded |
+| Android head | an API 30 x86_64/SwiftShader emulator loaded an offline match from cold portrait start; this is not physical ARM64, visual, input, or performance acceptance |
+| Current SDL runtime smoke, Apple Silicon macOS, 2026-09-12 | content-free hidden Metal surface initialized, submitted one frame, reported a 32x32 drawable, and disposed successfully; Windows/Linux jobs are scheduled and unclaimed here |
 
 ### The effect bursts that failed their own parity check
 

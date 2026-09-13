@@ -1,102 +1,128 @@
-# G1.2 / G1.3 source-first design
+# G1 rendering and frame-timing boundary
 
-Status: bounded G1.2/G1.3 implementation after the G1.0 baseline was recorded. The source audit below records pre-change behavior; the implementation record at the end describes the current patch. No live-render or latency claim. Existing LICENSE deletion and maps edits are unrelated and untouched.
+Status: **CURRENT** implementation summary, last reviewed 2026-09-12. The
+pre-SDL/OpenTK call paths in `G1_BASELINE.md` and
+`RENDERER_MODERNIZATION_BASELINE.md` remain historical evidence. They are not
+the current host design. No source or synthetic result in this document is a
+physical-device, visual-parity, or mouse-to-photon claim.
 
-## Verified current call paths
+## CURRENT: frame paths
 
-- Desktop `src/Client/Rendering/RenderWindow.cs:226`: FrameTiming.Advance(args.Time) -> 0..5 ScenePresentation.OnSimulationFrame calls -> OnDrawFrame -> OnRenderFrame -> SwapBuffers -> OnFramePresented -> AfterRenderFrame. Frame advance resets FrameTiming and forces one loop call. There is no focus-loss override here today.
-- Android `src/Android/GameView.cs:771`: WaitForTick -> FrameTiming.Advance -> [ApplyInput, OnSimulationFrame] for each step -> OnDrawFrame -> OnRenderFrame -> AfterRenderFrame -> EGL swap -> OnFramePresented on success. Keep its successful-swap acknowledgment timing unchanged.
-- `src/Renderer/FrameTiming.cs`: private accumulator; fixed 1/60 step, maximum five steps; stall >0.25s, negative or NaN resets accumulator and returns one step. Excess debt is dropped, fractional remainder retained. Reset disables Active. No interpolation alpha exists.
-- `Renderer.cs:1286`: input and network before World.ProcessWorldStep, then HUD, World.EndFrame; effects/fade debt increments afterward. World.EndFrame delivers queued messages and increments frame. A history sample belongs AFTER this complete step, including authoritative reconciliation and queued teleport/spawn effects, not before AfterSimulation.
-- `Renderer.cs:1390`: AdvancePresentation (prediction visual smoothing) -> framebuffer/queue maintenance -> LoadAndUnload -> TransformCamera/UpdateCameraPosition -> UpdateProjection -> try { BeginRemotePresentation; GetDrawItems; } finally { EndRemotePresentation; }. Geometry queued here is submitted later by OnRenderFrame.
-- `AuthoritativePlay.cs:343`: remote adapter samples SnapshotInterpolation and excludes LocalSlot. `PresentationPlayerEntityInterpolation.cs:28/116` temporarily rewrites remote player position/transform/aim/volume/node and special hunter caches, then restores exact saved values. Do NOT invoke it for local interpolation: it changes collision volume and uses remote identity/camera rules.
-- Mesh queue ownership is safe for a submission-time transform override: `Renderer.cs` copies Transform and every MatrixStack float into client-owned `DrawSubmission` storage. Restoring source model nodes after queue construction will not rewrite queued mesh transforms.
-- Camera rendering uses CameraInfo.ViewMatrix and CameraInfo.Position plus existing ClientPrediction.VisualOffset (`Renderer.cs:2380-2439`). Compose the correction offset ONCE, after local history interpolation; do not record its render-decayed value in simulation pose history.
+Desktop uses `src/Client/Rendering/Platform/SdlGameHost.cs` and the shared
+`src/Client.Presentation/Rendering/Platform/GameWindowFrameLoop.cs`:
 
-## Important baseline hazards
+```text
+SDL event poll and translation
+  -> FrameTiming.Advance / ManualStep
+  -> zero to five fixed simulation steps
+  -> ScenePresentation.OnDrawFrame
+  -> acquire and encode SDL GPU frame
+  -> submit
+  -> OnFramePresented only after successful submission
+  -> AfterRenderFrame only after successful submission
+```
 
-1. Platform drawing is NOT currently independent of simulation. `PlatformEntityPresentation.cs:23/57` clears/sets Game `_animFlags.WasDrawn`; `src/Game/World/Entities/PlatformEntity.cs:753` uses it to pick `_colAttachNode.Animation` for collision transform on the next tick. `EntityBase.UpdateTransforms` (338/351) mutates Model node animation and matrix stacks. An interpolated AnimateNodes left behind can therefore change gameplay. Capture/restore the exact pre-interpolation model-node state, or interpolate only submitted matrices after the ordinary unmodified draw animation ran. Do not restore WasDrawn to a value different from the current baseline behavior as part of this feature; a broader correction belongs in separately proven work.
-2. Player draw updates `_modelTransform`, Spire rock positions, ice transforms and charge/muzzle EffectEntry transforms (`PresentationPlayerDraw.cs:59-187`). PlayerProcess later reads ice positions (1854+) and computes gun/muzzle positions (1417-1440). A generic Position setter scope is insufficient. Prefer presentation-side submission overrides; if a typed player scope is necessary, back up every written dependency and assert restoration. Never modify `_muzzlePos`, `_aimPosition`, Input or hit volumes for a picture.
-3. GetDrawItems advances ProcessEffects for pending simulation steps AFTER entity drawing (`Renderer.cs:3520`). Those effect updates inspect EntityCollision.Transform and persistent effect transforms. Do not let a temporary mover/player pose leak into this integration. Preserve the old effect clock/parity/step ordering. Restoring a pose only after all GetDrawItems is too late for this purpose.
-4. Local camera interpolation adds up to one tick of intentional render delay. G1.3 must not blindly append pending mouse delta to a one-tick-old interpolated aim: that would retain rotational latency after the next simulation consumes it. Use current simulated local look orientation plus pending raw look for mouse late latch; interpolate translation/bob separately. Any alternative must explicitly compensate the interpolated-to-current rotation.
+Minimized, occluded, failed-acquire, and failed-submit frames do not advance the
+presentation acknowledgement boundary. Auxiliary UI/event pumping remains
+responsive on both success and failure paths. `SdlGameHost` owns the SDL window,
+input hubs, GPU backend, and native lifetime; Client.Presentation owns the
+portable loop and scene-facing frame contract.
 
-## G1.2 proposed implementation boundaries
+Android retains its Android-owned loop in `src/Android/GameView.cs`. It advances
+the same fixed clock and shared scene presentation, renders through the guarded
+GLES path, and calls `OnFramePresented` only after `EglSwapBuffers` succeeds.
+Its surface/lifecycle behavior is not inferred from the desktop host.
 
-Files: Client/Rendering/SimulationPoseHistory.cs and RenderInterpolation.cs, plus narrow hooks in FrameTiming, Renderer and entity/player presentation adapters. No Game or Server interpolation state.
+`src/Renderer/FrameTiming.cs` is the clock shared by these paths. Simulation is
+fixed at 60 Hz, catch-up is capped at five steps, invalid or greater-than-250-ms
+wall intervals are discontinuities, and excess debt is dropped. Fractional debt
+is retained as `RenderAlpha`; runtime phase telemetry uses bounded samplers and
+does not change scheduling.
 
-History belongs to each ScenePresentation, keyed by stable object identity plus scene/match generation and player life/slot identity. Store two completed fixed-step samples, not a render-sampled transform and not a single process-global dictionary. Reuse bounded storage and remove entries when entities unload. Samples contain only presentation pose: position, normalized rotation, scale, camera pose/FOV and permitted animation sample information. Use quaternion hemisphere-correct slerp, vector lerp; never component-lerp a rotation matrix.
+## CURRENT: interpolation boundary
 
-- Seed previous=current after world initialization. At end of each OnSimulationFrame, capture only if the world actually advanced; rotate previous/current per real step, not per draw. Catch-up retains last two completed samples. If frame number/scene generation changes unexpectedly, seed instead.
-- FrameTiming.RenderAlpha is clamp(accumulator/StepSeconds,0,1) only while Active with valid history. Legacy OnUpdateFrame harnesses, thumbnails, frame advance, initialization and disabled interpolation explicitly use current pose (alpha=1). Reset/stall/drop paths invalidate history for the picture; alpha=0 with newly advanced history would otherwise rewind one tick after a stall.
-- First allowlist: local biped/root body, local first-person camera translation, gun viewmodel transform, simple rigid platforms. Door opening often resides in node animation with a stationary entity root: verify authored door animation samples before claiming door smoothing. Root-only interpolation does not smooth such a door. Do not broaden to morphs/projectiles/effects in the first patch.
-- Remote network player slots are excluded by authoritative LocalSlot/replica classification, NOT merely PlayerEntity.Main or IsMainPlayer (spectating changes Main). Existing SnapshotInterpolation remains sole owner. During live spectating/replay playback, disable local camera/look interpolation until a separate target-view contract is proven; keep current remote pipeline unchanged.
-- Build a read-only RenderView from camera history before TransformCamera/UpdateProjection. Update camera position and all inverse/frustum matrices consistently from that same view; portal culling must not use a different eye than GL. Do not write CameraInfo or camera NodeRef. Visual culling may conservatively retain both adjacent parts when interpolated eye crosses a portal.
-- Apply each body/mover interpolation at EntityPresentation submission time, after ordinary unmodified simulation-derived animation. Transform queued mesh and copied matrix-stack data with delta(current-to-interpolated), or build scratch render matrices. This preserves the shared model nodes used by next-tick platform collision and by ProcessEffects. It also avoids temporarily modifying world collision transforms, positions or node references.
-- First-person gun uses a render-only resolved matrix. Row-vector convention: gunCameraLocal = currentGunWorld * currentSimulationCameraView; renderGunWorld = gunCameraLocal * renderCameraWorld. Include body/camera interpolation exactly once; retain original gun bob relative pose. Do not move simulation muzzle or weapon spread origins.
-- Keep camera/render context valid through OnRenderFrame, because HUD locator projection occurs there (DrawHudModels/DrawHudObjects). World fields must already be untouched/restored before returning OnDrawFrame. A separate immutable render context may remain until submission; clear it in finally/abort paths. Do not require swap success to restore simulation state.
+`src/Client.Presentation/Rendering/SimulationPoseHistory.cs` and
+`RenderInterpolation.cs` retain completed-tick presentation samples per scene.
+History is keyed by stable entity/player identity and reset across scene,
+identity, life, room, teleport, form, timing, and hard-correction barriers.
+Matrix interpolation uses translation/scale lerp and quaternion slerp with
+finite and singular-value guards.
 
-Reset barriers: initial scene, room identity/generation rebuild, entity removal/reuse, spawn/life change, health transition through zero, teleport event, form/morph transition, spectator target/mode change, intro/cutscene entry/exit, hard prediction correction. ClientPrediction.LastCorrectionHard and HardCorrections already expose correction events; existing hard threshold is 6 world units (error.LengthSquared >36), not an invented new threshold. A hard event during a multi-step catch-up must survive until history reset; a monotonic generation/counter is safer than sampling only a transient bool. For non-event movers, reject nonfinite transform, topology/animation-index discontinuity and large impossible deltas conservatively.
+The central invariant is that rendering never writes an interpolated pose back
+to Game. Interpolation affects copied draw submissions, copied matrix stacks,
+or frame-local presentation values. It does not modify authoritative entity
+position, player aim, collision volume, node identity, muzzle/spread origin,
+protocol state, or persistent model/effect caches.
 
-## G1.3 exact input ownership
+| Path | Current behavior |
+|---|---|
+| Local biped camera | Completed-step translation/FOV interpolation; current simulation orientation plus eligible pending desktop look |
+| First-person viewmodel | Submission transformed from simulation-camera space into the resolved render-camera space |
+| Local/offline bodies | Root transform interpolation; remote network slots are excluded independently of main-player selection |
+| Platforms and doors | Rigid roots plus copied authored node poses; normal draw/collision caches and `WasDrawn` behavior remain untouched |
+| Selected projectiles/bombs/items | Copied roots, trails, and frame-local particles interpolate behind identity/lifetime barriers |
+| Independent effect sprites | World-space positions sampled after existing effect ticks; no render-frequency effect advancement |
+| Remote/replay/spectator | Existing snapshot/replay presentation remains the only pose owner; local look prediction is disabled |
+| Android | Shares pose interpolation; desktop SDL look production is not enabled there |
 
-Current desktop simulation mouse source is ABSOLUTE snapshot differencing, not OnMouseMove delta: `PlayerPresentationInput.cs:75-80` saves per-player MouseState then subtracts X/Y once per eligible simulation sample. Catch-up steps see zero after the first because position is unchanged. Raw desktop OnMouseMove currently forwards only to ScenePresentation.OnMouseMove; that is free-camera/pivot behavior, not local simulation aim.
+Owner-relative effects, mesh effects, player skeletal animation, complex
+attachments, and other paths without a proven copied-presentation contract
+remain outside the interpolation allowlist.
 
-Introduce one client RenderLookAccumulator for the LOCAL input owner, with pending raw movement and generation/sequence bookkeeping. Desktop RenderWindow.OnMouseMove may append raw event deltas, but then local simulation must use this accumulator INSTEAD OF snapshot X/Y subtraction. Keeping both sources duplicates look. Keep MouseState absolute positions for wheel/pointer UI and button edges. Initially gate event accumulation by focused+grabbed local first-person controls; rebaseline/discard on cursor grabs/warps. Verify OpenTK event delta behavior under cursor lock on Windows/macOS/Linux before treating it as raw-device proof.
+## CURRENT: look ownership
 
-API sketch: Add(delta, timestamp, captureGeneration); PeekForRender() (non-consuming); ConsumeForSimulation() (atomically takes the pending batch); Reset(generation). The render thread reads a snapshot without clearing it. The next fixed step consumes the SAME batch once and writes Player.Input.MouseDeltaX/Y at its sole existing injection point. New movement arriving after that consume remains pending for the next step/picture. A monotonic consumed cursor/sequence makes races explicit. Do not call Player.UpdateAimX/Y from rendering, and do not call AfterInput/InputCommand encoding from rendering.
+Desktop SDL relative-motion events are translated once at the host boundary.
+The local `RenderLookAccumulator` allows a non-consuming presentation read and
+one fixed-step consume; simulation does not also subtract an absolute mouse
+snapshot. Absolute position remains available for pointer UI, buttons, and
+wheel input. Pause, chat, cursor-ownership changes, focus changes, scene
+handoff, and frame advance discard pending relative look and rebaseline the
+compatibility snapshot.
 
-Sensitivity is not just one constant: PlayerInput.cs467-488 applies -delta/4 * MouseSensitivity, InvertMouseX/Y, then UpdateAimY/X also apply Controls.InvertAimX/Y and zoom FOV ratio, with pitch clamp (-85..85 biped, -25..5 alt). CameraSequence.BlockInput, NoAimInput, frame advance, keyboard aim and form logic suppress it. Build a pure visual-only projection of the existing eligible biped mouse path, preserving the same sign, zoom scaling and effective pitch clamp. Never run simulation mutation methods. Disable latch for alt forms, morph/cutscene, death/spawn, weapon wheel, freecam/spectating and blocked input in first release. Controller accumulation stays unchanged until separately proven.
+Pending movement uses the current simulation orientation. Rendering never
+invokes simulation aim methods. Existing sensitivity, inversion, zoom scaling,
+pitch limits, block-input rules, and command generation remain owned by the
+fixed-step input path. Android touch retains its destructive consume exactly
+once in `ApplyInput`; it does not borrow the desktop accumulator.
 
-Rendering composes pending local look onto CURRENT simulated orientation, then applies it coherently to RenderView and viewmodel; no writes to aim vectors/muzzle/CameraInfo. HUD projections use the same render matrices. Whether crosshair/projection should reflect authoritative target or visually pending aim must be explicit and tested; shot direction remains the next fixed-step command only.
+## TARGET: invariants
 
-Reset/discard policy: focus loss/regain, pause/chat/menu ownership change, weapon-wheel pointer capture, spectator target change, room transition, lifecycle stop, frame-advance entry/exit, stale-event age and extreme finite-value guard. Reset must also rebaseline `_mouseState` through the existing ModForgetInputDeltas path so a skipped snapshot does not replay blocked movement. Do not silently clamp only the render half while simulation consumes a different unclamped batch; derive display cap separately if desired but document/test it. Numeric caps/age limits require baseline evidence, not guesswork.
+- Fixed simulation results, commands, clocks, collision, and protocol output
+  must be identical regardless of draw cadence.
+- A copied render submission may outlive source scratch state; Game-owned
+  mutable arrays or model nodes may not escape into it.
+- A successful native submit/swap is the only presentation acknowledgement.
+- Remote snapshot interpolation and local completed-tick interpolation must
+  never both own the same player pose.
+- Timing telemetry is bounded, allocation-free after warm-up, and observational.
 
-Android is a different producer: TouchControls.TakeAimDelta (565) locks and DESTRUCTIVELY clears density-scaled accumulated movement. GameView.ApplyInput currently consumes it only inside each fixed step, scales by AimScale and moves AndroidInput's absolute pointer (1178-1183). Calling TakeAimDelta during every draw would steal input from simulation. Mouse-first G1.3 should leave Android touch/controller latch disabled while still sharing G1.2 interpolation. Future Android latch needs a non-consuming Peek or sequenced accumulator at the touch producer, preserving the destructive consume exactly once in ApplyInput; pointer placement for weapon wheel is not relative aim. UI thread -> render thread uses the existing lock/sequence boundary. No button/tap processing moves outside the fixed-step loop.
+## TEMPORARY EXCEPTIONS
 
-## Required tests before enabling
+Android still uses the explicit Client.Presentation Android target and two
+guarded GLES implementation source links described in `PROJECT_LAYOUT.md`.
+The GLES and SDL backends are intentionally different native implementations
+behind shared frame/render contracts. This is not a claim of device parity.
 
-1. Synthetic fixed-step histories at 60/144/240 draws: hashes of world position/aim/volume/node, match clocks, projectile state and command stream identical. Include zero-step/multi-step/stall/dropped debt/frame advance.
-2. Exception injection at each render stage: no temporary pose or scratch reference remains in Game. Specifically assert platform attached collision matrix and model nodes before/after; verify existing baseline WasDrawn behavior is not changed by interpolation.
-3. Render queue test verifies copied MatrixStack and Transform retain interpolated values AFTER restoring source scratch state. No pooled-array alias escapes.
-4. Explicit remote exclusion with LocalSlot != MainPlayerIndex while spectating; snapshot presentation timestamp/MarkPresented accounting unchanged and only successful swap advances proof.
-5. Reset table: spawn/death/life change/teleport/morph/correction/room/target; no blending across barriers; hard correction in an early catch-up step still resets.
-6. Input conservation: identical raw movement sequences partitioned across 60/144/240 draws produce identical consumed batches at each 60Hz timestamp and identical InputCommand aim. Peek twice changes nothing; two catch-up consumes with no intervening input yield batch then zero. Include race/event just after consume, cursor warp, pause/chat/weapon wheel, inversion, zoom, pitch clamp, focus and stale/nonfinite input.
-7. Real 144/240 Hz mouse-to-visible-camera measurement and video/gameplay check after deterministic tests. Source analysis cannot establish visible smoothness, latency, native raw-event semantics or unchanged live combat results.
+OpenTK-compatible key/mouse value types remain at a few presentation seams
+after platform translation. OpenTK desktop windowing and graphics-context
+ownership are retired; SDL is the sole desktop native host/backend.
 
-## Implementation sequence after G1.0 approval
+## Evidence and remaining acceptance
 
-First add alpha + history/math tests with rendering unchanged. Then rigid submission override and camera translation (with platform node/collision assertions). Then local biped/viewmodel adaptation and discontinuity hooks. Only afterward integrate desktop single-source mouse accumulator and pure look projection. Keep remote interpolation, effect stepping, native swap/ack order and server code unchanged. Document baseline hazards separately if current traces already diverge before this feature.
+Pure and focused tests cover fixed-clock arithmetic, discontinuities, bounded
+phase telemetry, frame ordering, failed-submit acknowledgement, interpolation
+math, copied-source independence, reset barriers, and look conservation at
+multiple render schedules. See `docs/testing/PERFORMANCE_BASELINES.md` for the
+repeatable synthetic timing protocol. Those tests do not establish rendered
+visual quality or input latency.
 
+On 2026-09-12, the content-free runtime smoke locally created the real SDL
+GPU/Metal path on Apple Silicon macOS, submitted one hidden frame, and exited
+successfully (`driver=metal`, `surface=32x32`). Windows and Linux native smoke
+jobs are scheduled but remain unclaimed until their results are recorded.
 
-## Implemented boundary and remaining acceptance
-
-`SimulationPoseHistory` retains two completed tick transforms. `FrameTiming.RenderAlpha` supplies the fractional step remainder; legacy single-step callers resolve current state. ScenePresentation captures after `World.EndFrame`. Per-entity history allocations occur on registration, not per draw; removal prunes the dictionary. Matrix interpolation uses translation/scale lerp and quaternion slerp, with finite/singular checks. A six-unit discontinuity is a conservative fallback matching the existing hard-correction distance, not a movement extrapolation limit.
-
-`BeginEntitySubmission`/`EndEntitySubmission` bracket ordinary entity drawing in `try/finally`. Only `DrawSubmission` transform copies, copied float matrix stacks, and frame-local SingleParticle positions receive the delta. Entity Transform/Position, collision volumes, node refs, model-node animation, platform attachment matrices, player aim and persistent effect transforms are never overwritten by this feature. Existing draw-side cache updates still run from simulation values. No restoration of Game fields is needed; the submission override itself is cleared even if drawing throws.
-
-| Path | Implemented behavior |
-| --- | --- |
-| Local biped camera | Interpolated completed-step translation; current simulation orientation plus pending eligible desktop mouse look. Prediction VisualOffset is composed once. |
-| First-person viewmodel | Current gun submission transformed from simulation-camera space into final render-camera space. Simulation muzzle, aim, spread and hit origin remain unchanged. |
-| Local/offline biped bodies | Root transform interpolation on submitted meshes. Network remote slots are excluded independently of MainPlayerIndex. |
-| Platforms, doors, items | Rigid root submission interpolation. A stationary root with authored node animation remains discrete; this patch does not claim door-opening or skeletal animation smoothing. |
-| Active non-continuous projectiles | Copied trail/model transforms and frame-local particle positions interpolate. Beam generation, collision and lifetime barriers prevent blending pooled incarnations. Continuous beams retain their anchored endpoint path. |
-| Bombs | Submitted rigid body/trail geometry interpolates; initialization reseeds pooled identity. Persistent effect-pool animation remains fixed-step. |
-| Remote players / replay / spectator | Existing remote snapshot interpolation remains the only pose owner. Local interpolation/latch is disabled for replay and spectator views. |
-| Android | Shares pose interpolation. No desktop accumulator is enabled; existing destructive touch consume stays only in ApplyInput. |
-
-Additional reset barriers are room identity, main-player identity, view mode, camera sequence, timing reset/stall/debt generation, monotonic prediction hard-correction count, health transition through zero, form/morph transition, discontinuous tick and teleport event. Invalid samples resolve no delta. Room culling already falls back to drawing all parts when the final render-camera position does not belong to the simulation node's bounds; node refs are never temporarily changed.
-
-Desktop `OnMouseMove` is the sole relative-motion producer once EnableDesktopLook runs. Local simulation consumes the accumulator instead of also subtracting absolute snapshots. Absolute snapshots remain for buttons, wheel and UI. Render reads are non-consuming. Simulation mouse capture remains available for alt forms; only the optional first-person late latch is disabled for alt/morph/death/cutscene/keyboard-aim modes. Focus changes clear the pending batch. Pause, chat, cursor ownership and frame advance discard pending look. Pending values older than the existing 250 ms stall interval expire; nonfinite movement is rejected and an extreme 16,384-pixel pending cap bounds pathological input identically for simulation and rendering. These are input-validity guards, not measured sensitivity/latency tuning. Native relative-event semantics under Windows/macOS/Linux cursor capture still need device validation.
-
-Pure tests cover copied-stack/source independence under an injected exception, interpolation and explicit discontinuities, invalid transforms, yaw/pitch signs and pitch clamp, camera-position preservation, clock reset/stall/debt alpha, stale/focus-reset input, and conservation of identical mouse batches/aim conversion at 120/144/240 render schedules. These tests do not execute a GL context or establish full world-hash equivalence. Existing baseline platform render-cache coupling remains documented above and requires a real graphical deterministic trace for stronger acceptance.
-
-Still unverified: real high-refresh camera/viewmodel appearance, native mouse-to-photon latency, node-animated doors and skeletal animation smoothing, persistent effects, and live projectile/cross-portal visual alignment. No balance or protocol change is intended or claimed from visual tests that have not run.
-
-## Door node submission follow-up
-
-Doors now capture authored node LUT poses at completed simulation ticks using a Client-only read-only evaluator. It follows the existing node hierarchy, transform order and LUT sampler into private arrays. Submission resolves those arrays and copies the interpolated node transform and skin matrix stack; it does not call the mutating model evaluator during capture, write model caches, or advance animation at draw frequency. The ordinary draw path still computes its unmodified current animation, preserving existing collision-facing behavior. Animation identity changes, frame jumps, missed simulation ticks and scene epochs seed current poses.
-
-Verification: Client build passes; 15 focused render tests pass, including a synthetic authored door opening compared with the original game evaluator, unchanged node/stack source state, interpolated skin copies, repeated render sampling and animation-switch reset. This is deterministic source/test evidence, not a retail door visual acceptance or 60-versus-240 gameplay trace. Player skeletal animation, persistent effects and particle positions remain outside this door-specific path. Simple platform node animation is the next bounded candidate: its normal model transform is already available and its WasDrawn collision policy must remain untouched.
-
-The bounded follow-up now also applies copied node matrices to platform models. Their existing draw/culling and WasDrawn writes remain unchanged. Independent world-space effect sprites interpolate positions captured after each existing ProcessEffects tick, including catch-up steps, without advancing effects at render frequency. Pool checkout removes old identity history; scene reset clears history. Owner-relative effects, mesh effects, player skeletal animation and complex attachments remain excluded because their custom transform/vertex dependencies require a separate typed presentation contract. Existing selected beam/bomb/pickup roots remain covered by root history. Focused render tests now pass18/18, including cosmetic sprite source-state preservation, repeated draws, pool reuse and attached/mesh exclusions.
+Still requiring device or rendered validation: high-refresh camera/viewmodel
+appearance, native mouse-to-photon behavior, Windows/Linux input semantics,
+physical Android lifecycle/rendering/input, player skeletal animation, complex
+attached effects, and live projectile/cross-portal visual alignment. These are
+tracked in `.claude/KNOWN-GAPS.md` and `CURRENT_RELEASE_GATES.md`.

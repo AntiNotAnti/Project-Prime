@@ -2,6 +2,12 @@
 
 Project Prime ships a bounded, deterministic inspection tool for optional enhancement packs. The tool is presentation-only: it reads `materials.json` and local PNG metadata through the same fail-soft loader used by the enhanced renderer, and never changes simulation or installed content.
 
+Each selectable pack is a direct child of `enhancements/` and must contain a
+`materials.json` manifest. `enhancements/default` is shown as **Enhanced
+(default)**; any other safe directory name is discovered as an installed pack.
+Choose **Texture pack** and **Visual style** independently under **Settings >
+Graphics**. Texture-pack changes take effect when the next scene is created.
+
 ## Inspect a pack
 
 ```bash

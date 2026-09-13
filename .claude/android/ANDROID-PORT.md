@@ -1,63 +1,37 @@
 # Android — the renderer and the touch controls
 
-The head is `src/MphRead.Android/`. It compiles the same sources as the desktop
-project with `ANDROID` defined, and it now builds a match, not just a screen.
-Two things had to be answered to get there: the engine draws through OpenTK's
-desktop GL, and it reads a keyboard and a mouse. Neither exists on a phone.
+The head is `src/Android/Android.csproj`. It references `Client.Core` and an
+explicit Android evaluation of `Client.Presentation`; it does not recompile the
+desktop Client source tree. Android owns lifecycle, EGL surfaces, touch/gamepad,
+secure storage, update installation, and SDK adapters. Shared runtime and
+presentation compile in their owning assemblies.
 
 
-## The renderer: one alias
+## The renderer boundary
 
-The engine calls `GL.Something` from about 250 places in files that are
-upstream's. Rewriting those was not an option -- everything this project adds
-lives under `Mods/` so a pull from NoneGiven/MphRead stays a fast-forward. So
-the Android head points the *name* somewhere else, in one line of its csproj:
+Android opts `Client.Presentation` into `net10.0-android36.0` through project
+reference metadata. That guarded evaluation supplies the GLES/audio aliases:
 
 ```xml
 <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
 ```
 
-A global using alias is resolved before the `using OpenTK.Graphics.OpenGL;` at
-the top of those files, in every namespace of the compilation (checked: it wins
-in `MphRead` and in `MphRead.Formats` alike). Not one call site changed, and the
-desktop build never sees it. The enum types the call sites pass are still the
-desktop ones -- they are the same GL constants -- and `GlEs` casts them across
-to `OpenTK.Graphics.ES30`.
-
-`Mods/Render/GlEs.cs` then answers the four things ES 3.0 does not have:
-
-| Missing | Answer |
-|---|---|
-| Immediate mode | `Begin`/`Vertex3`/`End` accumulate into a vertex buffer. Quads, quad strips, triangle strips and fans become indexed triangles; `LineLoop` becomes lines |
-| Display lists | `NewList`/`EndList` bake that buffer into a VBO, an IBO and a VAO. `CallList` is one `glDrawElements` -- the same trade the display list was making |
-| The current colour | A vertex with no colour of its own takes the colour current at *execution* time, which is the `GL.Color3(item.Diffuse)` `DoMaterial` issues per render item. Vertices carry a flag; the ones without their own colour read the `imm_color` uniform |
-| `glAlphaFunc` | The engine asks for exactly two comparisons, Equal 1.0 and Less 1.0. The fragment shader discards on them |
-
-And one thing that is bookkeeping rather than emulation: the engine binds
-texture names it made up itself (`_textureCount++`), which a compatibility
-profile allows and ES does not. `GlEs` keeps a map from those to real names and
-creates one on first bind, with a single high-water counter so `GenTexture`
-keeps handing out the next number in the engine's own sequence.
-
-**What is lost:** `glPolygonMode`, so the wireframe and collision-volume debug
-views draw solid. Nothing a player sees uses it.
+`src/Client.Presentation/Rendering/GlEs.cs` owns remaining GLES API adaptation.
+Android-active rendering no longer depends on compatibility-profile immediate
+mode or display lists. Shared code prepares `CpuMesh` geometry and a sealed
+`RenderFrame`; the guarded `GlesBackend` executes indexed GLES uploads and the
+ordered world/HUD/post passes without calling back into the scene. Static
+geometry is cached by identity/revision and dynamic geometry uses bounded
+streaming storage. The Android evaluation temporarily source-links the two
+guarded Renderer GLES implementation files; this exception is recorded in
+`docs/PROJECT_LAYOUT.md`.
 
 ## The shaders
 
-`Mods/Render/EsShaders.cs` holds the six shaders of `Shaders.cs` written for
-`#version 300 es`. The desktop ones are GLSL 1.20 reading `gl_Vertex`,
-`gl_Color`, `gl_Normal` and `gl_MultiTexCoord0` out of the fixed-function
-pipeline -- which is *why* the desktop build needs a compatibility profile and
-`MESA_GL_VERSION_OVERRIDE=4.5COMPAT`. The ES ones declare those four as
-attributes at fixed locations 0-4 and are otherwise the same program, expression
-for expression, plus `imm_color`/`a_color_set` and `alpha_test`.
-
-`GlEs.ShaderSource` substitutes them by reference as the engine compiles. They
-do not follow a change to `Shaders.cs` on their own, and a silent divergence
-would be a rendering bug with no message anywhere, so each is checked against
-the SHA-256 of the source it was written from and a mismatch throws with the
-name of the shader that moved. Recompute with the extractor in the commit
-message or by hand: normalise CRLF to LF first.
+`src/Client.Presentation/Rendering/EsShaders.cs` holds the Android GLES shader
+programs. The desktop path uses SDL GPU shader artifacts instead of legacy GLSL
+or a compatibility context. Shader changes must keep the Android sources and
+the guarded GLES backend contract aligned.
 
 Verified with `glslang` (16.5.0) when they were written, and since then by
 SwiftShader on the emulator, which compiled and linked all four programs --
@@ -156,15 +130,10 @@ for a zero-pixel window -- and it says so on screen instead of starting
 something the player can neither see nor leave. Every decision logs one
 `[android]` line with the sizes involved.
 
-The order is the desktop's: `GameState.ApplyPause()`, `Scene.OnUpdateFrame()`,
-`Scene.OnRenderFrame()`, `Scene.AfterRenderFrame()`, then `eglSwapBuffers`.
-
-The pacing is not. `RenderWindow` asks OpenTK for 60 updates a second; here the
-buffer swaps at the display's rate, which on a modern phone is 90 or 120, and
-**the update is the frame**: the render item lists are built during the update
-and cleared after the draw, so a render with no update in front of it draws
-nothing. Rendering more often than the game ticks is therefore not an option --
-the thread waits for the next 60 Hz tick instead.
+The Android loop applies fixed-step input and simulation, builds one presentation
+frame, renders it, retires frame-local state, swaps, and acknowledges presentation
+only when `eglSwapBuffers` succeeds. It shares the fixed clock and presentation
+contracts with desktop, not desktop SDL lifecycle ownership.
 
 ## Frame rate
 
@@ -191,10 +160,9 @@ Three things are specific to this head:
 The setting is the launcher's own **FPS limit** row, shared with the desktop,
 so it needs nothing of its own here.
 
-**None of this has run on a device**, for the same reason nothing else in this
-head has: the emulator available here has no extracted game files and cannot
-load a match. It builds, and the code under it is the code the desktop
-measurements were taken on. Treat it as untested.
+This has run with extracted game files on an API 30 x86_64/SwiftShader emulator,
+including an offline match. That proves bounded lifecycle execution, not frame
+pacing or visual behavior on a physical ARM64 device.
 
 ## The controls
 
@@ -302,7 +270,7 @@ a pad event in this app.
 Settings → Controls → **On-screen buttons**: a master switch and one toggle per
 button, applied in `ApplyLayoutLocked` as an `AND` over whatever the situation
 had already decided. The state lives in core, in
-`Mods/Input/TouchSettings.cs`, because the settings screen is shared code and
+`src/Client.Core/Input/TouchSettings.cs`, because the settings screen is shared code and
 `TouchAction` is this head's own type; `TouchControls.SettingOf` maps between
 them. It is saved in `controls.txt` with the rest of the controls.
 
@@ -418,9 +386,9 @@ Both halves play, and neither of them the way the desktop does it.
   resolve to.
 
   **The renderer's trick, again.** Two using aliases in the csproj point `AL`
-  and `ALC` at `Mods/Sound/AlEs.cs`, for every file in the compilation, and not
+  and `ALC` at `src/Client.Presentation/Audio/AlEs.cs`, for the guarded Android evaluation, and not
   one of the fifty-odd call sites in `Sound/Sfx.cs` and `Formats/Movie.cs`
-  changed. Behind the name is `Mods/Sound/SfxMixer.cs`, which does what OpenAL
+  changed. Behind the name is `src/Client.Presentation/Audio/SfxMixer.cs`, which does what OpenAL
   was doing — buffers, voices, per-source gain and pitch, SOFT loop points,
   buffer queues, the linear-clamped distance model and stereo placement from
   the listener's orientation — and hands one block of stereo at a time to
@@ -472,7 +440,7 @@ first seconds of every launch. Read it before trusting anything pushed with
 
 ### ⚠️ `ThumbnailMode` is process-wide
 
-`Mods/ThumbnailMode.cs` suppresses the HUD and mutes the sound. The desktop
+`src/Client.Presentation/Runtime/ThumbnailMode.cs` suppresses the HUD and mutes the sound. The desktop
 never had to leave it: every capture is a worker process that exits when its
 picture is written. Android renders previews in the app's own process, so
 entering and never leaving meant **the next match had no HUD and no sound** —
@@ -564,21 +532,22 @@ export PATH="$HOME/.dotnet:$PATH"
 export JAVA_HOME=$HOME/jdk21            # a JDK 21; the workload does not bring one
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1   # or install libicu
 dotnet workload install android
-dotnet build src/MphRead.Android/MphRead.Android.csproj -c Debug \
+dotnet build src/Android/Android.csproj -c Debug \
   -p:AndroidSdkDirectory=$HOME/android-sdk
 ```
 
 The SDK needs `platforms;android-36` and `build-tools;36.0.0` to match the
 `net10.0-android36.0` target; `sdkmanager --sdk_root=$HOME/android-sdk` installs
-them. `EnableAvaloniaXamlCompilation=false` is deliberate and explained in the
-csproj.
+them. Avalonia XAML compilation is enabled for the shared Presentation-owned
+launcher resources.
 
-The APK lands in `bin/Debug/net10.0-android36.0/com.antinotanti.projectprime-Signed.apk`
+The APK lands under `src/Android/bin/Debug/net10.0-android36.0/` as
+`com.antinotanti.projectprime-Signed.apk`
 (~20 MB; a Release publish is ~45 MB, being every ABI with the trimmer run).
 `adb install -r` it.
 
-Nobody has to do any of that to get one, though: `build.yml` has an `android`
-job on every push, and its **ProjectPrime-android** artifact holds the release
+Nobody has to do any of that to get one, though: the scheduled/manual confidence
+tier in `build.yml` has an `android` job, and its **ProjectPrime-android** artifact holds the release
 APK and an INSTALL.txt. `release.yml` puts `ProjectPrime-<tag>-android.apk` in a
 tagged release. Both are signed with the SDK's debug key -- enough to install,
 not enough for a store.
@@ -594,7 +563,7 @@ really does run ILLink over this app, and every use of `KeyboardState` and
 `MouseState` is through a `MethodInfo`, so without the descriptor the touch
 controls work in Debug and throw on the first frame of a release APK. Checked,
 not assumed: the members survive in
-`obj/Release/.../android-arm64/linked/OpenTK.Windowing.GraphicsLibraryFramework.dll`.
+the Release APK's linked managed assemblies.
 
 ## Three traps that cost a release each
 
@@ -627,7 +596,7 @@ caught the `NotSupportedException`, wrote "could not reach GitHub" into
 when a release was *found* -- said nothing, so a phone sat on v0.3.0 with
 v0.3.1 published and no way to tell that apart from being up to date. The
 desktop was fine throughout, because `SocketsHttpHandler` implements the
-synchronous path. `Mods/Update/SyncHttp.cs` is the one-line answer, and the
+synchronous path. `src/Client.Presentation/Update/SyncHttp.cs` is the one-line answer, and the
 shape to watch for is any synchronous `HttpClient` or `HttpContent` call in the
 shared sources: it compiles on this head and throws on the device.
 
@@ -645,8 +614,8 @@ Three things that are not obvious, all in `GameView`:
   editable buffer in step with `ChatBox`'s, which is two copies of one string.
 - **`NoFullscreen | NoExtractUi`**, or the IME covers the match with its own
   full-screen text box in landscape.
-- **A key event carries its own character** here, where GLFW raises a key
-  callback and then a character callback for one press. So the desktop's
+- **A key event carries its own character** here, while the SDL desktop host
+  translates key and text events separately. So the desktop's
   "swallow the opening character" step must be turned *off* on this path
   (`ChatBox.Open(swallowOpeningChar: false)`), or the first real letter is
   eaten instead.
@@ -728,7 +697,7 @@ watched for, in this order:
    colour texture with a `DEPTH24_STENCIL8` renderbuffer. RGB8 is
    colour-renderable in ES 3.0, but a driver that disagrees makes the whole
    picture black while every other signal looks fine.
-3. Geometry that is inside out or missing: that is the strip/quad/fan winding in
-   `GlEs.EmitIndices`, which is the one piece of this with no test behind it.
-4. Untextured or wrongly-coloured meshes: that is the `imm_color`/`a_color_set`
-   path, i.e. a mesh whose display list never set a colour of its own.
+3. Geometry that is inside out or missing: inspect the `CpuMesh` topology and
+   guarded `GlesBackend` index conversion.
+4. Untextured or wrongly coloured meshes: inspect captured material/vertex
+   colour state and the GLES texture bridge.

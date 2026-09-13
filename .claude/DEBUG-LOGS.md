@@ -7,7 +7,7 @@ itself to a file.
 It exists for one kind of report, and the report is the design: *"it crashes
 when the map loads"*, from a machine nobody here can plug in, sent by somebody
 with no console window to copy anything out of. The Windows build is a GUI
-binary and deliberately opens no console (`Mods/ConsoleWindow.cs`), so
+binary and deliberately opens no console (`src/Client/Runtime/ConsoleWindow.cs`), so
 `GuiLauncher`'s own `catch` -- which prints the exception and returns -- was
 printing into nothing: from the player's side the game simply disappears while
 a map is loading. The log is the only thing that can be read afterwards.
@@ -16,12 +16,12 @@ a map is loading. The log is the only thing that can be read afterwards.
 
 | Path | What |
 |---|---|
-| `Mods/DebugLog.cs` | the whole of it: the file, the console tee, the hooks |
-| `Mods/LogShare.cs` | `LogArchive`, which zips them, and the `ILogShare` seam |
-| `MphRead.Android/AndroidLogShare.cs` | the only implementation of that seam |
-| `Mods/Launcher/Gui/HomeView.cs` | `BuildDebugSwitch`, the corner row |
-| `Mods/Launcher/Portable/LauncherPrefs.cs` | `debug_logs` in `launcher.txt` |
-| `Mods/ModEntry.cs` | `DebugLog.Attach()`, before anything else runs |
+| `src/Client.Presentation/Runtime/DebugLog.cs` | the file, console tee, and hooks |
+| `src/Client.Presentation/Runtime/LogShare.cs` | `LogArchive` and the `ILogShare` seam |
+| `src/Android/AndroidLogShare.cs` | Android implementation of that seam |
+| `src/Client.Presentation/Launcher/Gui/HomeView.cs` | `BuildDebugSwitch`, the corner row |
+| `src/Client.Core/Launcher/Portable/LauncherPrefs.cs` | `debug_logs` in `launcher.txt` |
+| `src/Client/Runtime/ModEntry.cs` | desktop `DebugLog.Attach()` entry |
 | `logs/ProjectPrime-<yyyyMMdd-HHmmss>.log` | the file, beside the executable |
 
 On Android the file goes to the app's data directory, because
@@ -110,7 +110,7 @@ usually lost.
 - **`Console.SetOut` is process-wide.** Turning the switch off puts the
   original writer back; anything that captured `Console.Out` in between keeps
   the tee. Nothing in this build does.
-- **It is not the net log.** `netlog-<name>.txt` (`Mods/Network/NetLog.cs`) is
+- **It is not the net log.** `netlog-<name>.txt` (`src/Client.Presentation/Networking/NetLog.cs`) is
   written for every client session whether or not this is on, and holds the
   per-slot roster dumps that compare two machines' view of the same frame.
   Both are useful; they answer different questions.

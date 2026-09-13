@@ -6,7 +6,7 @@ each one is gone ten seconds after it arrived. That is Quake 3's shape and it
 was chosen because it is the one every player already knows how to read.
 
 **The chat log has its own font**, and that is the largest single piece of
-this. See `Mods/Chat/ChatFont.cs`: the game's own font is 8x8, bold, and has
+this. See `src/Client.Presentation/HUD/ChatFont.cs`: the game's own font is 8x8, bold, and has
 one alphabet, so every line anybody typed came out shouted and about half as
 wide again as the sentence needed. `ChatFont` is a proportional pixel font
 with real lowercase, real descenders and per-glyph widths (2 units for an i,
@@ -27,15 +27,15 @@ drawn over the scene in that same corner.
 
 | Path | What |
 |---|---|
-| `Mods/Chat/ChatBox.cs` | the log, the prompt, and every key press while the prompt is up |
-| `Mods/Chat/ChatFont.cs` | the font, as pixel art, and the width table derived from it |
-| `Mods/Chat/PlayerEntityChatHud.cs` | the drawing, as a partial of `PlayerEntity` |
-| `Mods/Network/NetProtocol.cs` | `PacketType.Chat` and `ChatPacket` |
-| `Mods/Network/NetSession.cs` | `SendChat`, and the received line |
-| `Mods/Network/DedicatedServer.cs` | `HandleChat`: attribution, the rate limit, the relay |
-| `Mods/InputSettings.cs` | `ChatKey`, saved to `controls.txt` as `chat_key` |
-| `MphRead.Android/GameView.cs` | Android's key events, and the soft-keyboard editor |
-| `MphRead.Android/TouchControls.cs` | the CHAT button |
+| `src/Client.Presentation/HUD/ChatBox.cs` | the log, prompt, and editing behavior |
+| `src/Client.Presentation/HUD/ChatFont.cs` | the pixel font and derived width table |
+| `src/Client.Presentation/Presentation/Players/PresentationPlayerEntityChatHud.cs` | HUD drawing |
+| `src/Game/Protocol/NetProtocol.cs` | legacy `ChatPacket` wire shape |
+| `src/Client.Presentation/Networking/NetClient.cs` | current session chat send/receive |
+| `src/Server.Worker/Networking/ServerNetwork.cs` | match chat attribution and relay |
+| `src/Client.Core/Runtime/InputSettings.cs` | `ChatKey`, saved to `controls.txt` |
+| `src/Android/GameView.cs` | Android key events and soft-keyboard editor |
+| `src/Android/TouchControls.cs` | the CHAT button |
 | `~/mph-net-test/probe-chat.py` | the three things `-netcheck` cannot ask |
 
 ## The protocol
@@ -81,7 +81,7 @@ flood. An interval instead of a bucket would punish two quick lines of one
 thought exactly as hard as a hundred. Dropped lines are logged once per burst,
 not once per packet, so the flood does not become the log's problem too.
 
-**The server talks too.** `DedicatedServer.Announce` sends a `KindSystem`
+**The server talks too.** `ServerNetwork` sends a system chat entry
 line to everybody when a player is first named (`HandleIdentify`) and when one
 is removed (`HandleBye`, or a timeout) -- "NAME joined", "NAME left", "NAME
 timed out". No slot and no name on the packet, because a notice attributed to
@@ -143,16 +143,16 @@ Three things about that are worth knowing:
   which is two copies of one string and a second set of rules for composing.
 - **`NoFullscreen | NoExtractUi`**, or the IME replaces the whole screen with
   its own text box in landscape -- which is every phone playing this.
-- **Android delivers the character with the key event**, where GLFW raises two
-  callbacks for one press. So `HandleKey` is both of the desktop's paths in
+- **Android delivers the character with the key event**, while the desktop SDL
+  adapter translates key edges and text input separately. So `HandleKey` is both of the desktop's paths in
   one method, and it opens the prompt with `swallowOpeningChar: false`: there
   is no second delivery to swallow, and swallowing anyway would eat the first
   real letter.
 
 ## Traps
 
-- **The key that opens the prompt types its own letter.** GLFW raises the key
-  callback before the character callback for the same physical press, so
+- **The key that opens the prompt types its own letter.** The desktop host can
+  deliver the key edge before text input for the same physical press, so
   opening on T and then accepting text put a stray "t" at the front of every
   message. `ChatBox` swallows exactly one character after opening.
 - **A held key stays held.** `ProcessInput` skips the local player entirely
@@ -174,9 +174,8 @@ Three things about that are worth knowing:
   `_showTextures` inside `#if DEBUG` in `Scene.OnKeyDown`, and chat takes the
   key first whenever the camera is the player's. It still answers in the model
   viewer's own camera modes, which is where that toggle is used.
-- Text comes from `OnTextInput`, not from the key events: GLFW reports
-  physical keys, so a message read out of those would be spelled in US QWERTY
-  whoever wrote it.
+- Text comes from translated text input, not from physical key events, so a
+  message is not forced into US QWERTY regardless of who wrote it.
 
 ## Checking it
 
