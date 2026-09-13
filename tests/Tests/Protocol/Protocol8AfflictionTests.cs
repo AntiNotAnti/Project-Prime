@@ -135,7 +135,7 @@ namespace MphRead.Tests
                 (78, (byte)2), // RankingEligibility.VerifiedServerOnly is the final assigned value.
                 (79, (byte)3), // RadarPolicy.Enabled is the final assigned value.
                 (80, (byte)2), // TeamBalancePolicy.Locked is the final assigned value.
-                (81, (byte)3), (82, (byte)1), (83, (byte)1)
+                (81, (byte)3), (82, (byte)0), (83, (byte)1)
             })
             {
                 bytes[offset] = value;
