@@ -191,10 +191,11 @@ public sealed class PlayPresentationStateTests
         var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public,
             sessionId, LobbyPhase.Open, 1, 8, 16,
             [new LobbyMember(sessionId, Guid.NewGuid(), "Hunter", Hunter.Samus, 0, false, false)], [],
-            Mode: MatchMode.Battle);
+            Mode: MatchMode.Battle, BotDifficulty: BotDifficulty.Expert);
         HostMatchDraft fromLobby = HostMatchDraft.FromLobby(lobby);
         Assert.Equal("", fromLobby.TimeLimitText);
         Assert.Equal("", fromLobby.ScoreGoalText);
+        Assert.Equal(BotDifficulty.Expert, fromLobby.BotDifficulty);
     }
 
     [Theory]

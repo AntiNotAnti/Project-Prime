@@ -489,6 +489,60 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void PriorityPulseRemainsARestrainedSecondaryCue()
+    {
+        var profile = new RadarProfile { ContactPulse = true };
+        RadarContact objective = Objective(RadarObjective.Flag);
+        float minimum = 1;
+        float maximum = 0;
+        for (ulong tick = 0; tick < 120; tick++)
+        {
+            float alpha = RadarPresentationPolicy.Alpha(profile, objective, tick);
+            minimum = Math.Min(minimum, alpha);
+            maximum = Math.Max(maximum, alpha);
+        }
+
+        Assert.InRange(minimum, .879f, .881f);
+        Assert.InRange(maximum, .999f, 1f);
+    }
+
+    [Fact]
+    public void ContactShapeAndColorRemainSemanticAcrossElevation()
+    {
+        var profile = new RadarProfile();
+        RadarContact enemy = Contact(Vector3.Zero);
+        var teammate = enemy with { Type = RadarContactType.Teammate };
+        RadarContact objective = Objective(RadarObjective.Flag);
+        var prime = enemy with { Type = RadarContactType.PrimeHunter };
+
+        Assert.Equal(RadarMarkerShape.Diamond,
+            RadarPresentationPolicy.MarkerShape(enemy));
+        Assert.Equal(RadarMarkerShape.Square,
+            RadarPresentationPolicy.MarkerShape(teammate));
+        Assert.Equal(RadarMarkerShape.Triangle,
+            RadarPresentationPolicy.MarkerShape(objective));
+        Assert.Equal(RadarMarkerShape.DoubleDiamond,
+            RadarPresentationPolicy.MarkerShape(prime));
+        Assert.Equal(profile.Colors.Enemy.Vector,
+            RadarPresentationPolicy.Color(profile, enemy, RadarElevation.Above));
+        Assert.Equal(profile.Colors.Above.Vector,
+            RadarPresentationPolicy.ElevationColor(profile, RadarElevation.Above));
+        Assert.Equal(profile.Colors.Below.Vector,
+            RadarPresentationPolicy.ElevationColor(profile, RadarElevation.Below));
+    }
+
+    [Theory]
+    [InlineData(24, 1, 1, 18.5f)]
+    [InlineData(24, 2, 2, 2)]
+    [InlineData(float.NaN, 1, 1, 0)]
+    public void EdgeMarkersRemainInsideTheRadarFrame(float radius,
+        float markerScale, float edgeScale, float expected)
+    {
+        Assert.Equal(expected, RadarPresentationPolicy.EdgeMarkerRadius(
+            radius, markerScale, edgeScale), 3);
+    }
+
+    [Fact]
     public void AdaptiveZoomUsesPreparedContactsAndCombatSensitiveMinimum()
     {
         var frame = NewFrame();
@@ -517,12 +571,17 @@ public sealed class RadarTests
     {
         RadarProfile moved = RadarLayoutEditor.Drag(
             new RadarProfile { Anchor = RadarAnchor.Custom }, new Vector2(5.9f, -6.1f));
+        Assert.Equal(RadarPreset.Custom, moved.Preset);
+        Assert.Equal("Custom", moved.Name);
         Assert.Equal(RadarAnchor.Custom, moved.Anchor);
         Assert.Equal(4, moved.OffsetX);
         Assert.Equal(-8, moved.OffsetY);
-        Assert.Equal(1.1f, RadarLayoutEditor.Resize(moved, .08f).Scale, 3);
+        RadarProfile resized = RadarLayoutEditor.Resize(moved, .08f);
+        Assert.Equal(RadarPreset.Custom, resized.Preset);
+        Assert.Equal(1.1f, resized.Scale, 3);
 
         RadarProfile reset = RadarLayoutEditor.Reset(moved);
+        Assert.Equal(RadarPreset.Custom, reset.Preset);
         Assert.Equal(RadarAnchor.TopRight, reset.Anchor);
         Assert.Equal(0, reset.OffsetX);
         Assert.Equal(1, reset.Scale);

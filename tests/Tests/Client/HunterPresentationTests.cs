@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Linq;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media;
 using MphRead;
 using MphRead.Identity;
 using MphRead.Mods.Accounts;
@@ -74,7 +76,7 @@ public sealed class HunterPresentationTests
     }
 
     [Fact]
-    public void OverviewSummaryStaysConciseAndShowsFourRequestedStats()
+    public void OverviewLicenseUsesTheAvailableCareerStatsWithoutDuplicatingCareerNarrative()
     {
         HunterLicensePageState state = State();
         IReadOnlyList<HunterDossier> hunters = Hunters();
@@ -88,12 +90,42 @@ public sealed class HunterPresentationTests
         Assert.Contains("MATCHES", text, StringComparison.Ordinal);
         Assert.Contains("WIN RATE", text, StringComparison.Ordinal);
         Assert.Contains("K / D", text, StringComparison.Ordinal);
+        Assert.Contains("RECORD", text, StringComparison.Ordinal);
+        Assert.Contains("72–52–4", text, StringComparison.Ordinal);
+        Assert.Contains("KILLS", text, StringComparison.Ordinal);
+        Assert.Contains("744", text, StringComparison.Ordinal);
+        Assert.Contains("ASSISTS", text, StringComparison.Ordinal);
+        Assert.Contains("210", text, StringComparison.Ordinal);
+        Assert.Contains("DAMAGE", text, StringComparison.Ordinal);
+        Assert.Contains("98,440", text, StringComparison.Ordinal);
+        Assert.Contains("HEADSHOTS", text, StringComparison.Ordinal);
+        Assert.Contains("KILL STREAK", text, StringComparison.Ordinal);
+        Assert.Contains("WIN STREAK", text, StringComparison.Ordinal);
         Assert.Contains("FAVORITE HUNTER", text, StringComparison.Ordinal);
         Assert.Contains("Samus", text, StringComparison.Ordinal);
+        Assert.Equal(10, Walk(summary).OfType<PrimeStatTile>().Count());
+        Assert.Empty(Walk(summary).OfType<PrimeHeroCard>());
         Assert.DoesNotContain("Combat", text, StringComparison.Ordinal);
         Assert.DoesNotContain("Streaks", text, StringComparison.Ordinal);
         Assert.DoesNotContain("Longest", text, StringComparison.Ordinal);
         Assert.DoesNotContain("Joined", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void OverviewLicenseTurnsTheGeneratedStillIntoATightHunterPortrait()
+    {
+        var image = new Image { Stretch = Stretch.Uniform };
+        PrimePreviewStage preview = PrimeControlFactory.PreviewStage(image);
+
+        Control summary = HunterOverviewPresentation.BuildSummary(State(), Hunters(),
+            Hunter.Samus, _ => preview);
+
+        Assert.Contains("prime-hunter-license-portrait", preview.Classes);
+        Assert.Equal(Stretch.UniformToFill, image.Stretch);
+        var zoom = Assert.IsType<ScaleTransform>(image.RenderTransform);
+        Assert.Equal(1.7, zoom.ScaleX);
+        Assert.Equal(1.7, zoom.ScaleY);
+        Assert.Contains(preview, Walk(summary));
     }
 
     [Fact]

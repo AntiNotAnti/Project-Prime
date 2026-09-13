@@ -5,6 +5,7 @@ namespace MphRead.Hud.Radar;
 public enum RadarContactType { Enemy, Teammate, Objective, PrimeHunter }
 public enum RadarObjective { None, Flag, Base, Node, Defender }
 public enum RadarElevation { Same, Above, Below }
+public enum RadarMarkerShape { Diamond, Square, Triangle, DoubleDiamond }
 
 /// <summary>A contact already admitted by the mode's authoritative reveal policy.</summary>
 public readonly record struct RadarContact(RadarContactType Type, Vector3 Position,

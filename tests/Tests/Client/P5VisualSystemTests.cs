@@ -511,6 +511,20 @@ public sealed class P5VisualSystemTests
     }
 
     [AvaloniaFact]
+    public void PreviewStageOwnsAndClipsResponsiveImageGeometry()
+    {
+        var image = new Image { Height = 330 };
+        var stage = new PrimePreviewStage(image) { Height = 96 };
+
+        Assert.True(stage.ClipToBounds);
+        Assert.True(double.IsNaN(image.Height));
+        Assert.Equal(Avalonia.Layout.HorizontalAlignment.Stretch,
+            image.HorizontalAlignment);
+        Assert.Equal(Avalonia.Layout.VerticalAlignment.Stretch,
+            image.VerticalAlignment);
+    }
+
+    [AvaloniaFact]
     public void ProductionRoutesExposeSharedHeroAndActionSurfaces()
     {
         PrimeShellView play = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(

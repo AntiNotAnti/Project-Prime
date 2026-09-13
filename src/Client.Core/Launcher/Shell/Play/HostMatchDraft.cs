@@ -19,6 +19,7 @@ internal sealed class HostMatchDraft
     public string MapKey { get; set; } = "";
     public MatchMode Mode { get; set; } = MatchMode.Battle;
     public int BotCount { get; set; }
+    public BotDifficulty BotDifficulty { get; set; } = BotDifficulty.Normal;
 
     // An empty value preserves the nullable "use mode default" wire meaning.
     // The editor displays the effective mode default in the field while this
@@ -51,6 +52,7 @@ internal sealed class HostMatchDraft
             MapKey = lobby.MapKey,
             Mode = lobby.Mode,
             BotCount = lobby.BotCount,
+            BotDifficulty = lobby.BotDifficulty,
             TimeLimitText = FormatTime(rules.TimeLimitSeconds),
             ScoreGoalText = FormatNumber(rules.ScoreGoal),
             StartingLivesText = FormatNumber(rules.StartingLives),

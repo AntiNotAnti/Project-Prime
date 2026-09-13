@@ -156,6 +156,12 @@ public static class SettingRowIds
     public const string PreferredRegion = "network.preferred-region";
     public const string NetworkDiagnostics = "network.diagnostics";
     public const string ReducedMotion = "accessibility.reduced-motion";
+    public const string CosmeticQuality = "accessibility.cosmetics.quality";
+    public const string ShowOtherPlayerCosmetics = "accessibility.cosmetics.show-others";
+    public const string ReduceCosmeticFlashes = "accessibility.cosmetics.reduce-flashes";
+    public const string ForceStrongTeamColors = "accessibility.cosmetics.strong-team-colors";
+    public const string DisableCosmeticDistortion = "accessibility.cosmetics.disable-distortion";
+    public const string DisableCosmeticParticles = "accessibility.cosmetics.disable-particles";
 
     public static string KeyBinding(string propertyName) => "controls.key." + propertyName;
     public static string PadBinding(string action) => "controls.pad." + action;
@@ -199,6 +205,8 @@ public static class SettingRowIds
         BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
         BottomScreenOpacity, BottomScreenLabels,
         PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, DebugLogging, ShareLogs,
-        PreferredRegion, NetworkDiagnostics, ReducedMotion
+        PreferredRegion, NetworkDiagnostics, ReducedMotion, CosmeticQuality,
+        ShowOtherPlayerCosmetics, ReduceCosmeticFlashes, ForceStrongTeamColors,
+        DisableCosmeticDistortion, DisableCosmeticParticles
     ];
 }

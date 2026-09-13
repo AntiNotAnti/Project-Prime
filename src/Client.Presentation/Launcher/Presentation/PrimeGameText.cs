@@ -96,6 +96,17 @@ public static class PrimeGameText
             _ => FutureModeLabel(mode)
         };
 
+    public static string BotDifficultyLabel(BotDifficulty difficulty)
+        => difficulty switch
+        {
+            BotDifficulty.Beginner => "Beginner",
+            BotDifficulty.Easy => "Easy",
+            BotDifficulty.Normal => "Normal",
+            BotDifficulty.Hard => "Hard",
+            BotDifficulty.Expert => "Expert",
+            _ => "Difficulty unavailable"
+        };
+
     public static string HunterLabel(Hunter hunter)
         => hunter switch
         {

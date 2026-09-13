@@ -13,6 +13,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using ProjectPrime.Server.Shared;
+using MphRead.Cosmetics;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Launcher;
 using MphRead.Mods.MapGen;
@@ -1029,11 +1030,14 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     }
 
     internal static LobbyConfigure CreateStructuredConfigureCommand(long revision,
-        string mapKey, MatchMode mode, int botCount, LobbyRulesOptions rules)
+        string mapKey, MatchMode mode, int botCount, LobbyRulesOptions rules,
+        BotDifficulty botDifficulty = BotDifficulty.Normal)
     {
         if (rules is null) throw new ArgumentNullException(nameof(rules));
+        if (!Enum.IsDefined(botDifficulty))
+            throw new ArgumentOutOfRangeException(nameof(botDifficulty));
         return new(ValidateRevision(revision), ValidateMapKey(mapKey), mode, botCount,
-            rules);
+            Rules: rules, BotDifficulty: botDifficulty);
     }
 
     internal static LobbyConfigure CreateLegacyConfigureCommand(long revision,
@@ -1551,6 +1555,26 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
             "lobby.hunter.select", cancellationToken);
     }
 
+    /// <summary>Submits an explicit catalog-resolved loadout for the current
+    /// lobby Hunter. This is identical for registered and guest Node sessions;
+    /// callers must not silently substitute a guest selection after an account
+    /// load failure.</summary>
+    public Task SelectLobbyCosmeticsAsync(CosmeticLoadoutIds cosmetics,
+        CancellationToken cancellationToken = default)
+    {
+        Hunter hunter = State.LobbyHunter;
+        if (!CosmeticCatalog.BuiltIn.IsValid(cosmetics, hunter))
+            throw new ArgumentException("The cosmetic loadout is not valid for the selected Hunter.",
+                nameof(cosmetics));
+        return SendLobbyCommandAndWaitAsync((lobby, session) =>
+        {
+            LobbyMember member = lobby.Members.Single(value => value.SessionId == session?.SessionId);
+            if (member.Hunter != hunter)
+                throw new InvalidOperationException("Wait for the authoritative Hunter selection before equipping cosmetics.");
+            return new LobbySelectCosmetics(cosmetics, lobby.Revision);
+        }, "lobby.cosmetics.select", cancellationToken);
+    }
+
     /// <summary>
     /// Legacy lobby configuration overload. The legacy time/point fields stay
     /// on the wire so older Nodes can consume this call; the server normalizes
@@ -1560,13 +1584,21 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         int? timeLimitSeconds, int? pointGoal,
         CancellationToken cancellationToken = default)
         => ConfigureLobbyCoreAsync(mapKey, mode, botCount, null,
-            timeLimitSeconds, pointGoal, false, cancellationToken);
+            BotDifficulty.Normal, timeLimitSeconds, pointGoal, false,
+            cancellationToken);
 
     /// <summary>Configures a lobby with the structured authoritative rule set.</summary>
     public Task ConfigureLobbyAsync(string mapKey, MatchMode mode, int botCount,
         LobbyRulesOptions? rules, CancellationToken cancellationToken = default)
         => ConfigureLobbyCoreAsync(mapKey, mode, botCount, rules,
-            null, null, true, cancellationToken);
+            BotDifficulty.Normal, null, null, true, cancellationToken);
+
+    /// <summary>Configures bot population and difficulty as one frozen lobby setting.</summary>
+    public Task ConfigureLobbyAsync(string mapKey, MatchMode mode, int botCount,
+        BotDifficulty botDifficulty, LobbyRulesOptions? rules,
+        CancellationToken cancellationToken = default)
+        => ConfigureLobbyCoreAsync(mapKey, mode, botCount, rules,
+            botDifficulty, null, null, true, cancellationToken);
 
     /// <summary>Convenience overload for a structured rule set with no bots.</summary>
     public Task ConfigureLobbyAsync(string mapKey, MatchMode mode,
@@ -1574,7 +1606,8 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         => ConfigureLobbyAsync(mapKey, mode, 0, rules, cancellationToken);
 
     private async Task ConfigureLobbyCoreAsync(string mapKey, MatchMode mode, int botCount,
-        LobbyRulesOptions? rules, int? legacyTimeLimitSeconds, int? legacyPointGoal,
+        LobbyRulesOptions? rules, BotDifficulty botDifficulty,
+        int? legacyTimeLimitSeconds, int? legacyPointGoal,
         bool structured, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(mapKey))
@@ -1604,14 +1637,18 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 throw new InvalidOperationException("Only the lobby owner can configure a match.");
             LobbyRulesOptions requestedRules = NormalizeLobbyRules(mode, rules,
                 legacyTimeLimitSeconds, legacyPointGoal);
-            ValidateLobbyConfiguration(lobby, mode, botCount, requestedRules);
+            ValidateLobbyConfiguration(lobby, mode, botCount, botDifficulty,
+                requestedRules);
             LobbyRulesOptions currentRules = NormalizeLobbyRules(lobby.Mode, lobby.Rules,
                 lobby.TimeLimitSeconds, lobby.PointGoal);
             if (StringComparer.Ordinal.Equals(lobby.MapKey, mapKey) && lobby.Mode == mode
-                && lobby.BotCount == botCount && currentRules == requestedRules) return;
+                && lobby.BotCount == botCount
+                && lobby.BotDifficulty == botDifficulty
+                && currentRules == requestedRules) return;
 
             LobbyConfigure configure = structured
-                ? CreateStructuredConfigureCommand(lobby.Revision, mapKey, mode, botCount, requestedRules)
+                ? CreateStructuredConfigureCommand(lobby.Revision, mapKey, mode,
+                    botCount, requestedRules, botDifficulty)
                 : CreateLegacyConfigureCommand(lobby.Revision, mapKey, mode, botCount,
                     legacyTimeLimitSeconds, legacyPointGoal);
 
@@ -1632,7 +1669,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 applied.TimeLimitSeconds, applied.PointGoal);
             if (applied.LobbyId != lobby.LobbyId || applied.Revision <= lobby.Revision
                 || !StringComparer.Ordinal.Equals(applied.MapKey, mapKey) || applied.Mode != mode
-                || applied.BotCount != botCount || appliedRules != requestedRules
+                || applied.BotCount != botCount
+                || applied.BotDifficulty != botDifficulty
+                || appliedRules != requestedRules
                 || node.Session?.SessionId != session.SessionId)
                 throw new InvalidOperationException("The lobby changed before these settings were applied. Try again.");
         }
@@ -1646,9 +1685,16 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
 
     internal static void ValidateLobbyConfiguration(LobbySnapshot lobby, MatchMode mode,
         int botCount, LobbyRulesOptions? rules)
+        => ValidateLobbyConfiguration(lobby, mode, botCount, BotDifficulty.Normal,
+            rules);
+
+    internal static void ValidateLobbyConfiguration(LobbySnapshot lobby, MatchMode mode,
+        int botCount, BotDifficulty botDifficulty, LobbyRulesOptions? rules)
     {
         ArgumentNullException.ThrowIfNull(lobby);
         if (!Enum.IsDefined(mode)) throw new ArgumentOutOfRangeException(nameof(mode));
+        if (!Enum.IsDefined(botDifficulty))
+            throw new ArgumentOutOfRangeException(nameof(botDifficulty));
         LobbyRulesOptions normalized = NormalizeLobbyRules(mode, rules, null, null);
         int humanPlayers = lobby.Members.Count(member => !member.Observer);
         if (botCount < 0 || botCount + humanPlayers > lobby.PlayerLimit)

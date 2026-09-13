@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Media.Imaging;
+using MphRead.Cosmetics;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -114,11 +115,52 @@ public sealed class HunterPreviewService
     private readonly PreviewImageService _images;
     public HunterPreviewService(PreviewImageService? images = null) => _images = images ?? new PreviewImageService();
     public async Task<PrimePreviewImage?> LoadAsync(Hunter hunter, CancellationToken cancellationToken = default)
+        => await LoadAsync(hunter, skinKey: null, cancellationToken).ConfigureAwait(false);
+
+    public async Task<PrimePreviewImage?> LoadAsync(Hunter hunter, string? skinKey,
+        CancellationToken cancellationToken = default)
     {
-        if (!ModelPreviewCatalog.TryHunter(hunter, out ModelPreviewSpec? spec) || spec == null)
+        SkinDefinition? skin = ResolveSkin(hunter, skinKey);
+        if (!ModelPreviewCatalog.TryHunter(hunter, skin, out ModelPreviewSpec? spec)
+            || spec == null)
             return null;
         return await GeneratedPreviewLoader.LoadAsync(_images, spec, cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async Task<PrimePreviewImage?> LoadDeathStageAsync(Hunter hunter,
+        string? skinKey, string? armorEffectKey, string deathEffectKey,
+        CancellationToken cancellationToken = default)
+    {
+        SkinDefinition? skin = ResolveSkin(hunter, skinKey);
+        ArmorEffectDefinition? armor = ResolveArmor(armorEffectKey);
+        if (!CosmeticCatalog.BuiltIn.TryGetDeathEffect(deathEffectKey,
+                out DeathEffectDefinition effect)
+            || !ModelPreviewCatalog.TryHunterDeath(hunter, skin, effect,
+                out ModelPreviewSpec? spec, armor) || spec == null)
+            return null;
+        return await GeneratedPreviewLoader.LoadAsync(_images, spec, cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    private static ArmorEffectDefinition? ResolveArmor(string? armorEffectKey)
+    {
+        if (String.IsNullOrEmpty(armorEffectKey)
+            || String.Equals(armorEffectKey, CosmeticKeys.NoArmorEffect,
+                StringComparison.Ordinal))
+            return null;
+        return CosmeticCatalog.BuiltIn.TryGetArmorEffect(armorEffectKey,
+            out ArmorEffectDefinition armor) ? armor : null;
+    }
+
+    private static SkinDefinition? ResolveSkin(Hunter hunter, string? skinKey)
+    {
+        if (String.IsNullOrEmpty(skinKey)
+            || String.Equals(skinKey, CosmeticKeys.DefaultSkin(hunter),
+                StringComparison.Ordinal))
+            return null;
+        return CosmeticCatalog.BuiltIn.TryGetSkin(skinKey, out SkinDefinition skin)
+            && skin.Hunter == hunter ? skin : null;
     }
 }
 

@@ -286,12 +286,14 @@ public sealed class PlayEntryTests
         LobbyRulesOptions rules = new(TimeLimitSeconds: 600, ScoreGoal: 7,
             DamageLevel: 2, FriendlyFire: true, AffinityWeapons: false);
         LobbyConfigure command = PlayController.CreateStructuredConfigureCommand(
-            23, "MP1 SANCTORUS", MatchMode.Battle, 2, rules);
+            23, "MP1 SANCTORUS", MatchMode.Battle, 2, rules,
+            BotDifficulty.Hard);
 
         Assert.Equal(23, command.ExpectedRevision);
         Assert.Equal("MP1 SANCTORUS", command.MapKey);
         Assert.Equal(MatchMode.Battle, command.Mode);
         Assert.Equal(2, command.BotCount);
+        Assert.Equal(BotDifficulty.Hard, command.BotDifficulty);
         Assert.Equal(rules, command.Rules);
         Assert.Null(command.TimeLimitSeconds);
         Assert.Null(command.PointGoal);

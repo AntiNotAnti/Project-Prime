@@ -18,6 +18,7 @@ using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ProjectPrime.Server.Shared;
 using MphRead.Identity;
+using MphRead.Cosmetics;
 using MphRead.Mods;
 using MphRead.Mods.Accounts;
 using MphRead.Mods.Input;
@@ -36,6 +37,60 @@ internal enum GatewayForm
     SignIn,
     Register,
     Confirm
+}
+
+internal readonly record struct CosmeticSyncAttempt(
+    Guid LobbyId,
+    long Revision,
+    CosmeticLoadoutIds Ids);
+
+/// <summary>Bounds automatic retries for one exact authoritative lobby state.
+/// A changed revision or selection is a new operation and may start at once.</summary>
+internal sealed class CosmeticSyncRetryPolicy
+{
+    internal const int MaximumAttempts = 3;
+    private CosmeticSyncAttempt? _failedAttempt;
+    private int _attempts;
+    private bool _retryArmed;
+
+    public bool CanStart(CosmeticSyncAttempt attempt)
+    {
+        if (_failedAttempt != attempt)
+        {
+            Reset();
+            return true;
+        }
+        if (!_retryArmed || _attempts >= MaximumAttempts) return false;
+        _retryArmed = false;
+        return true;
+    }
+
+    public TimeSpan? RecordFailure(CosmeticSyncAttempt attempt)
+    {
+        if (_failedAttempt != attempt)
+        {
+            _failedAttempt = attempt;
+            _attempts = 0;
+        }
+        _attempts++;
+        _retryArmed = false;
+        if (_attempts >= MaximumAttempts) return null;
+        return TimeSpan.FromMilliseconds(250 * (1 << (_attempts - 1)));
+    }
+
+    public bool ArmRetry(CosmeticSyncAttempt attempt)
+    {
+        if (_failedAttempt != attempt || _attempts >= MaximumAttempts) return false;
+        _retryArmed = true;
+        return true;
+    }
+
+    public void Reset()
+    {
+        _failedAttempt = null;
+        _attempts = 0;
+        _retryArmed = false;
+    }
 }
 
 /// <summary>
@@ -60,6 +115,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private readonly bool _ownsOnline;
     private readonly PlayPresentationState _playPresentation = new();
     private readonly HunterLicenseController _license;
+    private readonly HunterAppearanceController _appearance
+        = new(CosmeticCatalog.BuiltIn);
     private readonly ArmoryController _armory = new();
     private readonly RankingsController _rankings;
     private readonly TheatreController _theatre = new();
@@ -97,6 +154,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private bool _previewCatchupStarted;
     private bool _rankingsInitialLoadPending;
     private bool _playRefreshPending;
+    private bool _cosmeticSyncInFlight;
+    private bool _cosmeticSyncDirty;
+    private bool _accountCosmeticsLoaded;
+    private readonly CosmeticSyncRetryPolicy _cosmeticSyncRetries = new();
+    private CancellationTokenSource? _cosmeticSyncRetryDelay;
     private PlayState? _capturePlayState;
     private GatewayState? _captureGatewayState;
     private bool _captureExpandAdvancedNetwork;
@@ -111,6 +173,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private readonly Dictionary<Hunter, string> _hunterPreviewPaths = new();
     private readonly HashSet<Hunter> _hunterPreviewLoads = new();
     private readonly Dictionary<Hunter, DateTimeOffset> _hunterPreviewRetryAfter = new();
+    private readonly Dictionary<Hunter, string> _hunterDeathPreviewKeys = new();
+    private readonly Dictionary<Hunter, string> _hunterPreviewRequestKeys = new();
     private readonly Dictionary<BeamType, string> _weaponPreviewPaths = new();
     private readonly HashSet<BeamType> _weaponPreviewLoads = new();
     private readonly Dictionary<BeamType, DateTimeOffset> _weaponPreviewRetryAfter = new();
@@ -737,6 +801,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _play.SetHandoffEnabled(false);
         _play.SetPresenceRefreshEnabled(false);
         _inputTimer.Stop();
+        ResetCosmeticSyncRetry();
         _lifetime.Cancel();
         _lifetime.Dispose();
         _lifetime = new CancellationTokenSource();
@@ -2054,8 +2119,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         string mapKey = draft.MapKey;
         if (string.IsNullOrWhiteSpace(mapKey))
             mapKey = _play.AvailableMaps.FirstOrDefault() ?? "";
-        await _play.ConfigureLobbyAsync(mapKey, draft.Mode, draft.BotCount, rules,
-            _lifetime.Token).ConfigureAwait(false);
+        await _play.ConfigureLobbyAsync(mapKey, draft.Mode, draft.BotCount,
+            draft.BotDifficulty, rules, _lifetime.Token).ConfigureAwait(false);
         PostUi(() =>
         {
             _playPresentation.Subsection = PlaySubsection.Home;
@@ -2069,8 +2134,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         if (!draft.TryBuildRules(out LobbyRulesOptions rules, out string error))
             throw new InvalidOperationException(error);
-        await _play.ConfigureLobbyAsync(draft.MapKey, draft.Mode, draft.BotCount, rules,
-            _lifetime.Token).ConfigureAwait(false);
+        await _play.ConfigureLobbyAsync(draft.MapKey, draft.Mode, draft.BotCount,
+            draft.BotDifficulty, rules, _lifetime.Token).ConfigureAwait(false);
         PostUi(() =>
         {
             _playPresentation.ClearEdit();
@@ -2193,7 +2258,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
         HunterDossier selected = hunters.FirstOrDefault(dossier => dossier.Hunter == _selectedLicenseHunter)
             ?? hunters[0];
-        StartHunterPreview(selected.Hunter);
+        _appearance.SelectHunter(selected.Hunter);
+        StartHunterPreview(selected.Hunter, _appearance.State.Preview.SkinKey);
 
         var roster = Stack(Text("Hunters", "prime-heading"),
             Text("Select a hunter to inspect their profile and affinity weapon.", "prime-muted"));
@@ -2224,6 +2290,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         var detail = Stack(HunterOverviewPresentation.BuildIdentityHeader(selected),
             Text($"Affinity weapon · {selected.AffinityWeapon}", "prime-body"));
         AddHunterBadges(detail, selected);
+        detail.Children.Add(BuildHunterAppearance(selected.Hunter));
         detail.Children.Add(PrimeControlFactory.Divider());
         detail.Children.Add(Text("Profile favorite", "prime-label"));
         if (!selected.IsFavorite)
@@ -2242,7 +2309,8 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         HunterDossier profile = HunterOverviewPresentation.SelectProfile(hunters,
             _selectedLicenseHunter);
-        StartHunterPreview(profile.Hunter);
+        _appearance.SelectHunter(profile.Hunter);
+        StartHunterPreview(profile.Hunter, _appearance.State.Preview.SkinKey);
         return HunterOverviewPresentation.BuildSummary(state, hunters,
             _selectedLicenseHunter, BuildHunterPreviewStage,
             name => RunCommand("Update display name",
@@ -2253,9 +2321,14 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         Control content;
         bool compactFailure = false;
+        bool deathStage = _hunterDeathPreviewKeys.ContainsKey(hunter);
         if (_hunterPreviewPaths.TryGetValue(hunter, out string? path))
         {
-            content = new PrimeLocalImage(path, 330) { Stretch = Stretch.Uniform };
+            Control image = new PrimeLocalImage(path, 330) { Stretch = Stretch.Uniform };
+            content = deathStage
+                ? Stack(image, Text("Death-stage still · isolated cosmetic preview",
+                    "prime-muted"))
+                : image;
         }
         else if (_hunterPreviewRetryAfter.ContainsKey(hunter))
         {
@@ -2269,7 +2342,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             content = Stack(HunterPreviewFallback.ForHunter(hunter),
                 _captureMode
                     ? LegacyCaptureMarker("Preview omitted for offline capture.")
-                    : Text("Preparing hunter preview…", "prime-muted"));
+                    : Text(deathStage
+                        ? "Preparing isolated death-stage still…"
+                        : "Preparing hunter preview…", "prime-muted"));
         }
         if (content is TextBlock text)
         {
@@ -2280,6 +2355,267 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         stage.Classes.Add("prime-hunter-preview");
         stage.Height = HunterPreviewHeight(compactFailure);
         return stage;
+    }
+
+    private Control BuildHunterAppearance(Hunter hunter)
+    {
+        _appearance.SelectHunter(hunter);
+        void Select(Action selection)
+        {
+            selection();
+            _hunterDeathPreviewKeys.Remove(hunter);
+            _hunterPreviewRequestKeys.Remove(hunter);
+            _hunterPreviewPaths.Remove(hunter);
+            _hunterPreviewLoads.Remove(hunter);
+            _hunterPreviewRetryAfter.Remove(hunter);
+            RenderRoute(PrimeRoute.Hunter);
+        }
+        return HunterAppearancePresentation.Build(new HunterAppearancePresentationContext(
+            _appearance.State,
+            () => Select(_appearance.SelectPreviousSkin),
+            () => Select(_appearance.SelectNextSkin),
+            () => Select(_appearance.SelectPreviousArmorEffect),
+            () => Select(_appearance.SelectNextArmorEffect),
+            () => Select(_appearance.SelectPreviousDeathEffect),
+            () => Select(_appearance.SelectNextDeathEffect),
+            _appearance.State.Preview.DeathEffectKey
+                != CosmeticKeys.DefaultDeathEffect,
+            () => StartHunterDeathPreview(hunter,
+                _appearance.State.Preview.SkinKey,
+                _appearance.State.Preview.ArmorEffectKey,
+                _appearance.State.Preview.DeathEffectKey),
+            () =>
+            {
+                CosmeticLoadout selected = _appearance.State.Preview;
+                RunCommand("Equip appearance", () => EquipAppearanceAsync(hunter, selected));
+            },
+            () => Select(_appearance.ResetPreview)));
+    }
+
+    private async Task EquipAppearanceAsync(Hunter hunter, CosmeticLoadout loadout)
+    {
+        if (!CosmeticCatalog.BuiltIn.TryResolve(loadout, hunter, out _, out _))
+            throw new InvalidOperationException("The selected appearance is no longer available.");
+
+        AuthenticatedCosmeticOperation? operation =
+            CaptureAuthenticatedCosmeticOperation();
+        if (operation is { } authenticated)
+        {
+            // A signed-in account is authoritative. Failure stops here and is
+            // never converted into an implicit guest write.
+            await authenticated.Account.PutCosmeticsAsync(hunter, loadout,
+                _lifetime.Token).ConfigureAwait(false);
+            if (!IsAccountCurrent(authenticated))
+            {
+                DebugLog.Line("cosmetics/skin",
+                    "Discarded a stale authenticated appearance update.");
+                return;
+            }
+        }
+        else if (_shell.SignedIn)
+        {
+            // Shell/account identity convergence is a prerequisite for an
+            // authenticated write. Never fall through to guest persistence.
+            throw new InvalidOperationException(
+                "The signed-in appearance identity changed. Try again.");
+        }
+        else if (_appearance.UsesAccountStorage)
+        {
+            throw new InvalidOperationException(
+                "The appearance identity changed. Try again.");
+        }
+
+        PostUi(() =>
+        {
+            if (operation is { } expected
+                && (!IsAccountCurrent(expected)
+                    || _appearance.AccountPrincipal != expected.Principal)) return;
+            if (_appearance.State.Hunter != hunter
+                || _appearance.State.Preview != loadout) return;
+            _appearance.Equip();
+            TrySynchronizeLobbyCosmetics();
+            RenderRoute(PrimeRoute.Hunter);
+        });
+    }
+
+    private async Task LoadAccountCosmeticsAsync()
+    {
+        AuthenticatedCosmeticOperation? operation =
+            CaptureAuthenticatedCosmeticOperation();
+        if (operation is not { } authenticated) return;
+        IReadOnlyList<AccountCosmeticLoadout> loadouts = await authenticated.Account
+            .GetCosmeticsAsync(_lifetime.Token).ConfigureAwait(false);
+        if (!IsAccountCurrent(authenticated))
+        {
+            DebugLog.Line("cosmetics/skin",
+                "Discarded a stale authenticated appearance load.");
+            return;
+        }
+        PostUi(() =>
+        {
+            if (!IsAccountCurrent(authenticated)
+                || _appearance.AccountPrincipal != authenticated.Principal) return;
+            foreach (AccountCosmeticLoadout entry in loadouts)
+                _appearance.ApplyAuthoritative(entry.Hunter, entry.Loadout);
+            _accountCosmeticsLoaded = true;
+            TrySynchronizeLobbyCosmetics();
+            if (_shell.CurrentRoute == PrimeRoute.Hunter)
+                RenderRoute(PrimeRoute.Hunter);
+        });
+    }
+
+    private AuthenticatedCosmeticOperation? CaptureAuthenticatedCosmeticOperation()
+    {
+        AccountSession? account = AccountSessions.Current;
+        PlayerId? principal = account?.Identity?.PlayerId;
+        if (account is not { IsSignedIn: true } || principal == null
+            || !_shell.SignedIn || _shell.PlayerId != principal)
+        {
+            return null;
+        }
+        return new AuthenticatedCosmeticOperation(account, principal.Value,
+            _shell.IdentityGeneration);
+    }
+
+    private bool IsAccountCurrent(AuthenticatedCosmeticOperation operation)
+        => operation.IsAccountCurrent(AccountSessions.Current, _shell.PlayerId,
+            _shell.IdentityGeneration);
+
+    private void TrySynchronizeLobbyCosmetics()
+    {
+        if (_captureMode || _disposed || _lifetime.IsCancellationRequested)
+            return;
+        if (AccountSessions.Current is { IsSignedIn: true }
+            && !_accountCosmeticsLoaded)
+            return;
+        NodeControlClient.ViewState? node = _play.State.Node;
+        LobbySnapshot? lobby = node?.Lobby;
+        Guid? sessionId = node?.Session?.SessionId;
+        if (lobby == null || sessionId == null
+            || lobby.Phase is not (LobbyPhase.Open or LobbyPhase.InMatch
+                or LobbyPhase.PostMatch))
+        {
+            ResetCosmeticSyncRetry();
+            return;
+        }
+        LobbyMember? member = lobby.Members.FirstOrDefault(value =>
+            value.SessionId == sessionId.Value);
+        if (member == null || member.Observer
+            || member.Hunter != _play.State.LobbyHunter)
+        {
+            ResetCosmeticSyncRetry();
+            return;
+        }
+        CosmeticLoadout loadout = _appearance.GetEquipped(member.Hunter);
+        if (!CosmeticCatalog.BuiltIn.TryResolve(loadout, member.Hunter,
+                out CosmeticLoadoutIds ids, out _)
+            || member.Cosmetics == ids)
+        {
+            ResetCosmeticSyncRetry();
+            return;
+        }
+        var attempt = new CosmeticSyncAttempt(lobby.LobbyId, lobby.Revision, ids);
+        if (_cosmeticSyncInFlight)
+        {
+            _cosmeticSyncDirty = true;
+            return;
+        }
+        if (!_cosmeticSyncRetries.CanStart(attempt)) return;
+        CancelCosmeticSyncRetryDelay();
+        _cosmeticSyncInFlight = true;
+        _cosmeticSyncDirty = false;
+        _ = SynchronizeLobbyCosmeticsAsync(attempt);
+    }
+
+    private async Task SynchronizeLobbyCosmeticsAsync(CosmeticSyncAttempt attempt)
+    {
+        bool succeeded = false;
+        bool canceled = false;
+        string? failure = null;
+        try
+        {
+            await _play.SelectLobbyCosmeticsAsync(attempt.Ids, _lifetime.Token)
+                .ConfigureAwait(false);
+            succeeded = true;
+        }
+        catch (OperationCanceledException) when (_lifetime.IsCancellationRequested)
+        {
+            canceled = true;
+        }
+        catch (Exception error)
+        {
+            failure = PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                "Could not synchronize the equipped appearance.");
+        }
+        finally
+        {
+            PostUi(() =>
+            {
+                _cosmeticSyncInFlight = false;
+                if (succeeded || canceled)
+                {
+                    ResetCosmeticSyncRetry();
+                }
+                else
+                {
+                    TimeSpan? retryAfter = _cosmeticSyncRetries.RecordFailure(attempt);
+                    if (retryAfter is { } delay)
+                        ScheduleCosmeticSyncRetry(attempt, delay);
+                    else
+                        _shell.NotifyTransient("appearance-sync",
+                            PrimeNotificationKind.Warning, failure!);
+                }
+                if (_cosmeticSyncDirty)
+                {
+                    _cosmeticSyncDirty = false;
+                    TrySynchronizeLobbyCosmetics();
+                }
+            });
+        }
+    }
+
+    private void ScheduleCosmeticSyncRetry(CosmeticSyncAttempt attempt, TimeSpan delay)
+    {
+        CancelCosmeticSyncRetryDelay();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(_lifetime.Token);
+        _cosmeticSyncRetryDelay = cancellation;
+        _ = WaitForCosmeticSyncRetryAsync(attempt, delay, cancellation);
+    }
+
+    private async Task WaitForCosmeticSyncRetryAsync(CosmeticSyncAttempt attempt,
+        TimeSpan delay, CancellationTokenSource cancellation)
+    {
+        try
+        {
+            await Task.Delay(delay, cancellation.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            return;
+        }
+        PostUi(() =>
+        {
+            if (!ReferenceEquals(_cosmeticSyncRetryDelay, cancellation)) return;
+            _cosmeticSyncRetryDelay = null;
+            cancellation.Dispose();
+            if (_cosmeticSyncRetries.ArmRetry(attempt))
+                TrySynchronizeLobbyCosmetics();
+        });
+    }
+
+    private void ResetCosmeticSyncRetry()
+    {
+        _cosmeticSyncRetries.Reset();
+        CancelCosmeticSyncRetryDelay();
+    }
+
+    private void CancelCosmeticSyncRetryDelay()
+    {
+        CancellationTokenSource? cancellation = _cosmeticSyncRetryDelay;
+        _cosmeticSyncRetryDelay = null;
+        if (cancellation == null) return;
+        cancellation.Cancel();
+        cancellation.Dispose();
     }
 
     internal static double HunterPreviewHeight(bool compactFailure)
@@ -2441,7 +2777,28 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             Classes = { "prime-muted" }
         };
 
-    private void StartHunterPreview(Hunter hunter)
+    private void StartHunterPreview(Hunter hunter, string? skinKey = null)
+    {
+        _hunterDeathPreviewKeys.TryGetValue(hunter, out string? deathEffectKey);
+        StartHunterPreview(hunter, skinKey, deathEffectKey);
+    }
+
+    private void StartHunterDeathPreview(Hunter hunter, string? skinKey,
+        string? armorEffectKey, string deathEffectKey)
+    {
+        if (String.Equals(deathEffectKey, CosmeticKeys.DefaultDeathEffect,
+                StringComparison.Ordinal))
+            return;
+        _hunterDeathPreviewKeys[hunter] = deathEffectKey;
+        _hunterPreviewPaths.Remove(hunter);
+        _hunterPreviewLoads.Remove(hunter);
+        _hunterPreviewRetryAfter.Remove(hunter);
+        StartHunterPreview(hunter, skinKey, deathEffectKey, armorEffectKey);
+        RenderRoute(PrimeRoute.Hunter);
+    }
+
+    private void StartHunterPreview(Hunter hunter, string? skinKey,
+        string? deathEffectKey, string? armorEffectKey = null)
     {
         if (_captureMode)
         {
@@ -2457,6 +2814,17 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             return;
         }
         RefreshModelPreviewIdentity();
+        string requestKey = $"{skinKey ?? CosmeticKeys.DefaultSkin(hunter)}|"
+            + (armorEffectKey ?? CosmeticKeys.NoArmorEffect) + "|"
+            + (deathEffectKey ?? "alive");
+        if (_hunterPreviewRequestKeys.TryGetValue(hunter, out string? currentRequest)
+            && !String.Equals(currentRequest, requestKey, StringComparison.Ordinal))
+        {
+            _hunterPreviewPaths.Remove(hunter);
+            _hunterPreviewLoads.Remove(hunter);
+            _hunterPreviewRetryAfter.Remove(hunter);
+        }
+        _hunterPreviewRequestKeys[hunter] = requestKey;
         if (_hunterPreviewPaths.ContainsKey(hunter) || !_hunterPreviewLoads.Add(hunter)) return;
         if (_hunterPreviewRetryAfter.TryGetValue(hunter, out DateTimeOffset retryAfter))
         {
@@ -2465,16 +2833,24 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             _hunterPreviewRetryAfter.Remove(hunter);
         }
         _hunterPreviewLoadStarts++;
-        _ = LoadHunterPreviewAsync(hunter, _modelPreviewIdentity);
+        _ = LoadHunterPreviewAsync(hunter, skinKey, armorEffectKey,
+            deathEffectKey, requestKey,
+            _modelPreviewIdentity);
     }
 
-    private async Task LoadHunterPreviewAsync(Hunter hunter, string? identity)
+    private async Task LoadHunterPreviewAsync(Hunter hunter, string? skinKey,
+        string? armorEffectKey, string? deathEffectKey, string requestKey,
+        string? identity)
     {
         string? path = null;
         try
         {
-            PrimePreviewImage? image = await _hunterPreviews.LoadAsync(
-                hunter, _restoreLifetime.Token).ConfigureAwait(false);
+            PrimePreviewImage? image = deathEffectKey == null
+                ? await _hunterPreviews.LoadAsync(hunter, skinKey,
+                    _restoreLifetime.Token).ConfigureAwait(false)
+                : await _hunterPreviews.LoadDeathStageAsync(hunter, skinKey,
+                    armorEffectKey, deathEffectKey, _restoreLifetime.Token)
+                    .ConfigureAwait(false);
             path = image?.Path;
         }
         catch (OperationCanceledException) when (_restoreLifetime.IsCancellationRequested) { }
@@ -2484,7 +2860,11 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         }
         PostUi(() =>
         {
-            if (!String.Equals(identity, _modelPreviewIdentity, StringComparison.Ordinal)) return;
+            if (!String.Equals(identity, _modelPreviewIdentity, StringComparison.Ordinal)
+                || !_hunterPreviewRequestKeys.TryGetValue(hunter,
+                    out string? currentRequest)
+                || !String.Equals(currentRequest, requestKey,
+                    StringComparison.Ordinal)) return;
             _hunterPreviewLoads.Remove(hunter);
             if (path != null)
             {
@@ -2574,6 +2954,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         _hunterPreviewPaths.Clear();
         _hunterPreviewLoads.Clear();
         _hunterPreviewRetryAfter.Clear();
+        _hunterPreviewRequestKeys.Clear();
         _weaponPreviewPaths.Clear();
         _weaponPreviewLoads.Clear();
         _weaponPreviewRetryAfter.Clear();
@@ -3065,8 +3446,15 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         => PostUi(RefreshChrome);
 
     private void GatewayIdentityChanged(object? sender, EventArgs args)
-        => PostUi(() =>
+    {
+        PostUi(() =>
         {
+            if (_shell.SignedIn && _shell.PlayerId is PlayerId principal)
+                _appearance.UseAccountStorage(principal);
+            else
+                _appearance.UseGuestStorage();
+            _accountCosmeticsLoaded = AccountSessions.Current is not { IsSignedIn: true };
+            ResetCosmeticSyncRetry();
             _play.CancelIdentityOperations();
             _routeViewState.ResetGuestHunterEntry();
             if (!_shell.HasNetworkIdentity)
@@ -3075,6 +3463,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             if (_shell.SignedIn && _shell.CurrentRoute == PrimeRoute.Gateway)
                 _shell.Navigator.NavigateRoot(PrimeRoute.Play);
         });
+        if (_shell.SignedIn)
+            RunCommand("Load cosmetics", LoadAccountCosmeticsAsync);
+    }
 
     private void PlayChanged(object? sender, EventArgs args)
         => PostUi(() =>
@@ -3091,6 +3482,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
                 RenderRoute(PrimeRoute.Play);
             }
             else RefreshChrome();
+            TrySynchronizeLobbyCosmetics();
         });
 
     private void PlayPresenceChanged(object? sender, EventArgs args)

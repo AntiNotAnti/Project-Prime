@@ -81,7 +81,11 @@ internal sealed class PrimeMatchCard : Border
                 LobbyRuleDefaults.ObjectiveTime(entry.Mode, entry.ObjectiveTimeGoalSeconds)));
         rules.Children.Add(Metric("OBSERVERS", $"{entry.Observers}/{entry.ObserverLimit}"));
         if (entry.BotCount > 0)
+        {
             rules.Children.Add(Metric("BOTS", entry.BotCount.ToString(CultureInfo.InvariantCulture)));
+            rules.Children.Add(Metric("BOT DIFFICULTY",
+                PrimeGameText.BotDifficultyLabel(entry.BotDifficulty)));
+        }
         if (entry.WaitlistCount > 0)
             rules.Children.Add(Metric("WAITLIST", entry.WaitlistCount.ToString(CultureInfo.InvariantCulture)));
         body.Children.Add(rules);

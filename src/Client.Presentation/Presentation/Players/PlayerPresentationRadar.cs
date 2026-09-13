@@ -85,12 +85,13 @@ public partial class PlayerPresentation
         float thicknessX = aspectFix, thicknessY = 1;
         Vector4 border = RadarColor(profile.Colors.Border.Vector, profile);
         Vector4 ring = RadarColor(profile.Colors.Ring.Vector, profile);
-        AddQuad(layout.Left, layout.Top, layout.Left + layout.Width, layout.Top + thicknessY, border);
+        AddQuad(layout.Left, layout.Top, layout.Left + layout.Width, layout.Top + thicknessY, ring);
         AddQuad(layout.Left, layout.Top + layout.Height - thicknessY,
-            layout.Left + layout.Width, layout.Top + layout.Height, border);
-        AddQuad(layout.Left, layout.Top, layout.Left + thicknessX, layout.Top + layout.Height, border);
+            layout.Left + layout.Width, layout.Top + layout.Height, ring);
+        AddQuad(layout.Left, layout.Top, layout.Left + thicknessX, layout.Top + layout.Height, ring);
         AddQuad(layout.Left + layout.Width - thicknessX, layout.Top,
-            layout.Left + layout.Width, layout.Top + layout.Height, border);
+            layout.Left + layout.Width, layout.Top + layout.Height, ring);
+        DrawRadarFrameCorners(layout, aspectFix, border);
         if (profile.Grid)
         {
             AddQuad(layout.CenterX - thicknessX / 2, layout.Top, layout.CenterX + thicknessX / 2,
@@ -119,6 +120,35 @@ compass:
             AddTriangle(Point(layout, 0, -layout.Radius + 1, aspectFix),
                 Point(layout, -2, -layout.Radius + 5, aspectFix),
                 Point(layout, 2, -layout.Radius + 5, aspectFix), border);
+        else if (profile.Orientation == RadarOrientation.Heading)
+        {
+            Vector4 forward = RadarColor(profile.Colors.Objective.Vector, profile, .9f);
+            AddTriangle(Point(layout, 0, -layout.Radius + 1, aspectFix),
+                Point(layout, -1.8f, -layout.Radius + 4, aspectFix),
+                Point(layout, 1.8f, -layout.Radius + 4, aspectFix), forward);
+        }
+    }
+
+    private void DrawRadarFrameCorners(RadarLayout layout, float aspectFix, Vector4 color)
+    {
+        float x = 7 * aspectFix;
+        const float y = 7;
+        const float thicknessY = 1.35f;
+        float thicknessX = 1.35f * aspectFix;
+        AddQuad(layout.Left, layout.Top, layout.Left + x, layout.Top + thicknessY, color);
+        AddQuad(layout.Left, layout.Top, layout.Left + thicknessX, layout.Top + y, color);
+        AddQuad(layout.Left + layout.Width - x, layout.Top,
+            layout.Left + layout.Width, layout.Top + thicknessY, color);
+        AddQuad(layout.Left + layout.Width - thicknessX, layout.Top,
+            layout.Left + layout.Width, layout.Top + y, color);
+        AddQuad(layout.Left, layout.Top + layout.Height - thicknessY,
+            layout.Left + x, layout.Top + layout.Height, color);
+        AddQuad(layout.Left, layout.Top + layout.Height - y,
+            layout.Left + thicknessX, layout.Top + layout.Height, color);
+        AddQuad(layout.Left + layout.Width - x, layout.Top + layout.Height - thicknessY,
+            layout.Left + layout.Width, layout.Top + layout.Height, color);
+        AddQuad(layout.Left + layout.Width - thicknessX, layout.Top + layout.Height - y,
+            layout.Left + layout.Width, layout.Top + layout.Height, color);
     }
 
     private void DrawRadarPlayer(RadarLayout layout, float aspectFix, RadarProfile profile)
@@ -143,46 +173,83 @@ compass:
             RadarPoint point = RadarWidget.Project(contact, _radarFrame.Origin,
                 _radarFrame.Facing, profile.Orientation, range, profile.ElevationThreshold);
             if (point.Clamped && !profile.EdgeArrows) continue;
-            Vector2 center = Point(layout, point.RelativePosition.X * layout.Radius,
-                point.RelativePosition.Y * layout.Radius, aspectFix);
             Vector4 baseColor = RadarPresentationPolicy.Color(profile, contact, point.Elevation);
             Vector4 color = new(baseColor.X, baseColor.Y, baseColor.Z,
                 baseColor.W * alpha * profile.Opacity);
             float markerScale = profile.MarkerScale * (contact.Type == RadarContactType.Objective
                 && profile.ObjectiveEmphasis ? 1.3f : 1);
+            float radius = point.Clamped
+                ? RadarPresentationPolicy.EdgeMarkerRadius(layout.Radius,
+                    markerScale, profile.ClampedEdgeScale)
+                : layout.Radius;
+            Vector2 center = Point(layout, point.RelativePosition.X * radius,
+                point.RelativePosition.Y * radius, aspectFix);
             if (profile.MarkerOutline)
                 DrawRadarMarker(center, point, contact, markerScale * 1.35f, aspectFix,
                     new Vector4(0, 0, 0, color.W * .85f), profile);
             DrawRadarMarker(center, point, contact, markerScale, aspectFix, color, profile);
-            if (profile.ElevationIndicators && point.Elevation == RadarElevation.Above)
-                AddQuad(center.X + 2.8f * markerScale * aspectFix, center.Y - 3 * markerScale,
-                    center.X + 3.8f * markerScale * aspectFix, center.Y, color);
-            else if (profile.ElevationIndicators && point.Elevation == RadarElevation.Below)
-                AddQuad(center.X + 2.8f * markerScale * aspectFix, center.Y,
-                    center.X + 3.8f * markerScale * aspectFix, center.Y + 3 * markerScale, color);
+            if (profile.ElevationIndicators && point.Elevation != RadarElevation.Same)
+                DrawElevationCue(center, point.Elevation, markerScale, aspectFix,
+                    RadarPresentationPolicy.ElevationColor(profile, point.Elevation),
+                    alpha * profile.Opacity);
         }
     }
 
     private void DrawRadarMarker(Vector2 center, RadarPoint point, RadarContact contact,
         float markerScale, float aspectFix, Vector4 color, RadarProfile profile)
     {
-            if (point.Clamped)
+        if (point.Clamped)
+        {
+            Vector2 direction = point.RelativePosition.LengthSquared > .0001f
+                ? point.RelativePosition.Normalized() : -Vector2.UnitY;
+            Vector2 tangent = new(-direction.Y, direction.X);
+            float size = markerScale * profile.ClampedEdgeScale;
+            Vector2 tip = center + Scaled(direction * 2 * size, aspectFix);
+            Vector2 back = center - Scaled(direction * 3 * size, aspectFix);
+            AddTriangle(tip, back + Scaled(tangent * 2.2f * size, aspectFix),
+                back - Scaled(tangent * 2.2f * size, aspectFix), color);
+        }
+        else
+        {
+            switch (RadarPresentationPolicy.MarkerShape(contact))
             {
-                Vector2 direction = point.RelativePosition.LengthSquared > .0001f
-                    ? point.RelativePosition.Normalized() : -Vector2.UnitY;
-                Vector2 tangent = new(-direction.Y, direction.X);
-                float size = markerScale * profile.ClampedEdgeScale;
-                Vector2 tip = center + Scaled(direction * 2 * size, aspectFix);
-                Vector2 back = center - Scaled(direction * 3 * size, aspectFix);
-                AddTriangle(tip, back + Scaled(tangent * 2.2f * size, aspectFix),
-                    back - Scaled(tangent * 2.2f * size, aspectFix), color);
+                case RadarMarkerShape.Square:
+                    AddSquare(center, 2.25f * markerScale, aspectFix, color);
+                    break;
+                case RadarMarkerShape.Triangle:
+                    AddTriangle(Point(center, 0, -2.8f * markerScale, aspectFix),
+                        Point(center, -2.7f * markerScale, 2.1f * markerScale, aspectFix),
+                        Point(center, 2.7f * markerScale, 2.1f * markerScale, aspectFix), color);
+                    break;
+                case RadarMarkerShape.DoubleDiamond:
+                {
+                    AddDiamond(center, 3.25f * markerScale, aspectFix, color);
+                    Vector4 background = profile.Colors.Background.Vector;
+                    AddDiamond(center, 1.25f * markerScale, aspectFix,
+                        new Vector4(background.X, background.Y, background.Z, color.W));
+                    break;
+                }
+                default:
+                    AddDiamond(center, 1.8f * markerScale, aspectFix, color);
+                    break;
             }
-            else if (contact.Type == RadarContactType.Teammate || contact.Objective is RadarObjective.Node or RadarObjective.Defender)
-                AddDiamond(center, 2.4f * markerScale, aspectFix, color);
-            else if (contact.Type == RadarContactType.PrimeHunter)
-                AddDiamond(center, 3.2f * markerScale, aspectFix, color);
-            else
-                AddDiamond(center, 1.8f * markerScale, aspectFix, color);
+        }
+    }
+
+    private void DrawElevationCue(Vector2 center, RadarElevation elevation,
+        float markerScale, float aspectFix, Vector4 baseColor, float alpha)
+    {
+        Vector4 color = new(baseColor.X, baseColor.Y, baseColor.Z,
+            baseColor.W * alpha);
+        float x = 4.5f * markerScale;
+        float y = elevation == RadarElevation.Above
+            ? -3.2f * markerScale : 3.2f * markerScale;
+        float direction = elevation == RadarElevation.Above ? -1 : 1;
+        AddTriangle(Point(center, x, y + direction * 1.8f * markerScale, aspectFix),
+            Point(center, x - 1.5f * markerScale, y - direction * .8f * markerScale,
+                aspectFix),
+            Point(center, x + 1.5f * markerScale, y - direction * .8f * markerScale,
+                aspectFix), color);
     }
 
     private void DrawRadarLabels(RadarLayout layout, float aspectFix, RadarProfile profile, float range)
@@ -235,6 +302,8 @@ compass:
 
     private static Vector2 Point(RadarLayout layout, float x, float y, float aspectFix)
         => new(layout.CenterX + x * aspectFix, layout.CenterY + y);
+    private static Vector2 Point(Vector2 center, float x, float y, float aspectFix)
+        => new(center.X + x * aspectFix, center.Y + y);
     private static Vector2 Scaled(Vector2 value, float aspectFix) => new(value.X * aspectFix, value.Y);
 
     private void AddDiamond(Vector2 center, float radius, float aspectFix, Vector4 color)
@@ -246,6 +315,10 @@ compass:
         AddTriangle(top, left, right, color);
         AddTriangle(bottom, right, left, color);
     }
+
+    private void AddSquare(Vector2 center, float radius, float aspectFix, Vector4 color)
+        => AddQuad(center.X - radius * aspectFix, center.Y - radius,
+            center.X + radius * aspectFix, center.Y + radius, color);
 
     private void AddQuad(float left, float top, float right, float bottom, Vector4 color)
         => AddQuadPoints(new Vector2(right, top), new Vector2(left, top),

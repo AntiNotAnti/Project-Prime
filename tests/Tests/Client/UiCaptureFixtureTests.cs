@@ -927,6 +927,14 @@ public sealed class UiCaptureFixtureTests
                                 && scroll.Classes.Contains("prime-roster-scroll"));
                 Control[] targets = required.ToArray();
                 Assert.NotEmpty(targets);
+                if (fixtureName == "host-wide")
+                {
+                    WrapPanel stepRail = Assert.Single(layout.Children
+                        .OfType<WrapPanel>(), panel => panel.Classes.Contains(
+                            "prime-host-step-rail"));
+                    Assert.False(stepRail.IsVisible);
+                    Assert.Equal(2, layout.Children.OfType<PrimeCompactPanel>().Count());
+                }
                 if (fixtureName.StartsWith("lobby-", StringComparison.Ordinal))
                 {
                     Assert.Contains("LOBBY CHAT", TextOf(view),
@@ -1850,7 +1858,16 @@ public sealed class UiCaptureFixtureTests
             Assert.Equal(1.25f, global::MphRead.Hud.Radar.RadarSettings.Scale);
             Assert.Equal(24, global::MphRead.Hud.Radar.RadarSettings.OffsetX);
             Assert.Equal(-16, global::MphRead.Hud.Radar.RadarSettings.OffsetY);
-            Assert.IsType<SettingsView>(ExtractSettingsView(custom));
+            SettingsView settingsView = Assert.IsType<SettingsView>(
+                ExtractSettingsView(custom));
+            Expander advanced = Assert.Single(Walk(settingsView).OfType<Expander>(),
+                item => Equals(item.Header, "Advanced radar"));
+            Assert.False(advanced.IsExpanded);
+            Assert.Contains(Walk(Assert.IsAssignableFrom<Control>(advanced.Content)),
+                control => control.Name == SettingRowIds.RadarMarkerScale);
+            Assert.DoesNotContain(Walk(Assert.IsAssignableFrom<Control>(advanced.Content)),
+                control => control is RadarLayoutEditorPreview);
+            Assert.Single(Walk(settingsView).OfType<RadarLayoutEditorPreview>());
         }
         finally
         {

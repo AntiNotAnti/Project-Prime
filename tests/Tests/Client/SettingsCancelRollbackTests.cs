@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using Avalonia.Headless.XUnit;
 using MphRead.Entities;
+using MphRead.Hud.Radar;
 using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher;
@@ -175,6 +177,56 @@ public sealed class SettingsCancelRollbackTests
         finally
         {
             prior.Restore();
+        }
+    }
+
+    [AvaloniaFact]
+    public void DiscardRestoresImportedRadarProfiles()
+    {
+        RadarProfile priorDefault = RadarSettings.DefaultProfile;
+        IReadOnlyDictionary<string, RadarProfile> priorModes = RadarSettings.ModeProfiles;
+        IReadOnlyDictionary<RadarDeviceClass, RadarProfile> priorDevices
+            = RadarSettings.DeviceProfiles;
+        SettingsView? view = null;
+        try
+        {
+            RadarSettings.Apply(new RadarProfile { Name = "Original", Range = 40 });
+            RadarSettings.ClearModeProfiles();
+            RadarSettings.SetModeProfile("Capture",
+                new RadarProfile { Name = "Original capture", Range = 44 });
+            RadarSettings.ClearDeviceProfiles();
+            RadarSettings.SetDeviceProfile(RadarDeviceClass.Handheld,
+                new RadarProfile { Name = "Original handheld", Range = 36 });
+            view = new SettingsView(new MenuSettings());
+
+            RadarSettings.Apply(new RadarProfile { Name = "Imported", Range = 70 });
+            RadarSettings.ClearModeProfiles();
+            RadarSettings.SetModeProfile("Battle",
+                new RadarProfile { Name = "Imported battle", Range = 72 });
+            RadarSettings.ClearDeviceProfiles();
+            RadarSettings.SetDeviceProfile(RadarDeviceClass.Television,
+                new RadarProfile { Name = "Imported television", Range = 68 });
+
+            view.CancelForTests();
+
+            Assert.Equal("Original", RadarSettings.DefaultProfile.Name);
+            Assert.Equal("Original capture", RadarSettings.ForMode("Capture").Name);
+            Assert.DoesNotContain("Battle", RadarSettings.ModeProfiles.Keys);
+            Assert.Equal("Original handheld",
+                RadarSettings.ForContext("Battle", RadarDeviceClass.Handheld).Name);
+            Assert.DoesNotContain(RadarDeviceClass.Television,
+                RadarSettings.DeviceProfiles.Keys);
+        }
+        finally
+        {
+            view?.Dispose();
+            RadarSettings.Apply(priorDefault);
+            RadarSettings.ClearModeProfiles();
+            foreach ((string mode, RadarProfile profile) in priorModes)
+                RadarSettings.SetModeProfile(mode, profile);
+            RadarSettings.ClearDeviceProfiles();
+            foreach ((RadarDeviceClass device, RadarProfile profile) in priorDevices)
+                RadarSettings.SetDeviceProfile(device, profile);
         }
     }
 

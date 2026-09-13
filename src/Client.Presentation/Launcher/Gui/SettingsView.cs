@@ -11,6 +11,8 @@ using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
+using MphRead.Cosmetics;
+using MphRead.Cosmetics.Presentation;
 using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Content;
@@ -98,6 +100,11 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly bool _embedActionBar;
         private readonly InputSettings.Snapshot _inputSnapshot;
         private readonly int _fieldOfViewSnapshot;
+        private readonly global::MphRead.Hud.Radar.RadarProfile _radarProfileSnapshot;
+        private readonly IReadOnlyDictionary<string, global::MphRead.Hud.Radar.RadarProfile>
+            _radarModeProfilesSnapshot;
+        private readonly IReadOnlyDictionary<global::MphRead.Hud.Radar.RadarDeviceClass,
+            global::MphRead.Hud.Radar.RadarProfile> _radarDeviceProfilesSnapshot;
         private bool _draftSnapshotCompleted;
         private bool _closed;
         private bool _observingControllerCapabilities;
@@ -189,6 +196,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _radarMapOutlinesRow = null!, _radarGridRow = null!, _radarRingsRow = null!;
         private ToggleRow _radarCompassRow = null!, _radarPulseRow = null!, _radarPriorityRow = null!;
         private bool _applyingRadarPreset;
+        private bool _synchronizingRadarRange;
         private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!, _killcamRow = null!;
 
         /// <summary>
@@ -321,6 +329,12 @@ namespace MphRead.Mods.Launcher.Gui
         private MenuEntry _shareLogs = null!;
         private Note _updateStatus = null!;
         private ToggleRow _reducedMotion = null!;
+        private ChoiceRow _cosmeticQuality = null!;
+        private ToggleRow _showOtherPlayerCosmetics = null!;
+        private ToggleRow _reduceCosmeticFlashes = null!;
+        private ToggleRow _forceStrongTeamColors = null!;
+        private ToggleRow _disableCosmeticDistortion = null!;
+        private ToggleRow _disableCosmeticParticles = null!;
 
         private readonly HashSet<string> _renderedRowIds = new(StringComparer.Ordinal);
         private bool _refreshingControllerRows;
@@ -418,6 +432,9 @@ namespace MphRead.Mods.Launcher.Gui
             _embedActionBar = embedActionBar;
             _inputSnapshot = InputSettings.CaptureSnapshot();
             _fieldOfViewSnapshot = RenderOptions.FieldOfView;
+            _radarProfileSnapshot = global::MphRead.Hud.Radar.RadarSettings.DefaultProfile;
+            _radarModeProfilesSnapshot = global::MphRead.Hud.Radar.RadarSettings.ModeProfiles;
+            _radarDeviceProfilesSnapshot = global::MphRead.Hud.Radar.RadarSettings.DeviceProfiles;
             DetachedFromVisualTree += (_, _) => CompleteDraftSnapshot();
 
             Background = GuiTheme.InkBrush;
@@ -802,8 +819,26 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _inputSnapshot.Restore();
                 RenderOptions.FieldOfView = _fieldOfViewSnapshot;
+                RestoreRadarSnapshot();
             }
             _draftSnapshotCompleted = true;
+        }
+
+        private void RestoreRadarSnapshot()
+        {
+            global::MphRead.Hud.Radar.RadarSettings.Apply(_radarProfileSnapshot);
+            global::MphRead.Hud.Radar.RadarSettings.ClearModeProfiles();
+            foreach ((string mode, global::MphRead.Hud.Radar.RadarProfile profile)
+                in _radarModeProfilesSnapshot)
+            {
+                global::MphRead.Hud.Radar.RadarSettings.SetModeProfile(mode, profile);
+            }
+            global::MphRead.Hud.Radar.RadarSettings.ClearDeviceProfiles();
+            foreach ((global::MphRead.Hud.Radar.RadarDeviceClass device,
+                global::MphRead.Hud.Radar.RadarProfile profile) in _radarDeviceProfilesSnapshot)
+            {
+                global::MphRead.Hud.Radar.RadarSettings.SetDeviceProfile(device, profile);
+            }
         }
 
         /// <summary>Test seam for the rollback path used by Discard and Escape.</summary>
@@ -1278,6 +1313,8 @@ namespace MphRead.Mods.Launcher.Gui
             _headshotCueRow = Add(page, new ToggleRow("Headshot cue", Combat.CombatFeedbackSettings.HeadshotCue), SettingRowIds.HeadshotCue);
             _killConfirmationRow = Add(page, new ToggleRow("Kill confirmation", Combat.CombatFeedbackSettings.KillConfirmation), SettingRowIds.KillConfirmation);
             _killcamRow = Add(page, new ToggleRow("Killcam", GameSettings.KillcamEnabled), SettingRowIds.Killcam);
+            Heading(page, "Radar");
+            StackPanel radarBasicSector = ActiveSector(page);
             _radarStyleRow = Add(page, new ChoiceRow("Radar style", new[] { "Classic", "Enhanced" }, (int)global::MphRead.Hud.Radar.RadarSettings.Style), SettingRowIds.RadarStyle);
             _radarOrientationRow = Add(page, new ChoiceRow("Radar orientation", new[] { "Heading", "North" }, (int)global::MphRead.Hud.Radar.RadarSettings.Orientation), SettingRowIds.RadarOrientation);
             _radarPositionRow = Add(page, new ChoiceRow("Radar position",
@@ -1318,6 +1355,7 @@ namespace MphRead.Mods.Launcher.Gui
             _radarEdgeArrowsRow = Add(page, new ToggleRow("Off-screen arrows", radar.EdgeArrows), SettingRowIds.RadarEdgeArrows);
             _radarLabelsRow = Add(page, new ToggleRow("Contact labels", radar.Labels), SettingRowIds.RadarLabels);
             _radarObjectiveEmphasisRow = Add(page, new ToggleRow("Emphasize objectives", radar.ObjectiveEmphasis), SettingRowIds.RadarObjectiveEmphasis);
+            int radarAdvancedStart = page.Children.Count;
             Heading(page, "Radar contacts");
             _radarEnemiesRow = Add(page, new ToggleRow("Enemies", radar.ShowEnemies), SettingRowIds.RadarEnemies);
             _radarTeammatesRow = Add(page, new ToggleRow("Teammates", radar.ShowTeammates), SettingRowIds.RadarTeammates);
@@ -1357,9 +1395,13 @@ namespace MphRead.Mods.Launcher.Gui
             _radarEdgeScaleRow = Add(page, PercentSlider("Edge arrow size", radar.ClampedEdgeScale, 50, 200), SettingRowIds.RadarEdgeScale);
             _radarPresetRow.Changed += (_, _) =>
             {
-                if (!_applyingRadarPreset)
-                    ApplyRadarPresetToRows(global::MphRead.Hud.Radar.RadarProfile.Create(
-                        (global::MphRead.Hud.Radar.RadarPreset)_radarPresetRow.Index));
+                var preset = (global::MphRead.Hud.Radar.RadarPreset)_radarPresetRow.Index;
+                if (!_applyingRadarPreset
+                    && preset != global::MphRead.Hud.Radar.RadarPreset.Custom)
+                {
+                    ApplyRadarPresetToRows(
+                        global::MphRead.Hud.Radar.RadarProfile.Create(preset));
+                }
             };
             var resetRadar = new MenuEntry("Reset radar position",
                 "Top right, 1.00x scale and zero offsets", titleSize: 13)
@@ -1423,8 +1465,8 @@ namespace MphRead.Mods.Launcher.Gui
                     BuildRadarProfileFromRows(), delta)))
             { Margin = new Thickness(0, 6, 0, 2) };
             PrimeAccessibility.SetName(radarLayoutEditor,
-                "Radar layout preview. Drag to move; use the mouse wheel to resize.");
-            Add(page, radarLayoutEditor, SettingRowIds.RadarAnchor + ".editor");
+                "Radar layout preview. Drag or use arrow keys to move; use the mouse wheel or plus and minus keys to resize.");
+            Add(radarBasicSector, radarLayoutEditor, SettingRowIds.RadarAnchor + ".editor");
             EventHandler refreshRadarPreview = (_, _) => radarLayoutEditor.InvalidateVisual();
             foreach (ChoiceRow row in new[] { _radarPresetRow, _radarColorRow, _radarStyleRow,
                 _radarOrientationRow, _radarPositionRow, _radarFloorRow, _radarZoomRow })
@@ -1443,11 +1485,106 @@ namespace MphRead.Mods.Launcher.Gui
                 _radarAutoMaximumRow, _radarZoomSmoothingRow, _radarPersistenceRow,
                 _radarEdgeScaleRow })
                 row.ValueChanged += refreshRadarPreview;
+            foreach (ChoiceRow row in new[] { _radarColorRow, _radarStyleRow,
+                _radarOrientationRow, _radarPositionRow, _radarFloorRow, _radarZoomRow })
+                row.Changed += (_, _) => MarkRadarPresetCustom();
+            foreach (ToggleRow row in new[] { _radarElevationRow, _radarMarkerOutlineRow,
+                _radarEdgeArrowsRow, _radarLabelsRow, _radarObjectiveEmphasisRow,
+                _radarEnemiesRow, _radarTeammatesRow, _radarObjectivesRow, _radarFlagsRow,
+                _radarBasesRow, _radarNodesRow, _radarDefendersRow, _radarMapFillRow,
+                _radarMapOutlinesRow, _radarGridRow, _radarRingsRow, _radarCompassRow,
+                _radarPulseRow, _radarPriorityRow })
+                row.Changed += (_, _) => MarkRadarPresetCustom();
+            foreach (SliderRow row in new[] { _radarScaleRow, _radarOffsetXRow,
+                _radarOffsetYRow, _radarRangeRow, _radarOpacityRow, _radarMarkerScaleRow,
+                _radarMarkerOpacityRow, _radarElevationThresholdRow,
+                _radarFloorBrightnessRow, _radarAdjacentOpacityRow,
+                _radarBackgroundDimRow, _radarBackgroundBlurRow, _radarAutoMinimumRow,
+                _radarAutoMaximumRow, _radarZoomSmoothingRow, _radarPersistenceRow,
+                _radarEdgeScaleRow })
+                row.ValueChanged += (_, _) => MarkRadarPresetCustom();
+            _radarAutoMinimumRow.ValueChanged += (_, _) => SynchronizeRadarRange(
+                changedMinimum: true);
+            _radarAutoMaximumRow.ValueChanged += (_, _) => SynchronizeRadarRange(
+                changedMinimum: false);
+            Control[] radarAdvancedSections = page.Children
+                .Skip(radarAdvancedStart).ToArray();
+            var radarAdvancedContent = new StackPanel { Spacing = 8 };
+            var radarMarkerContent = new StackPanel { Spacing = 2 };
+            radarMarkerContent.Children.Add(new Caption("Radar markers")
+            {
+                Height = 28,
+                Margin = new Thickness(0, 0, 0, 4)
+            });
+            foreach (Control markerControl in new Control[]
+            {
+                _radarElevationRow, _radarMarkerScaleRow, _radarMarkerOpacityRow,
+                _radarMarkerOutlineRow, _radarEdgeArrowsRow, _radarLabelsRow,
+                _radarObjectiveEmphasisRow
+            })
+            {
+                radarBasicSector.Children.Remove(markerControl);
+                radarMarkerContent.Children.Add(markerControl);
+            }
+            radarAdvancedContent.Children.Add(
+                PrimeControlFactory.SectionPanel(radarMarkerContent));
+            foreach (Control section in radarAdvancedSections)
+            {
+                page.Children.Remove(section);
+                radarAdvancedContent.Children.Add(section);
+            }
+            var radarAdvanced = new Expander
+            {
+                Header = "Advanced radar",
+                Content = radarAdvancedContent,
+                IsExpanded = false,
+                Margin = new Thickness(0, 4, 0, 2)
+            };
+            PrimeAccessibility.SetName(radarAdvanced, "Advanced radar settings");
+            AddPageRoot(page, radarAdvanced);
+
+            void RefreshRadarOptionVisibility()
+            {
+                bool enhanced = _radarStyleRow.Index
+                    == (int)global::MphRead.Hud.Radar.RadarStyle.Enhanced;
+                bool customPosition = _radarPositionRow.Index
+                    == (int)global::MphRead.Hud.Radar.RadarAnchor.Custom;
+                bool automaticZoom = _radarZoomRow.Index
+                    != (int)global::MphRead.Hud.Radar.RadarZoomMode.Fixed;
+                bool objectives = _radarObjectivesRow.On;
+                _radarOffsetXRow.IsVisible = customPosition;
+                _radarOffsetYRow.IsVisible = customPosition;
+                radarAdvanced.IsVisible = enhanced;
+                _radarRangeRow.IsVisible = !automaticZoom;
+                _radarAutoMinimumRow.IsVisible = automaticZoom;
+                _radarAutoMaximumRow.IsVisible = automaticZoom;
+                _radarZoomSmoothingRow.IsVisible = automaticZoom;
+                _radarFlagsRow.IsVisible = objectives;
+                _radarBasesRow.IsVisible = objectives;
+                _radarNodesRow.IsVisible = objectives;
+                _radarDefendersRow.IsVisible = objectives;
+                _radarObjectiveEmphasisRow.IsVisible = objectives;
+                _radarElevationThresholdRow.IsVisible = _radarElevationRow.On;
+                _radarEdgeScaleRow.IsVisible = _radarEdgeArrowsRow.On;
+                _radarFloorBrightnessRow.IsVisible = _radarMapFillRow.On;
+                _radarAdjacentOpacityRow.IsVisible = _radarFloorRow.Index
+                    != (int)global::MphRead.Hud.Radar.RadarFloorMode.Current;
+            }
+            _radarStyleRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarPositionRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarZoomRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarObjectivesRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarElevationRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarEdgeArrowsRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarMapFillRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarFloorRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            RefreshRadarOptionVisibility();
             // The crosshair questions belong to Pro mode and nothing else --
             // the DS HUD draws its own reticle sprite and has no use for
             // them -- so they are only asked while it is on. Shown rather than
             // greyed: a row that cannot be answered is still a row to read
             // past, and this page is long enough.
+            Heading(page, "Crosshair");
             _crosshairSizeRow = Add(page, new ChoiceRow("Crosshair size",
                 Crosshair.SizeNames, (int)Crosshair.Size), SettingRowIds.CrosshairSize);
             _crosshairStyleRow = Add(page, new ChoiceRow("Crosshair type",
@@ -1849,6 +1986,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private global::MphRead.Hud.Radar.RadarProfile BuildRadarProfileFromRows()
         {
+            var preset = (global::MphRead.Hud.Radar.RadarPreset)_radarPresetRow.Index;
             global::MphRead.Hud.Radar.RadarColorPreset colorPreset
                 = (global::MphRead.Hud.Radar.RadarColorPreset)_radarColorRow.Index;
             global::MphRead.Hud.Radar.RadarColors colors
@@ -1857,7 +1995,8 @@ namespace MphRead.Mods.Launcher.Gui
                     : global::MphRead.Hud.Radar.RadarColors.For(colorPreset);
             return (global::MphRead.Hud.Radar.RadarSettings.DefaultProfile with
             {
-                Preset = (global::MphRead.Hud.Radar.RadarPreset)_radarPresetRow.Index,
+                Name = global::MphRead.Hud.Radar.RadarProfile.Create(preset).Name,
+                Preset = preset,
                 Style = (global::MphRead.Hud.Radar.RadarStyle)_radarStyleRow.Index,
                 Orientation = (global::MphRead.Hud.Radar.RadarOrientation)_radarOrientationRow.Index,
                 Anchor = (global::MphRead.Hud.Radar.RadarAnchor)_radarPositionRow.Index,
@@ -1889,6 +2028,35 @@ namespace MphRead.Mods.Launcher.Gui
                 ContactPulse = _radarPulseRow.On, ClampedEdgeScale = _radarEdgeScaleRow.Value / 100f,
                 PrioritizeObjectives = _radarPriorityRow.On
             }).Normalize();
+        }
+
+        private void MarkRadarPresetCustom()
+        {
+            if (_applyingRadarPreset
+                || _radarPresetRow.Index
+                    == (int)global::MphRead.Hud.Radar.RadarPreset.Custom)
+            {
+                return;
+            }
+            _radarPresetRow.Index = (int)global::MphRead.Hud.Radar.RadarPreset.Custom;
+        }
+
+        private void SynchronizeRadarRange(bool changedMinimum)
+        {
+            if (_synchronizingRadarRange) return;
+            _synchronizingRadarRange = true;
+            try
+            {
+                if (changedMinimum && _radarAutoMinimumRow.Value > _radarAutoMaximumRow.Value)
+                    _radarAutoMaximumRow.Value = _radarAutoMinimumRow.Value;
+                else if (!changedMinimum
+                    && _radarAutoMaximumRow.Value < _radarAutoMinimumRow.Value)
+                    _radarAutoMinimumRow.Value = _radarAutoMaximumRow.Value;
+            }
+            finally
+            {
+                _synchronizingRadarRange = false;
+            }
         }
 
         private void ApplyRadarPresetToRows(global::MphRead.Hud.Radar.RadarProfile profile)
@@ -1946,21 +2114,29 @@ namespace MphRead.Mods.Launcher.Gui
             double radius = Math.Max(4, layout.Radius * unit);
             Point center = new(area.X + layout.CenterX / 256 * area.Width,
                 area.Y + layout.CenterY / 192 * area.Height);
-            var pen = new Pen(Brush(profile.Colors.Border), 1);
-            context.DrawEllipse(null, pen, center, radius, radius);
+            var radarBounds = new Rect(
+                area.X + layout.Left / 256 * area.Width,
+                area.Y + layout.Top / 192 * area.Height,
+                Math.Max(8, layout.Width / 256 * area.Width),
+                Math.Max(8, layout.Height / 192 * area.Height));
+            IBrush background = Brush(profile.Colors.Background,
+                profile.Opacity * profile.BackgroundDim);
+            var borderPen = new Pen(Brush(profile.Colors.Border, profile.Opacity), 1.35);
+            var ringPen = new Pen(Brush(profile.Colors.Ring, profile.Opacity), 1);
+            context.DrawRectangle(background, ringPen, radarBounds);
+            DrawRadarPreviewCorners(context, radarBounds, borderPen);
             if (profile.DistanceRings)
-                context.DrawEllipse(null, new Pen(Brush(profile.Colors.Ring), 1), center,
-                    radius * .5, radius * .5);
+            {
+                context.DrawEllipse(null, ringPen, center, radius * .5, radius * .5);
+                context.DrawEllipse(null, ringPen, center, radius, radius);
+            }
             if (profile.Grid)
             {
-                context.DrawLine(new Pen(Brush(profile.Colors.Ring), 1), new Point(center.X - radius, center.Y), new Point(center.X + radius, center.Y));
-                context.DrawLine(new Pen(Brush(profile.Colors.Ring), 1), new Point(center.X, center.Y - radius), new Point(center.X, center.Y + radius));
+                context.DrawLine(ringPen, new Point(center.X - radius, center.Y),
+                    new Point(center.X + radius, center.Y));
+                context.DrawLine(ringPen, new Point(center.X, center.Y - radius),
+                    new Point(center.X, center.Y + radius));
             }
-            double angle = profile.Orientation == global::MphRead.Hud.Radar.RadarOrientation.North
-                ? -Math.PI / 2 : 0;
-            Point heading = new(center.X + Math.Cos(angle) * radius,
-                center.Y + Math.Sin(angle) * radius);
-            context.DrawLine(new Pen(GuiTheme.AccentBrush, 2), center, heading);
             if (profile.Style == global::MphRead.Hud.Radar.RadarStyle.Enhanced)
             {
                 global::MphRead.Hud.Radar.RadarFrame preview = global::MphRead.Hud.Radar.RadarPreview.CreateFrame();
@@ -1977,17 +2153,126 @@ namespace MphRead.Mods.Launcher.Gui
                         global::MphRead.Hud.Radar.RadarContactType.PrimeHunter => profile.Colors.PrimeHunter,
                         _ => profile.Colors.Objective
                     };
-                    context.DrawEllipse(Brush(color), profile.MarkerOutline ? new Pen(Brushes.Black, 1) : null,
-                        new Point(center.X + point.RelativePosition.X * radius,
-                            center.Y + point.RelativePosition.Y * radius),
-                        2.5 * profile.MarkerScale, 2.5 * profile.MarkerScale);
+                    double markerScale = profile.MarkerScale
+                        * (contact.Type == global::MphRead.Hud.Radar.RadarContactType.Objective
+                            && profile.ObjectiveEmphasis ? 1.3 : 1);
+                    double contactRadius = point.Clamped
+                        ? global::MphRead.Hud.Radar.RadarPresentationPolicy.EdgeMarkerRadius(
+                            (float)radius, (float)markerScale, profile.ClampedEdgeScale)
+                        : radius;
+                    var contactCenter = new Point(
+                        center.X + point.RelativePosition.X * contactRadius,
+                        center.Y + point.RelativePosition.Y * contactRadius);
+                    IBrush fill = Brush(color, profile.Opacity * profile.MarkerOpacity);
+                    if (point.Clamped)
+                    {
+                        DrawRadarPreviewEdgeMarker(context, contactCenter,
+                            new Vector(point.RelativePosition.X, point.RelativePosition.Y),
+                            3.5 * markerScale * profile.ClampedEdgeScale, fill,
+                            profile.MarkerOutline);
+                    }
+                    else
+                    {
+                        DrawRadarPreviewMarker(context, contactCenter,
+                            2.8 * markerScale,
+                            global::MphRead.Hud.Radar.RadarPresentationPolicy.MarkerShape(contact),
+                            fill, profile.MarkerOutline, background);
+                    }
+                    if (profile.ElevationIndicators
+                        && point.Elevation != global::MphRead.Hud.Radar.RadarElevation.Same)
+                    {
+                        global::MphRead.Hud.Radar.RadarColor elevation
+                            = point.Elevation == global::MphRead.Hud.Radar.RadarElevation.Below
+                                ? profile.Colors.Below : profile.Colors.Above;
+                        double direction = point.Elevation
+                            == global::MphRead.Hud.Radar.RadarElevation.Above ? -1 : 1;
+                        var elevationPen = new Pen(Brush(elevation, profile.Opacity), 1.25);
+                        Point tip = contactCenter + new Vector(5 * markerScale,
+                            direction * 4.5 * markerScale);
+                        context.DrawLine(elevationPen, tip,
+                            tip + new Vector(-1.7 * markerScale, -direction * 2 * markerScale));
+                        context.DrawLine(elevationPen, tip,
+                            tip + new Vector(1.7 * markerScale, -direction * 2 * markerScale));
+                    }
                 }
             }
-            context.DrawEllipse(GuiTheme.AccentBrush, null, center, 3, 3);
+            DrawRadarPreviewMarker(context, center, 3.3,
+                global::MphRead.Hud.Radar.RadarMarkerShape.Triangle,
+                Brush(profile.Colors.Player, profile.Opacity), outline: true, background);
+
+            var forwardPen = new Pen(Brush(profile.Colors.Objective, profile.Opacity), 1.5);
+            context.DrawLine(forwardPen,
+                new Point(center.X, radarBounds.Top + 2),
+                new Point(center.X, radarBounds.Top + 7));
         }
 
-        private static IBrush Brush(global::MphRead.Hud.Radar.RadarColor color)
-            => new SolidColorBrush(Color.FromArgb(color.A, color.R, color.G, color.B));
+        private static void DrawRadarPreviewCorners(DrawingContext context,
+            Rect bounds, Pen pen)
+        {
+            double length = Math.Min(10, Math.Min(bounds.Width, bounds.Height) / 4);
+            context.DrawLine(pen, bounds.TopLeft, bounds.TopLeft + new Vector(length, 0));
+            context.DrawLine(pen, bounds.TopLeft, bounds.TopLeft + new Vector(0, length));
+            context.DrawLine(pen, bounds.TopRight, bounds.TopRight + new Vector(-length, 0));
+            context.DrawLine(pen, bounds.TopRight, bounds.TopRight + new Vector(0, length));
+            context.DrawLine(pen, bounds.BottomLeft, bounds.BottomLeft + new Vector(length, 0));
+            context.DrawLine(pen, bounds.BottomLeft, bounds.BottomLeft + new Vector(0, -length));
+            context.DrawLine(pen, bounds.BottomRight, bounds.BottomRight + new Vector(-length, 0));
+            context.DrawLine(pen, bounds.BottomRight, bounds.BottomRight + new Vector(0, -length));
+        }
+
+        private static void DrawRadarPreviewMarker(DrawingContext context, Point center,
+            double size, global::MphRead.Hud.Radar.RadarMarkerShape shape,
+            IBrush fill, bool outline, IBrush background)
+        {
+            Pen? pen = outline ? new Pen(Brushes.Black, 1.2) : null;
+            if (shape == global::MphRead.Hud.Radar.RadarMarkerShape.Square)
+            {
+                context.DrawRectangle(fill, pen,
+                    new Rect(center.X - size, center.Y - size, size * 2, size * 2));
+                return;
+            }
+            Point[] points = shape == global::MphRead.Hud.Radar.RadarMarkerShape.Triangle
+                ? [center + new Vector(0, -size), center + new Vector(-size, size),
+                    center + new Vector(size, size)]
+                : [center + new Vector(0, -size), center + new Vector(size, 0),
+                    center + new Vector(0, size), center + new Vector(-size, 0)];
+            context.DrawGeometry(fill, pen, Polygon(points));
+            if (shape == global::MphRead.Hud.Radar.RadarMarkerShape.DoubleDiamond)
+            {
+                double inner = size * .42;
+                context.DrawGeometry(background, null, Polygon(
+                    [center + new Vector(0, -inner), center + new Vector(inner, 0),
+                        center + new Vector(0, inner), center + new Vector(-inner, 0)]));
+            }
+        }
+
+        private static void DrawRadarPreviewEdgeMarker(DrawingContext context,
+            Point center, Vector direction, double size, IBrush fill, bool outline)
+        {
+            double length = Math.Sqrt(direction.X * direction.X + direction.Y * direction.Y);
+            Vector forward = length > .0001 ? direction / length : new Vector(0, -1);
+            Vector tangent = new(-forward.Y, forward.X);
+            context.DrawGeometry(fill, outline ? new Pen(Brushes.Black, 1.2) : null,
+                Polygon([center + forward * size, center - forward * size
+                    + tangent * size * .7, center - forward * size - tangent * size * .7]));
+        }
+
+        private static StreamGeometry Polygon(IReadOnlyList<Point> points)
+        {
+            var geometry = new StreamGeometry();
+            using StreamGeometryContext path = geometry.Open();
+            path.BeginFigure(points[0], isFilled: true);
+            for (int index = 1; index < points.Count; index++) path.LineTo(points[index]);
+            path.EndFigure(isClosed: true);
+            return geometry;
+        }
+
+        private static IBrush Brush(global::MphRead.Hud.Radar.RadarColor color,
+            float opacity = 1)
+        {
+            byte alpha = (byte)Math.Clamp(Math.Round(color.A * opacity), 0, 255);
+            return new SolidColorBrush(Color.FromArgb(alpha, color.R, color.G, color.B));
+        }
 
         // --------------------------------------------------------------- audio
 
@@ -3135,6 +3420,32 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "Motion");
             _reducedMotion = Add(page, new ToggleRow("Reduce interface motion",
                 LauncherPrefs.ReducedMotion), SettingRowIds.ReducedMotion);
+            Heading(page, "Cosmetics");
+            CosmeticPresentationSettings cosmetics = CosmeticPresentationPreferences.Parse(
+                _settings, OperatingSystem.IsAndroid()
+                    || RenderOptions.GraphicsPreset == GraphicsPreset.Performance);
+            _cosmeticQuality = Add(page, new ChoiceRow("Cosmetic effects",
+                Enum.GetNames<CosmeticQuality>(), (int)cosmetics.Quality),
+                SettingRowIds.CosmeticQuality);
+            Explain(page, "Off hides optional armor effects. Reduced lowers particles, ribbons, and distortion.");
+            _showOtherPlayerCosmetics = Add(page,
+                new ToggleRow("Show other player cosmetics",
+                    cosmetics.ShowOtherPlayerCosmetics),
+                SettingRowIds.ShowOtherPlayerCosmetics);
+            _reduceCosmeticFlashes = Add(page,
+                new ToggleRow("Reduce cosmetic flashes", cosmetics.ReduceCosmeticFlashes),
+                SettingRowIds.ReduceCosmeticFlashes);
+            _forceStrongTeamColors = Add(page,
+                new ToggleRow("Use strong team colors", cosmetics.ForceStrongTeamColors),
+                SettingRowIds.ForceStrongTeamColors);
+            _disableCosmeticDistortion = Add(page,
+                new ToggleRow("Disable cosmetic distortion",
+                    cosmetics.DisableCosmeticDistortion),
+                SettingRowIds.DisableCosmeticDistortion);
+            _disableCosmeticParticles = Add(page,
+                new ToggleRow("Disable cosmetic particles",
+                    cosmetics.DisableCosmeticParticles),
+                SettingRowIds.DisableCosmeticParticles);
         }
 
         /// <summary>Test seam for exercising the same save path as the footer.</summary>
@@ -3181,6 +3492,12 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.DynamicVisualLights = RenderOptions.OnOff(_dynamicVisualLightsRow.On);
             _settings.ShowFps = RenderOptions.OnOff(_fpsRow.On);
             _settings.AdvancedNetwork = RenderOptions.OnOff(_advancedNetworkRow.On);
+            _settings.CosmeticQuality = ((CosmeticQuality)_cosmeticQuality.Index).ToString();
+            _settings.ShowOtherPlayerCosmetics = RenderOptions.OnOff(_showOtherPlayerCosmetics.On);
+            _settings.ReduceCosmeticFlashes = RenderOptions.OnOff(_reduceCosmeticFlashes.On);
+            _settings.ForceStrongTeamColors = RenderOptions.OnOff(_forceStrongTeamColors.On);
+            _settings.DisableCosmeticDistortion = RenderOptions.OnOff(_disableCosmeticDistortion.On);
+            _settings.DisableCosmeticParticles = RenderOptions.OnOff(_disableCosmeticParticles.On);
             _settings.HitMarkers = ((Combat.HitMarkerMode)_hitMarkerRow.Index).ToString();
             _settings.HitMarkerTiming = ((Combat.HitMarkerTiming)_hitMarkerTimingRow.Index).ToString();
             _settings.HeadshotCue = RenderOptions.OnOff(_headshotCueRow.On);

@@ -47,25 +47,48 @@ public static class RadarPresentationPolicy
         float ageAlpha = ageSeconds <= 0 ? 1
             : persistence <= 0 ? 0 : Math.Clamp(1 - ageSeconds / persistence, 0, 1);
         float pulse = profile.ContactPulse && contact.Type is RadarContactType.Objective or RadarContactType.PrimeHunter
-            ? .82f + .18f * MathF.Sin(presentationTick * .22f) : 1;
+            ? .94f + .06f * MathF.Sin(presentationTick * .16f) : 1;
         return Math.Clamp(contact.Visibility, 0, 1) * profile.MarkerOpacity * ageAlpha * pulse;
     }
 
     public static Vector4 Color(RadarProfile profile, in RadarContact contact, RadarElevation elevation)
     {
-        RadarColor color = elevation switch
+        ArgumentNullException.ThrowIfNull(profile);
+        RadarColor color = contact.Type switch
         {
-            RadarElevation.Above when profile.ElevationIndicators => profile.Colors.Above,
-            RadarElevation.Below when profile.ElevationIndicators => profile.Colors.Below,
-            _ => contact.Type switch
-            {
-                RadarContactType.Enemy => profile.Colors.Enemy,
-                RadarContactType.Teammate => profile.Colors.Teammate,
-                RadarContactType.PrimeHunter => profile.Colors.PrimeHunter,
-                _ => profile.Colors.Objective
-            }
+            RadarContactType.Enemy => profile.Colors.Enemy,
+            RadarContactType.Teammate => profile.Colors.Teammate,
+            RadarContactType.PrimeHunter => profile.Colors.PrimeHunter,
+            _ => profile.Colors.Objective
         };
         return color.Vector;
+    }
+
+    /// <summary>Elevation is a secondary cue and must not replace contact identity.</summary>
+    public static Vector4 ElevationColor(RadarProfile profile, RadarElevation elevation)
+    {
+        ArgumentNullException.ThrowIfNull(profile);
+        return (elevation == RadarElevation.Below
+            ? profile.Colors.Below : profile.Colors.Above).Vector;
+    }
+
+    public static RadarMarkerShape MarkerShape(in RadarContact contact)
+        => contact.Type switch
+        {
+            RadarContactType.Teammate => RadarMarkerShape.Square,
+            RadarContactType.Objective => RadarMarkerShape.Triangle,
+            RadarContactType.PrimeHunter => RadarMarkerShape.DoubleDiamond,
+            _ => RadarMarkerShape.Diamond
+        };
+
+    /// <summary>Keeps the complete off-screen indicator inside the radar frame.</summary>
+    public static float EdgeMarkerRadius(float radarRadius, float markerScale,
+        float edgeScale)
+    {
+        if (!float.IsFinite(radarRadius) || radarRadius <= 0) return 0;
+        float marker = float.IsFinite(markerScale) ? Math.Max(.5f, markerScale) : 1;
+        float edge = float.IsFinite(edgeScale) ? Math.Max(.5f, edgeScale) : 1;
+        return Math.Max(0, radarRadius - 5.5f * marker * edge);
     }
 
     public static IEnumerable<int> VisibleFloors(RadarFloorMode mode, int current, int count)
@@ -146,7 +169,11 @@ public static class RadarLayoutEditor
         float x = layout.CenterX - 128 + (float.IsFinite(delta.X) ? delta.X : 0);
         float y = layout.CenterY - 96 + (float.IsFinite(delta.Y) ? delta.Y : 0);
         if (snap) { x = Snap(x); y = Snap(y); }
-        RadarProfile normalized = (profile with { Anchor = RadarAnchor.Custom, OffsetX = x, OffsetY = y }).Normalize();
+        RadarProfile normalized = (profile with
+        {
+            Name = "Custom", Preset = RadarPreset.Custom,
+            Anchor = RadarAnchor.Custom, OffsetX = x, OffsetY = y
+        }).Normalize();
         float size = RadarLayoutCalculator.BaseDiameter * normalized.Scale;
         return normalized with
         {
@@ -159,11 +186,18 @@ public static class RadarLayoutEditor
     {
         float scale = profile.Scale + (float.IsFinite(scaleDelta) ? scaleDelta : 0);
         if (snap) scale = MathF.Round(scale / .05f) * .05f;
-        return (profile with { Scale = scale }).Normalize();
+        return (profile with
+        {
+            Name = "Custom", Preset = RadarPreset.Custom, Scale = scale
+        }).Normalize();
     }
 
     public static RadarProfile Reset(RadarProfile profile)
-        => (profile with { Anchor = RadarAnchor.TopRight, Scale = 1, OffsetX = 0, OffsetY = 0 }).Normalize();
+        => (profile with
+        {
+            Name = "Custom", Preset = RadarPreset.Custom,
+            Anchor = RadarAnchor.TopRight, Scale = 1, OffsetX = 0, OffsetY = 0
+        }).Normalize();
 
     private static float Snap(float value) => MathF.Round(value / SnapStep) * SnapStep;
 }

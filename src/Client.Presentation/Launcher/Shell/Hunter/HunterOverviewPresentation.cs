@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -39,43 +40,39 @@ internal static class HunterOverviewPresentation
             throw new ArgumentException("A loaded Hunter license is required.", nameof(state));
 
         HunterDossier profile = SelectProfile(hunters, selectedHunter);
-        Control identityHeader = BuildIdentityHeader(profile, state.License);
+        CareerTotals? totals = state.Career?.Totals;
         var hero = new Grid
         {
-            ColumnDefinitions = new ColumnDefinitions("210,*"),
-            ColumnSpacing = 20
+            ColumnDefinitions = new ColumnDefinitions("300,*"),
+            ColumnSpacing = 24
         };
         Control preview = buildPreview(profile.Hunter);
+        ConfigureLicensePortrait(preview);
         hero.Children.Add(preview);
 
         var identity = Stack(
-            Text(state.License.DisplayName.ToUpperInvariant(), "prime-title"),
-            Text(state.License.Title, "prime-heading"),
-            Text($"{state.License.Points.ToString("N0", CultureInfo.InvariantCulture)} RP",
-                "prime-body"),
+            Text("HUNTER LICENSE", "prime-kicker"),
+            Text(state.License.DisplayName.ToUpperInvariant(), "prime-hero"),
+            Text($"{state.License.Title} · "
+                + $"{state.License.Points.ToString("N0", CultureInfo.InvariantCulture)} RP",
+                "prime-subtitle"),
             PrimeControlFactory.Divider(),
             Text("FAVORITE HUNTER", "prime-label"),
-            Text(PrimeGameText.HunterLabel(profile.Hunter), "prime-heading"));
+            Text(PrimeGameText.HunterLabel(profile.Hunter), "prime-section-heading"),
+            Text($"Affinity weapon · {profile.AffinityWeapon}", "prime-muted"),
+            PrimeControlFactory.Divider(),
+            Text("OFFICIAL CAREER", "prime-label"),
+            BuildCareerStats(totals));
+        if (updateDisplayName != null)
+            identity.Children.Add(BuildProfileEditor(state.License.DisplayName,
+                updateDisplayName));
         hero.Children.Add(identity);
         Grid.SetColumn(identity, 1);
         MakeResponsive(hero, preview, identity);
 
-        CareerTotals? totals = state.Career?.Totals;
-        var stats = new WrapPanel { Orientation = Orientation.Horizontal };
-        stats.Children.Add(PrimeControlFactory.StatTile("MATCHES",
-            totals?.Matches.ToString("N0", CultureInfo.InvariantCulture) ?? "—"));
-        stats.Children.Add(PrimeControlFactory.StatTile("WIN RATE",
-            FormatPercentage(totals?.WinRatio)));
-        stats.Children.Add(PrimeControlFactory.StatTile("K / D",
-            FormatDecimal(totals?.KillDeathRatio)));
-        stats.Children.Add(PrimeControlFactory.StatTile("RP",
-            state.License.Points.ToString("N0", CultureInfo.InvariantCulture)));
-
-        var summary = Stack(identityHeader, hero, stats);
-        if (updateDisplayName != null)
-            summary.Children.Add(BuildProfileEditor(state.License.DisplayName,
-                updateDisplayName));
-        return PrimeControlFactory.SectionPanel(summary);
+        var license = PrimeControlFactory.SectionPanel(hero);
+        license.Classes.Add("prime-hunter-license");
+        return license;
     }
 
     /// <summary>
@@ -125,15 +122,79 @@ internal static class HunterOverviewPresentation
         };
     }
 
+    private static PrimeStatRail BuildCareerStats(CareerTotals? totals)
+    {
+        string Number(long? value)
+            => value?.ToString("N0", CultureInfo.InvariantCulture) ?? "—";
+
+        var stats = PrimeControlFactory.StatRail(new[]
+        {
+            ("MATCHES", Number(totals?.Matches), (string?)null),
+            ("RECORD", totals == null ? "—" : $"{totals.Wins}–{totals.LossCount}–{totals.Ties}",
+                totals == null ? null : "W · L · T"),
+            ("WIN RATE", FormatPercentage(totals?.WinRatio), (string?)null),
+            ("K / D", FormatDecimal(totals?.KillDeathRatio), (string?)null),
+            ("KILLS", Number(totals?.Kills), (string?)null),
+            ("ASSISTS", Number(totals?.Assists), (string?)null),
+            ("DAMAGE", Number(totals?.Damage), (string?)null),
+            ("HEADSHOTS", Number(totals?.HeadshotKills), (string?)null),
+            ("KILL STREAK", Number(totals?.LongestKillStreak), (string?)null),
+            ("WIN STREAK", Number(totals?.LongestWinStreak), (string?)null)
+        });
+        stats.Classes.Add("prime-hunter-license-stats");
+        foreach (PrimeStatTile tile in stats.Tiles)
+            tile.MinWidth = 94;
+        return stats;
+    }
+
+    private static void ConfigureLicensePortrait(Control preview)
+    {
+        preview.Classes.Add("prime-hunter-license-portrait");
+        Image? image = FindImage(preview);
+        if (image == null) return;
+
+        // Generated previews are square, full-body stills. The license uses a
+        // tighter shoulder-up crop so the selected Hunter reads at a glance.
+        image.Stretch = Stretch.UniformToFill;
+        image.RenderTransformOrigin = new RelativePoint(.5, .38,
+            RelativeUnit.Relative);
+        image.RenderTransform = new ScaleTransform(1.7, 1.7);
+    }
+
+    private static Image? FindImage(Control control)
+    {
+        if (control is Image image) return image;
+        if (control is Panel panel)
+        {
+            foreach (Control child in panel.Children)
+            {
+                Image? found = FindImage(child);
+                if (found != null) return found;
+            }
+        }
+        else if (control is ContentControl content && content.Content is Control child)
+        {
+            return FindImage(child);
+        }
+        else if (control is Decorator decorator
+            && decorator.Child is Control decoratorChild)
+        {
+            return FindImage(decoratorChild);
+        }
+        return null;
+    }
+
     private static void MakeResponsive(Grid hero, Control preview, Control identity)
     {
         hero.SizeChanged += (_, e) =>
         {
             bool compact = e.NewSize.Width > 0 && e.NewSize.Width < 720;
-            hero.ColumnDefinitions = new ColumnDefinitions(compact ? "*" : "210,*");
+            hero.ColumnDefinitions = new ColumnDefinitions(compact ? "*" : "300,*");
             hero.RowDefinitions = new RowDefinitions(compact ? "Auto,Auto" : "Auto");
             hero.ColumnSpacing = compact ? 0 : 20;
             hero.RowSpacing = compact ? 12 : 0;
+            if (preview is PrimePreviewStage)
+                preview.Height = compact ? 260 : 360;
             Grid.SetColumn(preview, 0);
             Grid.SetColumn(identity, compact ? 0 : 1);
             Grid.SetRow(preview, 0);

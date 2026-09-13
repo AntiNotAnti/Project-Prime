@@ -443,6 +443,17 @@ internal sealed class PrimePreviewStage : Border
 {
     public PrimePreviewStage(Control? child = null)
     {
+        ClipToBounds = true;
+        if (child is Image image)
+        {
+            // The stage owns preview geometry. A decoded image may have been
+            // created with a nominal height before responsive layout selects
+            // a shorter stage; retaining that height lets it paint across the
+            // title and beyond the frame.
+            image.Height = double.NaN;
+            image.HorizontalAlignment = HorizontalAlignment.Stretch;
+            image.VerticalAlignment = VerticalAlignment.Stretch;
+        }
         Child = child;
         Classes.Add("prime-preview-stage");
     }

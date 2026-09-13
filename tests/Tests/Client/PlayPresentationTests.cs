@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Automation;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.VisualTree;
@@ -268,6 +269,11 @@ public sealed class PlayPresentationTests
         var controller = new PlayController(shell);
         try
         {
+            controller.SetPresenceForCapture(new PresencePresentationState(
+                PresenceLoadState.Ready, 1, 1,
+                ImmutableArray.Create(new PublicPresenceEntry("Online Pilot",
+                    PlayerPresenceActivity.Online, "US-East")),
+                1, DateTimeOffset.UtcNow));
             Control home = PlayPresentation.Build(Context(shell, controller, lobby: null));
             var entry = new LobbyListEntry(Guid.NewGuid(), "Ranked Room",
                 LobbyPhase.Open, Players: 3, PlayerLimit: 4, Observers: 1,
@@ -284,22 +290,29 @@ public sealed class PlayPresentationTests
                 PrimeHeroCard hero = Assert.Single(home.GetVisualDescendants()
                     .OfType<PrimeHeroCard>());
                 Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "QUICK PLAY");
+                    text => text.Text == "HOST A LOBBY");
                 Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "FIND A MATCH");
+                    text => text.Text == "CREATE A LOBBY");
                 Assert.Contains(hero.GetVisualDescendants().OfType<TextBlock>(),
-                    text => text.Text == "Join the best available open lobby.");
+                    text => text.Text == "Choose the mission, rules, and player slots.");
                 Assert.Contains(hero.GetVisualDescendants().OfType<PrimeButton>(),
-                    button => Equals(button.Content, "Quick Play")
+                    button => Equals(button.Content, "Host lobby")
                         && button.Classes.Contains("prime-primary"));
-                Assert.Equal(2, home.GetVisualDescendants().OfType<PrimeActionCard>().Count());
+                PrimeActionCard quick = Assert.Single(home.GetVisualDescendants()
+                    .OfType<PrimeActionCard>());
+                Assert.Contains(quick.GetVisualDescendants().OfType<TextBlock>(),
+                    text => text.Text == "QUICK PLAY");
+                Assert.Empty(quick.GetVisualDescendants().OfType<PrimeStatusChip>());
+                Assert.Contains(home.GetVisualDescendants().OfType<PrimeStatusChip>(),
+                    chip => AutomationProperties.GetItemStatus(chip) == "● 1 ONLINE");
                 Assert.Empty(home.GetVisualDescendants().OfType<PrimeCard>());
-                Assert.All(home.GetVisualDescendants().OfType<PrimeButton>()
-                    .Where(button => Equals(button.Content, "Browse lobbies")
-                        || Equals(button.Content, "Host lobby")),
-                    button => Assert.DoesNotContain("prime-primary", button.Classes));
+                Assert.Single(home.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Browse lobbies"));
+                Assert.DoesNotContain("prime-primary", Assert.Single(
+                    quick.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Quick Play")).Classes);
                 Assert.Empty(home.GetVisualDescendants().OfType<Expander>());
-                Assert.Contains(home.GetVisualDescendants().OfType<TextBlock>(),
+                Assert.DoesNotContain(home.GetVisualDescendants().OfType<TextBlock>(),
                     text => text.Text == "AUTO REGION");
                 Assert.DoesNotContain(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
                     panel => panel.Classes.Contains("prime-network-summary"));
@@ -336,18 +349,14 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
-    public async Task PlayLandingUsesLobbyCopyAndCompactNetworkSummary()
+    public async Task PlayLandingUsesSingleLobbyDirectoryAndCompactActions()
     {
         var shell = new PrimeShellState();
         shell.SelectGuest("Local Pilot");
         var controller = new PlayController(shell);
         try
         {
-            bool settingsOpened = false;
-            PlayPresentationContext context = Context(shell, controller, lobby: null) with
-            {
-                OpenNetworkSettings = () => settingsOpened = true
-            };
+            PlayPresentationContext context = Context(shell, controller, lobby: null);
             Control home = PlayPresentation.Build(context);
             var window = new Window { Width = 940, Height = 560, Content = home };
             try
@@ -358,20 +367,21 @@ public sealed class PlayPresentationTests
                     StringComparison.Ordinal);
                 Assert.Contains("Join the best available open lobby.", text,
                     StringComparison.Ordinal);
-                Assert.Contains("BROWSE LOBBIES", text, StringComparison.Ordinal);
-                Assert.Contains("Browse open lobbies.", text, StringComparison.Ordinal);
-                Assert.Contains("HOST LOBBY", text, StringComparison.Ordinal);
-                Assert.Contains("Create a new lobby.", text, StringComparison.Ordinal);
-                Assert.Contains("AUTO REGION", text, StringComparison.Ordinal);
+                Assert.Contains("HOST A LOBBY", text, StringComparison.Ordinal);
+                Assert.Contains("CREATE A LOBBY", text, StringComparison.Ordinal);
+                Assert.Contains("Find an open lobby.", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("BROWSE LOBBIES", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("Browse open lobbies.", text, StringComparison.Ordinal);
+                Assert.DoesNotContain("AUTO REGION", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Advanced Network", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Browse Matches", text, StringComparison.Ordinal);
                 Assert.DoesNotContain("Host Match", text, StringComparison.Ordinal);
                 Assert.DoesNotContain(home.GetVisualDescendants().OfType<PrimeSectionPanel>(),
                     panel => panel.Classes.Contains("prime-network-summary"));
-                PrimeButton networkSettings = Assert.Single(home.GetVisualDescendants()
-                    .OfType<PrimeButton>(), button => Equals(button.Content, "Network settings"));
-                networkSettings.Invoke();
-                Assert.True(settingsOpened);
+                Assert.Single(home.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Browse lobbies"));
+                Assert.DoesNotContain(home.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Network settings"));
             }
             finally
             {
@@ -550,18 +560,14 @@ public sealed class PlayPresentationTests
     }
 
     [AvaloniaFact]
-    public async Task PlayLandingWideLayoutKeepsQuickBrowseAndHostInOneDashboard()
+    public async Task PlayLandingWideLayoutKeepsHostAndQuickPlayWithoutDuplicateBrowseCard()
     {
         var shell = new PrimeShellState();
         shell.SelectGuest("Local Pilot");
         var controller = new PlayController(shell);
         try
         {
-            PlayState state = PlayState.Initial with
-            {
-                Phase = PlayPhase.Connected,
-                BrowsedLobbies = new LobbyListSnapshot([], null)
-            };
+            PlayState state = PlayState.Initial with { Phase = PlayPhase.Connected };
             Control view = PlayPresentation.Build(Context(shell, controller, lobby: null,
                 state: state));
             var window = new Window { Width = 1280, Height = 800, Content = view };
@@ -577,12 +583,21 @@ public sealed class PlayPresentationTests
                     child => PrimePlayResponsivePanel.GetLane(child) == PrimePlayLane.Left);
                 Assert.Contains(dashboard.Children,
                     child => PrimePlayResponsivePanel.GetLane(child) == PrimePlayLane.Right);
-                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                Assert.Contains(dashboard.GetVisualDescendants().OfType<PrimeButton>(),
                     button => Equals(button.Content, "Quick Play"));
-                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
-                    button => Equals(button.Content, "Browse lobbies"));
-                Assert.Contains(view.GetVisualDescendants().OfType<PrimeButton>(),
+                Assert.Contains(dashboard.GetVisualDescendants().OfType<PrimeButton>(),
                     button => Equals(button.Content, "Host lobby"));
+                Assert.DoesNotContain(dashboard.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Browse lobbies"));
+                Assert.Single(view.GetVisualDescendants().OfType<PrimeButton>(),
+                    button => Equals(button.Content, "Browse lobbies"));
+                PrimeHeroCard hostHero = Assert.Single(dashboard.Children
+                    .OfType<PrimeHeroCard>());
+                PrimeActionCard quickAction = Assert.Single(dashboard.Children
+                    .OfType<PrimeActionCard>());
+                Assert.True(quickAction.Bounds.Height < hostHero.Bounds.Height,
+                    $"Quick Play should remain smaller than Host Lobby "
+                    + $"({quickAction.Bounds.Height} >= {hostHero.Bounds.Height}).");
             }
             finally
             {
@@ -863,13 +878,18 @@ public sealed class PlayPresentationTests
                     editor => Equals(editor.Watermark, "Lobby name"));
                 ComboBox players = FieldEditor<ComboBox>(view, "Player seats");
                 ComboBox bots = FieldEditor<ComboBox>(view, "Bots");
+                ComboBox botDifficulty = FieldEditor<ComboBox>(view,
+                    "Bot difficulty");
                 name.Text = "Competitive Test";
+                botDifficulty.SelectedIndex = (int)BotDifficulty.Expert;
                 players.SelectedItem = 2;
                 Avalonia.Threading.Dispatcher.UIThread.RunJobs();
 
                 Assert.Equal(1, ui.HostDraft.BotCount);
                 Assert.Equal(2, bots.ItemsSource!.Cast<object>().Count());
                 Assert.Equal(1, bots.SelectedItem);
+                Assert.True(botDifficulty.IsEnabled);
+                Assert.Equal(BotDifficulty.Expert, ui.HostDraft.BotDifficulty);
                 int initialTransitions = layout.LayoutTransitionCount;
 
                 layout.ApplyLayout(1300);
@@ -1212,7 +1232,7 @@ public sealed class PlayPresentationTests
                 foreach (string required in new[]
                 {
                     "Lobby name", "Map", "Mode", "Player seats", "Observer seats",
-                    "Bots", "Seat policy", "Time limit", "Score limit", "Damage level",
+                    "Bots", "Bot difficulty", "Seat policy", "Time limit", "Score limit", "Damage level",
                     "Friendly fire", "Affinity weapons", "Player radar"
                 })
                     Assert.Contains(required, text, StringComparison.Ordinal);
