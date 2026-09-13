@@ -23,13 +23,18 @@ public sealed class WorkerIpcTests
     public static IEnumerable<object[]> Messages()
     {
         WorkerMessage[] messages = [new WorkerConfigure(Node, Guid.NewGuid(), Capacity), new CreateMatch(Spec()),
-            new CancelMatch(Match, "cancel"), new Drain("drain"), new Shutdown("shutdown"),
+            new CancelMatch(Match, "cancel-operation", "cancel"), new Drain("drain"), new Shutdown("shutdown"),
             new MatchAdminCommand(Match, AdminAction.KickSeat, 0), new UpdateNodeSigningKey("key", "public"),
             new WorkerHello(Worker, Guid.NewGuid(), Node, "startup-token", "build"), new WorkerReady(Worker, Guid.NewGuid(), Capacity),
             new WorkerHeartbeat(Worker, Guid.NewGuid(), Capacity, new(WorkerStatus.Ready, 100, 2.5, 4096)),
             new MatchReady(new(Match, new WireMatchId(1), Worker, Guid.NewGuid(), "127.0.0.1", 7777)), new MatchStarted(Match), new MatchCompleted(Completion()),
             new MatchFailed(Match, "failed"), new MatchInterrupted(Match, "lost"), new MatchReportReady(Match, Guid.NewGuid(), new WorkerId(Guid.NewGuid()), Guid.NewGuid(), new string('A', 64), 100),
-            new WorkerDraining(Worker, Guid.NewGuid()), new WorkerFault(Worker, Guid.NewGuid(), "fault")];
+            new WorkerDraining(Worker, Guid.NewGuid()), new WorkerFault(Worker, Guid.NewGuid(), "fault"),
+            new NodeSigningKeyUpdated(Worker, Guid.NewGuid(), "key"),
+            new MatchCancelAccepted(Worker, Guid.NewGuid(), Match, "cancel-op"),
+            new MatchCancelRejected(Worker, Guid.NewGuid(), Match, "cancel-op", "already_terminal"),
+            new AdmissionRetired(Match, Guid.NewGuid(), 0, HandoffGeneration.Initial, Worker, Guid.NewGuid()),
+            new AdmissionRetireFailed(Match, Guid.NewGuid(), 0, HandoffGeneration.Initial, Worker, Guid.NewGuid(), "stale")];
         return messages.Select(m => new object[] { m });
     }
 
@@ -98,10 +103,26 @@ public sealed class WorkerIpcTests
     public void EnforcesSemanticBoundsOnWriteAndRead()
     {
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new Drain(new string('x', 1025))));
+        Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new CancelMatch(Match, "", "empty operation")));
         Assert.Throws<InvalidDataException>(() => WorkerIpcCodec.Decode(Frame(4, "{\"version\":1,\"payload\":{\"reason\":\"" + new string('x', 1025) + "\"}}")));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new MatchStarted(default)));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new WorkerReady(Worker, Guid.NewGuid(), Capacity with { ActiveMatches = 5 })));
         Assert.Throws<ArgumentException>(() => WorkerIpcCodec.Encode(new WorkerHeartbeat(Worker, Guid.NewGuid(), Capacity, new(WorkerStatus.Ready, 1, double.NaN, 1))));
+    }
+
+    [Fact]
+    public void MatchControlFailuresUseTheStableNodeVocabulary()
+    {
+        string[] codes = ["worker_unavailable", "worker_busy", "placement_failed",
+            "admission_unavailable", "admission_timeout", "match_unavailable",
+            "transition_timeout", "session_expired", "server_draining"];
+        foreach (string code in codes)
+        {
+            MatchControlFailure failure = MatchControlFailureCodes.Parse(code);
+            Assert.NotEqual(MatchControlFailure.Unknown, failure);
+            Assert.Equal(code, failure.Code());
+            Assert.Equal(code, new MatchControlException(failure).Code);
+        }
     }
 
     [Fact]

@@ -46,8 +46,9 @@ namespace MphRead.Mods.Network
         // authenticated established-connection datagrams, protocol 15 added
         // explicit quantized radial movement axes, protocol 16 adds the
         // authoritative Spire alternate-form attack presentation state, and
-        // protocol 17 carries remote weapon charge presentation state.
-        public const byte Version = 17;
+        // protocol 17 carries remote weapon charge presentation state, and
+        // protocol 18 carries the authoritative two-to-four team count.
+        public const byte Version = 18;
 
         public void Write(Span<byte> destination)
         {

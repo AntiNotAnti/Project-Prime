@@ -46,7 +46,9 @@ public sealed record NodeMatchSummary(MatchId MatchId, WireMatchId WireMatchId, 
         ContractGuard.Id(WorkerIncarnation);
         if (WireMatchId.Value == 0) throw new ArgumentException("Wire match identity is required.");
         ContractGuard.Defined(Status); ContractGuard.Text(MapKey, 128);
-        if (Players is < 0 or > 8 || Observers is < 0 or > 32 || Players + Observers > 32)
+        if (Players is < 0 or > MultiplayerLimits.MaxPlayers
+            || Observers is < 0 or > MultiplayerLimits.MaxObservers
+            || Players + Observers > MultiplayerLimits.MaxHumanConnections)
             throw new ArgumentException("Invalid match summary counts.");
     }
 }
@@ -56,7 +58,9 @@ public abstract record WorkerCommand : WorkerMessage;
 public abstract record WorkerEvent : WorkerMessage;
 public sealed record WorkerConfigure(NodeId NodeId, Guid NodeIncarnation, WorkerCapacity Capacity) : WorkerCommand;
 public sealed record CreateMatch(MatchSpec Spec) : WorkerCommand;
-public sealed record CancelMatch(MatchId MatchId, string Reason) : WorkerCommand;
+[method: JsonConstructor]
+public sealed record CancelMatch(MatchId MatchId, string OperationId, string Reason) : WorkerCommand
+{ }
 public sealed record Drain(string Reason) : WorkerCommand;
 public sealed record Shutdown(string Reason) : WorkerCommand;
 public enum AdminAction { Pause, Resume, EndMatch, KickSeat, LagCompHistory, LagCompDynamic, LagCompClear }
@@ -73,7 +77,8 @@ public sealed record InstallAdmissionKey(
     NodeId NodeId, Guid NodeIncarnation,
     MatchId MatchId, WireMatchId WireMatchId,
     WorkerId WorkerId, Guid WorkerIncarnation,
-    byte SeatId, ulong JoinNonce, long ExpiresAt, string AdmissionKey) : WorkerCommand
+    byte SeatId, ulong JoinNonce, long ExpiresAt, string AdmissionKey,
+    HandoffGeneration HandoffGeneration) : WorkerCommand
 {
     public override string ToString()
         => $"InstallAdmissionKey {{ AdmissionId = {AdmissionId}, TicketId = {TicketId}, MatchId = {MatchId}, SeatId = {SeatId} }}";
@@ -192,15 +197,39 @@ public sealed record MatchReportReady(MatchId MatchId, Guid ReportId, WorkerId W
 }
 public sealed record WorkerDraining(WorkerId WorkerId, Guid WorkerIncarnation) : WorkerEvent;
 public sealed record WorkerFault(WorkerId WorkerId, Guid WorkerIncarnation, string Reason) : WorkerEvent;
+public sealed record NodeSigningKeyUpdated(WorkerId WorkerId,
+    Guid WorkerIncarnation, string KeyId) : WorkerEvent;
+/// <summary>Positive acknowledgement for an idempotent match cancellation.</summary>
+public sealed record MatchCancelAccepted(WorkerId WorkerId, Guid WorkerIncarnation,
+    MatchId MatchId, string OperationId, bool AlreadyAccepted = false) : WorkerEvent;
+public sealed record MatchCancelRejected(WorkerId WorkerId, Guid WorkerIncarnation,
+    MatchId MatchId, string OperationId, string Reason) : WorkerEvent;
 /// <summary>Positive acknowledgement that a Worker match owns the admission key.</summary>
 public sealed record AdmissionKeyInstalled(
     Guid AdmissionId, Guid TicketId, Guid NodeSessionId,
     NodeId NodeId, Guid NodeIncarnation,
     MatchId MatchId, WireMatchId WireMatchId,
     WorkerId WorkerId, Guid WorkerIncarnation,
-    byte SeatId, ulong JoinNonce, long ExpiresAt) : WorkerEvent;
+    byte SeatId, ulong JoinNonce, long ExpiresAt,
+    HandoffGeneration HandoffGeneration) : WorkerEvent;
 /// <summary>Bounded, non-secret rejection of an admission-key installation.</summary>
 public sealed record AdmissionKeyInstallFailed(Guid AdmissionId, MatchId MatchId, string Reason) : WorkerEvent;
+
+/// <summary>Retires one exact admission lease; it can never remove a newer lease.</summary>
+public sealed record RetireAdmission(
+    MatchId MatchId, Guid NodeSessionId, byte SeatId,
+    HandoffGeneration HandoffGeneration, Guid AdmissionId,
+    WorkerId WorkerId, Guid WorkerIncarnation) : WorkerCommand;
+
+public sealed record AdmissionRetired(
+    MatchId MatchId, Guid AdmissionId, byte SeatId,
+    HandoffGeneration HandoffGeneration, WorkerId WorkerId,
+    Guid WorkerIncarnation, bool AlreadyRetired = false) : WorkerEvent;
+
+public sealed record AdmissionRetireFailed(
+    MatchId MatchId, Guid AdmissionId, byte SeatId,
+    HandoffGeneration HandoffGeneration, WorkerId WorkerId,
+    Guid WorkerIncarnation, string Reason) : WorkerEvent;
 
 public sealed record WorkerLaneHealth(int LaneId, int Matches, long Ticks, long CatchUpTicks, long DroppedTicks,
     double P50Milliseconds, double P95Milliseconds, double P99Milliseconds, double MaxMilliseconds,
@@ -240,7 +269,14 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP95Milliseconds = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP99Milliseconds = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendP999Milliseconds = 0,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendMaxMilliseconds = 0)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double OutboundEnqueueToSendMaxMilliseconds = 0,
+    // Append-only worker lifetime facts. These are intentionally low-cardinality
+    // counters rather than per-match identities; a pool can use them to choose
+    // a replacement without receiving the match history itself.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long LifetimeMatchesAccepted = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int IdentityHistoryUsed = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int IdentityHistoryCapacity = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ActiveAdmissions = 0)
 {
     // The IPC frame is 64 KiB and diagnostics serialize as JSON. This cap is
     // derived from the maximum-shape heartbeat (64 lanes plus 32 fully
@@ -264,6 +300,9 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
             || TimingTelemetryObservedConnections < 0 || TimingTelemetryStaleConnections < 0
             || !double.IsFinite(TimingTelemetryMaxAgeSeconds) || TimingTelemetryMaxAgeSeconds < 0
             || TimingTelemetryStaleIntervals < 0 || TimingDownshiftBlocked < 0
+            || LifetimeMatchesAccepted < 0 || IdentityHistoryUsed < 0
+            || IdentityHistoryCapacity < 0 || IdentityHistoryUsed > IdentityHistoryCapacity
+            || ActiveAdmissions < 0 || ActiveAdmissions > 65536
             || NetworkLoopQueueBoundsInvalid() || NetworkLoopAgeBoundsInvalid())
             throw new ArgumentException("Invalid worker diagnostics.");
         if (!Matches.IsDefault)

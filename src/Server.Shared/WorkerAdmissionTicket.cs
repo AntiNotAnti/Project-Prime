@@ -11,7 +11,8 @@ namespace ProjectPrime.Server.Shared;
 public sealed record WorkerAdmissionClaims(NodeId NodeId, Guid NodeIncarnation, WorkerId WorkerId,
     Guid WorkerIncarnation, LobbyId LobbyId, MatchId MatchId, WireMatchId WireMatchId,
     Guid NodeSessionId, PlayerId? PlayerId, Guid? GuestSessionId, SeatRole Role, byte SeatId,
-    string Name, ulong JoinNonce, long IssuedAt, long ExpiresAt, Guid TicketId)
+    string Name, ulong JoinNonce, long IssuedAt, long ExpiresAt, Guid TicketId,
+    HandoffGeneration HandoffGeneration)
 {
     public override string ToString() => $"WorkerAdmissionClaims {{ MatchId = {MatchId}, SeatId = {SeatId}, Role = {Role} }}";
     public void Validate()
@@ -24,6 +25,7 @@ public sealed record WorkerAdmissionClaims(NodeId NodeId, Guid NodeIncarnation, 
             || Role is not (SeatRole.Player or SeatRole.Observer) || SeatId >= 32 || Role == SeatRole.Player && SeatId >= 8
             || String.IsNullOrWhiteSpace(Name) || Name.Length > 16 || Name.Any(c => c < 32 || c > 126))
             throw new ArgumentException("Invalid Worker admission claims.");
+        HandoffGeneration.Validate();
     }
 }
 
@@ -62,7 +64,7 @@ public sealed class WorkerAdmissionIssuer : IDisposable
             ["p"] = claims.PlayerId?.Value.ToString("N"), ["g"] = claims.GuestSessionId?.ToString("N"),
             ["r"] = (byte)claims.Role, ["s"] = claims.SeatId, ["name"] = claims.Name,
             ["nonce"] = claims.JoinNonce, ["iat"] = claims.IssuedAt, ["exp"] = claims.ExpiresAt,
-            ["jti"] = claims.TicketId.ToString("N")
+            ["jti"] = claims.TicketId.ToString("N"), ["hg"] = claims.HandoffGeneration.Value
         };
         string signingInput = header + "." + WorkerAdmissionEncoding.Encode(
             JsonSerializer.SerializeToUtf8Bytes(payload, TicketJson));
@@ -140,14 +142,15 @@ public sealed class WorkerAdmissionVerifier : IDisposable
             JsonElement h = header.RootElement, c = payload.RootElement;
             if (!WorkerAdmissionEncoding.ExactFields(h, "alg", "typ", "kid")
                 || h.GetProperty("alg").GetString() != "ES256" || h.GetProperty("typ").GetString() != "fp-worker-admission"
-                || !WorkerAdmissionEncoding.ExactFields(c, "n", "ni", "w", "wi", "l", "m", "wm", "ns", "p", "g", "r", "s", "name", "nonce", "iat", "exp", "jti")) return false;
+                || !WorkerAdmissionEncoding.ExactFields(c, "n", "ni", "w", "wi", "l", "m", "wm", "ns", "p", "g", "r", "s", "name", "nonce", "iat", "exp", "jti", "hg")) return false;
             var decoded = new WorkerAdmissionClaims(new(WorkerAdmissionEncoding.Id(c, "n")), WorkerAdmissionEncoding.Id(c, "ni"),
                 new(WorkerAdmissionEncoding.Id(c, "w")), WorkerAdmissionEncoding.Id(c, "wi"), new(WorkerAdmissionEncoding.Id(c, "l")),
                 new(WorkerAdmissionEncoding.Id(c, "m")), new(c.GetProperty("wm").GetUInt32()), WorkerAdmissionEncoding.Id(c, "ns"),
                 c.GetProperty("p").ValueKind == JsonValueKind.Null ? null : new PlayerId(WorkerAdmissionEncoding.Id(c, "p")),
                 c.GetProperty("g").ValueKind == JsonValueKind.Null ? null : WorkerAdmissionEncoding.Id(c, "g"),
                 (SeatRole)c.GetProperty("r").GetByte(), c.GetProperty("s").GetByte(), c.GetProperty("name").GetString()!,
-                c.GetProperty("nonce").GetUInt64(), c.GetProperty("iat").GetInt64(), c.GetProperty("exp").GetInt64(), WorkerAdmissionEncoding.Id(c, "jti"));
+                c.GetProperty("nonce").GetUInt64(), c.GetProperty("iat").GetInt64(), c.GetProperty("exp").GetInt64(), WorkerAdmissionEncoding.Id(c, "jti"),
+                new HandoffGeneration(c.GetProperty("hg").GetUInt64()));
             decoded.Validate();
             long seconds = now.ToUnixTimeSeconds();
             RosterSeat? seat = _spec.Roster.FirstOrDefault(seat => seat.SeatId == decoded.SeatId);

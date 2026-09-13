@@ -55,7 +55,7 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
     MatchRules Rules, ContentIdentity Content, MatchTrustClass TrustClass, Guid? TournamentId,
     Guid? RoundId, ImmutableArray<RosterSeat> Roster, BotFillPolicy BotFillPolicy,
     ObserverPolicy ObserverPolicy, ReplayPolicy ReplayPolicy, TelemetryPolicy TelemetryPolicy,
-    uint Rng1Seed, uint Rng2Seed)
+    uint Rng1Seed, uint Rng2Seed, MatchLifecycleEpoch LifecycleEpoch = default)
 {
     public void Validate()
     {
@@ -71,16 +71,21 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
         if (Content.ProtocolVersion == 0) throw new ArgumentException("Protocol is required.");
         ContractGuard.Defined(TrustClass); ContractGuard.Defined(BotFillPolicy);
         ContractGuard.Defined(ObserverPolicy); ContractGuard.Defined(ReplayPolicy); ContractGuard.Defined(TelemetryPolicy);
+        if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
         if (TournamentId == Guid.Empty || RoundId == Guid.Empty || RoundId.HasValue && !TournamentId.HasValue)
             throw new ArgumentException("Invalid tournament identity.");
         if (Roster.IsDefaultOrEmpty || Roster.Length > 32) throw new ArgumentException("Roster must contain 1..32 seats.");
         var seats = new HashSet<byte>(); var players = new HashSet<PlayerId>(); var guests = new HashSet<Guid>();
-        int active = 0;
+        int active = 0, playerSeats = 0, observerSeats = 0;
         foreach (var seat in Roster)
         {
             if (seat is null || seat.SeatId >= 32 || !seats.Add(seat.SeatId)) throw new ArgumentException("Duplicate or null seat.");
             ContractGuard.Text(seat.DisplayName, 64); ContractGuard.Defined(seat.Role);
-            if (!Enum.IsDefined(seat.Hunter) || seat.Hunter > Hunter.Guardian || seat.Team > 1 || seat.Role != SeatRole.Observer && seat.SeatId >= 8) throw new ArgumentException("Unresolved Hunter or invalid team.");
+            if (!Enum.IsDefined(seat.Hunter) || seat.Hunter > Hunter.Guardian
+                || seat.Role != SeatRole.Observer && Rules.Teams && seat.Team >= Rules.TeamCount
+                || seat.Role != SeatRole.Observer && seat.SeatId >= 8)
+                throw new ArgumentException($"Seat {seat.SeatId} has invalid hunter/team assignment "
+                    + $"(hunter {(byte)seat.Hunter}, team {seat.Team}, configured teams {Rules.TeamCount}).");
             if (seat.PlayerId is { } player && (player.IsEmpty || !players.Add(player))) throw new ArgumentException("Invalid player identity.");
             if (seat.GuestSessionId is { } guest && (guest == Guid.Empty || !guests.Add(guest))) throw new ArgumentException("Invalid guest identity.");
             if (seat.Role == SeatRole.Bot ? seat.PlayerId.HasValue || seat.GuestSessionId.HasValue : seat.PlayerId.HasValue == seat.GuestSessionId.HasValue)
@@ -88,8 +93,13 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
             if (seat.RankingEligible && (seat.Role != SeatRole.Player || !seat.PlayerId.HasValue)) throw new ArgumentException("Only registered players can rank.");
             if (seat.Role == SeatRole.Observer && ObserverPolicy == ObserverPolicy.Disabled) throw new ArgumentException("Observers are disabled.");
             if (seat.Role != SeatRole.Observer) active++;
+            if (seat.Role == SeatRole.Player) playerSeats++;
+            if (seat.Role == SeatRole.Observer) observerSeats++;
         }
-        if (active > Rules.MaxPlayers) throw new ArgumentException("Active roster exceeds rules capacity.");
+        if (active > Rules.MaxPlayers || playerSeats > MultiplayerLimits.MaxPlayers
+            || observerSeats > MultiplayerLimits.MaxObservers
+            || playerSeats + observerSeats > MultiplayerLimits.MaxHumanConnections)
+            throw new ArgumentException("Roster exceeds multiplayer capacity.");
     }
 }
 

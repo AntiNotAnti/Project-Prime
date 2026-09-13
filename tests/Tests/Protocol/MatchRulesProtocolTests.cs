@@ -17,10 +17,10 @@ namespace MphRead.Tests
         [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
-            // Live protocol 17 carries authenticated UDP framing in addition
+            // Live protocol 18 carries the authoritative team count in addition
             // to the input epoch and frame timing denominator; older replay fixtures below
             // intentionally keep their historical protocol versions.
-            Assert.Equal(17, NetHeader.Version);
+            Assert.Equal(18, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);
@@ -102,7 +102,7 @@ namespace MphRead.Tests
         [InlineData(79, 3)] // RadarPolicy.Enabled is the final assigned value.
         [InlineData(80, 2)] // TeamBalancePolicy.Locked is the final assigned value.
         [InlineData(81, 3)] // KillcamPolicy.PostRound is the final assigned value.
-        [InlineData(82, 1)]
+        [InlineData(82, 5)]
         [InlineData(83, 1)]
         public void InvalidAssignedOrReservedExtensionBytesAreRejected(int offset, byte value)
         {
@@ -124,9 +124,47 @@ namespace MphRead.Tests
 
             Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
             Assert.Equal(KillcamPolicy.Disabled, decoded.KillcamPolicy);
-            Assert.Equal(0, bytes[82]);
+            Assert.Equal(2, bytes[82]);
             Assert.Equal(0, bytes[83]);
         }
+
+        [Fact]
+        public void FourTeamBattleCountRoundTripsAndIsModeBound()
+        {
+            MatchRules rules = new(MatchMode.TeamBattle, "FOUR TEAMS",
+                maxPlayers: 8, teamCount: 4);
+            byte[] bytes = new byte[MatchRulesWire.Size];
+
+            MatchRulesWire.Write(bytes, rules);
+
+            Assert.Equal(4, bytes[82]);
+            Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
+            Assert.Equal(4, decoded.TeamCount);
+            bytes[0] = (byte)GameMode.Battle;
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+        }
+
+        [Fact]
+        public void FourTeamCountIsRejectedForTwoTeamObjectiveModes()
+        {
+            byte[] bytes = new byte[MatchRulesWire.Size];
+            MatchRulesWire.Write(bytes, Rules(MatchMode.TeamDefender));
+            bytes[82] = 4;
+
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+        }
+
+        [Theory]
+        [InlineData(1, 2)]
+        [InlineData(2, 2)]
+        [InlineData(3, 3)]
+        [InlineData(4, 4)]
+        [InlineData(8, 4)]
+        public void MatchCapacitySelectsTheAuthoredEntityLayer(
+            int maxPlayers, int expectedLayer)
+            => Assert.Equal(expectedLayer,
+                new MatchRules(MatchMode.Battle, "LAYER", maxPlayers)
+                    .EntityLayerPlayerCount);
 
         [Fact]
         public void KillcamPolicyDefaultsAndConstructorValidationAreExplicit()

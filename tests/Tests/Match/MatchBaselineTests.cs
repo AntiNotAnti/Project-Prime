@@ -176,17 +176,43 @@ public sealed class MatchBaselineTests
     }
 
     [Fact]
-    public void TeamStandingsCurrentlyWritesFinalRankToActiveCountIndexInsteadOfSparseSlot()
+    public void TeamStandingsUseSparsePlayerSlotsAndAgreeAcrossTeammates()
     {
         using var state = new State();
         MatchRuntime match = state.Configure(GameMode.BattleTeams);
-        state.Activate(0, 0); state.Activate(3, 1);
-        match.Points[0] = 5; match.Points[3] = 1;
+        state.Activate(0, 0); state.Activate(2, 0); state.Activate(3, 1);
+        match.Points[0] = 5; match.Points[2] = 1; match.Points[3] = 1;
         match.Logic.UpdateState();
-        Assert.Equal(new[] { 0, 3 }, match.ResultSlots.Take(2));
+        Assert.Equal(new[] { 0, 2, 3 }, match.ResultSlots.Take(3));
         Assert.Equal(0, match.Standings[0]);
-        Assert.Equal(1, match.Standings[1]); // Current index/slot mismatch is deliberately frozen for R0.
-        Assert.Equal(PlayerEntity.SlotCapacity - 1, match.Standings[3]);
+        Assert.Equal(0, match.Standings[2]);
+        Assert.Equal(1, match.Standings[3]);
+        Assert.Equal(match.Standings[0], match.TeamStandings[0]);
+        Assert.Equal(match.TeamStandings[0], match.TeamStandings[2]);
+        Assert.Equal(match.Standings[3], match.TeamStandings[3]);
+    }
+
+    [Fact]
+    public void FourTeamBattleRanksEveryTeamAndKeepsTeamScoreOrdering()
+    {
+        using var state = new State();
+        MatchRuntime match = state.Configure(GameMode.BattleTeams);
+        match.ApplyRules(new MatchRules(MatchMode.TeamBattle, "four-team-test",
+            maxPlayers: 8, teamCount: 4));
+        state.Activate(0, 0); state.Activate(1, 0);
+        state.Activate(2, 1); state.Activate(3, 1);
+        state.Activate(4, 2); state.Activate(5, 2);
+        state.Activate(6, 3); state.Activate(7, 3);
+        match.Points[0] = 8; match.Points[1] = 2;
+        match.Points[2] = 1; match.Points[3] = 1;
+        match.Points[4] = 5; match.Points[5] = 1;
+        match.Points[6] = 3; match.Points[7] = 1;
+
+        match.Logic.UpdateState();
+
+        Assert.Equal(new[] { 0, 1, 4, 5, 6, 7, 2, 3 }, match.ResultSlots);
+        Assert.Equal(new[] { 0, 0, 3, 3, 1, 1, 2, 2 }, match.Standings);
+        Assert.Equal(match.Standings, match.TeamStandings);
     }
 
     [Theory]

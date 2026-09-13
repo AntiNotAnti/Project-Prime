@@ -70,6 +70,29 @@ public sealed class LobbyRulesContractTests
     }
 
     [Fact]
+    public void SpawnPolicyAndProtectionCancellationAreAuthoritativeLobbyRules()
+    {
+        MatchRules enhanced = new LobbyRulesOptions(SpawnPolicy: SpawnPolicy.Enhanced,
+            CancelSpawnProtectionOnOffensiveAction: true)
+            .ToMatchRules(MatchMode.TeamBattle, "unit", maxPlayers: 8);
+        MatchRules duel = new LobbyRulesOptions(SpawnPolicy: SpawnPolicy.Duel)
+            .ToMatchRules(MatchMode.Battle, "unit", maxPlayers: 2);
+
+        Assert.Equal(SpawnPolicy.Enhanced, enhanced.SpawnPolicy);
+        Assert.True(enhanced.CancelSpawnProtectionOnOffensiveAction);
+        Assert.Equal(SpawnPolicy.Duel, duel.SpawnPolicy);
+        Assert.Throws<ArgumentException>(() =>
+            new LobbyRulesOptions(SpawnPolicy: SpawnPolicy.Duel)
+                .ToMatchRules(MatchMode.Battle, "unit", maxPlayers: 8));
+        Assert.Throws<ArgumentException>(() =>
+            new LobbyRulesOptions(SpawnPolicy: SpawnPolicy.Duel)
+                .Normalize(MatchMode.TeamBattle));
+        Assert.Throws<ArgumentException>(() =>
+            new LobbyRulesOptions(SpawnPolicy: (SpawnPolicy)255)
+                .Normalize(MatchMode.Battle));
+    }
+
+    [Fact]
     public void SnapshotCanonicalRulesRejectConflictingLegacyProjection()
     {
         LobbySnapshot snapshot = new(Guid.NewGuid(), "Rules", LobbyVisibility.Public, Guid.NewGuid(),

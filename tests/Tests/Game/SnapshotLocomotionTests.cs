@@ -224,7 +224,7 @@ public sealed class SnapshotLocomotionTests
     [Fact]
     public void SnapshotWireContractIsUnchanged()
     {
-        Assert.Equal(17, NetHeader.Version);
+        Assert.Equal(18, NetHeader.Version);
         Assert.Equal(98, SnapshotPlayer.Size);
         Assert.Equal(810, SnapshotPacket.MaxSize);
         Assert.Equal(834, SnapshotPacket.MaxSize + NetHeader.Size);

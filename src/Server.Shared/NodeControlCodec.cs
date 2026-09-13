@@ -137,13 +137,18 @@ public static class NodeControlCodec
                     ValidateVoteEntry(resolved);
                     if (!round.Options.IsEmpty && !round.Options.Any(o => o.Id == resolved.Id
                         && o.Choice == resolved.Choice && o.MapKey == resolved.MapKey && o.Mode == resolved.Mode
-                        && o.RequiredMap == resolved.RequiredMap))
+                        && o.RequiredMap == resolved.RequiredMap
+                        && o.SpawnPolicy == resolved.SpawnPolicy))
                         throw new ArgumentException("Invalid resolved option.");
                 }
                 break;
             case NodeSessionSnapshot session: session.Validate(); break;
             case NodePresenceVisibilityChanged visibility:
                 if (visibility.Revision < 0) throw new ArgumentException("Invalid presence visibility acknowledgement.");
+                break;
+            case NodeControlDeliveryOverflow overflow:
+                if (overflow.Code != "delivery_overflow" || !overflow.ResumeRequired)
+                    throw new ArgumentException("Invalid control delivery overflow.");
                 break;
             case LobbySnapshot lobby:
                 ContractGuard.Id(lobby.LobbyId); ContractGuard.Id(lobby.OwnerSessionId);
@@ -224,6 +229,7 @@ public static class NodeControlCodec
             "match.transition.propose" => payload is LobbyMatchTransitionPropose,
             "match.transition.vote" => payload is LobbyMatchTransitionVote,
             "node.presence.visibility" => payload is NodePresenceVisibilityChanged,
+            "control.delivery_overflow" => payload is NodeControlDeliveryOverflow,
             _ => true
         };
         if (!valid) throw new ArgumentException("Control route does not match payload.", nameof(type));
@@ -233,6 +239,15 @@ public static class NodeControlCodec
         if (option == null || option.Id is < 1 or > 8 || option.Votes is < 0 or > 8)
             throw new ArgumentException("Invalid vote option.");
         ContractGuard.Defined(option.Choice); ContractGuard.Defined(option.Mode); ContractGuard.Text(option.MapKey, 128);
+        if (option.Choice == LobbyVoteChoice.SpawnPolicy)
+        {
+            if (option.SpawnPolicy is not { } policy || !Enum.IsDefined(policy))
+                throw new ArgumentException("Spawn-policy vote requires a valid policy.");
+            if (policy == SpawnPolicy.Duel && option.Mode != MatchMode.Battle)
+                throw new ArgumentException("Duel spawn-policy vote requires Battle mode.");
+        }
+        else if (option.SpawnPolicy.HasValue)
+            throw new ArgumentException("Only spawn-policy votes may carry a spawn policy.");
         option.RequiredMap?.Validate();
     }
     private static bool InvalidListRuleMetadata(LobbyListEntry entry)
@@ -320,6 +335,7 @@ public sealed record NodeControlEvent(int Version, string Type, long EventId, Gu
 [JsonSerializable(typeof(MapRequirement))]
 [JsonSerializable(typeof(NodePong))]
 [JsonSerializable(typeof(NodeControlError))]
+[JsonSerializable(typeof(NodeControlDeliveryOverflow))]
 [JsonSerializable(typeof(LobbyLeft))]
 [JsonSerializable(typeof(NodeControlEvent))]
 public partial class NodeJsonContext : JsonSerializerContext;

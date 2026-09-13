@@ -99,6 +99,18 @@ namespace MphRead.Tests
             }
         }
 
+        [Fact]
+        public void FourTeamAllocationAndRebalanceAreDeterministic()
+        {
+            byte[] teams = [0, 0, 0, 0, 1, 2, 3, TeamAllocator.Unassigned];
+
+            Assert.Equal(1, TeamAllocator.Select(teams, tieBreak: 1,
+                teamCount: 4));
+            Assert.Equal(2, TeamAllocator.Rebalance(teams, teamCount: 4));
+            Assert.Equal(new byte[] { 0, 0, 2, 1, 1, 2, 3,
+                TeamAllocator.Unassigned }, teams);
+        }
+
         private static byte[] Decode(int code)
         {
             var teams = new byte[8];

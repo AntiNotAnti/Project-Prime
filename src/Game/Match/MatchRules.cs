@@ -7,6 +7,7 @@ namespace MphRead
     /// the effective Survival radar state belong to MatchRuntime.</summary>
     public sealed record MatchRules
     {
+        public const int MaximumTeamCount = 4;
         public MatchMode Mode { get; }
         public string RoomKey { get; }
         public int MaxPlayers { get; }
@@ -33,6 +34,14 @@ namespace MphRead
         public TeamBalancePolicy TeamBalancePolicy { get; }
         public KillcamPolicy KillcamPolicy { get; }
         public bool Teams => Mode.IsTeamMode();
+        public int TeamCount { get; }
+        /// <summary>
+        /// Retail battle entity data has authored two-, three-, and four-player
+        /// layers. Eight-player matches intentionally use the richest authored
+        /// layer; connected-player count is never used, so every participant
+        /// loads the same pickups and spawn set.
+        /// </summary>
+        public int EntityLayerPlayerCount => Math.Clamp(MaxPlayers, 2, 4);
         public bool IsOctolithMode => Mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty;
         public bool IsSurvival => Mode is MatchMode.Survival or MatchMode.TeamSurvival;
         public bool IsObjectiveTimeMode => Mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
@@ -48,7 +57,8 @@ namespace MphRead
             OvertimePolicy overtimePolicy = OvertimePolicy.Disabled, LateJoinPolicy lateJoinPolicy = LateJoinPolicy.JoinImmediately, bool pickupRespawnAnnouncements = false,
             RulesetPreset rulesetPreset = RulesetPreset.Classic, RankingEligibility rankingEligibility = RankingEligibility.Unranked,
             RadarPolicy radarPolicy = RadarPolicy.Classic, TeamBalancePolicy teamBalancePolicy = TeamBalancePolicy.BeforeStart,
-            KillcamPolicy killcamPolicy = KillcamPolicy.Immediate)
+            KillcamPolicy killcamPolicy = KillcamPolicy.Immediate,
+            int teamCount = 2)
         {
             _ = mode.ToLegacyMode();
             if (String.IsNullOrWhiteSpace(roomKey)) { throw new ArgumentException("A room key is required.", nameof(roomKey)); }
@@ -70,11 +80,18 @@ namespace MphRead
             if (!Enum.IsDefined(radarPolicy)) throw new ArgumentOutOfRangeException(nameof(radarPolicy));
             if (!Enum.IsDefined(teamBalancePolicy)) throw new ArgumentOutOfRangeException(nameof(teamBalancePolicy));
             if (!Enum.IsDefined(killcamPolicy)) throw new ArgumentOutOfRangeException(nameof(killcamPolicy));
+            if ((mode.IsTeamMode() && teamCount is < 2 or > MaximumTeamCount)
+                || (!mode.IsTeamMode() && teamCount is not (1 or 2)))
+                throw new ArgumentOutOfRangeException(nameof(teamCount));
+            if (mode.IsTeamMode() && teamCount > 2
+                && mode is not (MatchMode.TeamBattle or MatchMode.TeamSurvival))
+                throw new ArgumentException("Three- and four-team play is supported only in Team Battle and Team Survival.");
             if (rulesetPreset == RulesetPreset.Duel && (mode != MatchMode.Battle || maxPlayers != 2))
                 throw new ArgumentException("Duel requires Battle mode and two active players.");
             RulesetPreset = rulesetPreset; RankingEligibility = rankingEligibility;
             RadarPolicy = radarPolicy; TeamBalancePolicy = teamBalancePolicy;
             KillcamPolicy = killcamPolicy;
+            TeamCount = mode.IsTeamMode() ? teamCount : 1;
             OvertimePolicy = overtimePolicy;
             LateJoinPolicy = lateJoinPolicy;
             PickupRespawnAnnouncements = pickupRespawnAnnouncements;
@@ -124,7 +141,7 @@ namespace MphRead
             OvertimePolicy? overtimePolicy = null, LateJoinPolicy? lateJoinPolicy = null, bool? pickupRespawnAnnouncements = null,
             RulesetPreset? rulesetPreset = null, RankingEligibility? rankingEligibility = null,
             RadarPolicy? radarPolicy = null, TeamBalancePolicy? teamBalancePolicy = null,
-            KillcamPolicy? killcamPolicy = null)
+            KillcamPolicy? killcamPolicy = null, int? teamCount = null)
         {
             return new MatchRules(mode ?? Mode, roomKey ?? RoomKey, maxPlayers ?? MaxPlayers,
                 clearTimeLimit ? null : timeLimit ?? TimeLimit, scoreGoal ?? ScoreGoal,
@@ -136,7 +153,7 @@ namespace MphRead
                 overtimePolicy ?? OvertimePolicy, lateJoinPolicy ?? LateJoinPolicy, pickupRespawnAnnouncements ?? PickupRespawnAnnouncements,
                 rulesetPreset ?? RulesetPreset, rankingEligibility ?? RankingEligibility,
                 radarPolicy ?? RadarPolicy, teamBalancePolicy ?? TeamBalancePolicy,
-                killcamPolicy ?? KillcamPolicy);
+                killcamPolicy ?? KillcamPolicy, teamCount ?? (Teams ? TeamCount : 2));
         }
 
         public static MatchRules CreateDefault(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity)

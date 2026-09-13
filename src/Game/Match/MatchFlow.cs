@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Sound;
@@ -68,7 +69,7 @@ namespace MphRead
                     && !(_match.UsesServerLifecycle && _match.Rules.MaxPlayers == 1);
                 if (!invalid && _match.Rules.Teams)
                 {
-                    bool[] teams = new bool[2];
+                    bool[] teams = new bool[_match.Rules.TeamCount];
                     for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                     {
                         PlayerEntity player = _scene.Players[i];
@@ -77,7 +78,7 @@ namespace MphRead
                             teams[player.TeamIndex] = true;
                         }
                     }
-                    invalid = !teams[0] || !teams[1];
+                    invalid = teams.Any(active => !active);
                 }
                 if (invalid)
                 {

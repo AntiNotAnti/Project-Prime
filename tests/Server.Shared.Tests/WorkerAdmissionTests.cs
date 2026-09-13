@@ -23,7 +23,8 @@ public sealed class WorkerAdmissionTests
         var placement = new MatchPlacement(match, new(77), worker, Guid.NewGuid(), "127.0.0.1", 27000);
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var claims = new WorkerAdmissionClaims(node, incarnation, worker, placement.WorkerIncarnation, lobby, match,
-            placement.WireMatchId, Guid.NewGuid(), player, guestId, SeatRole.Player, 3, "ADMISSION", 123, now, now + 60, Guid.NewGuid());
+            placement.WireMatchId, Guid.NewGuid(), player, guestId, SeatRole.Player, 3, "ADMISSION", 123, now, now + 60, Guid.NewGuid(),
+            HandoffGeneration.Initial);
         return (spec, placement, claims, new(NetHeader.Version, 123, Hunter.Samus, "ADMISSION", WireMatchId: 77));
     }
 

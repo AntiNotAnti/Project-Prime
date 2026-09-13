@@ -32,7 +32,11 @@ public sealed record LobbyRulesOptions(
     bool? PlayerRadar = null,
     bool? OctolithReset = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    KillcamPolicy? KillcamPolicy = null)
+    KillcamPolicy? KillcamPolicy = null,
+    int? TeamCount = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    SpawnPolicy? SpawnPolicy = null,
+    bool? CancelSpawnProtectionOnOffensiveAction = null)
 {
     public static LobbyRulesOptions Empty { get; } = new();
 
@@ -83,13 +87,24 @@ public sealed record LobbyRulesOptions(
         ValidateRange(DamageLevel, 0, 2, "Damage level");
         if (KillcamPolicy.HasValue && !Enum.IsDefined(KillcamPolicy.Value))
             throw new ArgumentException("Unknown killcam policy.", nameof(KillcamPolicy));
+        if (SpawnPolicy.HasValue && !Enum.IsDefined(SpawnPolicy.Value))
+            throw new ArgumentException("Unknown spawn policy.", nameof(SpawnPolicy));
+        if (SpawnPolicy == MphRead.SpawnPolicy.Duel && mode != MatchMode.Battle)
+            throw new ArgumentException("Duel spawn policy requires Battle mode.", nameof(SpawnPolicy));
+        if (TeamCount is < 2 or > MphRead.MatchRules.MaximumTeamCount)
+            throw new ArgumentException("Team count must be between two and four.", nameof(TeamCount));
+        if (!mode.IsTeamMode() && TeamCount.HasValue)
+            throw new ArgumentException("Team count applies only to team modes.", nameof(TeamCount));
+        if (TeamCount > 2 && mode is not (MatchMode.TeamBattle or MatchMode.TeamSurvival))
+            throw new ArgumentException("Three- and four-team play is supported only in Team Battle and Team Survival.", nameof(TeamCount));
 
         return this with
         {
             TimeLimitSeconds = time,
             ScoreGoal = score,
             StartingLives = lives,
-            ObjectiveTimeGoalSeconds = objective ? ObjectiveTimeGoalSeconds : null
+            ObjectiveTimeGoalSeconds = objective ? ObjectiveTimeGoalSeconds : null,
+            TeamCount = mode.IsTeamMode() ? TeamCount : null
         };
     }
 
@@ -98,6 +113,8 @@ public sealed record LobbyRulesOptions(
     {
         LobbyRulesOptions normalized = Normalize(mode);
         MphRead.MatchRules defaults = MphRead.MatchRules.CreateDefault(mode, mapKey, maxPlayers);
+        if (normalized.SpawnPolicy == MphRead.SpawnPolicy.Duel && maxPlayers != 2)
+            throw new ArgumentException("Duel spawn policy requires a two-player lobby.", nameof(maxPlayers));
         return defaults.With(
             timeLimit: normalized.TimeLimitSeconds is { } time ? TimeSpan.FromSeconds(time) : defaults.TimeLimit,
             scoreGoal: normalized.ScoreGoal ?? defaults.ScoreGoal,
@@ -109,7 +126,12 @@ public sealed record LobbyRulesOptions(
             affinityWeapons: normalized.AffinityWeapons ?? defaults.AffinityWeapons,
             playerRadar: normalized.PlayerRadar ?? defaults.PlayerRadar,
             octolithReset: normalized.OctolithReset ?? defaults.OctolithReset,
-            killcamPolicy: normalized.KillcamPolicy ?? defaults.KillcamPolicy);
+            killcamPolicy: normalized.KillcamPolicy ?? defaults.KillcamPolicy,
+            teamCount: normalized.TeamCount ?? defaults.TeamCount,
+            spawnPolicy: normalized.SpawnPolicy ?? defaults.SpawnPolicy,
+            cancelSpawnProtectionOnOffensiveAction:
+                normalized.CancelSpawnProtectionOnOffensiveAction
+                    ?? defaults.CancelSpawnProtectionOnOffensiveAction);
     }
 
     /// <summary>
@@ -129,7 +151,14 @@ public sealed record LobbyRulesOptions(
             ScoreGoal = survival || objective ? null : ScoreGoal,
             StartingLives = survival ? StartingLives : null,
             ObjectiveTimeGoalSeconds = objective ? ObjectiveTimeGoalSeconds : null,
-            OctolithReset = octolith ? OctolithReset : null
+            OctolithReset = octolith ? OctolithReset : null,
+            SpawnPolicy = SpawnPolicy == MphRead.SpawnPolicy.Duel
+                && mode != MatchMode.Battle ? null : SpawnPolicy,
+            TeamCount = mode.IsTeamMode()
+                ? mode is MatchMode.TeamBattle or MatchMode.TeamSurvival
+                    ? TeamCount
+                    : 2
+                : null
         }).Normalize(mode);
     }
 
@@ -163,7 +192,8 @@ public sealed record LobbyMember(Guid SessionId, Guid? PlayerId, string DisplayN
         ContractGuard.Id(SessionId); IdentityKey.ToString();
         if (DisplayName is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(DisplayName)
             || DisplayName.Any(ch => ch < 32 || ch > 126)) throw new ArgumentException("Invalid lobby member.");
-        if (!Enum.IsDefined(Hunter) || Hunter > Hunter.Guardian || Team > 1) throw new ArgumentException("Invalid lobby member.");
+        if (!Enum.IsDefined(Hunter) || Hunter > Hunter.Guardian
+            || Team >= MphRead.MatchRules.MaximumTeamCount) throw new ArgumentException("Invalid lobby member.");
     }
 }
 public sealed record LobbyChatEntry(long Sequence, Guid SessionId, string DisplayName, string Text);
@@ -182,7 +212,8 @@ public sealed record LobbySnapshot(Guid LobbyId, string Name, LobbyVisibility Vi
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat, DuelQueuePolicy DuelQueuePolicy = DuelQueuePolicy.Fifo,
     LobbyWaitlistSnapshot? Waitlist = null, int? PointGoal = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MapRequirement? RequiredMap = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MapRequirement? RequiredMap = null,
+    MatchLifecycleEpoch LifecycleEpoch = default);
 public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase, int Players, int PlayerLimit, int Observers, long Revision,
     int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
     int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
@@ -218,6 +249,10 @@ public sealed record NodeCatalogPage(long Revision, int Page, int PageCount, int
     string CatalogHash, ImmutableArray<ContentIdentity> Entries);
 public sealed record NodePong(long ServerUnixMilliseconds);
 public sealed record NodeControlError(string Code, string Message);
+/// <summary>The ordered control lane overflowed; reconnect and rebuild state
+/// from the authoritative session projection before issuing more commands.</summary>
+public sealed record NodeControlDeliveryOverflow(string Code = "delivery_overflow",
+    bool ResumeRequired = true);
 public sealed record LobbyLeft(Guid LobbyId);
 
 public abstract record NodeCommand;
@@ -285,16 +320,17 @@ public sealed record LobbyRematch(long ExpectedRevision) : NodeCommand;
 public sealed record LobbyReturn(long ExpectedRevision) : NodeCommand;
 [method: JsonConstructor]
 public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Host, ushort Port, string Ticket, ulong Nonce, bool Observer, Hunter Hunter,
-    Guid AdmissionId = default, string AdmissionKey = "", bool UdpAuthenticationEnabled = true)
+    Guid AdmissionId = default, string AdmissionKey = "", bool UdpAuthenticationEnabled = true,
+    HandoffGeneration HandoffGeneration = default, MatchLifecycleEpoch LifecycleEpoch = default)
 {
     // Source-level legacy/test handoffs are explicitly keyless. Production
     // Node code uses the full constructor and therefore keeps authentication
     // enabled by default; this overload prevents an omitted mode from being
     // mistaken for an authenticated handoff with missing key material.
-    public NodeMatchHandoff(Guid matchId, uint wireMatchId, string host, ushort port,
+        public NodeMatchHandoff(Guid matchId, uint wireMatchId, string host, ushort port,
         string ticket, ulong nonce, bool observer, Hunter hunter)
         : this(matchId, wireMatchId, host, port, ticket, nonce, observer, hunter,
-            Guid.Empty, "", false) { }
+            Guid.Empty, "", false, HandoffGeneration.Initial, MatchLifecycleEpoch.Initial) { }
 
     public void Validate()
     {
@@ -305,14 +341,24 @@ public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Hos
             || !UdpAuthenticationEnabled && AdmissionId != Guid.Empty)
             throw new ArgumentException("Invalid match handoff.");
         if (AdmissionId != Guid.Empty) AdmissionKeyRules.Validate(AdmissionKey);
+        if (HandoffGeneration.Value != 0) HandoffGeneration.Validate();
+        if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
+    }
+
+    /// <summary>Strict production validation used by Node-created handoffs.</summary>
+    public void ValidateProduction()
+    {
+        Validate();
+        HandoffGeneration.Validate();
+        LifecycleEpoch.Validate();
     }
 
     // AdmissionKey is intentionally omitted from diagnostics and exception text.
     public override string ToString()
         => $"NodeMatchHandoff {{ MatchId = {MatchId}, WireMatchId = {WireMatchId}, AdmissionId = {AdmissionId}, Observer = {Observer} }}";
 }
-public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted);
+public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted, MatchLifecycleEpoch LifecycleEpoch = default);
 /// <summary>Authenticated immutable Worker result relayed by Node without recalculation.</summary>
-public sealed record NodeMatchCompletion(MatchCompletionSummary Summary);
+public sealed record NodeMatchCompletion(MatchCompletionSummary Summary, MatchLifecycleEpoch LifecycleEpoch = default);
 public sealed record NodeMatchRejoin(Guid MatchId) : NodeCommand;
 public sealed record NodeControlRequest(Guid RequestId, NodeCommand Command);

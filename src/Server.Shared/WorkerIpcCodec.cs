@@ -45,7 +45,13 @@ public static class WorkerIpcCodec
         // Append-only: never insert a new Worker IPC type before an existing one.
         typeof(InstallAdmissionKey),
         typeof(AdmissionKeyInstalled),
-        typeof(AdmissionKeyInstallFailed)
+        typeof(AdmissionKeyInstallFailed),
+        typeof(MatchCancelAccepted),
+        typeof(MatchCancelRejected),
+        typeof(RetireAdmission),
+        typeof(AdmissionRetired),
+        typeof(AdmissionRetireFailed),
+        typeof(NodeSigningKeyUpdated)
     ];
 
     public static byte[] Encode(WorkerMessage message)
@@ -183,7 +189,7 @@ public static class WorkerIpcCodec
             case MatchReady m:
                 if (m.Placement is null) throw new ArgumentException("Missing placement.");
                 m.Placement.Validate(); break;
-            case CancelMatch m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 1024); break;
+            case CancelMatch m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.OperationId, 128); ContractGuard.Text(m.Reason, 1024); break;
             case Drain m: ContractGuard.Text(m.Reason, 1024); break;
             case Shutdown m: ContractGuard.Text(m.Reason, 1024); break;
             case MatchAdminResult m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Defined(m.Action);
@@ -201,6 +207,7 @@ public static class WorkerIpcCodec
                 ValidateAdmissionKeyBinding(m.AdmissionId, m.TicketId, m.NodeSessionId, m.NodeId, m.NodeIncarnation,
                     m.MatchId, m.WireMatchId, m.WorkerId, m.WorkerIncarnation, m.SeatId, m.JoinNonce, m.ExpiresAt);
                 AdmissionKeyRules.Validate(m.AdmissionKey);
+                m.HandoffGeneration.Validate();
                 break;
             case MatchStarted m: ContractGuard.Id(m.MatchId.Value); break;
             case MatchCompleted m: if (m.Summary is null) throw new ArgumentException("Missing completion summary."); m.Summary.Validate(); break;
@@ -209,13 +216,39 @@ public static class WorkerIpcCodec
             case MatchReportReady m: m.Validate(); break;
             case WorkerDraining m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); break;
             case WorkerFault m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); ContractGuard.Text(m.Reason, 1024); break;
+            case NodeSigningKeyUpdated m:
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                ContractGuard.Text(m.KeyId, 128); break;
             case AdmissionKeyInstalled m:
                 ValidateAdmissionKeyBinding(m.AdmissionId, m.TicketId, m.NodeSessionId, m.NodeId, m.NodeIncarnation,
                     m.MatchId, m.WireMatchId, m.WorkerId, m.WorkerIncarnation, m.SeatId, m.JoinNonce, m.ExpiresAt);
+                m.HandoffGeneration.Validate();
                 break;
             case AdmissionKeyInstallFailed m:
                 ContractGuard.Id(m.AdmissionId); ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 256);
                 break;
+            case MatchCancelAccepted m:
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.OperationId, 128); break;
+            case MatchCancelRejected m:
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.OperationId, 128);
+                ContractGuard.Text(m.Reason, 256); break;
+            case RetireAdmission m:
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Id(m.NodeSessionId); ContractGuard.Id(m.AdmissionId);
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                if (m.SeatId >= MultiplayerLimits.MaxHumanConnections) throw new ArgumentException("Invalid admission seat.");
+                m.HandoffGeneration.Validate(); break;
+            case AdmissionRetired m:
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Id(m.AdmissionId);
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                if (m.SeatId >= MultiplayerLimits.MaxHumanConnections) throw new ArgumentException("Invalid admission seat.");
+                m.HandoffGeneration.Validate(); break;
+            case AdmissionRetireFailed m:
+                ContractGuard.Id(m.MatchId.Value); ContractGuard.Id(m.AdmissionId);
+                ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation);
+                if (m.SeatId >= MultiplayerLimits.MaxHumanConnections) throw new ArgumentException("Invalid admission seat.");
+                m.HandoffGeneration.Validate(); ContractGuard.Text(m.Reason, 256); break;
             default: throw new ArgumentException("Unknown message.");
         }
     }
@@ -255,6 +288,12 @@ public static class WorkerIpcCodec
 [JsonSerializable(typeof(WorkerFault))]
 [JsonSerializable(typeof(AdmissionKeyInstalled))]
 [JsonSerializable(typeof(AdmissionKeyInstallFailed))]
+[JsonSerializable(typeof(MatchCancelAccepted))]
+[JsonSerializable(typeof(MatchCancelRejected))]
+[JsonSerializable(typeof(RetireAdmission))]
+[JsonSerializable(typeof(AdmissionRetired))]
+[JsonSerializable(typeof(AdmissionRetireFailed))]
+[JsonSerializable(typeof(NodeSigningKeyUpdated))]
 [JsonSerializable(typeof(MatchAdminResult))]
 [JsonSerializable(typeof(NodeMatchSummary))]
 internal partial class WorkerJsonContext : JsonSerializerContext;

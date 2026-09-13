@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Sound;
@@ -75,7 +76,7 @@ namespace MphRead
             _match.RadarPlayers = false;
             int playersAlive = 0;
             int botsAlive = 0;
-            bool[] teamsAlive = new bool[2];
+            bool[] teamsAlive = new bool[_match.Rules.TeamCount];
             for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
             {
                 PlayerEntity player = _scene.Players[i];
@@ -93,13 +94,14 @@ namespace MphRead
                     }
                     if (_match.Rules.Teams)
                     {
-                        Debug.Assert(player.TeamIndex == 0 || player.TeamIndex == 1);
+                        Debug.Assert(player.TeamIndex >= 0
+                            && player.TeamIndex < _match.Rules.TeamCount);
                         teamsAlive[player.TeamIndex] = true;
                     }
                 }
             }
             if ((!_scene.IsHeadless && playersAlive == 0) || playersAlive + botsAlive < 2
-                || _match.Rules.Teams && (!teamsAlive[0] || !teamsAlive[1]))
+                || _match.Rules.Teams && teamsAlive.Count(alive => alive) < 2)
             {
                 _match.PendingEndReason = MatchEndReason.Survival;
                 _match.MatchTime = 0;
@@ -272,7 +274,7 @@ namespace MphRead
             if (_match.Rules.Teams)
             {
                 int a = 0;
-                for (int t = 0; t < 2; t++)
+                for (int t = 0; t < _match.Rules.TeamCount; t++)
                 {
                     for (int p = 0; p < PlayerEntity.SlotCapacity; p++)
                     {
@@ -310,9 +312,13 @@ namespace MphRead
                     int nextSlot = _match.ResultSlots[nextIndex];
                     int teamIndex = players[slot].TeamIndex;
                     int nextTeamIndex = players[nextSlot].TeamIndex;
-                    // the game passes team_ids[wslot/nslot] instead of the player fields to CompareTeams
-                    if (_match.Rules.Teams && teamIndex != nextTeamIndex && CompareTeams(teamIndex, nextTeamIndex) < 0
-                        || ComparePlayers(slot, nextSlot) < 0)
+                    // Team score owns ordering across teams. Player score is
+                    // only a deterministic ordering within the same team; it
+                    // must never pull a losing team ahead of a winning team.
+                    int comparison = _match.Rules.Teams && teamIndex != nextTeamIndex
+                        ? CompareTeams(teamIndex, nextTeamIndex)
+                        : ComparePlayers(slot, nextSlot);
+                    if (comparison < 0)
                     {
                         _match.ResultSlots[index] = nextSlot;
                         _match.ResultSlots[nextIndex] = slot;
@@ -321,41 +327,29 @@ namespace MphRead
             }
             if (_match.Rules.Teams)
             {
-                int v47 = 0;
-                int v48 = CompareTeams(0, 1);
-                int[] v57 = new int[2];
-                if (v48 <= 0)
+                int[] teamRanks = new int[_match.Rules.TeamCount];
+                for (int team = 0; team < teamRanks.Length; team++)
                 {
-                    v57[0] = v48 != 0 ? 1 : 0;
-                    v57[1] = 0;
+                    int rank = 0;
+                    for (int other = 0; other < teamRanks.Length; other++)
+                    {
+                        if (other != team && CompareTeams(team, other) < 0)
+                            rank++;
+                    }
+                    teamRanks[team] = rank;
                 }
-                else
-                {
-                    v57[0] = 0;
-                    v57[1] = 1;
-                }
-                for (int i = 0; i < _match.ActivePlayers - 1; i++)
+
+                for (int i = 0; i < _match.ActivePlayers; i++)
                 {
                     int slot = _match.ResultSlots[i];
-                    int nextSlot = _match.ResultSlots[i + 1];
                     int teamIndex = players[slot].TeamIndex;
-                    _match.Standings[slot] = v57[teamIndex];
-                    _match.TeamStandings[slot] = v47;
-                    if (teamIndex != players[nextSlot].TeamIndex)
-                    {
-                        if (ComparePlayers(slot, nextSlot) != 0)
-                        {
-                            v47++;
-                        }
-                    }
-                    else
-                    {
-                        v47 = 0;
-                    }
+                    // Both result fields carry the team result. This keeps all
+                    // teammates consistent for post-match outcome, reporting,
+                    // and rating validation while ResultSlots still preserves
+                    // each team's player display order.
+                    _match.Standings[slot] = teamRanks[teamIndex];
+                    _match.TeamStandings[slot] = teamRanks[teamIndex];
                 }
-                int index = _match.ActivePlayers - 1;
-                _match.Standings[index] = v57[players[_match.ResultSlots[index]].TeamIndex];
-                _match.TeamStandings[index] = v47;
             }
             else
             {
