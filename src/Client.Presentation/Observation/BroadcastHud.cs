@@ -129,18 +129,35 @@ public sealed class BroadcastHud
     internal void Draw(ScenePresentation presentation, in BroadcastHudModel model)
     {
         if (!model.Visible) return;
-        PlayerPresentation? hud = null;
-        foreach (PlayerEntity player in presentation.World.Players)
-        {
-            if (!player.LoadFlags.TestFlag(LoadFlags.Active)) continue;
-            hud = player.GetPresentation();
-            break;
-        }
+        PlayerPresentation? hud = SelectHud(presentation);
         if (hud == null) return;
         int height = model.Mode == BroadcastHudMode.Minimal ? 22 : 11 + model.Lines.Length * 9;
         presentation.DrawHudFlatBox(5, 4, 251, height, new Vector4(0, 0, 0, .7f));
         for (int index = 0; index < model.Lines.Length; index++)
             hud.DrawText2D(128, 8 + index * 9, Align.Center, 0, model.Lines[index],
                 maxLength: 48, scale: index == 0 ? .55f : .5f);
+    }
+
+    internal static PlayerPresentation? SelectHud(ScenePresentation presentation)
+    {
+        PlayerPresentation? hud = null;
+        if (presentation.World.LocalPlayer is { } localPlayer
+            && localPlayer.LoadFlags.TestFlag(LoadFlags.Active))
+        {
+            PlayerPresentation localHud = localPlayer.GetPresentation();
+            if (localHud.HudReady) hud = localHud;
+        }
+        if (hud == null)
+        {
+            foreach (PlayerEntity player in presentation.World.Players)
+            {
+                if (!player.LoadFlags.TestFlag(LoadFlags.Active)) continue;
+                PlayerPresentation playerHud = player.GetPresentation();
+                if (!playerHud.HudReady) continue;
+                hud = playerHud;
+                break;
+            }
+        }
+        return hud;
     }
 }

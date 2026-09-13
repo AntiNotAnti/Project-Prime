@@ -70,7 +70,7 @@ namespace MphRead.Mods.Network
                     // wearing the wrong character for the rest of the map, and
                     // ModSetHunter makes this converge on the next frame.
                     player.ModSetHunter(NetSession.SlotHunter[slot]);
-                    player.Initialize();
+                    scene.InitializeEntity(player);
                     Console.WriteLine($"[net] slot {slot} is playing {player.Hunter}");
                     NetLog.Event($"slot {slot} is playing {player.Hunter}");
                 }
@@ -83,7 +83,6 @@ namespace MphRead.Mods.Network
 
         private static void Activate(Scene scene, PlayerEntity player, int slot)
         {
-            _activated[slot] = true;
             // Whoever is arriving is not whoever left. Every per-slot record
             // the net code keeps -- reported positions and frame numbers,
             // spawn barriers, divergence and staleness counters, the damage
@@ -128,7 +127,8 @@ namespace MphRead.Mods.Network
             // threw the moment the match was actually simulated. Initialize()
             // rebuilds the models and equipment while preserving position,
             // facing and health.
-            player.Initialize();
+            scene.InitializeEntity(player);
+            _activated[slot] = true;
             scene.Players.ActiveCount = CountActive(scene);
             Console.WriteLine($"[net] slot {slot} activated "
                 + $"({scene.Roster.Nicknames[slot]}) -- {scene.Players.ActiveCount} player(s) in scene");
