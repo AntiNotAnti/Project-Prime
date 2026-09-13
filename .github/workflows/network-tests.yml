@@ -180,6 +180,68 @@ jobs:
           done < <(find tools/tests -maxdepth 1 -type f -name 'test_*.py' | sort)
       - name: build authoritative server and authoritative conformance harness
         run: dotnet build tools/nettest/nettest.csproj -c Release -o artifacts/nettest
+
+      # This is a scheduled/manual observation because it is deliberately
+      # separate from the correctness gates. The source metrics come from the
+      # existing nettest harness; the Python layer only records environment
+      # metadata and compares a committed JSON baseline report-only.
+      - name: performance baseline observation (advisory)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/perf
+          set +e
+          dotnet artifacts/nettest/nettest.dll \
+            --performance-baseline artifacts/perf/nettest.json \
+            > artifacts/perf/nettest.log 2>&1
+          nettest_status=$?
+          set -e
+          cat artifacts/perf/nettest.log
+          python3 - "$nettest_status" artifacts/perf/nettest.json <<'PY'
+          import json
+          import sys
+
+          status = int(sys.argv[1])
+          report_path = sys.argv[2]
+          expected_content_gaps = {
+              "SnapshotState.CaptureServerState",
+              "HistoricalCollisionQueryEngine.TryQuery",
+              "WorldStateCapture.Capture",
+          }
+          try:
+              with open(report_path, encoding="utf-8") as handle:
+                  report = json.load(handle)
+          except (OSError, json.JSONDecodeError) as error:
+              raise SystemExit(f"nettest performance report is unavailable: {error}")
+
+          scenarios = report.get("Scenarios")
+          if not isinstance(scenarios, list):
+              raise SystemExit("nettest performance report has no Scenarios array")
+          gap_names = {
+              scenario.get("Name") for scenario in scenarios
+              if isinstance(scenario, dict) and scenario.get("Status") == "gap"
+          }
+          unexpected = [
+              scenario.get("Name", "<unnamed>")
+              for scenario in scenarios
+              if not isinstance(scenario, dict) or scenario.get("Status") not in {"ok", "gap"}
+          ]
+          if unexpected or (status != 0 and gap_names != expected_content_gaps):
+              raise SystemExit(
+                  f"nettest performance failed: exit={status}, gaps={sorted(gap_names)}, "
+                  f"unexpected={unexpected}"
+              )
+          if status != 0:
+              print("accepted nettest content-free exit: expected content-backed gaps only")
+          PY
+          python3 tools/perf/compare-baseline.py collect \
+            --source nettest=artifacts/perf/nettest.json \
+            --output artifacts/perf/current.json
+          python3 tools/perf/compare-baseline.py compare \
+            --baseline tools/perf/baseline.json \
+            --current artifacts/perf/current.json \
+            --output artifacts/perf/comparison.json
+
       - name: multiplayer content audit malformed-input checks
         run: dotnet artifacts/nettest/nettest.dll --audit-multiplayer-self-test
       - name: mixed-combat reliable backpressure checks
@@ -218,4 +280,10 @@ jobs:
         with:
           name: network-baseline
           path: artifacts/network-baseline
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-performance-baseline
+          path: artifacts/perf
           if-no-files-found: ignore

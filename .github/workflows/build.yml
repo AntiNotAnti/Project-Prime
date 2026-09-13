@@ -62,7 +62,9 @@ jobs:
         run: tools/check-maps-shipped.sh
 
       - name: project boundaries and server dependency contract
-        run: python3 tools/check-project-boundaries.py
+        run: |
+          python3 tools/check-project-boundaries.py
+          python3 tools/check-client-presentation-targets.py
 
       - name: generated renderer shaders are fresh
         run: python3 tools/check-render-shaders.py
@@ -101,6 +103,27 @@ jobs:
             --filter "RequiresGameContent!=true"
           dotnet test tests/Renderer.Tests/Renderer.Tests.csproj -c Release \
             --filter "RequiresGameContent!=true"
+
+      # Keep analyzer/style diagnostics out of the repo-wide warnings-as-errors
+      # policy, but make the named production-project budget a real gate.
+      # Artifacts are uploaded below with always(), including failed builds.
+      - name: production warning budget
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/warnings
+          python3 tools/check-warning-budget.py collect \
+            --report artifacts/warnings/current.json
+          python3 tools/check-warning-budget.py check \
+            --baseline tools/warning-budget-baseline.json \
+            --current artifacts/warnings/current.json \
+            --output artifacts/warnings/comparison.json
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-warning-budget-${{ github.sha }}
+          path: artifacts/warnings
+          if-no-files-found: warn
 
   map-cook:
     name: cook maps once
@@ -239,6 +262,74 @@ jobs:
           name: ProjectPrime-${{ matrix.id }}
           path: publish/${{ matrix.id }}
           if-no-files-found: error
+
+  # Execute the published desktop client on native runners. This is deliberately
+  # separate from the cross-RID package job: SDL video/GPU lifetime and the
+  # hidden-window smoke need the target operating system's native loader.
+  native-runtime-smoke:
+    name: native runtime smoke (${{ matrix.id }})
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
+    needs: heavy
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: linux-x64
+            runner: ubuntu-latest
+          - id: win-x64
+            runner: windows-latest
+          - id: osx-arm64
+            runner: macos-15
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: ProjectPrime-${{ matrix.id }}
+          path: publish/${{ matrix.id }}
+
+      - name: install Linux software graphics dependencies
+        if: matrix.id == 'linux-x64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb mesa-vulkan-drivers
+
+      - name: run Linux SDL/GPU smoke
+        if: matrix.id == 'linux-x64'
+        shell: bash
+        run: |
+          set +e
+          chmod +x publish/linux-x64/ProjectPrime
+          timeout 90s xvfb-run -a env SDL_VIDEODRIVER=x11 LIBGL_ALWAYS_SOFTWARE=1 \
+            publish/linux-x64/ProjectPrime --runtime-smoke --runtime-smoke-frames 1 \
+            > native-smoke.log 2>&1
+          status=$?
+          cat native-smoke.log
+          test "$status" -eq 0
+
+      - name: run Windows SDL/GPU smoke
+        if: matrix.id == 'win-x64'
+        shell: pwsh
+        run: |
+          & "${{ github.workspace }}\publish\win-x64\ProjectPrime.exe" --runtime-smoke --runtime-smoke-frames 1 *> native-smoke.log
+          $status = $LASTEXITCODE
+          Get-Content native-smoke.log
+          if ($status -ne 0) { exit $status }
+
+      - name: run macOS SDL/GPU smoke
+        if: matrix.id == 'osx-arm64'
+        shell: bash
+        run: |
+          set -o pipefail
+          chmod +x publish/osx-arm64/ProjectPrime
+          publish/osx-arm64/ProjectPrime --runtime-smoke --runtime-smoke-frames 1 \
+            2>&1 | tee native-smoke.log
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: ProjectPrime-native-runtime-smoke-${{ matrix.id }}
+          path: native-smoke.log
+          if-no-files-found: warn
 
   # The Android head, and the APK a phone can install.
   #

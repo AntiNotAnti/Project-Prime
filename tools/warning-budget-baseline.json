@@ -1,0 +1,140 @@
+{
+  "schemaVersion": 1,
+  "kind": "ProjectPrime.WarningBudgetBaseline",
+  "policy": {
+    "newWarning": "reject",
+    "countIncrease": "reject",
+    "warningsAsErrors": false
+  },
+  "capture": {
+    "configuration": "Release",
+    "compile": "dotnet build --no-incremental",
+    "note": "Initial observed budget; warning reductions are allowed, increases require a focused review."
+  },
+  "projects": {
+    "Backend": {
+      "path": "src/Backend/Backend.csproj",
+      "warningCount": 14,
+      "warnings": {
+        "CA1068": 2,
+        "CA1512": 1,
+        "CA1861": 7,
+        "CA1873": 4
+      }
+    },
+    "Client": {
+      "path": "src/Client/Client.csproj",
+      "warningCount": 10,
+      "warnings": {
+        "CA1068": 1,
+        "CA1510": 2,
+        "CA1513": 1,
+        "CA1861": 1,
+        "CA1869": 1,
+        "CA2012": 1,
+        "CA2101": 2,
+        "CA2263": 1
+      }
+    },
+    "Client.Core": {
+      "path": "src/Client.Core/Client.Core.csproj",
+      "warningCount": 5,
+      "warnings": {
+        "CA1068": 2,
+        "CA1510": 2,
+        "CA1861": 1
+      }
+    },
+    "Client.Presentation": {
+      "path": "src/Client.Presentation/Client.Presentation.csproj",
+      "warningCount": 70,
+      "warnings": {
+        "CA1068": 10,
+        "CA1510": 14,
+        "CA1512": 3,
+        "CA1847": 1,
+        "CA1861": 41,
+        "CA2263": 1
+      }
+    },
+    "Game": {
+      "path": "src/Game/Game.csproj",
+      "warningCount": 41,
+      "warnings": {
+        "CA1069": 1,
+        "CA1510": 3,
+        "CA1512": 8,
+        "CA1816": 1,
+        "CA1832": 1,
+        "CA1861": 1,
+        "CA1866": 2,
+        "CA2263": 24
+      }
+    },
+    "MapPlatform": {
+      "path": "src/MapPlatform/MapPlatform.csproj",
+      "warningCount": 9,
+      "warnings": {
+        "CA1068": 2,
+        "CA1512": 1,
+        "CA1861": 2,
+        "CA1864": 1,
+        "CA1866": 1,
+        "CA2263": 2
+      }
+    },
+    "Renderer": {
+      "path": "src/Renderer/Renderer.csproj",
+      "warningCount": 130,
+      "warnings": {
+        "CA1510": 49,
+        "CA1512": 76,
+        "CA1513": 1,
+        "CA1861": 4
+      }
+    },
+    "Server.Node": {
+      "path": "src/Server.Node/Server.Node.csproj",
+      "warningCount": 15,
+      "warnings": {
+        "CA1510": 2,
+        "CA1865": 1,
+        "CA1873": 8,
+        "CA2012": 3,
+        "CA2101": 1
+      }
+    },
+    "Server.Shared": {
+      "path": "src/Server.Shared/Server.Shared.csproj",
+      "warningCount": 2,
+      "warnings": {
+        "CA1510": 1,
+        "CA2249": 1
+      }
+    },
+    "Server.Worker": {
+      "path": "src/Server.Worker/Server.Worker.csproj",
+      "warningCount": 13,
+      "warnings": {
+        "CA1510": 1,
+        "CA1512": 10,
+        "CA2101": 1,
+        "CA2219": 1
+      }
+    }
+  },
+  "intentionalSuppressions": [
+    {
+      "project": "Protocol.Generator",
+      "codes": ["RS1032", "RS2008"],
+      "source": "src/Protocol.Generator/Protocol.Generator.csproj",
+      "reason": "Roslyn analyzer implementation rules are intentionally suppressed for the generator project."
+    },
+    {
+      "project": "Android",
+      "codes": ["XA0141"],
+      "source": "src/Android/Android.csproj",
+      "reason": "Existing Android packaging warning suppression; Android is outside the desktop warning budget."
+    }
+  ]
+}

@@ -1,0 +1,293 @@
+{
+  "environment": {
+    "architecture": "arm64",
+    "ci": false,
+    "dotnet": "10.0.400",
+    "gitCommit": "1216c20f98fc2b7950d79b2b22780e08162c4edb",
+    "gitDirty": true,
+    "os": "Darwin",
+    "osVersion": "Darwin Kernel Version 25.6.0: Sat Jul 11 15:27:27 PDT 2026; root:xnu-12377.161.13~4/RELEASE_ARM64_T6041",
+    "processorCount": 12,
+    "python": "3.14.7"
+  },
+  "capture": {
+    "command": "dotnet nettest.dll --performance-baseline OUTPUT_JSON",
+    "source": "tools/nettest/PerformanceBaselineCheck.cs",
+    "contentMode": "content-free",
+    "measuredScenarioCount": 12,
+    "expectedContentGapScenarioCount": 3,
+    "repeatRuns": 3,
+    "maxNanosecondsPerOperationSpreadPercent": 11.56,
+    "stabilityNote": "All measured scenarios completed across three runs on the same .NET/macOS/Arm64 environment; one NetClient.CombatReceiveQueue timing outlier exceeded 10%, so this baseline remains report-only."
+  },
+  "generatedUtc": "2026-09-12T23:29:12Z",
+  "kind": "ProjectPrime.PerformanceBaseline",
+  "metrics": {
+    "nettest.DynamicCollisionHistory.Record.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.DynamicCollisionHistory.Record.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 114.01605033874512
+    },
+    "nettest.DynamicCollisionHistory.Record.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 143.8828125
+    },
+    "nettest.DynamicCollisionHistory.Record.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 604.8125
+    },
+    "nettest.DynamicCollisionHistory.Record.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 254.5546875
+    },
+    "nettest.LagCompensationHistory.TryGet.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.LagCompensationHistory.TryGet.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 10.378107070922852
+    },
+    "nettest.LagCompensationHistory.TryGet.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 11.0625
+    },
+    "nettest.LagCompensationHistory.TryGet.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 62.828125
+    },
+    "nettest.LagCompensationHistory.TryGet.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 13.34375
+    },
+    "nettest.LagCompensationPolicy.ResolveTick.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.LagCompensationPolicy.ResolveTick.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 15.890859603881836
+    },
+    "nettest.LagCompensationPolicy.ResolveTick.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 16.6015625
+    },
+    "nettest.LagCompensationPolicy.ResolveTick.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 94.7265625
+    },
+    "nettest.LagCompensationPolicy.ResolveTick.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 19.53125
+    },
+    "nettest.MatchDatagramTransport.EnqueueFlush.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.MatchDatagramTransport.EnqueueFlush.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 431.1662845611572
+    },
+    "nettest.MatchDatagramTransport.EnqueueFlush.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 510.4140625
+    },
+    "nettest.MatchDatagramTransport.EnqueueFlush.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1204.1015625
+    },
+    "nettest.MatchDatagramTransport.EnqueueFlush.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 725.9140625
+    },
+    "nettest.NetClient.CombatReceiveQueue.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 176
+    },
+    "nettest.NetClient.CombatReceiveQueue.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 613.582218170166
+    },
+    "nettest.NetClient.CombatReceiveQueue.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1391.9296875
+    },
+    "nettest.NetClient.CombatReceiveQueue.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 2187.8203125
+    },
+    "nettest.NetClient.CombatReceiveQueue.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1557.2890625
+    },
+    "nettest.NetClient.EventReceiveQueue.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 392
+    },
+    "nettest.NetClient.EventReceiveQueue.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 638.1008739471436
+    },
+    "nettest.NetClient.EventReceiveQueue.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 2010.09375
+    },
+    "nettest.NetClient.EventReceiveQueue.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 2927.40625
+    },
+    "nettest.NetClient.EventReceiveQueue.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 2227.21875
+    },
+    "nettest.ReliableChannel.TryEnqueue.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 32
+    },
+    "nettest.ReliableChannel.TryEnqueue.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 414.2828617095947
+    },
+    "nettest.ReliableChannel.TryEnqueue.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1088.2109375
+    },
+    "nettest.ReliableChannel.TryEnqueue.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1571.609375
+    },
+    "nettest.ReliableChannel.TryEnqueue.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 1204.75
+    },
+    "nettest.ReliableChannel.TryGetDue.MarkSent.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.ReliableChannel.TryGetDue.MarkSent.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 107.8513011932373
+    },
+    "nettest.ReliableChannel.TryGetDue.MarkSent.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 125.328125
+    },
+    "nettest.ReliableChannel.TryGetDue.MarkSent.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 447.59375
+    },
+    "nettest.ReliableChannel.TryGetDue.MarkSent.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 186.8515625
+    },
+    "nettest.ReliableEventPacket.Encode.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.ReliableEventPacket.Encode.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 10.595100402832031
+    },
+    "nettest.ReliableEventPacket.Encode.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 11.0703125
+    },
+    "nettest.ReliableEventPacket.Encode.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 70.640625
+    },
+    "nettest.ReliableEventPacket.Encode.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 13.34375
+    },
+    "nettest.ServerCombat.CaptureShot.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.ServerCombat.CaptureShot.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 103.92312622070312
+    },
+    "nettest.ServerCombat.CaptureShot.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 109.046875
+    },
+    "nettest.ServerCombat.CaptureShot.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 416.015625
+    },
+    "nettest.ServerCombat.CaptureShot.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 157.2265625
+    },
+    "nettest.ServerInputStream.ReceiveTake.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.ServerInputStream.ReceiveTake.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 88.08279991149902
+    },
+    "nettest.ServerInputStream.ReceiveTake.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 108.71875
+    },
+    "nettest.ServerInputStream.ReceiveTake.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 360.3515625
+    },
+    "nettest.ServerInputStream.ReceiveTake.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 154.625
+    },
+    "nettest.SnapshotPacket.Write.AllocatedBytesPerOperation": {
+      "direction": "lower-is-better",
+      "value": 0
+    },
+    "nettest.SnapshotPacket.Write.NanosecondsPerOperation": {
+      "direction": "lower-is-better",
+      "value": 10.938413619995117
+    },
+    "nettest.SnapshotPacket.Write.P95Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 2.28125
+    },
+    "nettest.SnapshotPacket.Write.P999Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 50.125
+    },
+    "nettest.SnapshotPacket.Write.P99Nanoseconds": {
+      "direction": "lower-is-better",
+      "value": 38.734375
+    }
+  },
+  "policy": {
+    "advisoryPercent": 10.0,
+    "defaultDirection": "lower-is-better",
+    "failureCandidatePercent": 20.0,
+    "reportOnly": true
+  },
+  "schemaVersion": 1,
+  "sources": {
+    "nettest": {
+      "contentMode": "content-free",
+      "generatedUtc": "2026-09-12T23:26:55.781271+00:00",
+      "kind": "ProjectPrime.ContentFreePerformanceBaseline",
+      "metricCount": 60,
+      "path": "tools/nettest/PerformanceBaselineCheck.cs",
+      "runtime": {
+        "Framework": ".NET 10.0.11",
+        "Is64BitProcess": true,
+        "OperatingSystem": "macOS 26.6.1",
+        "ProcessArchitecture": "Arm64",
+        "ProcessorCount": 12,
+        "RuntimeVersion": "10.0.11",
+        "StopwatchFrequency": 1000000000
+      },
+      "schemaVersion": 1
+    }
+  }
+}
