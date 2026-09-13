@@ -1153,6 +1153,18 @@ namespace MphRead.Mods.Network
 
         private int Report()
         {
+            if (_renderProbe)
+            {
+                Console.WriteLine($"RENDERSWEEP {_room} | {_spawnSpots.Count} spawn point(s) "
+                    + $"| {_spawnFailures} drew nothing");
+                if (_spawnFailures > 0)
+                {
+                    Console.WriteLine($"MAPFAIL {_room} | {_spawnFailures} of {_spawnSpots.Count} "
+                        + "spawn point(s) end in a frame with no room in it");
+                }
+                return _spawnFailures;
+            }
+
             int spawnPoints = 0, jumpPads = 0, teleporters = 0, doors = 0, forceFields = 0;
             int itemSpawns = 0, items = 0, platforms = 0, morphCameras = 0, flagBases = 0;
             int nodeDefenses = 0, artifacts = 0, triggers = 0, areaVolumes = 0;
@@ -1262,18 +1274,6 @@ namespace MphRead.Mods.Network
                 Console.WriteLine($"FRAMETIMING {_room} | {DrawRate} draws per step"
                     + $" | {_frame} steps, {Scene.FrameCount} counted"
                     + $" | draws advancing the game: {_drawAdvancedTheGame}");
-            }
-
-            if (_renderProbe)
-            {
-                Console.WriteLine($"RENDERSWEEP {_room} | {_spawnSpots.Count} spawn point(s) "
-                    + $"| {_spawnFailures} drew nothing");
-                if (_spawnFailures > 0)
-                {
-                    Console.WriteLine($"MAPFAIL {_room} | {_spawnFailures} of {_spawnSpots.Count} "
-                        + "spawn point(s) end in a frame with no room in it");
-                }
-                return _spawnFailures;
             }
 
             var problems = new List<string>();

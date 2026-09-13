@@ -248,6 +248,54 @@ public sealed class NodeControlClientTests
         client.MarkGameplayJoined(second.MatchId);
         Assert.False(client.ShouldReturnFromGameplay);
     }
+
+    [Fact]
+    public async Task NextLifecycleSnapshotRetiresCompletedHandoffBeforeReplacementArrives()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid(), firstMatch = Guid.NewGuid(), nextMatch = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, Guid.NewGuid(), "Hunter",
+            nodeId, new string('a', 43));
+        var firstLobby = new LobbySnapshot(lobbyId, "Room", LobbyVisibility.Public,
+            sessionId, LobbyPhase.InMatch, 2, 8, 16,
+            [new LobbyMember(sessionId, session.PlayerId, "Hunter", Hunter.Samus,
+                0, false, false)], [], CurrentMatchId: firstMatch,
+            LifecycleEpoch: new MatchLifecycleEpoch(2));
+        var firstHandoff = new NodeMatchHandoff(firstMatch, 1, "127.0.0.1", 5000,
+            "ticket", 1, false, Hunter.Samus) with
+        { LifecycleEpoch = new MatchLifecycleEpoch(2) };
+
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, firstLobby));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null, firstHandoff));
+        client.MarkGameplayJoined(firstMatch);
+        client.ApplyEvent(NodeControlCodec.Write("match.ended", 4, null,
+            new NodeMatchEnded(firstMatch, false, new MatchLifecycleEpoch(2))));
+
+        var nextLobby = firstLobby with
+        {
+            Phase = LobbyPhase.StartingMatch,
+            Revision = 3,
+            CurrentMatchId = nextMatch,
+            LifecycleEpoch = new MatchLifecycleEpoch(3)
+        };
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 5, null, nextLobby));
+
+        Assert.Null(client.Handoff);
+        var nextHandoff = firstHandoff with
+        {
+            MatchId = nextMatch,
+            WireMatchId = 2,
+            Nonce = 2,
+            LifecycleEpoch = new MatchLifecycleEpoch(3)
+        };
+        Exception? error = Record.Exception(() => client.ApplyEvent(
+            NodeControlCodec.Write("match.handoff", 6, null, nextHandoff)));
+        Assert.Null(error);
+        Assert.Equal(nextHandoff, client.Handoff);
+        Assert.Equal(sessionId, client.Session!.SessionId);
+    }
     [Fact]
     public async Task StaleLobbyCannotOverwriteCurrentRevisionAndSubscriberFailureDoesNotBreakControl()
     {

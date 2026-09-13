@@ -361,13 +361,30 @@ public sealed class NodeControlClient : IAsyncDisposable
                     throw new JsonException("Invalid lobby snapshot.");
                 if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
                 if (IsOlderEpoch(State.LifecycleEpoch, lobby.LifecycleEpoch)) break;
-                Publish(state => ClearOpenMatch(state.Lobby?.LobbyId == lobby.LobbyId
-                    ? state with { Lobby = lobby, LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId,
-                        LifecycleEpoch = AdvanceEpoch(state.LifecycleEpoch, lobby.LifecycleEpoch) }
-                    : state with { Lobby = lobby, Round = null, Handoff = null, MatchEnded = false,
-                        LastLobbyMatchId = lobby.CurrentMatchId, TransitionVote = null,
-                        ExpectedTransition = null, ExpectedTransitionEnded = false,
-                        LifecycleEpoch = lobby.LifecycleEpoch, HandoffGeneration = default })); break;
+                Publish(state =>
+                {
+                    if (state.Lobby?.LobbyId != lobby.LobbyId)
+                        return ClearOpenMatch(state with { Lobby = lobby, Round = null,
+                            Handoff = null, MatchEnded = false,
+                            LastLobbyMatchId = lobby.CurrentMatchId, TransitionVote = null,
+                            ExpectedTransition = null, ExpectedTransitionEnded = false,
+                            LifecycleEpoch = lobby.LifecycleEpoch,
+                            HandoffGeneration = default });
+
+                    ViewState updated = state with
+                    {
+                        Lobby = lobby,
+                        LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId
+                    };
+                    // A StartingMatch snapshot can win the delivery race with
+                    // its ordered handoff. Advancing the epoch must retire the
+                    // completed match's credential before that fresh handoff is
+                    // validated, otherwise two different MatchIds appear to
+                    // occupy one lifecycle and the client correctly disconnects.
+                    updated = AdvanceLifecycle(updated, lobby.LifecycleEpoch,
+                        lobby.CurrentMatchId ?? Guid.Empty);
+                    return ClearOpenMatch(updated);
+                }); break;
             case "lobby.round":
                 var round = value.Payload.Deserialize(NodeJsonContext.Default.NodeRoundSnapshot)
                     ?? throw new JsonException("Missing round snapshot.");
