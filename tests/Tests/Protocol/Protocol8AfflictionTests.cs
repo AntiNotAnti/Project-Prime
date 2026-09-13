@@ -15,7 +15,7 @@ namespace MphRead.Tests
             Slot = slot, Hunter = Hunter.Samus, Life = 1, ConnectionId = (ulong)slot + 100,
             Aim = Vector3.UnitZ, Facing = Vector3.UnitZ, Health = 99,
             Flags = SnapshotPlayerFlags.Burning | SnapshotPlayerFlags.Disrupted | SnapshotPlayerFlags.RadarReveal | SnapshotPlayerFlags.RadarRevealPrevious,
-            BurnTicks = 300, DisruptTicks = 180, Assists = 7
+            BurnTicks = 300, DisruptTicks = 180, Assists = 7, ChargeLevel = 51
         };
 
         [Fact]
@@ -23,17 +23,18 @@ namespace MphRead.Tests
         {
             byte[] bytes = new byte[SnapshotPlayer.Size];
             Player().Write(bytes);
-            Assert.Equal(96, bytes.Length);
+            Assert.Equal(98, bytes.Length);
             Assert.Equal(300, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(88)));
             Assert.Equal(180, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(90)));
             Assert.Equal(7, BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(92)));
+            Assert.Equal(51, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(96)));
             Assert.True(SnapshotPlayer.TryRead(bytes, out SnapshotPlayer parsed));
             Assert.Equal(300, parsed.BurnTicks);
             Assert.Equal(180, parsed.DisruptTicks);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
-            Assert.Equal(818, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(16, NetHeader.Version);
+            Assert.Equal(834, NetHeader.Size + SnapshotPacket.MaxSize);
+            Assert.Equal(17, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
@@ -42,7 +43,8 @@ namespace MphRead.Tests
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 12));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 13));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 15));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 16));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 16));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 17));
         }
 
         [Theory]

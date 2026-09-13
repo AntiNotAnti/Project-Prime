@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using MphRead.Entities;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 using Xunit;
@@ -16,7 +17,7 @@ namespace MphRead.Tests
             ConnectionId = 0xFEDCBA9876543200UL + slot,
             Position = new Vector3(1.5f, -2, 3), Speed = Vector3.UnitX / 8,
             Aim = -Vector3.UnitZ, Facing = Vector3.UnitX, AvailableWeapons = 3,
-            Points = -1, Kills = 4, Deaths = 5
+            Points = -1, Kills = 4, Deaths = 5, ChargeLevel = 73
         };
 
         [Fact]
@@ -55,6 +56,47 @@ namespace MphRead.Tests
             BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4),
                 (ushort)((ushort)player.Flags | 0x8000));
             Assert.False(SnapshotPlayer.TryRead(bytes, out _));
+        }
+
+        [Fact]
+        public void Protocol16ReplaySnapshotDefaultsMissingChargeLevelToZero()
+        {
+            SnapshotPlayer player = Player(3);
+            var packet = new SnapshotPacket(41, 7, 9, 2, true, 11, 13);
+            byte[] current = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
+            packet.Write(current, new[] { player });
+            byte[] historical = new byte[SnapshotPacket.HeaderSize + 96];
+            current.AsSpan(0, SnapshotPacket.HeaderSize).CopyTo(historical);
+            current.AsSpan(SnapshotPacket.HeaderSize, 96)
+                .CopyTo(historical.AsSpan(SnapshotPacket.HeaderSize));
+            var decoded = new SnapshotPlayer[8];
+
+            Assert.True(Protocol16ReplayCodec.TryReadSnapshot(historical,
+                decoded, out SnapshotPacket parsed, out int count));
+            Assert.Equal(packet, parsed);
+            Assert.Equal(1, count);
+            Assert.Equal(player.Points, decoded[0].Points);
+            Assert.Equal((ushort)0, decoded[0].ChargeLevel);
+        }
+
+        [Theory]
+        [InlineData(19, false)]
+        [InlineData(20, true)]
+        [InlineData(21, true)]
+        [InlineData(59, true)]
+        [InlineData(60, false)]
+        public void RemoteChargeEffectStartsEvenWhenSnapshotSkipsExactThreshold(
+            int chargeLevel, bool expected)
+        {
+            Assert.Equal(expected, PlayerEntity.ShouldStartChargeEffect(
+                chargeLevel, minCharge: 20, fullCharge: 60,
+                hasEffect: false, fullChargeEffect: false));
+            Assert.False(PlayerEntity.ShouldStartChargeEffect(chargeLevel,
+                minCharge: 20, fullCharge: 60,
+                hasEffect: true, fullChargeEffect: false));
+            Assert.False(PlayerEntity.ShouldStartChargeEffect(chargeLevel,
+                minCharge: 20, fullCharge: 60,
+                hasEffect: false, fullChargeEffect: true));
         }
 
         [Fact]

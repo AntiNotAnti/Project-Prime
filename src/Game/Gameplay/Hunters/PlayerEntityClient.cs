@@ -175,6 +175,11 @@ namespace MphRead.Entities
             }
             _ammo[UA] = state.AmmoUa;
             _ammo[Missiles] = state.AmmoMissiles;
+            if (!predicted)
+            {
+                int fullCharge = SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge);
+                EquipInfo.ChargeLevel = (ushort)Math.Min(state.ChargeLevel, fullCharge);
+            }
             EquipInfo.Zoomed = (state.Flags & SnapshotPlayerFlags.Zoomed) != 0;
             bool alt = (state.Flags & SnapshotPlayerFlags.AltForm) != 0;
             if ((!predicted || newLife) && IsAltForm != alt) { ModForceForm(alt); }

@@ -28,7 +28,7 @@ namespace MphRead.Mods.Network
 
     public struct SnapshotPlayer
     {
-        public const int Size = 96;
+        public const int Size = 98;
         public byte Slot;
         public Hunter Hunter;
         public byte TeamIndex;
@@ -51,10 +51,16 @@ namespace MphRead.Mods.Network
         public ushort BurnTicks;
         public ushort DisruptTicks;
         public int Assists;
+        /// <summary>
+        /// Authoritative weapon charge in 60 Hz simulation ticks. Remote
+        /// presentation cannot reconstruct this from intermittent snapshots:
+        /// without it, every non-local gun remains visually uncharged.
+        /// </summary>
+        public ushort ChargeLevel;
 
         public readonly void Write(Span<byte> destination)
         {
-            if (destination.Length != Size) throw new ArgumentException("Snapshot player requires exactly 96 bytes.", nameof(destination));
+            if (destination.Length != Size) throw new ArgumentException("Snapshot player requires exactly 98 bytes.", nameof(destination));
             destination[0] = Slot;
             destination[1] = (byte)Hunter;
             destination[2] = TeamIndex;
@@ -77,6 +83,7 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(destination[88..], BurnTicks);
             BinaryPrimitives.WriteUInt16LittleEndian(destination[90..], DisruptTicks);
             BinaryPrimitives.WriteInt32LittleEndian(destination[92..], Assists);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[96..], ChargeLevel);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out SnapshotPlayer player)
@@ -127,7 +134,8 @@ namespace MphRead.Mods.Network
                 FrozenTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[86..]),
                 BurnTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[88..]),
                 DisruptTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[90..]),
-                Assists = BinaryPrimitives.ReadInt32LittleEndian(source[92..])
+                Assists = BinaryPrimitives.ReadInt32LittleEndian(source[92..]),
+                ChargeLevel = BinaryPrimitives.ReadUInt16LittleEndian(source[96..])
             };
             return true;
         }

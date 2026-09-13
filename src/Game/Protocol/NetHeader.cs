@@ -44,9 +44,10 @@ namespace MphRead.Mods.Network
         // Protocol 12 added the authoritative player input epoch to input
         // commands, protocol 13 added timing telemetry, protocol 14 added
         // authenticated established-connection datagrams, protocol 15 added
-        // explicit quantized radial movement axes, and protocol 16 adds the
-        // authoritative Spire alternate-form attack presentation state.
-        public const byte Version = 16;
+        // explicit quantized radial movement axes, protocol 16 adds the
+        // authoritative Spire alternate-form attack presentation state, and
+        // protocol 17 carries remote weapon charge presentation state.
+        public const byte Version = 17;
 
         public void Write(Span<byte> destination)
         {

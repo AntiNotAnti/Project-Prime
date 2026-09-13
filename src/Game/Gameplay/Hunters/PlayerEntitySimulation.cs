@@ -222,6 +222,7 @@ namespace MphRead.Entities
                 AmmoMissiles = (ushort)Math.Clamp(_ammo[Missiles], 0, UInt16.MaxValue),
                 AvailableWeapons = available, FrozenTicks = _frozenTimer,
                 BurnTicks = _burnTimer, DisruptTicks = _disruptedTimer, Assists = _scene.Match.Players[SlotIndex].Assists,
+                ChargeLevel = EquipInfo.ChargeLevel,
                 Points = _scene.Match.Players[SlotIndex].Points, Kills = _scene.Match.Players[SlotIndex].Kills,
                 Deaths = _scene.Match.Players[SlotIndex].Deaths
             };

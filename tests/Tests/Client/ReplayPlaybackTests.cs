@@ -61,6 +61,10 @@ namespace MphRead.Tests
         [InlineData(14, false)]
         [InlineData(14, true)]
         [InlineData(15, false)]
+        [InlineData(16, false)]
+        [InlineData(16, true)]
+        [InlineData(17, false)]
+        [InlineData(17, true)]
         public void JoinRoutingRevisionPreservesAuthoritativeReplayFacts(byte protocol, bool indexed)
         {
             string path = TemporaryFile();
@@ -69,7 +73,9 @@ namespace MphRead.Tests
                 using (var writer = new ReplayWriter(path, protocol, indexed))
                 {
                     writer.WriteRecord(0, Match(5));
-                    writer.WriteRecord(0, Snapshot(5, 7, 12));
+                    writer.WriteRecord(0, protocol >= 17
+                        ? Snapshot(5, 7, 12)
+                        : HistoricalProtocol16Snapshot(5, 7, 12));
                 }
                 using var reader = ReplayReader.Open(path)!;
                 Assert.Equal(indexed ? ReplayFile.IndexedFormatVersion : ReplayFile.FormatVersion, reader.FormatVersion);
@@ -92,7 +98,7 @@ namespace MphRead.Tests
                 using (var writer = new ReplayWriter(path, 14))
                 {
                     writer.WriteRecord(0, Match(14));
-                    writer.WriteRecord(1, Snapshot(14, 11, 30));
+                    writer.WriteRecord(1, HistoricalProtocol16Snapshot(14, 11, 30));
                 }
 
                 Assert.True(ReplayFile.IsSupportedProtocol(14));
@@ -582,6 +588,20 @@ namespace MphRead.Tests
             var body = new byte[Protocol7SnapshotPacket.HeaderSize + Protocol7SnapshotPlayer.Size];
             new Protocol7SnapshotPacket(120, sequence, match, 0, false, 1, 2).Write(body, new[] { player });
             return Record(ReplayRecordKind.Snapshot, body);
+        }
+        private static byte[] HistoricalProtocol16Snapshot(uint match, uint sequence, int points)
+        {
+            var player = new SnapshotPlayer { Slot = 7, Hunter = Hunter.Sylux, TeamIndex = 7, ConnectionId = 99,
+                Life = 1, Aim = Vector3.UnitZ, Facing = Vector3.UnitZ, Points = points, AmmoUa = 31,
+                AvailableWeapons = 1, Health = 100, ChargeLevel = 73,
+                Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned };
+            byte[] current = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
+            new SnapshotPacket(120, sequence, match, 0, false, 1, 2).Write(current, new[] { player });
+            byte[] historical = new byte[SnapshotPacket.HeaderSize + 96];
+            current.AsSpan(0, SnapshotPacket.HeaderSize).CopyTo(historical);
+            current.AsSpan(SnapshotPacket.HeaderSize, 96)
+                .CopyTo(historical.AsSpan(SnapshotPacket.HeaderSize));
+            return Record(ReplayRecordKind.Snapshot, historical);
         }
         internal static byte[] Snapshot(uint match, uint sequence, int points)
         {

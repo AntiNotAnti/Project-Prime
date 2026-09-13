@@ -11,6 +11,11 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        internal static bool ShouldStartChargeEffect(int chargeLevel, int minCharge,
+            int fullCharge, bool hasEffect, bool fullChargeEffect)
+            => chargeLevel >= minCharge && chargeLevel < fullCharge
+                && !hasEffect && !fullChargeEffect;
+
         public override bool Process()
         {
             bool result = ProcessPlayer();
@@ -670,16 +675,15 @@ namespace MphRead.Entities
                     _scene.UnlinkEffectEntry(_chargeEffect);
                     _chargeEffect = null;
                 }
+                Flags2 &= ~PlayerFlags2.ChargeEffect;
             }
             else
             {
-                if (EquipInfo.ChargeLevel == SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
+                if (ShouldStartChargeEffect(EquipInfo.ChargeLevel,
+                    SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge),
+                    SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge),
+                    _chargeEffect != null, Flags2.TestFlag(PlayerFlags2.ChargeEffect)))
                 {
-                    if (_chargeEffect != null)
-                    {
-                        _scene.UnlinkEffectEntry(_chargeEffect);
-                        _chargeEffect = null;
-                    }
                     int effectId = Metadata.ChargeEffectIds[(int)CurrentWeapon];
                     _chargeEffect = _scene.SpawnEffectGetEntry(effectId, _gunVec2, _gunVec1, _muzzlePos);
                     if (!IsMainPlayer && _chargeEffect != null)
@@ -709,7 +713,12 @@ namespace MphRead.Entities
                             }
                         }
                     }
-                    CameraInfo.SetShake(0.023f);
+                    // Snapshot-replicated enemy charge is presentation state,
+                    // not permission to shake this client's camera.
+                    if (IsMainPlayer)
+                    {
+                        CameraInfo.SetShake(0.023f);
+                    }
                 }
                 if (IsMainPlayer && _chargeEffect != null)
                 {
