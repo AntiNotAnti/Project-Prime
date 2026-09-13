@@ -39,6 +39,27 @@ public sealed class GameplayFeelRegressionTests
     }
 
     [Fact]
+    public void RepeatedNeutralAimSamplesDoNotAdvanceCameraFacing()
+    {
+        Vector3 gun = Vector3.UnitZ;
+        Vector3 facing = VectorMath.NormalizeOr(new Vector3(0.2f, 0, 1), gun);
+
+        Vector3 neutral = facing;
+        for (int i = 0; i < 120; i++)
+        {
+            neutral = PlayerEntity.ResolveAimFacingAfterInput(
+                gun, neutral, appliedAngle: 0);
+        }
+        Vector3 active = PlayerEntity.ResolveAimFacingAfterInput(
+            gun, facing, appliedAngle: 0.01f);
+
+        Assert.Equal(facing.X, neutral.X, 6);
+        Assert.Equal(facing.Y, neutral.Y, 6);
+        Assert.Equal(facing.Z, neutral.Z, 6);
+        Assert.True(Vector3.Dot(active, gun) > Vector3.Dot(neutral, gun));
+    }
+
+    [Fact]
     public void NoxusOverlapUsesAttackerFacingAndKeepsOneEighthMagnitude()
     {
         Vector3 direction = PlayerEntity.ResolveHorizontalKnockbackDirection(

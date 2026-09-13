@@ -33,6 +33,9 @@ namespace MphRead.Tests
             Assert.True(scene.SpawnDirector.LastSelection.HasValue);
             SpawnCandidate diagnostics = scene.SpawnDirector.LastSelection!.Value;
             Assert.Equal(selected!.Id, diagnostics.EntityId);
+            Assert.True(scene.SpawnDirector.TryGetLastSelection(requester.SlotIndex,
+                selected.Position.AddY(1), scene.FrameCount, out SpawnCandidate correlated));
+            Assert.Equal(diagnostics, correlated);
             Assert.True(Single.IsFinite(diagnostics.Score));
             Assert.True(Single.IsFinite(diagnostics.NearestEnemyDistanceSquared));
             Assert.Equal(1, scene.SpawnDirector.SpawnHistoryCount);
@@ -123,6 +126,57 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void LiveHostileBeamAndBombMarkImmediateSpawnHazards()
+        {
+            using var fixture = Open(MatchMode.Battle, SpawnPolicy.Enhanced);
+            Scene scene = fixture.Scene;
+            PlayerEntity requester = scene.Players[0];
+            requester.ServerActivate(0x7100, Hunter.Samus, -1);
+            PlayerEntity enemy = scene.Players[1];
+            enemy.ServerActivate(0x7101, Hunter.Kanden, -1);
+            PlayerSpawnEntity target = Spawns(scene).First(spawn => spawn.IsActive);
+            enemy.Position = target.Position + Vector3.UnitX * 40;
+            enemy.PrevPosition = enemy.Position;
+
+            Vector3 body = target.Position.AddY(1.5f);
+            var beam = new BeamProjectileEntity(scene)
+            {
+                Owner = enemy,
+                BackPosition = body - Vector3.UnitZ,
+                Position = body + Vector3.UnitZ,
+                CylinderRadius = 0.25f,
+                Lifespan = 1
+            };
+            scene.AddEntity(beam);
+            SpawnCandidate beamDanger = scene.SpawnDirector.Evaluate(target, requester);
+            Assert.True(beamDanger.ImmediateHazard);
+            Assert.True(beamDanger.HazardPenalty >= 2500);
+
+            scene.RemoveEntity(beam);
+            BombEntity bomb = Assert.IsType<BombEntity>(BombEntity.Spawn(enemy,
+                Matrix4.CreateTranslation(body), scene));
+            SpawnCandidate bombDanger = scene.SpawnDirector.Evaluate(target, requester);
+            Assert.True(bombDanger.ImmediateHazard);
+            Assert.True(bombDanger.HazardPenalty >= 3000);
+        }
+
+        [Fact]
+        public void SameTickReservationsAreDeterministicAndSpatiallyBounded()
+        {
+            var history = new SpawnDangerHistory();
+            Vector3 origin = new(10, 2, -4);
+            history.RecordSpawn(1, slot: 0, team: 2, origin, tick: 99);
+
+            float teammate = history.ReservationDanger(origin, team: 2, tick: 99);
+            float opponent = history.ReservationDanger(origin, team: 1, tick: 99);
+            Assert.Equal(0.75f, teammate);
+            Assert.Equal(1, opponent);
+            Assert.Equal(0, history.ReservationDanger(origin + Vector3.UnitX * 4,
+                team: 2, tick: 99));
+            Assert.Equal(0, history.ReservationDanger(origin, team: 2, tick: 100));
+        }
+
+        [Fact]
         public void HistoryIsBoundedExpiresAtSimulationTimeAndResetClearsIt()
         {
             using var fixture = Open(MatchMode.Battle, SpawnPolicy.Enhanced);
@@ -198,7 +252,8 @@ namespace MphRead.Tests
             using var fixture = Open(mode, SpawnPolicy.Classic);
             Scene scene = fixture.Scene;
             List<PlayerSpawnEntity> spawns = Spawns(scene);
-            PlayerSpawnEntity template = spawns.First(p => p.IsActive);
+            PlayerSpawnEntity template = spawns.First(p => p.IsActive
+                && SpawnGeometry.IsSafe(scene, p));
             // Extend the real authored list beyond 25 to exercise its exact legacy bound.
             while (spawns.Count < 30)
             {
@@ -208,7 +263,11 @@ namespace MphRead.Tests
                 BinaryPrimitives.WriteInt16LittleEndian(bytes.AsSpan(2), (short)(30000 + spawns.Count));
                 bytes[40] = 0; bytes[41] = 1; bytes[42] = 1;
                 var extra = new PlayerSpawnEntity(MemoryMarshal.Read<PlayerSpawnEntityData>(bytes), "", scene);
+                // Synthetic entities do not resolve a node name during initialization;
+                // retain the cloned marker's authored room node so the geometry gate
+                // exercises Classic's legacy fallback rather than rejecting test data.
                 scene.AddEntity(extra);
+                extra.NodeRef = template.NodeRef;
                 spawns.Add(extra);
             }
             PlayerEntity requester = scene.Players[0];
@@ -243,7 +302,9 @@ namespace MphRead.Tests
                     uint rng1 = scene.Random.Rng1, rng2 = scene.Random.Rng2;
                     scene.SpawnDirector.Reset(seed);
                     PlayerSpawnEntity? actual = scene.SpawnDirector.Select(requester);
-                    Assert.Same(expected, actual);
+                    Assert.True(ReferenceEquals(expected, actual),
+                        $"Classic selection diverged at frame {frame}, scenario {scenario}; "
+                        + $"expected geometry safe: {expected == null || SpawnGeometry.IsSafe(scene, expected)}.");
                     Assert.Equal(seed, scene.SpawnDirector.RandomState);
                     Assert.Equal(rng1, scene.Random.Rng1); Assert.Equal(rng2, scene.Random.Rng2);
                     if (actual != null) Assert.Equal((ushort)4, actual.Cooldown);
@@ -522,7 +583,9 @@ namespace MphRead.Tests
             => point.HandleMessage(new MessageInfo(Message.SetActive, point, point, active ? 1 : 0, 0,
                 scene.FrameCount, scene.FrameCount));
 
-        // Frozen pre-director algorithm from b31bc57, intentionally kept separate from production helpers.
+        // Frozen pre-director scoring from b31bc57 plus the intentional hard
+        // geometry gate. Classic keeps its selection order and RNG behavior,
+        // but an invalid volume can no longer create an unusable life.
         private static PlayerSpawnEntity? FrozenClassic(Scene scene, PlayerEntity requester)
         {
             int limit = 0;
@@ -532,7 +595,9 @@ namespace MphRead.Tests
             foreach (PlayerSpawnEntity candidate in scene.GetPlayerSpawnEntities())
             {
                 if (limit >= 25) break;
-                if (!candidate.IsActive || candidate.Cooldown != 0 || scene.FrameCount == 0 && candidate.Availability)
+                if (!candidate.IsActive || candidate.Cooldown != 0
+                    || scene.FrameCount == 0 && candidate.Availability
+                    || !SpawnGeometry.IsSafe(scene, candidate))
                 { limit++; continue; }
                 if (scene.Match.Rules.Mode == MatchMode.Capture && candidate.Data.TeamIndex != -1
                     && candidate.Data.TeamIndex != requester.TeamIndex)
@@ -552,7 +617,8 @@ namespace MphRead.Tests
             PlayerSpawnEntity? chosen = valid.Count > 0 ? valid[(int)(scene.FrameCount % (ulong)valid.Count)] : best;
             if (chosen == null)
                 foreach (PlayerSpawnEntity fallback in scene.GetPlayerSpawnEntities())
-                    if (fallback.IsActive) { chosen = fallback; break; }
+                    if (fallback.IsActive && SpawnGeometry.IsSafe(scene, fallback))
+                    { chosen = fallback; break; }
             return chosen;
         }
 

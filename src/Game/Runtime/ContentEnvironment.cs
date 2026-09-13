@@ -201,13 +201,13 @@ namespace MphRead
 
         public static int ResolveRoomPlayerCount(int? requested, int fallback)
         {
-            if (_manifest == null)
-            { return requested ?? fallback; }
-            if (requested.HasValue && requested.Value != _manifest.RoomPlayerCount)
-            {
-                throw new ProgramException("The server content package uses a different entity-layer layout.");
-            }
-            return _manifest.RoomPlayerCount;
+            int resolved = requested ?? (_manifest?.RoomPlayerCount ?? fallback);
+            if (resolved is < 2 or > 4)
+                throw new ProgramException("Multiplayer entity layers require two to four players.");
+            // The package contains the complete authored entity file. The
+            // manifest value records which layer its bake-time probe used; it
+            // is not a restriction on the other layers in that same file.
+            return resolved;
         }
 
         public static void RequireRoom(string room, GameMode mode)

@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using MphRead.Entities;
 using MphRead.Mods.Network;
@@ -264,6 +265,46 @@ public sealed class TelemetryCollectorTests
             Assert.Equal(match.Id, restored.Id);
             Assert.Equal(match.DroppedEvents, restored.DroppedEvents);
             Assert.Equal(match.Events, restored.Events);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void TelemetryToolExportsAuthoritativeSpawnScoreDiagnostics()
+    {
+        string directory = Path.Combine(Path.GetTempPath(), "prime-spawn-telemetry-"
+            + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        string input = Path.Combine(directory, "spawn.telemetry.json.gz");
+        string prefix = Path.Combine(directory, "spawn");
+        var selection = new SpawnSelectionTelemetry(17, 123.5f, 225, 1, 2, 3,
+            4, 5, 6, 7, 8, 25, 10, true, false, true, false);
+        var match = new MatchTelemetry(MatchTelemetry.CurrentFormat, Guid.NewGuid(),
+            "telemetry-room", MatchMode.Battle, 3, 10, 20, true, 0,
+            [new TelemetryEvent(10, TelemetryKind.Spawn, 0, 1, 1, 2, 3,
+                SpawnSelection: selection)]);
+        try
+        {
+            using (FileStream file = File.Create(input))
+            using (var gzip = new GZipStream(file, CompressionLevel.Fastest))
+                JsonSerializer.Serialize(gzip, match);
+
+            Type command = Assembly.Load("ProjectPrimeTools")
+                .GetType("MphRead.TelemetryCommand")!;
+            MethodInfo run = command.GetMethod("Run",
+                BindingFlags.Static | BindingFlags.Public)!;
+            Assert.Equal(0, Assert.IsType<int>(run.Invoke(null,
+                [new[] { "telemetry", "spawn-safety", input, prefix }])));
+
+            string csv = File.ReadAllText(prefix + ".csv");
+            string json = File.ReadAllText(prefix + ".json");
+            Assert.Contains("spawn_hazard_penalty", csv);
+            Assert.Contains("17,123.5,225,1,2,3,4,5,6,7,8,25,10,True,False,True,False", csv);
+            Assert.Contains("\"spawnSelections\"", json);
+            Assert.Contains("\"HazardPenalty\": 25", json);
         }
         finally
         {

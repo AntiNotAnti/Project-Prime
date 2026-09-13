@@ -159,5 +159,21 @@ namespace MphRead.Tests
             Assert.Equal(InputButtons.None, applied.Buttons & InputButtons.Shoot);
             Assert.Equal(InputButtons.None, applied.Pressed & InputButtons.Shoot);
         }
+
+        [Fact]
+        public void NewLifeFallbackPreservesAuthoritativeSpawnAim()
+        {
+            var stream = new ServerInputStream();
+            Vector3 spawnAim = new Vector3(1, 0, 1).Normalized();
+
+            stream.SetInputEpoch(7, 42, spawnAim);
+
+            InputCommand fallback = stream.Take(42);
+            Assert.Equal(7u, fallback.InputEpoch);
+            Assert.Equal(InputButtons.None, fallback.Buttons);
+            Assert.Equal(spawnAim.X, fallback.Aim.X, 6);
+            Assert.Equal(spawnAim.Y, fallback.Aim.Y, 6);
+            Assert.Equal(spawnAim.Z, fallback.Aim.Z, 6);
+        }
     }
 }

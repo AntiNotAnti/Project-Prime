@@ -12,6 +12,9 @@ namespace MphRead
         private readonly PlayerSpawnEntity?[] _classicSafe = new PlayerSpawnEntity?[25];
         private readonly SpawnDangerHistory _history = new();
         private uint _randomState;
+        private readonly SpawnCandidate?[] _selectionBySlot = new SpawnCandidate?[PlayerEntity.SlotCapacity];
+        private readonly ulong[] _selectionTickBySlot = new ulong[PlayerEntity.SlotCapacity];
+        private readonly Vector3[] _selectionPositionBySlot = new Vector3[PlayerEntity.SlotCapacity];
         public uint RandomState => _randomState;
         public int DeathHistoryCount => _history.DeathCount;
         public int SpawnHistoryCount => _history.SpawnCount;
@@ -24,6 +27,9 @@ namespace MphRead
             _randomState = seed;
             _history.Reset();
             Array.Clear(_classicSafe);
+            Array.Clear(_selectionBySlot);
+            Array.Clear(_selectionTickBySlot);
+            Array.Clear(_selectionPositionBySlot);
             LastSelection = null;
         }
 
@@ -35,14 +41,45 @@ namespace MphRead
         public PlayerSpawnEntity? Select(PlayerEntity requester)
         {
             LastSelection = null;
+            if ((uint)requester.SlotIndex < (uint)_selectionBySlot.Length)
+                _selectionBySlot[requester.SlotIndex] = null;
             PlayerSpawnEntity? chosen = _scene.Match.Rules.SpawnPolicy == SpawnPolicy.Classic
                 ? SelectClassic(requester) : SelectWeighted(requester);
             if (chosen != null)
             {
                 chosen.Cooldown = 2 * SimTicks.TicksPer30HzFrame;
-                _history.RecordSpawn(chosen.Id, requester.SlotIndex, _scene.FrameCount);
+                _history.RecordSpawn(chosen.Id, requester.SlotIndex,
+                    requester.TeamIndex, chosen.Position, _scene.FrameCount);
+                if (LastSelection is { } selection
+                    && (uint)requester.SlotIndex < (uint)_selectionBySlot.Length)
+                {
+                    _selectionBySlot[requester.SlotIndex] = selection;
+                    _selectionTickBySlot[requester.SlotIndex] = _scene.FrameCount;
+                    _selectionPositionBySlot[requester.SlotIndex] = chosen.Position.AddY(1);
+                }
             }
             return chosen;
+        }
+
+        /// <summary>
+        /// Associates a committed enhanced-policy selection with the spawn event
+        /// emitted later in the same authoritative tick. This keeps telemetry
+        /// read-only and prevents a stale candidate from being attached to a
+        /// later life at the same coordinates.
+        /// </summary>
+        public bool TryGetLastSelection(int slot, Vector3 finalPosition, ulong tick,
+            out SpawnCandidate selection)
+        {
+            if ((uint)slot < (uint)_selectionBySlot.Length
+                && _selectionBySlot[slot] is { } value
+                && _selectionTickBySlot[slot] == tick
+                && (_selectionPositionBySlot[slot] - finalPosition).LengthSquared <= 0.0001f)
+            {
+                selection = value;
+                return true;
+            }
+            selection = default;
+            return false;
         }
 
         private PlayerSpawnEntity? SelectClassic(PlayerEntity requester)
@@ -54,7 +91,9 @@ namespace MphRead
             foreach (PlayerSpawnEntity candidate in _scene.GetPlayerSpawnEntities())
             {
                 if (limit++ >= 25) { break; }
-                if (!candidate.IsActive || candidate.Cooldown != 0 || _scene.FrameCount == 0 && candidate.Availability)
+                if (!candidate.IsActive || candidate.Cooldown != 0
+                    || _scene.FrameCount == 0 && candidate.Availability
+                    || !SpawnGeometry.IsSafe(_scene, candidate))
                     continue;
                 if (_scene.Match.Rules.Mode == MatchMode.Capture && candidate.Data.TeamIndex != -1
                     && candidate.Data.TeamIndex != requester.TeamIndex) { continue; }
@@ -73,10 +112,12 @@ namespace MphRead
             }
             PlayerSpawnEntity? chosen = safeCount > 0
                 ? _classicSafe[(int)(_scene.FrameCount % (ulong)safeCount)] : best;
-            // Classic deliberately relaxes every filter except active in this legacy fallback.
+            // Classic retains the legacy fallback, but never bypasses the
+            // body/camera safety gate that prevents black-screen lives.
             if (chosen == null)
                 foreach (PlayerSpawnEntity fallback in _scene.GetPlayerSpawnEntities())
-                    if (fallback.IsActive) { chosen = fallback; break; }
+                    if (fallback.IsActive && SpawnGeometry.IsSafe(_scene, fallback))
+                    { chosen = fallback; break; }
             Array.Clear(_classicSafe, 0, safeCount);
             return chosen;
         }
@@ -86,42 +127,63 @@ namespace MphRead
             PlayerSpawnEntity? best = null;
             float bestScore = Single.NegativeInfinity;
             uint ties = 0;
-            // The second pass relaxes cooldown only. Team, active, authored availability,
-            // and finite-position requirements remain hard even if no point is eligible.
-            for (int pass = 0; pass < 2 && best == null; pass++)
+            bool mayRelaxTeam = _scene.Match.Rules.TeamCount > 2
+                && _scene.Match.Rules.Mode is MatchMode.TeamBattle
+                    or MatchMode.TeamSurvival;
+            // Cooldown is relaxed before an immediate-hazard fallback. Team
+            // affinity is relaxed only for non-objective team deathmatch modes;
+            // Capture bases remain a hard ownership boundary.
+            for (int teamPass = 0; teamPass < (mayRelaxTeam ? 2 : 1) && best == null;
+                teamPass++)
             {
-                foreach (PlayerSpawnEntity candidate in _scene.GetPlayerSpawnEntities())
+                bool teamFallback = teamPass != 0;
+                for (int pass = 0; pass < 3 && best == null; pass++)
                 {
-                    if (!candidate.IsActive || _scene.FrameCount == 0 && candidate.Availability
-                        || !Single.IsFinite(candidate.Position.X) || !Single.IsFinite(candidate.Position.Y)
-                        || !Single.IsFinite(candidate.Position.Z)) { continue; }
-                    if (_scene.Match.Rules.Teams && candidate.Data.TeamIndex != -1
-                        && candidate.Data.TeamIndex != requester.TeamIndex) { continue; }
-                    if (pass == 0 && candidate.Cooldown != 0) { continue; }
-                    SpawnCandidate score = Score(candidate, requester, pass != 0);
-                    bool select = score.Score > bestScore;
-                    if (select) { ties = 1; }
-                    else if (score.Score == bestScore)
+                    bool cooldownFallback = pass != 0;
+                    bool hazardFallback = pass == 2;
+                    foreach (PlayerSpawnEntity candidate in _scene.GetPlayerSpawnEntities())
                     {
-                        ties++;
-                        // Private match stream; no global combat/AI randomness is consumed.
-                        _randomState = unchecked(_randomState * 1664525u + 1013904223u);
-                        select = _randomState % ties == 0;
+                        if (!candidate.IsActive
+                            || _scene.FrameCount == 0 && candidate.Availability
+                            || !SpawnGeometry.IsSafe(_scene, candidate)) { continue; }
+                        if (!teamFallback && !TeamEligible(candidate, requester)) { continue; }
+                        if (!cooldownFallback && candidate.Cooldown != 0) { continue; }
+                        SpawnCandidate score = Score(candidate, requester,
+                            cooldownFallback, hazardFallback, teamFallback);
+                        if (!hazardFallback && score.ImmediateHazard) { continue; }
+                        bool select = score.Score > bestScore;
+                        if (select) { ties = 1; }
+                        else if (score.Score == bestScore)
+                        {
+                            ties++;
+                            // Private match stream; no global combat/AI randomness is consumed.
+                            _randomState = unchecked(_randomState * 1664525u + 1013904223u);
+                            select = _randomState % ties == 0;
+                        }
+                        if (select) { bestScore = score.Score; best = candidate; LastSelection = score; }
                     }
-                    if (select) { bestScore = score.Score; best = candidate; LastSelection = score; }
                 }
             }
             return best;
         }
 
+        private bool TeamEligible(PlayerSpawnEntity candidate, PlayerEntity requester)
+        {
+            if (!_scene.Match.Rules.Teams || candidate.Data.TeamIndex == -1)
+                return true;
+            return candidate.Data.TeamIndex == requester.TeamIndex;
+        }
+
         /// <summary>Read-only score diagnostics; does not select, advance RNG, or commit history.</summary>
         public SpawnCandidate Evaluate(PlayerSpawnEntity candidate, PlayerEntity requester)
-            => Score(candidate, requester, fallback: false);
+            => Score(candidate, requester, cooldownFallback: false,
+                hazardFallback: false, teamFallback: false);
 
         private static float Proximity(Vector3 point, Vector3 danger)
             => Math.Max(0, 1 - (point - danger).LengthSquared / 100);
 
-        private SpawnCandidate Score(PlayerSpawnEntity candidate, PlayerEntity requester, bool fallback)
+        private SpawnCandidate Score(PlayerSpawnEntity candidate, PlayerEntity requester,
+            bool cooldownFallback, bool hazardFallback, bool teamFallback)
         {
             bool duel = _scene.Match.Rules.SpawnPolicy == SpawnPolicy.Duel;
             float nearest = 900;
@@ -166,9 +228,79 @@ namespace MphRead
                 if ((item.Active || item.AlwaysActive) && item.Item != null
                     && item.Data.ItemType is ItemType.HealthBig or ItemType.DoubleDamage or ItemType.OmegaCannon or ItemType.Deathalt)
                     resources += Proximity(candidate.Position, item.Position) * (duel ? 300 : 75);
+            float hazards = HazardDanger(candidate.Position, requester,
+                out bool immediateHazard) * (duel ? 1.5f : 1);
+            float reservations = _history.ReservationDanger(candidate.Position,
+                requester.TeamIndex, _scene.FrameCount) * (duel ? 800 : 500);
             float score = nearest - visible * (duel ? 400 : 200) - facing * (duel ? 300 : 150)
-                - nearby * 100 - deaths - uses + friendly - objective - resources;
-            return new SpawnCandidate(candidate.Id, score, nearest, visible, facing, nearby, deaths, uses, friendly, objective, resources, fallback);
+                - nearby * 100 - deaths - uses + friendly - objective - resources
+                - hazards - reservations;
+            return new SpawnCandidate(candidate.Id, score, nearest, visible, facing,
+                nearby, deaths, uses, friendly, objective, resources, hazards,
+                reservations, immediateHazard, cooldownFallback, hazardFallback,
+                teamFallback);
+        }
+
+        private float HazardDanger(Vector3 position, PlayerEntity requester,
+            out bool immediate)
+        {
+            immediate = false;
+            float penalty = 0;
+            Vector3 body = position.AddY(1.5f);
+            foreach (BeamProjectileEntity beam in _scene.GetBeamProjectileEntities())
+            {
+                if (beam.RemainingLifeTicks <= 0 || !Hostile(beam.Owner, requester))
+                    continue;
+                float radius = Math.Max(0.25f, beam.CylinderRadius) + 0.75f;
+                float segmentDistance = DistanceSquaredToSegment(body,
+                    beam.BackPosition, beam.Position);
+                if (segmentDistance <= radius * radius)
+                {
+                    immediate = true;
+                    penalty += 2500;
+                }
+                penalty += Proximity(position, beam.Position) * 300;
+            }
+            foreach (BombEntity bomb in _scene.GetBombEntities())
+            {
+                if (!bomb.IsLive || !Hostile(bomb.Owner, requester)) continue;
+                float radius = Math.Max(1.5f, Math.Max(bomb.Radius,
+                    bomb.SelfRadius) + 0.75f);
+                float distance = (body - bomb.Position).LengthSquared;
+                if (distance <= radius * radius)
+                {
+                    immediate = true;
+                    penalty += 3000;
+                }
+                penalty += Proximity(position, bomb.Position) * 500;
+            }
+            return penalty;
+        }
+
+        private bool Hostile(EntityBase? owner, PlayerEntity requester)
+        {
+            PlayerEntity? player = owner switch
+            {
+                PlayerEntity value => value,
+                HalfturretEntity value => value.Owner,
+                _ => null
+            };
+            if (player == requester) return false;
+            return player == null || !_scene.Match.Rules.Teams
+                || _scene.Match.Rules.FriendlyFire
+                || player.TeamIndex != requester.TeamIndex;
+        }
+
+        private static float DistanceSquaredToSegment(Vector3 point, Vector3 start,
+            Vector3 end)
+        {
+            Vector3 segment = end - start;
+            float lengthSquared = segment.LengthSquared;
+            if (!(lengthSquared > 0.0001f) || !Single.IsFinite(lengthSquared))
+                return (point - end).LengthSquared;
+            float amount = Math.Clamp(Vector3.Dot(point - start, segment)
+                / lengthSquared, 0, 1);
+            return (point - (start + segment * amount)).LengthSquared;
         }
     }
 }

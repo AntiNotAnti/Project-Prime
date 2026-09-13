@@ -132,6 +132,12 @@ namespace MphRead
                 directLineOfSightSpawns = p.Value.Visible,
                 averageEnemyDistance = p.Value.DistanceSamples == 0 ? (double?)null : p.Value.Distance / p.Value.DistanceSamples
             }).ToArray();
+            var spawnSelections = match.Events.Where(e => e.SpawnSelection.HasValue)
+                .Select(e => new
+                {
+                    e.Tick, e.Slot, e.Life, e.X, e.Y, e.Z,
+                    Selection = e.SpawnSelection!.Value
+                }).ToArray();
             long totalDamage = weapons.Values.Sum(w => (long)w.Damage);
             var summary = new
             {
@@ -140,6 +146,7 @@ namespace MphRead
                 coordinates = "map units, X/Z horizontal bins of width 4; Y retained in events CSV",
                 limitations = "Sampled routes approximate distance; unseen cells are not proof of walkable unused space. Incomplete/dropped telemetry is not a balance baseline. Hunter wins and team bias require validated match reports.",
                 spawnDanger = danger,
+                spawnSelections,
                 weapons = weapons.OrderBy(p => p.Key).Select(p => new { weapon = p.Key, p.Value.Pickups, p.Value.Kills, p.Value.Damage,
                     p.Value.KillsAfterPickup, damageShare = totalDamage == 0 ? (double?)null : (double)p.Value.Damage / totalDamage,
                     averagePickupToKillSeconds = p.Value.KillsAfterPickup == 0 ? (double?)null : p.Value.PickupToKillSeconds / p.Value.KillsAfterPickup }),
@@ -152,9 +159,9 @@ namespace MphRead
             File.WriteAllText(prefix + ".json", JsonSerializer.Serialize(summary, new JsonSerializerOptions { WriteIndented = true }));
             using (var csv = new StreamWriter(prefix + ".csv", false, new UTF8Encoding(false)))
             {
-                csv.WriteLine("tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id");
+                csv.WriteLine("tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id,spawn_entity_id,spawn_score,spawn_nearest_enemy_distance_squared,spawn_visible_enemies,spawn_facing_enemies,spawn_nearby_enemies,spawn_death_penalty,spawn_use_penalty,spawn_friendly_bonus,spawn_objective_penalty,spawn_resource_penalty,spawn_hazard_penalty,spawn_reservation_penalty,spawn_immediate_hazard,spawn_cooldown_fallback,spawn_hazard_fallback,spawn_team_fallback");
                 foreach (TelemetryEvent e in match.Events)
-                    csv.WriteLine(FormattableString.Invariant($"{e.Tick},{e.Kind},{e.Slot},{e.Life},{e.X:R},{e.Y:R},{e.Z:R},{e.Team},{e.Hunter},{e.Weapon},{e.Value},{e.Subject},{e.OtherSlot},{e.SemanticId}"));
+                    csv.WriteLine(FormattableString.Invariant($"{e.Tick},{e.Kind},{e.Slot},{e.Life},{e.X:R},{e.Y:R},{e.Z:R},{e.Team},{e.Hunter},{e.Weapon},{e.Value},{e.Subject},{e.OtherSlot},{e.SemanticId},{SpawnCsv(e.SpawnSelection)}"));
             }
             WriteSvg(prefix + ".svg", cells, args[1]);
             Console.WriteLine($"Wrote {prefix}.json, .csv, .svg; events={match.Events.Length}, dropped={match.DroppedEvents}");
@@ -190,10 +197,35 @@ namespace MphRead
                     || Math.Abs(e.X) > 100000 || Math.Abs(e.Y) > 100000 || Math.Abs(e.Z) > 100000
                     || unchecked(e.Tick - match.StartTick) > unchecked(match.EndTick - match.StartTick)
                     || e.Value < 0 || e.Value > 65535 || e.Slot is > 7 and not 255 || e.OtherSlot is > 7 and not 255
-                    || e.EnemyDistance is { } d && (!float.IsFinite(d) || d < 0))
+                    || e.EnemyDistance is { } d && (!float.IsFinite(d) || d < 0)
+                    || e.SpawnSelection is { } selection && Invalid(selection))
                     throw new InvalidDataException("Invalid telemetry event.");
             }
             return match with { Events = match.Events.OrderBy(e => unchecked(e.Tick - match.StartTick)).ToArray() };
+        }
+
+        private static bool Invalid(SpawnSelectionTelemetry value)
+            => value.EntityId < 0 || !float.IsFinite(value.Score)
+                || !float.IsFinite(value.NearestEnemyDistanceSquared)
+                || value.NearestEnemyDistanceSquared < 0
+                || value.VisibleEnemies is < 0 or > 8
+                || value.FacingEnemies is < 0 or > 8
+                || value.NearbyEnemies is < 0 or > 8
+                || !FiniteNonnegative(value.DeathPenalty)
+                || !FiniteNonnegative(value.UsePenalty)
+                || !FiniteNonnegative(value.FriendlyBonus)
+                || !FiniteNonnegative(value.ObjectivePenalty)
+                || !FiniteNonnegative(value.ResourcePenalty)
+                || !FiniteNonnegative(value.HazardPenalty)
+                || !FiniteNonnegative(value.ReservationPenalty);
+
+        private static bool FiniteNonnegative(float value)
+            => float.IsFinite(value) && value >= 0;
+
+        private static string SpawnCsv(SpawnSelectionTelemetry? selection)
+        {
+            if (selection is not { } value) return new string(',', 16);
+            return FormattableString.Invariant($"{value.EntityId},{value.Score:R},{value.NearestEnemyDistanceSquared:R},{value.VisibleEnemies},{value.FacingEnemies},{value.NearbyEnemies},{value.DeathPenalty:R},{value.UsePenalty:R},{value.FriendlyBonus:R},{value.ObjectivePenalty:R},{value.ResourcePenalty:R},{value.HazardPenalty:R},{value.ReservationPenalty:R},{value.ImmediateHazard},{value.CooldownFallback},{value.HazardFallback},{value.TeamFallback}");
         }
 
         private static void WriteSvg(string path, Dictionary<(int X, int Z), Cell> cells, string mode)

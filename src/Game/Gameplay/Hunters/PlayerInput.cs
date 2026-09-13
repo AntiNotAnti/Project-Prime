@@ -311,6 +311,30 @@ namespace MphRead.Entities
             _facingVector = ResolveAimFacing(_gunVec1, _facingVector);
         }
 
+        private void UpdateAimFacingAfterInput(float appliedAngle)
+        {
+            _gunVec1 = VectorMath.NormalizeOr(_gunVec1, _facingVector);
+            _facingVector = ResolveAimFacingAfterInput(
+                _gunVec1, _facingVector, appliedAngle);
+        }
+
+        internal static Vector3 ResolveAimFacingAfterInput(Vector3 gunVector,
+            Vector3 facingVector, float appliedAngle)
+        {
+            // The legacy mouse/button paths call both aim axes every tick,
+            // including a zero delta. Treating that neutral sample as aim
+            // motion made the camera continue chasing the gun and pulled the
+            // dynamic reticle back to center after mouse, controller, or
+            // stylus input.
+            // Preserve the authored gun/camera offset until input actually
+            // changes an axis.
+            if (!float.IsFinite(appliedAngle) || appliedAngle == 0)
+            {
+                return VectorMath.NormalizeOr(facingVector, gunVector);
+            }
+            return ResolveAimFacing(gunVector, facingVector);
+        }
+
         internal static Vector3 ResolveAimFacing(Vector3 gunVector, Vector3 facingVector)
         {
             gunVector = VectorMath.NormalizeOr(gunVector, facingVector);
@@ -378,7 +402,7 @@ namespace MphRead.Entities
             }
             _gunVec1 = VectorMath.NormalizeOr(Matrix.Vec3MultMtx3(vector, transform), _gunVec1);
             _aimPosition = CameraInfo.Position + _gunVec1 * Fixed.ToFloat(Values.AimDistance);
-            UpdateAimFacing();
+            UpdateAimFacingAfterInput(diff);
         }
 
         private void UpdateAimX(float amount)
@@ -426,7 +450,7 @@ namespace MphRead.Entities
             }
             else
             {
-                UpdateAimFacing();
+                UpdateAimFacingAfterInput(angle);
             }
         }
 
@@ -1127,13 +1151,6 @@ namespace MphRead.Entities
                     // is the same turn the mouse makes: without it a pad could
                     // walk and shoot in alt form but not look, and a puppet in
                     // alt form faced wherever its last snapshot left it.
-                    // The pad's stick and a remote player's relayed aim, in
-                    // the same place the mouse's goes in -- as in ProcessBiped,
-                    // which was the only caller until now. An alt form that
-                    // can aim at all is one of these three, and for them this
-                    // is the same turn the mouse makes: without it a pad could
-                    // walk and shoot in alt form but not look, and a puppet in
-                    // alt form faced wherever its last snapshot left it.
                     ApplyModAim();
                     // ApplyModAim has already updated the gun and camera. Feed
                     // that exact applied delta into Trace/Weavel's established
@@ -1276,6 +1293,25 @@ namespace MphRead.Entities
                 {
                     // Samus, Kanden, Spire, Noxus
                     // todo: touch roll
+                    // Rolling forms use the camera basis as their movement
+                    // basis. They previously skipped the shared look stream,
+                    // so mouse/stick/stylus motion had no effect and the
+                    // retained basis could keep accelerating in an old
+                    // direction. Consume the same look frame as biped/strafe
+                    // forms, then rotate both the orbit and movement basis in
+                    // one deterministic step before reading movement.
+                    ApplyModAim();
+                    Vector2 rollingLook = ModTakeAppliedLocalLook();
+                    if (Controls.KeyboardAim || IsBot)
+                    {
+                        UpdateAimX(_buttonAimX);
+                        UpdateAimY(_buttonAimY);
+                        if (!IsBot)
+                        {
+                            rollingLook += new Vector2(_buttonAimX, _buttonAimY);
+                        }
+                    }
+                    ApplyRollingAltLook(rollingLook);
                     float traction = Fixed.ToFloat(Values.RollAltTraction);
                     if (_jumpPadControlLockMin > 0)
                     {
@@ -1523,6 +1559,67 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             UpdateCamera();
+        }
+
+        private void ApplyRollingAltLook(Vector2 lookDegrees)
+        {
+            if (!float.IsFinite(lookDegrees.X) || !float.IsFinite(lookDegrees.Y)
+                || lookDegrees == Vector2.Zero)
+            {
+                return;
+            }
+            (Vector3 position, Vector3 forward, Vector3 right) = RotateRollingAltCamera(
+                CameraInfo.Position, CameraInfo.Target, lookDegrees);
+            CameraInfo.Position = position;
+            _altRollFbX = forward.X;
+            _altRollFbZ = forward.Z;
+            _altRollLrX = right.X;
+            _altRollLrZ = right.Z;
+        }
+
+        internal static (Vector3 Position, Vector3 Forward, Vector3 Right)
+            RotateRollingAltCamera(Vector3 position, Vector3 target, Vector2 lookDegrees)
+        {
+            if (!VectorMath.IsFinite(position) || !VectorMath.IsFinite(target)
+                || !float.IsFinite(lookDegrees.X) || !float.IsFinite(lookDegrees.Y))
+            {
+                Vector3 fallback = Vector3.UnitZ;
+                return (position, fallback, new Vector3(fallback.Z, 0, -fallback.X));
+            }
+
+            Vector3 offset = position - target;
+            float radius = offset.Length;
+            if (!float.IsFinite(radius) || radius <= VectorMath.DefaultEpsilon)
+            {
+                offset = -Vector3.UnitZ;
+                radius = 1;
+            }
+
+            float yaw = MathHelper.DegreesToRadians(lookDegrees.X);
+            float horizontal = MathF.Sqrt(offset.X * offset.X + offset.Z * offset.Z);
+            float currentPitch = MathF.Atan2(offset.Y, Math.Max(horizontal,
+                VectorMath.DefaultEpsilon));
+            // Keep the rolling camera above/near the arena while still making
+            // vertical mouse/stick motion visible. These bounds avoid the
+            // singular straight-up/down basis that poisoned movement fields.
+            float pitch = Math.Clamp(currentPitch
+                + MathHelper.DegreesToRadians(lookDegrees.Y),
+                MathHelper.DegreesToRadians(-10), MathHelper.DegreesToRadians(65));
+            float cos = MathF.Cos(yaw);
+            float sin = MathF.Sin(yaw);
+            float rotatedX = offset.X * cos + offset.Z * sin;
+            float rotatedZ = offset.X * -sin + offset.Z * cos;
+            Vector3 horizontalOffset = VectorMath.NormalizeHorizontalOr(
+                new Vector3(rotatedX, 0, rotatedZ), -Vector3.UnitZ);
+            float horizontalRadius = radius * MathF.Cos(pitch);
+            Vector3 rotatedOffset = horizontalOffset * horizontalRadius;
+            rotatedOffset.Y = radius * MathF.Sin(pitch);
+            position = target + rotatedOffset;
+
+            Vector3 forward = VectorMath.NormalizeHorizontalOr(target - position,
+                Vector3.UnitZ);
+            Vector3 right = new(forward.Z, 0, -forward.X);
+            return (position, forward, right);
         }
 
         private bool CanActivateDirectionalBoost()

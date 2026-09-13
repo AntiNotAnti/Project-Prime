@@ -82,7 +82,8 @@ namespace MphRead.Mods.Network
                 {
                     ServerContent.RequireRoom(rules.RoomKey, rules.Mode.ToLegacyMode());
                     Scene.LoadServerRoom(rules.RoomKey, rules.Mode.ToLegacyMode(), players: 8,
-                        roomPlayerCount: ServerContent.ResolveRoomPlayerCount(NetConfig.RoomPlayerCount, 8));
+                        roomPlayerCount: ServerContent.ResolveRoomPlayerCount(
+                            rules.EntityLayerPlayerCount, 8));
                 }
                 else
                 {
@@ -190,21 +191,29 @@ namespace MphRead.Mods.Network
                     peer.HasParticipated = true;
                     Reports?.Activate(Scene, peer, tick);
                     _activeConnections[slot] = peer.Connection.Id;
-                    peer.Inputs.SetInputEpoch(player.ServerCombatIdentity.Life, tick);
+                    peer.Inputs.SetInputEpoch(player.ServerCombatIdentity.Life, tick,
+                        player.ModGunVector);
                     peer.Connection.StartPlaying();
                 }
                 if (peer?.Connection.State == NetConnectionState.Playing && !peer.WaitingForNextMatch)
                 {
                     active++;
-                    if (peer.TeamIndex < 2) { teams |= 1u << peer.TeamIndex; }
+                    if (peer.TeamIndex < Scene.Match.Rules.TeamCount)
+                        teams |= 1u << peer.TeamIndex;
                 }
             }
             Bots.Update(network, tick);
             foreach (var bot in Bots.Participants)
-                if (bot != null) { active++; if (bot.TeamIndex < 2) teams |= 1u << bot.TeamIndex; }
+                if (bot != null)
+                {
+                    active++;
+                    if (bot.TeamIndex < Scene.Match.Rules.TeamCount)
+                        teams |= 1u << bot.TeamIndex;
+                }
             Scene.Players.ActiveCount = active;
             bool eligible = ((ReportingMayStart && AdminMayStart && ReplayMayStart && !VoteLobbyHold) || Scene.Match.Phase == MatchPhase.Playing) && active >= (Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
-                && (!Scene.Match.Rules.Teams || teams == 3);
+                && (!Scene.Match.Rules.Teams
+                    || teams == (1u << Scene.Match.Rules.TeamCount) - 1);
             MatchPhase previousPhase = Scene.Match.Phase;
             Lifecycle.AdvanceBeforeStep(tick, eligible, _resetForCountdown);
             if (Scene.Match.Phase != previousPhase) { DiscardInputs(network); }
@@ -224,7 +233,7 @@ namespace MphRead.Mods.Network
                         // Spawn is the owner of life transitions. This check
                         // is a same-tick safeguard for tests and hosts that
                         // enter Playing without the normal activation branch.
-                        peer.Inputs.SetInputEpoch(inputEpoch, tick);
+                        peer.Inputs.SetInputEpoch(inputEpoch, tick, player.ModGunVector);
                     }
                     InputCommand input = peer.Inputs.Take(tick,
                         out byte rewindPresentationDelayTicks);
@@ -267,7 +276,8 @@ namespace MphRead.Mods.Network
                         // NoteServerCombatSpawn owns this transition. Update
                         // the bounded stream immediately after the scene pass,
                         // before the next Poll can enqueue old retransmits.
-                        peer.Inputs.SetInputEpoch(inputEpoch, tick);
+                        peer.Inputs.SetInputEpoch(inputEpoch, tick,
+                            Scene.Players[slot].ModGunVector);
                         Combat.SetCommand(slot, NeutralNetworkInput(tick, inputEpoch),
                             peer.Connection.Metrics.SmoothedRttMs,
                             peer.Timing.RewindPresentationDelayTicks);

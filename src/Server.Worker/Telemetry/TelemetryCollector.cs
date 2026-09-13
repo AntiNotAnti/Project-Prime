@@ -95,6 +95,22 @@ namespace MphRead.Telemetry
                         TestFlags.None, scene, ref hit)) visible++;
                 }
                 entry = entry with { EnemyDistance = enemies == 0 ? null : distance / enemies, VisibleEnemies = visible };
+                if (scene.SpawnDirector.TryGetLastSelection(value.Target.Slot,
+                    value.Position, value.Tick, out SpawnCandidate selection))
+                {
+                    entry = entry with
+                    {
+                        SpawnSelection = new SpawnSelectionTelemetry(selection.EntityId,
+                            selection.Score, selection.NearestEnemyDistanceSquared,
+                            selection.VisibleEnemies, selection.FacingEnemies,
+                            selection.NearbyEnemies, selection.DeathPenalty,
+                            selection.UsePenalty, selection.FriendlyBonus,
+                            selection.ObjectivePenalty, selection.ResourcePenalty,
+                            selection.HazardPenalty, selection.ReservationPenalty,
+                            selection.ImmediateHazard, selection.CooldownFallback,
+                            selection.HazardFallback, selection.TeamFallback)
+                    };
+                }
             }
             Add(entry);
         }

@@ -15,7 +15,8 @@ namespace MphRead
         public int DeathCount { get; private set; }
         public int SpawnCount { get; private set; }
         private readonly record struct Death(Vector3 Position, ulong Tick);
-        private readonly record struct Use(int SpawnId, int Slot, ulong Tick);
+        private readonly record struct Use(int SpawnId, int Slot, int Team,
+            Vector3 Position, ulong Tick);
 
         public void Reset()
         {
@@ -29,9 +30,10 @@ namespace MphRead
             DeathCount = Math.Min(DeathCount + 1, DeathCapacity);
         }
 
-        public void RecordSpawn(int spawnId, int slot, ulong tick)
+        public void RecordSpawn(int spawnId, int slot, int team, Vector3 position,
+            ulong tick)
         {
-            _uses[_useNext] = new Use(spawnId, slot, tick);
+            _uses[_useNext] = new Use(spawnId, slot, team, position, tick);
             _useNext = (_useNext + 1) % SpawnCapacity;
             SpawnCount = Math.Min(SpawnCount + 1, SpawnCapacity);
         }
@@ -66,6 +68,30 @@ namespace MphRead
                 }
                 if (use.SpawnId == spawnId)
                     danger += 1 - (tick - use.Tick) / (10f * SimTicks.Hz);
+            }
+            return danger;
+        }
+
+        /// <summary>
+        /// Deterministic same-tick reservation pressure. Sequential entity
+        /// processing may choose first, but later spawns are kept out of the
+        /// already reserved body area without another mutable owner or queue.
+        /// </summary>
+        public float ReservationDanger(Vector3 position, int team, ulong tick)
+        {
+            float danger = 0;
+            for (int age = 0; age < SpawnCount; age++)
+            {
+                Use use = _uses[(_useNext - 1 - age + SpawnCapacity) % SpawnCapacity];
+                if (use.Tick != tick) continue;
+                float distance = (position - use.Position).LengthSquared;
+                if (distance < 16)
+                {
+                    // Teammates retain a small grouping preference through the
+                    // director's friendly bonus, but never share a spawn body.
+                    float weight = use.Team == team ? 0.75f : 1;
+                    danger += (1 - distance / 16) * weight;
+                }
             }
             return danger;
         }
