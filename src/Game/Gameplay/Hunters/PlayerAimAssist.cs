@@ -34,7 +34,9 @@ namespace MphRead.Entities
             FrictionOuterConeDegrees: 8f,
             FrictionStrongConeDegrees: 2.5f,
             MaxSlowdown: 0.40f,
-            RotationConeDegrees: 7f,
+            // Keep the wider profile from overpowering a full directed stick
+            // input at the edge of the rotational assist cone.
+            RotationConeDegrees: 6f,
             MaxYawRate: 60f,
             MaxPitchRate: 44f,
             MinimumStickIntent: 0.08f,
