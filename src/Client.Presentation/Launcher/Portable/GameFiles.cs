@@ -40,6 +40,9 @@ namespace MphRead.Mods.Launcher
 
         private static string PathsFile => Path.Combine(Root, "paths.txt");
 
+        internal static IDisposable? TryAcquireSetupLock(string lockPath)
+            => Extract.TryAcquireSetupLock(lockPath);
+
         /// <summary>
         /// The oldest paths.txt this build can read. Upstream keeps the same
         /// number in Program; it is repeated here because the launcher runs
@@ -201,6 +204,11 @@ namespace MphRead.Mods.Launcher
                     // cannot arrive after the launcher has replaced the setup
                     // page with its completion state.
                     child.WaitForExit();
+                    if (child.ExitCode != 0)
+                    {
+                        report("Game-file setup did not complete.");
+                        return false;
+                    }
                 }
                 catch (Exception ex)
                 {
@@ -261,7 +269,10 @@ namespace MphRead.Mods.Launcher
             try
             {
                 Console.SetOut(new ReportWriter(report));
-                Extract.Setup(romPath, replaceConfiguredPaths: true);
+                if (!Extract.Setup(romPath, replaceConfiguredPaths: true))
+                {
+                    return false;
+                }
             }
             catch (Exception ex)
             {

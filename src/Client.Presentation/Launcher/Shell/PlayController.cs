@@ -682,6 +682,9 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 ContentEnvironment.GetContentIdentity, cancellationToken).ConfigureAwait(false);
             NodeListing[] nodes = await account.GetNodesAsync(NetHeader.Version, BuildVersion.Display,
                 identity.ContentHash, cancellationToken).ConfigureAwait(false);
+            DebugLog.Line("network/directory", $"compatible nodes={nodes.Length}, "
+                + $"protocol={NetHeader.Version}, build={BuildVersion.Display}, "
+                + $"content={identity.Version}:{identity.ContentHash}");
             LauncherPrefs.ObservePreferredRegions(nodes
                 .Select(node => node.Region)
                 .Where(region => !string.IsNullOrWhiteSpace(region))
@@ -689,7 +692,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 .ToArray());
             _directoryFetchedAt = _time.GetUtcNow();
             Publish(new PlayState(_online.Node is { Connected: true } ? PlayPhase.Connected : PlayPhase.Nodes, nodes, State.Node, State.LobbyHunter,
-                nodes.Length == 0 ? "No compatible servers are online." : "Choose a server in Advanced Network.", false,
+                nodes.Length == 0 ? EmptyDirectoryMessage(identity.Version) : "Choose a server in Advanced Network.", false,
                 State.Revision + 1));
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -709,6 +712,13 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
 
     internal static bool IsDirectoryFresh(DateTimeOffset? fetchedAt, DateTimeOffset now)
         => fetchedAt is { } fetched && now >= fetched && now - fetched < TimeSpan.FromSeconds(25);
+
+    internal static string EmptyDirectoryMessage(string contentVersion)
+        => StringComparer.OrdinalIgnoreCase.Equals(contentVersion, "AMHE1")
+            ? "No compatible servers are online."
+            : $"No compatible servers support {contentVersion}. Online play currently requires "
+                + "North American revision 1 game files (AMHE1). Open Settings > System > Game files "
+                + "and choose Repair from .nds file.";
 
     internal static NodeListing? SelectAutomaticNode(IEnumerable<NodeListing> nodes, string? region,
         IReadOnlyDictionary<Guid, TimeSpan>? measuredLatency = null,

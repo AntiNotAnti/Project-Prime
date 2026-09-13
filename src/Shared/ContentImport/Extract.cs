@@ -13,6 +13,8 @@ namespace MphRead
 {
     public static class Extract
     {
+        private const string SetupLockFileName = ".project-prime-setup.lock";
+
         public static void ExtractArchive(string path)
         {
             string name = Path.GetFileNameWithoutExtension(path);
@@ -54,8 +56,15 @@ namespace MphRead
             }
         }
 
-        public static void Setup(string path, bool replaceConfiguredPaths = false)
+        public static bool Setup(string path, bool replaceConfiguredPaths = false)
         {
+            using IDisposable? setupLock = TryAcquireSetupLock();
+            if (setupLock == null)
+            {
+                Console.WriteLine("Game-file setup is already running in another Project Prime process. "
+                    + "Wait for it to finish before trying again.");
+                return false;
+            }
             byte[] bytes = File.ReadAllBytes(path);
             RomHeader header = Read.ReadStruct<RomHeader>(bytes);
             var mphCodes = new Dictionary<string, List<byte>>()
@@ -78,19 +87,19 @@ namespace MphRead
                 if (!fhCodes.TryGetValue(gameCode, out List<byte>? fhVersions))
                 {
                     PrintExit($"The specified ROM file has invalid game code {gameCode}.");
-                    return;
+                    return false;
                 }
                 if (!fhVersions.Contains(header.Version))
                 {
                     PrintExit($"The specified {gameCode} ROM has unexpected version {header.Version}.");
-                    return;
+                    return false;
                 }
                 isFh = true;
             }
             else if (!mphVersions.Contains(header.Version))
             {
                 PrintExit($"The specified {gameCode} ROM has unexpected version {header.Version}.");
-                return;
+                return false;
             }
             Paths.UpdatePaths();
             if (!replaceConfiguredPaths && !OperatingSystem.IsAndroid() && File.Exists("paths.txt"))
@@ -103,7 +112,7 @@ namespace MphRead
                     string input = (Console.ReadLine() ?? "").Trim().ToLower();
                     if (input != "y" && input != "yes")
                     {
-                        return;
+                        return false;
                     }
                 }
             }
@@ -135,6 +144,29 @@ namespace MphRead
             lines.Add($"Export={Paths.AllPaths["Export"]}");
             File.WriteAllText("paths.txt", String.Join(Environment.NewLine, lines));
             Nop();
+            return true;
+        }
+
+        /// <summary>
+        /// Serializes setup across processes that share an install directory. The lock file is
+        /// intentionally persistent: deleting a lock file while another process is waiting on it
+        /// can create two independently locked files at the same path.
+        /// </summary>
+        internal static IDisposable? TryAcquireSetupLock(string? lockPath = null)
+        {
+            try
+            {
+                return new FileStream(Path.GetFullPath(lockPath ?? SetupLockFileName),
+                    FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+            }
+            catch (IOException)
+            {
+                return null;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return null;
+            }
         }
 
         private static void ExtractRomData(string rootName)

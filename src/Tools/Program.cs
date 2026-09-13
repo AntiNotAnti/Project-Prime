@@ -316,7 +316,10 @@ namespace MphRead
         {
             if (args.Length == 1 && !args[0].StartsWith('-') && File.Exists(args[0]))
             {
-                Extract.Setup(args[0]);
+                if (!Extract.Setup(args[0]))
+                {
+                    Environment.ExitCode = 1;
+                }
                 return true;
             }
             string? data = ValueAfter(args, "data") ?? ValueAfter(args, "content-dir");

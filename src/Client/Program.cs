@@ -205,7 +205,10 @@ namespace MphRead
             // instead of routing it to the separate tools executable.
             if (args.Length == 1 && !args[0].StartsWith('-') && File.Exists(args[0]))
             {
-                Extract.Setup(args[0], replaceConfiguredPaths: true);
+                if (!Extract.Setup(args[0], replaceConfiguredPaths: true))
+                {
+                    Environment.ExitCode = 1;
+                }
                 return true;
             }
             if (File.Exists("paths.txt") && !CheckVersion())

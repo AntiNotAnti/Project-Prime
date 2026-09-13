@@ -30,6 +30,17 @@ public sealed class PlayEntryTests
     }
 
     [Fact]
+    public void EmptyDirectoryExplainsUnsupportedBaseGameContent()
+    {
+        Assert.Equal("No compatible servers are online.",
+            PlayController.EmptyDirectoryMessage("AMHE1"));
+        string message = PlayController.EmptyDirectoryMessage("AMHK0");
+        Assert.Contains("AMHK0", message);
+        Assert.Contains("AMHE1", message);
+        Assert.Contains("Repair from .nds file", message);
+    }
+
+    [Fact]
     public void AutomaticSelectionPrefersRegionAndIsIndependentOfDirectoryOrdering()
     {
         NodeListing west = Node(1, "West", 2);
