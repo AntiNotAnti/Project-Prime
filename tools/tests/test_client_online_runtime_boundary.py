@@ -32,8 +32,8 @@ class ClientOnlineRuntimeBoundaryTests(unittest.TestCase):
         self.assertIn("src/Client/HUD/Widget.cs:2", errors[0])
 
     def test_owner_implementation_is_the_only_compatibility_seam(self):
-        diff = """--- a/src/Client/Networking/AuthoritativePlay.cs
-+++ b/src/Client/Networking/AuthoritativePlay.cs
+        diff = """--- a/src/Client.Presentation/Networking/AuthoritativePlay.cs
++++ b/src/Client.Presentation/Networking/AuthoritativePlay.cs
 @@ -1,0 +2 @@
 +public static AuthoritativePlay? Current => NodeSessions.Current?.Play;
 """
@@ -59,7 +59,7 @@ class ClientOnlineRuntimeBoundaryTests(unittest.TestCase):
         self.assertIn("src/Client/HUD/Widget.cs:1", errors[0])
 
     def test_tree_scan_accepts_named_residual_shim(self):
-        source = self.root / "src/Client/Rendering/RenderInterpolation.cs"
+        source = self.root / "src/Client.Presentation/Rendering/RenderInterpolation.cs"
         source.parent.mkdir(parents=True, exist_ok=True)
         source.write_text("class RenderInterpolation { object? Value => AuthoritativePlay.Current; }\n")
 

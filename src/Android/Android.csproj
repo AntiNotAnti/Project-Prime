@@ -15,6 +15,10 @@
     <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
     <PrimeMapOwnsMapArtifacts>true</PrimeMapOwnsMapArtifacts>
     <AndroidBuildRuntimeIdentifiersInParallel>false</AndroidBuildRuntimeIdentifiersInParallel>
+    <!-- Client.Presentation has an explicit Android evaluation. Keep its NuGet
+         graph in a separate intermediate directory so a desktop restore and an
+         Android restore cannot overwrite one another's project.assets.json. -->
+    <AndroidPresentationIntermediatePath>$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)/../Client.Presentation/obj/android/'))</AndroidPresentationIntermediatePath>
     <!-- Avalonia 11.3 uses SkiaSharp 2.88; its native page-size warning is tracked separately. -->
     <NoWarn>$(NoWarn);XA0141</NoWarn>
   </PropertyGroup>
@@ -32,8 +36,14 @@
 
   <ItemGroup>
     <ProjectReference Include="../Client.Core/Client.Core.csproj" />
+    <!-- Presentation is portable managed IL for both Android ABIs. Do not
+         fan its Avalonia compilation out by app RuntimeIdentifier: the SDK's
+         per-RID resource target otherwise looks for a RID-specific assembly
+         that the shared presentation build does not emit. -->
     <ProjectReference Include="../Client.Presentation/Client.Presentation.csproj"
-                      SetTargetFramework="TargetFramework=net10.0-android36.0" />
+                      SetTargetFramework="TargetFramework=net10.0-android36.0"
+                      AdditionalProperties="PrimeEnableAndroidPresentation=true;BaseIntermediateOutputPath=$(AndroidPresentationIntermediatePath);MSBuildProjectExtensionsPath=$(AndroidPresentationIntermediatePath)"
+                      GlobalPropertiesToRemove="RuntimeIdentifier" />
     <ProjectReference Include="../Game/Game.csproj" />
     <ProjectReference Include="../Imaging/Imaging.csproj" />
     <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
@@ -86,6 +96,19 @@
     <Using Include="MphRead.Mods.Sound.AlEs" Alias="AL" />
     <Using Include="MphRead.Mods.Sound.AlcEs" Alias="ALC" />
   </ItemGroup>
+
+  <!-- Static graph restore does not propagate ProjectReference
+       AdditionalProperties. Restore the one opt-in Android presentation graph
+       explicitly before the app resolves project references. This is bounded
+       to one managed project and leaves the ordinary desktop graph untouched. -->
+  <Target Name="RestoreAndroidPresentation"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <MSBuild Projects="../Client.Presentation/Client.Presentation.csproj"
+             Targets="Restore"
+             BuildInParallel="false"
+             Properties="PrimeEnableAndroidPresentation=true;TargetFramework=net10.0-android36.0;BaseIntermediateOutputPath=$(AndroidPresentationIntermediatePath);MSBuildProjectExtensionsPath=$(AndroidPresentationIntermediatePath);RestoreRecursive=false" />
+  </Target>
 
   <!-- Imported for both modes so the first unprotected build after a protected
        publish can invalidate protection-sensitive Android intermediates. -->

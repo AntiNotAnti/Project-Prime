@@ -215,7 +215,7 @@ import pathlib
 import re
 import sys
 
-source = pathlib.Path("src/Client/Update/UpdateTrust.cs").read_text(encoding="utf-8")
+source = pathlib.Path("src/Client.Presentation/Update/UpdateTrust.cs").read_text(encoding="utf-8")
 match = re.search(r'PinnedPublicKeySpkiBase64\s*=\s*"([A-Za-z0-9+/=]+)"\s*;', source)
 if match is None:
     sys.exit(1)

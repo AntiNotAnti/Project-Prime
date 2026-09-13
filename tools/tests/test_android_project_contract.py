@@ -28,7 +28,30 @@ class AndroidNodeProjectContractTests(unittest.TestCase):
         )
         for source in core_sources:
             self.assertTrue((ROOT / 'src/Client.Core' / source).is_file())
-        self.assertTrue((ROOT / 'src/Client/Launcher/Gui/NodeBrowserView.cs').is_file())
+        self.assertTrue((ROOT / 'src/Client.Presentation/Launcher/Gui/NodeBrowserView.cs').is_file())
+
+        presentation = ET.parse(
+            ROOT / 'src/Client.Presentation/Client.Presentation.csproj').getroot()
+        linked_items = {
+            item.attrib['Include'].replace('\\', '/')
+            for item in presentation.iter()
+            if item.tag in {'Compile', 'AvaloniaXaml', 'AvaloniaResource', 'EmbeddedResource'}
+            and 'Include' in item.attrib
+        }
+        self.assertFalse(any(source.startswith('../Client/') for source in linked_items))
+
+        presentation_reference = next(item for item in project.iter('ProjectReference')
+            if item.attrib['Include'] == '../Client.Presentation/Client.Presentation.csproj')
+        properties = {
+            value.strip() for value in
+            presentation_reference.attrib.get('AdditionalProperties', '').split(';')
+            if value.strip()
+        }
+        self.assertIn('PrimeEnableAndroidPresentation=true', properties)
+        self.assertIn(
+            'BaseIntermediateOutputPath=$(AndroidPresentationIntermediatePath)', properties)
+        self.assertIn(
+            'MSBuildProjectExtensionsPath=$(AndroidPresentationIntermediatePath)', properties)
 
 
 if __name__ == '__main__':

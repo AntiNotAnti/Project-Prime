@@ -63,8 +63,8 @@ OWNED_SOURCE_GLOBS = {
     # entry explicit so a future cross-project wildcard cannot silently reopen
     # the transitional Client source-link boundary.
     'Renderer': (),
-    'Client.Presentation': ('../Client/',),
 }
+OWNED_ITEM_TAGS = {'Compile', 'AvaloniaXaml', 'AvaloniaResource', 'EmbeddedResource'}
 
 
 def xml_files(project: Path) -> list[tuple[Path, ET.Element]]:
@@ -134,7 +134,7 @@ def inspect(root: Path) -> list[str]:
                     references.add(target.stem)
                 if item.tag == 'PackageReference':
                     packages.add(item.attrib['Include'])
-                if item.tag != 'Compile' or 'Include' not in item.attrib:
+                if item.tag not in OWNED_ITEM_TAGS or 'Include' not in item.attrib:
                     continue
                 for include in item.attrib['Include'].split(';'):
                     normalized = include.replace('\\', '/')
@@ -154,7 +154,7 @@ def inspect(root: Path) -> list[str]:
                     if cross_project:
                         allowed = {'Client': {'Shared'},
                                    'Client.Core': {'Shared'},
-                                   'Client.Presentation': {'Client', 'Renderer', 'Shared'},
+                                   'Client.Presentation': {'Renderer', 'Shared'},
                                    'Imaging': {'Shared'},
                                    'MapPlatform': set(),
                                    'Renderer': set(),

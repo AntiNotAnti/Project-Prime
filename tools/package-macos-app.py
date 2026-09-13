@@ -28,7 +28,7 @@ ICON_NAME = "project-prime.icns"
 ICON_SOURCE_NAME = "project-prime-mark.png"
 VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(?:[.-].*)?$")
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ICON = ROOT / "src" / "Client" / "Assets" / ICON_SOURCE_NAME
+DEFAULT_ICON = ROOT / "src" / "Client.Presentation" / "Assets" / ICON_SOURCE_NAME
 
 
 def fail(message: str) -> None:

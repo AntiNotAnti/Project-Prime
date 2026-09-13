@@ -8,12 +8,14 @@
 # The Project Prime title screen, the Project Prime mark alone (padded square,
 # for icons), and the same mark with a small server badge. Sources for the .ico
 # files below and for what the launchers and the README show.
-src/Client/Assets/project-prime-title-screen.png
+src/Client.Presentation/Assets/project-prime-title-screen.png
 # These removed rename destinations remain visible in the shared index until
 # the concurrent branding cleanup is staged; allowlisting never restores or
 # embeds them.
+src/Client/Assets/project-prime-title-screen.png
 src/Client/Assets/project-prime-logo.png
 src/Client/Assets/project-prime-intro.png
+src/Client.Presentation/Assets/project-prime-mark.png
 src/Client/Assets/project-prime-mark.png
 src/Client/Assets/project-prime-mark-server.png
 src/Client/Assets/project-prime-mark-tools.png

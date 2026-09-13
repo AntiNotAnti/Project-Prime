@@ -9,7 +9,7 @@ import subprocess
 import sys
 
 
-CREDITS = Path("src/Client/Runtime/Credits.cs")
+CREDITS = Path("src/Client.Presentation/Runtime/Credits.cs")
 README = Path("README.md")
 HANDOFF_DEPLOY = Path("deploy-server.sh")
 HANDOFF_TESTS = Path("tools/tests/test_deploy_server.py")

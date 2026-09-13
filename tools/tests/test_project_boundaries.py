@@ -175,6 +175,39 @@ class ProjectBoundaryGuardTests(unittest.TestCase):
             errors,
         )
 
+    def test_presentation_cannot_link_client_implementation(self):
+        self.write_baseline()
+        self.write(
+            "src/Client.Presentation/Client.Presentation.csproj",
+            self.project("Client.Presentation", GUARD.PROJECTS["Client.Presentation"],
+                         links=("../Client/Presentation.cs",)),
+        )
+        self.write("src/Client/Presentation.cs", "class PresentationFixture { }\n")
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "src/Client.Presentation/Client.Presentation.csproj: invalid Client.Presentation source link: ../Client/Presentation.cs",
+            errors,
+        )
+
+    def test_presentation_cannot_link_client_resource(self):
+        self.write_baseline()
+        project = self.project(
+            "Client.Presentation", GUARD.PROJECTS["Client.Presentation"])
+        project = project.replace(
+            "</ItemGroup>",
+            '<AvaloniaResource Include="../Client/Assets/Brand.png" /></ItemGroup>', 1)
+        self.write("src/Client.Presentation/Client.Presentation.csproj", project)
+        self.write("src/Client/Assets/Brand.png", "fixture\n")
+
+        errors = self.inspect()
+
+        self.assertIn(
+            "src/Client.Presentation/Client.Presentation.csproj: invalid Client.Presentation source link: ../Client/Assets/Brand.png",
+            errors,
+        )
+
     def test_game_platform_source_is_rejected(self):
         self.write_baseline()
         self.write("src/Game/Window.cs", "using Avalonia;\nclass WindowFixture { }\n")

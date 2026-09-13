@@ -13,19 +13,19 @@ LEGACY_ONLINE_REFERENCE = re.compile(
     r"\b(?:AuthoritativePlay\.(?:Current|Active)|NodeSessions\.Current)\b"
 )
 COMPATIBILITY_FILES = {
-    "src/Client/Networking/AuthoritativePlay.cs",
-    "src/Client/Networking/ClientOnlineRuntime.cs",
+    "src/Client.Presentation/Networking/AuthoritativePlay.cs",
+    "src/Client.Presentation/Networking/ClientOnlineRuntime.cs",
 }
 RESIDUAL_SHIM_FILES = {
     # Launcher and renderer owners still need an explicit scene/runtime handoff.
-    "src/Client/Launcher/Gui/HomeView.cs",
-    "src/Client/Launcher/Gui/PauseMenuView.cs",
-    "src/Client/Launcher/Shell/Play/PlayPresentation.cs",
-    "src/Client/Rendering/RenderInterpolation.cs",
-    "src/Client/Rendering/Renderer.cs",
+    "src/Client.Presentation/Launcher/Gui/HomeView.cs",
+    "src/Client.Presentation/Launcher/Gui/PauseMenuView.cs",
+    "src/Client.Presentation/Launcher/Shell/Play/PlayPresentation.cs",
+    "src/Client.Presentation/Rendering/RenderInterpolation.cs",
+    "src/Client.Presentation/Rendering/Renderer.cs",
 }
 ALLOWED_FILES = COMPATIBILITY_FILES | RESIDUAL_SHIM_FILES
-PRODUCTION_ROOTS = ("src/Client/", "src/Android/")
+PRODUCTION_ROOTS = ("src/Client/", "src/Client.Presentation/", "src/Android/")
 
 
 def inspect_diff(diff: str) -> list[str]:

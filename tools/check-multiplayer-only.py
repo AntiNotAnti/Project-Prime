@@ -39,9 +39,9 @@ RAW_MODE_FILES = frozenset({
 })
 # These are raw HUD metadata and the independent asset viewer, not player scanning.
 VIEWER_SCAN_FILES = frozenset({
-    "src/Client/HUD/HudInfo.cs",
-    "src/Client/Rendering/Renderer.cs",
-    "src/Client/Rendering/Entities/ObjectEntityPresentation.cs",
+    "src/Client.Presentation/HUD/HudInfo.cs",
+    "src/Client.Presentation/Rendering/Renderer.cs",
+    "src/Client.Presentation/Rendering/Entities/ObjectEntityPresentation.cs",
 })
 RULES = (
     Rule("campaign-save", r"\bStorySave\b"),

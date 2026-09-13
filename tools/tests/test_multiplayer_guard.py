@@ -105,9 +105,9 @@ class MultiplayerGuardTests(unittest.TestCase):
                 ("src/Tools/Program.cs", "VxDecoder"),
             ],
             "player-scan-visor": [
-                ("src/Client/HUD/HudInfo.cs", "ScanVisor"),
-                ("src/Client/Rendering/Renderer.cs", "ScanVisor"),
-                ("src/Client/Rendering/Entities/ObjectEntityPresentation.cs", "ScanVisor"),
+                ("src/Client.Presentation/HUD/HudInfo.cs", "ScanVisor"),
+                ("src/Client.Presentation/Rendering/Renderer.cs", "ScanVisor"),
+                ("src/Client.Presentation/Rendering/Entities/ObjectEntityPresentation.cs", "ScanVisor"),
             ],
         }
         for entries in exceptions.values():
