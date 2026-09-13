@@ -8,14 +8,24 @@
     <SkipMethod type="*" name="Dispose" />
     <SkipMethod type="*" name="DisposeAsync" />
     <SkipMethod type="*" name="ToString" />
+    <!-- IEquatable<T> dispatch is owned by the framework contract. -->
+    <SkipType name="MphRead.BloomPyramidWeights" skipMethods="true"
+              skipFields="true" skipProperties="true" skipEvents="true" />
+  </Module>
+  <Module name="ProjectPrime.Client.Core.dll">
+    <SkipMethod type="*" name="Dispose" />
+    <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
     <!-- Key bindings are discovered and persisted by PropertyInfo.Name. -->
     <SkipType name="MphRead.Entities.ClientPlayerBindings" skipMethods="true"
               skipFields="true" skipProperties="true" skipEvents="true" />
+  </Module>
+  <Module name="ProjectPrime.Client.Presentation.dll">
+    <SkipMethod type="*" name="Dispose" />
+    <SkipMethod type="*" name="DisposeAsync" />
+    <SkipMethod type="*" name="ToString" />
     <!-- Launcher command parsing discovers cheat switches by property name. -->
     <SkipType name="MphRead.Cheats" skipMethods="true"
-              skipFields="true" skipProperties="true" skipEvents="true" />
-    <!-- IEquatable<T> dispatch is owned by the framework contract. -->
-    <SkipType name="MphRead.BloomPyramidWeights" skipMethods="true"
               skipFields="true" skipProperties="true" skipEvents="true" />
   </Module>
   <Module name="ProjectPrime.Game.dll">

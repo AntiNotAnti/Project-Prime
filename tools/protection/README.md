@@ -1,8 +1,10 @@
 # Client protection tools
 
-Project Prime protects only the five first-party managed assemblies distributed
-inside client packages. Obfuscation is a release build step, not an application
-dependency. The input is always a fresh copy and canonical `bin`/linked output is
+Project Prime protects the seven first-party managed assemblies in the client
+execution graph: the platform entry assembly, shared client core and presentation,
+game, server contracts, replay, and audio. Obfuscation is a release build step,
+not an application dependency. The input is always a fresh copy and canonical
+`bin`/linked output is
 never overwritten.
 
 The tool version is pinned in `.config/dotnet-tools.json`. Restore it once with:
@@ -33,22 +35,25 @@ Immediately after each Obfuscar run, the release-only `MetadataRepair` tool copi
 field, parameter, and return-value marshal descriptors from the staged input and
 repairs only that known bad generic-constraint scope. It also restores each stripped
 default-interface body while remapping its IL references to the jointly obfuscated
-five-module graph. Repairs use matching metadata tokens and generic-parameter positions.
+seven-module graph. Repairs use matching metadata tokens and generic-parameter positions.
 The tool validates parameter attributes, constraint counts, framework scope, the complete
 marshal-descriptor count, and stable default-interface IL profiles before atomically
 replacing the protected output. This keeps binary structures, P/Invoke parameters, ROM
 extraction, constrained generic methods, and optional interface hooks functional without
 mutating canonical build outputs. A missing module, changed token/signature, unexpected
-constraint/body shape, or incomplete repair is fatal. The repair runs for all five
+constraint/body shape, or incomplete repair is fatal. The repair runs for all seven
 modules even when a module needs no repair.
 
-`check-obfuscation.py protected` checks the five staged inputs, outputs, mapping,
+`check-obfuscation.py protected` checks the seven staged inputs, outputs, mapping,
 rename totals, preserve rules, hashes, and PE debug directories.
 `check-obfuscation.py public PATH...` rejects mapping/config/staging files and
-PDB/MDB data in a public directory, ZIP, or APK. `stage-android` groups post-link
-assemblies by RID and copies a fresh five-module input graph for each RID without
+PDB/MDB data in a public directory, ZIP, or APK. `stage-android` groups the current
+post-link resolved assemblies by RID and copies a fresh seven-module input graph
+for each RID without
 altering the linker's files. Each RID is obfuscated independently because its
-post-link bytes can differ. `package-android` reads that staging inventory and
+post-link bytes can differ. Protected builds force each RID's ILLink pass before
+staging so redirected project-reference outputs cannot reuse a stale linked graph.
+`package-android` reads that staging inventory and
 copies each exact `output/<rid>/<module>` into its matching protected package path,
 verifying every hash before MSBuild substitutes the metadata-preserving items.
 Android protection runs after `_PrepareAssemblies` and before `_GenerateJavaStubs`,
@@ -58,12 +63,12 @@ their adjacent `.jlo.xml` sidecars. After `_RemoveRegisterAttribute`, a second t
 replaces `_ShrunkAssemblies` and `_ShrunkUserAssemblies` with the same protected
 `package/<rid>/<module>` identities. `verify-android-routing` checks the early
 resolved-user boundary and the late final-shrunk boundary. For every active RID it
-requires exactly the five
-first-party `_ShrunkUserAssemblies`, requires every identity to be under the
+requires exactly the seven first-party `_ShrunkUserAssemblies`, requires every
+identity to be under the
 current `prime-protection/package/<rid>/` root, and compares it byte-for-byte with
 the corresponding Obfuscar output. `verify-android-apk` extracts each packaged
 `lib/<abi>/libassembly-store.so` XABA payload with the installed .NET Android SDK's
-`llvm-objcopy`, expands XALZ entries, and compares the actual embedded five
+`llvm-objcopy`, expands XALZ entries, and compares the actual embedded seven
 assemblies with their per-RID protected output hashes. It rejects unexpected ABI
 stores and any store entry carrying debug/config payload descriptors. Protected
 Android builds disable AOT until it can consume the post-protection graph safely.

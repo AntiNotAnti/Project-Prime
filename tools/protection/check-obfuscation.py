@@ -23,6 +23,8 @@ from pathlib import Path, PurePosixPath
 
 EXPECTED_MODULES = (
     "ProjectPrime.dll",
+    "ProjectPrime.Client.Core.dll",
+    "ProjectPrime.Client.Presentation.dll",
     "ProjectPrime.Game.dll",
     "Server.Shared.dll",
     "ProjectPrime.Replay.dll",
@@ -207,7 +209,8 @@ def check_protected(args: argparse.Namespace) -> int:
             raise ValueError(f"{label} is missing or empty: {path}")
     configured = [Path(item.attrib["file"]).name for item in ET.parse(config).getroot().findall("Module")]
     if sorted(configured) != sorted(EXPECTED_MODULES) or len(configured) != len(EXPECTED_MODULES):
-        raise ValueError(f"configured modules are not exactly the expected five: {configured}")
+        raise ValueError(
+            f"configured modules are not exactly the expected {len(EXPECTED_MODULES)}: {configured}")
     for module in EXPECTED_MODULES:
         source, protected = input_dir / module, output_dir / module
         if not source.is_file() or not protected.is_file():
@@ -224,7 +227,17 @@ def check_protected(args: argparse.Namespace) -> int:
     violations = configured_preserve_violations(mapping, config)
     if violations:
         raise ValueError(f"preserved types were renamed: {', '.join(violations[:10])}")
-    absent = [name for name, values in stats.items() if sum(values.values()) < args.min_module_renames]
+    allowed_zero_modules = set(args.allow_zero_module)
+    unexpected_allowed = sorted(allowed_zero_modules - set(EXPECTED_MODULES))
+    if unexpected_allowed:
+        raise ValueError(
+            "zero-rename allowance names unexpected modules: "
+            + ", ".join(unexpected_allowed))
+    absent = [
+        name for name, values in stats.items()
+        if name not in allowed_zero_modules
+        and sum(values.values()) < args.min_module_renames
+    ]
     if absent:
         raise ValueError(f"implausibly low/no rename results for: {', '.join(absent)}")
     if sum(value["types"] for value in stats.values()) < args.min_total_types:
@@ -343,7 +356,8 @@ def package_android(args: argparse.Namespace) -> int:
         if rid not in ANDROID_RID_TO_ABI:
             raise ValueError(f"Android routing inventory contains unsupported RID {rid}")
         if not isinstance(modules, dict) or set(modules) != set(EXPECTED_MODULES):
-            raise ValueError(f"Android routing inventory is not exactly five modules for {rid}")
+            raise ValueError(
+                f"Android routing inventory is not exactly {len(EXPECTED_MODULES)} modules for {rid}")
         for name in EXPECTED_MODULES:
             protected = output_root / rid / name
             if not protected.is_file():
@@ -404,7 +418,8 @@ def verify_android_routing(args: argparse.Namespace) -> int:
             missing = sorted(set(EXPECTED_MODULES) - names)
             extra = sorted(names - set(EXPECTED_MODULES))
             raise ValueError(
-                f"Android compression inputs are not exactly the expected five for {rid}"
+                f"Android compression inputs are not exactly the expected "
+                f"{len(EXPECTED_MODULES)} for {rid}"
                 f"; missing={missing}, extra={extra}")
 
     expected_count = len(expected_rids) * len(EXPECTED_MODULES)
@@ -611,7 +626,8 @@ def verify_android_apk(args: argparse.Namespace) -> int:
                     raise ValueError(f"{entry} omitted protected module {name}")
                 if hashlib.sha256(embedded).digest() != hashlib.sha256(protected.read_bytes()).digest():
                     raise ValueError(f"embedded {name} hash does not match {rid} Obfuscar output")
-            print(f"{rid}: verified five protected assemblies in {entry}")
+            print(
+                f"{rid}: verified {len(EXPECTED_MODULES)} protected assemblies in {entry}")
     return 0
 
 
@@ -624,6 +640,7 @@ def parse_args() -> argparse.Namespace:
     protected.add_argument("--mapping", required=True)
     protected.add_argument("--config", required=True)
     protected.add_argument("--min-module-renames", type=int, default=1)
+    protected.add_argument("--allow-zero-module", action="append", default=[])
     protected.add_argument("--min-total-types", type=int, default=5)
     protected.add_argument("--min-total-methods", type=int, default=5)
     protected.add_argument("--min-total-fields", type=int, default=1)

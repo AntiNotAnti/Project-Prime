@@ -35,6 +35,16 @@
            Text="Protected Android clients must disable AOT: Android AOT inputs are resolved before the post-link protection stage." />
   </Target>
 
+  <!-- The Android SDK's per-RID ILLink semaphore does not reliably observe a
+       rebuilt project-reference assembly when protected compilation redirects
+       that dependency graph through ArtifactsPath. Protected packages must
+       never obfuscate a stale linked graph, so force each RID's linker pass. -->
+  <Target Name="InvalidateProjectPrimeAndroidProtectedLink"
+          BeforeTargets="_RunILLink"
+          Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true' and '$(RuntimeIdentifier)' != ''">
+    <Delete Files="$(_LinkSemaphore)" />
+  </Target>
+
   <!-- Verified against Microsoft.Android.Sdk 36.1.69: protect linked per-RID IL
        after _PrepareAssemblies, but before compressed-assembly native sizing
        consumes _ResolvedUserAssemblies. Keep the other resolved/shrunk sets on
@@ -46,15 +56,15 @@
           DependsOnTargets="_PrepareAssemblies;InvalidateProjectPrimeAndroidProtectionTransition;InitializeProjectPrimeAndroidProtectionPaths"
           Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
     <ItemGroup>
-      <_PrimeAndroidOriginal Include="@(_ShrunkUserAssemblies)"
-          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+      <_PrimeAndroidOriginal Include="@(_ResolvedUserAssemblies)"
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
       <_PrimeAndroidResolvedUserOriginal Include="@(_ResolvedUserAssemblies)"
-          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
       <_PrimeAndroidMissingRid Include="@(_PrimeAndroidOriginal)" Condition="'%(RuntimeIdentifier)' == ''" />
       <_PrimeAndroidExpectedRid Include="@(_PrimeAndroidOriginal->'%(RuntimeIdentifier)')" />
-      <_PrimeAndroidRawSearchPath Include="@(_ShrunkAssemblies->'%(RootDir)%(Directory)')" />
+      <_PrimeAndroidRawSearchPath Include="@(_ResolvedAssemblies->'%(RootDir)%(Directory)')" />
     </ItemGroup>
-    <Error Condition="'@(_PrimeAndroidOriginal)' == ''" Text="Android linker omitted all five expected Project Prime modules." />
+    <Error Condition="'@(_PrimeAndroidOriginal)' == ''" Text="Android linker omitted all seven expected Project Prime modules." />
     <Error Condition="'@(_PrimeAndroidMissingRid)' != ''"
            Text="Android protection requires RuntimeIdentifier metadata on every linked first-party assembly: @(_PrimeAndroidMissingRid)" />
     <RemoveDuplicates Inputs="@(_PrimeAndroidExpectedRid)">
@@ -71,13 +81,13 @@
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; stage-android --input-root &quot;$(_PrimeProtectionInput)&quot; --routing-file &quot;$(_PrimeProtectionRoutes)&quot; @(_PrimeAndroidOriginal->'--source &quot;%(FullPath)&quot;', ' ')" />
 
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
-          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/generate-obfuscar-config.py&quot; --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping-file &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --output-config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot; --source-root &quot;$(_PrimeRepositoryRoot)&quot; --platform android --rules &quot;$(_PrimeRepositoryRoot)/build/protection/common.rules.xml&quot; --rules &quot;$(_PrimeRepositoryRoot)/build/protection/android.rules.xml&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Game.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Server.Shared.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Replay.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Audio.Ncsf.dll&quot; @(_PrimeAndroidSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/generate-obfuscar-config.py&quot; --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping-file &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --output-config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot; --source-root &quot;$(_PrimeRepositoryRoot)&quot; --platform android --rules &quot;$(_PrimeRepositoryRoot)/build/protection/common.rules.xml&quot; --rules &quot;$(_PrimeRepositoryRoot)/build/protection/android.rules.xml&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Client.Core.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Client.Presentation.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Game.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Server.Shared.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/ProjectPrime.Replay.dll&quot; --module &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)/Audio.Ncsf.dll&quot; @(_PrimeAndroidSearchPath->'--search-path &quot;%(FullPath)&quot;', ' ')" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="dotnet tool run obfuscar.console &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot;" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="dotnet run --project &quot;$(_PrimeRepositoryRoot)/tools/protection/MetadataRepair/MetadataRepair.csproj&quot; -c Release --no-launch-profile -- --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot;" />
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
-          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot;" />
+          Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; protected --input-dir &quot;$(_PrimeProtectionInput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --output-dir &quot;$(_PrimeProtectionOutput)/%(_PrimeAndroidExpectedRidUnique.Identity)&quot; --mapping &quot;$(_PrimeProtectionMapRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/Mapping.txt&quot; --config &quot;$(_PrimeProtectionConfigRoot)/%(_PrimeAndroidExpectedRidUnique.Identity)/obfuscar.xml&quot; --allow-zero-module &quot;ProjectPrime.dll&quot;" />
 
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; package-android --output-root &quot;$(_PrimeProtectionOutput)&quot; --package-root &quot;$(_PrimeProtectionPackage)&quot; --routing-file &quot;$(_PrimeProtectionRoutes)&quot;" />
@@ -94,11 +104,11 @@
     </ItemGroup>
     <ItemGroup>
       <_PrimeAndroidResolvedRoutingInput Include="@(_ResolvedUserAssemblies)"
-          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
     </ItemGroup>
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; verify-android-routing --package-root &quot;$(_PrimeProtectionPackage)&quot; --output-root &quot;$(_PrimeProtectionOutput)&quot; @(_PrimeAndroidExpectedRidUnique->'--rid &quot;%(Identity)&quot;', ' ') @(_PrimeAndroidResolvedRoutingInput->'--source &quot;%(FullPath)&quot;', ' ')" />
-    <Message Importance="high" Text="Protected five Android first-party modules independently for @(_PrimeAndroidExpectedRidUnique) and routed protected resolved-user inputs into compressed-assembly native sizing; linked outputs were not modified." />
+    <Message Importance="high" Text="Protected seven Android first-party modules independently for @(_PrimeAndroidExpectedRidUnique) and routed protected resolved-user inputs into compressed-assembly native sizing; linked outputs were not modified." />
   </Target>
 
   <!-- _RemoveRegisterAttribute must see canonical resolved paths so its SDK
@@ -111,9 +121,9 @@
           Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
     <ItemGroup>
       <_PrimeAndroidLateShrunkOriginal Include="@(_ShrunkAssemblies)"
-          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
       <_PrimeAndroidLateShrunkUserOriginal Include="@(_ShrunkUserAssemblies)"
-          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
+          Condition="('%(RuntimeIdentifier)' == '$(RuntimeIdentifier)' or '$(RuntimeIdentifier)' == '') and ('%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll')" />
       <_PrimeAndroidLateShrunkProtected Include="@(_PrimeAndroidLateShrunkOriginal->'$(_PrimeProtectionPackage)/%(RuntimeIdentifier)/%(Filename)%(Extension)')" />
       <_PrimeAndroidLateShrunkUserProtected Include="@(_PrimeAndroidLateShrunkUserOriginal->'$(_PrimeProtectionPackage)/%(RuntimeIdentifier)/%(Filename)%(Extension)')" />
     </ItemGroup>
@@ -175,7 +185,7 @@
           Condition="'$(_PrimeAndroidProtectionEnabled)' == 'true'">
     <ItemGroup>
       <_PrimeAndroidCompressionInput Include="@(_ShrunkUserAssemblies)"
-          Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll'" />
+          Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Game.dll' or '%(Filename)%(Extension)' == 'Server.Shared.dll' or '%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll' or '%(Filename)%(Extension)' == 'Audio.Ncsf.dll'" />
     </ItemGroup>
     <Exec WorkingDirectory="$(_PrimeRepositoryRoot)"
           Command="python3 &quot;$(_PrimeRepositoryRoot)/tools/protection/check-obfuscation.py&quot; verify-android-routing --package-root &quot;$(_PrimeProtectionPackage)&quot; --output-root &quot;$(_PrimeProtectionOutput)&quot; @(_PrimeAndroidExpectedRidUnique->'--rid &quot;%(Identity)&quot;', ' ') @(_PrimeAndroidCompressionInput->'--source &quot;%(FullPath)&quot;', ' ')" />

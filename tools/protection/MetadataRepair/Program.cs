@@ -6,6 +6,8 @@ const string OutputOption = "--output-dir";
 string[] expectedModules =
 [
     "ProjectPrime.dll",
+    "ProjectPrime.Client.Core.dll",
+    "ProjectPrime.Client.Presentation.dll",
     "ProjectPrime.Game.dll",
     "Server.Shared.dll",
     "ProjectPrime.Replay.dll",

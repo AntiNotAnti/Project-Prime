@@ -31,8 +31,8 @@ class ClientProtectionTests(unittest.TestCase):
 
     def test_generator_emits_absolute_policy_and_xaml_preserves(self):
         source = self.root / "source"
-        (source / "src/Ui").mkdir(parents=True)
-        (source / "src/Ui/View.axaml").write_text(
+        (source / "src/Client").mkdir(parents=True)
+        (source / "src/Client/View.axaml").write_text(
             '<UserControl xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" '
             'xmlns:prime="clr-namespace:Prime.Ui" '
             'xmlns:game="clr-namespace:Prime.GameUi;assembly=ProjectPrime.Game" '
@@ -74,9 +74,16 @@ class ClientProtectionTests(unittest.TestCase):
         main = next(module for module in root.findall("Module")
                     if Path(module.attrib["file"]).name == "ProjectPrime.dll")
         skipped = {item.attrib["name"] for item in main.findall("SkipType")}
+        self.assertIn("Prime.Reflection", skipped)
+        presentation = next(module for module in root.findall("Module")
+                            if Path(module.attrib["file"]).name
+                            == "ProjectPrime.Client.Presentation.dll")
+        presentation_skipped = {
+            item.attrib["name"] for item in presentation.findall("SkipType")
+        }
         self.assertTrue(
-            {"Prime.Reflection", "Prime.Ui.View", "Prime.Ui.PrimeBrandMark"}.issubset(skipped))
-        generated = next(item for item in main.findall("SkipType")
+            {"Prime.Ui.View", "Prime.Ui.PrimeBrandMark"}.issubset(presentation_skipped))
+        generated = next(item for item in presentation.findall("SkipType")
                          if item.attrib["name"] == "Prime.Ui.PrimeBrandMark")
         self.assertEqual(
             {"name": "Prime.Ui.PrimeBrandMark", "skipMethods": "true",
@@ -109,8 +116,18 @@ class ClientProtectionTests(unittest.TestCase):
             self.assertIn(("*", "DisposeAsync"), methods)
             self.assertIn(("*", "ToString"), methods)
         main_types = {rule.attrib.get("name") for rule in modules["ProjectPrime.dll"].findall("SkipType")}
+        core_types = {
+            rule.attrib.get("name")
+            for rule in modules["ProjectPrime.Client.Core.dll"].findall("SkipType")
+        }
+        presentation_types = {
+            rule.attrib.get("name")
+            for rule in modules["ProjectPrime.Client.Presentation.dll"].findall("SkipType")
+        }
         game_types = {rule.attrib.get("name") for rule in modules["ProjectPrime.Game.dll"].findall("SkipType")}
         self.assertIn("MphRead.BloomPyramidWeights", main_types)
+        self.assertIn("MphRead.Entities.ClientPlayerBindings", core_types)
+        self.assertIn("MphRead.Cheats", presentation_types)
         self.assertIn("MphRead.Formats.CollisionWorkspace/CollisionDataComparer", game_types)
 
     def test_checker_rejects_renamed_external_contract_method(self):
@@ -186,6 +203,16 @@ class ClientProtectionTests(unittest.TestCase):
         self.assertIn(
             "src/Android/obj/**/prime-protection/**/obfuscar.xml",
             release_workflow)
+
+        android = ET.parse(ROOT / "src/Android/Android.csproj").getroot()
+        presentation = android.find(
+            ".//ProjectReference[@Include='../Client.Presentation/Client.Presentation.csproj']"
+        )
+        self.assertIsNotNone(presentation)
+        self.assertEqual(
+            "RuntimeIdentifier",
+            presentation.attrib.get("GlobalPropertiesToRemove"),
+        )
 
     def test_protection_repairs_fieldmarshal_metadata_after_obfuscar(self):
         project = ET.parse(
@@ -290,7 +317,7 @@ class ClientProtectionTests(unittest.TestCase):
             ])
         mapping.write_text("\n".join(lines), encoding="utf-8")
         stats, renames = CHECKER.mapping_stats(mapping)
-        self.assertEqual(5, len(renames))
+        self.assertEqual(len(CHECKER.EXPECTED_MODULES), len(renames))
         for module in CHECKER.EXPECTED_MODULES:
             self.assertEqual({"types": 1, "methods": 1, "fields": 1}, stats[module])
 
@@ -308,7 +335,7 @@ class ClientProtectionTests(unittest.TestCase):
 
         stats, renames = CHECKER.mapping_stats(mapping)
 
-        self.assertEqual(5, len(renames))
+        self.assertEqual(len(CHECKER.EXPECTED_MODULES), len(renames))
         for module in CHECKER.EXPECTED_MODULES:
             self.assertEqual({"types": 1, "methods": 0, "fields": 0}, stats[module])
 
@@ -426,7 +453,10 @@ class ClientProtectionTests(unittest.TestCase):
             capture_output=True, text=True, check=False)
 
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertIn("10 protected pre-compression inputs", result.stdout)
+        self.assertIn(
+            f"{2 * len(CHECKER.EXPECTED_MODULES)} protected pre-compression inputs",
+            result.stdout,
+        )
 
     def test_android_precompression_routes_reject_original_path(self):
         output = self.root / "output"
@@ -538,7 +568,11 @@ class ClientProtectionTests(unittest.TestCase):
             "--objcopy", str(self._write_fake_objcopy()),
         ], capture_output=True, text=True, check=False)
         self.assertEqual(0, result.returncode, result.stderr)
-        self.assertEqual(2, result.stdout.count("verified five protected assemblies"))
+        self.assertEqual(
+            2,
+            result.stdout.count(
+                f"verified {len(CHECKER.EXPECTED_MODULES)} protected assemblies"),
+        )
 
     def test_android_apk_verifier_rejects_unprotected_store_payload(self):
         apk, output = self._create_store_apk(
@@ -590,7 +624,8 @@ class ClientProtectionTests(unittest.TestCase):
         self.assertIn('AfterTargets="_PrepareAssemblies"', target)
         self.assertIn('BeforeTargets="_GenerateJavaStubs"', target)
         self.assertIn('DependsOnTargets="_PrepareAssemblies;InvalidateProjectPrimeAndroidProtectionTransition;', target)
-        self.assertIn('<_PrimeAndroidOriginal Include="@(_ShrunkUserAssemblies)"', target)
+        self.assertIn('<_PrimeAndroidOriginal Include="@(_ResolvedUserAssemblies)"', target)
+        self.assertIn('<_PrimeAndroidRawSearchPath Include="@(_ResolvedAssemblies', target)
         self.assertIn('<_PrimeAndroidResolvedUserOriginal Include="@(_ResolvedUserAssemblies)"', target)
         self.assertIn('<_ResolvedUserAssemblies Remove="@(_PrimeAndroidResolvedUserOriginal)" />', target)
         self.assertIn('<_ResolvedUserAssemblies Include="@(_PrimeAndroidResolvedUserProtected)" />', target)
@@ -605,6 +640,10 @@ class ClientProtectionTests(unittest.TestCase):
         self.assertIn('<_ShrunkUserAssemblies Remove="@(_PrimeAndroidLateShrunkUserOriginal)" />', target)
         self.assertIn('<_ShrunkUserAssemblies Include="@(_PrimeAndroidLateShrunkUserProtected)" />', target)
         self.assertIn('DependsOnTargets="RouteProjectPrimeAndroidCompressionInputs;', target)
+        self.assertIn('Name="InvalidateProjectPrimeAndroidProtectedLink"', target)
+        self.assertIn('BeforeTargets="_RunILLink"', target)
+        self.assertIn('<Delete Files="$(_LinkSemaphore)" />', target)
+        self.assertIn('--allow-zero-module &quot;ProjectPrime.dll&quot;', target)
 
     def test_android_packaging_copies_exact_per_rid_outputs_and_clears_stale_data(self):
         output = self.root / "output"

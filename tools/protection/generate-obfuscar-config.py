@@ -13,6 +13,8 @@ from pathlib import Path
 
 EXPECTED_MODULES = (
     "ProjectPrime.dll",
+    "ProjectPrime.Client.Core.dll",
+    "ProjectPrime.Client.Presentation.dll",
     "ProjectPrime.Game.dll",
     "Server.Shared.dll",
     "ProjectPrime.Replay.dll",
@@ -51,13 +53,17 @@ BOOLEAN_RULE_ATTRIBUTES = {
 XAML_CLASS_ATTRIBUTE = "{http://schemas.microsoft.com/winfx/2006/xaml}Class"
 ASSEMBLY_MODULES = {
     "ProjectPrime": "ProjectPrime.dll",
+    "ProjectPrime.Client.Core": "ProjectPrime.Client.Core.dll",
+    "ProjectPrime.Client.Presentation": "ProjectPrime.Client.Presentation.dll",
     "ProjectPrime.Game": "ProjectPrime.Game.dll",
     "Server.Shared": "Server.Shared.dll",
     "ProjectPrime.Replay": "ProjectPrime.Replay.dll",
     "Audio.Ncsf": "Audio.Ncsf.dll",
 }
 PROJECT_MODULES = {
-    "Client": "ProjectPrime.dll",
+    "Client": "ProjectPrime.Client.Presentation.dll",
+    "Client.Core": "ProjectPrime.Client.Core.dll",
+    "Client.Presentation": "ProjectPrime.Client.Presentation.dll",
     "Android": "ProjectPrime.dll",
     "Game": "ProjectPrime.Game.dll",
     "Server.Shared": "Server.Shared.dll",

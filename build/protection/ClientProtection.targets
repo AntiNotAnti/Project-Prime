@@ -32,19 +32,23 @@
     </PropertyGroup>
     <ItemGroup>
       <_PrimeProjectPrime Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.dll'" />
+      <_PrimeClientCore Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Client.Core.dll'" />
+      <_PrimeClientPresentation Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Client.Presentation.dll'" />
       <_PrimeGame Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Game.dll'" />
       <_PrimeServerShared Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'Server.Shared.dll'" />
       <_PrimeReplay Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'ProjectPrime.Replay.dll'" />
       <_PrimeAudio Include="@(FilesToBundle)" Condition="'%(Filename)%(Extension)' == 'Audio.Ncsf.dll'" />
     </ItemGroup>
     <Error Condition="'@(_PrimeProjectPrime->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.dll in FilesToBundle; found @(_PrimeProjectPrime->Count())." />
+    <Error Condition="'@(_PrimeClientCore->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Client.Core.dll in FilesToBundle; found @(_PrimeClientCore->Count())." />
+    <Error Condition="'@(_PrimeClientPresentation->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Client.Presentation.dll in FilesToBundle; found @(_PrimeClientPresentation->Count())." />
     <Error Condition="'@(_PrimeGame->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Game.dll in FilesToBundle; found @(_PrimeGame->Count())." />
     <Error Condition="'@(_PrimeServerShared->Count())' != '1'" Text="Protection expected exactly one Server.Shared.dll in FilesToBundle; found @(_PrimeServerShared->Count())." />
     <Error Condition="'@(_PrimeReplay->Count())' != '1'" Text="Protection expected exactly one ProjectPrime.Replay.dll in FilesToBundle; found @(_PrimeReplay->Count())." />
     <Error Condition="'@(_PrimeAudio->Count())' != '1'" Text="Protection expected exactly one Audio.Ncsf.dll in FilesToBundle; found @(_PrimeAudio->Count())." />
 
     <ItemGroup>
-      <_PrimeClientBundleAssembly Include="@(_PrimeProjectPrime);@(_PrimeGame);@(_PrimeServerShared);@(_PrimeReplay);@(_PrimeAudio)" />
+      <_PrimeClientBundleAssembly Include="@(_PrimeProjectPrime);@(_PrimeClientCore);@(_PrimeClientPresentation);@(_PrimeGame);@(_PrimeServerShared);@(_PrimeReplay);@(_PrimeAudio)" />
       <_PrimeRawSearchPath Include="@(FilesToBundle->'%(RootDir)%(Directory)')" />
     </ItemGroup>
     <RemoveDuplicates Inputs="@(_PrimeRawSearchPath)">
@@ -73,6 +77,6 @@
       <FilesToBundle Include="@(_PrimeProtectedBundle)" />
       <FileWrites Include="$(_PrimeProtectionInput)/**;$(_PrimeProtectionOutput)/**;$(_PrimeProtectionConfig);$(_PrimeProtectionMap)" />
     </ItemGroup>
-    <Message Importance="high" Text="Protected five first-party client modules for $(RuntimeIdentifier); canonical build outputs were not modified." />
+    <Message Importance="high" Text="Protected seven first-party client modules for $(RuntimeIdentifier); canonical build outputs were not modified." />
   </Target>
 </Project>

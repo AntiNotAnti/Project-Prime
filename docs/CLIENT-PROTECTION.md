@@ -9,6 +9,8 @@ publish. Desktop additionally requires `PublishSingleFile=true`. Normal `build`,
 Exactly these Project Prime-owned modules are processed in one Obfuscar invocation:
 
 - `ProjectPrime.dll`
+- `ProjectPrime.Client.Core.dll`
+- `ProjectPrime.Client.Presentation.dll`
 - `ProjectPrime.Game.dll`
 - `Server.Shared.dll` (the copied client payload only)
 - `ProjectPrime.Replay.dll`
@@ -46,9 +48,9 @@ package/runtime evidence before any policy change.
 
 The desktop target runs after `PrepareForBundle` and before the SDK bundle input
 cache and `GenerateSingleFileBundle`. It selects exactly one bundle item for every
-expected module, clears its intermediate staging directories, copies all five,
+expected module, clears its intermediate staging directories, copies all seven,
 generates an absolute-path configuration, runs Obfuscar once, validates the result,
-then replaces only those five `FilesToBundle` entries while retaining their bundle
+then replaces only those seven `FilesToBundle` entries while retaining their bundle
 metadata. The supported .NET single-file bundler performs the final packaging.
 
 Protected Linux CI and official releases run the resulting single-file executable
@@ -62,16 +64,20 @@ macOS architecture launch checks remain external release-machine gates.
 
 The insertion point was verified against the pinned .NET 10 Android SDK pack
 `36.1.69`. Protection runs after `_PrepareAssemblies` and before
-`_GenerateJavaStubs`: the five modules are already linked, while Java/JNI generation
+`_GenerateJavaStubs`: the seven modules are already linked, while Java/JNI generation
 and `_GenerateCompressedAssembliesNativeSourceFiles` have not yet consumed the
 resolved assembly graph. A later insertion produced compressed-assembly native size
 metadata from the original IL and was rejected by the runtime when the larger
 protected assembly store loaded.
 
-The target rejects untrimmed and NativeAOT builds and stages the five post-link
-assemblies independently for `android-arm64` and `android-x64`. Each RID gets one
-Obfuscar invocation over its complete five-module graph because post-link assemblies
-can differ by RID. One protected `package/<rid>/<module>` identity is then substituted
+The target rejects untrimmed and NativeAOT builds and stages the seven current
+post-link resolved assemblies independently for `android-arm64` and `android-x64`;
+it never stages the later `shrunk` copy, which may still belong to an earlier build
+before `_RemoveRegisterAttribute` runs. Each RID gets one
+Obfuscar invocation over its complete seven-module graph because post-link assemblies
+can differ by RID. Protected publishes invalidate each RID's ILLink semaphore first,
+so an artifact-path-isolated project-reference rebuild cannot leave stale linked input.
+One protected `package/<rid>/<module>` identity is then substituted
 into `_ResolvedUserAssemblies`, with metadata cloned from the original items. This
 is the input used for compressed-native size metadata. `_ResolvedAssemblies`,
 `_ResolvedUserMonoAndroidAssemblies`, and both shrunk sets remain canonical while
@@ -86,8 +92,8 @@ root.
 
 The protected resolved-user graph is hash-checked immediately after its early
 substitution. Immediately before `_CollectAssembliesToCompress`, a second
-fail-closed target verifies that the late-selected
-five selected `_ShrunkUserAssemblies` for every active RID still live under the
+fail-closed target verifies that the seven late-selected `_ShrunkUserAssemblies`
+for every active RID still live under the
 current `prime-protection/package/<rid>/` root and have the same hashes as the
 corresponding Obfuscar outputs. Protected builds always invalidate Java/JNI stamps,
 generated compressed-assembly native source/object/shared-library files, SDK LZ4
@@ -99,10 +105,13 @@ clients until an equally verified protected-input AOT boundary exists.
 After signing, `check-obfuscation.py verify-android-apk` opens each ABI-specific
 `lib/<abi>/libassembly-store.so`, uses the installed .NET Android SDK's
 `llvm-objcopy` to extract its `payload` section, parses the Mono XABA store, expands
-XALZ/LZ4 assembly entries, and compares the embedded five modules to the matching
+XALZ/LZ4 assembly entries, and compares the embedded seven modules to the matching
 per-RID Obfuscar output hashes. It also requires the APK's assembly-store ABI set to
 match the protected RID set exactly and rejects any non-empty store debug/config
-payload descriptor. `unzip -t`, leakage and signing checks remain additional
+payload descriptor. `ProjectPrime.dll` alone may have zero rename entries after
+Android trimming because it is reduced to preserved Java/JNI-visible entry points;
+every other protected module retains the per-module rename floor. `unzip -t`,
+leakage and signing checks remain additional
 final-package gates.
 
 The executable device gate is `tools/protection/android-smoke.py`. It installs the
