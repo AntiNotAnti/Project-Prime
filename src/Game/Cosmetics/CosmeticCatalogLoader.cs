@@ -336,26 +336,31 @@ public static class CosmeticCatalogLoader
         public string[]? DeathEffects { get; set; }
     }
 
-    private abstract class DefinitionManifest
+    // Keep these serializer-only DTOs flat. Obfuscar 3's SRM writer cannot
+    // emit a nested type whose base type is another nested type in the same
+    // declaring class (it produces an invalid TypeDefinition resolution scope).
+    private sealed class SkinManifest
     {
         public int Format { get; set; }
         public ushort Id { get; set; }
         public string? Key { get; set; }
         public string? DisplayName { get; set; }
-    }
-    private sealed class SkinManifest : DefinitionManifest
-    {
         public Hunter Hunter { get; set; }
         public byte BaseRecolor { get; set; }
         public SkinMaterialManifest[]? Materials { get; set; }
         public TeamAccentManifest? TeamAccent { get; set; }
     }
-    private sealed class SkinMaterialManifest : MaterialManifest
+    private sealed class SkinMaterialManifest
     {
         public string? Source { get; set; }
         public string? Albedo { get; set; }
         public string? Normal { get; set; }
         public string? Emissive { get; set; }
+        public float[]? EmissionTint { get; set; }
+        public float? EmissionStrength { get; set; }
+        public float? SpecularStrength { get; set; }
+        public float? Smoothness { get; set; }
+        public float? ReflectionStrength { get; set; }
     }
     private class MaterialManifest
     {
@@ -371,8 +376,12 @@ public static class CosmeticCatalogLoader
         public string? Mask { get; set; }
         public float Strength { get; set; }
     }
-    private sealed class ArmorManifest : DefinitionManifest
+    private sealed class ArmorManifest
     {
+        public int Format { get; set; }
+        public ushort Id { get; set; }
+        public string? Key { get; set; }
+        public string? DisplayName { get; set; }
         public CosmeticAltFormMode AltFormMode { get; set; } = CosmeticAltFormMode.RootOnly;
         public MaterialManifest? Material { get; set; }
         public ParticleManifest[]? Particles { get; set; }
@@ -380,8 +389,12 @@ public static class CosmeticCatalogLoader
         public AttachmentManifest[]? Attachments { get; set; }
         public DistortionManifest? Distortion { get; set; }
     }
-    private sealed class DeathManifest : DefinitionManifest
+    private sealed class DeathManifest
     {
+        public int Format { get; set; }
+        public ushort Id { get; set; }
+        public string? Key { get; set; }
+        public string? DisplayName { get; set; }
         public Hunter? Hunter { get; set; }
         public float Duration { get; set; }
         public DeathBodyMode BodyMode { get; set; }
