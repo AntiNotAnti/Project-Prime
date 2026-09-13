@@ -1,28 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0</TargetFrameworks>
-    <!-- A desktop publish passes its RID to every project in the restore graph.
-         Do not evaluate the Android TFM with a desktop RID: that makes the
-         Android SDK request a nonexistent Mono desktop runtime pack. -->
-    <TargetFrameworks Condition="'$(RuntimeIdentifier)' == '' Or $(RuntimeIdentifier.StartsWith('android'))">net10.0;net10.0-android36.0</TargetFrameworks>
+    <!-- The ordinary restore/build graph is desktop-only. Android opts into a
+         single Android evaluation through its ProjectReference metadata, so a
+         missing or desktop RID can never fan this project out to Android. -->
+    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework Condition="'$(PrimeEnableAndroidPresentation)' == 'true'">net10.0-android36.0</TargetFramework>
     <SupportedOSPlatformVersion Condition="$(TargetFramework.Contains('-android'))">24</SupportedOSPlatformVersion>
-    <RuntimeIdentifiers>android-arm64;android-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers Condition="'$(PrimeEnableAndroidPresentation)' == 'true'">android-arm64;android-x64</RuntimeIdentifiers>
     <RootNamespace>MphRead</RootNamespace>
     <AssemblyName>ProjectPrime.Client.Presentation</AssemblyName>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <EnableAvaloniaXamlCompilation>true</EnableAvaloniaXamlCompilation>
+    <EnableDefaultEmbeddedResourceItems>false</EnableDefaultEmbeddedResourceItems>
+    <!-- Android uses obj/android for this project's opt-in target. Keep every
+         generated obj subtree out of default source discovery in both modes. -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);obj/**</DefaultItemExcludes>
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Client.Core/Client.Core.csproj" />
-    <ProjectReference Include="../Game/Game.csproj" />
-    <ProjectReference Include="../Imaging/Imaging.csproj" />
-    <ProjectReference Include="../MapPlatform/MapPlatform.csproj" />
-    <ProjectReference Include="../Renderer/Renderer.csproj" />
-    <ProjectReference Include="../Server.Shared/Server.Shared.csproj" />
-    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj" />
-    <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj" />
+    <!-- Android gives this project a private intermediate directory. Never
+         propagate that directory into portable dependencies: they retain
+         their own ordinary net10.0 restore graphs. -->
+    <ProjectReference Include="../Client.Core/Client.Core.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Game/Game.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Imaging/Imaging.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../MapPlatform/MapPlatform.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Renderer/Renderer.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Server.Shared/Server.Shared.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Shared.Replay/Shared.Replay.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
+    <ProjectReference Include="../Audio.Ncsf/Audio.Ncsf.csproj"
+                      GlobalPropertiesToRemove="BaseIntermediateOutputPath;MSBuildProjectExtensionsPath" />
 
     <PackageReference Include="Avalonia" />
     <PackageReference Include="Avalonia.Themes.Fluent" />
@@ -31,26 +46,12 @@
     <PackageReference Include="ReFuel.StbImage" />
   </ItemGroup>
 
-  <!-- Cross-platform presentation compiles here once. Desktop entry points,
-       native hosts, secure storage and platform adapters stay in Client. -->
   <ItemGroup>
-    <Compile Include="../Client/**/*.cs"
-             Exclude="../Client/bin/**;../Client/obj/**;
-               ../Client/Input/DesktopStylusInput.cs;../Client/Input/GamepadDesktop.cs;../Client/Input/GamepadProbe.cs;
-               ../Client/Accounts/ProtectedSessionStores.cs;
-               ../Client/Launcher/Gui/DesktopGameOverlayCoordinator.cs;../Client/Launcher/Gui/DesktopGameOverlayWindow.cs;../Client/Launcher/Gui/DesktopInputOwner.cs;../Client/Launcher/Gui/DesktopTransitionCoordinator.cs;../Client/Launcher/Gui/GuiLauncher.cs;../Client/Launcher/Gui/HomeWindow.cs;../Client/Launcher/Gui/PauseMenuPresenter.cs;../Client/Launcher/Gui/PauseMenuWindow.cs;../Client/Launcher/Gui/PostMatchSession.cs;../Client/Launcher/Gui/PostMatchWindow.cs;../Client/Launcher/Gui/SettingsWindow.cs;../Client/Launcher/Gui/UiCapture.cs;
-               ../Client/Launcher/Portable/MatchStart.cs;../Client/Launcher/Portable/TextLauncher.cs;../Client/Launcher/Shell/PostMatchCommandScope.cs;../Client/Launcher/Shell/PostMatchSelection.cs;../Client/Launcher/Shell/PostMatchView.cs;
-               ../Client/Networking/AuthoritativeCheck.cs;../Client/Networking/AuthoritativePlay.Desktop.cs;../Client/Networking/MapAudit.cs;../Client/Networking/NetCheckClient.cs;../Client/Networking/NetProbe.cs;../Client/Networking/ReplayPlaybackCheck.cs;../Client/Networking/WeaponDps.cs;
-               ../Client/Program.cs;../Client/Rendering/FrameTimingCheck.cs;../Client/Rendering/Platform/GameHostPresentationState.cs;../Client/Rendering/Platform/RenderToolHost.cs;../Client/Rendering/Platform/SceneHostLifetime.cs;../Client/Rendering/Platform/SdlCompatibilityInput.cs;../Client/Rendering/Platform/SdlGameHost.cs;
-               ../Client/Runtime/AssemblyInfo.cs;../Client/Runtime/ConsoleWindow.cs;../Client/Runtime/DesktopPresentationServices.cs;../Client/Runtime/Menu.cs;../Client/Runtime/ModEntry.cs;../Client/Runtime/ModelPreviewCapture.cs;../Client/Runtime/PauseMenu.cs;../Client/Runtime/ThumbnailBatch.cs;../Client/Runtime/ThumbnailCapture.cs;../Client/Runtime/ThumbnailGenerator.Desktop.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <AvaloniaResource Include="../Client/Assets/project-prime-title-screen.png" Link="Assets/project-prime-title-screen.png" />
-    <AvaloniaResource Include="../Client/Assets/project-prime-mark.png" Link="Assets/project-prime-mark.png" />
-    <AvaloniaXaml Include="../Client/Launcher/**/*.axaml" Link="Launcher/%(RecursiveDir)%(Filename)%(Extension)" />
-    <EmbeddedResource Include="../Client/Launcher/Resources/PrimeUiCopy.resx"
-                      Link="Launcher/Resources/PrimeUiCopy.resx"
+    <AvaloniaXaml Remove="**/*.axaml" />
+    <AvaloniaResource Include="Assets/project-prime-title-screen.png" />
+    <AvaloniaResource Include="Assets/project-prime-mark.png" />
+    <AvaloniaXaml Include="Launcher/**/*.axaml" />
+    <EmbeddedResource Include="Launcher/Resources/PrimeUiCopy.resx"
                       LogicalName="MphRead.Mods.Launcher.Resources.PrimeUiCopy.resources" />
     <Compile Include="../Shared/ContentImport/Extract.cs" Link="Shared/ContentImport/Extract.cs" />
     <Compile Include="../Shared/Imaging/TgaImageDecoder.cs" Link="Shared/Imaging/TgaImageDecoder.cs" />

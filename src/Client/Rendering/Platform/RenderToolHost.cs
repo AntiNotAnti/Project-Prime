@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using MphRead.Mods.Render;
 
 namespace MphRead
 {
@@ -146,9 +147,9 @@ namespace MphRead
 
         public ScenePresentation CreatePresentation(Scene scene)
         {
-            if (scene == null) throw new ArgumentNullException(nameof(scene));
+            ArgumentNullException.ThrowIfNull(scene);
             ScenePresentation presentation = new(scene, Size, Keyboard, Mouse,
-                _host.SetTitle, Close);
+                _host.SetTitle, Close, new FrameTiming());
             _host.AttachToolPresentation(presentation);
             return presentation;
         }
@@ -178,7 +179,7 @@ namespace MphRead
             RenderToolCapture? capture = null, bool acknowledgePresentation = false)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (presentation == null) throw new ArgumentNullException(nameof(presentation));
+            ArgumentNullException.ThrowIfNull(presentation);
             long originatingFrame = _frame++;
             if (capture != null)
             {
@@ -305,7 +306,7 @@ namespace MphRead
     {
         public static double NonBlackFraction(RenderCaptureResult capture)
         {
-            if (capture == null) throw new ArgumentNullException(nameof(capture));
+            ArgumentNullException.ThrowIfNull(capture);
             ReadOnlySpan<byte> pixels = capture.Bytes.Span;
             int bpp = RenderCaptureResult.BytesPerPixel(capture.PixelFormat);
             int total = capture.Width * capture.Height;
@@ -334,8 +335,8 @@ namespace MphRead
 
         public static bool Save(RenderCaptureResult capture, string path)
         {
-            if (capture == null) throw new ArgumentNullException(nameof(capture));
-            if (path == null) throw new ArgumentNullException(nameof(path));
+            ArgumentNullException.ThrowIfNull(capture);
+            ArgumentNullException.ThrowIfNull(path);
             try
             {
                 if (NonBlackFraction(capture) < 0.01)

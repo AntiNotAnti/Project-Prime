@@ -102,11 +102,19 @@ namespace MphRead.Mods
                 Launcher.Gui.GuiLauncher.ClassicUi =
                     String.Equals(ui, "classic", StringComparison.OrdinalIgnoreCase);
             }
-            if (HasFlag(args, "debuglog"))
+            bool forceDebugLog = HasFlag(args, "debuglog");
+            if (forceDebugLog)
             {
                 DebugLog.Force();
             }
-            DebugLog.Attach();
+            // Thumbnail/model-preview workers already report through their
+            // parent pipes and thumbnail log. Do not let those short-lived
+            // helper processes consume the retained player-session logs.
+            // An explicit -debuglog still opts one worker into a full log.
+            if (forceDebugLog || !HasFlag(args, ModelPreviewGenerator.InternalWorkerFlag))
+            {
+                DebugLog.Attach();
+            }
             RendererLog.Sink = DebugLog.Line;
             // -noupdate is an absolute per-process override. In particular,
             // an explicit -update must not turn it back on below.
@@ -144,7 +152,7 @@ namespace MphRead.Mods
             }
             // And the desktop's own installer, unless a platform head has
             // already put its own in place.
-            Update.UpdateInstall.UseDesktopIfPossible();
+            Update.DesktopUpdateRegistration.UseIfPossible();
 
             // A bad line, asked for. Before anything opens a socket, and for
             // every path that has one -- the game, the harness client and the
@@ -675,6 +683,12 @@ namespace MphRead.Mods
         /// </summary>
         private static void ApplyRenderOverrides(string[] args)
         {
+            string? style = ValueAfter(args, "style");
+            if (style != null && !style.StartsWith('-'))
+            {
+                RenderOptions.VisualStyle = RenderOptions.ParseVisualStyle(style,
+                    RenderOptions.VisualStyle);
+            }
             string? cel = ValueAfter(args, "cel");
             if (cel != null && !cel.StartsWith('-'))
             {
@@ -684,6 +698,12 @@ namespace MphRead.Mods
             {
                 // a bare -cel, with the next word belonging to another option
                 RenderOptions.CelShading = true;
+            }
+            string? texturePack = ValueAfter(args, "texturepack");
+            if (texturePack != null && !texturePack.StartsWith('-'))
+            {
+                RenderOptions.TexturePackId
+                    = RenderOptions.NormalizeTexturePackId(texturePack);
             }
             string? fog = ValueAfter(args, "fog");
             if (fog != null && !fog.StartsWith('-'))

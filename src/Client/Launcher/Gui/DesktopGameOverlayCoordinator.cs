@@ -162,6 +162,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         };
         view.RestartMatchRequested += (_, _) => _ = ProposeRestartAsync(view);
         view.ChangeMapRequested += (_, _) => OpenTransitionMapPicker(view);
+        view.HunterChangeRequested += hunter => _ = ChangeHunterAsync(view, hunter);
         view.TransitionVoteRequested += accept => _ = CastTransitionVoteAsync(view, accept);
         _surface.SetContent(view, _mode);
         _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
@@ -185,6 +186,15 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         IMatchTransitionMenuActions? actions = _transitionActions;
         if (actions == null) return;
         try { await actions.RequestTransitionVoteAsync(accept).ConfigureAwait(false); }
+        catch (Exception error) { DebugLog.Line("transition-menu", error.Message); }
+        finally { PostTransitionRefresh(view); }
+    }
+
+    private async Task ChangeHunterAsync(PauseMenuView view, Hunter hunter)
+    {
+        IMatchTransitionMenuActions? actions = _transitionActions;
+        if (actions == null) return;
+        try { await actions.RequestHunterChangeAsync(hunter).ConfigureAwait(false); }
         catch (Exception error) { DebugLog.Line("transition-menu", error.Message); }
         finally { PostTransitionRefresh(view); }
     }

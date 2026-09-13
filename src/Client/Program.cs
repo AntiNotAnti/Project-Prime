@@ -55,6 +55,15 @@ namespace MphRead
                 Console.Error.WriteLine(rendererError);
                 Exit();
             }
+            // Native smoke is intentionally content-free. Route it before
+            // paths.txt/game-data setup so published artifacts can validate
+            // SDL video/GPU lifetime on a clean runner.
+            if (HasFlag(args, "runtime-smoke"))
+            {
+                int frames = TryGetPositiveInt(args, "runtime-smoke-frames", 1);
+                Environment.ExitCode = RunRuntimeSmoke(frames);
+                return;
+            }
             // Route launcher commands and report moved commands before game-file setup.
             if (Mods.ModEntry.TryHandleHeadless(args))
             {
@@ -152,6 +161,39 @@ namespace MphRead
                 {
                     ContentEnvironment.UnmountMap();
                 }
+            }
+        }
+
+        private static int RunRuntimeSmoke(int frames)
+        {
+            try
+            {
+                string applicationDirectory = AppContext.BaseDirectory;
+                if (!Path.IsPathFullyQualified(applicationDirectory)
+                    || !Directory.Exists(applicationDirectory))
+                {
+                    throw new InvalidOperationException(
+                        $"Application directory is unavailable: '{applicationDirectory}'.");
+                }
+                Console.WriteLine($"runtime-smoke: app-directory={applicationDirectory}");
+
+                Mods.Accounts.ISecureSessionStore sessionStore =
+                    Mods.Accounts.SecureSessionStoreFactory.CreateDefault();
+                Console.WriteLine($"runtime-smoke: secure-session-store={sessionStore.GetType().Name}");
+
+                if (!Mods.Launcher.Gui.GuiLauncher.EnsureSetup())
+                {
+                    throw new InvalidOperationException(
+                        "Avalonia platform bootstrap did not complete.");
+                }
+                Console.WriteLine("runtime-smoke: avalonia=ready");
+
+                return SdlGameHost.RunRuntimeSmoke(frames);
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                Console.Error.WriteLine($"runtime-smoke: FAIL: {exception.Message}");
+                return 1;
             }
         }
 
@@ -265,6 +307,23 @@ namespace MphRead
             }
             value = 0;
             return false;
+        }
+
+        private static bool HasFlag(string[] args, string name)
+            => args.Any(value => value.TrimStart('-')
+                .Equals(name, StringComparison.OrdinalIgnoreCase));
+
+        private static int TryGetPositiveInt(string[] args, string name, int fallback)
+        {
+            for (int index = 0; index + 1 < args.Length; index++)
+            {
+                if (!args[index].TrimStart('-').Equals(name,
+                    StringComparison.OrdinalIgnoreCase)) continue;
+                if (!Int32.TryParse(args[index + 1], out int value) || value <= 0)
+                    throw new ArgumentException($"-{name} requires a positive integer.");
+                return value;
+            }
+            return fallback;
         }
 
         private static IReadOnlyList<Argument> ParseArguments(string[] args)

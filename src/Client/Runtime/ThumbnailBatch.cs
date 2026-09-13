@@ -232,12 +232,13 @@ namespace MphRead.Mods
         internal static IReadOnlyList<string> BuildWorkerArguments(IReadOnlyList<string> share,
             int width, int height, RenderBackendKind backend)
         {
-            var arguments = new List<string>(share.Count * 2 + 3);
+            var arguments = new List<string>(share.Count * 2 + 4);
             for (int i = 0; i < share.Count; i++)
             {
                 arguments.Add("-thumbnail");
                 arguments.Add(share[i]);
             }
+            arguments.Add($"--{ModelPreviewGenerator.InternalWorkerFlag}");
             // Always pass the exact parent selection so a worker cannot drift
             // from the desktop SDL runtime selected by its parent.
             arguments.Add($"--renderer={RenderBackendSelection.ToCliValue(backend)}");

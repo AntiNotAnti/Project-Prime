@@ -29,7 +29,6 @@ namespace MphRead.Mods
         Vector2i ClientSize { get; }
         void Focus();
         void Close();
-        void SyncTopmost(bool menuOpen);
         void ToggleFullscreen();
     }
 
@@ -179,12 +178,6 @@ namespace MphRead.Mods
                     // Not worth losing the match over.
                 }
             }
-            // The game window floats above the shell while it is fullscreen,
-            // and stands down while this menu is up. Here rather than in
-            // OpenMenu/Close because both of those are called from the menu's
-            // own event handlers, and the native window attribute belongs to
-            // the host thread -- which is this one, between frames.
-            host.SyncTopmost(_open);
             if (_toggleFullscreen)
             {
                 _toggleFullscreen = false;

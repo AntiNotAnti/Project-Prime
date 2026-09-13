@@ -102,8 +102,9 @@ namespace MphRead.Mods.Render
 
         private static bool RunCase(Case test)
         {
-            FrameTiming.Reset();
-            FrameTiming.ResetDiagnostics();
+            var timing = new FrameTiming();
+            timing.Reset();
+            timing.ResetDiagnostics();
             double elapsed = 0;
             long steps = 0;
             int worstFrame = 0;
@@ -112,7 +113,7 @@ namespace MphRead.Mods.Render
             {
                 double dt = test.FrameTime(frame++);
                 elapsed += dt;
-                int taken = FrameTiming.Advance(dt);
+                int taken = timing.Advance(dt);
                 steps += taken;
                 if (taken > worstFrame)
                 {
@@ -124,7 +125,7 @@ namespace MphRead.Mods.Render
                 / test.ExpectedStepsPerSecond * 100;
             bool ok = drift <= test.TolerancePercent
                 && worstFrame <= test.MaxStepsInOneFrame
-                && FrameTiming.DroppedSteps == 0;
+                && timing.DroppedSteps == 0;
             // Seconds of game per second of wall clock, which is the number a
             // player would feel: 1.00 is right, 0.97 is a match clock that
             // loses two minutes an hour.
@@ -134,7 +135,7 @@ namespace MphRead.Mods.Render
                 + $" | {steps} steps = {rate:0.000} Hz (drift {drift:0.000}%)"
                 + $" | game ran {gameSeconds / elapsed:0.0000}x real time"
                 + $" | worst frame {worstFrame} step(s)"
-                + $" | dropped {FrameTiming.DroppedSteps}");
+                + $" | dropped {timing.DroppedSteps}");
             return ok;
         }
 
@@ -145,22 +146,23 @@ namespace MphRead.Mods.Render
         /// </summary>
         private static bool RunStallCase()
         {
-            FrameTiming.Reset();
-            FrameTiming.ResetDiagnostics();
+            var timing = new FrameTiming();
+            timing.Reset();
+            timing.ResetDiagnostics();
             int worst = 0;
             for (int i = 0; i < 600; i++)
             {
-                worst = Math.Max(worst, FrameTiming.Advance(1 / 144.0));
+                worst = Math.Max(worst, timing.Advance(1 / 144.0));
             }
-            int afterStall = FrameTiming.Advance(2.0);
+            int afterStall = timing.Advance(2.0);
             for (int i = 0; i < 600; i++)
             {
-                worst = Math.Max(worst, FrameTiming.Advance(1 / 144.0));
+                worst = Math.Max(worst, timing.Advance(1 / 144.0));
             }
-            bool ok = afterStall == 1 && worst <= 1 && FrameTiming.Stalls == 1;
+            bool ok = afterStall == 1 && worst <= 1 && timing.Stalls == 1;
             Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} 2 s stall"
                 + $" | {afterStall} step(s) on the stalled frame"
-                + $" | {FrameTiming.Stalls} stall(s) seen"
+                + $" | {timing.Stalls} stall(s) seen"
                 + $" | worst ordinary frame {worst} step(s)");
             return ok;
         }

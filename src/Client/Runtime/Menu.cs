@@ -1370,8 +1370,7 @@ namespace MphRead
                     seqToPlay = item.SeqId;
                 }
                 MusicPlayer.Load(seqToPlay, tracks);
-                MusicPlayer.WaitForLoad();
-                MusicPlayer.Play((float)_musicVolume);
+                MusicPlayer.PlayWhenLoaded((float)_musicVolume);
             }
 
             void PlayMusic()
@@ -1381,8 +1380,7 @@ namespace MphRead
                 MusicTrack item = info[(int)music];
                 tracks = item.Tracks;
                 MusicPlayer.Load(item.SeqId, tracks);
-                MusicPlayer.WaitForLoad();
-                MusicPlayer.Play((float)_musicVolume);
+                MusicPlayer.PlayWhenLoaded((float)_musicVolume);
             }
 
             void PlaySeq()
@@ -1391,8 +1389,7 @@ namespace MphRead
                 Sfx.Instance?.StopAllSound(force: true);
                 tracks = UInt16.MaxValue;
                 MusicPlayer.Load(seq);
-                MusicPlayer.WaitForLoad();
-                MusicPlayer.Play((float)_musicVolume);
+                MusicPlayer.PlayWhenLoaded((float)_musicVolume);
             }
 
             void PlaySfx()

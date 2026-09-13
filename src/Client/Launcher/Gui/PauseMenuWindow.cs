@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -257,7 +258,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// while the dialog is up so that the two are not left arguing about
         /// which of them is in front.
         /// </summary>
-        private async void OpenSettings()
+        private void OpenSettings() => _ = ObserveUiTask(OpenSettingsAsync());
+
+        private async Task OpenSettingsAsync()
         {
             if (_settingsOpen)
             {
@@ -291,6 +294,18 @@ namespace MphRead.Mods.Launcher.Gui
                     Topmost = wasTopmost;
                     Activate();
                 }
+            }
+        }
+
+        private static async Task ObserveUiTask(Task operation)
+        {
+            try
+            {
+                await operation;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[pause] opening settings failed: {ex.Message}");
             }
         }
 

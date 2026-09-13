@@ -429,10 +429,12 @@ namespace MphRead.Mods.Launcher.Gui
                 // the target-first hide/focus ordering once the dispatcher is
                 // ready. The initial visit remains the active native window.
                 window.Resume(result, activate: result == null);
-                if (!window.WaitingForContinuation)
+                bool returnToShell = ShouldReturnToShellAfterResume(result,
+                    window.WaitingForContinuation);
+                if (result == null || returnToShell
+                    || presentationCoordinator.State == DesktopTransitionState.Failed)
                     presentationCoordinator.InputOwner.SetOwner(DesktopInputOwnerKind.Shell);
-                if (result != null && !window.WaitingForContinuation)
-                    presentationCoordinator.BeginReturnToShell();
+                if (returnToShell) presentationCoordinator.BeginReturnToShell();
                 Dispatcher.UIThread.PushFrame(frame);
                 Pump();
                 return window.Plan;
@@ -458,6 +460,11 @@ namespace MphRead.Mods.Launcher.Gui
                 Map: String.IsNullOrWhiteSpace(mapName) ? plan.RoomKey : mapName,
                 Mode: plan.Mode.ToString(), Hunter: plan.Hunter.ToString(),
                 Detail: detail);
+
+        internal static bool ShouldReturnToShellAfterResume(MatchRunResult? result,
+            bool waitingForContinuation)
+            => result != null && result.Reason != MatchExitReason.Transitioning
+                && !waitingForContinuation;
 
         private static LaunchPlan AskClassic(MenuSettings settings, IReadOnlyList<string> rooms)
         {

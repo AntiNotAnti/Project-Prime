@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Text;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using SDL;
@@ -10,7 +9,7 @@ using MphRead.Entities;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
-using PrimeGamepadState = MphRead.Mods.Input.GamepadState;
+using MphRead.Mods.Render;
 
 namespace MphRead
 {
@@ -24,14 +23,15 @@ namespace MphRead
     internal readonly record struct SdlSoftwarePacingPolicy(
         SdlSoftwarePacingMode Mode, int FrameRateCap, int EffectiveRate)
     {
-        public static SdlSoftwarePacingPolicy Resolve(int frameRateCap, bool minimized)
+        public static SdlSoftwarePacingPolicy Resolve(int frameRateCap, bool minimized,
+            bool allowExplicitPacing = true)
         {
             if (minimized)
             {
                 return new SdlSoftwarePacingPolicy(SdlSoftwarePacingMode.Minimized,
                     frameRateCap, Mods.Render.FrameTiming.SimulationHz);
             }
-            if (frameRateCap == Mods.Render.FrameTiming.DisplayRate)
+            if (frameRateCap == Mods.Render.FrameTiming.DisplayRate || !allowExplicitPacing)
             {
                 return new SdlSoftwarePacingPolicy(SdlSoftwarePacingMode.Disabled,
                     frameRateCap, 0);
@@ -106,27 +106,16 @@ namespace MphRead
         IGamepadHapticsSink
     {
         private SdlGpuBackend? _backend;
-        private SDL_Window* _window;
-        private readonly SDL_WindowID _windowId;
-        private readonly GameWindowFrameLoop _frameLoop = new();
+        private SdlWindowController? _windowController;
+        private readonly FrameTiming _frameTiming = new();
+        private readonly GameWindowFrameLoop _frameLoop;
         private SdlFramePacer _framePacer = new();
-        private readonly HashSet<int> _keys = new();
-        private readonly HashSet<int> _mouseButtons = new();
-        private readonly List<WindowKeyEvent> _keyEvents = new();
-        private readonly List<WindowMouseButtonEvent> _mouseButtonEvents = new();
-        private readonly StringBuilder _text = new();
+        private readonly SdlInputHub _inputHub = new();
         private readonly SdlCompatibilityInput _compatibilityInput = new();
-        // SDL's gamepad events carry a joystick id. Keep the opened handles
-        // alive for the duration of their connection so SDL can normalize
-        // mappings and reports consistently; the active handle is the one
-        // published through the legacy input adapter.
-        private readonly Dictionary<uint, IntPtr> _gamepads = new();
-        private readonly Dictionary<uint, DesktopPenState> _pens = new();
-        private readonly StylusInput _stylus = DesktopStylusInput.Input;
-        private PrimeGamepadState _gamepadState;
-        private Vector2 _mousePosition;
-        private Vector2 _relativeMouse;
-        private Vector2 _wheel;
+        // SDL's gamepad events carry a joystick id. Keep opened handles and
+        // the active neutral state in one host-thread-owned hub.
+        private readonly SdlGamepadHub _gamepadHub = new();
+        private readonly SdlPointerHub _pointerHub;
         private Vector2i _logicalSize;
         private Vector2i _framebufferSize;
         private bool _focused = true;
@@ -138,12 +127,8 @@ namespace MphRead
         private bool _fullscreen;
         private bool _cursorCaptured;
         private bool _activationDeferred;
-        private uint _activeGamepadId;
-        private bool _hasActiveGamepad;
-        private bool _gyroSensorEnabled;
+        private bool? _focusEventThisPump;
         private ControllerCapabilityOwner? _capabilityOwner;
-        private uint? _capturedPenId;
-        private uint? _bottomScreenPenId;
         private ScenePresentation? _presentation;
         private GameHostPresentationTracker? _presentationTracker;
         // A host used without the desktop shell still needs a local owner.
@@ -153,6 +138,13 @@ namespace MphRead
         private DesktopInputOwner? _attachedInputOwner;
         internal KeyboardState Keyboard => _compatibilityInput.Keyboard;
         internal MouseState Mouse => _compatibilityInput.Mouse;
+
+        private SDL_Window* NativeWindow
+        {
+            get => _windowController == null ? null : _windowController.NativeWindow;
+        }
+
+        private SDL_WindowID WindowId => _windowController?.WindowId ?? 0;
 
         internal DesktopInputOwner InputOwner
             => _attachedInputOwner ?? _fallbackInputOwner;
@@ -172,7 +164,7 @@ namespace MphRead
         {
             ArgumentNullException.ThrowIfNull(owner);
             _attachedInputOwner = owner;
-            owner.Reset(_gamepadState.Buttons);
+            owner.Reset(_gamepadHub.Buttons);
         }
 
         internal void DetachInputOwner(DesktopInputOwner owner)
@@ -180,7 +172,7 @@ namespace MphRead
             if (ReferenceEquals(_attachedInputOwner, owner))
             {
                 _attachedInputOwner = null;
-                _fallbackInputOwner.Reset(_gamepadState.Buttons);
+                _fallbackInputOwner.Reset(_gamepadHub.Buttons);
             }
         }
 
@@ -189,6 +181,13 @@ namespace MphRead
         {
             Vector2i size = initialSize ?? new Vector2i(1280, 720);
             if (size.X <= 0 || size.Y <= 0) throw new ArgumentOutOfRangeException(nameof(initialSize));
+            _frameLoop = new GameWindowFrameLoop(_frameTiming);
+            _pointerHub = new SdlPointerHub(ConfigureStylus,
+                sample => NativeBottomScreenPlatformBridge.TryPointerDown(sample),
+                sample => NativeBottomScreenPlatformBridge.TryPointerMove(sample),
+                sample => NativeBottomScreenPlatformBridge.TryPointerUp(sample),
+                id => NativeBottomScreenPlatformBridge.CancelPointer(id),
+                LogicalDisplayScale);
 
             try
             {
@@ -209,36 +208,30 @@ namespace MphRead
                 Mods.DebugLog.Line("sdl", $"initialization complete; version={SDL3.SDL_GetVersion()} "
                     + $"video-driver={SDL3.SDL_GetCurrentVideoDriver() ?? "unknown"}");
 
-                SDL_WindowFlags flags = SDL_WindowFlags.SDL_WINDOW_RESIZABLE
-                    | SDL_WindowFlags.SDL_WINDOW_HIGH_PIXEL_DENSITY
-                    | SDL_WindowFlags.SDL_WINDOW_HIDDEN;
                 Mods.DebugLog.Line("sdl", "window creation starting");
-                _window = SDL3.SDL_CreateWindow(title, size.X, size.Y, flags);
-                if (_window == null)
-                {
-                    throw new InvalidOperationException($"SDL window creation failed: {SDL3.SDL_GetError()}");
-                }
-                _windowId = SDL3.SDL_GetWindowID(_window);
+                _windowController = new SdlWindowController(size, title);
+                SDL_Window* window = _windowController.NativeWindow;
                 ReadWindowSize(out _logicalSize, out _framebufferSize);
                 ReadWindowPosition(out Vector2i position);
                 Mods.DebugLog.Line("sdl", $"window creation complete; logical={_logicalSize.X}x{_logicalSize.Y} "
                     + $"framebuffer={_framebufferSize.X}x{_framebufferSize.Y} fullscreen=false visible={showWindow}");
                 Mods.DebugLog.Line("gpu", "device creation starting");
-                _backend = new SdlGpuBackend(_window, _logicalSize, _framebufferSize);
+                _backend = new SdlGpuBackend(window, _logicalSize, _framebufferSize);
                 Mods.DebugLog.Line("gpu", $"device creation complete; backend={_backend.Info.Name} "
                     + $"driver={_backend.Info.Driver} shaders={_backend.Info.ShaderFormats}");
                 Mods.DebugLog.Line("gpu", $"swapchain creation complete; format={_backend.Surface.SwapchainFormat} "
                     + $"present={_backend.Surface.PresentMode} framebuffer={_backend.Surface.FramebufferSize.X}x{_backend.Surface.FramebufferSize.Y}");
                 Mods.WindowMode.SetFullscreenState(false);
-                if (!SDL3.SDL_StartTextInput(_window))
+                if (!SDL3.SDL_StartTextInput(window))
                 {
                     throw new InvalidOperationException($"SDL text input setup failed: {SDL3.SDL_GetError()}");
                 }
                 if (showWindow)
                 {
-                    SDL3.SDL_ShowWindow(_window);
+                    _windowController.Show();
                 }
-                _focused = (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
+                _focused = (SDL3.SDL_GetWindowFlags(window) & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
+                _windowController.SetFocused(_focused);
                 _presentationTracker = new GameHostPresentationTracker(_logicalSize,
                     _framebufferSize, position, isVisible: showWindow,
                     isMinimized: IsWindowMinimized(), isFocused: _focused);
@@ -272,16 +265,17 @@ namespace MphRead
         internal SdlGpuBackend Backend => _backend
             ?? throw new InvalidOperationException("SDL GPU backend is not initialized.");
         internal SdlCompatibilityInput CompatibilityInput => _compatibilityInput;
+        internal FrameTiming Timing => _frameTiming;
         internal bool ToolWindowVisible
         {
-            get => (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0;
+            get => (SDL3.SDL_GetWindowFlags(NativeWindow) & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0;
             set => SetToolWindowVisible(value);
         }
 
         internal void SetToolWindowVisible(bool visible)
         {
-            if (visible) SDL3.SDL_ShowWindow(_window);
-            else SDL3.SDL_HideWindow(_window);
+            if (visible) _windowController!.Show();
+            else _windowController!.Hide();
             PublishPresentationState();
         }
 
@@ -296,9 +290,11 @@ namespace MphRead
             ObjectDisposedException.ThrowIf(_disposed, this);
             ResetInput();
             SetWindowFocusable(false);
-            SDL3.SDL_ShowWindow(_window);
+            _windowController!.Show();
             _activationDeferred = true;
+            _windowController.SetActivationDeferred(true);
             _focused = false;
+            _windowController.SetFocused(false);
             PublishPresentationState();
         }
 
@@ -307,9 +303,11 @@ namespace MphRead
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ResetInput();
-            SDL3.SDL_HideWindow(_window);
+            _windowController!.Hide();
             _activationDeferred = false;
+            _windowController.SetActivationDeferred(false);
             _focused = false;
+            _windowController.SetFocused(false);
             PublishPresentationState();
         }
 
@@ -318,11 +316,9 @@ namespace MphRead
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             _activationDeferred = false;
+            _windowController!.SetActivationDeferred(false);
             SetWindowFocusable(true);
-            if (!SDL3.SDL_RaiseWindow(_window))
-            {
-                Mods.DebugLog.Line("sdl", $"window activation request failed: {SDL3.SDL_GetError()}");
-            }
+            _windowController!.Raise();
             // Raising is an asynchronous request on several desktop window
             // managers. Do not claim focus early: relative mouse capture can
             // otherwise be re-enabled while another application is active.
@@ -332,10 +328,7 @@ namespace MphRead
 
         private void SetWindowFocusable(bool focusable)
         {
-            if (!SDL3.SDL_SetWindowFocusable(_window, focusable))
-            {
-                throw new InvalidOperationException($"SDL window focusability change failed: {SDL3.SDL_GetError()}");
-            }
+            _windowController!.SetWindowFocusable(focusable);
         }
 
         /// <summary>
@@ -357,17 +350,13 @@ namespace MphRead
         internal void SetInitialPosition(Vector2i position)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (!SDL3.SDL_SetWindowPosition(_window, position.X, position.Y))
-            {
-                throw new InvalidOperationException(
-                    $"SDL window placement failed: {SDL3.SDL_GetError()}");
-            }
+            _windowController!.SetPosition(position);
             PublishPresentationState();
         }
 
         internal void AttachToolPresentation(ScenePresentation presentation)
         {
-            if (presentation == null) throw new ArgumentNullException(nameof(presentation));
+            ArgumentNullException.ThrowIfNull(presentation);
             if (_presentation != null && !ReferenceEquals(_presentation, presentation))
             {
                 throw new InvalidOperationException("An SDL presentation is already attached to this host.");
@@ -386,7 +375,7 @@ namespace MphRead
             get
             {
                 int x = 0, y = 0;
-                SDL3.SDL_GetWindowPosition(_window, &x, &y);
+                SDL3.SDL_GetWindowPosition(NativeWindow, &x, &y);
                 return new Vector2i(x, y);
             }
         }
@@ -398,21 +387,6 @@ namespace MphRead
             Activate();
         }
 
-        public void SyncTopmost(bool menuOpen)
-        {
-            // SDL owns this window and its always-on-top attribute. WindowMode
-            // only mirrors the active mode for launcher/pause-menu state. An
-            // unfocused fullscreen window must leave the topmost band so the
-            // operating system can complete an Alt-Tab handoff; the normal
-            // focus-gain pump promotes it again before input is captured.
-            SDL3.SDL_SetWindowAlwaysOnTop(_window,
-                ShouldKeepWindowTopmost(_fullscreen, menuOpen, _focused));
-        }
-
-        internal static bool ShouldKeepWindowTopmost(bool fullscreen,
-            bool menuOpen, bool focused)
-            => fullscreen && !menuOpen && focused;
-
         public void ToggleFullscreen()
         {
             ApplyWindowMode(_fullscreen ? Mods.WindowStartMode.Windowed
@@ -422,18 +396,18 @@ namespace MphRead
         public void Run(IGameWindowFrameClient client)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (client == null) throw new ArgumentNullException(nameof(client));
+            ArgumentNullException.ThrowIfNull(client);
 
             Stopwatch clock = Stopwatch.StartNew();
             double previous = clock.Elapsed.TotalSeconds;
             while (!_lifetime.CloseRequested && !_lifetime.SceneStopRequested)
             {
                 int frameRateCap = Mods.Render.FrameTiming.FrameRateCap;
-                _backend!.ApplyPresentPolicy(frameRateCap);
+                SdlGpuPresentPolicy presentPolicy = _backend!.ApplyPresentPolicy(frameRateCap);
                 SdlSoftwarePacingPolicy pacing = SdlSoftwarePacingPolicy.Resolve(frameRateCap,
-                    IsWindowMinimized());
+                    IsWindowMinimized(), presentPolicy.UsesSoftwarePacing);
                 SdlFramePaceDecision decision = _framePacer.Plan(clock.Elapsed.TotalSeconds,
-                    pacing, Mods.Render.FrameTiming.Discontinuities);
+                    pacing, _frameTiming.Discontinuities);
                 if (decision.ShouldWait)
                 {
                     WaitUntil(clock, decision.DeadlineSeconds);
@@ -452,6 +426,42 @@ namespace MphRead
                 DispatchCompatibilityInput(snapshot, client);
                 _frameLoop.Tick(elapsed, snapshot, client, _backend!);
                 DrainCaptureResults();
+            }
+        }
+
+        /// <summary>
+        /// Initializes the real SDL video/GPU path and submits a bounded
+        /// content-free frame.  This is intentionally a diagnostic entry
+        /// point: it proves native lifetime, device creation, command
+        /// submission and disposal without requiring proprietary game data.
+        /// </summary>
+        internal static int RunRuntimeSmoke(int frames = 1)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(frames);
+            try
+            {
+                using var host = new SdlGameHost(new Vector2i(16, 16),
+                    "Project Prime — runtime smoke", showWindow: false);
+                RenderBackendInfo info = host.Backend.Info;
+                Console.WriteLine($"runtime-smoke: backend={info.Name} driver={info.Driver} "
+                    + $"shaders={info.ShaderFormats} swapchain={info.SwapchainFormat}");
+                var client = new SdlTriangleFrameClient(host.Close, frames,
+                    maxAttempts: Math.Max(30, frames * 120));
+                host.Run(client);
+                if (client.PresentedFrames < frames)
+                {
+                    throw new InvalidOperationException(
+                        $"SDL runtime smoke could not submit a drawable frame "
+                        + $"(attempts={client.Attempts}, presented={client.PresentedFrames}).");
+                }
+                Console.WriteLine($"runtime-smoke: submitted={client.PresentedFrames} "
+                    + $"surface={host.Backend.Surface.FramebufferSize.X}x{host.Backend.Surface.FramebufferSize.Y}");
+                return 0;
+            }
+            catch (Exception exception) when (exception is not OutOfMemoryException)
+            {
+                Console.Error.WriteLine($"runtime-smoke: FAIL: {exception.Message}");
+                return 1;
             }
         }
 
@@ -477,7 +487,7 @@ namespace MphRead
         }
 
         private bool IsWindowMinimized()
-            => (SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
+            => (SDL3.SDL_GetWindowFlags(NativeWindow) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
                 || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
 
         private static void WaitUntil(Stopwatch clock, double deadlineSeconds)
@@ -526,24 +536,21 @@ namespace MphRead
                 ProcessEvents();
                 if (_lifetime.CloseRequested) return;
                 ResetInput();
-                _keyEvents.Clear();
-                _mouseButtonEvents.Clear();
-                _text.Clear();
-                _wheel = Vector2.Zero;
+                _inputHub.BeginFrame();
                 _compatibilityInput.Apply(BuildSnapshot());
                 GamepadDesktop.Publish(default);
-                Mods.Render.FrameTiming.Reset();
+                _frameTiming.Reset();
                 _framePacer = new SdlFramePacer();
                 _suspendFrame = suspendFrame;
                 _presentation = new ScenePresentation(scene, _logicalSize, _compatibilityInput.Keyboard,
-                    _compatibilityInput.Mouse, SetTitle, StopScene, sceneServices);
+                    _compatibilityInput.Mouse, SetTitle, StopScene, _frameTiming, sceneServices);
                 Vector2i drawable = _framebufferSize.X > 0 && _framebufferSize.Y > 0
                     ? _framebufferSize : _logicalSize;
                 NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
                     Mods.InputSettings.BottomScreenMode);
                 _presentation.EnableDesktopLook();
                 InputOwner.SetOwner(DesktopInputOwnerKind.Scene,
-                    _gamepadState.Buttons);
+                    _gamepadHub.Buttons);
                 configure(_presentation);
                 _presentation.OnLoad();
                 _windowModePreference.ApplyIfChanged(Mods.WindowMode.Startup, ApplyWindowMode);
@@ -600,7 +607,7 @@ namespace MphRead
                                 && Mods.PauseMenu.Open
                                 ? DesktopInputOwnerKind.Overlay
                                 : DesktopInputOwnerKind.None,
-                            _gamepadState.Buttons);
+                            _gamepadHub.Buttons);
                     }
                 }
             });
@@ -614,19 +621,14 @@ namespace MphRead
         public void SetTitle(string title)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (title == null) throw new ArgumentNullException(nameof(title));
-            SDL3.SDL_SetWindowTitle(_window, title);
+            ArgumentNullException.ThrowIfNull(title);
+            _windowController!.SetTitle(title);
         }
 
         public void SetCursorCaptured(bool captured)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (!SDL3.SDL_SetWindowRelativeMouseMode(_window, captured))
-            {
-                throw new InvalidOperationException($"SDL relative mouse mode failed: {SDL3.SDL_GetError()}");
-            }
-            if (captured) SDL3.SDL_HideCursor();
-            else SDL3.SDL_ShowCursor();
+            _windowController!.SetCursorCaptured(captured);
             _cursorCaptured = captured;
         }
 
@@ -634,24 +636,16 @@ namespace MphRead
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             bool fullscreen = mode == Mods.WindowStartMode.BorderlessFullscreen;
-            SDL3.SDL_SetWindowBordered(_window, !fullscreen);
-            if (!SDL3.SDL_SetWindowFullscreen(_window, fullscreen))
-            {
-                throw new InvalidOperationException($"SDL fullscreen transition failed: {SDL3.SDL_GetError()}");
-            }
+            _windowController!.SetFullscreen(fullscreen);
             _fullscreen = fullscreen;
             Mods.WindowMode.SetFullscreenState(fullscreen);
-            SyncTopmost(Mods.PauseMenu.Open);
             RefreshWindowSize();
         }
 
         private void ProcessEvents()
         {
-            _keyEvents.Clear();
-            _mouseButtonEvents.Clear();
-            _text.Clear();
-            _relativeMouse = Vector2.Zero;
-            _wheel = Vector2.Zero;
+            _inputHub.BeginFrame();
+            _focusEventThisPump = null;
             SyncGyroSensor();
             SDL_Event evt = default;
             while (SDL3.SDL_PollEvent(&evt))
@@ -667,16 +661,15 @@ namespace MphRead
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_GAINED:
                         if (IsOurWindow(evt.window.windowID))
                         {
-                            _focused = !_activationDeferred;
-                            PublishPresentationState();
+                            _focusEventThisPump = true;
+                            ApplyFocusState(!_activationDeferred);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_LOST:
                         if (IsOurWindow(evt.window.windowID))
                         {
-                            _focused = false;
-                            ClearInputAfterFocusLoss();
-                            PublishPresentationState();
+                            _focusEventThisPump = false;
+                            ApplyFocusState(false);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_RESIZED:
@@ -705,53 +698,60 @@ namespace MphRead
                             // window is minimized. Retain the last valid
                             // logical/framebuffer dimensions for overlays and
                             // report minimization separately.
-                            ClearInputAfterFocusLoss();
-                            PublishPresentationState();
+                            _focusEventThisPump = false;
+                            ApplyFocusState(false);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_RESTORED:
                         if (IsOurWindow(evt.window.windowID))
                         {
                             RefreshWindowSize();
+                            SynchronizeNativeFocus();
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_KEY_DOWN:
                     case SDL_EventType.SDL_EVENT_KEY_UP:
-                        if (IsOurWindow(evt.key.windowID)) HandleKey(evt.key);
+                        if (IsOurWindow(evt.key.windowID))
+                        {
+                            if (evt.key.down) ConfirmFocusFromInputEvent();
+                            HandleKey(evt.key);
+                        }
                         break;
                     case SDL_EventType.SDL_EVENT_TEXT_INPUT:
                         if (IsOurWindow(evt.text.windowID) && evt.text.text != null)
                         {
-                            string? text = Marshal.PtrToStringUTF8((IntPtr)evt.text.text);
-                            if (!string.IsNullOrEmpty(text)) _text.Append(text);
+                            ConfirmFocusFromInputEvent();
+                            _inputHub.AppendText((IntPtr)evt.text.text);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_MOUSE_MOTION:
                         if (IsOurWindow(evt.motion.windowID)
                             && !IsSyntheticPenMouseId((uint)evt.motion.which))
                         {
-                            _mousePosition = new Vector2(evt.motion.x, evt.motion.y);
-                            _relativeMouse += new Vector2(evt.motion.xrel, evt.motion.yrel);
+                            _inputHub.HandleMouseMotion(evt.motion);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN:
                     case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP:
                         if (IsOurWindow(evt.button.windowID)
                             && !IsSyntheticPenMouseId((uint)evt.button.which))
+                        {
+                            if (evt.button.down) ConfirmFocusFromInputEvent();
                             HandleMouseButton(evt.button);
+                        }
                         break;
                     case SDL_EventType.SDL_EVENT_MOUSE_WHEEL:
                         if (IsOurWindow(evt.wheel.windowID)
                             && !IsSyntheticPenMouseId((uint)evt.wheel.which))
                         {
-                            _wheel += new Vector2(evt.wheel.x, evt.wheel.y);
+                            _inputHub.AddWheel(evt.wheel.x, evt.wheel.y);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_GAMEPAD_ADDED:
-                        OpenGamepad(evt.gdevice.which);
+                        HandleGamepadAdded(evt.gdevice.which);
                         break;
                     case SDL_EventType.SDL_EVENT_GAMEPAD_REMOVED:
-                        CloseGamepad(evt.gdevice.which);
+                        HandleGamepadRemoved(evt.gdevice.which);
                         break;
                     case SDL_EventType.SDL_EVENT_GAMEPAD_AXIS_MOTION:
                         HandleGamepadAxis(evt.gaxis);
@@ -792,35 +792,97 @@ namespace MphRead
                 }
             }
             // A platform can coalesce or reorder focus events around task
-            // switching. The native flag is the final source of truth and
-            // lets a normal click reactivate input even if no gain event was
-            // observed by this pump.
+            // switching. Preserve an explicit event for this pump, then use
+            // both SDL's cached flag and direct keyboard-focus owner so a
+            // Windows Alt-Tab cannot leave input latched off indefinitely.
             SynchronizeNativeFocus();
-            GamepadDesktop.Publish(_gamepadState);
+            GamepadDesktop.Publish(_gamepadHub.State);
             GamepadHaptics.Pump();
             PublishPresentationState();
         }
 
         private void SynchronizeNativeFocus()
         {
-            bool focused = ResolveNativeFocus(
-                (SDL3.SDL_GetWindowFlags(_window)
+            bool keyboardFocus = SDL3.SDL_GetKeyboardFocus() == NativeWindow;
+            bool focused = ResolveFocusAfterPump(_focusEventThisPump,
+                (SDL3.SDL_GetWindowFlags(NativeWindow)
                     & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0,
+                keyboardFocus,
                 _activationDeferred);
             if (focused == _focused) return;
+            ApplyFocusState(focused);
+        }
+
+        private void ApplyFocusState(bool focused)
+        {
+            bool changed = focused != _focused;
             _focused = focused;
-            if (!focused) ClearInputAfterFocusLoss();
+            _windowController?.SetFocused(focused);
+            if (!focused)
+            {
+                ClearInputAfterFocusLoss();
+            }
+            else
+            {
+                RestoreInputAfterFocusGain();
+            }
+
+            if (changed)
+            {
+                Mods.DebugLog.Line("sdl", focused
+                    ? "window focus regained; input restored"
+                    : "window focus lost; held input cleared");
+            }
+
+            PublishPresentationState();
+        }
+
+        private void ConfirmFocusFromInputEvent()
+        {
+            if (_activationDeferred) return;
+            _focusEventThisPump = true;
+            if (!_focused) ApplyFocusState(true);
+        }
+
+        private void RestoreInputAfterFocusGain()
+        {
+            // SDL's direct keyboard-focus query is the authoritative fallback
+            // on Windows when the cached window flag lags behind Alt-Tab. A
+            // focus gain can also arrive after an overlay released ownership,
+            // so repair an orphaned live scene without stealing input from an
+            // active pause/settings surface.
+            if (ShouldRestoreSceneInputOwner(InputOwner.Current,
+                _presentation != null, Mods.PauseMenu.Open))
+            {
+                InputOwner.SetOwner(DesktopInputOwnerKind.Scene,
+                    _gamepadHub.Buttons);
+            }
+            if (!SDL3.SDL_StartTextInput(NativeWindow))
+            {
+                Mods.DebugLog.Line("sdl",
+                    $"text input restore failed: {SDL3.SDL_GetError()}");
+            }
         }
 
         internal static bool ResolveNativeFocus(bool nativeInputFocus,
-            bool activationDeferred)
-            => nativeInputFocus && !activationDeferred;
+            bool keyboardFocus, bool activationDeferred)
+            => (nativeInputFocus || keyboardFocus) && !activationDeferred;
+
+        internal static bool ResolveFocusAfterPump(bool? focusEvent,
+            bool nativeInputFocus, bool keyboardFocus, bool activationDeferred)
+            => focusEvent.HasValue
+                ? focusEvent.Value && !activationDeferred
+                : ResolveNativeFocus(nativeInputFocus, keyboardFocus,
+                    activationDeferred);
+
+        internal static bool ShouldRestoreSceneInputOwner(
+            DesktopInputOwnerKind currentOwner, bool hasPresentation,
+            bool pauseOpen)
+            => currentOwner == DesktopInputOwnerKind.None
+                && hasPresentation && !pauseOpen;
 
         private WindowInputSnapshot BuildSnapshot()
-            => new(_keys, _mouseButtons, _mousePosition,
-                _relativeMouse, _wheel, _text.ToString(), _focused,
-                _keyEvents, _mouseButtonEvents,
-                _presentation?.FrameAdvance ?? false);
+            => _inputHub.Snapshot(_focused, _presentation?.FrameAdvance ?? false);
 
         private void DispatchCompatibilityInput(WindowInputSnapshot snapshot,
             IGameWindowFrameClient? frameClient = null)
@@ -831,10 +893,8 @@ namespace MphRead
             {
                 // Keep the window responsive while quarantining all live
                 // gameplay/menu bindings during a replay-owned surface.
-                DesktopStylusInput.Cancel();
+                _pointerHub.CancelInteraction();
                 NativeBottomScreenPlatformBridge.Cancel();
-                _capturedPenId = null;
-                _bottomScreenPenId = null;
                 _presentation.ResetRenderLook();
                 if (_cursorCaptured) SetCursorCaptured(false);
                 return;
@@ -846,17 +906,32 @@ namespace MphRead
                 && !_presentation.ShowCursor
                 && !_presentation.FrameAdvance;
             if (shouldCapture != _cursorCaptured) SetCursorCaptured(shouldCapture);
-            if (shouldCapture && _presentation.CanCaptureSimulationLook)
+            bool bottomScreenSession
+                = NativeBottomScreenPlatformBridge.DesktopSessionActive;
+            if (shouldCapture && bottomScreenSession)
+            {
+                _pointerHub.CancelInteraction();
+                NativeBottomScreenPlatformBridge.TryDesktopCursorMove(
+                    snapshot.RelativeMouse);
+                foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
+                {
+                    if (button.Button != MouseButton.Left) continue;
+                    if (button.Down)
+                        NativeBottomScreenPlatformBridge.TryDesktopPointerDown();
+                    else
+                        NativeBottomScreenPlatformBridge.TryDesktopPointerUp();
+                }
+                _presentation.ResetRenderLook();
+            }
+            else if (shouldCapture && _presentation.CanCaptureSimulationLook)
             {
                 _presentation.RenderLook?.Add(snapshot.RelativeMouse.X, snapshot.RelativeMouse.Y);
                 _presentation.SubmitMouseLook(snapshot.RelativeMouse);
             }
             else
             {
-                DesktopStylusInput.Cancel();
+                _pointerHub.CancelInteraction();
                 NativeBottomScreenPlatformBridge.Cancel();
-                _capturedPenId = null;
-                _bottomScreenPenId = null;
                 _presentation.ResetRenderLook();
             }
             foreach (WindowKeyEvent key in snapshot.KeyEvents)
@@ -922,39 +997,18 @@ namespace MphRead
         }
 
         private void HandleKey(SDL_KeyboardEvent evt)
-        {
-            Keys key = TranslateKey(evt.scancode);
-            if (key == Keys.Unknown) return;
-            bool down = evt.down;
-            if (down) _keys.Add((int)key);
-            else _keys.Remove((int)key);
-            _keyEvents.Add(new WindowKeyEvent(key, down, evt.repeat, TranslateModifiers(evt.mod)));
-        }
+            => _inputHub.HandleKey(evt);
 
         private void HandleMouseButton(SDL_MouseButtonEvent evt)
-        {
-            MouseButton button = TranslateMouseButton(evt.button);
-            if (button == MouseButton.Last) return;
-            bool down = evt.down;
-            if (down) _mouseButtons.Add((int)button);
-            else _mouseButtons.Remove((int)button);
-            _mouseButtonEvents.Add(new WindowMouseButtonEvent(button, down));
-        }
+            => _inputHub.HandleMouseButton(evt);
 
         private void ClearInputAfterFocusLoss()
         {
             Mods.ClientInputState.WindowFocused = false;
-            SetGyroSensor(enabled: false);
-            _keys.Clear();
-            _mouseButtons.Clear();
-            _relativeMouse = Vector2.Zero;
-            _gamepadState = default;
-            _stylus.Cancel();
+            _inputHub.ClearHeld();
+            _gamepadHub.ResetState();
+            _pointerHub.Reset();
             NativeBottomScreenPlatformBridge.Cancel();
-            _capturedPenId = null;
-            _bottomScreenPenId = null;
-            _pens.Clear();
-            GamepadGyro.Reset();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
             if (_cursorCaptured)
@@ -979,399 +1033,95 @@ namespace MphRead
                 Mods.InputSettings.BottomScreenMode);
         }
 
-        private void OpenGamepad(SDL_JoystickID id)
+        private void HandleGamepadAdded(SDL_JoystickID id)
         {
-            uint rawId = (uint)id;
-            if (_gamepads.ContainsKey(rawId)) return;
-            SDL_Gamepad* handle = SDL3.SDL_OpenGamepad(id);
-            if (handle == null) return;
-            _gamepads.Add(rawId, (IntPtr)handle);
-            if (!_hasActiveGamepad)
-            {
-                _activeGamepadId = rawId;
-                _hasActiveGamepad = true;
-                _gamepadState = new PrimeGamepadState
-                {
-                    Connected = true,
-                    Name = SDL3.SDL_GetGamepadName(handle) ?? "SDL gamepad",
-                    Family = ControllerFamilyFrom(SDL3.SDL_GetGamepadType(handle))
-                };
-                PublishActiveGamepadCapabilities(rawId, handle);
-                // Bias belongs to the physical device. A newly active device
-                // must never inherit calibration from the previous one.
-                GamepadGyro.ResetDevice();
-                SyncGyroSensor();
-            }
+            if (_gamepadHub.Open(id, out SdlGamepadCapabilities capabilities))
+                PublishGamepadCapabilities(capabilities);
+            SyncGyroSensor();
         }
 
-        private void CloseGamepad(SDL_JoystickID id)
+        private void HandleGamepadRemoved(SDL_JoystickID id)
         {
-            uint rawId = (uint)id;
-            bool wasActive = _hasActiveGamepad && rawId == _activeGamepadId;
-            if (wasActive) SetGyroSensor(enabled: false);
+            bool wasActive = _gamepadHub.IsActive(id);
             if (wasActive)
             {
                 GamepadHaptics.Stop();
                 GamepadHaptics.Pump();
             }
-            if (_gamepads.Remove(rawId, out IntPtr pointer))
-            {
-                SDL3.SDL_CloseGamepad((SDL_Gamepad*)pointer);
-            }
-            if (!wasActive) return;
-            GamepadGyro.ResetDevice();
-            _hasActiveGamepad = false;
-            _gamepadState = default;
-            foreach (KeyValuePair<uint, IntPtr> gamepad in _gamepads)
-            {
-                _activeGamepadId = gamepad.Key;
-                _hasActiveGamepad = true;
-                SDL_Gamepad* handle = (SDL_Gamepad*)gamepad.Value;
-                _gamepadState.Connected = true;
-                _gamepadState.Name = SDL3.SDL_GetGamepadName(handle) ?? "SDL gamepad";
-                _gamepadState.Family = ControllerFamilyFrom(
-                    SDL3.SDL_GetGamepadType(handle));
-                PublishActiveGamepadCapabilities(gamepad.Key, handle);
-                break;
-            }
-            if (!_hasActiveGamepad)
-            {
+            SdlGamepadCapabilities? capabilities = _gamepadHub.Close(id,
+                out bool closedActive);
+            if (capabilities.HasValue)
+                PublishGamepadCapabilities(capabilities.Value);
+            else if (closedActive)
                 _capabilityOwner?.Publish(
                     ControllerCapabilitySnapshot.Disconnected(ControllerBackend.Sdl));
-            }
             SyncGyroSensor();
         }
 
         private void HandleGamepadAxis(SDL_GamepadAxisEvent evt)
-        {
-            if (!_hasActiveGamepad || (uint)evt.which != _activeGamepadId) return;
-            _gamepadState.Connected = true;
-            float normalized = evt.value / 32767f;
-            switch ((SDL_GamepadAxis)evt.axis)
-            {
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFTX: _gamepadState.LeftX = normalized; break;
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFTY: _gamepadState.LeftY = -normalized; break;
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHTX: _gamepadState.RightX = normalized; break;
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHTY: _gamepadState.RightY = -normalized; break;
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFT_TRIGGER: _gamepadState.LeftTrigger = Math.Clamp(evt.value / 32767f, 0, 1); break;
-                case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: _gamepadState.RightTrigger = Math.Clamp(evt.value / 32767f, 0, 1); break;
-            }
-        }
+            => _gamepadHub.HandleAxis(evt);
 
         private void HandleGamepadButton(SDL_GamepadButtonEvent evt)
-        {
-            if (!_hasActiveGamepad || (uint)evt.which != _activeGamepadId) return;
-            _gamepadState.Connected = true;
-            GamepadButtons button = (SDL_GamepadButton)evt.button switch
-            {
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_SOUTH => GamepadButtons.A,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_EAST => GamepadButtons.B,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_WEST => GamepadButtons.X,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_NORTH => GamepadButtons.Y,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_LEFT_SHOULDER => GamepadButtons.LeftBumper,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER => GamepadButtons.RightBumper,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_BACK => GamepadButtons.Back,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_START => GamepadButtons.Start,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_LEFT_STICK => GamepadButtons.LeftThumb,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_RIGHT_STICK => GamepadButtons.RightThumb,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_UP => GamepadButtons.DpadUp,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_RIGHT => GamepadButtons.DpadRight,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_DOWN => GamepadButtons.DpadDown,
-                SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_LEFT => GamepadButtons.DpadLeft,
-                _ => GamepadButtons.None
-            };
-            if (button != GamepadButtons.None)
-            {
-                if (evt.down) _gamepadState.Buttons |= button;
-                else _gamepadState.Buttons &= ~button;
-            }
-        }
+            => _gamepadHub.HandleButton(evt);
 
         private void HandleGamepadSensor(SDL_GamepadSensorEvent evt)
-        {
-            if (!_hasActiveGamepad || !_gyroSensorEnabled
-                || (uint)evt.which != _activeGamepadId
-                || evt.sensor != (int)SDL_SensorType.SDL_SENSOR_GYRO) return;
-            // SDL specifies gamepad gyro values in radians/second around the
-            // controller's right-handed X/Y/Z axes. Preserve its sensor
-            // timestamp (nanoseconds) instead of assigning render arrival time.
-            double seconds = (evt.sensor_timestamp != 0
-                ? evt.sensor_timestamp : evt.timestamp) / 1_000_000_000d;
-            GamepadGyro.SubmitRadiansPerSecond(
-                new Vector3(evt.data[0], evt.data[1], evt.data[2]), seconds);
-        }
+            => _gamepadHub.HandleSensor(evt);
 
         private void SyncGyroSensor()
         {
-            bool requested = _hasActiveGamepad
+            bool requested = _gamepadHub.HasActive
                 && Mods.InputSettings.GamepadGyroEnabled
                 && _focused
                 && !Mods.PauseMenu.Open
                 && (_presentation == null || _presentation.CanCaptureSimulationLook);
-            if (requested == _gyroSensorEnabled) return;
-            SetGyroSensor(requested);
+            _gamepadHub.SetGyroSensor(requested);
         }
 
-        private void SetGyroSensor(bool enabled)
-        {
-            if (!_hasActiveGamepad
-                || !_gamepads.TryGetValue(_activeGamepadId, out IntPtr pointer))
-            {
-                _gyroSensorEnabled = false;
-                GamepadGyro.Reset();
-                return;
-            }
-            SDL_Gamepad* handle = (SDL_Gamepad*)pointer;
-            bool applied = SDL3.SDL_SetGamepadSensorEnabled(handle,
-                SDL_SensorType.SDL_SENSOR_GYRO, enabled);
-            _gyroSensorEnabled = enabled && applied;
-            if (!_gyroSensorEnabled) GamepadGyro.Reset();
-        }
-
-        private void PublishActiveGamepadCapabilities(uint rawId, SDL_Gamepad* handle)
-        {
-            bool? hasGyroscope = TryHasGyroscope(handle);
-            bool? hasLeftTrigger = TryHasAxis(handle,
-                SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFT_TRIGGER);
-            bool? hasRightTrigger = TryHasAxis(handle,
-                SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHT_TRIGGER);
-            bool? hasAnalogTriggers = hasLeftTrigger == false
-                || hasRightTrigger == false
-                ? false
-                : hasLeftTrigger == true && hasRightTrigger == true
-                    ? true : null;
-            _capabilityOwner?.Publish(ControllerCapabilitySnapshot.Connected(
+        private void PublishGamepadCapabilities(SdlGamepadCapabilities capabilities)
+            => _capabilityOwner?.Publish(ControllerCapabilitySnapshot.Connected(
                 ControllerBackend.Sdl,
-                $"gamepad:{rawId}",
-                _gamepadState.Name,
-                _gamepadState.Family,
-                hasGyroscope,
-                // SDL 3.4.16 exposes the rumble operation but no non-invasive
-                // capability query. Do not probe by actuating the device.
-                hasRumble: null,
-                hasAnalogTriggers: hasAnalogTriggers));
-        }
-
-        private static bool? TryHasGyroscope(SDL_Gamepad* handle)
-        {
-            try
-            {
-                return SDL3.SDL_GamepadHasSensor(handle,
-                    SDL_SensorType.SDL_SENSOR_GYRO);
-            }
-            catch (Exception ex) when (ex is DllNotFoundException
-                || ex is EntryPointNotFoundException || ex is BadImageFormatException)
-            {
-                return null;
-            }
-        }
-
-        private static bool? TryHasAxis(SDL_Gamepad* handle, SDL_GamepadAxis axis)
-        {
-            try
-            {
-                return SDL3.SDL_GamepadHasAxis(handle, axis);
-            }
-            catch (Exception ex) when (ex is DllNotFoundException
-                || ex is EntryPointNotFoundException || ex is BadImageFormatException)
-            {
-                return null;
-            }
-        }
+                $"gamepad:{capabilities.Id}", capabilities.Name, capabilities.Family,
+                capabilities.HasGyroscope,
+                // SDL 3.4.16 exposes rumble but no non-invasive capability query.
+                hasRumble: null, hasAnalogTriggers: capabilities.HasAnalogTriggers));
 
         private void HandlePenProximity(SDL_PenProximityEvent evt, bool entered)
         {
-            uint id = (uint)evt.which;
-            if (!entered)
-            {
-                if (_bottomScreenPenId == id)
-                {
-                    NativeBottomScreenPlatformBridge.CancelPointer((int)id);
-                    _bottomScreenPenId = null;
-                    _pens.Remove(id);
-                    return;
-                }
-                DesktopPenState state = GetPenState(id);
-                bool ended = state.InProximity
-                    && _stylus.PointerProximityExit(PenSample(id, state, 0));
-                if (_capturedPenId == id)
-                {
-                    // A malformed or truncated event stream may omit the
-                    // matching proximity sample. Only the captured pen may
-                    // use the fallback cancellation; another pen leaving
-                    // proximity must not cancel its owner.
-                    if (!ended) _stylus.Cancel();
-                    _capturedPenId = null;
-                }
-                _pens.Remove(id);
-                return;
-            }
-            PointerCoordinateKind coordinateKind = PenCoordinateKind(evt.which);
-            _pens[id] = new DesktopPenState
-            {
-                Tool = PointerToolKind.Stylus,
-                InProximity = true,
-                CoordinateKind = coordinateKind,
-                // SDL reports direct pen positions in a window-relative
-                // coordinate stream. Keep the known logical-pixel scale in
-                // the neutral sample so high-DPI windows do not make direct
-                // pen aim depend on the framebuffer size.
-                LogicalDisplayScale = coordinateKind == PointerCoordinateKind.Direct
-                    ? LogicalDisplayScale() : 1,
-                // SDL 3.4.16 exposes Direct/Indirect classification but no
-                // mapped tablet extent. Zero is intentional: the neutral
-                // layer uses its conservative fallback until an adapter can
-                // provide a real normalized extent; no physical dimensions
-                // are invented here.
-                MappedExtentX = 0,
-                MappedExtentY = 0
-            };
+            _pointerHub.HandleProximity(evt, entered);
         }
 
         private void HandlePenTouch(SDL_PenTouchEvent evt)
         {
             if (!IsOurWindow(evt.windowID)) return;
-            uint id = (uint)evt.which;
-            DesktopPenState state = GetPenState(id);
-            state.Contact = evt.down;
-            state.InProximity = true;
-            state.X = evt.x;
-            state.Y = evt.y;
-            state.Tool = evt.eraser ? PointerToolKind.Eraser : PenTool(evt.pen_state);
-            state.Buttons = PenButtons(evt.pen_state);
-            _pens[id] = state;
-            ConfigureStylus();
-            PointerSample sample = PenSample(id, state, evt.timestamp);
-            if (state.Contact)
-            {
-                if (NativeBottomScreenPlatformBridge.TryPointerDown(sample))
-                {
-                    _bottomScreenPenId = id;
-                    return;
-                }
-                EnsureStylusContact(id, state.Contact, sample);
-            }
-            else if (_bottomScreenPenId == id)
-            {
-                NativeBottomScreenPlatformBridge.TryPointerUp(sample);
-                _bottomScreenPenId = null;
-            }
-            else if (_capturedPenId == id)
-            {
-                _stylus.PointerUp(sample);
-                _capturedPenId = null;
-            }
+            _pointerHub.HandleTouch(evt);
         }
 
         private void HandlePenMotion(SDL_PenMotionEvent evt)
         {
             if (!IsOurWindow(evt.windowID)) return;
-            uint id = (uint)evt.which;
-            DesktopPenState state = GetPenState(id);
-            state.X = evt.x;
-            state.Y = evt.y;
-            state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
-            state.InProximity = true;
-            state.Tool = PenTool(evt.pen_state);
-            state.Buttons = PenButtons(evt.pen_state);
-            _pens[id] = state;
-            PointerSample sample = PenSample(id, state, evt.timestamp);
-            if (!state.Contact)
-            {
-                _stylus.PointerProximityMove(sample);
-                return;
-            }
-            if (_bottomScreenPenId == id)
-            {
-                NativeBottomScreenPlatformBridge.TryPointerMove(sample);
-                return;
-            }
-            if (NativeBottomScreenPlatformBridge.TryPointerDown(sample))
-            {
-                _bottomScreenPenId = id;
-                return;
-            }
-            ConfigureStylus();
-            if (!EnsureStylusContact(id, state.Contact, sample)) return;
-            _stylus.PointerMove(sample);
+            _pointerHub.HandleMotion(evt);
         }
 
         private void HandlePenButton(SDL_PenButtonEvent evt)
         {
             if (!IsOurWindow(evt.windowID)) return;
-            uint id = (uint)evt.which;
-            DesktopPenState state = GetPenState(id);
-            state.X = evt.x;
-            state.Y = evt.y;
-            state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
-            state.InProximity = true;
-            state.Tool = PenTool(evt.pen_state);
-            state.Buttons = PenButtons(evt.pen_state);
-            _pens[id] = state;
-            if (_bottomScreenPenId == id)
-            {
-                NativeBottomScreenPlatformBridge.TryPointerMove(PenSample(id, state, evt.timestamp));
-                return;
-            }
-            ConfigureStylus();
-            PointerSample sample = PenSample(id, state, evt.timestamp);
-            if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
-                _stylus.UpdateButtonState(sample);
+            _pointerHub.HandleButton(evt);
         }
 
         private void HandlePenAxis(SDL_PenAxisEvent evt)
         {
             if (!IsOurWindow(evt.windowID)) return;
-            uint id = (uint)evt.which;
-            DesktopPenState state = GetPenState(id);
-            state.X = evt.x;
-            state.Y = evt.y;
-            state.Contact = (evt.pen_state & SDL_PenInputFlags.SDL_PEN_INPUT_DOWN) != 0;
-            state.InProximity = true;
-            state.Tool = PenTool(evt.pen_state);
-            state.Buttons = PenButtons(evt.pen_state);
-            if (evt.axis == SDL_PenAxis.SDL_PEN_AXIS_PRESSURE)
-                state.Pressure = Math.Clamp(evt.value, 0, 1);
-            _pens[id] = state;
-            if (_bottomScreenPenId == id)
-            {
-                NativeBottomScreenPlatformBridge.TryPointerMove(PenSample(id, state, evt.timestamp));
-                return;
-            }
-            ConfigureStylus();
-            PointerSample sample = PenSample(id, state, evt.timestamp);
-            if (!state.Contact || EnsureStylusContact(id, state.Contact, sample))
-                _stylus.UpdateButtonState(sample);
+            _pointerHub.HandleAxis(evt);
         }
 
-        private bool EnsureStylusContact(uint id, bool contact,
-            in PointerSample sample)
-        {
-            if (_capturedPenId == id && _stylus.Active) return true;
-            if (!ShouldBeginStylusContact(contact, _stylus.Active))
-                return false;
-
-            // A focus transition can cause the initial PEN_DOWN to be
-            // filtered before SDL reports native focus, and some drivers
-            // begin a contact stream with motion/axis/button events. Recover
-            // from the first contact-bearing sample instead of rejecting the
-            // rest of that stroke. An inactive adapter cannot own a real
-            // capture, so any remembered id at this point is stale.
-            _capturedPenId = null;
-            ConfigureStylus();
-            if (!_stylus.PointerDown(sample)) return false;
-            _capturedPenId = id;
-            return true;
-        }
-
-        private void ConfigureStylus()
+        private void ConfigureStylus(StylusInput stylus)
         {
             PlayerEntity? local = _presentation?.World.LocalPlayer;
-            _stylus.Configure(Mods.InputSettings.StylusAimingEnabled,
+            stylus.Configure(Mods.InputSettings.StylusAimingEnabled,
                 Mods.InputSettings.StylusSensitivity, Mods.InputSettings.StylusInvertY,
                 Mods.InputSettings.StylusPressureToFire,
                 Mods.InputSettings.StylusPressureThreshold, density: 1);
-            _stylus.ConfigureGestures(Mods.InputSettings.StylusClassicGestures,
+            stylus.ConfigureGestures(Mods.InputSettings.StylusClassicGestures,
                 Mods.InputSettings.StylusDoubleTapJump,
                 Mods.InputSettings.StylusFlickBoost,
                 flickContext: IsStylusFlickContext(local != null,
@@ -1383,24 +1133,13 @@ namespace MphRead
 
         internal static bool ShouldBeginStylusContact(bool contact,
             bool stylusActive)
-            => contact && !stylusActive;
+            => SdlPointerHub.ShouldBeginStylusContact(contact, stylusActive);
+
+        internal static bool ShouldOfferPenToBottomScreen(bool stylusActive)
+            => SdlPointerHub.ShouldOfferPenToBottomScreen(stylusActive);
 
         internal static bool IsSyntheticPenMouseId(uint id)
             => id == (uint)SDL3.SDL_PEN_MOUSEID;
-
-        private DesktopPenState GetPenState(uint id)
-            => _pens.TryGetValue(id, out DesktopPenState state) ? state
-                : new DesktopPenState { Tool = PointerToolKind.Stylus };
-
-        private PointerCoordinateKind PenCoordinateKind(SDL_PenID id)
-            => SDL3.SDL_GetPenDeviceType(id) switch
-            {
-                SDL_PenDeviceType.SDL_PEN_DEVICE_TYPE_DIRECT
-                    => PointerCoordinateKind.Direct,
-                SDL_PenDeviceType.SDL_PEN_DEVICE_TYPE_INDIRECT
-                    => PointerCoordinateKind.Indirect,
-                _ => PointerCoordinateKind.Unknown
-            };
 
         private float LogicalDisplayScale()
         {
@@ -1418,66 +1157,20 @@ namespace MphRead
             return (x + y) * .5f;
         }
 
-        private static PointerSample PenSample(uint id, DesktopPenState state,
-            ulong timestampNanoseconds)
-            => new(unchecked((int)id), state.Tool, state.X, state.Y,
-                state.Pressure, state.Buttons,
-                (long)Math.Min(timestampNanoseconds / 1_000_000UL, (ulong)long.MaxValue),
-                state.CoordinateKind, state.LogicalDisplayScale,
-                state.MappedExtentX, state.MappedExtentY);
-
-        private static PointerToolKind PenTool(SDL_PenInputFlags flags)
-            => (flags & SDL_PenInputFlags.SDL_PEN_INPUT_ERASER_TIP) != 0
-                ? PointerToolKind.Eraser : PointerToolKind.Stylus;
-
-        private static StylusButtons PenButtons(SDL_PenInputFlags flags)
-        {
-            StylusButtons result = StylusButtons.None;
-            if ((flags & SDL_PenInputFlags.SDL_PEN_INPUT_BUTTON_1) != 0)
-                result |= StylusButtons.Primary;
-            if ((flags & (SDL_PenInputFlags.SDL_PEN_INPUT_BUTTON_2
-                | SDL_PenInputFlags.SDL_PEN_INPUT_BUTTON_3)) != 0)
-                result |= StylusButtons.Secondary;
-            return result;
-        }
-
-        private static ControllerFamily ControllerFamilyFrom(SDL_GamepadType type)
-            => type switch
-            {
-                SDL_GamepadType.SDL_GAMEPAD_TYPE_XBOX360
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_XBOXONE => ControllerFamily.Xbox,
-                SDL_GamepadType.SDL_GAMEPAD_TYPE_PS3
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_PS4
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_PS5 => ControllerFamily.PlayStation,
-                SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR
-                    or SDL_GamepadType.SDL_GAMEPAD_TYPE_GAMECUBE => ControllerFamily.Nintendo,
-                _ => ControllerFamily.Generic
-            };
-
         void IGamepadHapticsSink.Apply(in HapticPattern pattern)
-        {
-            if (!_hasActiveGamepad || !_gamepads.TryGetValue(_activeGamepadId,
-                out IntPtr pointer)) return;
-            SDL3.SDL_RumbleGamepad((SDL_Gamepad*)pointer, pattern.LowFrequency,
-                pattern.HighFrequency, pattern.DurationMilliseconds);
-        }
+            => _gamepadHub.ApplyRumble(pattern);
 
         void IGamepadHapticsSink.Stop()
-        {
-            if (_hasActiveGamepad && _gamepads.TryGetValue(_activeGamepadId,
-                out IntPtr pointer)) SDL3.SDL_RumbleGamepad((SDL_Gamepad*)pointer, 0, 0, 0);
-        }
+            => _gamepadHub.StopRumble();
 
-        private bool IsOurWindow(SDL_WindowID windowId) => windowId == _windowId;
+        private bool IsOurWindow(SDL_WindowID windowId)
+            => _windowController?.IsOurWindow(windowId) == true;
 
         private void ReadWindowSize(out Vector2i logical, out Vector2i framebuffer)
         {
             int logicalWidth = 0, logicalHeight = 0, framebufferWidth = 0, framebufferHeight = 0;
-            SDL3.SDL_GetWindowSize(_window, &logicalWidth, &logicalHeight);
-            if (!SDL3.SDL_GetWindowSizeInPixels(_window, &framebufferWidth, &framebufferHeight))
+            SDL3.SDL_GetWindowSize(NativeWindow, &logicalWidth, &logicalHeight);
+            if (!SDL3.SDL_GetWindowSizeInPixels(NativeWindow, &framebufferWidth, &framebufferHeight))
             {
                 framebufferWidth = logicalWidth;
                 framebufferHeight = logicalHeight;
@@ -1491,6 +1184,7 @@ namespace MphRead
             ReadWindowSize(out Vector2i logical, out Vector2i framebuffer);
             if (logical.X > 0 && logical.Y > 0) _logicalSize = logical;
             if (framebuffer.X > 0 && framebuffer.Y > 0) _framebufferSize = framebuffer;
+            _windowController?.SetSizes(_logicalSize, _framebufferSize);
             _backend?.Resize(_logicalSize, _framebufferSize);
             SyncPresentationSize();
             PublishPresentationState();
@@ -1499,7 +1193,7 @@ namespace MphRead
         private void ReadWindowPosition(out Vector2i position)
         {
             int x = 0, y = 0;
-            SDL3.SDL_GetWindowPosition(_window, &x, &y);
+            SDL3.SDL_GetWindowPosition(NativeWindow, &x, &y);
             position = new Vector2i(x, y);
         }
 
@@ -1507,7 +1201,7 @@ namespace MphRead
         {
             if (_presentationTracker == null) return;
             ReadWindowPosition(out Vector2i position);
-            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(_window);
+            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(NativeWindow);
             bool visible = (flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0;
             bool minimized = (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
                 || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
@@ -1516,7 +1210,7 @@ namespace MphRead
                 _fullscreen);
         }
 
-        private static KeyModifiers TranslateModifiers(SDL_Keymod modifiers)
+        internal static KeyModifiers TranslateModifiers(SDL_Keymod modifiers)
         {
             ushort raw = (ushort)modifiers;
             KeyModifiers result = 0;
@@ -1529,7 +1223,7 @@ namespace MphRead
             return result;
         }
 
-        private static MouseButton TranslateMouseButton(byte button)
+        internal static MouseButton TranslateMouseButton(byte button)
             => button switch
             {
                 1 => MouseButton.Left,
@@ -1543,7 +1237,7 @@ namespace MphRead
                 _ => MouseButton.Last
             };
 
-        private static Keys TranslateKey(SDL_Scancode scancode)
+        internal static Keys TranslateKey(SDL_Scancode scancode)
             => scancode switch
             {
                 SDL_Scancode.SDL_SCANCODE_SPACE => Keys.Space,
@@ -1660,10 +1354,8 @@ namespace MphRead
             if (_disposed) return;
             _lifetime.Dispose();
             _disposed = true;
-            _stylus.Cancel();
+            _pointerHub.Dispose();
             NativeBottomScreenPlatformBridge.Cancel();
-            _capturedPenId = null;
-            _bottomScreenPenId = null;
             GamepadGyro.ResetDevice();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
@@ -1674,14 +1366,10 @@ namespace MphRead
             GamepadDesktop.Publish(default);
             try
             {
-                foreach (IntPtr pointer in _gamepads.Values)
+                _gamepadHub.Dispose();
+                if (_windowController != null)
                 {
-                    SDL3.SDL_CloseGamepad((SDL_Gamepad*)pointer);
-                }
-                _gamepads.Clear();
-                if (_window != null)
-                {
-                    SDL3.SDL_StopTextInput(_window);
+                    SDL3.SDL_StopTextInput(NativeWindow);
                     if (_backend != null)
                     {
                         try
@@ -1695,7 +1383,8 @@ namespace MphRead
                         }
                         _backend.Dispose();
                     }
-                    SDL3.SDL_DestroyWindow(_window);
+                    _windowController.Dispose();
+                    _windowController = null;
                 }
             }
             finally
@@ -1706,16 +1395,6 @@ namespace MphRead
             }
         }
 
-        private struct DesktopPenState
-        {
-            public float X, Y, Pressure;
-            public StylusButtons Buttons;
-            public PointerToolKind Tool;
-            public bool Contact, InProximity;
-            public PointerCoordinateKind CoordinateKind;
-            public float LogicalDisplayScale;
-            public float MappedExtentX, MappedExtentY;
-        }
     }
 
     /// <summary>
@@ -1742,8 +1421,7 @@ namespace MphRead
 
         public SceneFirstFrameNotification(ulong generation, Action<ulong>? callback)
         {
-            if (generation == 0)
-                throw new ArgumentOutOfRangeException(nameof(generation));
+            ArgumentOutOfRangeException.ThrowIfZero(generation);
             _generation = generation;
             _callback = callback;
         }
@@ -1863,10 +1541,27 @@ namespace MphRead
     internal sealed class SdlTriangleFrameClient : IGameWindowFrameClient
     {
         private readonly RenderFrame _snapshot = new RenderFrame(1, 1);
+        private readonly Action _close;
+        private readonly int _targetFrames;
+        private readonly int _maxAttempts;
+
+        internal SdlTriangleFrameClient(Action close, int targetFrames, int maxAttempts)
+        {
+            _close = close ?? throw new ArgumentNullException(nameof(close));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(targetFrames);
+            ArgumentOutOfRangeException.ThrowIfLessThan(maxAttempts, targetFrames);
+            _targetFrames = targetFrames;
+            _maxAttempts = maxAttempts;
+        }
 
         public int PresentedFrames { get; private set; }
+        public int Attempts { get; private set; }
 
-        public void OnInput(WindowInputSnapshot input) { }
+        public void OnInput(WindowInputSnapshot input)
+        {
+            _ = input;
+            if (++Attempts > _maxAttempts) _close();
+        }
         public void AdvanceSimulation(int steps) { }
         public void OnDrawFrame()
         {
@@ -1879,11 +1574,16 @@ namespace MphRead
                 OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Vector3.Zero,
                 OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Vector3.Zero,
                 false, OpenTK.Mathematics.Vector4.Zero, 0, 0, default);
+            foreach (RenderPresentationStage stage in Enum.GetValues<RenderPresentationStage>())
+                _snapshot.AddOverlayCommand(RenderOverlayCommand.StageMarker(stage));
             _snapshot.Seal();
         }
         public void Render(RenderBackendFrame frame, IRenderBackend backend)
             => backend.Render(frame, _snapshot);
-        public void OnFramePresented() => PresentedFrames++;
+        public void OnFramePresented()
+        {
+            if (++PresentedFrames >= _targetFrames) _close();
+        }
         public void AfterRenderFrame() { }
         public void PumpPauseMenu() { }
     }

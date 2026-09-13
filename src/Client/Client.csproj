@@ -117,8 +117,9 @@
       Launcher/Gui/DesktopGameOverlayCoordinator.cs;Launcher/Gui/DesktopGameOverlayWindow.cs;Launcher/Gui/DesktopInputOwner.cs;Launcher/Gui/DesktopTransitionCoordinator.cs;Launcher/Gui/GuiLauncher.cs;Launcher/Gui/HomeWindow.cs;Launcher/Gui/PauseMenuPresenter.cs;Launcher/Gui/PauseMenuWindow.cs;Launcher/Gui/PostMatchSession.cs;Launcher/Gui/PostMatchWindow.cs;Launcher/Gui/SettingsWindow.cs;Launcher/Gui/UiCapture.cs;
       Launcher/Portable/MatchStart.cs;Launcher/Portable/TextLauncher.cs;Launcher/Shell/PostMatchCommandScope.cs;Launcher/Shell/PostMatchSelection.cs;Launcher/Shell/PostMatchView.cs;
       Networking/AuthoritativeCheck.cs;Networking/AuthoritativePlay.Desktop.cs;Networking/MapAudit.cs;Networking/NetCheckClient.cs;Networking/NetProbe.cs;Networking/ReplayPlaybackCheck.cs;Networking/WeaponDps.cs;
-      Program.cs;Rendering/FrameTimingCheck.cs;Rendering/Platform/GameHostPresentationState.cs;Rendering/Platform/RenderToolHost.cs;Rendering/Platform/SceneHostLifetime.cs;Rendering/Platform/SdlCompatibilityInput.cs;Rendering/Platform/SdlGameHost.cs;
+      Program.cs;Rendering/FrameTimingCheck.cs;Rendering/Platform/GameHostPresentationState.cs;Rendering/Platform/RenderToolHost.cs;Rendering/Platform/SceneHostLifetime.cs;Rendering/Platform/SdlCompatibilityInput.cs;Rendering/Platform/SdlGameHost.cs;Rendering/Platform/SdlWindowController.cs;Rendering/Platform/SdlInputHub.cs;Rendering/Platform/SdlGamepadHub.cs;Rendering/Platform/SdlPointerHub.cs;
       Runtime/AssemblyInfo.cs;Runtime/ConsoleWindow.cs;Runtime/DesktopPresentationServices.cs;Runtime/Menu.cs;Runtime/ModEntry.cs;Runtime/ModelPreviewCapture.cs;Runtime/PauseMenu.cs;Runtime/ThumbnailBatch.cs;Runtime/ThumbnailCapture.cs;Runtime/ThumbnailGenerator.Desktop.cs" />
+    <Compile Include="Update/DesktopUpdate.cs;Update/DesktopUpdateInstaller.cs;Update/UpdateTransaction.cs" />
   </ItemGroup>
 
   <Import Project="../../build/protection/ClientProtection.targets"
