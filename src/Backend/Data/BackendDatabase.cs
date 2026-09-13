@@ -17,7 +17,7 @@ public static class BackendDatabase
     [
         "AspNetRoles", "AspNetRoleClaims", "AspNetUserClaims", "AspNetUserLogins",
         "AspNetUserRoles", "AspNetUserTokens", "players", "player_profiles",
-        "hunter_licenses", "career_projection_state", "accepted_matches",
+        "player_cosmetic_loadouts", "hunter_licenses", "career_projection_state", "accepted_matches",
         "career_participations", "career_aggregates", "rating_transactions",
         "rating_pair_contributions"
     ];

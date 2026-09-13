@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Identity;
+using MphRead.Backend.Cosmetics;
 using MphRead.Backend.Matches;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -34,6 +35,7 @@ public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
     public DbSet<CareerParticipation> Participations => Set<CareerParticipation>();
     public DbSet<CareerAggregate> Aggregates => Set<CareerAggregate>();
     public DbSet<PlayerProfile> Profiles => Set<PlayerProfile>();
+    public DbSet<PlayerCosmeticLoadout> CosmeticLoadouts => Set<PlayerCosmeticLoadout>();
     public DbSet<HunterLicense> Licenses => Set<HunterLicense>();
     public DbSet<RatingLedgerEntry> RatingTransactions => Set<RatingLedgerEntry>();
     public DbSet<RatingPairLedgerEntry> RatingPairContributions => Set<RatingPairLedgerEntry>();
@@ -54,6 +56,19 @@ public sealed class BackendDbContext(DbContextOptions<BackendDbContext> options)
             entity.Property(x => x.DisplayName).HasMaxLength(16).IsRequired();
             entity.Property(x => x.FavoriteHunter).HasConversion<byte>();
             entity.HasOne<HunterAccount>().WithOne().HasForeignKey<PlayerProfile>(x => x.PlayerId);
+        });
+        builder.Entity<PlayerCosmeticLoadout>(entity =>
+        {
+            entity.ToTable("player_cosmetic_loadouts");
+            entity.HasKey(x => new { x.PlayerId, x.Hunter });
+            entity.Property(x => x.PlayerId).HasColumnName("player_id");
+            entity.Property(x => x.Hunter).HasColumnName("hunter").HasConversion<short>();
+            entity.Property(x => x.SkinKey).HasColumnName("skin_key").HasMaxLength(96).IsRequired();
+            entity.Property(x => x.ArmorEffectKey).HasColumnName("armor_effect_key").HasMaxLength(96).IsRequired();
+            entity.Property(x => x.DeathEffectKey).HasColumnName("death_effect_key").HasMaxLength(96).IsRequired();
+            entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
+            entity.HasOne<HunterAccount>().WithMany().HasForeignKey(x => x.PlayerId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
         builder.Entity<HunterLicense>(entity =>
         {

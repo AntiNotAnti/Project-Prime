@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using MphRead.Backend.Data;
+using MphRead.Backend.Cosmetics;
 using MphRead.Backend.Matches;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -328,6 +329,7 @@ public sealed class Program
         }).Bodyless().AllowAnonymous();
         app.MapAccounts();
         app.MapProfiles();
+        app.MapCosmetics();
         app.MapGameTickets();
         app.MapNodes();
         app.MapPresence();

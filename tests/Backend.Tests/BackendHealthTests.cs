@@ -125,6 +125,22 @@ public sealed class BackendHealthTests
         Assert.Equal("{\"status\":\"ready\"}", await response.Content.ReadAsStringAsync());
     }
 
+    [Fact]
+    public async Task ReadinessRequiresTheCosmeticLoadoutTable()
+    {
+        using var factory = new BackendFactory();
+        using HttpClient client = factory.CreateDatabaseClient();
+        using var scope = factory.Services.CreateScope();
+        BackendDbContext db = scope.ServiceProvider.GetRequiredService<BackendDbContext>();
+        await db.Database.ExecuteSqlRawAsync("DROP TABLE player_cosmetic_loadouts");
+
+        BackendReadinessResult result = await scope.ServiceProvider
+            .GetRequiredService<BackendReadinessChecker>().CheckForRebuildAsync();
+
+        Assert.False(result.Ready);
+        Assert.Equal("schema_objects", result.Failure);
+    }
+
     private sealed class SlowBodyContent(string value) : HttpContent
     {
         private readonly byte[] _bytes = Encoding.UTF8.GetBytes(value);

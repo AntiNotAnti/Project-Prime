@@ -19,16 +19,19 @@ public sealed class PersistenceBoundaryTests
         using var db = new BackendDbContext(new DbContextOptionsBuilder<BackendDbContext>()
             .UseNpgsql("Host=unused;Database=offline_model_only", BackendDatabase.ConfigureEf).Options);
         string[] migrations = db.Database.GetMigrations().ToArray();
-        Assert.Single(migrations);
+        Assert.Equal(2, migrations.Length);
         Assert.EndsWith("_PrimeInitialPostgres", migrations[0], StringComparison.Ordinal);
+        Assert.EndsWith("_AddPlayerCosmeticLoadouts", migrations[1], StringComparison.Ordinal);
         Assert.False(db.Database.HasPendingModelChanges());
         string sql = db.GetService<IMigrator>().GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent);
         Assert.Contains("CREATE SCHEMA prime", sql);
         Assert.Contains("CREATE TABLE prime.players", sql);
         Assert.Contains("CREATE TABLE prime.player_profiles", sql);
         Assert.Contains("CREATE TABLE prime.hunter_licenses", sql);
+        Assert.Contains("CREATE TABLE prime.player_cosmetic_loadouts", sql);
         Assert.Contains("CREATE UNIQUE INDEX \"EmailIndex\"", sql);
         Assert.Contains("FOREIGN KEY (\"PlayerId\") REFERENCES prime.players (\"Id\")", sql);
+        Assert.Contains("FOREIGN KEY (player_id) REFERENCES prime.players (\"Id\") ON DELETE CASCADE", sql);
         Assert.Contains("uuid NOT NULL", sql);
         Assert.Contains("CREATE TABLE prime.accepted_matches", sql);
         Assert.Contains("CREATE TABLE prime.rating_transactions", sql);
@@ -87,7 +90,7 @@ public sealed class PersistenceBoundaryTests
 
         await using (var history = new NpgsqlCommand(
             "SELECT COUNT(*) FROM prime.\"__EFMigrationsHistory\"", connection))
-            Assert.Equal(1L, (long)(await history.ExecuteScalarAsync())!);
+            Assert.Equal(2L, (long)(await history.ExecuteScalarAsync())!);
 
         await using (var legacy = new NpgsqlCommand("CREATE TABLE public.players (id integer)", connection))
             await legacy.ExecuteNonQueryAsync();
@@ -120,7 +123,7 @@ public sealed class PersistenceBoundaryTests
                 $"UPDATE prime.\"AspNetRoles\" SET \"Name\" = 'runtime-updated' WHERE \"Id\" = '{roleId:D}'");
             await ExecuteAsync(connection,
                 $"DELETE FROM prime.\"AspNetRoles\" WHERE \"Id\" = '{roleId:D}'");
-            Assert.Equal(1L, (long)(await new NpgsqlCommand(
+            Assert.Equal(2L, (long)(await new NpgsqlCommand(
                 "SELECT COUNT(*) FROM prime.\"__EFMigrationsHistory\"", connection).ExecuteScalarAsync())!);
             Assert.IsType<long>(await new NpgsqlCommand(
                 "SELECT nextval(pg_get_serial_sequence('prime.accepted_matches', 'ProcessingOrder'))",

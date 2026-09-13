@@ -13,6 +13,7 @@ public static class BackendDiagnostics
     public const string DirectoryCategory = "ProjectPrime.Backend.Directory";
     public const string AdmissionCategory = "ProjectPrime.Backend.Admission";
     public const string CareerCategory = "ProjectPrime.Backend.Career";
+    public const string CosmeticsCategory = "ProjectPrime.Backend.Cosmetics";
     public const string RequestCategory = "ProjectPrime.Backend.Request";
 
     public static readonly EventId AccountEvent = new(1001, "AccountOperation");

@@ -1,6 +1,6 @@
 # Backend account and ticket foundation
 
-This net10.0 service references Game and the small shared Node contract assembly. It provides registered identity, profile/license fields, confirmation, bearer login/refresh, Node admissions, authenticated match submission, immutable career/rating projections, and read-only career leaderboards. Public license responses contain server-authoritative Ranking Points and tier data.
+This net10.0 service references Game and the small shared Node contract assembly. It provides registered identity, profile/license fields, per-Hunter cosmetic loadouts, confirmation, bearer login/refresh, Node admissions, authenticated match submission, immutable career/rating projections, and read-only career leaderboards. Public license responses contain server-authoritative Ranking Points and tier data.
 
 ## Configuration
 
@@ -77,6 +77,7 @@ Supabase references: [PostgreSQL connection modes](https://supabase.com/docs/gui
 - `GET /health/ready` performs a two-second bounded PostgreSQL check and returns200 only when `SELECT 1`, the exact checked-in migration sequence, every expected `prime` table, and initialized career projections are present. It returns a detail-free503 otherwise.
 - `GET /v1/me` requires account authentication and returns `{playerId,emailConfirmed,emailEligibleForOfficialPlay}`. Email eligibility alone is not server/match/rating authorization.
 - `PATCH /v1/me/profile` `{displayName?,favoriteHunter?}` updates only the authenticated owner. Favorite Hunter is numeric0–6. Unknown properties, including supplied ownership/RP fields, are rejected.
+- `GET /v1/me/cosmetics` and `GET /v1/me/cosmetics/{hunter}` return the authenticated owner's validated per-Hunter cosmetic selections, using catalog defaults for slots not yet stored. `PUT /v1/me/cosmetics/{hunter}` accepts `{skinKey,armorEffectKey,deathEffectKey}`, validates all three stable keys against the built-in catalog, and atomically inserts or replaces that Hunter's selection. These presentation-only selections carry no economy or gameplay authority.
 - `GET /v1/players/{id}/license` returns `{playerId,displayName,favoriteHunter,joinedAt,points,tier,title,nextThreshold,lastOfficialDelta,policy}`. No account email/password metadata is exposed.
 - `POST /v1/guest-node-admissions` is anonymous and accepts `{nodeId,displayName}`. The route is mapped in Development, Testing, and production; guest access is not environment-gated. The Node must still be online and ticket signing must be configured (`503` when the issuer is unavailable, `404` when the requested Node is not online). `displayName` is trimmed and must contain 1–16 printable ASCII characters.
 - A successful guest admission returns the same short-lived Node admission envelope as an account admission. Its ES256 ticket has `typ=pp-node-admission+jwt`, `kind=guest`, a fresh ephemeral UUID in `sub`, the supplied name in `name`, and a unique replay ID in `jti`; it expires after 120 seconds. The request creates no account, profile, license, or `PlayerId`. The name is a display label only and is not an identity, authorization, or uniqueness claim.
@@ -121,9 +122,10 @@ are registered.
 
 ## Explicit migrations, roles, and validation
 
-`Data/Migrations/PrimeInitialPostgres` is the clean first-deployment baseline.
-It creates the `prime` schema and the complete Identity, account, match, career,
-and rating model. It deliberately replaces the earlier development-only chain.
+`Data/Migrations/20260911104521_PrimeInitialPostgres` is the clean first-deployment baseline.
+It creates the `prime` schema and the Identity, account, match, career, and rating
+model; subsequent checked-in migrations add features such as the dedicated
+per-Hunter cosmetic loadout table. The baseline deliberately replaces the earlier development-only chain.
 Normal startup never calls `Migrate` or `EnsureCreated`. Migration tooling uses
 `BackendDesignTimeFactory` and `ConnectionStrings__Backend`; model construction
 and script generation do not connect to PostgreSQL.
