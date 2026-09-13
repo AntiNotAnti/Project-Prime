@@ -4,7 +4,6 @@
     <RootNamespace>MphRead</RootNamespace>
     <AssemblyName>ProjectPrime.Client.Core</AssemblyName>
     <Nullable>enable</Nullable>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
