@@ -14,6 +14,26 @@ namespace ProjectPrime.Server.Node.Lobbies;
 public sealed record NodeMatchNotification(Guid SessionId, object Payload);
 public sealed record NodeMatchDeliveryOverflow;
 
+/// <summary>Injectable transition deadlines. Production uses the plan's
+/// two-second cancellation acknowledgement window and five-second hard
+/// terminal deadline; tests can drive the same state machine with a manual
+/// clock and <see cref="NodeMatchCoordinator.CheckTransitionWatchdogs"/>.</summary>
+public sealed record NodeMatchCoordinatorOptions
+{
+    public TimeProvider Clock { get; init; } = TimeProvider.System;
+    public TimeSpan CancelAcknowledgementTimeout { get; init; } = TimeSpan.FromSeconds(2);
+    public TimeSpan TransitionHardTimeout { get; init; } = TimeSpan.FromSeconds(5);
+    internal Action<MatchId>? AfterMatchCommitted { get; init; }
+
+    public void Validate()
+    {
+        ArgumentNullException.ThrowIfNull(Clock);
+        if (CancelAcknowledgementTimeout <= TimeSpan.Zero
+            || TransitionHardTimeout <= CancelAcknowledgementTimeout)
+            throw new ArgumentOutOfRangeException(nameof(TransitionHardTimeout));
+    }
+}
+
 /// <summary>Node configuration for one hosted map and its optional mode allow-list.</summary>
 /// <remarks>
 /// The nullable <see cref="Modes"/> property is intentional: an omitted allow-list
@@ -209,28 +229,92 @@ public sealed class NodeContentCatalog
 /// <summary>Connects frozen lobby admission to Worker placement and immutable terminal events.</summary>
 public sealed class NodeMatchCoordinator : IDisposable
 {
-    private sealed class Pending(MatchSpec spec, LobbyMember[] members)
+    private sealed class MatchLifecycle
     {
-        public MatchSpec Spec { get; } = spec;
-        public LobbyMember[] Members { get; } = members;
-        public MatchPlacement? Placement { get; set; }
-        public long Generation { get; set; }
+        public MatchLifecycle(MatchSpec spec, LobbyMember[] members, long preparationRevision,
+            Guid preparationOwnerSessionId)
+        {
+            Spec = spec; Members = members;
+            PreparationRevision = preparationRevision;
+            PreparationOwnerSessionId = preparationOwnerSessionId;
+        }
+        public MatchSpec Spec { get; }
+        public LobbyMember[] Members { get; }
+        public long PreparationRevision { get; }
+        public Guid PreparationOwnerSessionId { get; }
+        public MatchPlacement? Placement { get; private set; }
+        public long Generation { get; private set; }
+        public MatchLifecycleState State { get; private set; } =
+            MatchLifecycleState.PreparingWorker;
+        public MatchLifecycleEpoch LifecycleEpoch
+            => Spec.LifecycleEpoch.Value == 0 ? MatchLifecycleEpoch.Initial : Spec.LifecycleEpoch;
         public Dictionary<Guid, HandoffState> Handoffs { get; } = [];
+
+        public void BeginAdmissionInstallation(MatchPlacement placement)
+        {
+            if (State != MatchLifecycleState.PreparingWorker || Placement != null)
+                throw new InvalidOperationException("Match lifecycle cannot install admissions from its current state.");
+            Placement = placement;
+            Generation++;
+            State = MatchLifecycleState.InstallingAdmissions;
+        }
+
+        public void AdmissionsInstalled()
+        {
+            if (State != MatchLifecycleState.InstallingAdmissions)
+                throw new InvalidOperationException("Match lifecycle admissions are not being installed.");
+            State = MatchLifecycleState.ReadyToCommit;
+        }
+
+        public void Commit()
+        {
+            if (State != MatchLifecycleState.ReadyToCommit)
+                throw new InvalidOperationException("Match lifecycle is not ready to commit.");
+            State = MatchLifecycleState.Running;
+        }
+
+        public void BeginRetirement()
+        {
+            if (State == MatchLifecycleState.Retired) return;
+            State = MatchLifecycleState.Retiring;
+        }
+
+        public void Retire()
+        {
+            if (State != MatchLifecycleState.Retiring)
+                BeginRetirement();
+            State = MatchLifecycleState.Retired;
+        }
     }
     private sealed class HandoffState
     {
+        public HandoffGeneration Generation;
         public NodeMatchHandoff? Value;
         public long ExpiresAt;
+        public InstallAdmissionKey? Installed;
         public TaskCompletionSource<NodeMatchHandoff>? InFlight;
     }
+    private enum TransitionPhase
+    {
+        AwaitingAcknowledgement,
+        AwaitingTerminal,
+        Completed,
+        TimedOut,
+        Failed
+    }
     private sealed class PendingTransition(LobbyMatchTransitionSelection selection,
-        WorkerMatchAssignment assignment)
+        WorkerMatchAssignment assignment, DateTimeOffset now, long startedTimestamp,
+        NodeMatchCoordinatorOptions options)
     {
         public LobbyMatchTransitionSelection Selection { get; } = selection;
         public WorkerMatchAssignment Assignment { get; } = assignment;
-        public bool CancelSent;
+        public TransitionPhase Phase = TransitionPhase.AwaitingAcknowledgement;
+        public DateTimeOffset AcknowledgementDeadline { get; } = now + options.CancelAcknowledgementTimeout;
+        public DateTimeOffset HardDeadline { get; } = now + options.TransitionHardTimeout;
+        public long StartedTimestamp { get; } = startedTimestamp;
+        public bool RetrySent;
         public bool TerminalAcknowledged;
-        public bool Acknowledged;
+        public bool Fenced;
     }
     private readonly object _gate = new();
     private readonly LobbyManager _lobbies;
@@ -239,9 +323,8 @@ public sealed class NodeMatchCoordinator : IDisposable
     private readonly WorkerAdmissionIssuer _issuer;
     private readonly NodeContentCatalog _content;
     private readonly ILogger<NodeMatchCoordinator> _logger;
-    private readonly Dictionary<MatchId, Pending> _matches = [];
+    private readonly Dictionary<MatchId, MatchLifecycle> _matches = [];
     private readonly Dictionary<MatchId, PendingTransition> _transitions = [];
-    private readonly Dictionary<Guid, long> _lastRejoin = [];
     private readonly ConcurrentDictionary<Guid, object> _latest = [];
     private readonly ConcurrentDictionary<Guid, NodeMatchCompletion> _completions = [];
     private readonly Dictionary<Guid, Queue<object>> _notifications = [];
@@ -252,14 +335,21 @@ public sealed class NodeMatchCoordinator : IDisposable
     private readonly HashSet<Guid> _forgottenSessions = [];
     private readonly CancellationTokenSource _lifetime = new();
     private readonly CancellationToken _lifetimeToken;
+    private readonly TimeProvider _clock;
+    private readonly NodeMatchCoordinatorOptions _options;
+    private readonly Dictionary<WorkerId, Task> _forcedWorkerRetirements = [];
     private bool _disposed;
     private const int MaximumPendingEventsPerSession = 32;
     private readonly Channel<bool> _signal = Channel.CreateBounded<bool>(1);
     public NodeMatchCoordinator(LobbyManager lobbies, WorkerScheduler scheduler, WorkerManager workers,
-        WorkerAdmissionIssuer issuer, NodeContentCatalog content, ILogger<NodeMatchCoordinator>? logger = null)
+        WorkerAdmissionIssuer issuer, NodeContentCatalog content, ILogger<NodeMatchCoordinator>? logger = null,
+        NodeMatchCoordinatorOptions? options = null)
     {
+        _options = options ?? new NodeMatchCoordinatorOptions();
+        _options.Validate();
         _lobbies = lobbies; _scheduler = scheduler; _workers = workers; _issuer = issuer; _content = content;
         _logger = logger ?? NullLogger<NodeMatchCoordinator>.Instance;
+        _clock = _options.Clock;
         _lifetimeToken = _lifetime.Token;
         _lobbies.ContentCatalog = content;
         _scheduler.Completed += Completed;
@@ -282,63 +372,46 @@ public sealed class NodeMatchCoordinator : IDisposable
 
     public IReadOnlyList<object> ForSessionEvents(Guid sessionId)
     {
+        NodeMatchTransitionVoteSnapshot? transition = _lobbies.MatchTransitionForSession(sessionId);
+        NodeMatchTransitionStarted? expected;
+        NodeMatchCompletion? completion;
+        object? latest;
         lock (_gate)
         {
             var result = new List<object>(3);
-            if (_lobbies.MatchTransitionForSession(sessionId) is { } transition)
-                result.Add(transition);
-            if (_expectedTransitions.TryGetValue(sessionId, out NodeMatchTransitionStarted? expected))
+            _expectedTransitions.TryGetValue(sessionId, out expected);
+            _completions.TryGetValue(sessionId, out completion);
+            _latest.TryGetValue(sessionId, out latest);
+            if (transition is { } currentTransition)
+                result.Add(currentTransition);
+            if (expected is { })
                 result.Add(expected);
-            if (_completions.TryGetValue(sessionId, out var completion)) result.Add(completion);
-            if (_latest.TryGetValue(sessionId, out var latest)
-                && (latest is not NodeMatchHandoff || IsLiveHandoffLocked(sessionId))
-                && (latest is not NodeMatchHandoff handoff || !_expectedTransitions.TryGetValue(sessionId, out var old)
-                    || handoff.MatchId != old.PreviousMatchId)
-                && (result.Count == 0 || !ReferenceEquals(result[0], latest))) result.Add(latest);
+            if (completion is { }) result.Add(completion);
+            // Bootstrap is intentionally reconstructive only. A handoff is a
+            // credential-bearing recovery mint and may be produced solely by
+            // an explicit match.rejoin request; never replay one passively.
+            if (latest is not null and not NodeMatchHandoff
+                && (result.Count == 0 || !ReferenceEquals(result[0], latest)))
+                result.Add(latest);
             return result;
         }
     }
 
     private bool IsLiveHandoffLocked(Guid sessionId)
     {
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long now = _clock.GetUtcNow().ToUnixTimeSeconds();
         return _matches.Values.Any(pending => pending.Handoffs.TryGetValue(sessionId, out HandoffState? state)
             && state.Value != null && state.ExpiresAt > now + 1);
     }
 
-    /// <summary>
-    /// Reconnect path: cache reads remain synchronous, while a replacement
-    /// handoff is issued and confirmed asynchronously before it is returned.
-    /// </summary>
+    /// <summary>Compatibility wrapper for callers that previously used an
+    /// asynchronous bootstrap. Passive reconstruction never mints, installs,
+    /// or waits for a Worker handoff; explicit <c>match.rejoin</c> owns that
+    /// recovery work.</summary>
     public async Task<IReadOnlyList<object>> ForSessionEventsAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
-        using CancellationTokenSource? linkedCancellation = cancellationToken.CanBeCanceled
-            ? CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _lifetimeToken) : null;
-        CancellationToken effectiveCancellation = linkedCancellation?.Token ?? _lifetimeToken;
-        Pending? pending;
-        MatchPlacement? placement;
-        LobbyMember? member;
-        lock (_gate)
-        {
-            pending = _matches.Values.SingleOrDefault(value => value.Members.Any(candidate => candidate.SessionId == sessionId));
-            if (pending != null && _transitions.ContainsKey(pending.Spec.MatchId)) pending = null;
-            placement = pending?.Placement;
-            member = pending?.Members.SingleOrDefault(candidate => candidate.SessionId == sessionId);
-        }
-        if (pending == null || placement == null || member == null) return ForSessionEvents(sessionId);
-        NodeMatchHandoff handoff = await EnsureHandoffAsync(pending, placement, member, forceFresh: true, effectiveCancellation);
-        lock (_gate)
-        {
-            var result = new List<object>(3);
-            if (_lobbies.MatchTransitionForSession(sessionId) is { } transition)
-                result.Add(transition);
-            if (_expectedTransitions.TryGetValue(sessionId, out NodeMatchTransitionStarted? expected))
-                result.Add(expected);
-            if (_completions.TryGetValue(sessionId, out var completion)) result.Add(completion);
-            if (!_expectedTransitions.ContainsKey(sessionId) || handoff.MatchId != expected!.PreviousMatchId)
-                result.Add(handoff);
-            return result;
-        }
+        _ = cancellationToken;
+        return await Task.FromResult(ForSessionEvents(sessionId)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -351,7 +424,7 @@ public sealed class NodeMatchCoordinator : IDisposable
     public bool TrySendHistoricalDebug(MatchId matchId, AdminAction action, byte seat)
     {
         if (action is not (AdminAction.LagCompHistory or AdminAction.LagCompDynamic or AdminAction.LagCompClear)) return false;
-        Pending? pending;
+        MatchLifecycle? pending;
         lock (_gate)
         {
             if (!_matches.TryGetValue(matchId, out pending) || pending.Placement == null
@@ -364,7 +437,7 @@ public sealed class NodeMatchCoordinator : IDisposable
     public void ReconcileMembership()
     {
         MatchId[] empty;
-        Pending[] pending;
+        MatchLifecycle[] pending;
         lock (_gate) pending = _matches.Values.ToArray();
         empty = pending.Where(value => value.Members.All(member => _lobbies.ForSession(member.SessionId)?.LobbyId != value.Spec.LobbyId.Value))
             .Select(value => value.Spec.MatchId).ToArray();
@@ -375,7 +448,7 @@ public sealed class NodeMatchCoordinator : IDisposable
         lock (_gate)
         {
             _forgottenSessions.Add(sessionId);
-            _lastRejoin.Remove(sessionId); _latest.TryRemove(sessionId, out _); _completions.TryRemove(sessionId, out _); _notifications.Remove(sessionId);
+            _latest.TryRemove(sessionId, out _); _completions.TryRemove(sessionId, out _); _notifications.Remove(sessionId);
         }
     }
     public async IAsyncEnumerable<NodeMatchNotification> ReadNotifications([EnumeratorCancellation] CancellationToken ct)
@@ -392,32 +465,51 @@ public sealed class NodeMatchCoordinator : IDisposable
         }
     }
 
-    public async Task<object> ExecuteAsync(LobbyIdentity identity, NodeCommand command)
+    public async Task<object> ExecuteAsync(LobbyIdentity identity, NodeCommand command,
+        CancellationToken cancellationToken = default)
     {
         identity.Validate();
         if (command is LobbyConfigure configure)
             _content.Validate(configure.MapKey, configure.Mode);
         if (command is NodeMatchRejoin rejoin)
         {
-            Pending pending;
+            using var rejoinActivity = NodeMetrics.StartActivity("match.rejoin");
+            long rejoinStarted = _clock.GetTimestamp();
+            MatchLifecycle pendingMatch;
             MatchPlacement placement;
             LobbyMember member;
             LobbySnapshot? lobby = _lobbies.ForSession(identity.SessionId);
             lock (_gate)
             {
                 if (lobby?.Phase != LobbyPhase.InMatch || lobby.CurrentMatchId != rejoin.MatchId
-                    || !_matches.TryGetValue(new(rejoin.MatchId), out pending!) || pending.Placement == null)
+                    || !_matches.TryGetValue(new(rejoin.MatchId), out pendingMatch!)
+                    || pendingMatch.Placement == null
+                    || pendingMatch.State != MatchLifecycleState.Running)
                     throw new LobbyCommandException("phase", "This session has no active match reservation.");
-                long now = Environment.TickCount64;
-                if (_lastRejoin.TryGetValue(identity.SessionId, out long prior) && now - prior < 5000)
-                    throw new LobbyCommandException("rate_limit", "Wait five seconds before retrying admission.");
-                member = pending.Members.SingleOrDefault(m => m.SessionId == identity.SessionId
+                member = pendingMatch.Members.SingleOrDefault(m => m.SessionId == identity.SessionId
                     && m.IdentityKey == identity.IdentityKey)
                     ?? throw new LobbyCommandException("identity", "This session does not own the frozen reservation.");
-                _lastRejoin[identity.SessionId] = now;
-                placement = pending.Placement;
+                placement = pendingMatch.Placement;
             }
-            return await EnsureHandoffAsync(pending, placement, member, forceFresh: true, cancellationToken: _lifetimeToken);
+            // The waiter may be tied to a socket, but the producer is owned by
+            // the Node and therefore continues after that waiter disconnects.
+            rejoinActivity?.SetTag("match.id", rejoin.MatchId);
+            rejoinActivity?.SetTag("session.id", identity.SessionId);
+            try
+            {
+                NodeMatchHandoff handoff = await EnsureHandoffAsync(pendingMatch, placement,
+                    member, forceFresh: true, cancellationToken: cancellationToken);
+                NodeMetrics.RecordDuration(NodeMetrics.RejoinDuration, _clock,
+                    rejoinStarted, "success");
+                return handoff;
+            }
+            catch
+            {
+                NodeMetrics.RecordDuration(NodeMetrics.RejoinDuration, _clock,
+                    rejoinStarted, "failure");
+                NodeMetrics.RejoinFailures.Add(1);
+                throw;
+            }
         }
         if (command is LobbyReturn returning) return _lobbies.ReturnToLobby(identity.SessionId, returning.ExpectedRevision);
         // Rematch preserves the lobby and settings, then requires fresh readiness
@@ -443,7 +535,10 @@ public sealed class NodeMatchCoordinator : IDisposable
         _content.Validate(current.MapKey, current.Mode);
         content = _content.Get(current.MapKey);
         MatchSpec spec = _lobbies.PrepareMatch(identity.SessionId, start.ExpectedRevision, content, _workers.NodeId, _workers.NodeIncarnation);
-        lock (_gate) _matches.Add(spec.MatchId, new(spec, current.Members.ToArray()));
+        LobbySnapshot prepared = _lobbies.ForSession(identity.SessionId)
+            ?? throw new LobbyCommandException("interrupted", "Match preparation is no longer current.");
+        MatchLifecycle pending = CreatePending(spec, prepared.Members.ToArray(), prepared);
+        lock (_gate) _matches.Add(spec.MatchId, pending);
         await PlaceAsync(spec);
         return _lobbies.ForSession(identity.SessionId) ?? before;
     }
@@ -465,24 +560,35 @@ public sealed class NodeMatchCoordinator : IDisposable
                 // threshold decisive), not only by the command that cast the
                 // final vote. Discover it on the same loop and let the normal
                 // atomic coordinator path claim it exactly once.
+                CheckTransitionWatchdogs();
                 DiscoverApprovedTransitions();
                 DiscoverTransitionFailures();
-                List<MatchSpec> prepared = [];
+                List<(MatchSpec Spec, MatchLifecycle Lifecycle)> prepared = [];
                 List<(Guid SessionId, NodeMatchEnded Message)> failuresToNotify = [];
                 var continuations = _lobbies.PrepareContinuations(_workers.NodeId, _workers.NodeIncarnation, 64 - active.Count, out var failures);
+                foreach (var (spec, members) in continuations)
+                {
+                    LobbySnapshot? preparedSnapshot = members.Where(member => member.SessionId != Guid.Empty)
+                        .Select(member => _lobbies.ForSession(member.SessionId))
+                        .FirstOrDefault(snapshot => snapshot?.CurrentMatchId == spec.MatchId.Value);
+                    if (preparedSnapshot == null) continue;
+                    MatchLifecycle pending = CreatePending(spec, members, preparedSnapshot);
+                    lock (_gate)
+                    {
+                        if (_disposed) continue;
+                        _matches.Add(spec.MatchId, pending);
+                        prepared.Add((spec, pending));
+                    }
+                }
                 lock (_gate)
                 {
                     if (_disposed) continue;
                     foreach (var failure in failures)
-                        failuresToNotify.AddRange(failure.Members.Select(member => (member.SessionId, new NodeMatchEnded(failure.MatchId, true))));
-                    foreach (var (spec, members) in continuations)
-                    {
-                        _matches.Add(spec.MatchId, new(spec, members));
-                        prepared.Add(spec);
-                    }
+                        failuresToNotify.AddRange(failure.Members.Select(member =>
+                            (member.SessionId, new NodeMatchEnded(failure.MatchId, true, MatchLifecycleEpoch.Initial))));
                 }
                 foreach (var failure in failuresToNotify) Notify(failure.SessionId, failure.Message);
-                foreach (var spec in prepared) active.Add(ContinueAsync(spec, ct));
+                foreach (var (spec, _) in prepared) active.Add(ContinueAsync(spec, ct));
             }
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { }
@@ -495,55 +601,141 @@ public sealed class NodeMatchCoordinator : IDisposable
     }
     private async Task PlaceAsync(MatchSpec spec, CancellationToken ct = default)
     {
+        using var activity = NodeMetrics.StartActivity("match.prepare");
+        activity?.SetTag("match.id", spec.MatchId.Value);
+        activity?.SetTag("lobby.id", spec.LobbyId.Value);
+        activity?.SetTag("lifecycle.epoch", spec.LifecycleEpoch.Value);
+        long preparationStarted = _clock.GetTimestamp();
         using CancellationTokenSource? linkedCancellation = ct.CanBeCanceled
             ? CancellationTokenSource.CreateLinkedTokenSource(ct, _lifetimeToken) : null;
         CancellationToken effectiveCancellation = linkedCancellation?.Token ?? _lifetimeToken;
+        MatchLifecycle? pending = null;
         try
         {
             // Placement lifetime belongs to Node, not a socket that can reconnect.
             MatchPlacement placement = await _scheduler.PlaceAsync(spec, effectiveCancellation);
-            Pending pending;
             lock (_gate)
             {
                 if (!_matches.TryGetValue(spec.MatchId, out pending!))
                     throw new LobbyCommandException("interrupted", "Match ended during placement.");
-            }
-            if (!_lobbies.MatchReady(placement))
-                throw new LobbyCommandException("interrupted", "Match ended during placement.");
-            lock (_gate)
-            {
-                if (!_matches.TryGetValue(spec.MatchId, out pending!) || pending.Placement != null)
+                if (pending.Placement != null)
                     throw new LobbyCommandException("interrupted", "Match ended during placement.");
-                pending.Placement = placement;
-                pending.Generation++;
+                pending.BeginAdmissionInstallation(placement);
             }
             LobbyMember[] members = pending.Members.Where(member => member.SessionId != Guid.Empty).ToArray();
             NodeMatchHandoff[] handoffs = await Task.WhenAll(members.Select(member =>
                 EnsureHandoffAsync(pending, placement, member, forceFresh: false, effectiveCancellation)));
-            foreach (var pair in members.Zip(handoffs))
-                Notify(pair.First.SessionId, pair.Second);
+            lock (_gate) pending.AdmissionsInstalled();
+            using var commitActivity = NodeMetrics.StartActivity("match.commit");
+            commitActivity?.SetTag("match.id", spec.MatchId.Value);
+            commitActivity?.SetTag("lobby.id", spec.LobbyId.Value);
+            commitActivity?.SetTag("lifecycle.epoch", spec.LifecycleEpoch.Value);
+            // Terminal callbacks take the same coordinator gate. Revalidate,
+            // commit, and enqueue the complete immutable handoff batch while
+            // holding it so a Worker terminal cannot split the publication or
+            // enqueue an ended event before a stale handoff.
+            lock (_gate)
+            {
+                if (!_matches.TryGetValue(spec.MatchId, out MatchLifecycle? current)
+                    || !ReferenceEquals(current, pending)
+                    || current.Placement != placement
+                    || current.Generation != pending.Generation)
+                    throw new LobbyCommandException("interrupted",
+                        "Match ended before handoff publication.");
+                if (!_lobbies.CommitMatchReady(placement, pending.PreparationRevision,
+                    pending.PreparationOwnerSessionId, pending.LifecycleEpoch, pending.Members))
+                    throw new LobbyCommandException("stale_preparation",
+                        "Match preparation changed before admission completed.");
+                pending.Commit();
+                _options.AfterMatchCommitted?.Invoke(spec.MatchId);
+                foreach (var pair in members.Zip(handoffs))
+                    Notify(pair.First.SessionId, pair.Second);
+            }
+            NodeMetrics.RecordDuration(NodeMetrics.MatchPreparationDuration, _clock,
+                preparationStarted, "success");
             return;
         }
         catch (Exception ex) when (ex is WorkerPlacementException or TimeoutException or OperationCanceledException
-            or LobbyCommandException or ArgumentException or ObjectDisposedException)
+            or LobbyCommandException or ArgumentException or InvalidOperationException
+            or ObjectDisposedException)
         {
             // Match and exception text are intentionally omitted: event IDs and
             // finite outcomes are sufficient for operational correlation.
             NodeDiagnostics.Worker(_logger, "placement", "failed");
+            NodeMetrics.RecordDuration(NodeMetrics.MatchPreparationDuration, _clock,
+                preparationStarted, "failure");
+            NodeMetrics.MatchPreparationFailures.Add(1);
+            if (pending != null) await CleanupInstalledAdmissionsAsync(pending, effectiveCancellation);
             Ended(spec.MatchId, true);
             _scheduler.CancelMatch(spec.MatchId, "Lobby placement failed.");
             throw new LobbyCommandException("placement_failed", "Match could not be placed; the lobby remains available.");
         }
     }
 
+    private async Task CleanupInstalledAdmissionsAsync(MatchLifecycle pending,
+        CancellationToken cancellationToken)
+    {
+        (LobbyMember Member, InstallAdmissionKey Command)[] installed;
+        lock (_gate)
+        {
+            installed = pending.Handoffs
+                .Where(pair => pair.Value.Installed is not null)
+                .Select(pair => (pending.Members.Single(member => member.SessionId == pair.Key),
+                    pair.Value.Installed!))
+                .ToArray();
+            foreach ((Guid sessionId, HandoffState state) in pending.Handoffs)
+            {
+                state.Installed = null;
+                state.Value = null;
+                state.ExpiresAt = 0;
+                _latest.TryRemove(sessionId, out _);
+            }
+        }
+
+        foreach (var (member, install) in installed)
+        {
+            try
+            {
+                await _scheduler.RetireAdmissionAsync(new RetireAdmission(
+                    pending.Spec.MatchId, member.SessionId, install.SeatId,
+                    install.HandoffGeneration, install.AdmissionId,
+                    install.WorkerId, install.WorkerIncarnation), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception error) when (error is MatchControlException or TimeoutException
+                or OperationCanceledException)
+            {
+                // The exact admission identity is still fenced by Worker
+                // authority; a retirement transport failure must not block the
+                // match terminal cancellation path.
+                _logger.LogWarning(error, "Admission cleanup was not acknowledged before match cancellation.");
+            }
+        }
+    }
+
+    private static MatchLifecycle CreatePending(MatchSpec spec, LobbyMember[] members,
+        LobbySnapshot prepared)
+    {
+        if (prepared.CurrentMatchId != spec.MatchId.Value
+            || prepared.Phase != LobbyPhase.StartingMatch
+            || prepared.LifecycleEpoch.Value == 0
+            || prepared.OwnerSessionId == Guid.Empty)
+            throw new LobbyCommandException("interrupted", "Match preparation is no longer current.");
+        spec.Validate();
+        return new MatchLifecycle(spec, members, prepared.Revision, prepared.OwnerSessionId);
+    }
+
     private Task BeginTransitionAsync(Guid matchId, Guid transitionId)
     {
         MatchId oldMatch = new(matchId);
+        using var activity = NodeMetrics.StartActivity("match.transition");
+        activity?.SetTag("match.id", matchId);
+        activity?.SetTag("transition.id", transitionId);
         PendingTransition? pending = null;
         lock (_gate)
         {
             if (_disposed || _transitions.ContainsKey(oldMatch)) return Task.CompletedTask;
-            if (!_matches.TryGetValue(oldMatch, out Pending? match) || match.Placement == null)
+            if (!_matches.TryGetValue(oldMatch, out MatchLifecycle? match) || match.Placement == null)
                 return Task.CompletedTask;
 
             // This is deliberately inside the coordinator gate: ordinary
@@ -559,13 +751,15 @@ public sealed class NodeMatchCoordinator : IDisposable
                 _scheduler.RollbackTransitionClaim(oldMatch);
                 return Task.CompletedTask;
             }
-            pending = new PendingTransition(selection, assignment);
+            pending = new PendingTransition(selection, assignment, _clock.GetUtcNow(),
+                _clock.GetTimestamp(), _options);
+            match.BeginRetirement();
             _transitions.Add(oldMatch, pending);
             foreach (LobbyMember member in selection.Members)
             {
                 _expectedTransitions[member.SessionId] = new NodeMatchTransitionStarted(
                     selection.LobbyId, selection.MatchId, selection.TransitionId,
-                    selection.Choice, selection.TargetMapKey, selection.Mode);
+                    selection.Choice, selection.TargetMapKey, selection.Mode, selection.LifecycleEpoch);
                 _completions.TryRemove(member.SessionId, out _);
             }
         }
@@ -576,48 +770,150 @@ public sealed class NodeMatchCoordinator : IDisposable
         NodeMatchTransitionStarted started = new(pending.Selection.LobbyId,
             pending.Selection.MatchId, pending.Selection.TransitionId,
             pending.Selection.Choice, pending.Selection.TargetMapKey,
-            pending.Selection.Mode);
+            pending.Selection.Mode, pending.Selection.LifecycleEpoch);
         started.Validate();
         foreach (LobbyMember member in pending.Selection.Members)
             Notify(member.SessionId, started);
 
-        if (_scheduler.TryCancelTransition(oldMatch, "Lobby approved a match transition."))
+        bool cancelSent = _scheduler.TryCancelTransition(oldMatch,
+            "Lobby approved a match transition.");
+        _scheduler.TryGetCancellationSnapshot(oldMatch,
+            out WorkerCancellationSnapshot cancellationSnapshot);
+        bool completeNow = false;
+        lock (_gate)
         {
-            bool completeNow = false;
+            if (_transitions.TryGetValue(oldMatch, out PendingTransition? current))
+            {
+                // A terminal event can arrive before TryCancelTransition
+                // returns. Terminal evidence is sufficient even when the
+                // cancellation receipt is reordered or missing.
+                if (current.TerminalAcknowledged || cancellationSnapshot.TerminalObserved)
+                {
+                    current.TerminalAcknowledged = true;
+                    current.Phase = TransitionPhase.Completed;
+                    _transitions.Remove(oldMatch);
+                    if (_matches.Remove(oldMatch, out MatchLifecycle? lifecycle))
+                        lifecycle.Retire();
+                    completeNow = true;
+                }
+                else if (cancelSent || cancellationSnapshot.Sent)
+                    current.Phase = TransitionPhase.AwaitingTerminal;
+                // If the initial send failed, retain the transition and its
+                // operation identity. CheckTransitionWatchdogs will perform
+                // the one permitted retry after the acknowledgement window.
+            }
+        }
+        if (completeNow) CompleteTransition(oldMatch, pending);
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Advances cancellation transitions without relying on wall-clock sleeps.
+    /// The coordinator owns the deadlines, while WorkerScheduler owns the
+    /// cancellation operation and its terminal observation. A terminal event
+    /// wins over both deadlines; an expired transition is fenced before its
+    /// Worker is quarantined so late events cannot create a replacement lobby
+    /// or handoff.
+    /// </summary>
+    public void CheckTransitionWatchdogs()
+    {
+        KeyValuePair<MatchId, PendingTransition>[] transitions;
+        lock (_gate) transitions = _transitions.ToArray();
+
+        DateTimeOffset now = _clock.GetUtcNow();
+        List<(MatchId MatchId, PendingTransition Pending, bool TimedOut)> complete = [];
+        List<(MatchId MatchId, PendingTransition Pending)> timedOut = [];
+        List<MatchId> retry = [];
+
+        foreach (var pair in transitions)
+        {
+            _scheduler.TryGetCancellationSnapshot(pair.Key,
+                out WorkerCancellationSnapshot snapshot);
             lock (_gate)
             {
-                if (_transitions.TryGetValue(oldMatch, out PendingTransition? current))
+                if (!_transitions.TryGetValue(pair.Key, out PendingTransition? current)
+                    || !ReferenceEquals(current, pair.Value))
+                    continue;
+
+                if (current.TerminalAcknowledged || snapshot.TerminalObserved)
                 {
-                    // The Worker event reader may have delivered the terminal
-                    // acknowledgement while the cancel command was in flight.
-                    // Record CancelSent and consume that ack at this boundary;
-                    // never lose it because it arrived before this flag.
-                    current.CancelSent = true;
-                    if (current.TerminalAcknowledged)
-                    {
-                        current.Acknowledged = true;
-                        _transitions.Remove(oldMatch);
-                        _matches.Remove(oldMatch);
-                        completeNow = true;
-                    }
+                    current.TerminalAcknowledged = true;
+                    bool transitionTimedOut = current.Fenced
+                        || current.Phase == TransitionPhase.TimedOut;
+                    current.Phase = transitionTimedOut
+                        ? TransitionPhase.TimedOut
+                        : TransitionPhase.Completed;
+                    _transitions.Remove(pair.Key);
+                    if (_matches.Remove(pair.Key, out MatchLifecycle? lifecycle))
+                        lifecycle.Retire();
+                    complete.Add((pair.Key, current, transitionTimedOut));
+                    continue;
+                }
+
+                if (current.Phase == TransitionPhase.TimedOut)
+                    continue;
+
+                if (now >= current.HardDeadline)
+                {
+                    current.Phase = TransitionPhase.TimedOut;
+                    current.Fenced = true;
+                    timedOut.Add((pair.Key, current));
+                    continue;
+                }
+
+                if (!current.RetrySent && now >= current.AcknowledgementDeadline
+                    && snapshot.OperationId is { Length: > 0 })
+                {
+                    current.RetrySent = true;
+                    current.Phase = TransitionPhase.AwaitingTerminal;
+                    retry.Add(pair.Key);
                 }
             }
-            if (completeNow) CompleteTransition(oldMatch, pending);
-            return Task.CompletedTask;
         }
 
-        // A failed send is recoverable. Do not dispose a shared Worker or
-        // launch a replacement; keep the old match active and expose a
-        // bounded failure projection.
-        lock (_gate) _transitions.Remove(oldMatch);
-        _scheduler.RollbackTransitionClaim(oldMatch);
-        _lobbies.FailMatchTransition(oldMatch.Value, pending.Selection.TransitionId,
-            "cancel_send_failed");
+        foreach (var (matchId, pending, transitionTimedOut) in complete)
+        {
+            if (transitionTimedOut) CompleteTimedOutTransition(matchId, pending);
+            else CompleteTransition(matchId, pending);
+        }
+
+        foreach (MatchId matchId in retry)
+            _scheduler.TryRetryTransitionCancellation(matchId,
+                "Retrying the transition cancellation receipt.");
+
+        foreach (var (matchId, pending) in timedOut)
+        {
+            // Keep transition ownership until exact terminal/Worker-loss
+            // proof. Reverting the claim here would allow a late completion
+            // and report to re-enter the ordinary match lifecycle.
+            _scheduler.QuarantineWorker(pending.Assignment.WorkerId,
+                "Transition terminal deadline exceeded.");
+            _lobbies.FailMatchTransition(matchId.Value,
+                pending.Selection.TransitionId, "transition_timeout");
+            NodeMetrics.RecordDuration(NodeMetrics.TransitionDuration, _clock,
+                pending.StartedTimestamp, "timeout");
+            NodeMetrics.TransitionTimeouts.Add(1);
+            PublishTransitionFailure(pending.Selection);
+            StartForcedWorkerRetirement(pending.Assignment.WorkerId);
+        }
+    }
+
+    private void StartForcedWorkerRetirement(WorkerId workerId)
+    {
         lock (_gate)
-            foreach (LobbyMember member in pending.Selection.Members)
-                _expectedTransitions.Remove(member.SessionId);
-        PublishTransitionFailure(pending.Selection);
-        return Task.CompletedTask;
+        {
+            if (_disposed || _forcedWorkerRetirements.ContainsKey(workerId)) return;
+            Task retirement = _scheduler.ForceRetireWorkerAsync(workerId, _lifetimeToken);
+            _forcedWorkerRetirements.Add(workerId, retirement);
+            _ = retirement.ContinueWith(completed =>
+            {
+                if (completed.IsFaulted)
+                    _logger.LogError(completed.Exception,
+                        "Forced retirement failed for a transition-timed-out Worker.");
+                lock (_gate) _forcedWorkerRetirements.Remove(workerId);
+            }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
     }
 
     private void DiscoverApprovedTransitions()
@@ -664,23 +960,37 @@ public sealed class NodeMatchCoordinator : IDisposable
     {
         PendingTransition? pending;
         bool complete = false;
+        bool timedOut = false;
         lock (_gate)
         {
-            if (!_transitions.TryGetValue(matchId, out pending) || pending.Acknowledged)
+            if (!_transitions.TryGetValue(matchId, out pending))
                 return;
-            // Terminal acknowledgement is intentionally remembered even if the
-            // cancellation sender has not yet published its successful return.
             pending.TerminalAcknowledged = true;
-            if (pending.CancelSent)
-            {
-                pending.Acknowledged = true;
-                _transitions.Remove(matchId);
-                _matches.Remove(matchId);
-                complete = true;
-            }
+            timedOut = pending.Fenced || pending.Phase == TransitionPhase.TimedOut;
+            pending.Phase = timedOut ? TransitionPhase.TimedOut : TransitionPhase.Completed;
+            _transitions.Remove(matchId);
+            if (_matches.Remove(matchId, out MatchLifecycle? lifecycle))
+                lifecycle.Retire();
+            complete = true;
         }
         if (!complete) return;
-        CompleteTransition(matchId, pending);
+        if (timedOut) CompleteTimedOutTransition(matchId, pending);
+        else CompleteTransition(matchId, pending);
+    }
+
+    private void CompleteTimedOutTransition(MatchId matchId,
+        PendingTransition pending)
+    {
+        bool recovered = _lobbies.FailCompletedMatchTransition(matchId,
+            pending.Selection.TransitionId, "transition_timeout",
+            out LobbyMatchTransitionSelection? failed);
+        if (recovered && failed != null) PublishTransitionFailure(failed);
+        foreach (LobbyMember member in pending.Selection.Members)
+            Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true,
+                pending.Selection.LifecycleEpoch));
+        lock (_gate)
+            foreach (LobbyMember member in pending.Selection.Members)
+                _expectedTransitions.Remove(member.SessionId);
     }
 
     private void CompleteTransition(MatchId matchId, PendingTransition pending)
@@ -698,6 +1008,8 @@ public sealed class NodeMatchCoordinator : IDisposable
         }
         if (!completed)
         {
+            NodeMetrics.RecordDuration(NodeMetrics.TransitionDuration, _clock,
+                pending.StartedTimestamp, "failure");
             // The old Worker has already acknowledged cancellation. Reopen
             // the lobby and retain a Failed transition snapshot; the ordinary
             // failed-cancel path intentionally keeps InMatch and is not safe
@@ -709,7 +1021,7 @@ public sealed class NodeMatchCoordinator : IDisposable
             {
                 PublishTransitionFailure(failed);
                 foreach (LobbyMember member in failed.Members)
-                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
+                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true, pending.Selection.LifecycleEpoch));
             }
             else
             {
@@ -717,24 +1029,28 @@ public sealed class NodeMatchCoordinator : IDisposable
                 // still release the intentional transition marker for every
                 // frozen member.
                 foreach (LobbyMember member in pending.Selection.Members)
-                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
+                    Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true, pending.Selection.LifecycleEpoch));
             }
             lock (_gate)
                 foreach (LobbyMember member in pending.Selection.Members)
                     _expectedTransitions.Remove(member.SessionId);
             return;
         }
+        NodeMetrics.RecordDuration(NodeMetrics.TransitionDuration, _clock,
+            pending.StartedTimestamp, "success");
         // This is the intentional transition terminal marker, not an ordinary
         // result/interruption.  It follows Started and lets clients release
         // the old scene before accepting the fresh continuation handoff.
         foreach (LobbyMember member in pending.Selection.Members)
-            Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true));
+            Notify(member.SessionId, new NodeMatchEnded(matchId.Value, true, pending.Selection.LifecycleEpoch));
     }
-    private async Task<NodeMatchHandoff> EnsureHandoffAsync(Pending pending, MatchPlacement placement,
+    private async Task<NodeMatchHandoff> EnsureHandoffAsync(MatchLifecycle pending, MatchPlacement placement,
         LobbyMember member, bool forceFresh, CancellationToken cancellationToken)
     {
         TaskCompletionSource<NodeMatchHandoff> completion;
         bool producer = false;
+        HandoffGeneration generation = default;
+        long placementGeneration;
         lock (_gate)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -744,25 +1060,40 @@ public sealed class NodeMatchCoordinator : IDisposable
                 throw new LobbyCommandException("interrupted", "Match handoff is no longer current.");
             if (!pending.Handoffs.TryGetValue(member.SessionId, out HandoffState? state))
                 pending.Handoffs.Add(member.SessionId, state = new());
-            long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-            if (!forceFresh && state.Value is { } cached && state.ExpiresAt > now + 1)
-                return cached;
-            if (forceFresh)
-            {
-                state.Value = null; state.ExpiresAt = 0;
-                _latest.TryRemove(member.SessionId, out _);
-            }
+            long now = _clock.GetUtcNow().ToUnixTimeSeconds();
             if (state.InFlight is { } existing)
+            {
+                // Concurrent explicit rejoin requests share one producer and
+                // one generation. Do not advance the generation merely because
+                // another waiter arrived while installation was in flight.
                 completion = existing;
+                generation = state.Generation;
+            }
             else
             {
+                if (!forceFresh && state.Value is { } cached && state.ExpiresAt > now + 1)
+                    return cached;
+                if (forceFresh)
+                {
+                    ulong prior = state.Generation.Value;
+                    if (prior == ulong.MaxValue)
+                        throw new LobbyCommandException("handoff_exhausted", "Admission retry capacity is exhausted.");
+                    state.Generation = new HandoffGeneration(prior == 0 ? 1 : prior + 1);
+                    state.Value = null; state.ExpiresAt = 0;
+                    _latest.TryRemove(member.SessionId, out _);
+                }
+                else if (state.Generation.Value == 0)
+                    state.Generation = HandoffGeneration.Initial;
+                generation = state.Generation;
                 completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
                 state.InFlight = completion;
                 producer = true;
             }
+            placementGeneration = pending.Generation;
         }
         if (producer)
-            _ = ProduceHandoffAsync(pending, placement, member, completion);
+            _ = ProduceHandoffAsync(pending, placement, member, generation,
+                placementGeneration, completion);
         return await completion.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -772,14 +1103,27 @@ public sealed class NodeMatchCoordinator : IDisposable
     /// Node-owned install continues until the match lifetime ends and every
     /// exit settles the shared completion source.
     /// </summary>
-    private async Task ProduceHandoffAsync(Pending pending, MatchPlacement placement,
-        LobbyMember member, TaskCompletionSource<NodeMatchHandoff> completion)
+    private async Task ProduceHandoffAsync(MatchLifecycle pending, MatchPlacement placement,
+        LobbyMember member, HandoffGeneration generation, long placementGeneration,
+        TaskCompletionSource<NodeMatchHandoff> completion)
     {
+        using var activity = NodeMetrics.StartActivity("match.admission.install");
+        activity?.SetTag("match.id", pending.Spec.MatchId.Value);
+        activity?.SetTag("session.id", member.SessionId);
+        activity?.SetTag("handoff.generation", generation.Value);
+        long installStarted = _clock.GetTimestamp();
+        InstallAdmissionKey? installed = null;
         try
         {
-            var issued = CreateHandoff(pending, placement, member);
+            var issued = CreateHandoff(pending, placement, member, generation);
             if (issued.Install is { } install)
+            {
                 await _scheduler.InstallAdmissionKeyAsync(install, _lifetimeToken).ConfigureAwait(false);
+                installed = install;
+                lock (_gate)
+                    if (pending.Handoffs.TryGetValue(member.SessionId, out HandoffState? acceptedState))
+                        acceptedState.Installed = install;
+            }
             // Lobby membership is read outside the coordinator gate. A
             // departed session must never receive a newly installed key.
             if (_lifetimeToken.IsCancellationRequested
@@ -789,29 +1133,62 @@ public sealed class NodeMatchCoordinator : IDisposable
             {
                 ObjectDisposedException.ThrowIf(_disposed, this);
                 if (!_matches.TryGetValue(pending.Spec.MatchId, out var current) || !ReferenceEquals(current, pending)
-                    || current.Generation != issued.Generation || current.Placement != placement
+                    || current.Generation != placementGeneration || current.Placement != placement
                     || !current.Members.Any(candidate => candidate.SessionId == member.SessionId
                         && candidate.IdentityKey == member.IdentityKey))
                     throw new LobbyCommandException("interrupted", "Match handoff became stale before publication.");
                 HandoffState state = pending.Handoffs[member.SessionId];
+                if (state.Generation != generation)
+                    throw new LobbyCommandException("stale_generation", "Match handoff generation is no longer current.");
                 state.Value = issued.Handoff; state.ExpiresAt = issued.ExpiresAt; state.InFlight = null;
                 _latest[member.SessionId] = issued.Handoff;
                 completion.TrySetResult(issued.Handoff);
             }
+            NodeMetrics.RecordDuration(NodeMetrics.AdmissionInstallDuration, _clock,
+                installStarted, "success");
+            NodeMetrics.RecordDuration(NodeMetrics.HandoffDuration, _clock,
+                installStarted, "success");
         }
         catch (Exception error)
         {
+            NodeMetrics.RecordDuration(NodeMetrics.AdmissionInstallDuration, _clock,
+                installStarted, "failure");
+            NodeMetrics.RecordDuration(NodeMetrics.HandoffDuration, _clock,
+                installStarted, "failure");
+            NodeMetrics.AdmissionInstallFailures.Add(1);
+            NodeMetrics.HandoffFailures.Add(1);
             lock (_gate)
             {
                 if (pending.Handoffs.TryGetValue(member.SessionId, out HandoffState? state)
                     && ReferenceEquals(state.InFlight, completion)) state.InFlight = null;
             }
+            if (installed is { } accepted)
+                await RetireInstalledAdmissionAsync(pending, placement, member, accepted).ConfigureAwait(false);
             completion.TrySetException(error);
         }
     }
 
+    private async Task RetireInstalledAdmissionAsync(MatchLifecycle pending,
+        MatchPlacement placement, LobbyMember member, InstallAdmissionKey install)
+    {
+        try
+        {
+            await _scheduler.RetireAdmissionAsync(new RetireAdmission(
+                pending.Spec.MatchId, member.SessionId, install.SeatId,
+                install.HandoffGeneration, install.AdmissionId,
+                placement.WorkerId, placement.WorkerIncarnation), _lifetimeToken)
+                .ConfigureAwait(false);
+        }
+        catch (Exception cleanupError) when (cleanupError is MatchControlException
+            or TimeoutException or OperationCanceledException)
+        {
+            _logger.LogWarning(cleanupError, "Stale admission cleanup was not acknowledged.");
+        }
+    }
+
     private (NodeMatchHandoff Handoff, InstallAdmissionKey? Install, long ExpiresAt, long Generation) CreateHandoff(
-        Pending pending, MatchPlacement placement, LobbyMember member)
+        MatchLifecycle pending, MatchPlacement placement, LobbyMember member,
+        HandoffGeneration generation)
     {
         var spec = pending.Spec;
         HumanIdentityKey identity = member.IdentityKey;
@@ -820,13 +1197,14 @@ public sealed class NodeMatchCoordinator : IDisposable
                 : s.GuestSessionId == identity.Value));
         ulong nonce;
         do { nonce = BitConverter.ToUInt64(RandomNumberGenerator.GetBytes(8)); } while (nonce == 0);
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        long now = _clock.GetUtcNow().ToUnixTimeSeconds();
         long expires = now + 120;
         Guid ticketId = Guid.NewGuid();
         Guid admissionId = Guid.NewGuid();
+        MatchLifecycleEpoch lifecycleEpoch = pending.LifecycleEpoch;
         string ticket = _issuer.Issue(new(spec.NodeId, spec.NodeIncarnation, placement.WorkerId, placement.WorkerIncarnation,
             spec.LobbyId, spec.MatchId, placement.WireMatchId, member.SessionId, seat.PlayerId, seat.GuestSessionId, seat.Role, seat.SeatId,
-            seat.DisplayName, nonce, now, expires, ticketId));
+            seat.DisplayName, nonce, now, expires, ticketId, generation));
         string admissionKey = "";
         InstallAdmissionKey? install = null;
         if (placement.UdpAuthenticationEnabled)
@@ -836,18 +1214,19 @@ public sealed class NodeMatchCoordinator : IDisposable
             finally { CryptographicOperations.ZeroMemory(rawKey); }
             install = new InstallAdmissionKey(admissionId, ticketId, member.SessionId,
                 spec.NodeId, spec.NodeIncarnation, spec.MatchId, placement.WireMatchId,
-                placement.WorkerId, placement.WorkerIncarnation, seat.SeatId, nonce, expires, admissionKey);
+                placement.WorkerId, placement.WorkerIncarnation, seat.SeatId, nonce, expires, admissionKey,
+                generation);
         }
         var handoff = new NodeMatchHandoff(spec.MatchId.Value, placement.WireMatchId.Value, placement.Host, placement.Port,
             ticket, nonce, member.Observer, member.Hunter,
             placement.UdpAuthenticationEnabled ? admissionId : Guid.Empty, admissionKey,
-            placement.UdpAuthenticationEnabled);
-        handoff.Validate();
+            placement.UdpAuthenticationEnabled, generation, lifecycleEpoch);
+        handoff.ValidateProduction();
         return (handoff, install, expires, pending.Generation);
     }
     private void Ended(MatchId matchId, bool interrupted)
     {
-        Pending? pending;
+        MatchLifecycle? pending;
         lock (_gate)
         {
             // A transition claim owns terminal delivery. The dedicated
@@ -855,6 +1234,7 @@ public sealed class NodeMatchCoordinator : IDisposable
             // Worker acknowledgement; this ordinary callback is stale.
             if (_transitions.ContainsKey(matchId)) return;
             if (!_matches.Remove(matchId, out pending)) return;
+            pending.Retire();
         }
         // A replacement can fail before its MatchReady boundary. Preserve the
         // original transition identity and expose a bounded failure instead
@@ -870,20 +1250,22 @@ public sealed class NodeMatchCoordinator : IDisposable
             return;
         }
         _lobbies.MatchEnded(matchId, interrupted);
-        foreach (var member in pending.Members) Notify(member.SessionId, new NodeMatchEnded(matchId.Value, interrupted));
+        foreach (var member in pending.Members)
+            Notify(member.SessionId, new NodeMatchEnded(matchId.Value, interrupted, pending.LifecycleEpoch));
     }
 
     private void Completed(MatchCompletionSummary summary)
     {
         summary.Validate();
-        Pending? pending;
+        MatchLifecycle? pending;
         NodeMatchCompletion completion;
         lock (_gate)
         {
             if (_transitions.ContainsKey(summary.MatchId)) return;
             if (!_matches.TryGetValue(summary.MatchId, out pending)
                 || pending.Spec.LobbyId != summary.LobbyId) return;
-            completion = new NodeMatchCompletion(summary);
+            pending.BeginRetirement();
+            completion = new NodeMatchCompletion(summary, pending.LifecycleEpoch);
             foreach (var member in pending.Members) _completions[member.SessionId] = completion;
         }
         foreach (var member in pending.Members) Notify(member.SessionId, completion);
@@ -918,6 +1300,7 @@ public sealed class NodeMatchCoordinator : IDisposable
             inFlight = _matches.Values.SelectMany(pending => pending.Handoffs.Values)
                 .Select(state => state.InFlight).OfType<TaskCompletionSource<NodeMatchHandoff>>().Distinct().ToArray();
             _matches.Clear();
+            _transitions.Clear();
             _latest.Clear(); _completions.Clear(); _notifications.Clear(); _expectedTransitions.Clear();
         }
         _scheduler.Completed -= Completed;

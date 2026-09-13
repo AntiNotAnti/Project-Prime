@@ -232,7 +232,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
                 try
                 {
                     var lagCompensation = _options.ResolveLagCompensation();
-                    entry.Transport = _hub.RegisterMatch(entry.WireId.Value, maxConnections: 32,
+                    entry.Transport = _hub.RegisterMatch(entry.WireId.Value,
+                        maxConnections: MultiplayerLimits.MaxWorkerMatchConnections,
                         queueV2Enabled: _options.TransportQueueV2Enabled,
                         criticalReserve: _options.TransportCriticalReserveEnabled
                             ? _options.CriticalTransportReserve : 0);
@@ -464,7 +465,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             return installed.Accepted
                 ? new AdmissionKeyInstalled(command.AdmissionId, command.TicketId, command.NodeSessionId,
                     command.NodeId, command.NodeIncarnation, command.MatchId, command.WireMatchId,
-                    command.WorkerId, command.WorkerIncarnation, command.SeatId, command.JoinNonce, command.ExpiresAt)
+                    command.WorkerId, command.WorkerIncarnation, command.SeatId, command.JoinNonce, command.ExpiresAt,
+                    command.HandoffGeneration)
                 : new AdmissionKeyInstallFailed(command.AdmissionId, command.MatchId, installed.Reason);
         }
         catch (InvalidOperationException)
@@ -473,14 +475,88 @@ public sealed class WorkerRuntime : IAsyncDisposable
         }
     }
 
-    public async Task CancelAsync(MatchId id)
+    public async Task<WorkerEvent> CancelAsync(CancelMatch command)
     {
         MatchRegistry.Entry? entry;
-        lock (_registry.Gate) _registry.Entries.TryGetValue(id, out entry);
         SimulationLane? lane;
-        lock (_registry.Gate) lane = entry?.Lease?.Lane;
-        if (entry == null || lane == null) return;
-        await lane.InvokeAsync(() => { entry.Instance?.RequestStop(MatchStopReason.Requested); return true; });
+        lock (_registry.Gate)
+        {
+            _registry.Entries.TryGetValue(command.MatchId, out entry);
+            if (entry == null)
+                return new MatchCancelRejected(_options.WorkerId, _options.Incarnation,
+                    command.MatchId, command.OperationId, "match_not_found");
+            if (entry.CancelOperationId is { } prior)
+            {
+                return prior == command.OperationId
+                    ? new MatchCancelAccepted(_options.WorkerId, _options.Incarnation,
+                        command.MatchId, command.OperationId, AlreadyAccepted: true)
+                    : new MatchCancelRejected(_options.WorkerId, _options.Incarnation,
+                        command.MatchId, command.OperationId, "cancel_conflict");
+            }
+            if (entry.Terminal != null || entry.Lease == null)
+                return new MatchCancelRejected(_options.WorkerId, _options.Incarnation,
+                    command.MatchId, command.OperationId, "match_not_active");
+            entry.CancelOperationId = command.OperationId;
+            lane = entry.Lease.Lane;
+        }
+
+        bool accepted;
+        try
+        {
+            accepted = await lane.InvokeAsync(() =>
+            {
+                lock (_registry.Gate)
+                {
+                    if (entry!.Instance == null) return entry.Terminal != null;
+                    if (!entry.CancelRequested)
+                    {
+                        entry.CancelRequested = true;
+                        entry.Instance.RequestStop(MatchStopReason.Requested);
+                    }
+                    return true;
+                }
+            }).ConfigureAwait(false);
+        }
+        catch (InvalidOperationException)
+        {
+            lock (_registry.Gate)
+            {
+                if (entry!.Terminal == null && entry.CancelOperationId == command.OperationId)
+                    entry.CancelOperationId = null;
+            }
+            accepted = false;
+        }
+        return accepted
+            ? new MatchCancelAccepted(_options.WorkerId, _options.Incarnation,
+                command.MatchId, command.OperationId)
+            : new MatchCancelRejected(_options.WorkerId, _options.Incarnation,
+                command.MatchId, command.OperationId, "match_unavailable");
+    }
+
+    public async Task<WorkerEvent> RetireAdmissionAsync(RetireAdmission command)
+    {
+        WorkerIpcCodec.Encode(command);
+        if (command.WorkerId != _options.WorkerId || command.WorkerIncarnation != _options.Incarnation)
+            return new AdmissionRetireFailed(command.MatchId, command.AdmissionId, command.SeatId,
+                command.HandoffGeneration, _options.WorkerId, _options.Incarnation, "worker_scope");
+        try
+        {
+            (bool Accepted, string Reason) result = await InvokeMatchAsync(command.MatchId, match =>
+            {
+                bool accepted = match.TryRetireAdmission(command, out string reason);
+                return (Accepted: accepted, Reason: reason);
+            }).ConfigureAwait(false);
+            return result.Accepted
+                ? new AdmissionRetired(command.MatchId, command.AdmissionId, command.SeatId,
+                    command.HandoffGeneration, command.WorkerId, command.WorkerIncarnation)
+                : new AdmissionRetireFailed(command.MatchId, command.AdmissionId, command.SeatId,
+                    command.HandoffGeneration, command.WorkerId, command.WorkerIncarnation, result.Reason);
+        }
+        catch (InvalidOperationException)
+        {
+            return new AdmissionRetireFailed(command.MatchId, command.AdmissionId, command.SeatId,
+                command.HandoffGeneration, command.WorkerId, command.WorkerIncarnation, "match_unavailable");
+        }
     }
     public void Drain()
     {
@@ -571,7 +647,11 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         OutboundEnqueueToSendP95Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P95,
                         OutboundEnqueueToSendP99Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P99,
                         OutboundEnqueueToSendP999Milliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.P999,
-                        OutboundEnqueueToSendMaxMilliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.Max)));
+                        OutboundEnqueueToSendMaxMilliseconds: networkLoop.OutboundEnqueueToSendAgeMilliseconds.Max,
+                        LifetimeMatchesAccepted: _registry.Entries.Count,
+                        IdentityHistoryUsed: _registry.Entries.Count,
+                        IdentityHistoryCapacity: _options.CompletedHistoryCapacity,
+                        ActiveAdmissions: _hub.ActiveAdmissionRouteCount)));
         }
     }
     private WorkerCapacity CapacityLocked() => new(_configuredLimit, _configuredPlayers, _registry.ByWireId.Count,
@@ -650,6 +730,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             _keyRetirement[command.KeyId] = null;
             _keyId = command.KeyId; _publicKey = command.PublicKey;
         }
+        Emit(new NodeSigningKeyUpdated(_options.WorkerId,
+            _options.Incarnation, command.KeyId));
         return Task.CompletedTask;
     }
     private static string Bounded(string value) => new string(value.Where(ch => !char.IsControl(ch)).Take(1024).ToArray()) is { Length: > 0 } text ? text : "Worker operation failed.";

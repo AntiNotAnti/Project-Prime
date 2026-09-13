@@ -57,6 +57,16 @@ public static class NodeApplication
         builder.Services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = static (context, _) =>
+            {
+                TimeSpan retryAfter = context.Lease.TryGetMetadata(
+                    MetadataName.RetryAfter, out TimeSpan advertised)
+                    ? advertised : TimeSpan.FromSeconds(60);
+                long seconds = Math.Max(1, (long)Math.Ceiling(retryAfter.TotalSeconds));
+                context.HttpContext.Response.Headers.RetryAfter = seconds.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+                return ValueTask.CompletedTask;
+            };
             options.AddPolicy("control-upgrade", context => RateLimitPartition.GetFixedWindowLimiter(
                 NodeNetworkOptions.EffectiveRemoteAddress(context),
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));

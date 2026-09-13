@@ -152,14 +152,20 @@ public sealed class GuestRegressionTests
                 // process the following report-ready, with no timing race.
                 using var cancelled = new CancellationTokenSource();
                 cancelled.Cancel();
-                completed.TrySetResult((scheduler.ForgetMatch(id), scheduler.WaitForDrainAsync(cancelled.Token).IsCompletedSuccessfully));
+                bool retained = scheduler.TryGetAssignment(id, out WorkerMatchAssignment? _);
+                completed.TrySetResult((retained, scheduler.WaitForDrainAsync(cancelled.Token).IsCompletedSuccessfully));
             };
-            scheduler.ReportReady += (_, _) => handled.TrySetResult(scheduler.ForgetMatch(artifact.Spec.MatchId));
+            scheduler.ReportReady += (_, _) => handled.TrySetResult(!scheduler.TryGetAssignment(artifact.Spec.MatchId, out _));
             await scheduler.PlaceAsync(artifact.Spec).WaitAsync(TimeSpan.FromSeconds(5));
-            Assert.Equal((false, false), await completed.Task.WaitAsync(TimeSpan.FromSeconds(5)));
-            Assert.True(await handled.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal((true, false), await completed.Task.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Equal(!invalidArtifact,
+                await handled.Task.WaitAsync(TimeSpan.FromSeconds(5)));
             using var drainTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
-            await scheduler.WaitForDrainAsync(drainTimeout.Token);
+            if (invalidArtifact)
+                await Assert.ThrowsAsync<IOException>(() =>
+                    scheduler.WaitForDrainAsync(drainTimeout.Token));
+            else
+                await scheduler.WaitForDrainAsync(drainTimeout.Token);
             Assert.Equal(invalidArtifact, File.Exists(artifact.Path));
             Assert.Equal(0, transport.Calls);
             Assert.Equal(0, outbox.Status.DurablePending);
@@ -200,7 +206,7 @@ public sealed class GuestRegressionTests
             scheduler.Drain("guest report suppression");
             using var drainTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(2));
             await scheduler.WaitForDrainAsync(drainTimeout.Token);
-            Assert.True(scheduler.ForgetMatch(spec.MatchId));
+            Assert.False(scheduler.TryGetAssignment(spec.MatchId, out _));
             Assert.Equal(0, transport.Calls);
             Assert.Equal(0, outbox.Status.DurablePending);
         }

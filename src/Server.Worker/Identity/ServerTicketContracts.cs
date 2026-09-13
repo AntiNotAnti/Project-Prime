@@ -1,12 +1,13 @@
 using System;
 using System.Net;
 using MphRead.Identity;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network;
 
 public readonly record struct TicketIdentity(PlayerId? PlayerId, Guid TicketId, long ExpiresAt, bool TrustedObserver = false,
     Guid? GuestSessionId = null, byte? ReservedSeat = null, bool WorkerAdmission = false, byte? ReservedTeam = null,
-    Guid NodeSessionId = default);
+    Guid NodeSessionId = default, HandoffGeneration HandoffGeneration = default);
 
 public readonly record struct ValidatedTicketJoin(IPEndPoint Endpoint, JoinPacket Join, TicketIdentity? Identity);
 

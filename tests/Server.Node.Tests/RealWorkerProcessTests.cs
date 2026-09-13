@@ -118,7 +118,7 @@ public sealed class RealWorkerProcessTests
         await worker.Completion.WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(await ended.Task.WaitAsync(TimeSpan.FromSeconds(5)));
         Assert.Equal(1, Volatile.Read(ref count));
-        Assert.Equal(MatchStatus.Interrupted, worker.Snapshot().Matches[spec.MatchId]);
+        Assert.DoesNotContain(spec.MatchId, worker.Snapshot().Matches.Keys);
 
         async Task WaitForPhase(string expected)
         {

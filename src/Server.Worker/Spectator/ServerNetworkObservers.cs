@@ -131,6 +131,9 @@ public sealed partial class ServerNetwork
             _observers[free] = peer; _connections[8 + free] = peer; ObserverCount++;
         }
         PublishKeepAlives();
+        if (join.AdmissionId != Guid.Empty && identity.HasValue
+            && _transport is IMatchConnectionRoutes routes)
+            routes.MarkAdmissionEstablished(join.AdmissionId);
         return true;
     }
     public bool TryForceObserver(ServerPeer peer, out string reason)

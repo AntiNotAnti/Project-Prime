@@ -18,7 +18,7 @@ public sealed class LobbyRoundTests
         var first = h.Start(); h.Manager.MatchEnded(first.MatchId, false);
         var ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
         Assert.Equal(15, (ballot.VoteDeadline!.Value - h.Manager.RoundClock.GetUtcNow()).TotalSeconds, 1);
-        Assert.Equal(4, ballot.Options.Length);
+        Assert.Equal(5, ballot.Options.Length);
         Assert.Equal("unsupported", Assert.Throws<LobbyCommandException>(() => h.Round(new LobbyVoteOpen(h.Revision, []))).Code);
         Assert.Equal("unsupported", Assert.Throws<LobbyCommandException>(() => h.Round(new LobbyVoteResolve(h.Revision, ballot.BallotRevision))).Code);
         var resolved = h.Round(new LobbyVoteCast(h.Revision, ballot.BallotRevision, option));
@@ -29,6 +29,26 @@ public sealed class LobbyRoundTests
         Assert.Equal(LobbyPhase.StartingMatch, h.Snapshot.Phase);
         Assert.False(h.Snapshot.Members[0].Ready);
         Assert.Empty(h.Manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void SpawnPolicyVoteFreezesIntoTheNextAuthoritativeMatch()
+    {
+        var h = new Harness();
+        MatchSpec first = h.Start();
+        h.Manager.MatchEnded(first.MatchId, false);
+        NodeRoundSnapshot ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
+        LobbyVoteEntry enhanced = Assert.Single(ballot.Options, option =>
+            option.Choice == LobbyVoteChoice.SpawnPolicy
+                && option.SpawnPolicy == SpawnPolicy.Enhanced);
+
+        h.Round(new LobbyVoteCast(h.Revision, ballot.BallotRevision, enhanced.Id));
+        MatchSpec next = Assert.Single(h.Manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+
+        Assert.Equal(SpawnPolicy.Enhanced, next.Rules.SpawnPolicy);
+        Assert.Equal(SpawnPolicy.Enhanced, h.Snapshot.Rules!.SpawnPolicy);
+        Assert.Equal(first.Content.MapKey, next.Content.MapKey);
     }
 
     [Fact]

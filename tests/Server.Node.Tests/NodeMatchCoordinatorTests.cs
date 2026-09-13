@@ -258,9 +258,14 @@ public sealed class NodeMatchCoordinatorTests
             await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
             var initial = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
 
+            // Passive reconnect reconstruction must not mint a credential. An
+            // explicit rejoin owns the fresh install; cancel only the waiter,
+            // leaving the Node-owned producer running.
+            Assert.DoesNotContain(coordinator.ForSessionEvents(owner.SessionId),
+                payload => payload is NodeMatchHandoff);
             using var canceled = new CancellationTokenSource(TimeSpan.FromMilliseconds(40));
             await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-                coordinator.ForSessionEventsAsync(owner.SessionId, canceled.Token));
+                coordinator.ExecuteAsync(owner, new NodeMatchRejoin(initial.MatchId), canceled.Token));
 
             NodeMatchHandoff refreshed = await WaitForHandoffAsync(coordinator, owner.SessionId,
                 initial.AdmissionId, TimeSpan.FromSeconds(10));
@@ -306,15 +311,17 @@ public sealed class NodeMatchCoordinatorTests
         Assert.True(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompClear, 0));
         Assert.False(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.EndMatch, 0));
         Assert.False(coordinator.TrySendHistoricalDebug(new(handoff.MatchId), AdminAction.LagCompHistory, 1));
-        var refreshed = Assert.IsType<NodeMatchHandoff>(Assert.Single(await coordinator.ForSessionEventsAsync(owner.SessionId)));
+        Assert.DoesNotContain(await coordinator.ForSessionEventsAsync(owner.SessionId),
+            payload => payload is NodeMatchHandoff);
         Assert.Equal(placed.CurrentMatchId, handoff.MatchId);
-        Assert.NotEqual(handoff.Ticket, refreshed.Ticket);
-        Assert.NotEqual(handoff.Nonce, refreshed.Nonce);
         Assert.DoesNotContain(handoff.Ticket, handoff.ToString());
         Assert.DoesNotContain(handoff.AdmissionKey, handoff.ToString());
+        var refreshed = Assert.IsType<NodeMatchHandoff>(await coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));
+        Assert.NotEqual(handoff.Ticket, refreshed.Ticket);
+        Assert.NotEqual(handoff.Nonce, refreshed.Nonce);
         var retry = Assert.IsType<NodeMatchHandoff>(await coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));
         Assert.NotEqual(refreshed.Ticket, retry.Ticket);
-        await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(owner, new NodeMatchRejoin(handoff.MatchId)));
+        Assert.NotEqual(refreshed.HandoffGeneration, retry.HandoffGeneration);
         await Assert.ThrowsAsync<LobbyCommandException>(() => coordinator.ExecuteAsync(new(Guid.NewGuid(), Guid.NewGuid(), "Intruder"), new NodeMatchRejoin(handoff.MatchId)));
         var selected = Assert.IsType<LobbySnapshot>(lobbies.Execute(owner,
             new LobbySelectHunter(Hunter.Kanden, placed.Revision)));

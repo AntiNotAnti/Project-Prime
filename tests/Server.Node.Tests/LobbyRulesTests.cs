@@ -17,7 +17,9 @@ public sealed class LobbyRulesTests
         var lobby = (LobbySnapshot)manager.Execute(owner, new LobbyCreate("Rules", LobbyVisibility.Public));
         var rules = new LobbyRulesOptions(TimeLimitSeconds: 600, ScoreGoal: 11, DamageLevel: 2,
             FriendlyFire: true, AffinityWeapons: true, PlayerRadar: true,
-            KillcamPolicy: KillcamPolicy.PostRound);
+            KillcamPolicy: KillcamPolicy.PostRound,
+            SpawnPolicy: SpawnPolicy.Enhanced,
+            CancelSpawnProtectionOnOffensiveAction: true);
 
         lobby = (LobbySnapshot)manager.Execute(owner,
             new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle, Rules: rules));
@@ -36,6 +38,47 @@ public sealed class LobbyRulesTests
         Assert.True(spec.Rules.AffinityWeapons);
         Assert.True(spec.Rules.PlayerRadar);
         Assert.Equal(KillcamPolicy.PostRound, spec.Rules.KillcamPolicy);
+        Assert.Equal(SpawnPolicy.Enhanced, spec.Rules.SpawnPolicy);
+        Assert.True(spec.Rules.CancelSpawnProtectionOnOffensiveAction);
+    }
+
+    [Fact]
+    public void FourTeamsCanBeSelectedAndFreezeAsTwoPlayersPerTeam()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Four teams", LobbyVisibility.Public, 8, 0));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle,
+                7, new LobbyRulesOptions(TeamCount: 4)));
+
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyRequestTeam(3, lobby.Revision));
+        Assert.Equal(3, Assert.Single(lobby.Members).Team);
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyRequestTeam(0, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+
+        Assert.Equal(4, spec.Rules.TeamCount);
+        Assert.Equal(new[] { 2, 2, 2, 2 }, spec.Roster
+            .Where(seat => seat.Role is SeatRole.Player or SeatRole.Bot)
+            .GroupBy(seat => seat.Team).OrderBy(group => group.Key)
+            .Select(group => group.Count()).ToArray());
+    }
+
+    [Fact]
+    public void FourTeamRulesProjectSafelyOntoTwoTeamObjectiveModes()
+    {
+        LobbyRulesOptions projected = new LobbyRulesOptions(TeamCount: 4)
+            .ForMode(MatchMode.TeamDefender);
+
+        Assert.Equal(2, projected.TeamCount);
+        Assert.Equal(2, projected.ToMatchRules(MatchMode.TeamDefender, "unit")
+            .TeamCount);
     }
 
     [Fact]

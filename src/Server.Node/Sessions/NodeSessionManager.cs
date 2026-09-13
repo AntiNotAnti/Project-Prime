@@ -23,12 +23,19 @@ public sealed record NodePresenceSnapshot(long Revision, int TotalSessions,
 
 public sealed class NodeSessionManager
 {
+    private sealed record PendingOutbound(string Type, Guid? RequestId,
+        Func<long, byte[]> Encode);
     private sealed class Connection(WebSocket socket, CancellationToken aborted)
     {
         public WebSocket Socket = socket;
         public CancellationTokenSource Stop = CancellationTokenSource.CreateLinkedTokenSource(aborted);
-        public Channel<byte[]> Outbound = Channel.CreateBounded<byte[]>(new BoundedChannelOptions(32)
+        public Channel<PendingOutbound> Ordered = Channel.CreateBounded<PendingOutbound>(new BoundedChannelOptions(MultiplayerLimits.MaxLifecycleQueue)
         { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
+        public Dictionary<string, PendingOutbound> State = new(StringComparer.Ordinal);
+        public Channel<bool> Wake = Channel.CreateBounded<bool>(new BoundedChannelOptions(1)
+        { SingleReader = true, FullMode = BoundedChannelFullMode.DropWrite });
+        public bool Overflow;
+        public Exception? ReceiveFailure;
     }
     private sealed class Session(NodeIdentity identity)
     {
@@ -77,6 +84,19 @@ public sealed class NodeSessionManager
         _lobbies = lobbies; _nodeId = nodeId; _maximumSessions = maximumSessions; _clock = clock ?? TimeProvider.System;
         _matches = matches; _catalog = catalog;
         _logger = logger ?? NullLogger<NodeSessionManager>.Instance;
+        NodeMetrics.RegisterOutboundDepth(OutboundDepth);
+    }
+
+    private long OutboundDepth()
+    {
+        long depth = 0;
+        lock (_admission)
+            foreach (Session session in _sessions.Values)
+                lock (session)
+                    if (session.Connection is { } connection)
+                        depth += connection.Ordered.Reader.Count
+                            + connection.State.Count;
+        return depth;
     }
 
     /// <summary>
@@ -217,6 +237,8 @@ public sealed class NodeSessionManager
     public void PruneWaitlists() => _lobbies.PruneWaitlists();
     public async Task RunAsync(WebSocket socket, NodeIdentity? identity, CancellationToken cancellationToken, string? resumeToken = null)
     {
+        using var activity = NodeMetrics.StartActivity(resumeToken == null
+            ? "node.session.connect" : "node.session.resume");
         PruneExpired();
         Session session;
         var connection = new Connection(socket, cancellationToken);
@@ -259,41 +281,38 @@ public sealed class NodeSessionManager
             _lobbies.SetSessionResumeDeadline(session.Id, null);
         }
         NodeDiagnostics.Session(_logger, resumeToken == null ? "connect" : "resume", "success");
-        Task sender = SendLoop(connection);
+        NodeMetrics.ControlConnected(resumeToken != null);
+        activity?.SetTag("session.id", session.Id);
+        activity?.SetTag("node.id", _nodeId);
+        string disconnectReason = "transport";
+        Task sender = SendLoop(session, connection);
+        Task receiver = Task.CompletedTask;
         try
         {
             Send(session, "node.session", null, new NodeSessionSnapshot(session.Id, session.Identity.PlayerId, session.Identity.DisplayName,
                 _nodeId, token, session.Identity.GuestSessionId, session.Identity.PublicPresence));
+            var inbound = Channel.CreateBounded<NodeControlRequest>(new BoundedChannelOptions(32)
+            {
+                SingleReader = true,
+                SingleWriter = true,
+                FullMode = BoundedChannelFullMode.Wait
+            });
+            // Start transport consumption before reconstructing state. Commands
+            // are buffered by one bounded reader and executed only after the
+            // ordered restoration events below have been enqueued.
+            receiver = ReceiveLoopAsync(socket, session, connection, inbound.Writer);
             if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
             if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
             if (_lobbies.MatchTransitionForSession(session.Id) is { } restoredTransition)
                 Send(session, "match.transition.state", null, restoredTransition);
             if (_matches != null)
-                foreach (object matchState in await _matches.ForSessionEventsAsync(session.Id, connection.Stop.Token)) SendMatch(session, matchState);
-            byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
-            long window = _clock.GetTimestamp(); int requests = 0;
-            while (!connection.Stop.IsCancellationRequested)
+                // Resume is reconstructive only. Credential-bearing handoffs
+                // are minted by an explicit match.rejoin request after the
+                // client has restored its stable match/lifecycle state.
+                foreach (object matchState in _matches.ForSessionEvents(session.Id)) SendMatch(session, matchState);
+            await foreach (NodeControlRequest request in inbound.Reader.ReadAllAsync())
             {
-                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(connection.Stop.Token);
-                timeout.CancelAfter(TimeSpan.FromSeconds(90));
-                int length = 0;
-                WebSocketReceiveResult result;
-                do
-                {
-                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer, length, buffer.Length - length), timeout.Token);
-                    if (result.MessageType == WebSocketMessageType.Close) return;
-                    if (result.MessageType != WebSocketMessageType.Text || result.Count == 0 && !result.EndOfMessage)
-                        throw new JsonException("Text control frames required.");
-                    length += result.Count;
-                    if (length == buffer.Length && !result.EndOfMessage) throw new JsonException("Frame exceeds limit.");
-                } while (!result.EndOfMessage);
-                if (_clock.GetElapsedTime(window) >= TimeSpan.FromSeconds(1)) { window = _clock.GetTimestamp(); requests = 0; }
-                if (++requests > 30) throw new JsonException("Control rate exceeded.");
-                var request = NodeControlCodec.Read(buffer.AsMemory(0, length));
-                if (!session.RecentRequests.Add(request.RequestId))
-                { Send(session, "error", request.RequestId, new NodeControlError("duplicate_request", "Request was already processed.")); continue; }
-                session.RequestOrder.Enqueue(request.RequestId);
-                if (session.RequestOrder.Count > 256) session.RecentRequests.Remove(session.RequestOrder.Dequeue());
+                if (connection.Stop.IsCancellationRequested) break;
                 if (request.Command is NodePing)
                 { Send(session, "node.pong", request.RequestId, new NodePong(_clock.GetUtcNow().ToUnixTimeMilliseconds())); continue; }
                 if (request.Command is NodeSetPresenceVisibility visibility)
@@ -319,7 +338,9 @@ public sealed class NodeSessionManager
                 {
                     var lobbyIdentity = new LobbyIdentity(session.Id, session.Identity.PlayerId, session.Identity.DisplayName,
                         session.Identity.GuestSessionId);
-                    object response = _matches != null ? await _matches.ExecuteAsync(lobbyIdentity, request.Command) : _lobbies.Execute(lobbyIdentity, request.Command);
+                    object response = _matches != null
+                        ? await _matches.ExecuteAsync(lobbyIdentity, request.Command, connection.Stop.Token)
+                        : _lobbies.Execute(lobbyIdentity, request.Command);
                     switch (response)
                     {
                         case LobbySnapshot snapshot: Send(session, "lobby.snapshot", request.RequestId, _lobbies.ForSession(session.Id) ?? snapshot); break;
@@ -332,18 +353,49 @@ public sealed class NodeSessionManager
                     }
                 }
                 catch (LobbyCommandException ex) { Send(session, "error", request.RequestId, new NodeControlError(ex.Code, ex.Message)); }
+                catch (MatchControlException ex)
+                {
+                    NodeDiagnostics.Worker(_logger, "request", ex.Code);
+                    Send(session, "error", request.RequestId,
+                        new NodeControlError(ex.Code, "The match operation could not be completed."));
+                }
+                catch (TimeoutException)
+                {
+                    Send(session, "error", request.RequestId,
+                        new NodeControlError(MatchControlFailure.Timeout.Code(), "The match operation timed out."));
+                }
+                catch (OperationCanceledException) when (!connection.Stop.IsCancellationRequested)
+                {
+                    Send(session, "error", request.RequestId,
+                        new NodeControlError(MatchControlFailure.Timeout.Code(), "The match operation timed out."));
+                }
             }
+            await receiver.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (connection.ReceiveFailure is
+            JsonException or InvalidOperationException or KeyNotFoundException
+            or FormatException or ArgumentException)
+        {
+            disconnectReason = "protocol";
+            Interlocked.Increment(ref _protocolClosures);
+            NodeDiagnostics.Session(_logger, "protocol", "rejected");
         }
         catch (Exception ex) when (ex is OperationCanceledException or WebSocketException)
         { NodeDiagnostics.Session(_logger, "disconnect", "transport"); }
         catch (Exception ex) when (ex is JsonException or InvalidOperationException or KeyNotFoundException or FormatException or ArgumentException)
         {
+            disconnectReason = "protocol";
             Interlocked.Increment(ref _protocolClosures);
             NodeDiagnostics.Session(_logger, "protocol", "rejected");
         }
         finally
         {
-            connection.Stop.Cancel(); connection.Outbound.Writer.TryComplete();
+            connection.Stop.Cancel(); connection.Ordered.Writer.TryComplete();
+            connection.Wake.Writer.TryComplete();
+            try { await receiver.ConfigureAwait(false); }
+            catch (Exception ex) when (ex is OperationCanceledException or WebSocketException
+                or JsonException or InvalidOperationException or KeyNotFoundException
+                or FormatException or ArgumentException) { }
             try { await sender; } catch (OperationCanceledException) { }
             lock (_admission)
             {
@@ -352,9 +404,76 @@ public sealed class NodeSessionManager
                 _lobbies.SetSessionResumeDeadline(session.Id, session.ResumeUntil);
             }
             NodeDiagnostics.Session(_logger, "disconnect", "resume_grace");
+            NodeMetrics.ControlDisconnected(disconnectReason);
             socket.Abort(); connection.Stop.Dispose();
         }
     }
+
+    private async Task ReceiveLoopAsync(WebSocket socket, Session session,
+        Connection connection, ChannelWriter<NodeControlRequest> writer)
+    {
+        Exception? failure = null;
+        try
+        {
+            byte[] buffer = new byte[NodeControlCodec.MaximumFrameBytes];
+            long window = _clock.GetTimestamp();
+            int requests = 0;
+            while (!connection.Stop.IsCancellationRequested)
+            {
+                using var timeout = CancellationTokenSource.CreateLinkedTokenSource(
+                    connection.Stop.Token);
+                timeout.CancelAfter(TimeSpan.FromSeconds(90));
+                int length = 0;
+                WebSocketReceiveResult result;
+                do
+                {
+                    result = await socket.ReceiveAsync(new ArraySegment<byte>(buffer,
+                        length, buffer.Length - length), timeout.Token);
+                    if (result.MessageType == WebSocketMessageType.Close) return;
+                    if (result.MessageType != WebSocketMessageType.Text
+                        || result.Count == 0 && !result.EndOfMessage)
+                        throw new JsonException("Text control frames required.");
+                    length += result.Count;
+                    if (length == buffer.Length && !result.EndOfMessage)
+                        throw new JsonException("Frame exceeds limit.");
+                }
+                while (!result.EndOfMessage);
+
+                if (_clock.GetElapsedTime(window) >= TimeSpan.FromSeconds(1))
+                {
+                    window = _clock.GetTimestamp();
+                    requests = 0;
+                }
+                if (++requests > 30)
+                    throw new JsonException("Control rate exceeded.");
+                NodeControlRequest request = NodeControlCodec.Read(
+                    buffer.AsMemory(0, length));
+                if (!session.RecentRequests.Add(request.RequestId))
+                {
+                    Send(session, "error", request.RequestId,
+                        new NodeControlError("duplicate_request",
+                            "Request was already processed."));
+                    continue;
+                }
+                session.RequestOrder.Enqueue(request.RequestId);
+                if (session.RequestOrder.Count > 256)
+                    session.RecentRequests.Remove(session.RequestOrder.Dequeue());
+                await writer.WriteAsync(request, connection.Stop.Token);
+            }
+        }
+        catch (Exception error)
+        {
+            failure = error;
+            Volatile.Write(ref connection.ReceiveFailure, error);
+            throw;
+        }
+        finally
+        {
+            writer.TryComplete(failure);
+            connection.Stop.Cancel();
+        }
+    }
+
     private static string Hash(string token) => Convert.ToHexString(SHA256.HashData(Encoding.ASCII.GetBytes(token)));
 
     private void SendCatalog(Session session, Guid requestId, NodeCatalogRequest request)
@@ -394,7 +513,7 @@ public sealed class NodeSessionManager
         switch (message)
         {
             case NodeMatchDeliveryOverflow:
-                lock (session) session.Connection?.Stop.Cancel();
+                MarkOverflow(session);
                 break;
             case NodeMatchHandoff handoff: Send(session, "match.handoff", null, handoff); break;
             case NodeMatchCompletion completion: Send(session, "match.completion", null, completion); break;
@@ -405,22 +524,87 @@ public sealed class NodeSessionManager
     }
     private static void Send<T>(Session session, string type, Guid? requestId, T payload)
     {
+        var pending = new PendingOutbound(type, requestId,
+            eventId => NodeControlCodec.Write(type, eventId, requestId, payload));
         lock (session)
         {
             var connection = session.Connection;
             if (connection == null) return;
-            byte[] bytes = NodeControlCodec.Write(type, ++session.EventId, requestId, payload);
-            if (!connection.Outbound.Writer.TryWrite(bytes)) connection.Stop.Cancel();
+            if (connection.Overflow) return;
+            if (requestId == null && IsCoalescible(type))
+                connection.State[type] = pending;
+            else if (!connection.Ordered.Writer.TryWrite(pending))
+            {
+                connection.Overflow = true;
+                NodeMetrics.DeliveryOverflow();
+            }
+            connection.Wake.Writer.TryWrite(true);
         }
     }
-    private static async Task SendLoop(Connection connection)
+
+    private static bool IsCoalescible(string type)
+        => type is "lobby.snapshot" or "lobby.round" or "match.transition.state"
+            or "presence.state";
+
+    private static void MarkOverflow(Session session)
+    {
+        lock (session)
+        {
+            if (session.Connection is not { } connection || connection.Overflow) return;
+            connection.Overflow = true;
+            NodeMetrics.DeliveryOverflow();
+            connection.Wake.Writer.TryWrite(true);
+        }
+    }
+
+    private static async Task SendLoop(Session session, Connection connection)
     {
         try
         {
-            await foreach (var message in connection.Outbound.Reader.ReadAllAsync(connection.Stop.Token))
-                await connection.Socket.SendAsync(message, WebSocketMessageType.Text, true, connection.Stop.Token);
+            while (!connection.Stop.IsCancellationRequested)
+            {
+                PendingOutbound? pending = null;
+                bool overflow;
+                lock (session)
+                {
+                    if (!connection.Ordered.Reader.TryRead(out pending))
+                    {
+                        overflow = connection.Overflow;
+                        if (!overflow && connection.State.Count != 0)
+                        {
+                            KeyValuePair<string, PendingOutbound> state = connection.State.First();
+                            connection.State.Remove(state.Key);
+                            pending = state.Value;
+                        }
+                    }
+                    else overflow = false;
+                }
+
+                if (pending != null)
+                {
+                    byte[] message;
+                    lock (session) message = pending.Encode(++session.EventId);
+                    await connection.Socket.SendAsync(message, WebSocketMessageType.Text,
+                        true, connection.Stop.Token);
+                    continue;
+                }
+                if (overflow)
+                {
+                    byte[] message;
+                    lock (session)
+                        message = NodeControlCodec.Write("control.delivery_overflow",
+                            ++session.EventId, null, new NodeControlDeliveryOverflow());
+                    await connection.Socket.SendAsync(message, WebSocketMessageType.Text,
+                        true, connection.Stop.Token);
+                    connection.Stop.Cancel();
+                    return;
+                }
+                await connection.Wake.Reader.ReadAsync(connection.Stop.Token);
+            }
         }
-        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException) { connection.Stop.Cancel(); }
+        catch (Exception ex) when (ex is OperationCanceledException or WebSocketException
+            or InvalidOperationException or ArgumentException)
+        { connection.Stop.Cancel(); }
     }
 }
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Threading;
+using ProjectPrime.Server.Shared;
 
 namespace MphRead.Mods.Network;
 
@@ -15,6 +16,9 @@ public sealed class WorkerNetworkHub : IDisposable
     public const int DefaultMaximumDatagramsPerPump = NetConfig.DefaultMaximumDatagramsPerPump;
     private readonly INetTransport _physical;
     private readonly IWorkerDatagramRouter _router;
+    private readonly TimeProvider _clock;
+    private readonly long _clockFrequency;
+    private readonly long _admissionRetransmissionGraceTicks;
     private readonly object _gate = new();
     // Serializes lifetime publication of retired match counters with readers.
     // Keep this as the outer lock for retirement paths; no match lock is taken
@@ -28,7 +32,7 @@ public sealed class WorkerNetworkHub : IDisposable
     private readonly WorkerNetworkLoopMetrics _networkLoop = new();
     private Action? _networkWakeSignal;
     public const int MaxRoutingAttemptsPerPump = 256;
-    internal const int AdmissionRouteLimitPerMatch = 64;
+    internal const int AdmissionRouteLimitPerMatch = MultiplayerLimits.MaxAdmissionLeasesPerMatch;
     public long RoutingBudgetExhaustions => Interlocked.Read(ref _routingBudgetExhaustions);
     private readonly Dictionary<uint, MatchDatagramTransport> _matches = new();
     private readonly Dictionary<ulong, ConnectionRoute> _connections = new();
@@ -55,6 +59,8 @@ public sealed class WorkerNetworkHub : IDisposable
     public bool WorkerGlobalNetworkBudgetEnabled { get; }
     public bool UdpAuthenticationEnabled { get; }
     public int MaximumDatagramsPerPump { get; }
+    public TimeSpan AdmissionRetransmissionGrace { get; }
+    public static TimeSpan DefaultAdmissionRetransmissionGrace => TimeSpan.FromSeconds(3);
     public long DatagramsAttempted => Interlocked.Read(ref _datagramsAttempted);
     public long DatagramBudgetExhaustions => Interlocked.Read(ref _datagramBudgetExhaustions);
     public long PreAuthIngressDrops => Interlocked.Read(ref _preAuthIngressDrops);
@@ -62,6 +68,11 @@ public sealed class WorkerNetworkHub : IDisposable
     public long AdmissionIngressDrops => Interlocked.Read(ref _admissionIngressDrops);
     public long PerConnectionQuotaDrops => Interlocked.Read(ref _perConnectionQuotaDrops);
     public int MaximumConnectionIngressDepth => Volatile.Read(ref _maximumConnectionIngressDepth);
+    public int ActiveAdmissionRouteCount { get { lock (_gate) return _admissions.Count; } }
+    internal int CountAdmissionRoutes(MatchDatagramTransport match)
+    {
+        lock (_gate) return _admissions.Values.Count(route => route.Match == match);
+    }
     public long CriticalTransportDrops
     {
         get
@@ -83,7 +94,8 @@ public sealed class WorkerNetworkHub : IDisposable
 
     public WorkerNetworkHub(INetTransport physical, Guid incarnation, IWorkerDatagramRouter router,
         int matchLimit = 64, int maximumDatagramsPerPump = DefaultMaximumDatagramsPerPump,
-        bool workerGlobalNetworkBudgetEnabled = true, bool udpAuthenticationEnabled = false)
+        bool workerGlobalNetworkBudgetEnabled = true, bool udpAuthenticationEnabled = false,
+        TimeSpan? admissionRetransmissionGrace = null, TimeProvider? clock = null)
     {
         ArgumentNullException.ThrowIfNull(physical);
         ArgumentNullException.ThrowIfNull(router);
@@ -91,10 +103,22 @@ public sealed class WorkerNetworkHub : IDisposable
         if (matchLimit is < 1 or > 1024) throw new ArgumentOutOfRangeException(nameof(matchLimit));
         if (maximumDatagramsPerPump is < 1 or > 65536)
             throw new ArgumentOutOfRangeException(nameof(maximumDatagramsPerPump));
+        TimeSpan grace = admissionRetransmissionGrace ?? DefaultAdmissionRetransmissionGrace;
+        if (grace < TimeSpan.FromSeconds(2) || grace > TimeSpan.FromSeconds(5))
+            throw new ArgumentOutOfRangeException(nameof(admissionRetransmissionGrace),
+                "Admission retransmission grace must be between 2 and 5 seconds.");
+        _clock = clock ?? TimeProvider.System;
+        _clockFrequency = _clock.TimestampFrequency;
+        if (_clockFrequency <= 0) throw new ArgumentOutOfRangeException(nameof(clock));
+        _admissionRetransmissionGraceTicks = checked((long)Math.Ceiling(
+            grace.TotalSeconds * _clockFrequency));
+        if (_admissionRetransmissionGraceTicks <= 0)
+            throw new ArgumentOutOfRangeException(nameof(admissionRetransmissionGrace));
         _physical = physical; _router = router; Incarnation = incarnation; MatchLimit = matchLimit;
         MaximumDatagramsPerPump = maximumDatagramsPerPump;
         WorkerGlobalNetworkBudgetEnabled = workerGlobalNetworkBudgetEnabled;
         UdpAuthenticationEnabled = udpAuthenticationEnabled;
+        AdmissionRetransmissionGrace = grace;
     }
 
     /// <summary>Attaches the worker-owned event used to wake the I/O loop.</summary>
@@ -116,7 +140,7 @@ public sealed class WorkerNetworkHub : IDisposable
         get
         {
             if (_physical.HasReadyNetworkWork) return true;
-            long now = Stopwatch.GetTimestamp();
+            long now = _clock.GetTimestamp();
             lock (_gate)
             {
                 foreach (AdmissionRoute admission in _admissions.Values)
@@ -200,15 +224,15 @@ public sealed class WorkerNetworkHub : IDisposable
         long expiresAtUnixSeconds, out bool created)
     {
         created = false;
-        long nowUnix = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        long nowTimestamp = Stopwatch.GetTimestamp();
+        long nowUnix = _clock.GetUtcNow().ToUnixTimeSeconds();
+        long nowTimestamp = _clock.GetTimestamp();
         if (admissionId == Guid.Empty || expiresAtUnixSeconds <= nowUnix) return false;
         long remainingSeconds = expiresAtUnixSeconds - nowUnix;
         long durationTicks;
         long deadline;
         try
         {
-            durationTicks = checked(remainingSeconds * Stopwatch.Frequency);
+            durationTicks = checked(remainingSeconds * _clockFrequency);
             deadline = checked(nowTimestamp + Math.Max(1, durationTicks));
         }
         catch (OverflowException) { return false; }
@@ -250,6 +274,70 @@ public sealed class WorkerNetworkHub : IDisposable
                 return true;
             }
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Shortens a successful admission lease to the bounded retransmission
+    /// grace. This is idempotent and scoped to the exact match route; an old
+    /// admission cannot affect a superseding route.
+    /// </summary>
+    internal bool MarkAdmissionEstablished(Guid admissionId, MatchDatagramTransport match)
+    {
+        if (admissionId == Guid.Empty) return false;
+        long nowTimestamp = _clock.GetTimestamp();
+        long graceDeadline;
+        try { graceDeadline = checked(nowTimestamp + _admissionRetransmissionGraceTicks); }
+        catch (OverflowException) { return false; }
+        lock (_gate)
+        {
+            PurgeExpiredAdmissions(nowTimestamp);
+            if (!_admissions.TryGetValue(admissionId, out AdmissionRoute route)
+                || route.Match != match) return false;
+            if (route.Established) return true;
+            _admissions[admissionId] = route with
+            {
+                ExpiresAtTimestamp = Math.Min(route.ExpiresAtTimestamp, graceDeadline),
+                Established = true
+            };
+            SignalNetworkWork();
+            return true;
+        }
+    }
+
+    internal bool ReplaceAdmission(Guid oldAdmissionId, Guid newAdmissionId,
+        MatchDatagramTransport match, long expiresAtUnixSeconds, out bool replaced)
+    {
+        replaced = false;
+        if (newAdmissionId == Guid.Empty || oldAdmissionId == newAdmissionId)
+            return RegisterAdmission(newAdmissionId, match, expiresAtUnixSeconds, out replaced);
+        long nowUnix = _clock.GetUtcNow().ToUnixTimeSeconds();
+        long nowTimestamp = _clock.GetTimestamp();
+        if (expiresAtUnixSeconds <= nowUnix) return false;
+        long deadline;
+        try { deadline = checked(nowTimestamp + Math.Max(1, checked((expiresAtUnixSeconds - nowUnix) * _clockFrequency))); }
+        catch (OverflowException) { return false; }
+        lock (_gate)
+        {
+            PurgeExpiredAdmissions(nowTimestamp);
+            if (_disposed || !_matches.TryGetValue(match.WireMatchId, out MatchDatagramTransport? current)
+                || current != match) return false;
+            if (_admissions.TryGetValue(newAdmissionId, out AdmissionRoute existing)
+                && existing.Match != match) return false;
+            if (_admissions.TryGetValue(oldAdmissionId, out AdmissionRoute old)
+                && old.Match != match) return false;
+            if (!_admissions.ContainsKey(oldAdmissionId)
+                && !_admissions.ContainsKey(newAdmissionId))
+            {
+                int matchAdmissionCount = _admissions.Values.Count(route => route.Match == match);
+                if (matchAdmissionCount >= AdmissionRouteLimitPerMatch
+                    || _admissions.Count >= MatchLimit * AdmissionRouteLimitPerMatch) return false;
+            }
+            _admissions.Remove(oldAdmissionId);
+            _admissions[newAdmissionId] = new(match, deadline);
+            replaced = true;
+            SignalNetworkWork();
+            return true;
         }
     }
 
@@ -311,9 +399,9 @@ public sealed class WorkerNetworkHub : IDisposable
                 {
                     // The physical transport already bounds its drain; enforce a worker budget as well.
                     int received = _physical.Drain(_receiveBuffer);
-                    long nowTimestamp = Stopwatch.GetTimestamp();
-                    double now = nowTimestamp / (double)Stopwatch.Frequency;
-                    lock (_gate) PurgeExpiredAdmissions(nowTimestamp);
+                    long admissionTimestamp = _clock.GetTimestamp();
+                    double now = Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency;
+                    lock (_gate) PurgeExpiredAdmissions(admissionTimestamp);
                     for (int packetIndex = 0; packetIndex < received; packetIndex++)
                     {
                         ReceivedPacket packet = _receiveBuffer[packetIndex];
@@ -589,7 +677,8 @@ internal sealed class WorkerNetworkLoopMetrics
     }
 }
 
-internal readonly record struct AdmissionRoute(MatchDatagramTransport Match, long ExpiresAtTimestamp);
+internal readonly record struct AdmissionRoute(MatchDatagramTransport Match,
+    long ExpiresAtTimestamp, bool Established = false);
 
 /// <summary>Fixed-size source-IP limiter for unauthenticated Join abuse.</summary>
 internal sealed class JoinSourceIngressLimiter

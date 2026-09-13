@@ -32,7 +32,7 @@ public sealed class WorkerTicketAdmissionTests
         long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         var claims = new WorkerAdmissionClaims(spec.NodeId, spec.NodeIncarnation, placement.WorkerId, placement.WorkerIncarnation,
             spec.LobbyId, spec.MatchId, placement.WireMatchId, Guid.NewGuid(), player, guestId, SeatRole.Player, 3, "SEAT", 123,
-            now, now + 60, Guid.NewGuid());
+            now, now + 60, Guid.NewGuid(), HandoffGeneration.Initial);
         using var issuer = new WorkerAdmissionIssuer("node");
         using var authority = new WorkerTicketAuthority(spec, placement, issuer.KeyId, issuer.ExportPublicKey());
         Guid admissionId = Guid.NewGuid();
@@ -41,7 +41,7 @@ public sealed class WorkerTicketAdmissionTests
         string admissionKey = Convert.ToBase64String(Enumerable.Range(0, AdmissionKeyRules.ByteLength).Select(value => (byte)value).ToArray());
         var admission = new InstallAdmissionKey(admissionId, ticketId, sessionId, spec.NodeId, spec.NodeIncarnation,
             spec.MatchId, placement.WireMatchId, placement.WorkerId, placement.WorkerIncarnation,
-            claims.SeatId, claims.JoinNonce, now + 60, admissionKey);
+            claims.SeatId, claims.JoinNonce, now + 60, admissionKey, claims.HandoffGeneration);
         Assert.True(authority.TryInstallAdmissionKey(admission, out string installReason), installReason);
         Assert.True(authority.TryGetAdmissionKey(admissionId, out byte[] storedKey));
         Assert.Equal(Convert.FromBase64String(admissionKey), storedKey);
@@ -90,6 +90,86 @@ public sealed class WorkerTicketAdmissionTests
         Assert.Same(peer, network.Peers[3]);
     }
 
+    [Fact]
+    public void AdmissionGenerationSupersessionAndExactRetirementAreBoundToTheSeatOwner()
+    {
+        var rules = MatchRules.CreateDefault(MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1);
+        var player = new PlayerId(Guid.NewGuid());
+        var spec = new MatchSpec(new(Guid.NewGuid()), new(Guid.NewGuid()), new(Guid.NewGuid()), Guid.NewGuid(), rules,
+            new(rules.RoomKey, "hash", "AMHE1", "test", NetHeader.Version), MatchTrustClass.Private, null, null,
+            ImmutableArray.Create(new RosterSeat(0, player, null, "SEAT", Hunter.Samus, 0, SeatRole.Player, false)),
+            BotFillPolicy.Disabled, ObserverPolicy.Disabled, ReplayPolicy.Disabled, TelemetryPolicy.Disabled, 1, 2);
+        var placement = new MatchPlacement(spec.MatchId, new(55), new(Guid.NewGuid()), Guid.NewGuid(), "127.0.0.1", 50001);
+        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        using var issuer = new WorkerAdmissionIssuer("generation-test");
+        using var authority = new WorkerTicketAuthority(spec, placement, issuer.KeyId, issuer.ExportPublicKey());
+        Guid session = Guid.NewGuid();
+
+        WorkerAdmissionClaims Claims(HandoffGeneration generation, Guid ticketId, ulong nonce)
+            => new(spec.NodeId, spec.NodeIncarnation, placement.WorkerId, placement.WorkerIncarnation,
+                spec.LobbyId, spec.MatchId, placement.WireMatchId, session, player, null, SeatRole.Player, 0,
+                "SEAT", nonce, now, now + 60, ticketId, generation);
+        InstallAdmissionKey Admission(WorkerAdmissionClaims claims, Guid admissionId, byte marker)
+            => new(admissionId, claims.TicketId, claims.NodeSessionId, spec.NodeId, spec.NodeIncarnation,
+                spec.MatchId, placement.WireMatchId, placement.WorkerId, placement.WorkerIncarnation,
+                claims.SeatId, claims.JoinNonce, now + 60,
+                Convert.ToBase64String(Enumerable.Range(0, AdmissionKeyRules.ByteLength)
+                    .Select(value => (byte)(value + marker)).ToArray()), claims.HandoffGeneration);
+
+        HandoffGeneration firstGeneration = new(1);
+        HandoffGeneration secondGeneration = new(2);
+        WorkerAdmissionClaims firstClaims = Claims(firstGeneration, Guid.NewGuid(), 1001);
+        InstallAdmissionKey first = Admission(firstClaims, Guid.NewGuid(), 0);
+        Assert.True(authority.TryInstallAdmissionKey(first, out string firstReason), firstReason);
+
+        WorkerAdmissionClaims secondClaims = Claims(secondGeneration, Guid.NewGuid(), 1002);
+        InstallAdmissionKey second = Admission(secondClaims, Guid.NewGuid(), 1);
+        Assert.True(authority.TryInstallAdmissionKey(second, out string secondReason, out Guid superseded), secondReason);
+        Assert.Equal(first.AdmissionId, superseded);
+        Assert.False(authority.TryGetAdmissionKey(first.AdmissionId, out _));
+        Assert.True(authority.TryGetAdmissionKey(second.AdmissionId, out byte[] retained));
+        Assert.Equal(Convert.FromBase64String(second.AdmissionKey), retained);
+
+        var staleRetire = new RetireAdmission(spec.MatchId, session, 0, firstGeneration,
+            first.AdmissionId, placement.WorkerId, placement.WorkerIncarnation);
+        Assert.False(authority.TryRetireAdmission(staleRetire, out string staleReason));
+        Assert.Equal("admission_stale_generation", staleReason);
+        Assert.True(authority.TryGetAdmissionKey(second.AdmissionId, out _));
+
+        var join = new JoinPacket(NetHeader.Version, secondClaims.JoinNonce, Hunter.Samus, "SEAT",
+            Ticket: issuer.Issue(secondClaims), WireMatchId: placement.WireMatchId.Value,
+            AdmissionId: second.AdmissionId);
+        var identity = new TicketIdentity(player, secondClaims.TicketId, secondClaims.ExpiresAt,
+            ReservedSeat: 0, WorkerAdmission: true, NodeSessionId: session,
+            HandoffGeneration: secondGeneration);
+        Assert.True(authority.ValidateAdmissionIdentity(second.AdmissionId, join, identity));
+
+        var retire = new RetireAdmission(spec.MatchId, session, 0, secondGeneration,
+            second.AdmissionId, placement.WorkerId, placement.WorkerIncarnation);
+        Assert.True(authority.TryRetireAdmission(retire, out string retireReason), retireReason);
+        Assert.False(authority.TryGetAdmissionKey(second.AdmissionId, out _));
+        // Repeating the exact retirement is idempotent; it cannot affect a
+        // future lease for the same immutable owner.
+        Assert.True(authority.TryRetireAdmission(retire, out _));
+
+        // Retirement does not roll the owner generation back.  A delayed
+        // install with the retired generation is rejected before a new lease
+        // can be opened, and remains stale after a newer lease is installed.
+        InstallAdmissionKey delayed = Admission(Claims(secondGeneration, Guid.NewGuid(), 1003), Guid.NewGuid(), 2);
+        Assert.False(authority.TryInstallAdmissionKey(delayed, out string delayedReason));
+        Assert.Equal("admission_stale_generation", delayedReason);
+        InstallAdmissionKey third = Admission(Claims(new HandoffGeneration(3), Guid.NewGuid(), 1004), Guid.NewGuid(), 3);
+        Assert.True(authority.TryInstallAdmissionKey(third, out string thirdReason), thirdReason);
+        Assert.False(authority.TryInstallAdmissionKey(delayed, out delayedReason));
+        Assert.Equal("admission_stale_generation", delayedReason);
+        Assert.True(authority.TryGetAdmissionKey(third.AdmissionId, out _));
+        Assert.False(authority.TryInstallAdmissionKey(first with
+        {
+            AdmissionId = Guid.NewGuid(), HandoffGeneration = default
+        }, out string zeroReason));
+        Assert.Equal("admission_generation", zeroReason);
+    }
+
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -120,7 +200,8 @@ public sealed class WorkerTicketAdmissionTests
 
         WorkerAdmissionClaims Claims(ulong nonce, Guid ticketId) => new(spec.NodeId, spec.NodeIncarnation,
             placement.WorkerId, placement.WorkerIncarnation, spec.LobbyId, spec.MatchId, placement.WireMatchId,
-            Guid.NewGuid(), player, guestId, SeatRole.Observer, 8, "WATCH", nonce, now, now + 60, ticketId);
+            Guid.NewGuid(), player, guestId, SeatRole.Observer, 8, "WATCH", nonce, now, now + 60, ticketId,
+            HandoffGeneration.Initial);
         JoinPacket Join(ulong nonce, Guid ticketId, ulong previous, string ticket) =>
             new(NetHeader.Version, nonce, Hunter.Samus, "WATCH", previous, ticket, Observer: true, WireMatchId: 55);
         void Send(JoinPacket join, IPEndPoint endpoint)

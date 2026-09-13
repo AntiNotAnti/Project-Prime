@@ -52,11 +52,14 @@ public sealed partial class LobbyManager
         public Dictionary<Guid, LobbyMember> Members = [];
         public Queue<LobbyChatEntry> Chat = [];
         public LobbyWaitlist Waitlist = null!;
+        // A lobby owns the monotonic lifecycle epoch for its current/next
+        // match.  It is a projection marker, not a second mutable match owner.
+        public MatchLifecycleEpoch LifecycleEpoch = MatchLifecycleEpoch.Initial;
         public LobbySnapshot Snapshot(HumanIdentityKey? self = null,
             MapRequirement? requiredMap = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
             Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount,
             HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self),
-            HostRules.LegacyPointGoal(Mode), HostRules, requiredMap);
+            HostRules.LegacyPointGoal(Mode), HostRules, requiredMap, LifecycleEpoch);
     }
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
@@ -324,6 +327,7 @@ public sealed partial class LobbyManager
                             Round(lobby.Id).Resolved = null;
                             lobby.MapKey = configure.MapKey; lobby.Mode = configure.Mode;
                             lobby.BotCount = configure.BotCount; lobby.HostRules = normalized;
+                            NormalizeTeams(lobby);
                             foreach (var item in lobby.Members.ToArray()) lobby.Members[item.Key] = item.Value with { Ready = false };
                             AdvanceWaitlist(lobby);
                             break;
@@ -346,7 +350,9 @@ public sealed partial class LobbyManager
                             lobby.Members[identity.SessionId] = member with { Hunter = hunter.Hunter, Ready = false };
                             break;
                         case LobbyRequestTeam team:
-                            if (member.Observer || team.Team > 1) throw Error("invalid", "Invalid team.");
+                            if (member.Observer || !lobby.Mode.IsTeamMode()
+                                || team.Team >= ConfiguredTeamCount(lobby))
+                                throw Error("invalid", "Invalid team.");
                             if (member.Team == team.Team) return SnapshotFor(lobby, identity.IdentityKey);
                             lobby.Members[identity.SessionId] = member with { Team = team.Team, Ready = false };
                             break;
@@ -397,11 +403,13 @@ public sealed partial class LobbyManager
             {
                 seats.Add(ToRosterSeat((byte)seats.Count, member, SeatRole.Player));
             }
+            int teamCount = ConfiguredTeamCount(lobby);
             for (int bot = 0; bot < lobby.BotCount; bot++)
                 seats.Add(new((byte)seats.Count, null, null, "Bot" + (bot + 1),
-                    botHunters[bot], (byte)((players.Length + bot) % 2), SeatRole.Bot, false));
-            if (lobby.Mode.IsTeamMode() && seats.Select(s => s.Team).Distinct().Count() != 2)
-                throw Error("teams", "Both teams need players.");
+                    botHunters[bot], (byte)((players.Length + bot) % teamCount), SeatRole.Bot, false));
+            if (lobby.Mode.IsTeamMode()
+                && seats.Select(s => s.Team).Distinct().Count() != teamCount)
+                throw Error("teams", "Every configured team needs a player.");
             // MatchSpec is immutable. Offers that have not been accepted before
             // this boundary are returned to FIFO and receive fresh offer IDs at
             // the next eligible boundary; accepting them after start is stale.
@@ -413,6 +421,9 @@ public sealed partial class LobbyManager
             // every start/rematch/continuation derives the exact same Game
             // rules from this canonical value.
             var rules = lobby.HostRules.ToMatchRules(lobby.Mode, lobby.MapKey, lobby.Rules.PlayerLimit);
+            if (lobby.LifecycleEpoch.Value == ulong.MaxValue)
+                throw Error("lifecycle_exhausted", "Lobby lifecycle capacity is exhausted.");
+            lobby.LifecycleEpoch = new MatchLifecycleEpoch(lobby.LifecycleEpoch.Value + 1);
             var spec = new MatchSpec(new(Guid.NewGuid()), new(lobby.Id), nodeId, incarnation,
                 rules, content,
                 lobby.Members.Values.Any(m => m.GuestSessionId.HasValue)
@@ -420,7 +431,7 @@ public sealed partial class LobbyManager
                 null, null, seats.ToImmutable(), lobby.BotCount == 0 ? BotFillPolicy.Disabled : BotFillPolicy.FillVacancies,
                 lobby.Rules.ObserverLimit > 0 ? ObserverPolicy.Allowed : ObserverPolicy.Disabled,
                 _replayPolicy, TelemetryPolicy.Record,
-                gameplaySeed, cosmeticSeed);
+                gameplaySeed, cosmeticSeed, lobby.LifecycleEpoch);
             spec = ApplyRoundIdentity(lobby.Id, spec);
             spec.Validate();
             lobby.MatchId = spec.MatchId.Value; lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
@@ -451,6 +462,43 @@ public sealed partial class LobbyManager
             lobby.Phase = LobbyPhase.InMatch;
             // A transition's approved state remains available through
             // replacement preparation and is retired only at this boundary.
+            CompletePreparedMatchTransition(placement);
+            ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
+        }
+    }
+
+    /// <summary>
+    /// Commits a prepared match only after the Node has received the Worker
+    /// ready signal and installed every frozen human admission.  The caller
+    /// supplies the immutable preparation boundary captured immediately after
+    /// <see cref="PrepareMatch"/>; chat, disconnect/readiness changes, or any
+    /// other lobby revision therefore fail closed instead of publishing a
+    /// partially-admitted InMatch state.
+    /// </summary>
+    public bool CommitMatchReady(MatchPlacement placement, long preparationRevision,
+        Guid preparationOwnerSessionId, MatchLifecycleEpoch lifecycleEpoch,
+        IReadOnlyList<LobbyMember> frozenMembers)
+    {
+        placement.Validate();
+        if (preparationRevision < 1 || preparationOwnerSessionId == Guid.Empty
+            || lifecycleEpoch.Value == 0 || frozenMembers == null)
+            return false;
+        lifecycleEpoch.Validate();
+        lock (_gate)
+        {
+            Lobby? lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == placement.MatchId.Value);
+            if (lobby == null || lobby.Phase != LobbyPhase.StartingMatch
+                || lobby.Revision != preparationRevision
+                || lobby.Owner != preparationOwnerSessionId
+                || lobby.LifecycleEpoch != lifecycleEpoch
+                || lobby.Members.Count != frozenMembers.Count)
+                return false;
+            foreach (LobbyMember frozen in frozenMembers)
+                if (!lobby.Members.TryGetValue(frozen.SessionId, out LobbyMember? current)
+                    || current != frozen)
+                    return false;
+
+            lobby.Phase = LobbyPhase.InMatch;
             CompletePreparedMatchTransition(placement);
             ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
@@ -490,7 +538,9 @@ public sealed partial class LobbyManager
         Lobby lobby = ResolveQueueLobby(identity, command.LobbyId, allowMissing: false);
         Revision(lobby, command.ExpectedRevision);
         if (lobby.Phase == LobbyPhase.Closing) throw Error("phase", "Lobby is closing.");
-        if (command.RequestedTeam is > 1 || !Enum.IsDefined(command.RequestedRole))
+        if (command.RequestedTeam is { } requestedTeam
+            && lobby.Mode.IsTeamMode() && requestedTeam >= ConfiguredTeamCount(lobby)
+            || !Enum.IsDefined(command.RequestedRole))
             throw Error("invalid", "Invalid waitlist request.");
         if (command.RequestedRole != LobbyQueueRequestedRole.Player)
             throw Error("role", "The waitlist reserves player seats; use lobby.join to spectate.");
@@ -687,16 +737,39 @@ public sealed partial class LobbyManager
     private static byte AllocateTeam(Lobby lobby, byte? requested)
     {
         if (!lobby.Mode.IsTeamMode()) return 0;
-        int team0 = lobby.Members.Values.Count(m => !m.Observer && m.Team == 0);
-        int team1 = lobby.Members.Values.Count(m => !m.Observer && m.Team == 1);
+        int teamCount = ConfiguredTeamCount(lobby);
+        Span<int> counts = stackalloc int[MatchRules.MaximumTeamCount];
+        foreach (LobbyMember member in lobby.Members.Values)
+            if (!member.Observer && member.Team < teamCount) counts[member.Team]++;
         if (lobby.BotCount > 0)
         {
             for (int bot = 0; bot < lobby.BotCount; bot++)
-                if ((lobby.Members.Values.Count(m => !m.Observer) + bot) % 2 == 0) team0++; else team1++;
+                counts[(lobby.Members.Values.Count(m => !m.Observer) + bot) % teamCount]++;
         }
-        byte preferred = requested is 0 or 1 ? requested.Value : (byte)0;
-        if (team0 == team1) return preferred;
-        return (byte)(team0 < team1 ? 0 : 1);
+        byte preferred = requested is { } value && value < teamCount ? value : (byte)0;
+        int minimum = counts[0];
+        for (int team = 1; team < teamCount; team++) minimum = Math.Min(minimum, counts[team]);
+        if (counts[preferred] == minimum) return preferred;
+        for (byte team = 0; team < teamCount; team++)
+            if (counts[team] == minimum) return team;
+        return 0;
+    }
+
+    private static int ConfiguredTeamCount(Lobby lobby)
+        => lobby.Mode.IsTeamMode() ? lobby.HostRules.TeamCount ?? 2 : 1;
+
+    private static void NormalizeTeams(Lobby lobby)
+    {
+        int teamCount = ConfiguredTeamCount(lobby);
+        foreach ((Guid sessionId, LobbyMember member) in lobby.Members.ToArray())
+        {
+            if (member.Observer || member.Team < teamCount) continue;
+            lobby.Members[sessionId] = member with
+            {
+                Team = AllocateTeam(lobby, requested: null),
+                Ready = false
+            };
+        }
     }
 
     private static HumanIdentityKey? IdentityForSession(Lobby lobby, Guid sessionId)
@@ -734,7 +807,10 @@ public sealed partial class LobbyManager
         if (!observer)
             capacity -= lobby.Waitlist.ActiveEntries().Count(entry => entry.State == LobbyQueueEntryState.SeatOffered);
         if (count >= capacity) throw Error("capacity", "Lobby role capacity reached.");
-        lobby.Members.Add(identity.SessionId, new(identity.SessionId, identity.PlayerId, identity.DisplayName, Hunter.Samus, 0, false, observer, identity.GuestSessionId));
+        byte team = observer ? (byte)0 : AllocateTeam(lobby, requested: null);
+        lobby.Members.Add(identity.SessionId, new(identity.SessionId, identity.PlayerId,
+            identity.DisplayName, Hunter.Samus, team, false, observer,
+            identity.GuestSessionId));
         _membership.Add(identity.SessionId, lobby.Id);
         return Publish(lobby);
     }

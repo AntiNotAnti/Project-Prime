@@ -49,7 +49,9 @@ public sealed class LobbyWaitlist
     {
         if (sessionId == Guid.Empty) throw new ArgumentException("Session identity is required.", nameof(sessionId));
         if (identity.Value == Guid.Empty) throw new ArgumentException("Human identity is required.", nameof(identity));
-        if (!Enum.IsDefined(requestedRole) || requestedTeam is > 1) throw new ArgumentException("Invalid queue request.");
+        if (!Enum.IsDefined(requestedRole)
+            || requestedTeam is >= MphRead.MatchRules.MaximumTeamCount)
+            throw new ArgumentException("Invalid queue request.");
         if (Find(identity) is not null) throw new InvalidOperationException("Identity is already queued.");
         if (Count >= _maximumEntries) throw new InvalidOperationException("Waitlist capacity reached.");
         if (_nextSequence == long.MaxValue)

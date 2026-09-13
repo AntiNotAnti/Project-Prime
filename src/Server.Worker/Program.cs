@@ -151,7 +151,8 @@ public static class Program
                     case MatchAdminCommand admin: Dispatch(AdminAsync(admin)); break;
                     case UpdateNodeSigningKey key: await runtime.UpdateSigningKeyAsync(key); break;
                     case InstallAdmissionKey admission: Dispatch(InstallAdmissionAsync(admission)); break;
-                    case CancelMatch cancel: Dispatch(runtime.CancelAsync(cancel.MatchId)); break;
+                    case RetireAdmission retire: Dispatch(RetireAdmissionAsync(retire)); break;
+                    case CancelMatch cancel: Dispatch(CancelAsync(cancel)); break;
                     case Drain: runtime.Drain(); break;
                     case Shutdown:
                         await runtime.DisposeAsync();
@@ -189,6 +190,10 @@ public static class Program
         async Task AdminAsync(MatchAdminCommand admin) => await outbound.Writer.WriteAsync(await runtime.AdminAsync(admin), stop.Token);
         async Task InstallAdmissionAsync(InstallAdmissionKey admission)
             => await outbound.Writer.WriteAsync(await runtime.InstallAdmissionKeyAsync(admission), stop.Token);
+        async Task RetireAdmissionAsync(RetireAdmission retire)
+            => await outbound.Writer.WriteAsync(await runtime.RetireAdmissionAsync(retire), stop.Token);
+        async Task CancelAsync(CancelMatch cancel)
+            => await outbound.Writer.WriteAsync(await runtime.CancelAsync(cancel), stop.Token);
         async Task CreateAsync(CreateMatch create)
         {
             WorkerEvent response = await runtime.CreateAsync(create.Spec);

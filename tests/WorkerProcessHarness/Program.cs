@@ -15,6 +15,7 @@ if (mode == "network-flags"
         || Get("--reliable-adaptive-rto") != "True")) return 32;
 if (mode == "ack-coalescing" && Get("--ack-coalescing") != "True") return 33;
 var activeMatches = new Dictionary<MatchId, MatchSpec>();
+long acceptedMatches = 0;
 if (mode == "environment"
     && (Environment.GetEnvironmentVariable("PRIME_NODE_DIRECTORY_SECRET") != null
         || Environment.GetEnvironmentVariable("PRIME_DATA_DIRECTORY") != Get("--expected-data-directory"))) return 29;
@@ -63,13 +64,30 @@ while (true)
 {
     if (await Task.WhenAny(pending, Task.Delay(50)) != pending)
     {
-        if (mode != "silent") await WorkerIpcCodec.WriteAsync(pipe, new WorkerHeartbeat(worker, incarnation, configure.Capacity,
-            new WorkerHealth(WorkerStatus.Ready, 1, 0, 1)));
+        if (mode != "silent")
+        {
+            WorkerDiagnostics? diagnostics = mode == "completed-history"
+                ? new WorkerDiagnostics([new WorkerLaneHealth(0, 0, 0, 0, 0,
+                    0, 0, 0, 0)], 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                    Matches: [],
+                    LifetimeMatchesAccepted: acceptedMatches,
+                    IdentityHistoryUsed: checked((int)acceptedMatches),
+                    IdentityHistoryCapacity: 4096)
+                : null;
+            await WorkerIpcCodec.WriteAsync(pipe, new WorkerHeartbeat(worker,
+                incarnation, configure.Capacity,
+                new WorkerHealth(WorkerStatus.Ready, 1, 0, 1, diagnostics)));
+        }
         continue;
     }
     WorkerMessage? command = await pending;
     switch (command)
     {
+        case UpdateNodeSigningKey signingKey:
+            if (mode == "signing-key-noack") break;
+            await WorkerIpcCodec.WriteAsync(pipe, new NodeSigningKeyUpdated(
+                worker, incarnation, signingKey.KeyId));
+            break;
         case Shutdown:
             if (mode == "ignore-shutdown") break;
             return 0;
@@ -95,14 +113,20 @@ while (true)
             await WorkerIpcCodec.WriteAsync(pipe, mode == "admission-key-stale"
                 ? new AdmissionKeyInstalled(admission.AdmissionId, Guid.NewGuid(), admission.NodeSessionId,
                     admission.NodeId, admission.NodeIncarnation, admission.MatchId, admission.WireMatchId,
-                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt)
+                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt,
+                    admission.HandoffGeneration)
                 : new AdmissionKeyInstalled(admission.AdmissionId, admission.TicketId, admission.NodeSessionId,
                     admission.NodeId, admission.NodeIncarnation, admission.MatchId, admission.WireMatchId,
-                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt));
+                    admission.WorkerId, admission.WorkerIncarnation, admission.SeatId, admission.JoinNonce, admission.ExpiresAt,
+                    admission.HandoffGeneration));
             break;
         case CancelMatch cancel:
+            await WorkerIpcCodec.WriteAsync(pipe, new MatchCancelAccepted(worker, incarnation,
+                cancel.MatchId, cancel.OperationId));
+            if (mode == "cancel-hang") break;
             await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(cancel.MatchId, "cancelled")); break;
         case CreateMatch create:
+            acceptedMatches++;
             if (mode == "controlled-completion") activeMatches.Add(create.Spec.MatchId, create.Spec);
             if (mode == "crash-match") return 23;
             if (mode == "create-hang") break;
@@ -132,7 +156,7 @@ while (true)
                 await WorkerIpcCodec.WriteAsync(pipe, mode == "wrong-report-id" ? reportNotice with { ReportId = Guid.NewGuid() }
                     : reportNotice with { PayloadHash = new string('B', 64) });
             }
-            if (mode is "completed" or "duplicate-terminal") await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(create.Spec.MatchId,
+            if (mode is "completed" or "completed-history" or "duplicate-terminal") await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(create.Spec.MatchId,
                 create.Spec.LobbyId, MphRead.MatchEndReason.TimeLimit, [], null, null, Guid.NewGuid())));
             if (mode == "duplicate-terminal") await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(create.Spec.MatchId, "duplicate"));
             break;

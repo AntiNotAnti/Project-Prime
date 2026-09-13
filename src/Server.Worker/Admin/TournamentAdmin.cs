@@ -89,7 +89,9 @@ public sealed class TournamentAdmin
             case AdminCommandKind.LockRoster: _network.AdminRosterLocked = true; break;
             case AdminCommandKind.UnlockRoster: _network.AdminRosterLocked = false; break;
             case AdminCommandKind.AssignTeam:
-                if (!prestart || peer == null || command.TeamIndex is not (0 or 1)) return Reject("Assign a live participant and team0 or1 before countdown.");
+                if (!prestart || peer == null || command.TeamIndex is not { } team
+                    || team < 0 || team >= simulation.Scene.Match.Rules.TeamCount)
+                    return Reject("Assign a live participant to a configured team before countdown.");
                 _network.AssignAdminTeam(simulation.Scene, peer, (byte)command.TeamIndex.Value); _ready.Clear(); break;
             case AdminCommandKind.ForceSpectator:
                 if (peer == null) return Reject("Connection is not present.");
@@ -116,7 +118,10 @@ public sealed class TournamentAdmin
                     return Reject("The checked roster changed or a participant is still loading.");
                 var bots = simulation.Bots.Participants.ToArray().Where(b => b != null).ToArray();
                 if (humans.Length + bots.Length < (simulation.Scene.Match.Rules.MaxPlayers == 1 ? 1 : 2)
-                    || simulation.Scene.Match.Rules.Teams && humans.Select(p => (int)p!.TeamIndex).Concat(bots.Select(b => (int)b!.TeamIndex)).Distinct().Count() != 2)
+                    || simulation.Scene.Match.Rules.Teams
+                    && humans.Select(p => (int)p!.TeamIndex)
+                        .Concat(bots.Select(b => (int)b!.TeamIndex)).Distinct().Count()
+                        != simulation.Scene.Match.Rules.TeamCount)
                     return Reject("The configured mode does not yet have enough participants on its required teams.");
                 if (!simulation.ReportingMayStart || _recordingRequired && _replay?.Ready != true)
                     return Reject("Required result/replay storage is not ready.");

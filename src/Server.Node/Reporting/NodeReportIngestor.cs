@@ -10,7 +10,8 @@ namespace ProjectPrime.Server.Node.Reporting;
 /// <summary>Node-owned bounded artifact ingestion. HTTP and durable retry ownership remain in MatchReportOutbox.</summary>
 public sealed class NodeReportIngestor : IAsyncDisposable
 {
-    private sealed record Intake(MatchSpec Spec, WorkerId Worker, Guid Incarnation, uint WireId, string Root, MatchReportReady Ready);
+    private sealed record Intake(MatchSpec Spec, WorkerId Worker, Guid Incarnation, uint WireId, string Root,
+        MatchReportReady Ready, TaskCompletionSource<bool> Durability);
     private sealed record Binding(Guid MatchId, string Hash, MatchReportV1? Pending, string SpecHash, WorkerId Worker, Guid Incarnation, uint WireId, string ArtifactRoot);
     private readonly MatchReportOutbox _outbox;
     private readonly string _bindings;
@@ -18,15 +19,17 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
     private readonly Dictionary<MatchId, MatchReportOutbox.Reservation> _reservations = new();
+    private readonly HashSet<TaskCompletionSource<bool>> _durabilityTasks = [];
     private readonly Task _reader;
     private volatile bool _ready;
+    private bool _stopping;
     private string? _error;
     public string? LastError => Volatile.Read(ref _error);
     private int _bindingCount;
     private long _bindingBytes;
     public bool CanAcceptOfficial
     {
-        get { lock (_gate) return _ready && LastError == null && _outbox.CanAccept
+        get { lock (_gate) return _ready && !_stopping && _error == null && _outbox.CanAccept
             && _bindingCount + _reservations.Count < MaximumBindings
             && _bindingBytes + (_reservations.Count + 1L) * MatchReportReady.MaximumPayloadBytes * 2L <= MaximumBindingBytes; }
     }
@@ -56,12 +59,38 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     public void CancelReservation(MatchId matchId)
     { lock (_gate) if (_reservations.Remove(matchId, out var reservation)) reservation.Dispose(); }
 
-    public bool TryQueue(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId, string artifactDirectory, MatchReportReady ready)
+    public bool TryQueue(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId,
+        string artifactDirectory, MatchReportReady ready)
+        => TryQueue(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready, out _);
+
+    /// <summary>Queues one report and returns the Node-owned durability edge.
+    /// A successful return means only that bounded intake accepted the notice;
+    /// callers must await the returned task before retiring the match.</summary>
+    public bool TryQueue(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId,
+        string artifactDirectory, MatchReportReady ready, out Task durability)
     {
-        if (LastError != null || !_ready || !Path.IsPathFullyQualified(artifactDirectory)) return false;
-        Interlocked.Increment(ref _pending);
-        if (_queue.Writer.TryWrite(new(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready))) return true;
-        Interlocked.Decrement(ref _pending); return false;
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        durability = completion.Task;
+        lock (_gate)
+        {
+            // Admission and publication are one gate-owned transaction. The
+            // reader can fail/close the channel concurrently, so never leave a
+            // task registered after a rejected write and never publish after a
+            // failure has been observed.
+            if (_error != null || !_ready || _stopping || !Path.IsPathFullyQualified(artifactDirectory))
+            {
+                completion.TrySetException(new IOException("Report ingestion is unavailable."));
+                return false;
+            }
+            Interlocked.Increment(ref _pending);
+            _durabilityTasks.Add(completion);
+            if (_queue.Writer.TryWrite(new(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready, completion)))
+                return true;
+            _durabilityTasks.Remove(completion);
+            Interlocked.Decrement(ref _pending);
+            completion.TrySetException(new IOException("Report ingestion queue is closed."));
+            return false;
+        }
     }
 
     /// <summary>Validate and remove a report produced for a guest match without
@@ -125,56 +154,113 @@ public sealed class NodeReportIngestor : IAsyncDisposable
                 if (binding.Pending is { } pending) await StoreAsync(pending, binding.Hash, path);
                 CleanupArtifact(binding);
             }
-            _ready = true;
+            lock (_gate) if (!_stopping) _ready = true;
             await foreach (var item in _queue.Reader.ReadAllAsync(_stop.Token))
             {
-                item.Ready.Validate();
-                if (item.Ready.MatchId != item.Spec.MatchId || item.Ready.ReportId != item.Spec.MatchId.Value || item.Ready.WorkerId != item.Worker || item.Ready.WorkerIncarnation != item.Incarnation)
-                    throw new InvalidDataException("Report artifact sender does not own the frozen placement.");
-                string bindingPath = Path.Combine(_bindings, item.Spec.MatchId.Value.ToString("N") + ".json");
-                string specHash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(item.Spec)));
-                if (File.Exists(bindingPath))
+                bool durable = false;
+                try
                 {
-                    Binding prior = ReadBinding(bindingPath);
-                    if (prior.Hash != item.Ready.PayloadHash || prior.SpecHash != specHash || prior.Worker != item.Worker
-                        || prior.Incarnation != item.Incarnation || prior.WireId != item.WireId
-                        || Path.GetFullPath(prior.ArtifactRoot) != Path.GetFullPath(item.Root))
-                        throw new InvalidDataException("Conflicting immutable report placement.");
-                    if (prior.Pending == null)
-                    { CleanupArtifact(prior); CancelReservation(item.Spec.MatchId); Interlocked.Increment(ref _ingested); Interlocked.Decrement(ref _pending); continue; }
+                    item.Ready.Validate();
+                    if (item.Ready.MatchId != item.Spec.MatchId || item.Ready.ReportId != item.Spec.MatchId.Value || item.Ready.WorkerId != item.Worker || item.Ready.WorkerIncarnation != item.Incarnation)
+                        throw new InvalidDataException("Report artifact sender does not own the frozen placement.");
+                    string bindingPath = Path.Combine(_bindings, item.Spec.MatchId.Value.ToString("N") + ".json");
+                    string specHash = Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(item.Spec)));
+                    if (File.Exists(bindingPath))
+                    {
+                        Binding prior = ReadBinding(bindingPath);
+                        if (prior.Hash != item.Ready.PayloadHash || prior.SpecHash != specHash || prior.Worker != item.Worker
+                            || prior.Incarnation != item.Incarnation || prior.WireId != item.WireId
+                            || Path.GetFullPath(prior.ArtifactRoot) != Path.GetFullPath(item.Root))
+                            throw new InvalidDataException("Conflicting immutable report placement.");
+                        if (prior.Pending == null)
+                        {
+                            CleanupArtifact(prior); CancelReservation(item.Spec.MatchId);
+                            Interlocked.Increment(ref _ingested); durable = true; continue;
+                        }
+                    }
+                    string directory = Path.Combine(item.Root, "reports"); RejectLink(item.Root); RejectLink(directory);
+                    string path = Path.Combine(directory, item.Ready.ReportId.ToString("N") + ".json"); RejectLink(path);
+                    using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                    if (file.Length != item.Ready.PayloadBytes) throw new InvalidDataException("Report artifact length mismatch.");
+                    byte[] bytes = new byte[item.Ready.PayloadBytes]; await file.ReadExactlyAsync(bytes, _stop.Token);
+                    if (file.Length != bytes.Length) throw new InvalidDataException("Report artifact changed during read.");
+                    string hash = Convert.ToHexString(SHA256.HashData(bytes));
+                    if (!string.Equals(hash, item.Ready.PayloadHash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Report artifact hash mismatch.");
+                    var report = JsonSerializer.Deserialize<MatchReportV1>(bytes) ?? throw new InvalidDataException("Missing report body.");
+                    MatchReportBinding.Validate(item.Spec, item.WireId, report);
+                    if (File.Exists(bindingPath))
+                    {
+                        var existing = ReadBinding(bindingPath);
+                        if (existing.MatchId != report.MatchId || existing.Hash != hash) throw new InvalidDataException("Conflicting payload under immutable MatchId.");
+                        if (existing.Pending == null)
+                        {
+                            CancelReservation(item.Spec.MatchId); Interlocked.Increment(ref _ingested);
+                            durable = true; continue;
+                        }
+                    }
+                    else
+                    {
+                        var entries = Directory.GetFiles(_bindings, "*.json");
+                        if (entries.Length >= MaximumBindings || entries.Sum(p => new FileInfo(p).Length) + bytes.Length * 2L > MaximumBindingBytes)
+                            throw new IOException("Report receipt storage is full.");
+                        DurableSpool.Write(bindingPath, JsonSerializer.SerializeToUtf8Bytes(new Binding(report.MatchId, hash, report, specHash, item.Worker, item.Incarnation, item.WireId, item.Root)));
+                        lock (_gate) { _bindingCount++; _bindingBytes += new FileInfo(bindingPath).Length; }
+                    }
+                    await StoreAsync(report, hash, bindingPath);
+                    file.Dispose(); CleanupArtifact(ReadBinding(bindingPath)); // Node durable ownership acknowledges this exact generated artifact.
+                    Interlocked.Increment(ref _ingested);
+                    durable = true;
                 }
-                string directory = Path.Combine(item.Root, "reports"); RejectLink(item.Root); RejectLink(directory);
-                string path = Path.Combine(directory, item.Ready.ReportId.ToString("N") + ".json"); RejectLink(path);
-                using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
-                if (file.Length != item.Ready.PayloadBytes) throw new InvalidDataException("Report artifact length mismatch.");
-                byte[] bytes = new byte[item.Ready.PayloadBytes]; await file.ReadExactlyAsync(bytes, _stop.Token);
-                if (file.Length != bytes.Length) throw new InvalidDataException("Report artifact changed during read.");
-                string hash = Convert.ToHexString(SHA256.HashData(bytes));
-                if (!string.Equals(hash, item.Ready.PayloadHash, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("Report artifact hash mismatch.");
-                var report = JsonSerializer.Deserialize<MatchReportV1>(bytes) ?? throw new InvalidDataException("Missing report body.");
-                MatchReportBinding.Validate(item.Spec, item.WireId, report);
-                if (File.Exists(bindingPath))
+                catch (Exception error)
                 {
-                    var existing = ReadBinding(bindingPath);
-                    if (existing.MatchId != report.MatchId || existing.Hash != hash) throw new InvalidDataException("Conflicting payload under immutable MatchId.");
-                    if (existing.Pending == null) { CancelReservation(item.Spec.MatchId); Interlocked.Increment(ref _ingested); Interlocked.Decrement(ref _pending); continue; }
+                    item.Durability.TrySetException(error);
+                    throw;
                 }
-                else
+                finally
                 {
-                    var entries = Directory.GetFiles(_bindings, "*.json");
-                    if (entries.Length >= MaximumBindings || entries.Sum(p => new FileInfo(p).Length) + bytes.Length * 2L > MaximumBindingBytes)
-                        throw new IOException("Report receipt storage is full.");
-                    DurableSpool.Write(bindingPath, JsonSerializer.SerializeToUtf8Bytes(new Binding(report.MatchId, hash, report, specHash, item.Worker, item.Incarnation, item.WireId, item.Root)));
-                    lock (_gate) { _bindingCount++; _bindingBytes += new FileInfo(bindingPath).Length; }
+                    // A report becomes durable only after StoreAsync and
+                    // artifact cleanup succeed.  Never convert a malformed or
+                    // missing artifact into a successful disposition while
+                    // unwinding the queue item.
+                    if (durable) item.Durability.TrySetResult(true);
+                    else
+                        item.Durability.TrySetException(new IOException("Report durability was not established."));
+                    lock (_gate) _durabilityTasks.Remove(item.Durability);
+                    Interlocked.Decrement(ref _pending);
                 }
-                await StoreAsync(report, hash, bindingPath);
-                file.Dispose(); CleanupArtifact(ReadBinding(bindingPath)); // Node durable ownership acknowledges this exact generated artifact.
-                Interlocked.Increment(ref _ingested); Interlocked.Decrement(ref _pending);
             }
         }
-        catch (OperationCanceledException) when (_stop.IsCancellationRequested) { }
-        catch (Exception error) { Volatile.Write(ref _error, error.GetType().Name + ": report ingestion failed closed."); }
-        finally { _ready = false; }
+        catch (OperationCanceledException error) when (_stop.IsCancellationRequested)
+        {
+            lock (_gate) { _ready = false; _queue.Writer.TryComplete(error); }
+            FailDurability(error);
+        }
+        catch (Exception error)
+        {
+            lock (_gate)
+            {
+                Volatile.Write(ref _error, error.GetType().Name + ": report ingestion failed closed.");
+                _ready = false;
+                _queue.Writer.TryComplete(error);
+            }
+            FailDurability(error);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _ready = false;
+                _queue.Writer.TryComplete();
+            }
+        }
+    }
+
+    private void FailDurability(Exception error)
+    {
+        TaskCompletionSource<bool>[] pending;
+        lock (_gate) { pending = _durabilityTasks.ToArray(); _durabilityTasks.Clear(); }
+        foreach (TaskCompletionSource<bool> completion in pending)
+            completion.TrySetException(error);
     }
     private async Task StoreAsync(MatchReportV1 report, string hash, string bindingPath)
     {
@@ -226,10 +312,20 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     { if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new IOException("Artifact links are not allowed."); }
     public async ValueTask DisposeAsync()
     {
-        _queue.Writer.TryComplete();
+        lock (_gate)
+        {
+            _stopping = true;
+            _ready = false;
+            _queue.Writer.TryComplete();
+        }
         try { await _reader.WaitAsync(TimeSpan.FromSeconds(5)); }
         catch (TimeoutException) { _stop.Cancel(); await _reader; }
-        lock (_gate) { foreach (var reservation in _reservations.Values) reservation.Dispose(); _reservations.Clear(); }
+        lock (_gate)
+        {
+            foreach (var reservation in _reservations.Values) reservation.Dispose();
+            _reservations.Clear();
+        }
+        FailDurability(new ObjectDisposedException(nameof(NodeReportIngestor)));
         _stop.Dispose();
     }
 }

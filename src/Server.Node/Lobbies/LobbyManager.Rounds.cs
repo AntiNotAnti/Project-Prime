@@ -48,9 +48,30 @@ public sealed partial class LobbyManager
         options.Add(new(2, LobbyVoteChoice.NextMap, next.MapKey, next.Mode, 0, next.RequiredMap));
         options.Add(new(3, LobbyVoteChoice.ReturnToLobby, lobby.MapKey, lobby.Mode, 0,
             ContentCatalog?.RequiredMap(lobby.MapKey)));
-        foreach (var map in maps.Where(m => m.MapKey != lobby.MapKey && m.MapKey != next.MapKey).Take(5))
+        SpawnPolicy currentSpawnPolicy = lobby.HostRules.SpawnPolicy
+            ?? MatchRules.CreateDefault(lobby.Mode, lobby.MapKey,
+                lobby.Rules.PlayerLimit).SpawnPolicy;
+        SpawnPolicy[] policyChoices = lobby.Mode == MatchMode.Battle
+            && lobby.Rules.PlayerLimit == 2
+            ? [SpawnPolicy.Classic, SpawnPolicy.Enhanced, SpawnPolicy.Duel]
+            : [SpawnPolicy.Classic, SpawnPolicy.Enhanced];
+        SpawnPolicy[] alternatePolicies = policyChoices.Where(policy =>
+            policy != currentSpawnPolicy).ToArray();
+        // Preserve the established ids of map choices. Control clients may vote
+        // by id while rendering the authoritative ballot, so new policy choices
+        // are appended after reserving their bounded share of the eight slots.
+        int remainingMapChoices = Math.Max(0, 8 - options.Count
+            - alternatePolicies.Length);
+        foreach (var map in maps.Where(m => m.MapKey != lobby.MapKey
+            && m.MapKey != next.MapKey).Take(remainingMapChoices))
             options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.Map, map.MapKey, map.Mode, 0,
                 map.RequiredMap));
+        foreach (SpawnPolicy policy in alternatePolicies)
+        {
+            options.Add(new((byte)(options.Count + 1), LobbyVoteChoice.SpawnPolicy,
+                lobby.MapKey, lobby.Mode, 0,
+                ContentCatalog?.RequiredMap(lobby.MapKey), policy));
+        }
         state.Options = options.ToImmutable();
         state.BallotRevision++; if (state.BallotRevision == 0) state.BallotRevision = 1;
         state.Electorate = lobby.Members.Values.Where(m => !m.Observer).Select(m => m.SessionId).ToHashSet();
@@ -141,6 +162,11 @@ public sealed partial class LobbyManager
                     // mode-specific values before changing the lobby so an
                     // old Survival/Battle rule cannot invalidate continuation.
                     var nextRules = lobby.HostRules.ForMode(selected.Mode);
+                    if (selected.Choice == LobbyVoteChoice.SpawnPolicy
+                        && selected.SpawnPolicy is { } spawnPolicy)
+                    {
+                        nextRules = nextRules with { SpawnPolicy = spawnPolicy };
+                    }
                     _ = nextRules.ToMatchRules(selected.Mode, selected.MapKey, lobby.Rules.PlayerLimit);
                     lobby.MapKey = selected.MapKey; lobby.Mode = selected.Mode;
                     lobby.HostRules = nextRules;
@@ -239,8 +265,12 @@ public sealed partial class LobbyManager
             case LobbyTournamentAssignTeam assign:
                 RequireConfigurable(lobby);
                 if (state.Tournament == null) throw Error("tournament", "Configure tournament identity first.");
-                if (assign.Team > 1 || !lobby.Members.TryGetValue(assign.SessionId, out var teammate) || teammate.Observer)
-                    throw Error("role", "Assign a player member to team 0 or 1.");
+                int assignableTeamCount = lobby.Mode.IsTeamMode()
+                    ? ConfiguredTeamCount(lobby) : 2;
+                if (assign.Team >= assignableTeamCount
+                    || !lobby.Members.TryGetValue(assign.SessionId, out var teammate)
+                    || teammate.Observer)
+                    throw Error("role", "Assign a player member to a configured team.");
                 lobby.Members[assign.SessionId] = teammate with { Team = assign.Team, Ready = false };
                 state.ConfigurationRevision++; InvalidateReady(lobby); break;
             case LobbyTournamentSetObserver spectator:

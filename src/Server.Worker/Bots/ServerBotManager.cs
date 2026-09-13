@@ -34,7 +34,8 @@ public sealed class ServerBotManager
         ? new(bot.Slot, bot.Identity, bot.Hunter, bot.TeamIndex, bot.Name, 0, true) : null;
     public void AssignTeam(int slot, byte team)
     {
-        if (team > 1) throw new ArgumentOutOfRangeException(nameof(team));
+        if (team >= _simulation.Scene.Match.Rules.TeamCount)
+            throw new ArgumentOutOfRangeException(nameof(team));
         if (_slots[slot] is not { } bot || bot.TeamIndex == team) return;
         _slots[slot] = bot with { TeamIndex = team };
         _simulation.Scene.Players[slot].TeamIndex = team;
@@ -57,29 +58,39 @@ public sealed class ServerBotManager
     public void Update(ServerNetwork network, uint tick)
     {
         if (_fixedRoster || _simulation.Scene.Match.Result != null) return;
-        int humans = 0, count = 0; Span<int> teams = stackalloc int[2];
+        int teamCount = _simulation.Scene.Match.Rules.TeamCount;
+        int humans = 0, count = 0;
+        Span<int> teams = stackalloc int[MatchRules.MaximumTeamCount];
         teams.Clear();
         foreach (var peer in network.Peers)
-            if (peer != null && (peer.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing) && !peer.WaitingForNextMatch) { humans++; if (peer.TeamIndex < 2) teams[peer.TeamIndex]++; }
-        foreach (var bot in _slots) if (bot != null) { count++; if (bot.TeamIndex < 2) teams[bot.TeamIndex]++; }
+            if (peer != null && (peer.Connection.State is NetConnectionState.Ready or NetConnectionState.Playing) && !peer.WaitingForNextMatch) { humans++; if (peer.TeamIndex < teamCount) teams[peer.TeamIndex]++; }
+        foreach (var bot in _slots) if (bot != null) { count++; if (bot.TeamIndex < teamCount) teams[bot.TeamIndex]++; }
         int desired = network.Rules.RulesetPreset == RulesetPreset.Duel ? 0 : Policy.DesiredBots(humans, _simulation.Scene.Match.Rules.MaxPlayers);
         int excess = Math.Max(0, count - desired);
         for (int slot = 7; slot >= 0; slot--)
         {
             if (_slots[slot] is not {} bot) continue;
             if (excess > 0) { bot.RetirementRequested = true; excess--; }
-            if (bot.RetirementRequested && Safe(slot)) { Retire(slot, network, tick); count--; teams[bot.TeamIndex % 2]--; }
+            if (bot.RetirementRequested && Safe(slot)) { Retire(slot, network, tick); count--; teams[bot.TeamIndex % teamCount]--; }
         }
         for (int slot = 0; slot < _simulation.Scene.Match.Rules.MaxPlayers && count < desired; slot++)
         {
             if (_slots[slot] != null || network.Peers[slot] != null || network.HasReconnectReservation(slot) || network.HasPendingBotAdmission(slot)) continue;
-            byte team = (byte)(_simulation.Scene.Match.Rules.Teams ? teams[0] <= teams[1] ? 0 : 1 : slot);
+            byte team = (byte)(_simulation.Scene.Match.Rules.Teams
+                ? MinimumTeam(teams, teamCount) : slot);
             ulong identity = NetConnection.NewIdentity();
             var bot = new BotParticipant((byte)slot, identity, (Hunter)(slot % 7), team, $"BOT {slot + 1}");
             _slots[slot] = bot; NetScoreboard.ForgetSlot(_simulation.Scene, slot);
-            Activate(bot); count++; if (team < 2) teams[team]++;
+            Activate(bot); count++; if (team < teamCount) teams[team]++;
             network.InvalidateRoster();
         }
+    }
+    private static int MinimumTeam(ReadOnlySpan<int> teams, int teamCount)
+    {
+        int selected = 0;
+        for (int team = 1; team < teamCount; team++)
+            if (teams[team] < teams[selected]) selected = team;
+        return selected;
     }
     public void Activate(BotParticipant bot)
     {

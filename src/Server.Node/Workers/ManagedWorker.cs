@@ -98,6 +98,7 @@ public sealed class ManagedWorker : IAsyncDisposable
                 CancelMatch c => c.MatchId,
                 MatchAdminCommand c => c.MatchId,
                 InstallAdmissionKey c => c.MatchId,
+                RetireAdmission c => c.MatchId,
                 _ => null
             };
             if (target is { } id && (!_matches.TryGetValue(id, out var status) || !IsActive(status))) return false;
@@ -123,6 +124,17 @@ public sealed class ManagedWorker : IAsyncDisposable
     }
 
     public bool Drain(string reason) => TrySend(new Drain(reason));
+
+    /// <summary>
+    /// Stops this child without asking it to complete its matches. The normal
+    /// lifecycle reader observes the resulting interruption events, so the
+    /// scheduler can apply its ordinary Worker-loss handling to every match.
+    /// </summary>
+    internal async Task ForceStopAsync()
+    {
+        _lifetime.Cancel();
+        await Completion.ConfigureAwait(false);
+    }
 
     public async Task ShutdownAsync(string reason, CancellationToken cancellationToken = default)
     {
@@ -325,6 +337,9 @@ public sealed class ManagedWorker : IAsyncDisposable
                         _drainAcknowledged = true; break;
                     case WorkerFault fault:
                         CheckIdentity(fault.WorkerId, fault.WorkerIncarnation); throw new IOException("Worker reported fault.");
+                    case NodeSigningKeyUpdated signingKey:
+                        CheckIdentity(signingKey.WorkerId, signingKey.WorkerIncarnation);
+                        break;
                     case MatchReady ready:
                         CheckIdentity(ready.Placement.WorkerId, ready.Placement.WorkerIncarnation);
                         if (!String.Equals(ready.Placement.Host, _options.AdvertisedHost, StringComparison.OrdinalIgnoreCase)
@@ -356,6 +371,20 @@ public sealed class ManagedWorker : IAsyncDisposable
                         break;
                     case AdmissionKeyInstallFailed admission:
                         break;
+                    case MatchCancelAccepted cancelled:
+                        CheckIdentity(cancelled.WorkerId, cancelled.WorkerIncarnation);
+                        ValidateOperation(cancelled.OperationId);
+                        break;
+                    case MatchCancelRejected rejected:
+                        CheckIdentity(rejected.WorkerId, rejected.WorkerIncarnation);
+                        ValidateOperation(rejected.OperationId);
+                        break;
+                    case AdmissionRetired retired:
+                        CheckIdentity(retired.WorkerId, retired.WorkerIncarnation);
+                        break;
+                    case AdmissionRetireFailed retireFailed:
+                        CheckIdentity(retireFailed.WorkerId, retireFailed.WorkerIncarnation);
+                        break;
                     case MatchReportReady report:
                         CheckIdentity(report.WorkerId, report.WorkerIncarnation);
                         if (!_matches.TryGetValue(report.MatchId, out var reportStatus) || reportStatus != MatchStatus.Completed
@@ -379,6 +408,11 @@ public sealed class ManagedWorker : IAsyncDisposable
 
     private void CheckIdentity(WorkerId worker, Guid incarnation)
     { if (worker != Id || incarnation != Incarnation) throw new InvalidDataException(); }
+    private static void ValidateOperation(string operation)
+    {
+        if (operation is not { Length: > 0 and <= 128 } || operation.Any(char.IsControl))
+            throw new InvalidDataException();
+    }
     private static bool IsActive(MatchStatus status) => status is MatchStatus.Starting or MatchStatus.Ready or MatchStatus.Running;
     private void Transition(MatchId id, MatchStatus next)
     {

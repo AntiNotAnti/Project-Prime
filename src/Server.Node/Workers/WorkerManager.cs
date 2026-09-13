@@ -46,7 +46,15 @@ public sealed class WorkerManager : IWorkerManager
         }
         finally { _lifecycle.Release(); }
         try { await worker.StartAsync(cancellationToken); return worker; }
-        catch { await worker.DisposeAsync(); throw; }
+        catch
+        {
+            // A child that fails before readiness must not consume a manager
+            // slot forever. Remove the exact incarnation before disposing it;
+            // concurrent starts cannot remove a replacement worker.
+            _workers.TryRemove(new KeyValuePair<WorkerId, ManagedWorker>(worker.Id, worker));
+            await worker.DisposeAsync();
+            throw;
+        }
     }
 
     public async Task<bool> RetireAsync(WorkerId workerId)

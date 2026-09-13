@@ -41,9 +41,16 @@ namespace MphRead.Mods.Network
         public byte InputPlayoutTicks => _playoutTicks;
 
         public void SetInputEpoch(uint inputEpoch, uint serverTick = 0)
+            => SetInputEpoch(inputEpoch, serverTick, -Vector3.UnitZ);
+
+        public void SetInputEpoch(uint inputEpoch, uint serverTick, Vector3 neutralAim)
         {
             if (inputEpoch == 0) throw new ArgumentOutOfRangeException(nameof(inputEpoch));
+            float aimLengthSquared = neutralAim.LengthSquared;
+            if (!Single.IsFinite(aimLengthSquared) || aimLengthSquared <= 0.0001f)
+                throw new ArgumentOutOfRangeException(nameof(neutralAim));
             if (_inputEpoch == inputEpoch) return;
+            neutralAim /= MathF.Sqrt(aimLengthSquared);
             _inputEpoch = inputEpoch;
             for (int i = 0; i < Capacity; i++)
             {
@@ -59,10 +66,11 @@ namespace MphRead.Mods.Network
             // The first fallback after a spawn is still a valid current-life
             // command, but it must not carry the previous life’s view/tick
             // metadata into combat attribution or lag-compensation requests.
-            // Keep the next expected client sequence for ordering diagnostics;
-            // stamp both client/view ticks at the authoritative boundary.
+            // Keep the next expected client sequence for ordering diagnostics,
+            // preserve the authoritative spawn aim until current-life input
+            // arrives, and stamp both ticks at the authoritative boundary.
             _last = new InputCommand(_next, serverTick, serverTick,
-                InputButtons.None, InputButtons.None, -Vector3.UnitZ,
+                InputButtons.None, InputButtons.None, neutralAim,
                 InputCommand.NoWeapon, inputEpoch);
         }
 

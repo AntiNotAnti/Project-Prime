@@ -108,6 +108,12 @@ public interface IMatchConnectionRoutes
 {
     ulong AllocateConnectionId();
     void RemoveConnection(ulong connectionId);
+    /// <summary>
+    /// Records that an authenticated admission has completed its join. The
+    /// transport may retain the admission route briefly for retransmission,
+    /// but must not tear down the established connection route.
+    /// </summary>
+    void MarkAdmissionEstablished(Guid admissionId) { }
 }
 
 /// <summary>Production routed joins use JoinPacket's explicit uint WireMatchId extension.</summary>

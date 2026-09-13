@@ -344,7 +344,7 @@ public sealed class MatchTransitionTests
         LobbyRulesOptions rules = new(TimeLimitSeconds: 300, ScoreGoal: 10,
             DamageLevel: 2, FriendlyFire: true);
         configured = (LobbySnapshot)h.Manager.Execute(h.Players[0],
-            new LobbyConfigure(configured.Revision, "unit", MatchMode.Battle, Rules: rules));
+            new LobbyConfigure(configured.Revision, "unit", MatchMode.TeamBattle, Rules: rules));
         configured = (LobbySnapshot)h.Manager.Execute(h.Players[1],
             new LobbyRequestTeam(1, configured.Revision));
         _ = h.Manager.Execute(h.Players[1],
@@ -388,7 +388,7 @@ public sealed class MatchTransitionTests
         Assert.Equal(2, frozen.Members.Count(member => !member.Observer));
         Assert.Equal(first.Rules.Mode, frozen.Mode);
         Assert.Equal("custom", frozen.MapKey);
-        Assert.Equal(rules.Normalize(MatchMode.Battle), frozen.Rules);
+        Assert.Equal(rules.Normalize(MatchMode.TeamBattle), frozen.Rules);
         Assert.Empty(h.Manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
 
         _ = h.Manager.Execute(h.Players[0], new LobbySetReady(true, h.Revision));
@@ -556,6 +556,118 @@ public sealed class MatchTransitionTests
         {
             lobbies.ContentCatalog = catalog;
         }
+    }
+
+    [Fact]
+    public async Task TransitionHardTimeoutForceRetiresWorkerAndReopensLobbyOnlyAfterTerminalProof()
+    {
+        var clock = new MutableClock();
+        var workers = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
+        await using var scheduler = new WorkerScheduler(workers);
+        using var issuer = new WorkerAdmissionIssuer("test");
+        await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("cancel-hang") with
+        { Content = new("1", "hash", "test", 8) });
+        var lobbies = new LobbyManager(clock: clock);
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        using var coordinator = new NodeMatchCoordinator(lobbies, scheduler, workers, issuer,
+            new NodeContentCatalog([new ContentIdentity("unit", "hash", "1", "test", 8)]),
+            options: new NodeMatchCoordinatorOptions
+            {
+                Clock = clock,
+                CancelAcknowledgementTimeout = TimeSpan.FromSeconds(1),
+                TransitionHardTimeout = TimeSpan.FromSeconds(2)
+            });
+
+        LobbySnapshot lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyCreate("Transition", LobbyVisibility.Public));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
+        NodeMatchHandoff handoff = Assert.IsType<NodeMatchHandoff>(coordinator.ForSession(owner.SessionId));
+        NodeMatchTransitionVoteSnapshot approved = Assert.IsType<NodeMatchTransitionVoteSnapshot>(
+            await coordinator.ExecuteAsync(owner, new LobbyMatchTransitionPropose(
+                lobbies.ForSession(owner.SessionId)!.Revision, handoff.MatchId,
+                MatchTransitionChoice.Restart)));
+        Assert.Equal(MatchTransitionVoteState.Approved, approved.State);
+
+        clock.Advance(TimeSpan.FromSeconds(3));
+        coordinator.CheckTransitionWatchdogs();
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        await WaitUntilAsync(() => lobbies.ForSession(owner.SessionId) is
+            { Phase: LobbyPhase.Open, CurrentMatchId: null }, timeout.Token);
+        await WaitUntilAsync(() => workers.Snapshot().Count == 0, timeout.Token);
+        await WaitUntilAsync(() => scheduler.RetentionSnapshot is
+        { ActivePlacements: 0, TerminalPlacements: 0 }, timeout.Token);
+        NodeMatchTransitionVoteSnapshot failed = lobbies.MatchTransitionForSession(owner.SessionId)!;
+        Assert.Equal(approved.TransitionId, failed.TransitionId);
+        Assert.Equal(MatchTransitionVoteState.Failed, failed.State);
+        Assert.Equal("transition_timeout", failed.FailureCode);
+        Assert.Contains(coordinator.ForSessionEvents(owner.SessionId), value =>
+            value is NodeMatchEnded { Interrupted: true } ended
+            && ended.MatchId == handoff.MatchId);
+        Assert.DoesNotContain(coordinator.ForSessionEvents(owner.SessionId), value =>
+            value is NodeMatchCompletion);
+    }
+
+    [Fact]
+    public async Task TerminalAtCommitBoundaryCannotSplitInitialHandoffBatch()
+    {
+        var workers = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
+        await using var scheduler = new WorkerScheduler(workers);
+        using var issuer = new WorkerAdmissionIssuer("test");
+        await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("normal") with
+        { Content = new("1", "hash", "test", 8) });
+        var lobbies = new LobbyManager();
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        var second = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Second");
+        var delivered = new ConcurrentQueue<NodeMatchNotification>();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var coordinator = new NodeMatchCoordinator(lobbies, scheduler, workers, issuer,
+            new NodeContentCatalog([new ContentIdentity("unit", "hash", "1", "test", 8)]),
+            options: new NodeMatchCoordinatorOptions
+            {
+                AfterMatchCommitted = matchId => scheduler.CancelMatch(matchId,
+                    "commit-boundary test")
+            });
+        Task reader = Task.Run(async () =>
+        {
+            try
+            {
+                await foreach (NodeMatchNotification notification in coordinator.ReadNotifications(timeout.Token))
+                    delivered.Enqueue(notification);
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested) { }
+        });
+
+        LobbySnapshot lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyCreate("Commit", LobbyVisibility.Public, 2));
+        lobby = (LobbySnapshot)lobbies.Execute(second,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)lobbies.Execute(second,
+            new LobbySetReady(true, lobby.Revision));
+        await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
+
+        await WaitUntilAsync(() => delivered.Count(notification =>
+            notification.Payload is NodeMatchEnded) == 2, timeout.Token);
+        foreach (Guid sessionId in new[] { owner.SessionId, second.SessionId })
+        {
+            object[] events = delivered.Where(value => value.SessionId == sessionId)
+                .Select(value => value.Payload).ToArray();
+            int handoffIndex = Array.FindIndex(events, value => value is NodeMatchHandoff);
+            int endedIndex = Array.FindIndex(events, value => value is NodeMatchEnded);
+            Assert.True(handoffIndex >= 0 && endedIndex > handoffIndex,
+                string.Join(" | ", events.Select(value => value.GetType().Name)));
+            Assert.DoesNotContain(events.Skip(endedIndex + 1), value => value is NodeMatchHandoff);
+        }
+        timeout.Cancel();
+        await reader;
     }
 
     [Fact]

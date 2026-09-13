@@ -357,7 +357,7 @@ public sealed class WorkerRuntimeTests
         Assert.IsType<MatchFailed>(await runtime.CreateAsync(specs[0] with { Rng1Seed = 9 }));
         runtime.Drain();
         Assert.IsType<MatchFailed>(await runtime.CreateAsync(Spec(content.Content, options, 100)));
-        await runtime.CancelAsync(specs[0].MatchId);
+        await runtime.CancelAsync(new CancelMatch(specs[0].MatchId, "test-cancel", "test cancellation"));
         // Queue a barrier on every survivor after cancellation; only the selected world may terminate.
         foreach (var spec in specs.Skip(1))
             Assert.Equal(MatchInstanceState.Running, (await runtime.GetStatusAsync(spec.MatchId))!.State);

@@ -183,8 +183,9 @@ public sealed class ClientWorkerVerticalTests
                     await PostDebug(admin, debugEndpoint, "clear", null, 0);
                     await Until(() => player.HistoricalDebug == null, Poll);
                 }
-                // WSS resume rotates its proof and reissues a fresh match handoff,
-                // while the live UDP transport continues independently.
+                // WSS resume reconstructs the stable session/lobby state. The
+                // explicit rejoin request rotates the proof and reissues a
+                // fresh match handoff, while live UDP continues independently.
                 if (round == 0)
                 {
                     var previous = owner;
@@ -193,9 +194,13 @@ public sealed class ClientWorkerVerticalTests
                     await Until(() => host.App.Services.GetRequiredService<NodeSessionManager>().CanResume(resumeToken), Poll);
                     owner = Control();
                     await owner.ResumeAsync(previous, CancellationToken.None);
-                    await Until(() => owner.Handoff?.MatchId == handoff.MatchId && owner.Lobby?.LobbyId == lobbyId, Poll);
+                    await Until(() => owner.Handoff == null && owner.Lobby?.CurrentMatchId == handoff.MatchId
+                        && owner.Lobby.LobbyId == lobbyId, Poll);
                     Assert.Equal(session, owner.Session!.SessionId);
                     Assert.NotEqual(resumeToken, owner.Session.ResumeToken);
+                    await owner.SendAsync("match.rejoin", new NodeMatchRejoin(handoff.MatchId));
+                    await Until(() => owner.Handoff?.MatchId == handoff.MatchId
+                        && owner.Handoff.Nonce != handoff.Nonce, Poll);
                     Assert.NotEqual(handoff.Nonce, owner.Handoff!.Nonce);
                     Assert.True(await NetLaunch.JoinWorkerAsync(owner.Handoff, "Player"));
                     Assert.Same(player, AuthoritativePlay.Current!.Client);
@@ -249,16 +254,13 @@ public sealed class ClientWorkerVerticalTests
                     await Until(() => owner.Lobby!.Phase == LobbyPhase.Open && guest.Lobby!.Phase == LobbyPhase.Open);
                     Assert.Null(owner.Lobby.CurrentMatchId);
                     Assert.Null(owner.Handoff);
-                    // Completed placements are retained for reporting/idempotence;
-                    // ReturnToLobby must not allocate another or leave one active.
+                    // Completed placements are released after the coordinator
+                    // consumes their lifecycle notice; ReturnToLobby must not
+                    // allocate another or leave one active.
                     var retainedMatches = host.App.Services.GetRequiredService<WorkerManager>().Snapshot()
                         .SelectMany(worker => worker.Matches).ToArray();
                     Assert.Equal(4, observedMatches.Count);
-                    Assert.All(retainedMatches, match =>
-                    {
-                        Assert.Contains(match.Key, observedMatches);
-                        Assert.Equal(MatchStatus.Completed, match.Value);
-                    });
+                    Assert.Empty(retainedMatches);
                     Assert.Equal(session, owner.Session!.SessionId);
                     Assert.Equal(lobbyId, owner.Lobby.LobbyId);
                 }

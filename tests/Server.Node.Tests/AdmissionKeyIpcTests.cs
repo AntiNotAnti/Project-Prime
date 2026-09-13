@@ -12,7 +12,8 @@ public sealed class AdmissionKeyIpcTests
         string key = Convert.ToBase64String(new byte[AdmissionKeyRules.ByteLength]);
         var command = new InstallAdmissionKey(admissionId, Guid.NewGuid(), Guid.NewGuid(),
             new(Guid.NewGuid()), Guid.NewGuid(), new(Guid.NewGuid()), new(7),
-            new(Guid.NewGuid()), Guid.NewGuid(), 3, 19, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60, key);
+            new(Guid.NewGuid()), Guid.NewGuid(), 3, 19, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60, key,
+            HandoffGeneration.Initial);
 
         WorkerMessage decoded = WorkerIpcCodec.Decode(WorkerIpcCodec.Encode(command));
 
@@ -23,7 +24,7 @@ public sealed class AdmissionKeyIpcTests
         var acknowledgement = new AdmissionKeyInstalled(command.AdmissionId, command.TicketId,
             command.NodeSessionId, command.NodeId, command.NodeIncarnation, command.MatchId,
             command.WireMatchId, command.WorkerId, command.WorkerIncarnation, command.SeatId,
-            command.JoinNonce, command.ExpiresAt);
+            command.JoinNonce, command.ExpiresAt, HandoffGeneration.Initial);
         Assert.Equal(acknowledgement, Assert.IsType<AdmissionKeyInstalled>(
             WorkerIpcCodec.Decode(WorkerIpcCodec.Encode(acknowledgement))));
 

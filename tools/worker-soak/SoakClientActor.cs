@@ -218,12 +218,13 @@ public sealed class SoakClientActor : IDisposable
             var claims = new WorkerAdmissionClaims(_spec.NodeId, _spec.NodeIncarnation,
                 _placement.WorkerId, _placement.WorkerIncarnation, _spec.LobbyId, _spec.MatchId,
                 _placement.WireMatchId, nodeSessionId, seat.PlayerId, seat.GuestSessionId,
-                seat.Role, seat.SeatId, seat.DisplayName, nonce, now, expires, ticketId);
+                seat.Role, seat.SeatId, seat.DisplayName, nonce, now, expires, ticketId,
+                HandoffGeneration.Initial);
             string ticket = _issuer.Issue(claims);
             var install = new InstallAdmissionKey(admissionId, ticketId, nodeSessionId,
                 _spec.NodeId, _spec.NodeIncarnation, _spec.MatchId, _placement.WireMatchId,
                 _placement.WorkerId, _placement.WorkerIncarnation, seat.SeatId, nonce, expires,
-                Convert.ToBase64String(key));
+                Convert.ToBase64String(key), HandoffGeneration.Initial);
             await _scheduler.InstallAdmissionKeyAsync(install, cancellationToken).ConfigureAwait(false);
             return new(nonce, ticket, admissionId, key);
         }

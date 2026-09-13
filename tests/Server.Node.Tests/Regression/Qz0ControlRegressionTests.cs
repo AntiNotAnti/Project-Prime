@@ -62,10 +62,12 @@ public sealed class Qz0ControlRegressionTests
 
     [Fact]
     [Trait("Regression", "QZ0")]
-    public async Task RejoinFloodReturnsOneFreshHandoffAndRateLimitsTheRest()
+    public async Task RejoinFloodUsesExplicitGenerationAndRemainsBoundedByWorkerAdmission()
     {
-        // Prime invariant: repeated admission retries within one rate window
-        // mint only the first handoff and cannot enqueue unbounded Node work.
+        // Prime invariant: each recovery mint is explicit and monotonically
+        // fenced. Transport-level request/session limits remain the flood
+        // boundary; the retired five-second coordinator rejection is not a
+        // correctness mechanism.
         var fixture = new FloodFixture();
         await using var manager = new WorkerManager(new(fixture.NextGuid()), fixture.NextGuid());
         await using var scheduler = new WorkerScheduler(manager);
@@ -91,16 +93,15 @@ public sealed class Qz0ControlRegressionTests
 
         NodeMatchHandoff first = Assert.IsType<NodeMatchHandoff>(
             await coordinator.ExecuteAsync(owner, new NodeMatchRejoin(matchId)));
-        int rejected = 0;
+        HandoffGeneration priorGeneration = first.HandoffGeneration;
         for (int attempt = 0; attempt < 64; attempt++)
         {
-            LobbyCommandException error = await Assert.ThrowsAsync<LobbyCommandException>(
-                () => coordinator.ExecuteAsync(owner, new NodeMatchRejoin(matchId)));
-            Assert.Equal("rate_limit", error.Code);
-            rejected++;
+            NodeMatchHandoff next = Assert.IsType<NodeMatchHandoff>(
+                await coordinator.ExecuteAsync(owner, new NodeMatchRejoin(matchId)));
+            Assert.True(next.HandoffGeneration.Value > priorGeneration.Value);
+            priorGeneration = next.HandoffGeneration;
         }
 
-        Assert.Equal(64, rejected);
         Assert.Equal(matchId, first.MatchId);
         Assert.True(scheduler.TryGetAssignment(new(matchId), out WorkerMatchAssignment? assignment));
         Assert.NotNull(assignment);

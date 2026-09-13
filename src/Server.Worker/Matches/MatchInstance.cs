@@ -158,18 +158,45 @@ public sealed class MatchInstance : IDisposable
             reason = "admission_unavailable";
             return false;
         }
-        bool routeCreated = false;
+        bool installed = authority.TryInstallAdmissionKey(command, out reason,
+            out Guid supersededAdmissionId);
+        if (!installed) return false;
         if (_options.UdpAuthenticationEnabled && !_options.LegacyDynamicAdmission
-            && transport is MatchDatagramTransport routed
-            && !routed.RegisterAdmissionId(command.AdmissionId, command.ExpiresAt, out routeCreated))
+            && transport is MatchDatagramTransport routed)
         {
-            reason = "admission_route_capacity";
+            bool routeChanged;
+            bool routeAccepted = supersededAdmissionId != Guid.Empty
+                ? routed.ReplaceAdmissionId(supersededAdmissionId, command.AdmissionId,
+                    command.ExpiresAt, out routeChanged)
+                : routed.RegisterAdmissionId(command.AdmissionId, command.ExpiresAt, out routeChanged);
+            if (!routeAccepted)
+            {
+                // Authority publication and route publication are both on this
+                // match lane. Roll back the exact new lease if transport
+                // capacity unexpectedly changed; never touch a newer lease.
+                authority.TryRetireAdmission(new RetireAdmission(command.MatchId,
+                    command.NodeSessionId, command.SeatId,
+                    command.HandoffGeneration,
+                    command.AdmissionId, command.WorkerId, command.WorkerIncarnation), out _);
+                reason = "admission_route_capacity";
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /// <summary>Retires one exact admission lease and its route on the match lane.</summary>
+    internal bool TryRetireAdmission(RetireAdmission command, out string reason)
+    {
+        if (_options.Tickets is not WorkerTicketAuthority authority)
+        {
+            reason = "admission_unavailable";
             return false;
         }
-        bool installed = authority.TryInstallAdmissionKey(command, out reason);
-        if (!installed && routeCreated && transport is MatchDatagramTransport registered)
-            registered.UnregisterAdmissionId(command.AdmissionId);
-        return installed;
+        bool retired = authority.TryRetireAdmission(command, out reason);
+        if (retired && transport is MatchDatagramTransport routed)
+            routed.UnregisterAdmissionId(command.AdmissionId);
+        return retired;
     }
 
     /// <summary>

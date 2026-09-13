@@ -166,6 +166,10 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
         => _hub.RegisterAdmission(admissionId, this, expiresAtUnixSeconds, out created);
 
     internal bool UnregisterAdmissionId(Guid admissionId) => _hub.UnregisterAdmission(admissionId, this);
+    internal bool ReplaceAdmissionId(Guid oldAdmissionId, Guid newAdmissionId,
+        long expiresAtUnixSeconds, out bool replaced)
+        => _hub.ReplaceAdmission(oldAdmissionId, newAdmissionId, this, expiresAtUnixSeconds, out replaced);
+    public int ActiveAdmissionRouteCount => _hub.CountAdmissionRoutes(this);
     public double MaximumCriticalReserveQueueAgeMilliseconds
         => Volatile.Read(ref _criticalReserveMaximumAgeTicks)
             * (1000.0 / Stopwatch.Frequency);
@@ -309,6 +313,8 @@ public sealed class MatchDatagramTransport : INetTransport, IMatchConnectionRout
 
     public ulong AllocateConnectionId() => _hub.AllocateConnection(this, WorkerIncarnation);
     public void RemoveConnection(ulong connectionId) => _hub.RemoveConnection(this, connectionId);
+    public void MarkAdmissionEstablished(Guid admissionId)
+        => _hub.MarkAdmissionEstablished(admissionId, this);
 
     internal bool Enqueue(in ReceivedPacket packet)
         => Enqueue(packet, null);

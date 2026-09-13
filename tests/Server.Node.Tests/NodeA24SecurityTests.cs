@@ -124,6 +124,7 @@ public sealed class NodeA24SecurityTests
         }
         using HttpResponseMessage rejected = await client.GetAsync(endpoint, HttpCompletionOption.ResponseHeadersRead, timeout.Token);
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.True(rejected.Headers.RetryAfter?.Delta > TimeSpan.Zero);
         using HttpResponseMessage health = await client.GetAsync(new Uri(new Uri(host.App.Urls.Single()), "/health"), timeout.Token);
         Assert.Equal(HttpStatusCode.OK, health.StatusCode);
     }

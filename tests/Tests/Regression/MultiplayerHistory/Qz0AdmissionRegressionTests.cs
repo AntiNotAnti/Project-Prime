@@ -36,7 +36,7 @@ public sealed class Qz0AdmissionRegressionTests
             placement.WorkerId, placement.WorkerIncarnation, spec.LobbyId, spec.MatchId,
             placement.WireMatchId, Id("66666666-6666-6666-6666-666666666666"), playerId, null,
             SeatRole.Player, 0, "Player", 77, now, now + 60,
-            Id("77777777-7777-7777-7777-777777777777"));
+            Id("77777777-7777-7777-7777-777777777777"), HandoffGeneration.Initial);
 
         using var issuer = new WorkerAdmissionIssuer("qz0-admission");
         using var verifier = new WorkerAdmissionVerifier(spec, placement);

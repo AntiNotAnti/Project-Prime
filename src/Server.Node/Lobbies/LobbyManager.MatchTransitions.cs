@@ -15,7 +15,8 @@ public sealed record LobbyMatchTransitionSelection(
     MatchTransitionChoice Choice,
     string TargetMapKey,
     MatchMode Mode,
-    ImmutableArray<LobbyMember> Members)
+    ImmutableArray<LobbyMember> Members,
+    MatchLifecycleEpoch LifecycleEpoch = default)
 {
     public string MapKey => TargetMapKey;
 }
@@ -41,6 +42,7 @@ public sealed partial class LobbyManager
         public MatchTransitionVoteState State;
         public string? FailureCode;
         public bool Started;
+        public MatchLifecycleEpoch LifecycleEpoch;
     }
 
     private sealed record TransitionContinuation(Guid LobbyId, Guid OldMatchId,
@@ -341,6 +343,7 @@ public sealed partial class LobbyManager
             Choice = command.Choice,
             TargetMapKey = targetMap,
             Mode = lobby.Mode,
+            LifecycleEpoch = lobby.LifecycleEpoch,
             BallotRevision = NextTransitionBallotRevision(),
             Deadline = now + MatchTransitionVoteWindow,
             EligibleVoters = lobby.Members.Values.Count(member => !member.Observer),
@@ -428,12 +431,13 @@ public sealed partial class LobbyManager
             state.ProposerName, state.Choice, state.TargetMapKey, state.Mode,
             state.EligibleVoters, state.Votes.Values.Count(value => value),
             state.Votes.Values.Count(value => !value), state.NeededVotes,
-            state.Deadline, state.State, ownVote, state.FailureCode);
+            state.Deadline, state.State, ownVote, state.FailureCode, state.LifecycleEpoch);
     }
 
     private LobbyMatchTransitionSelection Selection(Lobby lobby, MatchTransitionState state)
         => new(lobby.Id, state.MatchId, state.TransitionId, state.Choice,
-            state.TargetMapKey, state.Mode, lobby.Members.Values.ToImmutableArray());
+            state.TargetMapKey, state.Mode, lobby.Members.Values.ToImmutableArray(),
+            state.LifecycleEpoch.Value == 0 ? MatchLifecycleEpoch.Initial : state.LifecycleEpoch);
 
     private void RequireTransitionParticipant(Lobby lobby, LobbyIdentity identity, Guid matchId)
     {

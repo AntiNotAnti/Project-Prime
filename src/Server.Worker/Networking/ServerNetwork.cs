@@ -704,6 +704,9 @@ namespace MphRead.Mods.Network
             Count++;
             PublishKeepAlives();
             _rosterDirty = true;
+            if (join.AdmissionId != Guid.Empty && authenticated.HasValue
+                && _transport is IMatchConnectionRoutes routes)
+                routes.MarkAdmissionEstablished(join.AdmissionId);
             return true;
         }
 
@@ -748,7 +751,8 @@ namespace MphRead.Mods.Network
             for (int candidate = 0; candidate < _capacity; candidate++)
                 if (_peers[candidate] == null && BotRosterEntry?.Invoke(candidate) is NetRosterEntry bot)
                     teams[candidate] = bot.Team;
-            return TeamAllocator.Select(teams, (byte)(slot & 1));
+            return TeamAllocator.Select(teams, (byte)(slot % Rules.TeamCount),
+                teamCount: Rules.TeamCount);
         }
 
         public bool RebalanceBeforeStart()
@@ -767,7 +771,7 @@ namespace MphRead.Mods.Network
                     if (BotTeamAssigned == null) return false;
                     teams[slot] = bot.Team;
                 }
-            if (TeamAllocator.Rebalance(teams) == 0) return false;
+            if (TeamAllocator.Rebalance(teams, Rules.TeamCount) == 0) return false;
             foreach (ServerPeer? peer in _peers)
                 if (peer != null && teams[peer.Slot] != TeamAllocator.Unassigned)
                     peer.TeamIndex = teams[peer.Slot];
@@ -888,7 +892,8 @@ namespace MphRead.Mods.Network
             {
                 ServerPeer? peer = _peers[slot];
                 if (peer == null) { continue; }
-                if (!AdminTeamsAssigned) peer.TeamIndex = rules.Teams ? (byte)(teamMember++ & 1) : peer.Slot;
+                if (!AdminTeamsAssigned) peer.TeamIndex = rules.Teams
+                    ? (byte)(teamMember++ % rules.TeamCount) : peer.Slot;
                 peer.WaitingForNextMatch = false;
                 peer.ReturningParticipant = false;
                 peer.ReturningFromConnectionId = 0;

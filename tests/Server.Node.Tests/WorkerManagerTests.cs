@@ -167,9 +167,8 @@ public sealed class WorkerManagerTests
     {
         await using var manager = Manager();
         Exception failure = await Assert.ThrowsAnyAsync<Exception>(() => manager.StartAsync(Launch("secret-output")));
-        WorkerSnapshot snapshot = Assert.Single(manager.Snapshot());
         Assert.DoesNotContain("A24-lifecycle-output-canary", failure.ToString(), StringComparison.Ordinal);
-        Assert.DoesNotContain("A24-lifecycle-output-canary", snapshot.FailureReason ?? "", StringComparison.Ordinal);
+        Assert.Empty(manager.Snapshot());
     }
 
     [Theory]
@@ -184,7 +183,7 @@ public sealed class WorkerManagerTests
     {
         await using var manager = Manager();
         await Assert.ThrowsAnyAsync<Exception>(() => manager.StartAsync(Launch(mode) with { StartupTimeout = TimeSpan.FromMilliseconds(800), Content = new("1", "hash", "test", 8) }));
-        Assert.Equal(WorkerStatus.Faulted, Assert.Single(manager.Snapshot()).Status);
+        Assert.Empty(manager.Snapshot());
     }
 
     [Theory]
@@ -244,7 +243,7 @@ public sealed class WorkerManagerTests
         await using var manager = Manager();
         using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(150));
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => manager.StartAsync(Launch("hang"), cancel.Token));
-        Assert.Equal(WorkerStatus.Faulted, Assert.Single(manager.Snapshot()).Status);
+        Assert.Empty(manager.Snapshot());
     }
 
     [Fact]

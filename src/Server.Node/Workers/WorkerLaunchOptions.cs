@@ -137,4 +137,11 @@ public sealed record WorkerLaunchOptions
 
 public sealed record WorkerSnapshot(WorkerId WorkerId, Guid Incarnation, WorkerStatus Status,
     WorkerCapacity Capacity, WorkerHealth? Health, IReadOnlyDictionary<MatchId, MatchStatus> Matches,
-    string? FailureReason, int? ProcessId);
+    string? FailureReason, int? ProcessId)
+{
+    /// <summary>Lifetime facts are projected from the authenticated heartbeat;
+    /// they never expose the retained identity history itself.</summary>
+    public long LifetimeMatchesAccepted => Health?.Diagnostics?.LifetimeMatchesAccepted ?? 0;
+    public int IdentityHistoryUsed => Health?.Diagnostics?.IdentityHistoryUsed ?? 0;
+    public int IdentityHistoryCapacity => Health?.Diagnostics?.IdentityHistoryCapacity ?? 0;
+}

@@ -45,7 +45,7 @@ public sealed class WorkerAdversarialUdpTests
             long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
             return new(spec.NodeId, spec.NodeIncarnation, placement.WorkerId, placement.WorkerIncarnation, spec.LobbyId,
                 spec.MatchId, placement.WireMatchId, Guid.NewGuid(), null, spec.Roster[0].GuestSessionId, SeatRole.Player, 0,
-                spec.Roster[0].DisplayName, nonce, now, now + 60, Guid.NewGuid());
+                spec.Roster[0].DisplayName, nonce, now, now + 60, Guid.NewGuid(), HandoffGeneration.Initial);
         }
         var claimsA = Claims(first, placeA, 111); var claimsB = Claims(second, placeB, 222);
         async Task<(Guid Id, byte[] Key)> Install(MatchSpec spec, MatchPlacement placement,
@@ -57,7 +57,7 @@ public sealed class WorkerAdversarialUdpTests
             var command = new InstallAdmissionKey(id, claims.TicketId, claims.NodeSessionId,
                 spec.NodeId, spec.NodeIncarnation, spec.MatchId, placement.WireMatchId,
                 placement.WorkerId, placement.WorkerIncarnation, claims.SeatId, claims.JoinNonce,
-                claims.ExpiresAt, Convert.ToBase64String(key));
+                claims.ExpiresAt, Convert.ToBase64String(key), claims.HandoffGeneration);
             Assert.IsType<AdmissionKeyInstalled>(await runtime.InstallAdmissionKeyAsync(command));
             return (id, key);
         }

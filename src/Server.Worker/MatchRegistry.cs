@@ -31,6 +31,11 @@ internal sealed class MatchRegistry
             set => Volatile.Write(ref _snapshot, value);
         }
         public WorkerEvent? Terminal;
+        // Cancellation ownership is an immutable operation identity. It is
+        // protected by Gate and is deliberately separate from Terminal:
+        // acknowledgement never releases match capacity.
+        public string? CancelOperationId;
+        public bool CancelRequested;
         public MatchContentSnapshot? ContentSnapshot;
         public bool Released;
     }

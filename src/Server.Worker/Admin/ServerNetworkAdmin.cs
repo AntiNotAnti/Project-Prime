@@ -10,7 +10,8 @@ public sealed partial class ServerNetwork
     public bool AdminTeamsAssigned { get; private set; }
     public void AssignAdminTeam(Scene scene, ServerPeer peer, byte team)
     {
-        if (!Rules.Teams || Phase != MatchPhase.WaitingForPlayers || peer.IsObserver || team > 1)
+        if (!Rules.Teams || Phase != MatchPhase.WaitingForPlayers || peer.IsObserver
+            || team >= Rules.TeamCount)
             throw new InvalidOperationException("Teams can be assigned only before countdown in a team mode.");
         peer.TeamIndex = team; scene.Players[peer.Slot].TeamIndex = team;
         AdminTeamsAssigned = true; _rosterDirty = true;

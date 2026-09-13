@@ -1,12 +1,20 @@
+using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging;
 
 namespace ProjectPrime.Server.Node;
 
+public readonly record struct NodeWorkerMetricSnapshot(long ActiveMatches,
+    long WorkerRetainedMatches, long SchedulerRetainedPlacements,
+    long TerminalRetainedMatches,
+    double OldestTerminalAgeSeconds, double HistoryUtilization,
+    long ActiveAdmissions, long PendingAdmissions);
+
 /// <summary>Bounded Node telemetry for the control-plane owners.</summary>
 public static class NodeMetrics
 {
     private static readonly Meter Meter = new("ProjectPrime.Server.Node", "1.0.0");
+    public static readonly ActivitySource Activities = new("ProjectPrime.Server.Node", "1.0.0");
     public static readonly Counter<long> SessionOperations =
         Meter.CreateCounter<long>("projectprime.node.session.operations");
     public static readonly Counter<long> DirectoryReports =
@@ -19,6 +27,65 @@ public static class NodeMetrics
         Meter.CreateCounter<long>("projectprime.node.worker.operations");
     public static readonly Counter<long> ReadinessEvaluations =
         Meter.CreateCounter<long>("projectprime.node.readiness.evaluations");
+    public static readonly UpDownCounter<long> ControlConnections =
+        Meter.CreateUpDownCounter<long>("projectprime.node.control.connections");
+    public static readonly Counter<long> ControlDisconnects =
+        Meter.CreateCounter<long>("projectprime.node.control.disconnects");
+    public static readonly Counter<long> ControlResumes =
+        Meter.CreateCounter<long>("projectprime.node.control.resumes");
+    public static readonly Counter<long> DeliveryOverflows =
+        Meter.CreateCounter<long>("projectprime.node.control.delivery_overflows");
+    public static readonly Histogram<double> MatchPreparationDuration =
+        Meter.CreateHistogram<double>("projectprime.node.match.preparation.duration", "ms");
+    public static readonly Counter<long> MatchPreparationFailures =
+        Meter.CreateCounter<long>("projectprime.node.match.preparation.failures");
+    public static readonly Histogram<double> HandoffDuration =
+        Meter.CreateHistogram<double>("projectprime.node.match.handoff.duration", "ms");
+    public static readonly Counter<long> HandoffFailures =
+        Meter.CreateCounter<long>("projectprime.node.match.handoff.failures");
+    public static readonly Counter<long> HandoffSuperseded =
+        Meter.CreateCounter<long>("projectprime.node.match.handoff.superseded");
+    public static readonly Histogram<double> RejoinDuration =
+        Meter.CreateHistogram<double>("projectprime.node.match.rejoin.duration", "ms");
+    public static readonly Counter<long> RejoinFailures =
+        Meter.CreateCounter<long>("projectprime.node.match.rejoin.failures");
+    public static readonly Histogram<double> TransitionDuration =
+        Meter.CreateHistogram<double>("projectprime.node.transition.duration", "ms");
+    public static readonly Counter<long> TransitionTimeouts =
+        Meter.CreateCounter<long>("projectprime.node.transition.timeouts");
+    public static readonly Histogram<double> AdmissionInstallDuration =
+        Meter.CreateHistogram<double>("projectprime.node.admission.install.duration", "ms");
+    public static readonly Counter<long> AdmissionInstallFailures =
+        Meter.CreateCounter<long>("projectprime.node.admission.install.failures");
+    private static Func<NodeWorkerMetricSnapshot>? _workerMetrics;
+    private static Func<long>? _outboundDepth;
+    private static readonly ObservableGauge<long> WorkerActiveMatches =
+        Meter.CreateObservableGauge("projectprime.node.worker.active_matches",
+            () => ObserveWorkerLong(snapshot => snapshot.ActiveMatches));
+    private static readonly ObservableGauge<long> WorkerRetainedMatches =
+        Meter.CreateObservableGauge("projectprime.node.worker.retained_matches",
+            () => ObserveWorkerLong(snapshot => snapshot.WorkerRetainedMatches));
+    private static readonly ObservableGauge<double> WorkerHistoryUtilization =
+        Meter.CreateObservableGauge("projectprime.node.worker.history_utilization",
+            () => ObserveWorkerDouble(snapshot => snapshot.HistoryUtilization));
+    private static readonly ObservableGauge<long> SchedulerRetainedPlacements =
+        Meter.CreateObservableGauge("projectprime.node.scheduler.retained_placements",
+            () => ObserveWorkerLong(snapshot => snapshot.SchedulerRetainedPlacements));
+    private static readonly ObservableGauge<long> SchedulerTerminalRetainedPlacements =
+        Meter.CreateObservableGauge("projectprime.node.scheduler.terminal_retained_placements",
+            () => ObserveWorkerLong(snapshot => snapshot.TerminalRetainedMatches));
+    private static readonly ObservableGauge<double> SchedulerOldestTerminalAge =
+        Meter.CreateObservableGauge("projectprime.node.scheduler.oldest_terminal_age_seconds",
+            () => ObserveWorkerDouble(snapshot => snapshot.OldestTerminalAgeSeconds), "s");
+    private static readonly ObservableGauge<long> AdmissionActive =
+        Meter.CreateObservableGauge("projectprime.node.admission.active",
+            () => ObserveWorkerLong(snapshot => snapshot.ActiveAdmissions));
+    private static readonly ObservableGauge<long> AdmissionPending =
+        Meter.CreateObservableGauge("projectprime.node.admission.pending",
+            () => ObserveWorkerLong(snapshot => snapshot.PendingAdmissions));
+    private static readonly ObservableGauge<long> ControlOutboundDepth =
+        Meter.CreateObservableGauge("projectprime.node.control.outbound.depth",
+            ObserveOutboundDepth);
 
     public static void Session(string operation, string outcome)
         => SessionOperations.Add(1, Tags(operation, outcome));
@@ -38,8 +105,58 @@ public static class NodeMetrics
     public static void Readiness(string outcome)
         => ReadinessEvaluations.Add(1, new KeyValuePair<string, object?>("outcome", outcome));
 
+    public static Activity? StartActivity(string operation)
+        => Activities.StartActivity(operation, ActivityKind.Internal);
+
+    public static void ControlConnected(bool resumed)
+    {
+        ControlConnections.Add(1);
+        if (resumed) ControlResumes.Add(1);
+    }
+
+    public static void ControlDisconnected(string reason)
+    {
+        ControlConnections.Add(-1);
+        ControlDisconnects.Add(1, new KeyValuePair<string, object?>("reason", reason));
+    }
+
+    public static void DeliveryOverflow()
+        => DeliveryOverflows.Add(1);
+
+    public static void RegisterWorkerMetrics(Func<NodeWorkerMetricSnapshot> provider)
+        => Volatile.Write(ref _workerMetrics, provider);
+
+    public static void RegisterOutboundDepth(Func<long> provider)
+        => Volatile.Write(ref _outboundDepth, provider);
+
+    public static void RecordDuration(Histogram<double> instrument, TimeProvider clock,
+        long started, string outcome, string? stage = null)
+    {
+        double milliseconds = clock.GetElapsedTime(started).TotalMilliseconds;
+        if (stage == null)
+            instrument.Record(milliseconds, new KeyValuePair<string, object?>("outcome", outcome));
+        else
+            instrument.Record(milliseconds, new KeyValuePair<string, object?>("outcome", outcome),
+                new KeyValuePair<string, object?>("stage", stage));
+    }
+
     private static KeyValuePair<string, object?>[] Tags(string operation, string outcome)
         => [new("operation", operation), new("outcome", outcome)];
+
+    private static long ObserveWorkerLong(Func<NodeWorkerMetricSnapshot, long> select)
+    {
+        Func<NodeWorkerMetricSnapshot>? provider = Volatile.Read(ref _workerMetrics);
+        return provider == null ? 0 : select(provider());
+    }
+
+    private static double ObserveWorkerDouble(Func<NodeWorkerMetricSnapshot, double> select)
+    {
+        Func<NodeWorkerMetricSnapshot>? provider = Volatile.Read(ref _workerMetrics);
+        return provider == null ? 0 : select(provider());
+    }
+
+    private static long ObserveOutboundDepth()
+        => Volatile.Read(ref _outboundDepth)?.Invoke() ?? 0;
 }
 
 /// <summary>
