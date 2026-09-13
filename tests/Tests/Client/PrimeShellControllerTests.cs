@@ -116,6 +116,12 @@ public sealed class PrimeShellControllerTests
             bool supported = beam is >= BeamType.PowerBeam and <= BeamType.OmegaCannon;
             Assert.Equal(supported, ModelPreviewCatalog.TryWeapon(beam, out _));
         }
+        Assert.True(ModelPreviewCatalog.TryWeapon(BeamType.PowerBeam,
+            out ModelPreviewSpec? weapon));
+        Assert.Equal("weapon:powerbeam", weapon!.WorkerKey);
+        Assert.True(ModelPreviewCatalog.TryWorkerKey(weapon.WorkerKey,
+            out ModelPreviewSpec? parsedWeapon));
+        Assert.Equal(weapon, parsedWeapon);
         Assert.False(ModelPreviewCatalog.TryWorkerKey("hunter:guardian", out _));
         Assert.False(ModelPreviewCatalog.TryWorkerKey("weapon:enemy", out _));
         Assert.False(ModelPreviewCatalog.TryWorkerKey("../../arbitrary", out _));
@@ -162,10 +168,12 @@ public sealed class PrimeShellControllerTests
         Assert.Equal("/tmp/ProjectPrime.dll", managed.ArgumentList[0]);
         Assert.Equal("-modelpreview", managed.ArgumentList[1]);
         Assert.Equal("hunter:samus", managed.ArgumentList[2]);
+        Assert.Contains("--internal-preview-worker", managed.ArgumentList);
 
         var appHost = ModelPreviewGenerator.CreateWorkerStartInfo(
             spec!, "/tmp/ProjectPrime", "/tmp/ProjectPrime.dll");
         Assert.Equal("-modelpreview", appHost.ArgumentList[0]);
+        Assert.Contains("--internal-preview-worker", appHost.ArgumentList);
     }
 
     [Fact]

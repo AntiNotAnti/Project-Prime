@@ -228,13 +228,13 @@ public sealed class Ui4ShellCorrectnessTests
     [Fact]
     public void LegacyPlayerSurfacesDoNotRestoreTopologyCopy()
     {
-        AssertSourceExcludes("src/Client/Launcher/Gui/SettingsView.cs",
+        AssertSourceExcludes("src/Client.Presentation/Launcher/Gui/SettingsView.cs",
             "\"Backend service\"", "best available Node");
-        AssertSourceExcludes("src/Client/Launcher/Gui/NodeBrowserView.cs",
+        AssertSourceExcludes("src/Client.Presentation/Launcher/Gui/NodeBrowserView.cs",
             "\"Server Nodes\"", "\"Refresh Nodes\"", "compatible Nodes",
             "Joining Worker", "Connected to Node", "Disconnect Node",
             "Resume Node", "Retry Worker", "This Node");
-        AssertSourceExcludes("src/Client/Launcher/Gui/AccountView.cs",
+        AssertSourceExcludes("src/Client.Presentation/Launcher/Gui/AccountView.cs",
             "Backend configured");
         AssertSourceExcludes("src/Client/Launcher/Gui/PostMatchWindow.cs",
             "Node connection lost. Reconnect to continue.");
@@ -245,7 +245,7 @@ public sealed class Ui4ShellCorrectnessTests
             "Project Prime Backend", "capture Backend", "The Node directory",
             "Node connection lost while", "Worker Recovery Room",
             "Worker handoff failed", "Node is preparing");
-        AssertSourceExcludes("src/Client/Launcher/Shell/PlayController.cs",
+        AssertSourceExcludes("src/Client.Presentation/Launcher/Shell/PlayController.cs",
             "Node disconnected", "selected Node session", "The Node confirmed",
             "The Node did not confirm", "The Node rejected", "Node control origin",
             "hosted by this Node", "No Node ballot", "No Worker handoff",

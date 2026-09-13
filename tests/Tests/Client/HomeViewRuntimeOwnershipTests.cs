@@ -11,7 +11,7 @@ public sealed class HomeViewRuntimeOwnershipTests
     {
         string root = FindRepositoryRoot();
         string home = File.ReadAllText(Path.Combine(root,
-            "src", "Client", "Launcher", "Gui", "HomeView.cs"));
+            "src", "Client.Presentation", "Launcher", "Gui", "HomeView.cs"));
         string launcher = File.ReadAllText(Path.Combine(root,
             "src", "Client", "Launcher", "Gui", "GuiLauncher.cs"));
 

@@ -14,26 +14,42 @@ namespace MphRead.Tests.Client;
 public sealed class DesktopOverlayFoundationTests
 {
     [Theory]
-    [InlineData(false, false, false)]
-    [InlineData(true, true, false)]
-    [InlineData(true, false, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, false, true)]
+    [InlineData(true, true, true, false)]
     public void NativeWindowFocusIsAcceptedOnlyAfterDeferredActivationEnds(
-        bool nativeInputFocus, bool activationDeferred, bool expected)
+        bool nativeInputFocus, bool keyboardFocus, bool activationDeferred,
+        bool expected)
     {
         Assert.Equal(expected,
-            SdlGameHost.ResolveNativeFocus(nativeInputFocus, activationDeferred));
+            SdlGameHost.ResolveNativeFocus(nativeInputFocus, keyboardFocus,
+                activationDeferred));
     }
 
     [Theory]
-    [InlineData(false, false, true, false)]
-    [InlineData(true, true, true, false)]
-    [InlineData(true, false, false, false)]
-    [InlineData(true, false, true, true)]
-    public void FullscreenTopmostOwnershipYieldsAcrossTaskSwitches(
-        bool fullscreen, bool menuOpen, bool focused, bool expected)
+    [InlineData(false, true, true, false)]
+    [InlineData(true, false, false, true)]
+    public void FocusEventWinsOverLaggingNativeStateForCurrentPump(
+        bool focusEvent, bool nativeInputFocus, bool keyboardFocus,
+        bool expected)
     {
-        Assert.Equal(expected,
-            SdlGameHost.ShouldKeepWindowTopmost(fullscreen, menuOpen, focused));
+        Assert.Equal(expected, SdlGameHost.ResolveFocusAfterPump(focusEvent,
+            nativeInputFocus, keyboardFocus, activationDeferred: false));
+    }
+
+    [Theory]
+    [InlineData((int)DesktopInputOwnerKind.None, true, false, true)]
+    [InlineData((int)DesktopInputOwnerKind.None, true, true, false)]
+    [InlineData((int)DesktopInputOwnerKind.None, false, false, false)]
+    [InlineData((int)DesktopInputOwnerKind.Scene, true, false, false)]
+    [InlineData((int)DesktopInputOwnerKind.Overlay, true, false, false)]
+    public void FocusRegainRepairsOnlyAnOrphanedLiveScene(
+        int currentOwner, bool hasPresentation,
+        bool pauseOpen, bool expected)
+    {
+        Assert.Equal(expected, SdlGameHost.ShouldRestoreSceneInputOwner(
+            (DesktopInputOwnerKind)currentOwner, hasPresentation, pauseOpen));
     }
 
     [Fact]

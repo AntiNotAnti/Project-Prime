@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using MphRead.Mods;
 using Xunit;
 
@@ -53,6 +55,36 @@ public sealed class DebugLogTests
         Assert.EndsWith("ProjectPrime-20260909-123456-2-native.log", native);
         Assert.Equal(DebugLog.SessionKey(Path.GetFileName(managed)),
             DebugLog.SessionKey(Path.GetFileName(native)));
+    }
+
+    [Fact]
+    public void ConcurrentSessionsAtomicallyClaimDistinctPaths()
+    {
+        string directory = Path.Combine(Path.GetTempPath(),
+            $"prime-debug-logs-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            DateTime timestamp = new(2026, 9, 12, 16, 6, 54);
+            var managedPaths = new ConcurrentBag<string>();
+            var nativePaths = new ConcurrentBag<string>();
+            Parallel.For(0, 16, _ =>
+            {
+                var session = DebugLog.ClaimSession(directory, "ProjectPrime", timestamp);
+                using (session.Stream) { }
+                managedPaths.Add(session.Managed);
+                nativePaths.Add(session.Native);
+            });
+
+            Assert.Equal(16, new HashSet<string>(managedPaths,
+                StringComparer.OrdinalIgnoreCase).Count);
+            Assert.Equal(16, new HashSet<string>(nativePaths,
+                StringComparer.OrdinalIgnoreCase).Count);
+        }
+        finally
+        {
+            try { Directory.Delete(directory, recursive: true); } catch { }
+        }
     }
 
     [Fact]

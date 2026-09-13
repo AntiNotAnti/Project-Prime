@@ -53,7 +53,7 @@ public sealed class PrimeShellNavigationIntegrationTests
     [Fact]
     public void ProductionShellUsesLiveRootNavigationInsteadOfLinearTraversal()
     {
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         int moveStart = source.IndexOf("private void MovePadFocus(",
             StringComparison.Ordinal);
         int commandStart = source.IndexOf("private void RunCommand(", moveStart,
@@ -78,7 +78,7 @@ public sealed class PrimeShellNavigationIntegrationTests
     [Fact]
     public void ProductionShellOwnsLayeredModalRestoreMotionAndSectionInput()
     {
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         Assert.Contains("_inputNavigator.OpenModal", source,
             StringComparison.Ordinal);
         Assert.Contains("_inputNavigator.CloseModal", source,
@@ -113,7 +113,7 @@ public sealed class PrimeShellNavigationIntegrationTests
     [Fact]
     public void ProductionShellOwnsSeatOfferModalAndNetworkSettingsRouting()
     {
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         Assert.Contains("SeatOffersHandledExternally: true", source,
             StringComparison.Ordinal);
         Assert.Contains("new SeatOfferCard", source, StringComparison.Ordinal);
@@ -152,7 +152,7 @@ public sealed class PrimeShellNavigationIntegrationTests
         Assert.True(PrimeShellNavigationAdapter.RequiresIdentityExitConfirmation(
             null, handoff));
 
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         Assert.Contains("ShowIdentityExitConfirmation", source,
             StringComparison.Ordinal);
         Assert.Contains("RequiresIdentityExitConfirmation", source,
@@ -169,7 +169,7 @@ public sealed class PrimeShellNavigationIntegrationTests
         Assert.Equal("Select (B)", PrimeControllerGlyphs.Prompt("Select",
             GamepadButtons.A, ControllerFamily.Nintendo));
 
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         Assert.Contains("GamepadInput.State.Family", source,
             StringComparison.Ordinal);
         Assert.Contains("PrimeControllerGlyphs.Prompt", source,
@@ -206,7 +206,7 @@ public sealed class PrimeShellNavigationIntegrationTests
         Assert.True(PrimeShellView.TryActivateControllerTarget(button));
         Assert.Equal(1, clicks);
 
-        string source = Read("src/Client/Launcher/Shell/PrimeShellView.axaml.cs");
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
         int toggle = source.IndexOf("case ToggleButton", StringComparison.Ordinal);
         int normal = source.IndexOf("case AvaloniaButton", toggle,
             StringComparison.Ordinal);

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;
 
@@ -9,6 +10,19 @@ public sealed class DesktopTransitionCoordinatorTests
 {
     private static MatchTransitionState Loading(MatchTransitionStage stage)
         => new(stage, "map", "mode", "hunter", "detail");
+
+    [Theory]
+    [InlineData(MatchExitReason.Transitioning, false, false)]
+    [InlineData(MatchExitReason.Transitioning, true, false)]
+    [InlineData(MatchExitReason.Completed, true, false)]
+    [InlineData(MatchExitReason.Completed, false, true)]
+    [InlineData(MatchExitReason.LeftMatch, false, true)]
+    public void ResumeDoesNotReturnSuccessfulContinuationToShell(
+        MatchExitReason reason, bool waitingForContinuation, bool expected)
+    {
+        Assert.Equal(expected, GuiLauncher.ShouldReturnToShellAfterResume(
+            new MatchRunResult(reason), waitingForContinuation));
+    }
 
     [Fact]
     public void ShellToGameWaitsForPreparedAndFirstPresentedFrame()

@@ -130,7 +130,7 @@ public sealed class PrimeFoundationTests
     public void FocusStylesKeepTheSelectionGeometryStable()
     {
         Dictionary<string, XElement> controls = LoadStyles(
-            "src/Client/Launcher/Theme/PrimeControls.axaml");
+            "src/Client.Presentation/Launcher/Theme/PrimeControls.axaml");
 
         AssertSetter(controls, ":is(Button).prime-button", "BorderThickness", "1");
         AssertSetter(controls, ":is(Button).prime-button:focus", "BorderThickness", "1");
