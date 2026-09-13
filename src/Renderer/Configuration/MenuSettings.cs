@@ -57,7 +57,7 @@ namespace MphRead
         public string? RadarProfileJson { get; set; }
         public string? RadarModeProfilesJson { get; set; }
         public string? RadarDeviceProfilesJson { get; set; }
-        public string ShowFps { get; set; } = "off";
+        public string ShowFps { get; set; } = "on";
         public string FrameRateCap { get; set; } = "display";
         public string? VisualStyle { get; set; }
         public string? TexturePack { get; set; }

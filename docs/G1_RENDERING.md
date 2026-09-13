@@ -57,7 +57,7 @@ protocol state, or persistent model/effect caches.
 | Path | Current behavior |
 |---|---|
 | Local biped camera | Completed-step translation/FOV interpolation; current simulation orientation plus eligible pending desktop look |
-| First-person viewmodel | Submission transformed from simulation-camera space into the resolved render-camera space |
+| First-person viewmodel | Authored animation/bob interpolated in camera-local space, then attached once to the resolved render camera |
 | Local/offline bodies | Root transform interpolation; remote network slots are excluded independently of main-player selection |
 | Platforms and doors | Rigid roots plus copied authored node poses; normal draw/collision caches and `WasDrawn` behavior remain untouched |
 | Selected projectiles/bombs/items | Copied roots, trails, and frame-local particles interpolate behind identity/lifetime barriers |

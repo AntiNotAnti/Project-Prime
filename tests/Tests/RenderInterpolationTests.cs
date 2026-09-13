@@ -139,6 +139,82 @@ public class RenderInterpolationTests
     }
 
     [Fact]
+    public void CustomDynamicCrosshairResponseDoesNotUseLegacyCameraOnlyPrediction()
+    {
+        Assert.True(DynamicCrosshairTuning.UsesLegacyCameraResponse(0, 1));
+        Assert.False(DynamicCrosshairTuning.UsesLegacyCameraResponse(15, 1));
+        Assert.False(DynamicCrosshairTuning.UsesLegacyCameraResponse(0, .5f));
+    }
+
+    [Theory]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, false, false, false)]
+    [InlineData(true, true, false, false)]
+    [InlineData(true, false, true, false)]
+    public void StableCameraHistoryExcludesMorphTransitions(
+        bool alive, bool morphing, bool unmorphing, bool expected)
+    {
+        Assert.Equal(expected, ScenePresentation.IsStableCameraHistoryEligible(
+            alive, morphing, unmorphing));
+    }
+
+    [Theory]
+    [InlineData(true, true)]
+    [InlineData(true, false)]
+    [InlineData(false, false)]
+    public void AlternateFormAlwaysInterpolatesCameraRotation(
+        bool altForm, bool legacyCameraResponse)
+    {
+        Assert.Equal(altForm || !legacyCameraResponse,
+            ScenePresentation.ShouldInterpolateCameraRotation(
+                altForm, legacyCameraResponse));
+    }
+
+    [Fact]
+    public void CustomDynamicCrosshairInterpolatesCameraRotationInsteadOfStepping()
+    {
+        Matrix4 current = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(30))
+            * Matrix4.CreateTranslation(8, 3, -4);
+        Matrix4 interpolated = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(10))
+            * Matrix4.CreateTranslation(7, 2.5f, -3);
+
+        Matrix4 legacy = ScenePresentation.ResolveCameraPose(current, interpolated,
+            interpolateRotation: false);
+        Matrix4 custom = ScenePresentation.ResolveCameraPose(current, interpolated,
+            interpolateRotation: true);
+
+        Assert.Equal(current.Row0, legacy.Row0);
+        Assert.Equal(current.Row1, legacy.Row1);
+        Assert.Equal(current.Row2, legacy.Row2);
+        Assert.Equal(interpolated.Row3, legacy.Row3);
+        Assert.Equal(interpolated, custom);
+    }
+
+    [Fact]
+    public void ViewmodelCameraLocalPoseFollowsResolvedCameraExactlyOnce()
+    {
+        Matrix4 simulationCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(20))
+            * Matrix4.CreateTranslation(4, 2, -8);
+        Matrix4 renderCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(24))
+            * Matrix4.CreateTranslation(4.5f, 2.25f, -7.5f);
+        Matrix4 authoredCameraPose = Matrix4.CreateRotationX(
+                MathHelper.DegreesToRadians(-6))
+            * Matrix4.CreateTranslation(0.35f, -0.2f, -0.75f);
+        Matrix4 worldPose = authoredCameraPose * simulationCamera;
+
+        Matrix4 cameraLocal = ScenePresentation.ViewmodelCameraLocalPose(
+            worldPose, simulationCamera.Inverted());
+        Matrix4 resolvedWorld = ScenePresentation.ViewmodelWorldPose(
+            cameraLocal, renderCamera);
+        Matrix4 displayed = resolvedWorld * renderCamera.Inverted();
+
+        AssertMatrixNear(authoredCameraPose, cameraLocal);
+        AssertMatrixNear(authoredCameraPose, displayed);
+    }
+
+    [Fact]
     public void ClockAlphaIsBoundedAndResetStallDebtHaveBarriers()
     {
         var timing = new FrameTiming();
@@ -171,5 +247,18 @@ public class RenderInterpolationTests
         Assert.Equal(new Vector2(3, 5), input.Consume(3));
         input.Add(7, 9, 3.01);
         Assert.Equal(new Vector2(7, 9), input.Consume(3.01));
+    }
+
+    private static void AssertMatrixNear(Matrix4 expected, Matrix4 actual)
+    {
+        for (int row = 0; row < 4; row++)
+        {
+            for (int column = 0; column < 4; column++)
+            {
+                Assert.InRange(actual[row, column],
+                    expected[row, column] - 0.00001f,
+                    expected[row, column] + 0.00001f);
+            }
+        }
     }
 }

@@ -686,10 +686,6 @@ namespace MphRead.Entities
                 {
                     int effectId = Metadata.ChargeEffectIds[(int)CurrentWeapon];
                     _chargeEffect = _scene.SpawnEffectGetEntry(effectId, _gunVec2, _gunVec1, _muzzlePos);
-                    if (!IsMainPlayer && _chargeEffect != null)
-                    {
-                        _chargeEffect.SetDrawEnabled(false);
-                    }
                     Flags2 &= ~PlayerFlags2.ChargeEffect;
                 }
                 else if (EquipInfo.ChargeLevel >= SimTicks.From30HzFrames(EquipInfo.Weapon.FullCharge))
@@ -707,10 +703,6 @@ namespace MphRead.Entities
                         {
                             _chargeEffect.SetElementExtension(true);
                             Flags2 |= PlayerFlags2.ChargeEffect;
-                            if (!IsMainPlayer)
-                            {
-                                _chargeEffect.SetDrawEnabled(false);
-                            }
                         }
                     }
                     // Snapshot-replicated enemy charge is presentation state,
@@ -720,7 +712,7 @@ namespace MphRead.Entities
                         CameraInfo.SetShake(0.023f);
                     }
                 }
-                if (IsMainPlayer && _chargeEffect != null)
+                if (_chargeEffect != null)
                 {
                     _chargeEffect.Transform(_gunVec2, _gunVec1, _muzzlePos);
                 }

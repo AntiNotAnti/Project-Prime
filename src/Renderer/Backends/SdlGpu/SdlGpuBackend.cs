@@ -152,8 +152,20 @@ namespace MphRead
             SDL_GPUTexture* swapchainTexture = null;
             uint width = 0;
             uint height = 0;
-            bool acquired = SDL3.SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer,
-                _window, &swapchainTexture, &width, &height);
+            // Explicit caps use immediate presentation and must not let the
+            // display's refresh rate pace the entire render loop. If all
+            // swapchain images are busy, SDL's non-blocking acquire returns a
+            // successful null image; the frame is still rendered into the
+            // final-composite target and submitted as a real offscreen GPU
+            // frame. Display/VSync mode keeps the blocking acquire so it stays
+            // naturally synchronized to the monitor without a busy loop.
+            bool nonBlocking = _presentMode
+                == SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_IMMEDIATE;
+            bool acquired = nonBlocking
+                ? SDL3.SDL_AcquireGPUSwapchainTexture(commandBuffer,
+                    _window, &swapchainTexture, &width, &height)
+                : SDL3.SDL_WaitAndAcquireGPUSwapchainTexture(commandBuffer,
+                    _window, &swapchainTexture, &width, &height);
             if (!acquired)
             {
                 SDL3.SDL_CancelGPUCommandBuffer(commandBuffer);
@@ -161,7 +173,19 @@ namespace MphRead
                 CompleteTelemetry();
                 return false;
             }
-            _swapchainAcquireSucceeded = true;
+            _swapchainAcquireSucceeded = swapchainTexture != null;
+            // A null image is the expected non-blocking result while the GPU
+            // or display owns every swapchain image. Keep the command buffer
+            // and produce an offscreen frame instead of stalling. The blocking
+            // VSync path retains its existing no-drawable behavior.
+            if (swapchainTexture == null && nonBlocking)
+            {
+                _swapchainWidth = checked((uint)_framebufferSize.X);
+                _swapchainHeight = checked((uint)_framebufferSize.Y);
+                frame = new RenderBackendFrame(false, false, _framebufferSize);
+                _currentFrame = frame;
+                return true;
+            }
             // SDL has successfully acquired the swapchain operation at this
             // point. Even if it reports no drawable image (minimized/window
             // manager race), cancellation is invalid; submit this empty

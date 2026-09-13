@@ -247,7 +247,7 @@ namespace MphRead.Mods
         /// counter you cannot turn on while you are looking at the stutter is
         /// the wrong tool.
         /// </summary>
-        public static bool ShowFps { get; set; }
+        public static bool ShowFps { get; set; } = true;
 
         /// <summary>How many steps the shading is banded into, 2 to 8.</summary>
         public static int CelBands

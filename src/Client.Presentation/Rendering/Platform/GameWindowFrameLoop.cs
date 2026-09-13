@@ -71,6 +71,9 @@ namespace MphRead
         void AdvanceSimulation(int steps);
         void OnDrawFrame();
         void Render(RenderBackendFrame frame, IRenderBackend backend);
+        /// <summary>Called after any encoded GPU frame is successfully submitted.</summary>
+        void OnFrameRendered() { }
+        /// <summary>Called only when that submission also owns a swapchain image.</summary>
         void OnFramePresented();
         void AfterRenderFrame();
         void PumpPauseMenu();
@@ -177,7 +180,11 @@ namespace MphRead
                     if (submitSucceeded)
                     {
                         submitted = true;
-                        client.OnFramePresented();
+                        client.OnFrameRendered();
+                        if (frame.HasSwapchain)
+                        {
+                            client.OnFramePresented();
+                        }
                         // Pause/settings UI is owned by the window thread and
                         // must be serviced after the present acknowledgement but
                         // before the frame's transient state is retired.

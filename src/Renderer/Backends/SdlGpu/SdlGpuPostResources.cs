@@ -110,6 +110,8 @@ namespace MphRead
         private SDL_GPUTextureFormat? _reportedDistortionWarpFailure;
         private SDL_GPUTextureFormat? _failedVisorFormat;
         private SDL_GPUTextureFormat? _reportedVisorFailure;
+        private SDL_GPUTextureFormat? _failedCelFormat;
+        private SDL_GPUTextureFormat? _reportedCelFailure;
         private bool _disposed;
 
         private SdlGpuPostResources(SdlGpuDevice device)
@@ -206,6 +208,37 @@ namespace MphRead
             }
         }
 
+        private bool TryPrepareCel(SDL_GPUTextureFormat targetFormat)
+        {
+            if (_failedCelFormat == targetFormat) return false;
+            PostPipelineKey key = new(PostShader.Cel, Blend: false,
+                SDL_GPUPrimitiveType.SDL_GPU_PRIMITIVETYPE_TRIANGLESTRIP,
+                targetFormat);
+            if (_pipelines.ContainsKey(key)) return true;
+            try
+            {
+                _ = Pipeline(key);
+                _failedCelFormat = null;
+                _reportedCelFailure = null;
+                return true;
+            }
+            catch (Exception error) when (error is InvalidOperationException
+                or IOException or PlatformNotSupportedException)
+            {
+                _failedCelFormat = targetFormat;
+                if (_reportedCelFailure != targetFormat)
+                {
+                    _reportedCelFailure = targetFormat;
+                    Console.Error.WriteLine(
+                        $"[render] Cel outline disabled for {targetFormat}: "
+                        + $"driver={_device.Driver}, "
+                        + $"shaders={SdlGpuDevice.DescribeShaderFormats(_device.ShaderFormats)}, "
+                        + $"target={targetFormat}; {error.Message}");
+                }
+                return false;
+            }
+        }
+
         public void PrepareSceneTargets(uint width, uint height,
             uint compositeWidth, uint compositeHeight,
             SDL_GPUTextureFormat sceneFormat, SdlGpuBloomPlan bloomPlan,
@@ -240,18 +273,23 @@ namespace MphRead
             SDL_GPUTexture* surfaceData = sceneResources.SurfaceDataTexture;
             SDL_GPUTexture* celGeometry = surfaceData != null
                 ? surfaceData : sceneResources.DepthSampleable ? sceneDepth : null;
-            if (frame.CelState.Enabled && frame.CelState.Outline > 0
-                && celGeometry != null)
+            if (frame.CelState.Enabled && frame.CelState.Outline > 0)
             {
-                SDL_GPUTexture* target = NextIntermediate(current);
-                EncodeCel(commandBuffer, frame, current, celGeometry, target,
-                    sceneResources, surfaceData != null);
-                current = target;
-            }
-            else if (frame.CelState.Enabled && frame.CelState.Outline > 0 && !_reportedUnsampleableDepth)
-            {
-                _reportedUnsampleableDepth = true;
-                Console.Error.WriteLine("[render] cel outline disabled: SDL GPU depth-stencil targets are not sampleable on this device.");
+                if (celGeometry != null)
+                {
+                    if (TryPrepareCel(_sceneFormat))
+                    {
+                        SDL_GPUTexture* target = NextIntermediate(current);
+                        EncodeCel(commandBuffer, frame, current, celGeometry, target,
+                            sceneResources, surfaceData != null);
+                        current = target;
+                    }
+                }
+                else if (!_reportedUnsampleableDepth)
+                {
+                    _reportedUnsampleableDepth = true;
+                    Console.Error.WriteLine("[render] cel outline disabled: SDL GPU depth-stencil targets are not sampleable on this device.");
+                }
             }
             // Cel evaluates against the unwarped surface/depth buffers. Warp
             // the completed cel scene and its selective emission together so

@@ -1100,7 +1100,7 @@ namespace MphRead.Effects
             }
         }
 
-        private void DrawB8(float scaleFactor)
+        private void DrawB8(float scaleFactor, in Matrix4 ownerTransform)
         {
             if (Alpha > 0)
             {
@@ -1109,7 +1109,7 @@ namespace MphRead.Effects
                 Vector3 ev1 = EffectVec1 * Scale;
                 Vector3 ev2 = EffectVec2 * Scale;
 
-                Vector3 position = Matrix.Vec3MultMtx4(Position, Owner.Transform.ClearTranslation());
+                Vector3 position = Matrix.Vec3MultMtx4(Position, ownerTransform.ClearTranslation());
                 float v19 = position.X + (-ev1.X / 2) + (ev2.X / 2);
                 float v22 = position.Y + (-ev1.Y / 2) + (ev2.Y / 2);
                 float v23 = position.Z + (-ev1.Z / 2) + (ev2.Z / 2);
@@ -1162,7 +1162,7 @@ namespace MphRead.Effects
             }
         }
 
-        private void DrawCC(float scaleFactor)
+        private void DrawCC(float scaleFactor, in Matrix4 ownerTransform)
         {
             if (Alpha > 0)
             {
@@ -1186,7 +1186,7 @@ namespace MphRead.Effects
                 float v28 = (vec1.Y * sin1 + vec2.Y * cos1) * Scale;
                 float v29 = (vec1.Z * sin1 + vec2.Z * cos1) * Scale;
 
-                Vector3 position = Matrix.Vec3MultMtx4(Position, Owner.Transform.ClearTranslation());
+                Vector3 position = Matrix.Vec3MultMtx4(Position, ownerTransform.ClearTranslation());
                 float v27 = position.X + (-v20 / 2) + (v26 / 2);
                 float v30 = position.Y + (-v24 / 2) + (v28 / 2);
                 float v31 = position.Z + (-v25 / 2) + (v29 / 2);
@@ -1235,7 +1235,7 @@ namespace MphRead.Effects
             DrawShared(scaleFactor, skipIfZeroSpeed: false);
         }
 
-        private void DrawDC(float scaleFactor)
+        private void DrawDC(float scaleFactor, in Matrix4 ownerTransform)
         {
             if (Alpha > 0)
             {
@@ -1245,7 +1245,7 @@ namespace MphRead.Effects
                 Vector4 ev4;
                 if (Owner.Flags.TestFlag(EffElemFlags.UseTransform))
                 {
-                    ev4 = new Vector4(Position + Owner.Transform.Row3.Xyz, 1);
+                    ev4 = new Vector4(Position + ownerTransform.Row3.Xyz, 1);
                 }
                 else
                 {
@@ -1318,7 +1318,7 @@ namespace MphRead.Effects
             }
         }
 
-        public void InvokeDrawFunc(float scaleFactor)
+        public void InvokeDrawFunc(float scaleFactor, in Matrix4 ownerTransform)
         {
             ShouldDraw = false;
             DrawNode = false;
@@ -1326,20 +1326,20 @@ namespace MphRead.Effects
             {
             case 1: // B4
             case 2:
-                DrawB8(scaleFactor);
+                DrawB8(scaleFactor, ownerTransform);
                 break;
             case 3:
                 DrawC4(scaleFactor);
                 break;
             case 4: // C8
             case 5:
-                DrawCC(scaleFactor);
+                DrawCC(scaleFactor, ownerTransform);
                 break;
             case 6:
                 DrawD0(scaleFactor);
                 break;
             case 7:
-                DrawDC(scaleFactor);
+                DrawDC(scaleFactor, ownerTransform);
                 break;
             default:
                 throw new ProgramException("Invalid draw func.");

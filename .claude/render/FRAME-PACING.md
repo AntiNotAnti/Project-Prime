@@ -78,8 +78,11 @@ presentation does not remove first-frame bursts.
 
 Launcher **FPS limit** selects Display (VSync), a numeric cap, or Unlimited and
 saves `FrameRateCap`. Display is the default. Numeric caps disable VSync and use
-the SDL frame pacer; this avoids double pacing. The on-screen FPS counter reports
-drawn pictures, while simulation and phase telemetry are written to diagnostics.
+the SDL frame pacer; this avoids double pacing. The on-screen FPS counter is enabled
+by default and reports successful presentations over a rolling wall-clock window;
+the settings toggle can still disable it. Long idle gaps start a fresh sample so a
+minimize/resume interval is not reported as active rendering. Simulation and phase
+telemetry are written to diagnostics.
 
 ## Evidence boundary
 

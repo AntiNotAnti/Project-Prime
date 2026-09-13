@@ -24,8 +24,9 @@ namespace MphRead
         void Render(RenderBackendFrame frame, RenderFrame snapshot);
 
         /// <summary>
-        /// Submit the encoded frame. A true result means a real submission
-        /// succeeded and it is safe for the host to acknowledge presentation.
+        /// Submit the encoded frame. A true result means a real GPU submission
+        /// succeeded. <see cref="RenderBackendFrame.HasSwapchain"/> determines
+        /// whether the host should also acknowledge a visible presentation.
         /// </summary>
         bool TrySubmitFrame(RenderBackendFrame frame);
 

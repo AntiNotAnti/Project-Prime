@@ -43,7 +43,8 @@ namespace MphRead
                 textureAssetKey: ScenePresentation.GetModelTextureAssetKey(
                     particle.ParticleDefinition.Model, material, 0));
         }
-        public static void AddRenderItem(this EffectParticle particle, ScenePresentation scene)
+        public static void AddRenderItem(this EffectParticle particle, ScenePresentation scene,
+            in Matrix4 ownerTransform)
         {
             if (particle.DrawNode)
             {
@@ -104,12 +105,12 @@ namespace MphRead
                 {
                     if (particle.BillboardMode != BillboardMode.None)
                     {
-                        Vector3 position = Matrix.Vec3MultMtx4(particle.Position, particle.Owner.Transform.ClearTranslation());
-                        transform = Matrix4.CreateTranslation(position + particle.Owner.Transform.Row3.Xyz);
+                        Vector3 position = Matrix.Vec3MultMtx4(particle.Position, ownerTransform.ClearTranslation());
+                        transform = Matrix4.CreateTranslation(position + ownerTransform.Row3.Xyz);
                     }
                     else
                     {
-                        transform = Matrix4.CreateTranslation(particle.Position) * particle.Owner.Transform;
+                        transform = Matrix4.CreateTranslation(particle.Position) * ownerTransform;
                     }
                 }
                 else

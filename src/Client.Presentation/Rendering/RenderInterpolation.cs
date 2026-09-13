@@ -17,6 +17,9 @@ namespace MphRead
             public bool HasState;
             public readonly Dictionary<ModelInstance, ModelPoseHistory> Models = new();
             public PlayerBipedPoseHistory? Biped;
+            public ModelPoseHistory? Gun;
+            public int GunState;
+            public bool HasGunState;
             public ModelPoseHistory? Alt;
             public Matrix4[] AltTransforms = Array.Empty<Matrix4>();
             public Matrix4[] AltPose = Array.Empty<Matrix4>();
@@ -96,6 +99,12 @@ namespace MphRead
             && World.LocalPlayer!.CameraType == CameraType.First
             && !World.LocalPlayer!.IsAltForm
             && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing && !World.LocalPlayer!.Flags1.TestFlag(PlayerFlags1.NoAimInput);
+        internal static bool IsStableCameraHistoryEligible(bool alive,
+            bool morphing, bool unmorphing)
+            => alive && !morphing && !unmorphing;
+        internal static bool ShouldInterpolateCameraRotation(bool altForm,
+            bool legacyCameraResponse)
+            => altForm || !legacyCameraResponse;
         private bool InterpolationEnabled => Timing.Active && !FrameAdvance
             && !Mods.SpectatorMode.IsSpectating && !Mods.Network.ReplayPlayback.IsActive && World.CameraSequences.Current == null;
         // Biped smoothing is skeletal presentation only.  It deliberately has
@@ -158,6 +167,39 @@ namespace MphRead
                     track.Biped.Capture(biped._bipedModel1.AnimInfo, biped._bipedModel2.AnimInfo,
                         PlayerEntity.GetBipedPitch(biped._facingVector), _poseTick, _poseGeneration, discontinuity);
                 }
+                if (entity is PlayerEntity firstPerson && firstPerson.IsMainPlayer
+                    && firstPerson.CameraType == CameraType.First && !firstPerson.IsAltForm
+                    && !firstPerson.IsMorphing && !firstPerson.IsUnmorphing
+                    && firstPerson._gunModel != null)
+                {
+                    int gunState = HashCode.Combine(firstPerson.CurrentWeapon,
+                        firstPerson.GunAnimation, firstPerson.LoadFlags,
+                        firstPerson.Health == 0, firstPerson.PresentationPoseEpoch,
+                        _timingGeneration, _correctionGeneration, _poseGeneration);
+                    bool gunDiscontinuity = !track.HasGunState
+                        || track.GunState != gunState;
+                    track.Gun ??= new ModelPoseHistory(firstPerson._gunModel.Model);
+                    if (!ReferenceEquals(track.Gun.Model, firstPerson._gunModel.Model))
+                    {
+                        track.Gun = new ModelPoseHistory(firstPerson._gunModel.Model);
+                    }
+                    Matrix4 gunWorld = PlayerEntity.GetTransformMatrix(
+                        firstPerson._aimVec, firstPerson._upVector,
+                        firstPerson._gunDrawPos);
+                    // Store the viewmodel relative to the simulation camera.
+                    // Interpolating its world root and then applying the current
+                    // camera delta makes movement appear twice as a 60 Hz
+                    // sawtooth. Camera-local samples contain only the authored
+                    // gun motion/bob and can be attached to the resolved render
+                    // camera once at submission time.
+                    Matrix4 gunCameraLocal = ViewmodelCameraLocalPose(
+                        gunWorld, firstPerson.CameraInfo.ViewMatrix);
+                    track.Gun.Capture(firstPerson._gunModel.AnimInfo,
+                        gunCameraLocal, _poseTick, _poseGeneration,
+                        gunDiscontinuity || discontinuity);
+                    track.GunState = gunState;
+                    track.HasGunState = true;
+                }
                 if (entity is PlayerEntity alternate && alternate.IsAltForm
                     && alternate._altModel != null)
                 {
@@ -192,9 +234,11 @@ namespace MphRead
             foreach (var pair in _poses) if (pair.Value.Seen != _poseTick) _removedPoses.Add(pair.Key);
             foreach (EntityBase removed in _removedPoses) _poses.Remove(removed);
             int cameraState = HashCode.Combine(World.LocalPlayer!.Health == 0, World.LocalPlayer!.IsAltForm,
-                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing, World.LocalPlayer!.CameraType, World.CameraSequences.Current);
-            if (World.LocalPlayer!.Health > 0 && !World.LocalPlayer!.IsAltForm
-                && !World.LocalPlayer!.IsMorphing && !World.LocalPlayer!.IsUnmorphing)
+                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing,
+                World.LocalPlayer!.EquipInfo.Zoomed, World.LocalPlayer!.CameraType,
+                World.CameraSequences.Current);
+            if (IsStableCameraHistoryEligible(World.LocalPlayer!.Health > 0,
+                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing))
             {
                 _cameraHistory.Capture(World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
                 _cameraFovHistory.Capture(World.LocalPlayer!.CameraInfo.Fov, _poseTick,
@@ -247,6 +291,34 @@ namespace MphRead
             Matrix4 resolvedRoot = _submissionInterpolated
                 ? worldRoot * _submissionDelta : worldRoot;
             history.Resolve(Timing.RenderAlpha, resolvedRoot, out nodes, out stack);
+            _submissionDelta = Matrix4.Identity;
+            _submissionInterpolated = false;
+            return true;
+        }
+
+        internal bool ResolvePlayerGunSubmission(PlayerEntity player,
+            ModelInstance inst, out Matrix4[] nodes, out float[] stack)
+        {
+            nodes = Array.Empty<Matrix4>();
+            stack = Array.Empty<float>();
+            if (!SkeletalInterpolationEnabled || !InterpolationEnabled
+                || !_poses.TryGetValue(player, out PoseTrack? track)
+                || track.Gun is not { HasSamples: true } history
+                || !ReferenceEquals(history.Model, inst.Model))
+            {
+                return false;
+            }
+
+            history.Resolve(Timing.RenderAlpha, out nodes, out stack);
+            Matrix4 renderCamera = _viewMatrix.Inverted();
+            for (int i = 0; i < nodes.Length; i++)
+            {
+                nodes[i] = ViewmodelWorldPose(nodes[i], renderCamera);
+            }
+            TransformCopiedStack(stack, inst.Model.NodeMatrixIds.Count,
+                renderCamera);
+            // These copied matrices now contain the resolved render-camera root.
+            // The generic player delta must not be applied to them again.
             _submissionDelta = Matrix4.Identity;
             _submissionInterpolated = false;
             return true;
@@ -325,7 +397,16 @@ namespace MphRead
         {
             if (!ControlsPlayer || Mods.SpectatorMode.IsSpectating || Mods.Network.ReplayPlayback.IsActive) return;
             Matrix4 camera = World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted();
-            if (InterpolationEnabled && _cameraHistory.HasSamples) camera.Row3.Xyz = _cameraHistory.Resolve(Timing.RenderAlpha).Row3.Xyz;
+            bool legacyCameraResponse = DynamicCrosshairTuning.UsesLegacyCameraResponse(
+                Mods.InputSettings.DynamicCrosshairTravelDegrees,
+                Mods.InputSettings.DynamicCrosshairTurnSpeed);
+            if (InterpolationEnabled && _cameraHistory.HasSamples)
+            {
+                camera = ResolveCameraPose(camera,
+                    _cameraHistory.Resolve(Timing.RenderAlpha),
+                    interpolateRotation: ShouldInterpolateCameraRotation(
+                        World.LocalPlayer!.IsAltForm, legacyCameraResponse));
+            }
             if (InterpolationEnabled && _cameraFovHistory.HasSamples)
             {
                 float fov = _cameraFovHistory.Resolve(Timing.RenderAlpha);
@@ -413,13 +494,43 @@ namespace MphRead
                 aim += controllerAim;
                 aim *= DynamicCrosshairTuning.MovementSensitivity(
                     Mods.InputSettings.DynamicCrosshairSensitivity);
-                float pitch = MathHelper.RadiansToDegrees(MathF.Asin(Math.Clamp(player._gunVec1.Y, -1, 1)));
-                camera = RenderLookAccumulator.ApplyCameraLook(camera, aim, pitch);
+                // Legacy prediction rotates only the copied render camera. It
+                // cannot represent a custom free-aim region because the gun
+                // and camera intentionally move by different amounts there;
+                // applying the full delta makes the view jump forward and
+                // snap back at the next simulation step. Let the interpolated
+                // authoritative camera handle custom response settings.
+                if (legacyCameraResponse)
+                {
+                    float pitch = MathHelper.RadiansToDegrees(MathF.Asin(
+                        Math.Clamp(player._gunVec1.Y, -1, 1)));
+                    camera = RenderLookAccumulator.ApplyCameraLook(camera, aim, pitch);
+                }
             }
             camera.Row3.Xyz += Mods.Network.AuthoritativePlay.Current?.VisualOffset ?? Vector3.Zero;
             _cameraPosition = camera.Row3.Xyz;
             _viewMatrix = camera.Inverted();
         }
+
+        internal static Matrix4 ResolveCameraPose(Matrix4 current,
+            Matrix4 interpolated, bool interpolateRotation)
+        {
+            if (interpolateRotation)
+            {
+                return interpolated;
+            }
+            current.Row3.Xyz = interpolated.Row3.Xyz;
+            return current;
+        }
+
+        internal static Matrix4 ViewmodelCameraLocalPose(Matrix4 worldPose,
+            Matrix4 simulationView)
+            => worldPose * simulationView;
+
+        internal static Matrix4 ViewmodelWorldPose(Matrix4 cameraLocalPose,
+            Matrix4 renderCamera)
+            => cameraLocalPose * renderCamera;
+
         public static void TransformCopiedStack(float[] stack, int count, Matrix4 delta)
         {
             for (int index = 0; index < count; index++)

@@ -2657,18 +2657,23 @@ namespace MphRead
         }
 #endif
 
-        /// <summary>Called only after a window successfully presents this scene.</summary>
-        public void OnFramePresented()
+        /// <summary>Called after an encoded frame is successfully submitted to the GPU.</summary>
+        public void OnFrameRendered()
         {
-            Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(World);
             if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
             {
                 CountFrame();
                 // The request has crossed the backend submission boundary. A
-                // failed/minimized frame never reaches this callback and keeps
-                // the same request pending for the next picture.
+                // failed frame never reaches this callback and keeps the same
+                // request pending for the next GPU render.
                 _pendingSdlScreenshot = null;
             }
+        }
+
+        /// <summary>Called only after a window successfully presents this scene.</summary>
+        public void OnFramePresented()
+        {
+            Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(World);
         }
 
         public void AfterRenderFrame()
@@ -2849,8 +2854,10 @@ namespace MphRead
         public float FramesPerSecond { get; private set; }
 
         /// <summary>
-        /// Frames a second, over the half second just gone. Desktop counts only
-        /// successful presentations; Android counts its render-thread frames.
+        /// Frames a second over the recent rolling window. Desktop counts
+        /// successful GPU-render submissions, including offscreen frames made
+        /// while an immediate-mode swapchain image is busy. Android counts its
+        /// render-thread frames.
         /// Wall time is intentional so slow frames remain visible in the result.
         /// </summary>
         private readonly PresentedFrameRateCounter _fpsCounter = new();
@@ -4716,19 +4723,20 @@ namespace MphRead
                 EffectElementEntry element = _activeElements[i];
                 if (element.Flags.TestFlag(EffElemFlags.DrawEnabled))
                 {
+                    Matrix4 ownerTransform = ResolveEffectOwnerTransform(element);
                     for (int j = 0; j < element.Particles.Count; j++)
                     {
                         EffectParticle particle = element.Particles[j];
                         Matrix4 matrix = _viewMatrix;
                         if (particle.Owner.Flags.TestFlag(EffElemFlags.UseTransform) && !particle.Owner.Flags.TestFlag(EffElemFlags.UseMesh))
                         {
-                            matrix = particle.Owner.Transform * matrix;
+                            matrix = ownerTransform * matrix;
                         }
                         particle.InvokeSetVecsFunc(matrix);
-                        particle.InvokeDrawFunc(1);
+                        particle.InvokeDrawFunc(1, ownerTransform);
                         if (particle.ShouldDraw)
                         {
-                            particle.AddRenderItem(this);
+                            particle.AddRenderItem(this, ownerTransform);
                         }
                     }
                 }

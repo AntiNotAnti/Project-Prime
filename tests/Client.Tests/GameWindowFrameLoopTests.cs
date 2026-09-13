@@ -10,7 +10,9 @@ namespace ProjectPrime.Client.Tests;
 public sealed class GameWindowFrameLoopTests
 {
     private static readonly string[] SuccessfulOrder =
-        ["input", "simulation", "draw", "begin", "render", "submit", "presented", "pause", "after"];
+        ["input", "simulation", "draw", "begin", "render", "submit", "rendered", "presented", "pause", "after"];
+    private static readonly string[] OffscreenOrder =
+        ["input", "simulation", "draw", "begin", "render", "submit", "rendered", "pause", "after"];
     private static readonly string[] FailedAcquireOrder =
         ["input", "simulation", "draw", "begin", "pause"];
     private static readonly string[] FailedSubmitOrder =
@@ -87,6 +89,22 @@ public sealed class GameWindowFrameLoopTests
     }
 
     [Fact]
+    public void SuccessfulOffscreenFrameRendersAndRetiresWithoutPresentation()
+    {
+        var timing = new FrameTiming();
+        var client = new RecordingClient();
+        using var backend = new RecordingBackend(begin: true, submit: true, client.Order,
+            hasSwapchain: false);
+
+        new GameWindowFrameLoop(timing).Tick(0, default, client, backend);
+
+        Assert.Equal(OffscreenOrder, client.Order);
+        Assert.Equal(1, client.Rendered);
+        Assert.Equal(0, client.Presented);
+        Assert.Equal(1, client.AfterRender);
+    }
+
+    [Fact]
     public void ManualAdvanceClearsDebtAndRunsExactlyOneStep()
     {
         var timing = new FrameTiming();
@@ -126,6 +144,7 @@ public sealed class GameWindowFrameLoopTests
         private readonly RenderFrame _snapshot = new(1, 1);
         public List<string> Order { get; } = new();
         public int SimulationSteps { get; private set; }
+        public int Rendered { get; private set; }
         public int Presented { get; private set; }
         public int AfterRender { get; private set; }
 
@@ -140,6 +159,11 @@ public sealed class GameWindowFrameLoopTests
         {
             Order.Add("render");
             backend.Render(frame, _snapshot);
+        }
+        public void OnFrameRendered()
+        {
+            Rendered++;
+            Order.Add("rendered");
         }
         public void OnFramePresented()
         {
@@ -158,13 +182,16 @@ public sealed class GameWindowFrameLoopTests
     {
         private readonly bool _begin;
         private readonly bool _submit;
+        private readonly bool _hasSwapchain;
         private readonly List<string> _order;
         private RenderBackendFrame? _frame;
 
-        public RecordingBackend(bool begin, bool submit, List<string> order)
+        public RecordingBackend(bool begin, bool submit, List<string> order,
+            bool hasSwapchain = true)
         {
             _begin = begin;
             _submit = submit;
+            _hasSwapchain = hasSwapchain;
             _order = order;
         }
 
@@ -181,7 +208,8 @@ public sealed class GameWindowFrameLoopTests
                 frame = null!;
                 return false;
             }
-            _frame = frame = new RenderBackendFrame(true, false, new Vector2i(1, 1));
+            _frame = frame = new RenderBackendFrame(_hasSwapchain, false,
+                new Vector2i(1, 1));
             return true;
         }
 

@@ -249,11 +249,25 @@ namespace MphRead.Entities
                     {
                         Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
                         UpdateTransforms(_player._gunModel, transform, _player.Recolor);
-                        // The gun transform is already camera-relative. Feeding a
-                        // world-root pose history through the active camera
-                        // submission delta applies camera translation twice and
-                        // produces a visible 60 Hz sawtooth while moving.
-                        GetDrawItems(_player._gunModel, _player._gunModel.Model.Nodes[0], _player._curAlpha);
+                        // Interpolate authored animation and bob in camera-local
+                        // space, then attach it to this frame's resolved camera.
+                        // The fallback retains the current simulation pose and
+                        // generic camera delta at discontinuity boundaries.
+                        if (Presentation.ResolvePlayerGunSubmission(_player,
+                            _player._gunModel, out Matrix4[] gunNodes,
+                            out float[] gunStack))
+                        {
+                            GetDrawItems(_player._gunModel,
+                                _player._gunModel.Model.Nodes[0],
+                                _player._curAlpha, nodePoses: gunNodes,
+                                nodeStack: gunStack);
+                        }
+                        else
+                        {
+                            GetDrawItems(_player._gunModel,
+                                _player._gunModel.Model.Nodes[0],
+                                _player._curAlpha);
+                        }
                         if (_player.Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
                             // todo?: the game uses an alternate projection matrix to draw this
