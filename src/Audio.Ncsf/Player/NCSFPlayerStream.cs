@@ -41,6 +41,9 @@ public class NCSFPlayerStream : Stream
     public Player Player => player;
     float secondsPerSample;
     int samplesIntoPlayback;
+    long samplesGenerated;
+    long position;
+    bool disposed;
 
     public NCSFCommon.TagList Tags => this.ncsf.Tags;
     public float VolumeModification { get; set; }
@@ -65,17 +68,44 @@ public class NCSFPlayerStream : Stream
         this.Load();
     }
 
-    public override bool CanRead => true;
+    public override bool CanRead => !this.disposed;
 
-    public override bool CanSeek => !this.playForever;
+    public override bool CanSeek => !this.disposed && !this.playForever;
 
     public override bool CanWrite => false;
 
-    public override long Length => this.playForever ? throw new NotSupportedException() : (this.lengthSample + this.fadeSample) << 3;
+    public override long Length
+    {
+        get
+        {
+            this.ThrowIfDisposed();
+            return this.playForever ? throw new NotSupportedException()
+                : ((long)this.lengthSample + this.fadeSample) << 3;
+        }
+    }
 
-    public override long Position { get; set; }
+    public override long Position
+    {
+        get
+        {
+            this.ThrowIfDisposed();
+            if (this.playForever)
+                throw new NotSupportedException();
+            return this.position;
+        }
+        set
+        {
+            this.ThrowIfDisposed();
+            if (this.playForever)
+                throw new NotSupportedException();
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            if ((value & 0x07) != 0)
+                throw new ArgumentException("NCSF samples are positioned as 8-byte stereo frames.", nameof(value));
+            this.position = value;
+        }
+    }
 
-    public override void Flush() => throw new NotImplementedException();
+    public override void Flush() => this.ThrowIfDisposed();
 
     void GenerateSamples(Span<float> buf)
     {
@@ -84,6 +114,7 @@ public class NCSFPlayerStream : Stream
         for (int smpl = 0; smpl < samples; ++smpl)
         {
             ++this.samplesIntoPlayback;
+            ++this.samplesGenerated;
 
             float leftChannel = 0;
             float rightChannel = 0;
@@ -160,7 +191,8 @@ public class NCSFPlayerStream : Stream
 
         this.skipSilenceOnStartSec = this.initialSkipSilenceOnStartSec;
         this.detectedSilenceSample = this.detectedSilenceSec = 0;
-        this.Position = 0;
+        this.samplesGenerated = 0;
+        this.position = 0;
         this.prevSampleL = this.prevSampleR = NCSFPlayerStream.CheckSilenceBias;
     }
 
@@ -193,13 +225,47 @@ public class NCSFPlayerStream : Stream
 
     public override int Read(byte[] buffer, int offset, int count)
     {
-        int pos = offset;
-        var bufFloat = buffer.AsSpan(offset, count).Cast<byte, float>();
-        int bufSize = bufFloat.Length >> 1;
+        this.ThrowIfDisposed();
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentOutOfRangeException.ThrowIfNegative(offset);
+        ArgumentOutOfRangeException.ThrowIfNegative(count);
+        if (offset > buffer.Length - count)
+            throw new ArgumentException("The offset and count exceed the buffer length.", nameof(count));
+
+        // SoundFlow consumes interleaved stereo float samples. Never cast or
+        // return a partial frame: a caller may provide a short final buffer,
+        // but the stream's unit is always one left/right pair (8 bytes).
+        int frameBytes = count & ~0x07;
+        if (frameBytes == 0)
+            return 0;
+
+        var bufFloat = buffer.AsSpan(offset, frameBytes).Cast<byte, float>();
+        int bufSize = frameBytes >> 3;
+        long currentSample = this.position >> 3;
+        long totalSamples = (long)this.lengthSample + this.fadeSample;
+        if (!this.playForever)
+        {
+            if (currentSample >= totalSamples || this.samplesGenerated >= totalSamples)
+                return 0;
+            bufSize = (int)Math.Min(bufSize, Math.Min(totalSamples - currentSample,
+                totalSamples - this.samplesGenerated));
+            if (bufSize == 0)
+                return 0;
+        }
+
+        int pos = 0;
         while (pos < bufSize)
         {
             int remain = bufSize - pos;
-            this.GenerateSamples(bufFloat[(pos << 1)..]);
+            if (!this.playForever)
+            {
+                long sourceRemain = totalSamples - this.samplesGenerated;
+                if (sourceRemain <= 0)
+                    break;
+                remain = (int)Math.Min(remain, sourceRemain);
+            }
+
+            this.GenerateSamples(bufFloat.Slice(pos << 1, remain << 1));
             if (this.skipSilenceOnStartSec != 0)
             {
                 int skipOffset = 0;
@@ -243,7 +309,8 @@ public class NCSFPlayerStream : Stream
                 {
                     if (skipOffset != 0)
                     {
-                        bufFloat[((pos + skipOffset) << 1)..].CopyTo(bufFloat[pos..]);
+                        bufFloat.Slice((pos + skipOffset) << 1, (remain - skipOffset) << 1)
+                            .CopyTo(bufFloat.Slice(pos << 1, (remain - skipOffset) << 1));
                         pos += remain - skipOffset;
                     }
                     else
@@ -254,15 +321,13 @@ public class NCSFPlayerStream : Stream
                 pos += remain;
         }
 
-        long currentSample = this.Position >> 3;
-        // Detect end of song
-        if (!this.playForever)
-        {
-            if (currentSample >= this.lengthSample + this.fadeSample)
-                return 0;
-            if (currentSample + bufSize >= this.lengthSample + this.fadeSample)
-                bufSize = (int)(this.lengthSample + this.fadeSample - currentSample);
-        }
+        if (pos == 0)
+            return 0;
+
+        // The source may end while the initial silence skip is still active.
+        // Only the frames actually produced into the destination are visible
+        // to the caller and advance the logical stream position.
+        bufSize = pos;
 
         for (int ofs = 0; ofs < bufSize; ++ofs)
         {
@@ -282,7 +347,7 @@ public class NCSFPlayerStream : Stream
                 else if (currentSample + ofs >= this.lengthSample + this.fadeSample)
                     bufFloat.Slice(2 * ofs, 2).Clear();
 
-        this.Position += bufSize << 3;
+        this.position += (long)bufSize << 3;
         return bufSize << 3;
     }
 
@@ -310,34 +375,68 @@ public class NCSFPlayerStream : Stream
 
     public override long Seek(long offset, SeekOrigin origin)
     {
+        this.ThrowIfDisposed();
         if (this.playForever)
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         else
         {
-            // Align offset so it is always at a proper byte value for the 32-bit stereo floating-point samples.
-            offset >>= 3;
-            offset <<= 3;
-            if (origin == SeekOrigin.Current)
-                offset += this.Position;
-            else if (origin == SeekOrigin.End)
-                offset += this.Length;
-            if (offset < this.Position)
+            long target = origin switch
+            {
+                SeekOrigin.Begin => offset,
+                SeekOrigin.Current => checked(this.Position + offset),
+                SeekOrigin.End => checked(this.Length + offset),
+                _ => throw new ArgumentOutOfRangeException(nameof(origin))
+            };
+            if (target < 0)
+                throw new ArgumentOutOfRangeException(nameof(offset), "Cannot seek before the start of an NCSF stream.");
+
+            // Align the byte position to a complete stereo frame. This keeps
+            // compatibility with the previous seek behavior while making the
+            // Position contract explicit and deterministic.
+            target &= ~0x07L;
+            if (target < this.Position)
             {
                 this.Terminate();
                 this.Load();
             }
             Span<byte> dummyBuffer = stackalloc byte[0x1000];
-            while (offset - this.Position > 0x1000)
-                _ = this.Read(dummyBuffer);
-            if (offset - this.Position > 0)
-                _ = this.Read(dummyBuffer[..(int)(offset - this.Position)]);
-            return offset;
+            while (target - this.Position > dummyBuffer.Length)
+            {
+                if (this.Read(dummyBuffer) == 0)
+                    break;
+            }
+            long remaining = target - this.Position;
+            if (remaining is > 0 and <= 0x1000)
+                _ = this.Read(dummyBuffer[..(int)remaining]);
+            if (this.Position < target)
+                this.Position = target;
+            return this.Position;
         }
     }
 
-    public override void SetLength(long value) => throw new NotImplementedException();
+    public override void SetLength(long value)
+    {
+        this.ThrowIfDisposed();
+        throw new NotSupportedException();
+    }
 
     void Terminate() => this.player.Stop();
 
-    public override void Write(byte[] buffer, int offset, int count) => throw new NotImplementedException();
+    public override void Write(byte[] buffer, int offset, int count)
+    {
+        this.ThrowIfDisposed();
+        throw new NotSupportedException();
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing && !this.disposed)
+        {
+            this.disposed = true;
+            this.player.Stop();
+        }
+        base.Dispose(disposing);
+    }
+
+    private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(this.disposed, this);
 }
