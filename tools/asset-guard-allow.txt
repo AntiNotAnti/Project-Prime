@@ -16,6 +16,9 @@ src/Client/Assets/project-prime-title-screen.png
 src/Client/Assets/project-prime-logo.png
 src/Client/Assets/project-prime-intro.png
 src/Client.Presentation/Assets/project-prime-mark.png
+# Original Project Prime VFX sprites generated for the cosmetics system. The
+# adjacent manifest records the immutable source hash and sampling regions.
+src/Client.Presentation/Assets/Cosmetics/project-prime-vfx-atlas.png
 src/Client/Assets/project-prime-mark.png
 src/Client/Assets/project-prime-mark-server.png
 src/Client/Assets/project-prime-mark-tools.png

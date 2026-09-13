@@ -20,10 +20,14 @@ namespace MphRead
                 if (args.Length > 0 && args[0] == "balance") return BalanceCommand.Run(args);
                 if (args.Length > 0 && args[0] == "telemetry") return TelemetryCommand.Run(args);
                 if (args.Length > 0 && args[0] == "fidelity") return FidelityCommand.Run(args[1..]);
+                if (args.Length > 0 && args[0] == "cosmetics")
+                    return MphRead.Cosmetics.Tools.CosmeticCommand.Run(args[1..]);
+                if (DeathAnimationCooker.TryRun(args, out int deathAnimationExit))
+                    return deathAnimationExit;
                 MapGen.MapImageDecoding.Decoder = MphRead.Imaging.StbImageDecoder.Decode;
                 if (args.Length > 0 && args[0] == "map") return MapGen.MapCommand.Run(args[1..]);
                 if (args.Length == 0 || HasFlag(args, "help"))
-                { Console.WriteLine("ProjectPrimeTools: fidelity <command>, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all] [-mapbundle-output DIRECTORY], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
+                { Console.WriteLine("ProjectPrimeTools: cosmetics <validate|cook|inspect|list>, fidelity <command>, -deathanim SOURCE.json -out OUTPUT.pda, -deathskeleton MODEL HUNTER -data AMHE1_DIRECTORY, -extract ARCHIVE, -export TARGET, -setup, -servercontent OUTPUT -data DIRECTORY, -content-dir DIRECTORY, -mapbundle [NAME|all] [-mapbundle-output DIRECTORY], -mapgen [NAME|all], -q3maps, -q3convert, -q3shaders, -mapmaterials, -mechanics"); return 0; }
                 string? mapDir = ValueAfter(args, "mapdir");
                 if (mapDir != null)
                 {

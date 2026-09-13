@@ -1,0 +1,36 @@
+{
+  "format": 1,
+  "key": "prime.vfx.atlas.foundation",
+  "image": "project-prime-vfx-atlas.png",
+  "width": 1254,
+  "height": 1254,
+  "sha256": "6147dc89bfbf7cc67b0500d7d4cd223907442a34486ec187bfdfd7a6906edda0",
+  "alpha": true,
+  "sampling": {
+    "addressMode": "clamp",
+    "filter": "linear",
+    "insetPixels": 2
+  },
+  "sprites": [
+    { "key": "lightning.burst", "x": 0, "y": 0, "width": 314, "height": 251 },
+    { "key": "lightning.arc", "x": 314, "y": 0, "width": 313, "height": 251 },
+    { "key": "lightning.ring", "x": 627, "y": 0, "width": 314, "height": 251 },
+    { "key": "lightning.swirl", "x": 941, "y": 0, "width": 313, "height": 251 },
+    { "key": "inferno.flame", "x": 0, "y": 251, "width": 314, "height": 251 },
+    { "key": "inferno.wave", "x": 314, "y": 251, "width": 313, "height": 251 },
+    { "key": "inferno.embers", "x": 627, "y": 251, "width": 314, "height": 251 },
+    { "key": "inferno.swirl", "x": 941, "y": 251, "width": 313, "height": 251 },
+    { "key": "phase.scan", "x": 0, "y": 502, "width": 314, "height": 250 },
+    { "key": "phase.pillars", "x": 314, "y": 502, "width": 313, "height": 250 },
+    { "key": "phase.orbit", "x": 627, "y": 502, "width": 314, "height": 250 },
+    { "key": "phase.column", "x": 941, "y": 502, "width": 313, "height": 250 },
+    { "key": "quantum.pixels", "x": 0, "y": 752, "width": 314, "height": 251 },
+    { "key": "quantum.trail", "x": 314, "y": 752, "width": 313, "height": 251 },
+    { "key": "quantum.burst", "x": 627, "y": 752, "width": 314, "height": 251 },
+    { "key": "quantum.ring", "x": 941, "y": 752, "width": 313, "height": 251 },
+    { "key": "spectral.wisp", "x": 0, "y": 1003, "width": 314, "height": 251 },
+    { "key": "spectral.wave", "x": 314, "y": 1003, "width": 313, "height": 251 },
+    { "key": "spectral.vortex", "x": 627, "y": 1003, "width": 314, "height": 251 },
+    { "key": "glacial.crystals", "x": 941, "y": 1003, "width": 313, "height": 251 }
+  ]
+}
