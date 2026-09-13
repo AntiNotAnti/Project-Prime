@@ -195,7 +195,7 @@ namespace MphRead.Mods.Network
         /// players; larger matches use that richest authored layer.
         /// </summary>
         public static int RoomPlayerCount
-            => AuthoritativePlay.Current?.Client.Accepted.Rules.EntityLayerPlayerCount
+            => ClientOnlineRuntime.Current?.Match?.Client.Accepted.Rules.EntityLayerPlayerCount
                 ?? NetConfig.RoomPlayerCount;
 
         /// <summary>

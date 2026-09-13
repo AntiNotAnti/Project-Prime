@@ -120,13 +120,14 @@ class TelemetryCliTests(unittest.TestCase):
             self.assertTrue(prefix.with_suffix(".svg").read_text().startswith("<svg"))
             csv_lines = prefix.with_suffix(".csv").read_text().splitlines()
             self.assertEqual(
-                "tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id",
+                "tick,kind,slot,life,x,y,z,team,hunter,weapon,value,subject,other_slot,semantic_id,spawn_entity_id,spawn_score,spawn_nearest_enemy_distance_squared,spawn_visible_enemies,spawn_facing_enemies,spawn_nearby_enemies,spawn_death_penalty,spawn_use_penalty,spawn_friendly_bonus,spawn_objective_penalty,spawn_resource_penalty,spawn_hazard_penalty,spawn_reservation_penalty,spawn_immediate_hazard,spawn_cooldown_fallback,spawn_hazard_fallback,spawn_team_fallback",
                 csv_lines[0],
             )
             self.assertEqual(len(fixture_events()) + 1, len(csv_lines))
             csv_rows = [line.split(",") for line in csv_lines[1:]]
-            self.assertTrue(all(len(row) == 14 for row in csv_rows))
-            self.assertTrue(all(row[-1] == "0" for row in csv_rows))
+            self.assertTrue(all(len(row) == 31 for row in csv_rows))
+            self.assertTrue(all(row[13] == "0" for row in csv_rows))
+            self.assertTrue(all(value == "" for row in csv_rows for value in row[14:]))
             self.assertIn(f"Project Prime {mode}", prefix.with_suffix(".svg").read_text())
 
         danger = outputs["spawn-safety"]["spawnDanger"]
