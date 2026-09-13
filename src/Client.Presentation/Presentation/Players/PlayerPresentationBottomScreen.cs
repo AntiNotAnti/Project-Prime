@@ -74,6 +74,10 @@ namespace MphRead.Entities
         {
             NativeBottomScreenController controller = Presentation.BottomScreen;
             bool wasActive = controller.DesktopSessionActive;
+            controller.UpdateDesktopCursorPreferences(
+                Mods.InputSettings.BottomScreenCursorSensitivity,
+                Mods.InputSettings.BottomScreenCursorStartX,
+                Mods.InputSettings.BottomScreenCursorStartY);
             if (blocked || _player.Health <= 0
                 || Mods.InputSettings.BottomScreenMode == NativeBottomScreenMode.Off)
             {
@@ -97,7 +101,10 @@ namespace MphRead.Entities
             if (activation == NativeBottomScreenActivationMode.Hold
                 && released)
             {
-                controller.EndDesktopSession();
+                // Hold owns a synthetic contact. Leave the session alive
+                // until the fixed-step consumer has processed its Up sample;
+                // that sample is the authoritative release coordinate.
+                controller.TryDesktopPointerUp();
             }
 
             bool active = controller.DesktopSessionActive;
@@ -183,6 +190,10 @@ namespace MphRead.Entities
                     Mods.InputSettings.BottomScreenScale,
                     Mods.InputSettings.BottomScreenCenterX,
                     Mods.InputSettings.BottomScreenCenterY));
+            controller.UpdateDesktopCursorPreferences(
+                Mods.InputSettings.BottomScreenCursorSensitivity,
+                Mods.InputSettings.BottomScreenCursorStartX,
+                Mods.InputSettings.BottomScreenCursorStartY);
             if (blocked || _player.Health <= 0
                 || controller.Mode == NativeBottomScreenMode.Off)
             {
@@ -201,6 +212,8 @@ namespace MphRead.Entities
             foreach (NativeBottomScreenPointerEvent item
                 in controller.Consume(_bottomScreenGeneration))
             {
+                bool desktopSample
+                    = item.Sample.Id == NativeBottomScreenController.DesktopPointerId;
                 switch (item.Phase)
                 {
                     case NativeBottomScreenPointerPhase.Down:
@@ -210,7 +223,11 @@ namespace MphRead.Entities
                         _bottomScreenInteractionActive = true;
                         goto case NativeBottomScreenPointerPhase.Move;
                     case NativeBottomScreenPointerPhase.Move:
-                        if (!_bottomScreenInteractionActive) break;
+                        if (!_bottomScreenInteractionActive
+                            && !(desktopSample && controller.DesktopSessionActive))
+                        {
+                            break;
+                        }
                         Vector2 ds = layout.LogicalToDs(item.Sample.X, item.Sample.Y);
                         if (controller.Style == NativeBottomScreenStyle.ClassicDs
                             && !controller.SelectorOpen)
@@ -218,6 +235,14 @@ namespace MphRead.Entities
                             _bottomScreenRegionPreview
                                 = NativeBottomScreenClassicLayout.RegionAt(ds);
                             _bottomScreenPreview = WeaponSelectionIntent.None;
+                            if (desktopSample
+                                && controller.DesktopActivationMode
+                                    == NativeBottomScreenActivationMode.Hold
+                                && _bottomScreenRegionPreview
+                                    == NativeBottomScreenRegion.WeaponSelect)
+                            {
+                                controller.OpenSelectorForDesktopDrag();
+                            }
                         }
                         else
                         {
@@ -229,6 +254,26 @@ namespace MphRead.Entities
                         break;
                     case NativeBottomScreenPointerPhase.Up:
                         if (!_bottomScreenInteractionActive) break;
+                        // Always derive the release action from the Up sample.
+                        // A final relative-mouse delta may have arrived in the
+                        // same frame as the binding release.
+                        Vector2 releaseDs = layout.LogicalToDs(
+                            item.Sample.X, item.Sample.Y);
+                        if (controller.Style == NativeBottomScreenStyle.ClassicDs
+                            && !controller.SelectorOpen)
+                        {
+                            _bottomScreenRegionPreview
+                                = NativeBottomScreenClassicLayout.RegionAt(releaseDs);
+                            _bottomScreenPreview = WeaponSelectionIntent.None;
+                        }
+                        else
+                        {
+                            _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
+                            _bottomScreenPreview = NativeWeaponSelector.TrySelect(
+                                releaseDs, _bottomScreenAvailability.Mask,
+                                out byte releasePreview)
+                                ? releasePreview : WeaponSelectionIntent.None;
+                        }
                         if (controller.Style == NativeBottomScreenStyle.ClassicDs
                             && !controller.SelectorOpen)
                         {
@@ -259,6 +304,15 @@ namespace MphRead.Entities
                         _bottomScreenInteractionActive = false;
                         _bottomScreenPreview = WeaponSelectionIntent.None;
                         _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
+                        if (desktopSample
+                            && controller.DesktopActivationMode
+                                == NativeBottomScreenActivationMode.Hold
+                            && controller.DesktopSessionActive)
+                        {
+                            // Hold closes only after this fixed-step Up has
+                            // been consumed and any legal intent queued.
+                            controller.EndDesktopSession();
+                        }
                         break;
                     case NativeBottomScreenPointerPhase.Cancel:
                         _bottomScreenInteractionActive = false;
@@ -266,6 +320,13 @@ namespace MphRead.Entities
                         _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
                         _bottomScreenPending = WeaponSelectionIntent.None;
                         _bottomScreenPendingAction = BottomScreenAction.None;
+                        if (desktopSample
+                            && controller.DesktopActivationMode
+                                == NativeBottomScreenActivationMode.Hold
+                            && controller.DesktopSessionActive)
+                        {
+                            controller.EndDesktopSession();
+                        }
                         break;
                 }
             }
@@ -362,23 +423,7 @@ namespace MphRead.Entities
             float opacity = Math.Clamp(Mods.InputSettings.BottomScreenOpacity
                 * Features.HudOpacity, 0, 1);
 
-            if (!controller.Visible)
-            {
-                DrawBottomScreenRect(layout.TabFramebuffer,
-                    new Vector4(.06f, .015f, .02f, opacity));
-                DrawBottomScreenRect(new BottomScreenRect(
-                    layout.TabFramebuffer.Left, layout.TabFramebuffer.Top,
-                    layout.TabFramebuffer.Right, layout.TabFramebuffer.Top + 2),
-                    new Vector4(.9f, .26f, .18f, Math.Min(1, opacity * 2)));
-                Vector2 tabCenter = new(
-                    (layout.TabFramebuffer.Left + layout.TabFramebuffer.Right) * .5f,
-                    (layout.TabFramebuffer.Top + layout.TabFramebuffer.Bottom) * .5f);
-                DrawText2D(ToHudX(tabCenter.X, Presentation.Size),
-                    ToHudY(tabCenter.Y + 5, Presentation.Size), Align.Center, 0,
-                    "TOUCH SCREEN", new ColorRgba(0x3FEF), alpha: opacity,
-                    scale: .42f);
-                return;
-            }
+            if (!controller.Visible) return;
 
             BottomScreenRect panel = layout.PanelFramebuffer;
             DrawBottomScreenRect(panel,
@@ -452,7 +497,8 @@ namespace MphRead.Entities
             foreach (NativeBottomScreenButton button
                 in NativeBottomScreenClassicLayout.Buttons)
             {
-                bool active = _bottomScreenInteractionActive
+                bool active = (_bottomScreenInteractionActive
+                    || Presentation.BottomScreen.DesktopSessionActive)
                     && _bottomScreenRegionPreview == button.Region;
                 bool equipped = button.Region == NativeBottomScreenRegion.PowerBeam
                         && _player.CurrentWeapon == BeamType.PowerBeam

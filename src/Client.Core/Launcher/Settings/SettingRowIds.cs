@@ -142,6 +142,9 @@ public static class SettingRowIds
     public const string StylusPressureThreshold = "controls.stylus.pressure-threshold";
     public const string BottomScreenMode = "controls.stylus.bottom-screen-mode";
     public const string BottomScreenActivation = "controls.stylus.bottom-screen-activation";
+    public const string BottomScreenCursorSensitivity = "controls.stylus.bottom-screen-cursor-sensitivity";
+    public const string BottomScreenCursorStartX = "controls.stylus.bottom-screen-cursor-start-x";
+    public const string BottomScreenCursorStartY = "controls.stylus.bottom-screen-cursor-start-y";
     public const string BottomScreenStyle = "controls.stylus.bottom-screen-style";
     public const string BottomScreenScale = "controls.stylus.bottom-screen-scale";
     public const string BottomScreenCenterX = "controls.stylus.bottom-screen-center-x";
@@ -206,7 +209,9 @@ public static class SettingRowIds
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,
         StylusDoubleTapJump, StylusFlickBoost, StylusPressureToFire,
-        StylusPressureThreshold, BottomScreenMode, BottomScreenActivation, BottomScreenStyle,
+        StylusPressureThreshold, BottomScreenMode, BottomScreenActivation,
+        BottomScreenCursorSensitivity, BottomScreenCursorStartX, BottomScreenCursorStartY,
+        BottomScreenStyle,
         BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
         BottomScreenOpacity, BottomScreenLabels,
         PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, DebugLogging, ShareLogs,

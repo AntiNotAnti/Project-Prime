@@ -138,19 +138,21 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
-    public void PopupDismissesAfterASelectionWithoutAKeyboard()
+    public void PopupHasNoHiddenTouchTabAndDismissesAfterASelection()
     {
         var controller = new NativeBottomScreenController();
         controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
             NativeBottomScreenMode.Popup);
         controller.BeginPresentation();
         NativeBottomScreenLayout layout = controller.Layout;
-        PointerSample tab = new(9, PointerToolKind.Finger,
-            (layout.TabLogical.Left + layout.TabLogical.Right) / 2,
-            (layout.TabLogical.Top + layout.TabLogical.Bottom) / 2,
+        PointerSample formerTab = new(9, PointerToolKind.Finger,
+            layout.LogicalSize.X / 2f, MathF.Max(0, layout.PanelLogical.Top - 10),
             0, StylusButtons.None, 1);
-        Assert.True(controller.TryPointerDown(tab));
-        Assert.True(controller.TryPointerUp(tab));
+        Assert.False(controller.TryPointerDown(formerTab));
+        Assert.False(controller.TryPointerUp(formerTab));
+        Assert.False(controller.PopupOpen);
+
+        Assert.True(controller.TogglePopup());
         Assert.True(controller.PopupOpen);
 
         controller.DismissPopupAfterSelection();
@@ -264,7 +266,7 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
-    public void UpBeforeConsumeIsCancelledAndPopupTabCapturesOnlyWhenEnabled()
+    public void UpBeforeConsumeIsCancelledAndPopupRequiresExplicitActivation()
     {
         var controller = new NativeBottomScreenController();
         controller.Configure(new Vector2i(1280, 720), new Vector2i(2560, 1440),
@@ -279,14 +281,14 @@ public sealed class NativeBottomScreenTests
             NativeBottomScreenMode.Popup);
         long generation = controller.BeginPresentation();
         NativeBottomScreenLayout layout = controller.Layout;
-        Vector2 tab = new(
-            (layout.TabLogical.Left + layout.TabLogical.Right) * .5f,
-            (layout.TabLogical.Top + layout.TabLogical.Bottom) * .5f);
-        PointerSample tabSample = new(2, PointerToolKind.Stylus, tab.X, tab.Y,
+        PointerSample formerTab = new(2, PointerToolKind.Stylus,
+            layout.LogicalSize.X / 2f, MathF.Max(0, layout.PanelLogical.Top - 10),
             1, StylusButtons.None, 2);
-        Assert.True(controller.TryPointerDown(tabSample));
+        Assert.False(controller.TryPointerDown(formerTab));
+        Assert.False(controller.TryPointerUp(formerTab));
+        Assert.False(controller.PopupOpen);
+        Assert.True(controller.TogglePopup());
         Assert.True(controller.PopupOpen);
-        Assert.True(controller.TryPointerUp(tabSample));
 
         PointerSample panelSample = PanelSample(layout, 3, 64, 48);
         Assert.True(controller.TryPointerDown(panelSample));
@@ -393,6 +395,88 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
+    public void DesktopHoldBeginsAContactAndUsesConfiguredCursorOptions()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(2560, 1440),
+            NativeBottomScreenMode.Popup);
+        long generation = controller.BeginPresentation();
+        controller.UpdateDesktopCursorPreferences(2, .25f, .75f);
+
+        Assert.True(controller.BeginDesktopSession(
+            NativeBottomScreenActivationMode.Hold));
+        Assert.Equal(new Vector2(64, 144), controller.DesktopCursorDs);
+        Assert.True(controller.DesktopHoldContactActive);
+
+        NativeBottomScreenLayout layout = controller.Layout;
+        Assert.True(controller.TryDesktopCursorMove(new Vector2(
+            layout.PanelLogical.Width / 256f, 0)));
+        Assert.Equal(new Vector2(66, 144), controller.DesktopCursorDs,
+            new Vector2Comparer(.01f));
+        Assert.True(controller.TryDesktopPointerUp());
+
+        Assert.True(controller.DesktopSessionActive);
+        Assert.True(controller.DesktopHoldContactActive);
+        Assert.False(controller.TryDesktopPointerDown());
+        Assert.Equal(new[]
+        {
+            NativeBottomScreenPointerPhase.Down,
+            NativeBottomScreenPointerPhase.Move,
+            NativeBottomScreenPointerPhase.Up
+        }, controller.Consume(generation).Select(item => item.Phase));
+
+        controller.EndDesktopSession();
+        Assert.False(controller.DesktopSessionActive);
+    }
+
+    [Fact]
+    public void HoldSelectorPromotionSurvivesAQueuedRelease()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.Popup);
+        long generation = controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.Popup,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default);
+
+        Assert.True(controller.BeginDesktopSession(
+            NativeBottomScreenActivationMode.Hold));
+        Assert.True(controller.TryDesktopPointerUp());
+        Assert.NotEmpty(controller.Consume(generation));
+
+        Assert.True(controller.OpenSelectorForDesktopDrag());
+        Assert.True(controller.SelectorOpen);
+        Assert.True(controller.DesktopHoldContactActive);
+    }
+
+    [Fact]
+    public void DesktopCursorOptionsClampAndResetToConfiguredStart()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(800, 600), new Vector2i(800, 600),
+            NativeBottomScreenMode.AlwaysVisible);
+        controller.BeginPresentation();
+        controller.UpdateDesktopCursorPreferences(100, -1, 2);
+
+        NativeBottomScreenCursorOptions options
+            = controller.DesktopCursorOptions;
+        Assert.Equal(NativeBottomScreenCursorOptions.MaximumSensitivity,
+            options.Sensitivity);
+        Assert.Equal(0, options.StartX);
+        Assert.Equal(1, options.StartY);
+        Assert.True(controller.BeginDesktopSession(
+            NativeBottomScreenActivationMode.Toggle));
+        Assert.Equal(new Vector2(0, 192), controller.DesktopCursorDs);
+
+        controller.EndDesktopSession();
+        controller.UpdateDesktopCursorPreferences(float.NaN,
+            float.PositiveInfinity, float.NegativeInfinity);
+        Assert.Equal(NativeBottomScreenCursorOptions.Default,
+            controller.DesktopCursorOptions);
+    }
+
+    [Fact]
     public void BottomScreenSettingRoundTripsWithoutChangingCustomHudOverlayBinding()
     {
         InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
@@ -403,6 +487,9 @@ public sealed class NativeBottomScreenTests
                 "HudOverlay=Key:F12",
                 "bottom_screen_mode=AlwaysVisible",
                 "bottom_screen_activation=Hold",
+                "bottom_screen_cursor_sensitivity=1.75",
+                "bottom_screen_cursor_start_x=0.2",
+                "bottom_screen_cursor_start_y=0.8",
                 "bottom_screen_style=AffinitySelector",
                 "bottom_screen_scale=0.65",
                 "bottom_screen_center_x=0.2",
@@ -419,6 +506,15 @@ public sealed class NativeBottomScreenTests
             Assert.Equal(NativeBottomScreenActivationMode.Hold,
                 InputSettings.BottomScreenActivation);
             Assert.Contains("bottom_screen_activation=Hold",
+                InputSettings.GetSaveLines());
+            Assert.Equal(1.75f, InputSettings.BottomScreenCursorSensitivity);
+            Assert.Equal(.2f, InputSettings.BottomScreenCursorStartX);
+            Assert.Equal(.8f, InputSettings.BottomScreenCursorStartY);
+            Assert.Contains("bottom_screen_cursor_sensitivity=1.75",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_cursor_start_x=0.2",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_cursor_start_y=0.8",
                 InputSettings.GetSaveLines());
             Assert.Equal(NativeBottomScreenStyle.AffinitySelector,
                 InputSettings.BottomScreenStyle);

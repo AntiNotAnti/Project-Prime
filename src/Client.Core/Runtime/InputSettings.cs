@@ -472,6 +472,26 @@ namespace MphRead.Mods
         }
         private static NativeBottomScreenActivationMode _bottomScreenActivation
             = NativeBottomScreenActivationMode.Toggle;
+        public static float BottomScreenCursorSensitivity
+        {
+            get => _bottomScreenCursorSensitivity;
+            set => _bottomScreenCursorSensitivity = Clamp(value, 1,
+                NativeBottomScreenCursorOptions.MinimumSensitivity,
+                NativeBottomScreenCursorOptions.MaximumSensitivity);
+        }
+        private static float _bottomScreenCursorSensitivity = 1;
+        public static float BottomScreenCursorStartX
+        {
+            get => _bottomScreenCursorStartX;
+            set => _bottomScreenCursorStartX = Clamp(value, .5f, 0, 1);
+        }
+        private static float _bottomScreenCursorStartX = .5f;
+        public static float BottomScreenCursorStartY
+        {
+            get => _bottomScreenCursorStartY;
+            set => _bottomScreenCursorStartY = Clamp(value, .5f, 0, 1);
+        }
+        private static float _bottomScreenCursorStartY = .5f;
         public static NativeBottomScreenStyle BottomScreenStyle { get; set; }
             = NativeBottomScreenStyle.ClassicDs;
         public static float BottomScreenScale
@@ -1068,6 +1088,15 @@ namespace MphRead.Mods
                         BottomScreenActivation = activationMode;
                     }
                     return true;
+                case "bottom_screen_cursor_sensitivity":
+                    if (parsed) BottomScreenCursorSensitivity = number;
+                    return true;
+                case "bottom_screen_cursor_start_x":
+                    if (parsed) BottomScreenCursorStartX = number;
+                    return true;
+                case "bottom_screen_cursor_start_y":
+                    if (parsed) BottomScreenCursorStartY = number;
+                    return true;
                 case "bottom_screen_style":
                     if (Enum.TryParse(value, true, out NativeBottomScreenStyle bottomScreenStyle)
                         && Enum.IsDefined(bottomScreenStyle))
@@ -1247,6 +1276,9 @@ namespace MphRead.Mods
                     "stylus_pressure_threshold=" + Float(StylusPressureThreshold),
                     $"bottom_screen_mode={BottomScreenMode}",
                     $"bottom_screen_activation={BottomScreenActivation}",
+                    "bottom_screen_cursor_sensitivity=" + Float(BottomScreenCursorSensitivity),
+                    "bottom_screen_cursor_start_x=" + Float(BottomScreenCursorStartX),
+                    "bottom_screen_cursor_start_y=" + Float(BottomScreenCursorStartY),
                     $"bottom_screen_style={BottomScreenStyle}",
                     "bottom_screen_scale=" + Float(BottomScreenScale),
                     "bottom_screen_center_x=" + Float(BottomScreenCenterX),
@@ -1320,6 +1352,9 @@ namespace MphRead.Mods
             StylusPressureThreshold = 0.35f;
             BottomScreenMode = NativeBottomScreenMode.Off;
             BottomScreenActivation = NativeBottomScreenActivationMode.Toggle;
+            BottomScreenCursorSensitivity = 1;
+            BottomScreenCursorStartX = .5f;
+            BottomScreenCursorStartY = .5f;
             BottomScreenStyle = NativeBottomScreenStyle.ClassicDs;
             BottomScreenScale = 1;
             BottomScreenCenterX = .5f;

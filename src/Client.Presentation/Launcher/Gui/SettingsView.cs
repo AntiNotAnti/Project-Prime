@@ -314,7 +314,8 @@ namespace MphRead.Mods.Launcher.Gui
             _stylusDoubleTapJump, _stylusFlickBoost, _stylusPressureToFire;
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold,
             _bottomScreenScale, _bottomScreenCenterX, _bottomScreenCenterY,
-            _bottomScreenOpacity;
+            _bottomScreenOpacity, _bottomScreenCursorSensitivity,
+            _bottomScreenCursorStartX, _bottomScreenCursorStartY;
         private bool _dynamicCrosshairTravelEdited, _dynamicCrosshairSensitivityEdited,
             _dynamicCrosshairTurnSpeedEdited, _mouseSensitivityEdited,
             _stylusSensitivityEdited;
@@ -1980,6 +1981,12 @@ namespace MphRead.Mods.Launcher.Gui
                     _bottomScreenMode!.Index = (int)InputSettings.BottomScreenMode;
                     _bottomScreenActivation!.Index
                         = (int)InputSettings.BottomScreenActivation;
+                    _bottomScreenCursorSensitivity!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenCursorSensitivity * 100);
+                    _bottomScreenCursorStartX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenCursorStartX * 100);
+                    _bottomScreenCursorStartY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenCursorStartY * 100);
                     _bottomScreenStyle!.Index = (int)InputSettings.BottomScreenStyle;
                     _bottomScreenScale!.Value = (int)Math.Round(
                         InputSettings.BottomScreenScale * 100);
@@ -2498,11 +2505,15 @@ namespace MphRead.Mods.Launcher.Gui
             _dynamicCrosshairSensitivity = Add(section, new SliderRow(
                 "Crosshair sensitivity",
                 (int)Math.Round(InputSettings.DynamicCrosshairSensitivity * 100),
-                value => $"{value / 100f:0.00}x", min: 10, max: 400, keyStep: 10),
+                value => $"{value / 100f:0.00}x", min: 10,
+                max: (int)(DynamicCrosshairTuning.MaximumMovementSensitivity * 100),
+                keyStep: 10),
                 SettingRowIds.DynamicCrosshairSensitivity);
             _dynamicCrosshairTurnSpeed = Add(section, new SliderRow("Camera turn speed",
                 (int)Math.Round(InputSettings.DynamicCrosshairTurnSpeed * 100),
-                value => $"{value / 100f:0.00}x", min: 10, max: 400, keyStep: 10),
+                value => $"{value / 100f:0.00}x", min: 10,
+                max: (int)(DynamicCrosshairTuning.MaximumTurnSpeed * 100),
+                keyStep: 10),
                 SettingRowIds.DynamicCrosshairTurnSpeed);
             _dynamicCrosshairTravel.ValueChanged += (_, _) =>
                 _dynamicCrosshairTravelEdited = true;
@@ -2991,6 +3002,19 @@ namespace MphRead.Mods.Launcher.Gui
                 new[] { "Toggle", "Hold" },
                 (int)InputSettings.BottomScreenActivation),
                 SettingRowIds.BottomScreenActivation);
+            _bottomScreenCursorSensitivity = Add(page, new SliderRow(
+                "Touch cursor sensitivity",
+                (int)Math.Round(InputSettings.BottomScreenCursorSensitivity * 100),
+                v => $"{v / 100f:0.00}x", min: 10, max: 400, keyStep: 5),
+                SettingRowIds.BottomScreenCursorSensitivity);
+            _bottomScreenCursorStartX = Add(page, new SliderRow(
+                "Touch cursor start horizontal",
+                (int)Math.Round(InputSettings.BottomScreenCursorStartX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenCursorStartX);
+            _bottomScreenCursorStartY = Add(page, new SliderRow(
+                "Touch cursor start vertical",
+                (int)Math.Round(InputSettings.BottomScreenCursorStartY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenCursorStartY);
             _bottomScreenStyle = Add(page, new ChoiceRow("Screen layout",
                 new[] { "Classic DS", "Affinity selector" },
                 (int)InputSettings.BottomScreenStyle), SettingRowIds.BottomScreenStyle);
@@ -3009,10 +3033,11 @@ namespace MphRead.Mods.Launcher.Gui
             _bottomScreenLabels = Add(page, new ToggleRow("Show button labels",
                 InputSettings.BottomScreenLabels), SettingRowIds.BottomScreenLabels);
             Explain(page, "Classic DS restores the original button arrangement. The "
-                + "customizable Touch screen binding centers a cursor on the panel; mouse "
-                + "movement stays inside it and left click selects. Toggle closes after a "
-                + "selection, while Hold stays open until the binding is released. Tap SEL "
-                + "to open the six-affinity selector.");
+                + "customizable Touch screen binding starts a cursor at the configured "
+                + "normalized position; sensitivity and movement stay inside the panel. "
+                + "Toggle uses left click and closes after a selection. Hold drags a "
+                + "synthetic contact until the binding is released. Tap or drag through "
+                + "SEL to open the six-affinity selector.");
             _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
                 InputSettings.StylusAimingEnabled), SettingRowIds.StylusAiming);
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
@@ -3651,6 +3676,12 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.BottomScreenActivation
                     = (Mods.Input.NativeBottomScreenActivationMode)
                         _bottomScreenActivation!.Index;
+                InputSettings.BottomScreenCursorSensitivity
+                    = _bottomScreenCursorSensitivity!.Value / 100f;
+                InputSettings.BottomScreenCursorStartX
+                    = _bottomScreenCursorStartX!.Value / 100f;
+                InputSettings.BottomScreenCursorStartY
+                    = _bottomScreenCursorStartY!.Value / 100f;
                 InputSettings.BottomScreenStyle = (Mods.Input.NativeBottomScreenStyle)
                     _bottomScreenStyle!.Index;
                 InputSettings.BottomScreenScale = _bottomScreenScale!.Value / 100f;

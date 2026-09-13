@@ -137,7 +137,7 @@ schema was introduced and then resolve from the selected preset.
 | `RadarScale` | Client; `1.0` | J/C; `RadarSettings.Scale`, clamped to `.65..1.5` | `hud.radar.scale`, Graphics/Radar, all |
 | `RadarOffsetX` | Client; `0` | J/C; `RadarSettings.OffsetX`, clamped to `-256..256` | `hud.radar.offset-x`, Graphics/Radar, all |
 | `RadarOffsetY` | Client; `0` | J/C; `RadarSettings.OffsetY`, clamped to `-192..192` | `hud.radar.offset-y`, Graphics/Radar, all |
-| `ShowFps` | Client; `off` | J/C; `RenderOptions.ShowFps` | `graphics.fps-counter`, Graphics/Performance, all |
+| `ShowFps` | Client; `on` | J/C; `RenderOptions.ShowFps` | `graphics.fps-counter`, Graphics/Performance, all |
 | `FrameRateCap` | Client; `display` | J/C; `FrameTiming.FrameRateCap` | `graphics.fps-limit`, Graphics/Performance, all |
 | `CelShading` | Client; `off` | J/C; `RenderOptions.CelShading` | `graphics.cel-shading`, Graphics/Quality, all |
 
@@ -237,13 +237,23 @@ written by `InputSettings.GetSaveLines`. The canonical static settings are:
 | `StylusPressureThreshold` / `stylus_pressure_threshold` | Platform; `.35` | I/S; Android pressure input | `controls.stylus.pressure-threshold`, Controls/Stylus advanced, Android |
 | `BottomScreenMode` / `bottom_screen_mode` | Platform; `Off` | I/S; scene-owned DS lower-screen overlay | `controls.stylus.bottom-screen-mode`, Controls/Stylus, desktop + Android |
 | `BottomScreenActivation` / `bottom_screen_activation` | Platform; `Toggle` | I/S; desktop virtual-cursor lifetime (`Toggle` or `Hold`) | `controls.stylus.bottom-screen-activation`, Controls/Stylus, desktop |
+| `BottomScreenCursorSensitivity` / `bottom_screen_cursor_sensitivity` | Platform; `1` | I/S; desktop virtual-cursor motion, clamped `.1..4` | `controls.stylus.bottom-screen-cursor-sensitivity`, Controls/Stylus, desktop |
+| `BottomScreenCursorStartX` / `bottom_screen_cursor_start_x` | Platform; `.5` | I/S; normalized desktop cursor start X, clamped `0..1` | `controls.stylus.bottom-screen-cursor-start-x`, Controls/Stylus, desktop |
+| `BottomScreenCursorStartY` / `bottom_screen_cursor_start_y` | Platform; `.5` | I/S; normalized desktop cursor start Y, clamped `0..1` | `controls.stylus.bottom-screen-cursor-start-y`, Controls/Stylus, desktop |
 
 The bottom-screen implementation is a client-only in-renderer 4:3 panel. Direct
 touch/pen input retains its existing ownership, while the customizable
 `HudOverlay` binding is presented as **Touch screen** on desktop. Activating it
-centers a virtual cursor, confines relative mouse motion to the panel, and routes
-left-click contacts through the same scene-owned pointer queue. Toggle sessions
-close after a completed action; Hold sessions close when the binding is released.
+starts a configurable virtual cursor at normalized panel coordinates, confines
+relative mouse motion to the panel, and routes contacts through the same
+scene-owned pointer queue. Toggle sessions use explicit left-click selection and
+close after a completed action. Hold sessions own a synthetic contact: binding
+release queues the final Up sample, the fixed-step consumer evaluates that
+coordinate, and only then closes the session. Cursor sensitivity is clamped to
+`.1..4`; start X/Y are clamped to `0..1`. Direct Android pen/finger ownership is
+unchanged. A closed Popup has no visible or invisible center-screen tab; desktop
+users open it with the Touch screen binding, while touch-only clients can use
+Always visible.
 Both the Classic DS controls and the nested six-affinity selector submit through
 the existing, revalidated weapon/action intent paths.
 

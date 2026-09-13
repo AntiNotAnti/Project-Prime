@@ -908,18 +908,27 @@ namespace MphRead
             if (shouldCapture != _cursorCaptured) SetCursorCaptured(shouldCapture);
             bool bottomScreenSession
                 = NativeBottomScreenPlatformBridge.DesktopSessionActive;
+            bool bottomScreenHoldContact
+                = NativeBottomScreenPlatformBridge.DesktopHoldContactActive;
             if (shouldCapture && bottomScreenSession)
             {
                 _pointerHub.CancelInteraction();
+                // A mouse-bound activation may have set the renderer's
+                // viewer click latch on the opening frame. Clear it while the
+                // scene-owned cursor session owns all pointer input.
+                _presentation.OnMouseClick(false);
                 NativeBottomScreenPlatformBridge.TryDesktopCursorMove(
                     snapshot.RelativeMouse);
-                foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
+                if (!bottomScreenHoldContact)
                 {
-                    if (button.Button != MouseButton.Left) continue;
-                    if (button.Down)
-                        NativeBottomScreenPlatformBridge.TryDesktopPointerDown();
-                    else
-                        NativeBottomScreenPlatformBridge.TryDesktopPointerUp();
+                    foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
+                    {
+                        if (button.Button != MouseButton.Left) continue;
+                        if (button.Down)
+                            NativeBottomScreenPlatformBridge.TryDesktopPointerDown();
+                        else
+                            NativeBottomScreenPlatformBridge.TryDesktopPointerUp();
+                    }
                 }
                 _presentation.ResetRenderLook();
             }
@@ -985,14 +994,15 @@ namespace MphRead
             if (!InputOwner.Owns(DesktopInputOwnerKind.Scene)) return;
             foreach (WindowMouseButtonEvent button in snapshot.MouseButtonEvents)
             {
-                if (button.Button == MouseButton.Left)
+                if (button.Button == MouseButton.Left && !bottomScreenSession)
                     _presentation.OnMouseClick(button.Down);
             }
-            if (snapshot.RelativeMouse != Vector2.Zero)
+            if (snapshot.RelativeMouse != Vector2.Zero && !bottomScreenSession)
             {
                 _presentation.OnMouseMove(snapshot.RelativeMouse.X, snapshot.RelativeMouse.Y);
             }
-            if (snapshot.Wheel.Y != 0) _presentation.OnMouseWheel(snapshot.Wheel.Y);
+            if (snapshot.Wheel.Y != 0 && !bottomScreenSession)
+                _presentation.OnMouseWheel(snapshot.Wheel.Y);
             for (int i = 0; i < snapshot.Text.Length; i++) Mods.Chat.ChatBox.HandleText(snapshot.Text[i]);
         }
 
@@ -1515,6 +1525,8 @@ namespace MphRead
             _telemetry = backend as IRenderBackendTelemetry;
             backend.Render(frame, ActivePresentation.CurrentRenderFrame);
         }
+
+        public void OnFrameRendered() => ActivePresentation.OnFrameRendered();
 
         public void OnFramePresented()
         {

@@ -99,6 +99,28 @@ namespace MphRead.Mods.Input
                 float.IsFinite(CenterY) ? Math.Clamp(CenterY, 0, 1) : .685f);
     }
 
+    /// <summary>
+    /// Desktop virtual-cursor preferences. Start coordinates are normalized
+    /// DS-panel coordinates so they remain stable when the window or panel
+    /// geometry changes.
+    /// </summary>
+    public readonly record struct NativeBottomScreenCursorOptions(
+        float Sensitivity, float StartX, float StartY)
+    {
+        public const float MinimumSensitivity = .1f;
+        public const float MaximumSensitivity = 4f;
+
+        public static NativeBottomScreenCursorOptions Default => new(1, .5f, .5f);
+
+        public NativeBottomScreenCursorOptions Sanitized()
+            => new(
+                float.IsFinite(Sensitivity)
+                    ? Math.Clamp(Sensitivity, MinimumSensitivity, MaximumSensitivity)
+                    : 1,
+                float.IsFinite(StartX) ? Math.Clamp(StartX, 0, 1) : .5f,
+                float.IsFinite(StartY) ? Math.Clamp(StartY, 0, 1) : .5f);
+    }
+
     /// <summary>A rectangle in the coordinate space of a pointer surface.</summary>
     public readonly record struct BottomScreenRect(float Left, float Top,
         float Right, float Bottom)
@@ -119,14 +141,12 @@ namespace MphRead.Mods.Input
     /// </summary>
     public readonly record struct NativeBottomScreenLayout(
         Vector2i LogicalSize, Vector2i FramebufferSize,
-        BottomScreenRect PanelLogical, BottomScreenRect PanelFramebuffer,
-        BottomScreenRect TabLogical, BottomScreenRect TabFramebuffer)
+        BottomScreenRect PanelLogical, BottomScreenRect PanelFramebuffer)
     {
         public bool IsValid => PanelLogical.Width > 0 && PanelLogical.Height > 0
             && PanelFramebuffer.Width > 0 && PanelFramebuffer.Height > 0;
 
         public bool ContainsPanel(float x, float y) => PanelLogical.Contains(x, y);
-        public bool ContainsTab(float x, float y) => TabLogical.Contains(x, y);
 
         public Vector2 LogicalToDs(float x, float y)
         {
@@ -178,23 +198,13 @@ namespace MphRead.Mods.Input
                 panelWidth, logicalWidth, margin);
             float panelTop = Place(options.CenterY * logicalHeight - panelHeight * .5f,
                 panelHeight, logicalHeight, margin);
-            float panelBottom = panelTop + panelHeight;
             var panelLogical = new BottomScreenRect(panelLeft, panelTop,
-                panelLeft + panelWidth, panelBottom);
-
-            float tabHeight = MathF.Min(48, MathF.Max(24, logicalHeight * .075f));
-            float tabWidth = MathF.Min(panelWidth * .36f, logicalWidth * .45f);
-            float tabLeft = (logicalWidth - tabWidth) * .5f;
-            float tabBottom = MathF.Min(logicalHeight - 2, panelTop - 2);
-            float tabTop = MathF.Max(0, tabBottom - tabHeight);
-            var tabLogical = new BottomScreenRect(tabLeft, tabTop,
-                tabLeft + tabWidth, tabBottom);
+                panelLeft + panelWidth, panelTop + panelHeight);
 
             float framebufferScaleX = framebufferWidth / (float)logicalWidth;
             float framebufferScaleY = framebufferHeight / (float)logicalHeight;
             return new NativeBottomScreenLayout(logicalSize, framebufferSize,
-                panelLogical, panelLogical.Scale(framebufferScaleX, framebufferScaleY),
-                tabLogical, tabLogical.Scale(framebufferScaleX, framebufferScaleY));
+                panelLogical, panelLogical.Scale(framebufferScaleX, framebufferScaleY));
         }
 
         private static float Place(float requested, float extent, float available,
@@ -336,12 +346,13 @@ namespace MphRead.Mods.Input
         private long _generation;
         private long _platformToken;
         private int? _capturedPointer;
-        private int? _tabPointer;
         private bool _popupOpen;
         private bool _selectorOpen;
         private bool _desktopSessionActive;
         private NativeBottomScreenActivationMode _desktopActivationMode
             = NativeBottomScreenActivationMode.Toggle;
+        private NativeBottomScreenCursorOptions _desktopCursorOptions
+            = NativeBottomScreenCursorOptions.Default;
         private Vector2 _desktopCursorDs = new(128, 96);
 
         public NativeBottomScreenMode Mode { get { lock (_sync) return _mode; } }
@@ -353,6 +364,25 @@ namespace MphRead.Mods.Input
         public bool DesktopSessionActive
         {
             get { lock (_sync) return _desktopSessionActive; }
+        }
+        public NativeBottomScreenActivationMode DesktopActivationMode
+        {
+            get { lock (_sync) return _desktopActivationMode; }
+        }
+        public bool DesktopHoldContactActive
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _desktopSessionActive
+                        && _desktopActivationMode == NativeBottomScreenActivationMode.Hold;
+                }
+            }
+        }
+        public NativeBottomScreenCursorOptions DesktopCursorOptions
+        {
+            get { lock (_sync) return _desktopCursorOptions; }
         }
         public Vector2 DesktopCursorDs
         {
@@ -411,6 +441,33 @@ namespace MphRead.Mods.Input
             }
         }
 
+        /// <summary>
+        /// Updates cursor preferences without moving an active contact. A
+        /// change during a session cancels that session so a layout/settings
+        /// edit cannot commit against a stale start or sensitivity.
+        /// </summary>
+        public void UpdateDesktopCursorPreferences(float sensitivity,
+            float startX, float startY)
+            => UpdateDesktopCursorPreferences(0, 0, sensitivity, startX, startY);
+
+        internal void UpdateDesktopCursorPreferences(long token, long generation,
+            float sensitivity, float startX, float startY)
+        {
+            NativeBottomScreenCursorOptions options
+                = new NativeBottomScreenCursorOptions(sensitivity, startX, startY)
+                    .Sanitized();
+            lock (_sync)
+            {
+                if (!ValidTokenLocked(token, generation)) return;
+                if (_desktopCursorOptions == options) return;
+                CancelQueuedLocked();
+                _desktopCursorOptions = options;
+                _desktopSessionActive = false;
+                _selectorOpen = false;
+                _desktopCursorDs = StartCursorLocked();
+            }
+        }
+
         public void SetSelectorOpen(bool open)
         {
             lock (_sync)
@@ -431,12 +488,11 @@ namespace MphRead.Mods.Input
                 _events.Clear();
                 _queuedPointers.Clear();
                 _capturedPointer = null;
-                _tabPointer = null;
                 _popupOpen = _mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;
                 _desktopSessionActive = false;
                 _desktopActivationMode = NativeBottomScreenActivationMode.Toggle;
-                _desktopCursorDs = new Vector2(128, 96);
+                _desktopCursorDs = StartCursorLocked();
                 return _generation;
             }
         }
@@ -469,7 +525,7 @@ namespace MphRead.Mods.Input
             }
         }
 
-        /// <summary>Popup is a one-selection surface for touch-only clients.</summary>
+        /// <summary>Dismiss an explicitly opened one-selection popup.</summary>
         public void DismissPopupAfterSelection()
         {
             lock (_sync)
@@ -478,7 +534,6 @@ namespace MphRead.Mods.Input
                 if (_mode == NativeBottomScreenMode.Popup)
                 {
                     _popupOpen = false;
-                    _tabPointer = null;
                 }
             }
         }
@@ -508,8 +563,15 @@ namespace MphRead.Mods.Input
                 CancelQueuedLocked();
                 _desktopSessionActive = true;
                 _desktopActivationMode = mode;
-                _desktopCursorDs = new Vector2(128, 96);
+                _desktopCursorDs = StartCursorLocked();
                 if (_mode == NativeBottomScreenMode.Popup) _popupOpen = true;
+                if (mode == NativeBottomScreenActivationMode.Hold)
+                {
+                    _capturedPointer = DesktopPointerId;
+                    _queuedPointers.Add(DesktopPointerId);
+                    EnqueueLocked(NativeBottomScreenPointerPhase.Down,
+                        DesktopSampleLocked());
+                }
                 return true;
             }
         }
@@ -569,8 +631,11 @@ namespace MphRead.Mods.Input
                     || !_desktopSessionActive || !Finite(delta.X, delta.Y)
                     || !_layout.IsValid) return false;
                 if (delta.LengthSquared <= 0) return true;
-                float dx = delta.X * 256f / _layout.PanelLogical.Width;
-                float dy = delta.Y * 192f / _layout.PanelLogical.Height;
+                float sensitivity = _desktopCursorOptions.Sensitivity;
+                float dx = delta.X * sensitivity * 256f
+                    / _layout.PanelLogical.Width;
+                float dy = delta.Y * sensitivity * 192f
+                    / _layout.PanelLogical.Height;
                 _desktopCursorDs = new Vector2(
                     Math.Clamp(_desktopCursorDs.X + dx, 0, 256),
                     Math.Clamp(_desktopCursorDs.Y + dy, 0, 192));
@@ -592,6 +657,7 @@ namespace MphRead.Mods.Input
                 if (!ValidTokenLocked(token, generation)
                     || !_desktopSessionActive || _mode == NativeBottomScreenMode.Off
                     || !_layout.IsValid
+                    || _desktopActivationMode == NativeBottomScreenActivationMode.Hold
                     || _capturedPointer.HasValue
                         && _capturedPointer.Value != DesktopPointerId)
                     return false;
@@ -618,6 +684,31 @@ namespace MphRead.Mods.Input
             }
         }
 
+        /// <summary>
+        /// Opens the nested affinity selector while a Hold contact is still
+        /// down. It deliberately preserves the synthetic contact and queued
+        /// history so the eventual binding release can select an affinity.
+        /// </summary>
+        public bool OpenSelectorForDesktopDrag()
+            => OpenSelectorForDesktopDrag(0, 0);
+
+        internal bool OpenSelectorForDesktopDrag(long token, long generation)
+        {
+            lock (_sync)
+            {
+                if (!ValidTokenLocked(token, generation)
+                    || !_desktopSessionActive
+                    || _desktopActivationMode != NativeBottomScreenActivationMode.Hold
+                    || _style != NativeBottomScreenStyle.ClassicDs
+                    || _mode == NativeBottomScreenMode.Off)
+                {
+                    return false;
+                }
+                _selectorOpen = true;
+                return true;
+            }
+        }
+
         private PointerSample DesktopSampleLocked()
         {
             Vector2 logical = _layout.DsToLogical(_desktopCursorDs.X,
@@ -626,6 +717,10 @@ namespace MphRead.Mods.Input
                 logical.X, logical.Y, 1, StylusButtons.None,
                 Environment.TickCount64);
         }
+
+        private Vector2 StartCursorLocked()
+            => new(_desktopCursorOptions.StartX * NativeBottomScreenClassicLayout.DsWidth,
+                _desktopCursorOptions.StartY * NativeBottomScreenClassicLayout.DsHeight);
 
         public bool TryPointerDown(in PointerSample sample)
             => TryPointerDown(0, 0, sample);
@@ -681,13 +776,7 @@ namespace MphRead.Mods.Input
                     || !Finite(sample.X, sample.Y)
                     || _capturedPointer.HasValue && _capturedPointer.Value != sample.Id)
                     return false;
-                if (_mode == NativeBottomScreenMode.Popup && !_popupOpen)
-                {
-                    if (!_layout.ContainsTab(sample.X, sample.Y)) return false;
-                    _popupOpen = true;
-                    _tabPointer = sample.Id;
-                    return true;
-                }
+                if (_mode == NativeBottomScreenMode.Popup && !_popupOpen) return false;
                 if (!_layout.ContainsPanel(sample.X, sample.Y)) return false;
                 if (_style == NativeBottomScreenStyle.ClassicDs && !_selectorOpen)
                 {
@@ -716,7 +805,6 @@ namespace MphRead.Mods.Input
             lock (_sync)
             {
                 if (!ValidTokenLocked(token, generation)) return false;
-                if (_tabPointer == sample.Id) return true;
                 if (_capturedPointer != sample.Id) return false;
                 EnqueueLocked(NativeBottomScreenPointerPhase.Move, sample);
                 return true;
@@ -729,11 +817,6 @@ namespace MphRead.Mods.Input
             lock (_sync)
             {
                 if (!ValidTokenLocked(token, generation)) return false;
-                if (_tabPointer == sample.Id)
-                {
-                    _tabPointer = null;
-                    return true;
-                }
                 if (_capturedPointer != sample.Id) return false;
                 EnqueueLocked(NativeBottomScreenPointerPhase.Up, sample);
                 _capturedPointer = null;
@@ -746,7 +829,6 @@ namespace MphRead.Mods.Input
             lock (_sync)
             {
                 if (!ValidTokenLocked(token, generation)) return false;
-                if (_tabPointer == pointerId) _tabPointer = null;
                 bool matched = _capturedPointer == pointerId
                     || _queuedPointers.Contains(pointerId);
                 if (!matched) return false;
@@ -766,6 +848,7 @@ namespace MphRead.Mods.Input
                 _popupOpen = _mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;
                 _desktopSessionActive = false;
+                _desktopCursorDs = StartCursorLocked();
             }
         }
 
@@ -783,7 +866,6 @@ namespace MphRead.Mods.Input
             foreach (int id in ids) QueueCancelLocked(id);
             _queuedPointers.Clear();
             _capturedPointer = null;
-            _tabPointer = null;
         }
 
         private void QueueCancelLocked(int pointerId)
@@ -993,6 +1075,16 @@ namespace MphRead.Mods.Input
             }
         }
 
+        public static bool DesktopHoldContactActive
+        {
+            get
+            {
+                if (!Snapshot(out NativeBottomScreenController? controller,
+                    out long token, out long generation)) return false;
+                return controller!.IsDesktopHoldContactActive(token, generation);
+            }
+        }
+
         public static bool CancelPointer(int pointerId)
         {
             if (!Snapshot(out NativeBottomScreenController? controller,
@@ -1045,6 +1137,16 @@ namespace MphRead.Mods.Input
             lock (_sync)
             {
                 return ValidTokenLocked(token, generation) && _desktopSessionActive;
+            }
+        }
+
+        internal bool IsDesktopHoldContactActive(long token, long generation)
+        {
+            lock (_sync)
+            {
+                return ValidTokenLocked(token, generation)
+                    && _desktopSessionActive
+                    && _desktopActivationMode == NativeBottomScreenActivationMode.Hold;
             }
         }
 
