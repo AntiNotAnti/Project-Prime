@@ -69,10 +69,11 @@
   <Target Name="PrimeIncludeMapArtifactsForAndroid"
           DependsOnTargets="PrimeCookCurrentMapArtifacts"
           BeforeTargets="PrepareForBuild"
-          Condition="'$(IsAndroid)' == 'true' or '$(TargetFrameworkIdentifier)' == 'Android'">
+          Condition="'$(TargetPlatformIdentifier)' == 'Android' and '$(PrimeMapOwnsMapArtifacts)' == 'true'">
     <ItemGroup>
-      <AndroidAsset Include="$(PrimeMapArtifactRoot)\*.fpmap"
-                    Link="Assets\maps\%(Filename)%(Extension)" />
+      <_PrimeAndroidMapArtifact Include="$(PrimeMapArtifactRoot)\*.fpmap" />
+      <AndroidAsset Include="@(_PrimeAndroidMapArtifact)"
+                    Link="Assets\maps\%(_PrimeAndroidMapArtifact.Filename)%(_PrimeAndroidMapArtifact.Extension)" />
     </ItemGroup>
   </Target>
 </Project>

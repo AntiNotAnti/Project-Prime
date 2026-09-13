@@ -1,0 +1,3 @@
+# The release cook validates dependencies before its fallback bake runs, so this
+# cross-platform package input must remain available in a clean checkout.
+!obiq1dm3.tex

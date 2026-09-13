@@ -1,0 +1,56 @@
+================================================================
+Title				: The Dark Zone
+
+Author				: Rich "swelt" Jacques
+				: Based on the original by
+				: Tim Willits (id)
+Email Address			: swelt@cpma.org.uk
+Website				: http://www.cpma.org.uk
+
+Description			: Quake III Arena level based on DM2
+
+		~~  OPTIMISED FOR CHALLENGE PROMODE  ~~
+			~ http://www.promode.org ~
+
+================================================================
+
+- Level Information -
+Game type		: 1v1, tdm, ffa
+Single Player		: Yes
+Player load		: 2 - 8
+Weapons			: 2xSG GL RL LG PG
+Stuff			: 1xRA, 1xGA 1xMH, Invis
+
+- Construction -
+Editors used	: GTKRadiant
+Utilities used	: Q3Map2, Editpad
+
+- Notes -
+
+This is a remake from scratch of DM6.  All credit remains with iD software.
+Remade with an egyptian style that I think really suits the architecture.
+I've aimed to make the gameplay feel like the original, but of course 
+it is not possible to get it identical.  If you want to play something that
+is identical to the original - play the original.  If you want something
+that is familiar and captures some of the original's classic gameplay, 
+play on :)  In my opinion, works best in CPMA as a 2v2 TDM map or FFA.
+
+- Credits -
+: id Software for Quake, Quake 3 and the original DM2
+	http://www.idsoftware.com
+: Sock for his egyptian set
+	http://www.planetquake.com/simland/
+: Everyone who has played this level, cheers!
+
+- Links -
+
+CPMA Homepage		http://www.promode.org
+CPMA.org.uk		http://www.cpma.org.uk
+
+
+- Copyright / Permissions -
+You may not include or distribute this map in any sort of 
+commercial product without permission from the author. You may 
+not mass distribute this level via any non-electronic means, 
+including but not limited to compact disks, and floppy disks
+without permission from the author.

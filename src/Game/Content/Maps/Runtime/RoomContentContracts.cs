@@ -87,7 +87,7 @@ public sealed record RoomContentRequest
     public RoomContentPurpose Purpose { get; }
 }
 
-public abstract record RoomContentPreparationResult
+public interface RoomContentPreparationResult
 {
     public sealed record BaseGame(RuntimeRoomRegistration Room)
         : RoomContentPreparationResult;
@@ -95,19 +95,34 @@ public abstract record RoomContentPreparationResult
     public sealed record Ready(RuntimeRoomRegistration Room,
         MatchContentSnapshot Snapshot) : RoomContentPreparationResult;
 
-    public abstract record Failure(string RoomKey,
-        ImmutableArray<MapDiagnostic> Diagnostics) : RoomContentPreparationResult;
+    public interface Failure : RoomContentPreparationResult
+    {
+        string RoomKey { get; }
+        ImmutableArray<MapDiagnostic> Diagnostics { get; }
+    }
 
     public sealed record Missing(string MissingRoomKey,
         RoomContentRequirement? Requirement,
         ImmutableArray<MapDiagnostic> Issues)
-        : Failure(MissingRoomKey, Issues);
+        : Failure
+    {
+        public string RoomKey => MissingRoomKey;
+        public ImmutableArray<MapDiagnostic> Diagnostics => Issues;
+    }
 
     public sealed record Invalid(string InvalidRoomKey,
         ImmutableArray<MapDiagnostic> Issues)
-        : Failure(InvalidRoomKey, Issues);
+        : Failure
+    {
+        public string RoomKey => InvalidRoomKey;
+        public ImmutableArray<MapDiagnostic> Diagnostics => Issues;
+    }
 
     public sealed record Unsupported(string UnsupportedRoomKey,
         ImmutableArray<MapDiagnostic> Issues)
-        : Failure(UnsupportedRoomKey, Issues);
+        : Failure
+    {
+        public string RoomKey => UnsupportedRoomKey;
+        public ImmutableArray<MapDiagnostic> Diagnostics => Issues;
+    }
 }

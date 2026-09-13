@@ -1,0 +1,115 @@
+{
+  "format": 1,
+  "stableId": "community.obiq1dm3",
+  "version": "1.0.0",
+  "metadata": {
+    "name": "The Abandoned Base III",
+    "author": "Obi-Wan",
+    "description": "A Quake III Arena port of the classic Quake DM3, rebuilt by Obi-Wan.",
+    "redistribution": false
+  },
+  "supportedModes": [
+    "Battle",
+    "Survival"
+  ],
+  "environment": {
+    "killHeight": -17,
+    "farClip": 104,
+    "fogEnabled": true,
+    "fogColor": [
+      8,
+      10,
+      16
+    ],
+    "fogSlope": 5,
+    "fogOffset": 65180,
+    "light1Color": [
+      31,
+      28,
+      24
+    ],
+    "light1Vector": [
+      0.3,
+      -1,
+      0.2
+    ],
+    "light2Color": [
+      10,
+      11,
+      16
+    ],
+    "light2Vector": [
+      -0.3,
+      1,
+      -0.2
+    ]
+  },
+  "map": {
+    "name": "OBIQ1DM3",
+    "inGameName": "The Abandoned Base III",
+    "textureSource": "MP3 PROVING GROUND",
+    "scaleFactor": 3,
+    "killHeight": -17,
+    "farClip": 104,
+    "fogEnabled": true,
+    "fogColor": [
+      8,
+      10,
+      16
+    ],
+    "fogSlope": 5,
+    "fogOffset": 65180,
+    "light1Color": [
+      31,
+      28,
+      24
+    ],
+    "light1Vector": [
+      0.3,
+      -1,
+      0.2
+    ],
+    "light2Color": [
+      10,
+      11,
+      16
+    ],
+    "light2Vector": [
+      -0.3,
+      1,
+      -0.2
+    ],
+    "battleTimeLimit": 12600,
+    "pointLimit": 7,
+    "import": {
+      "source": "obiq1dm3.pk3",
+      "mapName": "obiq1dm3",
+      "unitsPerUnit": 35,
+      "textures": "obiq1dm3.tex",
+      "shaderMaterials": {},
+      "defaultMaterial": 0,
+      "texScale": 24,
+      "keepSky": true,
+      "keepClip": true,
+      "patchLevel": 3,
+      "keepSpawns": true
+    },
+    "preview": {
+      "position": [
+        68.9,
+        30.2,
+        45.6
+      ],
+      "target": [
+        14.7,
+        0.9,
+        2.3
+      ]
+    },
+    "materials": [],
+    "brushes": [],
+    "spawns": [],
+    "jumpPads": [],
+    "items": []
+  }
+}

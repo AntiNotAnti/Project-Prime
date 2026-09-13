@@ -4,6 +4,7 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest import mock
+import xml.etree.ElementTree as ET
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -15,6 +16,23 @@ SPEC.loader.exec_module(COOK)
 
 
 class MapCookTests(unittest.TestCase):
+    def test_android_map_assets_use_the_sdk_platform_identifier(self):
+        targets = ET.parse(ROOT / "build" / "ProjectPrime.MapArtifacts.targets")
+        target = targets.find(".//Target[@Name='PrimeIncludeMapArtifactsForAndroid']")
+        self.assertIsNotNone(target)
+        self.assertEqual(
+            "'$(TargetPlatformIdentifier)' == 'Android' and "
+            "'$(PrimeMapOwnsMapArtifacts)' == 'true'",
+            target.attrib.get("Condition"),
+        )
+        asset = target.find(".//AndroidAsset")
+        self.assertIsNotNone(asset)
+        self.assertEqual(
+            "Assets\\maps\\%(_PrimeAndroidMapArtifact.Filename)"
+            "%(_PrimeAndroidMapArtifact.Extension)",
+            asset.attrib.get("Link"),
+        )
+
     def test_source_inputs_exclude_existing_generated_bundles(self):
         with tempfile.TemporaryDirectory(prefix="prime-map-cook-") as directory:
             source = Path(directory)

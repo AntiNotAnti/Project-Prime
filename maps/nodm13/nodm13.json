@@ -1,0 +1,115 @@
+{
+  "format": 1,
+  "stableId": "community.nodm13",
+  "version": "1.0.0",
+  "metadata": {
+    "name": "The Dark Zone",
+    "author": "Rich \"swelt\" Jacques",
+    "description": "An Egyptian-styled Quake III Arena map for duel, team deathmatch, and free-for-all.",
+    "redistribution": false
+  },
+  "supportedModes": [
+    "Battle",
+    "Survival"
+  ],
+  "environment": {
+    "killHeight": -15,
+    "farClip": 82,
+    "fogEnabled": true,
+    "fogColor": [
+      8,
+      10,
+      16
+    ],
+    "fogSlope": 5,
+    "fogOffset": 65180,
+    "light1Color": [
+      31,
+      28,
+      24
+    ],
+    "light1Vector": [
+      0.3,
+      -1,
+      0.2
+    ],
+    "light2Color": [
+      10,
+      11,
+      16
+    ],
+    "light2Vector": [
+      -0.3,
+      1,
+      -0.2
+    ]
+  },
+  "map": {
+    "name": "NODM13",
+    "inGameName": "The Dark Zone",
+    "textureSource": "MP3 PROVING GROUND",
+    "scaleFactor": 4,
+    "killHeight": -15,
+    "farClip": 82,
+    "fogEnabled": true,
+    "fogColor": [
+      8,
+      10,
+      16
+    ],
+    "fogSlope": 5,
+    "fogOffset": 65180,
+    "light1Color": [
+      31,
+      28,
+      24
+    ],
+    "light1Vector": [
+      0.3,
+      -1,
+      0.2
+    ],
+    "light2Color": [
+      10,
+      11,
+      16
+    ],
+    "light2Vector": [
+      -0.3,
+      1,
+      -0.2
+    ],
+    "battleTimeLimit": 12600,
+    "pointLimit": 7,
+    "import": {
+      "source": "map_nodm13.pk3",
+      "mapName": "nodm13",
+      "unitsPerUnit": 35,
+      "textures": "nodm13.tex",
+      "shaderMaterials": {},
+      "defaultMaterial": 0,
+      "texScale": 24,
+      "keepSky": true,
+      "keepClip": true,
+      "patchLevel": 3,
+      "keepSpawns": true
+    },
+    "preview": {
+      "position": [
+        68.6,
+        27.7,
+        72.7
+      ],
+      "target": [
+        27.2,
+        2.5,
+        31.3
+      ]
+    },
+    "materials": [],
+    "brushes": [],
+    "spawns": [],
+    "jumpPads": [],
+    "items": []
+  }
+}

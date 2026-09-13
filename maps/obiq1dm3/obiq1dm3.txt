@@ -1,0 +1,25 @@
+Author		: Obi-Wan
+
+E-Mail		: obihb@yahoo.com
+
+Map Name	: The Abandoned Base III
+
+Description	: Basically just a port of the classic DM3 from Quake. I had to rebuild
+		  a few bruches because of the way it exported from the bsp. I also added
+		  more light "brushes" so the light don't just float in the middle of
+		  nowhere. I've also ported all the texture maps. The map looks pretty much
+		  like the one in Quake but with better lighting... :)
+
+Spawn Points	: 6
+
+Base		: Conversion of DM3 from Quake
+
+Tools		: Q3Radiant
+		  Winbspc
+
+Installation	: 1 - Unzip this archive to your "BASEQ3" directory and run the game
+		  2 - Bring down the console and type the following: /map obiq1dm3
+		  3 - To add a bot just press "ESC" and select the "ADD BOT" option from the menu
+
+Credits		: ID Software for Quake, all it's sequels and the original version of DM3
+		  Mr Elusive for Winbspc

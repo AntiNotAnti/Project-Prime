@@ -39,9 +39,14 @@ materials before assigning them to a whole brush or one selected face in the edi
 The face inspector controls tiling, UV scale/offset/rotation, terrain, and
 solid-versus-decorative collision behavior.
 
-The current first-party examples include:
+The checked-in map sources and examples include:
 
 - `dust2/dust2.json` — imported `df_dust2` geometry.
+- `obiq1dm3/obiq1dm3.json` — Obi-Wan's **The Abandoned Base III**, a
+  Quake DM3 conversion with its original attribution in `obiq1dm3.txt`.
+- `nodm13/nodm13.json` — Rich "swelt" Jacques's **The Dark Zone**, an
+  Egyptian-styled Quake III arena with its original permissions and attribution
+  in `nodm13.txt`.
 - `parallax/parallax.json` — the original PARALLAX arena; editable Q3 source and
   validation evidence are under `parallax/source/`.
 - `q3dm17.json.example` — an example requiring a separately obtained `pak0.pk3`.
@@ -108,6 +113,10 @@ in Node status without taking the Node offline.
 
 Packaging a level does not grant permission to redistribute it. Publish only
 source, textures, previews, and imported data you have the right to distribute.
+The bundled metadata for `obiq1dm3` and `nodm13` deliberately leaves automatic
+online redistribution disabled. `nodm13.txt` also prohibits inclusion in a
+commercial product without the author's permission; obtain any additional
+permission needed for the intended release.
 The repository asset guards continue to reject extracted game data and known
 commercial archives.
 

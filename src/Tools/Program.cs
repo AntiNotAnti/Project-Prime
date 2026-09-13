@@ -128,20 +128,16 @@ namespace MphRead
                 }
                 int cooked = 0;
                 int failed = 0;
-                foreach (MapGen.MapDefinition def in MapGen.CustomRooms.Definitions)
+                // The catalog is the source authority. Keep the complete project so v2
+                // identity and creator metadata survive cooking; legacy recipes already
+                // arrive through the catalog's migration adapter.
+                foreach (MapGen.InstalledMap sourceMap in BundleSourceMaps())
                 {
+                    MapGen.MapProject project = sourceMap.Project;
+                    MapGen.MapDefinition def = project.Map;
                     if (which != null && !which.Equals(def.Name, StringComparison.OrdinalIgnoreCase)
                         && !which.Equals("all", StringComparison.OrdinalIgnoreCase))
                     {
-                        continue;
-                    }
-                    if (def.SourcePath == null || def.BundlePath != null)
-                    {
-                        // Already a bundle, or a definition that did not come
-                        // from a file. Description-only maps are bundled too:
-                        // their recipe is the complete map and keeping it in a
-                        // top-level .fpmap lets desktop and Android ship the
-                        // same map set without recursing into source folders.
                         continue;
                     }
                     try
@@ -150,9 +146,9 @@ namespace MphRead
                         if (destination == null && outputDirectory != null)
                         {
                             destination = Path.Combine(Path.GetFullPath(outputDirectory),
-                                Path.GetFileNameWithoutExtension(def.SourcePath!) + MapGen.MapBundle.Extension);
+                                Path.GetFileNameWithoutExtension(sourceMap.SourcePath) + MapGen.MapBundle.Extension);
                         }
-                        MapGen.MapBundleTools.Cook(def, def.SourcePath, destination);
+                        MapGen.MapBundleTools.Cook(project, sourceMap.SourcePath, destination);
                         cooked++;
                     }
                     catch (Exception ex)
@@ -171,6 +167,26 @@ namespace MphRead
             }
             return false;
         }
+
+        private static IReadOnlyList<MapGen.InstalledMap> BundleSourceMaps()
+        {
+            MapGen.CustomRooms.RefreshAsync().AsTask().GetAwaiter().GetResult();
+            MapGen.MapCatalogSnapshot snapshot = MapGen.CustomRooms.Catalog.Snapshot;
+            foreach (MapGen.MapDiagnostic diagnostic in snapshot.Diagnostics)
+            {
+                Console.WriteLine($"Ignoring map {Path.GetFileName(diagnostic.SourcePath)}: {diagnostic.Message}");
+            }
+            return snapshot.Maps
+                .Where(map => map.Source is MapGen.MapInstallSource.LocalProject
+                    or MapGen.MapInstallSource.LegacyRecipe)
+                .Where(map => map.BuildState is MapGen.MapBuildState.NeedsBuild
+                    or MapGen.MapBuildState.Ready)
+                .OrderBy(map => map.SourcePath, StringComparer.Ordinal)
+                .GroupBy(map => map.Project.Map.Name, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToArray();
+        }
+
         private static bool HandleAssets(string[] args)
         {
             // Generate the binaries for the custom maps in `maps/`. The
