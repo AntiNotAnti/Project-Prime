@@ -203,7 +203,12 @@ tools/package-server.sh --rid linux-x64 --output publish/server-linux-x64
 
 The deployment path is transactional and deploys the full Backend + Node + Worker stack. PostgreSQL
 is a control-plane dependency; database or network I/O must never block a Worker's authoritative
-simulation loop. Operators should read [SERVER.md](SERVER.md), the
+simulation loop. Normal deployment requires the existing Backend to be ready. If an explicitly
+applied forward database migration makes the prior Backend live but unready, use
+`./deploy-server.sh --recover-forward-schema` once. That mode still requires a healthy Node, validates
+the candidate Backend against the database before downtime, and requires the new Backend to become
+ready; it does not permit a dead prior stack or bypass candidate validation. Operators should read
+[SERVER.md](SERVER.md), the
 [Server Node guide](src/Server.Node/README.md), and the
 [rendered/WAN operator runbook](docs/RENDERED_WAN_OPERATOR_RUNBOOK.md) before publishing a Node.
 

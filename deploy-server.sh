@@ -29,6 +29,7 @@ BACKEND_HEALTH=http://127.0.0.1:18085/health/ready
 HEALTH_TIMEOUT=${MPH_SERVER_HEALTH_TIMEOUT:-180}
 KEEP_RELEASES=${MPH_SERVER_KEEP_RELEASES:-3}
 PREFLIGHT_ONLY=0
+RECOVER_FORWARD_SCHEMA=0
 
 usage() {
   cat <<'USAGE'
@@ -46,6 +47,9 @@ ubuntu@51.161.113.128, linux-x64, rooted at /srv/project-prime.
   --rid RID            linux-x64 or linux-arm64 (default linux-x64)
   --config FILE        accepted compatibility option; stack config is generated
   --preflight-only     validate locally/remotely without upload or downtime
+  --recover-forward-schema
+                       allow one recovery deploy when the old Backend is live but
+                       returns 503 because the database was migrated first
   --keep-releases N    retain at least current + previous (default 3)
   --help               show this help
 
@@ -68,6 +72,7 @@ while (($#)); do
     --config) [[ $# -ge 2 ]] || exit 2; DEPLOY_CONFIG=$2; shift 2 ;;
     --keep-releases) [[ $# -ge 2 ]] || exit 2; KEEP_RELEASES=$2; shift 2 ;;
     --preflight-only) PREFLIGHT_ONLY=1; shift ;;
+    --recover-forward-schema) RECOVER_FORWARD_SCHEMA=1; shift ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;
   esac
@@ -190,10 +195,15 @@ UNIT_SHA=$(python3 -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],
 REQUIRED_KB=$(($(du -sk "$WORK/stage" | awk '{print $1}') * 3 + 102400))
 
 echo "Running read-only whole-stack preflight on $DEPLOY_HOST..."
-SNAPSHOT=$(ssh_run "bash -s -- $(quote "$DEPLOY_DIR") $(quote "$DEPLOY_USER") $(quote "$RID") $(quote "$DEPLOY_VERSION") $(quote "$REQUIRED_KB") $(quote "$PUBLIC_HOST") $(quote "$PUBLIC_CONTROL_URI")" <<'REMOTE_PREFLIGHT'
+SNAPSHOT=$(ssh_run "bash -s -- $(quote "$DEPLOY_DIR") $(quote "$DEPLOY_USER") $(quote "$RID") $(quote "$DEPLOY_VERSION") $(quote "$REQUIRED_KB") $(quote "$PUBLIC_HOST") $(quote "$PUBLIC_CONTROL_URI") $(quote "$RECOVER_FORWARD_SCHEMA") $(quote "$NODE_HEALTH")" <<'REMOTE_PREFLIGHT'
 set -eu
 root=$1; user=$2; rid=$3; version=$4; required_kb=$5; public_host=$6; public_control=$7
+recover_forward_schema=$8; node_health=$9
 app=$root/app; state=$root/state; data=$root/AMHE1; releases=$root/releases; env_file=$state/dev.env
+if [ "$recover_forward_schema" != 0 ] && [ "$recover_forward_schema" != 1 ]; then
+  echo "invalid forward-schema recovery mode" >&2
+  exit 1
+fi
 for name in python3 rsync curl; do command -v "$name" >/dev/null || { echo "Missing remote command: $name" >&2; exit 1; }; done
 sudo -n true >/dev/null; sudo -n systemctl --version >/dev/null
 if [[ "$(uname -m):$rid" != x86_64:linux-x64 && "$(uname -m):$rid" != amd64:linux-x64 && "$(uname -m):$rid" != aarch64:linux-arm64 && "$(uname -m):$rid" != arm64:linux-arm64 ]]; then echo "Remote architecture/RID mismatch" >&2; exit 1; fi
@@ -250,6 +260,15 @@ ready_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{htt
   http://127.0.0.1:18085/health/ready 2>/dev/null || true)
 if [ "$ready_status" = 200 ]; then
   prior_health=ready
+elif [ "$ready_status" = 503 ] && [ "$recover_forward_schema" = 1 ]; then
+  live_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{http_code}' \
+    http://127.0.0.1:18085/health/live 2>/dev/null || true)
+  node_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{http_code}' \
+    "$node_health" 2>/dev/null || true)
+  [ "$live_status" = 200 ] && [ "$node_status" = 200 ] \
+    || { echo "Forward-schema recovery requires a live Backend and healthy Node" >&2; exit 1; }
+  echo "WARNING: accepting live-but-unready prior Backend for explicit forward-schema recovery" >&2
+  prior_health=forward-schema
 elif [ "$ready_status" = 404 ]; then
   legacy_status=$(curl -sSk --connect-timeout 2 --max-time 4 -o /dev/null -w '%{http_code}' \
     'http://127.0.0.1:18085/v1/nodes?protocol=1&build=deploy&content=deploy' 2>/dev/null || true)
@@ -344,7 +363,7 @@ available=$(df -Pk "$probe" | awk 'NR==2 {print $4}')
 [ "$available" -ge "$required_kb" ] || { echo "Insufficient remote disk space" >&2; exit 1; }
 REMOTE_PREFLIGHT
 )
-case "$SNAPSHOT" in legacy:[0-9]*:[0-9]*:ready|legacy:[0-9]*:[0-9]*:legacy|systemd:0:0:ready|systemd:0:0:legacy) ;; *) echo "Invalid remote stack snapshot" >&2; exit 1 ;; esac
+case "$SNAPSHOT" in legacy:[0-9]*:[0-9]*:ready|legacy:[0-9]*:[0-9]*:legacy|legacy:[0-9]*:[0-9]*:forward-schema|systemd:0:0:ready|systemd:0:0:legacy|systemd:0:0:forward-schema) ;; *) echo "Invalid remote stack snapshot" >&2; exit 1 ;; esac
 echo "Remote stack snapshot: ${SNAPSHOT%%:*}"
 if [[ "$PREFLIGHT_ONLY" == 1 ]]; then echo "Preflight complete; no upload or stop occurred."; exit 0; fi
 
@@ -442,6 +461,7 @@ rollback_stack() {
   case "$prior_health" in
     ready) prior_backend_health=http://127.0.0.1:18085/health/ready ;;
     legacy) prior_backend_health='http://127.0.0.1:18085/v1/nodes?protocol=1&build=deploy&content=deploy' ;;
+    forward-schema) prior_backend_health=http://127.0.0.1:18085/health/live ;;
     *) ok=0; prior_backend_health= ;;
   esac
   healthy=0; health_deadline=$((SECONDS + health_timeout))
@@ -454,7 +474,12 @@ rollback_stack() {
   [ "$healthy" -eq 1 ] || ok=0
   if [ "$ok" -ne 1 ]; then echo "CRITICAL: stack activation and rollback failed; lock/snapshot retained at $rollback" >&2; exit "$status"; fi
   rm -rf "$rollback"; rm -f "$unit_stage"; rmdir "$lock"
-  echo "Activation failed; complete prior stack restored through projectprime-stack." >&2; exit "$status"
+  if [ "$prior_health" = forward-schema ]; then
+    echo "Activation failed; prior live-but-unready stack restored through projectprime-stack." >&2
+  else
+    echo "Activation failed; complete prior stack restored through projectprime-stack." >&2
+  fi
+  exit "$status"
 }
 trap rollback_stack ERR EXIT
 

@@ -137,19 +137,29 @@ class DeployServerTests(unittest.TestCase):
         self.assertIn('ProjectPrime.Backend" --check-database', script)
         self.assertIn("candidate Backend database check failed", script)
 
-    def test_prior_backend_health_contract_accepts_only_ready_or_verified_legacy(self):
+    def test_prior_backend_health_contract_requires_explicit_forward_schema_recovery(self):
         source = DEPLOY.read_text(encoding="utf-8")
         block = source.split("# BEGIN_PRIOR_HEALTH_CONTRACT\n", 1)[1].split(
             "# END_PRIOR_HEALTH_CONTRACT", 1
         )[0]
 
-        def probe(ready, legacy):
+        def probe(ready, legacy="000", live="000", node="000", recover=False):
             fake_curl = (
                 'curl() { case "$*" in *health/ready*) printf "%s" "$READY_STATUS" ;; '
-                '*) printf "%s" "$LEGACY_STATUS" ;; esac; }\n'
+                '*health/live*) printf "%s" "$LIVE_STATUS" ;; '
+                '*v1/nodes*) printf "%s" "$LEGACY_STATUS" ;; '
+                '*) printf "%s" "$NODE_STATUS" ;; esac; }\n'
+                'recover_forward_schema="$RECOVER_FORWARD_SCHEMA"\n'
+                'node_health="https://127.0.0.1:8443/health"\n'
             )
             environment = os.environ.copy()
-            environment.update({"READY_STATUS": ready, "LEGACY_STATUS": legacy})
+            environment.update({
+                "READY_STATUS": ready,
+                "LEGACY_STATUS": legacy,
+                "LIVE_STATUS": live,
+                "NODE_STATUS": node,
+                "RECOVER_FORWARD_SCHEMA": "1" if recover else "0",
+            })
             return subprocess.run(
                 ["bash", "-c", fake_curl + block + '\nprintf "%s" "$prior_health"\n'],
                 env=environment, capture_output=True, text=True, check=False,
@@ -157,9 +167,16 @@ class DeployServerTests(unittest.TestCase):
 
         self.assertEqual("ready", probe("200", "000").stdout)
         self.assertEqual("legacy", probe("404", "200").stdout)
-        for ready, legacy in (("503", "200"), ("000", "200"), ("404", "503")):
-            with self.subTest(ready=ready, legacy=legacy):
-                self.assertNotEqual(0, probe(ready, legacy).returncode)
+        self.assertEqual("forward-schema", probe("503", live="200", node="200", recover=True).stdout)
+        for arguments in (
+            ("503", "200", "200", "200", False),
+            ("503", "000", "503", "200", True),
+            ("503", "000", "200", "503", True),
+            ("000", "200", "200", "200", True),
+            ("404", "503", "200", "200", True),
+        ):
+            with self.subTest(arguments=arguments):
+                self.assertNotEqual(0, probe(*arguments).returncode)
 
     def test_activation_rollback_reboot_and_retention_contracts(self):
         script = DEPLOY.read_text(encoding="utf-8")
@@ -176,6 +193,8 @@ class DeployServerTests(unittest.TestCase):
         self.assertIn("http://127.0.0.1:18085/health/ready", script)
         self.assertIn("Backend readiness health refused deployment", script)
         self.assertIn("prior_health=legacy", script)
+        self.assertIn("prior_health=forward-schema", script)
+        self.assertIn("prior_backend_health=http://127.0.0.1:18085/health/live", script)
         self.assertIn("prior_backend_health='http://127.0.0.1:18085/v1/nodes?", script)
 
     def test_stack_unit_owns_launcher_and_only_state_is_writable(self):
@@ -194,6 +213,7 @@ class DeployServerTests(unittest.TestCase):
         result = subprocess.run([str(DEPLOY), "--help"], env=environment, capture_output=True, text=True, check=False)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertIn("state-generated", result.stdout)
+        self.assertIn("--recover-forward-schema", result.stdout)
 
 
 if __name__ == "__main__":
