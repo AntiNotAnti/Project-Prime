@@ -160,6 +160,36 @@ public sealed class DesktopOverlayFoundationTests
         Assert.True(surface.ZOrderOwned);
     }
 
+    [AvaloniaFact]
+    public void AltTabReturnReactivatesOpenOverlayExactlyOnce()
+    {
+        GameHostPresentationState state = State(visible: true,
+            minimized: false, focused: true);
+        var surface = new RecordingSurface();
+        using var coordinator = new DesktopGameOverlayCoordinator(surface,
+            () => state);
+        using var scene = new Scene();
+
+        Assert.True(coordinator.OpenPause(scene));
+        Assert.Equal(1, surface.ActivationRequestCount);
+
+        surface.RaiseDeactivated();
+        state = State(visible: true, minimized: false, focused: false);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(1, surface.ActivationRequestCount);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+
+        state = State(visible: true, minimized: false, focused: true);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(2, surface.ActivationRequestCount);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(2, surface.ActivationRequestCount);
+
+        surface.RaiseActivated();
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.True(surface.ZOrderOwned);
+    }
+
     [AvaloniaTheory]
     [InlineData((int)DesktopOverlayMode.Pause)]
     [InlineData((int)DesktopOverlayMode.Settings)]
@@ -211,9 +241,10 @@ public sealed class DesktopOverlayFoundationTests
         coordinator.CloseForTransition();
     }
 
-    private static GameHostPresentationState State(bool visible, bool minimized)
+    private static GameHostPresentationState State(bool visible, bool minimized,
+        bool focused = true)
         => new(new(1280, 720), new(2560, 1440), new(10, 20), visible,
-            minimized, IsFocused: true, ActivationDeferred: false);
+            minimized, IsFocused: focused, ActivationDeferred: false);
 
     private sealed class RecordingSurface : IDesktopGameOverlaySurface
     {
@@ -222,6 +253,7 @@ public sealed class DesktopOverlayFoundationTests
         public Control? Content { get; private set; }
         public int ShowCount { get; private set; }
         public int HideCount { get; private set; }
+        public int ActivationRequestCount { get; private set; }
         public bool ZOrderOwned { get; private set; }
         public event EventHandler? UserCloseRequested;
         public event EventHandler? Activated;
@@ -237,7 +269,11 @@ public sealed class DesktopOverlayFoundationTests
         {
             NativeVisible = true;
             ShowCount++;
-            if (activate) ZOrderOwned = true;
+            if (activate)
+            {
+                ActivationRequestCount++;
+                ZOrderOwned = true;
+            }
         }
 
         public void HideForHostPreservingContent(GameHostPresentationState state)

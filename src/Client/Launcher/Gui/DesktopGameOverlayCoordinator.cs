@@ -31,6 +31,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     private MatchTransitionView? _transition;
     private IMatchTransitionMenuActions? _transitionActions;
     private bool _disposed;
+    private bool _hostFocusKnown;
+    private bool _hostWasFocused;
     private DesktopOverlayMode _mode;
 
     // Compatibility routing hook for PauseMenu/HomeWindow. It exposes the
@@ -58,6 +60,11 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         _state = state;
         _pump = pump;
         _inputOwner = inputOwner ?? new DesktopInputOwner();
+        if (_state != null)
+        {
+            _hostWasFocused = _state().IsFocused;
+            _hostFocusKnown = true;
+        }
         _surface.UserCloseRequested += SurfaceUserCloseRequested;
         _surface.Activated += SurfaceActivated;
         _surface.Deactivated += SurfaceDeactivated;
@@ -107,6 +114,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             _host.DetachInputOwner(_inputOwner);
         }
         _host = host;
+        _hostWasFocused = host.PresentationState.IsFocused;
+        _hostFocusKnown = true;
         _host.AttachInputOwner(_inputOwner);
         _host.PresentationStateChanged += HostPresentationChanged;
         HostPresentationChanged(host.PresentationState);
@@ -388,12 +397,20 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     internal void CloseFromMenu()
     {
         if (_mode == DesktopOverlayMode.None) return;
-        EndCurrentContent();
+        // Commit the logical handoff before hiding the native overlay. Hiding
+        // can synchronously transfer Windows focus back to the SDL window.
         _mode = DesktopOverlayMode.None;
+        EndCurrentContent();
         PauseMenu.SetOverlayOpen(false);
         _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
             : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
         PauseMenu.MarkClosed();
+        if (_host is { PresentationState.IsVisible: true,
+            PresentationState.IsMinimized: false })
+        {
+            DebugLog.Line("sdl", "overlay closed; returning focus to scene");
+            _host.Activate();
+        }
     }
 
     internal void CloseForTransition()
@@ -453,6 +470,10 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
 
     private void HostPresentationChanged(GameHostPresentationState state)
     {
+        bool regainedFocus = _hostFocusKnown && !_hostWasFocused
+            && state.IsFocused;
+        _hostWasFocused = state.IsFocused;
+        _hostFocusKnown = true;
         if (_disposed || _mode == DesktopOverlayMode.None) return;
         if (state.IsMinimized || !state.IsVisible)
         {
@@ -464,9 +485,17 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         }
         else
         {
-            // Host focus loss alone is not an Alt-Tab signal and must not
-            // re-activate or re-promote an overlay on background restore.
-            _surface.ShowForHost(state, activate: false);
+            // The SDL window is the taskbar-visible member of the pair. When
+            // Windows restores it after Alt-Tab while a logical overlay is
+            // still open, return activation to that overlay exactly once.
+            // A focus-loss edge never activates anything, so switching away
+            // from Project Prime still yields to the foreground application.
+            if (regainedFocus)
+            {
+                DebugLog.Line("sdl",
+                    $"window focus returned with {_mode} overlay open; activating overlay");
+            }
+            _surface.ShowForHost(state, activate: regainedFocus);
         }
     }
 
