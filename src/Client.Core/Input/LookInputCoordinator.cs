@@ -22,6 +22,7 @@ namespace MphRead.Mods.Input
         private readonly Func<double> _clock;
         private LookDeviceTracker _tracker;
         private LookDeviceKind _contributors;
+        private Vector2 _statefulImpulseDegrees;
         private Vector2 _statefulRawDirection;
         private float _statefulMagnitude;
         private bool _precisionContact;
@@ -136,15 +137,18 @@ namespace MphRead.Mods.Input
 
         /// <summary>
         /// Submit stateful look ownership/velocity without creating a fake
-        /// relative event. Call this from a fixed-step processor after it has
-        /// advanced its state.
+        /// relative event. A fixed-step processor may also publish a one-shot
+        /// impulse for absolute modes such as flick stick; the next simulation
+        /// consume applies it exactly once alongside continuous velocity.
         /// </summary>
         public bool SubmitStateful(in LocalLookFrame frame, Vector2 angularVelocity,
             float gamepadLookDeadzone = 0.10f, double? seconds = null,
-            long? expectedEpoch = null)
+            long? expectedEpoch = null, Vector2 controllerImpulseDegrees = default)
         {
             if (!frame.IsFinite || !LookDeviceTracker.IsSingleDevice(frame.Device)
-                || !float.IsFinite(angularVelocity.X) || !float.IsFinite(angularVelocity.Y))
+                || !float.IsFinite(angularVelocity.X) || !float.IsFinite(angularVelocity.Y)
+                || !float.IsFinite(controllerImpulseDegrees.X)
+                || !float.IsFinite(controllerImpulseDegrees.Y))
             {
                 return false;
             }
@@ -162,6 +166,7 @@ namespace MphRead.Mods.Input
                 }
                 _contributors |= frame.Contributors == LookDeviceKind.None
                     ? frame.Device : frame.Contributors;
+                _statefulImpulseDegrees += controllerImpulseDegrees;
                 _statefulRawDirection = frame.RawDirection;
                 _statefulMagnitude = frame.Magnitude;
                 _prediction.SetAngularVelocity(angularVelocity, now);
@@ -266,6 +271,8 @@ namespace MphRead.Mods.Input
                 {
                     controller *= fixedDeltaSeconds;
                 }
+                controller += _statefulImpulseDegrees;
+                _statefulImpulseDegrees = Vector2.Zero;
                 LookPredictionFrame consumed = _prediction.ConsumeFrameForSimulation(now);
                 Vector2 precision = consumed.PrecisionDeltaDegrees;
                 Vector2 delta = precision + controller;
@@ -351,6 +358,7 @@ namespace MphRead.Mods.Input
                     _tracker.Reset();
                 }
                 _prediction.ClearStatefulVelocity();
+                _statefulImpulseDegrees = Vector2.Zero;
                 _statefulRawDirection = Vector2.Zero;
                 _statefulMagnitude = 0;
             }
@@ -364,6 +372,7 @@ namespace MphRead.Mods.Input
                 _tracker.Reset();
                 _contributors = LookDeviceKind.None;
                 _prediction.Reset();
+                _statefulImpulseDegrees = Vector2.Zero;
                 _statefulRawDirection = Vector2.Zero;
                 _statefulMagnitude = 0;
                 _precisionContact = false;

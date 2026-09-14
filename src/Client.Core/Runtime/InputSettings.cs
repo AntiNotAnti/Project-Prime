@@ -326,11 +326,39 @@ namespace MphRead.Mods
 
         public static float GamepadZoomMultiplier
         {
-            get => _gamepadZoomMultiplier;
-            set => _gamepadZoomMultiplier = Clamp(value, 1, 0.01f, 10);
+            get => (GamepadZoomHorizontalMultiplier
+                + GamepadZoomVerticalMultiplier) * .5f;
+            set
+            {
+                GamepadZoomHorizontalMultiplier = value;
+                GamepadZoomVerticalMultiplier = value;
+            }
         }
 
-        private static float _gamepadZoomMultiplier = 1;
+        public static float GamepadZoomHorizontalMultiplier
+        {
+            get => _gamepadZoomHorizontalMultiplier;
+            set => _gamepadZoomHorizontalMultiplier = Clamp(value, 1, .01f, 10);
+        }
+        private static float _gamepadZoomHorizontalMultiplier = 1;
+
+        public static float GamepadZoomVerticalMultiplier
+        {
+            get => _gamepadZoomVerticalMultiplier;
+            set => _gamepadZoomVerticalMultiplier = Clamp(value, 1, .01f, 10);
+        }
+        private static float _gamepadZoomVerticalMultiplier = 1;
+
+        public static bool GamepadAutoCalibrationEnabled { get; set; } = true;
+
+        public static Input.GamepadStickAimMode GamepadStickAimMode
+        {
+            get => _gamepadStickAimMode;
+            set => _gamepadStickAimMode = Enum.IsDefined(value)
+                ? value : Input.GamepadStickAimMode.Traditional;
+        }
+        private static Input.GamepadStickAimMode _gamepadStickAimMode
+            = Input.GamepadStickAimMode.Traditional;
 
         // Aim assist remains deliberately absent from every player-facing
         // settings surface. These persisted values are an internal tuning and
@@ -1236,7 +1264,11 @@ namespace MphRead.Mods
                 }
                 if (requestedPreset.HasValue)
                 {
-                    ApplyPresetCore(requestedPreset.Value, explicitBindings);
+                    // Every tuning value is persisted explicitly. Loading a
+                    // preset restores only omitted bindings so custom values
+                    // written beside it remain authoritative.
+                    ApplyPresetCore(requestedPreset.Value, explicitBindings,
+                        applyTuning: false);
                 }
                 else if (explicitBindings.Count != 0)
                 {
@@ -1328,6 +1360,19 @@ namespace MphRead.Mods
                 case "gamepad_zoom_multiplier":
                 case "gamepad_zoom":
                     if (parsed) GamepadZoomMultiplier = number; return true;
+                case "gamepad_zoom_horizontal_multiplier":
+                    if (parsed) GamepadZoomHorizontalMultiplier = number; return true;
+                case "gamepad_zoom_vertical_multiplier":
+                    if (parsed) GamepadZoomVerticalMultiplier = number; return true;
+                case "gamepad_auto_calibration":
+                    if (boolean) GamepadAutoCalibrationEnabled = flag; return true;
+                case "gamepad_stick_aim_mode":
+                    if (Enum.TryParse(value, true,
+                        out Input.GamepadStickAimMode stickAimMode))
+                    {
+                        GamepadStickAimMode = stickAimMode;
+                    }
+                    return true;
                 case "gamepad_aim_assist":
                 case "gamepad_aim_assist_enabled":
                     if (boolean) GamepadAimAssistEnabled = flag;
@@ -1513,7 +1558,7 @@ namespace MphRead.Mods
             _applyingPreset = true;
             try
             {
-                ApplyPresetCore(preset, preserve: null);
+                ApplyPresetCore(preset, preserve: null, applyTuning: true);
             }
             finally
             {
@@ -1522,7 +1567,7 @@ namespace MphRead.Mods
         }
 
         private static void ApplyPresetCore(Input.ControllerPreset preset,
-            HashSet<Input.PadAction>? preserve)
+            HashSet<Input.PadAction>? preserve, bool applyTuning)
         {
             // Custom is a label for the current bindings, not a default layout.
             // Partial settings files must leave omitted bindings unchanged.
@@ -1535,7 +1580,8 @@ namespace MphRead.Mods
             {
                 if (preserve?.Contains(action) == true) continue;
                 GamepadButtons value = Input.PadBindings.Default(action);
-                if (preset == Input.ControllerPreset.Competitive)
+                if (preset is Input.ControllerPreset.Competitive
+                    or Input.ControllerPreset.GyroCompetitive)
                 {
                     value = action switch
                     {
@@ -1546,7 +1592,48 @@ namespace MphRead.Mods
                 }
                 Input.PadBindings.SetFromPreset(action, value);
             }
+            if (applyTuning)
+            {
+                if (preset == Input.ControllerPreset.Classic)
+                {
+                    ResetControllerGeneral();
+                    ResetControllerAdvancedTuning();
+                    ResetControllerGyro();
+                }
+                else
+                {
+                    ApplyCompetitiveControllerTuning(
+                        gyro: preset == Input.ControllerPreset.GyroCompetitive);
+                }
+            }
             _controllerPreset = preset;
+        }
+
+        private static void ApplyCompetitiveControllerTuning(bool gyro)
+        {
+            GamepadHorizontalSensitivity = 1;
+            GamepadVerticalSensitivity = 1;
+            GamepadZoomHorizontalMultiplier = 1.10f;
+            GamepadZoomVerticalMultiplier = 1f;
+            GamepadMoveDeadZone = .13f;
+            GamepadLookDeadZone = .07f;
+            GamepadOuterDeadZone = .02f;
+            GamepadMoveActivateThreshold = .20f;
+            GamepadMoveReleaseThreshold = .14f;
+            GamepadLookExponent = 1.35f;
+            _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Custom;
+            GamepadYawRate = 360;
+            GamepadPitchRate = 285;
+            GamepadTurnAcceleration = Input.GamepadTurnAccelerationPreset.Fast;
+            GamepadTriggerPressThreshold = .12f;
+            GamepadTriggerReleaseThreshold = .07f;
+            GamepadAutoCalibrationEnabled = true;
+            GamepadStickAimMode = gyro
+                ? Input.GamepadStickAimMode.FlickStick
+                : Input.GamepadStickAimMode.Traditional;
+            GamepadGyroMode = gyro
+                ? Input.GamepadGyroMode.Always : Input.GamepadGyroMode.Off;
+            GamepadGyroSensitivity = gyro ? 1.15f : 1f;
         }
 
         private static void ParseBind(PropertyInfo property, string value)
@@ -1639,6 +1726,10 @@ namespace MphRead.Mods
                     "gamepad_horizontal_sensitivity=" + Float(GamepadHorizontalSensitivity),
                     "gamepad_vertical_sensitivity=" + Float(GamepadVerticalSensitivity),
                     "gamepad_zoom_multiplier=" + Float(GamepadZoomMultiplier),
+                    "gamepad_zoom_horizontal_multiplier=" + Float(GamepadZoomHorizontalMultiplier),
+                    "gamepad_zoom_vertical_multiplier=" + Float(GamepadZoomVerticalMultiplier),
+                    $"gamepad_auto_calibration={GamepadAutoCalibrationEnabled.ToString().ToLowerInvariant()}",
+                    $"gamepad_stick_aim_mode={GamepadStickAimMode}",
                     $"gamepad_aim_assist_enabled={GamepadAimAssistEnabled.ToString().ToLowerInvariant()}",
                     "gamepad_aim_assist_strength=" + Float(GamepadAimAssistStrength),
                     $"gamepad_gyro_enabled={GamepadGyroEnabled.ToString().ToLowerInvariant()}",
@@ -1870,6 +1961,8 @@ namespace MphRead.Mods
             GamepadYawRate = 300;
             GamepadPitchRate = 240;
             GamepadZoomMultiplier = 1f;
+            GamepadAutoCalibrationEnabled = true;
+            GamepadStickAimMode = Input.GamepadStickAimMode.Traditional;
             GamepadGyroEnabled = false;
             GamepadGyroSensitivity = 1f;
             GamepadGyroInvertX = false;
@@ -1916,6 +2009,8 @@ namespace MphRead.Mods
             _gamepadTurnAcceleration = Input.GamepadTurnAccelerationPreset.Standard;
             GamepadTriggerPressThreshold = 0.20f;
             GamepadTriggerReleaseThreshold = 0.12f;
+            GamepadAutoCalibrationEnabled = true;
+            GamepadStickAimMode = Input.GamepadStickAimMode.Traditional;
         }
 
         /// <summary>
@@ -1971,7 +2066,10 @@ namespace MphRead.Mods
                 && GamepadTriggerReleaseThreshold == .12f
                 && GamepadHorizontalSensitivity == 1
                 && GamepadVerticalSensitivity == 1
-                && GamepadZoomMultiplier == 1
+                && GamepadZoomHorizontalMultiplier == 1
+                && GamepadZoomVerticalMultiplier == 1
+                && GamepadAutoCalibrationEnabled
+                && GamepadStickAimMode == Input.GamepadStickAimMode.Traditional
                 && !GamepadGyroEnabled
                 && GamepadGyroSensitivity == 1
                 && !GamepadGyroInvertX

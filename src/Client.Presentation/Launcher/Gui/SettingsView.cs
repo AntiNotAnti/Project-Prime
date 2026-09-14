@@ -297,13 +297,15 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _gamepadTriggerPress = null!;
         private SliderRow _gamepadTriggerRelease = null!;
         private SliderRow _gamepadZoomMultiplier = null!;
+        private SliderRow _gamepadZoomVerticalMultiplier = null!;
         private SliderRow _gamepadMoveActivate = null!, _gamepadMoveRelease = null!;
         private SliderRow _gamepadYawRate = null!, _gamepadPitchRate = null!;
         private SliderRow _gamepadOuterBoostStart = null!, _gamepadOuterYawBoost = null!,
             _gamepadOuterPitchBoost = null!, _gamepadBoostDelay = null!, _gamepadBoostRamp = null!;
-        private ToggleRow _gamepadInvertY = null!;
+        private ToggleRow _gamepadInvertY = null!, _gamepadAutoCalibration = null!;
         private ChoiceRow _gamepadGyro = null!, _gamepadGyroActivation = null!;
-        private ChoiceRow _gamepadResponseCurve = null!, _gamepadTurnAcceleration = null!;
+        private ChoiceRow _gamepadResponseCurve = null!, _gamepadTurnAcceleration = null!,
+            _gamepadStickAimMode = null!;
         private ToggleRow _gamepadGyroInvertX = null!;
         private ToggleRow _gamepadGyroInvertY = null!, _gamepadHaptics = null!;
         private ToggleRow _inputBalanceTelemetry = null!;
@@ -1825,7 +1827,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _gamepadHorizontalSensitivity, _gamepadVerticalSensitivity,
                 _gamepadGyroSensitivity, _gamepadDeadZone, _gamepadLookDeadZone,
                 _gamepadMoveActivate, _gamepadMoveRelease, _gamepadLook,
-                _gamepadYawRate, _gamepadPitchRate, _gamepadZoomMultiplier);
+                _gamepadYawRate, _gamepadPitchRate, _gamepadZoomMultiplier,
+                _gamepadZoomVerticalMultiplier);
         }
 
         private void RefreshControllerGeneralRows()
@@ -1839,7 +1842,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _gamepadVerticalSensitivity.Value = LookToSlider(
                     InputSettings.GamepadVerticalSensitivity);
                 _gamepadInvertY.On = InputSettings.GamepadInvertY;
-                _gamepadZoomMultiplier.Value = LookToSlider(InputSettings.GamepadZoomMultiplier);
+                _gamepadZoomMultiplier.Value = LookToSlider(
+                    InputSettings.GamepadZoomHorizontalMultiplier);
+                _gamepadZoomVerticalMultiplier.Value = LookToSlider(
+                    InputSettings.GamepadZoomVerticalMultiplier);
                 _gamepadHaptics.On = InputSettings.GamepadHapticsEnabled;
                 _gamepadHapticsStrength.Value = (int)Math.Round(
                     InputSettings.GamepadHapticsStrength * 100);
@@ -1851,6 +1857,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             ClearEditedControllerSliders(_gamepadHorizontalSensitivity,
                 _gamepadVerticalSensitivity, _gamepadZoomMultiplier,
+                _gamepadZoomVerticalMultiplier,
                 _gamepadHapticsStrength);
         }
 
@@ -1892,7 +1899,11 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadResponseCurve.Index = (int)InputSettings.GamepadResponseCurve;
             _gamepadYawRate.Value = (int)Math.Round(InputSettings.GamepadYawRate);
             _gamepadPitchRate.Value = (int)Math.Round(InputSettings.GamepadPitchRate);
-            _gamepadZoomMultiplier.Value = LookToSlider(InputSettings.GamepadZoomMultiplier);
+            _gamepadZoomMultiplier.Value = LookToSlider(
+                InputSettings.GamepadZoomHorizontalMultiplier);
+            _gamepadZoomVerticalMultiplier.Value = LookToSlider(
+                InputSettings.GamepadZoomVerticalMultiplier);
+            _gamepadStickAimMode.Index = (int)InputSettings.GamepadStickAimMode;
         }
 
         private void RefreshControllerAdvancedRows()
@@ -1935,6 +1946,7 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadBoostRamp.Value = BoostSecondsToSlider(InputSettings.GamepadBoostRampSeconds, .001f);
             _gamepadTriggerPress.Value = ThresholdToSlider(InputSettings.GamepadTriggerPressThreshold);
             _gamepadTriggerRelease.Value = ThresholdToSlider(InputSettings.GamepadTriggerReleaseThreshold);
+            _gamepadAutoCalibration.On = InputSettings.GamepadAutoCalibrationEnabled;
             ShowOuterBoostRows();
         }
 
@@ -2624,9 +2636,18 @@ namespace MphRead.Mods.Launcher.Gui
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerVerticalSensitivity);
             _gamepadInvertY = Add(page, new ToggleRow("Invert vertical aim (stick)",
                 InputSettings.GamepadInvertY), SettingRowIds.ControllerInvertY);
-            _gamepadZoomMultiplier = Add(page, new SliderRow("Zoom multiplier",
-                LookToSlider(InputSettings.GamepadZoomMultiplier),
+            _gamepadZoomMultiplier = Add(page, new SliderRow("Zoom horizontal sensitivity",
+                LookToSlider(InputSettings.GamepadZoomHorizontalMultiplier),
                 v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.ControllerZoom);
+            _gamepadZoomVerticalMultiplier = Add(page, new SliderRow(
+                "Zoom vertical sensitivity",
+                LookToSlider(InputSettings.GamepadZoomVerticalMultiplier),
+                v => $"{SliderToLook(v).ToString("0.00", CultureInfo.InvariantCulture)}x"),
+                SettingRowIds.ControllerZoomVertical);
+            _gamepadStickAimMode = Add(page, new ChoiceRow("Right-stick aim mode",
+                new[] { "Traditional", "Flick Stick" },
+                (int)InputSettings.GamepadStickAimMode),
+                SettingRowIds.ControllerStickAimMode);
             var resetAim = new MenuEntry("Reset aim settings",
                 "Restore controller aim defaults without changing bindings", titleSize: 13)
             {
@@ -2731,6 +2752,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadLookDeadZone = Add(page, new SliderRow("Look dead zone",
                 DeadZoneToSlider(InputSettings.GamepadLookDeadZone, .9f),
                 v => $"{SliderToDeadZone(v, .9f).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerLookDeadZone);
+            _gamepadAutoCalibration = Add(page, new ToggleRow(
+                "Automatic stick calibration",
+                InputSettings.GamepadAutoCalibrationEnabled),
+                SettingRowIds.ControllerAutoCalibration);
             _gamepadOuterDeadZone = Add(page, new SliderRow("Outer dead zone",
                 DeadZoneToSlider(InputSettings.GamepadOuterDeadZone, .5f),
                 v => $"{SliderToDeadZone(v, .5f).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerOuterDeadZone);
@@ -2866,19 +2891,21 @@ namespace MphRead.Mods.Launcher.Gui
                 _gamepadOuterBoostStart, _gamepadOuterYawBoost, _gamepadOuterPitchBoost,
                 _gamepadBoostDelay, _gamepadBoostRamp, _gamepadTriggerPress,
                 _gamepadTriggerRelease, _gamepadZoomMultiplier,
+                _gamepadZoomVerticalMultiplier,
                 _gamepadHapticsStrength })
             {
                 row.ValueChanged += (_, _) => MarkControllerSliderEdited(row);
             }
             foreach (ToggleRow row in new[] { _gamepadInvertY,
                 _gamepadGyroInvertX, _gamepadGyroInvertY, _gamepadHaptics,
+                _gamepadAutoCalibration,
                 _inputBalanceTelemetry })
             {
                 row.Changed += (_, _) => MarkControllerCustom();
             }
             foreach (ChoiceRow row in new[] { _gamepadGyro,
                 _gamepadGyroActivation, _gamepadResponseCurve,
-                _gamepadTurnAcceleration })
+                _gamepadTurnAcceleration, _gamepadStickAimMode })
             {
                 row.Changed += (_, _) => MarkControllerCustom();
             }
@@ -3794,6 +3821,9 @@ namespace MphRead.Mods.Launcher.Gui
             InputSettings.GamepadGyroInvertX = _gamepadGyroInvertX.On;
             InputSettings.GamepadGyroInvertY = _gamepadGyroInvertY.On;
             InputSettings.GamepadHapticsEnabled = _gamepadHaptics.On;
+            InputSettings.GamepadAutoCalibrationEnabled = _gamepadAutoCalibration.On;
+            InputSettings.GamepadStickAimMode =
+                (Mods.Input.GamepadStickAimMode)_gamepadStickAimMode.Index;
             InputSettings.InputBalanceTelemetryEnabled = _inputBalanceTelemetry.On;
             if (!InputSettings.GamepadGyroEnabled) Mods.Input.GamepadGyro.SuppressOutput();
             if (!InputSettings.GamepadHapticsEnabled) Mods.Input.GamepadHaptics.Stop();
@@ -4050,8 +4080,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (ControllerSliderWasEdited(_gamepadZoomMultiplier))
             {
-                InputSettings.GamepadZoomMultiplier
+                InputSettings.GamepadZoomHorizontalMultiplier
                     = SliderToLook(_gamepadZoomMultiplier.Value);
+            }
+            if (ControllerSliderWasEdited(_gamepadZoomVerticalMultiplier))
+            {
+                InputSettings.GamepadZoomVerticalMultiplier
+                    = SliderToLook(_gamepadZoomVerticalMultiplier.Value);
             }
         }
     }

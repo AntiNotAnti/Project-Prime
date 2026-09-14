@@ -15,6 +15,24 @@ namespace MphRead.Tests;
 public sealed class ControllerInputTests
 {
     [Fact]
+    public void StatefulImpulseIsConsumedOnceAlongsideContinuousVelocity()
+    {
+        var coordinator = new LookInputCoordinator();
+        var stick = new LocalLookFrame(LookDeviceKind.GamepadStick,
+            new Vector2(-90, 0), Vector2.UnitY, 1);
+        Assert.True(coordinator.SubmitStateful(stick, Vector2.Zero,
+            controllerImpulseDegrees: new Vector2(-90, 0)));
+
+        LocalLookFrame first = coordinator.ConsumeForSimulation(1f / 60f);
+        LocalLookFrame second = coordinator.ConsumeForSimulation(1f / 60f);
+
+        Assert.Equal(new Vector2(-90, 0), first.ControllerDeltaDegrees);
+        Assert.Equal(new Vector2(-90, 0), first.DeltaDegrees);
+        Assert.Equal(Vector2.Zero, second.ControllerDeltaDegrees);
+        Assert.Equal(Vector2.Zero, second.DeltaDegrees);
+    }
+
+    [Fact]
     public void LocalLookFramePreservesAdditiveStickAndPrecisionMetadata()
     {
         var coordinator = new LookInputCoordinator();
@@ -996,6 +1014,35 @@ public sealed class ControllerInputTests
             Assert.Equal(GamepadButtons.DpadLeft, PadBindings.Get(PadAction.PrevWeapon));
             PadBindings.Set(PadAction.Jump, GamepadButtons.B);
             Assert.Equal(ControllerPreset.Custom, InputSettings.ControllerPreset);
+        }
+        finally
+        {
+            InputSettings.Reset();
+        }
+    }
+
+    [Fact]
+    public void ControllerCompetitiveOptionsRoundTripIndependently()
+    {
+        InputSettings.Reset();
+        try
+        {
+            InputSettings.GamepadZoomHorizontalMultiplier = 1.25f;
+            InputSettings.GamepadZoomVerticalMultiplier = .8f;
+            InputSettings.GamepadAutoCalibrationEnabled = false;
+            InputSettings.GamepadStickAimMode = GamepadStickAimMode.FlickStick;
+            var saved = InputSettings.GetSaveLines();
+
+            InputSettings.Reset();
+            InputSettings.LoadLines(saved);
+
+            Assert.Equal(1.25f,
+                InputSettings.GamepadZoomHorizontalMultiplier);
+            Assert.Equal(.8f,
+                InputSettings.GamepadZoomVerticalMultiplier);
+            Assert.False(InputSettings.GamepadAutoCalibrationEnabled);
+            Assert.Equal(GamepadStickAimMode.FlickStick,
+                InputSettings.GamepadStickAimMode);
         }
         finally
         {

@@ -77,6 +77,10 @@ namespace MphRead.Mods.Network
                 : LocalLookFrame.Empty;
         }
         public float ControllerZoomMultiplier => InputSettings.GamepadZoomMultiplier;
+        public float ControllerZoomHorizontalMultiplier
+            => InputSettings.GamepadZoomHorizontalMultiplier;
+        public float ControllerZoomVerticalMultiplier
+            => InputSettings.GamepadZoomVerticalMultiplier;
         public float DynamicCrosshairTravelDegrees
             => InputSettings.DynamicCrosshairTravelDegrees;
         public float DynamicCrosshairSensitivity

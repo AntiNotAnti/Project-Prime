@@ -30,6 +30,12 @@ namespace MphRead.Mods.Input
         RightThumb
     }
 
+    public enum GamepadStickAimMode
+    {
+        Traditional,
+        FlickStick
+    }
+
     /// <summary>
     /// Allocation-free mappings from user-facing preset identities to the
     /// primitive values consumed by <see cref="GamepadLookProcessor"/> and

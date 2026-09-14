@@ -2174,7 +2174,10 @@ public sealed class UiCaptureFixtureTests
         float TriggerReleaseThreshold,
         float HorizontalSensitivity,
         float VerticalSensitivity,
-        float ZoomMultiplier,
+        float ZoomHorizontalMultiplier,
+        float ZoomVerticalMultiplier,
+        bool AutoCalibration,
+        GamepadStickAimMode StickAimMode,
         bool OuterBoostEnabled,
         bool GyroEnabled,
         float GyroSensitivity,
@@ -2200,7 +2203,10 @@ public sealed class UiCaptureFixtureTests
             MphRead.Mods.InputSettings.GamepadTriggerReleaseThreshold,
             MphRead.Mods.InputSettings.GamepadHorizontalSensitivity,
             MphRead.Mods.InputSettings.GamepadVerticalSensitivity,
-            MphRead.Mods.InputSettings.GamepadZoomMultiplier,
+            MphRead.Mods.InputSettings.GamepadZoomHorizontalMultiplier,
+            MphRead.Mods.InputSettings.GamepadZoomVerticalMultiplier,
+            MphRead.Mods.InputSettings.GamepadAutoCalibrationEnabled,
+            MphRead.Mods.InputSettings.GamepadStickAimMode,
             MphRead.Mods.InputSettings.GamepadOuterBoostEnabled,
             MphRead.Mods.InputSettings.GamepadGyroEnabled,
             MphRead.Mods.InputSettings.GamepadGyroSensitivity,
@@ -2286,7 +2292,13 @@ public sealed class UiCaptureFixtureTests
             = snapshot.HorizontalSensitivity;
         MphRead.Mods.InputSettings.GamepadVerticalSensitivity
             = snapshot.VerticalSensitivity;
-        MphRead.Mods.InputSettings.GamepadZoomMultiplier = snapshot.ZoomMultiplier;
+        MphRead.Mods.InputSettings.GamepadZoomHorizontalMultiplier
+            = snapshot.ZoomHorizontalMultiplier;
+        MphRead.Mods.InputSettings.GamepadZoomVerticalMultiplier
+            = snapshot.ZoomVerticalMultiplier;
+        MphRead.Mods.InputSettings.GamepadAutoCalibrationEnabled
+            = snapshot.AutoCalibration;
+        MphRead.Mods.InputSettings.GamepadStickAimMode = snapshot.StickAimMode;
         MphRead.Mods.InputSettings.GamepadOuterBoostEnabled = snapshot.OuterBoostEnabled;
         MphRead.Mods.InputSettings.GamepadGyroEnabled = snapshot.GyroEnabled;
         MphRead.Mods.InputSettings.GamepadGyroSensitivity = snapshot.GyroSensitivity;

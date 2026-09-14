@@ -123,6 +123,9 @@ public static class SettingRowIds
     public const string ControllerTriggerPress = "controls.controller.trigger-press";
     public const string ControllerTriggerRelease = "controls.controller.trigger-release";
     public const string ControllerZoom = "controls.controller.zoom";
+    public const string ControllerZoomVertical = "controls.controller.zoom-vertical";
+    public const string ControllerAutoCalibration = "controls.controller.auto-calibration";
+    public const string ControllerStickAimMode = "controls.controller.stick-aim-mode";
     public const string ControllerGyro = "controls.controller.gyro";
     public const string ControllerGyroActivation = "controls.controller.gyro-activation";
     public const string ControllerGyroSensitivity = "controls.controller.gyro-sensitivity";
@@ -233,7 +236,8 @@ public static class SettingRowIds
         ControllerPitchRate, ControllerOuterBoost, ControllerOuterBoostStart,
         ControllerOuterYawBoost, ControllerOuterPitchBoost, ControllerBoostDelay,
         ControllerBoostRamp, ControllerTriggerPress, ControllerTriggerRelease,
-        ControllerZoom, ControllerGyro, ControllerGyroActivation, ControllerGyroSensitivity,
+        ControllerZoom, ControllerZoomVertical, ControllerAutoCalibration,
+        ControllerStickAimMode, ControllerGyro, ControllerGyroActivation, ControllerGyroSensitivity,
         ControllerGyroInvertX, ControllerGyroInvertY, ControllerTelemetry,
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,

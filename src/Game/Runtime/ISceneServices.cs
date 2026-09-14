@@ -34,7 +34,11 @@ namespace MphRead
         /// </summary>
         LocalLookFrame LocalLookFrame => LocalLookFrame.Empty;
         void BeginLocalLookFrame(bool allowAimAssist) { }
+        // Retain the shared multiplier as a compatibility seam for hosts that
+        // have not yet opted into independent scoped-axis tuning.
         float ControllerZoomMultiplier => 1;
+        float ControllerZoomHorizontalMultiplier => ControllerZoomMultiplier;
+        float ControllerZoomVerticalMultiplier => ControllerZoomMultiplier;
         float DynamicCrosshairTravelDegrees
             => DynamicCrosshairTuning.DefaultTravelDegrees;
         float DynamicCrosshairSensitivity

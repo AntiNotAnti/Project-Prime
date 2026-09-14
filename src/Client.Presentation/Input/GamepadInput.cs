@@ -95,8 +95,12 @@ namespace MphRead.Mods.Input
             GamepadMovementProcessor.DefaultReleaseThreshold);
         private static TriggerProcessor _triggers = new();
         private static GamepadLookProcessor _look = new();
+        private static FlickStickProcessor _flickStick = new();
+        private static readonly ControllerStickCalibrationStore _lookCalibration = new();
         private static long _timingGeneration = long.MinValue;
         private static bool _lookConfigured;
+        private static GamepadStickAimMode _configuredStickAimMode
+            = GamepadStickAimMode.Traditional;
         private static bool _gyroAllowedForSimulation;
 
         /// <summary>The fixed-step movement result used by <see cref="Apply"/>.</summary>
@@ -204,6 +208,7 @@ namespace MphRead.Mods.Input
             {
                 _gyroAllowedForSimulation = false;
                 _look.Reset();
+                _flickStick.Reset();
                 AimAngularVelocity = Vector2.Zero;
                 AimDeltaX = AimDeltaY = 0;
                 GamepadGyro.SuppressOutput();
@@ -211,7 +216,15 @@ namespace MphRead.Mods.Input
             }
             else
             {
-                ConfigureLookProcessor();
+                float stepSeconds = (float)FrameTiming.StepSeconds;
+                Vector2 physicalLook = new(State.RightX, State.RightY);
+                ControllerStickCalibrationSample calibrated
+                    = _lookCalibration.Advance(ActiveDeviceId(), physicalLook,
+                        stepSeconds, InputSettings.GamepadAutoCalibrationEnabled,
+                        InputSettings.GamepadLookDeadZone,
+                        InputSettings.GamepadOuterDeadZone);
+                ConfigureLookProcessor(calibrated.InnerDeadzone,
+                    calibrated.OuterDeadzone);
                 LookDeviceKind activeOwner = LookCoordinator.ActiveLookDevice;
                 if (LookDeviceTracker.IsPrecisionDevice(activeOwner))
                 {
@@ -219,26 +232,50 @@ namespace MphRead.Mods.Input
                     // outer-ring boost instead of inheriting old controller
                     // timing across ownership boundaries.
                     _look.Reset();
+                    _flickStick.Reset();
                 }
-                GamepadLookSample look = _look.Advance(new Vector2(State.RightX,
-                    State.RightY), (float)FrameTiming.StepSeconds);
+                Vector2 stickVelocity;
+                Vector2 stickDelta;
+                float stickMagnitude;
+                if (InputSettings.GamepadStickAimMode
+                    == GamepadStickAimMode.FlickStick)
+                {
+                    _look.Reset();
+                    FlickStickSample flick = _flickStick.Advance(
+                        calibrated.Value, stepSeconds);
+                    stickVelocity = new Vector2(
+                        flick.PredictionDegreesPerSecond, 0);
+                    stickDelta = new Vector2(flick.DeltaDegrees, 0);
+                    stickMagnitude = flick.Magnitude;
+                }
+                else
+                {
+                    _flickStick.Reset();
+                    GamepadLookSample look = _look.Advance(calibrated.Value,
+                        stepSeconds);
+                    stickVelocity = look.AngularVelocity;
+                    stickDelta = stickVelocity * stepSeconds;
+                    stickMagnitude = look.Magnitude;
+                }
                 _gyroAllowedForSimulation = GyroAllowed(zoomed);
                 if (!_gyroAllowedForSimulation) GamepadGyro.SuppressOutput();
                 Vector2 gyro = _gyroAllowedForSimulation
                     ? GamepadGyro.Sample(NowSeconds()) : Vector2.Zero;
-                AimAngularVelocity = look.AngularVelocity + gyro;
-                AimDeltaX = AimAngularVelocity.X * (float)FrameTiming.StepSeconds;
-                AimDeltaY = AimAngularVelocity.Y * (float)FrameTiming.StepSeconds;
-                Vector2 rawLook = new(State.RightX, State.RightY);
+                AimAngularVelocity = stickVelocity + gyro;
+                Vector2 fixedDelta = stickDelta + gyro * stepSeconds;
+                AimDeltaX = fixedDelta.X;
+                AimDeltaY = fixedDelta.Y;
+                Vector2 rawLook = calibrated.Value;
                 LookDeviceKind owner = gyro != Vector2.Zero
                     ? LookDeviceKind.GamepadGyro : LookDeviceKind.GamepadStick;
-                LookDeviceKind contributors = (look.AngularVelocity != Vector2.Zero
+                LookDeviceKind contributors = (stickDelta != Vector2.Zero
+                    || stickVelocity != Vector2.Zero
                     ? LookDeviceKind.GamepadStick : LookDeviceKind.None)
                     | (gyro != Vector2.Zero ? LookDeviceKind.GamepadGyro : LookDeviceKind.None);
                 Vector2 raw = owner == LookDeviceKind.GamepadGyro
                     ? gyro.Normalized() : rawLook;
                 float magnitude = owner == LookDeviceKind.GamepadGyro
-                    ? gyro.Length : look.Magnitude;
+                    ? gyro.Length : stickMagnitude;
                 LocalLookFrame frame = new LocalLookFrame(owner,
                     new Vector2(AimDeltaX, AimDeltaY), raw, magnitude)
                     .WithContributors(contributors);
@@ -248,7 +285,9 @@ namespace MphRead.Mods.Input
                 // fixed-step coordinator submission below.
                 LookCoordinator.SetStatefulVelocity(AimAngularVelocity);
                 LookCoordinator.SubmitStateful(frame, AimAngularVelocity,
-                    InputSettings.GamepadLookDeadZone);
+                    InputSettings.GamepadLookDeadZone,
+                    controllerImpulseDegrees: fixedDelta
+                        - AimAngularVelocity * stepSeconds);
             }
             // The scene host performs the one fixed-step extraction after all
             // platform contributors for this tick have been submitted.
@@ -279,10 +318,28 @@ namespace MphRead.Mods.Input
                 LookCoordinator.SetStatefulVelocity(Vector2.Zero);
                 return;
             }
-            ConfigureLookProcessor();
-            GamepadLookSample sample = _look.Evaluate(new Vector2(State.RightX,
-                State.RightY));
-            AimAngularVelocity = sample.AngularVelocity
+            Vector2 physicalLook = new(State.RightX, State.RightY);
+            ControllerStickCalibrationSample calibrated
+                = _lookCalibration.Evaluate(ActiveDeviceId(), physicalLook,
+                    InputSettings.GamepadAutoCalibrationEnabled,
+                    InputSettings.GamepadLookDeadZone,
+                    InputSettings.GamepadOuterDeadZone);
+            ConfigureLookProcessor(calibrated.InnerDeadzone,
+                calibrated.OuterDeadzone);
+            Vector2 stickVelocity;
+            if (InputSettings.GamepadStickAimMode
+                == GamepadStickAimMode.FlickStick)
+            {
+                FlickStickSample flick = _flickStick.Evaluate(calibrated.Value,
+                    (float)FrameTiming.StepSeconds);
+                stickVelocity = new Vector2(
+                    flick.PredictionDegreesPerSecond, 0);
+            }
+            else
+            {
+                stickVelocity = _look.Evaluate(calibrated.Value).AngularVelocity;
+            }
+            AimAngularVelocity = stickVelocity
                 + (_gyroAllowedForSimulation
                     ? GamepadGyro.Sample(NowSeconds()) : Vector2.Zero);
             LookCoordinator.SetStatefulVelocity(AimAngularVelocity);
@@ -313,6 +370,7 @@ namespace MphRead.Mods.Input
         {
             _movement.Reset();
             _look.Reset();
+            _flickStick.Reset();
             _lookConfigured = false;
             _pressed = GamepadButtons.None;
             _released = GamepadButtons.None;
@@ -613,11 +671,13 @@ namespace MphRead.Mods.Input
             _movement.Reset();
             _triggers.Reset();
             _look.Reset();
+            _flickStick.Reset();
             _lookConfigured = false;
         }
 
-        private static GamepadLookProcessor CreateLookProcessor()
-            => new(InputSettings.GamepadLookDeadZone, InputSettings.GamepadOuterDeadZone,
+        private static GamepadLookProcessor CreateLookProcessor(
+            float innerDeadzone, float outerDeadzone)
+            => new(innerDeadzone, outerDeadzone,
                 InputSettings.GamepadLookExponent, InputSettings.GamepadYawRate,
                 InputSettings.GamepadPitchRate, InputSettings.GamepadOuterBoostStart,
                 InputSettings.GamepadOuterYawBoost, InputSettings.GamepadOuterPitchBoost,
@@ -627,16 +687,23 @@ namespace MphRead.Mods.Input
                 InputSettings.GamepadVerticalSensitivity,
                 InputSettings.GamepadInvertY, InputSettings.GamepadZoomMultiplier);
 
-        private static void ConfigureLookProcessor()
+        private static void ConfigureLookProcessor(float innerDeadzone,
+            float outerDeadzone)
         {
+            if (_configuredStickAimMode != InputSettings.GamepadStickAimMode)
+            {
+                _look.Reset();
+                _flickStick.Reset();
+                _configuredStickAimMode = InputSettings.GamepadStickAimMode;
+            }
             if (!_lookConfigured)
             {
-                _look = CreateLookProcessor();
+                _look = CreateLookProcessor(innerDeadzone, outerDeadzone);
                 _lookConfigured = true;
                 return;
             }
-            _look.Configure(InputSettings.GamepadLookDeadZone,
-                InputSettings.GamepadOuterDeadZone, InputSettings.GamepadLookExponent,
+            _look.Configure(innerDeadzone,
+                outerDeadzone, InputSettings.GamepadLookExponent,
                 InputSettings.GamepadYawRate, InputSettings.GamepadPitchRate,
                 InputSettings.GamepadOuterBoostStart, InputSettings.GamepadOuterYawBoost,
                 InputSettings.GamepadOuterPitchBoost, InputSettings.GamepadBoostDelaySeconds,
@@ -645,5 +712,8 @@ namespace MphRead.Mods.Input
                 InputSettings.GamepadVerticalSensitivity, InputSettings.GamepadInvertY,
                 InputSettings.GamepadZoomMultiplier);
         }
+
+        private static string? ActiveDeviceId()
+            => Capabilities.DeviceId ?? Capabilities.DeviceName;
     }
 }

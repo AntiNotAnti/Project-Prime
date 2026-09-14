@@ -203,6 +203,100 @@ public sealed class ControllerProcessingCoreTests
         Assert.Equal(-75, zoomed.AngularVelocity.X, 3);
     }
 
+    [Fact]
+    public void FlickStickChoosesHeadingThenTracksRimRotationWithoutPitch()
+    {
+        var flick = new FlickStickProcessor();
+
+        FlickStickSample right = flick.Advance(Vector2.UnitX, 1f / 60f);
+        Assert.Equal(-90, right.DeltaDegrees, 3);
+        Assert.Equal(0, right.PredictionDegreesPerSecond);
+
+        FlickStickSample back = flick.Advance(-Vector2.UnitY, 1f / 60f);
+        Assert.Equal(-90, back.DeltaDegrees, 3);
+        Assert.Equal(-5400, back.PredictionDegreesPerSecond, 1);
+
+        flick.Advance(Vector2.Zero, 1f / 60f);
+        Assert.Equal(180, flick.Advance(-Vector2.UnitY, 1f / 60f)
+            .DeltaDegrees, 3);
+    }
+
+    [Fact]
+    public void AutoCalibrationLearnsOnlyRestingInputAndKeepsDevicesIndependent()
+    {
+        var calibration = new ControllerStickCalibrationStore();
+        ControllerStickCalibrationSample learned = default;
+        for (int i = 0; i < 30; i++)
+        {
+            learned = calibration.Advance("pad-a", new Vector2(.05f, -.02f),
+                1f / 60f, enabled: true, innerDeadzone: .1f,
+                outerDeadzone: .02f);
+        }
+
+        Assert.InRange(learned.Value.Length, 0, .001f);
+        Assert.Equal(new Vector2(.05f, -.02f), learned.LearnedCenter);
+
+        ControllerStickCalibrationSample other = calibration.Evaluate("pad-b",
+            new Vector2(.05f, -.02f), enabled: true,
+            innerDeadzone: .1f, outerDeadzone: .02f);
+        Assert.Equal(new Vector2(.05f, -.02f), other.Value);
+        Assert.Equal(Vector2.Zero, other.LearnedCenter);
+
+        ControllerStickCalibrationSample deliberate = calibration.Advance(
+            "pad-a", new Vector2(.5f, 0), 1f / 60f, enabled: true,
+            innerDeadzone: .1f, outerDeadzone: .02f);
+        Assert.True(deliberate.Value.X > .44f);
+    }
+
+    [Fact]
+    public void CompetitivePresetsProvideFastTraditionalAndGyroFlickProfiles()
+    {
+        InputSettings.Reset();
+        try
+        {
+            InputSettings.ApplyPreset(ControllerPreset.Competitive);
+            Assert.Equal(.07f, InputSettings.GamepadLookDeadZone);
+            Assert.Equal(360, InputSettings.GamepadYawRate);
+            Assert.Equal(GamepadTurnAccelerationPreset.Fast,
+                InputSettings.GamepadTurnAcceleration);
+            Assert.Equal(GamepadStickAimMode.Traditional,
+                InputSettings.GamepadStickAimMode);
+            Assert.False(InputSettings.GamepadGyroEnabled);
+
+            InputSettings.ApplyPreset(ControllerPreset.GyroCompetitive);
+            Assert.Equal(GamepadStickAimMode.FlickStick,
+                InputSettings.GamepadStickAimMode);
+            Assert.Equal(GamepadGyroMode.Always,
+                InputSettings.GamepadGyroMode);
+            Assert.Equal(1.10f,
+                InputSettings.GamepadZoomHorizontalMultiplier);
+            Assert.Equal(1f,
+                InputSettings.GamepadZoomVerticalMultiplier);
+        }
+        finally
+        {
+            InputSettings.Reset();
+        }
+    }
+
+    [Fact]
+    public void CompetitiveTuningDrillImprovesFineTurnResponseWithoutChangingAuthorityStep()
+    {
+        var baseline = new GamepadLookProcessor();
+        Vector2 drillInput = new(.30f, 0);
+        float baselineTurn = MathF.Abs(baseline.Advance(drillInput,
+            1f / 60f).AngularVelocity.X);
+
+        var competitive = new GamepadLookProcessor(innerDeadzone: .07f,
+            exponent: 1.35f, yawRate: 360, pitchRate: 285,
+            boostDelaySeconds: .09f, boostRampSeconds: .06f);
+        GamepadLookSample sample = competitive.Advance(drillInput, 1f / 60f);
+
+        Assert.True(sample.AngularVelocity.X < 0);
+        Assert.True(MathF.Abs(sample.AngularVelocity.X) > baselineTurn * 1.5f);
+        Assert.Equal(0, sample.BoostProgress);
+    }
+
     private static GamepadLookProcessor CreateLook(
         GamepadResponseCurvePreset response,
         GamepadTurnAccelerationPreset acceleration,
