@@ -52,12 +52,14 @@ internal sealed class PendingWeaponPrediction
         {
             return;
         }
-        if (desiredWeapon == _authoritativeWeapon)
+        if (desiredWeapon == _authoritativeWeapon && !_hasPending)
         {
-            _hasPending = false;
-            _pendingWeapon = NoWeapon;
             return;
         }
+        // Returning to the last authoritative weapon is still a new request
+        // when another selection is in flight. The server may acknowledge the
+        // older selection first; dropping the fence here lets that intermediate
+        // snapshot pull the client back to the weapon it just left.
         // Identical retransmissions are expected while UDP is in flight. Keep
         // the first sequence as the acknowledgement fence rather than moving
         // it forward on every redundant input bundle.

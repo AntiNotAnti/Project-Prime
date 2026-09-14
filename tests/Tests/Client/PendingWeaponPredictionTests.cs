@@ -62,14 +62,23 @@ public sealed class PendingWeaponPredictionTests
     }
 
     [Fact]
-    public void ReturningToTheAuthoritativeWeaponCancelsPendingSelection()
+    public void ReturningToTheAuthoritativeWeaponWaitsForTheNewerAcknowledgement()
     {
         var prediction = NewPrediction();
         prediction.ObserveInput(7, 3, 2, 40);
         prediction.ObserveInput(7, 3, 1, 41);
 
+        Assert.True(prediction.HasPending);
+        Assert.Equal((byte)1, prediction.PendingWeapon);
+        Assert.Equal(41u, prediction.FirstInputSequence);
+
+        prediction.ObserveAuthoritative(7, 3, 2);
+        Assert.False(prediction.ShouldApplyAuthoritative(7, 3, true, 40));
+        Assert.True(prediction.HasPending);
+
+        prediction.ObserveAuthoritative(7, 3, 1);
+        Assert.True(prediction.ShouldApplyAuthoritative(7, 3, true, 41));
         Assert.False(prediction.HasPending);
-        Assert.True(prediction.ShouldApplyAuthoritative(7, 3, true, 40));
     }
 
     private static PendingWeaponPrediction NewPrediction()
