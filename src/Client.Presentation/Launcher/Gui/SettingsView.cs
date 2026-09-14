@@ -321,6 +321,7 @@ namespace MphRead.Mods.Launcher.Gui
             _bottomScreenNextWeaponX, _bottomScreenNextWeaponY,
             _bottomScreenWeaponSelectX, _bottomScreenWeaponSelectY,
             _bottomScreenAltFormX, _bottomScreenAltFormY;
+        private SliderRow[] _bottomScreenAffinityRows = Array.Empty<SliderRow>();
         private bool _dynamicCrosshairTravelEdited, _dynamicCrosshairSensitivityEdited,
             _dynamicCrosshairTurnSpeedEdited, _mouseSensitivityEdited,
             _stylusSensitivityEdited;
@@ -2012,6 +2013,12 @@ namespace MphRead.Mods.Launcher.Gui
                         InputSettings.BottomScreenAltFormX * 100);
                     _bottomScreenAltFormY!.Value = (int)Math.Round(
                         InputSettings.BottomScreenAltFormY * 100);
+                    float[] affinityValues = BottomScreenAffinityValues();
+                    for (int index = 0; index < _bottomScreenAffinityRows.Length; index++)
+                    {
+                        _bottomScreenAffinityRows[index].Value =
+                            (int)Math.Round(affinityValues[index] * 100);
+                    }
                     _bottomScreenDirectionalSwipeAssist!.On
                         = InputSettings.BottomScreenDirectionalSwipeAssist;
                     _bottomScreenStyle!.Index = (int)InputSettings.BottomScreenStyle;
@@ -3016,6 +3023,24 @@ namespace MphRead.Mods.Launcher.Gui
             ShowTouchRows();
         }
 
+        private static float[] BottomScreenAffinityValues()
+        {
+            NativeBottomScreenAffinityLayoutOptions layout
+                = InputSettings.CurrentBottomScreenAffinityLayout;
+            return new[]
+            {
+                layout.VoltDriverX, layout.VoltDriverY,
+                layout.BattlehammerX, layout.BattlehammerY,
+                layout.ImperialistX, layout.ImperialistY,
+                layout.JudicatorX, layout.JudicatorY,
+                layout.MagmaulX, layout.MagmaulY,
+                layout.ShockCoilX, layout.ShockCoilY,
+                layout.PowerBeamX, layout.PowerBeamY,
+                layout.MissileX, layout.MissileY,
+                layout.AltFormX, layout.AltFormY
+            };
+        }
+
         private void BuildStylusControls(StackPanel page)
         {
             Heading(page, "Stylus");
@@ -3098,6 +3123,59 @@ namespace MphRead.Mods.Launcher.Gui
                 "Alt form position Y",
                 (int)Math.Round(InputSettings.BottomScreenAltFormY * 100),
                 v => $"{v}%"), SettingRowIds.BottomScreenAltFormY);
+            var affinityPlacement = new StackPanel { Spacing = 2 };
+            Add(page, new Expander
+            {
+                Header = "Affinity button placement",
+                Content = affinityPlacement,
+                IsExpanded = false,
+                Margin = new Thickness(0, 4, 0, 2)
+            });
+            Explain(affinityPlacement,
+                "Move the six affinity icons and the Beam, Missile, and Alt form controls. "
+                + "Overlapping controls select the nearest center.");
+            SliderRow AffinitySlider(string label, float value, string rowId)
+                => Add(affinityPlacement, new SliderRow(label,
+                    (int)Math.Round(value * 100), v => $"{v}%"), rowId);
+            _bottomScreenAffinityRows = new[]
+            {
+                AffinitySlider("Volt Driver position X", InputSettings.BottomScreenAffinityVoltDriverX,
+                    SettingRowIds.BottomScreenAffinityVoltDriverX),
+                AffinitySlider("Volt Driver position Y", InputSettings.BottomScreenAffinityVoltDriverY,
+                    SettingRowIds.BottomScreenAffinityVoltDriverY),
+                AffinitySlider("Battlehammer position X", InputSettings.BottomScreenAffinityBattlehammerX,
+                    SettingRowIds.BottomScreenAffinityBattlehammerX),
+                AffinitySlider("Battlehammer position Y", InputSettings.BottomScreenAffinityBattlehammerY,
+                    SettingRowIds.BottomScreenAffinityBattlehammerY),
+                AffinitySlider("Imperialist position X", InputSettings.BottomScreenAffinityImperialistX,
+                    SettingRowIds.BottomScreenAffinityImperialistX),
+                AffinitySlider("Imperialist position Y", InputSettings.BottomScreenAffinityImperialistY,
+                    SettingRowIds.BottomScreenAffinityImperialistY),
+                AffinitySlider("Judicator position X", InputSettings.BottomScreenAffinityJudicatorX,
+                    SettingRowIds.BottomScreenAffinityJudicatorX),
+                AffinitySlider("Judicator position Y", InputSettings.BottomScreenAffinityJudicatorY,
+                    SettingRowIds.BottomScreenAffinityJudicatorY),
+                AffinitySlider("Magmaul position X", InputSettings.BottomScreenAffinityMagmaulX,
+                    SettingRowIds.BottomScreenAffinityMagmaulX),
+                AffinitySlider("Magmaul position Y", InputSettings.BottomScreenAffinityMagmaulY,
+                    SettingRowIds.BottomScreenAffinityMagmaulY),
+                AffinitySlider("Shock Coil position X", InputSettings.BottomScreenAffinityShockCoilX,
+                    SettingRowIds.BottomScreenAffinityShockCoilX),
+                AffinitySlider("Shock Coil position Y", InputSettings.BottomScreenAffinityShockCoilY,
+                    SettingRowIds.BottomScreenAffinityShockCoilY),
+                AffinitySlider("Power Beam position X", InputSettings.BottomScreenAffinityPowerBeamX,
+                    SettingRowIds.BottomScreenAffinityPowerBeamX),
+                AffinitySlider("Power Beam position Y", InputSettings.BottomScreenAffinityPowerBeamY,
+                    SettingRowIds.BottomScreenAffinityPowerBeamY),
+                AffinitySlider("Missile position X", InputSettings.BottomScreenAffinityMissileX,
+                    SettingRowIds.BottomScreenAffinityMissileX),
+                AffinitySlider("Missile position Y", InputSettings.BottomScreenAffinityMissileY,
+                    SettingRowIds.BottomScreenAffinityMissileY),
+                AffinitySlider("Alt form position X", InputSettings.BottomScreenAffinityAltFormX,
+                    SettingRowIds.BottomScreenAffinityAltFormX),
+                AffinitySlider("Alt form position Y", InputSettings.BottomScreenAffinityAltFormY,
+                    SettingRowIds.BottomScreenAffinityAltFormY)
+            };
             _bottomScreenOpacity = Add(page, new SliderRow("Screen opacity",
                 (int)Math.Round(InputSettings.BottomScreenOpacity * 100),
                 v => $"{v}%", min: 5, max: 100), SettingRowIds.BottomScreenOpacity);
@@ -3108,7 +3186,7 @@ namespace MphRead.Mods.Launcher.Gui
                 + "normalized position; sensitivity and movement stay inside the panel. "
                 + "Toggle uses left click and closes after a selection. Hold drags a "
                 + "synthetic contact until the binding is released. Tap or drag through "
-                + "SEL to open the six-affinity selector.");
+                + "SEL to open the nine-target affinity selector.");
             _stylusAiming = Add(page, new ToggleRow("Stylus aiming",
                 InputSettings.StylusAimingEnabled), SettingRowIds.StylusAiming);
             _stylusSensitivity = Add(page, new SliderRow("Sensitivity",
@@ -3775,6 +3853,45 @@ namespace MphRead.Mods.Launcher.Gui
                     = _bottomScreenAltFormX!.Value / 100f;
                 InputSettings.BottomScreenAltFormY
                     = _bottomScreenAltFormY!.Value / 100f;
+                if (_bottomScreenAffinityRows.Length == 18)
+                {
+                    InputSettings.BottomScreenAffinityVoltDriverX
+                        = _bottomScreenAffinityRows[0].Value / 100f;
+                    InputSettings.BottomScreenAffinityVoltDriverY
+                        = _bottomScreenAffinityRows[1].Value / 100f;
+                    InputSettings.BottomScreenAffinityBattlehammerX
+                        = _bottomScreenAffinityRows[2].Value / 100f;
+                    InputSettings.BottomScreenAffinityBattlehammerY
+                        = _bottomScreenAffinityRows[3].Value / 100f;
+                    InputSettings.BottomScreenAffinityImperialistX
+                        = _bottomScreenAffinityRows[4].Value / 100f;
+                    InputSettings.BottomScreenAffinityImperialistY
+                        = _bottomScreenAffinityRows[5].Value / 100f;
+                    InputSettings.BottomScreenAffinityJudicatorX
+                        = _bottomScreenAffinityRows[6].Value / 100f;
+                    InputSettings.BottomScreenAffinityJudicatorY
+                        = _bottomScreenAffinityRows[7].Value / 100f;
+                    InputSettings.BottomScreenAffinityMagmaulX
+                        = _bottomScreenAffinityRows[8].Value / 100f;
+                    InputSettings.BottomScreenAffinityMagmaulY
+                        = _bottomScreenAffinityRows[9].Value / 100f;
+                    InputSettings.BottomScreenAffinityShockCoilX
+                        = _bottomScreenAffinityRows[10].Value / 100f;
+                    InputSettings.BottomScreenAffinityShockCoilY
+                        = _bottomScreenAffinityRows[11].Value / 100f;
+                    InputSettings.BottomScreenAffinityPowerBeamX
+                        = _bottomScreenAffinityRows[12].Value / 100f;
+                    InputSettings.BottomScreenAffinityPowerBeamY
+                        = _bottomScreenAffinityRows[13].Value / 100f;
+                    InputSettings.BottomScreenAffinityMissileX
+                        = _bottomScreenAffinityRows[14].Value / 100f;
+                    InputSettings.BottomScreenAffinityMissileY
+                        = _bottomScreenAffinityRows[15].Value / 100f;
+                    InputSettings.BottomScreenAffinityAltFormX
+                        = _bottomScreenAffinityRows[16].Value / 100f;
+                    InputSettings.BottomScreenAffinityAltFormY
+                        = _bottomScreenAffinityRows[17].Value / 100f;
+                }
                 InputSettings.BottomScreenStyle = (Mods.Input.NativeBottomScreenStyle)
                     _bottomScreenStyle!.Index;
                 InputSettings.BottomScreenScale = _bottomScreenScale!.Value / 100f;

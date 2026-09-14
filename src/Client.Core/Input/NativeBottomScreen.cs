@@ -43,7 +43,13 @@ namespace MphRead.Mods.Input
         Missile,
         NextWeapon,
         WeaponSelect,
-        AltForm
+        AltForm,
+        VoltDriver,
+        Battlehammer,
+        Imperialist,
+        Judicator,
+        Magmaul,
+        ShockCoil
     }
 
     public readonly record struct NativeBottomScreenButton(
@@ -243,6 +249,205 @@ namespace MphRead.Mods.Input
 
         public static NativeBottomScreenRegion RegionAt(Vector2 canonicalPoint)
             => Default.RegionAt(canonicalPoint);
+    }
+
+    /// <summary>
+    /// Normalized centers for the overlay's affinity popup. This is separate
+    /// from <see cref="NativeWeaponSelector"/>: the latter remains the native
+    /// six-sector selector, while this geometry only belongs to the optional
+    /// bottom-screen overlay.
+    /// </summary>
+    public readonly record struct NativeBottomScreenAffinityLayoutOptions(
+        float VoltDriverX, float VoltDriverY,
+        float BattlehammerX, float BattlehammerY,
+        float ImperialistX, float ImperialistY,
+        float JudicatorX, float JudicatorY,
+        float MagmaulX, float MagmaulY,
+        float ShockCoilX, float ShockCoilY,
+        float PowerBeamX, float PowerBeamY,
+        float MissileX, float MissileY,
+        float AltFormX, float AltFormY)
+    {
+        public const float AffinityRadius = 16;
+        public const float PowerBeamRadius = 16;
+        public const float MissileRadius = 16;
+        public const float AltFormRadius = 16;
+
+        /// <summary>
+        /// The six affinity centers are the native HUD positions. The three
+        /// overlay-only controls use a free right-side cluster that does not
+        /// overlap those icon footprints at the default layout.
+        /// </summary>
+        public static NativeBottomScreenAffinityLayoutOptions Default => new(
+            201f / 256, 156f / 192,
+            161f / 256, 152f / 192,
+            122f / 256, 142f / 192,
+            90f / 256, 109f / 192,
+            81f / 256, 70f / 192,
+            77f / 256, 32f / 192,
+            230f / 256, 66f / 192,
+            230f / 256, 106f / 192,
+            190f / 256, 106f / 192);
+
+        public NativeBottomScreenAffinityLayoutOptions Sanitized()
+            => new(
+                ClampX(VoltDriverX, Default.VoltDriverX),
+                ClampY(VoltDriverY, Default.VoltDriverY),
+                ClampX(BattlehammerX, Default.BattlehammerX),
+                ClampY(BattlehammerY, Default.BattlehammerY),
+                ClampX(ImperialistX, Default.ImperialistX),
+                ClampY(ImperialistY, Default.ImperialistY),
+                ClampX(JudicatorX, Default.JudicatorX),
+                ClampY(JudicatorY, Default.JudicatorY),
+                ClampX(MagmaulX, Default.MagmaulX),
+                ClampY(MagmaulY, Default.MagmaulY),
+                ClampX(ShockCoilX, Default.ShockCoilX),
+                ClampY(ShockCoilY, Default.ShockCoilY),
+                ClampX(PowerBeamX, Default.PowerBeamX),
+                ClampY(PowerBeamY, Default.PowerBeamY),
+                ClampX(MissileX, Default.MissileX),
+                ClampY(MissileY, Default.MissileY),
+                ClampX(AltFormX, Default.AltFormX),
+                ClampY(AltFormY, Default.AltFormY));
+
+        public NativeBottomScreenAffinityLayoutSnapshot CreateLayout()
+            => new(this);
+
+        private static float ClampX(float value, float fallback)
+            => float.IsFinite(value)
+                ? Math.Clamp(value, AffinityRadius / 256f,
+                    1 - AffinityRadius / 256f) : fallback;
+
+        private static float ClampY(float value, float fallback)
+            => float.IsFinite(value)
+                ? Math.Clamp(value, AffinityRadius / 192f,
+                    1 - AffinityRadius / 192f) : fallback;
+    }
+
+    /// <summary>
+    /// Immutable overlay-only affinity geometry. Declaration order is the
+    /// native six-affinity order followed by Power Beam, Missile and Alt Form;
+    /// strict nearest-distance comparisons preserve that order on ties.
+    /// </summary>
+    public sealed class NativeBottomScreenAffinityLayoutSnapshot
+    {
+        public const float DsWidth = NativeBottomScreenClassicLayoutSnapshot.DsWidth;
+        public const float DsHeight = NativeBottomScreenClassicLayoutSnapshot.DsHeight;
+        public const float SwipeDeadzone = NativeBottomScreenClassicLayoutSnapshot.SwipeDeadzone;
+        private const float SwipeCosine = .8191520443f; // cos(35 degrees)
+        private readonly NativeBottomScreenButton[] _buttons;
+        private readonly IReadOnlyList<NativeBottomScreenButton> _readOnlyButtons;
+
+        internal NativeBottomScreenAffinityLayoutSnapshot(
+            NativeBottomScreenAffinityLayoutOptions options)
+        {
+            Options = options.Sanitized();
+            _buttons = new[]
+            {
+                Button(NativeBottomScreenRegion.VoltDriver,
+                    Options.VoltDriverX, Options.VoltDriverY, "VD"),
+                Button(NativeBottomScreenRegion.Battlehammer,
+                    Options.BattlehammerX, Options.BattlehammerY, "BH"),
+                Button(NativeBottomScreenRegion.Imperialist,
+                    Options.ImperialistX, Options.ImperialistY, "IMP"),
+                Button(NativeBottomScreenRegion.Judicator,
+                    Options.JudicatorX, Options.JudicatorY, "JUD"),
+                Button(NativeBottomScreenRegion.Magmaul,
+                    Options.MagmaulX, Options.MagmaulY, "MAG"),
+                Button(NativeBottomScreenRegion.ShockCoil,
+                    Options.ShockCoilX, Options.ShockCoilY, "COIL"),
+                Button(NativeBottomScreenRegion.PowerBeam,
+                    Options.PowerBeamX, Options.PowerBeamY, "BEAM"),
+                Button(NativeBottomScreenRegion.Missile,
+                    Options.MissileX, Options.MissileY, "MSL"),
+                Button(NativeBottomScreenRegion.AltForm,
+                    Options.AltFormX, Options.AltFormY, "ALT")
+            };
+            _readOnlyButtons = Array.AsReadOnly(_buttons);
+        }
+
+        public NativeBottomScreenAffinityLayoutOptions Options { get; }
+        public IReadOnlyList<NativeBottomScreenButton> Buttons => _readOnlyButtons;
+
+        public NativeBottomScreenButton GetButton(NativeBottomScreenRegion region)
+            => region switch
+            {
+                NativeBottomScreenRegion.VoltDriver => _buttons[0],
+                NativeBottomScreenRegion.Battlehammer => _buttons[1],
+                NativeBottomScreenRegion.Imperialist => _buttons[2],
+                NativeBottomScreenRegion.Judicator => _buttons[3],
+                NativeBottomScreenRegion.Magmaul => _buttons[4],
+                NativeBottomScreenRegion.ShockCoil => _buttons[5],
+                NativeBottomScreenRegion.PowerBeam => _buttons[6],
+                NativeBottomScreenRegion.Missile => _buttons[7],
+                NativeBottomScreenRegion.AltForm => _buttons[8],
+                _ => throw new ArgumentOutOfRangeException(nameof(region))
+            };
+
+        public NativeBottomScreenRegion RegionAt(Vector2 canonicalPoint)
+        {
+            if (!float.IsFinite(canonicalPoint.X) || !float.IsFinite(canonicalPoint.Y)
+                || canonicalPoint.X < 0 || canonicalPoint.X > DsWidth
+                || canonicalPoint.Y < 0 || canonicalPoint.Y > DsHeight)
+            {
+                return NativeBottomScreenRegion.None;
+            }
+            NativeBottomScreenRegion nearest = NativeBottomScreenRegion.None;
+            float nearestDistance = float.MaxValue;
+            foreach (NativeBottomScreenButton button in _buttons)
+            {
+                Vector2 delta = canonicalPoint - button.Position;
+                float distance = delta.LengthSquared;
+                if (distance <= button.Radius * button.Radius
+                    && distance < nearestDistance)
+                {
+                    nearest = button.Region;
+                    nearestDistance = distance;
+                }
+            }
+            return nearest == NativeBottomScreenRegion.None
+                ? NativeBottomScreenRegion.Aim : nearest;
+        }
+
+        public NativeBottomScreenRegion ResolveRegion(Vector2 canonicalPoint,
+            Vector2 contactStart, bool directionalSwipeAssist)
+        {
+            NativeBottomScreenRegion exact = RegionAt(canonicalPoint);
+            if (!directionalSwipeAssist
+                || exact is not (NativeBottomScreenRegion.Aim
+                    or NativeBottomScreenRegion.None))
+            {
+                return exact;
+            }
+            Vector2 displacement = canonicalPoint - contactStart;
+            if (!float.IsFinite(displacement.X)
+                || !float.IsFinite(displacement.Y)
+                || displacement.LengthSquared <= SwipeDeadzone * SwipeDeadzone)
+            {
+                return exact;
+            }
+            Vector2 direction = displacement.Normalized();
+            NativeBottomScreenRegion assisted = NativeBottomScreenRegion.None;
+            float bestDot = SwipeCosine;
+            foreach (NativeBottomScreenButton button in _buttons)
+            {
+                Vector2 toButton = button.Position - contactStart;
+                if (!float.IsFinite(toButton.X) || !float.IsFinite(toButton.Y)
+                    || toButton.LengthSquared <= 0.001f) continue;
+                float dot = Vector2.Dot(direction, toButton.Normalized());
+                if (dot > bestDot)
+                {
+                    bestDot = dot;
+                    assisted = button.Region;
+                }
+            }
+            return assisted == NativeBottomScreenRegion.None ? exact : assisted;
+        }
+
+        private static NativeBottomScreenButton Button(
+            NativeBottomScreenRegion region, float x, float y, string label)
+            => new(region, new Vector2(x * DsWidth, y * DsHeight),
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius, label);
     }
 
     /// <summary>Normalized placement and size for the lower-screen panel.</summary>
@@ -505,6 +710,10 @@ namespace MphRead.Mods.Input
             = NativeBottomScreenClassicLayoutOptions.Default;
         private NativeBottomScreenClassicLayoutSnapshot _classicLayout
             = NativeBottomScreenClassicLayoutOptions.Default.CreateLayout();
+        private NativeBottomScreenAffinityLayoutOptions _affinityLayoutOptions
+            = NativeBottomScreenAffinityLayoutOptions.Default;
+        private NativeBottomScreenAffinityLayoutSnapshot _affinityLayout
+            = NativeBottomScreenAffinityLayoutOptions.Default.CreateLayout();
         private NativeBottomScreenLayout _layout;
         private long _generation;
         private long _platformToken;
@@ -523,6 +732,10 @@ namespace MphRead.Mods.Input
         public NativeBottomScreenClassicLayoutSnapshot ClassicLayout
         {
             get { lock (_sync) return _classicLayout; }
+        }
+        public NativeBottomScreenAffinityLayoutSnapshot AffinityLayout
+        {
+            get { lock (_sync) return _affinityLayout; }
         }
         public NativeBottomScreenLayout Layout { get { lock (_sync) return _layout; } }
         public long Generation { get { lock (_sync) return _generation; } }
@@ -584,7 +797,8 @@ namespace MphRead.Mods.Input
 
         public void UpdatePreferences(NativeBottomScreenMode mode,
             NativeBottomScreenStyle style, NativeBottomScreenLayoutOptions options,
-            NativeBottomScreenClassicLayoutOptions? classicOptions = null)
+            NativeBottomScreenClassicLayoutOptions? classicOptions = null,
+            NativeBottomScreenAffinityLayoutOptions? affinityOptions = null)
         {
             if (!Enum.IsDefined(mode)) mode = NativeBottomScreenMode.Off;
             if (!Enum.IsDefined(style)) style = NativeBottomScreenStyle.ClassicDs;
@@ -593,10 +807,13 @@ namespace MphRead.Mods.Input
             {
                 NativeBottomScreenClassicLayoutOptions sanitizedClassic
                     = (classicOptions ?? _classicLayoutOptions).Sanitized();
+                NativeBottomScreenAffinityLayoutOptions sanitizedAffinity
+                    = (affinityOptions ?? _affinityLayoutOptions).Sanitized();
                 NativeBottomScreenLayout layout = NativeBottomScreenLayout.Compute(
                     _layout.LogicalSize, _layout.FramebufferSize, options);
                 if (mode == _mode && style == _style && options == _layoutOptions
-                    && layout == _layout && sanitizedClassic == _classicLayoutOptions)
+                    && layout == _layout && sanitizedClassic == _classicLayoutOptions
+                    && sanitizedAffinity == _affinityLayoutOptions)
                 {
                     return;
                 }
@@ -606,6 +823,8 @@ namespace MphRead.Mods.Input
                 _layoutOptions = options;
                 _classicLayoutOptions = sanitizedClassic;
                 _classicLayout = sanitizedClassic.CreateLayout();
+                _affinityLayoutOptions = sanitizedAffinity;
+                _affinityLayout = sanitizedAffinity.CreateLayout();
                 _layout = layout;
                 _popupOpen = mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;

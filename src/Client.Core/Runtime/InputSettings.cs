@@ -600,6 +600,197 @@ namespace MphRead.Mods
                 BottomScreenNextWeaponX, BottomScreenNextWeaponY,
                 BottomScreenWeaponSelectX, BottomScreenWeaponSelectY,
                 BottomScreenAltFormX, BottomScreenAltFormY).Sanitized();
+        public static float BottomScreenAffinityVoltDriverX
+        {
+            get => _bottomScreenAffinityVoltDriverX;
+            set => _bottomScreenAffinityVoltDriverX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityVoltDriverX
+            = NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverX;
+        public static float BottomScreenAffinityVoltDriverY
+        {
+            get => _bottomScreenAffinityVoltDriverY;
+            set => _bottomScreenAffinityVoltDriverY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityVoltDriverY
+            = NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverY;
+        public static float BottomScreenAffinityBattlehammerX
+        {
+            get => _bottomScreenAffinityBattlehammerX;
+            set => _bottomScreenAffinityBattlehammerX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityBattlehammerX
+            = NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerX;
+        public static float BottomScreenAffinityBattlehammerY
+        {
+            get => _bottomScreenAffinityBattlehammerY;
+            set => _bottomScreenAffinityBattlehammerY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityBattlehammerY
+            = NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerY;
+        public static float BottomScreenAffinityImperialistX
+        {
+            get => _bottomScreenAffinityImperialistX;
+            set => _bottomScreenAffinityImperialistX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.ImperialistX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityImperialistX
+            = NativeBottomScreenAffinityLayoutOptions.Default.ImperialistX;
+        public static float BottomScreenAffinityImperialistY
+        {
+            get => _bottomScreenAffinityImperialistY;
+            set => _bottomScreenAffinityImperialistY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.ImperialistY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityImperialistY
+            = NativeBottomScreenAffinityLayoutOptions.Default.ImperialistY;
+        public static float BottomScreenAffinityJudicatorX
+        {
+            get => _bottomScreenAffinityJudicatorX;
+            set => _bottomScreenAffinityJudicatorX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.JudicatorX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityJudicatorX
+            = NativeBottomScreenAffinityLayoutOptions.Default.JudicatorX;
+        public static float BottomScreenAffinityJudicatorY
+        {
+            get => _bottomScreenAffinityJudicatorY;
+            set => _bottomScreenAffinityJudicatorY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.JudicatorY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityJudicatorY
+            = NativeBottomScreenAffinityLayoutOptions.Default.JudicatorY;
+        public static float BottomScreenAffinityMagmaulX
+        {
+            get => _bottomScreenAffinityMagmaulX;
+            set => _bottomScreenAffinityMagmaulX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.MagmaulX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityMagmaulX
+            = NativeBottomScreenAffinityLayoutOptions.Default.MagmaulX;
+        public static float BottomScreenAffinityMagmaulY
+        {
+            get => _bottomScreenAffinityMagmaulY;
+            set => _bottomScreenAffinityMagmaulY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.MagmaulY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityMagmaulY
+            = NativeBottomScreenAffinityLayoutOptions.Default.MagmaulY;
+        public static float BottomScreenAffinityShockCoilX
+        {
+            get => _bottomScreenAffinityShockCoilX;
+            set => _bottomScreenAffinityShockCoilX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityShockCoilX
+            = NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilX;
+        public static float BottomScreenAffinityShockCoilY
+        {
+            get => _bottomScreenAffinityShockCoilY;
+            set => _bottomScreenAffinityShockCoilY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityShockCoilY
+            = NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilY;
+        public static float BottomScreenAffinityPowerBeamX
+        {
+            get => _bottomScreenAffinityPowerBeamX;
+            set => _bottomScreenAffinityPowerBeamX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityPowerBeamX
+            = NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamX;
+        public static float BottomScreenAffinityPowerBeamY
+        {
+            get => _bottomScreenAffinityPowerBeamY;
+            set => _bottomScreenAffinityPowerBeamY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityPowerBeamY
+            = NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamY;
+        public static float BottomScreenAffinityMissileX
+        {
+            get => _bottomScreenAffinityMissileX;
+            set => _bottomScreenAffinityMissileX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.MissileX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityMissileX
+            = NativeBottomScreenAffinityLayoutOptions.Default.MissileX;
+        public static float BottomScreenAffinityMissileY
+        {
+            get => _bottomScreenAffinityMissileY;
+            set => _bottomScreenAffinityMissileY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.MissileY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityMissileY
+            = NativeBottomScreenAffinityLayoutOptions.Default.MissileY;
+        public static float BottomScreenAffinityAltFormX
+        {
+            get => _bottomScreenAffinityAltFormX;
+            set => _bottomScreenAffinityAltFormX = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.AltFormX,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 256f);
+        }
+        private static float _bottomScreenAffinityAltFormX
+            = NativeBottomScreenAffinityLayoutOptions.Default.AltFormX;
+        public static float BottomScreenAffinityAltFormY
+        {
+            get => _bottomScreenAffinityAltFormY;
+            set => _bottomScreenAffinityAltFormY = Clamp(value,
+                NativeBottomScreenAffinityLayoutOptions.Default.AltFormY,
+                NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f,
+                1 - NativeBottomScreenAffinityLayoutOptions.AffinityRadius / 192f);
+        }
+        private static float _bottomScreenAffinityAltFormY
+            = NativeBottomScreenAffinityLayoutOptions.Default.AltFormY;
+        public static NativeBottomScreenAffinityLayoutOptions CurrentBottomScreenAffinityLayout
+            => new NativeBottomScreenAffinityLayoutOptions(
+                BottomScreenAffinityVoltDriverX, BottomScreenAffinityVoltDriverY,
+                BottomScreenAffinityBattlehammerX, BottomScreenAffinityBattlehammerY,
+                BottomScreenAffinityImperialistX, BottomScreenAffinityImperialistY,
+                BottomScreenAffinityJudicatorX, BottomScreenAffinityJudicatorY,
+                BottomScreenAffinityMagmaulX, BottomScreenAffinityMagmaulY,
+                BottomScreenAffinityShockCoilX, BottomScreenAffinityShockCoilY,
+                BottomScreenAffinityPowerBeamX, BottomScreenAffinityPowerBeamY,
+                BottomScreenAffinityMissileX, BottomScreenAffinityMissileY,
+                BottomScreenAffinityAltFormX, BottomScreenAffinityAltFormY).Sanitized();
         public static NativeBottomScreenStyle BottomScreenStyle { get; set; }
             = NativeBottomScreenStyle.ClassicDs;
         public static float BottomScreenScale
@@ -1238,6 +1429,60 @@ namespace MphRead.Mods
                 case "bottom_screen_directional_swipe_assist":
                     if (boolean) BottomScreenDirectionalSwipeAssist = flag;
                     return true;
+                case "bottom_screen_affinity_volt_driver_x":
+                    if (parsed) BottomScreenAffinityVoltDriverX = number;
+                    return true;
+                case "bottom_screen_affinity_volt_driver_y":
+                    if (parsed) BottomScreenAffinityVoltDriverY = number;
+                    return true;
+                case "bottom_screen_affinity_battlehammer_x":
+                    if (parsed) BottomScreenAffinityBattlehammerX = number;
+                    return true;
+                case "bottom_screen_affinity_battlehammer_y":
+                    if (parsed) BottomScreenAffinityBattlehammerY = number;
+                    return true;
+                case "bottom_screen_affinity_imperialist_x":
+                    if (parsed) BottomScreenAffinityImperialistX = number;
+                    return true;
+                case "bottom_screen_affinity_imperialist_y":
+                    if (parsed) BottomScreenAffinityImperialistY = number;
+                    return true;
+                case "bottom_screen_affinity_judicator_x":
+                    if (parsed) BottomScreenAffinityJudicatorX = number;
+                    return true;
+                case "bottom_screen_affinity_judicator_y":
+                    if (parsed) BottomScreenAffinityJudicatorY = number;
+                    return true;
+                case "bottom_screen_affinity_magmaul_x":
+                    if (parsed) BottomScreenAffinityMagmaulX = number;
+                    return true;
+                case "bottom_screen_affinity_magmaul_y":
+                    if (parsed) BottomScreenAffinityMagmaulY = number;
+                    return true;
+                case "bottom_screen_affinity_shock_coil_x":
+                    if (parsed) BottomScreenAffinityShockCoilX = number;
+                    return true;
+                case "bottom_screen_affinity_shock_coil_y":
+                    if (parsed) BottomScreenAffinityShockCoilY = number;
+                    return true;
+                case "bottom_screen_affinity_power_beam_x":
+                    if (parsed) BottomScreenAffinityPowerBeamX = number;
+                    return true;
+                case "bottom_screen_affinity_power_beam_y":
+                    if (parsed) BottomScreenAffinityPowerBeamY = number;
+                    return true;
+                case "bottom_screen_affinity_missile_x":
+                    if (parsed) BottomScreenAffinityMissileX = number;
+                    return true;
+                case "bottom_screen_affinity_missile_y":
+                    if (parsed) BottomScreenAffinityMissileY = number;
+                    return true;
+                case "bottom_screen_affinity_alt_form_x":
+                    if (parsed) BottomScreenAffinityAltFormX = number;
+                    return true;
+                case "bottom_screen_affinity_alt_form_y":
+                    if (parsed) BottomScreenAffinityAltFormY = number;
+                    return true;
                 case "bottom_screen_style":
                     if (Enum.TryParse(value, true, out NativeBottomScreenStyle bottomScreenStyle)
                         && Enum.IsDefined(bottomScreenStyle))
@@ -1431,6 +1676,24 @@ namespace MphRead.Mods
                     "bottom_screen_alt_form_x=" + Float(BottomScreenAltFormX),
                     "bottom_screen_alt_form_y=" + Float(BottomScreenAltFormY),
                     $"bottom_screen_directional_swipe_assist={BottomScreenDirectionalSwipeAssist.ToString().ToLowerInvariant()}",
+                    "bottom_screen_affinity_volt_driver_x=" + Float(BottomScreenAffinityVoltDriverX),
+                    "bottom_screen_affinity_volt_driver_y=" + Float(BottomScreenAffinityVoltDriverY),
+                    "bottom_screen_affinity_battlehammer_x=" + Float(BottomScreenAffinityBattlehammerX),
+                    "bottom_screen_affinity_battlehammer_y=" + Float(BottomScreenAffinityBattlehammerY),
+                    "bottom_screen_affinity_imperialist_x=" + Float(BottomScreenAffinityImperialistX),
+                    "bottom_screen_affinity_imperialist_y=" + Float(BottomScreenAffinityImperialistY),
+                    "bottom_screen_affinity_judicator_x=" + Float(BottomScreenAffinityJudicatorX),
+                    "bottom_screen_affinity_judicator_y=" + Float(BottomScreenAffinityJudicatorY),
+                    "bottom_screen_affinity_magmaul_x=" + Float(BottomScreenAffinityMagmaulX),
+                    "bottom_screen_affinity_magmaul_y=" + Float(BottomScreenAffinityMagmaulY),
+                    "bottom_screen_affinity_shock_coil_x=" + Float(BottomScreenAffinityShockCoilX),
+                    "bottom_screen_affinity_shock_coil_y=" + Float(BottomScreenAffinityShockCoilY),
+                    "bottom_screen_affinity_power_beam_x=" + Float(BottomScreenAffinityPowerBeamX),
+                    "bottom_screen_affinity_power_beam_y=" + Float(BottomScreenAffinityPowerBeamY),
+                    "bottom_screen_affinity_missile_x=" + Float(BottomScreenAffinityMissileX),
+                    "bottom_screen_affinity_missile_y=" + Float(BottomScreenAffinityMissileY),
+                    "bottom_screen_affinity_alt_form_x=" + Float(BottomScreenAffinityAltFormX),
+                    "bottom_screen_affinity_alt_form_y=" + Float(BottomScreenAffinityAltFormY),
                     $"bottom_screen_style={BottomScreenStyle}",
                     "bottom_screen_scale=" + Float(BottomScreenScale),
                     "bottom_screen_center_x=" + Float(BottomScreenCenterX),
@@ -1518,6 +1781,24 @@ namespace MphRead.Mods
             BottomScreenAltFormX = NativeBottomScreenClassicLayoutOptions.Default.AltFormX;
             BottomScreenAltFormY = NativeBottomScreenClassicLayoutOptions.Default.AltFormY;
             BottomScreenDirectionalSwipeAssist = true;
+            BottomScreenAffinityVoltDriverX = NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverX;
+            BottomScreenAffinityVoltDriverY = NativeBottomScreenAffinityLayoutOptions.Default.VoltDriverY;
+            BottomScreenAffinityBattlehammerX = NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerX;
+            BottomScreenAffinityBattlehammerY = NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerY;
+            BottomScreenAffinityImperialistX = NativeBottomScreenAffinityLayoutOptions.Default.ImperialistX;
+            BottomScreenAffinityImperialistY = NativeBottomScreenAffinityLayoutOptions.Default.ImperialistY;
+            BottomScreenAffinityJudicatorX = NativeBottomScreenAffinityLayoutOptions.Default.JudicatorX;
+            BottomScreenAffinityJudicatorY = NativeBottomScreenAffinityLayoutOptions.Default.JudicatorY;
+            BottomScreenAffinityMagmaulX = NativeBottomScreenAffinityLayoutOptions.Default.MagmaulX;
+            BottomScreenAffinityMagmaulY = NativeBottomScreenAffinityLayoutOptions.Default.MagmaulY;
+            BottomScreenAffinityShockCoilX = NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilX;
+            BottomScreenAffinityShockCoilY = NativeBottomScreenAffinityLayoutOptions.Default.ShockCoilY;
+            BottomScreenAffinityPowerBeamX = NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamX;
+            BottomScreenAffinityPowerBeamY = NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamY;
+            BottomScreenAffinityMissileX = NativeBottomScreenAffinityLayoutOptions.Default.MissileX;
+            BottomScreenAffinityMissileY = NativeBottomScreenAffinityLayoutOptions.Default.MissileY;
+            BottomScreenAffinityAltFormX = NativeBottomScreenAffinityLayoutOptions.Default.AltFormX;
+            BottomScreenAffinityAltFormY = NativeBottomScreenAffinityLayoutOptions.Default.AltFormY;
             BottomScreenStyle = NativeBottomScreenStyle.ClassicDs;
             BottomScreenScale = 1;
             BottomScreenCenterX = .5f;

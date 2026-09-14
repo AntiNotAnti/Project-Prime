@@ -139,6 +139,119 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
+    public void AffinityLayoutPreservesNativeIconCentersAndFreeActionCluster()
+    {
+        NativeBottomScreenAffinityLayoutSnapshot layout
+            = NativeBottomScreenAffinityLayoutOptions.Default.CreateLayout();
+        NativeBottomScreenRegion[] affinityRegions =
+        {
+            NativeBottomScreenRegion.VoltDriver,
+            NativeBottomScreenRegion.Battlehammer,
+            NativeBottomScreenRegion.Imperialist,
+            NativeBottomScreenRegion.Judicator,
+            NativeBottomScreenRegion.Magmaul,
+            NativeBottomScreenRegion.ShockCoil
+        };
+
+        Assert.Equal(9, layout.Buttons.Count);
+        for (int i = 0; i < affinityRegions.Length; i++)
+        {
+            Assert.Equal(NativeWeaponSelector.SlotPosition(i),
+                layout.GetButton(affinityRegions[i]).Position);
+        }
+        foreach (NativeBottomScreenButton button in layout.Buttons)
+        {
+            Assert.InRange(button.Position.X, button.Radius,
+                NativeBottomScreenAffinityLayoutSnapshot.DsWidth - button.Radius);
+            Assert.InRange(button.Position.Y, button.Radius,
+                NativeBottomScreenAffinityLayoutSnapshot.DsHeight - button.Radius);
+        }
+        for (int first = 0; first < layout.Buttons.Count; first++)
+        {
+            for (int second = first + 1; second < layout.Buttons.Count; second++)
+            {
+                NativeBottomScreenButton a = layout.Buttons[first];
+                NativeBottomScreenButton b = layout.Buttons[second];
+                Assert.True((a.Position - b.Position).LengthSquared
+                    > (a.Radius + b.Radius) * (a.Radius + b.Radius));
+            }
+        }
+
+        Assert.Equal(NativeBottomScreenRegion.PowerBeam,
+            layout.RegionAt(new Vector2(230, 66)));
+        Assert.Equal(NativeBottomScreenRegion.Missile,
+            layout.RegionAt(new Vector2(230, 106)));
+        Assert.Equal(NativeBottomScreenRegion.AltForm,
+            layout.RegionAt(new Vector2(190, 106)));
+    }
+
+    [Fact]
+    public void AffinityLayoutSanitizesAndResolvesOverlapsInNativeOrder()
+    {
+        NativeBottomScreenAffinityLayoutOptions options = new(
+            .5f, .5f, .5f, .5f, .5f, .5f, .5f, .5f, .5f, .5f,
+            .5f, .5f, float.NaN, float.PositiveInfinity,
+            .5f, .5f, .5f, .5f);
+        NativeBottomScreenAffinityLayoutSnapshot layout = options.CreateLayout();
+
+        Assert.Equal(NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamX,
+            layout.Options.PowerBeamX);
+        Assert.Equal(NativeBottomScreenAffinityLayoutOptions.Default.PowerBeamY,
+            layout.Options.PowerBeamY);
+        Assert.Equal(NativeBottomScreenRegion.VoltDriver,
+            layout.RegionAt(new Vector2(128, 96)));
+    }
+
+    [Fact]
+    public void AffinityDirectionalAssistUsesAllTargetsAndExactHitsWin()
+    {
+        NativeBottomScreenAffinityLayoutOptions options
+            = NativeBottomScreenAffinityLayoutOptions.Default with
+            {
+                VoltDriverX = .2f, VoltDriverY = .8f,
+                BattlehammerX = .2f, BattlehammerY = .8f,
+                ImperialistX = .2f, ImperialistY = .8f,
+                JudicatorX = .2f, JudicatorY = .8f,
+                MagmaulX = .2f, MagmaulY = .8f,
+                ShockCoilX = .2f, ShockCoilY = .8f,
+                PowerBeamX = .8f, PowerBeamY = .8f,
+                MissileX = .8f, MissileY = .8f,
+                AltFormX = .5f, AltFormY = .2f
+            };
+        NativeBottomScreenAffinityLayoutSnapshot layout = options.CreateLayout();
+        Vector2 start = new(128, 96);
+
+        Assert.Equal(NativeBottomScreenRegion.Aim,
+            layout.ResolveRegion(start + new Vector2(0, -23), start, true));
+        Assert.Equal(NativeBottomScreenRegion.AltForm,
+            layout.ResolveRegion(start + new Vector2(0, -25), start, true));
+        Assert.Equal(NativeBottomScreenRegion.Aim,
+            layout.ResolveRegion(start + new Vector2(40, 0), start, true));
+        Assert.Equal(NativeBottomScreenRegion.AltForm,
+            layout.ResolveRegion(layout.GetButton(NativeBottomScreenRegion.AltForm).Position,
+                start, true));
+    }
+
+    [Fact]
+    public void AffinityWeaponMappingKeepsAltFormAsAnAction()
+    {
+        Assert.Equal((byte)BeamType.VoltDriver,
+            PlayerPresentation.AffinityWeaponId(NativeBottomScreenRegion.VoltDriver));
+        Assert.Equal((byte)BeamType.ShockCoil,
+            PlayerPresentation.AffinityWeaponId(NativeBottomScreenRegion.ShockCoil));
+        Assert.Equal((byte)BeamType.PowerBeam,
+            PlayerPresentation.AffinityWeaponId(NativeBottomScreenRegion.PowerBeam));
+        Assert.Equal((byte)BeamType.Missile,
+            PlayerPresentation.AffinityWeaponId(NativeBottomScreenRegion.Missile));
+        Assert.Equal(WeaponSelectionIntent.None,
+            PlayerPresentation.AffinityWeaponId(NativeBottomScreenRegion.AltForm));
+        Assert.Equal(BottomScreenAction.Morph,
+            PlayerPresentation.AffinityAction(NativeBottomScreenRegion.AltForm));
+        Assert.Equal(BottomScreenAction.None,
+            PlayerPresentation.AffinityAction(NativeBottomScreenRegion.PowerBeam));
+    }
+
+    [Fact]
     public void ClassicQuickButtonsUseTheirBeamEnumValues()
     {
         Assert.Equal((byte)BeamType.PowerBeam,
@@ -543,6 +656,35 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
+    public void AffinityLayoutChangeCancelsTheActiveOverlayContact()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(2560, 1440),
+            NativeBottomScreenMode.AlwaysVisible);
+        long generation = controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.AffinitySelector,
+            NativeBottomScreenLayoutOptions.Default,
+            NativeBottomScreenClassicLayoutOptions.Default,
+            NativeBottomScreenAffinityLayoutOptions.Default);
+        Assert.True(controller.BeginDesktopSession(
+            NativeBottomScreenActivationMode.Toggle));
+        Assert.True(controller.TryDesktopPointerDown());
+
+        NativeBottomScreenAffinityLayoutOptions changed
+            = NativeBottomScreenAffinityLayoutOptions.Default with
+            { AltFormX = .75f };
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.AffinitySelector,
+            NativeBottomScreenLayoutOptions.Default,
+            NativeBottomScreenClassicLayoutOptions.Default, changed);
+
+        Assert.False(controller.DesktopSessionActive);
+        Assert.Contains(controller.Consume(generation), item =>
+            item.Phase == NativeBottomScreenPointerPhase.Cancel);
+    }
+
+    [Fact]
     public void BottomScreenSettingRoundTripsWithoutChangingCustomHudOverlayBinding()
     {
         InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
@@ -664,7 +806,39 @@ public sealed class NativeBottomScreenTests
                 InputSettings.BottomScreenCursorStartY);
             Assert.Equal(NativeBottomScreenClassicLayoutOptions.Default,
                 InputSettings.CurrentBottomScreenClassicLayout);
+            Assert.Equal(NativeBottomScreenAffinityLayoutOptions.Default,
+                InputSettings.CurrentBottomScreenAffinityLayout);
             Assert.True(InputSettings.BottomScreenDirectionalSwipeAssist);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
+    public void AffinitySettingsRoundTripAndPartialLegacyConfigKeepsOtherDefaults()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.Reset();
+            InputSettings.LoadLines(new[]
+            {
+                "bottom_screen_affinity_volt_driver_x=0.21",
+                "bottom_screen_affinity_volt_driver_y=0.32",
+                "bottom_screen_affinity_alt_form_y=0.74"
+            });
+
+            Assert.Equal(.21f, InputSettings.BottomScreenAffinityVoltDriverX);
+            Assert.Equal(.32f, InputSettings.BottomScreenAffinityVoltDriverY);
+            Assert.Equal(.74f, InputSettings.BottomScreenAffinityAltFormY);
+            Assert.Equal(NativeBottomScreenAffinityLayoutOptions.Default.BattlehammerX,
+                InputSettings.BottomScreenAffinityBattlehammerX);
+            Assert.Contains("bottom_screen_affinity_volt_driver_x=0.21",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_affinity_alt_form_y=0.74",
+                InputSettings.GetSaveLines());
         }
         finally
         {

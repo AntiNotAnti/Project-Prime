@@ -156,6 +156,24 @@ public static class SettingRowIds
     public const string BottomScreenAltFormX = "controls.stylus.bottom-screen-alt-form-x";
     public const string BottomScreenAltFormY = "controls.stylus.bottom-screen-alt-form-y";
     public const string BottomScreenDirectionalSwipeAssist = "controls.stylus.bottom-screen-directional-swipe-assist";
+    public const string BottomScreenAffinityVoltDriverX = "controls.stylus.bottom-screen-affinity-volt-driver-x";
+    public const string BottomScreenAffinityVoltDriverY = "controls.stylus.bottom-screen-affinity-volt-driver-y";
+    public const string BottomScreenAffinityBattlehammerX = "controls.stylus.bottom-screen-affinity-battlehammer-x";
+    public const string BottomScreenAffinityBattlehammerY = "controls.stylus.bottom-screen-affinity-battlehammer-y";
+    public const string BottomScreenAffinityImperialistX = "controls.stylus.bottom-screen-affinity-imperialist-x";
+    public const string BottomScreenAffinityImperialistY = "controls.stylus.bottom-screen-affinity-imperialist-y";
+    public const string BottomScreenAffinityJudicatorX = "controls.stylus.bottom-screen-affinity-judicator-x";
+    public const string BottomScreenAffinityJudicatorY = "controls.stylus.bottom-screen-affinity-judicator-y";
+    public const string BottomScreenAffinityMagmaulX = "controls.stylus.bottom-screen-affinity-magmaul-x";
+    public const string BottomScreenAffinityMagmaulY = "controls.stylus.bottom-screen-affinity-magmaul-y";
+    public const string BottomScreenAffinityShockCoilX = "controls.stylus.bottom-screen-affinity-shock-coil-x";
+    public const string BottomScreenAffinityShockCoilY = "controls.stylus.bottom-screen-affinity-shock-coil-y";
+    public const string BottomScreenAffinityPowerBeamX = "controls.stylus.bottom-screen-affinity-power-beam-x";
+    public const string BottomScreenAffinityPowerBeamY = "controls.stylus.bottom-screen-affinity-power-beam-y";
+    public const string BottomScreenAffinityMissileX = "controls.stylus.bottom-screen-affinity-missile-x";
+    public const string BottomScreenAffinityMissileY = "controls.stylus.bottom-screen-affinity-missile-y";
+    public const string BottomScreenAffinityAltFormX = "controls.stylus.bottom-screen-affinity-alt-form-x";
+    public const string BottomScreenAffinityAltFormY = "controls.stylus.bottom-screen-affinity-alt-form-y";
     public const string BottomScreenStyle = "controls.stylus.bottom-screen-style";
     public const string BottomScreenScale = "controls.stylus.bottom-screen-scale";
     public const string BottomScreenCenterX = "controls.stylus.bottom-screen-center-x";
@@ -226,6 +244,15 @@ public static class SettingRowIds
         BottomScreenMissileY, BottomScreenNextWeaponX, BottomScreenNextWeaponY,
         BottomScreenWeaponSelectX, BottomScreenWeaponSelectY, BottomScreenAltFormX,
         BottomScreenAltFormY, BottomScreenDirectionalSwipeAssist,
+        BottomScreenAffinityVoltDriverX, BottomScreenAffinityVoltDriverY,
+        BottomScreenAffinityBattlehammerX, BottomScreenAffinityBattlehammerY,
+        BottomScreenAffinityImperialistX, BottomScreenAffinityImperialistY,
+        BottomScreenAffinityJudicatorX, BottomScreenAffinityJudicatorY,
+        BottomScreenAffinityMagmaulX, BottomScreenAffinityMagmaulY,
+        BottomScreenAffinityShockCoilX, BottomScreenAffinityShockCoilY,
+        BottomScreenAffinityPowerBeamX, BottomScreenAffinityPowerBeamY,
+        BottomScreenAffinityMissileX, BottomScreenAffinityMissileY,
+        BottomScreenAffinityAltFormX, BottomScreenAffinityAltFormY,
         BottomScreenStyle,
         BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
         BottomScreenOpacity, BottomScreenLabels,

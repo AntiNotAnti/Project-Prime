@@ -33,6 +33,8 @@ namespace MphRead.Entities
         private BottomScreenAction _bottomScreenPendingAction;
         private BottomScreenWeaponAvailability _bottomScreenAvailability;
         private Vector2 _bottomScreenContactStartDs;
+        private NativeBottomScreenAffinityLayoutSnapshot _bottomScreenAffinityLayout
+            = NativeBottomScreenAffinityLayoutOptions.Default.CreateLayout();
         private bool _bottomScreenDirectionalSwipeAssist;
         private bool _bottomScreenInteractionActive;
         private bool _bottomScreenSuppressesMouseThisStep;
@@ -60,6 +62,8 @@ namespace MphRead.Entities
             _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
             _bottomScreenPendingAction = BottomScreenAction.None;
             _bottomScreenInteractionActive = false;
+            _bottomScreenAffinityLayout
+                = Presentation.BottomScreen.AffinityLayout;
             _bottomScreenSuppressesMouseThisStep = false;
         }
 
@@ -192,7 +196,8 @@ namespace MphRead.Entities
                     Mods.InputSettings.BottomScreenScale,
                     Mods.InputSettings.BottomScreenCenterX,
                     Mods.InputSettings.BottomScreenCenterY),
-                Mods.InputSettings.CurrentBottomScreenClassicLayout);
+                Mods.InputSettings.CurrentBottomScreenClassicLayout,
+                Mods.InputSettings.CurrentBottomScreenAffinityLayout);
             controller.UpdateDesktopCursorPreferences(
                 Mods.InputSettings.BottomScreenCursorSensitivity,
                 Mods.InputSettings.BottomScreenCursorStartX,
@@ -225,6 +230,7 @@ namespace MphRead.Entities
                         _bottomScreenAvailability = currentAvailability;
                         _bottomScreenContactStartDs = layout.LogicalToDs(
                             item.Sample.X, item.Sample.Y);
+                        _bottomScreenAffinityLayout = controller.AffinityLayout;
                         _bottomScreenDirectionalSwipeAssist = desktopSample
                             && Mods.InputSettings.BottomScreenDirectionalSwipeAssist;
                         _bottomScreenInteractionActive = true;
@@ -250,15 +256,30 @@ namespace MphRead.Entities
                                 && _bottomScreenRegionPreview
                                     == NativeBottomScreenRegion.WeaponSelect)
                             {
-                                controller.OpenSelectorForDesktopDrag();
+                                if (controller.OpenSelectorForDesktopDrag())
+                                {
+                                    // The crossing sample opens the nested
+                                    // selector but is not itself a selection.
+                                    // Start the affinity drag at this point so
+                                    // the eventual Up coordinate is decisive.
+                                    _bottomScreenAffinityLayout
+                                        = controller.AffinityLayout;
+                                    _bottomScreenContactStartDs = ds;
+                                    _bottomScreenPreview
+                                        = WeaponSelectionIntent.None;
+                                    _bottomScreenRegionPreview
+                                        = NativeBottomScreenRegion.None;
+                                }
                             }
                         }
                         else
                         {
-                            _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
-                            _bottomScreenPreview = NativeWeaponSelector.TrySelect(
-                                ds, _bottomScreenAvailability.Mask, out byte preview)
-                                ? preview : WeaponSelectionIntent.None;
+                            _bottomScreenRegionPreview
+                                = _bottomScreenAffinityLayout.ResolveRegion(ds,
+                                    _bottomScreenContactStartDs,
+                                    _bottomScreenDirectionalSwipeAssist);
+                            _bottomScreenPreview = AffinityWeaponId(
+                                _bottomScreenRegionPreview);
                         }
                         break;
                     case NativeBottomScreenPointerPhase.Up:
@@ -279,11 +300,12 @@ namespace MphRead.Entities
                         }
                         else
                         {
-                            _bottomScreenRegionPreview = NativeBottomScreenRegion.None;
-                            _bottomScreenPreview = NativeWeaponSelector.TrySelect(
-                                releaseDs, _bottomScreenAvailability.Mask,
-                                out byte releasePreview)
-                                ? releasePreview : WeaponSelectionIntent.None;
+                            _bottomScreenRegionPreview
+                                = _bottomScreenAffinityLayout.ResolveRegion(releaseDs,
+                                    _bottomScreenContactStartDs,
+                                    _bottomScreenDirectionalSwipeAssist);
+                            _bottomScreenPreview = AffinityWeaponId(
+                                _bottomScreenRegionPreview);
                         }
                         if (controller.Style == NativeBottomScreenStyle.ClassicDs
                             && !controller.SelectorOpen)
@@ -302,9 +324,10 @@ namespace MphRead.Entities
                         }
                         else
                         {
-                            if (_bottomScreenAvailability.Contains(_bottomScreenPreview))
+                            bool completed = CommitAffinityBottomScreenRegion(
+                                _bottomScreenRegionPreview, _bottomScreenAvailability);
+                            if (completed)
                             {
-                                _bottomScreenPending = _bottomScreenPreview;
                                 CompleteBottomScreenSelection(controller);
                             }
                             else
@@ -383,6 +406,52 @@ namespace MphRead.Entities
                 NativeBottomScreenRegion.Missile => (byte)BeamType.Missile,
                 _ => WeaponSelectionIntent.None
             };
+
+        private bool CommitAffinityBottomScreenRegion(
+            NativeBottomScreenRegion region,
+            BottomScreenWeaponAvailability availability)
+        {
+            BottomScreenAction action = AffinityAction(region);
+            if (action != BottomScreenAction.None)
+            {
+                _bottomScreenPendingAction |= action;
+                return true;
+            }
+            if (!TryAffinityWeaponId(region, out byte weapon)
+                || !availability.Contains(weapon))
+            {
+                return false;
+            }
+            _bottomScreenPending = weapon;
+            return true;
+        }
+
+        internal static BottomScreenAction AffinityAction(
+            NativeBottomScreenRegion region)
+            => region == NativeBottomScreenRegion.AltForm
+                ? BottomScreenAction.Morph : BottomScreenAction.None;
+
+        internal static byte AffinityWeaponId(NativeBottomScreenRegion region)
+            => TryAffinityWeaponId(region, out byte weapon)
+                ? weapon : WeaponSelectionIntent.None;
+
+        private static bool TryAffinityWeaponId(
+            NativeBottomScreenRegion region, out byte weapon)
+        {
+            weapon = region switch
+            {
+                NativeBottomScreenRegion.VoltDriver => (byte)BeamType.VoltDriver,
+                NativeBottomScreenRegion.Battlehammer => (byte)BeamType.Battlehammer,
+                NativeBottomScreenRegion.Imperialist => (byte)BeamType.Imperialist,
+                NativeBottomScreenRegion.Judicator => (byte)BeamType.Judicator,
+                NativeBottomScreenRegion.Magmaul => (byte)BeamType.Magmaul,
+                NativeBottomScreenRegion.ShockCoil => (byte)BeamType.ShockCoil,
+                NativeBottomScreenRegion.PowerBeam => (byte)BeamType.PowerBeam,
+                NativeBottomScreenRegion.Missile => (byte)BeamType.Missile,
+                _ => WeaponSelectionIntent.None
+            };
+            return weapon != WeaponSelectionIntent.None;
+        }
 
         private byte TakeBottomScreenPending()
         {
@@ -565,6 +634,8 @@ namespace MphRead.Entities
             float opacity, bool nested)
         {
             BottomScreenRect panel = layout.PanelFramebuffer;
+            NativeBottomScreenAffinityLayoutSnapshot affinityLayout
+                = Presentation.BottomScreen.AffinityLayout;
 
             Vector2 title = new((panel.Left + panel.Right) * .5f,
                 panel.Top + panel.Height * .09f);
@@ -588,7 +659,8 @@ namespace MphRead.Entities
                 box.Alpha = opacity;
                 box.SetIndex(available && weapon == _bottomScreenPreview ? 2 : 1,
                     _player._scene);
-                Vector2 position = NativeWeaponSelector.SlotPosition(i);
+                Vector2 position = affinityLayout.GetButton(
+                    AffinityRegionForWeapon(weapon)).Position;
                 Vector2 framebuffer = layout.DsToFramebuffer(position.X, position.Y);
                 float x = framebuffer.X / Presentation.Size.X;
                 float y = framebuffer.Y / Presentation.Size.Y;
@@ -601,6 +673,26 @@ namespace MphRead.Entities
                 Presentation.DrawHudObject(icon, mode: 0, scale: iconScale);
             }
 
+            foreach (NativeBottomScreenButton button
+                in affinityLayout.Buttons)
+            {
+                if (button.Region is not (NativeBottomScreenRegion.PowerBeam
+                    or NativeBottomScreenRegion.Missile
+                    or NativeBottomScreenRegion.AltForm))
+                {
+                    continue;
+                }
+                bool available = button.Region == NativeBottomScreenRegion.AltForm
+                    || availability.Contains(button.Region == NativeBottomScreenRegion.PowerBeam
+                        ? (byte)BeamType.PowerBeam : (byte)BeamType.Missile);
+                bool equipped = button.Region == NativeBottomScreenRegion.AltForm
+                    ? _player.IsAltForm || _player.IsMorphing
+                    : button.Region == NativeBottomScreenRegion.PowerBeam
+                        ? _player.CurrentWeapon == BeamType.PowerBeam
+                        : _player.CurrentWeapon == BeamType.Missile;
+                DrawAffinityActionButton(layout, button, available, equipped, opacity);
+            }
+
             Vector2 hint = new((panel.Left + panel.Right) * .5f,
                 panel.Bottom - panel.Height * .08f);
             DrawText2D(ToHudX(hint.X, Presentation.Size),
@@ -608,6 +700,51 @@ namespace MphRead.Entities
                 nested ? "Tap a weapon / center to cancel" : "Tap a weapon",
                 new ColorRgba(0x7FFF), alpha: Math.Min(1, opacity * 1.6f),
                 scale: .42f);
+        }
+
+        private static NativeBottomScreenRegion AffinityRegionForWeapon(byte weapon)
+            => weapon switch
+                {
+                    (byte)BeamType.VoltDriver => NativeBottomScreenRegion.VoltDriver,
+                    (byte)BeamType.Battlehammer => NativeBottomScreenRegion.Battlehammer,
+                    (byte)BeamType.Imperialist => NativeBottomScreenRegion.Imperialist,
+                    (byte)BeamType.Judicator => NativeBottomScreenRegion.Judicator,
+                    (byte)BeamType.Magmaul => NativeBottomScreenRegion.Magmaul,
+                    (byte)BeamType.ShockCoil => NativeBottomScreenRegion.ShockCoil,
+                    _ => NativeBottomScreenRegion.VoltDriver
+                };
+
+        private void DrawAffinityActionButton(NativeBottomScreenLayout layout,
+            NativeBottomScreenButton button, bool available, bool equipped,
+            float opacity)
+        {
+            BottomScreenRect panel = layout.PanelFramebuffer;
+            bool active = (_bottomScreenInteractionActive
+                || Presentation.BottomScreen.DesktopSessionActive)
+                && _bottomScreenRegionPreview == button.Region;
+            Vector4 fill = active
+                ? new Vector4(1f, .63f, .18f, Math.Min(1, opacity * 2.5f))
+                : !available
+                    ? new Vector4(.18f, .18f, .22f, opacity * .45f)
+                    : equipped
+                        ? new Vector4(.75f, .24f, .12f,
+                            Math.Min(1, opacity * 1.7f))
+                        : new Vector4(.42f, .07f, .09f, opacity * .72f);
+            Vector2 center = layout.DsToFramebuffer(button.Position.X,
+                button.Position.Y);
+            float scaleX = panel.Width / NativeBottomScreenAffinityLayoutSnapshot.DsWidth;
+            float scaleY = panel.Height / NativeBottomScreenAffinityLayoutSnapshot.DsHeight;
+            DrawBottomScreenCircle(center.X, center.Y,
+                button.Radius * scaleX, button.Radius * scaleY, fill);
+            if (Mods.InputSettings.BottomScreenLabels)
+            {
+                DrawText2D(ToHudX(center.X, Presentation.Size),
+                    ToHudY(center.Y + button.Radius * scaleY * .17f,
+                        Presentation.Size), Align.Center, 0, button.Label,
+                    new ColorRgba(0x7FFF), alpha: Math.Min(1, opacity * 2),
+                    scale: Math.Clamp(panel.Width / Presentation.Size.X,
+                        .22f, .42f));
+            }
         }
 
         private void DrawBottomScreenCircle(float centerX, float centerY,

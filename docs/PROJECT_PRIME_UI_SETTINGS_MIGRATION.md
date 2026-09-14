@@ -245,7 +245,11 @@ written by `InputSettings.GetSaveLines`. The canonical static settings are:
 | `BottomScreenNextWeaponX/Y` / `bottom_screen_next_weapon_x/y` | Platform; native Classic DS coordinates | I/S; normalized Next weapon center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-next-weapon-x/y`, Controls/Stylus, desktop + Android |
 | `BottomScreenWeaponSelectX/Y` / `bottom_screen_weapon_select_x/y` | Platform; native Classic DS coordinates | I/S; normalized Weapon selector center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-weapon-select-x/y`, Controls/Stylus, desktop + Android |
 | `BottomScreenAltFormX/Y` / `bottom_screen_alt_form_x/y` | Platform; native Classic DS coordinates | I/S; normalized Alt form center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-alt-form-x/y`, Controls/Stylus, desktop + Android |
-| `BottomScreenDirectionalSwipeAssist` / `bottom_screen_directional_swipe_assist` | Platform; `on` | I/S; conservative desktop Classic DS directional swipe preview assist | `controls.stylus.bottom-screen-directional-swipe-assist`, Controls/Stylus, desktop |
+| `BottomScreenDirectionalSwipeAssist` / `bottom_screen_directional_swipe_assist` | Platform; `on` | I/S; conservative desktop Classic DS and affinity directional swipe preview assist | `controls.stylus.bottom-screen-directional-swipe-assist`, Controls/Stylus, desktop |
+| `BottomScreenAffinity<Weapon>X/Y` / `bottom_screen_affinity_<weapon>_x/y` | Platform; native affinity icon coordinates | I/S; normalized center for each of Volt Driver, Battlehammer, Imperialist, Judicator, Magmaul, and Shock Coil, clamped inside a fixed-radius hit region | `controls.stylus.bottom-screen-affinity-<weapon>-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenAffinityPowerBeamX/Y` / `bottom_screen_affinity_power_beam_x/y` | Platform; `(230,66)` DS default | I/S; normalized Power Beam action center for the affinity popup | `controls.stylus.bottom-screen-affinity-power-beam-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenAffinityMissileX/Y` / `bottom_screen_affinity_missile_x/y` | Platform; `(230,106)` DS default | I/S; normalized Missile action center for the affinity popup | `controls.stylus.bottom-screen-affinity-missile-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenAffinityAltFormX/Y` / `bottom_screen_affinity_alt_form_x/y` | Platform; `(190,106)` DS default | I/S; normalized Alt form action center; this queues Morph and is not a weapon ID | `controls.stylus.bottom-screen-affinity-alt-form-x/y`, Controls/Stylus, desktop + Android |
 
 The bottom-screen implementation is a client-only in-renderer 4:3 panel. Direct
 touch/pen input retains its existing ownership, while the customizable
@@ -260,14 +264,17 @@ coordinate, and only then closes the session. Cursor sensitivity is clamped to
 unchanged. A closed Popup has no visible or invisible center-screen tab; desktop
 users open it with the Touch screen binding, while touch-only clients can use
 Always visible.
-Classic DS control centers are independently persisted as normalized X/Y pairs;
-the immutable Client.Core layout clamps each center to its fixed-radius 256x192
-safe area and uses the same geometry for drawing, exact hit testing, and overlap
-resolution. Desktop Classic DS contacts can optionally use a conservative
-directional swipe assist after the deadzone; exact control hits always take
-precedence, and direct Android pen/finger contacts do not use the assist.
-Both the Classic DS controls and the nested six-affinity selector submit through
-the existing, revalidated weapon/action intent paths.
+Classic DS control centers and all nine nested-affinity targets are independently
+persisted as normalized X/Y pairs. The immutable Client.Core layouts clamp each
+center to its fixed-radius 256x192 safe area and use the same geometry for
+drawing, exact hit testing, and overlap resolution. If controls overlap, the
+nearest center wins, with stable declaration order breaking ties. Desktop
+contacts can optionally use a conservative directional swipe assist after the
+deadzone; exact target hits always take precedence, unavailable weapons never
+redirect the selection, and direct Android pen/finger contacts do not use the
+assist. The nested Alt Form target queues the existing Morph action rather than
+pretending to be a weapon. Both Classic DS controls and the nine-target affinity
+screen submit through the existing, revalidated weapon/action intent paths.
 
 Controller aim assist is currently an internal always-on behavior at its default
 strength. It has no settings descriptor or UI row, and `controls.txt` no longer
