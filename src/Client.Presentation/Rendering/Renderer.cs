@@ -1226,12 +1226,66 @@ namespace MphRead
                     continue;
                 }
                 int paletteId = material.CurrentPaletteId;
-                (int bindingId, bool onlyOpaque) = _texPalMap[model.Id].Get(textureId, paletteId, recolorId);
+                (int bindingId, bool onlyOpaque) = EnsureTextureMapEntry(
+                    model, textureId, paletteId, recolorId);
                 SetTextureBindingId(material, bindingId);
                 material.CurrentTextureId = textureId;
                 material.CurrentPaletteId = paletteId;
                 UpdateMaterial(material, onlyOpaque);
             }
+        }
+
+        private (int BindingId, bool OnlyOpaque) EnsureTextureMapEntry(
+            Model model, int textureId, int paletteId, int recolorId)
+        {
+            if (!_texPalMap.TryGetValue(model.Id, out TextureMap? map))
+            {
+                InitTextures(model);
+                _texPalMap.TryGetValue(model.Id, out map);
+            }
+            if (map == null)
+            {
+                map = new TextureMap();
+                _texPalMap.Add(model.Id, map);
+            }
+            if (map.TryGet(textureId, paletteId, recolorId,
+                    out (int BindingId, bool OnlyOpaque) value))
+            {
+                return value;
+            }
+
+            // Animated material state can name a valid texture/palette pair
+            // which was not present when InitTextures first scanned the model.
+            // Prepare it through the same backend-specific path as eager loads
+            // so Android receives a GL binding and a legacy texture identity,
+            // while desktop retains its content-addressed CPU texture record.
+#if ANDROID
+            bool onlyOpaque = BindTexture(model, textureId, paletteId, recolorId);
+            value = (_textureCount, onlyOpaque);
+#else
+            IReadOnlyList<ColorRgba> decoded = model.GetPixels(
+                textureId, paletteId, recolorId);
+            Texture texture = model.Recolors[recolorId].Textures[textureId];
+            TextureIdentity identity = new TextureIdentity(
+                model.Recolors[recolorId], textureId, paletteId, recolorId);
+            RenderTexturePixels record;
+            try
+            {
+                record = PrepareTexture(identity, decoded,
+                    texture.Width, texture.Height);
+            }
+            catch (ArgumentException ex)
+            {
+                throw new InvalidOperationException($"Model {model.Name} texture "
+                    + $"{textureId}, palette {paletteId}, recolor {recolorId} "
+                    + $"decoded {decoded.Count} pixels for {texture.Width}x"
+                    + $"{texture.Height} dimensions.", ex);
+            }
+            value = (0, record.OnlyOpaque);
+#endif
+            map.Add(textureId, paletteId, recolorId,
+                value.BindingId, value.OnlyOpaque);
+            return value;
         }
 
         private void UpdateMaterial(Material material, bool onlyOpaque)
@@ -6791,6 +6845,12 @@ namespace MphRead
         public (int BindingId, bool OnlyOpaque) Get(int textureId, int paletteId, int recolorId)
         {
             return this[GetKey(textureId, paletteId, recolorId)];
+        }
+
+        public bool TryGet(int textureId, int paletteId, int recolorId,
+            out (int BindingId, bool OnlyOpaque) value)
+        {
+            return TryGetValue(GetKey(textureId, paletteId, recolorId), out value);
         }
 
         public void Add(int textureId, int paletteId, int recolorId, int bindingId, bool onlyOpaque)
