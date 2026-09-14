@@ -111,6 +111,17 @@ public static class NodeControlCodec
                 }
                 break;
             case NodeMatchHandoff handoff: handoff.Validate(); break;
+            case NodeMatchEnded ended:
+                ContractGuard.Id(ended.MatchId);
+                if (ended.LifecycleEpoch.Value != 0) ended.LifecycleEpoch.Validate();
+                if (ended.MembershipGeneration.Value != 0) ended.MembershipGeneration.Validate();
+                if (ended.LobbyId != Guid.Empty) ContractGuard.Id(ended.LobbyId);
+                break;
+            case NodeMatchCompletion completion:
+                completion.Summary.Validate();
+                if (completion.LifecycleEpoch.Value != 0) completion.LifecycleEpoch.Validate();
+                if (completion.MembershipGeneration.Value != 0) completion.MembershipGeneration.Validate();
+                break;
             case NodeMatchTransitionVoteSnapshot snapshot: snapshot.Validate(); break;
             case NodeMatchTransitionStarted started: started.Validate(); break;
             case LobbyConfigure configure:
@@ -175,6 +186,8 @@ public static class NodeControlCodec
                 }
                 catch (ArgumentException ex) { throw new ArgumentException("Invalid lobby rules.", ex); }
                 lobby.RequiredMap?.Validate();
+                if (lobby.SelfMembershipGeneration.Value != 0)
+                    lobby.SelfMembershipGeneration.Validate();
                 foreach (LobbyMember member in lobby.Members)
                 {
                     if (member is null) throw new ArgumentException("Null lobby member.");

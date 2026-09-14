@@ -16,9 +16,31 @@ public sealed record LobbyMatchTransitionSelection(
     string TargetMapKey,
     MatchMode Mode,
     ImmutableArray<LobbyMember> Members,
-    MatchLifecycleEpoch LifecycleEpoch = default)
+    MatchLifecycleEpoch LifecycleEpoch = default,
+    ImmutableDictionary<Guid, MembershipGeneration>? MembershipGenerations = null)
 {
     public string MapKey => TargetMapKey;
+}
+
+/// <summary>
+/// The single approved continuation descriptor consumed by the Node
+/// preparation loop.  Post-match ballots and acknowledged active transitions
+/// retain their distinct public voting contracts, but both eventually produce
+/// this immutable intent and use the same fresh MatchSpec preparation path.
+/// </summary>
+internal sealed record MatchContinuationIntent(
+    Guid LobbyId,
+    Guid? PreviousMatchId,
+    Guid? TransitionId,
+    LobbyVoteChoice? BallotChoice,
+    MatchTransitionChoice? ActiveChoice,
+    string TargetMapKey,
+    MatchMode Mode,
+    bool RequiresMapReadiness,
+    SpawnPolicy? SpawnPolicy = null,
+    Guid? ReplacementMatchId = null)
+{
+    public bool IsActiveTransition => ActiveChoice.HasValue;
 }
 
 public sealed partial class LobbyManager
@@ -43,11 +65,9 @@ public sealed partial class LobbyManager
         public string? FailureCode;
         public bool Started;
         public MatchLifecycleEpoch LifecycleEpoch;
+        public ImmutableDictionary<Guid, MembershipGeneration> MembershipGenerations =
+            ImmutableDictionary<Guid, MembershipGeneration>.Empty;
     }
-
-    private sealed record TransitionContinuation(Guid LobbyId, Guid OldMatchId,
-        Guid TransitionId, MatchTransitionChoice Choice, string TargetMapKey,
-        MatchMode Mode, bool RequiresMapReadiness, Guid? ReplacementMatchId = null);
 
     /// <summary>Links a fresh replacement MatchId back to the approved
     /// transition until the Worker acknowledges MatchReady. This identity is
@@ -55,7 +75,7 @@ public sealed partial class LobbyManager
     private sealed record TransitionOrigin(Guid LobbyId, Guid OldMatchId, Guid TransitionId);
 
     private readonly Dictionary<Guid, MatchTransitionState> _matchTransitions = [];
-    private readonly Dictionary<Guid, TransitionContinuation> _transitionContinuations = [];
+    private readonly Dictionary<Guid, MatchContinuationIntent> _continuationIntents = [];
     private readonly Dictionary<Guid, TransitionOrigin> _transitionOrigins = [];
     private readonly Dictionary<Guid, DateTimeOffset> _transitionRoomCooldowns = [];
     private readonly Dictionary<HumanIdentityKey, DateTimeOffset> _transitionProposerCooldowns = [];
@@ -64,6 +84,26 @@ public sealed partial class LobbyManager
     public static readonly TimeSpan MatchTransitionVoteWindow = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan MatchTransitionRoomCooldown = TimeSpan.FromSeconds(90);
     public static readonly TimeSpan MatchTransitionProposerCooldown = TimeSpan.FromSeconds(180);
+
+    private bool HasActiveContinuation(Guid lobbyId)
+        => _continuationIntents.TryGetValue(lobbyId,
+            out MatchContinuationIntent? intent) && intent.IsActiveTransition;
+
+    /// <summary>
+    /// Removes executable continuation state and replacement origins. A
+    /// failed active transition remains visible as a bounded failure
+    /// projection until the next independent lobby lifecycle replaces it.
+    /// </summary>
+    private void ClearContinuationExecution(Guid lobbyId,
+        bool clearFailureProjection)
+    {
+        _continuationIntents.Remove(lobbyId);
+        foreach (Guid replacement in _transitionOrigins
+            .Where(pair => pair.Value.LobbyId == lobbyId)
+            .Select(pair => pair.Key).ToArray())
+            _transitionOrigins.Remove(replacement);
+        if (clearFailureProjection) _matchTransitions.Remove(lobbyId);
+    }
 
     /// <summary>Returns the current immutable transition ballot projection for
     /// one session. Internal per-session votes never cross the control boundary
@@ -74,7 +114,8 @@ public sealed partial class LobbyManager
         {
             if (!_membership.TryGetValue(sessionId, out Guid lobbyId)
                 || !_lobbies.TryGetValue(lobbyId, out Lobby? lobby)
-                || !_matchTransitions.TryGetValue(lobbyId, out MatchTransitionState? state))
+                || !_matchTransitions.TryGetValue(lobbyId, out MatchTransitionState? state)
+                || !TransitionMembershipStillValid(lobby, state))
                 return null;
             PruneMatchTransitionElectorate(lobby, state);
             return TransitionSnapshot(state, sessionId);
@@ -92,10 +133,10 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == matchId);
+            TryGetLobbyByMatchLocked(matchId, out Lobby? lobby);
             if (lobby == null || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != matchId || state.State != MatchTransitionVoteState.Approved
-                || state.Started)
+                || state.Started || !TransitionMembershipStillValid(lobby, state))
             {
                 selection = null;
                 return false;
@@ -113,11 +154,12 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == matchId);
+            TryGetLobbyByMatchLocked(matchId, out Lobby? lobby);
             if (lobby == null || lobby.Phase != LobbyPhase.InMatch
                 || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != matchId || state.TransitionId != transitionId
-                || state.State != MatchTransitionVoteState.Approved || state.Started)
+                || state.State != MatchTransitionVoteState.Approved || state.Started
+                || !TransitionMembershipStillValid(lobby, state))
             {
                 selection = null;
                 return false;
@@ -133,7 +175,7 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == matchId);
+            TryGetLobbyByMatchLocked(matchId, out Lobby? lobby);
             MatchTransitionState? state = lobby != null && _matchTransitions.TryGetValue(lobby.Id, out var found)
                 ? found : null;
             if (state == null) { selection = null; return false; }
@@ -150,7 +192,7 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == matchId);
+            TryGetLobbyByMatchLocked(matchId, out Lobby? lobby);
             if (lobby == null || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != matchId || state.TransitionId != transitionId || !state.Started)
                 return false;
@@ -163,15 +205,13 @@ public sealed partial class LobbyManager
             // Host rules are intentionally preserved because active transitions
             // cannot change mode/rules. Keep only a valid frozen projection.
             lobby.HostRules = lobby.HostRules.ForMode(state.Mode);
-            lobby.MatchId = null;
+            SetLobbyMatch(lobby, null);
             lobby.Phase = LobbyPhase.Open;
             InvalidateReady(lobby);
-            _transitionContinuations[lobby.Id] = new(lobby.Id, matchId,
-                transitionId, state.Choice, state.TargetMapKey, state.Mode, requiresReadiness);
-            Round(lobby.Id).Options = [];
-            Round(lobby.Id).Votes.Clear();
-            Round(lobby.Id).Deadline = null;
-            Round(lobby.Id).Resolved = null;
+            ResetRoundState(lobby);
+            _continuationIntents[lobby.Id] = new MatchContinuationIntent(
+                lobby.Id, matchId, transitionId, null, state.Choice,
+                state.TargetMapKey, state.Mode, requiresReadiness);
             Round(lobby.Id).AwaitingMapReadiness = requiresReadiness;
             Publish(lobby);
             return true;
@@ -189,14 +229,14 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == matchId);
+            TryGetLobbyByMatchLocked(matchId, out Lobby? lobby);
             if (lobby == null || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != matchId || state.TransitionId != transitionId)
                 return false;
             state.State = MatchTransitionVoteState.Failed;
             state.FailureCode = BoundedFailure(code);
             state.Started = false;
-            _transitionContinuations.Remove(lobby.Id);
+            ClearContinuationExecution(lobby.Id, clearFailureProjection: false);
             // Keep the old MatchId and InMatch phase: the cancellation command
             // was not acknowledged, therefore the old MatchInstance remains
             // authoritative and ordinary completion is still meaningful.
@@ -227,7 +267,7 @@ public sealed partial class LobbyManager
             state.State = MatchTransitionVoteState.Failed;
             state.FailureCode = BoundedFailure(code);
             state.Started = false;
-            _transitionContinuations.Remove(origin.LobbyId);
+            ClearContinuationExecution(origin.LobbyId, clearFailureProjection: false);
             ReopenCore(lobby);
             selection = Selection(lobby, state);
             Publish(lobby);
@@ -249,14 +289,14 @@ public sealed partial class LobbyManager
         lock (_gate)
         {
             selection = null;
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(value => value.MatchId == oldMatchId.Value);
+            TryGetLobbyByMatchLocked(oldMatchId.Value, out Lobby? lobby);
             if (lobby == null || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != oldMatchId.Value || state.TransitionId != transitionId)
                 return false;
             state.State = MatchTransitionVoteState.Failed;
             state.FailureCode = BoundedFailure(code);
             state.Started = false;
-            _transitionContinuations.Remove(lobby.Id);
+            ClearContinuationExecution(lobby.Id, clearFailureProjection: false);
             ReopenCore(lobby);
             selection = Selection(lobby, state);
             Publish(lobby);
@@ -274,9 +314,27 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            if (!_transitionOrigins.Remove(placement.MatchId.Value, out TransitionOrigin? origin)) return;
-            _transitionContinuations.Remove(origin.LobbyId);
-            _matchTransitions.Remove(origin.LobbyId);
+            if (_transitionOrigins.Remove(placement.MatchId.Value,
+                    out TransitionOrigin? origin))
+            {
+                ClearContinuationExecution(origin.LobbyId,
+                    clearFailureProjection: false);
+                _matchTransitions.Remove(origin.LobbyId);
+                return;
+            }
+
+            // Ordinary post-match ballots use the same continuation intent,
+            // but do not have an active-transition origin. Retire that intent
+            // at the first Worker-ready boundary as well.
+            TryGetLobbyByMatchLocked(placement.MatchId.Value, out Lobby? lobby);
+            if (lobby is not null
+                && _continuationIntents.TryGetValue(lobby.Id,
+                    out MatchContinuationIntent? continuation)
+                && continuation.ReplacementMatchId == placement.MatchId.Value)
+            {
+                _continuationIntents.Remove(lobby.Id);
+                ResetRoundState(lobby);
+            }
         }
     }
 
@@ -344,6 +402,7 @@ public sealed partial class LobbyManager
             TargetMapKey = targetMap,
             Mode = lobby.Mode,
             LifecycleEpoch = lobby.LifecycleEpoch,
+            MembershipGenerations = FreezeGenerations(lobby),
             BallotRevision = NextTransitionBallotRevision(),
             Deadline = now + MatchTransitionVoteWindow,
             EligibleVoters = lobby.Members.Values.Count(member => !member.Observer),
@@ -431,13 +490,31 @@ public sealed partial class LobbyManager
             state.ProposerName, state.Choice, state.TargetMapKey, state.Mode,
             state.EligibleVoters, state.Votes.Values.Count(value => value),
             state.Votes.Values.Count(value => !value), state.NeededVotes,
-            state.Deadline, state.State, ownVote, state.FailureCode, state.LifecycleEpoch);
+            state.Deadline, state.State, ownVote, state.FailureCode,
+            state.LifecycleEpoch,
+            state.MembershipGenerations.GetValueOrDefault(sessionId));
     }
 
     private LobbyMatchTransitionSelection Selection(Lobby lobby, MatchTransitionState state)
         => new(lobby.Id, state.MatchId, state.TransitionId, state.Choice,
             state.TargetMapKey, state.Mode, lobby.Members.Values.ToImmutableArray(),
-            state.LifecycleEpoch.Value == 0 ? MatchLifecycleEpoch.Initial : state.LifecycleEpoch);
+            state.LifecycleEpoch.Value == 0 ? MatchLifecycleEpoch.Initial : state.LifecycleEpoch,
+            lobby.Members.Keys.ToImmutableDictionary(sessionId => sessionId,
+                sessionId => state.MembershipGenerations[sessionId]));
+
+    private bool TransitionMembershipStillValid(Lobby lobby,
+        MatchTransitionState state)
+    {
+        // A ballot may prune departed electorate members, but it must never
+        // absorb a newly joined session or a session that left and rejoined.
+        foreach (Guid sessionId in lobby.Members.Keys)
+            if (!state.MembershipGenerations.ContainsKey(sessionId)) return false;
+        foreach ((Guid sessionId, MembershipGeneration generation) in state.MembershipGenerations)
+            if (lobby.Members.ContainsKey(sessionId)
+                && (!_membershipGenerations.TryGetValue(sessionId, out MembershipGeneration current)
+                    || current != generation)) return false;
+        return true;
+    }
 
     private void RequireTransitionParticipant(Lobby lobby, LobbyIdentity identity, Guid matchId)
     {
@@ -486,11 +563,11 @@ public sealed partial class LobbyManager
     /// transition selection private and uses the existing PrepareMatchCore so
     /// seeds, tickets, admission nonces and fresh MatchIds are all regenerated.
     /// </summary>
-    private bool TryPrepareTransitionContinuation(Lobby lobby, NodeId node,
+    private bool TryPrepareContinuationIntent(Lobby lobby, NodeId node,
         Guid incarnation, List<(MatchSpec Spec, LobbyMember[] Members)> result,
-        List<(Guid MatchId, LobbyMember[] Members)> failures, int maximum)
+        List<(Guid MatchId, Guid LobbyId, LobbyMember[] Members)> failures, int maximum)
     {
-        if (!_transitionContinuations.TryGetValue(lobby.Id, out TransitionContinuation? continuation))
+        if (!_continuationIntents.TryGetValue(lobby.Id, out MatchContinuationIntent? continuation))
             return false;
         if (result.Count >= maximum) return true;
         // Preparation is retried by the owned continuation loop until the
@@ -500,29 +577,55 @@ public sealed partial class LobbyManager
         if (continuation.RequiresMapReadiness
             && lobby.Members.Values.Any(member => !member.Observer && !member.Ready))
             return true;
+        string previousMapKey = lobby.MapKey;
+        MatchMode previousMode = lobby.Mode;
+        LobbyRulesOptions previousRules = lobby.HostRules;
         try
         {
             if (_admissionClosed) throw Error("draining", "Node is draining.");
             ContentIdentity content = ContentCatalog?.Get(continuation.TargetMapKey, continuation.Mode)
                 ?? throw Error("map_unavailable", "No hosted content catalog.");
+            LobbyRulesOptions nextRules = lobby.HostRules.ForMode(continuation.Mode);
+            if (continuation.SpawnPolicy is { } spawnPolicy)
+                nextRules = nextRules with { SpawnPolicy = spawnPolicy };
+            _ = nextRules.ToMatchRules(continuation.Mode,
+                continuation.TargetMapKey, lobby.Rules.PlayerLimit);
             lobby.MapKey = continuation.TargetMapKey;
             lobby.Mode = continuation.Mode;
-            lobby.HostRules = lobby.HostRules.ForMode(continuation.Mode);
+            lobby.HostRules = nextRules;
             bool requireReady = continuation.RequiresMapReadiness;
-            Round(lobby.Id).AwaitingMapReadiness = false;
             MatchSpec spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady);
-            _transitionContinuations[lobby.Id] = continuation with
+            Round(lobby.Id).AwaitingMapReadiness = false;
+            _continuationIntents[lobby.Id] = continuation with
             { ReplacementMatchId = spec.MatchId!.Value };
-            _transitionOrigins[spec.MatchId!.Value] = new(continuation.LobbyId,
-                continuation.OldMatchId, continuation.TransitionId);
+            if (continuation.IsActiveTransition
+                && continuation.PreviousMatchId is Guid previousMatchId
+                && continuation.TransitionId is Guid transitionId)
+                _transitionOrigins[spec.MatchId!.Value] = new(continuation.LobbyId,
+                    previousMatchId, transitionId);
             result.Add((spec, lobby.Members.Values.ToArray()));
+        }
+        catch (LobbyCommandException ex) when (ex.Code == "player_disconnected")
+        {
+            // Keep the approved intent and readiness marker. Reconnect/ready
+            // will cause the same descriptor to be retried without minting a
+            // replacement identity until PrepareMatchCore succeeds.
+            lobby.MapKey = previousMapKey;
+            lobby.Mode = previousMode;
+            lobby.HostRules = previousRules;
+            return true;
         }
         catch (Exception ex) when (ex is LobbyCommandException or ArgumentException)
         {
-            _transitionContinuations.Remove(lobby.Id);
+            lobby.MapKey = previousMapKey;
+            lobby.Mode = previousMode;
+            lobby.HostRules = previousRules;
+            ClearContinuationExecution(lobby.Id, clearFailureProjection: false);
             _matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state);
-            if (state != null && state.MatchId == continuation.OldMatchId
-                && state.TransitionId == continuation.TransitionId)
+            if (state != null && continuation.PreviousMatchId is Guid previousMatchId
+                && continuation.TransitionId is Guid transitionId
+                && state.MatchId == previousMatchId
+                && state.TransitionId == transitionId)
             {
                 state.State = MatchTransitionVoteState.Failed;
                 state.FailureCode = BoundedFailure(ex is LobbyCommandException command

@@ -86,7 +86,8 @@ public sealed record NodeMatchTransitionVoteSnapshot(
     MatchTransitionVoteState State = MatchTransitionVoteState.Pending,
     bool? OwnVote = null,
     string? FailureCode = null,
-    MatchLifecycleEpoch LifecycleEpoch = default)
+    MatchLifecycleEpoch LifecycleEpoch = default,
+    MembershipGeneration MembershipGeneration = default)
 {
     public void Validate()
     {
@@ -109,6 +110,7 @@ public sealed record NodeMatchTransitionVoteSnapshot(
         if (OwnVote is { } own && ((own && Yes < 1) || (!own && No < 1)))
             throw new ArgumentException("Own transition vote is not reflected in the tally.");
         if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
+        if (MembershipGeneration.Value != 0) MembershipGeneration.Validate();
     }
 }
 
@@ -124,7 +126,8 @@ public sealed record NodeMatchTransitionStarted(
     MatchTransitionChoice Choice,
     string TargetMapKey,
     MatchMode Mode,
-    MatchLifecycleEpoch LifecycleEpoch = default)
+    MatchLifecycleEpoch LifecycleEpoch = default,
+    MembershipGeneration MembershipGeneration = default)
 {
     public void Validate()
     {
@@ -134,5 +137,6 @@ public sealed record NodeMatchTransitionStarted(
             || TargetMapKey.Any(c => c is < ' ' or > '~'))
             throw new ArgumentException("Invalid transition target map.");
         if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
+        if (MembershipGeneration.Value != 0) MembershipGeneration.Validate();
     }
 }

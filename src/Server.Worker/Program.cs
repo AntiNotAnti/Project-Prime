@@ -16,9 +16,22 @@ public static class Program
         try
         {
             var flags = ParseArguments(args);
+            bool runtimeSmoke = flags.TryGetValue("--runtime-smoke", out string? smoke)
+                && bool.Parse(smoke);
+            if (runtimeSmoke)
+            {
+                if (flags.Count != 1)
+                    throw new ArgumentException("Worker runtime smoke cannot be combined with launch options.");
+                Console.WriteLine("runtime-smoke: worker=ready");
+                return 0;
+            }
             ApplyMapDirectory(flags);
             string Required(string name) => flags.TryGetValue(name, out string? value) ? value : throw new ArgumentException("Missing " + name);
-            int Number(string name, int fallback) => flags.TryGetValue(name, out string? value) ? int.Parse(value) : fallback;
+            int Number(string name, int fallback) => flags.TryGetValue(name, out string? value)
+                ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
+            double Decimal(string name, double fallback) => flags.TryGetValue(name, out string? value)
+                ? double.Parse(value, System.Globalization.NumberStyles.Float,
+                    System.Globalization.CultureInfo.InvariantCulture) : fallback;
             bool Boolean(string name, bool fallback) => flags.TryGetValue(name, out string? value) ? bool.Parse(value) : fallback;
             bool describeContent = flags.TryGetValue("--describe-content", out string? describe)
                 && bool.Parse(describe);
@@ -76,7 +89,10 @@ public static class Program
                     flags.GetValueOrDefault("--validation-fixture", "none")),
                 HeadshotValidationScenario = Boolean("--headshot-validation-scenario", false),
                 HeadshotScenarioSeconds = Number("--headshot-scenario-seconds", 15),
-                ReplayDirectory = flags.GetValueOrDefault("--replay-dir"), ArtifactDirectory = flags.GetValueOrDefault("--artifact-dir")
+                ReplayDirectory = flags.GetValueOrDefault("--replay-dir"), ArtifactDirectory = flags.GetValueOrDefault("--artifact-dir"),
+                ArtifactDelayMilliseconds = Number("--artifact-delay-ms", 0),
+                ArtifactFailureRate = Decimal("--artifact-failure-rate", 0),
+                ArtifactFailureSeed = Number("--artifact-failure-seed", 0)
             };
             options.Validate();
             NodeId node = new(Guid.Parse(Required("--node-id")));
@@ -307,8 +323,8 @@ public static class Program
 
     internal static Dictionary<string, string> ParseArguments(string[] args)
     {
-        string[] names = ["--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
-            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--max-observers", "--observer-delay-seconds", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--ack-coalescing", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--map-dir"];
+        string[] names = ["--runtime-smoke", "--describe-content", "--prepare-content", "--node-pipe", "--node-id", "--worker-id", "--worker-incarnation", "--content-dir", "--content-version", "--content-hash",
+            "--build-version", "--host", "--bind", "--port", "--lanes", "--max-matches", "--max-matches-per-lane", "--max-observers", "--observer-delay-seconds", "--snapshot-rate-hz", "--adaptive-timing", "--adaptive-timing-v2", "--adaptive-input-playout", "--transport-queue-v2", "--transport-critical-reserve-enabled", "--critical-transport-reserve", "--worker-global-network-budget-enabled", "--max-datagrams-per-pump", "--reliable-adaptive-rto", "--ack-coalescing", "--udp-authentication", "--lag-compensation-mode", "--validation-fixture", "--headshot-validation-scenario", "--headshot-scenario-seconds", "--replay-dir", "--artifact-dir", "--artifact-delay-ms", "--artifact-failure-rate", "--artifact-failure-seed", "--map-dir"];
         var result = new Dictionary<string, string>(StringComparer.Ordinal);
         for (int index = 0; index < args.Length; index += 2)
             if (index + 1 == args.Length || !names.Contains(args[index], StringComparer.Ordinal) || !result.TryAdd(args[index], args[index + 1]))

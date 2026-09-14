@@ -8,6 +8,7 @@ namespace ProjectPrime.Server.Shared;
 
 public enum WorkerStatus { Starting, Ready, Draining, Faulted, Stopped }
 public enum MatchStatus { Starting, Ready, Running, Completed, Failed, Interrupted }
+public enum PersistenceHealth { Healthy = 1, Degraded = 2, Unavailable = 3 }
 public sealed record WorkerCapacity(int MatchLimit, int PlayerLimit, int ActiveMatches, int ActivePlayers)
 {
     public void Validate()
@@ -195,6 +196,31 @@ public sealed record MatchReportReady(MatchId MatchId, Guid ReportId, WorkerId W
             || PayloadHash.Any(c => !char.IsAsciiHexDigit(c))) throw new ArgumentException("Invalid report artifact metadata.");
     }
 }
+/// <summary>Finite, secret-free reasons why an intended report artifact could
+/// not be made available. This is a disposition of the report artifact only;
+/// it never changes an already recorded gameplay terminal.</summary>
+public enum ArtifactFailureCode
+{
+    QueueExhausted = 1,
+    PersistenceFailed = 2,
+    DeadlineExceeded = 3,
+    Shutdown = 4,
+    WorkerLost = 5
+}
+
+/// <summary>Explicit report-unavailable disposition paired with a completed
+/// gameplay terminal. ReportId remains the stable intended artifact identity,
+/// even when the artifact was not durable.</summary>
+public sealed record MatchReportUnavailable(MatchId MatchId, Guid ReportId,
+    WorkerId WorkerId, Guid WorkerIncarnation, ArtifactFailureCode FailureCode) : WorkerEvent
+{
+    public void Validate()
+    {
+        ContractGuard.Id(MatchId.Value); ContractGuard.Id(ReportId);
+        ContractGuard.Id(WorkerId.Value); ContractGuard.Id(WorkerIncarnation);
+        ContractGuard.Defined(FailureCode);
+    }
+}
 public sealed record WorkerDraining(WorkerId WorkerId, Guid WorkerIncarnation) : WorkerEvent;
 public sealed record WorkerFault(WorkerId WorkerId, Guid WorkerIncarnation, string Reason) : WorkerEvent;
 public sealed record NodeSigningKeyUpdated(WorkerId WorkerId,
@@ -276,7 +302,15 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long LifetimeMatchesAccepted = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int IdentityHistoryUsed = 0,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int IdentityHistoryCapacity = 0,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ActiveAdmissions = 0)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ActiveAdmissions = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] PersistenceHealth PersistenceHealth = PersistenceHealth.Healthy,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ActiveArtifacts = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int QueuedArtifacts = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] int ExecutingArtifacts = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ArtifactFailures = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long ArtifactCompleted = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] double ArtifactDurationAverageMilliseconds = 0,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] long TerminalConflicts = 0)
 {
     // The IPC frame is 64 KiB and diagnostics serialize as JSON. This cap is
     // derived from the maximum-shape heartbeat (64 lanes plus 32 fully
@@ -303,6 +337,11 @@ public sealed record WorkerDiagnostics(ImmutableArray<WorkerLaneHealth> Lanes, d
             || LifetimeMatchesAccepted < 0 || IdentityHistoryUsed < 0
             || IdentityHistoryCapacity < 0 || IdentityHistoryUsed > IdentityHistoryCapacity
             || ActiveAdmissions < 0 || ActiveAdmissions > 65536
+            || !Enum.IsDefined(PersistenceHealth) || ActiveArtifacts < 0 || ActiveArtifacts > 65536
+            || QueuedArtifacts < 0 || QueuedArtifacts > 65536 || ExecutingArtifacts < 0 || ExecutingArtifacts > 65536
+            || ArtifactFailures < 0 || ArtifactCompleted < 0
+            || !double.IsFinite(ArtifactDurationAverageMilliseconds) || ArtifactDurationAverageMilliseconds < 0
+            || TerminalConflicts < 0
             || NetworkLoopQueueBoundsInvalid() || NetworkLoopAgeBoundsInvalid())
             throw new ArgumentException("Invalid worker diagnostics.");
         if (!Matches.IsDefault)

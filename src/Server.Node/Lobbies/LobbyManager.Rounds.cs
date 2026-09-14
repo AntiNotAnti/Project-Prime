@@ -31,7 +31,7 @@ public sealed partial class LobbyManager
     {
         var state = Round(lobby.Id);
         InvalidateReady(lobby);
-        state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Resolved = null; state.Electorate.Clear();
+        ResetRoundState(lobby);
         if (state.Tournament != null)
         {
             state.Paused = true; state.CompletedRound = state.Round;
@@ -94,8 +94,17 @@ public sealed partial class LobbyManager
         state.Resolved = state.Resolved with { Votes = maximum };
         state.ConfigurationRevision++;
         if (state.Resolved.Choice == LobbyVoteChoice.ReturnToLobby) ReopenCore(lobby);
-        else if (state.Resolved.RequiredMap != null && state.Resolved.MapKey != lobby.MapKey)
-            BeginMapReadiness(lobby, state, state.Resolved);
+        else
+        {
+            bool requiresReadiness = state.Resolved.RequiredMap != null
+                && state.Resolved.MapKey != lobby.MapKey;
+            if (requiresReadiness)
+                BeginMapReadiness(lobby, state, state.Resolved);
+            _continuationIntents[lobby.Id] = new MatchContinuationIntent(
+                lobby.Id, null, null, state.Resolved.Choice, null,
+                state.Resolved.MapKey, state.Resolved.Mode, requiresReadiness,
+                state.Resolved.SpawnPolicy);
+        }
         Publish(lobby);
     }
     private void BeginMapReadiness(Lobby lobby, RoundState state, LobbyVoteEntry selected)
@@ -108,7 +117,7 @@ public sealed partial class LobbyManager
         lobby.Mode = selected.Mode;
         lobby.HostRules = lobby.HostRules.ForMode(selected.Mode);
         lobby.Phase = LobbyPhase.Open;
-        lobby.MatchId = null;
+        SetLobbyMatch(lobby, null);
         InvalidateReady(lobby);
         state.AwaitingMapReadiness = true;
         state.Options = [];
@@ -118,20 +127,38 @@ public sealed partial class LobbyManager
     }
     private void ReopenCore(Lobby lobby)
     {
-        lobby.Phase = LobbyPhase.Open; lobby.MatchId = null; InvalidateReady(lobby);
-        var state = Round(lobby.Id);
-        state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
+        lobby.Phase = LobbyPhase.Open; SetLobbyMatch(lobby, null); InvalidateReady(lobby);
+        ResetRoundState(lobby);
+        // Reopening is an authoritative lifecycle boundary. Drop executable
+        // continuation/origin state, but leave an already-failed transition
+        // projection available for the client until the next independent
+        // lifecycle/configuration replaces it.
+        ClearContinuationExecution(lobby.Id, clearFailureProjection: false);
+    }
+
+    /// <summary>Clears transient intermission state in one place. Tournament
+    /// identity, pause/end markers, and completed-round bookkeeping belong to
+    /// the tournament owner and are deliberately preserved by ordinary
+    /// reopen/replacement boundaries.</summary>
+    private void ResetRoundState(Lobby lobby)
+    {
+        RoundState state = Round(lobby.Id);
+        state.Options = [];
+        state.Votes.Clear();
+        state.Deadline = null;
+        state.Electorate.Clear();
+        state.Resolved = null;
         state.AwaitingMapReadiness = false;
     }
     public IReadOnlyList<(MatchSpec Spec, LobbyMember[] Members)> PrepareContinuations(NodeId node, Guid incarnation, int maximum = 64)
         => PrepareContinuations(node, incarnation, maximum, out _);
     public IReadOnlyList<(MatchSpec Spec, LobbyMember[] Members)> PrepareContinuations(NodeId node, Guid incarnation,
-        int maximum, out IReadOnlyList<(Guid MatchId, LobbyMember[] Members)> failures)
+        int maximum, out IReadOnlyList<(Guid MatchId, Guid LobbyId, LobbyMember[] Members)> failures)
     {
         lock (_gate)
         {
             PruneExpiredSessionMembership();
-            var failed = new List<(Guid, LobbyMember[])>();
+            var failed = new List<(Guid, Guid, LobbyMember[])>();
             failures = failed;
             var result = new List<(MatchSpec, LobbyMember[])>();
             foreach (var lobby in _lobbies.Values.ToArray())
@@ -139,7 +166,7 @@ public sealed partial class LobbyManager
                 // Active-match transitions are retired by the coordinator at
                 // the old Worker terminal boundary. Their private continuation
                 // selection is prepared before the legacy post-match ballot.
-                if (TryPrepareTransitionContinuation(lobby, node, incarnation,
+                if (TryPrepareContinuationIntent(lobby, node, incarnation,
                     result, failed, maximum))
                     continue;
                 var state = Round(lobby.Id);
@@ -148,41 +175,12 @@ public sealed partial class LobbyManager
                 if ((!postMatch && !acquiring) || state.Tournament != null) continue;
                 ResolveBallot(lobby, state);
                 if (result.Count >= maximum) continue;
-                if (state.Resolved is not { } selected) continue;
-                if (state.AwaitingMapReadiness
-                    && lobby.Members.Values.Any(member => !member.Observer && !member.Ready)) continue;
-                if (lobby.Phase is not (LobbyPhase.PostMatch or LobbyPhase.Open)) continue;
-                try
-                {
-                    if (_admissionClosed) throw Error("draining", "Node is draining.");
-                    var content = ContentCatalog?.Get(selected.MapKey, selected.Mode)
-                        ?? throw Error("map_unavailable", "No hosted content catalog.");
-                    // A rotation may select a different mode in a future
-                    // catalog. Preserve common host options, but project
-                    // mode-specific values before changing the lobby so an
-                    // old Survival/Battle rule cannot invalidate continuation.
-                    var nextRules = lobby.HostRules.ForMode(selected.Mode);
-                    if (selected.Choice == LobbyVoteChoice.SpawnPolicy
-                        && selected.SpawnPolicy is { } spawnPolicy)
-                    {
-                        nextRules = nextRules with { SpawnPolicy = spawnPolicy };
-                    }
-                    _ = nextRules.ToMatchRules(selected.Mode, selected.MapKey, lobby.Rules.PlayerLimit);
-                    lobby.MapKey = selected.MapKey; lobby.Mode = selected.Mode;
-                    lobby.HostRules = nextRules;
-                    bool requireReady = state.AwaitingMapReadiness;
-                    state.AwaitingMapReadiness = false;
-                    var spec = PrepareMatchCore(lobby, content, node, incarnation, requireReady);
-                    state.Options = []; state.Votes.Clear(); state.Deadline = null; state.Electorate.Clear();
-                    result.Add((spec, lobby.Members.Values.ToArray()));
-                }
-                catch (Exception ex) when (ex is LobbyCommandException or ArgumentException)
-                {
-                    if (ex is LobbyCommandException { Code: "player_disconnected" })
-                        continue;
-                    if (lobby.MatchId is { } match) failed.Add((match, lobby.Members.Values.ToArray()));
-                    ReopenCore(lobby); Publish(lobby);
-                }
+                // ResolveBallot creates the same approved intent used by an
+                // acknowledged active transition. Keep the intent and map
+                // readiness marker intact until PrepareMatchCore succeeds.
+                if (_continuationIntents.ContainsKey(lobby.Id))
+                    TryPrepareContinuationIntent(lobby, node, incarnation,
+                        result, failed, maximum);
             }
             return result;
         }
@@ -214,7 +212,7 @@ public sealed partial class LobbyManager
             or LobbyTournamentSelectNext or LobbyTournamentAssignTeam or LobbyTournamentSetObserver or LobbyVoteOpen or LobbyVoteCast or LobbyVoteResolve)) return false;
         if (command is LobbyVoteOpen or LobbyVoteResolve) throw Error("unsupported", "The Node owns ballot creation and resolution.");
         var lobby = RequireLobby(identity.SessionId); Revision(lobby, expected);
-        if (_transitionContinuations.ContainsKey(lobby.Id) && command is not LobbyRoundStatus)
+        if (HasActiveContinuation(lobby.Id) && command is not LobbyRoundStatus)
             throw Error("transitioning", "Match transition is preparing.");
         var state = Round(lobby.Id);
         if (command is not (LobbyRoundStatus or LobbyVoteCast) && lobby.Owner != identity.SessionId)
@@ -311,7 +309,8 @@ public sealed partial class LobbyManager
     private NodeRoundSnapshot RoundSnapshot(Lobby lobby, RoundState state, Guid session)
     {
         PruneVotes(lobby, state);
-        return new(lobby.Snapshot(IdentityForSession(lobby, session), RequirementFor(lobby)),
+        return new(lobby.Snapshot(IdentityForSession(lobby, session), RequirementFor(lobby),
+                _membershipGenerations.GetValueOrDefault(session)),
             state.Tournament, state.Round, state.Paused, state.Ended, state.ConfigurationRevision,
             state.BallotRevision, state.Deadline, state.Options.Select(o => o with { Votes = state.Votes.Values.Count(v => v == o.Id) }).ToImmutableArray(), state.Votes.GetValueOrDefault(session), state.Resolved);
     }

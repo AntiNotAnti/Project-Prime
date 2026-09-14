@@ -37,6 +37,11 @@ internal sealed class MatchRegistry
         public string? CancelOperationId;
         public bool CancelRequested;
         public MatchContentSnapshot? ContentSnapshot;
+        // Required-artifact capacity is reserved at admission and transferred
+        // to the terminal pipeline before this entry is released. It never
+        // counts as an active simulation match.
+        public bool ArtifactReserved;
+        public bool ArtifactTransferred;
         public bool Released;
     }
     public object Gate { get; } = new();

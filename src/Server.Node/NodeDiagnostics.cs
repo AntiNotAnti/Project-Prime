@@ -57,6 +57,10 @@ public static class NodeMetrics
         Meter.CreateHistogram<double>("projectprime.node.admission.install.duration", "ms");
     public static readonly Counter<long> AdmissionInstallFailures =
         Meter.CreateCounter<long>("projectprime.node.admission.install.failures");
+    public static readonly Counter<long> LifecycleOperations =
+        Meter.CreateCounter<long>("projectprime.node.lifecycle.operations");
+    public static readonly Counter<long> LifecycleEdges =
+        Meter.CreateCounter<long>("projectprime.node.lifecycle.edges");
     private static Func<NodeWorkerMetricSnapshot>? _workerMetrics;
     private static Func<long>? _outboundDepth;
     private static readonly ObservableGauge<long> WorkerActiveMatches =
@@ -104,6 +108,12 @@ public static class NodeMetrics
 
     public static void Readiness(string outcome)
         => ReadinessEvaluations.Add(1, new KeyValuePair<string, object?>("outcome", outcome));
+
+    public static void Lifecycle(string operation, string outcome)
+        => LifecycleOperations.Add(1, Tags(operation, outcome));
+
+    public static void LifecycleEdge(string edge)
+        => LifecycleEdges.Add(1, new KeyValuePair<string, object?>("edge", edge));
 
     public static Activity? StartActivity(string operation)
         => Activities.StartActivity(operation, ActivityKind.Internal);
@@ -179,6 +189,7 @@ public static class NodeDiagnostics
     public static readonly EventId WorkerEvent = new(2004, "WorkerOperation");
     public static readonly EventId MapEvent = new(2005, "MapDownload");
     public static readonly EventId ReadinessEvent = new(2006, "ReadinessEvaluation");
+    public static readonly EventId LifecycleEvent = new(2007, "LifecycleOperation");
 
     public static void Session(ILogger logger, string operation, string outcome)
     {
@@ -214,5 +225,23 @@ public static class NodeDiagnostics
     {
         logger.LogInformation(ReadinessEvent, "Node readiness evaluation completed with {Outcome}.", outcome);
         NodeMetrics.Readiness(outcome);
+    }
+
+    /// <summary>Emits one finite lifecycle operation outcome. Match identity
+    /// is structured log context only and is never a metric label.</summary>
+    public static void Lifecycle(ILogger logger, string operation, string outcome,
+        Guid? matchId = null)
+    {
+        logger.LogInformation(LifecycleEvent,
+            "Node lifecycle operation {Operation} observed with {Outcome} for match {MatchId}.",
+            operation, outcome, matchId);
+        NodeMetrics.Lifecycle(operation, outcome);
+    }
+
+    public static void LifecycleEdge(ILogger logger, string edge, Guid? matchId = null)
+    {
+        logger.LogInformation(LifecycleEvent,
+            "Node lifecycle edge {Edge} observed for match {MatchId}.", edge, matchId);
+        NodeMetrics.LifecycleEdge(edge);
     }
 }

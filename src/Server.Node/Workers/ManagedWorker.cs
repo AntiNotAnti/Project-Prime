@@ -21,6 +21,7 @@ public sealed class ManagedWorker : IAsyncDisposable
     private readonly Dictionary<MatchId, MatchSpec> _specs = new();
     private readonly Dictionary<MatchId, Guid> _completedReportIds = new();
     private readonly Dictionary<MatchId, MatchReportReady> _reportNotices = new();
+    private readonly Dictionary<MatchId, MatchReportUnavailable> _reportUnavailable = new();
     private readonly Dictionary<uint, MatchId> _wireMatches = new();
     private ushort? _boundPort;
     private readonly TaskCompletionSource _ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -117,7 +118,7 @@ public sealed class ManagedWorker : IAsyncDisposable
         lock (_gate)
         {
             if (!_matches.TryGetValue(matchId, out var status) || IsActive(status)) return false;
-            _specs.Remove(matchId); _completedReportIds.Remove(matchId); _reportNotices.Remove(matchId);
+            _specs.Remove(matchId); _completedReportIds.Remove(matchId); _reportNotices.Remove(matchId); _reportUnavailable.Remove(matchId);
             foreach (uint wire in _wireMatches.Where(p => p.Value == matchId).Select(p => p.Key).ToArray()) _wireMatches.Remove(wire);
             return _matches.Remove(matchId);
         }
@@ -354,7 +355,10 @@ public sealed class ManagedWorker : IAsyncDisposable
                             || completed.Summary.Players.Any(p => p.PlayerId is { } player && !spec.Roster.Any(seat => seat.PlayerId == player)))
                             throw new InvalidDataException("Completion ownership mismatch.");
                         Transition(completed.Summary.MatchId, MatchStatus.Completed);
-                        _completedReportIds.Add(completed.Summary.MatchId, completed.Summary.ReportId); break;
+                        if (_completedReportIds.TryGetValue(completed.Summary.MatchId, out Guid priorCompletionReport)
+                            && priorCompletionReport != completed.Summary.ReportId)
+                            throw new InvalidDataException("Completion report identity changed.");
+                        _completedReportIds[completed.Summary.MatchId] = completed.Summary.ReportId; break;
                     case MatchFailed failed: Transition(failed.MatchId, MatchStatus.Failed); break;
                     case MatchInterrupted interrupted: Transition(interrupted.MatchId, MatchStatus.Interrupted); break;
                     case MatchAdminResult admin:
@@ -389,9 +393,21 @@ public sealed class ManagedWorker : IAsyncDisposable
                         CheckIdentity(report.WorkerId, report.WorkerIncarnation);
                         if (!_matches.TryGetValue(report.MatchId, out var reportStatus) || reportStatus != MatchStatus.Completed
                             || !_completedReportIds.TryGetValue(report.MatchId, out var reportId) || reportId != report.ReportId
+                            || _reportUnavailable.ContainsKey(report.MatchId)
                             || _reportNotices.TryGetValue(report.MatchId, out var priorReport) && priorReport != report)
                             throw new InvalidDataException("Report does not match completed immutable outcome.");
                         _reportNotices[report.MatchId] = report; break;
+                    case MatchReportUnavailable unavailable:
+                        CheckIdentity(unavailable.WorkerId, unavailable.WorkerIncarnation);
+                        if (!_matches.TryGetValue(unavailable.MatchId, out var unavailableStatus)
+                            || unavailableStatus != MatchStatus.Completed
+                            || !_completedReportIds.TryGetValue(unavailable.MatchId, out var unavailableReportId)
+                            || unavailableReportId != unavailable.ReportId
+                            || _reportNotices.ContainsKey(unavailable.MatchId)
+                            || _reportUnavailable.TryGetValue(unavailable.MatchId, out var priorUnavailable)
+                                && priorUnavailable != unavailable)
+                            throw new InvalidDataException("Report-unavailable disposition does not match completed immutable outcome.");
+                        _reportUnavailable[unavailable.MatchId] = unavailable; break;
                     default: throw new InvalidDataException();
                 }
             }

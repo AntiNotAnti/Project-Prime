@@ -61,6 +61,13 @@ public sealed class NodeSessionManager
     private readonly NodeMatchCoordinator? _matches;
     private readonly NodeContentCatalog? _catalog;
     private readonly ILogger _logger;
+    private string? _lastOutboundSendFailure;
+    internal string? LastOutboundSendFailure
+        => Volatile.Read(ref _lastOutboundSendFailure);
+    /// <summary>Deterministic test hook immediately before a frame reaches the
+    /// WebSocket. Production leaves this unset; tests use it to hold one
+    /// sender and inspect reconnect ordering without timing sleeps.</summary>
+    internal Func<ReadOnlyMemory<byte>, CancellationToken, ValueTask>? BeforeOutboundSend { get; set; }
     // Snapshot assembly is serialized separately from the short projection
     // state lock. This prevents two callers that captured different moments
     // from moving the internal revision/projection backwards.
@@ -209,7 +216,8 @@ public sealed class NodeSessionManager
     {
         if (_matches == null) return;
         await foreach (var message in _matches.ReadNotifications(cancellationToken))
-            if (_sessions.TryGetValue(message.SessionId, out var session)) SendMatch(session, message.Payload);
+            if (_sessions.TryGetValue(message.SessionId, out var session))
+                SendMatch(session, message.Payload, message.HandoffSnapshot);
     }
     public Task ContinueRoundsAsync(CancellationToken ct) => _matches?.RunContinuationsAsync(ct) ?? Task.CompletedTask;
     public bool CanResume(string token)
@@ -227,7 +235,7 @@ public sealed class NodeSessionManager
             {
                 _sessions.TryRemove(session.Id, out _); _identities.Remove(session.Identity.IdentityKey); _resume.Remove(session.ResumeHash);
                 _lobbies.Disconnect(session.Id);
-                _matches?.ForgetSession(session.Id);
+                _matches?.ExpireSession(session.Id);
                 expiredCount++;
             }
         }
@@ -277,8 +285,12 @@ public sealed class NodeSessionManager
             }
             token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
             session.ResumeHash = Hash(token); _resume[session.ResumeHash] = session.Id;
-            lock (session) session.Connection = connection;
             _lobbies.SetSessionResumeDeadline(session.Id, null);
+            // Complete the lobby-side resume update before taking the session
+            // lock. Handoff delivery uses LobbyManager -> session lock order;
+            // keeping this path from waiting on the lobby while holding the
+            // session lock avoids an admission/deadlock cycle.
+            lock (session) session.Connection = connection;
         }
         NodeDiagnostics.Session(_logger, resumeToken == null ? "connect" : "resume", "success");
         NodeMetrics.ControlConnected(resumeToken != null);
@@ -301,15 +313,23 @@ public sealed class NodeSessionManager
             // are buffered by one bounded reader and executed only after the
             // ordered restoration events below have been enqueued.
             receiver = ReceiveLoopAsync(socket, session, connection, inbound.Writer);
-            if (_lobbies.ForSession(session.Id) is { } restored) Send(session, "lobby.snapshot", null, restored);
-            if (_lobbies.RoundForSession(session.Id) is { } restoredRound) Send(session, "lobby.round", null, restoredRound);
+            if (_lobbies.ForSession(session.Id) is { } restored)
+                Send(session, "lobby.snapshot", null, restored, forceOrdered: true);
+            if (_lobbies.RoundForSession(session.Id) is { } restoredRound)
+                Send(session, "lobby.round", null, restoredRound, forceOrdered: true);
             if (_lobbies.MatchTransitionForSession(session.Id) is { } restoredTransition)
-                Send(session, "match.transition.state", null, restoredTransition);
+                Send(session, "match.transition.state", null, restoredTransition,
+                    forceOrdered: true);
             if (_matches != null)
                 // Resume is reconstructive only. Credential-bearing handoffs
                 // are minted by an explicit match.rejoin request after the
                 // client has restored its stable match/lifecycle state.
-                foreach (object matchState in _matches.ForSessionEvents(session.Id)) SendMatch(session, matchState);
+                // Replay events are forced onto the same ordered lane as the
+                // bootstrap snapshots. A transition state is normally
+                // coalescible, but coalescing it here would let a replayed
+                // completion/ended event overtake the reconstructive state.
+                foreach (object matchState in _matches.ForSessionEvents(session.Id))
+                    SendMatch(session, matchState, forceOrdered: true);
             await foreach (NodeControlRequest request in inbound.Reader.ReadAllAsync())
             {
                 if (connection.Stop.IsCancellationRequested) break;
@@ -347,7 +367,7 @@ public sealed class NodeSessionManager
                         case LobbyListSnapshot list: Send(session, "lobby.list", request.RequestId, list); break;
                         case LobbyLeft left: Send(session, "lobby.left", request.RequestId, left); break;
                         case NodeRoundSnapshot round: Send(session, "lobby.round", request.RequestId, round); break;
-                        case NodeMatchHandoff handoff: Send(session, "match.handoff", request.RequestId, handoff); break;
+                        case NodeMatchHandoff handoff: SendHandoff(session, handoff, request.RequestId); break;
                         case NodeMatchTransitionVoteSnapshot transition:
                             Send(session, "match.transition.state", request.RequestId, transition); break;
                     }
@@ -401,6 +421,10 @@ public sealed class NodeSessionManager
             {
                 lock (session) session.Connection = null;
                 session.ResumeUntil = _clock.GetUtcNow() + DisconnectGrace;
+                // Update the lobby-side resume boundary only after releasing
+                // the session lock. Handoff delivery uses LobbyManager ->
+                // session order, while the admission gate keeps a new resume
+                // from racing this transition.
                 _lobbies.SetSessionResumeDeadline(session.Id, session.ResumeUntil);
             }
             NodeDiagnostics.Session(_logger, "disconnect", "resume_grace");
@@ -508,21 +532,88 @@ public sealed class NodeSessionManager
             _catalog.MapCatalogRevision, request.Page, pageCount, _catalog.MapCount,
             _catalog.MapCatalogHash, entries));
     }
-    private static void SendMatch(Session session, object message)
+    private void SendMatch(Session session, object message,
+        LobbySnapshot? committedHandoffSnapshot = null, bool forceOrdered = false)
     {
         switch (message)
         {
             case NodeMatchDeliveryOverflow:
                 MarkOverflow(session);
                 break;
-            case NodeMatchHandoff handoff: Send(session, "match.handoff", null, handoff); break;
-            case NodeMatchCompletion completion: Send(session, "match.completion", null, completion); break;
-            case NodeMatchEnded ended: Send(session, "match.ended", null, ended); break;
-            case NodeMatchTransitionVoteSnapshot transition: Send(session, "match.transition.state", null, transition); break;
-            case NodeMatchTransitionStarted started: Send(session, "match.transition.started", null, started); break;
+            case NodeMatchHandoff handoff:
+                SendHandoff(session, handoff, null, committedHandoffSnapshot); break;
+            case NodeMatchCompletion completion: Send(session, "match.completion", null, completion, forceOrdered); break;
+            case NodeMatchEnded ended: Send(session, "match.ended", null, ended, forceOrdered); break;
+            case NodeMatchTransitionVoteSnapshot transition: Send(session, "match.transition.state", null, transition, forceOrdered); break;
+            case NodeMatchTransitionStarted started: Send(session, "match.transition.started", null, started, forceOrdered); break;
         }
     }
-    private static void Send<T>(Session session, string type, Guid? requestId, T payload)
+
+    /// <summary>
+    /// A credential-bearing handoff is only useful when the client has the
+    /// committed lobby boundary that owns it.  The lobby snapshot is forced
+    /// onto the ordered lane immediately before the handoff; leaving an older
+    /// coalesced snapshot in <see cref="Connection.State"/> would otherwise
+    /// allow that stale projection to arrive after the credential.
+    /// </summary>
+    private void SendHandoff(Session session, NodeMatchHandoff handoff, Guid? requestId,
+        LobbySnapshot? committedHandoffSnapshot = null)
+    {
+        // LobbyManager owns the authoritative membership gate. Its callback
+        // acquires the session lock only after that gate, matching the normal
+        // lobby notification path (LobbyManager -> session) and keeping the
+        // revalidated snapshot and handoff enqueue atomic with respect to
+        // leave/rejoin changes.
+        bool stale = !_lobbies.WithCurrentHandoffSnapshot(session.Id,
+            handoff.MatchId, handoff.LifecycleEpoch, handoff.MembershipGeneration,
+            committedHandoffSnapshot,
+            snapshot =>
+            {
+                lock (session)
+                {
+                    Connection? connection = session.Connection;
+                    if (connection == null || connection.Overflow) return true;
+
+                    PendingOutbound orderedSnapshot = new("lobby.snapshot", null,
+                        eventId => NodeControlCodec.Write("lobby.snapshot", eventId, null, snapshot));
+                    PendingOutbound orderedHandoff = new("match.handoff", requestId,
+                        eventId => NodeControlCodec.Write("match.handoff", eventId, requestId, handoff));
+
+                    // Reserve both slots under one session lock. The sender
+                    // takes this lock before dequeuing, so no broadcaster can
+                    // split the snapshot/handoff pair or insert a stale
+                    // coalesced snapshot between them.
+                    if (connection.Ordered.Reader.Count > MultiplayerLimits.MaxLifecycleQueue - 2)
+                    {
+                        connection.Overflow = true;
+                        NodeMetrics.DeliveryOverflow();
+                        connection.Wake.Writer.TryWrite(true);
+                        return true;
+                    }
+                    connection.State.Remove("lobby.snapshot");
+                    if (!connection.Ordered.Writer.TryWrite(orderedSnapshot)
+                        || !connection.Ordered.Writer.TryWrite(orderedHandoff))
+                    {
+                        connection.Overflow = true;
+                        NodeMetrics.DeliveryOverflow();
+                    }
+                    connection.Wake.Writer.TryWrite(true);
+                    return true;
+                }
+            });
+        if (stale)
+        {
+            NodeDiagnostics.Session(_logger, "handoff", "snapshot_mismatch");
+            NodeDiagnostics.Lifecycle(_logger, "lifecycle", "stale", handoff.MatchId);
+            if (requestId is { } id)
+                Send(session, "error", id, new NodeControlError(
+                    "stale_lifecycle",
+                    "The match state changed; restore the latest lobby before joining."));
+        }
+    }
+
+    private static void Send<T>(Session session, string type, Guid? requestId, T payload,
+        bool forceOrdered = false)
     {
         var pending = new PendingOutbound(type, requestId,
             eventId => NodeControlCodec.Write(type, eventId, requestId, payload));
@@ -531,7 +622,8 @@ public sealed class NodeSessionManager
             var connection = session.Connection;
             if (connection == null) return;
             if (connection.Overflow) return;
-            if (requestId == null && IsCoalescible(type))
+            if (forceOrdered) connection.State.Remove(type);
+            if (!forceOrdered && requestId == null && IsCoalescible(type))
                 connection.State[type] = pending;
             else if (!connection.Ordered.Writer.TryWrite(pending))
             {
@@ -557,8 +649,9 @@ public sealed class NodeSessionManager
         }
     }
 
-    private static async Task SendLoop(Session session, Connection connection)
+    private async Task SendLoop(Session session, Connection connection)
     {
+        string? pendingType = null;
         try
         {
             while (!connection.Stop.IsCancellationRequested)
@@ -582,8 +675,11 @@ public sealed class NodeSessionManager
 
                 if (pending != null)
                 {
+                    pendingType = pending.Type;
                     byte[] message;
                     lock (session) message = pending.Encode(++session.EventId);
+                    if (BeforeOutboundSend is { } gate)
+                        await gate(message, connection.Stop.Token).ConfigureAwait(false);
                     await connection.Socket.SendAsync(message, WebSocketMessageType.Text,
                         true, connection.Stop.Token);
                     continue;
@@ -604,7 +700,19 @@ public sealed class NodeSessionManager
         }
         catch (Exception ex) when (ex is OperationCanceledException or WebSocketException
             or InvalidOperationException or ArgumentException)
-        { connection.Stop.Cancel(); }
+        {
+            if (ex is not OperationCanceledException || !connection.Stop.IsCancellationRequested)
+            {
+                string message = ex.Message.Replace('\r', ' ').Replace('\n', ' ');
+                if (message.Length > 256) message = message[..256];
+                Interlocked.Exchange(ref _lastOutboundSendFailure,
+                    $"{ex.GetType().Name}: {message} (type={pendingType ?? "unknown"})");
+                _logger.LogWarning(
+                    "Node outbound sender stopped; exceptionType={ExceptionType} exceptionMessage={ExceptionMessage} outboundType={OutboundType}",
+                    ex.GetType().Name, message, pendingType ?? "unknown");
+            }
+            connection.Stop.Cancel();
+        }
     }
 }
 

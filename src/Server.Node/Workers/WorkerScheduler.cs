@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Collections.Immutable;
 using ProjectPrime.Server.Shared;
 using Microsoft.Extensions.Logging.Abstractions;
 using ProjectPrime.Server.Node.Reporting;
@@ -22,11 +23,35 @@ public sealed class WorkerPlacementException : MatchControlException
         : base(failure, message) { }
 }
 
+/// <summary>Explicit report-artifact ownership state. Gameplay terminal
+/// retention is released only after one of the resolved dispositions.</summary>
+public enum WorkerReportDisposition
+{
+    NotExpected = 0,
+    AwaitingWorker = 1,
+    AwaitingNodeDurability = 2,
+    Durable = 3,
+    DiscardedLocal = 4,
+    Unavailable = 5
+}
+
 /// <summary>Low-cardinality scheduler retention facts for diagnostics/tests.</summary>
 public sealed record WorkerSchedulerRetentionSnapshot(int ActivePlacements,
     int TerminalPlacements, int AwaitingCoordinatorConsumption,
     int AwaitingReportResolution, int PendingAdmissionInstalls,
     int PendingAdmissionRetirements = 0, int QuarantinedWorkers = 0);
+
+internal sealed record WorkerAdmissionCounterSnapshot(MatchId MatchId,
+    int PendingAdmissionInstalls, int PendingAdmissionRetirements,
+    int DictionaryAdmissionInstalls, int DictionaryAdmissionRetirements);
+
+internal sealed record WorkerPlacementDiagnosticsSnapshot(Guid MatchId,
+    Guid WorkerId, Guid WorkerIncarnation, WorkerStatus? WorkerStatus,
+    MatchStatus Status, bool TerminalObserved, bool CoordinatorConsumed,
+    int PendingAdmissionInstalls, int PendingAdmissionRetirements,
+    WorkerReportDisposition ReportDisposition, double AgeSeconds,
+    int? ActiveArtifacts, int? QueuedArtifacts, int? ExecutingArtifacts,
+    long? ArtifactFailures, long? ArtifactCompleted);
 
 /// <summary>One event consumer per registered worker. Serializes placement reservations and
 /// returns the same creation task for retries of the identical frozen MatchSpec.</summary>
@@ -39,7 +64,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
         public ManagedWorker Worker = worker;
         public TaskCompletionSource<MatchPlacement> Ready = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public MatchStatus Status = MatchStatus.Starting;
-        public bool ReportExpected, ReportQueued;
+        public WorkerReportDisposition ReportDisposition;
+        public Guid? ExpectedReportId;
         // Terminal ownership is claimed under _gate. A transition claim keeps
         // the placement active until the Worker acknowledges cancellation so
         // capacity cannot be reused while the old MatchInstance still runs.
@@ -51,10 +77,14 @@ public sealed class WorkerScheduler : IAsyncDisposable
         public bool TerminalNoticeSent;
         public bool TerminalObserved;
         public bool CoordinatorConsumed;
-        public bool AdmissionsResolved = true;
+        public int PendingAdmissionInstalls;
+        public int PendingAdmissionRetirements;
+        public bool AdmissionsResolved => PendingAdmissionInstalls == 0
+            && PendingAdmissionRetirements == 0;
         public bool ReportAdmissionClaimed;
         public Task? ReportDurability;
         public long? TerminalTimestamp;
+        public long CreatedTimestamp;
         public CancellationTokenSource Deadline = new();
     }
     private enum TerminalClaim { None, Completion, Transition }
@@ -107,11 +137,70 @@ public sealed class WorkerScheduler : IAsyncDisposable
                 return new(_placements.Values.Count(p => IsActive(p.Status)),
                     _placements.Values.Count(p => !IsActive(p.Status)),
                     _placements.Values.Count(p => !IsActive(p.Status) && !p.CoordinatorConsumed),
-                    _placements.Values.Count(p => !IsActive(p.Status) && p.ReportExpected && !p.ReportQueued),
+                    _placements.Values.Count(p => !IsActive(p.Status)
+                        && p.ReportDisposition is WorkerReportDisposition.AwaitingWorker
+                            or WorkerReportDisposition.AwaitingNodeDurability),
                     _admissionInstalls.Count, _admissionRetirements.Count,
                     _quarantinedWorkers.Count);
             }
         }
+    }
+
+    internal IReadOnlyList<WorkerAdmissionCounterSnapshot> AdmissionCounterSnapshots()
+    {
+        lock (_gate)
+        {
+            return _placements.Values.Select(placement =>
+                new WorkerAdmissionCounterSnapshot(placement.Spec.MatchId,
+                    placement.PendingAdmissionInstalls, placement.PendingAdmissionRetirements,
+                    _admissionInstalls.Values.Count(value =>
+                        value.Command.MatchId == placement.Spec.MatchId),
+                    _admissionRetirements.Values.Count(value =>
+                        value.Command.MatchId == placement.Spec.MatchId))).ToArray();
+        }
+    }
+
+    /// <summary>Copies bounded placement state under the scheduler gate, then
+    /// reads the Worker-owned cached heartbeat snapshots after releasing it.
+    /// This endpoint never performs Worker IPC or nests owner locks.</summary>
+    internal IReadOnlyList<WorkerPlacementDiagnosticsSnapshot> LifecycleDiagnosticsSnapshot()
+    {
+        (MatchId MatchId, Guid WorkerId, Guid WorkerIncarnation, MatchStatus Status,
+            bool TerminalObserved, bool CoordinatorConsumed, int PendingInstalls,
+            int PendingRetirements, WorkerReportDisposition ReportDisposition,
+            long Timestamp, ManagedWorker Worker)[] captured;
+        lock (_gate)
+        {
+            captured = _placements.Select(pair =>
+            {
+                Placement placement = pair.Value;
+                return (MatchId: pair.Key, WorkerId: placement.Worker.Id.Value,
+                    WorkerIncarnation: placement.Worker.Incarnation,
+                    Status: placement.Status,
+                    TerminalObserved: placement.TerminalObserved,
+                    CoordinatorConsumed: placement.CoordinatorConsumed,
+                    PendingInstalls: placement.PendingAdmissionInstalls,
+                    PendingRetirements: placement.PendingAdmissionRetirements,
+                    ReportDisposition: placement.ReportDisposition,
+                    Timestamp: placement.TerminalTimestamp ?? placement.CreatedTimestamp,
+                    Worker: placement.Worker);
+            }).ToArray();
+        }
+
+        return captured.OrderBy(item => item.MatchId.Value).Select(item =>
+        {
+            WorkerSnapshot worker = item.Worker.Snapshot();
+            WorkerDiagnostics? diagnostics = worker.Health?.Diagnostics;
+            double age = Math.Clamp(_clock.GetElapsedTime(item.Timestamp).TotalSeconds,
+                0, TimeSpan.FromDays(3650).TotalSeconds);
+            return new WorkerPlacementDiagnosticsSnapshot(item.MatchId.Value,
+                item.WorkerId, item.WorkerIncarnation, worker.Status,
+                item.Status, item.TerminalObserved, item.CoordinatorConsumed,
+                item.PendingInstalls, item.PendingRetirements,
+                item.ReportDisposition, age, diagnostics?.ActiveArtifacts,
+                diagnostics?.QueuedArtifacts, diagnostics?.ExecutingArtifacts,
+                diagnostics?.ArtifactFailures, diagnostics?.ArtifactCompleted);
+        }).ToImmutableArray();
     }
 
     public WorkerScheduler(WorkerManager manager, TimeSpan? creationTimeout = null,
@@ -277,6 +366,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     throw new WorkerPlacementException("No compatible healthy worker has capacity.", MatchControlFailure.WorkerBusy);
                 }
                 var placement = new Placement(spec, hash, selected);
+                placement.CreatedTimestamp = _clock.GetTimestamp();
                 _placements.Add(spec.MatchId, placement);
                 _ = ExpireCreationAsync(placement);
                 NodeDiagnostics.Worker(_logger, "placement", "accepted");
@@ -331,7 +421,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
     {
         if (IsActive(placement.Status) || !placement.TerminalObserved
             || !placement.CoordinatorConsumed || !placement.AdmissionsResolved
-            || placement.ReportExpected && !placement.ReportQueued)
+            || placement.ReportDisposition is WorkerReportDisposition.AwaitingWorker
+                or WorkerReportDisposition.AwaitingNodeDurability)
             return false;
         if (!placement.Worker.ForgetMatch(matchId)) return false;
         placement.Deadline.Dispose();
@@ -494,8 +585,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
                 || placement.Ready.Task.IsCompletedSuccessfully && placement.Ready.Task.Result.WireMatchId != command.WireMatchId)
                 throw new WorkerPlacementException("Admission-key placement is stale.", MatchControlFailure.MatchUnavailable);
             pending = new(command, placement.Worker);
-            placement.AdmissionsResolved = false;
             _admissionInstalls.Add(command.AdmissionId, pending);
+            placement.PendingAdmissionInstalls++;
         }
 
         if (!pending.Worker.TrySend(command))
@@ -536,8 +627,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
                 || placement.Worker.Incarnation != command.WorkerIncarnation)
                 throw new WorkerPlacementException("Admission retirement placement is stale.", MatchControlFailure.MatchUnavailable);
             pending = new(command, placement.Worker);
-            placement.AdmissionsResolved = false;
             _admissionRetirements.Add(command.AdmissionId, pending);
+            placement.PendingAdmissionRetirements++;
         }
         if (!pending.Worker.TrySend(command))
         {
@@ -562,11 +653,28 @@ public sealed class WorkerScheduler : IAsyncDisposable
 
     public void Drain(string reason)
     {
+        List<ManagedWorker> dispose = [];
         lock (_gate)
         {
             _draining = true;
             foreach (ManagedWorker worker in _workers.Values)
-                if (!worker.Drain(reason) && !worker.Completion.IsCompleted) _ = worker.DisposeAsync();
+                if (!worker.Drain(reason) && !worker.Completion.IsCompleted) dispose.Add(worker);
+        }
+        // DisposeAsync returns a ValueTask and must be consumed exactly once.
+        // Keep its asynchronous work outside _gate: worker shutdown feeds the
+        // scheduler reader, which may need to reacquire this lock.
+        foreach (ManagedWorker worker in dispose) _ = ObserveWorkerDisposeAsync(worker);
+    }
+
+    private async Task ObserveWorkerDisposeAsync(ManagedWorker worker)
+    {
+        try
+        {
+            await worker.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception error)
+        {
+            _logger.LogWarning(error, "Worker disposal failed while the scheduler was draining.");
         }
     }
 
@@ -674,7 +782,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
             {
                 if (_reportFailure != null) throw new IOException(_reportFailure);
                 if (_placements.Values.All(p => !IsActive(p.Status) && p.CoordinatorConsumed
-                    && p.AdmissionsResolved && (!p.ReportExpected || p.ReportQueued))) break;
+                    && p.AdmissionsResolved && p.ReportDisposition is not
+                        (WorkerReportDisposition.AwaitingWorker or WorkerReportDisposition.AwaitingNodeDurability))) break;
             }
             await Task.Delay(25, cancellationToken);
         }
@@ -738,8 +847,12 @@ public sealed class WorkerScheduler : IAsyncDisposable
             }
             if (message is AdmissionKeyInstallFailed failed)
             {
+                string reason = new string(failed.Reason
+                    .Where(ch => char.IsAsciiLetterOrDigit(ch) || ch is '_' or '-')
+                    .Take(64).ToArray());
+                if (reason.Length == 0) reason = "unspecified";
                 FailAdmissionInstall(worker, failed.AdmissionId, failed.MatchId, new WorkerPlacementException(
-                    "Worker rejected admission-key installation."));
+                    "Worker rejected admission-key installation: " + reason + "."));
                 continue;
             }
             if (message is AdmissionRetired retired)
@@ -795,7 +908,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
                         && NodeReportIngestor.TryDiscardArtifact(assignment.Spec,
                             assignment.WorkerId, assignment.WorkerIncarnation,
                             transitionPlacement.WireMatchId.Value, transitionRoot, report);
-                    if (resolved) ResolveReport(report.MatchId);
+                    if (resolved) ResolveReport(report.MatchId, WorkerReportDisposition.DiscardedLocal);
                     else FailReportDisposition(report.MatchId,
                         "Transition report artifact was invalid or unavailable.");
                     continue;
@@ -828,7 +941,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
                         && NodeReportIngestor.TryDiscardArtifact(assignment.Spec,
                             assignment.WorkerId, assignment.WorkerIncarnation,
                             localPlacement.WireMatchId.Value, localRoot, report);
-                    if (resolved) ResolveReport(report.MatchId);
+                    if (resolved) ResolveReport(report.MatchId, WorkerReportDisposition.DiscardedLocal);
                     else FailReportDisposition(report.MatchId,
                         "Local report artifact was invalid or unavailable.");
                 }
@@ -836,6 +949,11 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     foreach (Action<WorkerMatchAssignment, MatchReportReady> subscriber in subscribers.GetInvocationList())
                         try { subscriber(assignment, report); }
                         catch (Exception error) { _logger.LogError(error, "Report subscriber failed for {MatchId}", report.MatchId.Value); }
+                continue;
+            }
+            if (message is MatchReportUnavailable unavailable)
+            {
+                HandleReportUnavailable(worker, unavailable);
                 continue;
             }
             MatchId? matchId = message switch
@@ -872,7 +990,6 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     // publish completion, report, or ordinary interruption.
                     p.Status = MatchStatus.Interrupted;
                     p.TerminalObserved = true;
-                    p.AdmissionsResolved = false;
                     // A Worker may emit the report notice after the
                     // transition terminal. Retain this bounded placement
                     // until that notice is discarded/queued.
@@ -881,8 +998,10 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     // artifact edge to wait for, while a completion terminal
                     // retains the placement until its durable notice is
                     // admitted or explicitly discarded.
-                    p.ReportExpected = message is MatchCompleted && ReportNoticeExpected(p);
-                    p.ReportQueued = !p.ReportExpected;
+                    p.ReportDisposition = message is MatchCompleted && ReportNoticeExpected(p)
+                        ? WorkerReportDisposition.AwaitingWorker : WorkerReportDisposition.NotExpected;
+                    p.ExpectedReportId = message is MatchCompleted completed
+                        ? completed.Summary.ReportId : null;
                     p.Deadline.Cancel();
                     p.Ready.TrySetException(new WorkerPlacementException("Match transitioned."));
                     transitionNotify = true;
@@ -894,15 +1013,16 @@ public sealed class WorkerScheduler : IAsyncDisposable
                     case MatchReady ready:
                         p.Status = MatchStatus.Ready; p.Deadline.Cancel(); p.Ready.TrySetResult(ready.Placement); break;
                     case MatchStarted: p.Status = MatchStatus.Running; break;
-                    case MatchCompleted:
+                    case MatchCompleted completed:
                         p.Status = MatchStatus.Completed;
                         p.TerminalObserved = true;
-                        p.AdmissionsResolved = false;
                         p.Claim = TerminalClaim.Completion;
-                        p.ReportExpected = ReportNoticeExpected(p);
+                        p.ReportDisposition = ReportNoticeExpected(p)
+                            ? WorkerReportDisposition.AwaitingWorker : WorkerReportDisposition.NotExpected;
+                        p.ExpectedReportId = completed.Summary.ReportId;
                         interrupted = false; notify = !p.TerminalNoticeSent; creationTimeoutTerminal = p.CreationTimedOut; p.TerminalNoticeSent = true; break;
-                    case MatchFailed: p.Status = MatchStatus.Failed; p.TerminalObserved = true; p.AdmissionsResolved = false; notify = !p.TerminalNoticeSent; creationTimeoutTerminal = p.CreationTimedOut; p.TerminalNoticeSent = true; break;
-                    case MatchInterrupted: p.Status = MatchStatus.Interrupted; p.TerminalObserved = true; p.AdmissionsResolved = false; notify = !p.TerminalNoticeSent; creationTimeoutTerminal = p.CreationTimedOut; p.TerminalNoticeSent = true; break;
+                    case MatchFailed: p.Status = MatchStatus.Failed; p.TerminalObserved = true; notify = !p.TerminalNoticeSent; creationTimeoutTerminal = p.CreationTimedOut; p.TerminalNoticeSent = true; break;
+                    case MatchInterrupted: p.Status = MatchStatus.Interrupted; p.TerminalObserved = true; notify = !p.TerminalNoticeSent; creationTimeoutTerminal = p.CreationTimedOut; p.TerminalNoticeSent = true; break;
                 }
                 if (notify)
                 {
@@ -951,19 +1071,16 @@ public sealed class WorkerScheduler : IAsyncDisposable
         await worker.Completion;
         FailAdmissionInstallsForWorker(worker, new WorkerPlacementException("Worker was lost during admission-key installation."));
         FailAdmissionRetirementsForWorker(worker, new WorkerPlacementException("Worker was lost during admission retirement."));
-        MatchId[] interruptedIds, transitionIds;
+        MatchId[] interruptedIds, transitionIds, pendingReports;
         lock (_gate)
         {
-            // A lost Worker cannot deliver a remaining artifact notice. Keep
-            // the report edge unresolved and fail closed rather than silently
-            // retiring a report-producing placement.
-            if (_placements.Values.Any(p => p.Worker == worker && p.ReportExpected
-                && !p.ReportQueued && p.ReportDurability == null))
-            {
-                _reportFailure = "Worker loss left a report artifact unresolved.";
-                _draining = true;
-                NodeDiagnostics.Worker(_logger, "report_disposition", "worker_lost");
-            }
+            // A completed placement that was still waiting for its report
+            // notice receives the same explicit unavailable disposition as a
+            // Worker-emitted notice. The gameplay terminal remains Completed.
+            pendingReports = _placements.Where(p => p.Value.Worker == worker
+                    && p.Value.ReportDisposition == WorkerReportDisposition.AwaitingWorker
+                    && p.Value.Status == MatchStatus.Completed)
+                .Select(p => p.Key).ToArray();
             interruptedIds = _placements.Where(p => p.Value.Worker == worker && IsActive(p.Value.Status)).Select(p => p.Key).ToArray();
             transitionIds = _placements.Where(p => p.Value.Worker == worker && IsActive(p.Value.Status)
                 && p.Value.Claim == TerminalClaim.Transition).Select(p => p.Key).ToArray();
@@ -971,13 +1088,33 @@ public sealed class WorkerScheduler : IAsyncDisposable
             {
                 var p = _placements[id]; p.Status = MatchStatus.Interrupted; p.TerminalObserved = true;
                 p.TerminalTimestamp ??= _clock.GetTimestamp();
-                p.AdmissionsResolved = false; p.Deadline.Cancel();
+                p.Deadline.Cancel();
                 p.Ready.TrySetException(new WorkerPlacementException("Worker was lost during match creation."));
-                // Worker-loss handling above settles any pending install or
-                // retirement operations. Recompute after the terminal edge so
-                // a force-retired worker cannot strand an otherwise complete
-                // placement behind a false unresolved admission flag.
-                RefreshAdmissionStateLocked(id);
+            }
+        }
+        foreach (MatchId id in pendingReports)
+        {
+            WorkerMatchAssignment? assignment;
+            lock (_gate) assignment = _placements.TryGetValue(id, out Placement? p) ? Assignment(p) : null;
+            bool official = assignment != null && RequiresBackendReport(assignment.Spec);
+            var unavailable = new MatchReportUnavailable(id, id.Value, worker.Id,
+                worker.Incarnation, ArtifactFailureCode.WorkerLost);
+            if (!official)
+            {
+                ResolveReport(id, WorkerReportDisposition.Unavailable);
+            }
+            else if (_reports?.TryQueueUnavailable(assignment!.Spec, unavailable,
+                out Task durability) == true)
+            {
+                SetReportDurability(id, durability);
+                _ = ObserveUnavailableDurabilityAsync(id, durability);
+            }
+            else
+            {
+                // Without a durable Node receipt, retain the placement and
+                // close official placement admission rather than claiming the
+                // report was unavailable safely.
+                FailReportDisposition(id, "Worker loss left an official report without a durable failure receipt.");
             }
         }
         foreach (MatchId id in interruptedIds)
@@ -1020,6 +1157,68 @@ public sealed class WorkerScheduler : IAsyncDisposable
             }
             assignment = null; // duplicate/stale report admission
             return false;
+        }
+    }
+
+    private void HandleReportUnavailable(ManagedWorker worker,
+        MatchReportUnavailable unavailable)
+    {
+        WorkerMatchAssignment? assignment;
+        bool official;
+        bool invalidIdentity = false;
+        lock (_gate)
+        {
+            if (!_placements.TryGetValue(unavailable.MatchId, out Placement? placement)
+                || placement.Worker != worker
+                || placement.ReportDisposition is WorkerReportDisposition.NotExpected
+                    or WorkerReportDisposition.Durable
+                    or WorkerReportDisposition.DiscardedLocal
+                    or WorkerReportDisposition.AwaitingNodeDurability)
+                return;
+            if (placement.ExpectedReportId != unavailable.ReportId)
+            {
+                assignment = null;
+                official = false;
+                invalidIdentity = true;
+            }
+            else if (placement.ReportDisposition == WorkerReportDisposition.Unavailable)
+            {
+                assignment = null;
+                official = false;
+            }
+            else
+            {
+                assignment = Assignment(placement);
+                official = RequiresBackendReport(placement.Spec);
+                if (!official)
+                {
+                    placement.ReportDisposition = WorkerReportDisposition.Unavailable;
+                    TryRetireLocked(unavailable.MatchId, placement);
+                    return;
+                }
+            }
+        }
+        if (invalidIdentity)
+        {
+            FailReportDisposition(unavailable.MatchId,
+                "Worker report-unavailable identity did not match the completed outcome.");
+            return;
+        }
+        if (assignment == null)
+            return; // exact retransmission is idempotent
+
+        // The durable failure receipt is Node-owned and independent of the
+        // Worker process. Never hold the scheduler gate over filesystem I/O.
+        if (_reports?.TryQueueUnavailable(assignment!.Spec, unavailable,
+            out Task durability) == true)
+        {
+            SetReportDurability(unavailable.MatchId, durability);
+            _ = ObserveUnavailableDurabilityAsync(unavailable.MatchId, durability);
+        }
+        else
+        {
+            FailReportDisposition(unavailable.MatchId,
+                "Official report-unavailable receipt could not be durably recorded.");
         }
     }
 
@@ -1092,13 +1291,14 @@ public sealed class WorkerScheduler : IAsyncDisposable
         NodeDiagnostics.Worker(_logger, "coordinator_consumption", "retained");
     }
 
-    private void ResolveReport(MatchId matchId)
+    private void ResolveReport(MatchId matchId,
+        WorkerReportDisposition disposition)
     {
         lock (_gate)
         {
             if (!_placements.TryGetValue(matchId, out Placement? placement)) return;
             placement.ReportDurability = null;
-            placement.ReportQueued = true;
+            placement.ReportDisposition = disposition;
             TryRetireLocked(matchId, placement);
         }
     }
@@ -1107,7 +1307,10 @@ public sealed class WorkerScheduler : IAsyncDisposable
     {
         lock (_gate)
             if (_placements.TryGetValue(matchId, out Placement? placement))
+            {
+                placement.ReportDisposition = WorkerReportDisposition.AwaitingNodeDurability;
                 placement.ReportDurability = durability;
+            }
     }
 
     private async Task ObserveReportDurabilityAsync(MatchId matchId, Task durability)
@@ -1115,11 +1318,34 @@ public sealed class WorkerScheduler : IAsyncDisposable
         try
         {
             await durability.ConfigureAwait(false);
-            ResolveReport(matchId);
+            ResolveReport(matchId, WorkerReportDisposition.Durable);
         }
         catch (Exception error) when (error is not OutOfMemoryException)
         {
             FailReportDisposition(matchId, "Report durability failed; artifact retained.", error);
+        }
+    }
+
+    private async Task ObserveUnavailableDurabilityAsync(MatchId matchId,
+        Task durability)
+    {
+        try
+        {
+            await durability.ConfigureAwait(false);
+            // A report-unavailable receipt is the replacement durable owner
+            // for the failed artifact. Only after that fsync-backed task has
+            // completed may the original outbox reservation be released.
+            _reports?.CancelReservation(matchId);
+            ResolveReport(matchId, WorkerReportDisposition.Unavailable);
+            NodeDiagnostics.Worker(_logger, "report_disposition", "unavailable_receipt");
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            // Keep both the placement and reservation retained. The Node is
+            // deliberately drained until an operator/recovery path can make
+            // the failure receipt durable.
+            FailReportDisposition(matchId,
+                "Official report-unavailable receipt could not be durably recorded.", error);
         }
     }
 
@@ -1137,19 +1363,17 @@ public sealed class WorkerScheduler : IAsyncDisposable
 
     private void CompleteAdmissionInstall(ManagedWorker worker, AdmissionKeyInstalled installed)
     {
-        AdmissionInstall? pending = null;
-        Exception? failure = null;
+        AdmissionInstall? pending;
         lock (_gate)
         {
             if (!_admissionInstalls.TryGetValue(installed.AdmissionId, out pending) || pending.Worker != worker)
                 return; // Timed-out/retired acknowledgements are stale by definition.
-            if (!AdmissionMatches(pending.Command, installed))
-                failure = new WorkerPlacementException("Worker returned a stale admission-key acknowledgement.");
-            _admissionInstalls.Remove(installed.AdmissionId);
-            RefreshAdmissionStateLocked(pending.Command.MatchId);
+            // A stale acknowledgement must not consume the live operation.
+            // It remains owned until its exact operation times out or is failed.
+            if (!AdmissionMatches(pending.Command, installed)) return;
+            if (!TryRemoveAdmissionInstallLocked(installed.AdmissionId, pending, worker)) return;
         }
-        if (failure != null) pending.Completion.TrySetException(failure);
-        else pending.Completion.TrySetResult(installed);
+        pending.Completion.TrySetResult(installed);
     }
 
     private void FailAdmissionInstall(ManagedWorker worker, Guid admissionId, MatchId matchId, Exception error)
@@ -1159,7 +1383,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
         {
             if (_admissionInstalls.TryGetValue(admissionId, out var current)
                 && current.Worker == worker && current.Command.MatchId == matchId)
-            { pending = current; _admissionInstalls.Remove(admissionId); RefreshAdmissionStateLocked(matchId); }
+                if (TryRemoveAdmissionInstallLocked(admissionId, current, worker)) pending = current;
         }
         pending?.Completion.TrySetException(error);
     }
@@ -1170,8 +1394,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
         lock (_gate)
         {
             pending = _admissionInstalls.Values.Where(value => value.Command.MatchId == matchId).ToArray();
-            foreach (AdmissionInstall value in pending) _admissionInstalls.Remove(value.Command.AdmissionId);
-            RefreshAdmissionStateLocked(matchId);
+            pending = pending.Where(value => TryRemoveAdmissionInstallLocked(
+                value.Command.AdmissionId, value, value.Worker)).ToArray();
         }
         foreach (AdmissionInstall value in pending) value.Completion.TrySetException(error);
     }
@@ -1182,9 +1406,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
         lock (_gate)
         {
             pending = _admissionInstalls.Values.Where(value => value.Worker == worker).ToArray();
-            foreach (AdmissionInstall value in pending) _admissionInstalls.Remove(value.Command.AdmissionId);
-            foreach (MatchId matchId in pending.Select(value => value.Command.MatchId).Distinct())
-                RefreshAdmissionStateLocked(matchId);
+            pending = pending.Where(value => TryRemoveAdmissionInstallLocked(
+                value.Command.AdmissionId, value, worker)).ToArray();
         }
         foreach (AdmissionInstall value in pending) value.Completion.TrySetException(error);
     }
@@ -1192,40 +1415,37 @@ public sealed class WorkerScheduler : IAsyncDisposable
     private void RemoveAdmissionInstall(Guid admissionId, AdmissionInstall pending)
     {
         lock (_gate)
-            if (_admissionInstalls.TryGetValue(admissionId, out var current) && ReferenceEquals(current, pending))
-            {
-                _admissionInstalls.Remove(admissionId);
-                RefreshAdmissionStateLocked(pending.Command.MatchId);
-            }
+            TryRemoveAdmissionInstallLocked(admissionId, pending, pending.Worker);
     }
 
-    private void RefreshAdmissionStateLocked(MatchId matchId)
+    private bool TryRemoveAdmissionInstallLocked(Guid admissionId, AdmissionInstall expected,
+        ManagedWorker worker)
     {
-        if (!_placements.TryGetValue(matchId, out Placement? placement)) return;
-        placement.AdmissionsResolved = !_admissionInstalls.Values.Any(value => value.Command.MatchId == matchId)
-            && !_admissionRetirements.Values.Any(value => value.Command.MatchId == matchId);
-        if (placement.AdmissionsResolved) TryRetireLocked(matchId, placement);
+        // Missing entries are the normal duplicate-ACK/timeout race outcome.
+        if (!_admissionInstalls.TryGetValue(admissionId, out AdmissionInstall? current)) return false;
+        if (!ReferenceEquals(current, expected) || current.Worker != worker) return false;
+        if (!_placements.TryGetValue(current.Command.MatchId, out Placement? placement)
+            || placement.Worker != worker) return false;
+        if (!_admissionInstalls.Remove(admissionId)) return false;
+        System.Diagnostics.Debug.Assert(placement.PendingAdmissionInstalls > 0);
+        if (placement.PendingAdmissionInstalls <= 0)
+            throw new InvalidOperationException("Admission install counter underflow.");
+        placement.PendingAdmissionInstalls--;
+        TryRetireLocked(current.Command.MatchId, placement);
+        return true;
     }
 
     private void CompleteAdmissionRetirement(ManagedWorker worker, AdmissionRetired retired)
     {
         AdmissionRetirement? pending = null;
-        Exception? failure = null;
         lock (_gate)
         {
             if (!_admissionRetirements.TryGetValue(retired.AdmissionId, out pending)
                 || pending.Worker != worker) return;
-            if (pending.Command.MatchId != retired.MatchId
-                || pending.Command.SeatId != retired.SeatId
-                || pending.Command.HandoffGeneration != retired.HandoffGeneration
-                || pending.Command.WorkerId != retired.WorkerId
-                || pending.Command.WorkerIncarnation != retired.WorkerIncarnation)
-                failure = new WorkerPlacementException("Worker returned a stale admission-retirement acknowledgement.");
-            _admissionRetirements.Remove(retired.AdmissionId);
-            RefreshAdmissionStateLocked(pending.Command.MatchId);
+            if (!AdmissionMatches(pending.Command, retired)) return;
+            if (!TryRemoveAdmissionRetirementLocked(retired.AdmissionId, pending, worker)) return;
         }
-        if (failure != null) pending.Completion.TrySetException(failure);
-        else pending.Completion.TrySetResult(retired);
+        pending.Completion.TrySetResult(retired);
     }
 
     private void FailAdmissionRetirement(ManagedWorker worker, AdmissionRetireFailed failed, Exception error)
@@ -1236,9 +1456,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
             if (_admissionRetirements.TryGetValue(failed.AdmissionId, out AdmissionRetirement? current)
                 && current.Worker == worker && current.Command.MatchId == failed.MatchId)
             {
-                pending = current;
-                _admissionRetirements.Remove(failed.AdmissionId);
-                RefreshAdmissionStateLocked(failed.MatchId);
+                if (TryRemoveAdmissionRetirementLocked(failed.AdmissionId, current, worker))
+                    pending = current;
             }
         }
         pending?.Completion.TrySetException(error);
@@ -1247,12 +1466,7 @@ public sealed class WorkerScheduler : IAsyncDisposable
     private void RemoveAdmissionRetirement(Guid admissionId, AdmissionRetirement pending)
     {
         lock (_gate)
-        {
-            if (_admissionRetirements.TryGetValue(admissionId, out AdmissionRetirement? current)
-                && ReferenceEquals(current, pending))
-                _admissionRetirements.Remove(admissionId);
-            RefreshAdmissionStateLocked(pending.Command.MatchId);
-        }
+            TryRemoveAdmissionRetirementLocked(admissionId, pending, pending.Worker);
     }
 
     private void FailAdmissionRetirementsForMatch(MatchId matchId, Exception error)
@@ -1261,8 +1475,8 @@ public sealed class WorkerScheduler : IAsyncDisposable
         lock (_gate)
         {
             pending = _admissionRetirements.Values.Where(value => value.Command.MatchId == matchId).ToArray();
-            foreach (AdmissionRetirement value in pending) _admissionRetirements.Remove(value.Command.AdmissionId);
-            RefreshAdmissionStateLocked(matchId);
+            pending = pending.Where(value => TryRemoveAdmissionRetirementLocked(
+                value.Command.AdmissionId, value, value.Worker)).ToArray();
         }
         foreach (AdmissionRetirement value in pending) value.Completion.TrySetException(error);
     }
@@ -1273,11 +1487,28 @@ public sealed class WorkerScheduler : IAsyncDisposable
         lock (_gate)
         {
             pending = _admissionRetirements.Values.Where(value => value.Worker == worker).ToArray();
-            foreach (AdmissionRetirement value in pending) _admissionRetirements.Remove(value.Command.AdmissionId);
-            foreach (MatchId matchId in pending.Select(value => value.Command.MatchId).Distinct())
-                RefreshAdmissionStateLocked(matchId);
+            pending = pending.Where(value => TryRemoveAdmissionRetirementLocked(
+                value.Command.AdmissionId, value, worker)).ToArray();
         }
         foreach (AdmissionRetirement value in pending) value.Completion.TrySetException(error);
+    }
+
+    private bool TryRemoveAdmissionRetirementLocked(Guid admissionId,
+        AdmissionRetirement expected, ManagedWorker worker)
+    {
+        // Missing entries are the normal duplicate-ACK/timeout race outcome.
+        if (!_admissionRetirements.TryGetValue(admissionId,
+                out AdmissionRetirement? current)) return false;
+        if (!ReferenceEquals(current, expected) || current.Worker != worker) return false;
+        if (!_placements.TryGetValue(current.Command.MatchId, out Placement? placement)
+            || placement.Worker != worker) return false;
+        if (!_admissionRetirements.Remove(admissionId)) return false;
+        System.Diagnostics.Debug.Assert(placement.PendingAdmissionRetirements > 0);
+        if (placement.PendingAdmissionRetirements <= 0)
+            throw new InvalidOperationException("Admission retirement counter underflow.");
+        placement.PendingAdmissionRetirements--;
+        TryRetireLocked(current.Command.MatchId, placement);
+        return true;
     }
 
     private static bool AdmissionMatches(InstallAdmissionKey command, AdmissionKeyInstalled installed)
@@ -1289,6 +1520,13 @@ public sealed class WorkerScheduler : IAsyncDisposable
             && command.JoinNonce == installed.JoinNonce && command.ExpiresAt == installed.ExpiresAt
             && command.HandoffGeneration == installed.HandoffGeneration;
 
+    private static bool AdmissionMatches(RetireAdmission command, AdmissionRetired retired)
+        => command.MatchId == retired.MatchId && command.AdmissionId == retired.AdmissionId
+            && command.SeatId == retired.SeatId
+            && command.HandoffGeneration == retired.HandoffGeneration
+            && command.WorkerId == retired.WorkerId
+            && command.WorkerIncarnation == retired.WorkerIncarnation;
+
     public async ValueTask DisposeAsync()
     {
         AdmissionInstall[] pending;
@@ -1298,9 +1536,11 @@ public sealed class WorkerScheduler : IAsyncDisposable
             if (_disposed) return;
             _disposed = true; _draining = true;
             pending = _admissionInstalls.Values.ToArray();
-            _admissionInstalls.Clear();
             retirements = _admissionRetirements.Values.ToArray();
-            _admissionRetirements.Clear();
+            foreach (AdmissionInstall value in pending)
+                TryRemoveAdmissionInstallLocked(value.Command.AdmissionId, value, value.Worker);
+            foreach (AdmissionRetirement value in retirements)
+                TryRemoveAdmissionRetirementLocked(value.Command.AdmissionId, value, value.Worker);
         }
         foreach (AdmissionInstall value in pending)
             value.Completion.TrySetException(new WorkerPlacementException("Worker scheduler was disposed."));

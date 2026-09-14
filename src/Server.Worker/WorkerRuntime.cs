@@ -27,30 +27,94 @@ public sealed class WorkerRuntime : IAsyncDisposable
     private readonly WorkerContentLease _contentLease;
     private readonly WorkerMapBuildService _mapBuilds;
     private readonly WorkerNetworkHub _hub;
+    private readonly WorkerArtifactOperations? _artifactOperations;
+    private readonly object _artifactFailureGate = new();
+    private readonly Random _artifactRandom;
     private readonly MatchRegistry _registry = new();
     private readonly SimulationLaneManager _lanes;
     private readonly WorkerHealthSampler _health = new();
-    private readonly Channel<(MatchRegistry.Entry Entry, MatchCompletion? Completion, Guid? ReplayId, ServerReplaySession? Replay, WorkerEvent? Override)> _artifacts;
-    private readonly Task _artifactWriter;
+    private WorkerArtifactPipeline? _artifactPipeline;
     private readonly CancellationTokenSource _ioStop = new();
     private readonly AutoResetEvent _networkWake = new(false);
     private readonly Thread _io;
+    private readonly object _disposeGate = new();
+    private Task? _disposeTask;
+    private bool _fullyDisposed;
     private WorkerStatus _status = WorkerStatus.Ready;
     private NodeId? _node;
     private Guid _nodeIncarnation;
     private int _configuredLimit, _configuredPlayers;
     private string? _keyId, _publicKey;
     private readonly Dictionary<string, long?> _keyRetirement = new(StringComparer.Ordinal);
-    private int _disposed, _pendingArtifacts;
+    private int _disposed, _artifactReservations;
+    private long _terminalConflicts;
+    private readonly HashSet<MatchId> _testArtifactEntries = new();
+    private int _simulationShutdownNotified;
     private bool _validationFixtureMatchAccepted;
     public event Action<WorkerEvent>? Event;
     public WorkerOptions Options => _options;
     public IReadOnlyList<LaneMetrics> LaneMetrics => _lanes.Metrics;
     public WorkerContent Content => _content;
+    public WorkerArtifactSnapshot ArtifactDiagnostics => _artifactPipeline?.Snapshot
+        ?? new(PersistenceHealth.Unavailable, 0, 0, 0, 0, 0, 0);
+    private WorkerArtifactPipeline ArtifactPipeline
+        => _artifactPipeline ?? throw new InvalidOperationException("Artifact pipeline is not initialized.");
+
+    /// <summary>Deterministic host/test seam for exercising the runtime-owned
+    /// artifact disposition callback without manufacturing a network command.
+    /// Production terminal paths enter through <see cref="Terminal"/>.</summary>
+    internal bool TryEnqueueArtifactForTesting(WorkerArtifactFacts facts, bool reserve = false)
+    {
+        MatchRegistry.Entry? testEntry = null;
+        if (reserve)
+        {
+            lock (_registry.Gate)
+            {
+                ObjectDisposedException.ThrowIf(_disposed != 0, this);
+                if (_registry.Entries.ContainsKey(facts.Spec.MatchId))
+                    throw new InvalidOperationException("Test artifact identity is already registered.");
+                if (Volatile.Read(ref _artifactReservations) >= _options.ArtifactReservationCapacity)
+                    return false;
+                testEntry = new(facts.Spec, MatchRegistry.Fingerprint(facts.Spec),
+                    new(_registry.AllocateWireId()))
+                {
+                    ArtifactReserved = true,
+                    ArtifactTransferred = true
+                };
+                _registry.Entries.Add(facts.Spec.MatchId, testEntry);
+                _registry.ByWireId.Add(testEntry.WireId.Value, testEntry);
+                _testArtifactEntries.Add(facts.Spec.MatchId);
+                Interlocked.Increment(ref _artifactReservations);
+            }
+        }
+
+        try
+        {
+            bool accepted = ArtifactPipeline.TryEnqueue(facts);
+            if (!accepted && testEntry is not null)
+                ReleaseTestArtifactEntry(testEntry);
+            return accepted;
+        }
+        catch
+        {
+            if (testEntry is not null) ReleaseTestArtifactEntry(testEntry);
+            throw;
+        }
+    }
+
+    internal int ArtifactReservationsForTesting
+        => Volatile.Read(ref _artifactReservations);
+
+    internal WorkerStatus StatusForTesting
+    {
+        get { lock (_registry.Gate) return _status; }
+    }
 
     public WorkerRuntime(WorkerOptions options, WorkerContent content, WorkerNetworkHub hub)
     {
         options.Validate(); _options = options; _content = content; _hub = hub;
+        _artifactOperations = options.ArtifactOperations;
+        _artifactRandom = new(options.ArtifactFailureSeed);
         _contentLease = ContentEnvironment.AcquireContent();
         if (!ReferenceEquals(_contentLease.Content, content))
         { _contentLease.Dispose(); throw new ArgumentException("Worker must hold the active immutable content view."); }
@@ -67,16 +131,15 @@ public sealed class WorkerRuntime : IAsyncDisposable
             }
             _configuredLimit = options.MaxMatches; _configuredPlayers = Math.Min(8192, options.MaxMatches * 32);
             _lanes = new(options);
-            _artifacts = Channel.CreateBounded<(MatchRegistry.Entry, MatchCompletion?, Guid?, ServerReplaySession?, WorkerEvent?)>(new BoundedChannelOptions(options.MaxMatches * 2)
-                { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
-            _artifactWriter = WriteArtifactsAsync();
+            _artifactPipeline = new(options.ArtifactConcurrency, options.ArtifactQueueCapacity,
+                ProcessArtifactsAsync, OnArtifactJobCompleted, PublishArtifactDisposition);
             _hub.SetNetworkWake(() => { _networkWake.Set(); });
             _io = new Thread(PumpNetwork) { IsBackground = true, Name = "worker-network" };
             _io.Start();
         }
         catch
         {
-            _artifacts?.Writer.TryComplete();
+            _artifactPipeline?.DisposeAsync().AsTask().GetAwaiter().GetResult();
             _lanes?.Dispose(); _hub.SetNetworkWake(null); _hub.Dispose(); _ioStop.Dispose();
             _networkWake.Dispose(); _contentLease.Dispose();
             throw;
@@ -174,11 +237,22 @@ public sealed class WorkerRuntime : IAsyncDisposable
             if (spec.ReplayPolicy == ReplayPolicy.Record && string.IsNullOrWhiteSpace(_options.ReplayDirectory)
                 || spec.TelemetryPolicy == TelemetryPolicy.Record && string.IsNullOrWhiteSpace(_options.ArtifactDirectory))
                 return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Requested replay or telemetry storage is not configured."));
-            if (!WorkerArtifactBudget.HasHeadroom(_options, _registry.ByWireId.Count))
-                return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, "Worker artifact budget is full; admission is fenced until storage is reclaimed."));
+            bool artifactRequired = RequiresArtifacts(spec);
+            if (artifactRequired)
+            {
+                if (spec.TrustClass is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament
+                    && _options.ArtifactDirectory == null)
+                    return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId,
+                        "Required report storage is not configured."));
+                WorkerArtifactSnapshot artifacts = ArtifactDiagnostics;
+                if (artifacts.Health == PersistenceHealth.Unavailable
+                    || Volatile.Read(ref _artifactReservations) >= _options.ArtifactReservationCapacity
+                    || !WorkerArtifactBudget.HasHeadroom(_options, _registry.ByWireId.Count))
+                    return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId,
+                        "Worker artifact budget is full; admission is fenced until storage is reclaimed."));
+            }
             _health.Sample();
-            if (_registry.ByWireId.Count + Volatile.Read(ref _pendingArtifacts) >= _options.MaxMatches * 2
-                || _registry.ByWireId.Count >= _configuredLimit
+            if (_registry.ByWireId.Count >= _configuredLimit
                 || _registry.ByWireId.Values.Sum(item => item.Spec.Roster.Length) + spec.Roster.Length > _configuredPlayers
                 || _health.CpuPercent >= _options.PlacementCpuPercent
                 || _health.MemoryHeadroomBytes < _options.MinimumMemoryHeadroomBytes)
@@ -190,7 +264,8 @@ public sealed class WorkerRuntime : IAsyncDisposable
             try { lease = _lanes.Reserve(); }
             catch (InvalidOperationException error) { return Task.FromResult<WorkerEvent>(new MatchFailed(spec.MatchId, error.Message)); }
             entry = new(spec, fingerprint, new(_registry.AllocateWireId()))
-                { Lease = lease, ContentSnapshot = contentSnapshot };
+                { Lease = lease, ContentSnapshot = contentSnapshot, ArtifactReserved = artifactRequired };
+            if (artifactRequired) Interlocked.Increment(ref _artifactReservations);
             _registry.Entries.Add(spec.MatchId, entry); _registry.ByWireId.Add(entry.WireId.Value, entry);
             if (fixtureMap) _validationFixtureMatchAccepted = true;
         }
@@ -308,18 +383,30 @@ public sealed class WorkerRuntime : IAsyncDisposable
         ServerReplaySession? replay = match.Replay;
         Guid? replayId = match.Replay?.ReplayId;
         MatchCompletion? completion = match.Completion;
-        WorkerEvent? immediate = match.State == MatchInstanceState.Failed
+        MatchCompleted? completed = match.State == MatchInstanceState.Completed && completion is { StopReason: null }
+            ? new(BuildCompletionSummary(entry.Spec, completion, replayId))
+            : null;
+        WorkerEvent immediate = match.State == MatchInstanceState.Failed
             ? new MatchFailed(entry.Spec.MatchId, Bounded(match.Status.Error ?? "Match failed."))
-            : completion?.StopReason != null ? new MatchInterrupted(entry.Spec.MatchId, completion.StopReason.Value.ToString()) : null;
+            : completed is { } normal ? normal : new MatchInterrupted(entry.Spec.MatchId,
+                completion?.StopReason?.ToString() ?? "Match stopped.");
+        bool reportExpected = completed != null && ReportArtifactExpected(entry.Spec);
+        WorkerArtifactFacts? facts = RequiresArtifacts(entry.Spec)
+            ? new(entry.Spec, entry.WireId.Value, completion, replayId, replay,
+                reportExpected, entry.Spec.MatchId.Value,
+                reportExpected ? new WorkerArtifactDisposition() : null)
+            : null;
         try { match.Dispose(); }
-        finally { entry.Transport?.Dispose(); Release(entry); }
-        if (immediate != null) RecordTerminal(entry, immediate);
-        Interlocked.Increment(ref _pendingArtifacts);
-        if (!_artifacts.Writer.TryWrite((entry, completion, replayId, replay, immediate)))
+        finally { entry.Transport?.Dispose(); }
+        RecordTerminal(entry, immediate);
+        if (facts != null && !TryEnqueueArtifacts(entry, facts))
         {
-            Interlocked.Decrement(ref _pendingArtifacts);
-            RecordTerminal(entry, new MatchFailed(entry.Spec.MatchId, "Completion artifact queue is full."));
+            // Queue exhaustion is an artifact disposition. The gameplay
+            // terminal above is immutable and must never be rewritten.
+            if (facts.ReportExpected)
+                ArtifactPipeline.PublishDisposition(facts, null, ArtifactFailureCode.QueueExhausted);
         }
+        Release(entry);
     }
 
     private void EvaluateAdmissionTimeout(MatchRegistry.Entry entry, MatchInstance match, long admissionStarted)
@@ -334,68 +421,385 @@ public sealed class WorkerRuntime : IAsyncDisposable
             match.RequestStop(MatchStopReason.AdmissionTimeout);
     }
 
-    private async Task WriteArtifactsAsync()
+    private async Task<WorkerArtifactResult> ProcessArtifactsAsync(WorkerArtifactFacts facts,
+        CancellationToken cancellationToken)
     {
-        await foreach (var item in _artifacts.Reader.ReadAllAsync())
+        MatchReportReady? reportReady = null;
+        ArtifactFailureCode? reportFailure = null;
+        int failures = 0;
+        long started = Stopwatch.GetTimestamp();
+
+        void FailReport(ArtifactFailureCode code, Exception? error = null)
+        {
+            if (reportFailure == null)
+            {
+                reportFailure = code;
+                failures++;
+            }
+            ArtifactPipeline.PublishDisposition(facts, null, reportFailure.Value);
+            if (error != null) DiagnoseArtifactFailure(error);
+        }
+
+        TimeSpan Remaining(TimeSpan operation)
+        {
+            TimeSpan total = _options.ArtifactJobTimeout - Stopwatch.GetElapsedTime(started);
+            return total <= TimeSpan.Zero ? TimeSpan.Zero : total < operation ? total : operation;
+        }
+
+        if (_options.ArtifactDelayMilliseconds > 0)
+            await Task.Delay(_options.ArtifactDelayMilliseconds, cancellationToken).ConfigureAwait(false);
+        bool injectedReportFailure = facts.ReportExpected && _options.ArtifactFailureRate > 0
+            && ShouldInjectArtifactFailure();
+        if (injectedReportFailure)
+            FailReport(ArtifactFailureCode.PersistenceFailed,
+                new IOException("Configured Worker artifact failure injection."));
+
+        if (facts.ReportExpected && !injectedReportFailure)
+        {
+            Task<MatchReportReady?> reportOperation;
+            try
+            {
+                if (facts.Completion?.Report is not { } report)
+                    throw new InvalidDataException("Required report artifact is missing.");
+                if (_artifactOperations?.WriteReport == null
+                    && _options.ArtifactDirectory is not { })
+                    throw new InvalidDataException("Required report storage is not configured.");
+                string? directory = _options.ArtifactDirectory;
+                if (directory != null) Directory.CreateDirectory(directory);
+                reportOperation = _artifactOperations?.WriteReport is { } writeReport
+                    ? writeReport(facts, cancellationToken)
+                    // The production writer is synchronous and may be blocked
+                    // by a filesystem. It is started from this bounded artifact
+                    // worker; the operation remains owned until it returns.
+                    : Task.Factory.StartNew<MatchReportReady?>(() =>
+                        WorkerReportArtifactWriter.Write(directory!, _options.WorkerId,
+                            _options.Incarnation, facts.Spec, facts.WireMatchId, report),
+                        CancellationToken.None, TaskCreationOptions.DenyChildAttach,
+                        TaskScheduler.Default);
+                reportReady = await AwaitUncancellableAsync(reportOperation,
+                    Remaining(_options.ArtifactReportTimeout), () =>
+                    {
+                        FailReport(ArtifactFailureCode.DeadlineExceeded,
+                            new TimeoutException("Report persistence exceeded its operational deadline."));
+                    }, cancellationToken).ConfigureAwait(false);
+                if (reportReady is null) throw new InvalidDataException("Report writer did not return an artifact identity.");
+                if (reportReady.ReportId != facts.ReportId)
+                    throw new InvalidDataException("Report artifact identity changed during persistence.");
+                // Report readiness is an independent lifecycle edge. Publish it
+                // before awaiting replay or telemetry so a stalled replay cannot
+                // hold the authoritative report disposition.
+                if (facts.ReportDisposition is not { IsClaimed: true })
+                {
+                    ArtifactPipeline.PublishDisposition(facts, reportReady, null);
+                }
+                else
+                {
+                    // A deadline may have published Unavailable while this
+                    // uncancellable writer continued. Keep the failure
+                    // disposition authoritative even if a late file exists.
+                    reportReady = null;
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            { FailReport(ArtifactFailureCode.Shutdown); }
+            catch (Exception error) when (error is not OutOfMemoryException
+                and not StackOverflowException)
+            { FailReport(ArtifactFailureCode.PersistenceFailed, error); }
+        }
+
+        if (facts.Completion?.Telemetry is { } telemetry && _options.ArtifactDirectory is { } telemetryDirectory)
+        {
+            using CancellationTokenSource telemetryStop
+                = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            try
+            {
+                Directory.CreateDirectory(telemetryDirectory);
+                string target = Path.Combine(telemetryDirectory,
+                    facts.ReportId.ToString("D") + ".telemetry.json");
+                if (_artifactOperations?.WriteTelemetry is { } writeTelemetry)
+                    await AwaitCancellableAsync(writeTelemetry(facts, telemetryStop.Token),
+                        Remaining(_options.ArtifactTelemetryTimeout), telemetryStop,
+                        () => DiagnoseArtifactFailure(new TimeoutException(
+                            "Telemetry persistence exceeded its operational deadline.")),
+                        cancellationToken).ConfigureAwait(false);
+                else
+                    await AwaitCancellableAsync(
+                        File.WriteAllTextAsync(target, JsonSerializer.Serialize(telemetry), telemetryStop.Token),
+                        Remaining(_options.ArtifactTelemetryTimeout), telemetryStop,
+                        () => DiagnoseArtifactFailure(new TimeoutException(
+                            "Telemetry persistence exceeded its operational deadline.")),
+                        cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            { failures++; DiagnoseArtifactFailure(new OperationCanceledException("Telemetry persistence was cancelled.")); }
+            catch (Exception error) when (error is not OutOfMemoryException
+                and not StackOverflowException)
+            { failures++; DiagnoseArtifactFailure(error); }
+        }
+
+        if (facts.Replay is { } replay)
         {
             try
             {
-                if (item.Replay != null)
-                {
-                    await item.Replay.Completion.ConfigureAwait(false);
-                    if (item.Override == null && item.Replay.Status.State != "complete") throw new IOException("Replay did not complete successfully.");
-                }
-                if (item.Override != null) continue;
-                if (item.Completion == null) throw new InvalidDataException("Match completion is missing.");
-                Guid reportId = item.Entry.Spec.MatchId.Value;
-                Guid? telemetryId = item.Completion.Telemetry != null ? reportId : null;
-                MatchReportReady? reportReady = null;
-                if (_options.ArtifactDirectory is { } directory)
-                {
-                    Directory.CreateDirectory(directory);
-                    if (item.Completion.Report is { } report)
-                        reportReady = WorkerReportArtifactWriter.Write(directory, _options.WorkerId, _options.Incarnation,
-                            item.Entry.Spec, item.Entry.WireId.Value, report);
-                    if (item.Completion.Telemetry is { } telemetry)
-                        await File.WriteAllTextAsync(Path.Combine(directory, reportId + ".telemetry.json"), JsonSerializer.Serialize(telemetry));
-                }
-                var outcomes = item.Completion.Report?.Participants.Take(MatchCompletionSummary.MaxOutcomes).Select(p =>
-                {
-                    MatchParticipationSpan? span = p.Spans.IsDefaultOrEmpty ? null : p.Spans[^1];
-                    RosterSeat? seat = span is { } finalSpan
-                        ? item.Entry.Spec.Roster.FirstOrDefault(candidate => candidate.SeatId == finalSpan.Slot)
-                        : null;
-                    return new PlayerOutcomeSummary(p.ParticipantId, p.PlayerId, p.Kind, p.DisplayName, p.Outcome,
-                        p.Metrics.Standing, p.Metrics.TeamStanding, p.Metrics.Points, p.Metrics.Kills, p.Metrics.Deaths,
-                        p.Kind == ParticipantKind.Guest ? seat?.GuestSessionId : null,
-                        span?.Slot, span?.Hunter, span?.TeamIndex);
-                }).ToImmutableArray()
-                    ?? ImmutableArray<PlayerOutcomeSummary>.Empty;
-                var summary = new MatchCompletionSummary(item.Entry.Spec.MatchId, item.Entry.Spec.LobbyId,
-                    item.Completion.Result?.EndReason ?? MatchEndReason.Forced, outcomes, item.ReplayId, telemetryId, reportId);
-                summary.Validate();
-                RecordTerminal(item.Entry, new MatchCompleted(summary));
-                if (reportReady != null) Emit(reportReady);
+                // ServerReplaySession owns an uncancellable writer. Waiting for
+                // it here preserves permit ownership until the actual operation
+                // ends; it does not block the report edge above or other workers.
+                Task replayOperation = _artifactOperations?.AwaitReplay is { } awaitReplay
+                    ? awaitReplay(facts, cancellationToken) : replay.Completion;
+                await AwaitUncancellableAsync(replayOperation,
+                    Remaining(_options.ArtifactReplayTimeout), () =>
+                    {
+                        ArtifactPipeline.FenceUnavailable();
+                        DiagnoseArtifactFailure(new TimeoutException(
+                            "Replay persistence exceeded its operational deadline."));
+                    }, cancellationToken).ConfigureAwait(false);
+                if (replay.Status.State != "complete") throw new IOException("Replay did not complete successfully.");
             }
-            catch (Exception error)
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            { failures++; DiagnoseArtifactFailure(new OperationCanceledException("Replay persistence was cancelled.")); }
+            catch (Exception error) when (error is not OutOfMemoryException
+                and not StackOverflowException)
+            { failures++; DiagnoseArtifactFailure(error); }
+        }
+
+        return new(reportReady, reportFailure, failures);
+    }
+
+    private bool ShouldInjectArtifactFailure()
+    {
+        lock (_artifactFailureGate)
+            return _artifactRandom.NextDouble() < _options.ArtifactFailureRate;
+    }
+
+    private static async Task<T> AwaitUncancellableAsync<T>(Task<T> operation,
+        TimeSpan deadline, Action deadlineExceeded, CancellationToken shutdown)
+    {
+        using CancellationTokenSource waitCancellation
+            = CancellationTokenSource.CreateLinkedTokenSource(shutdown);
+        Task timeout = Task.Delay(deadline, waitCancellation.Token);
+        Task shutdownWait = Task.Delay(Timeout.InfiniteTimeSpan, waitCancellation.Token);
+        Task winner = await Task.WhenAny(operation, timeout, shutdownWait).ConfigureAwait(false);
+        // Do not leave the losing timer or its shutdown registration behind
+        // while an uncancellable operation is completing.
+        waitCancellation.Cancel();
+        if (winner != operation)
+        {
+            if (shutdown.IsCancellationRequested)
             {
-                if (item.Override == null) RecordTerminal(item.Entry, new MatchFailed(item.Entry.Spec.MatchId, Bounded("Completion persistence failed: " + error.Message)));
+                // Even cancellation at the process boundary does not detach
+                // an operation from its owning artifact job.
+                try { await operation.ConfigureAwait(false); }
+                catch { /* The caller records the shutdown disposition. */ }
+                throw new OperationCanceledException(shutdown);
             }
-            finally { Interlocked.Decrement(ref _pendingArtifacts); }
+            deadlineExceeded();
+            // Do not abandon an operation that owns an artifact reservation.
+            return await operation.ConfigureAwait(false);
+        }
+        return await operation.ConfigureAwait(false);
+    }
+
+    private static async Task AwaitUncancellableAsync(Task operation,
+        TimeSpan deadline, Action deadlineExceeded, CancellationToken shutdown)
+    {
+        using CancellationTokenSource waitCancellation
+            = CancellationTokenSource.CreateLinkedTokenSource(shutdown);
+        Task timeout = Task.Delay(deadline, waitCancellation.Token);
+        Task shutdownWait = Task.Delay(Timeout.InfiniteTimeSpan, waitCancellation.Token);
+        Task winner = await Task.WhenAny(operation, timeout, shutdownWait).ConfigureAwait(false);
+        waitCancellation.Cancel();
+        if (winner != operation)
+        {
+            if (shutdown.IsCancellationRequested)
+            {
+                try { await operation.ConfigureAwait(false); }
+                catch { /* The caller records the shutdown disposition. */ }
+                throw new OperationCanceledException(shutdown);
+            }
+            deadlineExceeded();
+            await operation.ConfigureAwait(false);
+        }
+        else await operation.ConfigureAwait(false);
+    }
+
+    private static async Task AwaitCancellableAsync(Task operation, TimeSpan deadline,
+        CancellationTokenSource operationCancellation, Action deadlineExceeded,
+        CancellationToken shutdown)
+    {
+        using CancellationTokenSource waitCancellation
+            = CancellationTokenSource.CreateLinkedTokenSource(shutdown);
+        Task timeout = Task.Delay(deadline, waitCancellation.Token);
+        Task shutdownWait = Task.Delay(Timeout.InfiniteTimeSpan, waitCancellation.Token);
+        Task winner = await Task.WhenAny(operation, timeout, shutdownWait).ConfigureAwait(false);
+        waitCancellation.Cancel();
+        if (winner != operation)
+        {
+            if (shutdown.IsCancellationRequested)
+            {
+                operationCancellation.Cancel();
+                try { await operation.ConfigureAwait(false); }
+                catch { /* The caller records the shutdown disposition. */ }
+                throw new OperationCanceledException(shutdown);
+            }
+            deadlineExceeded();
+            operationCancellation.Cancel();
+            await operation.ConfigureAwait(false);
+        }
+        else await operation.ConfigureAwait(false);
+    }
+
+    private void DiagnoseArtifactFailure(Exception error)
+    {
+        // Exception text remains local-only diagnostic data. It never crosses
+        // the Worker IPC report-disposition contract.
+        lock (_artifactDiagnostics)
+        {
+            _artifactDiagnostics.Enqueue(Bounded(error.Message));
+            while (_artifactDiagnostics.Count > 32) _artifactDiagnostics.Dequeue();
         }
     }
 
+    private readonly Queue<string> _artifactDiagnostics = new();
+
+    private MatchCompletionSummary BuildCompletionSummary(MatchSpec spec,
+        MatchCompletion completion, Guid? replayId)
+    {
+        Guid reportId = spec.MatchId.Value;
+        Guid? telemetryId = completion.Telemetry != null ? reportId : null;
+        ImmutableArray<PlayerOutcomeSummary> outcomes = completion.Report?.Participants
+            .Take(MatchCompletionSummary.MaxOutcomes).Select(p =>
+            {
+                MatchParticipationSpan? span = p.Spans.IsDefaultOrEmpty ? null : p.Spans[^1];
+                RosterSeat? seat = span is { } finalSpan
+                    ? spec.Roster.FirstOrDefault(candidate => candidate.SeatId == finalSpan.Slot)
+                    : null;
+                return new PlayerOutcomeSummary(p.ParticipantId, p.PlayerId, p.Kind, p.DisplayName, p.Outcome,
+                    p.Metrics.Standing, p.Metrics.TeamStanding, p.Metrics.Points, p.Metrics.Kills, p.Metrics.Deaths,
+                    p.Kind == ParticipantKind.Guest ? seat?.GuestSessionId : null,
+                    span?.Slot, span?.Hunter, span?.TeamIndex);
+            }).ToImmutableArray() ?? ImmutableArray<PlayerOutcomeSummary>.Empty;
+        var summary = new MatchCompletionSummary(spec.MatchId, spec.LobbyId,
+            completion.Result?.EndReason ?? MatchEndReason.Forced, outcomes, replayId,
+            telemetryId, reportId);
+        summary.Validate();
+        return summary;
+    }
+
+    private bool RequiresArtifacts(MatchSpec spec)
+        => spec.ReplayPolicy == ReplayPolicy.Record || spec.TelemetryPolicy == TelemetryPolicy.Record
+            || _options.ArtifactDirectory != null
+            || spec.TrustClass is MatchTrustClass.VerifiedCasual or MatchTrustClass.Ranked or MatchTrustClass.Tournament;
+
+    private bool ReportArtifactExpected(MatchSpec spec)
+        => _options.ArtifactDirectory != null || spec.TrustClass is MatchTrustClass.VerifiedCasual
+            or MatchTrustClass.Ranked or MatchTrustClass.Tournament;
+
     private void RecordTerminal(MatchRegistry.Entry entry, WorkerEvent value)
     {
-        lock (_registry.Gate) entry.Terminal = value;
+        bool publish = false;
+        lock (_registry.Gate)
+        {
+            if (entry.Terminal is { } prior)
+            {
+                if (!Equals(prior, value)) Interlocked.Increment(ref _terminalConflicts);
+            }
+            else
+            {
+                entry.Terminal = value;
+                publish = true;
+            }
+        }
+        if (publish) Emit(value);
+    }
+
+    private bool TryEnqueueArtifacts(MatchRegistry.Entry entry,
+        WorkerArtifactFacts facts)
+    {
+        // Transfer the admission reservation before publishing the bounded
+        // queue write. A worker can finish a tiny artifact job inline, so the
+        // callback must observe the transfer even when it wins the race with
+        // TryEnqueue's return.
+        lock (_registry.Gate)
+            if (entry.ArtifactReserved) entry.ArtifactTransferred = true;
+        bool queued;
+        try { queued = ArtifactPipeline.TryEnqueue(facts); }
+        catch (ObjectDisposedException) { queued = false; }
+        if (queued) return true;
+
+        lock (_registry.Gate)
+        {
+            if (entry.ArtifactReserved && entry.ArtifactTransferred)
+            {
+                entry.ArtifactTransferred = false;
+                entry.ArtifactReserved = false;
+                Interlocked.Decrement(ref _artifactReservations);
+            }
+        }
+        return false;
+    }
+
+    private void OnArtifactJobCompleted(WorkerArtifactFacts facts,
+        WorkerArtifactResult result)
+    {
+        lock (_registry.Gate)
+        {
+            if (!_registry.Entries.TryGetValue(facts.Spec.MatchId, out MatchRegistry.Entry? entry)
+                || !entry.ArtifactReserved || !entry.ArtifactTransferred) return;
+            entry.ArtifactTransferred = false;
+            entry.ArtifactReserved = false;
+            Interlocked.Decrement(ref _artifactReservations);
+            if (_testArtifactEntries.Remove(facts.Spec.MatchId))
+            {
+                _registry.Entries.Remove(facts.Spec.MatchId);
+                _registry.ByWireId.Remove(entry.WireId.Value);
+            }
+        }
+    }
+
+    private void ReleaseTestArtifactEntry(MatchRegistry.Entry entry)
+    {
+        lock (_registry.Gate)
+        {
+            if (!_testArtifactEntries.Remove(entry.Spec.MatchId)) return;
+            if (entry.ArtifactReserved)
+            {
+                entry.ArtifactReserved = false;
+                entry.ArtifactTransferred = false;
+                Interlocked.Decrement(ref _artifactReservations);
+            }
+            _registry.Entries.Remove(entry.Spec.MatchId);
+            _registry.ByWireId.Remove(entry.WireId.Value);
+        }
+    }
+
+    private void PublishArtifactDisposition(WorkerArtifactFacts facts,
+        MatchReportReady? ready, ArtifactFailureCode? failure)
+    {
+        if (ready != null && failure != null)
+        {
+            ready = null;
+            failure = ArtifactFailureCode.PersistenceFailed;
+        }
+        if (ready == null && failure == null) failure = ArtifactFailureCode.PersistenceFailed;
+        if (failure.HasValue) ArtifactPipeline.FenceUnavailable();
+        WorkerEvent value = ready is { } report
+            ? report
+            : new MatchReportUnavailable(facts.Spec.MatchId, facts.ReportId,
+                _options.WorkerId, _options.Incarnation, failure!.Value);
         Emit(value);
     }
+
     private void Release(MatchRegistry.Entry entry)
     {
         lock (_registry.Gate)
         {
             if (entry.Released) return;
             entry.Released = true; _registry.ByWireId.Remove(entry.WireId.Value);
+            if (entry.ArtifactReserved && !entry.ArtifactTransferred)
+            {
+                entry.ArtifactReserved = false;
+                Interlocked.Decrement(ref _artifactReservations);
+            }
             entry.Lease?.Dispose(); entry.Tickets?.Dispose();
             entry.Instance = null; entry.Transport = null; entry.Lease = null; entry.Tickets = null;
         }
@@ -653,7 +1057,15 @@ public sealed class WorkerRuntime : IAsyncDisposable
                         LifetimeMatchesAccepted: _registry.Entries.Count,
                         IdentityHistoryUsed: _registry.Entries.Count,
                         IdentityHistoryCapacity: _options.CompletedHistoryCapacity,
-                        ActiveAdmissions: _hub.ActiveAdmissionRouteCount)));
+                        ActiveAdmissions: _hub.ActiveAdmissionRouteCount,
+                        PersistenceHealth: ArtifactDiagnostics.Health,
+                        ActiveArtifacts: ArtifactDiagnostics.Active,
+                        QueuedArtifacts: ArtifactDiagnostics.Queued,
+                        ExecutingArtifacts: ArtifactDiagnostics.Executing,
+                        ArtifactFailures: ArtifactDiagnostics.Failures,
+                        ArtifactCompleted: ArtifactDiagnostics.Completed,
+                        ArtifactDurationAverageMilliseconds: ArtifactDiagnostics.DurationAverageMilliseconds,
+                        TerminalConflicts: _terminalConflicts)));
         }
     }
     private WorkerCapacity CapacityLocked() => new(_configuredLimit, _configuredPlayers, _registry.ByWireId.Count,
@@ -737,34 +1149,62 @@ public sealed class WorkerRuntime : IAsyncDisposable
         return Task.CompletedTask;
     }
     private static string Bounded(string value) => new string(value.Where(ch => !char.IsControl(ch)).Take(1024).ToArray()) is { Length: > 0 } text ? text : "Worker operation failed.";
-    public async ValueTask DisposeAsync()
+    public ValueTask DisposeAsync()
     {
-        if (Interlocked.Exchange(ref _disposed, 1) != 0) return;
-        Drain();
+        lock (_disposeGate)
+        {
+            // A bounded first attempt may surface an owned artifact operation
+            // still running. Keep all dependencies alive and allow a later
+            // owner call to finish the same pipeline task after it settles.
+            if (_disposeTask is { IsCompleted: true } && !_fullyDisposed)
+                _disposeTask = null;
+            _disposeTask ??= DisposeCoreAsync();
+            return new ValueTask(_disposeTask);
+        }
+    }
+
+    private async Task DisposeCoreAsync()
+    {
+        if (Interlocked.Exchange(ref _disposed, 1) == 0) Drain();
         try
         {
-            try { _lanes.Dispose(); }
-            finally { _artifacts.Writer.TryComplete(); }
-            await _artifactWriter.WaitAsync(TimeSpan.FromSeconds(30));
+            // Stop the simulation producers before closing the artifact
+            // consumers. Lane shutdown emits the terminal edge and transfers
+            // any required-artifact reservation into the pipeline; closing
+            // the pipeline first would turn those terminal jobs into a
+            // spurious queue-exhaustion failure.
+            _lanes.Dispose();
+            if (Interlocked.Exchange(ref _simulationShutdownNotified, 1) == 0)
+                _artifactOperations?.Lifecycle?.Invoke("simulation-stopped");
+            await ArtifactPipeline.DisposeAsync().AsTask()
+                .WaitAsync(_options.ArtifactShutdownTimeout).ConfigureAwait(false);
+            _artifactOperations?.Lifecycle?.Invoke("artifacts-drained");
+        }
+        catch (TimeoutException error)
+        {
+            // Do not dispose the network/content owners while an uncancellable
+            // artifact operation still owns its reservation. The process owner
+            // receives a hard failure and can retry disposal after the task
+            // settles; no abandoned job is reported as stopped.
+            ArtifactPipeline.MarkUnavailable();
+            throw new TimeoutException("Worker artifact shutdown is still owned by an active operation.", error);
+        }
+        _ioStop.Cancel();
+        _networkWake.Set();
+        try
+        {
+            if (!_io.Join(TimeSpan.FromSeconds(5))) throw new TimeoutException("Worker I/O did not stop.");
         }
         finally
         {
-            _ioStop.Cancel();
-            _networkWake.Set();
-            try
-            {
-                if (!_io.Join(TimeSpan.FromSeconds(5))) throw new TimeoutException("Worker I/O did not stop.");
-            }
-            finally
-            {
-                _mapBuilds.Dispose();
-                _hub.SetNetworkWake(null);
-                _hub.Dispose();
-                _ioStop.Dispose();
-                _networkWake.Dispose();
-                _contentLease.Dispose();
-            }
-            lock (_registry.Gate) _status = WorkerStatus.Stopped;
+            _mapBuilds.Dispose();
+            _hub.SetNetworkWake(null);
+            _hub.Dispose();
+            _ioStop.Dispose();
+            _networkWake.Dispose();
+            _contentLease.Dispose();
         }
+        lock (_registry.Gate) _status = WorkerStatus.Stopped;
+        Volatile.Write(ref _fullyDisposed, true);
     }
 }

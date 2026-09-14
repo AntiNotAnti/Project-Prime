@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using MphRead.Combat;
 using MphRead.Cosmetics;
 using MphRead.Entities;
 using MphRead.Mods.Audio;
@@ -416,14 +417,25 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < _killCount; i++)
             {
                 KillEvent value = _kills[i];
-                if (feedback?.Process(value) == true
-                    && value.Victim.Slot < scene.Players.Count
-                    && _identities[value.Victim.Slot] == value.Victim.ConnectionId
-                    && _lives[value.Victim.Slot] == value.Victim.Life)
+                bool accepted = feedback?.Process(value) == true;
+                if (value.Victim.Slot < scene.Players.Count
+                    && _identities[value.Victim.Slot] == value.Victim.ConnectionId)
                 {
-                    scene.Players[value.Victim.Slot].GetPresentation()
-                        .PresentAuthoritativeKill(value, scene.Services.WorldServerTick,
-                            PresentationAudioSuppressed);
+                    PlayerPresentation victimPresentation
+                        = scene.Players[value.Victim.Slot].GetPresentation();
+                    bool actorBound = victimPresentation.IsDeathPresentationBoundTo(
+                        value.Victim, _identities[value.Victim.Slot],
+                        _lives[value.Victim.Slot]);
+                    bool semanticCurrent
+                        = DeathPresentationRouting.IsSemanticCurrent(value,
+                            Match.MatchId, scene.Match.PhaseRevision);
+                    if (DeathPresentationRouting.ShouldObserveKill(accepted,
+                            actorBound, semanticCurrent))
+                        victimPresentation.PresentAuthoritativeKill(value,
+                            scene.Services.WorldServerTick, PresentationAudioSuppressed);
+                    else if (accepted)
+                        Mods.DebugLog.Line("cosmetics/death",
+                            $"Rejected replay kill {value.Id} for slot {value.Victim.Slot}: actor binding mismatch.");
                 }
             }
             for (int i = 0; i < _worldEventCount; i++)

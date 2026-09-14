@@ -1039,6 +1039,21 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         return new(text, ValidateRevision(revision));
     }
 
+    /// <summary>Builds the post-match vote command for the authoritative
+    /// Rematch option in a current round snapshot.</summary>
+    internal static LobbyVoteCast CreateRematchVoteCommand(LobbySnapshot lobby,
+        NodeRoundSnapshot round)
+    {
+        ArgumentNullException.ThrowIfNull(lobby);
+        ArgumentNullException.ThrowIfNull(round);
+        if (round.Lobby.LobbyId != lobby.LobbyId)
+            throw new InvalidOperationException("The post-match vote belongs to another lobby.");
+        LobbyVoteEntry rematch = round.Options.FirstOrDefault(option =>
+            option.Choice == LobbyVoteChoice.Rematch)
+            ?? throw new InvalidOperationException("A rematch vote is not available.");
+        return new(ValidateRevision(lobby.Revision), round.BallotRevision, rematch.Id);
+    }
+
     internal static LobbyConfigure CreateStructuredConfigureCommand(long revision,
         string mapKey, MatchMode mode, int botCount, LobbyRulesOptions rules,
         BotDifficulty botDifficulty = BotDifficulty.Normal)
@@ -1738,8 +1753,21 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         if (response.Type != "lobby.round") throw new InvalidOperationException("The server did not confirm the vote.");
     }
 
+    /// <summary>
+    /// Casts the authoritative post-match Rematch ballot option. Rematch is a
+    /// Node-owned ballot rather than a direct lobby command, so the current
+    /// round supplies both the option id and ballot revision.
+    /// </summary>
     public Task RematchAsync(CancellationToken cancellationToken = default)
-        => SendLobbyCommandAsync((lobby, _) => new LobbyRematch(lobby.Revision), "lobby.rematch", cancellationToken);
+    {
+        NodeControlClient node = RequireConnected();
+        LobbySnapshot lobby = node.Lobby
+            ?? throw new InvalidOperationException("Join a lobby first.");
+        NodeRoundSnapshot round = node.Round
+            ?? throw new InvalidOperationException("No post-match vote is available.");
+        LobbyVoteCast vote = CreateRematchVoteCommand(lobby, round);
+        return CastPostMatchVoteAsync(vote.OptionId, cancellationToken);
+    }
 
     /// <summary>Proposes a Node-owned restart ballot for the active match.</summary>
     public Task RequestRestartMatchAsync(CancellationToken cancellationToken = default)
@@ -2379,7 +2407,8 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         CancellationToken cancellationToken)
     {
         if (Volatile.Read(ref _handoffEnabled) == 0) return false;
-        Guid? lobbyId = node.Lobby?.LobbyId;
+        LobbySnapshot committedLobby = RequireCommittedHandoffSnapshot(node, handoff);
+        Guid? lobbyId = committedLobby.LobbyId;
         if (IsLobbyLeaving(lobbyId)) return false;
         NodeSessionSnapshot session = node.Session
             ?? throw new InvalidOperationException("The server connection is not ready.");
@@ -2391,7 +2420,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
         bool joined = false;
         try
         {
-            if (node.Lobby?.RequiredMap is { } required)
+            if (committedLobby.RequiredMap is { } required)
             {
                 string endpoint = node.Endpoint
                     ?? throw new InvalidOperationException("The server connection is unavailable.");
@@ -2400,6 +2429,10 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 await preparation.WaitAsync(cancellationToken).ConfigureAwait(false);
                 EnsureMapPreparationCurrent(node, required, generation);
             }
+            // A map or lifecycle snapshot can be replaced while preparation
+            // is in flight. Only the committed snapshot paired with this
+            // handoff may authorize joining the Worker.
+            committedLobby = RequireCommittedHandoffSnapshot(node, handoff);
             joined = await NetLaunch.JoinWorkerAsync(handoff, session.DisplayName, cancellationToken)
                 .ConfigureAwait(false);
             if (!joined)
@@ -2417,18 +2450,18 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
                 _handoff.Cancel(key);
                 return false;
             }
+            committedLobby = RequireCommittedHandoffSnapshot(node, handoff);
             if (_online.Match?.Play is not { } play)
                 throw new InvalidOperationException("The Worker join completed without a scoped match context.");
             play.BindNodeMatch(handoff.MatchId);
             node.MarkGameplayJoined(handoff.MatchId);
-            LobbySnapshot? lobby = node.Lobby;
             LaunchPlan plan = new()
             {
                 Kind = LaunchKind.Online,
                 Hunter = handoff.Hunter,
                 PlayerName = session.DisplayName,
-                RoomKey = lobby?.MapKey ?? "",
-                Mode = lobby?.Mode.ToLegacyMode() ?? GameMode.Battle,
+                RoomKey = committedLobby.MapKey,
+                Mode = committedLobby.Mode.ToLegacyMode(),
                 Port = handoff.Port
             };
             Launch?.Invoke(this, plan);
@@ -2485,6 +2518,27 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
             || Volatile.Read(ref _handoffEnabled) == 0
             || cancellationToken.IsCancellationRequested
             || !ReferenceEquals(_observed, node);
+
+    private static LobbySnapshot RequireCommittedHandoffSnapshot(NodeControlClient node,
+        NodeMatchHandoff handoff)
+    {
+        LobbySnapshot lobby = node.Lobby
+            ?? throw new InvalidOperationException(
+                "The authoritative lobby snapshot is not available for this match.");
+        if (lobby.Phase is not (LobbyPhase.StartingMatch or LobbyPhase.InMatch)
+            || lobby.CurrentMatchId != handoff.MatchId)
+            throw new InvalidOperationException(
+                "The authoritative lobby snapshot no longer matches this handoff.");
+
+        ulong lobbyEpoch = lobby.LifecycleEpoch.Value == 0
+            ? MatchLifecycleEpoch.Initial.Value : lobby.LifecycleEpoch.Value;
+        ulong handoffEpoch = handoff.LifecycleEpoch.Value == 0
+            ? MatchLifecycleEpoch.Initial.Value : handoff.LifecycleEpoch.Value;
+        if (lobbyEpoch != handoffEpoch)
+            throw new InvalidOperationException(
+                "The authoritative lobby lifecycle no longer matches this handoff.");
+        return lobby;
+    }
 
     private bool IsLobbyLeaving(Guid? lobbyId)
     {

@@ -10,15 +10,22 @@ namespace ProjectPrime.Server.Node.Reporting;
 /// <summary>Node-owned bounded artifact ingestion. HTTP and durable retry ownership remain in MatchReportOutbox.</summary>
 public sealed class NodeReportIngestor : IAsyncDisposable
 {
+    private abstract record IntakeWork;
     private sealed record Intake(MatchSpec Spec, WorkerId Worker, Guid Incarnation, uint WireId, string Root,
-        MatchReportReady Ready, TaskCompletionSource<bool> Durability);
+        MatchReportReady Ready, TaskCompletionSource<bool> Durability) : IntakeWork;
+    private sealed record UnavailableIntake(MatchSpec Spec, MatchReportUnavailable Unavailable,
+        TaskCompletionSource<bool> Durability) : IntakeWork;
     private sealed record Binding(Guid MatchId, string Hash, MatchReportV1? Pending, string SpecHash, WorkerId Worker, Guid Incarnation, uint WireId, string ArtifactRoot);
+    private sealed record UnavailableReceipt(Guid MatchId, Guid ReportId, Guid WorkerId,
+        Guid WorkerIncarnation, ArtifactFailureCode FailureCode);
     private readonly MatchReportOutbox _outbox;
     private readonly string _bindings;
-    private readonly Channel<Intake> _queue;
+    private readonly string _unavailable;
+    private readonly Channel<IntakeWork> _queue;
     private readonly CancellationTokenSource _stop = new();
     private readonly object _gate = new();
     private readonly Dictionary<MatchId, MatchReportOutbox.Reservation> _reservations = new();
+    private readonly Dictionary<MatchId, UnavailableIntake> _unavailablePending = new();
     private readonly HashSet<TaskCompletionSource<bool>> _durabilityTasks = [];
     private readonly Task _reader;
     private volatile bool _ready;
@@ -27,11 +34,14 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     public string? LastError => Volatile.Read(ref _error);
     private int _bindingCount;
     private long _bindingBytes;
+    private int _unavailableCount;
+    private long _unavailableBytes;
     public bool CanAcceptOfficial
     {
         get { lock (_gate) return _ready && !_stopping && _error == null && _outbox.CanAccept
-            && _bindingCount + _reservations.Count < MaximumBindings
-            && _bindingBytes + (_reservations.Count + 1L) * MatchReportReady.MaximumPayloadBytes * 2L <= MaximumBindingBytes; }
+            && _bindingCount + _unavailableCount + _reservations.Count < MaximumBindings
+            && _bindingBytes + _unavailableBytes
+                + (_reservations.Count + 1L) * MatchReportReady.MaximumPayloadBytes * 2L <= MaximumBindingBytes; }
     }
     public long Ingested => Interlocked.Read(ref _ingested);
     private long _ingested;
@@ -44,7 +54,9 @@ public sealed class NodeReportIngestor : IAsyncDisposable
         if (!Path.IsPathFullyQualified(receiptDirectory) || queueCapacity is < 1 or > 1024) throw new ArgumentException("Invalid ingestion storage or capacity.");
         _outbox = outbox; _bindings = receiptDirectory; Directory.CreateDirectory(_bindings);
         RejectLink(_bindings);
-        _queue = Channel.CreateBounded<Intake>(new BoundedChannelOptions(queueCapacity) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
+        _unavailable = Path.Combine(_bindings, "unavailable"); Directory.CreateDirectory(_unavailable);
+        RejectLink(_unavailable);
+        _queue = Channel.CreateBounded<IntakeWork>(new BoundedChannelOptions(queueCapacity) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
         _reader = RunAsync();
     }
     public bool TryReserve(MatchId matchId)
@@ -58,6 +70,72 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     }
     public void CancelReservation(MatchId matchId)
     { lock (_gate) if (_reservations.Remove(matchId, out var reservation)) reservation.Dispose(); }
+
+    /// <summary>Queues a bounded Node-owned receipt for an expected official
+    /// report that could not be produced. The returned task completes only
+    /// after the receipt is durably written; callers must not release their
+    /// outbox reservation before that task succeeds.</summary>
+    public bool TryQueueUnavailable(MatchSpec spec,
+        MatchReportUnavailable unavailable, out Task durability)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        durability = completion.Task;
+        try
+        {
+            spec.Validate(); unavailable.Validate();
+            if (unavailable.MatchId != spec.MatchId || unavailable.ReportId != spec.MatchId.Value)
+            {
+                completion.TrySetException(new InvalidDataException(
+                    "Report-unavailable receipt identity does not match the frozen match."));
+                return false;
+            }
+            lock (_gate)
+            {
+                if (!_ready || _stopping || _error != null)
+                {
+                    completion.TrySetException(new IOException("Report-unavailable receipt storage is unavailable."));
+                    return false;
+                }
+                if (_unavailablePending.TryGetValue(unavailable.MatchId, out UnavailableIntake? pending))
+                {
+                    if (pending.Unavailable != unavailable)
+                    {
+                        completion.TrySetException(new InvalidDataException(
+                            "Conflicting report-unavailable disposition."));
+                        return false;
+                    }
+                    durability = pending.Durability.Task;
+                    return true;
+                }
+                var intake = new UnavailableIntake(spec, unavailable, completion);
+                _unavailablePending.Add(unavailable.MatchId, intake);
+                Interlocked.Increment(ref _pending);
+                _durabilityTasks.Add(completion);
+                if (_queue.Writer.TryWrite(intake)) return true;
+                _unavailablePending.Remove(unavailable.MatchId);
+                _durabilityTasks.Remove(completion);
+                Interlocked.Decrement(ref _pending);
+                completion.TrySetException(new IOException("Report-unavailable receipt queue is closed."));
+                return false;
+            }
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidDataException
+            or IOException or UnauthorizedAccessException or JsonException)
+        {
+            completion.TrySetException(error);
+            return false;
+        }
+    }
+
+    /// <summary>Compatibility helper for non-reader callers. Scheduler code
+    /// uses <see cref="TryQueueUnavailable"/> so the Worker event reader never
+    /// performs receipt I/O synchronously.</summary>
+    public bool TryRecordUnavailable(MatchSpec spec, MatchReportUnavailable unavailable)
+    {
+        if (!TryQueueUnavailable(spec, unavailable, out Task durability)) return false;
+        try { durability.GetAwaiter().GetResult(); return true; }
+        catch (Exception) { return false; }
+    }
 
     public bool TryQueue(MatchSpec spec, WorkerId workerId, Guid workerIncarnation, uint wireMatchId,
         string artifactDirectory, MatchReportReady ready)
@@ -84,7 +162,7 @@ public sealed class NodeReportIngestor : IAsyncDisposable
             }
             Interlocked.Increment(ref _pending);
             _durabilityTasks.Add(completion);
-            if (_queue.Writer.TryWrite(new(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready, completion)))
+            if (_queue.Writer.TryWrite(new Intake(spec, workerId, workerIncarnation, wireMatchId, artifactDirectory, ready, completion)))
                 return true;
             _durabilityTasks.Remove(completion);
             Interlocked.Decrement(ref _pending);
@@ -148,6 +226,22 @@ public sealed class NodeReportIngestor : IAsyncDisposable
             var files = Directory.GetFiles(_bindings, "*.json");
             if (files.Length >= MaximumBindings || files.Sum(p => new FileInfo(p).Length) > MaximumBindingBytes) throw new IOException("Report receipt storage is full.");
             _bindingCount = files.Length; _bindingBytes = files.Sum(p => new FileInfo(p).Length);
+            string[] unavailable = Directory.GetFiles(_unavailable, "*.json");
+            if (unavailable.Length >= MaximumBindings
+                || unavailable.Sum(p => new FileInfo(p).Length) > MaximumBindingBytes)
+                throw new IOException("Report-unavailable receipt storage is full.");
+            foreach (string path in unavailable)
+            {
+                RejectLink(path);
+                UnavailableReceipt receipt = JsonSerializer.Deserialize<UnavailableReceipt>(File.ReadAllBytes(path))
+                    ?? throw new InvalidDataException("Invalid report-unavailable receipt.");
+                if (receipt.MatchId == Guid.Empty || receipt.ReportId != receipt.MatchId
+                    || receipt.WorkerId == Guid.Empty || receipt.WorkerIncarnation == Guid.Empty
+                    || !Enum.IsDefined(receipt.FailureCode))
+                    throw new InvalidDataException("Invalid report-unavailable receipt identity.");
+            }
+            _unavailableCount = unavailable.Length;
+            _unavailableBytes = unavailable.Sum(p => new FileInfo(p).Length);
             foreach (string path in files)
             {
                 Binding binding = ReadBinding(path);
@@ -155,8 +249,37 @@ public sealed class NodeReportIngestor : IAsyncDisposable
                 CleanupArtifact(binding);
             }
             lock (_gate) if (!_stopping) _ready = true;
-            await foreach (var item in _queue.Reader.ReadAllAsync(_stop.Token))
+            await foreach (IntakeWork work in _queue.Reader.ReadAllAsync(_stop.Token))
             {
+                if (work is UnavailableIntake unavailableWork)
+                {
+                    bool unavailableDurable = false;
+                    try
+                    {
+                        PersistUnavailable(unavailableWork);
+                        unavailableDurable = true;
+                    }
+                    catch (Exception error)
+                    {
+                        unavailableWork.Durability.TrySetException(error);
+                        throw;
+                    }
+                    finally
+                    {
+                        if (unavailableDurable) unavailableWork.Durability.TrySetResult(true);
+                        else unavailableWork.Durability.TrySetException(
+                            new IOException("Report-unavailable receipt durability was not established."));
+                        lock (_gate)
+                        {
+                            _unavailablePending.Remove(unavailableWork.Unavailable.MatchId);
+                            _durabilityTasks.Remove(unavailableWork.Durability);
+                        }
+                        Interlocked.Decrement(ref _pending);
+                    }
+                    continue;
+                }
+
+                Intake item = (Intake)work;
                 bool durable = false;
                 try
                 {
@@ -258,9 +381,55 @@ public sealed class NodeReportIngestor : IAsyncDisposable
     private void FailDurability(Exception error)
     {
         TaskCompletionSource<bool>[] pending;
-        lock (_gate) { pending = _durabilityTasks.ToArray(); _durabilityTasks.Clear(); }
+        lock (_gate)
+        {
+            pending = _durabilityTasks.ToArray();
+            _durabilityTasks.Clear();
+            _unavailablePending.Clear();
+        }
         foreach (TaskCompletionSource<bool> completion in pending)
             completion.TrySetException(error);
+    }
+
+    private void PersistUnavailable(UnavailableIntake item)
+    {
+        UnavailableReceipt receipt = new(item.Unavailable.MatchId.Value,
+            item.Unavailable.ReportId, item.Unavailable.WorkerId.Value,
+            item.Unavailable.WorkerIncarnation, item.Unavailable.FailureCode);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(receipt);
+        string path = Path.Combine(_unavailable,
+            item.Unavailable.MatchId.Value.ToString("N") + ".json");
+        bool existed = File.Exists(path);
+        if (existed)
+        {
+            RejectLink(path);
+            if (!File.ReadAllBytes(path).AsSpan().SequenceEqual(bytes))
+                throw new InvalidDataException("Conflicting report-unavailable receipt.");
+            return;
+        }
+        lock (_gate)
+        {
+            if (_error != null || _stopping)
+                throw new IOException("Report-unavailable receipt storage is unavailable.");
+            if (_unavailableCount >= MaximumBindings
+                || _unavailableBytes + bytes.Length > MaximumBindingBytes)
+                throw new IOException("Report-unavailable receipt storage is full.");
+        }
+        // This is executed by the ingestor's owned reader, never by the
+        // WorkerScheduler event reader. DurableSpool.Write fsyncs the exact
+        // bounded receipt before the task is completed.
+        DurableSpool.Write(path, bytes);
+        lock (_gate)
+        {
+            // A retransmitted disposition is idempotent. The existence check
+            // and bounded counters are intentionally kept on the ingestor
+            // owner thread; do not charge the same durable receipt again.
+            if (!existed)
+            {
+                _unavailableCount++;
+                _unavailableBytes += bytes.Length;
+            }
+        }
     }
     private async Task StoreAsync(MatchReportV1 report, string hash, string bindingPath)
     {

@@ -34,6 +34,23 @@ public readonly record struct MatchLifecycleEpoch(ulong Value)
     public override string ToString() => Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
 }
 
+/// <summary>
+/// Globally monotonic identity for one authoritative lobby membership
+/// boundary.  It is distinct from the lobby's display revision: chat and
+/// other presentation updates must not create a new membership owner.
+/// </summary>
+public readonly record struct MembershipGeneration(ulong Value)
+{
+    public static MembershipGeneration Initial => new(1);
+
+    public void Validate()
+    {
+        if (Value == 0) throw new ArgumentException("Membership generation is required.");
+    }
+
+    public override string ToString() => Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+}
+
 /// <summary>Finite Node-owned lifecycle states for one frozen match epoch.</summary>
 public enum MatchLifecycleState
 {

@@ -51,7 +51,8 @@ public static class WorkerIpcCodec
         typeof(RetireAdmission),
         typeof(AdmissionRetired),
         typeof(AdmissionRetireFailed),
-        typeof(NodeSigningKeyUpdated)
+        typeof(NodeSigningKeyUpdated),
+        typeof(MatchReportUnavailable)
     ];
 
     public static byte[] Encode(WorkerMessage message)
@@ -214,6 +215,7 @@ public static class WorkerIpcCodec
             case MatchFailed m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 1024); break;
             case MatchInterrupted m: ContractGuard.Id(m.MatchId.Value); ContractGuard.Text(m.Reason, 1024); break;
             case MatchReportReady m: m.Validate(); break;
+            case MatchReportUnavailable m: m.Validate(); break;
             case WorkerDraining m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); break;
             case WorkerFault m: ContractGuard.Id(m.WorkerId.Value); ContractGuard.Id(m.WorkerIncarnation); ContractGuard.Text(m.Reason, 1024); break;
             case NodeSigningKeyUpdated m:
@@ -294,6 +296,7 @@ public static class WorkerIpcCodec
 [JsonSerializable(typeof(AdmissionRetired))]
 [JsonSerializable(typeof(AdmissionRetireFailed))]
 [JsonSerializable(typeof(NodeSigningKeyUpdated))]
+[JsonSerializable(typeof(MatchReportUnavailable))]
 [JsonSerializable(typeof(MatchAdminResult))]
 [JsonSerializable(typeof(NodeMatchSummary))]
 internal partial class WorkerJsonContext : JsonSerializerContext;

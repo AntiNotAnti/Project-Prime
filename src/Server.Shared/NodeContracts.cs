@@ -216,7 +216,12 @@ public sealed record LobbySnapshot(Guid LobbyId, string Name, LobbyVisibility Vi
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LobbyRulesOptions? Rules = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] MapRequirement? RequiredMap = null,
     MatchLifecycleEpoch LifecycleEpoch = default,
-    BotDifficulty BotDifficulty = BotDifficulty.Normal);
+    BotDifficulty BotDifficulty = BotDifficulty.Normal,
+    // Personalized snapshots carry the session's membership boundary. A
+    // zero value remains the source-compatible, non-authoritative projection
+    // used for public/list broadcasts; Node session snapshots must populate it.
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    MembershipGeneration SelfMembershipGeneration = default);
 public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase, int Players, int PlayerLimit, int Observers, long Revision,
     int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
     int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
@@ -329,16 +334,17 @@ public sealed record LobbyReturn(long ExpectedRevision) : NodeCommand;
 [method: JsonConstructor]
 public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Host, ushort Port, string Ticket, ulong Nonce, bool Observer, Hunter Hunter,
     Guid AdmissionId = default, string AdmissionKey = "", bool UdpAuthenticationEnabled = true,
-    HandoffGeneration HandoffGeneration = default, MatchLifecycleEpoch LifecycleEpoch = default)
+    HandoffGeneration HandoffGeneration = default, MatchLifecycleEpoch LifecycleEpoch = default,
+    MembershipGeneration MembershipGeneration = default)
 {
     // Source-level legacy/test handoffs are explicitly keyless. Production
     // Node code uses the full constructor and therefore keeps authentication
     // enabled by default; this overload prevents an omitted mode from being
     // mistaken for an authenticated handoff with missing key material.
-        public NodeMatchHandoff(Guid matchId, uint wireMatchId, string host, ushort port,
+    public NodeMatchHandoff(Guid matchId, uint wireMatchId, string host, ushort port,
         string ticket, ulong nonce, bool observer, Hunter hunter)
         : this(matchId, wireMatchId, host, port, ticket, nonce, observer, hunter,
-            Guid.Empty, "", false, HandoffGeneration.Initial, MatchLifecycleEpoch.Initial) { }
+            Guid.Empty, "", false, default, default, default) { }
 
     public void Validate()
     {
@@ -351,6 +357,7 @@ public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Hos
         if (AdmissionId != Guid.Empty) AdmissionKeyRules.Validate(AdmissionKey);
         if (HandoffGeneration.Value != 0) HandoffGeneration.Validate();
         if (LifecycleEpoch.Value != 0) LifecycleEpoch.Validate();
+        if (MembershipGeneration.Value != 0) MembershipGeneration.Validate();
     }
 
     /// <summary>Strict production validation used by Node-created handoffs.</summary>
@@ -359,14 +366,17 @@ public sealed record NodeMatchHandoff(Guid MatchId, uint WireMatchId, string Hos
         Validate();
         HandoffGeneration.Validate();
         LifecycleEpoch.Validate();
+        MembershipGeneration.Validate();
     }
 
     // AdmissionKey is intentionally omitted from diagnostics and exception text.
     public override string ToString()
         => $"NodeMatchHandoff {{ MatchId = {MatchId}, WireMatchId = {WireMatchId}, AdmissionId = {AdmissionId}, Observer = {Observer} }}";
 }
-public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted, MatchLifecycleEpoch LifecycleEpoch = default);
+public sealed record NodeMatchEnded(Guid MatchId, bool Interrupted, MatchLifecycleEpoch LifecycleEpoch = default,
+    MembershipGeneration MembershipGeneration = default, Guid LobbyId = default);
 /// <summary>Authenticated immutable Worker result relayed by Node without recalculation.</summary>
-public sealed record NodeMatchCompletion(MatchCompletionSummary Summary, MatchLifecycleEpoch LifecycleEpoch = default);
+public sealed record NodeMatchCompletion(MatchCompletionSummary Summary, MatchLifecycleEpoch LifecycleEpoch = default,
+    MembershipGeneration MembershipGeneration = default);
 public sealed record NodeMatchRejoin(Guid MatchId) : NodeCommand;
 public sealed record NodeControlRequest(Guid RequestId, NodeCommand Command);

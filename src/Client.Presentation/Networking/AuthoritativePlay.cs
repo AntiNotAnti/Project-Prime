@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
+using MphRead.Combat;
 using MphRead.Cosmetics;
 using MphRead.Entities;
 using MphRead.Formats.Culling;
@@ -476,11 +477,25 @@ namespace MphRead.Mods.Network
                     if (_presentationScene?.Presentation is ScenePresentation killPresentation)
                     {
                         bool accepted = killPresentation.CombatFeedback.Process(kill);
-                        if (accepted && kill.Victim.Slot < scene.Players.Count
-                            && _identities[kill.Victim.Slot] == kill.Victim.ConnectionId
-                            && _lives[kill.Victim.Slot] == kill.Victim.Life)
-                            scene.Players[kill.Victim.Slot].GetPresentation()
-                                .PresentAuthoritativeKill(kill, WorldServerTick, suppressSound: false);
+                        if (kill.Victim.Slot < scene.Players.Count
+                            && _identities[kill.Victim.Slot] == kill.Victim.ConnectionId)
+                        {
+                            PlayerPresentation victimPresentation
+                                = scene.Players[kill.Victim.Slot].GetPresentation();
+                            bool actorBound = victimPresentation.IsDeathPresentationBoundTo(
+                                kill.Victim, _identities[kill.Victim.Slot],
+                                _lives[kill.Victim.Slot]);
+                            bool semanticCurrent
+                                = DeathPresentationRouting.IsSemanticCurrent(kill,
+                                    _loadedMatch, scene.Match.PhaseRevision);
+                            if (DeathPresentationRouting.ShouldObserveKill(accepted,
+                                    actorBound, semanticCurrent))
+                                victimPresentation.PresentAuthoritativeKill(kill,
+                                    WorldServerTick, suppressSound: false);
+                            else if (accepted)
+                                Mods.DebugLog.Line("cosmetics/death",
+                                    $"Rejected kill {kill.Id} for slot {kill.Victim.Slot}: actor binding mismatch.");
+                        }
                         if (accepted && LocalSlot >= 0 && LocalSlot < scene.Players.Count)
                         {
                             PlayerEntity localPlayer = scene.Players[LocalSlot];

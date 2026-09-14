@@ -147,6 +147,9 @@ public static class NodeApplication
             }).RequireRateLimiting("map-download");
         if (hostAdmin.Enabled)
         {
+            app.MapGet("/v1/host/lifecycle",
+                NodeHostAdminEndpoints.GetLifecycleDiagnostics)
+                .RequireRateLimiting("host-admin");
             app.MapPost("/v1/host/matches/{matchId:guid}/lagcomp-debug",
                 NodeHostAdminEndpoints.ConfigureHistoricalDebugAsync)
                 .RequireRateLimiting("host-admin");

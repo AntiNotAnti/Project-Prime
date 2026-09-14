@@ -446,7 +446,10 @@ public sealed class MatchInstance : IDisposable
         Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
         network.Poll(tick);
         Volatile.Write(ref _publishedTimingTelemetry, network.TimingTelemetry);
-        if (replay?.Status.State == "failed") throw new InvalidOperationException("Authoritative replay failed: " + replay.Status.Error);
+        // Replay is an independent artifact consumer. A failed or stalled
+        // writer must not turn an otherwise valid authoritative simulation
+        // terminal into MatchFailed; the Worker artifact pipeline records the
+        // artifact disposition after gameplay has ended.
         if (Spec.ReplayPolicy == ReplayPolicy.Record && replay == null) StartReplay();
         Admin?.BeforeStep(tick, replay);
         simulation.ReplayMayStart = ServerReplayPolicy.MayStart(Spec.ReplayPolicy == ReplayPolicy.Record, replay);

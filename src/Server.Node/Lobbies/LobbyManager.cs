@@ -33,6 +33,28 @@ public sealed record LobbyIdentity(Guid SessionId, Guid? PlayerId, string Displa
 public sealed class LobbyCommandException(string code, string message) : Exception(message)
 { public string Code { get; } = code; }
 
+internal sealed record LobbyLifecycleDiagnosticsSnapshot(Guid LobbyId,
+    LobbyPhase Phase, long Revision, ulong LifecycleEpoch, Guid? MatchId);
+
+/// <summary>
+/// An immutable roster member paired with the membership boundary that made
+/// the member eligible for a match. The generation belongs to the session,
+/// not to the lobby or its presentation revision.
+/// </summary>
+internal sealed record FrozenLobbyMember(LobbyMember Member, MembershipGeneration Generation)
+{
+    public Guid SessionId => Member.SessionId;
+    public HumanIdentityKey IdentityKey => Member.IdentityKey;
+    public string DisplayName => Member.DisplayName;
+    public Hunter Hunter => Member.Hunter;
+    public byte Team => Member.Team;
+    public bool Ready => Member.Ready;
+    public bool Observer => Member.Observer;
+    public Guid? PlayerId => Member.PlayerId;
+    public Guid? GuestSessionId => Member.GuestSessionId;
+    public CosmeticLoadoutIds Cosmetics => Member.Cosmetics;
+}
+
 /// <summary>Serialized lightweight lobby authority. No gameplay Scene or simulation ownership.</summary>
 public sealed partial class LobbyManager
 {
@@ -58,15 +80,25 @@ public sealed partial class LobbyManager
         // match.  It is a projection marker, not a second mutable match owner.
         public MatchLifecycleEpoch LifecycleEpoch = MatchLifecycleEpoch.Initial;
         public LobbySnapshot Snapshot(HumanIdentityKey? self = null,
-            MapRequirement? requiredMap = null) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
+            MapRequirement? requiredMap = null,
+            MembershipGeneration selfMembershipGeneration = default) => new(Id, Rules.Name, Rules.Visibility, Owner, Phase, Revision,
             Rules.PlayerLimit, Rules.ObserverLimit, Members.Values.ToImmutableArray(), Chat.ToImmutableArray(), MapKey, Mode, MatchId, BotCount,
             HostRules.TimeLimitSeconds, Rules.SeatPolicy, Rules.DuelQueuePolicy, Waitlist.Snapshot(self),
             HostRules.LegacyPointGoal(Mode), HostRules, requiredMap, LifecycleEpoch,
-            BotDifficulty);
+            BotDifficulty, selfMembershipGeneration);
     }
     private readonly object _gate = new();
     private readonly Dictionary<Guid, Lobby> _lobbies = [];
+    // Every non-null Lobby.MatchId is mirrored here while _gate is held. This
+    // is the authoritative current-match lookup; completed matches remain
+    // indexed through PostMatch until the lobby reopens or is removed.
+    private readonly Dictionary<Guid, Guid> _matchToLobby = [];
     private readonly Dictionary<Guid, Guid> _membership = [];
+    // Only current memberships are retained here. The process-wide allocator
+    // below makes a re-entry generation fresh without retaining one tombstone
+    // per historical session.
+    private readonly Dictionary<Guid, MembershipGeneration> _membershipGenerations = [];
+    private ulong _nextMembershipGeneration;
     private readonly Dictionary<Guid, DateTimeOffset> _sessionResumeDeadlines = [];
     public void SetSessionResumeDeadline(Guid sessionId, DateTimeOffset? deadline)
     {
@@ -131,6 +163,7 @@ public sealed partial class LobbyManager
         _maximumLobbies = maximumLobbies; _maximumWaitlistPerLobby = maximumWaitlistPerLobby;
         _quickPlayV2Enabled = quickPlayV2Enabled; _logger = logger; _replayPolicy = replayPolicy;
         RoundClock = clock ?? TimeProvider.System; OfferWindow = window;
+        _nextMembershipGeneration = 1;
     }
     public int PostMatchVoteSeconds { get; }
     public int MaximumWaitlistPerLobby => _maximumWaitlistPerLobby;
@@ -143,12 +176,237 @@ public sealed partial class LobbyManager
         {
             if (_membership.TryGetValue(sessionId, out var memberLobby) && _lobbies.TryGetValue(memberLobby, out var memberTarget))
                 return memberTarget.Snapshot(IdentityForSession(memberTarget, sessionId),
-                    RequirementFor(memberTarget));
+                    RequirementFor(memberTarget),
+                    _membershipGenerations.GetValueOrDefault(sessionId));
             if (_queueSessions.TryGetValue(sessionId, out var queueLobby) && _lobbies.TryGetValue(queueLobby, out var queueTarget))
                 return queueTarget.Snapshot(IdentityForSession(queueTarget, sessionId),
                     RequirementFor(queueTarget));
             return null;
         }
+    }
+
+    /// <summary>
+    /// Runs a short, synchronous session-delivery operation while the
+    /// authoritative lobby gate is held.  The callback must not await or call
+    /// back into LobbyManager.  This gives callers that enqueue a
+    /// snapshot/handoff pair the lock order LobbyManager -> session, matching
+    /// the normal notification broadcaster and preventing a stale snapshot
+    /// race without introducing a second lobby owner.
+    /// </summary>
+    internal bool WithCurrentHandoffSnapshot(Guid sessionId, Guid matchId,
+        MatchLifecycleEpoch lifecycleEpoch, MembershipGeneration membershipGeneration,
+        Func<LobbySnapshot, bool> enqueue)
+        => WithCurrentHandoffSnapshot(sessionId, matchId, lifecycleEpoch,
+            membershipGeneration, null, enqueue);
+
+    /// <summary>Uses a snapshot captured at the committed handoff boundary.
+    /// When supplied, only the current membership generation is revalidated;
+    /// a later PostMatch phase must not invalidate a credential that was
+    /// already committed and queued for delivery.</summary>
+    internal bool WithCurrentHandoffSnapshot(Guid sessionId, Guid matchId,
+        MatchLifecycleEpoch lifecycleEpoch, MembershipGeneration membershipGeneration,
+        LobbySnapshot? committedSnapshot, Func<LobbySnapshot, bool> enqueue)
+    {
+        ArgumentNullException.ThrowIfNull(enqueue);
+        lock (_gate)
+        {
+            if (!_membership.TryGetValue(sessionId, out Guid lobbyId)
+                || !_lobbies.TryGetValue(lobbyId, out Lobby? lobby)
+                || !lobby.Members.ContainsKey(sessionId))
+                return false;
+
+            MembershipGeneration currentGeneration =
+                _membershipGenerations.GetValueOrDefault(sessionId);
+            if (membershipGeneration.Value != 0
+                && currentGeneration != membershipGeneration)
+                return false;
+
+            LobbySnapshot snapshot;
+            if (committedSnapshot is { } committed)
+            {
+                // The immutable notification carries its original committed
+                // lobby identity. It is safe after a terminal transition only
+                // when the recipient is still the same member boundary.
+                if (committed.LobbyId != lobby.Id
+                    || committed.CurrentMatchId != matchId
+                    || EffectiveLifecycleEpoch(committed.LifecycleEpoch)
+                        != EffectiveLifecycleEpoch(lifecycleEpoch)
+                    || membershipGeneration.Value != 0
+                        && committed.SelfMembershipGeneration
+                            != membershipGeneration
+                    || !committed.Members.Any(member =>
+                        member.SessionId == sessionId))
+                    return false;
+                snapshot = committed;
+            }
+            else
+            {
+                if (lobby.Phase != LobbyPhase.InMatch
+                    || lobby.MatchId != matchId)
+                    return false;
+                snapshot = lobby.Snapshot(
+                    IdentityForSession(lobby, sessionId), RequirementFor(lobby),
+                    currentGeneration);
+            }
+            if (EffectiveLifecycleEpoch(snapshot.LifecycleEpoch)
+                    != EffectiveLifecycleEpoch(lifecycleEpoch)
+                || membershipGeneration.Value != 0
+                    && snapshot.SelfMembershipGeneration != membershipGeneration)
+                return false;
+            return enqueue(snapshot);
+        }
+    }
+
+    private static ulong EffectiveLifecycleEpoch(MatchLifecycleEpoch epoch)
+        => epoch.Value == 0 ? MatchLifecycleEpoch.Initial.Value : epoch.Value;
+
+    /// <summary>Updates both representations of current match ownership as one
+    /// locked operation. Duplicate ownership is rejected before either side is
+    /// changed.</summary>
+    private void SetLobbyMatch(Lobby lobby, Guid? matchId)
+    {
+        ArgumentNullException.ThrowIfNull(lobby);
+        Guid? previous = lobby.MatchId;
+        if (previous == matchId) return;
+
+        if (matchId is { } next
+            && _matchToLobby.TryGetValue(next, out Guid existingLobby))
+            throw new InvalidOperationException(
+                $"Match {next} is already owned by lobby {existingLobby}.");
+        if (previous is { } old
+            && (!_matchToLobby.TryGetValue(old, out Guid oldOwner)
+                || oldOwner != lobby.Id))
+            throw new InvalidOperationException(
+                $"Match {old} is not indexed to lobby {lobby.Id}.");
+
+        if (previous is { } oldMatch) _matchToLobby.Remove(oldMatch);
+        lobby.MatchId = matchId;
+        if (matchId is { } newMatch) _matchToLobby.Add(newMatch, lobby.Id);
+    }
+
+    /// <summary>Current-match lookup used only while _gate is held. It does
+    /// not fall back to scanning lobbies: a missing or inconsistent index is
+    /// treated as no current owner.</summary>
+    private bool TryGetLobbyByMatchLocked(Guid matchId, out Lobby lobby)
+    {
+        if (_matchToLobby.TryGetValue(matchId, out Guid lobbyId)
+            && _lobbies.TryGetValue(lobbyId, out Lobby? found)
+            && found is not null && found.MatchId == matchId)
+        {
+            lobby = found;
+            return true;
+        }
+        lobby = null!;
+        return false;
+    }
+
+    /// <summary>Test-only invariant seam: returns the index and an independent
+    /// scan of lobby projections from one gate-consistent observation.</summary>
+    internal (IReadOnlyDictionary<Guid, Guid> Index,
+        IReadOnlyDictionary<Guid, Guid> LobbyScan) MatchOwnershipSnapshot()
+    {
+        lock (_gate)
+        {
+            var scan = _lobbies.Values.Where(lobby => lobby.MatchId is not null)
+                .ToDictionary(lobby => lobby.MatchId!.Value, lobby => lobby.Id);
+            return (new Dictionary<Guid, Guid>(_matchToLobby), scan);
+        }
+    }
+
+    /// <summary>Returns a bounded immutable projection for host diagnostics.
+    /// The lobby gate is released before the projection reaches callers.</summary>
+    internal IReadOnlyList<LobbyLifecycleDiagnosticsSnapshot> LifecycleDiagnosticsSnapshot()
+    {
+        lock (_gate)
+        {
+            return _lobbies.Values.OrderBy(lobby => lobby.Id)
+                .Select(lobby => new LobbyLifecycleDiagnosticsSnapshot(lobby.Id,
+                    lobby.Phase, lobby.Revision, lobby.LifecycleEpoch.Value,
+                    lobby.MatchId)).ToImmutableArray();
+        }
+    }
+
+    /// <summary>Returns the current authoritative lobby membership boundary
+    /// for a connected session.  Waitlist entries intentionally do not have a
+    /// membership generation because they are not frozen match members.</summary>
+    public (Guid LobbyId, MembershipGeneration Generation)? MembershipForSession(Guid sessionId)
+    {
+        lock (_gate)
+        {
+            if (!_membership.TryGetValue(sessionId, out Guid lobbyId)
+                || !_lobbies.TryGetValue(lobbyId, out Lobby? lobby))
+                return null;
+            return _membershipGenerations.TryGetValue(sessionId, out MembershipGeneration generation)
+                ? (lobbyId, generation) : null;
+        }
+    }
+
+    /// <summary>Lock-safe membership fence used by the coordinator before it
+    /// stores or delivers a session-scoped lifecycle payload.</summary>
+    public bool IsCurrentMembership(Guid sessionId, Guid lobbyId,
+        MembershipGeneration generation)
+    {
+        if (sessionId == Guid.Empty || lobbyId == Guid.Empty || generation.Value == 0)
+            return false;
+        lock (_gate)
+            return _membership.TryGetValue(sessionId, out Guid currentLobby)
+                && currentLobby == lobbyId
+                && _membershipGenerations.TryGetValue(sessionId, out MembershipGeneration current)
+                && current == generation;
+    }
+
+    private MembershipGeneration NextMembershipGeneration(Guid sessionId)
+    {
+        if (sessionId == Guid.Empty || _nextMembershipGeneration == 0
+            || _nextMembershipGeneration == ulong.MaxValue)
+            throw Error("membership_exhausted", "Lobby membership capacity is exhausted.");
+        MembershipGeneration generation = new(_nextMembershipGeneration++);
+        _membershipGenerations[sessionId] = generation;
+        return generation;
+    }
+
+    /// <summary>Captures the exact current member records and each member's
+    /// session generation under the LobbyManager gate. A changed member list
+    /// fails the capture so callers cannot accidentally freeze a mixed roster.
+    /// </summary>
+    internal bool TryFreezeMembers(Guid lobbyId, IReadOnlyList<LobbyMember> expected,
+        out FrozenLobbyMember[] frozen)
+    {
+        frozen = [];
+        if (lobbyId == Guid.Empty || expected is null) return false;
+        lock (_gate)
+        {
+            if (!_lobbies.TryGetValue(lobbyId, out Lobby? lobby)
+                || lobby.Members.Count != expected.Count)
+                return false;
+            var result = new FrozenLobbyMember[expected.Count];
+            var seen = new HashSet<Guid>();
+            for (int index = 0; index < expected.Count; index++)
+            {
+                LobbyMember member = expected[index];
+                if (!seen.Add(member.SessionId)
+                    || !lobby.Members.TryGetValue(member.SessionId, out LobbyMember? current)
+                    || current != member
+                    || !_membershipGenerations.TryGetValue(member.SessionId,
+                        out MembershipGeneration generation)
+                    || generation.Value == 0)
+                    return false;
+                result[index] = new FrozenLobbyMember(current, generation);
+            }
+            frozen = result;
+            return true;
+        }
+    }
+
+    private ImmutableDictionary<Guid, MembershipGeneration> FreezeGenerations(Lobby lobby)
+    {
+        var result = ImmutableDictionary.CreateBuilder<Guid, MembershipGeneration>();
+        foreach (Guid sessionId in lobby.Members.Keys)
+            if (!_membershipGenerations.TryGetValue(sessionId, out MembershipGeneration generation)
+                || generation.Value == 0)
+                throw Error("membership_missing", "Lobby member has no membership boundary.");
+            else result[sessionId] = generation;
+        return result.ToImmutable();
     }
 
     /// <summary>
@@ -223,7 +481,7 @@ public sealed partial class LobbyManager
                     if (list.Offset < 0 || list.Limit is < 1 or > NodeControlCodec.MaximumLobbyListEntries)
                         throw Error("invalid", "Invalid page bounds.");
                     var rows = _lobbies.Values.Where(l => l.Rules.Visibility == LobbyVisibility.Public
-                            && !_transitionContinuations.ContainsKey(l.Id)
+                            && !_continuationIntents.ContainsKey(l.Id)
                             && l.Members.Keys.Any(sessionId => !_sessionResumeDeadlines.ContainsKey(sessionId)))
                         .OrderBy(l => l.Id).Skip(list.Offset).Take(list.Limit + 1).ToArray();
                     return new LobbyListSnapshot(rows.Take(list.Limit).Select(l => new LobbyListEntry(l.Id, l.Rules.Name,
@@ -259,20 +517,20 @@ public sealed partial class LobbyManager
                     RequireUnjoined(identity.SessionId);
                     if (!_lobbies.TryGetValue(join.LobbyId, out var target)) throw Error("not_found", "Lobby not found.");
                     Revision(target, join.ExpectedRevision);
-                    if (_transitionContinuations.ContainsKey(target.Id))
+                    if (_continuationIntents.ContainsKey(target.Id))
                         throw Error("transitioning", "Match transition is preparing.");
                     if (target.Phase != LobbyPhase.Open) throw Error("phase", "Lobby roster is frozen.");
                     if (!join.Observer && target.Waitlist.Find(identity.IdentityKey) is not null)
                         throw Error("already_queued", "Cancel the waitlist entry before joining as a player.");
                     return Join(target, identity, join.Observer);
                 case LobbyQueueJoin queueJoin:
-                    if (_transitionContinuations.ContainsKey(ResolveQueueLobby(identity, queueJoin.LobbyId, allowMissing: false).Id))
+                    if (_continuationIntents.ContainsKey(ResolveQueueLobby(identity, queueJoin.LobbyId, allowMissing: false).Id))
                         throw Error("transitioning", "Match transition is preparing.");
                     return QueueJoin(identity, queueJoin);
                 case LobbyQueueLeave queueLeave:
                     return QueueLeave(identity, queueLeave);
                 case LobbyQueueAccept queueAccept:
-                    if (_transitionContinuations.ContainsKey(ResolveQueueLobby(identity, queueAccept.LobbyId, allowMissing: false).Id))
+                    if (_continuationIntents.ContainsKey(ResolveQueueLobby(identity, queueAccept.LobbyId, allowMissing: false).Id))
                         throw Error("transitioning", "Match transition is preparing.");
                     return QueueAccept(identity, queueAccept);
                 case LobbyQueueDecline queueDecline:
@@ -294,7 +552,11 @@ public sealed partial class LobbyManager
                         LobbyConfigure c => c.ExpectedRevision, _ => -1
                     };
                     Revision(lobby, revision);
-                    if (_transitionContinuations.ContainsKey(lobby.Id)
+                    if (_continuationIntents.TryGetValue(lobby.Id,
+                            out MatchContinuationIntent? continuation)
+                        && (continuation.IsActiveTransition
+                            || lobby.Phase == LobbyPhase.Open
+                                && continuation.RequiresMapReadiness)
                         && command is not (LobbySetReady or LobbyChat))
                         throw Error("transitioning", "Match transition is preparing.");
                     bool postMatchSelection = lobby.Phase == LobbyPhase.PostMatch
@@ -329,6 +591,11 @@ public sealed partial class LobbyManager
                             }
                             catch (ArgumentException ex)
                             { throw Error("invalid", ex.Message); }
+                            // Configuration begins an independent lobby
+                            // lifecycle. Clear any bounded transition failure
+                            // projection while retaining tournament identity.
+                            ClearContinuationExecution(lobby.Id,
+                                clearFailureProjection: true);
                             lobby.Waitlist.DeferOffers();
                             Round(lobby.Id).AwaitingMapReadiness = false;
                             Round(lobby.Id).Resolved = null;
@@ -414,21 +681,20 @@ public sealed partial class LobbyManager
             ExpireOffersAndAdvance(lobby);
             if (_admissionClosed) throw Error("draining", "Node is draining.");
             Revision(lobby, expectedRevision);
-            if (_transitionContinuations.ContainsKey(lobby.Id))
+            if (_continuationIntents.ContainsKey(lobby.Id))
                 throw Error("transitioning", "Match transition is preparing.");
             if (lobby.Owner != ownerSession) throw Error("owner", "Only the owner may start a match.");
             if (lobby.Phase != LobbyPhase.Open || lobby.MapKey != content.MapKey) throw Error("phase", "Lobby is not configured for this content.");
             ValidateRoundStart(lobby.Id);
-            return PrepareMatchCore(lobby, content, nodeId, incarnation, requireReady: true);
+            return PrepareMatchCore(lobby, content, nodeId, incarnation,
+                requireReady: true, clearFailedTransition: true);
         }
     }
-    private MatchSpec PrepareMatchCore(Lobby lobby, ContentIdentity content, NodeId nodeId, Guid incarnation, bool requireReady)
+    private MatchSpec PrepareMatchCore(Lobby lobby, ContentIdentity content,
+        NodeId nodeId, Guid incarnation, bool requireReady,
+        bool clearFailedTransition = false)
     {
-            if (requireReady)
-            {
-                Round(lobby.Id).Resolved = null;
-                Round(lobby.Id).AwaitingMapReadiness = false;
-            }
+            bool fromPostMatch = lobby.Phase == LobbyPhase.PostMatch;
             var players = lobby.Members.Values.Where(m => !m.Observer).ToArray();
             if (players.Any(player => _sessionResumeDeadlines.ContainsKey(player.SessionId)))
                 throw Error("player_disconnected", "Wait for every player to reconnect before starting the match.");
@@ -474,7 +740,22 @@ public sealed partial class LobbyManager
                 lobby.BotDifficulty);
             spec = ApplyRoundIdentity(lobby.Id, spec);
             spec.Validate();
-            lobby.MatchId = spec.MatchId.Value; lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
+            // A successful independent start begins a new lifecycle and may
+            // clear a stale failed-transition projection. Continuation
+            // preparation leaves that projection alone until its own fresh
+            // replacement reaches the Worker-ready boundary.
+            if (clearFailedTransition) _matchTransitions.Remove(lobby.Id);
+            // A continuation consumes the PostMatch ballot at the moment its
+            // replacement enters StartingMatch. Keep the selected intent for
+            // retry/recovery, but retire the client-facing ballot before the
+            // StartingMatch publish; round snapshots are valid only while a
+            // ballot is attached to a PostMatch lobby.
+            if (fromPostMatch) ResetRoundState(lobby);
+            SetLobbyMatch(lobby, spec.MatchId.Value);
+            lobby.Phase = LobbyPhase.StartingMatch; Publish(lobby);
+            if (fromPostMatch && _logger is { } continuationLogger)
+                NodeDiagnostics.LifecycleEdge(continuationLogger,
+                    "postmatch_to_handoff", spec.MatchId.Value);
             return spec;
     }
 
@@ -497,12 +778,15 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            var lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == placement.MatchId.Value);
-            if (lobby == null || lobby.Phase != LobbyPhase.StartingMatch) return false;
+            if (!TryGetLobbyByMatchLocked(placement.MatchId.Value, out Lobby lobby)
+                || lobby.Phase != LobbyPhase.StartingMatch) return false;
             lobby.Phase = LobbyPhase.InMatch;
             // A transition's approved state remains available through
             // replacement preparation and is retired only at this boundary.
             CompletePreparedMatchTransition(placement);
+            if (_logger is { } readyLogger)
+                NodeDiagnostics.LifecycleEdge(readyLogger,
+                    "prepare_to_handoff", placement.MatchId.Value);
             ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
@@ -511,35 +795,46 @@ public sealed partial class LobbyManager
     /// Commits a prepared match only after the Node has received the Worker
     /// ready signal and installed every frozen human admission.  The caller
     /// supplies the immutable preparation boundary captured immediately after
-    /// <see cref="PrepareMatch"/>; chat, disconnect/readiness changes, or any
-    /// other lobby revision therefore fail closed instead of publishing a
-    /// partially-admitted InMatch state.
+    /// <see cref="PrepareMatch"/>; membership changes fail closed instead of
+    /// publishing a partially-admitted InMatch state. Presentation-only
+    /// updates such as chat do not change this frozen membership boundary.
     /// </summary>
-    public bool CommitMatchReady(MatchPlacement placement, long preparationRevision,
-        Guid preparationOwnerSessionId, MatchLifecycleEpoch lifecycleEpoch,
-        IReadOnlyList<LobbyMember> frozenMembers)
+    internal bool CommitMatchReady(MatchPlacement placement, Guid preparationOwnerSessionId,
+        MatchLifecycleEpoch lifecycleEpoch, IReadOnlyList<FrozenLobbyMember> frozenMembers)
     {
         placement.Validate();
-        if (preparationRevision < 1 || preparationOwnerSessionId == Guid.Empty
-            || lifecycleEpoch.Value == 0 || frozenMembers == null)
+        if (preparationOwnerSessionId == Guid.Empty || lifecycleEpoch.Value == 0
+            || frozenMembers == null)
             return false;
         lifecycleEpoch.Validate();
         lock (_gate)
         {
-            Lobby? lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == placement.MatchId.Value);
-            if (lobby == null || lobby.Phase != LobbyPhase.StartingMatch
-                || lobby.Revision != preparationRevision
+            if (!TryGetLobbyByMatchLocked(placement.MatchId.Value, out Lobby lobby)
+                || lobby.Phase != LobbyPhase.StartingMatch
                 || lobby.Owner != preparationOwnerSessionId
                 || lobby.LifecycleEpoch != lifecycleEpoch
                 || lobby.Members.Count != frozenMembers.Count)
                 return false;
-            foreach (LobbyMember frozen in frozenMembers)
-                if (!lobby.Members.TryGetValue(frozen.SessionId, out LobbyMember? current)
-                    || current != frozen)
+            var seen = new HashSet<Guid>();
+            foreach (FrozenLobbyMember frozen in frozenMembers)
+                if (!seen.Add(frozen.SessionId)
+                    || !lobby.Members.TryGetValue(frozen.SessionId, out LobbyMember? current)
+                    || current != frozen.Member
+                    || !_membershipGenerations.TryGetValue(frozen.SessionId,
+                        out MembershipGeneration generation)
+                    || generation != frozen.Generation)
+                {
+                    if (_logger is { } mismatchLogger)
+                        NodeDiagnostics.Lifecycle(mismatchLogger, "membership", "mismatch",
+                            placement.MatchId.Value);
                     return false;
+                }
 
             lobby.Phase = LobbyPhase.InMatch;
             CompletePreparedMatchTransition(placement);
+            if (_logger is { } commitLogger)
+                NodeDiagnostics.LifecycleEdge(commitLogger,
+                    "prepare_to_handoff", placement.MatchId.Value);
             ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
@@ -547,13 +842,17 @@ public sealed partial class LobbyManager
     {
         lock (_gate)
         {
-            var lobby = _lobbies.Values.SingleOrDefault(l => l.MatchId == matchId.Value);
-            if (lobby == null || lobby.Phase is not (LobbyPhase.StartingMatch or LobbyPhase.InMatch)) return false;
+            if (!TryGetLobbyByMatchLocked(matchId.Value, out Lobby lobby)
+                || lobby.Phase is not (LobbyPhase.StartingMatch or LobbyPhase.InMatch)) return false;
             // If the Worker completed before the coordinator could claim a
             // transition, ordinary completion owns the old MatchId and the
             // transition ballot must not survive into post-match state.
             _matchTransitions.Remove(lobby.Id);
-            lobby.Phase = LobbyPhase.PostMatch; OnRoundEnded(lobby, interrupted); ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
+            lobby.Phase = LobbyPhase.PostMatch;
+            if (_logger is { } endedLogger)
+                NodeDiagnostics.LifecycleEdge(endedLogger,
+                    "end_to_postmatch", matchId.Value);
+            OnRoundEnded(lobby, interrupted); ExpireOffersAndAdvance(lobby); Publish(lobby); return true;
         }
     }
     public LobbySnapshot ReturnToLobby(Guid ownerSession, long expectedRevision)
@@ -667,6 +966,7 @@ public sealed partial class LobbyManager
             throw Error("already_joined", "This session already occupies a player seat.");
         if (PlayerSeatsAvailable(lobby, entry) <= 0)
             throw Error("capacity", "The player seat is no longer available.");
+        NextMembershipGeneration(identity.SessionId);
 
         if (member is not null)
         {
@@ -819,7 +1119,18 @@ public sealed partial class LobbyManager
     }
 
     private LobbySnapshot SnapshotFor(Lobby lobby, HumanIdentityKey identity)
-        => lobby.Snapshot(identity, RequirementFor(lobby));
+    {
+        MembershipGeneration generation = default;
+        foreach (LobbyMember member in lobby.Members.Values)
+            if (member.IdentityKey == identity
+                && _membershipGenerations.TryGetValue(member.SessionId,
+                    out MembershipGeneration current))
+            {
+                generation = current;
+                break;
+            }
+        return lobby.Snapshot(identity, RequirementFor(lobby), generation);
+    }
 
     private MapRequirement? RequirementFor(Lobby lobby)
         => String.IsNullOrWhiteSpace(lobby.MapKey) ? null : ContentCatalog?.RequiredMap(lobby.MapKey);
@@ -848,6 +1159,7 @@ public sealed partial class LobbyManager
             capacity -= lobby.Waitlist.ActiveEntries().Count(entry => entry.State == LobbyQueueEntryState.SeatOffered);
         if (count >= capacity) throw Error("capacity", "Lobby role capacity reached.");
         byte team = observer ? (byte)0 : AllocateTeam(lobby, requested: null);
+        NextMembershipGeneration(identity.SessionId);
         lobby.Members.Add(identity.SessionId, new(identity.SessionId, identity.PlayerId,
             identity.DisplayName, Hunter.Samus, team, false, observer,
             identity.GuestSessionId));
@@ -862,7 +1174,7 @@ public sealed partial class LobbyManager
         Lobby[] candidates = _lobbies.Values
             .Where(lobby => lobby.Rules.Visibility == LobbyVisibility.Public
                 && lobby.Phase == LobbyPhase.Open
-                && !_transitionContinuations.ContainsKey(lobby.Id)
+                && !_continuationIntents.ContainsKey(lobby.Id)
                 && lobby.Waitlist.Count == 0
                 && PlayerSeatsAvailable(lobby) > 0
                 && (command.Mode is null || lobby.Mode == command.Mode)
@@ -921,6 +1233,7 @@ public sealed partial class LobbyManager
         }
         var lobby = _lobbies[lobbyId];
         lobby.Members.Remove(sessionId);
+        _membershipGenerations.Remove(sessionId);
         if (lobby.Members.Count == 0)
         {
             foreach (Entry entry in lobby.Waitlist.ActiveEntries().ToArray())
@@ -932,6 +1245,7 @@ public sealed partial class LobbyManager
                 .ToList().ForEach(id => _queueSessions.Remove(id));
             _queueIdentities.Where(pair => pair.Value == lobbyId).Select(pair => pair.Key).ToArray()
                 .ToList().ForEach(id => _queueIdentities.Remove(id));
+            SetLobbyMatch(lobby, null);
             OnLobbyRemoved(lobbyId); _lobbies.Remove(lobbyId); _notifications.TryRemove(lobbyId, out _); return;
         }
         if (lobby.Owner == sessionId) lobby.Owner = lobby.Members.Keys.First();

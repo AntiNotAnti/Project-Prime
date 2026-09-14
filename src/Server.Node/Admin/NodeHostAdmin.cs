@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using ProjectPrime.Server.Node.Lobbies;
+using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
 
 namespace ProjectPrime.Server.Node.Admin;
@@ -48,6 +49,30 @@ internal sealed class NodeHostAdminAuthorization
 internal static class NodeHostAdminEndpoints
 {
     private const int MaximumRequestBytes = 512;
+
+    internal sealed record LifecycleDiagnosticsResponse(DateTimeOffset CapturedAt,
+        IReadOnlyList<LobbyLifecycleDiagnosticsSnapshot> Lobbies,
+        IReadOnlyList<CoordinatorLifecycleDiagnosticsSnapshot> Matches,
+        IReadOnlyList<WorkerPlacementDiagnosticsSnapshot> Placements);
+
+    internal static IResult GetLifecycleDiagnostics(HttpContext context,
+        NodeHostAdminAuthorization authorization, LobbyManager lobbies,
+        NodeMatchCoordinator coordinator, WorkerScheduler scheduler,
+        TimeProvider clock)
+    {
+        if (!context.Request.IsHttps) return Results.StatusCode(StatusCodes.Status403Forbidden);
+        if (!authorization.Authorize(context.Request)) return Results.Unauthorized();
+
+        // Each owner takes and releases its own gate before the response is
+        // composed. The projections are immutable and bounded by the owners'
+        // existing lifecycle capacities; no Worker IPC is performed here.
+        DateTimeOffset capturedAt = clock.GetUtcNow();
+        LifecycleDiagnosticsResponse response = new(capturedAt,
+            lobbies.LifecycleDiagnosticsSnapshot(),
+            coordinator.LifecycleDiagnosticsSnapshot(),
+            scheduler.LifecycleDiagnosticsSnapshot());
+        return Results.Ok(response);
+    }
 
     internal static async Task<IResult> ConfigureHistoricalDebugAsync(Guid matchId,
         HttpContext context, NodeHostAdminAuthorization authorization,

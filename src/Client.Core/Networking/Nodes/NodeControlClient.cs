@@ -46,6 +46,12 @@ public sealed class NodeControlClient : IAsyncDisposable
     private ContentIdentity[]? _advertisedCatalog;
     private long _mapCatalogRevision;
     private string? _mapCatalogHash;
+    // MembershipGeneration is the personalized lobby snapshot's lifecycle
+    // boundary. It is globally monotonic at the Node, so retaining only the
+    // highest accepted value fences stale snapshots after lobby.left without
+    // retaining a historical lobby tombstone set.
+    private readonly object _lifecycleGate = new();
+    private ulong _membershipGenerationHighWater;
     internal string? Endpoint { get; private set; }
     public NodeControlClient() { }
     public NodeControlClient(ClientWebSocket socket) { _socket.Dispose(); _socket = socket; }
@@ -359,23 +365,50 @@ public sealed class NodeControlClient : IAsyncDisposable
                     (!lobby.Members.Any(x => x.SessionId == Session!.SessionId) && lobby.Waitlist?.IsSelfQueued != true)
                     || lobby.Members.Select(x => x.SessionId).Distinct().Count() != lobby.Members.Length)
                     throw new JsonException("Invalid lobby snapshot.");
-                if (Lobby?.LobbyId == lobby.LobbyId && lobby.Revision <= Lobby.Revision) break;
-                if (IsOlderEpoch(State.LifecycleEpoch, lobby.LifecycleEpoch)) break;
+                ViewState currentLobbyState = State;
+                bool sameLobby = currentLobbyState.Lobby?.LobbyId == lobby.LobbyId;
+                if (!sameLobby && currentLobbyState.Lobby != null) break;
+                if (!IsSnapshotMembershipCurrent(currentLobbyState, lobby)) break;
+                if (sameLobby
+                    && EffectiveLifecycleEpoch(lobby.LifecycleEpoch)
+                        == EffectiveLifecycleEpoch(currentLobbyState.LifecycleEpoch)
+                    && currentLobbyState.Lobby!.CurrentMatchId is { } priorMatch
+                    && lobby.CurrentMatchId is { } incomingMatch
+                    && priorMatch != incomingMatch)
+                    throw new JsonException("Conflicting immutable match lifecycle identity.");
+                if (sameLobby && lobby.Revision <= currentLobbyState.Lobby!.Revision)
+                {
+                    if (lobby.Revision == currentLobbyState.Lobby.Revision
+                        && EffectiveLifecycleEpoch(lobby.LifecycleEpoch)
+                            == EffectiveLifecycleEpoch(currentLobbyState.LifecycleEpoch)
+                        && lobby.CurrentMatchId != currentLobbyState.Lobby.CurrentMatchId)
+                        throw new JsonException("Conflicting immutable match lifecycle identity.");
+                    break;
+                }
+                if (sameLobby && IsOlderEpoch(currentLobbyState.LifecycleEpoch,
+                    lobby.LifecycleEpoch)) break;
                 Publish(state =>
                 {
                     if (state.Lobby?.LobbyId != lobby.LobbyId)
+                    {
+                        NodeMatchHandoff? retainedHandoff =
+                            HandoffMatchesLobby(state.Handoff, lobby)
+                                ? state.Handoff : null;
+                        RecordMembershipGeneration(lobby.SelfMembershipGeneration);
                         return ClearOpenMatch(state with { Lobby = lobby, Round = null,
-                            Handoff = null, MatchEnded = false,
+                            Handoff = retainedHandoff, MatchEnded = false,
                             LastLobbyMatchId = lobby.CurrentMatchId, TransitionVote = null,
                             ExpectedTransition = null, ExpectedTransitionEnded = false,
                             LifecycleEpoch = lobby.LifecycleEpoch,
                             HandoffGeneration = default });
+                    }
 
                     ViewState updated = state with
                     {
                         Lobby = lobby,
                         LastLobbyMatchId = lobby.CurrentMatchId ?? state.LastLobbyMatchId
                     };
+                    RecordMembershipGeneration(lobby.SelfMembershipGeneration);
                     // A StartingMatch snapshot can win the delivery race with
                     // its ordered handoff. Advancing the epoch must retire the
                     // completed match's credential before that fresh handoff is
@@ -406,21 +439,27 @@ public sealed class NodeControlClient : IAsyncDisposable
                 Publish(state => state with { Lobbies = list }); break;
             case "lobby.left":
                 var left = value.Payload.Deserialize(NodeJsonContext.Default.LobbyLeft);
-                if (left?.LobbyId == Lobby?.LobbyId) Publish(state => state with
+                if (left != null) Publish(state =>
                 {
-                    Lobby = null,
-                    Lobbies = null,
-                    Round = null,
-                    Handoff = null,
-                    MatchEnded = false,
-                    JoinedMatchId = null,
-                    JoinedCompletion = null,
-                    JoinedCompletionSummary = null,
-                    LastLobbyMatchId = null,
-                    Error = null,
-                    TransitionVote = null,
-                    ExpectedTransition = null,
-                    ExpectedTransitionEnded = false
+                    if (state.Lobby?.LobbyId != left.LobbyId) return state;
+                    return state with
+                    {
+                        Lobby = null,
+                        Lobbies = null,
+                        Round = null,
+                        Handoff = null,
+                        MatchEnded = false,
+                        JoinedMatchId = null,
+                        JoinedCompletion = null,
+                        JoinedCompletionSummary = null,
+                        LastLobbyMatchId = null,
+                        Error = null,
+                        TransitionVote = null,
+                        ExpectedTransition = null,
+                        ExpectedTransitionEnded = false,
+                        LifecycleEpoch = default,
+                        HandoffGeneration = default
+                    };
                 });
                 break;
             case "match.transition.state":
@@ -429,7 +468,10 @@ public sealed class NodeControlClient : IAsyncDisposable
                     ?? throw new JsonException("Missing match transition ballot.");
                 try { NodeControlCodec.ValidateEventPayload(transitionVote); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match transition ballot.", ex); }
-                Publish(state => IsOlderEpoch(state.LifecycleEpoch, transitionVote.LifecycleEpoch)
+                if (IsForeignOrOlderLifecycle(State, transitionVote.LobbyId,
+                    transitionVote.LifecycleEpoch)) break;
+                Publish(state => IsForeignOrOlderLifecycle(state, transitionVote.LobbyId,
+                    transitionVote.LifecycleEpoch)
                     ? state
                     : AcceptTransitionVote(AdvanceLifecycle(state,
                         transitionVote.LifecycleEpoch, transitionVote.MatchId), transitionVote));
@@ -440,7 +482,10 @@ public sealed class NodeControlClient : IAsyncDisposable
                     ?? throw new JsonException("Missing match transition start.");
                 try { NodeControlCodec.ValidateEventPayload(transitionStarted); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match transition start.", ex); }
-                Publish(state => IsOlderEpoch(state.LifecycleEpoch, transitionStarted.LifecycleEpoch)
+                if (IsForeignOrOlderLifecycle(State, transitionStarted.LobbyId,
+                    transitionStarted.LifecycleEpoch)) break;
+                Publish(state => IsForeignOrOlderLifecycle(state, transitionStarted.LobbyId,
+                    transitionStarted.LifecycleEpoch)
                     ? state
                     : AcceptTransitionStarted(AdvanceLifecycle(state,
                         transitionStarted.LifecycleEpoch, transitionStarted.PreviousMatchId), transitionStarted));
@@ -449,15 +494,27 @@ public sealed class NodeControlClient : IAsyncDisposable
                 var handoff = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchHandoff) ?? throw new JsonException("Missing match handoff.");
                 if (handoff.MatchId == Guid.Empty || handoff.WireMatchId == 0 || handoff.Nonce == 0
                     || handoff.Ticket is not { Length: > 0 and <= JoinPacket.MaxRoutedTicketBytes }) throw new JsonException("Invalid match handoff.");
-                Publish(state => AcceptHandoff(state, handoff)); break;
+                if (!IsHandoffCurrent(State, handoff)) break;
+                Publish(state =>
+                {
+                    if (!IsHandoffCurrent(state, handoff)) return state;
+                    ViewState accepted = AcceptHandoff(state, handoff);
+                    RecordMembershipGeneration(handoff.MembershipGeneration);
+                    return accepted;
+                }); break;
             case "match.ended":
                 var ended = value.Payload.Deserialize(NodeJsonContext.Default.NodeMatchEnded);
-                if (ended != null && !IsOlderEpoch(State.LifecycleEpoch, ended.LifecycleEpoch)
+                if (ended != null && IsTerminalCurrent(State, ended.LobbyId,
+                    ended.LifecycleEpoch,
+                    strictIdentity: ended.LobbyId != Guid.Empty || ended.LifecycleEpoch.Value != 0)
                     && (ended.MatchId == State.JoinedMatchId
                     || ended.MatchId == Handoff?.MatchId
                     || ended.MatchId == State.LastLobbyMatchId
                     || ended.MatchId == State.ExpectedTransition?.PreviousMatchId))
-                    Publish(state => state.ExpectedTransition is { PreviousMatchId: var transitionMatch }
+                    Publish(state => IsTerminalCurrent(state, ended.LobbyId,
+                        ended.LifecycleEpoch,
+                        strictIdentity: ended.LobbyId != Guid.Empty || ended.LifecycleEpoch.Value != 0)
+                        && state.ExpectedTransition is { PreviousMatchId: var transitionMatch }
                         && transitionMatch == ended.MatchId
                         // This terminal event belongs to the expected old
                         // match. Record only the transition-specific terminal
@@ -486,14 +543,18 @@ public sealed class NodeControlClient : IAsyncDisposable
                 try { completion.Summary.Validate(); }
                 catch (ArgumentException ex) { throw new JsonException("Invalid match completion.", ex); }
                 Guid completionMatch = completion.Summary.MatchId.Value;
-                if (IsOlderEpoch(State.LifecycleEpoch, completion.LifecycleEpoch)) break;
+                if (!IsTerminalCurrent(State, completion.Summary.LobbyId.Value,
+                    completion.LifecycleEpoch, strictIdentity: completion.LifecycleEpoch.Value != 0)) break;
                 if (completionMatch != State.JoinedMatchId && completionMatch != Handoff?.MatchId
                     && completionMatch != State.LastLobbyMatchId
                     && completionMatch != State.ExpectedTransition?.PreviousMatchId) break;
                 if (State.ExpectedTransition is { PreviousMatchId: var transitionMatch }
                     && transitionMatch == completionMatch)
                 {
-                    Publish(state => state with { ExpectedTransitionEnded = true });
+                    Publish(state => IsTerminalCurrent(state,
+                        completion.Summary.LobbyId.Value, completion.LifecycleEpoch,
+                        strictIdentity: completion.LifecycleEpoch.Value != 0)
+                        ? state with { ExpectedTransitionEnded = true } : state);
                     break;
                 }
                 if (State.LastCompletionSummary is { } prior && prior.MatchId == completion.Summary.MatchId)
@@ -543,6 +604,96 @@ public sealed class NodeControlClient : IAsyncDisposable
         NotifyChanged();
     }
 
+    private bool IsSnapshotMembershipCurrent(ViewState state, LobbySnapshot incoming)
+    {
+        // A zero value is the source-compatible public/list projection. It is
+        // not a membership fence, but remains accepted for legacy payloads.
+        ulong generation = incoming.SelfMembershipGeneration.Value;
+        if (generation == 0) return true;
+        lock (_lifecycleGate)
+        {
+            if (generation < _membershipGenerationHighWater) return false;
+            // After lobby.left, an equal-generation snapshot is a delayed
+            // copy of the departed membership. A new join must advance the
+            // Node-owned generation before it can recreate the namespace.
+            if (state.Lobby == null && generation == _membershipGenerationHighWater)
+                return false;
+            return true;
+        }
+    }
+
+    private void RecordMembershipGeneration(MembershipGeneration generation)
+    {
+        if (generation.Value == 0) return;
+        lock (_lifecycleGate)
+            _membershipGenerationHighWater = Math.Max(
+                _membershipGenerationHighWater, generation.Value);
+    }
+
+    private static ulong EffectiveLifecycleEpoch(MatchLifecycleEpoch epoch)
+        => epoch.Value == 0 ? MatchLifecycleEpoch.Initial.Value : epoch.Value;
+
+    private static bool HandoffMatchesLobby(NodeMatchHandoff? handoff,
+        LobbySnapshot lobby)
+        => handoff is { } value
+            && lobby.CurrentMatchId == value.MatchId
+            && EffectiveLifecycleEpoch(lobby.LifecycleEpoch)
+                == EffectiveLifecycleEpoch(value.LifecycleEpoch);
+
+    private bool IsForeignOrOlderLifecycle(ViewState state, Guid lobbyId,
+        MatchLifecycleEpoch incoming)
+    {
+        if (lobbyId == Guid.Empty) return true;
+        if (state.Lobby is { LobbyId: var currentLobbyId }
+            && currentLobbyId != lobbyId) return true;
+        return state.Lobby?.LobbyId == lobbyId
+            && IsOlderEpoch(state.LifecycleEpoch, incoming);
+    }
+
+    private bool IsTerminalCurrent(ViewState state, Guid lobbyId,
+        MatchLifecycleEpoch incoming, bool strictIdentity)
+    {
+        // Source-compatible completion/ended records from before lifecycle
+        // identity was carried remain usable only when no explicit identity was
+        // supplied. Production Node payloads always carry a non-zero epoch.
+        if (!strictIdentity) return !IsOlderEpoch(state.LifecycleEpoch, incoming);
+        return !IsForeignOrOlderLifecycle(state, lobbyId, incoming);
+    }
+
+    private bool IsHandoffCurrent(ViewState state, NodeMatchHandoff incoming)
+    {
+        if (IsOlderEpoch(state.LifecycleEpoch, incoming.LifecycleEpoch)) return false;
+        if (incoming.MembershipGeneration.Value != 0)
+        {
+            lock (_lifecycleGate)
+                if (incoming.MembershipGeneration.Value < _membershipGenerationHighWater)
+                    return false;
+        }
+        if (state.Lobby is not { } lobby)
+        {
+            // A production handoff has an explicit lifecycle/membership
+            // identity but no LobbyId field of its own. It must therefore be
+            // preceded by the authoritative lobby snapshot that supplies that
+            // namespace. Zero-valued records remain an explicit source-level
+            // compatibility seam for pre-lifecycle test/legacy payloads.
+            return incoming.LifecycleEpoch.Value == 0
+                && incoming.HandoffGeneration.Value == 0
+                && incoming.MembershipGeneration.Value == 0;
+        }
+        if (state.Session is not { } session
+            || !lobby.Members.Any(member => member.SessionId == session.SessionId))
+            return false;
+
+        // The ordered lobby snapshot is the authoritative handoff boundary.
+        // A credential for another match or an epoch without its matching
+        // snapshot is stale, regardless of which broadcaster delivered it.
+        if (lobby.CurrentMatchId != incoming.MatchId) return false;
+        if (EffectiveLifecycleEpoch(lobby.LifecycleEpoch)
+            != EffectiveLifecycleEpoch(incoming.LifecycleEpoch)) return false;
+        return incoming.MembershipGeneration.Value == 0
+            || lobby.SelfMembershipGeneration == incoming.MembershipGeneration;
+    }
+
     private static bool IsOlderEpoch(MatchLifecycleEpoch current,
         MatchLifecycleEpoch incoming)
         => current.Value != 0 && incoming.Value != 0
@@ -584,11 +735,17 @@ public sealed class NodeControlClient : IAsyncDisposable
             if (incoming.HandoffGeneration == state.HandoffGeneration)
             {
                 if (current.AdmissionId != incoming.AdmissionId
+                    || !StringComparer.Ordinal.Equals(current.AdmissionKey, incoming.AdmissionKey)
+                    || current.UdpAuthenticationEnabled != incoming.UdpAuthenticationEnabled
                     || current.WireMatchId != incoming.WireMatchId
                     || current.Port != incoming.Port
+                    || current.Nonce != incoming.Nonce
+                    || !StringComparer.Ordinal.Equals(current.Ticket, incoming.Ticket)
                     || current.Observer != incoming.Observer
                     || current.Hunter != incoming.Hunter
-                    || !StringComparer.Ordinal.Equals(current.Host, incoming.Host))
+                    || !StringComparer.Ordinal.Equals(current.Host, incoming.Host)
+                    || current.LifecycleEpoch != incoming.LifecycleEpoch
+                    || current.MembershipGeneration != incoming.MembershipGeneration)
                     throw new JsonException("Conflicting immutable match handoff generation.");
                 return state;
             }
