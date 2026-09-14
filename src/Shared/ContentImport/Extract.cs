@@ -23,7 +23,10 @@ namespace MphRead
             {
                 int filesWritten = 0;
                 Directory.CreateDirectory(output);
-                Console.Write($"Reading {name}...");
+                // A redirected parent receives output one complete line at a
+                // time. Announce the archive before the potentially long read
+                // and extraction instead of completing this line afterwards.
+                Console.WriteLine($"Reading {name}...");
                 var bytes = new ReadOnlySpan<byte>(ContentFiles.ReadBytes(path));
                 if (Encoding.ASCII.GetString(bytes[0..8]) == Archiver.MagicString)
                 {
@@ -65,6 +68,7 @@ namespace MphRead
                     + "Wait for it to finish before trying again.");
                 return false;
             }
+            Console.WriteLine("Reading cartridge dump...");
             byte[] bytes = File.ReadAllBytes(path);
             RomHeader header = Read.ReadStruct<RomHeader>(bytes);
             var mphCodes = new Dictionary<string, List<byte>>()

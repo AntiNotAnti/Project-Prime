@@ -205,6 +205,7 @@ namespace MphRead
             // instead of routing it to the separate tools executable.
             if (args.Length == 1 && !args[0].StartsWith('-') && File.Exists(args[0]))
             {
+                ConfigureSetupOutput();
                 if (!Extract.Setup(args[0], replaceConfiguredPaths: true))
                 {
                     Environment.ExitCode = 1;
@@ -234,6 +235,28 @@ namespace MphRead
             Paths.ChooseMphPath();
             Paths.ChooseFhPath();
             return false;
+        }
+
+        private static void ConfigureSetupOutput()
+        {
+            // The graphical launcher reads setup progress from this child process's
+            // redirected stdout/stderr. Published GUI builds can otherwise retain
+            // the output in a StreamWriter buffer until extraction exits, which
+            // makes the launcher appear stuck until thumbnail rendering begins.
+            if (Console.IsOutputRedirected)
+            {
+                Console.SetOut(new StreamWriter(Console.OpenStandardOutput())
+                {
+                    AutoFlush = true
+                });
+            }
+            if (Console.IsErrorRedirected)
+            {
+                Console.SetError(new StreamWriter(Console.OpenStandardError())
+                {
+                    AutoFlush = true
+                });
+            }
         }
 
         private static bool CheckVersion()

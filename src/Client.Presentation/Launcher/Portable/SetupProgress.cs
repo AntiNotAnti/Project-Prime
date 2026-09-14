@@ -47,6 +47,7 @@ namespace MphRead.Mods.Launcher
         // because rendering the map previews follows and is part of the same
         // wait -- a bar that filled and then left the player watching a
         // seemingly idle screen for another minute was the worst of both.
+        private static readonly Band _cartridge = new(0, 0.03, 1, "Reading cartridge dump");
         private static readonly Band _files = new(0.03, 0.40, 45, "Writing game files");
         private static readonly Band _archives = new(0.40, 0.57, 25, "Unpacking archives");
         private static readonly Band _sound = new(0.57, 0.63, 3, "Converting music");
@@ -142,6 +143,10 @@ namespace MphRead.Mods.Launcher
 
         private Band Classify(string line)
         {
+            if (line.StartsWith("Reading cartridge dump", StringComparison.Ordinal))
+            {
+                return _cartridge;
+            }
             if (line.StartsWith("Writing ", StringComparison.Ordinal))
             {
                 return _files;

@@ -8,6 +8,17 @@ namespace MphRead.Tests.Client;
 public sealed class SetupProgressTests
 {
     [Fact]
+    public void CartridgeReadIsReportedBeforeFileExtraction()
+    {
+        var progress = new SetupProgress();
+
+        Assert.True(progress.Observe("Reading cartridge dump..."));
+
+        Assert.Equal("Reading cartridge dump", progress.Stage);
+        Assert.InRange(progress.Fraction, 0.001, 0.03);
+    }
+
+    [Fact]
     public void UpdateQueueCoalescesOutputBurstAndPresentsLatestState()
     {
         var scheduled = new List<Action>();
