@@ -296,6 +296,24 @@ public sealed class RendererModernizationTests
         Assert.Equal(2 + 1d / 60, next.DeadlineSeconds, 9);
     }
 
+    [Fact]
+    public void SdlFramePacingUsesSimulationRateWhenPresentationIsUnavailable()
+    {
+        SdlSoftwarePacingPolicy unavailable = SdlSoftwarePacingPolicy.Resolve(
+            FrameTiming.DisplayRate, minimized: false, allowExplicitPacing: false,
+            presentationAvailable: false);
+
+        Assert.Equal(SdlSoftwarePacingMode.Unavailable, unavailable.Mode);
+        Assert.Equal(FrameTiming.SimulationHz, unavailable.EffectiveRate);
+
+        var pacer = new SdlFramePacer();
+        Assert.False(pacer.Plan(4, unavailable, discontinuities: 0).ShouldWait);
+        SdlFramePaceDecision next = pacer.Plan(4, unavailable, discontinuities: 0);
+        Assert.True(next.ShouldWait);
+        Assert.Equal(4 + 1d / FrameTiming.SimulationHz,
+            next.DeadlineSeconds, 9);
+    }
+
     [Theory]
     [InlineData(MeshPrimitiveTopology.Triangles, new[] { 0, 1, 2 })]
     [InlineData(MeshPrimitiveTopology.Quads, new[] { 0, 1, 2, 0, 2, 3 })]

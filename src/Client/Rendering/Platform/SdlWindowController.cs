@@ -5,6 +5,57 @@ using OpenTK.Mathematics;
 namespace MphRead;
 
 /// <summary>
+/// Tracks the requested fullscreen intent separately from the native state
+/// acknowledged by SDL. Native enter/leave events can arrive after a newer
+/// request. Every event is still applied as the native state, while an
+/// opposite event leaves the latest intent pending for its eventual
+/// acknowledgement. This keeps rapid toggle ordering deterministic without a
+/// blocking SDL_SyncWindow call.
+/// </summary>
+internal sealed class FullscreenTransitionTracker
+{
+    internal FullscreenTransitionTracker(bool confirmed = false)
+    {
+        Confirmed = confirmed;
+    }
+
+    internal bool Confirmed { get; private set; }
+    internal bool? Pending { get; private set; }
+    internal bool Requested => Pending ?? Confirmed;
+
+    /// <summary>Whether a native request is needed for this latest intent.</summary>
+    internal bool NeedsRequest(bool fullscreen)
+        => Pending is bool pending ? pending != fullscreen : Confirmed != fullscreen;
+
+    /// <summary>Records a new latest intent and returns the prior pending one.</summary>
+    internal bool? Request(bool fullscreen)
+    {
+        bool? previous = Pending;
+        if (!NeedsRequest(fullscreen)) return previous;
+        Pending = fullscreen;
+        return previous;
+    }
+
+    /// <summary>
+    /// Applies a native acknowledgement. The native state is always observed;
+    /// only an acknowledgement matching the latest pending intent clears that
+    /// intent. An opposite event therefore updates <see cref="Confirmed"/>
+    /// while retaining <see cref="Pending"/>.
+    /// </summary>
+    internal bool Confirm(bool fullscreen)
+    {
+        Confirmed = fullscreen;
+        if (Pending is not bool pending) return true;
+        if (pending != fullscreen) return false;
+        Pending = null;
+        return true;
+    }
+
+    internal void RestorePending(bool? pending)
+        => Pending = pending;
+}
+
+/// <summary>
 /// Owns the native SDL window handle and the small set of window operations
 /// that must stay on the SDL host thread.  The host remains the sole caller;
 /// this type deliberately does not expose a public native pointer.
@@ -13,6 +64,7 @@ internal unsafe sealed class SdlWindowController : IDisposable
 {
     private SDL_Window* _window;
     private bool _disposed;
+    private readonly FullscreenTransitionTracker _fullscreen = new();
 
     internal SdlWindowController(Vector2i size, string title)
     {
@@ -45,7 +97,10 @@ internal unsafe sealed class SdlWindowController : IDisposable
     internal Vector2i LogicalSize { get; private set; }
     internal Vector2i FramebufferSize { get; private set; }
     internal bool Focused { get; private set; }
-    internal bool Fullscreen { get; private set; }
+    /// <summary>Last fullscreen state confirmed by SDL, never an optimistic request.</summary>
+    internal bool Fullscreen => _fullscreen.Confirmed;
+    internal bool? PendingFullscreen => _fullscreen.Pending;
+    internal bool RequestedFullscreen => _fullscreen.Requested;
     internal bool ActivationDeferred { get; private set; }
     internal bool CursorCaptured { get; private set; }
 
@@ -140,12 +195,32 @@ internal unsafe sealed class SdlWindowController : IDisposable
     internal void SetFullscreen(bool fullscreen)
     {
         ThrowIfDisposed();
-        SDL3.SDL_SetWindowBordered(_window, !fullscreen);
-        if (!SDL3.SDL_SetWindowFullscreen(_window, fullscreen))
-            throw new InvalidOperationException(
-                $"SDL fullscreen transition failed: {SDL3.SDL_GetError()}");
-        Fullscreen = fullscreen;
+        if (!_fullscreen.NeedsRequest(fullscreen)) return;
+        bool? previousPending = _fullscreen.Request(fullscreen);
+        try
+        {
+            if (!SDL3.SDL_SetWindowBordered(_window, !fullscreen))
+                throw new InvalidOperationException(
+                    $"SDL window border transition failed: {SDL3.SDL_GetError()}");
+            if (!SDL3.SDL_SetWindowFullscreen(_window, fullscreen))
+                throw new InvalidOperationException(
+                    $"SDL fullscreen transition failed: {SDL3.SDL_GetError()}");
+        }
+        catch
+        {
+            // An immediate API failure does not change confirmed state. Keep a
+            // prior in-flight intent alive, but clear a request that had no
+            // earlier pending operation; restore the confirmed border best
+            // effort without introducing a blocking synchronization call.
+            _fullscreen.RestorePending(previousPending);
+            SDL3.SDL_SetWindowBordered(_window, !_fullscreen.Confirmed);
+            throw;
+        }
     }
+
+    /// <summary>Records the native enter/leave acknowledgement and returns intent status.</summary>
+    internal bool ConfirmFullscreen(bool fullscreen)
+        => _fullscreen.Confirm(fullscreen);
 
     internal void RefreshSize()
     {

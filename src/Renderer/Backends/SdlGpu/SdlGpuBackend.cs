@@ -47,6 +47,11 @@ namespace MphRead
         private Vector2i _logicalSize;
         private Vector2i _framebufferSize;
         private bool _minimized;
+        // Offscreen/tool users keep the default available state even when
+        // their native window is hidden. The interactive SDL host updates this
+        // gate once per loop from its current window flags before entering the
+        // portable frame loop.
+        private bool _interactivePresentationAvailable = true;
         private SdlGpuSceneResources? _sceneResources;
         private SDL_GPUPresentMode _presentMode = SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_VSYNC;
         private string _presentModeLabel = "vsync";
@@ -89,6 +94,21 @@ namespace MphRead
         public DeviceRenderCaches Caches => _device.Caches;
         public RenderTelemetrySnapshot Telemetry => _telemetry.Latest;
 
+        /// <summary>
+        /// Controls whether the interactive swapchain may be touched. This is
+        /// intentionally owned by the backend so an unavailable window exits
+        /// before rotating frame resources or acquiring any native GPU object.
+        /// Offscreen/tool callers do not set it and retain the default true.
+        /// </summary>
+        internal bool InteractivePresentationAvailable
+            => _interactivePresentationAvailable;
+
+        internal void SetInteractivePresentationAvailable(bool available)
+        {
+            ObjectDisposedException.ThrowIf(_disposed, this);
+            _interactivePresentationAvailable = available;
+        }
+
         internal SdlGpuPresentPolicy ApplyPresentPolicy(int frameRateCap)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
@@ -123,6 +143,14 @@ namespace MphRead
         public bool TryBeginFrame(out RenderBackendFrame frame)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
+            // Do this before RefreshSurface as well as before frame-resource
+            // rotation/command acquisition. A hidden, minimized, occluded, or
+            // unfocused interactive window must not touch the swapchain path.
+            if (!_interactivePresentationAvailable)
+            {
+                frame = null!;
+                return false;
+            }
             RefreshSurface();
             frame = null!;
             if (_minimized || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0 || _finalComposite == null)

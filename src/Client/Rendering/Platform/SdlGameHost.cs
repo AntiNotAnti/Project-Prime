@@ -17,15 +17,21 @@ namespace MphRead
     {
         Disabled,
         ExplicitCap,
-        Minimized
+        Minimized,
+        Unavailable
     }
 
     internal readonly record struct SdlSoftwarePacingPolicy(
         SdlSoftwarePacingMode Mode, int FrameRateCap, int EffectiveRate)
     {
         public static SdlSoftwarePacingPolicy Resolve(int frameRateCap, bool minimized,
-            bool allowExplicitPacing = true)
+            bool allowExplicitPacing = true, bool presentationAvailable = true)
         {
+            if (!presentationAvailable)
+            {
+                return new SdlSoftwarePacingPolicy(SdlSoftwarePacingMode.Unavailable,
+                    frameRateCap, Mods.Render.FrameTiming.SimulationHz);
+            }
             if (minimized)
             {
                 return new SdlSoftwarePacingPolicy(SdlSoftwarePacingMode.Minimized,
@@ -128,6 +134,7 @@ namespace MphRead
         private bool _cursorCaptured;
         private bool _activationDeferred;
         private bool? _focusEventThisPump;
+        private bool _focusGainedThisPump;
         private ControllerCapabilityOwner? _capabilityOwner;
         private ScenePresentation? _presentation;
         private GameHostPresentationTracker? _presentationTracker;
@@ -156,6 +163,14 @@ namespace MphRead
         /// operation on the owning coordinator.
         /// </summary>
         internal event Action<GameHostPresentationState>? PresentationStateChanged;
+
+        /// <summary>
+        /// Raised for a confirmed native key/text/mouse-down input that arrived
+        /// while this host was already focused. It is deliberately distinct
+        /// from a focus-gain event so an overlay may retry a denied activation
+        /// only after a real user opportunity.
+        /// </summary>
+        internal event Action? ActivationOpportunity;
 
         internal GameHostPresentationState PresentationState
             => _presentationTracker?.Current ?? default;
@@ -289,6 +304,7 @@ namespace MphRead
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ResetInput();
+            Mods.Input.GamepadInput.BeginGameplayInputQuarantine();
             SetWindowFocusable(false);
             _windowController!.Show();
             _activationDeferred = true;
@@ -303,6 +319,7 @@ namespace MphRead
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ResetInput();
+            Mods.Input.GamepadInput.BeginGameplayInputQuarantine();
             _windowController!.Hide();
             _activationDeferred = false;
             _windowController.SetActivationDeferred(false);
@@ -390,7 +407,8 @@ namespace MphRead
 
         public void ToggleFullscreen()
         {
-            ApplyWindowMode(_fullscreen ? Mods.WindowStartMode.Windowed
+            bool current = _windowController?.PendingFullscreen ?? _fullscreen;
+            ApplyWindowMode(current ? Mods.WindowStartMode.Windowed
                 : Mods.WindowStartMode.BorderlessFullscreen);
         }
 
@@ -405,8 +423,15 @@ namespace MphRead
             {
                 int frameRateCap = Mods.Render.FrameTiming.FrameRateCap;
                 SdlGpuPresentPolicy presentPolicy = _backend!.ApplyPresentPolicy(frameRateCap);
+                // Pace from the state known at the start of this iteration.
+                // Native events are pumped after this wait so input arriving
+                // during the interval is consumed by the immediately following
+                // snapshot rather than being delayed another frame.
+                bool preliminaryPresentationAvailable = _presentation == null
+                    || ComputeInteractivePresentationAvailability();
                 SdlSoftwarePacingPolicy pacing = SdlSoftwarePacingPolicy.Resolve(frameRateCap,
-                    IsWindowMinimized(), presentPolicy.UsesSoftwarePacing);
+                    IsWindowMinimized(), presentPolicy.UsesSoftwarePacing,
+                    preliminaryPresentationAvailable);
                 SdlFramePaceDecision decision = _framePacer.Plan(clock.Elapsed.TotalSeconds,
                     pacing, _frameTiming.Discontinuities);
                 if (decision.ShouldWait)
@@ -425,6 +450,14 @@ namespace MphRead
                 client.OnResize(_framebufferSize.X > 0 && _framebufferSize.Y > 0
                     ? _framebufferSize : _logicalSize);
                 DispatchCompatibilityInput(snapshot, client);
+                // Re-read flags and focus after the event pump and publish the
+                // final gate immediately before Tick. A focus-loss event that
+                // arrived during the pacing wait therefore suppresses the GPU
+                // path on this very pump.
+                bool interactivePresentationAvailable = _presentation == null
+                    || ComputeInteractivePresentationAvailability();
+                _backend.SetInteractivePresentationAvailable(
+                    interactivePresentationAvailable);
                 _frameLoop.Tick(elapsed, snapshot, client, _backend!);
                 DrainCaptureResults();
             }
@@ -490,6 +523,30 @@ namespace MphRead
         private bool IsWindowMinimized()
             => (SDL3.SDL_GetWindowFlags(NativeWindow) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
                 || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0;
+
+        internal static bool IsInteractivePresentationAvailable(
+            bool isVisible, bool isMinimized, bool isOccluded, bool isFocused,
+            bool activationDeferred)
+            => isVisible && !isMinimized
+                && (activationDeferred || (isFocused && !isOccluded));
+
+        internal static bool IsInteractivePresentationAvailable(SDL_WindowFlags flags,
+            bool isFocused, bool activationDeferred, bool framebufferValid = true)
+            => IsInteractivePresentationAvailable(
+                isVisible: (flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0,
+                isMinimized: (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
+                    || !framebufferValid,
+                isOccluded: (flags & SDL_WindowFlags.SDL_WINDOW_OCCLUDED) != 0,
+                isFocused: isFocused, activationDeferred: activationDeferred);
+
+        private bool ComputeInteractivePresentationAvailability()
+        {
+            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(NativeWindow);
+            return IsInteractivePresentationAvailable(flags, _focused,
+                _activationDeferred,
+                framebufferValid: _framebufferSize.X > 0
+                    && _framebufferSize.Y > 0);
+        }
 
         private static void WaitUntil(Stopwatch clock, double deadlineSeconds)
         {
@@ -638,6 +695,15 @@ namespace MphRead
             ObjectDisposedException.ThrowIf(_disposed, this);
             bool fullscreen = mode == Mods.WindowStartMode.BorderlessFullscreen;
             _windowController!.SetFullscreen(fullscreen);
+        }
+
+        private void CommitFullscreenState(bool fullscreen)
+        {
+            // Every SDL enter/leave event is the observed native state. The
+            // tracker may retain a newer opposite intent, but that must not
+            // suppress this event's confirmed host/window-mode/geometry
+            // update.
+            _windowController!.ConfirmFullscreen(fullscreen);
             _fullscreen = fullscreen;
             Mods.WindowMode.SetFullscreenState(fullscreen);
             RefreshWindowSize();
@@ -647,6 +713,7 @@ namespace MphRead
         {
             _inputHub.BeginFrame();
             _focusEventThisPump = null;
+            _focusGainedThisPump = false;
             SyncGyroSensor();
             SDL_Event evt = default;
             while (SDL3.SDL_PollEvent(&evt))
@@ -695,6 +762,17 @@ namespace MphRead
                             PublishPresentationState();
                         }
                         break;
+                    case SDL_EventType.SDL_EVENT_WINDOW_OCCLUDED:
+                    case SDL_EventType.SDL_EVENT_WINDOW_EXPOSED:
+                        if (IsOurWindow(evt.window.windowID))
+                        {
+                            // Occlusion is represented by SDL's current flags;
+                            // publish this edge for overlay/layout observers,
+                            // while the host loop recomputes the actual
+                            // presentation gate from those flags every time.
+                            PublishPresentationState();
+                        }
+                        break;
                     case SDL_EventType.SDL_EVENT_WINDOW_HIDDEN:
                         if (IsOurWindow(evt.window.windowID))
                         {
@@ -728,6 +806,14 @@ namespace MphRead
                             RefreshWindowSize();
                             SynchronizeNativeFocus();
                         }
+                        break;
+                    case SDL_EventType.SDL_EVENT_WINDOW_ENTER_FULLSCREEN:
+                        if (IsOurWindow(evt.window.windowID))
+                            CommitFullscreenState(true);
+                        break;
+                    case SDL_EventType.SDL_EVENT_WINDOW_LEAVE_FULLSCREEN:
+                        if (IsOurWindow(evt.window.windowID))
+                            CommitFullscreenState(false);
                         break;
                     case SDL_EventType.SDL_EVENT_KEY_DOWN:
                     case SDL_EventType.SDL_EVENT_KEY_UP:
@@ -843,12 +929,16 @@ namespace MphRead
             _windowController?.SetFocused(focused);
             if (!focused)
             {
+                Mods.Input.GamepadInput.BeginGameplayInputQuarantine();
                 ClearInputAfterFocusLoss();
             }
             else
             {
+                Mods.Input.GamepadInput.EndGameplayInputQuarantine();
                 RestoreInputAfterFocusGain();
             }
+
+            if (focused && changed) _focusGainedThisPump = true;
 
             if (changed)
             {
@@ -873,7 +963,17 @@ namespace MphRead
             bool keyboardFocus = SDL3.SDL_GetKeyboardFocus() == NativeWindow;
             if (!nativeInputFocus && !keyboardFocus) return;
             _focusEventThisPump = true;
-            if (!_focused) ApplyFocusState(true);
+            if (!_focused)
+            {
+                ApplyFocusState(true);
+                return;
+            }
+            // A focus edge and its first queued input can arrive in the same
+            // SDL pump. That edge is not an activation opportunity: only input
+            // observed after the host was already focused may retry an overlay
+            // activation request.
+            if (!_focusGainedThisPump)
+                ActivationOpportunity?.Invoke();
         }
 
         private void RestoreInputAfterFocusGain()
@@ -961,7 +1061,7 @@ namespace MphRead
                 if (_cursorCaptured) SetCursorCaptured(false);
                 return;
             }
-            bool shouldCapture = _focused
+            bool shouldCapture = snapshot.Focused && _focused
                 && InputOwner.Owns(DesktopInputOwnerKind.Scene)
                 && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam)
                 && !Mods.PauseMenu.Open
@@ -1005,6 +1105,10 @@ namespace MphRead
                 NativeBottomScreenPlatformBridge.Cancel();
                 _presentation.ResetRenderLook();
             }
+            // Keep all focus-loss cleanup above (pointer, bottom-screen,
+            // relative-look and cursor state), but never route a queued edge or
+            // text sample into the scene after native focus has gone away.
+            if (!snapshot.Focused) return;
             foreach (WindowKeyEvent key in snapshot.KeyEvents)
             {
                 if (!InputOwner.Owns(DesktopInputOwnerKind.Scene)) break;
@@ -1078,7 +1182,6 @@ namespace MphRead
         {
             Mods.ClientInputState.WindowFocused = false;
             _inputHub.ClearHeld();
-            _gamepadHub.ResetState();
             _pointerHub.Reset();
             NativeBottomScreenPlatformBridge.Cancel();
             GamepadHaptics.Stop();
@@ -1435,6 +1538,7 @@ namespace MphRead
             _capabilityOwner?.Dispose();
             _capabilityOwner = null;
             PresentationStateChanged = null;
+            ActivationOpportunity = null;
             GamepadDesktop.Publish(default);
             try
             {
@@ -1555,6 +1659,9 @@ namespace MphRead
 
         public void OnInput(WindowInputSnapshot input)
         {
+            if (!input.Focused || !_host.IsFocused
+                || !_host.InputOwner.Owns(DesktopInputOwnerKind.Scene))
+                return;
             _killcam?.SubmitInput(input);
             if (_killcam == null || _killcam.State == KillcamState.Idle)
                 Mods.Network.ReplayQuickCapture.HandleInput(input, _presentation);
@@ -1574,7 +1681,9 @@ namespace MphRead
         public void OnDrawFrame()
         {
             ScenePresentation active = ActivePresentation;
-            if (_killcam?.IsPresenting != true && Mods.Input.GamepadInput.TakeMenuPress()
+            if (_killcam?.IsPresenting != true && _host.IsFocused
+                && _host.InputOwner.Owns(DesktopInputOwnerKind.Scene)
+                && Mods.Input.GamepadInput.TakeMenuPress()
                 && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam))
             {
                 Mods.PauseMenu.HandleEscape(_host, _presentation.World);
