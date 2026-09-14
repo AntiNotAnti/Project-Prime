@@ -193,11 +193,19 @@ namespace MphRead.Mods.Network
                         scene.Match.MatchTime = state.Position.X;
                         MatchRules rules = scene.Match.Rules;
                         int pointGoal = unchecked((int)state.C);
-                        if (LegacyProtocol && (rules.LegacyTimeGoal != state.Position.Y || rules.LegacyPointGoal != pointGoal))
+                        // Room setup installs the mode defaults after the reliable
+                        // admission rules are applied. Reconcile both live and
+                        // historical clients with the Worker's frozen rules so a
+                        // custom goal cannot remain at the local default (for
+                        // example, Battle displaying 7 while the Worker enforces 15).
+                        bool updateTimeGoal = rules.LegacyTimeGoal != state.Position.Y;
+                        bool updatePointGoal = rules.LegacyPointGoal != pointGoal;
+                        if (updateTimeGoal || updatePointGoal)
                         {
-                            scene.Match.ApplyRules(rules.With(objectiveTimeGoal: TimeSpan.FromSeconds(state.Position.Y),
-                                startingLives: rules.IsSurvival ? pointGoal : null,
-                                scoreGoal: rules.IsSurvival ? null : pointGoal));
+                            scene.Match.ApplyRules(rules.With(
+                                objectiveTimeGoal: updateTimeGoal ? TimeSpan.FromSeconds(state.Position.Y) : null,
+                                startingLives: updatePointGoal && rules.IsSurvival ? pointGoal : null,
+                                scoreGoal: updatePointGoal && !rules.IsSurvival ? pointGoal : null));
                         }
                         if (LegacyProtocol) { scene.Match.LegacyState = (MatchState)state.B; }
                         else

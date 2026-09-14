@@ -138,6 +138,37 @@ namespace MphRead.Tests
             Assert.False(client.HasState);
         }
         [Fact]
+        public void AuthoritativeGoalRepairsTheRoomSetupDefault()
+        {
+            const int admittedGoal = 31;
+            WorldRecord[] records = Records(WorldPacket.CanonicalRecordCount);
+            records[0] = records[0] with
+            {
+                Position = new Vector3(600, 0, 0),
+                C = admittedGoal
+            };
+            var client = new ClientWorldState();
+            client.Reset(7);
+            Assert.False(client.Receive(Batch(records, 0)));
+            Assert.False(client.Receive(Batch(records, 24)));
+            Assert.True(client.Receive(Batch(records, 48)));
+            Scene scene = Scene.CreateHeadless();
+            try
+            {
+                MatchRules admitted = new(MatchMode.Battle, "TEST", scoreGoal: admittedGoal);
+                scene.Match.ApplyRules(admitted.With(scoreGoal: 7));
+
+                client.Apply(scene);
+
+                Assert.Equal(admittedGoal, scene.Match.Rules.ScoreGoal);
+                Assert.Equal(admittedGoal, scene.Match.Rules.LegacyPointGoal);
+            }
+            finally
+            {
+                scene.CloseHeadless();
+            }
+        }
+        [Fact]
         public void RandomPayloadsAreBoundedAndNonthrowing()
         {
             var random = new Random(919);

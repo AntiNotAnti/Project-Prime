@@ -297,8 +297,10 @@ namespace MphRead.Tests
                 MatchRules rules = new(MatchMode.Survival, "TEST", playerRadar: false);
                 scene.Match.ApplyRules(rules);
                 var records = new WorldRecord[WorldPacket.CanonicalRecordCount];
-                records[0] = new(WorldRecordKind.Match, 255, 2, 0, new Vector3(-1, 0, 0),
-                    (uint)GameMode.Survival, (uint)MatchPhase.Playing, 0, uint.MaxValue, 0);
+                records[0] = new(WorldRecordKind.Match, 255, 2, 0,
+                    new Vector3(-1, rules.LegacyTimeGoal, 0),
+                    (uint)GameMode.Survival, (uint)MatchPhase.Playing,
+                    (uint)rules.LegacyPointGoal, uint.MaxValue, 0);
                 for (byte slot = 0; slot < 8; slot++)
                 {
                     records[1 + slot * 2] = new(WorldRecordKind.Score, slot, 0, 0, Vector3.Zero, 0, 0, 0, 0, 0);
