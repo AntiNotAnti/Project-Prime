@@ -232,16 +232,18 @@ public static class NodeDiagnostics
     public static void Lifecycle(ILogger logger, string operation, string outcome,
         Guid? matchId = null)
     {
-        logger.LogInformation(LifecycleEvent,
-            "Node lifecycle operation {Operation} observed with {Outcome} for match {MatchId}.",
-            operation, outcome, matchId);
+        if (logger.IsEnabled(LogLevel.Information))
+            logger.LogInformation(LifecycleEvent,
+                "Node lifecycle operation {Operation} observed with {Outcome} for match {MatchId}.",
+                operation, outcome, matchId);
         NodeMetrics.Lifecycle(operation, outcome);
     }
 
     public static void LifecycleEdge(ILogger logger, string edge, Guid? matchId = null)
     {
-        logger.LogInformation(LifecycleEvent,
-            "Node lifecycle edge {Edge} observed for match {MatchId}.", edge, matchId);
+        if (logger.IsEnabled(LogLevel.Information))
+            logger.LogInformation(LifecycleEvent,
+                "Node lifecycle edge {Edge} observed for match {MatchId}.", edge, matchId);
         NodeMetrics.LifecycleEdge(edge);
     }
 }
