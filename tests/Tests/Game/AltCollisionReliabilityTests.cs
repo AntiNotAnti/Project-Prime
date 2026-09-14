@@ -105,6 +105,97 @@ public sealed class AltCollisionReliabilityTests
     }
 
     [Fact]
+    public void AltCeilingCorrectionStaysInsideAValidLowTunnel()
+    {
+        const float floorY = 0;
+        const float tunnelHeight = 1.2f;
+        const float radius = 0.5f;
+        const float upwardEndpointY = 1;
+        const float ceilingPenetration = 0.3f;
+        float correctedY = upwardEndpointY - ceilingPenetration
+            * PlayerEntity.ResolveCollisionVerticalFactor(altForm: true, planeY: -1);
+
+        Assert.Equal(0.7f, correctedY, precision: 5);
+        Assert.True(correctedY - radius >= floorY);
+        Assert.True(correctedY + radius <= tunnelHeight);
+    }
+
+    [Fact]
+    public void AltSlopeContactUsesFullVerticalCorrection()
+    {
+        float factor = PlayerEntity.ResolveCollisionVerticalFactor(
+            altForm: true, planeY: 0.6f);
+        float correction = 0.6f * 0.2f * factor;
+
+        Assert.Equal(1f, factor);
+        Assert.Equal(0.12f, correction, precision: 5);
+    }
+
+    [Theory]
+    [InlineData(0.5f, 0.25f)]
+    [InlineData(-1f, 4f)]
+    [InlineData(1f, 1f)]
+    public void BipedVerticalCorrectionFactorsRemainCompatible(float planeY,
+        float expected)
+    {
+        Assert.Equal(expected,
+            PlayerEntity.ResolveCollisionVerticalFactor(altForm: false,
+                planeY: planeY),
+            precision: 5);
+    }
+
+    [Fact]
+    public void JumpPadAccelerationRemovesInwardComponentForMirroredWalls()
+    {
+        Vector3[] normals = { Vector3.UnitX, -Vector3.UnitX,
+            Vector3.UnitZ, -Vector3.UnitZ };
+        foreach (Vector3 normal in normals)
+        {
+            Vector3 acceleration = -normal * 2 + Vector3.UnitY * 3;
+            Vector3 result = PlayerEntity.RemoveInwardHorizontalComponent(
+                acceleration, normal);
+
+            Assert.Equal(0, result.X, precision: 5);
+            Assert.Equal(3, result.Y, precision: 5);
+            Assert.Equal(0, result.Z, precision: 5);
+        }
+    }
+
+    [Fact]
+    public void JumpPadAccelerationPreservesVerticalAndTangentialComponents()
+    {
+        Vector3 normal = VectorMath.NormalizeOr(new Vector3(1, 0, 1),
+            Vector3.UnitX);
+        Vector3 tangent = VectorMath.NormalizeOr(new Vector3(-1, 0, 1),
+            Vector3.UnitZ);
+        Vector3 acceleration = -normal * 2 + tangent * 3 + Vector3.UnitY * 4;
+
+        Vector3 result = PlayerEntity.RemoveInwardHorizontalComponent(
+            acceleration, normal);
+        Vector3 expected = tangent * 3 + Vector3.UnitY * 4;
+
+        Assert.Equal(expected.X, result.X, precision: 5);
+        Assert.Equal(expected.Y, result.Y, precision: 5);
+        Assert.Equal(expected.Z, result.Z, precision: 5);
+    }
+
+    [Fact]
+    public void JumpPadAccelerationLeavesOutwardAndNonLateralContactsUnchanged()
+    {
+        Vector3 acceleration = new(1.25f, -2.5f, 3.75f);
+
+        Assert.Equal(acceleration,
+            PlayerEntity.RemoveInwardHorizontalComponent(acceleration,
+                Vector3.UnitX));
+        Assert.Equal(acceleration,
+            PlayerEntity.RemoveInwardHorizontalComponent(acceleration,
+                Vector3.UnitY));
+        Assert.Equal(acceleration,
+            PlayerEntity.RemoveInwardHorizontalComponent(acceleration,
+                Vector3.Zero));
+    }
+
+    [Fact]
     public void SyluxHoverUsesTheDeepestContactOnly()
     {
         float depth = float.NaN;

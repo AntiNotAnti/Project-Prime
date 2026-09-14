@@ -23,6 +23,57 @@ namespace MphRead.Entities
         internal static float ResolveAltSweepPadding(Hunter hunter)
             => hunter == Hunter.Spire || hunter == Hunter.Sylux ? 0.5f : 0.35f;
 
+        internal static float ResolveCollisionVerticalFactor(bool altForm,
+            float planeY)
+        {
+            // Alt forms use spherical collision, so applying the biped's
+            // frame-rate compensation would over-correct through nearby
+            // tunnel surfaces. Keep the legacy factors biped-only.
+            if (altForm || !float.IsFinite(planeY))
+            {
+                return 1;
+            }
+            if (planeY > 0 && planeY < 0.9f)
+            {
+                return 0.5f / 2; // todo: FPS stuff
+            }
+            if (planeY < 0)
+            {
+                return 2 * 2; // todo: FPS stuff
+            }
+            return 1;
+        }
+
+        internal static Vector3 RemoveInwardHorizontalComponent(
+            Vector3 acceleration, Vector3 collisionNormal)
+        {
+            if (!VectorMath.IsFinite(acceleration)
+                || !VectorMath.IsFinite(collisionNormal))
+            {
+                return acceleration;
+            }
+            Vector3 horizontalNormal = new(collisionNormal.X, 0,
+                collisionNormal.Z);
+            float normalLengthSquared = horizontalNormal.LengthSquared;
+            if (!(normalLengthSquared > VectorMath.DefaultEpsilon
+                    * VectorMath.DefaultEpsilon)
+                || !float.IsFinite(normalLengthSquared))
+            {
+                return acceleration;
+            }
+            horizontalNormal /= MathF.Sqrt(normalLengthSquared);
+            Vector3 horizontalAcceleration = new(acceleration.X, 0,
+                acceleration.Z);
+            float inward = Vector3.Dot(horizontalAcceleration,
+                horizontalNormal);
+            if (!float.IsFinite(inward) || inward >= 0)
+            {
+                return acceleration;
+            }
+            Vector3 result = acceleration - horizontalNormal * inward;
+            return VectorMath.IsFinite(result) ? result : acceleration;
+        }
+
         internal static void ExpandCollisionBoundsForSphere(ref Vector3 limitMin,
             ref Vector3 limitMax, Vector3 center, float radius)
         {
@@ -904,20 +955,18 @@ namespace MphRead.Entities
                     // --> compensate for halved gravity so we can't go up steeper slopes
                     // todo?: the response when moving into walls laterally is also not accurate ("wall sliding")
                     // --> needs a hack; just doubling it results in jittering
-                    float factor = 1;
-                    if (result.Plane.Y > 0 && result.Plane.Y < 0.9f)
-                    {
-                        factor = 0.5f / 2; // todo: FPS stuff
-                    }
-                    else if (result.Plane.Y < 0)
-                    {
-                        factor = 2 * 2; // todo: FPS stuff
-                    }
+                    float factor = ResolveCollisionVerticalFactor(IsAltForm,
+                        result.Plane.Y);
                     position.Y += result.Plane.Y * v2 * factor;
                 }
                 float dot = Vector3.Dot(Speed, result.Plane.Xyz);
                 if (dot < 0)
                 {
+                    if (v165 && Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+                    {
+                        _jumpPadAccel = RemoveInwardHorizontalComponent(
+                            _jumpPadAccel, result.Plane.Xyz);
+                    }
                     // floor collision
                     float damageSpeed = Fixed.ToFloat(Values.FallDamageSpeed);
                     if (Speed.Y <= -damageSpeed && !v163 && !v165 && !IsAltForm && !IsMorphing
