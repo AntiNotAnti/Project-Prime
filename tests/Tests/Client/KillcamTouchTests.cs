@@ -1,3 +1,4 @@
+using System.Linq;
 using MphRead.Droid;
 using Xunit;
 
@@ -55,6 +56,28 @@ public sealed class KillcamTouchTests
             controls.PointerUp(7);
             controls.PointerDown(7, x, y);
             Assert.True(controls.ConsumeKillcamSkip());
+        }
+        finally
+        {
+            controls.SetKillcamMode(false);
+        }
+    }
+
+    [Fact]
+    public void FireButtonIsVisibleAndSkipsTheKillcam()
+    {
+        var controls = NewControls();
+        controls.SetKillcamMode(true);
+        try
+        {
+            TouchButton fire = controls.Buttons.Single(button =>
+                button.Action == TouchAction.Shoot);
+            Assert.True(fire.Visible);
+            Assert.Equal("SKIP", fire.Label);
+
+            controls.PointerDown(8, fire.CentreX, fire.CentreY);
+            Assert.True(controls.ConsumeKillcamSkip());
+            Assert.False(controls.IsHeld(TouchAction.Shoot));
         }
         finally
         {

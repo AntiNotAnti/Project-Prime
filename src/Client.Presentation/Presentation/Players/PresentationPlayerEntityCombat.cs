@@ -8,10 +8,13 @@ namespace MphRead.Entities
     public partial class PlayerPresentation
     {
         private EquipInfo? _combatPresentationEquip;
+        internal static bool CanPresentAuthoritativeCombat(bool isHeadless,
+            bool isReplica) => !isHeadless && isReplica;
+
         public void PresentCombat(in CombatEvent value, bool predictedLocalShot = false)
         {
-            if (_player._scene.IsHeadless
-                || ClientSceneServices.PlayFor(_player._scene) == null)
+            if (!CanPresentAuthoritativeCombat(_player._scene.IsHeadless,
+                    _player._scene.Services.IsReplica))
                 return;
             if (value.Kind == CombatEventKind.Affliction)
             {

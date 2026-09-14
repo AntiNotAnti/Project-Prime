@@ -425,7 +425,8 @@ namespace MphRead.Droid
                 string? label = null;
                 if (_killcamMode)
                 {
-                    visible = false;
+                    visible = button.Action == TouchAction.Shoot;
+                    label = button.Action == TouchAction.Shoot ? "SKIP" : null;
                 }
                 else if (_results || _recaps)
                 {
@@ -771,10 +772,20 @@ namespace MphRead.Droid
             {
                 if (_killcamMode)
                 {
-                    // Every killcam down is consumed. Only a fresh pointer
-                    // entering the narrow top-right target queues SKIP; a
-                    // repeated down for the same contact cannot repeat it.
-                    if (IsKillcamSkipHit(normalizedX, normalizedY)
+                    // Every killcam down is consumed. The overlay target and
+                    // the ordinary FIRE surface both mean SKIP; a repeated
+                    // down for the same contact cannot repeat it.
+                    bool firePressed = false;
+                    foreach (TouchButton button in _buttons)
+                    {
+                        if (button.Action == TouchAction.Shoot && button.Visible
+                            && button.Contains(x, y))
+                        {
+                            firePressed = true;
+                            break;
+                        }
+                    }
+                    if ((IsKillcamSkipHit(normalizedX, normalizedY) || firePressed)
                         && _killcamSkipPointers.Add(pointerId))
                     {
                         _killcamSkipQueued = true;

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using MphRead.Entities;
 using MphRead.Mods.Network;
 using Xunit;
 
@@ -67,13 +68,13 @@ public sealed class KillcamTests
     }
 
     [Fact]
-    public void FocusUsesFirstPersonOnlyForAValidEnemyKiller()
+    public void FocusUsesStableChaseViewForEveryKillSource()
     {
         KillEvent enemy = new(1, 10, 1, 1,
             new CombatActor(1, 101, 3), new CombatActor(2, 202, 4), 0,
             KillEventFlags.Headshot, ImmutableArray<CombatActor>.Empty);
         Assert.Equal(enemy.Killer, KillcamController.ResolveFocusActor(enemy));
-        Assert.Equal(SpectatorCameraMode.FirstPerson,
+        Assert.Equal(SpectatorCameraMode.Chase,
             KillcamController.ResolveFocusMode(enemy));
 
         KillEvent suicide = new(2, 11, 1, 1,
@@ -94,6 +95,18 @@ public sealed class KillcamTests
         KillEvent invalidVictim = default;
         Assert.Equal(SpectatorCameraMode.Chase,
             KillcamController.ResolveFocusMode(invalidVictim));
+    }
+
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(false, true, true)]
+    [InlineData(true, true, false)]
+    public void AuthoritativeCombatVisualsRequireANonHeadlessReplica(
+        bool headless, bool replica, bool expected)
+    {
+        Assert.Equal(expected,
+            PlayerPresentation.CanPresentAuthoritativeCombat(headless, replica));
     }
 
     [Fact]

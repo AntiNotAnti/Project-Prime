@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MphRead.Entities;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.GraphicsLibraryFramework;
@@ -113,6 +114,32 @@ public sealed class KillcamInputTests
             GamepadInput.State = before;
             GamepadInput.Reset();
         }
+    }
+
+    [Fact]
+    public void ConfiguredDesktopFirePressIsAKillcamSkipSurface()
+    {
+        var mouseFire = new Keybind(PrimeMouseButton.Left);
+        var mouse = new WindowInputSnapshot(null, null, default, default,
+            default, string.Empty, focused: true,
+            mouseButtonEvents: new[]
+            {
+                new WindowMouseButtonEvent(MouseButton.Left, Down: true)
+            });
+        Assert.True(KillcamController.IsBindingPressed(mouseFire, mouse));
+
+        var keyFire = new Keybind(PrimeKey.F);
+        var keyboard = new WindowInputSnapshot(null, null, default, default,
+            default, string.Empty, focused: true,
+            keyEvents: new[]
+            {
+                new WindowKeyEvent(Keys.F, Down: true, Repeat: false, default)
+            });
+        Assert.True(KillcamController.IsBindingPressed(keyFire, keyboard));
+        Assert.Equal(KillcamCommand.Skip,
+            KillcamController.TranslateCommand(
+                KillcamController.IsBindingPressed(mouseFire, mouse),
+                gamepadPressed: false, touchPressed: false));
     }
 
     private static WindowInputSnapshot Snapshot(Keys key)

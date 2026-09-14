@@ -51,19 +51,19 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
-    public void KillcamPreferenceDefaultsOnPersistsAndCanOnlyReduceServerPolicy()
+    public void KillcamPreferenceDefaultsOffPersistsAndCanOnlyReduceServerPolicy()
     {
         var defaults = new MenuSettings();
         SettingDescriptor descriptor = SettingRegistry.Get("hud.killcam");
 
-        Assert.Equal("on", defaults.Killcam);
+        Assert.Equal("off", defaults.Killcam);
         Assert.Equal("Killcam", descriptor.PersistenceKey);
         Assert.Equal(SettingControlKind.Toggle, descriptor.Kind);
 
         string json = JsonSerializer.Serialize(new MenuSettings { Killcam = "off" });
         MenuSettings restored = JsonSerializer.Deserialize<MenuSettings>(json)!;
         Assert.Equal("off", restored.Killcam);
-        Assert.Equal("on", JsonSerializer.Deserialize<MenuSettings>("{}")!.Killcam);
+        Assert.Equal("off", JsonSerializer.Deserialize<MenuSettings>("{}")!.Killcam);
 
         MenuSettings restore = GameSettings.Current ?? defaults;
         try

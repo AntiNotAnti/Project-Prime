@@ -170,6 +170,35 @@ internal sealed class KillcamController : IDisposable
         => keyboardPressed || gamepadPressed || touchPressed
             ? KillcamCommand.Skip : KillcamCommand.None;
 
+    internal static bool IsBindingPressed(Keybind binding,
+        in WindowInputSnapshot input)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        if (binding.Type == ButtonType.Key)
+        {
+            Keys expected = (Keys)(int)binding.Key;
+            if (expected == Keys.Unknown) return false;
+            foreach (WindowKeyEvent key in input.KeyEvents
+                ?? Array.Empty<WindowKeyEvent>())
+            {
+                if (key.Down && !key.Repeat && key.Key == expected) return true;
+            }
+            return false;
+        }
+        if (binding.Type == ButtonType.Mouse)
+        {
+            MouseButton expected = (MouseButton)(int)binding.MouseButton;
+            foreach (WindowMouseButtonEvent button in input.MouseButtonEvents
+                ?? Array.Empty<WindowMouseButtonEvent>())
+            {
+                if (button.Down && button.Button == expected) return true;
+            }
+            return false;
+        }
+        return binding.Type == ButtonType.ScrollUp && input.Wheel.Y > 0
+            || binding.Type == ButtonType.ScrollDown && input.Wheel.Y < 0;
+    }
+
     internal void SubmitCommand(KillcamCommand command)
     {
         if (command == KillcamCommand.Skip && IsActive)
@@ -180,7 +209,7 @@ internal sealed class KillcamController : IDisposable
 
     internal void SubmitInput(WindowInputSnapshot input)
     {
-        bool keyboardPressed = false;
+        bool desktopPressed = IsBindingPressed(InputSettings.Current.Shoot, input);
         // A host that has no keyboard event queue can pass the default value
         // type. Keep that path valid so Android can poll controller state
         // without allocating a synthetic snapshot every render frame.
@@ -188,7 +217,7 @@ internal sealed class KillcamController : IDisposable
         {
             if (key.Down && !key.Repeat && key.Key is Keys.Space or Keys.Escape)
             {
-                keyboardPressed = true;
+                desktopPressed = true;
                 break;
             }
         }
@@ -197,9 +226,10 @@ internal sealed class KillcamController : IDisposable
         GamepadButtons rising = current & ~_gamepadHeld;
         _gamepadHeld = current;
         GamepadButtons configuredSkip = PadBindings.Get(PadAction.Menu)
-            | PadBindings.Get(PadAction.Jump) | PadBindings.Get(PadAction.Morph);
+            | PadBindings.Get(PadAction.Jump) | PadBindings.Get(PadAction.Morph)
+            | PadBindings.Get(PadAction.Shoot);
         bool gamepadPressed = (rising & configuredSkip) != 0;
-        KillcamCommand command = TranslateCommand(keyboardPressed,
+        KillcamCommand command = TranslateCommand(desktopPressed,
             gamepadPressed, touchPressed: false);
         if (command != KillcamCommand.None) SubmitCommand(command);
     }
@@ -429,8 +459,7 @@ internal sealed class KillcamController : IDisposable
         => IsValidEnemyKiller(kill) ? kill.Killer : kill.Victim;
 
     internal static SpectatorCameraMode ResolveFocusMode(in KillEvent kill)
-        => IsValidEnemyKiller(kill) ? SpectatorCameraMode.FirstPerson
-            : SpectatorCameraMode.Chase;
+        => SpectatorCameraMode.Chase;
 
     internal static bool IsValidEnemyKiller(in KillEvent kill)
         => kill.Killer.IsValid && kill.Victim.IsValid
@@ -657,7 +686,7 @@ internal sealed class KillcamController : IDisposable
         // chase shot. Never point either mode at a same-slot replacement.
         if (IsValidEnemyKiller(_kill)
             && IsReplayActorAvailable(_kill.Killer))
-            return SetReplayFocus(_kill.Killer, SpectatorCameraMode.FirstPerson);
+            return SetReplayFocus(_kill.Killer, SpectatorCameraMode.Chase);
         return _kill.Victim.IsValid
             && IsReplayActorAvailable(_kill.Victim)
             && SetReplayFocus(_kill.Victim, SpectatorCameraMode.Chase);
@@ -767,7 +796,7 @@ internal sealed class KillcamController : IDisposable
         presentation.DrawHudFlatBox(5, 4, 251, 26,
             new Vector4(0, 0, 0, .72f));
         hud.DrawText2D(14, 8, Align.Left, 0, "KILLCAM", scale: .62f);
-        hud.DrawText2D(242, 8, Align.Right, 0, "SKIP", scale: .5f);
+        hud.DrawText2D(242, 8, Align.Right, 0, "FIRE TO SKIP", scale: .5f);
         int killerSlot = _kill.Killer.IsValid ? _kill.Killer.Slot : -1;
         string killer = killerSlot is >= 0 and < PlayerEntity.SlotCapacity
             ? presentation.World.Roster.Nicknames[killerSlot] ?? $"Player{killerSlot + 1}"

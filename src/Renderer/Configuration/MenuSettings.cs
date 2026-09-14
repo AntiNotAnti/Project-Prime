@@ -44,7 +44,7 @@ namespace MphRead
         public string HitMarkerTiming { get; set; } = "Confirmed";
         public string HeadshotCue { get; set; } = "on";
         public string KillConfirmation { get; set; } = "on";
-        public string Killcam { get; set; } = "on";
+        public string Killcam { get; set; } = "off";
         public string RadarStyle { get; set; } = "Enhanced";
         public string RadarOrientation { get; set; } = "heading";
         public string RadarPosition { get; set; } = "TopRight";

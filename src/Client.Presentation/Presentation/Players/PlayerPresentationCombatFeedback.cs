@@ -124,7 +124,11 @@ namespace MphRead.Entities
             else if (localView && _activeAward is { }) _activeAward = null;
             WorldFeedback world = Presentation.WorldFeedback;
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
-                DrawText2D(128, 62, Align.Center, 0, world.Message, scale: .7f);
+            {
+                bool pickupNotice = world.LastKind == WorldSignalKind.PickupConsumed;
+                DrawText2D(128, pickupNotice ? 42 : 62, Align.Center, 0, world.Message,
+                    scale: pickupNotice ? .5f : .7f);
+            }
             if (localView && play?.NodeMatchId is Guid matchId
                 && node?.TransitionVoteFor(matchId) is
                     { State: MatchTransitionVoteState.Pending } ballot)
