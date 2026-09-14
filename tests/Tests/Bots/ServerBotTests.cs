@@ -170,6 +170,25 @@ public sealed class ServerBotTests
         Assert.Equal(legacyLevel, difficulty.LegacyLevel());
         new BotFillPolicy(4, difficulty).Validate(8);
     }
+
+    [Fact]
+    public void ChargedFireWaitsForScheduledDelayBeforeChargingAgain()
+    {
+        const int delay = 10;
+        const int fullCharge = 60;
+
+        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
+            shooting: false, framesUp: 1, delay, chargeLevel: 0, fullCharge));
+        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
+            shooting: false, framesUp: delay, delay, chargeLevel: 0, fullCharge));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
+            shooting: false, framesUp: delay + 1, delay, chargeLevel: 0, fullCharge));
+        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
+            shooting: true, framesUp: 0, delay, chargeLevel: fullCharge, fullCharge));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
+            shooting: true, framesUp: 0, delay, chargeLevel: fullCharge - 1, fullCharge));
+    }
+
     [Trait("RequiresGameContent", "true")]
     [Fact]
     public void ActualAiBotsHaveNoConnectionAndRetireOnlyAtSafeBoundary()

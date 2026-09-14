@@ -6828,6 +6828,10 @@ namespace MphRead.Entities
                 return Flags2.TestFlag(AiFlags2.Bit17);
             }
 
+            internal static bool ShouldPauseChargedFire(bool shooting, int framesUp,
+                int shotDelay, int chargeLevel, int fullCharge)
+                => (!shooting && framesUp <= shotDelay) || chargeLevel >= fullCharge;
+
             // todo: member name
             private void Func2143A40()
             {
@@ -6858,8 +6862,10 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp == 0
-                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
+                        if (ShouldPauseChargedFire(
+                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
+                            _shotDelay, equip.ChargeLevel,
+                            SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             SetRandomDelay();
                         }
@@ -6890,8 +6896,10 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
+                        if (ShouldPauseChargedFire(
+                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
+                            _shotDelay, equip.ChargeLevel,
+                            SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             SetRandomDelay();
                         }
@@ -6914,8 +6922,10 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
+                        if (ShouldPauseChargedFire(
+                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
+                            _shotDelay, equip.ChargeLevel,
+                            SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             SetRandomDelay();
                         }
@@ -6960,8 +6970,10 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
+                        if (ShouldPauseChargedFire(
+                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
+                            _shotDelay, equip.ChargeLevel,
+                            SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             if (Flags2.TestFlag(AiFlags2.TargetPlayer))
                             {
@@ -7002,8 +7014,10 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (!_player.Flags2.TestFlag(PlayerFlags2.Shooting) && _buttons.R.FramesUp <= _shotDelay
-                            || equip.ChargeLevel >= SimTicks.From30HzFrames(weapon.FullCharge))
+                        if (ShouldPauseChargedFire(
+                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
+                            _shotDelay, equip.ChargeLevel,
+                            SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             SetRandomDelay();
                         }
