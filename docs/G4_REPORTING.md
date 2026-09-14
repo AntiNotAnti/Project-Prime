@@ -27,6 +27,13 @@ One `MatchReportOutbox` lasts for the entire Server Node lifetime, across Worker
 
 Default limits are128 reports,64MiB reserved/spooled bytes,512KiB body and16 queued handoffs. Quarantined files still count against limits. A backend outage permits the current match and later matches while reserved capacity remains. Storage faults, invalid reports, quarantines and authentication refusal close new starts/admission. The running match continues. Rotation waits for local DurablyStored or BackendAccepted, never merely Queued. Failed transfer retains the report in the current simulation and retries; no later scene owns that retry.
 
+The Worker artifact pipeline is independently bounded. Its required-artifact
+reservation capacity must be no greater than its bounded artifact queue
+capacity (both default to64); fixed consumers are not added to that guarantee,
+because a simultaneous terminal burst can fill the queue before a consumer
+dequeues another job. Pending artifact work therefore retains its reservation
+until the operation actually finishes, without reducing simulation capacity.
+
 ## Durable boundary and recovery
 
 The writer serializes the report once with default System.Text.Json options (PascalCase properties, numeric enums, PlayerId's canonical UUID converter), hashes those exact UTF-8 bytes with SHA-256, and stores original bytes plus uppercase hash/schema/sequence in a spool envelope. Temporary files are created in the same directory, written with write-through, flushed, then renamed to a sequence-and-MatchId filename. Unix also fsyncs the parent directory; Windows uses MoveFileEx write-through rename. Lost Windows deletion may cause an idempotent retry, not another rating transaction.

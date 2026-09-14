@@ -84,12 +84,10 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 
 | Command | Use |
 |---|---|
-| `MphRead -server -data DIRECTORY -port N -players 8` | authoritative simulation server; requires extracted game data or a baked server package. `-servername "NAME"` is what a browser shows; listing is opt-in with `-master HOST:PORT`. The directory alone can run without game data. See `docs/NETWORK_MODERNIZATION.md` for authoritative networking validation and content commands. |
-| `MphReadServer.exe -server ...` | the same server on Windows, as its own console binary. `MphRead.exe` can also do it, but it is a GUI binary: a shell will not wait for it and its exit code never reaches `%ERRORLEVEL%`. Run with no arguments it prints what it is for |
-| `MphRead -masterserver [-port N] [-public HOST] [-hostports A-B]` | the server directory the launcher's browser asks, and the machine that runs matches for players who cannot open a port. Same binary, no game files, keeps nothing on disk. `-public` is the address to publish for servers registering from this same machine, whose heartbeats arrive over the loopback |
-| `MphRead -hostgame "ROOM" [-mode M] [-master HOST]` | ask the directory to run a match and join it. No port forwarding anywhere; the only way to host from a machine with no launcher |
-| `MphRead -servers [-master HOST] [-masterport N]` | print the server list the launcher's browser would show, with each server's map, players and round trip |
-| `MphRead -connect HOST -port N -name X -hunter H` | join from the command line, no launcher |
+| `./start-server.sh --content-dir DIRECTORY` | start the local Backend, persistent Node, and Node-managed Worker pool with isolated state and generated development credentials. Use `--status` or `--stop-only` for read-only status or scoped shutdown. |
+| `tools/package-server.sh --rid win-x64 --output DIRECTORY` | build the combined Windows Backend + Node + Worker bundle. Its configuration names `worker/ProjectPrime.Server.Worker.exe`; operators do not start the Worker independently. |
+| `ProjectPrimeServer.exe --contentRoot DIRECTORY` | start the packaged Windows Node against operator-owned configuration. Supervise `backend\ProjectPrime.Backend.exe` separately; the Node owns Worker launch and lifecycle. See `SERVER.md`. |
+| `ProjectPrime -hostgame`, `-servers`, or `-connect` | retired public-network commands. Use the launcher's Backend/Node lobby flow; these commands fail explicitly instead of opening the legacy standalone protocol. |
 | `MphRead -netcheck HOST -port N -name X -hunter H -seconds N [-shots DIR] [-size WxH]` | a real client driven by a script, which reports what it saw. Exit code 0 = pass. `-spectate [SEC]` makes it stop playing and watch, `-rejoin SEC` puts it back in -- the one player state the tour cannot reach on its own |
 | `MphRead -netlag MS[:JITTER]` / `-netloss PCT` | play, or run any check, over a line this client makes up: `-netlag 200` adds 200 ms to the round trip (half each way), `-netlag 200:40` gives it jitter, `-netloss 5` eats one datagram in twenty. Works against the real server, on any platform, with no proxy and no `sudo` -- and unlike `hard/run-latency.sh`'s netem it can be given to **one** client while the others stay fast, which is the case a player with a bad line actually is. Every report says so when it is on |
 | `MphRead -debuglog` | write the file the launcher's corner switch writes, for one run. `.claude/DEBUG-LOGS.md` |
@@ -358,10 +356,10 @@ time: `.claude/testing/TEST-HARNESS.md` and `.claude/testing/TEST-METRICS.md`
 
 ## Building and releasing
 
-`.github/workflows/build.yml` publishes `win-x64`, `linux-x64`,
-`linux-x64-server`, `linux-arm64`, `osx-x64` and `osx-arm64` on every push and
-PR; `release.yml` builds those six plus the Windows server (seven packages) and
-the APK on a pushed `v*` tag, and leaves them on a **draft** release for a
+`.github/workflows/build.yml` runs fast source checks on pushes and PRs; its
+scheduled/manual heavy tier publishes and runtime-checks the supported desktop
+and server targets. `release.yml` builds the tagged desktop, server, and Android
+packages, and leaves them on a **draft** release for a
 person to read and publish -- it is never published by the workflow itself,
 and it is deliberately not flagged a prerelease, since GitHub's
 `releases/latest` (what the in-app update check asks) skips those:
@@ -390,8 +388,9 @@ package is which) with GitHub's own generated changelog appended under a rule
 the block still goes out, with a warning in the log.
 
 `tools/check-no-game-assets.sh` (no Nintendo asset ever published) and
-`tools/check-dedicated-server.sh` (the server actually starts) both run in CI
-and are worth running locally before pushing:
+`tools/check-dedicated-server.sh` (structural bundle validation, plus the full
+package smoke when `GAME_DATA_DIRECTORY` is supplied) both run in CI and are
+worth running locally before pushing:
 
 ```bash
 tools/check-no-game-assets.sh                    # the repository
