@@ -29,8 +29,12 @@ namespace MphRead
         private FeedbackAudio? _feedbackAudio;
         public FeedbackAudio FeedbackAudio => _feedbackAudio ??= new(World);
 
-        /// <summary>Consume discrete world notices once from the scene HUD owner.</summary>
-        internal void ConsumeWorldFeedbackAudio()
+        /// <summary>
+        /// Consume discrete world notices once from the scene presentation.
+        /// Draining is unconditional so a muted or isolated presentation
+        /// cannot replay stale pickup cues when it becomes active again.
+        /// </summary>
+        internal void ConsumeWorldFeedbackAudio(bool allowAudio, bool allowHaptics)
         {
             while (WorldFeedback.TryDequeueNotice(out WorldFeedbackNotice notice))
             {
@@ -42,9 +46,12 @@ namespace MphRead
                     // next draw cannot produce a stale local confirmation.
                     if (value.Actor == CombatFeedback.Local)
                     {
-                        FeedbackAudio.PlayPickupAcquired((ItemType)value.A, notice.ReceiptTick);
-                        if ((ItemType)value.A is ItemType.DoubleDamage or ItemType.Cloak
-                            or ItemType.Deathalt or ItemType.OmegaCannon)
+                        if (allowAudio)
+                            FeedbackAudio.PlayPickupAcquired((ItemType)value.A,
+                                notice.ReceiptTick);
+                        if (allowHaptics
+                            && (ItemType)value.A is (ItemType.DoubleDamage or ItemType.Cloak
+                                or ItemType.Deathalt or ItemType.OmegaCannon))
                             GamepadHaptics.Play(HapticEvent.MajorPickup, value.Id);
                     }
                     continue;
@@ -62,7 +69,7 @@ namespace MphRead
                     WorldSignalKind.NodeContested or WorldSignalKind.DefenderStateChanged => FeedbackCue.ObjectiveTaken,
                     _ => null
                 };
-                if (cue.HasValue)
+                if (allowAudio && cue.HasValue)
                     FeedbackAudio.Play(cue.Value, notice.ReceiptTick,
                         value.Kind == WorldSignalKind.PickupRespawned ? value.Position : null);
             }
@@ -110,9 +117,6 @@ namespace MphRead.Entities
                         : marker == HitMarkerKind.Headshot ? FeedbackCue.Headshot : FeedbackCue.Hit, tick);
             }
             if (localView) Presentation.FeedbackAudio.ObserveHealth(feedback.Local, (ushort)_player.Health, tick);
-            // DrawHudObjects is called only for the scene's active HUD owner,
-            // so this drains the scene queue exactly once per presentation.
-            Presentation.ConsumeWorldFeedbackAudio();
             if (localView && _awardHudRevision != Presentation.AwardHud.Revision)
             {
                 _awardHudRevision = Presentation.AwardHud.Revision;

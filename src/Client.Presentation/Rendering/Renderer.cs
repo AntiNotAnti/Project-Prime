@@ -1579,6 +1579,11 @@ namespace MphRead
             bool sdlBackend = RenderBackendSelection.Current == RenderBackendKind.Sdl;
             Mods.RenderQualitySnapshot frameQuality = Mods.RenderOptions.CaptureSnapshot();
             Mods.Network.AuthoritativePlay.Current?.AdvancePresentation();
+            // World notices belong to the scene presentation, not to whichever
+            // HUD branch happens to render this frame. Always drain them once;
+            // muted and isolated presentations consume silently.
+            ConsumeWorldFeedbackAudio(_audioActive,
+                allowHaptics: _audioActive && !_isolatedPresentation);
             // One scene owner drains one semantic announcer cue per rendered
             // frame. This also covers spectator and replay presentation,
             // where there is no local-player draw call to own the queue.

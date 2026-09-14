@@ -951,6 +951,7 @@ internal sealed class KillcamController : IDisposable
         GamepadInput.BeginGameplayInputQuarantine();
         _live.SetGameplayInputSuppressed(true);
         _live.SetPresentationAudio(false);
+        _live.WorldFeedback.ClearPendingNotices();
         _liveInputVersion = _live.GameplayInputSuppressionVersion;
         _liveAudioVersion = _live.PresentationAudioVersion;
         _liveSuppressionActive = true;
@@ -1346,6 +1347,10 @@ internal sealed class KillcamController : IDisposable
         }
         try
         {
+            // The live simulation keeps accepting authoritative events while
+            // the isolated replay owns drawing. Discard those presentation
+            // notices before audio is restored so they cannot burst afterward.
+            _live.WorldFeedback.ClearPendingNotices();
             audioRestored = _live.TryRestorePresentationAudio(_liveAudioWasActive,
                 _liveAudioVersion);
         }
