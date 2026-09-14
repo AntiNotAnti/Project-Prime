@@ -80,6 +80,7 @@ public sealed class SpectatorCameraController
     public float SpeedScale { get; private set; } = 1;
     public SpectatorCameraMode Mode { get; private set; }
     public int TargetSlot { get; private set; } = -1;
+    internal bool DetachedViewActive { get; private set; }
     public BroadcastCameraTransition? CameraTransition
         => _hasTransition ? _transition : null;
 
@@ -306,6 +307,7 @@ public sealed class SpectatorCameraController
     internal bool TryView(Scene scene, out Matrix4 view)
     {
         view = Matrix4.Identity;
+        DetachedViewActive = false;
         bool active = _external || SpectatorMode.IsSpectating;
         if (active && _objective != null)
         {
@@ -321,6 +323,7 @@ public sealed class SpectatorCameraController
             BroadcastCameraPose pose = ApplyCameraTransition(scene,
                 new(cameraPosition, cameraTarget), collisionAdjusted);
             view = Matrix4.LookAt(pose.Position, pose.Target, Vector3.UnitY);
+            DetachedViewActive = true;
             return true;
         }
         SpectatorCameraMode viewMode = Mode == SpectatorCameraMode.AutoDirector
@@ -342,6 +345,7 @@ public sealed class SpectatorCameraController
             _directorFocusActor = CombatActor.None;
             TargetSlot = -1;
             ResetRenderedPose();
+            DetachedViewActive = true;
             return true;
         }
         if (!active || viewMode is SpectatorCameraMode.Free or SpectatorCameraMode.FirstPerson
@@ -370,6 +374,7 @@ public sealed class SpectatorCameraController
         BroadcastCameraPose playerPose = ApplyCameraTransition(scene,
             new(position, smoothedTarget), adjusted);
         view = Matrix4.LookAt(playerPose.Position, playerPose.Target, Vector3.UnitY);
+        DetachedViewActive = true;
         return true;
     }
 

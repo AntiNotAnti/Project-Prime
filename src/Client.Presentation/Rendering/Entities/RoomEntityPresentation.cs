@@ -497,12 +497,16 @@ namespace MphRead.Entities
             // up from its position rather than walked, and a replay of a match
             // on MP1 SANCTORUS played back as an unlit void.
             //
-            // Returning here leaves _partVisInfoHead null, which GetDrawInfo
-            // already reads as "draw every part". The test is one-sided --
-            // outside the part's own bounding box is outside the part -- so a
-            // correct node ref never reaches it and the culling upstream does
-            // is untouched.
-            if (!_entity.PartCouldContain(curNodeRef.PartIndex, Presentation.CameraPosition, RoomEntity._partBoundsMargin))
+            // A detached replay/spectator camera has no walked node of its own,
+            // so the focused player's part cannot safely seed its portal walk.
+            // For an attached camera, the bounds test is one-sided: outside
+            // the part's box is certainly outside the part. Returning leaves
+            // _partVisInfoHead null, which GetDrawInfo reads as "draw every
+            // part" instead of risking a void frame.
+            if (ShouldBypassPortalCulling(
+                Presentation.SpectatorCamera.DetachedViewActive,
+                _entity.PartCouldContain(curNodeRef.PartIndex,
+                    Presentation.CameraPosition, RoomEntity._partBoundsMargin)))
             {
                 return;
             }
@@ -549,6 +553,10 @@ namespace MphRead.Entities
             FindVisibleRoomParts(curRoomFrustum, curNodeRef);
             FindAudibleRoomParts(curNodeRef, curNodeRef);
         }
+
+        internal static bool ShouldBypassPortalCulling(bool detachedView,
+            bool trackedPartCouldContainCamera)
+            => detachedView || !trackedPartCouldContainCamera;
 
         internal static bool ShouldBypassSpirePortalCulling(Hunter hunter,
             bool isAltForm, bool isClimbing, int trackedPart, int resolvedPart)
