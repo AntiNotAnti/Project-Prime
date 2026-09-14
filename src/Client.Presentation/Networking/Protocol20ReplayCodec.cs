@@ -1,11 +1,11 @@
-// Frozen protocol 8-16 snapshot layout. Never called by live networking.
+// Frozen protocol 17-20 snapshot layout. Never called by live networking.
 using System;
 
 namespace MphRead.Mods.Network
 {
-    internal static class Protocol16ReplayCodec
+    internal static class Protocol20ReplayCodec
     {
-        private const int HistoricalPlayerSize = 96;
+        private const int HistoricalPlayerSize = 98;
 
         internal static bool TryReadSnapshot(ReadOnlySpan<byte> bytes,
             Span<SnapshotPlayer> players, out SnapshotPacket packet, out int count)
@@ -29,9 +29,8 @@ namespace MphRead.Mods.Network
                     HistoricalPlayerSize).CopyTo(expanded.Slice(
                         SnapshotPacket.HeaderSize + i * SnapshotPlayer.Size,
                         HistoricalPlayerSize));
-                // Protocol 8-16 did not encode charge or power-up
-                // presentation state. Clear the complete current suffix so
-                // stack contents can never leak into historical playback.
+                // Protocol 17-20 stopped at ChargeLevel. The protocol-21
+                // power-up suffix is absent and must remain zero.
                 expanded.Slice(SnapshotPacket.HeaderSize + i * SnapshotPlayer.Size
                     + HistoricalPlayerSize, SnapshotPlayer.Size - HistoricalPlayerSize).Clear();
             }

@@ -23,12 +23,13 @@ namespace MphRead.Mods.Network
         RadarRevealPrevious = 4096,
         WaitingForMatch = 8192,
         SpireAltAttack = 16384,
-        All = 32767
+        Cloaking = 32768,
+        All = 65535
     }
 
     public struct SnapshotPlayer
     {
-        public const int Size = 98;
+        public const int Size = 104;
         public byte Slot;
         public Hunter Hunter;
         public byte TeamIndex;
@@ -57,10 +58,13 @@ namespace MphRead.Mods.Network
         /// without it, every non-local gun remains visually uncharged.
         /// </summary>
         public ushort ChargeLevel;
+        public ushort DoubleDamageTicks;
+        public ushort CloakTicks;
+        public ushort DeathaltTicks;
 
         public readonly void Write(Span<byte> destination)
         {
-            if (destination.Length != Size) throw new ArgumentException("Snapshot player requires exactly 98 bytes.", nameof(destination));
+            if (destination.Length != Size) throw new ArgumentException("Snapshot player requires exactly 104 bytes.", nameof(destination));
             destination[0] = Slot;
             destination[1] = (byte)Hunter;
             destination[2] = TeamIndex;
@@ -84,6 +88,9 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(destination[90..], DisruptTicks);
             BinaryPrimitives.WriteInt32LittleEndian(destination[92..], Assists);
             BinaryPrimitives.WriteUInt16LittleEndian(destination[96..], ChargeLevel);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[98..], DoubleDamageTicks);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[100..], CloakTicks);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[102..], DeathaltTicks);
         }
 
         public static bool TryRead(ReadOnlySpan<byte> source, out SnapshotPlayer player)
@@ -103,6 +110,8 @@ namespace MphRead.Mods.Network
                         || BinaryPrimitives.ReadUInt16LittleEndian(source[6..]) != 0))
                 || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Burning) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[88..]) > 0)
                 || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Disrupted) != 0) != (BinaryPrimitives.ReadUInt16LittleEndian(source[90..]) > 0)
+                || (((SnapshotPlayerFlags)BinaryPrimitives.ReadUInt16LittleEndian(source[4..]) & SnapshotPlayerFlags.Cloaking) != 0
+                    && BinaryPrimitives.ReadUInt16LittleEndian(source[100..]) == 0)
                 || (BinaryPrimitives.ReadUInt16LittleEndian(source[84..]) & ~0x1FF) != 0)
             {
                 return false;
@@ -135,7 +144,10 @@ namespace MphRead.Mods.Network
                 BurnTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[88..]),
                 DisruptTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[90..]),
                 Assists = BinaryPrimitives.ReadInt32LittleEndian(source[92..]),
-                ChargeLevel = BinaryPrimitives.ReadUInt16LittleEndian(source[96..])
+                ChargeLevel = BinaryPrimitives.ReadUInt16LittleEndian(source[96..]),
+                DoubleDamageTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[98..]),
+                CloakTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[100..]),
+                DeathaltTicks = BinaryPrimitives.ReadUInt16LittleEndian(source[102..])
             };
             return true;
         }

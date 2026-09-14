@@ -248,7 +248,8 @@ namespace MphRead.Mods.Network
 
         private bool TryReadSnapshot(ReadOnlySpan<byte> body, Span<SnapshotPlayer> players,
             out SnapshotPacket packet, out int count)
-            => _protocol >= 17 ? SnapshotPacket.TryRead(body, players, out packet, out count)
+            => _protocol >= NetHeader.Version ? SnapshotPacket.TryRead(body, players, out packet, out count)
+                : _protocol >= 17 ? Protocol20ReplayCodec.TryReadSnapshot(body, players, out packet, out count)
                 : _protocol >= 8 ? Protocol16ReplayCodec.TryReadSnapshot(body, players, out packet, out count)
                 : Protocol7ReplayCodec.TryReadSnapshot(body, players, out packet, out count);
 

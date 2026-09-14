@@ -191,6 +191,7 @@ namespace MphRead.Entities
             bool died = Health > 0 && state.Health == 0;
             bool snapshotTransition = (flags & (SnapshotPlayerFlags.Morphing
                 | SnapshotPlayerFlags.Unmorphing)) != 0;
+            if (newLife) ClearPowerupPresentationState();
             if (newLife || !spawned || died || formChanged || spectatorChanged)
                 Input.ClearBoostIntents();
             if (newLife || deactivated || died || formChanged || spectatorChanged
@@ -207,6 +208,8 @@ namespace MphRead.Entities
             {
                 ModNetDie();
             }
+            ApplyReplicatedPowerupState(state, reset: !spawned || state.Health == 0
+                || (flags & SnapshotPlayerFlags.Spectating) != 0);
             Health = state.Health;
             for (int weapon = 0; weapon <= 8; weapon++)
             {
@@ -252,6 +255,81 @@ namespace MphRead.Entities
             Flags2 &= ~(PlayerFlags2.RadarReveal | PlayerFlags2.RadarRevealPrevious);
             if ((state.Flags & SnapshotPlayerFlags.RadarReveal) != 0) Flags2 |= PlayerFlags2.RadarReveal;
             if ((state.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0) Flags2 |= PlayerFlags2.RadarRevealPrevious;
+        }
+
+        /// <summary>
+        /// Applies only the authoritative presentation timers. Pickup effects
+        /// are intentionally not replayed here: the snapshot is a state
+        /// correction, not a second pickup event. Expiry and lifecycle clears
+        /// still retire any effect that a prior live/replay state created.
+        /// </summary>
+        private void ApplyReplicatedPowerupState(in SnapshotPlayer state, bool reset)
+        {
+            bool hadDoubleDamage = _doubleDmgTimer > 0;
+            bool hadCloaking = Flags2.TestFlag(PlayerFlags2.Cloaking);
+            if (reset)
+            {
+                ClearPowerupPresentationState();
+                return;
+            }
+            else
+            {
+                _doubleDmgTimer = state.DoubleDamageTicks;
+                _cloakTimer = state.CloakTicks;
+                _deathaltTimer = state.DeathaltTicks;
+                bool cloaking = (state.Flags & SnapshotPlayerFlags.Cloaking) != 0
+                    && _cloakTimer > 0;
+                if (cloaking) Flags2 |= PlayerFlags2.Cloaking;
+                else
+                {
+                    Flags2 &= ~PlayerFlags2.Cloaking;
+                    _targetAlpha = 1;
+                }
+            }
+
+            if (_doubleDmgTimer == 0)
+            {
+                if (hadDoubleDamage && IsMainPlayer) UpdateDoubleDamageSfx(0, play: false);
+                if (_doubleDmgEffect != null)
+                {
+                    _scene.UnlinkEffectEntry(_doubleDmgEffect);
+                    _doubleDmgEffect = null;
+                }
+            }
+            if (_deathaltTimer == 0 && _deathaltEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_deathaltEffect);
+                _deathaltEffect = null;
+            }
+            if (!Flags2.TestFlag(PlayerFlags2.Cloaking)
+                && hadCloaking && IsMainPlayer)
+            {
+                UpdateCloakSfx(0, play: false);
+            }
+        }
+
+        private void ClearPowerupPresentationState()
+        {
+            _doubleDmgTimer = 0;
+            _cloakTimer = 0;
+            _deathaltTimer = 0;
+            Flags2 &= ~PlayerFlags2.Cloaking;
+            _targetAlpha = 1;
+            if (IsMainPlayer)
+            {
+                UpdateDoubleDamageSfx(0, play: false);
+                UpdateCloakSfx(0, play: false);
+            }
+            if (_doubleDmgEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_doubleDmgEffect);
+                _doubleDmgEffect = null;
+            }
+            if (_deathaltEffect != null)
+            {
+                _scene.UnlinkEffectEntry(_deathaltEffect);
+                _deathaltEffect = null;
+            }
         }
 
         internal void ApplySnapshotTransform(in SnapshotPlayer state, bool local = false)

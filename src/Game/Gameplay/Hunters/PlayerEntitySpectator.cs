@@ -28,11 +28,11 @@ namespace MphRead.Entities
             EquipInfo.Zoomed = false;
             if (spectating)
             {
+                ClearPowerupPresentationState();
                 _health = 0;
                 _healthRecovery = 0;
                 _ammoRecovery[0] = _ammoRecovery[1] = 0;
                 _frozenTimer = _frozenGfxTimer = _disruptedTimer = _burnTimer = 0;
-                _doubleDmgTimer = _deathaltTimer = _cloakTimer = 0;
                 _boostCharge = 0;
                 _halfturret.Die();
                 Flags2 |= PlayerFlags2.Spectating | PlayerFlags2.HideModel;

@@ -49,9 +49,10 @@ namespace MphRead.Mods.Network
         // protocol 17 carries remote weapon charge presentation state, and
         // protocol 18 carries the authoritative two-to-four team count, and
         // protocol 19 freezes presentation-only cosmetic IDs in reliable
-        // roster state, and protocol 20 gives rolling forms a stable control
-        // heading in the existing input Aim field.
-        public const byte Version = 20;
+        // roster state, protocol 20 gives rolling forms a stable control
+        // heading in the existing input Aim field, and protocol 21 carries
+        // authoritative power-up timers and the active cloak flag.
+        public const byte Version = 21;
 
         public void Write(Span<byte> destination)
         {

@@ -23,7 +23,7 @@ namespace MphRead.Tests
         {
             byte[] bytes = new byte[SnapshotPlayer.Size];
             Player().Write(bytes);
-            Assert.Equal(98, bytes.Length);
+            Assert.Equal(104, bytes.Length);
             Assert.Equal(300, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(88)));
             Assert.Equal(180, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(90)));
             Assert.Equal(7, BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(92)));
@@ -33,8 +33,8 @@ namespace MphRead.Tests
             Assert.Equal(180, parsed.DisruptTicks);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
-            Assert.Equal(834, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(20, NetHeader.Version);
+            Assert.Equal(882, NetHeader.Size + SnapshotPacket.MaxSize);
+            Assert.Equal(21, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
@@ -47,7 +47,8 @@ namespace MphRead.Tests
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 17));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 18));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 19));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 20));
+            Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 20));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 21));
         }
 
         [Theory]

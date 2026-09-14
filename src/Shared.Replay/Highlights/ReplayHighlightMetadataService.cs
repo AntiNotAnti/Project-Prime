@@ -152,7 +152,6 @@ public sealed class ReplayHighlightMetadataService
         timeline = new List<ReplayHighlightTimelineAnchor>();
         error = null;
         var lastTimelineFrame = new Dictionary<uint, uint>();
-        var snapshotPlayers = new SnapshotPlayer[8];
         int records = 0;
         while (reader.ReadNext() is ReplayRecord record)
         {
@@ -175,10 +174,10 @@ public sealed class ReplayHighlightMetadataService
                             lastTimelineFrame);
                     break;
                 case ReplayRecordKind.Snapshot:
-                    if (SnapshotPacket.TryRead(body, snapshotPlayers,
-                            out SnapshotPacket snapshot, out _))
-                        AddTimeline(record.Frame, snapshot.ServerTick,
-                            snapshot.MatchId, timeline, lastTimelineFrame);
+                    if (TryReadSnapshotIdentity(body, reader.ProtocolVersion,
+                            out uint snapshotTick, out uint snapshotMatchId))
+                        AddTimeline(record.Frame, snapshotTick, snapshotMatchId,
+                            timeline, lastTimelineFrame);
                     break;
                 case ReplayRecordKind.World:
                     if (body.Length >= WorldPacket.HeaderSize)
@@ -204,6 +203,27 @@ public sealed class ReplayHighlightMetadataService
                     break;
             }
         }
+
+        return true;
+    }
+
+    // Highlight analysis only needs the timeline identity. Keep this decoder
+    // independent from Client.Presentation while still rejecting snapshots
+    // whose protocol-specific player stride or bounded header does not match
+    // the replay stream.
+    private static bool TryReadSnapshotIdentity(ReadOnlySpan<byte> body,
+        byte protocol, out uint serverTick, out uint matchId)
+    {
+        serverTick = 0;
+        matchId = 0;
+        int playerSize = protocol >= NetHeader.Version ? SnapshotPlayer.Size
+            : protocol >= 17 ? 98 : 96;
+        if (body.Length < SnapshotPacket.HeaderSize || body[16] > 1
+            || body[17] > 8
+            || body.Length != SnapshotPacket.HeaderSize + body[17] * playerSize)
+            return false;
+        serverTick = BinaryPrimitives.ReadUInt32LittleEndian(body);
+        matchId = BinaryPrimitives.ReadUInt32LittleEndian(body[8..]);
         return true;
     }
 

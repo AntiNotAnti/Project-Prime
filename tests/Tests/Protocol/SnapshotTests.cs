@@ -17,7 +17,8 @@ namespace MphRead.Tests
             ConnectionId = 0xFEDCBA9876543200UL + slot,
             Position = new Vector3(1.5f, -2, 3), Speed = Vector3.UnitX / 8,
             Aim = -Vector3.UnitZ, Facing = Vector3.UnitX, AvailableWeapons = 3,
-            Points = -1, Kills = 4, Deaths = 5, ChargeLevel = 73
+            Points = -1, Kills = 4, Deaths = 5, ChargeLevel = 73,
+            DoubleDamageTicks = 301, CloakTicks = 302, DeathaltTicks = 303
         };
 
         [Fact]
@@ -43,7 +44,7 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void SpireAltAttackFlagRoundTripsAndUnknownFlagIsRejected()
+        public void SpireAltAttackAndPowerupFlagsRoundTripAndInvalidCloakIsRejected()
         {
             SnapshotPlayer player = Player(5);
             player.Flags |= SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack;
@@ -53,9 +54,17 @@ namespace MphRead.Tests
 
             Assert.True(SnapshotPlayer.TryRead(bytes, out SnapshotPlayer parsed));
             Assert.True((parsed.Flags & SnapshotPlayerFlags.SpireAltAttack) != 0);
-            BinaryPrimitives.WriteUInt16LittleEndian(bytes.AsSpan(4),
-                (ushort)((ushort)player.Flags | 0x8000));
+            Assert.Equal(player.DoubleDamageTicks, parsed.DoubleDamageTicks);
+            Assert.Equal(player.CloakTicks, parsed.CloakTicks);
+            Assert.Equal(player.DeathaltTicks, parsed.DeathaltTicks);
+            player.Flags |= SnapshotPlayerFlags.Cloaking;
+            player.CloakTicks = 0;
+            player.Write(bytes);
             Assert.False(SnapshotPlayer.TryRead(bytes, out _));
+            player.CloakTicks = 302;
+            player.Write(bytes);
+            Assert.True(SnapshotPlayer.TryRead(bytes, out parsed));
+            Assert.True((parsed.Flags & SnapshotPlayerFlags.Cloaking) != 0);
         }
 
         [Fact]
@@ -77,6 +86,32 @@ namespace MphRead.Tests
             Assert.Equal(1, count);
             Assert.Equal(player.Points, decoded[0].Points);
             Assert.Equal((ushort)0, decoded[0].ChargeLevel);
+            Assert.Equal((ushort)0, decoded[0].DoubleDamageTicks);
+            Assert.Equal((ushort)0, decoded[0].CloakTicks);
+            Assert.Equal((ushort)0, decoded[0].DeathaltTicks);
+        }
+
+        [Fact]
+        public void Protocol20ReplaySnapshotPreservesChargeAndDefaultsPowerupSuffix()
+        {
+            SnapshotPlayer player = Player(3);
+            var packet = new SnapshotPacket(41, 7, 9, 2, true, 11, 13);
+            byte[] current = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
+            packet.Write(current, new[] { player });
+            byte[] historical = new byte[SnapshotPacket.HeaderSize + 98];
+            current.AsSpan(0, SnapshotPacket.HeaderSize).CopyTo(historical);
+            current.AsSpan(SnapshotPacket.HeaderSize, 98)
+                .CopyTo(historical.AsSpan(SnapshotPacket.HeaderSize));
+            var decoded = new SnapshotPlayer[8];
+
+            Assert.True(Protocol20ReplayCodec.TryReadSnapshot(historical,
+                decoded, out SnapshotPacket parsed, out int count));
+            Assert.Equal(packet, parsed);
+            Assert.Equal(1, count);
+            Assert.Equal(player.ChargeLevel, decoded[0].ChargeLevel);
+            Assert.Equal((ushort)0, decoded[0].DoubleDamageTicks);
+            Assert.Equal((ushort)0, decoded[0].CloakTicks);
+            Assert.Equal((ushort)0, decoded[0].DeathaltTicks);
         }
 
         [Theory]

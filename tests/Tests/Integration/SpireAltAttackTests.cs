@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Mods.Network;
@@ -114,6 +115,70 @@ public sealed class SpireAltAttackTests
 
     [Trait("RequiresGameContent", "true")]
     [Fact]
+    public void PowerupTimersAndCloakingFlagReplicateAndClearWithSnapshotState()
+    {
+        bool previousServerMode = Read.ServerMode;
+        try
+        {
+            using var saved = ServerContent.PreserveContext("AMHE1");
+            ServerContent.Open(FindAmhe1(), "AMHE1");
+            using var simulation = new ServerSimulation(new RotationEntry
+            {
+                RoomKey = "MP1 SANCTORUS",
+                Mode = GameMode.Battle
+            });
+
+            PlayerEntity authority = simulation.Scene.Players[0];
+            authority.ServerActivate(0x51, Hunter.Samus, team: 0);
+            authority._doubleDmgTimer = 123;
+            authority._cloakTimer = 234;
+            SetPrivateField(authority, "_deathaltTimer", (ushort)345);
+            authority.Flags2 |= PlayerFlags2.Cloaking;
+            SnapshotPlayer state = authority.CaptureServerState();
+
+            Assert.Equal((ushort)123, state.DoubleDamageTicks);
+            Assert.Equal((ushort)234, state.CloakTicks);
+            Assert.Equal((ushort)345, state.DeathaltTicks);
+            Assert.True((state.Flags & SnapshotPlayerFlags.Cloaking) != 0);
+
+            state.Slot = 1;
+            state.ConnectionId = 0x52;
+            PlayerEntity replica = simulation.Scene.Players[1];
+            replica.ClientActivate(state);
+            replica.ApplyServerState(state, newLife: true);
+            Assert.Equal((ushort)123, replica._doubleDmgTimer);
+            Assert.Equal((ushort)234, replica._cloakTimer);
+            Assert.Equal((ushort)345, GetPrivateField<ushort>(replica,
+                "_deathaltTimer"));
+            Assert.True(replica.Flags2.TestFlag(PlayerFlags2.Cloaking));
+            Assert.True(replica.Process());
+            // Headless validation intentionally does not allocate presentation
+            // effects, but the same remote Process path advances the timer and
+            // attempts effect 181 in a rendered replica scene.
+            Assert.Equal((ushort)344, GetPrivateField<ushort>(replica,
+                "_deathaltTimer"));
+
+            state.DoubleDamageTicks = 0;
+            state.CloakTicks = 0;
+            state.DeathaltTicks = 0;
+            state.Flags &= ~SnapshotPlayerFlags.Cloaking;
+            replica.ApplyServerState(state, newLife: false);
+            Assert.Equal((ushort)0, replica._doubleDmgTimer);
+            Assert.Equal((ushort)0, replica._cloakTimer);
+            Assert.Equal((ushort)0, GetPrivateField<ushort>(replica,
+                "_deathaltTimer"));
+            Assert.Null(GetPrivateField<object?>(replica,
+                "_deathaltEffect"));
+            Assert.False(replica.Flags2.TestFlag(PlayerFlags2.Cloaking));
+        }
+        finally
+        {
+            Read.ServerMode = previousServerMode;
+        }
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
     public void WeavelReplicaFormSyncPreservesAuthoritativeOwnerHealth()
     {
         bool previousServerMode = Read.ServerMode;
@@ -180,4 +245,18 @@ public sealed class SpireAltAttackTests
 
         throw new DirectoryNotFoundException("AMHE1 extracted content was not found.");
     }
+
+    private static T GetPrivateField<T>(PlayerEntity player, string name)
+    {
+        FieldInfo field = typeof(PlayerEntity).GetField(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(typeof(PlayerEntity).FullName, name);
+        return (T)field.GetValue(player)!;
+    }
+
+    private static void SetPrivateField<T>(PlayerEntity player, string name, T value)
+        => (typeof(PlayerEntity).GetField(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new MissingFieldException(typeof(PlayerEntity).FullName, name))
+            .SetValue(player, value);
 }

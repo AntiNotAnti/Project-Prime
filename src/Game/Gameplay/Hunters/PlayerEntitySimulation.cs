@@ -61,6 +61,7 @@ namespace MphRead.Entities
         internal void ServerDeactivate()
         {
             ClearClientCombatIdentity();
+            ClearPowerupPresentationState();
             _aimAssist.Reset();
             ResetLockjawBombState();
             AdvancePresentationPoseEpoch();
@@ -209,6 +210,7 @@ namespace MphRead.Entities
             if (EquipInfo.Zoomed) flags |= SnapshotPlayerFlags.Zoomed;
             if (Flags2.TestFlag(PlayerFlags2.Spectating)) flags |= SnapshotPlayerFlags.Spectating;
             if (Flags1.TestFlag(PlayerFlags1.Grounded)) flags |= SnapshotPlayerFlags.Grounded;
+            if (Flags2.TestFlag(PlayerFlags2.Cloaking) && _cloakTimer > 0) flags |= SnapshotPlayerFlags.Cloaking;
             if (ShouldCaptureReplicatedAltAttack(Hunter, alive, IsAltForm,
                 Flags2.TestFlag(PlayerFlags2.AltAttack)))
             {
@@ -231,6 +233,8 @@ namespace MphRead.Entities
                 AvailableWeapons = available, FrozenTicks = _frozenTimer,
                 BurnTicks = _burnTimer, DisruptTicks = _disruptedTimer, Assists = _scene.Match.Players[SlotIndex].Assists,
                 ChargeLevel = EquipInfo.ChargeLevel,
+                DoubleDamageTicks = _doubleDmgTimer, CloakTicks = _cloakTimer,
+                DeathaltTicks = _deathaltTimer,
                 Points = _scene.Match.Players[SlotIndex].Points, Kills = _scene.Match.Players[SlotIndex].Kills,
                 Deaths = _scene.Match.Players[SlotIndex].Deaths
             };
