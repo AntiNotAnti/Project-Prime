@@ -16,9 +16,15 @@ public partial class PlayerPresentation
 
     public void SetCosmeticLoadout(CosmeticLoadoutIds loadout)
     {
+        CosmeticLoadoutIds previous = CosmeticLoadoutIds;
         CosmeticLoadoutIds = CosmeticCatalog.BuiltIn.Sanitize(loadout, _player.Hunter);
         Skin.Select(CosmeticLoadoutIds.SkinId, _player.Hunter);
         Armor.Select(CosmeticLoadoutIds.ArmorEffectId);
+        if (previous != CosmeticLoadoutIds)
+            Mods.DebugLog.Line("cosmetics/loadout",
+                $"Applied slot {_player.SlotIndex} {_player.Hunter} cosmetics "
+                + $"{CosmeticLoadoutIds.SkinId}/{CosmeticLoadoutIds.ArmorEffectId}/"
+                + $"{CosmeticLoadoutIds.DeathEffectId}.");
     }
 
     internal bool PrepareArmorEffect(CosmeticPresentationSettings settings,

@@ -76,8 +76,9 @@ namespace MphRead.Entities
         {
             if (UsesDoubleDamageTexture(material))
             {
-                Model model = _turret.Owner.DoubleDamageModel.Model;
-                return Presentation.GetTextureIdentity(model, model.Materials[0], 0);
+                return Presentation.GetTextureIdentity(
+                    _turret.Owner.DoubleDamageModel.Model,
+                    textureId: 0, paletteId: 0, recolorId: 0);
             }
 
             return base.GetTextureIdentity(inst, material, index, recolor);

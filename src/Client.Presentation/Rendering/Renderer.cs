@@ -4646,6 +4646,12 @@ namespace MphRead
         /// frame are sealed. Normal gameplay scenes never install a callback.
         /// </summary>
         internal Action? IsolatedPresentationSubmission { get; set; }
+        internal Func<EntityBase, CosmeticMaterialOverride?>?
+            IsolatedCosmeticMaterialResolver { get; set; }
+
+        internal CosmeticMaterialOverride? ResolveIsolatedCosmeticMaterial(
+            EntityBase entity)
+            => IsolatedCosmeticMaterialResolver?.Invoke(entity);
 
         public int GetNextPolygonId()
         {
@@ -4694,8 +4700,7 @@ namespace MphRead
                 }
             }
 
-            if (_isolatedPresentation)
-                IsolatedPresentationSubmission?.Invoke();
+            IsolatedPresentationSubmission?.Invoke();
 
             // A host-authorized, server-selected QZ1 diagnostic is rendered
             // as bounded world geometry. It never feeds the simulation or

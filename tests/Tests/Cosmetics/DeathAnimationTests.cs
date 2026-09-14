@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -30,6 +31,16 @@ public sealed class DeathAnimationTests
         new("L_shoulder", 10), new("L_elbow", 12), new("L_wrist", 13),
         new("L_varias2_SDK", 10), new("R_shoulder", 10),
         new("R_elbow", 16), new("R_varias2_SDK", 10)
+    ];
+    private static readonly DeathSkeletonNode[] ExactTraceNoxusSkeleton =
+    [
+        new("Dummy_Root", -1), new("Skeleton_Root", 0),
+        new("L_hip", 1), new("L_knee", 2), new("L_ankle", 3),
+        new("R_hip", 1), new("R_knee", 5), new("R_ankle", 6),
+        new("Spine_1", 1), new("Spine_2", 8), new("Collar", 9),
+        new("L_collar", 10), new("L_shoulder", 11),
+        new("L_elbow", 12), new("Neck_1", 10), new("Head_1", 14),
+        new("R_collar", 10), new("R_shoulder", 16), new("R_elbow", 17)
     ];
 
     [Fact]
@@ -89,6 +100,8 @@ public sealed class DeathAnimationTests
         Assert.Equal(DeathParticleKind.Quantum, start.Particles);
         Assert.False(runtime.TrySample(100 + 3 * 60, out _));
         Assert.False(runtime.Active);
+        Assert.False(runtime.Begin(actor with { Life = 4 }, 100,
+            BuiltInCosmeticIds.DeathQuantum, pose));
     }
 
     [Fact]
@@ -202,7 +215,56 @@ public sealed class DeathAnimationTests
             CapturedPose(wrong, Hunter.Samus)));
     }
 
-    private static CapturedDeathPose CapturedPose()
+    [Fact]
+    public void GlobalCollapseResolvesExactCookedClipForEveryPlayableHunter()
+    {
+        Assert.True(CosmeticCatalog.BuiltIn.TryGetDeathEffect(
+            BuiltInCosmeticIds.DeathBackwardCollapse,
+            out DeathEffectDefinition effect));
+        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        {
+            DeathSkeletonNode[] skeleton = hunter is Hunter.Trace or Hunter.Noxus
+                ? ExactTraceNoxusSkeleton : ExactSamusSkeleton;
+            byte[] signature = DeathAnimationSkeleton.ComputeSignature(hunter,
+                skeleton);
+            Assert.True(DeathAnimationCatalog.TryResolve(effect, hunter,
+                CreateNodes(skeleton), out DeathAnimationClip? clip));
+            Assert.NotNull(clip);
+            Assert.True(clip!.Matches(hunter, signature));
+            Assert.Equal(hunter, clip.Hunter);
+            var actor = new CombatActor(0, 1, 1);
+            CapturedDeathPose pose = CapturedPose(skeleton, hunter,
+                BuiltInCosmeticIds.DeathBackwardCollapse, actor);
+            var runtime = new DeathPresentationRuntime();
+            Assert.True(runtime.Begin(actor, 10,
+                BuiltInCosmeticIds.DeathBackwardCollapse, pose));
+            Assert.True(runtime.TrySample(46, out DeathPresentationSample sample));
+            Assert.NotEqual(Matrix4.Identity, sample.Nodes[0]);
+        }
+
+        Assert.False(DeathAnimationCatalog.TryResolve(effect, Hunter.Trace,
+            CreateNodes(ExactSamusSkeleton), out _));
+    }
+
+    [Fact]
+    public void AuthoredCollapseSourcesRecookByteForByte()
+    {
+        string directory = Path.Combine(FindRepositoryRoot(),
+            "src", "Client.Presentation", "Assets", "Cosmetics",
+            "DeathAnimations");
+        foreach (string hunter in new[]
+            { "samus", "kanden", "trace", "sylux", "noxus", "spire", "weavel" })
+        {
+            DeathAnimationClip source = DeathAnimationCooker.ReadSource(
+                File.ReadAllBytes(Path.Combine(directory,
+                    $"{hunter}-backward-collapse.json")));
+            Assert.Equal(File.ReadAllBytes(Path.Combine(directory,
+                $"{hunter}-backward-collapse.pda")),
+                DeathAnimationCodec.Write(source));
+        }
+    }
+
+    private static CapturedDeathPose CapturedPose(CombatActor? actor = null)
     {
         Model model = (Model)RuntimeHelpers.GetUninitializedObject(typeof(Model));
         Node node = (Node)RuntimeHelpers.GetUninitializedObject(typeof(Node));
@@ -222,12 +284,14 @@ public sealed class DeathAnimationTests
         pose.Capture(model, Matrix4.Identity, new[] { Matrix4.Identity },
             new float[16], new CapturedDeathAppearance(Hunter.Samus,
                 new CosmeticLoadoutIds(0, 0, BuiltInCosmeticIds.DeathQuantum),
-                Recolor: 0, Alpha: 1));
+                Recolor: 0, Alpha: 1), actor ?? new CombatActor(1, 2, 3));
         return pose;
     }
 
     private static CapturedDeathPose CapturedPose(
-        IReadOnlyList<DeathSkeletonNode> skeleton, Hunter hunter)
+        IReadOnlyList<DeathSkeletonNode> skeleton, Hunter hunter,
+        ushort deathEffectId = BuiltInCosmeticIds.DeathSamusBackwardCollapse,
+        CombatActor? actor = null)
     {
         IReadOnlyList<Node> nodes = CreateNodes(skeleton);
         Model model = (Model)RuntimeHelpers.GetUninitializedObject(typeof(Model));
@@ -242,8 +306,19 @@ public sealed class DeathAnimationTests
             Enumerable.Repeat(Matrix4.Identity, nodes.Count).ToArray(),
             new float[nodes.Count * 16], new CapturedDeathAppearance(hunter,
                 new CosmeticLoadoutIds(0, 0,
-                    BuiltInCosmeticIds.DeathSamusBackwardCollapse), 0, 1));
+                    deathEffectId), 0, 1), actor ?? new CombatActor(0, 1, 1));
         return pose;
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        string? directory = AppContext.BaseDirectory;
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory, "Game.sln"))) return directory;
+            directory = Directory.GetParent(directory)?.FullName;
+        }
+        throw new InvalidOperationException("Repository root was not found.");
     }
 
     private static IReadOnlyList<Node> CreateNodes(

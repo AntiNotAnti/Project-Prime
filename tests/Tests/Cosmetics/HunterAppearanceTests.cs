@@ -149,6 +149,10 @@ public sealed class HunterAppearanceTests
         controller.SelectHunter(Hunter.Kanden);
         Assert.DoesNotContain(controller.State.DeathEffects,
             effect => effect.Id == BuiltInCosmeticIds.DeathSamusBackwardCollapse);
+        Assert.Contains(controller.State.DeathEffects,
+            effect => effect.Id == BuiltInCosmeticIds.DeathBackwardCollapse);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            controller.SelectHunter(Hunter.Guardian));
     }
 
     [Fact]
@@ -217,6 +221,30 @@ public sealed class HunterAppearanceTests
         Assert.True(ModelPreviewCatalog.TryWorkerKey(spec.WorkerKey,
             out ModelPreviewSpec? parsed));
         Assert.Equal(spec.BaseRecolor, parsed!.BaseRecolor);
+    }
+
+    [Fact]
+    public void AlivePreviewIdentityIncludesArmorAndChangesCachePath()
+    {
+        Assert.True(CosmeticCatalog.BuiltIn.TryGetSkin(
+            "prime.skin.trace.obsidian", out SkinDefinition skin));
+        Assert.True(CosmeticCatalog.BuiltIn.TryGetArmorEffect(
+            BuiltInCosmeticIds.ArmorLightning, out ArmorEffectDefinition armor));
+        Assert.True(ModelPreviewCatalog.TryHunter(Hunter.Trace, skin, armor,
+            out ModelPreviewSpec? armored));
+        Assert.Equal("hunter:trace:1:armor-1", armored!.WorkerKey);
+        Assert.Contains("trace-r1-a1-v3-",
+            ModelPreviewCatalog.PathFor(armored, "AMHE1", "hash"),
+            StringComparison.Ordinal);
+        Assert.True(ModelPreviewCatalog.TryWorkerKey(armored.WorkerKey,
+            out ModelPreviewSpec? parsed));
+        Assert.Equal(armor.Id, parsed!.ArmorEffectId);
+        Assert.True(ModelPreviewCatalog.TryHunter(Hunter.Trace, skin,
+            armorEffect: null, out ModelPreviewSpec? plain));
+        Assert.NotEqual(ModelPreviewCatalog.PathFor(plain!, "AMHE1", "hash"),
+            ModelPreviewCatalog.PathFor(armored, "AMHE1", "hash"));
+        Assert.False(ModelPreviewCatalog.TryWorkerKey(
+            "hunter:trace:1:armor-999", out _));
     }
 
     [Fact]

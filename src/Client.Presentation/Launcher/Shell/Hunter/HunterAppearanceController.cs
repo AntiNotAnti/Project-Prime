@@ -143,7 +143,7 @@ public sealed class LocalHunterAppearanceStore : IHunterAppearanceStore
 
     private static void ValidateHunter(Hunter hunter)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Guardian)
+        if (hunter is < Hunter.Samus or > Hunter.Weavel)
             throw new ArgumentOutOfRangeException(nameof(hunter));
     }
 
@@ -249,7 +249,7 @@ public sealed class HunterAppearanceController
 
     public CosmeticLoadout GetEquipped(Hunter hunter)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Guardian)
+        if (hunter is < Hunter.Samus or > Hunter.Weavel)
             throw new ArgumentOutOfRangeException(nameof(hunter));
         if (_state.Hunter == hunter) return _state.Equipped;
         ImmutableArray<SkinDefinition> hunterSkins = SkinsFor(hunter);
@@ -310,7 +310,7 @@ public sealed class HunterAppearanceController
 
     private HunterAppearanceState CreateState(Hunter hunter)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Guardian)
+        if (hunter is < Hunter.Samus or > Hunter.Weavel)
             throw new ArgumentOutOfRangeException(nameof(hunter));
         ImmutableArray<SkinDefinition> hunterSkins = SkinsFor(hunter);
         ImmutableArray<DeathEffectDefinition> hunterDeaths = DeathsFor(hunter);

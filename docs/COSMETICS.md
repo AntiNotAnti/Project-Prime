@@ -6,6 +6,11 @@ gameplay content identity. The Node validates and freezes a loadout for each ros
 seat; the Worker only republishes those immutable IDs. `SnapshotPlayer` and the UDP
 snapshot wire format remain unchanged.
 
+User-facing appearance selection covers Samus, Kanden, Trace, Sylux, Noxus,
+Spire, and Weavel. Each has Base plus the authored AMHE1 lod0 recolors 1
+(`Obsidian Prime`) and 2 (`Solar Prime`). Guardian remains an internal gameplay
+model and cannot be equipped through account or Hunter Appearance APIs.
+
 ## Identity and compatibility
 
 - Stable keys are the authored and persistence identity.
@@ -40,6 +45,15 @@ colors. Visibility, distance, first-person, spectator, alt-form, and death takeo
 policies suppress work before submission. Fixed particle, ribbon, attachment,
 distortion, and light budgets use stable slot-ID tie breaks.
 
+Frame admission accepts at most 128 player/effect requests. The separate
+primitive staging buffer holds 576 requests: 512 particle samples, 24 ribbon
+systems (expanded only while flushing), 32 attachment models, and 8 local
+lights. Submission appends without sorted insertion, then performs one
+allocation-free deterministic stable-key sort at seal. Every admitted particle
+becomes one continuously animated stateless sample around its semantic anchor;
+renderer headroom is checked before atlas, fallback, ribbon, or attachment draw
+submission.
+
 Manifests are bounded data. Loaders reject oversized files and collections,
 duplicate identities, invalid or absolute paths, traversal, URLs, scripts, DLLs,
 shader source, and out-of-range values. Runtime shader compilation and reflection
@@ -64,14 +78,17 @@ match. A death body is presentation-owned and starts from the last successfully
 submitted alive interpolated pose. New life, slot/connection identity changes, replay
 seek/reset, room disposal, or killcam exit cancels it immediately.
 
-The first authored clip is `samus-backward-collapse.json`. Its 19-node hierarchy and
-signature were derived from the exact AMHE1 `Samus_lod0` model with:
+The legacy Samus-only effect keeps published ID 4. Global Backward Collapse uses
+ID 5 and a fixed `(effect ID, Hunter)` lookup over seven embedded cooked clips.
+Each JSON source and signature was derived from the exact Hunter lod0 model;
+Trace and Noxus use their distinct 19-node Collar/Neck hierarchy and are never
+remapped onto the Samus hierarchy. Inspect an exact skeleton with:
 
 ```text
 ProjectPrimeTools -deathskeleton Samus_lod0 Samus -data AMHE1_DIRECTORY
 ```
 
-Re-cook the checked-in 263-byte runtime artifact deterministically with:
+Re-cook any checked-in runtime artifact deterministically with:
 
 ```text
 ProjectPrimeTools -deathanim ABSOLUTE_SOURCE.json -out ABSOLUTE_OUTPUT.pda
@@ -80,6 +97,13 @@ ProjectPrimeTools -deathanim ABSOLUTE_SOURCE.json -out ABSOLUTE_OUTPUT.pda
 The client loads only the fixed embedded resource, validates the cooked bounds, then
 requires the Hunter and SHA-256 skeleton signature to match. A mismatch returns to the
 legacy/default death path; it is never remapped at runtime.
+
+Ordinary Hunter previews include the selected armor effect in their worker and
+cache identity. The isolated renderer samples the alive model's actual submitted
+node pose, submits armor primitives before frame seal, and applies authored body
+emission without creating a gameplay player or network identity. Death-stage
+previews retain the same skin and armor selection while sampling the selected
+death runtime.
 
 ## Acceptance boundaries
 

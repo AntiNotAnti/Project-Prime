@@ -48,6 +48,12 @@ namespace MphRead.Entities
             PresentDeathCue(cue, suppressSound);
         }
 
+        internal bool IsDeathPresentationBoundTo(in CombatActor actor,
+            ulong rosterConnectionId, uint rosterLife)
+            => DeathPresentationBinding.Accepts(actor, rosterConnectionId,
+                rosterLife, _authoritativeActor, _deathPresentation.Actor,
+                _capturedDeathPose.Actor);
+
         internal void ResetAuthoritativeDeathPresentation()
         {
             _deathPresentation.Reset();
@@ -63,7 +69,8 @@ namespace MphRead.Entities
             Matrix4[]? submittedNodes, float[]? submittedStack, float alpha)
             => _capturedDeathPose.CaptureSubmitted(model, root, submittedNodes,
                 submittedStack, new CapturedDeathAppearance(_player.Hunter,
-                    CosmeticLoadoutIds, _player.Recolor, alpha));
+                    CosmeticLoadoutIds, _player.Recolor, alpha),
+                _player.CombatIdentity);
 
         internal bool TryGetDeathPresentation(uint tick,
             out DeathPresentationSample sample)
@@ -164,12 +171,18 @@ namespace MphRead.Entities
         {
             if (!cue.IsValid)
                 return;
-            bool takeover = !cue.AltForm && _deathRuntime.Begin(cue.Actor,
-                cue.Tick, CosmeticLoadoutIds.DeathEffectId, _capturedDeathPose,
-                matchId: _player._scene.Match.MatchId);
-            if (!cue.AltForm && CosmeticLoadoutIds.DeathEffectId != 0 && !takeover)
+            if (_capturedDeathPose.Actor != cue.Actor)
+            {
                 Mods.DebugLog.Line("cosmetics/death",
-                    $"Fell back from death effect {CosmeticLoadoutIds.DeathEffectId} for slot {cue.Actor.Slot}.");
+                    $"Rejected death takeover for slot {cue.Actor.Slot}: captured actor mismatch.");
+            }
+            ushort deathEffectId = _capturedDeathPose.Appearance.Cosmetics.DeathEffectId;
+            bool takeover = !cue.AltForm && _deathRuntime.Begin(cue.Actor,
+                cue.Tick, deathEffectId, _capturedDeathPose,
+                matchId: _player._scene.Match.MatchId);
+            if (!cue.AltForm && deathEffectId != 0 && !takeover)
+                Mods.DebugLog.Line("cosmetics/death",
+                    $"Fell back from death effect {deathEffectId} for slot {cue.Actor.Slot}.");
             _networkDeathParticles = !takeover && !cue.AltForm
                 && !cue.EnginePresentationHandled;
             _networkDeathParticleTick = cue.Tick;

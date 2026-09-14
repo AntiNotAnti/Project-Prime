@@ -142,3 +142,37 @@ public readonly record struct DeathPresentationCue(CombatActor Actor, uint Tick,
 {
     public bool IsValid => Actor.IsValid;
 }
+
+/// <summary>Pure roster-to-presentation actor fence for reliable kills.</summary>
+public static class DeathPresentationBinding
+{
+    public static bool Accepts(in CombatActor victim, ulong rosterConnectionId,
+        uint rosterLife, in CombatActor presentationActor,
+        in CombatActor gateActor, in CombatActor capturedActor)
+    {
+        if (!victim.IsValid || rosterConnectionId != victim.ConnectionId)
+            return false;
+        if (rosterLife == victim.Life)
+            return presentationActor == victim;
+        return victim.Life != uint.MaxValue && rosterLife == victim.Life + 1
+            && (gateActor == victim || capturedActor == victim);
+    }
+}
+
+/// <summary>
+/// Keeps combat-feed deduplication independent from the idempotent death gate.
+/// </summary>
+public static class DeathPresentationRouting
+{
+    public static bool IsSemanticCurrent(in KillEvent kill, uint currentMatchId,
+        uint currentPhaseRevision)
+        => kill.MatchId == currentMatchId
+            && kill.PhaseRevision == currentPhaseRevision;
+
+    public static bool ShouldObserveKill(bool combatFeedAccepted, bool actorBound,
+        bool semanticCurrent)
+    {
+        _ = combatFeedAccepted;
+        return actorBound && semanticCurrent;
+    }
+}

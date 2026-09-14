@@ -81,27 +81,52 @@ public sealed class ArmorEffectPresentation
                 anchors.Root, anchors.Root, anchors.Root)
             : anchors;
         int submitted = 0;
-        uint stream = 1;
 
         int emitterCount = Math.Min(allowance.ParticleEmitters,
             frame.Recipe.Definition.Particles?.Count ?? 0);
+        int baseSamplesPerEmitter = emitterCount == 0
+            ? 0 : allowance.Particles / emitterCount;
+        int extraSamples = emitterCount == 0
+            ? 0 : allowance.Particles % emitterCount;
+        float presentationSeconds = (frame.Context.ServerTick
+            + frame.Context.RenderAlpha) / 60f;
         for (int i = 0; i < emitterCount; i++)
         {
             CosmeticParticleDefinition particle = frame.Recipe.Definition.Particles![i];
-            Vector3 position = resolvedAnchors.Resolve(particle.Anchor);
-            float phase = Unit(frame.Context.StableSeed, stream++);
-            position += new Vector3((phase - .5f) * .12f,
-                .04f + phase * .08f, (.5f - phase) * .12f);
-            float intensity = Math.Clamp(frame.EmissionStrength, .05f, 16);
             string? sprite = frame.Recipe.ParticleSprites != null
                 && i < frame.Recipe.ParticleSprites.Count
                 ? frame.Recipe.ParticleSprites[i] : null;
-            if (submissions.TryAdd(new CosmeticPrimitiveSubmission(
-                    Key(frame.Context.StableSeed, stream++), allowance.PlayerSlot,
-                    CosmeticPrimitiveKind.Particle, position, position, color,
-                    intensity, assetKey: sprite)))
+            int samples = baseSamplesPerEmitter + (i < extraSamples ? 1 : 0);
+            Vector3 anchor = resolvedAnchors.Resolve(particle.Anchor);
+            float rate = MathF.Max(.1f, particle.Rate);
+            for (int sample = 0; sample < samples; sample++)
             {
-                submitted++;
+                uint sampleStream = checked((uint)(i * 4096 + sample));
+                float initialPhase = Unit(frame.Context.StableSeed,
+                    0x10000000u + sampleStream) * 2 * MathF.PI;
+                float orbitRate = .45f + rate * .075f;
+                float phase = initialPhase + presentationSeconds * orbitRate;
+                float radius = .14f + Unit(frame.Context.StableSeed,
+                    0x20000000u + sampleStream) * .18f;
+                float verticalPhase = Unit(frame.Context.StableSeed,
+                    0x30000000u + sampleStream);
+                float drift = (verticalPhase + presentationSeconds
+                    * (.035f + rate * .006f)) % 1;
+                Vector3 position = anchor + new Vector3(
+                    MathF.Cos(phase) * radius,
+                    -.08f + drift * .42f,
+                    MathF.Sin(phase) * radius);
+                float intensity = Math.Clamp(frame.EmissionStrength, .05f, 16);
+                float size = .065f + Unit(frame.Context.StableSeed,
+                    0x40000000u + sampleStream) * .055f;
+                if (submissions.TryAdd(new CosmeticPrimitiveSubmission(
+                        Key(frame.Context.StableSeed,
+                            0x50000000u + sampleStream), allowance.PlayerSlot,
+                        CosmeticPrimitiveKind.Particle, position, position, color,
+                        intensity, assetKey: sprite, size: size)))
+                {
+                    submitted++;
+                }
             }
         }
 
@@ -116,12 +141,14 @@ public sealed class ArmorEffectPresentation
                 Math.Max(1, remainingSegments / systemsLeft));
             remainingSegments -= segments;
             if (submissions.TryAdd(new CosmeticPrimitiveSubmission(
-                    Key(frame.Context.StableSeed, stream++), allowance.PlayerSlot,
+                    Key(frame.Context.StableSeed, 0x60000000u + (uint)i),
+                    allowance.PlayerSlot,
                     CosmeticPrimitiveKind.Ribbon, resolvedAnchors.Resolve(ribbon.From),
                     resolvedAnchors.Resolve(ribbon.To), color,
                     Math.Clamp(frame.EmissionStrength, .05f, 16), segments,
                     assetKey: frame.Recipe.ParticleSprites is { Count: > 0 }
-                        ? frame.Recipe.ParticleSprites[0] : null)))
+                        ? frame.Recipe.ParticleSprites[0] : null,
+                    size: .055f)))
             {
                 submitted++;
             }
@@ -144,7 +171,8 @@ public sealed class ArmorEffectPresentation
                 * Matrix4.CreateTranslation(attachment.OffsetX,
                     attachment.OffsetY, attachment.OffsetZ);
             if (submissions.TryAdd(new CosmeticPrimitiveSubmission(
-                    Key(frame.Context.StableSeed, stream++), allowance.PlayerSlot,
+                    Key(frame.Context.StableSeed, 0x70000000u + (uint)i),
+                    allowance.PlayerSlot,
                     CosmeticPrimitiveKind.Attachment, position, position, color,
                     Math.Clamp(frame.EmissionStrength, .05f, 16),
                     assetKey: attachment.Mesh,
@@ -156,7 +184,7 @@ public sealed class ArmorEffectPresentation
 
         if (allowance.LocalLights > 0 && frame.Recipe.LocalLight
             && submissions.TryAdd(new CosmeticPrimitiveSubmission(
-                Key(frame.Context.StableSeed, stream), allowance.PlayerSlot,
+                Key(frame.Context.StableSeed, 0x80000000u), allowance.PlayerSlot,
                 CosmeticPrimitiveKind.LocalLight, resolvedAnchors.Chest,
                 resolvedAnchors.Chest,
                 color, Math.Clamp(frame.EmissionStrength, .05f, 16))))

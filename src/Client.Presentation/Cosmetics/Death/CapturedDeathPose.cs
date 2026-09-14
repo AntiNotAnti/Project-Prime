@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MphRead.Formats;
+using MphRead.Mods.Network;
 using OpenTK.Mathematics;
 
 namespace MphRead.Cosmetics.Presentation;
@@ -25,11 +26,12 @@ public sealed class CapturedDeathPose
     public Matrix4[] Nodes => _nodes;
     public float[] MatrixStack => _matrixStack;
     public Model? Model { get; private set; }
+    public CombatActor Actor { get; private set; } = CombatActor.None;
     public CapturedDeathAppearance Appearance { get; private set; }
 
     public void Capture(Model model, in Matrix4 root,
         ReadOnlySpan<Matrix4> nodes, ReadOnlySpan<float> matrixStack,
-        in CapturedDeathAppearance appearance)
+        in CapturedDeathAppearance appearance, in CombatActor actor)
     {
         ArgumentNullException.ThrowIfNull(model);
         if (nodes.Length != model.Nodes.Count
@@ -42,13 +44,14 @@ public sealed class CapturedDeathPose
         matrixStack.CopyTo(_matrixStack);
         Root = root;
         Model = model;
+        Actor = actor;
         Appearance = appearance;
         IsValid = true;
     }
 
     public void CaptureSubmitted(Model model, in Matrix4 root,
         Matrix4[]? submittedNodes, float[]? submittedStack,
-        in CapturedDeathAppearance appearance)
+        in CapturedDeathAppearance appearance, in CombatActor actor)
     {
         ArgumentNullException.ThrowIfNull(model);
         if (submittedNodes != null && submittedNodes.Length != model.Nodes.Count
@@ -64,6 +67,7 @@ public sealed class CapturedDeathPose
         for (int i = 0; i < stackLength; i++) _matrixStack[i] = sourceStack[i];
         Root = root;
         Model = model;
+        Actor = actor;
         Appearance = appearance;
         IsValid = true;
     }
@@ -72,6 +76,7 @@ public sealed class CapturedDeathPose
     {
         IsValid = false;
         Model = null;
+        Actor = CombatActor.None;
         Appearance = default;
         Root = Matrix4.Identity;
     }

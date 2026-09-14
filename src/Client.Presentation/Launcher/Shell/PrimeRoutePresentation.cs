@@ -50,6 +50,9 @@ public static class PrimeRoutePresentation
 
     public const double MobileUpperBound = 720;
     public const double WideLowerBound = 1000;
+    public const double MinimumWindowedMenuScale = .72;
+    public const double FullScaleMenuContentHeight = 900;
+    public const double DesktopVerticalChrome = 132;
 
     public static IReadOnlyList<PrimeRoute> MobilePrimary { get; } =
         new[] { PrimeRoute.Play, PrimeRoute.Hunter, PrimeRoute.Rankings };
@@ -63,6 +66,24 @@ public static class PrimeRoutePresentation
             throw new ArgumentOutOfRangeException(nameof(width));
         if (width < MobileUpperBound) return PrimeShellBreakpoint.Mobile;
         return width < WideLowerBound ? PrimeShellBreakpoint.Compact : PrimeShellBreakpoint.Wide;
+    }
+
+    /// <summary>
+    /// Keeps ordinary desktop menus inside shorter windows before the page
+    /// scroller becomes necessary. Mobile remains unscaled so touch targets
+    /// and accessibility text never shrink below their authored size.
+    /// </summary>
+    public static double WindowedMenuScale(double width, double height)
+    {
+        if (Double.IsNaN(width) || Double.IsInfinity(width) || width < 0)
+            throw new ArgumentOutOfRangeException(nameof(width));
+        if (Double.IsNaN(height) || Double.IsInfinity(height) || height < 0)
+            throw new ArgumentOutOfRangeException(nameof(height));
+        if (width < MobileUpperBound || height == 0) return 1;
+
+        double contentHeight = Math.Max(0, height - DesktopVerticalChrome);
+        return Math.Clamp(contentHeight / FullScaleMenuContentHeight,
+            MinimumWindowedMenuScale, 1);
     }
 
     public static string NavigationLabel(PrimeRoute route, PrimeShellBreakpoint breakpoint)

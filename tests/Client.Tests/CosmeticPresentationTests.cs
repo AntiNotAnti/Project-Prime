@@ -305,6 +305,51 @@ public sealed class CosmeticPresentationTests
             && item.Start == anchors.Chest);
         Assert.Contains(first.Seal(), item => item.Kind == CosmeticPrimitiveKind.Particle
             && item.AssetKey == frame.Recipe.ParticleSprites![0]);
+        CosmeticPrimitiveSubmission[] particles = first.Seal()
+            .Where(item => item.Kind == CosmeticPrimitiveKind.Particle).ToArray();
+        Assert.Equal(allowance.Particles, particles.Length);
+        Assert.True(particles.Length > allowance.ParticleEmitters);
+        Assert.All(particles, item =>
+        {
+            Assert.InRange(item.Size, .005f, 2);
+            Assert.True(float.IsFinite(item.Start.X));
+            Assert.True(float.IsFinite(item.Start.Y));
+            Assert.True(float.IsFinite(item.Start.Z));
+            Assert.InRange((item.Start - anchors.Chest).Length, 0, .75f);
+        });
+
+        Assert.True(runtime.TryEvaluate(CosmeticPresentationSettings.DesktopDefault,
+            State(), 150, .5f, 0x1234, out ArmorEffectFrame laterFrame));
+        CosmeticBudgetAllowance laterAllowance = Assert.Single(
+            CosmeticBudgetArbiter.Admit(new[] { laterFrame.BudgetRequest }));
+        var later = new CosmeticPrimitiveSubmissionBuffer();
+        runtime.SubmitPrimitives(laterFrame, laterAllowance, anchors, later);
+        CosmeticPrimitiveSubmission[] laterParticles = later.Seal()
+            .Where(item => item.Kind == CosmeticPrimitiveKind.Particle).ToArray();
+        Assert.Equal(particles.Select(item => item.StableKey),
+            laterParticles.Select(item => item.StableKey));
+        Assert.Contains(particles.Zip(laterParticles), pair =>
+            pair.First.Start != pair.Second.Start);
+    }
+
+    [Fact]
+    public void FirstPersonReducedAndOffPoliciesBoundParticleDensity()
+    {
+        var runtime = new ArmorEffectPresentation();
+        runtime.Select(BuiltInCosmeticIds.ArmorInferno);
+        Assert.True(runtime.TryEvaluate(CosmeticPresentationSettings.DesktopDefault,
+            State(), 10, 0, 1, out ArmorEffectFrame full));
+        Assert.True(runtime.TryEvaluate(CosmeticPresentationSettings.ReducedDefault,
+            State(), 10, 0, 1, out ArmorEffectFrame reduced));
+        Assert.True(runtime.TryEvaluate(CosmeticPresentationSettings.DesktopDefault,
+            State(local: true, firstPerson: true), 10, 0, 1,
+            out ArmorEffectFrame firstPerson));
+        Assert.True(reduced.BudgetRequest.Particles < full.BudgetRequest.Particles);
+        Assert.True(firstPerson.BudgetRequest.Particles < full.BudgetRequest.Particles);
+        Assert.Equal(0, firstPerson.BudgetRequest.AttachmentMeshes);
+        Assert.Equal(0, firstPerson.BudgetRequest.LocalLights);
+        Assert.False(runtime.TryEvaluate(CosmeticPresentationSettings.DesktopDefault
+            with { Quality = CosmeticQuality.Off }, State(), 10, 0, 1, out _));
     }
 
     [Fact]

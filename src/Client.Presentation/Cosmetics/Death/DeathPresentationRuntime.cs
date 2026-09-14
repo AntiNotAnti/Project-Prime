@@ -59,6 +59,7 @@ public sealed class DeathPresentationRuntime
         DeathAnimationClip? animation = null, uint matchId = 0)
     {
         if (!actor.IsValid || !pose.IsValid || pose.Model == null
+            || pose.Actor != actor
             || !TryResolveEffect(requestedEffectId, out DeathEffectDefinition effect))
             return false;
         DeathAnimationClip? acceptedAnimation = null;

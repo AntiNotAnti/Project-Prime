@@ -43,6 +43,8 @@ internal sealed record ModelPreviewSpec(ModelPreviewKind Kind, string Key,
     }}:{Key}" + (Kind == ModelPreviewKind.Hunter && DeathEffectId != 0
         ? $":{BaseRecolor}:death-{DeathEffectId}-t{DeathSampleTick}"
             + (ArmorEffectId == 0 ? "" : $"-a{ArmorEffectId}")
+        : Kind == ModelPreviewKind.Hunter && ArmorEffectId != 0
+            ? $":{BaseRecolor}:armor-{ArmorEffectId}"
         : Kind == ModelPreviewKind.Hunter && BaseRecolor != 0
             ? $":{BaseRecolor}" : "");
 }
@@ -53,7 +55,7 @@ internal sealed record ModelPreviewSpec(ModelPreviewKind Kind, string Key,
 /// </summary>
 internal static class ModelPreviewCatalog
 {
-    internal const int RendererVersion = 2;
+    internal const int RendererVersion = 3;
     internal const int Width = 640;
     internal const int Height = 640;
     internal const uint DeathStageSampleTick = 36;
@@ -63,6 +65,10 @@ internal static class ModelPreviewCatalog
 
     public static bool TryHunter(Hunter hunter, SkinDefinition? skin,
         out ModelPreviewSpec? spec)
+        => TryHunter(hunter, skin, armorEffect: null, out spec);
+
+    public static bool TryHunter(Hunter hunter, SkinDefinition? skin,
+        ArmorEffectDefinition? armorEffect, out ModelPreviewSpec? spec)
     {
         spec = null;
         if (hunter is < Hunter.Samus or > Hunter.Weavel
@@ -75,9 +81,15 @@ internal static class ModelPreviewCatalog
             ? authored : 1;
         if (skin != null && skin.Hunter != hunter)
             return false;
+        if (armorEffect != null
+            && (!CosmeticCatalog.BuiltIn.TryGetArmorEffect(armorEffect.Id,
+                    out ArmorEffectDefinition officialArmor)
+                || !String.Equals(officialArmor.Key, armorEffect.Key,
+                    StringComparison.Ordinal)))
+            return false;
         spec = new ModelPreviewSpec(ModelPreviewKind.Hunter,
             hunter.ToString().ToLowerInvariant(), models[0], scale, 1.3f,
-            skin?.BaseRecolor ?? 0, skin?.Key);
+            skin?.BaseRecolor ?? 0, skin?.Key, armorEffect?.Id ?? 0);
         return true;
     }
 
@@ -149,6 +161,17 @@ internal static class ModelPreviewCatalog
             if (parts.Length == 4)
             {
                 string marker = parts[3];
+                if (marker.StartsWith("armor-", StringComparison.Ordinal))
+                {
+                    if (!UInt16.TryParse(marker.AsSpan("armor-".Length),
+                            out ushort armorId)
+                        || !CosmeticCatalog.BuiltIn.TryGetArmorEffect(armorId,
+                            out ArmorEffectDefinition armor)
+                        || !TryHunter(hunter, skin: null, armor, out spec))
+                        return false;
+                    spec = spec! with { BaseRecolor = recolor };
+                    return true;
+                }
                 int tickMarker = marker.IndexOf("-t", StringComparison.Ordinal);
                 int armorMarker = marker.IndexOf("-a", StringComparison.Ordinal);
                 if (!marker.StartsWith("death-", StringComparison.Ordinal)
@@ -193,7 +216,8 @@ internal static class ModelPreviewCatalog
             .ToLowerInvariant()[..16];
         string kind = spec.Kind == ModelPreviewKind.Hunter ? "hunters" : "weapons";
         string variant = spec.Kind == ModelPreviewKind.Hunter
-            ? $"-r{spec.BaseRecolor}" + (spec.DeathEffectId == 0 ? ""
+            ? $"-r{spec.BaseRecolor}" + (spec.DeathEffectId == 0
+                ? spec.ArmorEffectId == 0 ? "" : $"-a{spec.ArmorEffectId}"
                 : $"-d{spec.DeathEffectId}-t{spec.DeathSampleTick}"
                     + (spec.ArmorEffectId == 0 ? "" : $"-a{spec.ArmorEffectId}")) : "";
         return Path.Combine(GameFiles.Root, "cache", "previews", kind,

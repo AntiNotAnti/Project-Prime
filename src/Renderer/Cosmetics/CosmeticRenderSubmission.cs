@@ -37,12 +37,14 @@ public readonly record struct CosmeticPrimitiveSubmission
     public CosmeticPrimitiveSubmission(ulong stableKey, byte playerSlot,
         CosmeticPrimitiveKind kind, Vector3 start, Vector3 end, Vector3 color,
         float intensity, int segmentCount = 1, string? assetKey = null,
-        Matrix4? localTransform = null)
+        Matrix4? localTransform = null, float size = .1f)
     {
         if (!IsFinite(start) || !IsFinite(end) || !IsFinite(color))
             throw new ArgumentOutOfRangeException(nameof(start));
         if (!float.IsFinite(intensity) || intensity < 0 || intensity > 16)
             throw new ArgumentOutOfRangeException(nameof(intensity));
+        if (!float.IsFinite(size) || size < .005f || size > 2)
+            throw new ArgumentOutOfRangeException(nameof(size));
         if (segmentCount < 1 || segmentCount > MaximumRibbonSegments)
             throw new ArgumentOutOfRangeException(nameof(segmentCount));
         if (kind != CosmeticPrimitiveKind.Ribbon && segmentCount != 1)
@@ -60,6 +62,7 @@ public readonly record struct CosmeticPrimitiveSubmission
         End = end;
         Color = color;
         Intensity = intensity;
+        Size = size;
         SegmentCount = segmentCount;
         AssetKey = assetKey;
         LocalTransform = transform;
@@ -72,6 +75,8 @@ public readonly record struct CosmeticPrimitiveSubmission
     public Vector3 End { get; }
     public Vector3 Color { get; }
     public float Intensity { get; }
+    /// <summary>Validated world-space size for particle and ribbon samples.</summary>
+    public float Size { get; }
     public int SegmentCount { get; }
     /// <summary>
     /// Stable built-in atlas or mesh identity. The renderer resolves it from
@@ -375,10 +380,14 @@ public static class CosmeticBudgetArbiter
 /// </summary>
 public sealed class CosmeticPrimitiveSubmissionBuffer
 {
-    public const int MaximumCapacity = CosmeticBudgetArbiter.MaximumRequests;
+    // Request admission and expanded primitive staging are separate limits.
+    // One ribbon remains one staged primitive and expands only while flushing.
+    public const int MaximumCapacity = 512 + 24 + 32 + 8;
 
     private readonly List<CosmeticPrimitiveSubmission> _items;
     private readonly IReadOnlyList<CosmeticPrimitiveSubmission> _view;
+    private readonly CosmeticPrimitiveSubmission[] _sortScratch;
+    private bool _sealed;
 
     public CosmeticPrimitiveSubmissionBuffer(int capacity = MaximumCapacity)
     {
@@ -387,6 +396,7 @@ public sealed class CosmeticPrimitiveSubmissionBuffer
         Capacity = capacity;
         _items = new List<CosmeticPrimitiveSubmission>(capacity);
         _view = _items.AsReadOnly();
+        _sortScratch = new CosmeticPrimitiveSubmission[capacity];
     }
 
     public int Capacity { get; }
@@ -394,34 +404,68 @@ public sealed class CosmeticPrimitiveSubmissionBuffer
 
     public bool TryAdd(CosmeticPrimitiveSubmission submission)
     {
-        int index = FindInsertionIndex(submission.StableKey);
-        if (index < _items.Count && _items[index].StableKey == submission.StableKey)
-        {
-            if (_items[index] == submission) return false;
-            throw new InvalidOperationException(
-                $"Cosmetic primitive key {submission.StableKey} identifies conflicting submissions.");
-        }
-        if (_items.Count == Capacity && index == _items.Count) return false;
-        _items.Insert(index, submission);
-        if (_items.Count > Capacity) _items.RemoveAt(Capacity);
-        return index < Capacity;
+        if (_sealed)
+            throw new InvalidOperationException("Cosmetic primitive buffer is sealed.");
+        if (_items.Count == Capacity) return false;
+        _items.Add(submission);
+        return true;
     }
 
     public IReadOnlyList<CosmeticPrimitiveSubmission> Seal()
-        => _view;
-
-    public void Clear() => _items.Clear();
-
-    private int FindInsertionIndex(ulong stableKey)
     {
-        int low = 0;
-        int high = _items.Count;
-        while (low < high)
+        if (!_sealed)
         {
-            int middle = low + (high - low) / 2;
-            if (_items[middle].StableKey < stableKey) low = middle + 1;
-            else high = middle;
+            SortStableByKey();
+            int write = 0;
+            for (int read = 0; read < _items.Count; read++)
+            {
+                CosmeticPrimitiveSubmission value = _items[read];
+                if (write != 0 && _items[write - 1].StableKey == value.StableKey)
+                {
+                    if (_items[write - 1] == value) continue;
+                    throw new InvalidOperationException(
+                        $"Cosmetic primitive key {value.StableKey} identifies conflicting submissions.");
+                }
+                _items[write++] = value;
+            }
+            if (write != _items.Count)
+                _items.RemoveRange(write, _items.Count - write);
+            _sealed = true;
         }
-        return low;
+        return _view;
+    }
+
+    public void Clear()
+    {
+        _items.Clear();
+        _sealed = false;
+    }
+
+    private void SortStableByKey()
+    {
+        int count = _items.Count;
+        for (int width = 1; width < count; width *= 2)
+        {
+            for (int start = 0; start < count; start += width * 2)
+            {
+                int middle = Math.Min(start + width, count);
+                int end = Math.Min(start + width * 2, count);
+                int left = start;
+                int right = middle;
+                for (int output = start; output < end; output++)
+                {
+                    if (right >= end || left < middle
+                        && _items[left].StableKey <= _items[right].StableKey)
+                    {
+                        _sortScratch[output] = _items[left++];
+                    }
+                    else
+                    {
+                        _sortScratch[output] = _items[right++];
+                    }
+                }
+            }
+            for (int i = 0; i < count; i++) _items[i] = _sortScratch[i];
+        }
     }
 }

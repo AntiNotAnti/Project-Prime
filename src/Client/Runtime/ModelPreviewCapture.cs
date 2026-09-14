@@ -20,8 +20,11 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
     private readonly Vector3 _cameraPosition;
     private readonly Vector3 _cameraTarget;
     private readonly DeathPreviewModelEntity? _deathModel;
+    private readonly ArmorPreviewModelEntity? _aliveModel;
     private readonly ArmorEffectPresentation? _armor;
     private readonly CosmeticPrimitiveSubmissionBuffer _armorSubmissions = new();
+    private readonly CosmeticAnchorNodeCache _anchorNodes = new();
+    private readonly Matrix4[]? _alivePose;
 
     private ModelPreviewCapture(ModelPreviewSpec spec, string outputPath, IRenderToolHost host)
     {
@@ -31,6 +34,7 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
         Scene = new Scene(features: ClientMatchFeatures.Capture());
         Presentation = host.CreatePresentation(Scene);
         Presentation.IsolatedPresentationSubmission = SubmitPreviewCosmetics;
+        Presentation.IsolatedCosmeticMaterialResolver = ResolvePreviewMaterial;
         ModelInstance source = Read.GetModelInstance(spec.ModelName);
         EntityBase model;
         if (spec.DeathEffectId != 0)
@@ -41,7 +45,15 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
             Presentation.InitEntity(_deathModel);
             model = _deathModel;
         }
-        else model = Presentation.AddModel(spec.ModelName);
+        else
+        {
+            _aliveModel = new ArmorPreviewModelEntity(source, Scene,
+                spec.BaseRecolor);
+            Scene.InsertEntity(_aliveModel);
+            Presentation.InitEntity(_aliveModel);
+            _alivePose = new Matrix4[source.Model.Nodes.Count];
+            model = _aliveModel;
+        }
         if (spec.ArmorEffectId != 0)
         {
             _armor = new ArmorEffectPresentation();
@@ -94,7 +106,8 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
         Presentation.OnUpdateFrame();
         Presentation.SetPreviewCamera(_cameraPosition, _cameraTarget);
         if (_frames-- > 0) return;
-        bool armorStageReady = _armor == null || _deathModel?.Sample != null;
+        bool armorStageReady = _armor == null || _deathModel?.Sample != null
+            || _aliveModel?.ArmorApplied == true;
         var request = new RenderToolCapture(CaptureTargetKind.SceneTarget, _outputPath);
         RenderToolFrameResult frame = _host.Render(Presentation, request);
         if (!armorStageReady)
@@ -128,8 +141,7 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
 
     private void AddArmorStage()
     {
-        if (_armor == null || _deathModel?.Sample is not DeathPresentationSample death)
-            return;
+        if (_armor == null) return;
         var state = new CosmeticPlayerPresentationState(PlayerSlot: 0,
             LocalPlayer: true, FirstPerson: false, Spectator: false,
             HiddenModel: false, DeathTakeover: false, AltForm: false,
@@ -137,33 +149,106 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
             DistanceSquared: 0);
         ulong seed = CosmeticSeed.Derive(Guid.Empty, 0, 1,
             _spec.ArmorEffectId, eventTick: 0);
+        uint sampleTick = _spec.DeathEffectId == 0
+            ? 90u : _spec.DeathSampleTick;
         if (!_armor.TryEvaluate(CosmeticPresentationSettings.DesktopDefault,
-                state, _spec.DeathSampleTick, renderAlpha: 0, seed,
+                state, sampleTick, renderAlpha: 0, seed,
                 out ArmorEffectFrame frame))
             return;
         Span<CosmeticBudgetRequest> requests = stackalloc CosmeticBudgetRequest[1];
         Span<CosmeticBudgetAllowance> allowances = stackalloc CosmeticBudgetAllowance[1];
         requests[0] = frame.BudgetRequest;
         CosmeticBudgetArbiter.Admit(requests, allowances);
-        Vector3 root = death.Nodes.Length == 0 ? Vector3.Zero
-            : death.Nodes[0].Row3.Xyz;
-        Vector3 head = death.Nodes.Length < 2 ? root + Vector3.UnitY
-            : death.Nodes[^1].Row3.Xyz;
-        Vector3 chest = Vector3.Lerp(root, head, .6f);
-        var anchors = new ArmorEffectAnchorSet(root, head, chest,
-            chest + new Vector3(-.3f, .1f, 0),
-            chest + new Vector3(.3f, .1f, 0),
-            chest + new Vector3(-.55f, -.2f, 0),
-            chest + new Vector3(.55f, -.2f, 0),
-            root + new Vector3(-.18f, 0, 0),
-            root + new Vector3(.18f, 0, 0),
-            chest + new Vector3(.65f, 0, 0));
+        ArmorEffectAnchorSet anchors = ResolveArmorAnchors();
         _armorSubmissions.Clear();
         _armor.SubmitPrimitives(frame, allowances[0], anchors,
             _armorSubmissions);
         Presentation.FlushCosmeticSubmissions(_armorSubmissions.Seal());
-        _deathModel.ApplyArmorEmission(frame.EmissionStrength,
+        if (_deathModel != null)
+            _deathModel.ApplyArmorEmission(frame.EmissionStrength,
+                frame.Recipe.Definition.Material?.EmissionTint);
+        else _aliveModel?.ApplyArmorEmission(frame.EmissionStrength,
             frame.Recipe.Definition.Material?.EmissionTint);
+    }
+
+    private CosmeticMaterialOverride? ResolvePreviewMaterial(EntityBase entity)
+    {
+        if (ReferenceEquals(entity, _aliveModel)) return _aliveModel.MaterialOverride;
+        if (ReferenceEquals(entity, _deathModel)) return _deathModel.MaterialOverride;
+        return null;
+    }
+
+    private ArmorEffectAnchorSet ResolveArmorAnchors()
+    {
+        Matrix4[] nodes;
+        if (_deathModel?.Sample is DeathPresentationSample death)
+            nodes = death.Nodes;
+        else if (_aliveModel != null && _alivePose != null)
+        {
+            Model model = _aliveModel.GetModels()[0].Model;
+            _anchorNodes.EnsureModel(model,
+                Enum.Parse<Hunter>(_spec.Key, ignoreCase: true));
+            for (int i = 0; i < _alivePose.Length; i++)
+                _alivePose[i] = model.Nodes[i].Animation;
+            nodes = _alivePose;
+        }
+        else nodes = [];
+
+        Vector3 root = nodes.Length == 0 ? Vector3.Zero : nodes[0].Row3.Xyz;
+        Vector3 head = Resolve(CosmeticAnchor.Head, root + Vector3.UnitY);
+        Vector3 chest = Resolve(CosmeticAnchor.Chest,
+            Vector3.Lerp(root, head, .6f));
+        return new ArmorEffectAnchorSet(root, head, chest,
+            Resolve(CosmeticAnchor.LeftShoulder, chest + new Vector3(-.3f, .1f, 0)),
+            Resolve(CosmeticAnchor.RightShoulder, chest + new Vector3(.3f, .1f, 0)),
+            Resolve(CosmeticAnchor.LeftHand, chest + new Vector3(-.55f, -.2f, 0)),
+            Resolve(CosmeticAnchor.RightHand, chest + new Vector3(.55f, -.2f, 0)),
+            Resolve(CosmeticAnchor.LeftFoot, root + new Vector3(-.18f, 0, 0)),
+            Resolve(CosmeticAnchor.RightFoot, root + new Vector3(.18f, 0, 0)),
+            Resolve(CosmeticAnchor.Weapon, chest + new Vector3(.65f, 0, 0)));
+
+        Vector3 Resolve(CosmeticAnchor anchor, Vector3 fallback)
+        {
+            if (_deathModel != null)
+            {
+                int index = anchor switch
+                {
+                    CosmeticAnchor.Root => 0,
+                    _ => -1
+                };
+                return (uint)index < (uint)nodes.Length
+                    ? nodes[index].Row3.Xyz : fallback;
+            }
+            return _anchorNodes.TryResolveInterpolated(anchor, nodes,
+                out Vector3 position) ? position : fallback;
+        }
+    }
+
+    private sealed class ArmorPreviewModelEntity : ModelEntity
+    {
+        private float _emissionStrength;
+        private CosmeticColor? _emissionTint;
+
+        public ArmorPreviewModelEntity(ModelInstance model, Scene scene,
+            int recolor) : base(model, scene, recolor)
+        {
+        }
+
+        public bool ArmorApplied { get; private set; }
+        public CosmeticMaterialOverride? MaterialOverride
+            => _emissionStrength > 0 && _emissionTint is CosmeticColor color
+                ? new CosmeticMaterialOverride(
+                    EmissionTint: new Vector3(color.R, color.G, color.B),
+                    EmissionStrength: _emissionStrength)
+                : null;
+
+        public void ApplyArmorEmission(float strength, CosmeticColor? tint)
+        {
+            _emissionStrength = strength;
+            _emissionTint = tint;
+            ArmorApplied = true;
+        }
+
     }
 
     /// <summary>
@@ -188,6 +273,7 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
         }
 
         public DeathPresentationSample? Sample { get; private set; }
+        public CosmeticMaterialOverride? MaterialOverride { get; private set; }
 
         public void ApplyArmorEmission(float strength, CosmeticColor? tint)
         {
@@ -212,30 +298,39 @@ internal sealed class ModelPreviewCapture : IRenderToolClient
                     new CapturedDeathAppearance(_hunter,
                         new CosmeticLoadoutIds(skinId, _spec.ArmorEffectId,
                             _spec.DeathEffectId),
-                        _spec.BaseRecolor, 1));
+                        _spec.BaseRecolor, 1), new CombatActor(0, 1, 1));
                 _initialized = _runtime.Begin(new CombatActor(0, 1, 1),
                     authoritativeTick: 0, _spec.DeathEffectId, pose);
                 if (!_initialized)
                     throw new InvalidDataException(
                         $"Death preview '{_spec.WorkerKey}' was rejected.");
             }
-            if (!_runtime.TrySample(_spec.DeathSampleTick,
-                    out DeathPresentationSample sample))
+            if (!_runtime.TryEvaluate(CosmeticPresentationSettings.DesktopDefault,
+                    localPlayer: true, visible: true, distanceSquared: 0,
+                    serverTick: _spec.DeathSampleTick, renderAlpha: 0,
+                    out DeathEffectFrame deathFrame))
                 throw new InvalidDataException(
                     $"Death preview '{_spec.WorkerKey}' has no bounded sample.");
+            DeathPresentationSample sample = deathFrame.Sample;
             for (int i = 0; i < sample.Nodes.Length; i++)
                 instance.Model.Nodes[i].Animation = sample.Nodes[i];
             instance.Model.UpdateMatrixStack();
             Alpha = sample.BodyAlpha;
-            PaletteOverride = sample.EmissionStrength > 0
-                ? new Vector4(sample.EmissionTint, 1) : null;
+            MaterialOverride = deathFrame.MaterialOverride;
             if (_armorEmissionStrength > 0
                 && _armorEmissionTint is CosmeticColor color)
             {
                 float blend = Math.Clamp(_armorEmissionStrength / 4, 0, .5f);
                 Vector3 armorTint = new(color.R, color.G, color.B);
-                PaletteOverride = new Vector4(Vector3.Lerp(sample.EmissionTint,
-                    armorTint, blend), 1);
+                CosmeticMaterialOverride deathMaterial
+                    = MaterialOverride ?? new CosmeticMaterialOverride();
+                MaterialOverride = deathMaterial with
+                {
+                    EmissionTint = Vector3.Lerp(sample.EmissionTint,
+                        armorTint, blend),
+                    EmissionStrength = Math.Max(sample.EmissionStrength,
+                        _armorEmissionStrength)
+                };
             }
             Sample = sample;
         }

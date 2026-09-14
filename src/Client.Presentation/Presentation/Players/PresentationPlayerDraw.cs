@@ -433,8 +433,8 @@ namespace MphRead.Entities
         {
             if (UsesDoubleDamageTexture(inst, material, index))
             {
-                Model model = _player._doubleDmgModel.Model;
-                return Presentation.GetTextureIdentity(model, model.Materials[0], 0);
+                return Presentation.GetTextureIdentity(_player._doubleDmgModel.Model,
+                    textureId: 0, paletteId: 0, recolorId: 0);
             }
 
             return base.GetTextureIdentity(inst, material, index, recolor);

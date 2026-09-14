@@ -119,9 +119,16 @@ public sealed class HunterPreviewService
 
     public async Task<PrimePreviewImage?> LoadAsync(Hunter hunter, string? skinKey,
         CancellationToken cancellationToken = default)
+        => await LoadAsync(hunter, skinKey, armorEffectKey: null,
+            cancellationToken).ConfigureAwait(false);
+
+    public async Task<PrimePreviewImage?> LoadAsync(Hunter hunter, string? skinKey,
+        string? armorEffectKey, CancellationToken cancellationToken = default)
     {
         SkinDefinition? skin = ResolveSkin(hunter, skinKey);
-        if (!ModelPreviewCatalog.TryHunter(hunter, skin, out ModelPreviewSpec? spec)
+        ArmorEffectDefinition? armor = ResolveArmor(armorEffectKey);
+        if (!ModelPreviewCatalog.TryHunter(hunter, skin, armor,
+                out ModelPreviewSpec? spec)
             || spec == null)
             return null;
         return await GeneratedPreviewLoader.LoadAsync(_images, spec, cancellationToken)

@@ -308,6 +308,30 @@ public sealed class CosmeticCatalog
             new(BuiltInCosmeticIds.SkinSamusObsidian, "prime.skin.samus.obsidian", "Obsidian Prime", Hunter.Samus,
                 BaseRecolor: 1),
             new(BuiltInCosmeticIds.SkinSamusSolar, "prime.skin.samus.solar", "Solar Prime", Hunter.Samus,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinKandenObsidian, "prime.skin.kanden.obsidian", "Obsidian Prime", Hunter.Kanden,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinKandenSolar, "prime.skin.kanden.solar", "Solar Prime", Hunter.Kanden,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinTraceObsidian, "prime.skin.trace.obsidian", "Obsidian Prime", Hunter.Trace,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinTraceSolar, "prime.skin.trace.solar", "Solar Prime", Hunter.Trace,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinSyluxObsidian, "prime.skin.sylux.obsidian", "Obsidian Prime", Hunter.Sylux,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinSyluxSolar, "prime.skin.sylux.solar", "Solar Prime", Hunter.Sylux,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinNoxusObsidian, "prime.skin.noxus.obsidian", "Obsidian Prime", Hunter.Noxus,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinNoxusSolar, "prime.skin.noxus.solar", "Solar Prime", Hunter.Noxus,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinSpireObsidian, "prime.skin.spire.obsidian", "Obsidian Prime", Hunter.Spire,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinSpireSolar, "prime.skin.spire.solar", "Solar Prime", Hunter.Spire,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinWeavelObsidian, "prime.skin.weavel.obsidian", "Obsidian Prime", Hunter.Weavel,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinWeavelSolar, "prime.skin.weavel.solar", "Solar Prime", Hunter.Weavel,
                 BaseRecolor: 2)
         ];
         ArmorEffectDefinition[] armor =
@@ -349,7 +373,11 @@ public sealed class CosmeticCatalog
                 "prime.death.samus_backward_collapse", "Samus Backward Collapse", .9f,
                 DeathBodyMode.CustomAnimation,
                 Animation: "death-animations/samus-backward-collapse.pda",
-                Hunter: Hunter.Samus)
+                Hunter: Hunter.Samus),
+            new(BuiltInCosmeticIds.DeathBackwardCollapse,
+                "prime.death.backward_collapse", "Backward Collapse", .9f,
+                DeathBodyMode.CustomAnimation,
+                Animation: "death-animations/backward-collapse.pda")
         ];
         return new CosmeticCatalog(skins, armor, deaths);
     }
@@ -360,6 +388,18 @@ public static class BuiltInCosmeticIds
     public const ushort Default = 0;
     public const ushort SkinSamusObsidian = 1;
     public const ushort SkinSamusSolar = 2;
+    public const ushort SkinKandenObsidian = 3;
+    public const ushort SkinKandenSolar = 4;
+    public const ushort SkinTraceObsidian = 5;
+    public const ushort SkinTraceSolar = 6;
+    public const ushort SkinSyluxObsidian = 7;
+    public const ushort SkinSyluxSolar = 8;
+    public const ushort SkinNoxusObsidian = 9;
+    public const ushort SkinNoxusSolar = 10;
+    public const ushort SkinSpireObsidian = 11;
+    public const ushort SkinSpireSolar = 12;
+    public const ushort SkinWeavelObsidian = 13;
+    public const ushort SkinWeavelSolar = 14;
     public const ushort ArmorLightning = 1;
     public const ushort ArmorPestilence = 2;
     public const ushort ArmorEclipse = 3;
@@ -380,6 +420,7 @@ public static class BuiltInCosmeticIds
     public const ushort DeathSpectral = 2;
     public const ushort DeathInfernoBurnout = 3;
     public const ushort DeathSamusBackwardCollapse = 4;
+    public const ushort DeathBackwardCollapse = 5;
 }
 
 internal static class CosmeticPath

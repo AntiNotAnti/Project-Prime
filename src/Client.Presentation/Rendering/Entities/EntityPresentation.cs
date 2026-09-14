@@ -67,8 +67,10 @@ namespace MphRead.Entities
                         TextureAssetKey? textureAssetKey
                             = ScenePresentation.GetModelTextureAssetKey(model, material, recolor);
                         Presentation.AddRenderItem(material, polygonId, Entity.Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix, interpolateNodes ? nodePoses[nodeIndex] : node.Animation, Presentation.GetMeshListId(mesh), mesh.GeometryIdentity, model.NodeMatrixIds.Count, interpolateNodes ? nodeStack : model.MatrixStackValues, color, Entity.PaletteOverride, selectionType, node.BillboardMode, Entity._drawScale, bindingOverride, textureIdentity, textureAssetKey,
-                            GetEnhancedForceFieldDrawState(inst, index, nodeIndex,
-                                start + k));
+                            enhancedForceField: GetEnhancedForceFieldDrawState(inst,
+                                index, nodeIndex, start + k),
+                            cosmeticMaterialOverride:
+                                Presentation.ResolveIsolatedCosmeticMaterial(Entity));
                     }
 
                     if (node.ChildIndex != -1)

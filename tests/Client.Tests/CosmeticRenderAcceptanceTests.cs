@@ -182,7 +182,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
         if (scenario.DeathEffectId != 0)
         {
             CapturedDeathPose pose = CapturedPose(scenario.DeathEffectId,
-                scenario.SkinId);
+                scenario.SkinId, new CombatActor(0, 1, 1));
             var runtime = new DeathPresentationRuntime();
             DeathPresentationSample sample = default;
             deathBodySampled = runtime.Begin(new CombatActor(0, 1, 1), 100,
@@ -219,7 +219,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
     }
 
     private static CapturedDeathPose CapturedPose(ushort deathEffectId,
-        ushort skinId)
+        ushort skinId, CombatActor actor)
     {
         Model model = (Model)RuntimeHelpers.GetUninitializedObject(typeof(Model));
         Node node = (Node)RuntimeHelpers.GetUninitializedObject(typeof(Node));
@@ -238,7 +238,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
         var pose = new CapturedDeathPose();
         pose.Capture(model, Matrix4.Identity, new[] { Matrix4.Identity },
             new float[16], new CapturedDeathAppearance(Hunter.Samus,
-                new CosmeticLoadoutIds(skinId, 0, deathEffectId), 0, 1));
+                new CosmeticLoadoutIds(skinId, 0, deathEffectId), 0, 1), actor);
         return pose;
     }
 
@@ -291,7 +291,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
         private readonly CosmeticBudgetRequest[] _requests;
         private readonly CosmeticBudgetAllowance[] _allowances;
         private readonly DeathPresentationRuntime[] _deaths;
-        private readonly CapturedDeathPose? _deathPose;
+        private readonly CapturedDeathPose[] _deathPoses;
         private readonly CosmeticPrimitiveSubmissionBuffer _submissions = new();
         private readonly bool _firstPerson;
         private uint _tick = 100;
@@ -322,6 +322,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
             _requests = new CosmeticBudgetRequest[playerCount];
             _allowances = new CosmeticBudgetAllowance[playerCount];
             _deaths = new DeathPresentationRuntime[deathBurst ? playerCount : 0];
+            _deathPoses = new CapturedDeathPose[_deaths.Length];
             for (int i = 0; i < playerCount; i++)
             {
                 _armor[i] = new ArmorEffectPresentation();
@@ -329,12 +330,14 @@ public sealed class CosmeticSubmissionAcceptanceTests
             }
             if (deathBurst)
             {
-                _deathPose = CapturedPose(BuiltInCosmeticIds.DeathQuantum, 0);
                 for (int i = 0; i < _deaths.Length; i++)
                 {
                     _deaths[i] = new DeathPresentationRuntime();
-                    _deaths[i].Begin(new CombatActor((byte)i, 1, 1), _tick,
-                        (ushort)(1 + i % 3), _deathPose);
+                    CombatActor actor = new((byte)i, 1, 1);
+                    _deathPoses[i] = CapturedPose(
+                        BuiltInCosmeticIds.DeathQuantum, 0, actor);
+                    _deaths[i].Begin(actor, _tick,
+                        (ushort)(1 + i % 3), _deathPoses[i]);
                 }
             }
         }
@@ -408,7 +411,7 @@ public sealed class CosmeticSubmissionAcceptanceTests
                 if (!_deaths[i].TrySample(_tick, out DeathPresentationSample sample))
                 {
                     _deaths[i].Begin(new CombatActor((byte)i, 1, 1), _tick,
-                        (ushort)(1 + i % 3), _deathPose!);
+                        (ushort)(1 + i % 3), _deathPoses[i]);
                     _deaths[i].TrySample(_tick, out sample);
                 }
                 MaximumEmissionStrength = Math.Max(MaximumEmissionStrength,

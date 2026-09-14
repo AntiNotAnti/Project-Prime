@@ -6,6 +6,7 @@ using Avalonia.Platform;
 using MphRead.Cosmetics;
 using MphRead.Cosmetics.Presentation;
 using MphRead.Entities;
+using MphRead.Effects;
 using MphRead.Imaging;
 using OpenTK.Mathematics;
 
@@ -96,25 +97,28 @@ public partial class ScenePresentation
             switch (submission.Kind)
             {
                 case CosmeticPrimitiveKind.Particle:
-                    if (!TryAddCosmeticAtlasSprite(submission, submission.Start,
-                            scale: .08f + Math.Min(submission.Intensity, 2) * .025f,
-                            alpha: Math.Clamp(submission.Intensity / 2, .2f, 1)))
+                    if (HasCosmeticDrawHeadroom(1))
                     {
-                        AddSingleParticle(SingleType.Fuzzball, submission.Start,
-                            submission.Color, alpha: Math.Clamp(submission.Intensity / 2, .2f, 1),
-                            scale: .08f + Math.Min(submission.Intensity, 2) * .025f);
+                        float alpha = Math.Clamp(submission.Intensity / 2, .2f, 1);
+                        if (!TryAddCosmeticAtlasSprite(submission, submission.Start,
+                                scale: submission.Size, alpha))
+                        {
+                            TryAddCosmeticFallbackSprite(submission.Start,
+                                submission.Color, submission.Size, alpha);
+                        }
                     }
                     break;
                 case CosmeticPrimitiveKind.Ribbon:
                     for (int segment = 0; segment <= submission.SegmentCount; segment++)
                     {
+                        if (!HasCosmeticDrawHeadroom(1)) break;
                         float amount = segment / (float)submission.SegmentCount;
                         Vector3 position = Vector3.Lerp(submission.Start, submission.End, amount);
                         if (!TryAddCosmeticAtlasSprite(submission, position,
-                                scale: .055f, alpha: .6f))
+                                scale: submission.Size, alpha: .6f))
                         {
-                            AddSingleParticle(SingleType.Fuzzball, position,
-                                submission.Color, alpha: .6f, scale: .055f);
+                            TryAddCosmeticFallbackSprite(position,
+                                submission.Color, submission.Size, alpha: .6f);
                         }
                     }
                     break;
@@ -163,6 +167,8 @@ public partial class ScenePresentation
         }
 
         Model model = instance.Model;
+        int drawCount = CountDrawableMeshes(model, 0);
+        if (drawCount == 0 || !HasCosmeticDrawHeadroom(drawCount)) return false;
         Matrix4 transform = submission.LocalTransform;
         transform.Row3.Xyz += submission.Start;
         model.AnimateMaterials(instance.AnimInfo);
@@ -215,6 +221,43 @@ public partial class ScenePresentation
             }
             if (node.NextIndex != -1) SubmitNode(node.NextIndex);
         }
+
+        static int CountDrawableMeshes(Model model, int nodeIndex)
+        {
+            int count = 0;
+            Node node = model.Nodes[nodeIndex];
+            if (node.Enabled)
+            {
+                int start = node.MeshId / 2;
+                for (int meshIndex = 0; meshIndex < node.MeshCount; meshIndex++)
+                {
+                    if (model.Meshes[start + meshIndex].Visible) count++;
+                }
+                if (node.ChildIndex != -1)
+                    count += CountDrawableMeshes(model, node.ChildIndex);
+            }
+            if (node.NextIndex != -1)
+                count += CountDrawableMeshes(model, node.NextIndex);
+            return count;
+        }
+    }
+
+    private bool HasCosmeticDrawHeadroom(int required)
+        => required > 0 && !_renderFrame.IsSealed
+            && required <= _renderFrame.MaximumCapacity - _renderFrame.Count;
+
+    private bool TryAddCosmeticFallbackSprite(Vector3 position, Vector3 color,
+        float scale, float alpha)
+    {
+        if (!HasCosmeticDrawHeadroom(1)) return false;
+        int before = _singleParticleCount;
+        AddSingleParticle(SingleType.Fuzzball, position, color, alpha, scale);
+        if (_singleParticleCount == before) return false;
+        SingleParticle particle = _singleParticles[--_singleParticleCount];
+        particle.Process();
+        if (!particle.ShouldDraw) return false;
+        particle.AddRenderItem(this);
+        return true;
     }
 
     private static bool IsSupportedCosmeticAttachmentModel(string assetKey)

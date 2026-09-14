@@ -92,22 +92,45 @@ public sealed class CosmeticRenderBudgetTests
         Assert.Throws<ArgumentException>(() =>
             new CosmeticPrimitiveSubmission(1, 0, CosmeticPrimitiveKind.Particle,
                 Vector3.Zero, Vector3.One, Vector3.One, 1, 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new CosmeticPrimitiveSubmission(1, 0, CosmeticPrimitiveKind.Particle,
+                Vector3.Zero, Vector3.One, Vector3.One, 1, size: 0));
     }
 
     [Fact]
-    public void PrimitiveBufferRetainsLowestStableKeysAndCanBeReused()
+    public void PrimitiveBufferAppendsThenSortsAndCanBeReused()
     {
         var buffer = new CosmeticPrimitiveSubmissionBuffer(2);
         Assert.True(buffer.TryAdd(Primitive(30)));
         Assert.True(buffer.TryAdd(Primitive(10)));
-        Assert.True(buffer.TryAdd(Primitive(20)));
-        Assert.Equal(new ulong[] { 10, 20 },
-            buffer.Seal().Select(item => item.StableKey));
         Assert.False(buffer.TryAdd(Primitive(20)));
+        Assert.Equal(new ulong[] { 10, 30 },
+            buffer.Seal().Select(item => item.StableKey));
+        Assert.Throws<InvalidOperationException>(() => buffer.TryAdd(Primitive(20)));
 
         buffer.Clear();
         Assert.Equal(0, buffer.Count);
         Assert.True(buffer.TryAdd(Primitive(40)));
+    }
+
+    [Fact]
+    public void PrimitiveCapacityCoversEveryGlobalPrimitiveAllowance()
+        => Assert.Equal(576, CosmeticPrimitiveSubmissionBuffer.MaximumCapacity);
+
+    [Fact]
+    public void SealCollapsesExactDuplicatesAndRejectsConflictingKeys()
+    {
+        var exact = new CosmeticPrimitiveSubmissionBuffer();
+        Assert.True(exact.TryAdd(Primitive(2)));
+        Assert.True(exact.TryAdd(Primitive(2)));
+        Assert.Single(exact.Seal());
+
+        var conflict = new CosmeticPrimitiveSubmissionBuffer();
+        Assert.True(conflict.TryAdd(Primitive(3)));
+        Assert.True(conflict.TryAdd(new CosmeticPrimitiveSubmission(3, 0,
+            CosmeticPrimitiveKind.Particle, Vector3.One, Vector3.One,
+            Vector3.One, 1)));
+        Assert.Throws<InvalidOperationException>(() => conflict.Seal());
     }
 
     private static CosmeticBudgetRequest Request(ulong key, byte slot,

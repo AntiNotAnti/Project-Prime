@@ -71,7 +71,13 @@
       <ScrollViewer x:Name="PageScroller" Grid.Row="0" HorizontalScrollBarVisibility="Disabled"
                     VerticalScrollBarVisibility="Auto"
                     Padding="0,0,0,2">
-        <ContentControl x:Name="PageHost" />
+        <!-- Windowed desktop layouts scale this host before the outer
+             scroller is needed. Header, footer, and modal chrome stay at a
+             stable readable size. -->
+        <LayoutTransformControl x:Name="PageScaleHost"
+                                HorizontalAlignment="Stretch">
+          <ContentControl x:Name="PageHost" />
+        </LayoutTransformControl>
       </ScrollViewer>
       <Grid x:Name="ActionBar" Grid.Row="1"
             HorizontalAlignment="Stretch" Margin="0,10,0,0" />

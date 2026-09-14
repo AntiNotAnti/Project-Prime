@@ -1,7 +1,10 @@
 using System;
 using System.IO;
+using System.Linq;
+using MphRead;
 using MphRead.Cosmetics;
 using MphRead.Cosmetics.Tools;
+using MphRead.Mods.Network;
 using Xunit;
 
 namespace MphRead.Tests.Cosmetics;
@@ -12,6 +15,7 @@ public sealed class CosmeticCatalogTests
     public void BuiltInCatalogUsesExplicitStableIdsAndZeroFallbacks()
     {
         CosmeticCatalog catalog = CosmeticCatalog.BuiltIn;
+        Assert.Equal(14, catalog.Skins.Count);
         Assert.Equal(16, catalog.ArmorEffects.Count);
         Assert.True(catalog.TryGetArmorEffect(BuiltInCosmeticIds.ArmorThunderstorm, out var thunderstorm));
         Assert.Equal("prime.armor_fx.thunderstorm", thunderstorm.Key);
@@ -25,6 +29,53 @@ public sealed class CosmeticCatalogTests
         Assert.True(catalog.TryResolve(defaults, Hunter.Trace, out CosmeticLoadoutIds ids, out var issue));
         Assert.Equal(CosmeticLoadoutIssue.None, issue);
         Assert.Equal(CosmeticLoadoutIds.Default, ids);
+    }
+
+    [Fact]
+    public void EverySelectableHunterHasObsidianAndSolarRecolors()
+    {
+        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        {
+            SkinDefinition[] skins = CosmeticCatalog.BuiltIn.Skins.Values
+                .Where(value => value.Hunter == hunter).OrderBy(value => value.Id)
+                .ToArray();
+            Assert.Equal(2, skins.Length);
+            Assert.Equal(new byte[] { 1, 2 }, skins.Select(value => value.BaseRecolor));
+            foreach (SkinDefinition skin in skins)
+            {
+                CosmeticLoadout loadout = CosmeticLoadout.DefaultFor(hunter)
+                    with { SkinKey = skin.Key,
+                        DeathEffectKey = "prime.death.backward_collapse" };
+                Assert.True(CosmeticCatalog.BuiltIn.TryResolve(loadout, hunter,
+                    out CosmeticLoadoutIds ids, out _));
+                Assert.Equal(skin.Id, ids.SkinId);
+                Assert.Equal(BuiltInCosmeticIds.DeathBackwardCollapse,
+                    ids.DeathEffectId);
+                Assert.Equal(ids, CosmeticCatalog.BuiltIn.Sanitize(ids, hunter));
+            }
+        }
+        Assert.Empty(CosmeticCatalog.BuiltIn.Skins.Values
+            .Where(value => value.Hunter == Hunter.Guardian));
+    }
+
+    [Fact]
+    [Trait("RequiresGameContent", "true")]
+    public void EverySelectableHunterLod0HasTwoAuthoredRecolors()
+    {
+        string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY")
+            ?? Path.Combine(FindRepositoryRoot(), "AMHE1");
+        using var content = ServerContent.PreserveContext("AMHE1");
+        Read.ServerMode = false;
+        ServerContent.Open(data, "AMHE1");
+        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        {
+            string modelName = Metadata.HunterModels[hunter][0];
+            Model model = Read.GetModelInstance(modelName).Model;
+            Assert.True(model.Recolors.Count >= 3,
+                $"{modelName} has {model.Recolors.Count} recolors.");
+            Assert.NotEmpty(model.Recolors[1].PaletteData);
+            Assert.NotEmpty(model.Recolors[2].PaletteData);
+        }
     }
 
     [Fact]
@@ -160,4 +211,15 @@ public sealed class CosmeticCatalogTests
     [InlineData("prime.skin/escape")]
     public void StableKeyValidationRejectsNonCanonicalValues(string value)
         => Assert.False(CosmeticId.IsValid(value));
+
+    private static string FindRepositoryRoot()
+    {
+        string? directory = AppContext.BaseDirectory;
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory, "Game.sln"))) return directory;
+            directory = Directory.GetParent(directory)?.FullName;
+        }
+        throw new InvalidOperationException("Repository root was not found.");
+    }
 }

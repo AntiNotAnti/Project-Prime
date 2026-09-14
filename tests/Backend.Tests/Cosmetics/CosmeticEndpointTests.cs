@@ -37,12 +37,12 @@ public sealed class CosmeticEndpointTests
 
         CosmeticLoadoutResponse[] all = (await client.GetFromJsonAsync<CosmeticLoadoutResponse[]>(
             "/v1/me/cosmetics"))!;
-        Assert.Equal(8, all.Length);
+        Assert.Equal(7, all.Length);
         Assert.Collection(all,
             item => AssertDefault(item, Hunter.Samus), item => AssertDefault(item, Hunter.Kanden),
             item => AssertDefault(item, Hunter.Trace), item => AssertDefault(item, Hunter.Sylux),
             item => AssertDefault(item, Hunter.Noxus), item => AssertDefault(item, Hunter.Spire),
-            item => AssertDefault(item, Hunter.Weavel), item => AssertDefault(item, Hunter.Guardian));
+            item => AssertDefault(item, Hunter.Weavel));
 
         CosmeticLoadoutResponse samus = (await client.GetFromJsonAsync<CosmeticLoadoutResponse>(
             "/v1/me/cosmetics/samus"))!;
@@ -114,6 +114,7 @@ public sealed class CosmeticEndpointTests
     [InlineData("Random")]
     [InlineData("255")]
     [InlineData("unknown")]
+    [InlineData("Guardian")]
     public async Task PutRejectsNonPlayableHunter(string hunter)
     {
         using var factory = new BackendFactory();

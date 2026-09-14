@@ -1,0 +1,168 @@
+{
+  "format": 1,
+  "key": "prime.death_animation.sylux.backward_collapse",
+  "hunter": "Sylux",
+  "duration": 0.9,
+  "blendDuration": 0.12,
+  "skeleton": [
+    {
+      "name": "Dummy_Root",
+      "parentIndex": -1
+    },
+    {
+      "name": "Skeleton_Root",
+      "parentIndex": 0
+    },
+    {
+      "name": "Pelvis",
+      "parentIndex": 1
+    },
+    {
+      "name": "L_hip",
+      "parentIndex": 2
+    },
+    {
+      "name": "L_knee",
+      "parentIndex": 3
+    },
+    {
+      "name": "L_ankle",
+      "parentIndex": 4
+    },
+    {
+      "name": "R_hip",
+      "parentIndex": 2
+    },
+    {
+      "name": "R_knee",
+      "parentIndex": 6
+    },
+    {
+      "name": "R_ankle",
+      "parentIndex": 7
+    },
+    {
+      "name": "Spine_1",
+      "parentIndex": 1
+    },
+    {
+      "name": "Spine_2",
+      "parentIndex": 9
+    },
+    {
+      "name": "Head_1",
+      "parentIndex": 10
+    },
+    {
+      "name": "L_shoulder",
+      "parentIndex": 10
+    },
+    {
+      "name": "L_elbow",
+      "parentIndex": 12
+    },
+    {
+      "name": "L_wrist",
+      "parentIndex": 13
+    },
+    {
+      "name": "L_varias2_SDK",
+      "parentIndex": 10
+    },
+    {
+      "name": "R_shoulder",
+      "parentIndex": 10
+    },
+    {
+      "name": "R_elbow",
+      "parentIndex": 16
+    },
+    {
+      "name": "R_varias2_SDK",
+      "parentIndex": 10
+    }
+  ],
+  "tracks": [
+    {
+      "nodeIndex": 0,
+      "frames": [
+        {
+          "timeMilliseconds": 0,
+          "translation": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            0,
+            0,
+            1
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "timeMilliseconds": 350,
+          "translation": [
+            0,
+            -0.1,
+            -0.15
+          ],
+          "rotation": [
+            -0.174108,
+            0,
+            0,
+            0.984727
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "timeMilliseconds": 650,
+          "translation": [
+            0,
+            -0.45,
+            -0.55
+          ],
+          "rotation": [
+            -0.457338,
+            0,
+            0,
+            0.889293
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        {
+          "timeMilliseconds": 900,
+          "translation": [
+            0,
+            -0.85,
+            -0.95
+          ],
+          "rotation": [
+            -0.624897,
+            0,
+            0,
+            0.780707
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        }
+      ]
+    }
+  ]
+}

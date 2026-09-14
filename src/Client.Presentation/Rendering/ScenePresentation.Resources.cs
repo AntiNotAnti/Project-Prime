@@ -86,6 +86,22 @@ namespace MphRead
                 return null;
             }
 
+            return GetTextureIdentity(model, material.CurrentTextureId,
+                material.CurrentPaletteId, recolorId, variant, paletteOverride);
+        }
+
+        /// <summary>
+        /// Resolves texture-only models which intentionally have no material table.
+        /// </summary>
+        public TextureIdentity? GetTextureIdentity(Model model, int textureId,
+            int paletteId, int recolorId, object? variant = null,
+            OpenTK.Mathematics.Vector4? paletteOverride = null)
+        {
+            if (textureId < 0 || model.Recolors.Count == 0)
+            {
+                return null;
+            }
+
             // Recolors are parsed immutable source objects shared by runtime
             // model copies. They therefore remain stable across frames while
             // the explicit IDs retain animated texture/palette selection.
@@ -93,13 +109,13 @@ namespace MphRead
             {
                 recolorId = 0;
             }
-            TextureIdentity identity = new TextureIdentity(model.Recolors[recolorId], material.CurrentTextureId,
-                material.CurrentPaletteId, recolorId, variant, paletteOverride);
+            TextureIdentity identity = new TextureIdentity(model.Recolors[recolorId],
+                textureId, paletteId, recolorId, variant, paletteOverride);
             if (!_textureResources.ContainsKey(identity))
             {
-                Texture texture = model.Recolors[recolorId].Textures[material.CurrentTextureId];
-                IReadOnlyList<ColorRgba> pixels = model.GetPixels(material.CurrentTextureId,
-                    material.CurrentPaletteId, recolorId);
+                Texture texture = model.Recolors[recolorId].Textures[textureId];
+                IReadOnlyList<ColorRgba> pixels = model.GetPixels(textureId,
+                    paletteId, recolorId);
                 try
                 {
                     PrepareTexture(identity, pixels, texture.Width, texture.Height);
@@ -107,7 +123,7 @@ namespace MphRead
                 catch (ArgumentException ex)
                 {
                     throw new InvalidOperationException($"Model {model.Name} current texture "
-                        + $"{material.CurrentTextureId}, palette {material.CurrentPaletteId}, recolor {recolorId} "
+                        + $"{textureId}, palette {paletteId}, recolor {recolorId} "
                         + $"decoded {pixels.Count} pixels for {texture.Width}x{texture.Height} dimensions.", ex);
                 }
             }

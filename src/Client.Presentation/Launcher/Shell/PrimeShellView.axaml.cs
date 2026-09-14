@@ -2780,7 +2780,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     private void StartHunterPreview(Hunter hunter, string? skinKey = null)
     {
         _hunterDeathPreviewKeys.TryGetValue(hunter, out string? deathEffectKey);
-        StartHunterPreview(hunter, skinKey, deathEffectKey);
+        string? armorEffectKey = _appearance.State.Hunter == hunter
+            ? _appearance.State.Preview.ArmorEffectKey : null;
+        StartHunterPreview(hunter, skinKey, deathEffectKey, armorEffectKey);
     }
 
     private void StartHunterDeathPreview(Hunter hunter, string? skinKey,
@@ -2846,7 +2848,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         try
         {
             PrimePreviewImage? image = deathEffectKey == null
-                ? await _hunterPreviews.LoadAsync(hunter, skinKey,
+                ? await _hunterPreviews.LoadAsync(hunter, skinKey, armorEffectKey,
                     _restoreLifetime.Token).ConfigureAwait(false)
                 : await _hunterPreviews.LoadDeathStageAsync(hunter, skinKey,
                     armorEffectKey, deathEffectKey, _restoreLifetime.Token)
@@ -3741,6 +3743,10 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         PrimeShellBreakpoint breakpoint = PrimeRoutePresentation.Breakpoint(
             width > 0 ? width : PrimeRoutePresentation.WideLowerBound);
+        double menuScale = PrimeRoutePresentation.WindowedMenuScale(
+            width > 0 ? width : PrimeRoutePresentation.WideLowerBound,
+            height > 0 ? height : PrimeRoutePresentation.FullScaleMenuContentHeight
+                + PrimeRoutePresentation.DesktopVerticalChrome);
         bool narrow = breakpoint == PrimeShellBreakpoint.Mobile;
         bool compactHeader = breakpoint == PrimeShellBreakpoint.Compact;
         NavPanel.Orientation = Orientation.Horizontal;
@@ -3793,6 +3799,9 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         PageGrid.Margin = narrow
             ? PrimeLayoutMetrics.ResolveMobileContentMargin(default)
             : new Thickness(24, 20);
+        PageScaleHost.LayoutTransform = menuScale < .999
+            ? new ScaleTransform(menuScale, menuScale)
+            : null;
         PrimeShellNavigationAdapter.ApplySafeArea(HeaderBorder,
             MobileNavigationBorder, narrow);
         PrimeShellNavigationAdapter.ApplyTouchTarget(AccountButton);
@@ -3803,7 +3812,7 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
             // Settings owns its own fixed footer and scrolling content. Give
             // it the shell viewport rather than letting the outer scroller
             // measure it as an unbounded page and push Apply below the fold.
-            settingsView.Height = Math.Max(420, height - 203);
+            settingsView.Height = Math.Max(420, (height - 203) / menuScale);
             _settingsActionBar?.ApplyLayout(width < 620);
         }
     }

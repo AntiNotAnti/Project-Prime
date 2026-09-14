@@ -285,6 +285,82 @@ public class CombatFeedbackTests : IDisposable
             altForm: false, tick: 40).IsValid);
     }
 
+    [Fact]
+    public void DeathPresentationBindingFencesLifeAndConnectionReplacement()
+    {
+        CombatActor victim = new(2, 200, 4);
+        Assert.True(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 200, rosterLife: 4,
+            presentationActor: victim, gateActor: CombatActor.None,
+            capturedActor: CombatActor.None));
+        Assert.True(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 200, rosterLife: 5,
+            presentationActor: victim with { Life = 5 }, gateActor: victim,
+            capturedActor: CombatActor.None));
+        Assert.True(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 200, rosterLife: 5,
+            presentationActor: victim with { Life = 5 },
+            gateActor: CombatActor.None, capturedActor: victim));
+
+        Assert.False(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 200, rosterLife: 5,
+            presentationActor: victim with { Life = 5 },
+            gateActor: victim with { Life = 5 },
+            capturedActor: victim with { Life = 5 }));
+        Assert.False(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 201, rosterLife: 4,
+            presentationActor: victim, gateActor: victim,
+            capturedActor: victim));
+        Assert.False(DeathPresentationBinding.Accepts(victim,
+            rosterConnectionId: 200, rosterLife: 6,
+            presentationActor: victim, gateActor: victim,
+            capturedActor: victim));
+    }
+
+    [Fact]
+    public void DuplicateCurrentFeedRejectionDoesNotSuppressBoundDeathPresentation()
+    {
+        CombatFeedback feedback = New();
+        KillEvent kill = Kill(901, Local, Enemy);
+        Assert.True(feedback.Process(kill));
+        bool duplicateAcceptedByFeed = feedback.Process(kill);
+        Assert.False(duplicateAcceptedByFeed);
+        bool semanticCurrent = DeathPresentationRouting.IsSemanticCurrent(kill,
+            currentMatchId: 1, currentPhaseRevision: 1);
+        Assert.True(DeathPresentationRouting.ShouldObserveKill(
+            duplicateAcceptedByFeed, actorBound: true, semanticCurrent));
+        Assert.False(DeathPresentationRouting.ShouldObserveKill(
+            combatFeedAccepted: true, actorBound: false, semanticCurrent: true));
+    }
+
+    [Fact]
+    public void DeathPresentationRejectsWrongMatchAndStalePhaseSemantics()
+    {
+        KillEvent current = Kill(902, Local, Enemy, match: 10, phase: 4);
+        Assert.True(DeathPresentationRouting.IsSemanticCurrent(current, 10, 4));
+        Assert.False(DeathPresentationRouting.IsSemanticCurrent(current, 11, 4));
+        Assert.False(DeathPresentationRouting.IsSemanticCurrent(current, 10, 5));
+        Assert.False(DeathPresentationRouting.ShouldObserveKill(
+            combatFeedAccepted: false, actorBound: true,
+            semanticCurrent: DeathPresentationRouting.IsSemanticCurrent(
+                current, 11, 4)));
+        Assert.False(DeathPresentationRouting.ShouldObserveKill(
+            combatFeedAccepted: false, actorBound: true,
+            semanticCurrent: DeathPresentationRouting.IsSemanticCurrent(
+                current, 10, 5)));
+    }
+
+    [Theory]
+    [InlineData((byte)0)]
+    [InlineData((byte)6)]
+    public void DeathPresentationBindingAcceptsLocalAndRemoteVictims(byte slot)
+    {
+        var victim = new CombatActor(slot, (ulong)(700 + slot), 3);
+        Assert.True(DeathPresentationBinding.Accepts(victim,
+            victim.ConnectionId, victim.Life, victim,
+            CombatActor.None, CombatActor.None));
+    }
+
     [Theory]
     [InlineData(0, 0)] [InlineData(45, 1)] [InlineData(90, 2)] [InlineData(135, 3)]
     [InlineData(180, 4)] [InlineData(225, 5)] [InlineData(270, 6)] [InlineData(315, 7)]
