@@ -88,6 +88,61 @@ public sealed class NodeReportIngestionTests
         finally { Directory.Delete(root, true); }
     }
 
+    [Fact]
+    public async Task UnavailableReceiptOwnsReservationUntilDurabilityAndIsIdempotent()
+    {
+        string root = Temporary();
+        try
+        {
+            var (spec, _) = Capture();
+            var worker = new WorkerId(Guid.NewGuid());
+            Guid incarnation = Guid.NewGuid();
+            var unavailable = new MatchReportUnavailable(spec.MatchId, spec.MatchId.Value,
+                worker, incarnation, ArtifactFailureCode.WorkerLost);
+            await using var outbox = new MatchReportOutbox(new(
+                Path.Combine(root, "outbox"), MaximumReports: 1), new Transport { Block = true });
+            await using var ingest = new NodeReportIngestor(outbox,
+                Path.Combine(root, "receipts"), queueCapacity: 1);
+
+            await Until(() => ingest.CanAcceptOfficial);
+            Assert.True(ingest.TryReserve(spec.MatchId));
+            Assert.Equal(1, outbox.Status.ReservedReports);
+            Assert.True(ingest.TryQueueUnavailable(spec, unavailable,
+                out Task durability));
+
+            await durability.WaitAsync(TimeSpan.FromSeconds(5));
+            // This is the same durability edge consumed by worker-soak for an
+            // observed MatchReportUnavailable event.  It must not complete
+            // until the scheduler-owned reservation release follows the
+            // durable receipt.
+            using var waitCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            Task observedDurability = ingest.WaitForDurabilityAsync(waitCancellation.Token);
+            Assert.False(observedDurability.IsCompleted);
+            // The ingestor only establishes the durable failure receipt. The
+            // scheduler owns the subsequent CancelReservation edge.
+            Assert.Equal(1, outbox.Status.ReservedReports);
+            ingest.CancelReservation(spec.MatchId);
+            await observedDurability;
+            Assert.Equal(0, outbox.Status.ReservedReports);
+
+            Assert.True(ingest.TryQueueUnavailable(spec, unavailable,
+                out Task duplicateDurability));
+            await duplicateDurability.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "receipts", "unavailable"), "*.json"));
+
+            MatchReportUnavailable conflict = unavailable with
+            {
+                FailureCode = ArtifactFailureCode.QueueExhausted
+            };
+            Assert.True(ingest.TryQueueUnavailable(spec, conflict,
+                out Task conflictDurability));
+            await Assert.ThrowsAsync<InvalidDataException>(() =>
+                conflictDurability.WaitAsync(TimeSpan.FromSeconds(5)));
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "receipts", "unavailable"), "*.json"));
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Theory]
     [InlineData("trust")]
     [InlineData("report-id")]

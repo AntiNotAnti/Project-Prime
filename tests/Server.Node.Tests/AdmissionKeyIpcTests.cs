@@ -3,6 +3,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class AdmissionKeyIpcTests
 {
     [Fact]

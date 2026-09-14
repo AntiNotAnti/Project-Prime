@@ -2,6 +2,11 @@ using System.IO.Pipes;
 using ProjectPrime.Server.Shared;
 
 string Get(string key) => args[Array.IndexOf(args, key) + 1];
+string? Optional(string key)
+{
+    int index = Array.IndexOf(args, key);
+    return index < 0 ? null : args[index + 1];
+}
 string mode = Get("--mode");
 if (mode == "snapshot-rate" && Get("--snapshot-rate-hz") != "60") return 30;
 if (mode == "adaptive-timing"
@@ -47,8 +52,12 @@ await pipe.ConnectAsync(5000);
 string secret = startupSecret;
 Array.Clear(token);
 await WorkerIpcCodec.WriteAsync(pipe, new WorkerHello(worker, mode == "identity" ? Guid.NewGuid() : incarnation,
-    node, mode == "token" ? new string('0', 64) : secret, "test",
-    new("1", mode == "profile" ? "wrong" : "hash", "test", 8)));
+    node, mode == "token" ? new string('0', 64) : secret,
+    Optional("--test-content-build") ?? "test",
+    new(Optional("--test-content-version") ?? "1",
+        Optional("--test-content-hash") ?? (mode == "profile" ? "wrong" : "hash"),
+        Optional("--test-content-build") ?? "test",
+        byte.Parse(Optional("--test-content-protocol") ?? "8"))));
 secret = "";
 if (mode is "token" or "identity") { await Task.Delay(10000); return 0; }
 if (await WorkerIpcCodec.ReadAsync(pipe) is not WorkerConfigure configure) return 19;
@@ -95,7 +104,8 @@ while (true)
             await WorkerIpcCodec.WriteAsync(pipe, new WorkerDraining(worker, incarnation));
             if (mode == "drain-exit") return 0;
             break;
-        case MatchAdminCommand admin when mode == "controlled-completion" && admin.Action == AdminAction.EndMatch:
+        case MatchAdminCommand admin when (mode is "controlled-completion" or "cancel-hang-after-end")
+            && admin.Action == AdminAction.EndMatch:
             if (activeMatches.Remove(admin.MatchId, out var completed))
                 await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(completed.MatchId,
                     completed.LobbyId, MphRead.MatchEndReason.TimeLimit, [], null, null, Guid.NewGuid())));
@@ -108,6 +118,12 @@ while (true)
             {
                 await WorkerIpcCodec.WriteAsync(pipe,
                     new AdmissionKeyInstallFailed(admission.AdmissionId, new MatchId(Guid.NewGuid()), "stale"));
+                break;
+            }
+            if (mode == "admission-key-failure")
+            {
+                await WorkerIpcCodec.WriteAsync(pipe,
+                    new AdmissionKeyInstallFailed(admission.AdmissionId, admission.MatchId, "admission_route_capacity"));
                 break;
             }
             await WorkerIpcCodec.WriteAsync(pipe, mode == "admission-key-stale"
@@ -123,11 +139,12 @@ while (true)
         case CancelMatch cancel:
             await WorkerIpcCodec.WriteAsync(pipe, new MatchCancelAccepted(worker, incarnation,
                 cancel.MatchId, cancel.OperationId));
-            if (mode == "cancel-hang") break;
+            if (mode is "cancel-hang" or "cancel-hang-after-end") break;
             await WorkerIpcCodec.WriteAsync(pipe, new MatchInterrupted(cancel.MatchId, "cancelled")); break;
         case CreateMatch create:
             acceptedMatches++;
-            if (mode == "controlled-completion") activeMatches.Add(create.Spec.MatchId, create.Spec);
+            if (mode is "controlled-completion" or "cancel-hang-after-end")
+                activeMatches.Add(create.Spec.MatchId, create.Spec);
             if (mode == "crash-match") return 23;
             if (mode == "create-hang") break;
             await WorkerIpcCodec.WriteAsync(pipe, new MatchReady(new(create.Spec.MatchId, new(nextWire++), worker, mode == "stale-match" ? Guid.NewGuid() : incarnation,
@@ -144,6 +161,15 @@ while (true)
                     MphRead.MatchEndReason.TimeLimit, [], null, null, create.Spec.MatchId.Value)));
                 await WorkerIpcCodec.WriteAsync(pipe, new MatchReportReady(create.Spec.MatchId, create.Spec.MatchId.Value,
                     worker, incarnation, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)), bytes.Length));
+            }
+            if (mode == "official-unavailable")
+            {
+                Guid officialReportId = create.Spec.MatchId.Value;
+                await WorkerIpcCodec.WriteAsync(pipe, new MatchCompleted(new(create.Spec.MatchId,
+                    create.Spec.LobbyId, MphRead.MatchEndReason.TimeLimit, [], null, null, officialReportId)));
+                await WorkerIpcCodec.WriteAsync(pipe, new MatchReportUnavailable(
+                    create.Spec.MatchId, officialReportId, worker, incarnation,
+                    ArtifactFailureCode.WorkerLost));
             }
             if (mode == "premature-report") await WorkerIpcCodec.WriteAsync(pipe, reportNotice);
             if (mode == "interrupted-report")

@@ -8,6 +8,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Shared.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class WorkerIpcTests
 {
     private static readonly MatchId Match = new(Guid.NewGuid());
@@ -29,6 +30,7 @@ public sealed class WorkerIpcTests
             new WorkerHeartbeat(Worker, Guid.NewGuid(), Capacity, new(WorkerStatus.Ready, 100, 2.5, 4096)),
             new MatchReady(new(Match, new WireMatchId(1), Worker, Guid.NewGuid(), "127.0.0.1", 7777)), new MatchStarted(Match), new MatchCompleted(Completion()),
             new MatchFailed(Match, "failed"), new MatchInterrupted(Match, "lost"), new MatchReportReady(Match, Guid.NewGuid(), new WorkerId(Guid.NewGuid()), Guid.NewGuid(), new string('A', 64), 100),
+            new MatchReportUnavailable(Match, Guid.NewGuid(), Worker, Guid.NewGuid(), ArtifactFailureCode.PersistenceFailed),
             new WorkerDraining(Worker, Guid.NewGuid()), new WorkerFault(Worker, Guid.NewGuid(), "fault"),
             new NodeSigningKeyUpdated(Worker, Guid.NewGuid(), "key"),
             new MatchCancelAccepted(Worker, Guid.NewGuid(), Match, "cancel-op"),

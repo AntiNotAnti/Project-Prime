@@ -39,9 +39,10 @@ public sealed class ClientOnlineRuntimeTests
     {
         await using var runtime = new ClientOnlineRuntime(enabled: true);
         using var play = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
-        MatchClientContext context = runtime.AdoptMatch(play, Guid.NewGuid())!;
-        NodeMatchHandoff firstHandoff = Handoff(1);
-        NodeMatchHandoff newestHandoff = Handoff(2);
+        Guid matchId = Guid.NewGuid();
+        MatchClientContext context = runtime.AdoptMatch(play, matchId)!;
+        NodeMatchHandoff firstHandoff = Handoff(matchId, 1);
+        NodeMatchHandoff newestHandoff = Handoff(matchId, 2);
 
         Task<RejoinCompletion> first = context.QueueRejoinAsync(firstHandoff, CancellationToken.None);
         Task<RejoinCompletion> newest = context.QueueRejoinAsync(newestHandoff, CancellationToken.None);
@@ -59,8 +60,9 @@ public sealed class ClientOnlineRuntimeTests
     {
         await using var runtime = new ClientOnlineRuntime(enabled: true);
         using var play = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
-        MatchClientContext context = runtime.AdoptMatch(play, Guid.NewGuid())!;
-        Task<RejoinCompletion> pending = context.QueueRejoinAsync(Handoff(3), CancellationToken.None);
+        Guid matchId = Guid.NewGuid();
+        MatchClientContext context = runtime.AdoptMatch(play, matchId)!;
+        Task<RejoinCompletion> pending = context.QueueRejoinAsync(Handoff(matchId, 3), CancellationToken.None);
 
         runtime.ReleaseMatch(play, dispose: true);
 
@@ -70,13 +72,26 @@ public sealed class ClientOnlineRuntimeTests
     }
 
     [Fact]
-    public async Task RejoinQueueDoesNotBlockOwnerAndSettlesCompletionExactlyOnce()
+    public async Task RejoinHandoffCannotCrossMatchOwnership()
     {
         await using var runtime = new ClientOnlineRuntime(enabled: true);
         using var play = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
         MatchClientContext context = runtime.AdoptMatch(play, Guid.NewGuid())!;
 
-        Task<RejoinCompletion> pending = context.QueueRejoinAsync(Handoff(4), CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            context.QueueRejoinAsync(Handoff(Guid.NewGuid(), 31), CancellationToken.None));
+        Assert.False(context.TryTakeRejoin(out _));
+    }
+
+    [Fact]
+    public async Task RejoinQueueDoesNotBlockOwnerAndSettlesCompletionExactlyOnce()
+    {
+        await using var runtime = new ClientOnlineRuntime(enabled: true);
+        using var play = new AuthoritativePlay("127.0.0.1", 5000, "Hunter", Hunter.Samus);
+        Guid matchId = Guid.NewGuid();
+        MatchClientContext context = runtime.AdoptMatch(play, matchId)!;
+
+        Task<RejoinCompletion> pending = context.QueueRejoinAsync(Handoff(matchId, 4), CancellationToken.None);
         Assert.False(pending.IsCompleted);
         Assert.True(context.TryTakeRejoin(out RejoinRequest request));
 
@@ -86,7 +101,7 @@ public sealed class ClientOnlineRuntimeTests
         context.FailRejoin(request, new InvalidOperationException("late failure"));
         Assert.Equal(expected, await pending.WaitAsync(TimeSpan.FromSeconds(1)));
 
-        Task<RejoinCompletion> cancelled = context.QueueRejoinAsync(Handoff(5), CancellationToken.None);
+        Task<RejoinCompletion> cancelled = context.QueueRejoinAsync(Handoff(matchId, 5), CancellationToken.None);
         context.CancelPendingRejoin();
         context.CancelPendingRejoin();
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await cancelled);
@@ -97,15 +112,17 @@ public sealed class ClientOnlineRuntimeTests
     {
         await using var runtime = new ClientOnlineRuntime(enabled: true);
         using var oldPlay = new AuthoritativePlay("127.0.0.1", 5000, "Old", Hunter.Samus);
-        MatchClientContext oldContext = runtime.AdoptMatch(oldPlay, Guid.NewGuid())!;
-        Task<RejoinCompletion> stale = oldContext.QueueRejoinAsync(Handoff(6), CancellationToken.None);
+        Guid oldMatchId = Guid.NewGuid();
+        MatchClientContext oldContext = runtime.AdoptMatch(oldPlay, oldMatchId)!;
+        Task<RejoinCompletion> stale = oldContext.QueueRejoinAsync(Handoff(oldMatchId, 6), CancellationToken.None);
         Assert.True(oldContext.TryTakeRejoin(out RejoinRequest staleRequest));
 
         runtime.ReleaseMatch(oldPlay, dispose: true);
 
         using var newPlay = new AuthoritativePlay("127.0.0.1", 5000, "New", Hunter.Samus);
-        MatchClientContext newContext = runtime.AdoptMatch(newPlay, Guid.NewGuid())!;
-        Task<RejoinCompletion> current = newContext.QueueRejoinAsync(Handoff(7), CancellationToken.None);
+        Guid newMatchId = Guid.NewGuid();
+        MatchClientContext newContext = runtime.AdoptMatch(newPlay, newMatchId)!;
+        Task<RejoinCompletion> current = newContext.QueueRejoinAsync(Handoff(newMatchId, 7), CancellationToken.None);
         Assert.True(newContext.TryTakeRejoin(out RejoinRequest currentRequest));
 
         oldContext.CompleteRejoin(staleRequest, new RejoinCompletion(99, 99));
@@ -117,6 +134,6 @@ public sealed class ClientOnlineRuntimeTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await current);
     }
 
-    private static NodeMatchHandoff Handoff(ulong nonce)
-        => new(Guid.NewGuid(), 1, "127.0.0.1", 5000, "ticket", nonce, false, Hunter.Samus);
+    private static NodeMatchHandoff Handoff(Guid matchId, ulong nonce)
+        => new(matchId, 1, "127.0.0.1", 5000, "ticket", nonce, false, Hunter.Samus);
 }

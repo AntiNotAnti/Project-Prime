@@ -6,6 +6,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class ControlCodecTests
 {
     private static byte[] Frame(string type, string payload, int version = NodeControlCodec.Version)

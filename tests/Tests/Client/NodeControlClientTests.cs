@@ -14,10 +14,12 @@ using Xunit;
 namespace MphRead.Tests;
 
 [Collection("Match baseline globals")]
+[Trait("LifecycleFast", "true")]
 public sealed class NodeControlClientTests
 {
-    private static MatchCompletionSummary Completion(Guid matchId, Guid? reportId = null)
-        => new(new(matchId), new(Guid.NewGuid()), MatchEndReason.ScoreGoal,
+    private static MatchCompletionSummary Completion(Guid matchId, Guid? reportId = null,
+        Guid? lobbyId = null)
+        => new(new MatchId(matchId), new LobbyId(lobbyId ?? Guid.NewGuid()), MatchEndReason.ScoreGoal,
             [new(Guid.NewGuid(), new PlayerId(Guid.NewGuid()), ParticipantKind.RegisteredHuman,
                 "Hunter", ParticipantOutcome.Finished, 0, 0, 7, 3, 1)],
             Guid.NewGuid(), null, reportId ?? Guid.NewGuid());
@@ -29,7 +31,7 @@ public sealed class NodeControlClientTests
         await using var client = new NodeControlClient(nodeId);
         client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null,
             new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43))));
-        var handoff = new NodeMatchHandoff(matchId, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus);
+        var handoff = UnscopedHandoff(matchId);
         client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, handoff));
         client.MarkGameplayJoined(matchId);
         MatchCompletionSummary summary = Completion(matchId);
@@ -79,7 +81,7 @@ public sealed class NodeControlClientTests
         await using var client = new NodeControlClient(nodeId);
         var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
         client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
-        var first = new NodeMatchHandoff(Guid.NewGuid(), 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus);
+        var first = UnscopedHandoff(Guid.NewGuid());
         client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, first));
         client.MarkGameplayJoined(first.MatchId);
         var next = first with { MatchId = Guid.NewGuid(), WireMatchId = 2 };
@@ -145,15 +147,165 @@ public sealed class NodeControlClientTests
         client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null,
             new NodeMatchHandoff(matchId, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus)));
         client.MarkGameplayJoined(matchId);
-        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 4, null, second));
-        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 5, null,
-            new NodeMatchHandoff(secondMatchId, 2, "127.0.0.1", 5000, "ticket", 2, false, Hunter.Samus)));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 4, null, new LobbyLeft(firstLobbyId)));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 5, null, second with
+        {
+            Phase = LobbyPhase.InMatch,
+            CurrentMatchId = secondMatchId
+        }));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 6, null,
+            UnscopedHandoff(secondMatchId, nonce: 2)));
         client.MarkGameplayJoined(secondMatchId);
 
-        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 6, null, new LobbyLeft(firstLobbyId)));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 7, null, new LobbyLeft(firstLobbyId)));
 
         Assert.Equal(secondLobbyId, client.Lobby!.LobbyId);
         Assert.Equal(secondMatchId, client.State.JoinedMatchId);
+    }
+
+    [Fact]
+    public async Task LobbyIdentityStartsFreshEpochNamespaceAndFencesLatePriorEvents()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid lobbyA = Guid.NewGuid(), lobbyB = Guid.NewGuid();
+        Guid matchA = Guid.NewGuid(), matchB = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId,
+            new string('a', 43));
+
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null,
+            Snapshot(lobbyA, sessionId, playerId, LobbyPhase.InMatch, 1, matchA, 3)));
+        NodeMatchHandoff handoffA = Handoff(Snapshot(lobbyA, sessionId, playerId,
+            LobbyPhase.InMatch, 1, matchA, 3), matchA, 1, 1);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null, handoffA));
+        client.MarkGameplayJoined(matchA);
+
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 4, null,
+            new LobbyLeft(lobbyA)));
+        Assert.Null(client.Lobby);
+        Assert.Null(client.Handoff);
+        Assert.Equal(default, client.State.LifecycleEpoch);
+
+        LobbySnapshot snapshotB = Snapshot(lobbyB, sessionId, playerId,
+            LobbyPhase.InMatch, 1, matchB, 1,
+            selfMembershipGeneration: 2);
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 5, null, snapshotB));
+        NodeMatchHandoff handoffB = Handoff(snapshotB, matchB, 1, 2,
+            membershipGeneration: 2);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 6, null, handoffB));
+        client.MarkGameplayJoined(matchB);
+
+        // Old events can arrive after the new lobby is already authoritative;
+        // none may clear or replace the current namespace.
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 7, null,
+            Snapshot(lobbyA, sessionId, playerId, LobbyPhase.InMatch, 2, matchA, 3)));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 8, null, handoffA with
+        {
+            HandoffGeneration = new HandoffGeneration(2)
+        }));
+        client.ApplyEvent(NodeControlCodec.Write("match.ended", 9, null,
+            new NodeMatchEnded(matchA, false, new MatchLifecycleEpoch(3),
+                MembershipGeneration.Initial, lobbyA)));
+        client.ApplyEvent(NodeControlCodec.Write("match.completion", 10, null,
+            new NodeMatchCompletion(Completion(matchA, lobbyId: lobbyA),
+                new MatchLifecycleEpoch(3), MembershipGeneration.Initial)));
+
+        Assert.Equal(lobbyB, client.Lobby!.LobbyId);
+        Assert.Equal(matchB, client.Handoff!.MatchId);
+        Assert.Equal(matchB, client.State.JoinedMatchId);
+        Assert.False(client.MatchEnded);
+    }
+
+    [Fact]
+    public async Task SameEpochHandoffDuplicatesAreIdempotentAndConflictsAreRejected()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid(), matchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId,
+            new string('a', 43));
+        LobbySnapshot lobby = Snapshot(lobbyId, sessionId, playerId,
+            LobbyPhase.InMatch, 1, matchId, 4);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, lobby));
+        NodeMatchHandoff current = Handoff(lobby, matchId, 5, 5);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null, current));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 4, null, current));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 5, null, current with
+        {
+            HandoffGeneration = new HandoffGeneration(4), Nonce = 6
+        }));
+
+        Assert.Equal(current, client.Handoff);
+        Assert.Throws<JsonException>(() => client.ApplyEvent(NodeControlCodec.Write(
+            "match.handoff", 6, null, current with { Nonce = 9 })));
+        Assert.Equal(current, client.Handoff);
+    }
+
+    [Fact]
+    public async Task HandoffRequiresCommittedSnapshotAndRetainsRequiredMapAgainstDelayedOldSnapshot()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid(), oldMatch = Guid.NewGuid(), nextMatch = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId,
+            new string('a', 43));
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+
+        LobbySnapshot oldSnapshot = Snapshot(lobbyId, sessionId, playerId,
+            LobbyPhase.InMatch, 1, oldMatch, 4);
+        LobbySnapshot nextSnapshot = Snapshot(lobbyId, sessionId, playerId,
+            LobbyPhase.InMatch, 2, nextMatch, 5, RequiredMap());
+        NodeMatchHandoff nextHandoff = Handoff(nextSnapshot, nextMatch, 2, 7);
+
+        // A production handoff cannot create a lifecycle namespace on its own.
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, nextHandoff));
+        Assert.Null(client.Handoff);
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 3, null, oldSnapshot));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 4, null, nextSnapshot));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 5, null, nextHandoff));
+        Assert.Equal(nextMatch, client.Handoff!.MatchId);
+        Assert.Equal(nextSnapshot.RequiredMap, client.Lobby!.RequiredMap);
+
+        // The delayed prior lifecycle cannot clear the map requirement or the
+        // credential after the newer committed snapshot has won.
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 6, null,
+            oldSnapshot with { Revision = 3 }));
+        Assert.Equal(nextMatch, client.Handoff!.MatchId);
+        Assert.Equal(nextSnapshot.RequiredMap, client.Lobby!.RequiredMap);
+    }
+
+    [Fact]
+    public async Task SameLobbyReentryRejectsOldMembershipGenerationAndAcceptsFreshRejoin()
+    {
+        Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), playerId = Guid.NewGuid();
+        Guid lobbyId = Guid.NewGuid(), matchId = Guid.NewGuid();
+        await using var client = new NodeControlClient(nodeId);
+        var session = new NodeSessionSnapshot(sessionId, playerId, "Hunter", nodeId,
+            new string('a', 43));
+        LobbySnapshot firstSnapshot = Snapshot(lobbyId, sessionId, playerId,
+            LobbyPhase.InMatch, 1, matchId, 3);
+        client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null,
+            firstSnapshot));
+        NodeMatchHandoff first = Handoff(firstSnapshot, matchId, 1, 1, 1);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null, first));
+
+        client.ApplyEvent(NodeControlCodec.Write("lobby.left", 4, null,
+            new LobbyLeft(lobbyId)));
+        LobbySnapshot reentry = firstSnapshot with
+        {
+            Revision = 2,
+            SelfMembershipGeneration = new MembershipGeneration(2)
+        };
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 5, null, reentry));
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 6, null, first));
+        Assert.Null(client.Handoff);
+
+        NodeMatchHandoff fresh = Handoff(reentry, matchId, 2, 2, 2);
+        client.ApplyEvent(NodeControlCodec.Write("match.handoff", 7, null, fresh));
+        Assert.Equal(fresh, client.Handoff);
     }
 
     [Fact]
@@ -234,7 +386,7 @@ public sealed class NodeControlClientTests
         await using var client = new NodeControlClient(nodeId);
         var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43));
         client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null, session));
-        var first = new NodeMatchHandoff(Guid.NewGuid(), 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus);
+        var first = UnscopedHandoff(Guid.NewGuid());
         client.ApplyEvent(NodeControlCodec.Write("match.handoff", 2, null, first));
         client.MarkGameplayJoined(first.MatchId);
         client.ApplyEvent(NodeControlCodec.Write("match.ended", 3, null, new NodeMatchEnded(Guid.NewGuid(), false)));
@@ -395,4 +547,30 @@ public sealed class NodeControlClientTests
     private static byte[] RawEvent(string type, long eventId, JsonElement payload)
         => JsonSerializer.SerializeToUtf8Bytes(new NodeControlEvent(NodeControlCodec.Version, type,
             eventId, null, payload), NodeJsonContext.Default.NodeControlEvent);
+
+    private static LobbySnapshot Snapshot(Guid lobbyId, Guid sessionId, Guid playerId,
+        LobbyPhase phase, long revision, Guid? matchId, ulong lifecycleEpoch,
+        MapRequirement? requiredMap = null, ulong selfMembershipGeneration = 1)
+        => new(lobbyId, "Room", LobbyVisibility.Public, sessionId, phase, revision,
+            MultiplayerLimits.MaxPlayers, MultiplayerLimits.MaxObservers,
+            [new LobbyMember(sessionId, playerId, "Hunter", Hunter.Samus, 0,
+                false, false)], [], "arena", MatchMode.Battle,
+            CurrentMatchId: matchId, RequiredMap: requiredMap,
+            LifecycleEpoch: new MatchLifecycleEpoch(lifecycleEpoch),
+            SelfMembershipGeneration: new MembershipGeneration(selfMembershipGeneration));
+
+    private static NodeMatchHandoff Handoff(LobbySnapshot lobby, Guid matchId,
+        ulong generation, ulong nonce, ulong membershipGeneration = 1)
+        => new(matchId, (uint)nonce, "127.0.0.1", 5000, "ticket", nonce, false,
+            Hunter.Samus, Guid.Empty, "", false,
+            new HandoffGeneration(generation), lobby.LifecycleEpoch,
+            new MembershipGeneration(membershipGeneration));
+
+    private static MapRequirement RequiredMap()
+        => new("arena", "1.0.0", new string('a', 64), new string('b', 64), 1,
+            new string('c', 64));
+
+    private static NodeMatchHandoff UnscopedHandoff(Guid matchId, ulong nonce = 1)
+        => new(matchId, (uint)nonce, "127.0.0.1", 5000, "ticket", nonce, false,
+            Hunter.Samus, Guid.Empty, "", false, default, default, default);
 }

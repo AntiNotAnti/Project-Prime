@@ -6,8 +6,81 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class LobbyRoundTests
 {
+    [Fact]
+    public void MatchOwnershipIndexTracksPrepareTerminalReplacementAndDeletionBoundaries()
+    {
+        var h = new Harness();
+        MatchSpec first = h.Start();
+        AssertOwnership(h.Manager, first.MatchId.Value, h.Snapshot.LobbyId);
+
+        Assert.True(h.Manager.MatchReady(new(first.MatchId, new(1),
+            new(Guid.NewGuid()), Guid.NewGuid(), "localhost", 10000)));
+        AssertOwnership(h.Manager, first.MatchId.Value, h.Snapshot.LobbyId);
+        Assert.True(h.Manager.MatchEnded(first.MatchId, interrupted: false));
+        // A completed match remains owned/indexed throughout PostMatch.
+        AssertOwnership(h.Manager, first.MatchId.Value, h.Snapshot.LobbyId);
+
+        NodeRoundSnapshot ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
+        NodeRoundSnapshot reopened = h.Round(new LobbyVoteCast(h.Revision,
+            ballot.BallotRevision, 3));
+        Assert.Equal(LobbyPhase.Open, reopened.Lobby.Phase);
+        Assert.Null(reopened.Lobby.CurrentMatchId);
+        AssertOwnership(h.Manager);
+
+        MatchSpec second = h.Start();
+        AssertOwnership(h.Manager, second.MatchId.Value, h.Snapshot.LobbyId);
+        Assert.DoesNotContain(first.MatchId.Value,
+            h.Manager.MatchOwnershipSnapshot().Index.Keys);
+        Assert.True(h.Manager.MatchEnded(second.MatchId, interrupted: true));
+        AssertOwnership(h.Manager);
+
+        // A late terminal for the old lifecycle cannot recreate ownership.
+        Assert.False(h.Manager.MatchEnded(first.MatchId, interrupted: true));
+        h.Manager.Disconnect(h.Owner.SessionId);
+        AssertOwnership(h.Manager);
+    }
+
+    [Fact]
+    public void FailedContinuationPreparationAndTransitionPreserveIndexInvariant()
+    {
+        var h = new Harness();
+        MatchSpec first = h.Start();
+        Assert.True(h.Manager.MatchEnded(first.MatchId, interrupted: false));
+        NodeRoundSnapshot ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
+        h.Round(new LobbyVoteCast(h.Revision, ballot.BallotRevision, 1));
+
+        // The approved continuation cannot acquire its configured content;
+        // the manager reopens without leaving a stale replacement identity.
+        h.Manager.ContentCatalog = null;
+        Assert.Empty(h.Manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
+        Assert.Equal(LobbyPhase.Open, h.Snapshot.Phase);
+        AssertOwnership(h.Manager);
+
+        var transitionHarness = new Harness();
+        MatchSpec active = transitionHarness.Start();
+        Assert.True(transitionHarness.Manager.MatchReady(new(active.MatchId,
+            new(1), new(Guid.NewGuid()), Guid.NewGuid(), "localhost", 10000)));
+        var proposal = Assert.IsType<NodeMatchTransitionVoteSnapshot>(
+            transitionHarness.Manager.Execute(transitionHarness.Owner,
+                new LobbyMatchTransitionPropose(transitionHarness.Revision,
+                    active.MatchId.Value, MatchTransitionChoice.Restart)));
+        Assert.True(transitionHarness.Manager.TryBeginMatchTransition(
+            active.MatchId.Value, proposal.TransitionId, out _));
+        AssertOwnership(transitionHarness.Manager, active.MatchId.Value,
+            transitionHarness.Snapshot.LobbyId);
+
+        // A transition failure leaves the old active lifecycle authoritative.
+        Assert.True(transitionHarness.Manager.FailMatchTransition(
+            active.MatchId.Value, proposal.TransitionId));
+        AssertOwnership(transitionHarness.Manager, active.MatchId.Value,
+            transitionHarness.Snapshot.LobbyId);
+        Assert.True(transitionHarness.Manager.MatchEnded(active.MatchId, true));
+        AssertOwnership(transitionHarness.Manager);
+    }
+
     [Theory]
     [InlineData(1, "MP1 SANCTORUS")]
     [InlineData(2, "MP4 HIGHGROUND")]
@@ -25,10 +98,30 @@ public sealed class LobbyRoundTests
         Assert.Equal(option, resolved.ResolvedOption!.Id);
         var second = Assert.Single(h.Manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid())).Spec;
         Assert.NotEqual(first.MatchId, second.MatchId);
+        Assert.True(second.LifecycleEpoch.Value > first.LifecycleEpoch.Value);
         Assert.Equal(map, second.Content.MapKey);
         Assert.Equal(LobbyPhase.StartingMatch, h.Snapshot.Phase);
         Assert.False(h.Snapshot.Members[0].Ready);
         Assert.Empty(h.Manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
+    }
+
+    [Fact]
+    public void PostMatchContinuationClearsBallotAtWorkerReady()
+    {
+        var h = new Harness();
+        MatchSpec first = h.Start();
+        Assert.True(h.Manager.MatchEnded(first.MatchId, false));
+        NodeRoundSnapshot ballot = h.Manager.RoundForSession(h.Owner.SessionId)!;
+        h.Round(new LobbyVoteCast(h.Revision, ballot.BallotRevision, 1));
+        MatchSpec replacement = Assert.Single(h.Manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+
+        Assert.True(h.Manager.MatchReady(new(replacement.MatchId, new(1),
+            new(Guid.NewGuid()), Guid.NewGuid(), "localhost", 10000)));
+        NodeRoundSnapshot active = h.Manager.RoundForSession(h.Owner.SessionId)!;
+        Assert.Equal(LobbyPhase.InMatch, active.Lobby.Phase);
+        Assert.Empty(active.Options);
+        Assert.Null(active.ResolvedOption);
     }
 
     [Fact]
@@ -281,6 +374,62 @@ public sealed class LobbyRoundTests
         Assert.Equal(requirement, continuation.Content.RequiredMap);
     }
 
+    [Fact]
+    public void CustomMapContinuationRetainsIntentAcrossDisconnectedRetry()
+    {
+        var clock = new TestClock();
+        string baseHash = new('a', 64);
+        string mapHash = new('b', 64);
+        string matchHash = MapRequirement.ComputeMatchContentHash(baseHash,
+            "community.rotation", "1.4.0", mapHash, "test-build", 1);
+        var requirement = new MapRequirement("community.rotation", "1.4.0", mapHash,
+            new string('c', 64), 319_488, matchHash);
+        var catalog = new NodeContentCatalog(
+        [
+            new ContentIdentity("MP1 SANCTORUS", baseHash, "AMHE1", "test-build", 1),
+            new ContentIdentity("CUSTOM ROTATION", baseHash, "AMHE1", "test-build", 1,
+                requirement)
+        ]);
+        var manager = new LobbyManager { RoundClock = clock, ContentCatalog = catalog };
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Custom retry", LobbyVisibility.Public, 1));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "MP1 SANCTORUS", MatchMode.Battle));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        MatchSpec first = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            catalog.Get("MP1 SANCTORUS"), new(Guid.NewGuid()), Guid.NewGuid());
+        Assert.True(manager.MatchEnded(first.MatchId, false));
+
+        NodeRoundSnapshot ballot = manager.RoundForSession(owner.SessionId)!;
+        LobbyVoteEntry next = ballot.Options.Single(option =>
+            option.Choice == LobbyVoteChoice.NextMap);
+        NodeRoundSnapshot resolved = (NodeRoundSnapshot)manager.Execute(owner,
+            new LobbyVoteCast(ballot.Lobby.Revision, ballot.BallotRevision, next.Id));
+        Assert.Equal(LobbyPhase.Open, resolved.Lobby.Phase);
+        Assert.Equal(requirement, resolved.Lobby.RequiredMap);
+
+        // Make the approved player ready, then model a reconnect-grace
+        // disconnect. PrepareMatchCore must report the operational boundary
+        // without discarding the approved intent or reopening the lobby.
+        manager.SetSessionResumeDeadline(owner.SessionId,
+            clock.GetUtcNow().AddMinutes(1));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, manager.ForSession(owner.SessionId)!.Revision));
+        Assert.Empty(manager.PrepareContinuations(new(Guid.NewGuid()), Guid.NewGuid()));
+        NodeRoundSnapshot pending = manager.RoundForSession(owner.SessionId)!;
+        Assert.Equal(LobbyPhase.Open, pending.Lobby.Phase);
+        Assert.Equal(requirement, pending.Lobby.RequiredMap);
+        Assert.True(pending.Lobby.Members.Single().Ready);
+
+        manager.SetSessionResumeDeadline(owner.SessionId, null);
+        MatchSpec continuation = Assert.Single(manager.PrepareContinuations(
+            new(Guid.NewGuid()), Guid.NewGuid())).Spec;
+        Assert.Equal("CUSTOM ROTATION", continuation.Content.MapKey);
+        Assert.True(continuation.LifecycleEpoch.Value > first.LifecycleEpoch.Value);
+    }
+
     [Theory]
     [InlineData(4)] [InlineData(31)]
     public void InvalidVoteWindowFailsConstruction(int seconds)
@@ -339,6 +488,23 @@ public sealed class LobbyRoundTests
         private DateTimeOffset _now = DateTimeOffset.UnixEpoch;
         public override DateTimeOffset GetUtcNow() => _now;
         public void Advance() => _now = _now.AddSeconds(16);
+    }
+
+    private static void AssertOwnership(LobbyManager manager,
+        Guid? expectedMatch = null, Guid? expectedLobby = null)
+    {
+        var ownership = manager.MatchOwnershipSnapshot();
+        Assert.Equal(ownership.LobbyScan.Count, ownership.Index.Count);
+        foreach (var pair in ownership.LobbyScan)
+            Assert.True(ownership.Index.TryGetValue(pair.Key, out Guid lobbyId)
+                && lobbyId == pair.Value);
+        foreach (var pair in ownership.Index)
+            Assert.True(ownership.LobbyScan.TryGetValue(pair.Key, out Guid lobbyId)
+                && lobbyId == pair.Value);
+        if (expectedMatch is null) return;
+        Assert.NotNull(expectedLobby);
+        Assert.True(ownership.Index.TryGetValue(expectedMatch.Value, out Guid actual));
+        Assert.Equal(expectedLobby.Value, actual);
     }
     private sealed class Harness
     {

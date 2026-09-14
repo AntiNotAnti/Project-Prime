@@ -9,6 +9,7 @@ using Xunit;
 
 namespace MphRead.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class NodeRoundClientTests
 {
     private static NodeRoundSnapshot Round(Guid session, Guid player)
@@ -91,7 +92,9 @@ public sealed class NodeRoundClientTests
         client.ApplyEvent(NodeControlCodec.Write("node.session", 1, null,
             new NodeSessionSnapshot(session, player, "Hunter", node, new string('a', 43))));
         var round = Round(session, player);
-        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, round.Lobby));
+        var activeLobby = round.Lobby with { Phase = LobbyPhase.InMatch,
+            CurrentMatchId = match };
+        client.ApplyEvent(NodeControlCodec.Write("lobby.snapshot", 2, null, activeLobby));
         client.ApplyEvent(NodeControlCodec.Write("match.handoff", 3, null,
             new NodeMatchHandoff(match, 1, "127.0.0.1", 5000, "ticket", 1, false, Hunter.Samus)));
         client.MarkGameplayJoined(match);

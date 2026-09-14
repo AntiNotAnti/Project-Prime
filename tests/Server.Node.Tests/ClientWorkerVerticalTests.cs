@@ -15,9 +15,11 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Trait("LifecycleVertical", "true")]
 public sealed class ClientWorkerVerticalTests
 {
     [Trait("RequiresGameContent", "true")]
+    [Trait("LifecycleStress", "true")]
     [Fact]
     public async Task TlsNodeAutomaticallyContinuesRealUdpMatchesAndReturnsOnSameSession()
     {
@@ -82,10 +84,12 @@ public sealed class ClientWorkerVerticalTests
         Guid priorMatch = Guid.Empty;
         NodeMatchHandoff? priorHandoff = null;
         string expectedMap = map.MapKey;
+        int totalRounds = int.TryParse(Environment.GetEnvironmentVariable("LIFECYCLE_STRESS_ROUNDS"), out int configuredRounds)
+            && configuredRounds is >= 4 and <= 100 ? configuredRounds : 4;
         var observedMatches = new HashSet<MatchId>();
         try
         {
-            for (int round = 0; round < 4; round++)
+            for (int round = 0; round < totalRounds; round++)
             {
                 if (round == 0)
                 {
@@ -110,8 +114,11 @@ public sealed class ClientWorkerVerticalTests
                 Assert.Equal(expectedMap, assignment!.Spec.Content.MapKey);
                 if (priorHandoff != null)
                 {
+                    Assert.NotEqual(priorHandoff.WireMatchId, handoff.WireMatchId);
+                    Assert.NotEqual(priorHandoff.AdmissionId, handoff.AdmissionId);
                     Assert.NotEqual(priorHandoff.Ticket, handoff.Ticket);
                     Assert.NotEqual(priorHandoff.Nonce, handoff.Nonce);
+                    Assert.True(handoff.LifecycleEpoch.Value > priorHandoff.LifecycleEpoch.Value);
                 }
                 if (round == 0)
                 {
@@ -214,17 +221,22 @@ public sealed class ClientWorkerVerticalTests
                 priorMatch = handoff.MatchId;
                 priorHandoff = handoff;
                 await Until(() => owner.Round is { Options.IsEmpty: false } && guest.Round?.BallotRevision == owner.Round.BallotRevision);
-                LobbyVoteChoice choice = round switch
-                {
-                    0 => LobbyVoteChoice.Rematch,
-                    1 => LobbyVoteChoice.NextMap,
-                    2 => LobbyVoteChoice.Map,
-                    _ => LobbyVoteChoice.ReturnToLobby
-                };
+                LobbyVoteChoice choice = totalRounds > 4
+                    ? round == totalRounds - 1 ? LobbyVoteChoice.ReturnToLobby : LobbyVoteChoice.Rematch
+                    : round switch
+                    {
+                        0 => LobbyVoteChoice.Rematch,
+                        1 => LobbyVoteChoice.NextMap,
+                        2 => LobbyVoteChoice.Map,
+                        _ => LobbyVoteChoice.ReturnToLobby
+                    };
                 var ballot = owner.Round!;
                 var selected = ballot.Options.First(option => option.Choice == choice
                     && (choice != LobbyVoteChoice.Map || option.MapKey == "MP1 SANCTORUS"));
-                Assert.Equal(round == 1 ? "MP4 HIGHGROUND" : "MP1 SANCTORUS", selected.MapKey);
+                if (totalRounds > 4)
+                    Assert.Equal(expectedMap, selected.MapKey);
+                else
+                    Assert.Equal(round == 1 ? "MP4 HIGHGROUND" : "MP1 SANCTORUS", selected.MapKey);
                 expectedMap = selected.MapKey;
                 await owner.SendAsync("lobby.vote.cast", new LobbyVoteCast(owner.Lobby!.Revision, ballot.BallotRevision, selected.Id));
                 await Until(() => guest.Round?.Options.First(option => option.Id == selected.Id).Votes == 1);
@@ -259,7 +271,7 @@ public sealed class ClientWorkerVerticalTests
                     // allocate another or leave one active.
                     var retainedMatches = host.App.Services.GetRequiredService<WorkerManager>().Snapshot()
                         .SelectMany(worker => worker.Matches).ToArray();
-                    Assert.Equal(4, observedMatches.Count);
+                    Assert.Equal(totalRounds, observedMatches.Count);
                     Assert.Empty(retainedMatches);
                     Assert.Equal(session, owner.Session!.SessionId);
                     Assert.Equal(lobbyId, owner.Lobby.LobbyId);

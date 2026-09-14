@@ -280,10 +280,14 @@ public sealed class MatchTransitionTests
         MatchSpec second = Assert.Single(h.Manager.PrepareContinuations(
             new(Guid.NewGuid()), Guid.NewGuid())).Spec;
         Assert.NotEqual(first.MatchId, second.MatchId);
+        Assert.True(second.LifecycleEpoch.Value > first.LifecycleEpoch.Value);
         Assert.NotEqual(first.Rng1Seed, second.Rng1Seed);
         Assert.NotEqual(first.Rng2Seed, second.Rng2Seed);
         Assert.Equal(first.Rules, second.Rules);
         Assert.Equal(first.Content.MapKey, second.Content.MapKey);
+        Assert.True(h.Manager.MatchReady(new(second.MatchId, new(1),
+            new(Guid.NewGuid()), Guid.NewGuid(), "localhost", 10000)));
+        Assert.Null(h.Manager.MatchTransitionForSession(h.Players[0].SessionId));
         Assert.False(h.Manager.MatchEnded(first.MatchId, true));
         Assert.Equal(second.MatchId.Value, h.Current.CurrentMatchId);
     }
@@ -442,6 +446,36 @@ public sealed class MatchTransitionTests
         Assert.Equal(first.MatchId.Value, failure.MatchId);
         Assert.Equal(MatchTransitionVoteState.Failed, failure.State);
         Assert.Equal("map_unavailable", failure.FailureCode);
+    }
+
+    [Fact]
+    public void IndependentManualStartClearsPriorTransitionFailureProjection()
+    {
+        var h = new LobbyHarness(1);
+        MatchSpec first = h.Start();
+        var proposal = Assert.IsType<NodeMatchTransitionVoteSnapshot>(h.Manager.Execute(
+            h.Players[0], new LobbyMatchTransitionPropose(h.Revision,
+                first.MatchId.Value, MatchTransitionChoice.Restart)));
+        Assert.True(h.Manager.TryBeginMatchTransition(first.MatchId.Value,
+            proposal.TransitionId, out _));
+        Assert.True(h.Manager.FailCompletedMatchTransition(first.MatchId,
+            proposal.TransitionId, "transition_timeout", out _));
+        Assert.Equal(MatchTransitionVoteState.Failed,
+            h.Manager.MatchTransitionForSession(h.Players[0].SessionId)!.State);
+
+        LobbySnapshot ready = (LobbySnapshot)h.Manager.Execute(h.Players[0],
+            new LobbySetReady(true, h.Revision));
+        MatchSpec second = h.Manager.PrepareMatch(h.Players[0].SessionId,
+            ready.Revision, h.Manager.ContentCatalog!.Get("unit", MatchMode.Battle),
+            new(Guid.NewGuid()), Guid.NewGuid());
+
+        Assert.NotEqual(first.MatchId, second.MatchId);
+        Assert.True(second.LifecycleEpoch.Value > first.LifecycleEpoch.Value);
+        Assert.Null(h.Manager.MatchTransitionForSession(h.Players[0].SessionId));
+        Assert.False(h.Manager.FailCompletedMatchTransition(first.MatchId,
+            proposal.TransitionId, "late_failure", out _));
+        Assert.Equal(second.MatchId.Value,
+            h.Manager.ForSession(h.Players[0].SessionId)!.CurrentMatchId);
     }
 
     [Fact]

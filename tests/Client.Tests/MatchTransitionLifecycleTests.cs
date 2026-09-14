@@ -100,7 +100,8 @@ public sealed class MatchTransitionLifecycleTests
             sessionId, LobbyPhase.StartingMatch, 1, 8, 16,
             [new LobbyMember(sessionId, playerId, "Hunter", Hunter.Samus, 0,
                 false, false)], [], "map", MatchMode.Battle,
-            CurrentMatchId: firstMatch);
+            CurrentMatchId: firstMatch,
+            LifecycleEpoch: MatchLifecycleEpoch.Initial);
         node.ApplyEvent(Event("lobby.snapshot", 2, lobby));
         NodeMatchHandoff first = new(firstMatch, 1, "127.0.0.1", 5000,
             "ticket", 1, false, Hunter.Samus);
@@ -115,13 +116,15 @@ public sealed class MatchTransitionLifecycleTests
         {
             MatchId = nextMatch,
             WireMatchId = 2,
-            Nonce = 2
+            Nonce = 2,
+            LifecycleEpoch = new MatchLifecycleEpoch(2)
         };
         // The coalesced StartingMatch snapshot advances LastLobbyMatchId
         // before the old terminal event arrives; admission must still use the
         // transition's PreviousMatchId.
         node.ApplyEvent(Event("lobby.snapshot", 6,
-            lobby with { Revision = 2, CurrentMatchId = nextMatch }));
+            lobby with { Revision = 2, CurrentMatchId = nextMatch,
+                LifecycleEpoch = new MatchLifecycleEpoch(2) }));
         node.ApplyEvent(Event("match.handoff", 7, replacement));
         node.ApplyEvent(Event("match.ended", 8,
             new NodeMatchEnded(firstMatch, false)));
@@ -143,19 +146,27 @@ public sealed class MatchTransitionLifecycleTests
         Guid nodeId = Guid.NewGuid();
         Guid currentMatch = Guid.NewGuid();
         Guid replacementMatch = Guid.NewGuid();
-        await using var node = NewNode(nodeId, out _, new NodeSessionSnapshot(
-            Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId, new string('a', 43)));
+        var session = new NodeSessionSnapshot(Guid.NewGuid(), Guid.NewGuid(), "Hunter", nodeId,
+            new string('a', 43));
+        await using var node = NewNode(nodeId, out _, session);
+
+        LobbySnapshot currentLobby = new(Guid.NewGuid(), "Room", LobbyVisibility.Public,
+            session.SessionId, LobbyPhase.InMatch, 1, 8, 16,
+            [new LobbyMember(session.SessionId, session.PlayerId, session.DisplayName,
+                Hunter.Samus, 0, false, false)], [], "map", MatchMode.Battle,
+            CurrentMatchId: currentMatch, LifecycleEpoch: new MatchLifecycleEpoch(7));
+        node.ApplyEvent(Event("lobby.snapshot", 2, currentLobby));
 
         NodeMatchHandoff current = new(currentMatch, 11, "127.0.0.1", 5000,
             "ticket", 1, false, Hunter.Samus, Guid.Empty, "", false,
             new HandoffGeneration(3), new MatchLifecycleEpoch(7));
-        node.ApplyEvent(Event("match.handoff", 2, current));
-        node.ApplyEvent(Event("match.handoff", 3, current with
+        node.ApplyEvent(Event("match.handoff", 3, current));
+        node.ApplyEvent(Event("match.handoff", 4, current with
         {
             Nonce = 2,
             HandoffGeneration = new HandoffGeneration(2)
         }));
-        node.ApplyEvent(Event("match.ended", 4,
+        node.ApplyEvent(Event("match.ended", 5,
             new NodeMatchEnded(currentMatch, true, new MatchLifecycleEpoch(6))));
 
         Assert.Equal(current, node.Handoff);
@@ -171,8 +182,13 @@ public sealed class MatchTransitionLifecycleTests
             HandoffGeneration = HandoffGeneration.Initial,
             LifecycleEpoch = new MatchLifecycleEpoch(8)
         };
-        node.ApplyEvent(Event("match.handoff", 5, replacement));
-        node.ApplyEvent(Event("match.completion", 6,
+        node.ApplyEvent(Event("lobby.snapshot", 6, currentLobby with
+        {
+            Revision = 2, CurrentMatchId = replacementMatch,
+            LifecycleEpoch = new MatchLifecycleEpoch(8)
+        }));
+        node.ApplyEvent(Event("match.handoff", 7, replacement));
+        node.ApplyEvent(Event("match.completion", 8,
             new NodeMatchCompletion(Completion(currentMatch),
                 new MatchLifecycleEpoch(7))));
 

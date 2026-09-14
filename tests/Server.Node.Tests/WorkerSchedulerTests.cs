@@ -1,11 +1,15 @@
 using ProjectPrime.Server.Node.Workers;
+using ProjectPrime.Server.Node.Reporting;
 using ProjectPrime.Server.Shared;
 using ProjectPrime.Server.Node.Lobbies;
 using Microsoft.Extensions.Logging.Abstractions;
+using MphRead.Identity;
+using MphRead.Reporting;
 using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Trait("LifecycleFast", "true")]
 public sealed class WorkerSchedulerTests
 {
     private static WorkerManager Manager() => new(new(Guid.NewGuid()), Guid.NewGuid());
@@ -217,6 +221,56 @@ public sealed class WorkerSchedulerTests
         scheduler.Ended += (_, interrupted) => ended.TrySetResult(interrupted);
         await scheduler.PlaceAsync(WorkerManagerTests.Spec(manager));
         Assert.False(await ended.Task.WaitAsync(TimeSpan.FromSeconds(3)));
+    }
+
+    [Fact]
+    public async Task OfficialUnavailableReceiptReleasesReservationAndRetiresPlacement()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "scheduler-unavailable-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            await using var outbox = new MatchReportOutbox(new(
+                Path.Combine(root, "outbox"), MaximumReports: 1), new NoopReportTransport());
+            await using var ingestor = new NodeReportIngestor(outbox,
+                Path.Combine(root, "receipts"));
+            using var readyTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            while (!ingestor.CanAcceptOfficial)
+            {
+                readyTimeout.Token.ThrowIfCancellationRequested();
+                await Task.Yield();
+            }
+
+            var manager = Manager();
+            await using var scheduler = new WorkerScheduler(manager, reports: ingestor);
+            await scheduler.StartWorkerAsync(Launch("official-unavailable"));
+            MatchSpec spec = WorkerManagerTests.Spec(manager) with
+            {
+                TrustClass = MatchTrustClass.Ranked
+            };
+            var ended = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            scheduler.Ended += (id, interrupted) =>
+            {
+                if (id == spec.MatchId && !interrupted) ended.TrySetResult();
+            };
+
+            await scheduler.PlaceAsync(spec);
+            await ended.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            while (scheduler.RetentionSnapshot.TerminalPlacements != 0
+                || outbox.Status.ReservedReports != 0)
+            {
+                readyTimeout.Token.ThrowIfCancellationRequested();
+                await Task.Yield();
+            }
+
+            Assert.False(scheduler.TryGetAssignment(spec.MatchId, out _));
+            Assert.Equal(0, outbox.Status.ReservedReports);
+            Assert.Single(Directory.GetFiles(Path.Combine(root, "receipts", "unavailable"), "*.json"));
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
 
     [Fact]
@@ -467,6 +521,7 @@ public sealed class WorkerSchedulerTests
         Assert.Equal(command.AdmissionId, installed.AdmissionId);
         Assert.Equal(command.TicketId, installed.TicketId);
         Assert.Equal(command.WireMatchId, installed.WireMatchId);
+        AssertAdmissionCounters(scheduler);
     }
 
     [Fact]
@@ -478,8 +533,13 @@ public sealed class WorkerSchedulerTests
         MatchSpec spec = WorkerManagerTests.Spec(manager);
         MatchPlacement placement = await scheduler.PlaceAsync(spec);
 
-        await Assert.ThrowsAsync<WorkerPlacementException>(() =>
-            scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+        Task<AdmissionKeyInstalled> pending = scheduler.InstallAdmissionKeyAsync(
+            Install(spec, placement, worker));
+        await WaitUntilAsync(() => scheduler.AdmissionCounterSnapshots().Single(
+            snapshot => snapshot.MatchId == spec.MatchId).PendingAdmissionInstalls == 1);
+        AssertAdmissionCounters(scheduler);
+        await Assert.ThrowsAsync<WorkerPlacementException>(() => pending);
+        AssertAdmissionCounters(scheduler);
     }
 
     [Fact]
@@ -492,6 +552,7 @@ public sealed class WorkerSchedulerTests
         MatchPlacement placement = await scheduler.PlaceAsync(spec);
         await Assert.ThrowsAsync<WorkerPlacementException>(() =>
             scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+        AssertAdmissionCounters(scheduler);
 
         var lossManager = Manager();
         await using var lossScheduler = new WorkerScheduler(lossManager, admissionInstallTimeout: TimeSpan.FromSeconds(2));
@@ -500,6 +561,7 @@ public sealed class WorkerSchedulerTests
         MatchPlacement lossPlacement = await lossScheduler.PlaceAsync(lossSpec);
         await Assert.ThrowsAsync<WorkerPlacementException>(() =>
             lossScheduler.InstallAdmissionKeyAsync(Install(lossSpec, lossPlacement, lost)));
+        AssertAdmissionCounters(lossScheduler);
     }
 
     [Fact]
@@ -513,6 +575,25 @@ public sealed class WorkerSchedulerTests
 
         await Assert.ThrowsAsync<WorkerPlacementException>(() =>
             scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+        AssertAdmissionCounters(scheduler);
+    }
+
+    [Fact]
+    public async Task AdmissionKeyInstallFailurePreservesBoundedWorkerReason()
+    {
+        var manager = Manager();
+        await using var scheduler = new WorkerScheduler(manager,
+            admissionInstallTimeout: TimeSpan.FromMilliseconds(500));
+        ManagedWorker worker = await scheduler.StartWorkerAsync(Launch("admission-key-failure"));
+        MatchSpec spec = WorkerManagerTests.Spec(manager);
+        MatchPlacement placement = await scheduler.PlaceAsync(spec);
+
+        WorkerPlacementException error = await Assert.ThrowsAsync<WorkerPlacementException>(() =>
+            scheduler.InstallAdmissionKeyAsync(Install(spec, placement, worker)));
+
+        Assert.Equal(MatchControlFailure.PlacementFailed, error.Failure);
+        Assert.Contains("admission_route_capacity", error.Message, StringComparison.Ordinal);
+        AssertAdmissionCounters(scheduler);
     }
 
     private static InstallAdmissionKey Install(MatchSpec spec, MatchPlacement placement, ManagedWorker worker)
@@ -520,4 +601,28 @@ public sealed class WorkerSchedulerTests
             spec.MatchId, placement.WireMatchId, worker.Id, worker.Incarnation, spec.Roster[0].SeatId,
             123, DateTimeOffset.UtcNow.ToUnixTimeSeconds() + 60,
             Convert.ToBase64String(new byte[AdmissionKeyRules.ByteLength]), HandoffGeneration.Initial);
+
+    private static void AssertAdmissionCounters(WorkerScheduler scheduler)
+    {
+        foreach (WorkerAdmissionCounterSnapshot snapshot in scheduler.AdmissionCounterSnapshots())
+        {
+            Assert.Equal(snapshot.DictionaryAdmissionInstalls, snapshot.PendingAdmissionInstalls);
+            Assert.Equal(snapshot.DictionaryAdmissionRetirements, snapshot.PendingAdmissionRetirements);
+            Assert.True(snapshot.PendingAdmissionInstalls >= 0);
+            Assert.True(snapshot.PendingAdmissionRetirements >= 0);
+        }
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> predicate)
+    {
+        using CancellationTokenSource timeout = new(TimeSpan.FromSeconds(3));
+        while (!predicate()) await Task.Delay(10, timeout.Token);
+    }
+
+    private sealed class NoopReportTransport : IMatchReportTransport
+    {
+        public Task<ReportDelivery> SubmitAsync(Guid matchId, string hash,
+            ReadOnlyMemory<byte> payload, CancellationToken cancellationToken)
+            => Task.FromResult(new ReportDelivery(ReportDeliveryKind.Accepted));
+    }
 }
