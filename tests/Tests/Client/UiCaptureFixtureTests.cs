@@ -314,11 +314,16 @@ public sealed class UiCaptureFixtureTests
                 .OfType<PrimePlayResponsivePanel>()
                 .Where(panel => panel.Classes.Contains("prime-host-layout")));
             Assert.Equal(2, dashboard.CurrentStep);
+            // The compact shell scales this desktop page to its authored
+            // width before the responsive panel measures it. At this window
+            // size that logical width is wide, so both authored stages remain
+            // visible even though the step rail is advanced to step two.
+            Assert.Equal(PrimeContentLayout.Wide, dashboard.Layout);
             Assert.Contains(dashboard.Children, child => child.IsVisible
                 && TextOf(child).Contains("MISSION", StringComparison.Ordinal));
             Assert.Contains(dashboard.Children, child => child.IsVisible
                 && TextOf(child).Contains("MATCH CONFIGURATION", StringComparison.Ordinal));
-            Assert.DoesNotContain(dashboard.Children, child => child.IsVisible
+            Assert.Contains(dashboard.Children, child => child.IsVisible
                 && TextOf(child).Contains("LOBBY & SEATS", StringComparison.Ordinal));
         }
         finally
