@@ -1,6 +1,7 @@
 using ProjectPrime.Server.Shared;
 using ProjectPrime.Server.Node.Lobbies;
 using ProjectPrime.WorkerSoak;
+using MphRead;
 using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
@@ -14,7 +15,7 @@ public sealed class WorkerSoakScenarioTests
             Guid.NewGuid(), "127.0.0.1", 1, UdpAuthenticationEnabled: false);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => SoakClientActor.CreateAsync(
-            default!, placement, null!, null!, Array.Empty<LobbyIdentity>()));
+            default!, placement, Array.Empty<LobbyIdentity>(), null!));
     }
 
     [Fact]
@@ -47,6 +48,131 @@ public sealed class WorkerSoakScenarioTests
         Assert.Equal(32, scenario.TargetClientPeers);
         var invalid = new Dictionary<string, string>(options) { ["--rematch-every"] = "0" };
         Assert.Throws<ArgumentException>(() => SoakScenarioOptions.From(invalid));
+    }
+
+    [Fact]
+    public void RoundTargetSupportsTheBoundedThousandRoundMode()
+    {
+        var scenario = SoakScenarioOptions.From(new Dictionary<string, string>
+        {
+            ["--rounds"] = "1000", ["--matches"] = "4", ["--workers"] = "2",
+            ["--lanes"] = "2", ["--round-seconds"] = "1", ["--outages"] = "false",
+            ["--reconnects"] = "false", ["--rematches"] = "false"
+        });
+
+        Assert.Equal(1000, scenario.Rounds);
+        Assert.Equal(1000, scenario.TargetRounds);
+        var invalidRounds = new Dictionary<string, string>
+        {
+            ["--rounds"] = "1001", ["--matches"] = "1", ["--workers"] = "1", ["--lanes"] = "1"
+        };
+        Assert.Throws<ArgumentException>(() => SoakScenarioOptions.From(invalidRounds));
+    }
+
+    [Fact]
+    public void RoundsModeDoesNotDrainAtPlacementBoundary()
+    {
+        var rounds = SoakScenarioOptions.From(new Dictionary<string, string>
+        {
+            ["--rounds"] = "1", ["--seconds"] = "1", ["--matches"] = "1", ["--workers"] = "1",
+            ["--lanes"] = "1", ["--outages"] = "false", ["--reconnects"] = "false",
+            ["--rematches"] = "false"
+        });
+        var wallClock = SoakScenarioOptions.From(new Dictionary<string, string>
+        {
+            ["--seconds"] = "1", ["--matches"] = "1", ["--workers"] = "1", ["--lanes"] = "1",
+            ["--outages"] = "false", ["--reconnects"] = "false", ["--rematches"] = "false"
+        });
+
+        Assert.False(rounds.IsWallClockDrainDue(10));
+        Assert.True(wallClock.IsWallClockDrainDue(1));
+    }
+
+    [Fact]
+    public void ControlClientOnlyModesFailClosedAtTheInProcessBoundary()
+    {
+        var options = new Dictionary<string, string>
+        {
+            ["--rounds"] = "1", ["--matches"] = "1", ["--workers"] = "1",
+            ["--lanes"] = "1", ["--random-control-reconnect"] = "true"
+        };
+
+        ArgumentException error = Assert.Throws<ArgumentException>(() => SoakScenarioOptions.From(options));
+        Assert.Contains("real WSS control client", error.Message);
+    }
+
+    [Fact]
+    public void SupportedSoakStressModesAreParsedAndBounded()
+    {
+        var scenario = SoakScenarioOptions.From(new Dictionary<string, string>
+        {
+            ["--rounds"] = "1000", ["--matches"] = "1", ["--workers"] = "1", ["--lanes"] = "1",
+            ["--lobby-churn"] = "true", ["--chat-during-start"] = "true",
+            ["--artifact-delay-ms"] = "25", ["--artifact-failure-rate"] = ".25",
+            ["--transition-rate"] = ".5", ["--map-change-rate"] = ".75", ["--seed"] = "42"
+        });
+
+        Assert.True(scenario.LobbyChurnEnabled);
+        Assert.True(scenario.ChatDuringStartEnabled);
+        Assert.Equal(25, scenario.ArtifactDelayMilliseconds);
+        Assert.Equal(.25, scenario.ArtifactFailureRate);
+        Assert.Equal(.5, scenario.TransitionRate);
+        Assert.Equal(.75, scenario.MapChangeRate);
+        Assert.Equal(42, scenario.Seed);
+    }
+
+    [Fact]
+    public void DriverSelectsOnlyTheAuthoritativeRequestedContinuation()
+    {
+        var options = new[]
+        {
+            new LobbyVoteEntry(1, LobbyVoteChoice.Rematch, "other", MatchMode.Battle, 0),
+            new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "target", MatchMode.Nodes, 0),
+            new LobbyVoteEntry(3, LobbyVoteChoice.ReturnToLobby, "target", MatchMode.Nodes, 0)
+        };
+
+        Assert.Equal((byte)2, SoakLobbyDriver.SelectContinuation(options, "target", MatchMode.Nodes).Id);
+        Assert.Throws<InvalidOperationException>(() =>
+            SoakLobbyDriver.SelectContinuation(options, "missing", MatchMode.Nodes));
+    }
+
+    [Fact]
+    public void DriverSelectsSeededActiveTransitionCommand()
+    {
+        var mapChange = new Random(42);
+        var restart = new Random(42);
+
+        Assert.Equal(MatchTransitionChoice.ChangeMap,
+            SoakLobbyDriver.SelectActiveTransition(mapChange, mapChangeRate: 1));
+        Assert.Equal(MatchTransitionChoice.Restart,
+            SoakLobbyDriver.SelectActiveTransition(restart, mapChangeRate: 0));
+    }
+
+    [Fact]
+    public void SelectedActiveTransitionExecutesThroughTheNodeCommandBoundary()
+    {
+        var manager = new LobbyManager();
+        var content = new ContentIdentity("soak-map", "hash", "1", "test", 8);
+        manager.ContentCatalog = new NodeContentCatalog([content]);
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "SoakOwner");
+        var lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Soak", LobbyVisibility.Public, PlayerLimit: 1));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, content.MapKey, MatchMode.Battle));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        MatchSpec match = manager.PrepareMatch(owner.SessionId, lobby.Revision, content,
+            new(Guid.NewGuid()), Guid.NewGuid());
+        Assert.True(manager.MatchReady(new(match.MatchId, new(1), new(Guid.NewGuid()),
+            Guid.NewGuid(), "127.0.0.1", 1)));
+
+        MatchTransitionChoice choice = SoakLobbyDriver.SelectActiveTransition(new(42), 0);
+        var state = Assert.IsType<NodeMatchTransitionVoteSnapshot>(manager.Execute(owner,
+            new LobbyMatchTransitionPropose(manager.ForSession(owner.SessionId)!.Revision,
+                match.MatchId.Value, choice)));
+        Assert.Equal(MatchTransitionChoice.Restart, state.Choice);
+        Assert.Equal(MatchTransitionVoteState.Approved, state.State);
+        Assert.True(manager.TryGetApprovedMatchTransition(match.MatchId.Value, out _));
     }
 
     [Fact]

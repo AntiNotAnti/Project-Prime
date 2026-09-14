@@ -37,6 +37,10 @@ internal static class Program
         public double StartedAt;
         public bool RematchEligible;
         public bool RematchAttempted;
+        public bool TransitionEligible;
+        public bool TransitionAttempted;
+        public bool IsTransition;
+        public bool TransitionRecoveryCounted;
         public bool IsRematch;
         public bool RematchRecoveryCounted;
         public bool ReconnectInjected;
@@ -64,7 +68,8 @@ internal static class Program
             RequireCrashRecovery: args.TryGetValue("--require-crash-recovery", out var crashRecovery) ? bool.Parse(crashRecovery) : scenario.CrashesEnabled,
             RequireReconnectRecovery: args.TryGetValue("--require-reconnect-recovery", out var reconnectRecovery) ? bool.Parse(reconnectRecovery) : scenario.ReconnectsEnabled,
             RequireOutageRecovery: args.TryGetValue("--require-outage-recovery", out var outageRecovery) ? bool.Parse(outageRecovery) : scenario.OutagesEnabled,
-            RequireRematchRecovery: args.TryGetValue("--require-rematch-recovery", out var rematchRecovery) ? bool.Parse(rematchRecovery) : scenario.RematchesEnabled);
+            RequireRematchRecovery: args.TryGetValue("--require-rematch-recovery", out var rematchRecovery)
+                ? bool.Parse(rematchRecovery) : scenario.RematchesEnabled && scenario.TransitionRate >= 1);
         requirements.Validate(scenario);
         string assembly = Path.GetFullPath(Required("--worker-assembly")), data = Path.GetFullPath(Required("--data-dir"));
         string output = Path.GetFullPath(Required("--output")); Directory.CreateDirectory(output);
@@ -105,21 +110,28 @@ internal static class Program
         using var driver = new SoakLobbyDriver(scheduler, manager, signer,
             new NodeContentCatalog(new[] { "MP1 SANCTORUS", "MP2 HARVESTER" }.Select(map => new ContentIdentity(map,
                 profile.ContentHash, profile.ContentVersion, profile.BuildVersion, profile.ProtocolVersion))),
-            scenario.Roster, scenario.ReplayPolicy, backend.RentPlayersAsync, backend.ReleasePlayers);
+            scenario.Roster, scenario.ReplayPolicy, backend.RentPlayersAsync, backend.ReleasePlayers,
+            scenario.LobbyChurnEnabled, scenario.ChatDuringStartEnabled);
         var hosts = new List<Hosted>();
         var running = new Dictionary<MatchId, Running>();
 
         int created = 0, completed = 0, interrupted = 0, failures = 0, generation = 0;
-        int rematchAttempts = 0, rematchPlaced = 0, rematchRecovered = 0, rematchFailures = 0, crashAttempts = 0, crashRecovered = 0;
+        int rematchAttempts = 0, rematchPlaced = 0, rematchRecovered = 0, rematchFailures = 0;
+        int transitionAttempts = 0, transitionPlaced = 0, transitionRecovered = 0, transitionFailures = 0;
+        int crashAttempts = 0, crashRecovered = 0;
         long inputs = 0, snapshots = 0, observers = 0, reconnects = 0, playing = 0;
         long reconnectAttempts = 0, reconnectRecovered = 0;
         double occupancyIntegral = 0, playingOccupancyIntegral = 0, connectedOccupancyIntegral = 0, occupancySeconds = 0;
         double previousLoop = 0, lowOccupancySince = -1, lastCompletionAt = 0;
         Dictionary<SoakOccupancyPhase, double> phaseSeconds = new();
         Dictionary<MatchId, TerminalObservation> terminals = new();
+        HashSet<Guid> observedMatchIds = [];
+        Dictionary<Guid, ulong> lifecycleEpochs = [];
+        var controlRandom = new Random(scenario.Seed);
         bool disruptionObserved = false;
         double nextSample = 0, nextTrend = 0, nextCrash = scenario.CrashSeconds;
         using var end = new CancellationTokenSource();
+        Task continuations = driver.RunContinuationsAsync(end.Token);
         critical.Write("start", "Harness+Node+Backend", status: "running");
         log.Write(new { kind = "start", utc = DateTimeOffset.UtcNow, scenario, requirements, profile,
             evidence = "Real Node lobby/coordinator/scheduler, Worker processes, signed UDP actors, and Backend TLS report ingestion with persistent SQLite; HTTP503 outage injection." });
@@ -141,6 +153,18 @@ internal static class Program
                 workerArguments.Add("--observer-delay-seconds");
                 workerArguments.Add(scenario.ObserverDelaySeconds.ToString());
             }
+            if (scenario.ArtifactDelayMilliseconds > 0)
+            {
+                workerArguments.Add("--artifact-delay-ms");
+                workerArguments.Add(scenario.ArtifactDelayMilliseconds.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
+            if (scenario.ArtifactFailureRate > 0)
+            {
+                workerArguments.Add("--artifact-failure-rate");
+                workerArguments.Add(scenario.ArtifactFailureRate.ToString("R", System.Globalization.CultureInfo.InvariantCulture));
+                workerArguments.Add("--artifact-failure-seed");
+                workerArguments.Add(scenario.Seed.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            }
             var worker = await scheduler.StartWorkerAsync(new WorkerLaunchOptions
             {
                 FileName = "dotnet", WorkingDirectory = Path.GetDirectoryName(assembly), Content = profile,
@@ -157,9 +181,20 @@ internal static class Program
         // Wall-clock duration excludes process startup and includes only the live workload interval.
         elapsed.Restart();
         bool draining = false;
-        while (elapsed.Elapsed.TotalSeconds < scenario.Seconds || running.Count > 0)
+        // A rounds run must keep the scheduler accepting the already-created
+        // target round until its terminal receipt is durably resolved.  The
+        // created-count boundary is a placement boundary, not a drain signal.
+        double? workloadBoundarySeconds = scenario.Rounds == 0 ? scenario.Seconds : null;
+        while ((scenario.Rounds == 0 && elapsed.Elapsed.TotalSeconds < scenario.Seconds)
+            || (scenario.Rounds > 0 && created < scenario.TargetRounds)
+            || running.Count > 0)
         {
-            if (!draining && elapsed.Elapsed.TotalSeconds >= scenario.Seconds)
+            // In rounds mode the loop exits naturally after the target round
+            // has completed.  The common post-loop drain below owns the final
+            // scheduler shutdown; draining here would stop occupancy sampling
+            // at the instant the target placement is created.
+            bool workloadComplete = scenario.IsWallClockDrainDue(elapsed.Elapsed.TotalSeconds);
+            if (!draining && workloadComplete)
             {
                 draining = true;
                 scheduler.Drain("Soak duration reached");
@@ -188,7 +223,7 @@ internal static class Program
                         readyActive.Placement = ready.Placement;
                         if (readyActive.Actor == null)
                             readyActive.Actor = await SoakClientActor.CreateAsync(readyActive.Spec, ready.Placement,
-                                signer, scheduler, readyActive.Round.Participants, end.Token);
+                                readyActive.Round.Participants, driver.GetHandoffAsync, end.Token);
                         break;
                     case MatchCompleted result:
                         if (!running.TryGetValue(result.Summary.MatchId, out var completedActive))
@@ -202,15 +237,26 @@ internal static class Program
                         break;
                     case MatchReportReady report:
                         throw new InvalidDataException("Report event referenced an unknown or already retired match.");
+                    case MatchReportUnavailable unavailable when running.TryGetValue(unavailable.MatchId, out var unavailableActive):
+                        // WorkerScheduler owns the receipt admission and queues the
+                        // Node-owned durable failure receipt.  The soak only needs
+                        // to retain the same durability edge as a ready report;
+                        // gameplay completion remains the terminal event above.
+                        unavailableActive.Durability = ingest.WaitForDurabilityAsync(end.Token);
+                        break;
+                    case MatchReportUnavailable:
+                        throw new InvalidDataException("Report-unavailable event referenced an unknown or already retired match.");
                     case MatchInterrupted stop:
                         if (!running.TryGetValue(stop.MatchId, out var interruptedActive))
                         {
                             if (terminals.TryGetValue(stop.MatchId, out var priorTerminal)
-                                && priorTerminal.Kind == "interrupted") break;
+                                && priorTerminal.Kind is "interrupted" or "transitioned") break;
                             throw new InvalidDataException("Terminal event referenced an unknown or already retired match.");
                         }
-                        ObserveTerminal(interruptedActive, "interrupted", deliberateCrash: interruptedActive.Host.Crashed);
-                        interrupted++; await ReleaseAsync(interruptedActive); break;
+                        string interruptionKind = interruptedActive.IsTransition ? "transitioned" : "interrupted";
+                        ObserveTerminal(interruptedActive, interruptionKind, deliberateCrash: interruptedActive.Host.Crashed);
+                        if (interruptionKind == "interrupted") interrupted++;
+                        await ReleaseAsync(interruptedActive); break;
                     case MatchFailed failed:
                         if (!running.TryGetValue(failed.MatchId, out var failedActive))
                             throw new InvalidDataException("Terminal event referenced an unknown or already retired match.");
@@ -237,6 +283,12 @@ internal static class Program
                     critical.Write("rematch", "Harness+Node+Backend", active.Host.Worker.Id.Value.ToString("N"),
                         active.Host.Worker.Incarnation.ToString("N"), active.Spec.MatchId.Value.ToString("N"), status: "recovered");
                 }
+                if (active.IsTransition && !active.TransitionRecoveryCounted && active.Actor?.Snapshot.HasProgress == true)
+                {
+                    active.TransitionRecoveryCounted = true; transitionRecovered++;
+                    critical.Write("transition", "Harness+Node+Backend", active.Host.Worker.Id.Value.ToString("N"),
+                        active.Host.Worker.Incarnation.ToString("N"), active.Spec.MatchId.Value.ToString("N"), status: "recovered");
+                }
                 if (elapsed.Elapsed.TotalSeconds - active.StartedAt > scenario.RoundSeconds + 90)
                     throw new TimeoutException("A match exceeded its creation/play/completion deadline.");
                 if (active.Actor?.Snapshot.Failures > 0)
@@ -251,11 +303,20 @@ internal static class Program
                 {
                     await active.Durability;
                     ArchiveArtifacts(active);
-                    if (!draining && active.RematchEligible && !active.RematchAttempted)
+                    if (!draining && active.RematchEligible && !active.RematchAttempted
+                        && (scenario.Rounds == 0 || created < scenario.TargetRounds))
                         await RematchAsync(active);
                     else
                         await ReleaseAsync(active);
+                    // ReleaseAsync/RematchAsync retires this Running instance
+                    // and may install a fresh one.  Do not evaluate transition
+                    // eligibility against the retired snapshot in this pass.
+                    continue;
                 }
+                if (!draining && (scenario.Rounds == 0 || created < scenario.TargetRounds)
+                    && active.TransitionEligible && !active.TransitionAttempted
+                    && active.Actor?.Snapshot.HasProgress == true)
+                    await TransitionAsync(active);
             }
             var occupancySample = SoakOccupancy.Sample(running.Values.Where(active => active.Actor != null)
                 .Select(active => active.Actor!.Snapshot).ToArray(), running.Count, scenario.TargetMatches,
@@ -287,7 +348,9 @@ internal static class Program
                     await manager.RetireAsync(host.Worker.Id); hosts.Remove(host); await StartAsync(replacement: true); continue;
                 }
             }
-            while (!draining && running.Count < scenario.TargetMatches && ingest.CanAcceptOfficial)
+            while (!draining && running.Count < scenario.TargetMatches
+                && (scenario.Rounds == 0 || created < scenario.TargetRounds)
+                && ingest.CanAcceptOfficial)
             {
                 string map = created % 2 == 0 ? "MP1 SANCTORUS" : "MP2 HARVESTER";
                 MatchMode mode = (created % 4) switch { 0 => MatchMode.Defender, 2 => MatchMode.Nodes, _ => MatchMode.Battle };
@@ -298,11 +361,14 @@ internal static class Program
                 var active = new Running(host, round.Spec) { Round = round, Placement = round.Placement,
                     StartedAt = elapsed.Elapsed.TotalSeconds,
                     RematchEligible = scenario.RematchesEnabled && (created + 1) % scenario.RematchEvery == 0,
+                    TransitionEligible = scenario.TransitionRate > 0
+                            && controlRandom.NextDouble() < scenario.TransitionRate,
                     ReconnectEarliestAt = elapsed.Elapsed.TotalSeconds + Math.Min(
                         SoakRecoveryPolicy.PreferredReconnectStartSeconds,
                         Math.Max(1, scenario.RoundSeconds / 5.0)) };
                 active.Actor = await SoakClientActor.CreateAsync(round.Spec, round.Placement,
-                    signer, scheduler, round.Participants, end.Token);
+                    round.Participants, driver.GetHandoffAsync, end.Token);
+                ObserveRoundIdentity(round);
                 running.Add(round.Spec.MatchId, active); host.Created++; created++;
                 log.Write(new { kind = "lobby_started", round.Spec.MatchId, round.LobbyId, round.History });
             }
@@ -395,6 +461,11 @@ internal static class Program
             }
             await Task.Delay(8);
         }
+        // A rounds run's workload ends when all target rounds have reached the
+        // terminal/durability boundary and the run loop has stopped.  Record
+        // that point immediately before the common drain so its duration is
+        // reported as workload rather than post-work drain.
+        workloadBoundarySeconds ??= elapsed.Elapsed.TotalSeconds;
         scheduler.Drain("Soak duration reached");
         using var drainDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         await scheduler.WaitForDrainAsync(drainDeadline.Token);
@@ -406,8 +477,11 @@ internal static class Program
         }
         await scheduler.ShutdownAsync("Soak complete", drainDeadline.Token);
         end.Cancel();
+        await continuations;
         ValidateReconciliation();
         var backendFinal = await backend.StatsAsync();
+        double workloadSeconds = workloadBoundarySeconds ?? elapsed.Elapsed.TotalSeconds;
+        double drainSeconds = Math.Max(0, elapsed.Elapsed.TotalSeconds - workloadSeconds);
         double logicalOccupancy = occupancySeconds > 0 ? occupancyIntegral / occupancySeconds : 0;
         double playingOccupancy = occupancySeconds > 0 ? playingOccupancyIntegral / occupancySeconds : 0;
         double connectedOccupancy = occupancySeconds > 0 ? connectedOccupancyIntegral / occupancySeconds : 0;
@@ -422,11 +496,12 @@ internal static class Program
             && occupancySeconds > 0 && logicalOccupancy >= .9
             && backendFinal.PersistedReports == ingest.Ingested && backendFinal.PayloadHashMismatches == 0;
         var summary = new { kind = "complete", utc = DateTimeOffset.UtcNow, elapsedSeconds = elapsed.Elapsed.TotalSeconds,
-            scenario, requirements, requestedSeconds = scenario.Seconds, workloadSeconds = scenario.Seconds,
-            drainSeconds = elapsed.Elapsed.TotalSeconds - scenario.Seconds, created, completed, interrupted, failures,
+            scenario, requirements, requestedSeconds = scenario.Rounds == 0 ? scenario.Seconds : 0,
+            workloadSeconds, drainSeconds, created, completed, interrupted, failures,
             inputs, snapshots, observers, reconnects, playing, reconnectAttempts, reconnectRecovered,
-            counters = new { crashAttempts, crashRecovered, outageAttempts = backend.OutageAttempts,
-                outageRecovered = backend.OutageRecoveries, rematchAttempts, rematchPlaced, rematchRecovered, rematchFailures },
+                counters = new { crashAttempts, crashRecovered, outageAttempts = backend.OutageAttempts,
+                outageRecovered = backend.OutageRecoveries, rematchAttempts, rematchPlaced, rematchRecovered, rematchFailures,
+                transitionAttempts, transitionPlaced, transitionRecovered, transitionFailures },
             ingested = ingest.Ingested, backend = backendFinal, outbox = outbox.Status,
             occupancy = new { logical = logicalOccupancy, playingPeers = playingOccupancy,
                 connectedPeers = connectedOccupancy, seconds = occupancySeconds, phases = phaseSeconds },
@@ -484,7 +559,10 @@ internal static class Program
             RetireActor(active); ingest.CancelReservation(active.Spec.MatchId);
             await driver.CompleteAndReturnAsync(active.Round, end.Token);
             log.Write(new { kind = "lobby_returned", active.Spec.MatchId, active.Round.LobbyId, active.Round.History });
-            scheduler.ForgetMatch(active.Spec.MatchId); running.Remove(active.Spec.MatchId);
+            // WorkerScheduler retires terminal placements only after the Node
+            // consumes the outcome and report disposition. The soak does not
+            // bypass that ownership with direct scheduler cleanup.
+            running.Remove(active.Spec.MatchId);
         }
         void ObserveTerminal(Running active, string kind, bool deliberateCrash)
         {
@@ -505,13 +583,12 @@ internal static class Program
         async Task RematchAsync(Running active)
         {
             active.RematchAttempted = true; rematchAttempts++;
-            string map = active.Spec.Content.MapKey == "MP1 SANCTORUS" ? "MP2 HARVESTER" : "MP1 SANCTORUS";
-            MatchMode mode = active.Spec.Rules.Mode switch
-            {
-                MatchMode.Defender => MatchMode.Nodes,
-                MatchMode.Nodes => MatchMode.Battle,
-                _ => MatchMode.Defender
-            };
+            string alternateMap = active.Spec.Content.MapKey == "MP1 SANCTORUS" ? "MP2 HARVESTER" : "MP1 SANCTORUS";
+            string map = controlRandom.NextDouble() < scenario.MapChangeRate ? alternateMap : active.Spec.Content.MapKey;
+            // Ordinary post-match ballots retain the current mode; mode changes
+            // belong to an explicit control-client transition, not a harness
+            // rewrite of the frozen lobby settings.
+            MatchMode mode = active.Spec.Rules.Mode;
             try
             {
                 SoakLobbyDriver.Round nextRound = await driver.RematchAsync(active.Round, map, mode,
@@ -523,7 +600,8 @@ internal static class Program
                     StartedAt = elapsed.Elapsed.TotalSeconds, RematchEligible = false
                 };
                 next.Actor = await SoakClientActor.CreateAsync(nextRound.Spec, nextRound.Placement,
-                    signer, scheduler, nextRound.Participants, end.Token);
+                    nextRound.Participants, driver.GetHandoffAsync, end.Token);
+                ObserveRoundIdentity(nextRound);
                 running.Remove(active.Spec.MatchId);
                 running.Add(next.Spec.MatchId, next); host.Created++; created++;
                 next.IsRematch = true; rematchPlaced++;
@@ -540,6 +618,48 @@ internal static class Program
                 throw;
             }
         }
+        async Task TransitionAsync(Running active)
+        {
+            active.TransitionAttempted = true; transitionAttempts++;
+            string alternateMap = active.Spec.Content.MapKey == "MP1 SANCTORUS" ? "MP2 HARVESTER" : "MP1 SANCTORUS";
+            MatchTransitionChoice choice = SoakLobbyDriver.SelectActiveTransition(controlRandom,
+                scenario.MapChangeRate);
+            string map = choice == MatchTransitionChoice.ChangeMap ? alternateMap : active.Spec.Content.MapKey;
+            try
+            {
+                // The transition owns the old terminal boundary, so retire
+                // its UDP actor and report reservation before waiting for the
+                // Node to publish the fresh handoff.
+                RetireActor(active); ingest.CancelReservation(active.Spec.MatchId);
+                SoakLobbyDriver.Round nextRound = await driver.TransitionAsync(active.Round, map,
+                    choice, scenario.RoundSeconds, end.Token);
+                ObserveTerminal(active, "transitioned", deliberateCrash: false);
+                var host = hosts.Single(hosted => hosted.Worker.Id == nextRound.Placement.WorkerId);
+                var next = new Running(host, nextRound.Spec)
+                {
+                    Round = nextRound, Placement = nextRound.Placement,
+                    StartedAt = elapsed.Elapsed.TotalSeconds, RematchEligible = false,
+                    TransitionEligible = false, IsTransition = true
+                };
+                next.Actor = await SoakClientActor.CreateAsync(nextRound.Spec, nextRound.Placement,
+                    nextRound.Participants, driver.GetHandoffAsync, end.Token);
+                ObserveRoundIdentity(nextRound);
+                running.Remove(active.Spec.MatchId);
+                running.Add(next.Spec.MatchId, next); host.Created++; created++;
+                transitionPlaced++;
+                critical.Write("transition", "Harness+Node+Backend", host.Worker.Id.Value.ToString("N"),
+                    host.Worker.Incarnation.ToString("N"), next.Spec.MatchId.Value.ToString("N"), status: choice.ToString());
+                log.Write(new { kind = "lobby_transition", previous = active.Spec.MatchId,
+                    next = next.Spec.MatchId, choice, map, next.Round.LobbyId, next.Round.History });
+            }
+            catch
+            {
+                transitionFailures++; failures++; running.Remove(active.Spec.MatchId);
+                critical.Write("transition_failed", "Harness+Node+Backend", active.Host.Worker.Id.Value.ToString("N"),
+                    active.Host.Worker.Incarnation.ToString("N"), active.Spec.MatchId.Value.ToString("N"), status: "failed");
+                throw;
+            }
+        }
         void ValidateReconciliation()
         {
             if (running.Count != 0) throw new InvalidDataException("Run ended with active matches.");
@@ -552,6 +672,33 @@ internal static class Program
                 if (terminal.WorkerId.Value == Guid.Empty || terminal.WorkerIncarnation == Guid.Empty)
                     throw new InvalidDataException("Terminal event is missing Worker identity provenance.");
             }
+            WorkerSchedulerRetentionSnapshot retention = scheduler.RetentionSnapshot;
+            if (retention.ActivePlacements != 0 || retention.TerminalPlacements != 0
+                || retention.AwaitingCoordinatorConsumption != 0
+                || retention.AwaitingReportResolution != 0
+                || retention.PendingAdmissionInstalls != 0
+                || retention.PendingAdmissionRetirements != 0
+                || retention.QuarantinedWorkers != 0)
+                throw new InvalidDataException("Run ended with retained Worker scheduler lifecycle state: "
+                    + JsonSerializer.Serialize(retention));
+            if (driver.ActiveIdentityCount != 0)
+                throw new InvalidDataException($"Run ended with {driver.ActiveIdentityCount} active identity leases.");
+            if (driver.CoordinatorRetention.ActiveMatchRegistrations != 0
+                || driver.CoordinatorRetention.PendingTransitions != 0
+                || driver.CoordinatorRetention.PendingContinuationRecoveries != 0
+                || driver.CoordinatorRetention.PoisonedSessionStates != 0
+                || driver.CoordinatorRetention.CurrentSessionMismatches != 0)
+                throw new InvalidDataException("Run ended with retained Node coordinator lifecycle state: "
+                    + JsonSerializer.Serialize(driver.CoordinatorRetention));
+        }
+        void ObserveRoundIdentity(SoakLobbyDriver.Round round)
+        {
+            if (!observedMatchIds.Add(round.Spec.MatchId.Value))
+                throw new InvalidDataException("Duplicate MatchId observed by the soak driver.");
+            ulong epoch = round.Spec.LifecycleEpoch.Value == 0 ? 1 : round.Spec.LifecycleEpoch.Value;
+            if (lifecycleEpochs.TryGetValue(round.LobbyId, out ulong previous) && epoch <= previous)
+                throw new InvalidDataException($"Lifecycle epoch regressed for lobby {round.LobbyId}: {previous} -> {epoch}.");
+            lifecycleEpochs[round.LobbyId] = epoch;
         }
         void ArchiveArtifacts(Running active)
         {
@@ -614,9 +761,24 @@ internal static class Program
     }
     private static Dictionary<string, string> Parse(string[] args)
     {
+        var bareFlags = new HashSet<string>(StringComparer.Ordinal)
+        {
+            "--lobby-churn", "--chat-during-start", "--random-control-reconnect"
+        };
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
-        for (int index = 0; index < args.Length; index += 2)
-            if (index + 1 >= args.Length || !values.TryAdd(args[index], args[index + 1])) throw new ArgumentException("Invalid soak arguments.");
+        for (int index = 0; index < args.Length; index++)
+        {
+            string key = args[index];
+            if (!key.StartsWith("--", StringComparison.Ordinal))
+                throw new ArgumentException("Invalid soak arguments.");
+            if (index + 1 >= args.Length || args[index + 1].StartsWith("--", StringComparison.Ordinal))
+            {
+                if (!bareFlags.Contains(key) || !values.TryAdd(key, "true"))
+                    throw new ArgumentException("Invalid soak arguments.");
+                continue;
+            }
+            if (!values.TryAdd(key, args[++index])) throw new ArgumentException("Invalid soak arguments.");
+        }
         return values;
     }
     private sealed class RotatingLog(string directory) : IDisposable

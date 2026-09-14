@@ -74,20 +74,28 @@ internal sealed class SoakLobbyDriver : IDisposable
     private readonly Func<int, int, CancellationToken, Task<SoakIdentityLease>>? _identities;
     private readonly Action<SoakIdentityLease>? _releaseIdentities;
     private readonly SoakRosterOptions _roster;
+    private readonly bool _lobbyChurn;
+    private readonly bool _chatDuringStart;
     private readonly SoakActiveIdentityRegistry _activePlayers = new();
+
+    public int ActiveIdentityCount => _activePlayers.Count;
+    public NodeMatchCoordinatorRetentionSnapshot CoordinatorRetention => _coordinator.RetentionSnapshot;
 
     public SoakLobbyDriver(WorkerScheduler scheduler, WorkerManager manager, WorkerAdmissionIssuer signer,
         NodeContentCatalog catalog, SoakRosterOptions roster, ReplayPolicy replayPolicy = ReplayPolicy.Record,
         Func<int, int, CancellationToken, Task<SoakIdentityLease>>? identities = null,
-        Action<SoakIdentityLease>? releaseIdentities = null)
+        Action<SoakIdentityLease>? releaseIdentities = null,
+        bool lobbyChurn = false, bool chatDuringStart = false)
     {
         roster.Validate();
         if (!Enum.IsDefined(replayPolicy)) throw new ArgumentOutOfRangeException(nameof(replayPolicy));
         _lobbies = new(replayPolicy: replayPolicy);
         _scheduler = scheduler; _roster = roster;
         _identities = identities; _releaseIdentities = releaseIdentities;
+        _lobbyChurn = lobbyChurn; _chatDuringStart = chatDuringStart;
         _coordinator = new(_lobbies, scheduler, manager, signer, catalog);
         _scheduler.Ended += OnEnded;
+        _scheduler.TransitionEnded += OnEnded;
     }
 
     public async Task<Round> StartAsync(string map, MatchMode mode, int seconds, CancellationToken cancellationToken)
@@ -119,6 +127,20 @@ internal sealed class SoakLobbyDriver : IDisposable
                 snapshot = (LobbySnapshot)_lobbies.Execute(observer, new LobbyJoin(snapshot.LobbyId, snapshot.Revision, true));
                 Record(history, "observer.join", snapshot);
             }
+            if (_lobbyChurn)
+            {
+                LobbyIdentity churned = observers.FirstOrDefault() ?? players.Skip(1).FirstOrDefault()
+                    ?? throw new InvalidOperationException("--lobby-churn requires a non-owner participant.");
+                LobbySnapshot memberSnapshot = _lobbies.ForSession(churned.SessionId)
+                    ?? throw new InvalidOperationException("Churn participant is not in the soak lobby.");
+                _lobbies.Execute(churned, new LobbyLeave(memberSnapshot.Revision));
+                snapshot = _lobbies.ForSession(owner.SessionId)
+                    ?? throw new InvalidOperationException("Soak lobby disappeared during churn.");
+                Record(history, "churn.leave", snapshot);
+                snapshot = (LobbySnapshot)_lobbies.Execute(churned,
+                    new LobbyJoin(snapshot.LobbyId, snapshot.Revision, churned == observers.FirstOrDefault()));
+                Record(history, "churn.join", snapshot);
+            }
             return await StartOnLobby(owner, players, observers, lease, map, mode, seconds, history, cancellationToken);
         }
         catch
@@ -130,20 +152,40 @@ internal sealed class SoakLobbyDriver : IDisposable
         }
     }
 
-    /// <summary>Completes one durable round, reopens the same lobby, and starts one fresh round
-    /// using the same sessions and identity lease. The old scheduler placement is forgotten before
-    /// the next CreateMatch is issued.</summary>
+    /// <summary>Completes one durable round, resolves the authoritative return
+    /// ballot, and optionally releases the same lobby identities.</summary>
     public async Task<Round> RematchAsync(Round previous, string map, MatchMode mode, int seconds,
         CancellationToken cancellationToken)
     {
-        Round? replacement = null;
         try
         {
-            await CompleteAndReturnAsync(previous, cancellationToken, leave: false);
-            if (!_scheduler.ForgetMatch(previous.Spec.MatchId))
-                throw new InvalidOperationException("Completed rematch still owns its prior scheduler placement.");
-            replacement = await StartOnLobby(previous.Owner, previous.Players, previous.Observers, previous.IdentityLease,
-                map, mode, seconds, previous.MutableHistory, cancellationToken);
+            bool interrupted = await previous.Completion.WaitAsync(cancellationToken);
+            LobbySnapshot terminal = _lobbies.ForSession(previous.Owner.SessionId)
+                ?? throw new InvalidOperationException("Completion lost the lobby.");
+            Require(!interrupted && terminal.Phase == LobbyPhase.PostMatch
+                && terminal.CurrentMatchId == previous.Spec.MatchId.Value,
+                "A rematch requires the authoritative completed post-match boundary.");
+            Record(previous.MutableHistory, "completed", terminal);
+
+            // The Node owns ballot resolution and continuation preparation. The
+            // soak only submits the same player votes a control client would
+            // submit; it never retires the old placement or creates the next
+            // MatchSpec itself.
+            var ballot = (NodeRoundSnapshot)await _coordinator.ExecuteAsync(previous.Owner,
+                new LobbyRoundStatus(terminal.Revision), cancellationToken).WaitAsync(cancellationToken);
+            LobbyVoteEntry selected = SelectContinuation(ballot.Options, map, mode);
+            NodeRoundSnapshot vote = ballot;
+            foreach (LobbyIdentity player in previous.Players)
+            {
+                vote = (NodeRoundSnapshot)await _coordinator.ExecuteAsync(player,
+                    new LobbyVoteCast(vote.Lobby.Revision, ballot.BallotRevision, selected.Id), cancellationToken)
+                    .WaitAsync(cancellationToken);
+            }
+            Record(previous.MutableHistory, "continuation.vote", vote.Lobby);
+            _completions.TryRemove(previous.Spec.MatchId, out _);
+
+            Round replacement = await WaitForContinuationAsync(previous, map, mode, seconds,
+                previous.MutableHistory, cancellationToken);
             Require(replacement.LobbyId == previous.LobbyId, "Rematch replaced the lobby identity.");
             Require(replacement.Spec.MatchId != previous.Spec.MatchId &&
                 (replacement.Placement.WorkerId != previous.Placement.WorkerId
@@ -157,21 +199,144 @@ internal sealed class SoakLobbyDriver : IDisposable
         }
         catch
         {
-            if (replacement is { } failedReplacement)
-                _scheduler.CancelMatch(failedReplacement.Spec.MatchId, "Rematch verification failed.");
-            // A rematch owns the old lease until its replacement is fully admitted. If
-            // any step fails, leave every session and reconcile before releasing it.
+            // A rematch owns the old lease until its replacement is fully admitted.
+            // If continuation preparation fails, the coordinator performs the
+            // authoritative recovery boundary; this cleanup only disconnects the
+            // soak identities and releases their Backend lease.
             DisconnectAll(previous.Players, previous.Observers);
             _coordinator.ReconcileMembership();
-            if (replacement is { } replacementToForget)
-            {
-                try { await replacementToForget.Completion.WaitAsync(TimeSpan.FromSeconds(5)); }
-                catch (TimeoutException) { }
-                _scheduler.ForgetMatch(replacementToForget.Spec.MatchId);
-            }
-            _scheduler.ForgetMatch(previous.Spec.MatchId);
             Release(previous.IdentityLease, previous.Players, previous.Observers);
             throw;
+        }
+    }
+
+    /// <summary>Requests an active Restart or ChangeMap through the Node's
+    /// transition ballot. The old placement is cancelled and retired only by
+    /// the coordinator; this method waits for the Node-owned fresh handoff.</summary>
+    public async Task<Round> TransitionAsync(Round previous, string map,
+        MatchTransitionChoice choice, int seconds, CancellationToken cancellationToken)
+    {
+        try
+        {
+            LobbySnapshot current = _lobbies.ForSession(previous.Owner.SessionId)
+                ?? throw new InvalidOperationException("Active transition lost the lobby.");
+            Require(current.Phase == LobbyPhase.InMatch
+                && current.CurrentMatchId == previous.Spec.MatchId.Value,
+                "An active transition requires the current frozen match.");
+            if (choice == MatchTransitionChoice.ChangeMap && map == previous.Spec.Content.MapKey)
+                throw new InvalidOperationException("ChangeMap requires a different hosted map.");
+
+            var proposal = (NodeMatchTransitionVoteSnapshot)await _coordinator.ExecuteAsync(previous.Owner,
+                new LobbyMatchTransitionPropose(current.Revision, previous.Spec.MatchId.Value, choice,
+                    choice == MatchTransitionChoice.ChangeMap ? map : null), cancellationToken)
+                .WaitAsync(cancellationToken);
+            NodeMatchTransitionVoteSnapshot vote = proposal;
+            foreach (LobbyIdentity player in previous.Players.Skip(1))
+            {
+                if (vote.State != MatchTransitionVoteState.Pending) break;
+                LobbySnapshot voterLobby = _lobbies.ForSession(player.SessionId)
+                    ?? throw new InvalidOperationException("Transition voter left the lobby.");
+                vote = (NodeMatchTransitionVoteSnapshot)await _coordinator.ExecuteAsync(player,
+                    new LobbyMatchTransitionVote(voterLobby.Revision, previous.Spec.MatchId.Value,
+                        vote.BallotRevision, true), cancellationToken)
+                    .WaitAsync(cancellationToken);
+            }
+            if (vote.State != MatchTransitionVoteState.Approved)
+                throw new InvalidOperationException($"Active transition ballot did not approve: {vote.State}.");
+
+            bool interrupted = await previous.Completion.WaitAsync(cancellationToken);
+            Require(interrupted, "Active transition did not receive the authoritative cancellation terminal.");
+            _completions.TryRemove(previous.Spec.MatchId, out _);
+            LobbySnapshot terminal = _lobbies.ForSession(previous.Owner.SessionId)
+                ?? throw new InvalidOperationException("Transition completion lost the lobby.");
+            Record(previous.MutableHistory, "transition.completed", terminal);
+            Round replacement = await WaitForContinuationAsync(previous, map, previous.Spec.Rules.Mode,
+                seconds, previous.MutableHistory, cancellationToken);
+            Require(replacement.Spec.MatchId != previous.Spec.MatchId,
+                "Active transition reused the old MatchId.");
+            return replacement;
+        }
+        catch
+        {
+            DisconnectAll(previous.Players, previous.Observers);
+            _coordinator.ReconcileMembership();
+            Release(previous.IdentityLease, previous.Players, previous.Observers);
+            throw;
+        }
+    }
+
+    internal static MatchTransitionChoice SelectActiveTransition(Random random, double mapChangeRate)
+    {
+        ArgumentNullException.ThrowIfNull(random);
+        return random.NextDouble() < mapChangeRate
+            ? MatchTransitionChoice.ChangeMap : MatchTransitionChoice.Restart;
+    }
+
+    /// <summary>Runs the Node's single owned post-match continuation loop. The
+    /// caller must retain this task until shutdown so automatic continuations
+    /// cannot be mistaken for an optional helper.</summary>
+    public Task RunContinuationsAsync(CancellationToken cancellationToken)
+        => _coordinator.RunContinuationsAsync(cancellationToken);
+
+    /// <summary>Returns the Node-owned handoff for one frozen participant. A
+    /// reconnect requests a fresh generation through the same coordinator
+    /// command used by a real control client.</summary>
+    public async Task<NodeMatchHandoff> GetHandoffAsync(LobbyIdentity identity,
+        bool forceFresh, CancellationToken cancellationToken)
+    {
+        identity.Validate();
+        if (forceFresh)
+        {
+            LobbySnapshot snapshot = _lobbies.ForSession(identity.SessionId)
+                ?? throw new InvalidOperationException("Handoff participant left the soak lobby.");
+            if (snapshot.CurrentMatchId is not { } matchId)
+                throw new InvalidOperationException("Handoff participant has no active match.");
+            return (NodeMatchHandoff)await _coordinator.ExecuteAsync(identity,
+                new NodeMatchRejoin(matchId), cancellationToken).ConfigureAwait(false);
+        }
+        return _coordinator.ForSession(identity.SessionId) as NodeMatchHandoff
+            ?? throw new InvalidOperationException("Node did not publish an authoritative handoff.");
+    }
+
+    internal static LobbyVoteEntry SelectContinuation(IReadOnlyList<LobbyVoteEntry> options,
+        string map, MatchMode mode)
+    {
+        LobbyVoteEntry? selected = options.FirstOrDefault(option =>
+            option.MapKey == map && option.Mode == mode
+            && option.Choice is LobbyVoteChoice.Rematch or LobbyVoteChoice.NextMap or LobbyVoteChoice.Map);
+        return selected ?? throw new InvalidOperationException(
+            $"The authoritative post-match ballot has no continuation for map '{map}' and mode '{mode}'.");
+    }
+
+    private async Task<Round> WaitForContinuationAsync(Round previous, string map, MatchMode mode,
+        int seconds, List<HistoryPoint> history, CancellationToken cancellationToken)
+    {
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(TimeSpan.FromSeconds(Math.Max(30, seconds + 30)));
+        while (true)
+        {
+            timeout.Token.ThrowIfCancellationRequested();
+            LobbySnapshot? snapshot = _lobbies.ForSession(previous.Owner.SessionId);
+            if (snapshot is { Phase: LobbyPhase.InMatch, CurrentMatchId: { } current }
+                && current != previous.Spec.MatchId.Value
+                && _scheduler.TryGetAssignment(new(current), out WorkerMatchAssignment? assignment)
+                && assignment?.Placement is { } placement)
+            {
+                MatchSpec spec = assignment.Spec;
+                Require(spec.Content.MapKey == map && spec.Rules.Mode == mode
+                    && spec.Rules.TimeLimit == TimeSpan.FromSeconds(seconds),
+                    "Node continuation changed the requested frozen settings.");
+                var handoff = _coordinator.ForSession(previous.Owner.SessionId) as NodeMatchHandoff;
+                Require(handoff?.MatchId == current
+                    && handoff.WireMatchId == placement.WireMatchId.Value,
+                    "Node continuation did not mint the fresh routed handoff.");
+                Record(history, "continuation.started", snapshot);
+                Task<bool> completion = _completions.GetOrAdd(new(current),
+                    _ => new(TaskCreationOptions.RunContinuationsAsynchronously)).Task;
+                return new(spec, placement, previous.Owner, previous.Players,
+                    previous.Observers, previous.IdentityLease, completion, history);
+            }
+            await Task.Delay(10, timeout.Token).ConfigureAwait(false);
         }
     }
 
@@ -191,7 +356,36 @@ internal sealed class SoakLobbyDriver : IDisposable
             snapshot = (LobbySnapshot)_lobbies.Execute(player, new LobbySetReady(true, snapshot.Revision));
             Record(history, "ready", snapshot);
         }
-        snapshot = (LobbySnapshot)await _coordinator.ExecuteAsync(owner, new LobbyStart(snapshot.Revision)).WaitAsync(cancellationToken);
+        Task<object> start = _coordinator.ExecuteAsync(owner, new LobbyStart(snapshot.Revision), cancellationToken);
+        if (_chatDuringStart)
+        {
+            using var chatTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            chatTimeout.CancelAfter(TimeSpan.FromSeconds(5));
+            LobbySnapshot? starting = null;
+            while (!start.IsCompleted)
+            {
+                starting = _lobbies.ForSession(owner.SessionId);
+                if (starting?.Phase == LobbyPhase.StartingMatch) break;
+                await Task.Delay(1, chatTimeout.Token).ConfigureAwait(false);
+            }
+            starting ??= _lobbies.ForSession(owner.SessionId);
+            if (starting?.Phase != LobbyPhase.StartingMatch)
+                throw new InvalidOperationException("--chat-during-start could not observe the StartingMatch boundary.");
+            try
+            {
+                snapshot = (LobbySnapshot)await _coordinator.ExecuteAsync(owner,
+                    new LobbyChat("soak-start", starting.Revision), chatTimeout.Token).WaitAsync(chatTimeout.Token);
+            }
+            catch (LobbyCommandException error) when (error.Code == "stale_revision")
+            {
+                LobbySnapshot retry = _lobbies.ForSession(owner.SessionId)
+                    ?? throw new InvalidOperationException("Soak lobby disappeared during startup chat.");
+                snapshot = (LobbySnapshot)await _coordinator.ExecuteAsync(owner,
+                    new LobbyChat("soak-start", retry.Revision), chatTimeout.Token).WaitAsync(chatTimeout.Token);
+            }
+            Record(history, "chat.starting", snapshot);
+        }
+        snapshot = (LobbySnapshot)await start.WaitAsync(cancellationToken);
         Record(history, "start", snapshot);
         Require(snapshot.Phase == LobbyPhase.InMatch && snapshot.CurrentMatchId.HasValue, "Lobby did not enter InMatch.");
         var id = new MatchId(snapshot.CurrentMatchId!.Value);
@@ -266,9 +460,9 @@ internal sealed class SoakLobbyDriver : IDisposable
         if (ownerSnapshot != null)
         {
             _lobbies.Execute(round.Owner, new LobbyLeave(ownerSnapshot.Revision));
-            _coordinator.ForgetSession(round.Owner.SessionId);
+            _coordinator.ClearSessionMatchState(round.Owner.SessionId);
         }
-        foreach (var member in round.Players.Concat(round.Observers)) _coordinator.ForgetSession(member.SessionId);
+        foreach (var member in round.Players.Concat(round.Observers)) _coordinator.ClearSessionMatchState(member.SessionId);
         Require(_lobbies.ForSession(round.Owner.SessionId) == null
             && round.Players.Concat(round.Observers).All(member => _lobbies.ForSession(member.SessionId) == null),
             "Leave leaked lobby membership.");
@@ -299,5 +493,10 @@ internal sealed class SoakLobbyDriver : IDisposable
     }
 
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
-    public void Dispose() { _scheduler.Ended -= OnEnded; _coordinator.Dispose(); }
+    public void Dispose()
+    {
+        _scheduler.Ended -= OnEnded;
+        _scheduler.TransitionEnded -= OnEnded;
+        _coordinator.Dispose();
+    }
 }

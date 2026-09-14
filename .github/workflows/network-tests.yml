@@ -38,6 +38,81 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lifecycle-fast:
+    name: lifecycle-fast
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: content-free lifecycle fast tests
+        run: >
+          dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
+          --filter "LifecycleFast=true&RequiresGameContent!=true"
+      - name: shared lifecycle fast tests
+        run: >
+          dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
+          --filter "LifecycleFast=true&RequiresGameContent!=true"
+      - name: Worker artifact lifecycle fast tests
+        run: >
+          dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release
+          --filter "LifecycleFast=true&RequiresGameContent!=true"
+      - name: client codec lifecycle fast tests
+        run: >
+          dotnet test tests/Tests/Tests.csproj -c Release
+          --filter "LifecycleFast=true&RequiresGameContent!=true"
+
+  lifecycle-vertical:
+    name: lifecycle-vertical
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: real Node Worker UDP lifecycle tests when content is supplied
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; lifecycle vertical tests were not run."
+          else
+            dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release \
+              --filter "LifecycleVertical=true&RequiresGameContent=true"
+          fi
+
+  lifecycle-stress:
+    name: lifecycle-stress
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: content-free continuation stress
+        run: >
+          dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
+          --filter "LifecycleStress=true&RequiresGameContent!=true"
+      - name: content-backed automatic rematch stress when content is supplied
+        env:
+          GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
+          LIFECYCLE_STRESS_ROUNDS: '50'
+        run: |
+          set -euo pipefail
+          if [ -z "${GAME_DATA_DIRECTORY:-}" ]; then
+            echo "GAME_DATA_DIRECTORY is not configured; content-backed lifecycle stress was not run."
+          else
+            dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release \
+              --filter "LifecycleStress=true&RequiresGameContent=true"
+          fi
+
   map-platform:
     name: integration-map-platform
     if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}

@@ -53,9 +53,29 @@ public sealed record SoakScenarioOptions(
     int ObserverDelaySeconds,
     SoakRosterOptions Roster)
 {
+    /// <summary>When non-zero, the bounded run target is this many total
+    /// created rounds. Zero preserves the wall-clock workload mode.</summary>
+    public int Rounds { get; init; }
+    public bool LobbyChurnEnabled { get; init; }
+    public bool ChatDuringStartEnabled { get; init; }
+    public bool RandomControlReconnectEnabled { get; init; }
+    public int ArtifactDelayMilliseconds { get; init; }
+    public double ArtifactFailureRate { get; init; }
+    public double TransitionRate { get; init; }
+    public double MapChangeRate { get; init; }
+    public int Seed { get; init; } = 1337;
     public bool CrashesEnabled => CrashSeconds > 0;
     public int TargetMatches => checked(MatchesPerWorker * Workers);
+    public int TargetRounds => Rounds;
     public int TargetClientPeers => checked(TargetMatches * (Roster.Players + Roster.Observers));
+
+    /// <summary>
+    /// Only wall-clock runs drain at the workload deadline.  A rounds run
+    /// drains after its final active match has completed so occupancy covers
+    /// the requested rounds instead of ending at placement time.
+    /// </summary>
+    public bool IsWallClockDrainDue(double elapsedSeconds)
+        => Rounds == 0 && elapsedSeconds >= Seconds;
 
     public bool HasRequiredTraffic(long inputs, long observerSnapshots, long playingSnapshots)
         => inputs > 0 && playingSnapshots > 0 && (Roster.Observers == 0 || observerSnapshots > 0);
@@ -65,12 +85,20 @@ public sealed record SoakScenarioOptions(
         if (Seconds is < 1 or > 172800 || MatchesPerWorker is < 1 or > 64 || Lanes is < 1 or > 64
             || Workers is < 1 or > 8 || RoundSeconds is < 1 or > 3600 || CrashSeconds < 0)
             throw new ArgumentException("Invalid bounded soak scenario.");
+        if (Rounds is < 0 or > 1000)
+            throw new ArgumentException("Rounds must be zero (wall-clock mode) or between 1 and 1000.");
         if (RematchesEnabled && (RematchEvery < 1 || RematchEvery > 4096))
             throw new ArgumentException("Invalid bounded rematch interval.");
-        if (!Enum.IsDefined(ReplayPolicy) || ObserverDelaySeconds is < 0 or > 30)
+        if (!Enum.IsDefined(ReplayPolicy) || ObserverDelaySeconds is < 0 or > 30
+            || ArtifactDelayMilliseconds is < 0 or > 120000
+            || !double.IsFinite(ArtifactFailureRate) || ArtifactFailureRate is < 0 or > 1
+            || !double.IsFinite(TransitionRate) || TransitionRate is < 0 or > 1
+            || !double.IsFinite(MapChangeRate) || MapChangeRate is < 0 or > 1)
             throw new ArgumentException("Replay policy or observer delay is invalid.");
+        if (RandomControlReconnectEnabled)
+            throw new ArgumentException("--random-control-reconnect requires a real WSS control client; the in-process soak boundary cannot drive it.");
         Roster.Validate();
-        if ((Seconds / Math.Max(1, RoundSeconds) + 1L) * MatchesPerWorker * Workers > 3500)
+        if (Rounds == 0 && (Seconds / Math.Max(1, RoundSeconds) + 1L) * MatchesPerWorker * Workers > 3500)
             throw new ArgumentException("Soak would exhaust bounded receipt history; increase round seconds or reduce density.");
     }
 
@@ -78,6 +106,9 @@ public sealed record SoakScenarioOptions(
     {
         int Number(string key, int fallback) => args.TryGetValue(key, out var value)
             ? int.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
+        double Decimal(string key, double fallback) => args.TryGetValue(key, out var value)
+            ? double.Parse(value, System.Globalization.NumberStyles.Float,
+                System.Globalization.CultureInfo.InvariantCulture) : fallback;
         bool Flag(string key, bool fallback) => args.TryGetValue(key, out var value)
             ? bool.Parse(value) : fallback;
         ReplayPolicy Replay(string key, ReplayPolicy fallback) => args.TryGetValue(key, out var value)
@@ -94,7 +125,21 @@ public sealed record SoakScenarioOptions(
             Number("--round-seconds", 30), Number("--crash-seconds", 0), Flag("--outages", true),
             Flag("--reconnects", true), Flag("--rematches", false), rematchEvery,
             Replay("--replay-policy", ReplayPolicy.Record), Number("--observer-delay-seconds", 0),
-            new SoakRosterOptions(Number("--players", 1), Number("--bots", 2), Number("--observers", 1)));
+            new SoakRosterOptions(Number("--players", 1), Number("--bots", 2), Number("--observers", 1)))
+        {
+            Rounds = Number("--rounds", 0),
+            LobbyChurnEnabled = Flag("--lobby-churn", false),
+            ChatDuringStartEnabled = Flag("--chat-during-start", false),
+            RandomControlReconnectEnabled = Flag("--random-control-reconnect", false),
+            ArtifactDelayMilliseconds = Number("--artifact-delay-ms", 0),
+            ArtifactFailureRate = Decimal("--artifact-failure-rate", 0),
+            // Preserve the pre-Phase-7B rematch behavior unless a caller opts
+            // into a lower probability explicitly. A value of zero therefore
+            // disables that edge, while the omitted option remains compatible.
+            TransitionRate = Decimal("--transition-rate", 1),
+            MapChangeRate = Decimal("--map-change-rate", 1),
+            Seed = Number("--seed", 1337)
+        };
         scenario.Validate();
         return scenario;
     }

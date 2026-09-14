@@ -2,7 +2,6 @@ using System.Net;
 using System.Globalization;
 using System.Security.Cryptography;
 using ProjectPrime.Server.Node.Lobbies;
-using ProjectPrime.Server.Node.Workers;
 using ProjectPrime.Server.Shared;
 using MphRead;
 using MphRead.Mods.Network;
@@ -88,14 +87,6 @@ public sealed class SoakReconnectTracker
 /// Node signer and frozen roster. It does not create scenes or fake packets.</summary>
 public sealed class SoakClientActor : IDisposable
 {
-    private sealed class AdmissionGrant(ulong nonce, string ticket, Guid admissionId, byte[] key)
-    {
-        public ulong Nonce { get; } = nonce;
-        public string Ticket { get; } = ticket;
-        public Guid AdmissionId { get; } = admissionId;
-        public byte[] Key { get; } = key;
-    }
-
     private sealed class Peer(RosterSeat seat, NetTransport transport, NetClient client)
     {
         public RosterSeat Seat { get; } = seat;
@@ -114,19 +105,19 @@ public sealed class SoakClientActor : IDisposable
     }
     private readonly MatchSpec _spec;
     private readonly MatchPlacement _placement;
-    private readonly WorkerAdmissionIssuer _issuer;
-    private readonly WorkerScheduler _scheduler;
     private readonly IReadOnlyList<LobbyIdentity> _participants;
+    private readonly Func<LobbyIdentity, bool, CancellationToken, Task<NodeMatchHandoff>> _handoffProvider;
     private readonly List<Peer> _peers = [];
     private readonly SoakReconnectTracker _reconnects = new();
     private long _worldPackets, _inputs, _playingSnapshots;
     private int _failures;
 
-    private SoakClientActor(MatchSpec spec, MatchPlacement placement, WorkerAdmissionIssuer issuer,
-        WorkerScheduler scheduler, IReadOnlyList<LobbyIdentity> participants)
+    private SoakClientActor(MatchSpec spec, MatchPlacement placement,
+        IReadOnlyList<LobbyIdentity> participants,
+        Func<LobbyIdentity, bool, CancellationToken, Task<NodeMatchHandoff>> handoffProvider)
     {
-        _spec = spec; _placement = placement; _issuer = issuer; _scheduler = scheduler;
-        _participants = participants.ToArray();
+        _spec = spec; _placement = placement; _participants = participants.ToArray();
+        _handoffProvider = handoffProvider;
     }
 
     /// <summary>
@@ -136,14 +127,16 @@ public sealed class SoakClientActor : IDisposable
     /// Workers must never be silently downgraded by the soak harness.
     /// </summary>
     public static async Task<SoakClientActor> CreateAsync(MatchSpec spec, MatchPlacement placement,
-        WorkerAdmissionIssuer issuer, WorkerScheduler scheduler, IReadOnlyList<LobbyIdentity> participants,
+        IReadOnlyList<LobbyIdentity> participants,
+        Func<LobbyIdentity, bool, CancellationToken, Task<NodeMatchHandoff>> handoffProvider,
         CancellationToken cancellationToken = default)
     {
         if (!placement.UdpAuthenticationEnabled)
             throw new InvalidOperationException("Worker soak requires authenticated UDP admission.");
         ArgumentNullException.ThrowIfNull(participants);
         if (participants.Count == 0) throw new ArgumentException("At least one Node participant is required.", nameof(participants));
-        var actor = new SoakClientActor(spec, placement, issuer, scheduler, participants);
+        ArgumentNullException.ThrowIfNull(handoffProvider);
+        var actor = new SoakClientActor(spec, placement, participants, handoffProvider);
         try
         {
             await actor.InitializeAsync(cancellationToken).ConfigureAwait(false);
@@ -160,15 +153,18 @@ public sealed class SoakClientActor : IDisposable
     {
         foreach (RosterSeat seat in _spec.Roster.Where(s => s.Role is SeatRole.Player or SeatRole.Observer))
         {
-            AdmissionGrant grant = await CreateAdmissionAsync(seat, cancellationToken).ConfigureAwait(false);
+            NodeMatchHandoff handoff = await GetHandoffAsync(seat, forceFresh: false,
+                cancellationToken).ConfigureAwait(false);
             NetTransport? transport = null;
+            byte[] key = Array.Empty<byte>();
             try
             {
+                key = AdmissionKeyRules.Decode(handoff.AdmissionKey);
                 transport = new NetTransport(0);
-                NetClient client = new(transport, new IPEndPoint(IPAddress.Parse(_placement.Host), _placement.Port),
-                    seat.DisplayName, seat.Hunter, grant.Nonce, grant.Ticket, seat.Role == SeatRole.Observer,
-                    _placement.WireMatchId.Value, grant.AdmissionId, grant.Key,
-                    udpAuthenticationEnabled: true);
+                NetClient client = new(transport, new IPEndPoint(IPAddress.Parse(handoff.Host), handoff.Port),
+                    seat.DisplayName, seat.Hunter, handoff.Nonce, handoff.Ticket, handoff.Observer,
+                    handoff.WireMatchId, handoff.AdmissionId, key,
+                    udpAuthenticationEnabled: handoff.UdpAuthenticationEnabled);
                 var peer = new Peer(seat, transport, client);
                 _peers.Add(peer);
                 ConfigureClient(peer);
@@ -177,7 +173,7 @@ public sealed class SoakClientActor : IDisposable
             finally
             {
                 transport?.Dispose();
-                CryptographicOperations.ZeroMemory(grant.Key);
+                CryptographicOperations.ZeroMemory(key);
             }
         }
     }
@@ -202,37 +198,20 @@ public sealed class SoakClientActor : IDisposable
         };
     }
 
-    private async Task<AdmissionGrant> CreateAdmissionAsync(RosterSeat seat,
+    private async Task<NodeMatchHandoff> GetHandoffAsync(RosterSeat seat, bool forceFresh,
         CancellationToken cancellationToken)
     {
         LobbyIdentity participant = ParticipantFor(seat);
-        ulong nonce = NetConnection.NewIdentity();
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
-        long expires = checked(now + 120);
-        Guid ticketId = Guid.NewGuid();
-        Guid admissionId = Guid.NewGuid();
-        byte[] key = RandomNumberGenerator.GetBytes(AdmissionKeyRules.ByteLength);
-        try
-        {
-            Guid nodeSessionId = participant.SessionId;
-            var claims = new WorkerAdmissionClaims(_spec.NodeId, _spec.NodeIncarnation,
-                _placement.WorkerId, _placement.WorkerIncarnation, _spec.LobbyId, _spec.MatchId,
-                _placement.WireMatchId, nodeSessionId, seat.PlayerId, seat.GuestSessionId,
-                seat.Role, seat.SeatId, seat.DisplayName, nonce, now, expires, ticketId,
-                HandoffGeneration.Initial);
-            string ticket = _issuer.Issue(claims);
-            var install = new InstallAdmissionKey(admissionId, ticketId, nodeSessionId,
-                _spec.NodeId, _spec.NodeIncarnation, _spec.MatchId, _placement.WireMatchId,
-                _placement.WorkerId, _placement.WorkerIncarnation, seat.SeatId, nonce, expires,
-                Convert.ToBase64String(key), HandoffGeneration.Initial);
-            await _scheduler.InstallAdmissionKeyAsync(install, cancellationToken).ConfigureAwait(false);
-            return new(nonce, ticket, admissionId, key);
-        }
-        catch
-        {
-            CryptographicOperations.ZeroMemory(key);
-            throw;
-        }
+        NodeMatchHandoff handoff = await _handoffProvider(participant, forceFresh,
+            cancellationToken).ConfigureAwait(false);
+        handoff.ValidateProduction();
+        if (handoff.MatchId != _spec.MatchId.Value
+            || handoff.WireMatchId != _placement.WireMatchId.Value
+            || handoff.Observer != (seat.Role == SeatRole.Observer)
+            || handoff.Hunter != seat.Hunter
+            || !handoff.UdpAuthenticationEnabled)
+            throw new InvalidDataException("Node handoff does not match the frozen soak seat.");
+        return handoff;
     }
 
     private LobbyIdentity ParticipantFor(RosterSeat seat)
@@ -311,7 +290,9 @@ public sealed class SoakClientActor : IDisposable
         var injected = new List<SoakReconnectPeerEvidence>(peers.Length);
         foreach (var peer in peers)
         {
-            AdmissionGrant grant = await CreateAdmissionAsync(peer.Seat, cancellationToken).ConfigureAwait(false);
+            NodeMatchHandoff handoff = await GetHandoffAsync(peer.Seat, forceFresh: true,
+                cancellationToken).ConfigureAwait(false);
+            byte[] key = AdmissionKeyRules.Decode(handoff.AdmissionKey);
             // The server keeps an observer reservation until it receives the
             // client's disconnect or its timeout expires. Flush that explicit
             // close before replacing the client session so a fresh observer
@@ -319,11 +300,11 @@ public sealed class SoakClientActor : IDisposable
             try
             {
                 peer.Client.Disconnect();
-                peer.Client.Reconnect(grant.Nonce, grant.Ticket, grant.AdmissionId, grant.Key);
+                peer.Client.Reconnect(handoff.Nonce, handoff.Ticket, handoff.AdmissionId, key);
             }
             finally
             {
-                CryptographicOperations.ZeroMemory(grant.Key);
+                CryptographicOperations.ZeroMemory(key);
             }
             peer.Sequence = 0; peer.PhaseRevision = 1; peer.Phase = MatchPhase.WaitingForPlayers;
             peer.FailureCounted = false;
