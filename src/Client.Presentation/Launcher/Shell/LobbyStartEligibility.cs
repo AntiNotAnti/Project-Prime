@@ -26,7 +26,8 @@ internal readonly record struct LobbyStartEligibility(bool CanStart, string Mess
         int teamCount = snapshot.Mode.IsTeamMode()
             ? snapshot.Rules?.TeamCount ?? 2 : 1;
         if (snapshot.Mode.IsTeamMode()
-            && RepresentedTeams(snapshot, players) < teamCount)
+            && (players.Any(member => member.Team >= teamCount)
+                || RepresentedTeams(snapshot, players) < teamCount))
             return new(false, "Team mode needs players on every configured team.");
 
         return new(true, "");
@@ -34,13 +35,30 @@ internal readonly record struct LobbyStartEligibility(bool CanStart, string Mess
 
     internal static int RepresentedTeams(LobbySnapshot snapshot, IReadOnlyList<LobbyMember>? players = null)
     {
-        LobbyMember[] humanPlayers = players?.ToArray()
-            ?? snapshot.Members.Where(member => !member.Observer).ToArray();
-        HashSet<byte> teams = humanPlayers.Select(member => member.Team).ToHashSet();
+        LobbyMember[] humanPlayers = (players ?? snapshot.Members)
+            .Where(member => !member.Observer).ToArray();
         int teamCount = snapshot.Mode.IsTeamMode()
             ? snapshot.Rules?.TeamCount ?? 2 : 1;
+        int[] teamOccupancy = new int[teamCount];
+        HashSet<byte> teams = [];
+        foreach (LobbyMember member in humanPlayers)
+        {
+            if (member.Team >= teamCount)
+                continue;
+            teamOccupancy[member.Team]++;
+            teams.Add(member.Team);
+        }
         for (int bot = 0; bot < snapshot.BotCount; bot++)
-            teams.Add((byte)((humanPlayers.Length + bot) % teamCount));
+        {
+            int selectedTeam = 0;
+            for (int team = 1; team < teamCount; team++)
+            {
+                if (teamOccupancy[team] < teamOccupancy[selectedTeam])
+                    selectedTeam = team;
+            }
+            teamOccupancy[selectedTeam]++;
+            teams.Add((byte)selectedTeam);
+        }
         return teams.Count;
     }
 }

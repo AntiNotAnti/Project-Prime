@@ -708,10 +708,27 @@ public sealed partial class LobbyManager
                 seats.Add(ToRosterSeat((byte)seats.Count, member, SeatRole.Player));
             }
             int teamCount = ConfiguredTeamCount(lobby);
+            // Human team choices are frozen in `players`. Bots have no team
+            // request to preserve, so assign each one to the lowest-index
+            // least-occupied team and include it in the next selection.
+            Span<int> teamOccupancy = stackalloc int[MatchRules.MaximumTeamCount];
+            foreach (LobbyMember member in players)
+            {
+                if (member.Team >= teamCount)
+                    throw Error("teams", "A player is assigned to an invalid team.");
+                teamOccupancy[member.Team]++;
+            }
             for (int bot = 0; bot < lobby.BotCount; bot++)
+            {
+                int selectedTeam = 0;
+                for (int team = 1; team < teamCount; team++)
+                    if (teamOccupancy[team] < teamOccupancy[selectedTeam])
+                        selectedTeam = team;
+                teamOccupancy[selectedTeam]++;
                 seats.Add(new((byte)seats.Count, null, null, "Bot" + (bot + 1),
-                    botHunters[bot], (byte)((players.Length + bot) % teamCount), SeatRole.Bot, false,
+                    botHunters[bot], (byte)selectedTeam, SeatRole.Bot, false,
                     CosmeticLoadoutIds.Default));
+            }
             if (lobby.Mode.IsTeamMode()
                 && seats.Select(s => s.Team).Distinct().Count() != teamCount)
                 throw Error("teams", "Every configured team needs a player.");

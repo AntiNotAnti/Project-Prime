@@ -38,6 +38,165 @@ public sealed class LobbyTests
     }
 
     [Fact]
+    public void BotFillsTheLeastOccupiedTeamFromFrozenHumanChoices()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Mixed", LobbyVisibility.Public, 2, 0));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle, 1,
+                new LobbyRulesOptions(TeamCount: 2)));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyRequestTeam(1, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+
+        RosterSeat player = Assert.Single(spec.Roster, seat => seat.Role == SeatRole.Player);
+        RosterSeat bot = Assert.Single(spec.Roster, seat => seat.Role == SeatRole.Bot);
+        Assert.Equal(1, player.Team);
+        Assert.Equal(0, bot.Team);
+        Assert.Equal(2, spec.Rules.TeamCount);
+    }
+
+    [Fact]
+    public void FourTeamBotsUseAllConfiguredTeamsWithoutMovingHumansOrObservers()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbyIdentity teammate = Person("Teammate");
+        LobbyIdentity observer = Person("Observer");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Four teams", LobbyVisibility.Public, 4, 1));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(observer,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision, Observer: true));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle, 2,
+                new LobbyRulesOptions(TeamCount: 4)));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbyRequestTeam(2, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbySetReady(true, lobby.Revision));
+
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+
+        Assert.Equal(4, spec.Rules.TeamCount);
+        Assert.Equal(new[] { 0, 2 }, spec.Roster.Where(seat => seat.Role == SeatRole.Player)
+            .Select(seat => (int)seat.Team).ToArray());
+        Assert.Equal(new[] { 1, 3 }, spec.Roster.Where(seat => seat.Role == SeatRole.Bot)
+            .Select(seat => (int)seat.Team).ToArray());
+        Assert.Equal(4, spec.Roster.Count(seat => seat.Role is SeatRole.Player or SeatRole.Bot));
+        Assert.Single(spec.Roster, seat => seat.Role == SeatRole.Observer);
+    }
+
+    [Fact]
+    public void MultipleHumansAndBotsBalanceWithinConfiguredCapacity()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbyIdentity second = Person("Second");
+        LobbyIdentity third = Person("Third");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Capacity", LobbyVisibility.Public, 6, 0));
+        lobby = (LobbySnapshot)manager.Execute(second,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(third,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle, 3,
+                new LobbyRulesOptions(TeamCount: 2)));
+        lobby = (LobbySnapshot)manager.Execute(second,
+            new LobbyRequestTeam(1, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(second,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(third,
+            new LobbySetReady(true, lobby.Revision));
+
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+
+        Assert.Equal(6, spec.Roster.Count(seat => seat.Role is SeatRole.Player or SeatRole.Bot));
+        Assert.Equal(3, spec.Roster.Count(seat => seat.Role == SeatRole.Bot));
+        Assert.Equal(new[] { 1, 0, 1 }, spec.Roster.Where(seat => seat.Role == SeatRole.Bot)
+            .Select(seat => (int)seat.Team).ToArray());
+        Assert.Equal(new[] { 3, 3 }, spec.Roster
+            .Where(seat => seat.Role is SeatRole.Player or SeatRole.Bot)
+            .GroupBy(seat => seat.Team).OrderBy(group => group.Key)
+            .Select(group => group.Count()).ToArray());
+        Assert.Equal(TeamBalancePolicy.BeforeStart, spec.Rules.TeamBalancePolicy);
+    }
+
+    [Fact]
+    public void InvalidAndMissingConfiguredTeamsFailBeforeFreezing()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Teams", LobbyVisibility.Public, 4, 0));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle, 0,
+                new LobbyRulesOptions(TeamCount: 4)));
+
+        LobbyCommandException invalid = Assert.Throws<LobbyCommandException>(() =>
+            manager.Execute(owner, new LobbyRequestTeam(4, lobby.Revision)));
+        Assert.Equal("invalid", invalid.Code);
+
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        LobbyCommandException missing = Assert.Throws<LobbyCommandException>(() =>
+            manager.PrepareMatch(owner.SessionId, lobby.Revision,
+                new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid()));
+        Assert.Equal("teams", missing.Code);
+        Assert.Equal(LobbyPhase.Open, manager.ForSession(owner.SessionId)!.Phase);
+    }
+
+    [Fact]
+    public void PreparedRosterRemainsFrozenAcrossLobbyPresentationChanges()
+    {
+        var manager = new LobbyManager();
+        LobbyIdentity owner = Person("Owner");
+        LobbyIdentity teammate = Person("Teammate");
+        LobbySnapshot lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyCreate("Frozen", LobbyVisibility.Public, 3, 0));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbyJoin(lobby.LobbyId, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.TeamBattle, 1,
+                new LobbyRulesOptions(TeamCount: 2)));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbyRequestTeam(1, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        lobby = (LobbySnapshot)manager.Execute(teammate,
+            new LobbySetReady(true, lobby.Revision));
+
+        MatchSpec spec = manager.PrepareMatch(owner.SessionId, lobby.Revision,
+            new("unit", "hash", "1", "test", 8), new(Guid.NewGuid()), Guid.NewGuid());
+        RosterSeat[] frozenRoster = spec.Roster.ToArray();
+        LobbySnapshot starting = manager.ForSession(owner.SessionId)!;
+
+        LobbySnapshot afterChat = (LobbySnapshot)manager.Execute(owner,
+            new LobbyChat("presentation update", starting.Revision));
+
+        Assert.Equal(LobbyPhase.StartingMatch, afterChat.Phase);
+        Assert.Equal(frozenRoster, spec.Roster.ToArray());
+        LobbyCommandException frozen = Assert.Throws<LobbyCommandException>(() =>
+            manager.Execute(teammate, new LobbyRequestTeam(0, afterChat.Revision)));
+        Assert.Equal("phase", frozen.Code);
+        Assert.Equal(frozenRoster, spec.Roster.ToArray());
+    }
+
+    [Fact]
     public void ApplyingMatchSettingsPersistsEverySupportedFieldAndResetsReadiness()
     {
         var manager = new LobbyManager(); var owner = Person("Owner");
