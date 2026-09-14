@@ -7,7 +7,7 @@ namespace MphRead.Mods.MapGen;
 
 public static class MapCompilerSchema
 {
-    public const int Current = 1;
+    public const int Current = 2;
 }
 
 public sealed record MapCollisionStatistics(

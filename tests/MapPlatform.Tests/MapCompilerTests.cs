@@ -1,3 +1,6 @@
+using System.Buffers.Binary;
+using System.IO.Compression;
+using System.Text;
 using MphRead;
 using MphRead.Editor;
 using MphRead.Mods.MapGen;
@@ -40,7 +43,7 @@ public sealed class MapCompilerTests : IDisposable
     public static IEnumerable<object[]> FirstPartyMaps =>
     [
         [new FirstPartyMapCharacterization("maps/arena/arena.json",
-            "60d86f3f151317e680c23bdd61f0f37a9a34cd085722f437681898fedcda68f6",
+            "5f7944a2bb8d3183297a086e413294acf826a639808f4c2ec4e6721237e648d1",
             "a7de8493672e76a459a6236f448ae23111b355ae12919619b6db7c25028ac282",
             "8bee339d4dbd803551cdbf4861b498002c0fc9803bb50a2846743219c039ad31",
             "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
@@ -49,7 +52,7 @@ public sealed class MapCompilerTests : IDisposable
             "435d1238de340fd9475a1d5bc5bd74981f24012c8ef352783309d30e5803a5ba",
             84, 168, 2, 42, 40, 23, 1_074, 12, 8)],
         [new FirstPartyMapCharacterization("maps/parallax/parallax.json",
-            "51fed6ce4bda3454fec9b12d816adb78cc41540df9612bf4dabbaab5ff95a03b",
+            "89ac04c9da3f32da6027fa01e097665f905a8d3652eff6fc5e4476e965593231",
             "6cc75d3095da021edf330c5f559a33ea5183e24cdf7deb2b88b2c4f7388dc704",
             "f2b0ede3ced7fd428752c858b646d1006b8e518e6560fc1d2d4b6dff824f0d20",
             "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
@@ -58,8 +61,8 @@ public sealed class MapCompilerTests : IDisposable
             "e29121476fb568c5c8287e6af5cdb550c99b80efcb6fcec3198236cf5d0b8525",
             1_076, 3_228, 10, 538, 1_449, 259, 6_713, 15, 4)],
         [new FirstPartyMapCharacterization("maps/dust2/dust2.json",
-            "43095a6b126a4dcb496f4f8f9a8c7e36abc864dd8405b419737d70f1b96c5b66",
-            "f7274e78022e9918e7edb5d3a13f11bb164441c1676d3eb1ff4ddccf21c3decc",
+            "cd51d427e253108b6eda9a0ff6b0fee58b04845f65bbcc7e725effca3bc71fc6",
+            "e21762afad7f0ec77f8dcf420fbe2e6c211a6c3b089113300301829ee536b886",
             "a3ea7f08f28524cac8d218485af17bafb4347108b94906822ca8d9298ce37c24",
             "9d908ecfb6b256def8b49a7c504e6c889c4b0e41fe6ce3e01863dd7b61a20aa0",
             "2726aa0d24c14631c5b2948b60650978a9e5fba1dbaa954f123880a29a53885d",
@@ -303,6 +306,62 @@ public sealed class MapCompilerTests : IDisposable
     }
 
     [Fact]
+    public void ImportedSourceIdentityIsCapturedBeforeQ3MutationAndPackagedIdentityIsPreserved()
+    {
+        (string source, string textures) = CreateImportedFixture();
+        MapProject imported = ImportedProject(source, textures);
+        string sourceHash = MapProjectContentHasher.Compute(imported);
+        var expected = new MapContentIdentity(imported.Identity, sourceHash);
+        string cache = Path.Combine(_directory, "imported-cache");
+        var compiler = new MapCompiler();
+
+        MapBuildResult first = compiler.Compile(imported, new MapBuildOptions
+        {
+            CacheDirectory = cache,
+            BaseContentIdentity = "unconfigured",
+            Force = true
+        }, CancellationToken.None);
+
+        Assert.True(first.Success, string.Join(Environment.NewLine, first.Diagnostics));
+        Assert.False(first.CacheHit);
+        Assert.Equal(expected, first.ContentIdentity);
+        Assert.Equal(2, imported.Map.Spawns.Count);
+        Assert.NotEqual(sourceHash, MapProjectContentHasher.Compute(imported));
+
+        // The importer mutates its detached legacy definition while deriving
+        // Quake spawn entities. A fresh project must still hit the same cache
+        // and return the original source identity, not that generated state.
+        MapProject fresh = ImportedProject(source, textures);
+        MapBuildResult cacheHit = compiler.Compile(fresh, new MapBuildOptions
+        {
+            CacheDirectory = cache,
+            BaseContentIdentity = "unconfigured"
+        }, CancellationToken.None);
+
+        Assert.True(cacheHit.Success, string.Join(Environment.NewLine, cacheHit.Diagnostics));
+        Assert.True(cacheHit.CacheHit);
+        Assert.Equal(expected, cacheHit.ContentIdentity);
+
+        // A packaged manifest is authoritative even though the package recipe
+        // may be imported and mutated during compilation.
+        MapProject packaged = ImportedProject(source, textures);
+        var declared = new MapContentIdentity(
+            new MapIdentity("community.q3-packaged", new MapVersion(9, 0, 0)),
+            new string('c', 64));
+        packaged.DeclaredContentIdentity = declared;
+        MapBuildResult packagedResult = compiler.Compile(packaged, new MapBuildOptions
+        {
+            CacheDirectory = Path.Combine(_directory, "packaged-cache"),
+            BaseContentIdentity = "unconfigured",
+            Force = true
+        }, CancellationToken.None);
+
+        Assert.True(packagedResult.Success,
+            string.Join(Environment.NewLine, packagedResult.Diagnostics));
+        Assert.Equal(declared, packagedResult.ContentIdentity);
+    }
+
+    [Fact]
     [Trait("RequiresGameContent", "true")]
     public async Task ConcurrentCompilersAtomicallyPublishOneValidCache()
     {
@@ -328,7 +387,7 @@ public sealed class MapCompilerTests : IDisposable
             results[0].BuildFingerprint, out _));
         string[] directories = Directory.EnumerateDirectories(cache).ToArray();
         Assert.Single(directories,
-            path => !Path.GetFileName(path).StartsWith(".", StringComparison.Ordinal));
+            path => !Path.GetFileName(path).StartsWith('.'));
         Assert.DoesNotContain(directories,
             path => Path.GetFileName(path).StartsWith(".build-", StringComparison.Ordinal));
     }
@@ -744,6 +803,156 @@ public sealed class MapCompilerTests : IDisposable
             Map = definition
         };
     }
+
+    private static MapProject ImportedProject(string source, string textures)
+    {
+        string baseDirectory = Path.GetDirectoryName(source)!;
+        var definition = new MapDefinition
+        {
+            Name = "Q3 IDENTITY",
+            InGameName = "Q3 Identity",
+            ScaleFactor = 4,
+            KillHeight = -10,
+            Import = new MapImport
+            {
+                Source = source,
+                MapName = "identity",
+                Textures = textures,
+                BaseDirectory = baseDirectory,
+                UnitsPerUnit = 1,
+                KeepSpawns = true,
+                KeepSky = false,
+                KeepClip = true,
+                PatchLevel = 1
+            },
+            BaseDirectory = baseDirectory
+        };
+        return MapProject.FromLegacy(definition, "community.q3-identity");
+    }
+
+    private (string Source, string Textures) CreateImportedFixture()
+    {
+        string source = Path.Combine(_directory, "identity.pk3");
+        string textures = Path.Combine(_directory, "identity.fptx");
+        using (FileStream stream = File.Create(source))
+        using (var archive = new ZipArchive(stream, ZipArchiveMode.Create))
+        {
+            ZipArchiveEntry entry = archive.CreateEntry("maps/identity.bsp");
+            using Stream target = entry.Open();
+            byte[] bsp = CreateIdentityBsp();
+            target.Write(bsp);
+        }
+        File.WriteAllBytes(textures, CreateIdentityTexturePack());
+        return (source, textures);
+    }
+
+    private static byte[] CreateIdentityTexturePack()
+    {
+        byte[] name = Encoding.UTF8.GetBytes("textures/identity");
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true);
+        writer.Write(Encoding.ASCII.GetBytes("FPTX"));
+        writer.Write((ushort)1);
+        writer.Write((ushort)1);
+        writer.Write((ushort)0); // BSP source texture index
+        writer.Write((ushort)1); // width
+        writer.Write((ushort)1); // height
+        writer.Write((ushort)1); // palette entries
+        writer.Write((ushort)name.Length);
+        writer.Write(name);
+        writer.Write((ushort)0x7FFF);
+        writer.Write((byte)0);
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    private static byte[] CreateIdentityBsp()
+    {
+        byte[][] lumps = new byte[17][];
+        lumps[0] = Encoding.ASCII.GetBytes(
+            "{\n\"classname\" \"worldspawn\"\n}\n"
+            + "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"0 0 32\"\n}\n"
+            + "{\n\"classname\" \"info_player_deathmatch\"\n\"origin\" \"8 0 32\"\n}\n");
+        lumps[1] = IdentityTextureLump();
+        lumps[10] = IdentityVertexLump();
+        lumps[13] = IdentityFaceLump();
+
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream, Encoding.ASCII, leaveOpen: true);
+        writer.Write(Encoding.ASCII.GetBytes("IBSP"));
+        writer.Write(46);
+        for (int i = 0; i < 17; i++)
+        {
+            writer.Write(0);
+            writer.Write(0);
+        }
+
+        var locations = new (int Offset, int Length)[17];
+        for (int i = 0; i < lumps.Length; i++)
+        {
+            if (lumps[i] is not { Length: > 0 }) continue;
+            locations[i] = ((int)stream.Position, lumps[i].Length);
+            writer.Write(lumps[i]);
+        }
+        for (int i = 0; i < locations.Length; i++)
+        {
+            stream.Position = 8 + i * 8;
+            writer.Write(locations[i].Offset);
+            writer.Write(locations[i].Length);
+        }
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    private static byte[] IdentityTextureLump()
+    {
+        byte[] lump = new byte[72];
+        Encoding.ASCII.GetBytes("textures/identity").CopyTo(lump, 0);
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(68, 4), Q3Bsp.ContentsSolid);
+        return lump;
+    }
+
+    private static byte[] IdentityVertexLump()
+    {
+        byte[] lump = new byte[9 * 44];
+        for (int row = 0; row < 3; row++)
+        for (int column = 0; column < 3; column++)
+        {
+            int offset = (row * 3 + column) * 44;
+            WriteSingle(lump, offset, column - 1);
+            WriteSingle(lump, offset + 4, row - 1);
+            WriteSingle(lump, offset + 8, 0);
+            WriteSingle(lump, offset + 12, column / 2f);
+            WriteSingle(lump, offset + 16, row / 2f);
+            WriteSingle(lump, offset + 28, 0);
+            WriteSingle(lump, offset + 32, 0);
+            WriteSingle(lump, offset + 36, 1);
+            lump[offset + 40] = 255;
+            lump[offset + 41] = 255;
+            lump[offset + 42] = 255;
+            lump[offset + 43] = 255;
+        }
+        return lump;
+    }
+
+    private static byte[] IdentityFaceLump()
+    {
+        byte[] lump = new byte[104];
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(0, 4), 0); // texture
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(8, 4), 2); // patch
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(12, 4), 0); // vertex
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(16, 4), 9); // vertex count
+        WriteSingle(lump, 84, 0);
+        WriteSingle(lump, 88, 0);
+        WriteSingle(lump, 92, 1);
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(96, 4), 3);
+        BinaryPrimitives.WriteInt32LittleEndian(lump.AsSpan(100, 4), 3);
+        return lump;
+    }
+
+    private static void WriteSingle(byte[] destination, int offset, float value)
+        => BinaryPrimitives.WriteInt32LittleEndian(destination.AsSpan(offset, 4),
+            BitConverter.SingleToInt32Bits(value));
 
     private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
     {

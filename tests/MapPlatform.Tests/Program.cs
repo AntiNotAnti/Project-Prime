@@ -59,6 +59,9 @@ internal static class Program
         await RunCompiler(test => { test.UnsupportedFutureEntityKindsFailValidation(); return Task.CompletedTask; });
         await RunCompiler(test => { test.CollisionPackingIsByteDeterministicAndReportsGridMetrics(); return Task.CompletedTask; });
         await RunCompiler(test => { test.CaptureBountyAndNodesCompileToTypedRuntimeEntities(); return Task.CompletedTask; });
+        await RunTextureBake(test => { test.ShaderAliasesPreferDirectQerThenStageAndKeepArchivePrecedence(); return Task.CompletedTask; });
+        await RunTextureBake(test => { test.MissingShaderReferencesAreReportedOnceForRepeatedFaces(); return Task.CompletedTask; });
+        await RunCompiler(test => { test.ImportedSourceIdentityIsCapturedBeforeQ3MutationAndPackagedIdentityIsPreserved(); return Task.CompletedTask; });
         await RunCompiler(async test => await test.CompileSameMapTwiceUsesValidatedContentAddressedCache());
         await RunCompiler(async test => await test.ConcurrentCompilersAtomicallyPublishOneValidCache());
         await RunCompiler(test => { test.NativeConvexBrushesProduceUnifiedRenderCollisionAndTypedEntities(); return Task.CompletedTask; });
@@ -129,6 +132,12 @@ internal static class Program
         async Task RunCompiler(Func<MapCompilerTests, Task> action)
         {
             using var test = new MapCompilerTests();
+            await action(test);
+            passed++;
+        }
+        async Task RunTextureBake(Func<MapTextureBakeTests, Task> action)
+        {
+            using var test = new MapTextureBakeTests();
             await action(test);
             passed++;
         }

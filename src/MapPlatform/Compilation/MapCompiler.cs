@@ -66,6 +66,16 @@ public sealed class MapCompiler
                     diagnostics.ToImmutable(), cached.Statistics, [.. timings]);
             }
 
+            // Imported legacy maps use a detached MapDefinition while they
+            // derive runtime spawns, jump pads, items, and a preview. Capture
+            // the logical source identity before that importer-owned mutation;
+            // otherwise the first build publishes an identity for generated
+            // state rather than for the source the author/package declared.
+            // Packaged maps carry an authoritative manifest identity and must
+            // retain it exactly.
+            MapContentIdentity sourceIdentity = project.DeclaredContentIdentity
+                ?? new MapContentIdentity(project.Identity, MapProjectContentHasher.Compute(project));
+
             cancellationToken.ThrowIfCancellationRequested();
             Report(options, "Importing geometry", 3);
             MapBuildScene scene = Timed("Import", timings, () =>
@@ -108,8 +118,6 @@ public sealed class MapCompiler
                 return true;
             });
 
-            MapContentIdentity sourceIdentity = project.DeclaredContentIdentity
-                ?? new MapContentIdentity(project.Identity, MapProjectContentHasher.Compute(project));
             var metadata = new MapBuildMetadata
             {
                 CompilerSchemaVersion = CompilerSchemaVersion,

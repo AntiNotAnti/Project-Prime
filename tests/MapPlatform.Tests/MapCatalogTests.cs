@@ -102,7 +102,7 @@ public sealed class MapCatalogTests : IDisposable
         }
         var metadata = new MapBuildMetadata
         {
-            CompilerSchemaVersion = 1, CompilerVersion = "test",
+            CompilerSchemaVersion = MapCompilerSchema.Current, CompilerVersion = "test",
             BuildFingerprint = Path.GetFileName(build), SourceIdentity = written.ContentIdentity,
             GeneratedFiles = generated, Statistics = new MapBuildStatistics { RenderTriangles = 12 }
         };
