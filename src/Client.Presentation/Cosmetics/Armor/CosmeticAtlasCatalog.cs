@@ -70,10 +70,11 @@ public sealed class CosmeticAtlasCatalog
             bounded.Write(buffer[..read]);
         }
         bounded.Position = 0;
-        Manifest? manifest;
+        CosmeticAtlasManifest? manifest;
         try
         {
-            manifest = JsonSerializer.Deserialize<Manifest>(bounded, _json);
+            manifest = JsonSerializer.Deserialize(bounded,
+                CosmeticAtlasJsonContext.Default.CosmeticAtlasManifest);
         }
         catch (JsonException error)
         {
@@ -95,7 +96,7 @@ public sealed class CosmeticAtlasCatalog
             throw new InvalidDataException("Cosmetic atlas contains too many sprites.");
 
         var sprites = new Dictionary<string, CosmeticAtlasSprite>(StringComparer.Ordinal);
-        foreach (Sprite source in manifest.Sprites)
+        foreach (CosmeticAtlasSpriteDefinition source in manifest.Sprites)
         {
             if (String.IsNullOrWhiteSpace(source.Key)
                 || source.X < 0 || source.Y < 0 || source.Width <= 0 || source.Height <= 0
@@ -115,14 +116,23 @@ public sealed class CosmeticAtlasCatalog
             new ReadOnlyDictionary<string, CosmeticAtlasSprite>(sprites));
     }
 
-    private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web)
-    {
-        PropertyNameCaseInsensitive = false,
-        UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip
-    };
-
-    private sealed record Manifest(int Format, string Image, int Width, int Height,
-        Sampling? Sampling, Sprite[]? Sprites);
-    private sealed record Sampling(int InsetPixels);
-    private sealed record Sprite(string Key, int X, int Y, int Width, int Height);
+    // Keep the manifest contract explicit for trimmed and obfuscated clients. The
+    // catalog is optional presentation data, but its schema and validation limits
+    // must remain identical on desktop and Android.
 }
+
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web,
+    PropertyNameCaseInsensitive = false,
+    UnmappedMemberHandling = JsonUnmappedMemberHandling.Skip,
+    GenerationMode = JsonSourceGenerationMode.Metadata)]
+[JsonSerializable(typeof(CosmeticAtlasManifest))]
+internal partial class CosmeticAtlasJsonContext : JsonSerializerContext;
+
+internal sealed record CosmeticAtlasManifest(int Format, string Image, int Width,
+    int Height, CosmeticAtlasSampling? Sampling,
+    CosmeticAtlasSpriteDefinition[]? Sprites);
+
+internal sealed record CosmeticAtlasSampling(int InsetPixels);
+
+internal sealed record CosmeticAtlasSpriteDefinition(string Key, int X, int Y,
+    int Width, int Height);

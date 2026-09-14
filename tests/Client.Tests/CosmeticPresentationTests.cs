@@ -516,6 +516,27 @@ public sealed class CosmeticPresentationTests
         Assert.Throws<InvalidDataException>(() => CosmeticAtlasCatalog.Load(stream));
     }
 
+    [Fact]
+    public void AtlasManifestUsesGeneratedMetadataAndPreservesOptionalSchemaFields()
+    {
+        const string valid = """
+            {"format":1,"image":"atlas.png","width":16,"height":16,
+             "sampling":{"insetPixels":2,"futureSamplingField":true},
+             "sprites":[{"key":"spark","x":0,"y":0,"width":8,"height":8}],
+             "futureManifestField":{"enabled":true}}
+            """;
+        using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(valid));
+
+        CosmeticAtlasCatalog atlas = CosmeticAtlasCatalog.Load(stream);
+
+        Assert.Equal("atlas.png", atlas.Image);
+        Assert.Equal(16, atlas.Width);
+        Assert.Equal(16, atlas.Height);
+        Assert.Equal(2, atlas.InsetPixels);
+        Assert.True(atlas.TryResolve("spark", out CosmeticAtlasSprite sprite));
+        Assert.Equal(new CosmeticAtlasSprite("spark", 0, 0, 8, 8), sprite);
+    }
+
     private static CosmeticPlayerPresentationState State(bool local = false,
         bool firstPerson = false) => new(PlayerSlot: 1, LocalPlayer: local,
         FirstPerson: firstPerson, Spectator: false, HiddenModel: false,

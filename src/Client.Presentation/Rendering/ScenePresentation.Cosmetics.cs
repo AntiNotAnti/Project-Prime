@@ -353,7 +353,8 @@ public partial class ScenePresentation
             return true;
         }
         catch (Exception error) when (error is IOException or InvalidDataException
-            or InvalidOperationException or UnauthorizedAccessException)
+            or InvalidOperationException or NotSupportedException
+            or UnauthorizedAccessException)
         {
             Mods.DebugLog.Line("cosmetics/armor",
                 $"VFX atlas unavailable; using built-in fallback particles: {error.Message}");
