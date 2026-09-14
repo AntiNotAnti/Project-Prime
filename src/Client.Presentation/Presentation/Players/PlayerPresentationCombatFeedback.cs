@@ -1,6 +1,7 @@
 using System;
 using MphRead.Combat;
 using MphRead.Hud;
+using MphRead.Hud.Radar;
 using MphRead.Mods.Audio;
 using MphRead.Mods.Content;
 using MphRead.Mods.Hud;
@@ -93,6 +94,9 @@ namespace MphRead.Entities
             HitMarkerKind marker = feedback.VisibleMarker(tick);
             bool identityView = feedback.Local.IsValid && feedback.Local == AuthoritativeActor;
             bool localView = identityView && !Mods.SpectatorMode.IsSpectating;
+            bool deathRecapVisible = identityView
+                && (!Mods.SpectatorMode.IsSpectating || ReplayPlayback.IsModern)
+                && feedback.State.Dead && _player.Health == 0;
             if (_feedbackSoundIdentity != feedback.Local)
             {
                 _feedbackSoundIdentity = feedback.Local;
@@ -118,7 +122,8 @@ namespace MphRead.Entities
                 _activeAward = award;
             if (localView && _activeAward is { } activeAward && CombatFeedback.Age(tick, activeAward.Tick) < 120)
             {
-                DrawText2D(128, 54, Align.Center, 0, AwardText(activeAward.Kind),
+                DrawText2D(128, AwardBannerY(deathRecapVisible), Align.Center, 0,
+                    AwardText(activeAward.Kind),
                     new ColorRgba(255, 224, 96, 255), scale: .75f);
             }
             else if (localView && _activeAward is { }) _activeAward = null;
@@ -164,15 +169,24 @@ namespace MphRead.Entities
                     : new ColorRgba(255, 255, 255, (byte)(255 * fade));
                 DrawText2D(markerX, markerY, Align.Center, 0, text, color, scale: scale);
             }
+            int feedY = 22;
+            RadarProfile radarProfile = CurrentRadarProfile;
+            if (radarProfile.Style == RadarStyle.Enhanced && _player._health > 0
+                && !Mods.SpectatorMode.FreeCamera)
+            {
+                RadarLayout radar = RadarLayoutCalculator.Calculate(radarProfile.Anchor,
+                    radarProfile.Scale, radarProfile.OffsetX, radarProfile.OffsetY, HudAspectFix);
+                feedY = KillFeedStartY(radar.CenterX >= 128, radar);
+            }
             int row = 0;
             for (int i = 0; i < feedback.FeedCount; i++)
             {
                 KillFeedEntry entry = feedback.FeedAt(i);
                 if (CombatFeedback.Age(tick, entry.Tick) >= CombatFeedback.FeedTicks) continue;
-                DrawText2D(252, 22 + row++ * 8, Align.Right, 0, entry.Text, maxLength: 44, scale: .65f);
+                DrawText2D(252, feedY + row++ * 8, Align.Right, 0, entry.Text,
+                    maxLength: 44, scale: .65f);
             }
-            if (identityView && (!Mods.SpectatorMode.IsSpectating || ReplayPlayback.IsModern)
-                && feedback.State.Dead && _player.Health == 0)
+            if (deathRecapVisible)
             {
                 DrawText2D(128, 54, Align.Center, 0, feedback.State.RecapHeading, maxLength: 36, scale: .8f);
                 DrawText2D(128, 64, Align.Center, 0, feedback.State.RecapFinal, maxLength: 36, scale: .75f);
@@ -180,6 +194,26 @@ namespace MphRead.Entities
                 for (int i = start; i < feedback.History.Count; i++)
                     DrawText2D(128, 76 + (i - start) * 8, Align.Center, 0, feedback.History[i].Text, maxLength: 44, scale: .65f);
             }
+        }
+
+        internal static int AwardBannerY(bool deathRecapVisible)
+            => deathRecapVisible ? 42 : 54;
+
+        internal static int KillFeedStartY(bool overlapsHorizontally, RadarLayout radar)
+        {
+            const int defaultY = 22;
+            const int rowHeight = 8;
+            int feedHeight = CombatFeedback.FeedCapacity * rowHeight;
+            if (!overlapsHorizontally || radar.Top >= defaultY + feedHeight
+                || radar.Top + radar.Height <= defaultY)
+                return defaultY;
+
+            int below = (int)MathF.Ceiling(radar.Top + radar.Height
+                + RadarLayoutCalculator.HudClearance);
+            if (below + feedHeight <= 192) return below;
+
+            return Math.Max(0, (int)MathF.Floor(radar.Top
+                - RadarLayoutCalculator.HudClearance - feedHeight));
         }
 
         internal static string FormatTransitionVoteNotice(

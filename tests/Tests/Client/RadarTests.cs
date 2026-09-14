@@ -265,6 +265,19 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void KillFeedMovesAroundAnOverlappingRightSideRadar()
+    {
+        RadarLayout topRight = RadarLayoutCalculator.Calculate(RadarAnchor.TopRight,
+            1, 0, 0, .75f);
+        RadarLayout bottomRight = RadarLayoutCalculator.Calculate(RadarAnchor.BottomRight,
+            1, 0, 0, .75f);
+
+        Assert.Equal(64, PlayerPresentation.KillFeedStartY(true, topRight));
+        Assert.Equal(22, PlayerPresentation.KillFeedStartY(false, topRight));
+        Assert.Equal(22, PlayerPresentation.KillFeedStartY(true, bottomRight));
+    }
+
+    [Fact]
     public void WorldProjectionHandlesCornersCenterAndDegenerateBounds()
     {
         var geometry = new RadarMapGeometry(new Vector2(-10, -20), new Vector2(30, 60),

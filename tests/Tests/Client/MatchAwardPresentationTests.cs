@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using MphRead.Entities;
 using MphRead.Mods.Audio;
 using MphRead.Mods.Hud;
 using MphRead.Mods.Network;
@@ -17,6 +18,15 @@ public sealed class MatchAwardPresentationTests
 {
     private static readonly CombatActor Subject = new(1, 101, 4);
     private static readonly CombatActor Target = new(2, 202, 8);
+
+    [Theory]
+    [InlineData(false, 54)]
+    [InlineData(true, 42)]
+    public void AwardBannerUsesSeparateLaneWhileDeathRecapIsVisible(
+        bool deathRecapVisible, int expectedY)
+    {
+        Assert.Equal(expectedY, PlayerPresentation.AwardBannerY(deathRecapVisible));
+    }
 
     [Fact]
     public void AnnouncerSuppressesDuplicateReliableAward()
