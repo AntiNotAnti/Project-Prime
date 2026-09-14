@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MphRead.Droid;
+using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
@@ -79,6 +80,71 @@ public sealed class NativeBottomScreenTests
             NativeBottomScreenClassicLayout.RegionAt(new Vector2(128, 108)));
         Assert.Equal(NativeBottomScreenRegion.None,
             NativeBottomScreenClassicLayout.RegionAt(new Vector2(-1, 10)));
+    }
+
+    [Fact]
+    public void ClassicLayoutSanitizesSafeCentersAndResolvesOverlapsInDeclarationOrder()
+    {
+        NativeBottomScreenClassicLayoutOptions options = new(
+            .5f, .5f,
+            .5f, .5f,
+            .5f, .5f,
+            .5f, .5f,
+            float.NaN, float.PositiveInfinity);
+        NativeBottomScreenClassicLayoutSnapshot layout = options.CreateLayout();
+
+        foreach (NativeBottomScreenButton button in layout.Buttons)
+        {
+            Assert.InRange(button.Position.X, button.Radius,
+                NativeBottomScreenClassicLayoutSnapshot.DsWidth - button.Radius);
+            Assert.InRange(button.Position.Y, button.Radius,
+                NativeBottomScreenClassicLayoutSnapshot.DsHeight - button.Radius);
+        }
+
+        // All five centers overlap at the same point. Strict nearest-distance
+        // comparison makes the declared Power Beam button win deterministically.
+        Assert.Equal(NativeBottomScreenRegion.PowerBeam,
+            layout.RegionAt(new Vector2(128, 96)));
+        Assert.Equal(NativeBottomScreenClassicLayoutOptions.Default.AltFormX,
+            layout.Options.AltFormX);
+        Assert.Equal(NativeBottomScreenClassicLayoutOptions.Default.AltFormY,
+            layout.Options.AltFormY);
+    }
+
+    [Fact]
+    public void ClassicDirectionalSwipeAssistHonorsDeadzoneAndAngle()
+    {
+        NativeBottomScreenClassicLayoutSnapshot layout
+            = NativeBottomScreenClassicLayoutOptions.Default.CreateLayout();
+        Vector2 start = new(128, 96);
+        Vector2 nextWeapon = layout.GetButton(
+            NativeBottomScreenRegion.NextWeapon).Position;
+        Vector2 direction = (nextWeapon - start).Normalized();
+
+        Assert.Equal(NativeBottomScreenRegion.Aim,
+            layout.ResolveRegion(start + direction * (NativeBottomScreenSnapshotDeadzone - .5f),
+                start, directionalSwipeAssist: true));
+        Assert.Equal(NativeBottomScreenRegion.NextWeapon,
+            layout.ResolveRegion(start + direction * (NativeBottomScreenSnapshotDeadzone + 1),
+                start, directionalSwipeAssist: true));
+        Assert.Equal(NativeBottomScreenRegion.Aim,
+            layout.ResolveRegion(start + new Vector2(0, 40), start,
+                directionalSwipeAssist: true));
+
+        // A direct hit always wins even when the contact began elsewhere.
+        Assert.Equal(NativeBottomScreenRegion.PowerBeam,
+            layout.ResolveRegion(layout.GetButton(
+                NativeBottomScreenRegion.PowerBeam).Position, start,
+                directionalSwipeAssist: true));
+    }
+
+    [Fact]
+    public void ClassicQuickButtonsUseTheirBeamEnumValues()
+    {
+        Assert.Equal((byte)BeamType.PowerBeam,
+            PlayerPresentation.ClassicBeamId(NativeBottomScreenRegion.PowerBeam));
+        Assert.Equal((byte)BeamType.Missile,
+            PlayerPresentation.ClassicBeamId(NativeBottomScreenRegion.Missile));
     }
 
     [Fact]
@@ -490,6 +556,17 @@ public sealed class NativeBottomScreenTests
                 "bottom_screen_cursor_sensitivity=1.75",
                 "bottom_screen_cursor_start_x=0.2",
                 "bottom_screen_cursor_start_y=0.8",
+                "bottom_screen_power_beam_x=0.11",
+                "bottom_screen_power_beam_y=0.22",
+                "bottom_screen_missile_x=0.33",
+                "bottom_screen_missile_y=0.44",
+                "bottom_screen_next_weapon_x=0.55",
+                "bottom_screen_next_weapon_y=0.66",
+                "bottom_screen_weapon_select_x=0.77",
+                "bottom_screen_weapon_select_y=0.84",
+                "bottom_screen_alt_form_x=0.12",
+                "bottom_screen_alt_form_y=0.34",
+                "bottom_screen_directional_swipe_assist=false",
                 "bottom_screen_style=AffinitySelector",
                 "bottom_screen_scale=0.65",
                 "bottom_screen_center_x=0.2",
@@ -510,11 +587,34 @@ public sealed class NativeBottomScreenTests
             Assert.Equal(1.75f, InputSettings.BottomScreenCursorSensitivity);
             Assert.Equal(.2f, InputSettings.BottomScreenCursorStartX);
             Assert.Equal(.8f, InputSettings.BottomScreenCursorStartY);
+            Assert.Equal(.11f, InputSettings.BottomScreenPowerBeamX);
+            Assert.Equal(.22f, InputSettings.BottomScreenPowerBeamY);
+            Assert.Equal(.33f, InputSettings.BottomScreenMissileX);
+            Assert.Equal(.44f, InputSettings.BottomScreenMissileY);
+            Assert.Equal(.55f, InputSettings.BottomScreenNextWeaponX);
+            Assert.Equal(.66f, InputSettings.BottomScreenNextWeaponY);
+            Assert.Equal(.77f, InputSettings.BottomScreenWeaponSelectX);
+            Assert.Equal(.84f, InputSettings.BottomScreenWeaponSelectY);
+            Assert.Equal(.12f, InputSettings.BottomScreenAltFormX);
+            Assert.Equal(.34f, InputSettings.BottomScreenAltFormY);
+            Assert.False(InputSettings.BottomScreenDirectionalSwipeAssist);
             Assert.Contains("bottom_screen_cursor_sensitivity=1.75",
                 InputSettings.GetSaveLines());
             Assert.Contains("bottom_screen_cursor_start_x=0.2",
                 InputSettings.GetSaveLines());
             Assert.Contains("bottom_screen_cursor_start_y=0.8",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_power_beam_x=0.11",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_missile_y=0.44",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_next_weapon_x=0.55",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_weapon_select_y=0.84",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_alt_form_x=0.12",
+                InputSettings.GetSaveLines());
+            Assert.Contains("bottom_screen_directional_swipe_assist=false",
                 InputSettings.GetSaveLines());
             Assert.Equal(NativeBottomScreenStyle.AffinitySelector,
                 InputSettings.BottomScreenStyle);
@@ -541,8 +641,42 @@ public sealed class NativeBottomScreenTests
         }
     }
 
+    [Fact]
+    public void BottomScreenSettingsResetToNativeDefaults()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.BottomScreenCursorSensitivity = 3.2f;
+            InputSettings.BottomScreenCursorStartX = .1f;
+            InputSettings.BottomScreenCursorStartY = .9f;
+            InputSettings.BottomScreenPowerBeamX = .9f;
+            InputSettings.BottomScreenMissileY = .9f;
+            InputSettings.BottomScreenDirectionalSwipeAssist = false;
+
+            InputSettings.Reset();
+
+            Assert.Equal(NativeBottomScreenCursorOptions.Default.Sensitivity,
+                InputSettings.BottomScreenCursorSensitivity);
+            Assert.Equal(NativeBottomScreenCursorOptions.Default.StartX,
+                InputSettings.BottomScreenCursorStartX);
+            Assert.Equal(NativeBottomScreenCursorOptions.Default.StartY,
+                InputSettings.BottomScreenCursorStartY);
+            Assert.Equal(NativeBottomScreenClassicLayoutOptions.Default,
+                InputSettings.CurrentBottomScreenClassicLayout);
+            Assert.True(InputSettings.BottomScreenDirectionalSwipeAssist);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
     private static Vector2 SelectorPoint(float division, float distY)
         => new(224 - division * distY, 38 + distY);
+
+    private const float NativeBottomScreenSnapshotDeadzone
+        = NativeBottomScreenClassicLayoutSnapshot.SwipeDeadzone;
 
     private static PointerSample PanelSample(NativeBottomScreenLayout layout,
         int id, float dsX, float dsY)

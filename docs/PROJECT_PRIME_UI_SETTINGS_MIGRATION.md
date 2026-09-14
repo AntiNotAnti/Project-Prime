@@ -240,6 +240,12 @@ written by `InputSettings.GetSaveLines`. The canonical static settings are:
 | `BottomScreenCursorSensitivity` / `bottom_screen_cursor_sensitivity` | Platform; `1` | I/S; desktop virtual-cursor motion, clamped `.1..4` | `controls.stylus.bottom-screen-cursor-sensitivity`, Controls/Stylus, desktop |
 | `BottomScreenCursorStartX` / `bottom_screen_cursor_start_x` | Platform; `.5` | I/S; normalized desktop cursor start X, clamped `0..1` | `controls.stylus.bottom-screen-cursor-start-x`, Controls/Stylus, desktop |
 | `BottomScreenCursorStartY` / `bottom_screen_cursor_start_y` | Platform; `.5` | I/S; normalized desktop cursor start Y, clamped `0..1` | `controls.stylus.bottom-screen-cursor-start-y`, Controls/Stylus, desktop |
+| `BottomScreenPowerBeamX/Y` / `bottom_screen_power_beam_x/y` | Platform; native Classic DS coordinates | I/S; normalized Power Beam center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-power-beam-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenMissileX/Y` / `bottom_screen_missile_x/y` | Platform; native Classic DS coordinates | I/S; normalized Missile center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-missile-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenNextWeaponX/Y` / `bottom_screen_next_weapon_x/y` | Platform; native Classic DS coordinates | I/S; normalized Next weapon center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-next-weapon-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenWeaponSelectX/Y` / `bottom_screen_weapon_select_x/y` | Platform; native Classic DS coordinates | I/S; normalized Weapon selector center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-weapon-select-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenAltFormX/Y` / `bottom_screen_alt_form_x/y` | Platform; native Classic DS coordinates | I/S; normalized Alt form center, clamped inside its fixed-radius hit region | `controls.stylus.bottom-screen-alt-form-x/y`, Controls/Stylus, desktop + Android |
+| `BottomScreenDirectionalSwipeAssist` / `bottom_screen_directional_swipe_assist` | Platform; `on` | I/S; conservative desktop Classic DS directional swipe preview assist | `controls.stylus.bottom-screen-directional-swipe-assist`, Controls/Stylus, desktop |
 
 The bottom-screen implementation is a client-only in-renderer 4:3 panel. Direct
 touch/pen input retains its existing ownership, while the customizable
@@ -254,6 +260,12 @@ coordinate, and only then closes the session. Cursor sensitivity is clamped to
 unchanged. A closed Popup has no visible or invisible center-screen tab; desktop
 users open it with the Touch screen binding, while touch-only clients can use
 Always visible.
+Classic DS control centers are independently persisted as normalized X/Y pairs;
+the immutable Client.Core layout clamps each center to its fixed-radius 256x192
+safe area and uses the same geometry for drawing, exact hit testing, and overlap
+resolution. Desktop Classic DS contacts can optionally use a conservative
+directional swipe assist after the deadzone; exact control hits always take
+precedence, and direct Android pen/finger contacts do not use the assist.
 Both the Classic DS controls and the nested six-affinity selector submit through
 the existing, revalidated weapon/action intent paths.
 

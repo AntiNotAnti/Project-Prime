@@ -334,6 +334,43 @@ public sealed class PlayEntryTests
     }
 
     [Fact]
+    public void RematchCommandUsesAuthoritativeBallotRevisionAndOption()
+    {
+        Guid sessionId = Guid.NewGuid();
+        LobbySnapshot lobby = new(Guid.NewGuid(), "Arena", LobbyVisibility.Public,
+            sessionId, LobbyPhase.PostMatch, 42, 8, 16,
+            [new LobbyMember(sessionId, Guid.NewGuid(), "Hunter", Hunter.Samus,
+                0, false, false)], [], "unit");
+        NodeRoundSnapshot round = new(lobby, null, null, false, false, 7, 19,
+            DateTimeOffset.UtcNow.AddMinutes(1),
+            [new LobbyVoteEntry(2, LobbyVoteChoice.NextMap, "unit2", MatchMode.Battle, 1),
+             new LobbyVoteEntry(7, LobbyVoteChoice.Rematch, "unit", MatchMode.Battle, 3)], 0);
+
+        Assert.Equal(new LobbyVoteCast(42, 19, 7),
+            PlayController.CreateRematchVoteCommand(lobby, round));
+    }
+
+    [Fact]
+    public void RematchCommandRejectsMissingOrForeignBallot()
+    {
+        Guid sessionId = Guid.NewGuid();
+        LobbySnapshot lobby = new(Guid.NewGuid(), "Arena", LobbyVisibility.Public,
+            sessionId, LobbyPhase.PostMatch, 1, 8, 16, [], [], "unit");
+        NodeRoundSnapshot missing = new(lobby, null, null, false, false, 1, 1,
+            DateTimeOffset.UtcNow.AddMinutes(1),
+            [new LobbyVoteEntry(1, LobbyVoteChoice.ReturnToLobby, "unit", MatchMode.Battle, 0)], 0);
+        Assert.Throws<InvalidOperationException>(() =>
+            PlayController.CreateRematchVoteCommand(lobby, missing));
+
+        NodeRoundSnapshot foreign = missing with
+        {
+            Lobby = lobby with { LobbyId = Guid.NewGuid() }
+        };
+        Assert.Throws<InvalidOperationException>(() =>
+            PlayController.CreateRematchVoteCommand(lobby, foreign));
+    }
+
+    [Fact]
     public async Task QueueOnlySnapshotRemainsVisibleWhenSelfIsNotAMember()
     {
         Guid nodeId = Guid.NewGuid(), sessionId = Guid.NewGuid(), lobbyId = Guid.NewGuid();

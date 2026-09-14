@@ -32,6 +32,17 @@ public sealed class PrimeRoutePresentationTests
         PrimeShellBreakpoint expected)
         => Assert.Equal(expected, PrimeRoutePresentation.Breakpoint(width));
 
+    [Theory]
+    [InlineData(560, 560, 1)]
+    [InlineData(940, 560, .72)]
+    [InlineData(1280, 720, .72)]
+    [InlineData(1440, 900, .8533333333333334)]
+    [InlineData(1920, 1080, 1)]
+    public void WindowedDesktopMenusScaleByAvailableHeightWithoutShrinkingMobile(
+        double width, double height, double expected)
+        => Assert.Equal(expected,
+            PrimeRoutePresentation.WindowedMenuScale(width, height), precision: 10);
+
     [Fact]
     public void CompactAndMobileLabelsRemainReadable()
     {

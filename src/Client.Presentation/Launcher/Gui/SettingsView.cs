@@ -315,14 +315,19 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold,
             _bottomScreenScale, _bottomScreenCenterX, _bottomScreenCenterY,
             _bottomScreenOpacity, _bottomScreenCursorSensitivity,
-            _bottomScreenCursorStartX, _bottomScreenCursorStartY;
+            _bottomScreenCursorStartX, _bottomScreenCursorStartY,
+            _bottomScreenPowerBeamX, _bottomScreenPowerBeamY,
+            _bottomScreenMissileX, _bottomScreenMissileY,
+            _bottomScreenNextWeaponX, _bottomScreenNextWeaponY,
+            _bottomScreenWeaponSelectX, _bottomScreenWeaponSelectY,
+            _bottomScreenAltFormX, _bottomScreenAltFormY;
         private bool _dynamicCrosshairTravelEdited, _dynamicCrosshairSensitivityEdited,
             _dynamicCrosshairTurnSpeedEdited, _mouseSensitivityEdited,
             _stylusSensitivityEdited;
         private ChoiceRow? _stylusPrimary, _stylusSecondary;
         private ChoiceRow? _bottomScreenMode, _bottomScreenActivation,
             _bottomScreenStyle;
-        private ToggleRow? _bottomScreenLabels;
+        private ToggleRow? _bottomScreenLabels, _bottomScreenDirectionalSwipeAssist;
         private FieldRow _playerName = null!;
         private ChoiceRow _hunterRow = null!;
         private ToggleRow _showOnlinePresence = null!;
@@ -1987,6 +1992,28 @@ namespace MphRead.Mods.Launcher.Gui
                         InputSettings.BottomScreenCursorStartX * 100);
                     _bottomScreenCursorStartY!.Value = (int)Math.Round(
                         InputSettings.BottomScreenCursorStartY * 100);
+                    _bottomScreenPowerBeamX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenPowerBeamX * 100);
+                    _bottomScreenPowerBeamY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenPowerBeamY * 100);
+                    _bottomScreenMissileX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenMissileX * 100);
+                    _bottomScreenMissileY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenMissileY * 100);
+                    _bottomScreenNextWeaponX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenNextWeaponX * 100);
+                    _bottomScreenNextWeaponY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenNextWeaponY * 100);
+                    _bottomScreenWeaponSelectX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenWeaponSelectX * 100);
+                    _bottomScreenWeaponSelectY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenWeaponSelectY * 100);
+                    _bottomScreenAltFormX!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenAltFormX * 100);
+                    _bottomScreenAltFormY!.Value = (int)Math.Round(
+                        InputSettings.BottomScreenAltFormY * 100);
+                    _bottomScreenDirectionalSwipeAssist!.On
+                        = InputSettings.BottomScreenDirectionalSwipeAssist;
                     _bottomScreenStyle!.Index = (int)InputSettings.BottomScreenStyle;
                     _bottomScreenScale!.Value = (int)Math.Round(
                         InputSettings.BottomScreenScale * 100);
@@ -3018,15 +3045,59 @@ namespace MphRead.Mods.Launcher.Gui
             _bottomScreenStyle = Add(page, new ChoiceRow("Screen layout",
                 new[] { "Classic DS", "Affinity selector" },
                 (int)InputSettings.BottomScreenStyle), SettingRowIds.BottomScreenStyle);
+            _bottomScreenDirectionalSwipeAssist = Add(page, new ToggleRow(
+                "Directional swipe assist",
+                InputSettings.BottomScreenDirectionalSwipeAssist),
+                SettingRowIds.BottomScreenDirectionalSwipeAssist);
             _bottomScreenScale = Add(page, new SliderRow("Screen size",
                 (int)Math.Round(InputSettings.BottomScreenScale * 100),
                 v => $"{v}%", min: 40, max: 100), SettingRowIds.BottomScreenScale);
-            _bottomScreenCenterX = Add(page, new SliderRow("Horizontal position",
+            _bottomScreenCenterX = Add(page, new SliderRow("Popup position X",
                 (int)Math.Round(InputSettings.BottomScreenCenterX * 100),
                 v => $"{v}%"), SettingRowIds.BottomScreenCenterX);
-            _bottomScreenCenterY = Add(page, new SliderRow("Vertical position",
+            _bottomScreenCenterY = Add(page, new SliderRow("Popup position Y",
                 (int)Math.Round(InputSettings.BottomScreenCenterY * 100),
                 v => $"{v}%"), SettingRowIds.BottomScreenCenterY);
+            _bottomScreenPowerBeamX = Add(page, new SliderRow(
+                "Power Beam position X",
+                (int)Math.Round(InputSettings.BottomScreenPowerBeamX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenPowerBeamX);
+            _bottomScreenPowerBeamY = Add(page, new SliderRow(
+                "Power Beam position Y",
+                (int)Math.Round(InputSettings.BottomScreenPowerBeamY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenPowerBeamY);
+            _bottomScreenMissileX = Add(page, new SliderRow(
+                "Missile position X",
+                (int)Math.Round(InputSettings.BottomScreenMissileX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenMissileX);
+            _bottomScreenMissileY = Add(page, new SliderRow(
+                "Missile position Y",
+                (int)Math.Round(InputSettings.BottomScreenMissileY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenMissileY);
+            _bottomScreenNextWeaponX = Add(page, new SliderRow(
+                "Next weapon position X",
+                (int)Math.Round(InputSettings.BottomScreenNextWeaponX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenNextWeaponX);
+            _bottomScreenNextWeaponY = Add(page, new SliderRow(
+                "Next weapon position Y",
+                (int)Math.Round(InputSettings.BottomScreenNextWeaponY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenNextWeaponY);
+            _bottomScreenWeaponSelectX = Add(page, new SliderRow(
+                "Weapon selector position X",
+                (int)Math.Round(InputSettings.BottomScreenWeaponSelectX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenWeaponSelectX);
+            _bottomScreenWeaponSelectY = Add(page, new SliderRow(
+                "Weapon selector position Y",
+                (int)Math.Round(InputSettings.BottomScreenWeaponSelectY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenWeaponSelectY);
+            _bottomScreenAltFormX = Add(page, new SliderRow(
+                "Alt form position X",
+                (int)Math.Round(InputSettings.BottomScreenAltFormX * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenAltFormX);
+            _bottomScreenAltFormY = Add(page, new SliderRow(
+                "Alt form position Y",
+                (int)Math.Round(InputSettings.BottomScreenAltFormY * 100),
+                v => $"{v}%"), SettingRowIds.BottomScreenAltFormY);
             _bottomScreenOpacity = Add(page, new SliderRow("Screen opacity",
                 (int)Math.Round(InputSettings.BottomScreenOpacity * 100),
                 v => $"{v}%", min: 5, max: 100), SettingRowIds.BottomScreenOpacity);
@@ -3682,6 +3753,28 @@ namespace MphRead.Mods.Launcher.Gui
                     = _bottomScreenCursorStartX!.Value / 100f;
                 InputSettings.BottomScreenCursorStartY
                     = _bottomScreenCursorStartY!.Value / 100f;
+                InputSettings.BottomScreenDirectionalSwipeAssist
+                    = _bottomScreenDirectionalSwipeAssist!.On;
+                InputSettings.BottomScreenPowerBeamX
+                    = _bottomScreenPowerBeamX!.Value / 100f;
+                InputSettings.BottomScreenPowerBeamY
+                    = _bottomScreenPowerBeamY!.Value / 100f;
+                InputSettings.BottomScreenMissileX
+                    = _bottomScreenMissileX!.Value / 100f;
+                InputSettings.BottomScreenMissileY
+                    = _bottomScreenMissileY!.Value / 100f;
+                InputSettings.BottomScreenNextWeaponX
+                    = _bottomScreenNextWeaponX!.Value / 100f;
+                InputSettings.BottomScreenNextWeaponY
+                    = _bottomScreenNextWeaponY!.Value / 100f;
+                InputSettings.BottomScreenWeaponSelectX
+                    = _bottomScreenWeaponSelectX!.Value / 100f;
+                InputSettings.BottomScreenWeaponSelectY
+                    = _bottomScreenWeaponSelectY!.Value / 100f;
+                InputSettings.BottomScreenAltFormX
+                    = _bottomScreenAltFormX!.Value / 100f;
+                InputSettings.BottomScreenAltFormY
+                    = _bottomScreenAltFormY!.Value / 100f;
                 InputSettings.BottomScreenStyle = (Mods.Input.NativeBottomScreenStyle)
                     _bottomScreenStyle!.Index;
                 InputSettings.BottomScreenScale = _bottomScreenScale!.Value / 100f;

@@ -145,6 +145,17 @@ public static class SettingRowIds
     public const string BottomScreenCursorSensitivity = "controls.stylus.bottom-screen-cursor-sensitivity";
     public const string BottomScreenCursorStartX = "controls.stylus.bottom-screen-cursor-start-x";
     public const string BottomScreenCursorStartY = "controls.stylus.bottom-screen-cursor-start-y";
+    public const string BottomScreenPowerBeamX = "controls.stylus.bottom-screen-power-beam-x";
+    public const string BottomScreenPowerBeamY = "controls.stylus.bottom-screen-power-beam-y";
+    public const string BottomScreenMissileX = "controls.stylus.bottom-screen-missile-x";
+    public const string BottomScreenMissileY = "controls.stylus.bottom-screen-missile-y";
+    public const string BottomScreenNextWeaponX = "controls.stylus.bottom-screen-next-weapon-x";
+    public const string BottomScreenNextWeaponY = "controls.stylus.bottom-screen-next-weapon-y";
+    public const string BottomScreenWeaponSelectX = "controls.stylus.bottom-screen-weapon-select-x";
+    public const string BottomScreenWeaponSelectY = "controls.stylus.bottom-screen-weapon-select-y";
+    public const string BottomScreenAltFormX = "controls.stylus.bottom-screen-alt-form-x";
+    public const string BottomScreenAltFormY = "controls.stylus.bottom-screen-alt-form-y";
+    public const string BottomScreenDirectionalSwipeAssist = "controls.stylus.bottom-screen-directional-swipe-assist";
     public const string BottomScreenStyle = "controls.stylus.bottom-screen-style";
     public const string BottomScreenScale = "controls.stylus.bottom-screen-scale";
     public const string BottomScreenCenterX = "controls.stylus.bottom-screen-center-x";
@@ -211,6 +222,10 @@ public static class SettingRowIds
         StylusDoubleTapJump, StylusFlickBoost, StylusPressureToFire,
         StylusPressureThreshold, BottomScreenMode, BottomScreenActivation,
         BottomScreenCursorSensitivity, BottomScreenCursorStartX, BottomScreenCursorStartY,
+        BottomScreenPowerBeamX, BottomScreenPowerBeamY, BottomScreenMissileX,
+        BottomScreenMissileY, BottomScreenNextWeaponX, BottomScreenNextWeaponY,
+        BottomScreenWeaponSelectX, BottomScreenWeaponSelectY, BottomScreenAltFormX,
+        BottomScreenAltFormY, BottomScreenDirectionalSwipeAssist,
         BottomScreenStyle,
         BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
         BottomScreenOpacity, BottomScreenLabels,

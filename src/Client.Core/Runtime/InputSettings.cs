@@ -492,6 +492,114 @@ namespace MphRead.Mods
             set => _bottomScreenCursorStartY = Clamp(value, .5f, 0, 1);
         }
         private static float _bottomScreenCursorStartY = .5f;
+        public static float BottomScreenPowerBeamX
+        {
+            get => _bottomScreenPowerBeamX;
+            set => _bottomScreenPowerBeamX = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.PowerBeamX,
+                NativeBottomScreenClassicLayoutOptions.PowerBeamRadius / 256f,
+                1 - NativeBottomScreenClassicLayoutOptions.PowerBeamRadius / 256f);
+        }
+        private static float _bottomScreenPowerBeamX
+            = NativeBottomScreenClassicLayoutOptions.Default.PowerBeamX;
+        public static float BottomScreenPowerBeamY
+        {
+            get => _bottomScreenPowerBeamY;
+            set => _bottomScreenPowerBeamY = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.PowerBeamY,
+                NativeBottomScreenClassicLayoutOptions.PowerBeamRadius / 192f,
+                1 - NativeBottomScreenClassicLayoutOptions.PowerBeamRadius / 192f);
+        }
+        private static float _bottomScreenPowerBeamY
+            = NativeBottomScreenClassicLayoutOptions.Default.PowerBeamY;
+        public static float BottomScreenMissileX
+        {
+            get => _bottomScreenMissileX;
+            set => _bottomScreenMissileX = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.MissileX,
+                NativeBottomScreenClassicLayoutOptions.MissileRadius / 256f,
+                1 - NativeBottomScreenClassicLayoutOptions.MissileRadius / 256f);
+        }
+        private static float _bottomScreenMissileX
+            = NativeBottomScreenClassicLayoutOptions.Default.MissileX;
+        public static float BottomScreenMissileY
+        {
+            get => _bottomScreenMissileY;
+            set => _bottomScreenMissileY = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.MissileY,
+                NativeBottomScreenClassicLayoutOptions.MissileRadius / 192f,
+                1 - NativeBottomScreenClassicLayoutOptions.MissileRadius / 192f);
+        }
+        private static float _bottomScreenMissileY
+            = NativeBottomScreenClassicLayoutOptions.Default.MissileY;
+        public static float BottomScreenNextWeaponX
+        {
+            get => _bottomScreenNextWeaponX;
+            set => _bottomScreenNextWeaponX = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.NextWeaponX,
+                NativeBottomScreenClassicLayoutOptions.NextWeaponRadius / 256f,
+                1 - NativeBottomScreenClassicLayoutOptions.NextWeaponRadius / 256f);
+        }
+        private static float _bottomScreenNextWeaponX
+            = NativeBottomScreenClassicLayoutOptions.Default.NextWeaponX;
+        public static float BottomScreenNextWeaponY
+        {
+            get => _bottomScreenNextWeaponY;
+            set => _bottomScreenNextWeaponY = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.NextWeaponY,
+                NativeBottomScreenClassicLayoutOptions.NextWeaponRadius / 192f,
+                1 - NativeBottomScreenClassicLayoutOptions.NextWeaponRadius / 192f);
+        }
+        private static float _bottomScreenNextWeaponY
+            = NativeBottomScreenClassicLayoutOptions.Default.NextWeaponY;
+        public static float BottomScreenWeaponSelectX
+        {
+            get => _bottomScreenWeaponSelectX;
+            set => _bottomScreenWeaponSelectX = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectX,
+                NativeBottomScreenClassicLayoutOptions.WeaponSelectRadius / 256f,
+                1 - NativeBottomScreenClassicLayoutOptions.WeaponSelectRadius / 256f);
+        }
+        private static float _bottomScreenWeaponSelectX
+            = NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectX;
+        public static float BottomScreenWeaponSelectY
+        {
+            get => _bottomScreenWeaponSelectY;
+            set => _bottomScreenWeaponSelectY = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectY,
+                NativeBottomScreenClassicLayoutOptions.WeaponSelectRadius / 192f,
+                1 - NativeBottomScreenClassicLayoutOptions.WeaponSelectRadius / 192f);
+        }
+        private static float _bottomScreenWeaponSelectY
+            = NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectY;
+        public static float BottomScreenAltFormX
+        {
+            get => _bottomScreenAltFormX;
+            set => _bottomScreenAltFormX = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.AltFormX,
+                NativeBottomScreenClassicLayoutOptions.AltFormRadius / 256f,
+                1 - NativeBottomScreenClassicLayoutOptions.AltFormRadius / 256f);
+        }
+        private static float _bottomScreenAltFormX
+            = NativeBottomScreenClassicLayoutOptions.Default.AltFormX;
+        public static float BottomScreenAltFormY
+        {
+            get => _bottomScreenAltFormY;
+            set => _bottomScreenAltFormY = Clamp(value,
+                NativeBottomScreenClassicLayoutOptions.Default.AltFormY,
+                NativeBottomScreenClassicLayoutOptions.AltFormRadius / 192f,
+                1 - NativeBottomScreenClassicLayoutOptions.AltFormRadius / 192f);
+        }
+        private static float _bottomScreenAltFormY
+            = NativeBottomScreenClassicLayoutOptions.Default.AltFormY;
+        public static bool BottomScreenDirectionalSwipeAssist { get; set; } = true;
+        public static NativeBottomScreenClassicLayoutOptions CurrentBottomScreenClassicLayout
+            => new NativeBottomScreenClassicLayoutOptions(
+                BottomScreenPowerBeamX, BottomScreenPowerBeamY,
+                BottomScreenMissileX, BottomScreenMissileY,
+                BottomScreenNextWeaponX, BottomScreenNextWeaponY,
+                BottomScreenWeaponSelectX, BottomScreenWeaponSelectY,
+                BottomScreenAltFormX, BottomScreenAltFormY).Sanitized();
         public static NativeBottomScreenStyle BottomScreenStyle { get; set; }
             = NativeBottomScreenStyle.ClassicDs;
         public static float BottomScreenScale
@@ -1097,6 +1205,39 @@ namespace MphRead.Mods
                 case "bottom_screen_cursor_start_y":
                     if (parsed) BottomScreenCursorStartY = number;
                     return true;
+                case "bottom_screen_power_beam_x":
+                    if (parsed) BottomScreenPowerBeamX = number;
+                    return true;
+                case "bottom_screen_power_beam_y":
+                    if (parsed) BottomScreenPowerBeamY = number;
+                    return true;
+                case "bottom_screen_missile_x":
+                    if (parsed) BottomScreenMissileX = number;
+                    return true;
+                case "bottom_screen_missile_y":
+                    if (parsed) BottomScreenMissileY = number;
+                    return true;
+                case "bottom_screen_next_weapon_x":
+                    if (parsed) BottomScreenNextWeaponX = number;
+                    return true;
+                case "bottom_screen_next_weapon_y":
+                    if (parsed) BottomScreenNextWeaponY = number;
+                    return true;
+                case "bottom_screen_weapon_select_x":
+                    if (parsed) BottomScreenWeaponSelectX = number;
+                    return true;
+                case "bottom_screen_weapon_select_y":
+                    if (parsed) BottomScreenWeaponSelectY = number;
+                    return true;
+                case "bottom_screen_alt_form_x":
+                    if (parsed) BottomScreenAltFormX = number;
+                    return true;
+                case "bottom_screen_alt_form_y":
+                    if (parsed) BottomScreenAltFormY = number;
+                    return true;
+                case "bottom_screen_directional_swipe_assist":
+                    if (boolean) BottomScreenDirectionalSwipeAssist = flag;
+                    return true;
                 case "bottom_screen_style":
                     if (Enum.TryParse(value, true, out NativeBottomScreenStyle bottomScreenStyle)
                         && Enum.IsDefined(bottomScreenStyle))
@@ -1279,6 +1420,17 @@ namespace MphRead.Mods
                     "bottom_screen_cursor_sensitivity=" + Float(BottomScreenCursorSensitivity),
                     "bottom_screen_cursor_start_x=" + Float(BottomScreenCursorStartX),
                     "bottom_screen_cursor_start_y=" + Float(BottomScreenCursorStartY),
+                    "bottom_screen_power_beam_x=" + Float(BottomScreenPowerBeamX),
+                    "bottom_screen_power_beam_y=" + Float(BottomScreenPowerBeamY),
+                    "bottom_screen_missile_x=" + Float(BottomScreenMissileX),
+                    "bottom_screen_missile_y=" + Float(BottomScreenMissileY),
+                    "bottom_screen_next_weapon_x=" + Float(BottomScreenNextWeaponX),
+                    "bottom_screen_next_weapon_y=" + Float(BottomScreenNextWeaponY),
+                    "bottom_screen_weapon_select_x=" + Float(BottomScreenWeaponSelectX),
+                    "bottom_screen_weapon_select_y=" + Float(BottomScreenWeaponSelectY),
+                    "bottom_screen_alt_form_x=" + Float(BottomScreenAltFormX),
+                    "bottom_screen_alt_form_y=" + Float(BottomScreenAltFormY),
+                    $"bottom_screen_directional_swipe_assist={BottomScreenDirectionalSwipeAssist.ToString().ToLowerInvariant()}",
                     $"bottom_screen_style={BottomScreenStyle}",
                     "bottom_screen_scale=" + Float(BottomScreenScale),
                     "bottom_screen_center_x=" + Float(BottomScreenCenterX),
@@ -1355,6 +1507,17 @@ namespace MphRead.Mods
             BottomScreenCursorSensitivity = 1;
             BottomScreenCursorStartX = .5f;
             BottomScreenCursorStartY = .5f;
+            BottomScreenPowerBeamX = NativeBottomScreenClassicLayoutOptions.Default.PowerBeamX;
+            BottomScreenPowerBeamY = NativeBottomScreenClassicLayoutOptions.Default.PowerBeamY;
+            BottomScreenMissileX = NativeBottomScreenClassicLayoutOptions.Default.MissileX;
+            BottomScreenMissileY = NativeBottomScreenClassicLayoutOptions.Default.MissileY;
+            BottomScreenNextWeaponX = NativeBottomScreenClassicLayoutOptions.Default.NextWeaponX;
+            BottomScreenNextWeaponY = NativeBottomScreenClassicLayoutOptions.Default.NextWeaponY;
+            BottomScreenWeaponSelectX = NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectX;
+            BottomScreenWeaponSelectY = NativeBottomScreenClassicLayoutOptions.Default.WeaponSelectY;
+            BottomScreenAltFormX = NativeBottomScreenClassicLayoutOptions.Default.AltFormX;
+            BottomScreenAltFormY = NativeBottomScreenClassicLayoutOptions.Default.AltFormY;
+            BottomScreenDirectionalSwipeAssist = true;
             BottomScreenStyle = NativeBottomScreenStyle.ClassicDs;
             BottomScreenScale = 1;
             BottomScreenCenterX = .5f;

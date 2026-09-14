@@ -51,24 +51,117 @@ namespace MphRead.Mods.Input
         string Label);
 
     /// <summary>
-    /// Canonical 256x192 button placement based on the original lower-screen
-    /// arrangement. Everything outside a button is the touch aiming surface.
+    /// Normalized positions for the five Classic DS controls. Radii and labels
+    /// are intentionally fixed to preserve the native control proportions;
+    /// only centers are user-adjustable.
     /// </summary>
-    public static class NativeBottomScreenClassicLayout
+    public readonly record struct NativeBottomScreenClassicLayoutOptions(
+        float PowerBeamX, float PowerBeamY,
+        float MissileX, float MissileY,
+        float NextWeaponX, float NextWeaponY,
+        float WeaponSelectX, float WeaponSelectY,
+        float AltFormX, float AltFormY)
+    {
+        public const float PowerBeamRadius = 22;
+        public const float MissileRadius = 20;
+        public const float NextWeaponRadius = 30;
+        public const float WeaponSelectRadius = 26;
+        public const float AltFormRadius = 22;
+
+        public static NativeBottomScreenClassicLayoutOptions Default => new(
+            26f / 256, 26f / 192,
+            80f / 256, 24f / 192,
+            150f / 256, 30f / 192,
+            222f / 256, 28f / 192,
+            228f / 256, 166f / 192);
+
+        public NativeBottomScreenClassicLayoutOptions Sanitized()
+            => new(
+                ClampX(PowerBeamX, Default.PowerBeamX, PowerBeamRadius),
+                ClampY(PowerBeamY, Default.PowerBeamY, PowerBeamRadius),
+                ClampX(MissileX, Default.MissileX, MissileRadius),
+                ClampY(MissileY, Default.MissileY, MissileRadius),
+                ClampX(NextWeaponX, Default.NextWeaponX, NextWeaponRadius),
+                ClampY(NextWeaponY, Default.NextWeaponY, NextWeaponRadius),
+                ClampX(WeaponSelectX, Default.WeaponSelectX, WeaponSelectRadius),
+                ClampY(WeaponSelectY, Default.WeaponSelectY, WeaponSelectRadius),
+                ClampX(AltFormX, Default.AltFormX, AltFormRadius),
+                ClampY(AltFormY, Default.AltFormY, AltFormRadius));
+
+        public NativeBottomScreenClassicLayoutSnapshot CreateLayout()
+            => new(this);
+
+        private static float ClampX(float value, float fallback, float radius)
+            => float.IsFinite(value)
+                ? Math.Clamp(value, radius / 256f, 1 - radius / 256f)
+                : fallback;
+
+        private static float ClampY(float value, float fallback, float radius)
+            => float.IsFinite(value)
+                ? Math.Clamp(value, radius / 192f, 1 - radius / 192f)
+                : fallback;
+    }
+
+    /// <summary>
+    /// Immutable, sanitized Classic DS geometry. The declaration order is
+    /// stable and is used for deterministic overlap ties, drawing, exact hit
+    /// testing, and directional swipe matching.
+    /// </summary>
+    public sealed class NativeBottomScreenClassicLayoutSnapshot
     {
         public const float DsWidth = 256;
         public const float DsHeight = 192;
+        public const float SwipeDeadzone = 24;
+        private const float SwipeCosine = .8191520443f; // cos(35 degrees)
 
-        public static readonly NativeBottomScreenButton[] Buttons =
+        private readonly NativeBottomScreenButton[] _buttons;
+        private readonly IReadOnlyList<NativeBottomScreenButton> _readOnlyButtons;
+
+        internal NativeBottomScreenClassicLayoutSnapshot(
+            NativeBottomScreenClassicLayoutOptions options)
         {
-            new(NativeBottomScreenRegion.PowerBeam, new Vector2(26, 26), 22, "BEAM"),
-            new(NativeBottomScreenRegion.Missile, new Vector2(80, 24), 20, "MSL"),
-            new(NativeBottomScreenRegion.NextWeapon, new Vector2(150, 28), 30, "WPN"),
-            new(NativeBottomScreenRegion.WeaponSelect, new Vector2(222, 28), 26, "SEL"),
-            new(NativeBottomScreenRegion.AltForm, new Vector2(228, 166), 22, "ALT")
-        };
+            Options = options.Sanitized();
+            _buttons = new[]
+            {
+                new NativeBottomScreenButton(NativeBottomScreenRegion.PowerBeam,
+                    new Vector2(Options.PowerBeamX * DsWidth,
+                        Options.PowerBeamY * DsHeight),
+                    NativeBottomScreenClassicLayoutOptions.PowerBeamRadius, "BEAM"),
+                new NativeBottomScreenButton(NativeBottomScreenRegion.Missile,
+                    new Vector2(Options.MissileX * DsWidth,
+                        Options.MissileY * DsHeight),
+                    NativeBottomScreenClassicLayoutOptions.MissileRadius, "MSL"),
+                new NativeBottomScreenButton(NativeBottomScreenRegion.NextWeapon,
+                    new Vector2(Options.NextWeaponX * DsWidth,
+                        Options.NextWeaponY * DsHeight),
+                    NativeBottomScreenClassicLayoutOptions.NextWeaponRadius, "WPN"),
+                new NativeBottomScreenButton(NativeBottomScreenRegion.WeaponSelect,
+                    new Vector2(Options.WeaponSelectX * DsWidth,
+                        Options.WeaponSelectY * DsHeight),
+                    NativeBottomScreenClassicLayoutOptions.WeaponSelectRadius, "SEL"),
+                new NativeBottomScreenButton(NativeBottomScreenRegion.AltForm,
+                    new Vector2(Options.AltFormX * DsWidth,
+                        Options.AltFormY * DsHeight),
+                    NativeBottomScreenClassicLayoutOptions.AltFormRadius, "ALT")
+            };
+            _readOnlyButtons = Array.AsReadOnly(_buttons);
+        }
 
-        public static NativeBottomScreenRegion RegionAt(Vector2 canonicalPoint)
+        public NativeBottomScreenClassicLayoutOptions Options { get; }
+        public IReadOnlyList<NativeBottomScreenButton> Buttons => _readOnlyButtons;
+
+        public NativeBottomScreenButton GetButton(NativeBottomScreenRegion region)
+            => region switch
+            {
+                NativeBottomScreenRegion.PowerBeam => _buttons[0],
+                NativeBottomScreenRegion.Missile => _buttons[1],
+                NativeBottomScreenRegion.NextWeapon => _buttons[2],
+                NativeBottomScreenRegion.WeaponSelect => _buttons[3],
+                NativeBottomScreenRegion.AltForm => _buttons[4],
+                _ => throw new ArgumentOutOfRangeException(nameof(region))
+            };
+
+        public NativeBottomScreenRegion RegionAt(Vector2 canonicalPoint)
         {
             if (!float.IsFinite(canonicalPoint.X) || !float.IsFinite(canonicalPoint.Y)
                 || canonicalPoint.X < 0 || canonicalPoint.X > DsWidth
@@ -76,14 +169,80 @@ namespace MphRead.Mods.Input
             {
                 return NativeBottomScreenRegion.None;
             }
-            foreach (NativeBottomScreenButton button in Buttons)
+            NativeBottomScreenRegion nearest = NativeBottomScreenRegion.None;
+            float nearestDistance = float.MaxValue;
+            foreach (NativeBottomScreenButton button in _buttons)
             {
                 Vector2 delta = canonicalPoint - button.Position;
-                if (delta.LengthSquared <= button.Radius * button.Radius)
-                    return button.Region;
+                float distance = delta.LengthSquared;
+                if (distance <= button.Radius * button.Radius
+                    && distance < nearestDistance)
+                {
+                    nearest = button.Region;
+                    nearestDistance = distance;
+                }
             }
-            return NativeBottomScreenRegion.Aim;
+            return nearest == NativeBottomScreenRegion.None
+                ? NativeBottomScreenRegion.Aim : nearest;
         }
+
+        public NativeBottomScreenRegion ResolveRegion(Vector2 canonicalPoint,
+            Vector2 contactStart, bool directionalSwipeAssist)
+        {
+            NativeBottomScreenRegion exact = RegionAt(canonicalPoint);
+            if (!directionalSwipeAssist
+                || exact is not (NativeBottomScreenRegion.Aim
+                    or NativeBottomScreenRegion.None))
+            {
+                return exact;
+            }
+
+            Vector2 displacement = canonicalPoint - contactStart;
+            if (!float.IsFinite(displacement.X)
+                || !float.IsFinite(displacement.Y)
+                || displacement.LengthSquared <= SwipeDeadzone * SwipeDeadzone)
+            {
+                return exact;
+            }
+            Vector2 direction = displacement.Normalized();
+            NativeBottomScreenRegion assisted = NativeBottomScreenRegion.None;
+            float bestDot = SwipeCosine;
+            foreach (NativeBottomScreenButton button in _buttons)
+            {
+                Vector2 toButton = button.Position - contactStart;
+                if (!float.IsFinite(toButton.X) || !float.IsFinite(toButton.Y)
+                    || toButton.LengthSquared <= 0.001f) continue;
+                float dot = Vector2.Dot(direction, toButton.Normalized());
+                // Strict comparison preserves declaration-order ties.
+                if (dot > bestDot)
+                {
+                    bestDot = dot;
+                    assisted = button.Region;
+                }
+            }
+            return assisted == NativeBottomScreenRegion.None ? exact : assisted;
+        }
+    }
+
+    /// <summary>
+    /// Compatibility facade for callers that need the shipped Classic DS
+    /// geometry. Scene-owned controllers use their immutable snapshot instead.
+    /// </summary>
+    public static class NativeBottomScreenClassicLayout
+    {
+        public const float DsWidth = NativeBottomScreenClassicLayoutSnapshot.DsWidth;
+        public const float DsHeight = NativeBottomScreenClassicLayoutSnapshot.DsHeight;
+        public static NativeBottomScreenClassicLayoutSnapshot Default { get; }
+            = NativeBottomScreenClassicLayoutOptions.Default.CreateLayout();
+        public static IReadOnlyList<NativeBottomScreenButton> Buttons
+            => Default.Buttons;
+
+        public static NativeBottomScreenClassicLayoutSnapshot Create(
+            NativeBottomScreenClassicLayoutOptions options)
+            => options.CreateLayout();
+
+        public static NativeBottomScreenRegion RegionAt(Vector2 canonicalPoint)
+            => Default.RegionAt(canonicalPoint);
     }
 
     /// <summary>Normalized placement and size for the lower-screen panel.</summary>
@@ -342,6 +501,10 @@ namespace MphRead.Mods.Input
         private NativeBottomScreenStyle _style = NativeBottomScreenStyle.AffinitySelector;
         private NativeBottomScreenLayoutOptions _layoutOptions
             = NativeBottomScreenLayoutOptions.Default;
+        private NativeBottomScreenClassicLayoutOptions _classicLayoutOptions
+            = NativeBottomScreenClassicLayoutOptions.Default;
+        private NativeBottomScreenClassicLayoutSnapshot _classicLayout
+            = NativeBottomScreenClassicLayoutOptions.Default.CreateLayout();
         private NativeBottomScreenLayout _layout;
         private long _generation;
         private long _platformToken;
@@ -357,6 +520,10 @@ namespace MphRead.Mods.Input
 
         public NativeBottomScreenMode Mode { get { lock (_sync) return _mode; } }
         public NativeBottomScreenStyle Style { get { lock (_sync) return _style; } }
+        public NativeBottomScreenClassicLayoutSnapshot ClassicLayout
+        {
+            get { lock (_sync) return _classicLayout; }
+        }
         public NativeBottomScreenLayout Layout { get { lock (_sync) return _layout; } }
         public long Generation { get { lock (_sync) return _generation; } }
         public bool PopupOpen { get { lock (_sync) return _popupOpen; } }
@@ -416,17 +583,20 @@ namespace MphRead.Mods.Input
         }
 
         public void UpdatePreferences(NativeBottomScreenMode mode,
-            NativeBottomScreenStyle style, NativeBottomScreenLayoutOptions options)
+            NativeBottomScreenStyle style, NativeBottomScreenLayoutOptions options,
+            NativeBottomScreenClassicLayoutOptions? classicOptions = null)
         {
             if (!Enum.IsDefined(mode)) mode = NativeBottomScreenMode.Off;
             if (!Enum.IsDefined(style)) style = NativeBottomScreenStyle.ClassicDs;
             options = options.Sanitized();
             lock (_sync)
             {
+                NativeBottomScreenClassicLayoutOptions sanitizedClassic
+                    = (classicOptions ?? _classicLayoutOptions).Sanitized();
                 NativeBottomScreenLayout layout = NativeBottomScreenLayout.Compute(
                     _layout.LogicalSize, _layout.FramebufferSize, options);
                 if (mode == _mode && style == _style && options == _layoutOptions
-                    && layout == _layout)
+                    && layout == _layout && sanitizedClassic == _classicLayoutOptions)
                 {
                     return;
                 }
@@ -434,6 +604,8 @@ namespace MphRead.Mods.Input
                 _mode = mode;
                 _style = style;
                 _layoutOptions = options;
+                _classicLayoutOptions = sanitizedClassic;
+                _classicLayout = sanitizedClassic.CreateLayout();
                 _layout = layout;
                 _popupOpen = mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;
@@ -782,7 +954,7 @@ namespace MphRead.Mods.Input
                 {
                     Vector2 canonical = _layout.LogicalToDs(sample.X, sample.Y);
                     NativeBottomScreenRegion region
-                        = NativeBottomScreenClassicLayout.RegionAt(canonical);
+                        = _classicLayout.RegionAt(canonical);
                     // The original lower screen's middle is an aiming surface.
                     // Leave it unclaimed so the existing stylus/touch look path
                     // remains the only owner of camera movement.

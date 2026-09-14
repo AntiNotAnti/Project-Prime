@@ -98,8 +98,10 @@ internal sealed class DesktopGameOverlayWindow : Window, IDesktopGameOverlaySurf
         {
             // The SDL host can lose focus as part of the intentional
             // SDL-to-overlay handoff. The overlay is the requested target, so
-            // its activation is not gated by the source host's focus bit.
-            SetZOrderOwned(true);
+            // its activation is not gated by the source host's focus bit. Do
+            // not promote it before the native activation callback: Windows
+            // may deny this foreground request, and a denied request must not
+            // leave a background overlay globally topmost.
             Activate();
         }
     }

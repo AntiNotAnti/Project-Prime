@@ -31,8 +31,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     private MatchTransitionView? _transition;
     private IMatchTransitionMenuActions? _transitionActions;
     private bool _disposed;
-    private bool _hostFocusKnown;
-    private bool _hostWasFocused;
+    private bool _hostEligibilityKnown;
+    private bool _hostWasEligible;
     private DesktopOverlayMode _mode;
 
     // Compatibility routing hook for PauseMenu/HomeWindow. It exposes the
@@ -62,8 +62,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         _inputOwner = inputOwner ?? new DesktopInputOwner();
         if (_state != null)
         {
-            _hostWasFocused = _state().IsFocused;
-            _hostFocusKnown = true;
+            _hostWasEligible = IsHostActivationEligible(_state());
+            _hostEligibilityKnown = true;
         }
         _surface.UserCloseRequested += SurfaceUserCloseRequested;
         _surface.Activated += SurfaceActivated;
@@ -114,8 +114,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             _host.DetachInputOwner(_inputOwner);
         }
         _host = host;
-        _hostWasFocused = host.PresentationState.IsFocused;
-        _hostFocusKnown = true;
+        _hostWasEligible = IsHostActivationEligible(host.PresentationState);
+        _hostEligibilityKnown = true;
         _host.AttachInputOwner(_inputOwner);
         _host.PresentationStateChanged += HostPresentationChanged;
         HostPresentationChanged(host.PresentationState);
@@ -356,6 +356,10 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
 
     internal void HideResultsForTransition()
     {
+        // Commit the logical handoff before disposing views or releasing native
+        // content. Those operations can synchronously raise focus callbacks;
+        // callbacks must observe that this mode is already gone.
+        _mode = DesktopOverlayMode.None;
         if (_results != null)
         {
             PostMatchSession session = _results;
@@ -370,7 +374,6 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             _transition = null;
         }
         _surface.ReleaseContent();
-        _mode = DesktopOverlayMode.None;
         PauseMenu.SetOverlayOpen(false);
         _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
             : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
@@ -416,8 +419,10 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     internal void CloseForTransition()
     {
         if (_mode == DesktopOverlayMode.None) return;
-        EndCurrentContent();
+        // Commit the logical handoff before hiding/releasing native content;
+        // Windows focus callbacks can re-enter during either operation.
         _mode = DesktopOverlayMode.None;
+        EndCurrentContent();
         PauseMenu.SetOverlayOpen(false);
         _inputOwner.SetOwner(_scene == null ? DesktopInputOwnerKind.None
             : DesktopInputOwnerKind.Scene, GamepadInput.State.Buttons);
@@ -450,7 +455,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     {
         if (_mode == DesktopOverlayMode.None) return;
         GameHostPresentationState state = CurrentHostState();
-        if (state.IsMinimized)
+        if (!state.IsVisible || state.IsMinimized)
         {
             _surface.SetZOrderOwned(false);
             _surface.HideForHostPreservingContent(state);
@@ -470,10 +475,11 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
 
     private void HostPresentationChanged(GameHostPresentationState state)
     {
-        bool regainedFocus = _hostFocusKnown && !_hostWasFocused
-            && state.IsFocused;
-        _hostWasFocused = state.IsFocused;
-        _hostFocusKnown = true;
+        bool eligible = IsHostActivationEligible(state);
+        bool regainedEligibility = _hostEligibilityKnown && !_hostWasEligible
+            && eligible;
+        _hostWasEligible = eligible;
+        _hostEligibilityKnown = true;
         if (_disposed || _mode == DesktopOverlayMode.None) return;
         if (state.IsMinimized || !state.IsVisible)
         {
@@ -490,14 +496,18 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             // still open, return activation to that overlay exactly once.
             // A focus-loss edge never activates anything, so switching away
             // from Project Prime still yields to the foreground application.
-            if (regainedFocus)
+            if (regainedEligibility)
             {
                 DebugLog.Line("sdl",
-                    $"window focus returned with {_mode} overlay open; activating overlay");
+                    $"window became activation-eligible with {_mode} overlay open; activating overlay");
             }
-            _surface.ShowForHost(state, activate: regainedFocus);
+            _surface.ShowForHost(state, activate: regainedEligibility);
         }
     }
+
+    internal static bool IsHostActivationEligible(GameHostPresentationState state)
+        => state.IsVisible && !state.IsMinimized && state.IsFocused
+            && !state.ActivationDeferred;
 
     private void SurfaceUserCloseRequested(object? sender, EventArgs args)
     {

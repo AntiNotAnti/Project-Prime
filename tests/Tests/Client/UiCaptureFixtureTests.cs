@@ -947,14 +947,13 @@ public sealed class UiCaptureFixtureTests
                 {
                     Assert.True(target.IsEffectivelyVisible,
                         $"{fixtureName}: {Describe(target)} is not effectively visible.");
-                    Point? origin = target.TranslatePoint(default, pageScroller);
-                    Assert.True(origin.HasValue,
+                    Rect? bounds = BoundsRelativeTo(target, pageScroller);
+                    Assert.True(bounds.HasValue,
                         $"{fixtureName}: could not resolve {target.GetType().Name} bounds.");
-                    Rect bounds = new(origin!.Value, target.Bounds.Size);
-                    Assert.True(bounds.Left >= viewport.Left - 1
-                        && bounds.Top >= viewport.Top - 1
-                        && bounds.Right <= viewport.Right + 1
-                        && bounds.Bottom <= viewport.Bottom + 1,
+                    Assert.True(bounds.Value.Left >= viewport.Left - 1
+                        && bounds.Value.Top >= viewport.Top - 1
+                        && bounds.Value.Right <= viewport.Right + 1
+                        && bounds.Value.Bottom <= viewport.Bottom + 1,
                         $"{fixtureName}: {Describe(target)} is outside PageScroller "
                         + $"({bounds}, layout {layout.Bounds}, viewport {viewport}).");
                 }
@@ -982,13 +981,13 @@ public sealed class UiCaptureFixtureTests
                 .OfType<ScrollViewer>(), scroller => scroller.Name == "PageScroller");
             PrimeButton start = Assert.Single(view.GetVisualDescendants()
                 .OfType<PrimeButton>(), button => Equals(button.Content, "Start Match"));
-            Point? origin = start.TranslatePoint(default, pageScroller);
+            Rect? bounds = BoundsRelativeTo(start, pageScroller);
 
             Assert.Equal(0, pageScroller.Offset.Y);
-            Assert.True(origin.HasValue);
-            Assert.True(origin.Value.Y >= 0
-                && origin.Value.Y + start.Bounds.Height <= pageScroller.Viewport.Height,
-                $"Start Match is outside the initial compact viewport at {origin.Value}.");
+            Assert.True(bounds.HasValue);
+            Assert.True(bounds.Value.Top >= 0
+                && bounds.Value.Bottom <= pageScroller.Viewport.Height,
+                $"Start Match is outside the initial compact viewport at {bounds.Value}.");
         }
         finally
         {
@@ -1004,6 +1003,25 @@ public sealed class UiCaptureFixtureTests
             PrimeButton button => $"PrimeButton '{button.Content}'",
             _ => control.GetType().Name
         };
+
+    private static Rect? BoundsRelativeTo(Control control, Visual relativeTo)
+    {
+        Avalonia.Matrix? transform = control.TransformToVisual(relativeTo);
+        if (!transform.HasValue) return null;
+        Rect local = new(control.Bounds.Size);
+        Point[] corners =
+        {
+            transform.Value.Transform(local.TopLeft),
+            transform.Value.Transform(local.TopRight),
+            transform.Value.Transform(local.BottomLeft),
+            transform.Value.Transform(local.BottomRight)
+        };
+        double left = corners.Min(point => point.X);
+        double top = corners.Min(point => point.Y);
+        double right = corners.Max(point => point.X);
+        double bottom = corners.Max(point => point.Y);
+        return new Rect(left, top, right - left, bottom - top);
+    }
 
     [AvaloniaFact]
     public void RankingsMobileFixtureUsesRankingDataAndResponsiveMobileLayout()

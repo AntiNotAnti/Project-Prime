@@ -98,6 +98,20 @@ internal unsafe sealed class SdlWindowController : IDisposable
             Mods.DebugLog.Line("sdl", $"window activation request failed: {SDL3.SDL_GetError()}");
     }
 
+    internal void RestoreIfMinimized()
+    {
+        ThrowIfDisposed();
+        if ((SDL3.SDL_GetWindowFlags(_window) & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) == 0)
+            return;
+        if (!SDL3.SDL_RestoreWindow(_window))
+        {
+            // Restore is a best-effort request on some window managers. Keep
+            // activation asynchronous and let the following raise/focus
+            // reconciliation decide whether the window actually became live.
+            Mods.DebugLog.Line("sdl", $"window restore request failed: {SDL3.SDL_GetError()}");
+        }
+    }
+
     internal void SetPosition(Vector2i position)
     {
         ThrowIfDisposed();

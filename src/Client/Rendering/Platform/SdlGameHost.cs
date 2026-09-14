@@ -318,6 +318,7 @@ namespace MphRead
             _activationDeferred = false;
             _windowController!.SetActivationDeferred(false);
             SetWindowFocusable(true);
+            _windowController!.RestoreIfMinimized();
             _windowController!.Raise();
             // Raising is an asynchronous request on several desktop window
             // managers. Do not claim focus early: relative mouse capture can
@@ -662,7 +663,11 @@ namespace MphRead
                         if (IsOurWindow(evt.window.windowID))
                         {
                             _focusEventThisPump = true;
-                            ApplyFocusState(!_activationDeferred);
+                            ApplyFocusState(IsInputEligible(
+                                SDL3.SDL_GetWindowFlags(NativeWindow),
+                                _activationDeferred,
+                                framebufferValid: _framebufferSize.X > 0
+                                    && _framebufferSize.Y > 0));
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_FOCUS_LOST:
@@ -681,9 +686,24 @@ namespace MphRead
                         break;
                     case SDL_EventType.SDL_EVENT_WINDOW_MOVED:
                     case SDL_EventType.SDL_EVENT_WINDOW_SHOWN:
+                        if (IsOurWindow(evt.window.windowID))
+                        {
+                            // Position and native visibility can change at the
+                            // window-manager boundary without going through a
+                            // launcher-owned Show/Hide call. Publish the SDL
+                            // flags/geometry as the single source of truth.
+                            PublishPresentationState();
+                        }
+                        break;
                     case SDL_EventType.SDL_EVENT_WINDOW_HIDDEN:
                         if (IsOurWindow(evt.window.windowID))
                         {
+                            // A queued focus/input event can arrive after the
+                            // window was hidden. Make the current pump's
+                            // explicit focus result a loss and clear held
+                            // state before publishing the hidden surface.
+                            _focusEventThisPump = false;
+                            ApplyFocusState(false);
                             // Position and native visibility can change at the
                             // window-manager boundary without going through a
                             // launcher-owned Show/Hide call. Publish the SDL
@@ -803,11 +823,14 @@ namespace MphRead
 
         private void SynchronizeNativeFocus()
         {
+            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(NativeWindow);
             bool keyboardFocus = SDL3.SDL_GetKeyboardFocus() == NativeWindow;
             bool focused = ResolveFocusAfterPump(_focusEventThisPump,
-                (SDL3.SDL_GetWindowFlags(NativeWindow)
-                    & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0,
+                (flags & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0,
                 keyboardFocus,
+                (flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0,
+                (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
+                    || _framebufferSize.X <= 0 || _framebufferSize.Y <= 0,
                 _activationDeferred);
             if (focused == _focused) return;
             ApplyFocusState(focused);
@@ -839,7 +862,16 @@ namespace MphRead
 
         private void ConfirmFocusFromInputEvent()
         {
-            if (_activationDeferred) return;
+            SDL_WindowFlags flags = SDL3.SDL_GetWindowFlags(NativeWindow);
+            if (!IsInputEligible(flags, _activationDeferred,
+                framebufferValid: _framebufferSize.X > 0
+                    && _framebufferSize.Y > 0)) return;
+            // Input queued before a task switch must not manufacture a local
+            // focus gain. Confirm the native owner as well as visibility;
+            // SDL's focus event may be delivered in a later pump.
+            bool nativeInputFocus = (flags & SDL_WindowFlags.SDL_WINDOW_INPUT_FOCUS) != 0;
+            bool keyboardFocus = SDL3.SDL_GetKeyboardFocus() == NativeWindow;
+            if (!nativeInputFocus && !keyboardFocus) return;
             _focusEventThisPump = true;
             if (!_focused) ApplyFocusState(true);
         }
@@ -864,16 +896,46 @@ namespace MphRead
             }
         }
 
+        internal static bool IsInputEligible(bool isVisible, bool isMinimized,
+            bool activationDeferred)
+            => isVisible && !isMinimized && !activationDeferred;
+
+        private static bool IsInputEligible(SDL_WindowFlags flags,
+            bool activationDeferred, bool framebufferValid = true)
+            => IsInputEligible(
+                (flags & SDL_WindowFlags.SDL_WINDOW_HIDDEN) == 0,
+                (flags & SDL_WindowFlags.SDL_WINDOW_MINIMIZED) != 0
+                    || !framebufferValid,
+                activationDeferred);
+
+        internal static bool ResolveNativeFocus(bool nativeInputFocus,
+            bool keyboardFocus, bool isVisible, bool isMinimized,
+            bool activationDeferred)
+            => IsInputEligible(isVisible, isMinimized, activationDeferred)
+                && (nativeInputFocus || keyboardFocus);
+
+        // Keep the pre-eligibility seam source-compatible for focused tests and
+        // callers that have no native visibility sample. A visible, drawable
+        // window is assumed by this overload.
         internal static bool ResolveNativeFocus(bool nativeInputFocus,
             bool keyboardFocus, bool activationDeferred)
-            => (nativeInputFocus || keyboardFocus) && !activationDeferred;
+            => ResolveNativeFocus(nativeInputFocus, keyboardFocus,
+                isVisible: true, isMinimized: false, activationDeferred);
+
+        internal static bool ResolveFocusAfterPump(bool? focusEvent,
+            bool nativeInputFocus, bool keyboardFocus, bool isVisible,
+            bool isMinimized, bool activationDeferred)
+            => focusEvent.HasValue
+                ? focusEvent.Value
+                    && IsInputEligible(isVisible, isMinimized,
+                        activationDeferred)
+                : ResolveNativeFocus(nativeInputFocus, keyboardFocus,
+                    isVisible, isMinimized, activationDeferred);
 
         internal static bool ResolveFocusAfterPump(bool? focusEvent,
             bool nativeInputFocus, bool keyboardFocus, bool activationDeferred)
-            => focusEvent.HasValue
-                ? focusEvent.Value && !activationDeferred
-                : ResolveNativeFocus(nativeInputFocus, keyboardFocus,
-                    activationDeferred);
+            => ResolveFocusAfterPump(focusEvent, nativeInputFocus, keyboardFocus,
+                isVisible: true, isMinimized: false, activationDeferred);
 
         internal static bool ShouldRestoreSceneInputOwner(
             DesktopInputOwnerKind currentOwner, bool hasPresentation,

@@ -32,6 +32,8 @@ namespace MphRead.Entities
         private NativeBottomScreenRegion _bottomScreenRegionPreview;
         private BottomScreenAction _bottomScreenPendingAction;
         private BottomScreenWeaponAvailability _bottomScreenAvailability;
+        private Vector2 _bottomScreenContactStartDs;
+        private bool _bottomScreenDirectionalSwipeAssist;
         private bool _bottomScreenInteractionActive;
         private bool _bottomScreenSuppressesMouseThisStep;
         private readonly HudObjectInstance[] _bottomScreenWeapons = new HudObjectInstance[6];
@@ -189,7 +191,8 @@ namespace MphRead.Entities
                 new NativeBottomScreenLayoutOptions(
                     Mods.InputSettings.BottomScreenScale,
                     Mods.InputSettings.BottomScreenCenterX,
-                    Mods.InputSettings.BottomScreenCenterY));
+                    Mods.InputSettings.BottomScreenCenterY),
+                Mods.InputSettings.CurrentBottomScreenClassicLayout);
             controller.UpdateDesktopCursorPreferences(
                 Mods.InputSettings.BottomScreenCursorSensitivity,
                 Mods.InputSettings.BottomScreenCursorStartX,
@@ -220,6 +223,10 @@ namespace MphRead.Entities
                         // The legal set is immutable for this contact. The
                         // commit path revalidates against live ammo/ownership.
                         _bottomScreenAvailability = currentAvailability;
+                        _bottomScreenContactStartDs = layout.LogicalToDs(
+                            item.Sample.X, item.Sample.Y);
+                        _bottomScreenDirectionalSwipeAssist = desktopSample
+                            && Mods.InputSettings.BottomScreenDirectionalSwipeAssist;
                         _bottomScreenInteractionActive = true;
                         goto case NativeBottomScreenPointerPhase.Move;
                     case NativeBottomScreenPointerPhase.Move:
@@ -233,7 +240,9 @@ namespace MphRead.Entities
                             && !controller.SelectorOpen)
                         {
                             _bottomScreenRegionPreview
-                                = NativeBottomScreenClassicLayout.RegionAt(ds);
+                                = controller.ClassicLayout.ResolveRegion(ds,
+                                    _bottomScreenContactStartDs,
+                                    _bottomScreenDirectionalSwipeAssist);
                             _bottomScreenPreview = WeaponSelectionIntent.None;
                             if (desktopSample
                                 && controller.DesktopActivationMode
@@ -263,7 +272,9 @@ namespace MphRead.Entities
                             && !controller.SelectorOpen)
                         {
                             _bottomScreenRegionPreview
-                                = NativeBottomScreenClassicLayout.RegionAt(releaseDs);
+                                = controller.ClassicLayout.ResolveRegion(releaseDs,
+                                    _bottomScreenContactStartDs,
+                                    _bottomScreenDirectionalSwipeAssist);
                             _bottomScreenPreview = WeaponSelectionIntent.None;
                         }
                         else
@@ -346,11 +357,11 @@ namespace MphRead.Entities
         {
             switch (region)
             {
-                case NativeBottomScreenRegion.PowerBeam when availability.Contains(0):
-                    _bottomScreenPending = 0;
-                    return true;
-                case NativeBottomScreenRegion.Missile when availability.Contains(1):
-                    _bottomScreenPending = 1;
+                case NativeBottomScreenRegion.PowerBeam:
+                case NativeBottomScreenRegion.Missile:
+                    byte beam = ClassicBeamId(region);
+                    if (!availability.Contains(beam)) return false;
+                    _bottomScreenPending = beam;
                     return true;
                 case NativeBottomScreenRegion.NextWeapon:
                     _bottomScreenPendingAction |= BottomScreenAction.NextWeapon;
@@ -364,6 +375,14 @@ namespace MphRead.Entities
                     return false;
             }
         }
+
+        internal static byte ClassicBeamId(NativeBottomScreenRegion region)
+            => region switch
+            {
+                NativeBottomScreenRegion.PowerBeam => (byte)BeamType.PowerBeam,
+                NativeBottomScreenRegion.Missile => (byte)BeamType.Missile,
+                _ => WeaponSelectionIntent.None
+            };
 
         private byte TakeBottomScreenPending()
         {
@@ -495,7 +514,7 @@ namespace MphRead.Entities
             float scaleX = panel.Width / NativeBottomScreenClassicLayout.DsWidth;
             float scaleY = panel.Height / NativeBottomScreenClassicLayout.DsHeight;
             foreach (NativeBottomScreenButton button
-                in NativeBottomScreenClassicLayout.Buttons)
+                in Presentation.BottomScreen.ClassicLayout.Buttons)
             {
                 bool active = (_bottomScreenInteractionActive
                     || Presentation.BottomScreen.DesktopSessionActive)
