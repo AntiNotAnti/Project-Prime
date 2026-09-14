@@ -604,9 +604,10 @@ namespace MphRead.Entities
         /// The owner's relayed input normally does this by itself; this is
         /// for the case where the two machines have ended up disagreeing.
         /// </summary>
-        internal void ModStartFormSwitch()
+        internal void ModStartFormSwitch(bool transferHalfturretHealth = true)
         {
-            bool switched = TrySwitchForms(force: true);
+            bool switched = TrySwitchForms(force: true,
+                transferHalfturretHealth);
             _scene.Services.NoteEvent($"slot {SlotIndex} form switch requested -> {switched}, now {ModFormState()}");
         }
 
@@ -620,8 +621,12 @@ namespace MphRead.Entities
         /// appeared removed the morph-in animation and left the morph-out one
         /// intact, which is exactly the asymmetry that showed up in play.
         /// </summary>
-        internal void ModForceForm(bool altForm)
+        internal void ModForceForm(bool altForm, bool transferHalfturretHealth = true)
         {
+            if (altForm && !SupportsAltForm(Hunter))
+            {
+                return;
+            }
             if (altForm == IsAltForm)
             {
                 return;
@@ -630,6 +635,7 @@ namespace MphRead.Entities
                 + $"from {ModFormState()}");
             Flags1 &= ~PlayerFlags1.Morphing;
             Flags1 &= ~PlayerFlags1.Unmorphing;
+            SetWeavelHalfturretActive(altForm, transferHalfturretHealth);
             UpdateForm(altForm);
         }
 

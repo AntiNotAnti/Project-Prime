@@ -1404,7 +1404,8 @@ namespace MphRead.Entities
             _scene.Services.Combat?.NoteHealing(this, _health - previousHealth);
         }
 
-        private bool TrySwitchForms(bool force = false)
+        private bool TrySwitchForms(bool force = false,
+            bool transferHalfturretHealth = true)
         {
             if (!force && (IsMorphing || IsUnmorphing || _frozenTimer > 0 || _field6D0 || _deathaltTimer > 0
                     || Flags2.TestFlag(PlayerFlags2.NoFormSwitch)
@@ -1417,7 +1418,7 @@ namespace MphRead.Entities
                 }
                 return false;
             }
-            if (Hunter == Hunter.Guardian) // todo: playable Guardian
+            if (!SupportsAltForm(Hunter))
             {
                 return false;
             }
@@ -1435,13 +1436,13 @@ namespace MphRead.Entities
 
             if (!IsAltForm)
             {
-                EnterAltForm();
+                EnterAltForm(transferHalfturretHealth);
                 AfterSwitch();
                 return true;
             }
             if (!Flags1.TestFlag(PlayerFlags1.NoUnmorph))
             {
-                ExitAltForm();
+                ExitAltForm(transferHalfturretHealth);
                 AfterSwitch();
                 return true;
             }
@@ -1669,7 +1670,7 @@ namespace MphRead.Entities
             }
         }
 
-        private void EnterAltForm()
+        private void EnterAltForm(bool transferHalfturretHealth = true)
         {
             _altRollFbX = _field70;
             _altRollFbZ = _field74;
@@ -1701,9 +1702,7 @@ namespace MphRead.Entities
             else if (Hunter == Hunter.Weavel)
             {
                 _altModel.SetAnimation((int)WeavelAltAnim.Idle);
-                Flags2 |= PlayerFlags2.Halfturret;
-                _halfturret.NodeRef = NodeRef;
-                _scene.AddEntity(_halfturret);
+                SetWeavelHalfturretActive(true, transferHalfturretHealth);
             }
             else if (Hunter == Hunter.Samus)
             {
@@ -1731,17 +1730,9 @@ namespace MphRead.Entities
             PlayHunterSfx(HunterSfx.Morph);
         }
 
-        public void ExitAltForm()
+        public void ExitAltForm(bool transferHalfturretHealth = true)
         {
-            if (Flags2.TestFlag(PlayerFlags2.Halfturret))
-            {
-                Flags2 &= ~PlayerFlags2.Halfturret;
-                if (_halfturret.Health > 0)
-                {
-                    GainHealth(_halfturret.Health);
-                }
-                _halfturret.Die();
-            }
+            SetWeavelHalfturretActive(false, transferHalfturretHealth);
             Flags1 &= ~PlayerFlags1.Morphing;
             Flags1 |= PlayerFlags1.Unmorphing;
             SwitchCamera(CameraType.First, _facingVector);
@@ -1774,11 +1765,15 @@ namespace MphRead.Entities
                 Flags1 &= ~PlayerFlags1.AltForm;
             }
             // todo?: update HUD if main player
+            CollisionVolume nextVolume = altForm
+                ? PlayerVolumes[(int)Hunter, 2]
+                : PlayerVolumes[(int)Hunter, 0];
+            bool grounded = ShouldPreserveFormBottom(Flags1);
+            Position = ResolveFormOrigin(Position, _volumeUnxf, nextVolume, grounded);
+            _volumeUnxf = nextVolume;
+            _volume = CollisionVolume.Move(_volumeUnxf, Position);
             if (altForm)
             {
-                CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
-                Position += _volumeUnxf.SpherePosition - altVolume.SpherePosition;
-                _volumeUnxf = altVolume;
                 InitAltTransform();
                 _field80 = _field70;
                 _field84 = _field74;
@@ -1821,11 +1816,102 @@ namespace MphRead.Entities
             else
             {
                 _gunVec1 = _facingVector;
-                CollisionVolume bipedVolume = PlayerVolumes[(int)Hunter, 0];
-                Position += _volumeUnxf.SpherePosition - bipedVolume.SpherePosition;
-                _volumeUnxf = bipedVolume;
             }
             StopAltFormSfx();
+        }
+
+        /// <summary>
+        /// Adjust a player origin while changing between the biped and
+        /// alternate-form spheres. Grounded transitions keep the feet on the
+        /// same world plane; airborne transitions keep the sphere center in
+        /// place so a morph does not teleport the player vertically.
+        /// </summary>
+        internal static Vector3 ResolveFormOrigin(Vector3 origin,
+            CollisionVolume previous, CollisionVolume next, bool grounded)
+        {
+            Vector3 previousCenter = origin + previous.SpherePosition;
+            if (!grounded)
+            {
+                return previousCenter - next.SpherePosition;
+            }
+
+            Vector3 result = origin;
+            result.X = previousCenter.X - next.SpherePosition.X;
+            result.Z = previousCenter.Z - next.SpherePosition.Z;
+            float previousBottom = previousCenter.Y - previous.SphereRadius;
+            result.Y = previousBottom + next.SphereRadius - next.SpherePosition.Y;
+            return result;
+        }
+
+        internal static bool SupportsAltForm(Hunter hunter)
+            => hunter >= Hunter.Samus && hunter <= Hunter.Weavel;
+
+        internal static bool ShouldPreserveFormBottom(PlayerFlags1 flags)
+            => flags.TestAny(PlayerFlags1.Standing
+                | PlayerFlags1.StandingPrevious);
+
+        internal static bool SupportsReplicatedAltAttack(Hunter hunter)
+            => hunter is Hunter.Trace or Hunter.Spire or Hunter.Weavel;
+
+        private void SetWeavelHalfturretActive(bool active,
+            bool transferHealth = true)
+        {
+            if (active)
+            {
+                if (Hunter != Hunter.Weavel
+                    || Flags2.TestFlag(PlayerFlags2.Halfturret))
+                {
+                    return;
+                }
+                Flags2 |= PlayerFlags2.Halfturret;
+                _halfturret.NodeRef = NodeRef;
+                int health = Health;
+                _scene.AddEntity(_halfturret);
+                if (!transferHealth)
+                {
+                    // Replica activation still needs the turret entity for
+                    // presentation, but its Initialize routine must not split
+                    // the already-authoritative snapshot health.
+                    Health = health;
+                }
+                return;
+            }
+            if (!Flags2.TestFlag(PlayerFlags2.Halfturret))
+            {
+                return;
+            }
+            Flags2 &= ~PlayerFlags2.Halfturret;
+            if (transferHealth && _halfturret.Health > 0)
+            {
+                GainHealth(_halfturret.Health);
+            }
+            _halfturret.Die();
+        }
+
+        internal void BeginReplicatedAltAttack()
+        {
+            if (!IsAltForm || !SupportsReplicatedAltAttack(Hunter))
+            {
+                return;
+            }
+            if (Hunter == Hunter.Spire)
+            {
+                BeginSpireAltAttack();
+                return;
+            }
+            if (Flags2.TestFlag(PlayerFlags2.AltAttack))
+            {
+                return;
+            }
+            Flags2 |= PlayerFlags2.AltAttack;
+            if (Hunter == Hunter.Trace)
+            {
+                _altModel.SetAnimation((int)TraceAltAnim.Attack, AnimFlags.NoLoop);
+            }
+            else if (Hunter == Hunter.Weavel)
+            {
+                _altModel.SetAnimation((int)WeavelAltAnim.Attack, AnimFlags.NoLoop);
+            }
         }
 
         private void CreateBurnEffect()

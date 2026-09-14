@@ -203,4 +203,74 @@ public sealed class RollingAltLookTests
         Assert.Equal(0, right.Y, 6);
         Assert.Equal(0, Vector3.Dot(forward, right), 5);
     }
+
+    [Fact]
+    public void RollingCameraTranslationPreservesHorizontalOrbitAndHeight()
+    {
+        Vector3 oldTarget = new(2, 4, -3);
+        Vector3 nextTarget = new(-11, 19, 17);
+        Vector3 camera = new(5, 12, 9);
+
+        Vector3 translated = PlayerEntity.TranslateRollingCameraOrbit(
+            camera, oldTarget, nextTarget, rollingForm: true,
+            cameraSwitchComplete: true, morphCameraActive: false);
+
+        Assert.Equal(camera.Y, translated.Y, 6);
+        Assert.Equal(camera.X - oldTarget.X,
+            translated.X - nextTarget.X, 6);
+        Assert.Equal(camera.Z - oldTarget.Z,
+            translated.Z - nextTarget.Z, 6);
+    }
+
+    [Fact]
+    public void RollingCameraTranslationKeepsAYawedOrbitYawed()
+    {
+        Vector3 oldTarget = new(3, 1, -2);
+        Vector3 nextTarget = new(17, -5, 11);
+        Vector3 camera = oldTarget + new Vector3(-4, 8, 7);
+
+        Vector3 translated = PlayerEntity.TranslateRollingCameraOrbit(
+            camera, oldTarget, nextTarget, rollingForm: true,
+            cameraSwitchComplete: true, morphCameraActive: false);
+
+        Vector3 oldHorizontal = (camera - oldTarget).WithY(0);
+        Vector3 newHorizontal = (translated - nextTarget).WithY(0);
+        Assert.Equal(oldHorizontal.X, newHorizontal.X, 6);
+        Assert.Equal(oldHorizontal.Z, newHorizontal.Z, 6);
+    }
+
+    [Theory]
+    [InlineData(false, true, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, true)]
+    public void RollingCameraTranslationSkipsDisabledTransitionAndMorphGates(
+        bool rollingForm, bool cameraSwitchComplete, bool morphCameraActive)
+    {
+        Vector3 camera = new(5, 12, 9);
+        Vector3 translated = PlayerEntity.TranslateRollingCameraOrbit(
+            camera, new(2, 4, -3), new(-11, 19, 17), rollingForm,
+            cameraSwitchComplete, morphCameraActive);
+
+        Assert.Equal(camera, translated);
+    }
+
+    [Fact]
+    public void RollingCameraTranslationHasNoZeroDeltaOrRepeatedTranslationDrift()
+    {
+        Vector3 camera = new(5, 12, 9);
+        Vector3 oldTarget = new(2, 4, -3);
+        Vector3 nextTarget = new(-11, 19, 17);
+        Vector3 unchanged = PlayerEntity.TranslateRollingCameraOrbit(
+            camera, oldTarget, oldTarget, rollingForm: true,
+            cameraSwitchComplete: true, morphCameraActive: false);
+        Vector3 translated = PlayerEntity.TranslateRollingCameraOrbit(
+            camera, oldTarget, nextTarget, rollingForm: true,
+            cameraSwitchComplete: true, morphCameraActive: false);
+        Vector3 repeated = PlayerEntity.TranslateRollingCameraOrbit(
+            translated, nextTarget, nextTarget, rollingForm: true,
+            cameraSwitchComplete: true, morphCameraActive: false);
+
+        Assert.Equal(camera, unchanged);
+        Assert.Equal(translated, repeated);
+    }
 }

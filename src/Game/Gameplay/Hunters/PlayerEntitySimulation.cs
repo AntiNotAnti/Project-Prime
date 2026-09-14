@@ -209,8 +209,8 @@ namespace MphRead.Entities
             if (EquipInfo.Zoomed) flags |= SnapshotPlayerFlags.Zoomed;
             if (Flags2.TestFlag(PlayerFlags2.Spectating)) flags |= SnapshotPlayerFlags.Spectating;
             if (Flags1.TestFlag(PlayerFlags1.Grounded)) flags |= SnapshotPlayerFlags.Grounded;
-            if (alive && Hunter == Hunter.Spire && IsAltForm
-                && Flags2.TestFlag(PlayerFlags2.AltAttack))
+            if (ShouldCaptureReplicatedAltAttack(Hunter, alive, IsAltForm,
+                Flags2.TestFlag(PlayerFlags2.AltAttack)))
             {
                 flags |= SnapshotPlayerFlags.SpireAltAttack;
             }
@@ -235,5 +235,10 @@ namespace MphRead.Entities
                 Deaths = _scene.Match.Players[SlotIndex].Deaths
             };
         }
+
+        internal static bool ShouldCaptureReplicatedAltAttack(Hunter hunter,
+            bool alive, bool altForm, bool altAttack)
+            => alive && altForm && altAttack
+                && SupportsReplicatedAltAttack(hunter);
     }
 }

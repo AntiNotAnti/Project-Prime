@@ -17,6 +17,49 @@ namespace MphRead.Entities
             => local ? PlayerAnimation.None
                 : RemoteLocomotionHysteresis.Classify(state, state.Speed);
 
+        internal static bool HasSnapshotFormChanged(bool currentAltForm,
+            SnapshotPlayerFlags flags)
+            => currentAltForm != ((flags & SnapshotPlayerFlags.AltForm) != 0);
+
+        internal static bool ShouldStartSnapshotFormSwitch(bool currentAltForm,
+            bool currentMorphing, bool currentUnmorphing,
+            SnapshotPlayerFlags flags)
+        {
+            bool morphing = (flags & SnapshotPlayerFlags.Morphing) != 0;
+            bool unmorphing = (flags & SnapshotPlayerFlags.Unmorphing) != 0;
+            if (morphing)
+            {
+                return !currentAltForm && !currentMorphing && !currentUnmorphing;
+            }
+            if (unmorphing)
+            {
+                return currentAltForm && !currentMorphing && !currentUnmorphing;
+            }
+            return false;
+        }
+
+        internal static bool ShouldForceSnapshotForm(bool currentAltForm,
+            SnapshotPlayerFlags flags)
+        {
+            SnapshotPlayerFlags transition = SnapshotPlayerFlags.Morphing
+                | SnapshotPlayerFlags.Unmorphing;
+            return (flags & transition) == 0
+                && HasSnapshotFormChanged(currentAltForm, flags);
+        }
+
+        internal static bool ShouldApplyReplicatedAltAttack(bool spawned,
+            ushort health, Hunter hunter, SnapshotPlayerFlags flags)
+        {
+            SnapshotPlayerFlags required = SnapshotPlayerFlags.AltForm
+                | SnapshotPlayerFlags.SpireAltAttack;
+            return spawned && health > 0 && SupportsReplicatedAltAttack(hunter)
+                && (flags & required) == required;
+        }
+
+        internal static bool ShouldReconcileReplicatedAltAttack(Hunter hunter,
+            bool predicted, bool newLife)
+            => (!predicted || newLife) && SupportsReplicatedAltAttack(hunter);
+
         /// <summary>
         /// Stateless classification retained for focused tests and replay
         /// tooling. Live remote presentation uses the stateful resolver below
@@ -133,25 +176,25 @@ namespace MphRead.Entities
             SetClientCombatIdentity(state);
             bool spawned = (state.Flags & SnapshotPlayerFlags.Spawned) != 0;
             SnapshotPlayerFlags flags = state.Flags;
-            bool formChanged = IsAltForm != ((flags & SnapshotPlayerFlags.AltForm) != 0)
-                || IsMorphing != ((flags & SnapshotPlayerFlags.Morphing) != 0)
-                || IsUnmorphing != ((flags & SnapshotPlayerFlags.Unmorphing) != 0);
+            bool formChanged = SupportsAltForm(Hunter)
+                && HasSnapshotFormChanged(IsAltForm, flags);
             bool spectatorChanged = Flags2.TestFlag(PlayerFlags2.Spectating)
                 != ((flags & SnapshotPlayerFlags.Spectating) != 0);
-            bool reconcileSpireAltAttack = !predicted || newLife;
-            bool spireAltAttack = spawned && state.Health > 0
-                && state.Hunter == Hunter.Spire
-                && (flags & (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack))
-                    == (SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack);
-            bool spireAltAttackChanged = reconcileSpireAltAttack
-                && Flags2.TestFlag(PlayerFlags2.AltAttack) != spireAltAttack;
+            bool reconcileAltAttack = ShouldReconcileReplicatedAltAttack(
+                state.Hunter, predicted, newLife);
+            bool replicatedAltAttack = ShouldApplyReplicatedAltAttack(spawned,
+                state.Health, state.Hunter, flags);
+            bool replicatedAltAttackChanged = reconcileAltAttack
+                && Flags2.TestFlag(PlayerFlags2.AltAttack) != replicatedAltAttack;
             bool deactivated = LoadFlags.TestFlag(LoadFlags.Active)
                 && ((flags & SnapshotPlayerFlags.Active) == 0 || !spawned);
             bool died = Health > 0 && state.Health == 0;
+            bool snapshotTransition = (flags & (SnapshotPlayerFlags.Morphing
+                | SnapshotPlayerFlags.Unmorphing)) != 0;
             if (newLife || !spawned || died || formChanged || spectatorChanged)
                 Input.ClearBoostIntents();
             if (newLife || deactivated || died || formChanged || spectatorChanged
-                || spireAltAttackChanged)
+                || replicatedAltAttackChanged)
                 AdvancePresentationPoseEpoch();
             if (newLife || !spawned || state.Health == 0 || formChanged || spectatorChanged)
                 ResetRemoteLocomotion();
@@ -182,11 +225,22 @@ namespace MphRead.Entities
             }
             EquipInfo.Zoomed = (state.Flags & SnapshotPlayerFlags.Zoomed) != 0;
             bool alt = (state.Flags & SnapshotPlayerFlags.AltForm) != 0;
-            if ((!predicted || newLife) && IsAltForm != alt) { ModForceForm(alt); }
-            if (reconcileSpireAltAttack)
+            if (!predicted && SupportsAltForm(Hunter)
+                && ShouldStartSnapshotFormSwitch(IsAltForm,
+                IsMorphing, IsUnmorphing, flags))
             {
-                if (spireAltAttack) BeginSpireAltAttack();
-                else if (Hunter == Hunter.Spire && Flags2.TestFlag(PlayerFlags2.AltAttack))
+                ModStartFormSwitch(transferHalfturretHealth: false);
+            }
+            else if ((!predicted || newLife) && SupportsAltForm(Hunter)
+                && !snapshotTransition
+                && ShouldForceSnapshotForm(IsAltForm, flags))
+            {
+                ModForceForm(alt, transferHalfturretHealth: false);
+            }
+            if (reconcileAltAttack)
+            {
+                if (replicatedAltAttack) BeginReplicatedAltAttack();
+                else if (Flags2.TestFlag(PlayerFlags2.AltAttack))
                     EndAltAttack();
             }
             ModSetSpectating((state.Flags & SnapshotPlayerFlags.Spectating) != 0);

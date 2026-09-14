@@ -17,6 +17,89 @@ namespace MphRead.Entities
     {
         private EntityCollision? _collidedEntCol = null;
         private EntityCollision? _standingEntCol = null;
+        private bool _collectingSyluxHover;
+        private float _syluxHoverDepth;
+
+        internal static float ResolveAltSweepPadding(Hunter hunter)
+            => hunter == Hunter.Spire || hunter == Hunter.Sylux ? 0.5f : 0.35f;
+
+        internal static void ExpandCollisionBoundsForSphere(ref Vector3 limitMin,
+            ref Vector3 limitMax, Vector3 center, float radius)
+        {
+            if (!VectorMath.IsFinite(center) || !float.IsFinite(radius) || radius < 0)
+            {
+                return;
+            }
+            limitMin.X = MathF.Min(limitMin.X, center.X - radius);
+            limitMin.Y = MathF.Min(limitMin.Y, center.Y - radius);
+            limitMin.Z = MathF.Min(limitMin.Z, center.Z - radius);
+            limitMax.X = MathF.Max(limitMax.X, center.X + radius);
+            limitMax.Y = MathF.Max(limitMax.Y, center.Y + radius);
+            limitMax.Z = MathF.Max(limitMax.Z, center.Z + radius);
+        }
+
+        internal static bool TryResolveAltEdgeContact(Vector3 center,
+            Vector3 edgePoint1, Vector3 edgePoint2, float altRadius,
+            out Vector3 normal, out float penetration)
+        {
+            normal = Vector3.Zero;
+            penetration = 0;
+            if (!VectorMath.IsFinite(center) || !VectorMath.IsFinite(edgePoint1)
+                || !VectorMath.IsFinite(edgePoint2) || !float.IsFinite(altRadius)
+                || altRadius <= VectorMath.DefaultEpsilon
+                || !VectorMath.TryClosestPointOnSegment(center, edgePoint1,
+                    edgePoint2, out Vector3 closest, out float distanceSquared))
+            {
+                return false;
+            }
+            float radiusSquared = altRadius * altRadius;
+            if (!float.IsFinite(radiusSquared) || distanceSquared <= VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon
+                || distanceSquared >= radiusSquared)
+            {
+                return false;
+            }
+            Vector3 centerToClosest = center - closest;
+            if (!VectorMath.TryNormalize(centerToClosest, out normal))
+            {
+                return false;
+            }
+            float distance = MathF.Sqrt(distanceSquared);
+            penetration = altRadius - distance;
+            return float.IsFinite(penetration) && penetration > 0
+                && VectorMath.IsFinite(normal);
+        }
+
+        internal static float AggregateSyluxHoverDepth(float currentDepth,
+            float candidateDepth)
+        {
+            if (!float.IsFinite(candidateDepth) || candidateDepth < 0)
+            {
+                return currentDepth;
+            }
+            return !float.IsFinite(currentDepth) || currentDepth < candidateDepth
+                ? candidateDepth : currentDepth;
+        }
+
+        internal static Vector3 ApplySyluxHoverResponse(Vector3 speed,
+            float hoverDepth, float altAirGravity)
+        {
+            if (!VectorMath.IsFinite(speed) || !float.IsFinite(hoverDepth)
+                || hoverDepth < 0 || !float.IsFinite(altAirGravity))
+            {
+                return speed;
+            }
+            float speedY = speed.Y + altAirGravity / 2;
+            if (speedY < 0.25f)
+            {
+                if (speedY < 0)
+                {
+                    speedY *= Fixed.ToFloat(4034);
+                }
+                speedY += hoverDepth * 0.2f / 2;
+                speedY = MathF.Min(speedY, 0.25f);
+            }
+            return speed.WithY(speedY);
+        }
 
         // todo: visualize EVERYTHING
         private void CheckPlayerCollision()
@@ -350,18 +433,24 @@ namespace MphRead.Entities
             _standingEntCol = null;
             _collidedEntCol = null;
             _terrainDamage = false;
+            _collectingSyluxHover = false;
+            _syluxHoverDepth = float.NaN;
             var results = new CollisionResult[40];
             CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
+            CollisionVolume bipedBottomVolume = PlayerVolumes[(int)Hunter, 0];
+            CollisionVolume bipedTopVolume = PlayerVolumes[(int)Hunter, 1];
+            Vector3 bipedClearanceOrigin = Position;
             Vector3 point1;
             Vector3 point2;
             Vector3 limitMin;
             Vector3 limitMax;
             float margin;
+            float sweepPadding = IsAltForm ? ResolveAltSweepPadding(Hunter) : 0.4f;
             if (IsAltForm)
             {
                 point1 = PrevPosition + altVolume.SpherePosition;
                 point2 = Position + altVolume.SpherePosition;
-                margin = altVolume.SphereRadius + 0.4f;
+                margin = altVolume.SphereRadius + sweepPadding;
                 limitMin = new Vector3(
                     MathF.Min(MathF.Min(Single.MaxValue, point1.X), point2.X) - margin,
                     MathF.Min(MathF.Min(Single.MaxValue, point1.Y), point2.Y) - margin,
@@ -373,6 +462,24 @@ namespace MphRead.Entities
                     MathF.Max(MathF.Max(Single.MinValue, point1.Z), point2.Z) + margin
                 );
                 limitMin.Y = MathF.Min(limitMin.Y, Position.Y + Fixed.ToFloat(Values.MaxPickupHeight));
+                bipedClearanceOrigin = ResolveFormOrigin(Position, altVolume,
+                    bipedBottomVolume, ShouldPreserveFormBottom(Flags1));
+                float bipedRadius = bipedBottomVolume.SphereRadius;
+                ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                    bipedClearanceOrigin + bipedBottomVolume.SpherePosition,
+                    bipedRadius);
+                ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                    bipedClearanceOrigin + bipedTopVolume.SpherePosition,
+                    bipedRadius);
+                if (Hunter == Hunter.Kanden)
+                {
+                    float segmentRadius = Fixed.ToFloat(Values.AltColRadius) + sweepPadding;
+                    for (int i = 0; i < _kandenSegPos.Length; i++)
+                    {
+                        ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                            _kandenSegPos[i].AddY(Fixed.ToFloat(Values.AltColYPos)), segmentRadius);
+                    }
+                }
             }
             else
             {
@@ -397,18 +504,18 @@ namespace MphRead.Entities
                 = CollisionDetection.GetCandidatesForLimits(point1, point2, margin, limitMin, limitMax, includeEntities, _scene);
             if (IsAltForm)
             {
-                float radius = altVolume.SphereRadius + (Hunter == Hunter.Spire || Hunter == Hunter.Sylux ? 0.5f : 0.35f);
+                _collectingSyluxHover = Hunter == Hunter.Sylux;
+                _syluxHoverDepth = float.NaN;
+                float radius = altVolume.SphereRadius + sweepPadding;
                 int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
                     limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
                 for (int i = 0; i < count; i++)
                 {
                     HandleCollision(results[i]);
                 }
-                radius = Fixed.ToFloat(Values.BipedColRadius) - 0.15f;
-                point1 = Position.AddY(radius);
-                float yOffset = Fixed.ToFloat(Values.AltColYPos) + Fixed.ToFloat(Values.MaxPickupHeight) - Fixed.ToFloat(Values.MinPickupHeight)
-                    - altVolume.SphereRadius - radius;
-                point2 = Position.AddY(yOffset);
+                radius = bipedBottomVolume.SphereRadius;
+                point1 = bipedClearanceOrigin + bipedBottomVolume.SpherePosition;
+                point2 = bipedClearanceOrigin + bipedTopVolume.SpherePosition;
                 count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
                     limit: 1, includeOffset: false, TestFlags.Players, _scene, results);
                 if (count > 0)
@@ -534,6 +641,15 @@ namespace MphRead.Entities
                     }
                 }
             }
+            if (_collectingSyluxHover)
+            {
+                if (float.IsFinite(_syluxHoverDepth))
+                {
+                    Speed = ApplySyluxHoverResponse(Speed, _syluxHoverDepth,
+                        Fixed.ToFloat(Values.AltAirGravity));
+                }
+                _collectingSyluxHover = false;
+            }
             DamageResult dmgRes = default;
             dmgRes.Damage = 1;
             dmgRes.TakeDamage = _terrainDamage;
@@ -585,26 +701,13 @@ namespace MphRead.Entities
                     {
                         return;
                     }
-                    Vector3 edge = result.EdgePoint2 - result.EdgePoint1;
-                    float edgeLengthSquared = edge.LengthSquared;
-                    if (!(edgeLengthSquared > VectorMath.DefaultEpsilon * VectorMath.DefaultEpsilon)
-                        || !float.IsFinite(edgeLengthSquared))
+                    if (!TryResolveAltEdgeContact(altPos, result.EdgePoint1,
+                        result.EdgePoint2, altRad,
+                        out Vector3 normal, out v2))
                     {
                         return;
                     }
-                    Vector3 between = altPos - result.EdgePoint1;
-                    float dot = Vector3.Dot(between, edge);
-                    float div = Math.Clamp(dot / edgeLengthSquared, 0, 1);
-                    between = altPos - (result.EdgePoint1 + edge * div);
-                    float magSqr = between.LengthSquared;
-                    if (magSqr >= altRad * altRad || magSqr <= 0)
-                    {
-                        return;
-                    }
-                    float mag = MathF.Sqrt(magSqr);
-                    between = VectorMath.NormalizeOr(between, result.Plane.Xyz);
-                    dot = Vector3.Dot(between, result.Plane.Xyz) * (altRad - mag);
-                    v2 = dot * dot;
+                    result.Plane.Xyz = normal;
                 }
             }
             else if (result.Field0 == 0)
@@ -866,17 +969,17 @@ namespace MphRead.Entities
                 {
                     for (int i = 0; i < _spireAltVecs.Length; i++)
                     {
-                        Vector3 vec = Position + _spireAltVecs[i];
+                        Vector3 vec = position + _spireAltVecs[i];
                         float dot = result.Plane.W - Vector3.Dot(vec, result.Plane.Xyz);
                         if (dot >= 0)
                         {
-                            Debug.Assert(vec != Position);
+                            Debug.Assert(vec != position);
                             v164 = true;
                             // todo: revisit these calculations and improve the wall climbing "stickiness" issue
                             // --> related to the need for a hack to get pushed out more by horizontal collision (without jittering)
-                            Position += result.Plane.Xyz * dot;
+                            position += result.Plane.Xyz * dot;
                             vec = VectorMath.NormalizeHorizontalOr(
-                                new Vector3(Position.X - vec.X, 0, Position.Z - vec.Z),
+                                new Vector3(position.X - vec.X, 0, position.Z - vec.Z),
                                 result.Plane.Xyz);
                             vec.X *= dot / 4;
                             vec.Z *= dot / 4;
@@ -905,15 +1008,15 @@ namespace MphRead.Entities
                     if (dot >= 0)
                     {
                         v164 = true;
-                        Speed = Speed.AddY(Fixed.ToFloat(Values.AltAirGravity));
-                        if (Speed.Y < 0.25f)
+                        if (_collectingSyluxHover)
                         {
-                            if (Speed.Y < 0)
-                            {
-                                Speed = Speed.WithY(Speed.Y * Fixed.ToFloat(4034));
-                            }
-                            Speed = Speed.AddY(dot * 0.2f);
-                            Speed = Speed.WithY(Math.Min(Speed.Y, 0.25f));
+                            _syluxHoverDepth = AggregateSyluxHoverDepth(
+                                _syluxHoverDepth, dot);
+                        }
+                        else
+                        {
+                            Speed = ApplySyluxHoverResponse(Speed, dot,
+                                Fixed.ToFloat(Values.AltAirGravity));
                         }
                     }
                 }

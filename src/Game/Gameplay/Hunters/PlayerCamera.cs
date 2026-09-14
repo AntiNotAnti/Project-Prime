@@ -148,10 +148,26 @@ namespace MphRead.Entities
                 v6 = 0.7f;
                 v7 = 0.5f;
             }
-            CameraInfo.Target.X = Volume.SpherePosition.X;
+            Vector3 oldTarget = CameraInfo.Target;
+            Vector3 nextTarget = Volume.SpherePosition;
+            bool cameraSwitchComplete = _camSwitchTimer
+                >= SimTicks.From30HzFrames(Values.CamSwitchTime);
+            // Third1 is the rolling alternate-form camera. Once its initial
+            // switch has settled, move the camera's horizontal orbit along
+            // with the ball before replacing the target. Without this carry,
+            // every ball translation changes the camera-target vector and the
+            // orbit appears to yaw or snap even though the retained heading
+            // did not change. Keep morph cameras and switch interpolation in
+            // charge of their own position; they must not receive this carry.
+            CameraInfo.Position = TranslateRollingCameraOrbit(
+                CameraInfo.Position, oldTarget, nextTarget,
+                rollingForm: Values.AltFormStrafe == 0,
+                cameraSwitchComplete: cameraSwitchComplete,
+                morphCameraActive: MorphCamera != null);
+            CameraInfo.Target.X = nextTarget.X;
             CameraInfo.Target.Y -= v7;
-            CameraInfo.Target.Y += (Volume.SpherePosition.Y - CameraInfo.Target.Y) / 2;
-            CameraInfo.Target.Z = Volume.SpherePosition.Z;
+            CameraInfo.Target.Y += (nextTarget.Y - CameraInfo.Target.Y) / 2;
+            CameraInfo.Target.Z = nextTarget.Z;
             if (MorphCamera != null)
             {
                 CameraInfo.Position = MorphCamera.Position;
@@ -504,6 +520,33 @@ namespace MphRead.Entities
             {
                 _field552 = 0;
             }
+        }
+
+        /// <summary>
+        /// Preserve a rolling camera's horizontal orbit while its target is
+        /// translated by the ball. The gate is explicit so transition and
+        /// morph-camera paths remain authoritative, and invalid arithmetic
+        /// leaves the original camera position untouched.
+        /// </summary>
+        internal static Vector3 TranslateRollingCameraOrbit(
+            Vector3 cameraPosition, Vector3 oldTarget, Vector3 nextTarget,
+            bool rollingForm, bool cameraSwitchComplete,
+            bool morphCameraActive)
+        {
+            if (!rollingForm || !cameraSwitchComplete || morphCameraActive
+                || !VectorMath.IsFinite(cameraPosition)
+                || !VectorMath.IsFinite(oldTarget)
+                || !VectorMath.IsFinite(nextTarget))
+            {
+                return cameraPosition;
+            }
+            Vector3 delta = nextTarget - oldTarget;
+            if (!VectorMath.IsFinite(delta))
+            {
+                return cameraPosition;
+            }
+            Vector3 translated = cameraPosition.AddX(delta.X).AddZ(delta.Z);
+            return VectorMath.IsFinite(translated) ? translated : cameraPosition;
         }
 
         private void UpdateCameraThird2()

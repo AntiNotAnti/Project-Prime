@@ -112,6 +112,50 @@ public sealed class SpireAltAttackTests
         }
     }
 
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void WeavelReplicaFormSyncPreservesAuthoritativeOwnerHealth()
+    {
+        bool previousServerMode = Read.ServerMode;
+        try
+        {
+            using var saved = ServerContent.PreserveContext("AMHE1");
+            ServerContent.Open(FindAmhe1(), "AMHE1");
+            using var simulation = new ServerSimulation(new RotationEntry
+            {
+                RoomKey = "MP1 SANCTORUS",
+                Mode = GameMode.Battle
+            });
+
+            PlayerEntity authority = simulation.Scene.Players[0];
+            authority.ServerActivate(0x51, Hunter.Weavel, team: 0);
+            authority.Health = 60;
+            authority.ModForceForm(altForm: true);
+            SnapshotPlayer state = authority.CaptureServerState();
+            Assert.Equal(30, state.Health);
+
+            state.Slot = 1;
+            state.ConnectionId = 0x52;
+            PlayerEntity replica = simulation.Scene.Players[1];
+            replica.ClientActivate(state);
+            replica.ApplyServerState(state, newLife: true);
+
+            Assert.Equal(state.Health, replica.Health);
+            Assert.True(replica.Flags2.TestFlag(PlayerFlags2.Halfturret));
+
+            state.Flags &= ~(SnapshotPlayerFlags.AltForm
+                | SnapshotPlayerFlags.SpireAltAttack);
+            replica.ApplyServerState(state, newLife: false);
+
+            Assert.Equal(state.Health, replica.Health);
+            Assert.False(replica.Flags2.TestFlag(PlayerFlags2.Halfturret));
+        }
+        finally
+        {
+            Read.ServerMode = previousServerMode;
+        }
+    }
+
     private static string FindAmhe1()
     {
         string? configured = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY");

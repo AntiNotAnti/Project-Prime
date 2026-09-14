@@ -930,14 +930,18 @@ namespace MphRead.Entities
                     if (!Flags2.TestFlag(PlayerFlags2.BipedStuck) && _abilities.TestFlag(AbilityFlags.AltForm)
                         && Controls.Morph.IsPressed || IsMainPlayer && _scene.CameraSequences.Current?.ForceAlt == true)
                     {
-                        if (TrySwitchForms() && IsMainPlayer && IsMorphing)
+                        bool switched = TrySwitchForms();
+                        if (ShouldApplyMorphAnimation(switched, IsMorphing))
                         {
-                            // the game only does this when using the touch screen button, but this is equivalent,
-                            // and we want to call this beause it updates the reticle expansion
-                            HudOnMorphStart();
+                            if (switched && IsMainPlayer && IsMorphing)
+                            {
+                                // the game only does this when using the touch screen button, but this is equivalent,
+                                // and we want to call this beause it updates the reticle expansion
+                                HudOnMorphStart();
+                            }
+                            anim1 = PlayerAnimation.Morph;
+                            anim2 = PlayerAnimation.Morph;
                         }
-                        anim1 = PlayerAnimation.Morph;
-                        anim2 = PlayerAnimation.Morph;
                     }
                 }
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
@@ -1254,7 +1258,7 @@ namespace MphRead.Entities
                         // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
                         // and later, for up/down, it tests for either flag, or the look button not held
 
-                        void MoveRightLeft(int walkAnim, float sign)
+                        void MoveRightLeft(float sign)
                         {
                             Flags1 |= PlayerFlags1.Strafing;
                             Flags1 |= PlayerFlags1.MovingBiped;
@@ -1277,14 +1281,9 @@ namespace MphRead.Entities
                             {
                                 // todo: update field684 (using sign)
                             }
-                            if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
-                            {
-                                animId = walkAnim;
-                                animFlags = AnimFlags.None;
-                            }
                         }
 
-                        void MoveForwardBack(int walkAnim, float sign)
+                        void MoveForwardBack(float sign)
                         {
                             Flags1 |= PlayerFlags1.MovingBiped;
                             if (Flags1.TestFlag(PlayerFlags1.Standing))
@@ -1310,29 +1309,31 @@ namespace MphRead.Entities
                             {
                                 // todo: update field688 (using sign)
                             }
-                            if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
-                            {
-                                animId = walkAnim;
-                                animFlags = AnimFlags.None;
-                            }
                         }
 
                         if (lateralSign > 0)
                         {
-                            MoveRightLeft(walkAnim: 4, sign: lateralSign); // TraceAltAnim.MoveRight or WeavelAltAnim.MoveRight
+                            MoveRightLeft(sign: lateralSign);
                         }
                         else if (lateralSign < 0)
                         {
-                            MoveRightLeft(walkAnim: 2, sign: lateralSign); // TraceAltAnim.MoveLeft or WeavelAltAnim.MoveLeft
+                            MoveRightLeft(sign: lateralSign);
                         }
                         // todo: update field684
                         if (forwardSign > 0)
                         {
-                            MoveForwardBack(walkAnim: 3, sign: forwardSign); // TraceAltAnim.MoveForward or WeavelAltAnim.MoveForward
+                            MoveForwardBack(sign: forwardSign);
                         }
                         else if (forwardSign < 0)
                         {
-                            MoveForwardBack(walkAnim: 5, sign: forwardSign); // TraceAltAnim.MoveBackward or WeavelAltAnim.MoveBackward
+                            MoveForwardBack(sign: forwardSign);
+                        }
+                        int movementAnim = SelectAltMovementAnimation(Hunter,
+                            lateralSign, forwardSign);
+                        if (movementAnim >= 0)
+                        {
+                            animId = movementAnim;
+                            animFlags = AnimFlags.None;
                         }
                         // todo: update field684
                         // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
@@ -1364,7 +1365,8 @@ namespace MphRead.Entities
                     // basis from the heading sent in InputCommand.Aim. Local
                     // control rotates the retained basis from explicit yaw in
                     // ApplyRollingAltLook; ProcessMovement is free to point
-                    // _gunVec1 along velocity without feeding it back into WASD.
+                    // the rolling model direction with velocity without feeding
+                    // it back into the retained control aim or WASD.
                     ModRefreshRollingAltControlBasis();
                     ApplyRollingAltLook(rollingLook);
                     float traction = Fixed.ToFloat(Values.RollAltTraction);
@@ -1600,6 +1602,36 @@ namespace MphRead.Entities
             UpdateCamera();
         }
 
+        /// <summary>
+        /// Select the directional animation for a strafe-capable alt form.
+        /// Forward/backward wins when both axes are held, matching the
+        /// movement-processing order below. Sylux's alt model has no
+        /// directional movement animations.
+        /// </summary>
+        internal static int SelectAltMovementAnimation(Hunter hunter,
+            float lateralSign, float forwardSign)
+        {
+            if (hunter == Hunter.Trace)
+            {
+                if (forwardSign > 0) return (int)TraceAltAnim.MoveForward;
+                if (forwardSign < 0) return (int)TraceAltAnim.MoveBackward;
+                if (lateralSign > 0) return (int)TraceAltAnim.MoveRight;
+                if (lateralSign < 0) return (int)TraceAltAnim.MoveLeft;
+            }
+            else if (hunter == Hunter.Weavel)
+            {
+                if (forwardSign > 0) return (int)WeavelAltAnim.MoveForward;
+                if (forwardSign < 0) return (int)WeavelAltAnim.MoveBackward;
+                if (lateralSign > 0) return (int)WeavelAltAnim.MoveRight;
+                if (lateralSign < 0) return (int)WeavelAltAnim.MoveLeft;
+            }
+            return -1;
+        }
+
+        internal static bool ShouldApplyMorphAnimation(bool switchSucceeded,
+            bool isMorphing)
+            => switchSucceeded || isMorphing;
+
         private void ApplyRollingAltLook(Vector2 lookDegrees)
         {
             if (!float.IsFinite(lookDegrees.X) || !float.IsFinite(lookDegrees.Y)
@@ -1671,7 +1703,7 @@ namespace MphRead.Entities
             if (!VectorMath.IsFinite(position) || !VectorMath.IsFinite(target)
                 || !float.IsFinite(lookDegrees.X) || !float.IsFinite(lookDegrees.Y))
             {
-                Vector3 fallback = Vector3.UnitZ;
+                Vector3 fallback = -Vector3.UnitZ;
                 return (position, fallback, new Vector3(fallback.Z, 0, -fallback.X));
             }
 
@@ -1705,9 +1737,9 @@ namespace MphRead.Entities
             position = target + rotatedOffset;
 
             Vector3 forward = VectorMath.NormalizeHorizontalOr(target - position,
-                Vector3.UnitZ);
-            Vector3 right = new(forward.Z, 0, -forward.X);
-            return (position, forward, right);
+                -Vector3.UnitZ);
+            Vector3 left = new(forward.Z, 0, -forward.X);
+            return (position, forward, left);
         }
 
         private bool CanActivateDirectionalBoost()
@@ -1953,9 +1985,6 @@ namespace MphRead.Entities
                         _field70 = hSpeed.X;
                         _field74 = hSpeed.Z;
                         _facingVector = new Vector3(_field70, 0, _field74);
-                        _gunVec1 = _facingVector;
-                        float add = _gunVec1.X * Fixed.ToFloat(Values.AimDistance);
-                        _aimPosition = Position.AddX(add).AddZ(add);
                     }
                 }
                 if (IsAltForm)
