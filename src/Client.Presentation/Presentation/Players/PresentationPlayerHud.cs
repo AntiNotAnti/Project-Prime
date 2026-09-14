@@ -720,12 +720,15 @@ namespace MphRead.Entities
             // the smoothly interpolated world. DrawHudObjects runs after both
             // matrices are final, so the reticle and scene now share exactly
             // one camera/FOV sample.
-            // A projectile travels from _muzzlePos toward this exact world
-            // convergence point (PlayerInput.TryFireWeapon). Project it with
-            // the matrices used for this picture and do not translate,
-            // expand, clamp, or smooth the result: any such cosmetic offset
-            // makes the visible crosshair disagree with the shot trajectory.
-            float w = Matrix.ProjectPosition(_player._aimPosition, Presentation.ViewMatrix,
+            // A projectile travels from _muzzlePos toward the authoritative
+            // world convergence samples (PlayerInput.TryFireWeapon). Resolve
+            // those samples at the camera's presentation time, then project
+            // with the matrices used for this picture. Do not translate,
+            // expand, clamp, or smooth the projected result: any such cosmetic
+            // offset makes the visible crosshair disagree with the presented
+            // shot trajectory.
+            Vector3 aimPosition = Presentation.ResolveLocalAimPosition(_player._aimPosition);
+            float w = Matrix.ProjectPosition(aimPosition, Presentation.ViewMatrix,
                 Presentation.PerspectiveMatrix, out Vector2 projected);
             CurrentReticlePosition = ResolveReticlePosition(
                 CurrentReticlePosition, w, projected);

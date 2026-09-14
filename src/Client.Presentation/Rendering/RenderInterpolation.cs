@@ -28,6 +28,7 @@ namespace MphRead
         private readonly List<EntityBase> _removedPoses = new();
         private readonly SimulationPoseHistory _cameraHistory = new();
         private readonly ScalarPoseHistory _cameraFovHistory = new();
+        private readonly Vector3PoseHistory _cameraAimHistory = new();
         private long _poseGeneration;
         private long _timingGeneration;
         private long _correctionGeneration;
@@ -105,6 +106,36 @@ namespace MphRead
         internal static bool ShouldInterpolateCameraRotation(bool altForm,
             bool legacyCameraResponse)
             => altForm || !legacyCameraResponse;
+        internal static int CameraHistoryState(bool dead, bool altForm,
+            bool morphing, bool unmorphing, bool zoomed, CameraType cameraType,
+            CameraSequence? currentSequence)
+        {
+            // Zoom changes FOV continuously; it is not a camera pose
+            // discontinuity and must not seed the history from the current
+            // sample.
+            _ = zoomed;
+            return HashCode.Combine(dead, altForm, morphing, unmorphing,
+                cameraType, currentSequence);
+        }
+
+        internal static Vector3 ResolvePresentedAimPosition(Vector3 current,
+            Vector3 interpolated, bool interpolateRotation)
+            => interpolateRotation && VectorMath.IsFinite(interpolated)
+                ? interpolated : current;
+
+        internal Vector3 ResolveLocalAimPosition(Vector3 current)
+        {
+            PlayerEntity player = World.LocalPlayer!;
+            bool legacyCameraResponse = DynamicCrosshairTuning.UsesLegacyCameraResponse(
+                Mods.InputSettings.DynamicCrosshairTravelDegrees,
+                Mods.InputSettings.DynamicCrosshairTurnSpeed);
+            bool interpolateRotation = ControlsPlayer && InterpolationEnabled
+                && _cameraHistory.HasSamples && _cameraAimHistory.HasSamples
+                && ShouldInterpolateCameraRotation(player.IsAltForm,
+                    legacyCameraResponse);
+            return ResolvePresentedAimPosition(current,
+                _cameraAimHistory.Resolve(Timing.RenderAlpha), interpolateRotation);
+        }
         private bool InterpolationEnabled => Timing.Active && !FrameAdvance
             && !Mods.SpectatorMode.IsSpectating && !Mods.Network.ReplayPlayback.IsActive && World.CameraSequences.Current == null;
         // Biped smoothing is skeletal presentation only.  It deliberately has
@@ -126,6 +157,7 @@ namespace MphRead
             _particlePoses.Clear();
             _cameraHistory.Reset();
             _cameraFovHistory.Reset();
+            _cameraAimHistory.Reset();
             ResetRenderLook();
         }
         private void CaptureSimulationPoses()
@@ -233,7 +265,8 @@ namespace MphRead
             _removedPoses.Clear();
             foreach (var pair in _poses) if (pair.Value.Seen != _poseTick) _removedPoses.Add(pair.Key);
             foreach (EntityBase removed in _removedPoses) _poses.Remove(removed);
-            int cameraState = HashCode.Combine(World.LocalPlayer!.Health == 0, World.LocalPlayer!.IsAltForm,
+            int cameraState = CameraHistoryState(
+                World.LocalPlayer!.Health == 0, World.LocalPlayer!.IsAltForm,
                 World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing,
                 World.LocalPlayer!.EquipInfo.Zoomed, World.LocalPlayer!.CameraType,
                 World.CameraSequences.Current);
@@ -243,11 +276,14 @@ namespace MphRead
                 _cameraHistory.Capture(World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
                 _cameraFovHistory.Capture(World.LocalPlayer!.CameraInfo.Fov, _poseTick,
                     _poseGeneration, cameraState != _cameraState);
+                _cameraAimHistory.Capture(World.LocalPlayer!._aimPosition, _poseTick,
+                    _poseGeneration, cameraState != _cameraState);
             }
             else
             {
                 _cameraHistory.Reset();
                 _cameraFovHistory.Reset();
+                _cameraAimHistory.Reset();
             }
             _cameraState = cameraState;
         }
@@ -488,7 +524,10 @@ namespace MphRead
                         player.Controls.InvertAimY, zoom);
                     if (player.EquipInfo.Zoomed)
                     {
-                        controllerAim *= Mods.InputSettings.GamepadZoomMultiplier;
+                        controllerAim.X *= Mods.InputSettings
+                            .GamepadZoomHorizontalMultiplier;
+                        controllerAim.Y *= Mods.InputSettings
+                            .GamepadZoomVerticalMultiplier;
                     }
                 }
                 aim += controllerAim;

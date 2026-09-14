@@ -1,5 +1,6 @@
 using System;
 using MphRead;
+using MphRead.Entities;
 using MphRead.Mods.Input;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -61,6 +62,92 @@ public class RenderInterpolationTests
 
         history.Capture(100, 3, 0, discontinuity: true);
         Assert.Equal(100, history.Resolve(0));
+    }
+
+    [Fact]
+    public void CameraAimHistoryInterpolatesAndResetsAtDiscontinuity()
+    {
+        var history = new Vector3PoseHistory();
+        history.Capture(new Vector3(1, 2, 3), 1, 0);
+        history.Capture(new Vector3(3, 4, 5), 2, 0);
+        Assert.Equal(new Vector3(2, 3, 4), history.Resolve(.5f));
+
+        history.Capture(new Vector3(20, 30, 40), 3, 0, discontinuity: true);
+        Assert.Equal(new Vector3(20, 30, 40), history.Resolve(0));
+    }
+
+    [Theory]
+    [InlineData(3ul, 0L, false)] // missed completed step
+    [InlineData(2ul, 1L, false)] // lifecycle epoch
+    [InlineData(2ul, 0L, true)] // explicit teleport/form/pool barrier
+    public void CameraAimHistorySeedsCurrentAtTickBoundaries(ulong tick,
+        long epoch, bool discontinuity)
+    {
+        var history = new Vector3PoseHistory();
+        history.Capture(Vector3.Zero, 1, 0);
+        Vector3 current = new(20, 30, 40);
+        history.Capture(current, tick, epoch, discontinuity);
+
+        Assert.Equal(current, history.Resolve(0));
+    }
+
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(1f)]
+    [InlineData(float.NaN)]
+    [InlineData(float.PositiveInfinity)]
+    public void CameraAimHistoryClampsNonFiniteAlpha(float alpha)
+    {
+        var history = new Vector3PoseHistory();
+        history.Capture(Vector3.Zero, 1, 0);
+        history.Capture(Vector3.UnitX, 2, 0);
+
+        Vector3 resolved = history.Resolve(alpha);
+        Assert.True(VectorMath.IsFinite(resolved));
+        Assert.Equal(float.IsFinite(alpha) ? Math.Clamp(alpha, 0, 1) : 1,
+            resolved.X, 5);
+    }
+
+    [Fact]
+    public void CameraAimHistoryRejectsNonFiniteSamplesAndHoldsLastValidPoint()
+    {
+        var history = new Vector3PoseHistory();
+        Vector3 valid = new(4, 5, 6);
+        history.Capture(valid, 1, 0);
+        history.Capture(new Vector3(float.NaN, 0, 0), 2, 0);
+
+        Assert.False(history.HasSamples);
+        Assert.Equal(valid, history.Resolve(.5f));
+    }
+
+    [Fact]
+    public void PresentedAimUsesTheSameRotationSampleAsTheCamera()
+    {
+        Vector3 current = new(10, 20, 30);
+        Vector3 interpolated = new(12, 22, 32);
+
+        Assert.Equal(interpolated,
+            ScenePresentation.ResolvePresentedAimPosition(
+                current, interpolated, interpolateRotation: true));
+        Assert.Equal(current,
+            ScenePresentation.ResolvePresentedAimPosition(
+                current, interpolated, interpolateRotation: false));
+        Assert.Equal(current,
+            ScenePresentation.ResolvePresentedAimPosition(
+                current, new Vector3(float.NaN, 22, 32), interpolateRotation: true));
+    }
+
+    [Fact]
+    public void CameraHistoryStateDoesNotChangeWhenOnlyZoomToggles()
+    {
+        int stateBeforeZoom = ScenePresentation.CameraHistoryState(
+            dead: false, altForm: false, morphing: false, unmorphing: false,
+            zoomed: false, cameraType: CameraType.First, currentSequence: null);
+        int stateAfterZoom = ScenePresentation.CameraHistoryState(
+            dead: false, altForm: false, morphing: false, unmorphing: false,
+            zoomed: true, cameraType: CameraType.First, currentSequence: null);
+
+        Assert.Equal(stateBeforeZoom, stateAfterZoom);
     }
 
     [Theory]
