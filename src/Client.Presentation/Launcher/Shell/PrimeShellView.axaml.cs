@@ -951,6 +951,15 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
 
     }
 
+    /// <summary>Re-arms the persistent shell for a Node-owned continuation
+    /// without resetting its route, session, or transition presentation.</summary>
+    internal void PrepareForContinuationLaunch()
+    {
+        if (_disposed) return;
+        _finished = false;
+        Plan = default;
+    }
+
     /// <summary>Handle Escape or Android back without ending a match.</summary>
     public bool GoBack()
     {

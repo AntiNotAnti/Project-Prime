@@ -33,6 +33,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     private bool _disposed;
     private bool _hostEligibilityKnown;
     private bool _hostWasEligible;
+    private bool _overlayActivationPending;
+    private GameHostPresentationState? _lastActivationRequestState;
     private DesktopOverlayMode _mode;
 
     // Compatibility routing hook for PauseMenu/HomeWindow. It exposes the
@@ -111,27 +113,44 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (_host != null)
         {
             _host.PresentationStateChanged -= HostPresentationChanged;
+            _host.ActivationOpportunity -= HostActivationOpportunity;
             _host.DetachInputOwner(_inputOwner);
+            _inputOwner.SetOwner(DesktopInputOwnerKind.None,
+                GamepadInput.State.Buttons);
+            ClearOverlayActivationRequest();
         }
         _host = host;
         _hostWasEligible = IsHostActivationEligible(host.PresentationState);
         _hostEligibilityKnown = true;
         _host.AttachInputOwner(_inputOwner);
         _host.PresentationStateChanged += HostPresentationChanged;
+        _host.ActivationOpportunity += HostActivationOpportunity;
+        if (_mode != DesktopOverlayMode.None
+            && !_inputOwner.Owns(DesktopInputOwnerKind.Overlay))
+        {
+            BeginOverlayActivation();
+        }
         HostPresentationChanged(host.PresentationState);
+        if (_mode != DesktopOverlayMode.None && _overlayActivationPending)
+            ShowCurrent(activate: true);
     }
 
-    internal bool OpenPause(Scene scene)
+    internal bool OpenPause(Scene scene, bool retainOverlayOwnership = false)
     {
         ArgumentNullException.ThrowIfNull(scene);
         ThrowIfDisposed();
         _scene = scene;
         PauseMenu.SetOverlayOpen(true);
+        bool retainOwnership = _inputOwner.Owns(DesktopInputOwnerKind.Overlay)
+            && (retainOverlayOwnership || _mode != DesktopOverlayMode.None);
         if (_mode == DesktopOverlayMode.Pause)
         {
+            if (!retainOwnership && !_overlayActivationPending)
+                BeginOverlayActivation();
             ShowCurrent(activate: true);
             return true;
         }
+        if (!retainOwnership) BeginOverlayActivation();
         EndCurrentContent();
         _mode = DesktopOverlayMode.Pause;
         var view = _pauseView = new PauseMenuView(offerWindowMode: true,
@@ -174,9 +193,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         view.HunterChangeRequested += hunter => _ = ChangeHunterAsync(view, hunter);
         view.TransitionVoteRequested += accept => _ = CastTransitionVoteAsync(view, accept);
         _surface.SetContent(view, _mode);
-        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
-            GamepadInput.State.Buttons);
-        ShowCurrent(activate: true);
+        ShowCurrent(activate: !retainOwnership);
         view.FocusResume();
         return true;
     }
@@ -251,8 +268,6 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             embedActionBar: false);
         settings.Closed += SettingsClosed;
         _surface.SetContent(BuildSettingsHost(settings), _mode);
-        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
-            GamepadInput.State.Buttons);
         ShowCurrent(activate: true);
     }
 
@@ -266,9 +281,11 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (_disposed || _mode != DesktopOverlayMode.Settings) return;
         // Settings -> Pause is explicit: the old edit session is complete and
         // a new pause view is mounted into the same native window.
+        bool retainOverlayOwnership = _mode != DesktopOverlayMode.None
+            && _inputOwner.Owns(DesktopInputOwnerKind.Overlay);
         _surface.SetContent(null, DesktopOverlayMode.None);
         _mode = DesktopOverlayMode.None;
-        if (_scene != null) OpenPause(_scene);
+        if (_scene != null) OpenPause(_scene, retainOverlayOwnership);
     }
 
     private static Control BuildSettingsHost(SettingsView settings)
@@ -294,14 +311,15 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         ArgumentNullException.ThrowIfNull(resultsVisible);
         ArgumentNullException.ThrowIfNull(continuationSelected);
         ThrowIfDisposed();
+        bool retainOverlayOwnership = _mode != DesktopOverlayMode.None
+            && _inputOwner.Owns(DesktopInputOwnerKind.Overlay);
+        if (!retainOverlayOwnership) BeginOverlayActivation();
         EndCurrentContent();
         _mode = DesktopOverlayMode.Results;
         PauseMenu.SetOverlayOpen(true);
         PostMatchSession session = _results = new PostMatchSession(play,
             completedMatch, results, _inputOwner);
         _surface.SetContent(session.View, _mode);
-        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
-            GamepadInput.State.Buttons);
         session.Wait(pump, () =>
         {
             resultsVisible();
@@ -310,20 +328,20 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             // make the overlay visible here.
             if (_mode == DesktopOverlayMode.Results) ShowCurrent(activate: true);
         }, () => continuationSelected(ContinuationState(play)));
-        return new(session.Transition == PostMatchTransition.Quit,
+        return PostMatchFlow.PresentationResult(session.Transition,
             session.Failure);
     }
 
     internal void ShowResultsForTransition()
     {
         if (_mode != DesktopOverlayMode.Results || _results == null) return;
-        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
-            GamepadInput.State.Buttons);
         ShowCurrent(activate: true);
     }
 
     internal void ShowContinuationTransition(MatchTransitionState state)
     {
+        bool retainOverlayOwnership = _mode != DesktopOverlayMode.None
+            && _inputOwner.Owns(DesktopInputOwnerKind.Overlay);
         if (_mode == DesktopOverlayMode.Results && _results != null)
         {
             if (!_results.EnterContinuationLoading(state)) return;
@@ -342,9 +360,12 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             _surface.SetContent(_transition, _mode);
         }
         else return;
-        _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
-            GamepadInput.State.Buttons);
-        ShowCurrent(activate: true);
+        if (!retainOverlayOwnership && _mode == DesktopOverlayMode.ContinuationLoading
+            && !_overlayActivationPending)
+        {
+            BeginOverlayActivation();
+        }
+        ShowCurrent(activate: !retainOverlayOwnership);
     }
 
     internal void UpdateContinuationTransition(MatchTransitionState state)
@@ -359,6 +380,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         // Commit the logical handoff before disposing views or releasing native
         // content. Those operations can synchronously raise focus callbacks;
         // callbacks must observe that this mode is already gone.
+        ClearOverlayActivationRequest();
         _mode = DesktopOverlayMode.None;
         if (_results != null)
         {
@@ -402,6 +424,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (_mode == DesktopOverlayMode.None) return;
         // Commit the logical handoff before hiding the native overlay. Hiding
         // can synchronously transfer Windows focus back to the SDL window.
+        ClearOverlayActivationRequest();
         _mode = DesktopOverlayMode.None;
         EndCurrentContent();
         PauseMenu.SetOverlayOpen(false);
@@ -421,6 +444,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (_mode == DesktopOverlayMode.None) return;
         // Commit the logical handoff before hiding/releasing native content;
         // Windows focus callbacks can re-enter during either operation.
+        ClearOverlayActivationRequest();
         _mode = DesktopOverlayMode.None;
         EndCurrentContent();
         PauseMenu.SetOverlayOpen(false);
@@ -461,7 +485,11 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             _surface.HideForHostPreservingContent(state);
         }
         else
-            _surface.ShowForHost(state, activate);
+        {
+            bool requestActivation = activate
+                && RequestOverlayActivation(state, force: false);
+            _surface.ShowForHost(state, requestActivation);
+        }
     }
 
     private GameHostPresentationState CurrentHostState()
@@ -481,13 +509,37 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         _hostWasEligible = eligible;
         _hostEligibilityKnown = true;
         if (_disposed || _mode == DesktopOverlayMode.None) return;
-        if (state.IsMinimized || !state.IsVisible)
+        if (!eligible)
         {
-            // A source-host visibility change is not an activation request.
-            // Suspend the overlay z-order while retaining its logical mode and
-            // attached content for minimize/settings-draft preservation.
+            // A successfully activated overlay can observe the SDL host's
+            // focus-loss edge immediately afterward as part of the same native
+            // handoff. The overlay's Activated event is the authoritative
+            // ownership acknowledgement; while the host remains visible and
+            // restored, retain that ownership until Deactivated says otherwise.
+            bool visibleRestoredFocusLoss = state.IsVisible
+                && !state.IsMinimized && !state.IsFocused
+                && !state.ActivationDeferred
+                && _inputOwner.Owns(DesktopInputOwnerKind.Overlay)
+                && !_overlayActivationPending;
+            if (visibleRestoredFocusLoss)
+            {
+                _surface.SetZOrderOwned(true);
+                _surface.ShowForHost(state, activate: false);
+                return;
+            }
+            // A source-host visibility/focus change is not an activation
+            // request. Release ownership while retaining the logical mode and
+            // attached content for minimize/settings-draft preservation. The
+            // next eligible edge may issue exactly one request.
+            _inputOwner.SetOwner(DesktopInputOwnerKind.None,
+                GamepadInput.State.Buttons);
+            _overlayActivationPending = true;
+            _lastActivationRequestState = null;
             _surface.SetZOrderOwned(false);
-            _surface.HideForHostPreservingContent(state);
+            if (state.IsMinimized || !state.IsVisible)
+                _surface.HideForHostPreservingContent(state);
+            else
+                _surface.ShowForHost(state, activate: false);
         }
         else
         {
@@ -496,18 +548,63 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             // still open, return activation to that overlay exactly once.
             // A focus-loss edge never activates anything, so switching away
             // from Project Prime still yields to the foreground application.
-            if (regainedEligibility)
+            bool requestActivation = regainedEligibility
+                && RequestOverlayActivation(state, force: false);
+            if (requestActivation)
             {
                 DebugLog.Line("sdl",
                     $"window became activation-eligible with {_mode} overlay open; activating overlay");
             }
-            _surface.ShowForHost(state, activate: regainedEligibility);
+            _surface.ShowForHost(state, activate: requestActivation);
         }
     }
 
     internal static bool IsHostActivationEligible(GameHostPresentationState state)
         => state.IsVisible && !state.IsMinimized && state.IsFocused
             && !state.ActivationDeferred;
+
+    private void BeginOverlayActivation()
+    {
+        _inputOwner.SetOwner(DesktopInputOwnerKind.None,
+            GamepadInput.State.Buttons);
+        _overlayActivationPending = true;
+        _lastActivationRequestState = null;
+    }
+
+    private void ClearOverlayActivationRequest()
+    {
+        _overlayActivationPending = false;
+        _lastActivationRequestState = null;
+    }
+
+    private bool RequestOverlayActivation(GameHostPresentationState state,
+        bool force)
+    {
+        if (!_overlayActivationPending
+            || _inputOwner.Owns(DesktopInputOwnerKind.Overlay)
+            || !IsHostActivationEligible(state))
+            return false;
+        if (!force && _lastActivationRequestState == state) return false;
+        // Record before entering the native surface. Avalonia may synchronously
+        // raise Activated, and that callback must be able to clear the pending
+        // request without a re-entrant second request.
+        _lastActivationRequestState = state;
+        return true;
+    }
+
+    private void HostActivationOpportunity()
+    {
+        if (_disposed || _mode == DesktopOverlayMode.None
+            || !_overlayActivationPending)
+            return;
+        GameHostPresentationState state = CurrentHostState();
+        if (!RequestOverlayActivation(state, force: true)) return;
+        _surface.ShowForHost(state, activate: true);
+    }
+
+    /// <summary>Headless seam for denied-overlay activation retry tests.</summary>
+    internal void InvokeActivationOpportunityForTests()
+        => HostActivationOpportunity();
 
     private void SurfaceUserCloseRequested(object? sender, EventArgs args)
     {
@@ -532,6 +629,8 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     {
         if (!_disposed && _mode != DesktopOverlayMode.None)
         {
+            _overlayActivationPending = false;
+            _lastActivationRequestState = null;
             _surface.SetZOrderOwned(true);
             _inputOwner.SetOwner(DesktopInputOwnerKind.Overlay,
                 GamepadInput.State.Buttons);
@@ -546,8 +645,10 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (!_disposed && _mode != DesktopOverlayMode.None)
         {
             _surface.SetZOrderOwned(false);
-            if (_inputOwner.Owns(DesktopInputOwnerKind.Overlay))
-                _inputOwner.SetOwner(DesktopInputOwnerKind.None);
+            _inputOwner.SetOwner(DesktopInputOwnerKind.None,
+                GamepadInput.State.Buttons);
+            _overlayActivationPending = true;
+            _lastActivationRequestState = null;
         }
     }
 
@@ -569,8 +670,10 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
         if (_host != null)
         {
             _host.PresentationStateChanged -= HostPresentationChanged;
+            _host.ActivationOpportunity -= HostActivationOpportunity;
             _host.DetachInputOwner(_inputOwner);
         }
+        ClearOverlayActivationRequest();
         EndCurrentContent();
         _mode = DesktopOverlayMode.None;
         _inputOwner.SetOwner(DesktopInputOwnerKind.None);

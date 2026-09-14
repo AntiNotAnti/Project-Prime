@@ -1,11 +1,13 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using MphRead.Mods;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using Xunit;
 using AvaloniaButton = Avalonia.Controls.Button;
@@ -162,6 +164,36 @@ public sealed class MatchTransitionTests
         {
             window.Content = null;
             window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
+    public void PersistentShellCanCompleteAReplacementLaunchAfterTransitionResume()
+    {
+        PrimeShellView shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            Array.Empty<string>(), PrimeRoute.Gateway);
+        MethodInfo finish = typeof(PrimeShellView).GetMethod("Finish",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var launches = new List<LaunchPlan>();
+        shell.Done += (_, plan) => launches.Add(plan);
+        var first = new LaunchPlan { Kind = LaunchKind.Online, RoomKey = "first" };
+        var replacement = new LaunchPlan
+        {
+            Kind = LaunchKind.Online,
+            RoomKey = "replacement"
+        };
+        try
+        {
+            finish.Invoke(shell, [first]);
+            shell.PrepareForContinuationLaunch();
+            finish.Invoke(shell, [replacement]);
+
+            Assert.Equal([first, replacement], launches);
+            Assert.Equal(replacement, shell.Plan);
+        }
+        finally
+        {
             shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
     }

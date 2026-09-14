@@ -50,16 +50,14 @@ namespace MphRead.Mods.Launcher
                 }, persistentHost ? SceneExitPresentation.KeepWindowVisible
                     : SceneExitPresentation.HideWindow, transitionGeneration,
                     firstFramePresented, progress, windowPrepared);
-                if (presentationResult?.QuitApplication == true)
-                    return new MatchRunResult(MatchExitReason.QuitApplication, matchId, Results: results);
+                if (ResultForPresentation(presentationResult, matchId, results) is { } presented)
+                    return presented;
                 if (PauseMenu.LeftMatch)
                     return new MatchRunResult(MatchExitReason.LeftMatch, matchId,
                         Results: null);
                 if (play?.State == AuthoritativePlay.TerminalState.Transitioning)
                     return new MatchRunResult(MatchExitReason.Transitioning, matchId,
                         Results: null);
-                if (presentationResult?.Failure is { } failure)
-                    return new MatchRunResult(MatchExitReason.Disconnected, matchId, failure, results);
                 return new MatchRunResult(MatchRunResult.Classify(didStart, PauseMenu.QuitProgram || host?.CloseRequested == true || presentationResult?.QuitApplication == true, PauseMenu.LeftMatch,
                     play?.State == AuthoritativePlay.TerminalState.Completed || plan.Kind == LaunchKind.Replay,
                     play?.Interrupted == true, play?.Client.Failure != null, false,
@@ -78,6 +76,22 @@ namespace MphRead.Mods.Launcher
                     transitioning: false), matchId, ex.Message, results);
             }
             finally { ownedHost?.Dispose(); }
+        }
+
+        internal static MatchRunResult? ResultForPresentation(
+            MatchResultsPresentationResult? presentation, Guid? completedMatch,
+            MatchResultsSnapshot? results)
+        {
+            if (presentation?.QuitApplication == true)
+                return new MatchRunResult(MatchExitReason.QuitApplication,
+                    completedMatch, Results: results);
+            if (presentation?.Continue == true)
+                return new MatchRunResult(MatchExitReason.Transitioning,
+                    completedMatch, Results: results);
+            if (presentation?.Failure is { } failure)
+                return new MatchRunResult(MatchExitReason.Disconnected,
+                    completedMatch, failure, results);
+            return null;
         }
 
         private static void RunCore(MenuSettings settings, LaunchPlan plan, SdlGameHost host,

@@ -19,6 +19,11 @@ internal enum PostMatchPresentationMode
 
 internal static class PostMatchFlow
 {
+    internal static MatchResultsPresentationResult PresentationResult(
+        PostMatchTransition transition, string? failure = null)
+        => new(transition == PostMatchTransition.Quit, failure,
+            transition == PostMatchTransition.Continue);
+
     internal static PostMatchTransition Evaluate(NodeControlClient.ViewState? state, Guid completedMatch, bool gameWindowOpen = true)
     {
         if (!gameWindowOpen) return PostMatchTransition.Quit;

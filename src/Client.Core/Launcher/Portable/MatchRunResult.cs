@@ -7,7 +7,8 @@ namespace MphRead.Mods.Launcher;
 public enum MatchExitReason
 {
     Completed, LeftMatch, Disconnected, Kicked, FailedToStart, ClientError,
-    /// <summary>The Node intentionally replaced this match; no Results screen is shown.</summary>
+    /// <summary>The Node is replacing this match while the current transition
+    /// presentation remains owned until the replacement's first frame.</summary>
     Transitioning,
     QuitApplication
 }
@@ -17,7 +18,8 @@ public sealed record MatchResultsSnapshot(string MapKey, GameMode Mode, MatchRes
     MatchCompletionSummary? Completion = null, PlayerId? LocalPlayerId = null,
     Guid? LocalGuestSessionId = null);
 
-public sealed record MatchResultsPresentationResult(bool QuitApplication = false, string? Failure = null);
+public sealed record MatchResultsPresentationResult(bool QuitApplication = false,
+    string? Failure = null, bool Continue = false);
 
 public sealed record MatchRunResult(MatchExitReason Reason, Guid? MatchId = null,
     string? Message = null, MatchResultsSnapshot? Results = null)

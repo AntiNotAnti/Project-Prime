@@ -323,20 +323,45 @@ namespace MphRead.Mods.Launcher.Gui
                             presentResults,
                             persistentHost, transitionGeneration, firstFramePresented,
                             progress, windowPrepared, persistentWindow?.Online);
+                        if (!ClassicUi && lastResult.Reason == MatchExitReason.LeftMatch
+                            && persistentWindow != null)
+                        {
+                            try
+                            {
+                                persistentWindow.CompleteLocalMatchExitAsync()
+                                    .GetAwaiter().GetResult();
+                            }
+                            catch (Exception error)
+                            {
+                                DebugLog.Exception("match-return-to-lobby", error);
+                            }
+                        }
                         if (!ClassicUi && lastResult.Reason is MatchExitReason.FailedToStart
                             or MatchExitReason.ClientError)
                             presentationCoordinator.FailLaunch(transitionGeneration,
                                 lastResult.Message);
                         if (!ClassicUi && lastResult.Reason == MatchExitReason.Transitioning)
                         {
-                            // This boundary is Game -> PreparingContinuation;
-                            // there is no Results surface to pass through. The
-                            // existing SDL host remains owned by this launcher
-                            // loop while only the old Scene is torn down.
-                            presentationCoordinator.BeginContinuation(
-                                TransitionState(plan, MatchTransitionStage.LoadingNextRound,
-                                    "Preparing the next match.",
-                                    persistentWindow?.Online.Node?.Lobby?.MapKey ?? plan.RoomKey));
+                            MatchTransitionState continuationState = TransitionState(plan,
+                                MatchTransitionStage.LoadingNextRound,
+                                "Preparing the next match.",
+                                persistentWindow?.Online.Node?.Lobby?.MapKey ?? plan.RoomKey);
+                            // Results continuations already committed this state
+                            // inside PresentResults. Updating that generation
+                            // preserves its ownership of the Results surface;
+                            // active-match restart enters it here.
+                            if (presentationCoordinator.State
+                                == DesktopTransitionState.PreparingContinuation)
+                            {
+                                presentationCoordinator.UpdateLoading(
+                                    presentationCoordinator.CurrentGeneration,
+                                    continuationState);
+                            }
+                            else
+                            {
+                                presentationCoordinator.BeginContinuation(
+                                    continuationState);
+                            }
                         }
                         coordinator.NotifyMatchEnded(lastResult);
                     }
@@ -397,8 +422,6 @@ namespace MphRead.Mods.Launcher.Gui
                 Interval = TimeSpan.FromMilliseconds(33)
             };
             void Done(object? sender, EventArgs args) => frame.Continue = false;
-            void ShellReady(object? sender, EventArgs args)
-                => presentationCoordinator.BeginReturnToShell();
             void ReturnFromFailure(object? sender, EventArgs args)
                 => presentationCoordinator.CompleteFailedReturn();
             void ContinuationFailed(string message)
@@ -417,7 +440,6 @@ namespace MphRead.Mods.Launcher.Gui
             }
             window.Closed += Done;
             window.LaunchRequested += Done;
-            window.ShellReadyForTransition += ShellReady;
             window.TransitionReturnToLobbyRequested += ReturnFromFailure;
             window.ContinuationFailed += ContinuationFailed;
             window.GameHostPrewarmRequested += PrewarmGameHost;
@@ -429,8 +451,7 @@ namespace MphRead.Mods.Launcher.Gui
                 // the target-first hide/focus ordering once the dispatcher is
                 // ready. The initial visit remains the active native window.
                 window.Resume(result, activate: result == null);
-                bool returnToShell = ShouldReturnToShellAfterResume(result,
-                    window.WaitingForContinuation);
+                bool returnToShell = ShouldReturnToShellAfterResume(result);
                 if (result == null || returnToShell
                     || presentationCoordinator.State == DesktopTransitionState.Failed)
                     presentationCoordinator.InputOwner.SetOwner(DesktopInputOwnerKind.Shell);
@@ -443,7 +464,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 window.Closed -= Done;
                 window.LaunchRequested -= Done;
-                window.ShellReadyForTransition -= ShellReady;
                 window.TransitionReturnToLobbyRequested -= ReturnFromFailure;
                 window.ContinuationFailed -= ContinuationFailed;
                 window.GameHostPrewarmRequested -= PrewarmGameHost;
@@ -461,10 +481,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Mode: plan.Mode.ToString(), Hunter: plan.Hunter.ToString(),
                 Detail: detail);
 
-        internal static bool ShouldReturnToShellAfterResume(MatchRunResult? result,
-            bool waitingForContinuation)
-            => result != null && result.Reason != MatchExitReason.Transitioning
-                && !waitingForContinuation;
+        internal static bool ShouldReturnToShellAfterResume(MatchRunResult? result)
+            => result != null && result.Reason != MatchExitReason.Transitioning;
 
         private static LaunchPlan AskClassic(MenuSettings settings, IReadOnlyList<string> rooms)
         {

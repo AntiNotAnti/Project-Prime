@@ -69,14 +69,30 @@ public sealed class NodeRoundClientTests
             round with { Lobby = round.Lobby with { MapKey = "changed" } }));
     }
 
-    [Fact]
-    public void FreshHandoffWinsOverCompletionOfPreviousRound()
+    [Theory]
+    [InlineData(LobbyVoteChoice.Rematch, false)]
+    [InlineData(LobbyVoteChoice.Rematch, true)]
+    [InlineData(LobbyVoteChoice.NextMap, false)]
+    [InlineData(LobbyVoteChoice.NextMap, true)]
+    public void SelectedContinuationWaitsForAndThenAdoptsFreshHandoff(
+        LobbyVoteChoice choice, bool handoffAlreadyPresent)
     {
         var round = Round(Guid.NewGuid(), Guid.NewGuid());
         Guid completed = Guid.NewGuid();
+        LobbyVoteEntry selected = round.Options[0] with
+        {
+            Choice = choice,
+            MapKey = choice == LobbyVoteChoice.Rematch ? round.Lobby.MapKey : "next-map"
+        };
+        round = round with { Options = [selected], ResolvedOption = selected };
         var handoff = new NodeMatchHandoff(Guid.NewGuid(), 2, "127.0.0.1", 5000, "ticket", 2, false, Hunter.Samus);
-        var state = new NodeControlClient.ViewState(Lobby: round.Lobby, Handoff: handoff,
+        var waiting = new NodeControlClient.ViewState(Lobby: round.Lobby,
             LastEndedMatchId: completed, LastMatchInterrupted: false, Round: round);
+        if (!handoffAlreadyPresent)
+            Assert.Equal(PostMatchTransition.Wait,
+                PostMatchFlow.Evaluate(waiting, completed));
+
+        NodeControlClient.ViewState state = waiting with { Handoff = handoff };
         Assert.Equal(PostMatchTransition.Continue, PostMatchFlow.Evaluate(state, completed));
         Assert.Equal(PostMatchTransition.Wait, PostMatchFlow.Evaluate(state with { Handoff = handoff with { MatchId = completed } }, completed));
         Assert.Equal(PostMatchTransition.Lobby, PostMatchFlow.Evaluate(state with { Handoff = null, Lobby = round.Lobby with { Phase = LobbyPhase.Open } }, completed));

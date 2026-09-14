@@ -628,7 +628,21 @@ public sealed class NodeMatchCoordinator : IDisposable
                 throw;
             }
         }
-        if (command is LobbyReturn returning) return _lobbies.ReturnToLobby(identity.SessionId, returning.ExpectedRevision);
+        if (command is LobbyReturn returning)
+        {
+            LobbySnapshot? currentLobby = _lobbies.ForSession(identity.SessionId);
+            if (currentLobby?.Phase != LobbyPhase.InMatch)
+                return _lobbies.ReturnToLobby(identity.SessionId,
+                    returning.ExpectedRevision);
+            LobbyMatchTransitionSelection selection =
+                _lobbies.RequestActiveMatchReturn(identity,
+                    returning.ExpectedRevision);
+            await BeginTransitionAsync(selection.MatchId,
+                selection.TransitionId).ConfigureAwait(false);
+            return _lobbies.ForSession(identity.SessionId)
+                ?? throw new LobbyCommandException("interrupted",
+                    "Lobby membership changed while returning from the match.");
+        }
         // Keep the legacy wire shape decodable for older clients, but never
         // reinterpret it as ReturnToLobby. Rematch is a Node-owned post-match
         // ballot and must carry its authoritative ballot revision/option.
@@ -1119,6 +1133,8 @@ public sealed class NodeMatchCoordinator : IDisposable
             _transitions.Add(oldMatch, pending);
             foreach (LobbyMember member in selection.Members)
             {
+                if (selection.ReturnToLobby)
+                    continue;
                 MembershipGeneration generation = SelectionGeneration(selection, member.SessionId);
                 if (generation.Value == 0
                     || !IsCurrentMembershipLocked(member.SessionId,
@@ -1136,6 +1152,8 @@ public sealed class NodeMatchCoordinator : IDisposable
         // transition identity.
         foreach (LobbyMember member in pending.Selection.Members)
         {
+            if (pending.Selection.ReturnToLobby)
+                continue;
             MembershipGeneration generation = SelectionGeneration(pending.Selection,
                 member.SessionId);
             if (generation.Value == 0) continue;

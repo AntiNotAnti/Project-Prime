@@ -19,6 +19,10 @@ public sealed class PostMatchLeaveTests
         JsonSerializer.SerializeToElement(new NodeControlError(code, code), NodeJsonContext.Default.NodeControlError));
     private static NodeControlEvent Left(Guid lobby) => new(NodeControlCodec.Version, "lobby.left", 2, null,
         JsonSerializer.SerializeToElement(new LobbyLeft(lobby), NodeJsonContext.Default.LobbyLeft));
+    private static NodeControlEvent Snapshot(LobbySnapshot lobby) => new(
+        NodeControlCodec.Version, "lobby.snapshot", 2, null,
+        JsonSerializer.SerializeToElement(lobby,
+            NodeJsonContext.Default.LobbySnapshot));
 
     [Fact]
     public async Task StaleLeaveRetriesWithLatestRevisionAndWaitsForAcknowledgement()
@@ -54,6 +58,93 @@ public sealed class PostMatchLeaveTests
         var lobby = Lobby();
         await Assert.ThrowsAsync<InvalidOperationException>(() => PlayController.LeaveLobbyWithRetryAsync(() => lobby,
             (_, _) => Task.FromResult(Left(Guid.NewGuid()))));
+    }
+
+    [Fact]
+    public void ActiveExitReopensForOwnerButLeavesForAnotherMember()
+    {
+        Guid owner = Guid.NewGuid();
+        Guid member = Guid.NewGuid();
+        LobbySnapshot lobby = Lobby() with
+        {
+            OwnerSessionId = owner,
+            Phase = LobbyPhase.InMatch,
+            CurrentMatchId = Guid.NewGuid()
+        };
+
+        Assert.Equal(PlayController.LocalMatchExitAction.ReopenOwnedLobby,
+            PlayController.LocalMatchExitActionFor(lobby,
+                new NodeSessionSnapshot(owner, Guid.NewGuid(), "Owner",
+                    Guid.NewGuid(), new string('a', 43))));
+        Assert.Equal(PlayController.LocalMatchExitAction.LeaveJoinedLobby,
+            PlayController.LocalMatchExitActionFor(lobby,
+                new NodeSessionSnapshot(member, Guid.NewGuid(), "Member",
+                    Guid.NewGuid(), new string('b', 43))));
+        LobbySnapshot occupied = lobby with
+        {
+            Members = ImmutableArray.Create(
+                new LobbyMember(owner, Guid.NewGuid(), "Owner", Hunter.Samus,
+                    0, false, false),
+                new LobbyMember(member, Guid.NewGuid(), "Member", Hunter.Kanden,
+                    1, false, false))
+        };
+        Assert.Equal(PlayController.LocalMatchExitAction.LeaveJoinedLobby,
+            PlayController.LocalMatchExitActionFor(occupied,
+                new NodeSessionSnapshot(owner, Guid.NewGuid(), "Owner",
+                    Guid.NewGuid(), new string('d', 43))));
+        Assert.Equal(PlayController.LocalMatchExitAction.None,
+            PlayController.LocalMatchExitActionFor(
+                lobby with { Phase = LobbyPhase.Open },
+                new NodeSessionSnapshot(owner, Guid.NewGuid(), "Owner",
+                    Guid.NewGuid(), new string('c', 43))));
+    }
+
+    [Fact]
+    public async Task StaleActiveReturnRetriesOnlyTheSameMatch()
+    {
+        Guid owner = Guid.NewGuid();
+        LobbySnapshot lobby = Lobby() with
+        {
+            OwnerSessionId = owner,
+            Phase = LobbyPhase.InMatch,
+            CurrentMatchId = Guid.NewGuid()
+        };
+        var revisions = new List<long>();
+
+        await PlayController.ReturnActiveLobbyWithRetryAsync(() => lobby,
+            (request, _) =>
+            {
+                revisions.Add(request.ExpectedRevision);
+                if (revisions.Count == 1)
+                {
+                    lobby = lobby with { Revision = 2 };
+                    return Task.FromResult(Error("stale_revision"));
+                }
+                return Task.FromResult(Snapshot(lobby));
+            });
+
+        Assert.Equal(new long[] { 1, 2 }, revisions);
+    }
+
+    [Fact]
+    public async Task StaleActiveReturnDoesNotTargetAReplacementMatch()
+    {
+        LobbySnapshot lobby = Lobby() with
+        {
+            Phase = LobbyPhase.InMatch,
+            CurrentMatchId = Guid.NewGuid()
+        };
+        int requests = 0;
+
+        await PlayController.ReturnActiveLobbyWithRetryAsync(() => lobby,
+            (_, _) =>
+            {
+                requests++;
+                lobby = lobby with { Revision = 2, CurrentMatchId = Guid.NewGuid() };
+                return Task.FromResult(Error("stale_revision"));
+            });
+
+        Assert.Equal(1, requests);
     }
 
     [Fact]

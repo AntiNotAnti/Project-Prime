@@ -86,6 +86,31 @@ public sealed class MatchTransitionTests
     }
 
     [Fact]
+    public void ActiveReturnIsOwnerOnlyAndReopensWithoutPreparingAReplacement()
+    {
+        var h = new LobbyHarness(2);
+        MatchSpec match = h.Start();
+
+        Assert.Equal("owner", Assert.Throws<LobbyCommandException>(() =>
+            h.Manager.RequestActiveMatchReturn(h.Players[1], h.Revision)).Code);
+
+        LobbyMatchTransitionSelection selection =
+            h.Manager.RequestActiveMatchReturn(h.Players[0], h.Revision);
+        Assert.True(selection.ReturnToLobby);
+        Assert.Equal(match.MatchId.Value, selection.MatchId);
+        Assert.True(h.Manager.TryBeginMatchTransition(selection.MatchId,
+            selection.TransitionId, out _));
+        Assert.True(h.Manager.CompleteMatchTransition(selection.MatchId,
+            selection.TransitionId));
+
+        Assert.Equal(LobbyPhase.Open, h.Current.Phase);
+        Assert.Null(h.Current.CurrentMatchId);
+        Assert.All(h.Current.Members, member => Assert.False(member.Ready));
+        Assert.Empty(h.Manager.PrepareContinuations(new(Guid.NewGuid()),
+            Guid.NewGuid()));
+    }
+
+    [Fact]
     public void ActiveHunterChangeAppliesOnlyToTheReplacementMatch()
     {
         var h = new LobbyHarness(1);
@@ -535,6 +560,58 @@ public sealed class MatchTransitionTests
             stop.Cancel();
             await loop;
         }
+    }
+
+    [Fact]
+    public async Task OwnerReturnCancelsExactMatchAndCanStartAgainWithoutRehosting()
+    {
+        var workers = new WorkerManager(new(Guid.NewGuid()), Guid.NewGuid());
+        await using var scheduler = new WorkerScheduler(workers);
+        using var issuer = new WorkerAdmissionIssuer("test");
+        await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("controlled-completion") with
+        { Content = new("1", "hash", "test", 8) });
+        var lobbies = new LobbyManager();
+        var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
+        using var coordinator = new NodeMatchCoordinator(lobbies, scheduler, workers,
+            issuer, new NodeContentCatalog([
+                new ContentIdentity("unit", "hash", "1", "test", 8)]));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+        LobbySnapshot lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyCreate("Return", LobbyVisibility.Public, 4));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbyConfigure(lobby.Revision, "unit", MatchMode.Battle,
+                BotCount: 1));
+        lobby = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbySetReady(true, lobby.Revision));
+        await coordinator.ExecuteAsync(owner, new LobbyStart(lobby.Revision));
+        NodeMatchHandoff first = Assert.IsType<NodeMatchHandoff>(
+            coordinator.ForSession(owner.SessionId));
+
+        Assert.IsType<LobbySnapshot>(await coordinator.ExecuteAsync(owner,
+            new LobbyReturn(lobbies.ForSession(owner.SessionId)!.Revision)));
+        await WaitUntilAsync(() => lobbies.ForSession(owner.SessionId) is
+            { Phase: LobbyPhase.Open, CurrentMatchId: null }, timeout.Token);
+
+        LobbySnapshot reopened = lobbies.ForSession(owner.SessionId)!;
+        Assert.Equal(lobby.LobbyId, reopened.LobbyId);
+        Assert.Single(reopened.Members);
+        Assert.Equal(1, reopened.BotCount);
+        Assert.False(reopened.Members.Single().Ready);
+        Assert.False(scheduler.TryGetAssignment(new(first.MatchId), out _));
+        IReadOnlyList<object> events = coordinator.ForSessionEvents(owner.SessionId);
+        Assert.Contains(events, value => value is NodeMatchEnded ended
+            && ended.MatchId == first.MatchId && ended.Interrupted);
+        Assert.DoesNotContain(events, value => value is NodeMatchTransitionStarted);
+
+        reopened = (LobbySnapshot)lobbies.Execute(owner,
+            new LobbySetReady(true, reopened.Revision));
+        await coordinator.ExecuteAsync(owner, new LobbyStart(reopened.Revision));
+        NodeMatchHandoff second = Assert.IsType<NodeMatchHandoff>(
+            coordinator.ForSession(owner.SessionId));
+        Assert.NotEqual(first.MatchId, second.MatchId);
+        Assert.Equal(lobby.LobbyId, lobbies.ForSession(owner.SessionId)!.LobbyId);
+        scheduler.CancelMatch(new(second.MatchId), "test cleanup");
     }
 
     [Fact]

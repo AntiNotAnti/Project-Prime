@@ -59,6 +59,23 @@ public sealed class DesktopOverlayFoundationTests
     }
 
     [Theory]
+    [InlineData(true, false, false, true, false, false)]
+    [InlineData(true, false, false, false, false, false)]
+    [InlineData(true, true, true, true, false, false)]
+    [InlineData(false, false, true, true, false, false)]
+    [InlineData(true, false, true, false, false, true)]
+    [InlineData(true, false, true, false, true, true)]
+    [InlineData(true, false, false, true, true, true)]
+    public void InteractivePresentationRequiresDrawableVisibleSurfaceAndFocusOrPreparation(
+        bool visible, bool minimized, bool focused, bool occluded,
+        bool activationDeferred, bool expected)
+    {
+        Assert.Equal(expected,
+            SdlGameHost.IsInteractivePresentationAvailable(visible, minimized,
+                occluded, focused, activationDeferred));
+    }
+
+    [Theory]
     [InlineData((int)DesktopInputOwnerKind.None, true, false, true)]
     [InlineData((int)DesktopInputOwnerKind.None, true, true, false)]
     [InlineData((int)DesktopInputOwnerKind.None, false, false, false)]
@@ -146,6 +163,42 @@ public sealed class DesktopOverlayFoundationTests
         Assert.Equal(GamepadButtons.A, owner.ConsumePressed(GamepadButtons.A));
     }
 
+    [Fact]
+    public void FullscreenTrackerObservesStaleOppositeAcknowledgementAndKeepsLatestIntent()
+    {
+        var tracker = new FullscreenTransitionTracker();
+
+        Assert.True(tracker.NeedsRequest(true));
+        tracker.Request(true);
+        Assert.False(tracker.NeedsRequest(true));
+        Assert.True(tracker.NeedsRequest(false));
+        Assert.False(tracker.Confirmed);
+        Assert.True(tracker.Requested);
+        Assert.Equal(true, tracker.Pending);
+
+        // Rapid reversal before the first acknowledgement: the stale ENTER
+        // event is opposite the latest LEAVE intent, but it is still the
+        // native state that must be observed.
+        tracker.Request(false);
+        Assert.False(tracker.Confirm(true));
+        Assert.True(tracker.Confirmed);
+        Assert.Equal(false, tracker.Pending);
+        Assert.True(tracker.Confirm(false));
+        Assert.False(tracker.Confirmed);
+        Assert.Null(tracker.Pending);
+
+        Assert.False(tracker.NeedsRequest(false));
+        tracker.Request(false);
+        Assert.Null(tracker.Pending);
+        tracker.Request(true);
+        Assert.Equal(true, tracker.Pending);
+        Assert.False(tracker.NeedsRequest(true));
+
+        Assert.True(tracker.Confirm(true));
+        Assert.True(tracker.Confirmed);
+        Assert.Null(tracker.Pending);
+    }
+
     [AvaloniaFact]
     public void OverlayModeSurvivesMinimizeAndRestoresWithoutReplacingContent()
     {
@@ -183,6 +236,32 @@ public sealed class DesktopOverlayFoundationTests
         surface.RaiseActivated();
         Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
         Assert.True(surface.ZOrderOwned);
+    }
+
+    [AvaloniaFact]
+    public void ConfirmedOverlayRetainsOwnershipAcrossHostFocusLossUntilDeactivated()
+    {
+        var surface = new RecordingSurface { ActivateSynchronously = true };
+        GameHostPresentationState state = State(visible: true,
+            minimized: false, focused: true);
+        using var coordinator = new DesktopGameOverlayCoordinator(surface,
+            () => state);
+        using var scene = new Scene();
+
+        Assert.True(coordinator.OpenPause(scene));
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.True(surface.ZOrderOwned);
+
+        // SDL focus loss can be queued after the synchronous overlay
+        // acknowledgement. It must not revoke the acknowledged owner.
+        state = State(visible: true, minimized: false, focused: false);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.True(surface.ZOrderOwned);
+
+        surface.RaiseDeactivated();
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+        Assert.False(surface.ZOrderOwned);
     }
 
     [AvaloniaFact]
@@ -244,7 +323,7 @@ public sealed class DesktopOverlayFoundationTests
         Assert.Equal(mode, coordinator.Mode);
         Assert.Same(content, surface.Content);
         Assert.False(surface.NativeVisible);
-        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
 
         coordinator.ApplyHostPresentationForTests(
             State(visible: true, minimized: false));
@@ -322,6 +401,50 @@ public sealed class DesktopOverlayFoundationTests
     }
 
     [AvaloniaFact]
+    public void DeniedOverlayActivationWaitsForFreshOpportunityAndCannotRetryAfterClose()
+    {
+        var surface = new RecordingSurface();
+        GameHostPresentationState state = State(visible: true, minimized: false);
+        using var coordinator = new DesktopGameOverlayCoordinator(surface, () => state);
+        using var scene = new Scene();
+
+        Assert.True(coordinator.OpenPause(scene));
+        Assert.Equal(1, surface.ActivationRequestCount);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+
+        // Re-publishing an unchanged host snapshot is not a user opportunity.
+        coordinator.ApplyHostPresentationForTests(state);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(1, surface.ActivationRequestCount);
+
+        // The seam models a confirmed native input edge while the SDL host is
+        // already focused; a denied request may be retried exactly then.
+        coordinator.InvokeActivationOpportunityForTests();
+        Assert.Equal(2, surface.ActivationRequestCount);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+
+        coordinator.CloseFromMenu();
+        coordinator.InvokeActivationOpportunityForTests();
+        Assert.Equal(2, surface.ActivationRequestCount);
+    }
+
+    [AvaloniaFact]
+    public void SynchronousOverlayActivationAcknowledgementIsReentrancySafe()
+    {
+        var surface = new RecordingSurface { ActivateSynchronously = true };
+        using var coordinator = new DesktopGameOverlayCoordinator(surface,
+            () => State(visible: true, minimized: false));
+        using var scene = new Scene();
+
+        Assert.True(coordinator.OpenPause(scene));
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.Equal(1, surface.ActivationRequestCount);
+
+        coordinator.InvokeActivationOpportunityForTests();
+        Assert.Equal(1, surface.ActivationRequestCount);
+    }
+
+    [AvaloniaFact]
     public void ReentrantUserCloseIsIdempotentAndDisposesOverlaySession()
     {
         var surface = new RecordingSurface();
@@ -352,6 +475,7 @@ public sealed class DesktopOverlayFoundationTests
         public int HideCount { get; private set; }
         public int ActivationRequestCount { get; private set; }
         public bool ZOrderOwned { get; private set; }
+        public bool ActivateSynchronously { get; init; }
         public event EventHandler? UserCloseRequested;
         public event EventHandler? Activated;
         public event EventHandler? Deactivated;
@@ -369,6 +493,7 @@ public sealed class DesktopOverlayFoundationTests
             if (activate)
             {
                 ActivationRequestCount++;
+                if (ActivateSynchronously) RaiseActivated();
             }
         }
 

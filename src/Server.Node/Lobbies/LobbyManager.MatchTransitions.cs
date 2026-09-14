@@ -17,7 +17,8 @@ public sealed record LobbyMatchTransitionSelection(
     MatchMode Mode,
     ImmutableArray<LobbyMember> Members,
     MatchLifecycleEpoch LifecycleEpoch = default,
-    ImmutableDictionary<Guid, MembershipGeneration>? MembershipGenerations = null)
+    ImmutableDictionary<Guid, MembershipGeneration>? MembershipGenerations = null,
+    bool ReturnToLobby = false)
 {
     public string MapKey => TargetMapKey;
 }
@@ -54,6 +55,7 @@ public sealed partial class LobbyManager
         public string ProposerName = "";
         public HumanIdentityKey ProposerIdentity;
         public MatchTransitionChoice Choice;
+        public bool ReturnToLobby;
         public string TargetMapKey = "";
         public MatchMode Mode;
         public uint BallotRevision;
@@ -126,6 +128,57 @@ public sealed partial class LobbyManager
         => MatchTransitionForSession(sessionId) is { MatchId: var current } snapshot
             && current == matchId ? snapshot : null;
 
+    /// <summary>
+    /// Creates the exact transition identity for an owner's explicit request
+    /// to stop the active MatchInstance and reopen this same lobby. This is an
+    /// owner control operation, not a ballot: non-owners leaving gameplay must
+    /// not be able to stop a match that other players are still using.
+    /// </summary>
+    public LobbyMatchTransitionSelection RequestActiveMatchReturn(
+        LobbyIdentity identity, long expectedRevision)
+    {
+        identity.Validate();
+        lock (_gate)
+        {
+            Lobby lobby = RequireLobby(identity.SessionId);
+            Revision(lobby, expectedRevision);
+            if (lobby.Owner != identity.SessionId)
+                throw Error("owner", "Only the owner may stop the active match.");
+            if (lobby.Phase != LobbyPhase.InMatch || lobby.MatchId is not { } matchId)
+                throw Error("phase", "There is no active match to return from.");
+            if (_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? existing)
+                && (existing.State == MatchTransitionVoteState.Pending || existing.Started))
+                throw Error("transition_pending", "A match transition is already active.");
+            if (Round(lobby.Id).Tournament != null)
+                throw Error("unsupported", "Tournament matches cannot be stopped from the match menu.");
+
+            DateTimeOffset now = RoundClock.GetUtcNow();
+            var state = new MatchTransitionState
+            {
+                LobbyId = lobby.Id,
+                MatchId = matchId,
+                TransitionId = Guid.NewGuid(),
+                ProposerSessionId = identity.SessionId,
+                ProposerName = identity.DisplayName,
+                ProposerIdentity = identity.IdentityKey,
+                Choice = MatchTransitionChoice.Restart,
+                ReturnToLobby = true,
+                TargetMapKey = lobby.MapKey,
+                Mode = lobby.Mode,
+                LifecycleEpoch = lobby.LifecycleEpoch,
+                MembershipGenerations = FreezeGenerations(lobby),
+                BallotRevision = NextTransitionBallotRevision(),
+                Deadline = now + MatchTransitionVoteWindow,
+                EligibleVoters = lobby.Members.Values.Count(member => !member.Observer),
+                NeededVotes = 1,
+                State = MatchTransitionVoteState.Approved
+            };
+            state.Votes[identity.SessionId] = true;
+            _matchTransitions[lobby.Id] = state;
+            return Selection(lobby, state);
+        }
+    }
+
     /// <summary>Used by the coordinator to discover a newly approved ballot;
     /// no mutation occurs until <see cref="TryBeginMatchTransition"/>.</summary>
     public bool TryGetApprovedMatchTransition(Guid matchId,
@@ -196,6 +249,13 @@ public sealed partial class LobbyManager
             if (lobby == null || !_matchTransitions.TryGetValue(lobby.Id, out MatchTransitionState? state)
                 || state.MatchId != matchId || state.TransitionId != transitionId || !state.Started)
                 return false;
+            if (state.ReturnToLobby)
+            {
+                ReopenCore(lobby);
+                _matchTransitions.Remove(lobby.Id);
+                Publish(lobby);
+                return true;
+            }
             ContentIdentity content = ContentCatalog?.Get(state.TargetMapKey, state.Mode)
                 ?? throw Error("map_unavailable", "No hosted content catalog.");
             bool requiresReadiness = state.Choice == MatchTransitionChoice.ChangeMap
@@ -500,7 +560,8 @@ public sealed partial class LobbyManager
             state.TargetMapKey, state.Mode, lobby.Members.Values.ToImmutableArray(),
             state.LifecycleEpoch.Value == 0 ? MatchLifecycleEpoch.Initial : state.LifecycleEpoch,
             lobby.Members.Keys.ToImmutableDictionary(sessionId => sessionId,
-                sessionId => state.MembershipGenerations[sessionId]));
+                sessionId => state.MembershipGenerations[sessionId]),
+            state.ReturnToLobby);
 
     private bool TransitionMembershipStillValid(Lobby lobby,
         MatchTransitionState state)

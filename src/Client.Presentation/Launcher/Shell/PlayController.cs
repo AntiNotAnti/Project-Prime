@@ -302,6 +302,13 @@ internal interface IMatchTransitionMenuActions
 /// <summary>Node/lobby adapter for the persistent NodeSessions transport.</summary>
 public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActions
 {
+    internal enum LocalMatchExitAction
+    {
+        None,
+        ReopenOwnedLobby,
+        LeaveJoinedLobby
+    }
+
     private readonly record struct MapCatalogSnapshot(NodeMapCatalogState State, string[] Available);
     internal enum NodeConnectFailureKind
     {
@@ -1899,6 +1906,91 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
 
     public Task ReturnToLobbyAsync(CancellationToken cancellationToken = default)
         => SendLobbyCommandAsync((lobby, _) => new LobbyReturn(lobby.Revision), "lobby.return", cancellationToken);
+
+    /// <summary>
+    /// Completes the Node control-plane half of an intentional local gameplay
+    /// exit. A solo-human owner stops the exact active MatchInstance and keeps
+    /// the bot lobby. In a human multiplayer match the departing member leaves
+    /// only their membership, so one player's pause-menu action cannot abort
+    /// everyone else's game.
+    /// </summary>
+    public async Task CompleteLocalMatchExitAsync(
+        CancellationToken cancellationToken = default)
+    {
+        NodeControlClient? node = _online.Node;
+        LocalMatchExitAction action = LocalMatchExitActionFor(node?.Lobby,
+            node?.Session);
+        if (action == LocalMatchExitAction.None || node == null)
+            return;
+        try
+        {
+            if (action == LocalMatchExitAction.LeaveJoinedLobby)
+            {
+                await LeaveLobbyAsync(cancellationToken).ConfigureAwait(false);
+                return;
+            }
+            await ReturnActiveLobbyWithRetryAsync(() => node.Lobby,
+                (command, token) => node.SendAndWaitAsync("lobby.return", command,
+                    token), cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            string message = PrimeRoutePresentation.PlayerFacingNetworkError(
+                error.Message,
+                "The match could not return to the lobby. Try leaving the lobby and joining again.");
+            Publish(State with { Message = message });
+            throw new InvalidOperationException(message, error);
+        }
+    }
+
+    internal static LocalMatchExitAction LocalMatchExitActionFor(
+        LobbySnapshot? lobby, NodeSessionSnapshot? session)
+    {
+        if (lobby?.Phase != LobbyPhase.InMatch || session == null)
+            return LocalMatchExitAction.None;
+        bool ownsSoloHumanLobby = lobby.OwnerSessionId == session.SessionId
+            && !lobby.Members.Any(member => !member.Observer
+                && member.SessionId != session.SessionId);
+        return ownsSoloHumanLobby
+            ? LocalMatchExitAction.ReopenOwnedLobby
+            : LocalMatchExitAction.LeaveJoinedLobby;
+    }
+
+    internal static async Task ReturnActiveLobbyWithRetryAsync(
+        Func<LobbySnapshot?> currentLobby,
+        Func<LobbyReturn, CancellationToken, Task<NodeControlEvent>> send,
+        CancellationToken cancellationToken = default)
+    {
+        LobbySnapshot lobby = currentLobby()
+            ?? throw new InvalidOperationException("Join a lobby first.");
+        Guid lobbyId = lobby.LobbyId;
+        Guid matchId = lobby.CurrentMatchId
+            ?? throw new InvalidOperationException("There is no active match to stop.");
+        for (int attempt = 0; attempt < 2; attempt++)
+        {
+            NodeControlEvent response = await send(new LobbyReturn(lobby.Revision),
+                cancellationToken).ConfigureAwait(false);
+            if (response.Type == "lobby.snapshot")
+                return;
+            if (response.Type != "error")
+                throw new InvalidOperationException(
+                    "The server did not confirm returning to the lobby.");
+            NodeControlError error = response.Payload.Deserialize(
+                    NodeJsonContext.Default.NodeControlError)
+                ?? new NodeControlError("rejected",
+                    "The server rejected returning to the lobby.");
+            if (error.Code != "stale_revision" || attempt != 0)
+                throw new InvalidOperationException(
+                    PrimeRoutePresentation.PlayerFacingNetworkError(error.Message,
+                        "The server rejected returning to the lobby. Try again."));
+            LobbySnapshot? latest = currentLobby();
+            if (latest == null || latest.LobbyId != lobbyId
+                || latest.CurrentMatchId != matchId
+                || latest.Phase != LobbyPhase.InMatch)
+                return;
+            lobby = latest;
+        }
+    }
 
     public Task RejoinWorkerAsync(CancellationToken cancellationToken = default)
     {

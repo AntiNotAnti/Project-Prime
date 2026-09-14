@@ -24,7 +24,6 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly DesktopGameOverlayCoordinator? _overlay;
         private PostMatchWindow? _results;
         private bool _waitingForContinuation;
-        private bool _continuationIsTransitioning;
         private Guid? _continuationMatchId;
         private Guid? _continuationTransitionId;
 
@@ -33,19 +32,14 @@ namespace MphRead.Mods.Launcher.Gui
         internal ClientSessionCoordinator SessionCoordinator => _view.Online.Flow;
         internal ClientOnlineRuntime Online => _view.Online;
         internal IMatchTransitionMenuActions TransitionMenuActions => _view.Play;
-        internal bool WaitingForContinuation => _waitingForContinuation;
+        internal System.Threading.Tasks.Task CompleteLocalMatchExitAsync()
+            => _view.Play.CompleteLocalMatchExitAsync();
         public bool IsClosed { get; private set; }
         public event EventHandler? LaunchRequested;
         internal event EventHandler? GameHostPrewarmRequested;
         internal event EventHandler? ResultsCloseRequested;
         internal event EventHandler? TransitionReturnToLobbyRequested;
         internal event Action<string>? ContinuationFailed;
-        /// <summary>
-        /// Raised when an automatic next-match handoff has finished and the
-        /// shell may take focus. GuiLauncher routes this through the single
-        /// desktop presentation coordinator.
-        /// </summary>
-        internal event EventHandler? ShellReadyForTransition;
 
         public void Resume(MatchRunResult? result, bool activate = true)
         {
@@ -56,12 +50,12 @@ namespace MphRead.Mods.Launcher.Gui
             if (result?.Reason == MatchExitReason.Transitioning)
             {
                 _waitingForContinuation = true;
-                _continuationIsTransitioning = true;
                 _continuationMatchId = result.MatchId
                     ?? _view.Online.Match?.Play?.NodeMatchId;
                 _continuationTransitionId = _continuationMatchId is { } matchId
                     ? _view.Online.Node?.ExpectedTransitionFor(matchId)?.TransitionId
                     : _view.Online.Match?.Play?.ExpectedTransition?.TransitionId;
+                _view.PrepareForContinuationLaunch();
                 _view.Activate();
                 _view.SetMenuInputEnabled(false);
                 if (_view.Play.State.Lobby != null)
@@ -73,14 +67,11 @@ namespace MphRead.Mods.Launcher.Gui
                 CheckContinuationState();
                 return;
             }
-            _continuationIsTransitioning = false;
             _continuationMatchId = null;
             _continuationTransitionId = null;
             _view.Reset();
             if (result != null) _view.ShowMatchOutcome(result);
-            _waitingForContinuation = result?.Reason == MatchExitReason.Completed
-                && _view.Online.Node?.State is { Handoff: { } handoff, MatchEnded: false }
-                && handoff.MatchId != result.MatchId;
+            _waitingForContinuation = false;
             _view.Activate();
             _view.SetMenuInputEnabled(result == null && !_waitingForContinuation);
             if (result == null)
@@ -218,7 +209,7 @@ namespace MphRead.Mods.Launcher.Gui
             resultsWindow.UserCloseRequested += ResultsWindowCloseRequested;
             resultsWindow.Wait(pump, resultsVisible,
                 () => continuationSelected(ContinuationState()));
-            return new(resultsWindow.Transition == PostMatchTransition.Quit,
+            return PostMatchFlow.PresentationResult(resultsWindow.Transition,
                 resultsWindow.Failure);
         }
 
@@ -318,18 +309,13 @@ namespace MphRead.Mods.Launcher.Gui
             if (node.Handoff is { } handoff
                 && (_continuationMatchId is null || handoff.MatchId != _continuationMatchId))
             {
-                bool transition = _continuationIsTransitioning;
                 _waitingForContinuation = false;
-                _continuationIsTransitioning = false;
                 _continuationMatchId = null;
                 _continuationTransitionId = null;
-                // A transition handoff is consumed directly by the next
-                // MatchStart launch. The coordinator must remain in
+                // The replacement handoff is consumed directly by the next
+                // MatchStart launch. The coordinator remains in
                 // PreparingContinuation until that launch presents its first
-                // frame; only the older Results/rejoin path needs an explicit
-                // return-to-shell presentation before launch.
-                if (!transition)
-                    ShellReadyForTransition?.Invoke(this, EventArgs.Empty);
+                // frame.
             }
         }
 
@@ -337,7 +323,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (!_waitingForContinuation) return;
             _waitingForContinuation = false;
-            _continuationIsTransitioning = false;
             _continuationMatchId = null;
             _continuationTransitionId = null;
             ContinuationFailed?.Invoke(message);

@@ -12,16 +12,42 @@ public sealed class DesktopTransitionCoordinatorTests
         => new(stage, "map", "mode", "hunter", "detail");
 
     [Theory]
-    [InlineData(MatchExitReason.Transitioning, false, false)]
-    [InlineData(MatchExitReason.Transitioning, true, false)]
-    [InlineData(MatchExitReason.Completed, true, false)]
-    [InlineData(MatchExitReason.Completed, false, true)]
-    [InlineData(MatchExitReason.LeftMatch, false, true)]
-    public void ResumeDoesNotReturnSuccessfulContinuationToShell(
-        MatchExitReason reason, bool waitingForContinuation, bool expected)
+    [InlineData(MatchExitReason.Transitioning, false)]
+    [InlineData(MatchExitReason.Completed, true)]
+    [InlineData(MatchExitReason.LeftMatch, true)]
+    public void ResumeUsesImmutableMatchDispositionForPresentationOwnership(
+        MatchExitReason reason, bool expected)
     {
         Assert.Equal(expected, GuiLauncher.ShouldReturnToShellAfterResume(
-            new MatchRunResult(reason), waitingForContinuation));
+            new MatchRunResult(reason)));
+    }
+
+    [Fact]
+    public void ResultsContinueRetainsCompletedMatchAndNeverReturnsToShell()
+    {
+        Guid completedMatch = Guid.NewGuid();
+        MatchResultsPresentationResult presentation =
+            PostMatchFlow.PresentationResult(PostMatchTransition.Continue);
+        MatchRunResult result = Assert.IsType<MatchRunResult>(
+            MatchStart.ResultForPresentation(presentation, completedMatch, null));
+
+        Assert.True(presentation.Continue);
+        Assert.Equal(MatchExitReason.Transitioning, result.Reason);
+        Assert.Equal(completedMatch, result.MatchId);
+        Assert.False(GuiLauncher.ShouldReturnToShellAfterResume(result));
+    }
+
+    [Fact]
+    public void ReturnToLobbyDispositionStillReturnsToShell()
+    {
+        MatchResultsPresentationResult presentation =
+            PostMatchFlow.PresentationResult(PostMatchTransition.Lobby);
+
+        Assert.False(presentation.Continue);
+        Assert.Null(MatchStart.ResultForPresentation(presentation,
+            Guid.NewGuid(), null));
+        Assert.True(GuiLauncher.ShouldReturnToShellAfterResume(
+            new MatchRunResult(MatchExitReason.Completed)));
     }
 
     [Fact]

@@ -326,6 +326,18 @@ internal sealed class PostMatchSession : IDisposable
     {
         if (_closed || _disposed || Mode != PostMatchPresentationMode.Results) return;
         GamepadState state = GamepadInput.State;
+        if (!_inputOwner.Owns(DesktopInputOwnerKind.Overlay))
+        {
+            // Polling remains active while the overlay is backgrounded, but a
+            // scene-owned or unowned gamepad must not navigate or invoke an
+            // action in this results view. Seed the handoff baseline so a
+            // held button cannot become a press when ownership returns.
+            _inputOwner.Reset(state.Buttons);
+            _previousButtons = state.Buttons;
+            _previousDirection = 0;
+            _repeatAt = default;
+            return;
+        }
         GamepadButtons pressed = _inputOwner.ConsumePressed(state.Buttons);
         int direction = state.Down(GamepadButtons.DpadDown)
             || state.Down(GamepadButtons.DpadRight) || state.LeftY < -.65f
