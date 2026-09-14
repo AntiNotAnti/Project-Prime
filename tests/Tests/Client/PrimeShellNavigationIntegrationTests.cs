@@ -31,6 +31,45 @@ namespace MphRead.Tests.Client;
 public sealed class PrimeShellNavigationIntegrationTests
 {
     [AvaloniaFact]
+    public void ClosingSettingsFinishesInputDispatchBeforeRestoringPlayContent()
+    {
+        var shell = PrimeShellView.CreateCapture(new MenuSettings(),
+            new[] { "MP3 PROVING GROUND" }, PrimeRoute.Play);
+        var window = new Window
+        {
+            Width = 1024,
+            Height = 720,
+            Content = shell
+        };
+        try
+        {
+            window.Show();
+            typeof(PrimeShellView).GetMethod("Navigate",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(shell,
+                new object[] { PrimeRoute.Settings });
+            SettingsView settings = Assert.IsType<SettingsView>(
+                shell.CaptureRouteContent);
+
+            settings.DiscardChanges();
+
+            // The Settings control remains mounted until its input callback
+            // unwinds; replacing it re-entrantly is the blank-Play failure.
+            Assert.Same(settings, shell.CaptureRouteContent);
+            Dispatcher.UIThread.RunJobs();
+
+            Control play = Assert.IsAssignableFrom<Control>(shell.CaptureRouteContent);
+            Assert.NotSame(settings, play);
+            Assert.NotEmpty(play.GetVisualDescendants());
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            shell.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+    }
+
+    [AvaloniaFact]
     public void MatchReturnRebuildsAnAlreadySelectedPlayRoot()
     {
         var shell = PrimeShellView.CreateCapture(new MenuSettings(),

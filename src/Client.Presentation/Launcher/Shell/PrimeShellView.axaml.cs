@@ -3176,7 +3176,22 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         {
             Resources["PrimeReducedMotion"] = LauncherPrefs.ReducedMotion;
             if (!openingGameFiles)
-                GoBack();
+            {
+                // Settings raises Closed from inside the Save/Discard input
+                // callback. Replacing PageHost there re-enters Avalonia's
+                // active visual-tree dispatch and can leave the destination
+                // route measured without content. Finish the callback first,
+                // then restore the route on the next UI turn.
+                Dispatcher.UIThread.Post(() =>
+                {
+                    if (!_disposed
+                        && PrimeRoutePresentation.Normalize(_shell.CurrentRoute)
+                            == PrimeRoute.Settings)
+                    {
+                        GoBack();
+                    }
+                }, DispatcherPriority.Background);
+            }
         };
         existing.GameFilesRequested += (_, _) =>
         {
