@@ -99,12 +99,6 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void ZoomActivationSnapsToTarget()
-        {
-            Assert.Equal(20, ZoomFovTransition.StepToward(78, 20, snap: true));
-        }
-
-        [Fact]
         public void ZoomOutPreservesLegacyCurveAcrossTwoTicks()
         {
             const float current = 20;

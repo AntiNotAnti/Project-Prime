@@ -195,6 +195,23 @@ public sealed class AltCollisionReliabilityTests
                 Vector3.Zero));
     }
 
+    [Theory]
+    [InlineData(Hunter.Trace, true, true, true, -1f, true)]
+    [InlineData(Hunter.Weavel, true, true, true, -1f, true)]
+    [InlineData(Hunter.Trace, true, true, false, -1f, false)]
+    [InlineData(Hunter.Trace, true, true, true, 0f, false)]
+    [InlineData(Hunter.Samus, true, true, true, -1f, false)]
+    [InlineData(Hunter.Trace, false, true, true, -1f, false)]
+    [InlineData(Hunter.Trace, true, false, true, -1f, false)]
+    public void AltLungeEndsOnlyOnAnActualBlockingTerrainImpact(Hunter hunter,
+        bool isAltForm, bool altAttackActive, bool blockingLateralCollision,
+        float speedDot, bool expected)
+    {
+        Assert.Equal(expected,
+            PlayerEntity.ShouldEndAltLungeOnCollision(hunter, isAltForm,
+                altAttackActive, blockingLateralCollision, speedDot));
+    }
+
     [Fact]
     public void SyluxHoverUsesTheDeepestContactOnly()
     {

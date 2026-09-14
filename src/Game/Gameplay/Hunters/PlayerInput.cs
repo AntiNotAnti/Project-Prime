@@ -863,11 +863,9 @@ namespace MphRead.Entities
                     }
                     if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
                     {
-                        bool zoomActivated = false;
                         if (Controls.Zoom.IsPressed)
                         {
-                            zoomActivated = !EquipInfo.Zoomed;
-                            UpdateZoom(zoomActivated);
+                            UpdateZoom(!EquipInfo.Zoomed);
                         }
                         if (EquipInfo.Zoomed && _scene.CameraSequences.Current == null)
                         {
@@ -908,7 +906,7 @@ namespace MphRead.Entities
                             CheckZoomTargets(EntityType.Object);
                             zoomFov *= 2;
                             CameraInfo.Fov = ZoomFovTransition.StepToward(
-                                CameraInfo.Fov, zoomFov, zoomActivated);
+                                CameraInfo.Fov, zoomFov);
                         }
                     }
                     if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= SimTicks.From30HzFrames(1)
@@ -1146,6 +1144,7 @@ namespace MphRead.Entities
             Vector3 speedDelta = Vector3.Zero;
             int animId = -1;
             AnimFlags animFlags = AnimFlags.None;
+            bool animRequiresMovement = false;
             Flags1 |= PlayerFlags1.UsedJump;
             if (_frozenTimer == 0 && _health > 0)
             {
@@ -1167,7 +1166,8 @@ namespace MphRead.Entities
 
                 void UpdateAnimation(float aimX, float aimY)
                 {
-                    if ((Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags1.TestFlag(PlayerFlags1.Grounded))
+                    if ((Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                        && HasPhysicalAltGroundContact(Flags1))
                     {
                         // sktodo: threshold values
                         if (aimX > 3)
@@ -1175,6 +1175,7 @@ namespace MphRead.Entities
                             _timeIdle = 0;
                             animId = (int)WeavelAltAnim.Turn; // or TraceAltAnim.MoveBackward
                             animFlags = AnimFlags.Reverse;
+                            animRequiresMovement = false;
                             if (_altModel.AnimInfo.Index[0] == animId)
                             {
                                 _altModel.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
@@ -1185,6 +1186,8 @@ namespace MphRead.Entities
                         {
                             _timeIdle = 0;
                             animId = (int)WeavelAltAnim.Turn; // or TraceAltAnim.MoveBackward
+                            animFlags = AnimFlags.None;
+                            animRequiresMovement = false;
                             if (_altModel.AnimInfo.Index[0] == animId)
                             {
                                 _altModel.AnimInfo.Flags[0] &= ~AnimFlags.NoLoop;
@@ -1334,6 +1337,7 @@ namespace MphRead.Entities
                         {
                             animId = movementAnim;
                             animFlags = AnimFlags.None;
+                            animRequiresMovement = true;
                         }
                         // todo: update field684
                         // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
@@ -1450,7 +1454,7 @@ namespace MphRead.Entities
                     {
                         if (Flags2.TestFlag(PlayerFlags2.AltAttack) || _altAttackCooldown > 0)
                         {
-                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            if (HasPhysicalAltGroundContact(Flags1))
                             {
                                 EndAltAttack();
                             }
@@ -1480,6 +1484,7 @@ namespace MphRead.Entities
                             }
                             animId = (int)TraceAltAnim.Attack;
                             animFlags = AnimFlags.NoLoop;
+                            animRequiresMovement = false;
                             _soundSource.PlaySfx(SfxId.TRACE_ALT_ATTACK);
                         }
                     }
@@ -1487,7 +1492,7 @@ namespace MphRead.Entities
                     {
                         if (Flags2.TestFlag(PlayerFlags2.AltAttack) || _altAttackCooldown > 0)
                         {
-                            if (Flags1.TestFlag(PlayerFlags1.Standing))
+                            if (HasPhysicalAltGroundContact(Flags1))
                             {
                                 EndAltAttack();
                             }
@@ -1513,6 +1518,7 @@ namespace MphRead.Entities
                             }
                             animId = (int)WeavelAltAnim.Attack;
                             animFlags = AnimFlags.NoLoop;
+                            animRequiresMovement = false;
                             _soundSource.PlaySfx(SfxId.WEAVEL_ALT_ATTACK);
                         }
                     }
@@ -1582,23 +1588,40 @@ namespace MphRead.Entities
                 {
                     TrySwitchForms();
                 }
-                if (Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+            }
+            ProcessMovement();
+            if (_frozenTimer == 0 && _health > 0
+                && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel))
+            {
+                // Collision/support and the actual displacement are only
+                // final after ProcessMovement. Resolve the locomotion clip
+                // here so jump-pad support and wall-blocked requests cannot
+                // restart a directional animation.
+                AnimationInfo info = _altModel.AnimInfo;
+                (int animation, AnimFlags flags) = ResolveAltAnimation(
+                    Hunter, Flags1, Flags2.TestFlag(PlayerFlags2.AltAttack),
+                    info.Index[0], info.Flags[0], animId, animFlags,
+                    Position - PrevPosition, animRequiresMovement);
+                int attackAnimation = Hunter == Hunter.Trace
+                    ? (int)TraceAltAnim.Attack : (int)WeavelAltAnim.Attack;
+                if (animation == (int)TraceAltAnim.Idle)
                 {
-                    AnimationInfo info = _altModel.AnimInfo;
-                    if (animId != -1)
+                    if (info.Index[0] != (int)TraceAltAnim.Idle
+                        && (!info.Flags[0].TestFlag(AnimFlags.NoLoop)
+                            || info.Flags[0].TestFlag(AnimFlags.Ended)))
                     {
-                        if ((info.Index[0] != 1 || info.Flags[0].TestFlag(AnimFlags.Ended)) && animId != info.Index[0])
-                        {
-                            _altModel.SetAnimation(animId, animFlags);
-                        }
+                        _altModel.SetAnimation((int)TraceAltAnim.Idle, flags);
                     }
-                    else if (info.Index[0] != 0 && (!info.Flags[0].TestFlag(AnimFlags.NoLoop) || info.Flags[0].TestFlag(AnimFlags.Ended)))
+                }
+                else if (info.Index[0] != attackAnimation
+                    || info.Flags[0].TestFlag(AnimFlags.Ended))
+                {
+                    if (animation != info.Index[0])
                     {
-                        _altModel.SetAnimation(0);
+                        _altModel.SetAnimation(animation, flags);
                     }
                 }
             }
-            ProcessMovement();
             UpdateCamera();
         }
 
@@ -1626,6 +1649,91 @@ namespace MphRead.Entities
                 if (lateralSign < 0) return (int)WeavelAltAnim.MoveLeft;
             }
             return -1;
+        }
+
+        /// <summary>
+        /// Resolve Trace/Weavel's final alternate-form animation after the
+        /// movement/collision pass. Attack state owns the clip, then a
+        /// non-ended attack is allowed to finish; directional locomotion is
+        /// only valid with real horizontal movement on physical ground.
+        /// </summary>
+        internal static (int Animation, AnimFlags Flags) ResolveAltAnimation(
+            Hunter hunter, PlayerFlags1 flags, bool altAttackActive,
+            int currentAnimation, AnimFlags currentFlags,
+            int requestedAnimation, AnimFlags requestedFlags,
+            Vector3 displacement,
+            bool requestedAnimationRequiresMovement = true)
+        {
+            if (hunter != Hunter.Trace && hunter != Hunter.Weavel)
+            {
+                return (currentAnimation, currentFlags);
+            }
+
+            int attackAnimation = hunter == Hunter.Trace
+                ? (int)TraceAltAnim.Attack : (int)WeavelAltAnim.Attack;
+            if (altAttackActive)
+            {
+                if (currentAnimation == attackAnimation)
+                {
+                    // In particular, do not restart an ended attack pose.
+                    return (attackAnimation, currentFlags);
+                }
+                return (attackAnimation,
+                    requestedAnimation == attackAnimation
+                        ? requestedFlags : AnimFlags.NoLoop);
+            }
+            if (requestedAnimation == attackAnimation)
+            {
+                // The combat state may have ended on an immediate hit or
+                // blocking impact during ProcessMovement. The accepted
+                // attack still owns its one-shot presentation.
+                return (attackAnimation, requestedFlags);
+            }
+            if (currentAnimation == attackAnimation
+                && !currentFlags.TestFlag(AnimFlags.Ended))
+            {
+                return (attackAnimation, currentFlags);
+            }
+            if (HasPhysicalAltGroundContact(flags)
+                && requestedAnimation >= 0
+                && (!requestedAnimationRequiresMovement
+                    || HasRealAltHorizontalMovement(displacement)))
+            {
+                return (requestedAnimation, requestedFlags);
+            }
+            int idleAnimation = hunter == Hunter.Trace
+                ? (int)TraceAltAnim.Idle : (int)WeavelAltAnim.Idle;
+            return (idleAnimation, AnimFlags.None);
+        }
+
+        internal static bool HasRealAltHorizontalMovement(Vector3 displacement)
+        {
+            if (!VectorMath.IsFinite(displacement))
+            {
+                return false;
+            }
+            float lengthSquared = displacement.X * displacement.X
+                + displacement.Z * displacement.Z;
+            return float.IsFinite(lengthSquared)
+                && lengthSquared > VectorMath.DefaultEpsilon
+                    * VectorMath.DefaultEpsilon;
+        }
+
+        internal static bool ShouldStopSamusAltBoost(Hunter hunter,
+            bool isAltForm, bool boosting, Vector3 speed, float altMinHSpeed)
+        {
+            if (hunter != Hunter.Samus || !isAltForm || !boosting
+                || !VectorMath.IsFinite(speed) || !float.IsFinite(altMinHSpeed)
+                || altMinHSpeed < 0)
+            {
+                return false;
+            }
+            float horizontalSpeedSquared = speed.X * speed.X
+                + speed.Z * speed.Z;
+            float minimumSpeedSquared = altMinHSpeed * altMinHSpeed;
+            return float.IsFinite(horizontalSpeedSquared)
+                && float.IsFinite(minimumSpeedSquared)
+                && horizontalSpeedSquared <= minimumSpeedSquared;
         }
 
         internal static bool ShouldApplyMorphAnimation(bool switchSucceeded,
@@ -2213,6 +2321,12 @@ namespace MphRead.Entities
             Vector3 prevC0 = _fieldC0;
             _fieldC0 = Vector3.Zero;
             CheckCollision();
+            if (ShouldStopSamusAltBoost(Hunter, IsAltForm,
+                Flags1.TestFlag(PlayerFlags1.Boosting), Speed,
+                Fixed.ToFloat(Values.AltMinHSpeed)))
+            {
+                Flags1 &= ~PlayerFlags1.Boosting;
+            }
             if (_field449 > 0 && _field449 < SimTicks.From30HzFrames(30))
             {
                 _fieldC0 = prevC0;

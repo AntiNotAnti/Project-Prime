@@ -3,8 +3,8 @@ using System;
 namespace MphRead.Entities;
 
 /// <summary>
-/// Snaps initial zoom activation, then keeps target-driven adjustments
-/// responsive at the fixed 60 Hz simulation rate.
+/// Moves the zoom FOV toward its current target at the fixed 60 Hz simulation
+/// rate.
 /// </summary>
 internal static class ZoomFovTransition
 {
@@ -15,13 +15,8 @@ internal static class ZoomFovTransition
     private static readonly float ReturnBlendPerTick = 1 - MathF.Pow(
         1 - LegacyReturnBlend, SimTicks.LegacyHz / (float)SimTicks.Hz);
 
-    public static float StepToward(float currentFov, float targetFov,
-        bool snap = false)
+    public static float StepToward(float currentFov, float targetFov)
     {
-        if (snap)
-        {
-            return targetFov;
-        }
         if (targetFov > currentFov)
         {
             return Math.Min(currentFov + ZoomInStepDegreesPerTick, targetFov);

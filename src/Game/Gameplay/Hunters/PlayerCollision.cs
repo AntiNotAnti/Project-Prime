@@ -44,6 +44,14 @@ namespace MphRead.Entities
             return 1;
         }
 
+        internal static bool ShouldEndAltLungeOnCollision(Hunter hunter,
+            bool isAltForm, bool altAttackActive,
+            bool blockingLateralCollision, float speedDot)
+            => isAltForm && altAttackActive
+                && (hunter == Hunter.Trace || hunter == Hunter.Weavel)
+                && blockingLateralCollision && float.IsFinite(speedDot)
+                && speedDot < 0;
+
         internal static Vector3 RemoveInwardHorizontalComponent(
             Vector3 acceleration, Vector3 collisionNormal)
         {
@@ -562,7 +570,7 @@ namespace MphRead.Entities
                     limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
                 for (int i = 0; i < count; i++)
                 {
-                    HandleCollision(results[i]);
+                    HandleCollision(results[i], endLungeOnBlockingCollision: true);
                 }
                 radius = bipedBottomVolume.SphereRadius;
                 point1 = bipedClearanceOrigin + bipedBottomVolume.SpherePosition;
@@ -628,7 +636,7 @@ namespace MphRead.Entities
                     limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
                 for (int i = 0; i < count; i++)
                 {
-                    HandleCollision(results[i]);
+                    HandleCollision(results[i], endLungeOnBlockingCollision: true);
                 }
             }
             foreach (DoorEntity door in _scene.GetDoorEntities())
@@ -716,6 +724,10 @@ namespace MphRead.Entities
         }
 
         public void HandleCollision(CollisionResult result)
+            => HandleCollision(result, endLungeOnBlockingCollision: false);
+
+        private void HandleCollision(CollisionResult result,
+            bool endLungeOnBlockingCollision)
         {
             bool v163 = false;
             bool v164 = false;
@@ -962,6 +974,13 @@ namespace MphRead.Entities
                 float dot = Vector3.Dot(Speed, result.Plane.Xyz);
                 if (dot < 0)
                 {
+                    if (endLungeOnBlockingCollision
+                        && ShouldEndAltLungeOnCollision(Hunter, IsAltForm,
+                            Flags2.TestFlag(PlayerFlags2.AltAttack), v165,
+                            dot))
+                    {
+                        EndAltAttack();
+                    }
                     if (v165 && Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
                     {
                         _jumpPadAccel = RemoveInwardHorizontalComponent(

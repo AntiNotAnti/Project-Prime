@@ -1850,6 +1850,15 @@ namespace MphRead.Entities
             => flags.TestAny(PlayerFlags1.Standing
                 | PlayerFlags1.StandingPrevious);
 
+        /// <summary>
+        /// A standing flag from a jump pad describes the launch support, not
+        /// physical ground contact. Trace and Weavel animation/cancellation
+        /// decisions must use the latter so a pad cannot look like a landing.
+        /// </summary>
+        internal static bool HasPhysicalAltGroundContact(PlayerFlags1 flags)
+            => flags.TestFlag(PlayerFlags1.Standing)
+                && !flags.TestFlag(PlayerFlags1.UsedJumpPad);
+
         internal static bool SupportsReplicatedAltAttack(Hunter hunter)
             => hunter is Hunter.Trace or Hunter.Spire or Hunter.Weavel;
 
