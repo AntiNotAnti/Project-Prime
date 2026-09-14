@@ -34,6 +34,15 @@ internal enum KillcamState
     Presenting
 }
 
+/// <summary>Independent terminal presentation owned by the live scene.</summary>
+internal enum FinalSequenceState
+{
+    None,
+    Replay,
+    GameOver,
+    AwaitCompletion
+}
+
 internal readonly record struct KillcamDiagnostics(
     KillcamState State,
     KillcamPolicy Policy,
@@ -82,6 +91,8 @@ internal sealed class KillcamController : IDisposable
     // A stalled timeline must never keep a death pending forever. This is a
     // presentation-only bound; it does not pause or delay the live scene.
     internal const uint CaptureFallbackFrames = 120;
+    internal const uint FinalGameOverFrames = 105;
+    internal const uint FinalResultWaitFrames = 30;
 
     // Compatibility names are intentionally not used by the controller. Keep
     // them internal for older focused tests compiled against the previous
@@ -121,9 +132,22 @@ internal sealed class KillcamController : IDisposable
     private KillcamCommand _pendingCommand;
     private long _liveAudioVersion;
     private long _liveInputVersion;
+    private long _liveHudVersion;
+    private bool _liveSuppressionActive;
+    private bool _liveInputWasSuppressed;
+    private bool _liveHudWasSuppressed;
     private bool _liveAudioWasActive;
     private Music.PresentationAudioSnapshot _liveMusicSnapshot;
     private (uint Match, uint Event, CombatActor Victim) _last;
+    private KillEvent? _latestAcceptedKill;
+    private MatchEvent? _finalEnded;
+    private ReplayTimelineClip? _finalClip;
+    private FinalSequenceState _finalState;
+    private bool _finalDecisionPending;
+    private bool _finalClipCaptureAttempted;
+    private uint _finalResultWaitFrames;
+    private uint _finalGameOverFrames;
+    private bool _finalSuppressionActive;
 
     internal KillcamController(ScenePresentation live, Vector2i size,
         KeyboardState keyboard, MouseState mouse)
@@ -143,7 +167,13 @@ internal sealed class KillcamController : IDisposable
 
     internal bool IsPresenting => _replay != null && _session is { IsSeeking: false };
     internal bool IsActive => _replay != null || _session != null;
-    internal ScenePresentation RenderedPresentation => IsPresenting ? _replay! : _live;
+    internal ScenePresentation RenderedPresentation
+        => _replay != null && _session is { IsSeeking: false }
+            && (_finalState == FinalSequenceState.Replay || IsPresenting)
+            ? _replay : _live;
+    internal FinalSequenceState FinalState => _finalState;
+    internal bool FinalSequenceActive => _finalState != FinalSequenceState.None;
+    internal bool FinalSequenceReplayActive => _finalState == FinalSequenceState.Replay;
     internal KillcamEndReason? LastEndReason { get; private set; }
     internal KillcamState State => _state;
     internal KillcamPolicy Policy => _policy;
@@ -201,7 +231,9 @@ internal sealed class KillcamController : IDisposable
 
     internal void SubmitCommand(KillcamCommand command)
     {
-        if (command == KillcamCommand.Skip && IsActive)
+        if (command == KillcamCommand.Skip
+            && (_finalState == FinalSequenceState.Replay
+                || _finalState == FinalSequenceState.None && IsActive))
             _pendingCommand = KillcamCommand.Skip;
     }
 
@@ -252,13 +284,41 @@ internal sealed class KillcamController : IDisposable
     private void Bind(AuthoritativePlay? play)
     {
         if (ReferenceEquals(_play, play)) return;
-        if (_play != null) _play.LocalPlayerKilled -= OnLocalPlayerKilled;
+        if (_play != null)
+        {
+            _play.LocalPlayerKilled -= OnLocalPlayerKilled;
+            _play.AuthoritativeKillAccepted -= OnAuthoritativeKillAccepted;
+            _play.AuthoritativeMatchEndedAccepted -= OnAuthoritativeMatchEndedAccepted;
+        }
         _play = play;
-        if (_play != null) _play.LocalPlayerKilled += OnLocalPlayerKilled;
+        _latestAcceptedKill = null;
+        _finalEnded = null;
+        if (_play != null)
+        {
+            _play.LocalPlayerKilled += OnLocalPlayerKilled;
+            _play.AuthoritativeKillAccepted += OnAuthoritativeKillAccepted;
+            _play.AuthoritativeMatchEndedAccepted += OnAuthoritativeMatchEndedAccepted;
+        }
+    }
+
+    private void OnAuthoritativeKillAccepted(KillEvent kill)
+    {
+        if (_play == null || _play.Client.Accepted.MatchId != kill.MatchId)
+            return;
+        // Keep accepting facts while the terminal result is still pending so
+        // a later same-tick kill can replace an earlier candidate. Once the
+        // decision is committed, the immutable clip/state machine is fenced.
+        if (_finalState != FinalSequenceState.None && !_finalDecisionPending)
+            return;
+        if (_latestAcceptedKill is { } previous
+            && previous.MatchId == kill.MatchId && previous.Id == kill.Id
+            && previous.Victim == kill.Victim) return;
+        _latestAcceptedKill = kill;
     }
 
     private void OnLocalPlayerKilled(KillEvent kill)
     {
+        if (FinalSequenceActive) return;
         if (_last == (kill.MatchId, kill.Id, kill.Victim)
             || _deferredKill is { } deferred
                 && (deferred.MatchId, deferred.Id, deferred.Victim)
@@ -280,6 +340,159 @@ internal sealed class KillcamController : IDisposable
         }
         BeginCapture(capture);
     }
+
+    private void OnAuthoritativeMatchEndedAccepted(MatchEvent ended)
+    {
+        if (FinalSequenceActive || _play == null
+            || _play.Client.Accepted.MatchId != ended.MatchId)
+            return;
+
+        _finalEnded = ended;
+        _finalState = FinalSequenceState.GameOver;
+        _finalClipCaptureAttempted = false;
+        _finalResultWaitFrames = 0;
+        _finalGameOverFrames = 0;
+        _finalClip = null;
+        _finalDecisionPending = false;
+        // A terminal edge owns the picture even when an ordinary local-death
+        // killcam is already presenting. Cleanup is intentionally restore-free
+        // so live HUD/input/audio cannot flash back for one frame.
+        if (_replay != null || _session != null || _pending != null
+            || _pendingClip != null)
+            Stop(KillcamEndReason.MatchChanged, restoreLive: false);
+        EnterFinalSuppression();
+
+        // This is deliberately a single freeze attempt, immediately after
+        // ReplayRecorder.RecordEvent(message) in AuthoritativePlay.DrainEvents.
+        // The latest accepted kill is the only candidate; an older same-tick
+        // kill is never searched for as a causal substitute.
+        if (!_finalClipCaptureAttempted)
+        {
+            _finalClipCaptureAttempted = true;
+            if (_latestAcceptedKill is not { } latest
+                || !IsFinalReplayFact(latest, ended)
+                || !TryCaptureFinalClip(ReplayRecorder.Timeline, latest, ended,
+                    out ReplayTimelineClip? clip) || clip == null)
+            {
+                EnterFinalGameOver();
+                return;
+            }
+            _finalClip = clip;
+            _finalDecisionPending = true;
+        }
+        // Resolve on the following simulation boundary so terminal result
+        // replication can arrive without delaying or holding scene completion.
+    }
+
+    private void TryResolveFinalDecision()
+    {
+        if (!_finalDecisionPending || _finalEnded is not { } ended) return;
+        if (_latestAcceptedKill is not { } candidate
+            || _finalClip is not { } clip
+            || !IsFinalReplayFact(candidate, ended)
+            || !TryMapKillToClip(clip, candidate, out _))
+        {
+            EnterFinalGameOver();
+            return;
+        }
+        MatchResult? result = _live.World.Match.Result;
+        if (result == null && ++_finalResultWaitFrames < FinalResultWaitFrames)
+            return;
+
+        _finalDecisionPending = false;
+        if (result != null && IsFinalReplayEligible(candidate, ended, result)
+            && TryStartFinalReplay(candidate, clip))
+        {
+            _finalState = FinalSequenceState.Replay;
+            return;
+        }
+        EnterFinalGameOver();
+    }
+
+    /// <summary>
+    /// Conservative final-replay gate. MatchEnded is only a terminal edge;
+    /// result mode/reason and winner alignment remain authoritative.
+    /// </summary>
+    internal static bool IsFinalReplayEligible(in KillEvent kill,
+        in MatchEvent ended, MatchResult? result)
+    {
+        if (result == null || !ended.IsValid
+            || ended.Kind != MatchEventKind.MatchEnded
+            || !kill.IsValid || kill.MatchId != ended.MatchId
+            || kill.Tick != ended.Tick || result.MatchId != ended.MatchId
+            || !IsFinalEnemyKiller(kill) || result.ResultSlots.IsDefaultOrEmpty)
+            return false;
+
+        bool battle = result.Rules.Mode is MatchMode.Battle or MatchMode.TeamBattle
+            && result.EndReason == MatchEndReason.ScoreGoal;
+        bool survival = result.Rules.Mode is MatchMode.Survival or MatchMode.TeamSurvival
+            && result.EndReason == MatchEndReason.Survival;
+        if (!battle && !survival) return false;
+
+        int winnerSlot = result.ResultSlots[0];
+        if ((uint)winnerSlot >= (uint)result.Players.Length
+            || !result.Players[winnerSlot].Active
+            || (uint)kill.Killer.Slot >= (uint)result.Players.Length
+            || (uint)kill.Victim.Slot >= (uint)result.Players.Length
+            || !result.Players[kill.Killer.Slot].Active
+            || !result.Players[kill.Victim.Slot].Active)
+            return false;
+        if (result.Rules.Mode is MatchMode.Battle or MatchMode.Survival)
+            return winnerSlot == kill.Killer.Slot;
+        if (result.Rules.Mode is not (MatchMode.TeamBattle or MatchMode.TeamSurvival))
+            return false;
+        int killerTeam = result.Players[kill.Killer.Slot].TeamIndex;
+        int victimTeam = result.Players[kill.Victim.Slot].TeamIndex;
+        int winnerTeam = result.Players[winnerSlot].TeamIndex;
+        return killerTeam >= 0 && killerTeam == winnerTeam
+            && victimTeam >= 0 && victimTeam != killerTeam;
+    }
+
+    internal static bool IsFinalEnemyKiller(in KillEvent kill)
+        => IsValidEnemyKiller(kill)
+            && kill.Killer.ConnectionId != kill.Victim.ConnectionId
+            && kill.SourceKind != KillSourceKind.Environment
+            && (kill.Flags & (KillEventFlags.Suicide | KillEventFlags.TeamKill)) == 0;
+
+    /// <summary>Freezes exactly the pre-kill window ending at the accepted kill.</summary>
+    internal static bool TryCaptureFinalClip(IReplayTimeline timeline,
+        in KillEvent kill, in MatchEvent ended, out ReplayTimelineClip? clip)
+    {
+        ArgumentNullException.ThrowIfNull(timeline);
+        clip = null;
+        if (!ended.IsValid || ended.Kind != MatchEventKind.MatchEnded
+            || !kill.IsValid || kill.MatchId != ended.MatchId
+            || kill.Tick != ended.Tick
+            || !timeline.TryMapKillToRecordingFrame(kill, out uint killFrame))
+            return false;
+        uint requestedStart = killFrame > PreKillFrames
+            ? killFrame - PreKillFrames : 0;
+        uint actualStart = requestedStart;
+        if (!timeline.TryGetRestorePoint(actualStart,
+                out ReplayRestorePoint? restore) || restore == null)
+        {
+            if (!TryGetEarliestRestoreAtOrBefore(timeline, killFrame,
+                    out restore) || restore == null)
+                return false;
+            actualStart = restore.RecordingFrame;
+        }
+        if (actualStart > killFrame
+            || !timeline.TryFreeze(actualStart, killFrame,
+                out ReplayTimelineClip? candidate) || candidate == null
+            || !IsUsableClip(candidate, kill, killFrame))
+            return false;
+        clip = candidate;
+        return true;
+    }
+
+    internal static bool IsFinalSequenceActive(FinalSequenceState state)
+        => state != FinalSequenceState.None;
+
+    private static bool IsFinalReplayFact(in KillEvent kill,
+        in MatchEvent ended)
+        => ended.IsValid && ended.Kind == MatchEventKind.MatchEnded
+            && kill.IsValid && kill.MatchId == ended.MatchId
+            && kill.Tick == ended.Tick && IsFinalEnemyKiller(kill);
 
     private void BeginCapture(in PendingKillcamCapture capture)
     {
@@ -489,7 +702,8 @@ internal sealed class KillcamController : IDisposable
             Console.Error.WriteLine($"[killcam] Advance failed: {error.Message}");
             try
             {
-                Stop(KillcamEndReason.Failure);
+                if (FinalSequenceActive) EnterFinalGameOver();
+                else Stop(KillcamEndReason.Failure);
             }
             catch (Exception cleanupError) when (cleanupError is not OutOfMemoryException)
             {
@@ -501,6 +715,11 @@ internal sealed class KillcamController : IDisposable
 
     private void AdvanceCore()
     {
+        if (FinalSequenceActive)
+        {
+            AdvanceFinalSequence();
+            return;
+        }
         if (_replay == null && _pending == null && _deferredKill is { } deferred)
         {
             if (_play == null || _play.KillcamLiveContextChanged(deferred,
@@ -606,34 +825,201 @@ internal sealed class KillcamController : IDisposable
             return;
         }
         _state = KillcamState.Presenting;
-        if (!_replayAudioActive)
-        {
-            _liveAudioWasActive = _live.PresentationAudioActive;
-            _liveMusicSnapshot = Music.CapturePresentationAudio();
-            GamepadInput.BeginGameplayInputQuarantine();
-            _live.SetGameplayInputSuppressed(true);
-            _live.SetPresentationAudio(false);
-            _liveInputVersion = _live.GameplayInputSuppressionVersion;
-            _liveAudioVersion = _live.PresentationAudioVersion;
-            _replayAudioActive = true;
-            try
-            {
-                _replay.SetPresentationAudio(true);
-                Sfx.BindPresentation(_replay.World);
-            }
-            catch (Exception error)
-            {
-                Console.WriteLine($"[killcam] Audio handoff failed ({error.Message}); returning live");
-                Stop(KillcamEndReason.Failure);
-                return;
-            }
-        }
+        if (!_replayAudioActive && !BeginReplayHandoff()) return;
         if (_kill.Killer.IsValid && !_kill.IsSuicide)
             _replay.SetFreeCamera(false);
         if (_session.AtEnd)
         {
             if (++_endFreezeFrames >= EndFreezeFrames) Stop(KillcamEndReason.Completed);
         }
+    }
+
+    private void AdvanceFinalSequence()
+    {
+        if (_play == null || _finalEnded is not { } ended
+            || _play.Client.Accepted.MatchId != ended.MatchId
+            || _play.State is AuthoritativePlay.TerminalState.Disposed
+                or AuthoritativePlay.TerminalState.Transitioning)
+        {
+            EndFinalSequence();
+            return;
+        }
+
+        if (_finalDecisionPending)
+        {
+            TryResolveFinalDecision();
+            if (_finalDecisionPending) return;
+        }
+
+        if (_finalState == FinalSequenceState.Replay)
+        {
+            if (_pendingCommand == KillcamCommand.Skip)
+            {
+                _pendingCommand = KillcamCommand.None;
+                EnterFinalGameOver();
+                return;
+            }
+            if (_replay == null || _session == null)
+            {
+                EnterFinalGameOver();
+                return;
+            }
+            _replay.OnSimulationFrame();
+            if (_session.IsSeeking)
+            {
+                _state = KillcamState.Seeking;
+                return;
+            }
+            if (!TryEnsureFinalReplayFocus())
+            {
+                EnterFinalGameOver();
+                return;
+            }
+            _state = KillcamState.Presenting;
+            if (_session.AtEnd) EnterFinalGameOver();
+            return;
+        }
+
+        if (_finalState == FinalSequenceState.GameOver)
+        {
+            if (++_finalGameOverFrames < FinalGameOverFrames) return;
+            _finalState = FinalSequenceState.AwaitCompletion;
+        }
+    }
+
+    private bool TryStartFinalReplay(KillEvent kill, ReplayTimelineClip clip)
+    {
+        try
+        {
+            if (!TryMapKillToClip(clip, kill, out uint killFrame))
+                return false;
+            _killFrame = killFrame;
+            _clipStart = clip.StartRecordingFrame;
+            _clipEnd = clip.EndRecordingFrame;
+            _tailFramesCaptured = 0;
+            var pending = new PendingKillcamCapture(kill,
+                KillcamPolicy.Immediate, killFrame, clip.StartRecordingFrame,
+                clip.EndRecordingFrame, clip) { ActualStart = clip.StartRecordingFrame };
+            if (!Start(pending, clip, final: true)) return false;
+            return ActivateReplayAudio();
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam-final-start", error);
+            return false;
+        }
+    }
+
+    private static bool TryMapKillToClip(ReplayTimelineClip clip,
+        in KillEvent kill, out uint recordingFrame)
+    {
+        recordingFrame = 0;
+        if (clip.EndRecordingFrame < clip.StartRecordingFrame) return false;
+        foreach (ReplayTimelineRecord record in clip.Records)
+        {
+            if (!ReplayTimelineEventReader.IsExactKill(record, kill)) continue;
+            recordingFrame = record.RecordingFrame;
+            return true;
+        }
+        foreach (ReplayTimelineRecord record in clip.RestorePoint.Records)
+        {
+            if (!ReplayTimelineEventReader.IsExactKill(record, kill)) continue;
+            recordingFrame = record.RecordingFrame;
+            return true;
+        }
+        return false;
+    }
+
+    private bool BeginReplayHandoff()
+    {
+        if (!BeginLiveSuppression()) return false;
+        if (_replayAudioActive) return true;
+        if (!ActivateReplayAudio())
+        {
+            Stop(KillcamEndReason.Failure);
+            return false;
+        }
+        return true;
+    }
+
+    private bool BeginLiveSuppression()
+    {
+        if (_liveSuppressionActive) return true;
+        _liveInputWasSuppressed = _live.GameplayInputSuppressed;
+        _liveAudioWasActive = _live.PresentationAudioActive;
+        _liveMusicSnapshot = Music.CapturePresentationAudio();
+        GamepadInput.BeginGameplayInputQuarantine();
+        _live.SetGameplayInputSuppressed(true);
+        _live.SetPresentationAudio(false);
+        _liveInputVersion = _live.GameplayInputSuppressionVersion;
+        _liveAudioVersion = _live.PresentationAudioVersion;
+        _liveSuppressionActive = true;
+        return true;
+    }
+
+    private bool ActivateReplayAudio()
+    {
+        if (_replayAudioActive) return true;
+        if (_replay == null) return false;
+        try
+        {
+            _replay.SetPresentationAudio(true);
+            _replayAudioActive = true;
+            Sfx.BindPresentation(_replay.World);
+            return true;
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            Console.WriteLine($"[killcam] Audio handoff failed ({error.Message}); returning live");
+            return false;
+        }
+    }
+
+    private void EnterFinalSuppression()
+    {
+        _finalSuppressionActive = true;
+        _liveHudWasSuppressed = _live.GameplayHudSuppressed;
+        _live.SetGameplayHudSuppressed(true);
+        _liveHudVersion = _live.GameplayHudSuppressionVersion;
+        if (!_liveSuppressionActive)
+        {
+            BeginLiveSuppression();
+        }
+        else
+        {
+            // The ordinary replay was torn down synchronously just before
+            // this handoff. Refresh the versions so the final sequence owns
+            // the current suppression writes and can restore only itself.
+            _live.SetGameplayInputSuppressed(true);
+            _live.SetPresentationAudio(false);
+            _liveInputVersion = _live.GameplayInputSuppressionVersion;
+            _liveAudioVersion = _live.PresentationAudioVersion;
+        }
+    }
+
+    private void EnterFinalGameOver()
+    {
+        if (_replay != null || _session != null)
+            Stop(KillcamEndReason.Completed, restoreLive: false);
+        _finalState = FinalSequenceState.GameOver;
+        _finalDecisionPending = false;
+        _finalGameOverFrames = 0;
+        _state = KillcamState.Idle;
+        _live.AdditionalOverlay = DrawFinalGameOverOverlay;
+    }
+
+    private void EndFinalSequence()
+    {
+        if (_replay != null || _session != null)
+            Stop(KillcamEndReason.MatchChanged, restoreLive: false);
+        RestoreFinalSuppression();
+        _finalState = FinalSequenceState.None;
+        _finalDecisionPending = false;
+        _finalEnded = null;
+        _finalClip = null;
+        _finalClipCaptureAttempted = false;
+        _latestAcceptedKill = null;
+        _live.AdditionalOverlay = null;
     }
 
     private bool PendingLiveContextChanged(in PendingKillcamCapture pending)
@@ -692,6 +1078,11 @@ internal sealed class KillcamController : IDisposable
             && SetReplayFocus(_kill.Victim, SpectatorCameraMode.Chase);
     }
 
+    private bool TryEnsureFinalReplayFocus()
+        => _replay != null && IsFinalEnemyKiller(_kill)
+            && IsReplayActorAvailable(_kill.Killer)
+            && SetReplayFocus(_kill.Killer, SpectatorCameraMode.Chase);
+
     private bool IsReplayActorAvailable(CombatActor expected)
     {
         if (_replay == null || !expected.IsValid
@@ -725,7 +1116,8 @@ internal sealed class KillcamController : IDisposable
             ? KillcamEndReason.NewLife : KillcamEndReason.MatchChanged;
     }
 
-    private bool Start(in PendingKillcamCapture pending, ReplayTimelineClip clip)
+    private bool Start(in PendingKillcamCapture pending, ReplayTimelineClip clip,
+        bool final = false)
     {
         var session = new ReplayPlaybackSession();
         if (!session.Join(clip)) { session.Dispose(); return false; }
@@ -745,7 +1137,8 @@ internal sealed class KillcamController : IDisposable
                 Services = session.SceneServices
             };
             presentation = new ScenePresentation(scene, ResolveSize(), _keyboard, _mouse,
-                static _ => { }, () => Stop(KillcamEndReason.SceneClosing),
+                static _ => { }, () => Stop(KillcamEndReason.SceneClosing,
+                    restoreLive: !final),
                 _live.Timing, session.SceneServices, session);
             session.BuildPlayers(scene);
             MatchRules? rules = session.InitialRules;
@@ -753,7 +1146,7 @@ internal sealed class KillcamController : IDisposable
             presentation.AddRoom(rules.RoomKey, rules.Mode.ToLegacyMode(),
                 playerCount: session.Modern.Roster.Length);
             presentation.SpectatorCamera.ConfigureKillcam(focus, focusMode);
-            presentation.AdditionalOverlay = DrawOverlay;
+            presentation.AdditionalOverlay = final ? DrawFinalReplayOverlay : DrawOverlay;
             presentation.OnLoad();
             if (!session.Seek(clip.StartRecordingFrame)) return false;
             _session = session;
@@ -820,12 +1213,51 @@ internal sealed class KillcamController : IDisposable
             new Vector4(.3f, .8f, .95f, .95f));
     }
 
-    private void Stop(KillcamEndReason reason)
+    private void DrawFinalReplayOverlay(ScenePresentation presentation)
+    {
+        DrawOverlay(presentation);
+        if (presentation.World.LocalPlayer is { } localPlayer)
+            localPlayer.GetPresentation().DrawText2D(128, 196, Align.Center, 0,
+                "FINAL ELIMINATION", maxLength: 32, scale: .48f);
+    }
+
+    private void DrawFinalGameOverOverlay(ScenePresentation presentation)
+    {
+        if (presentation.World.LocalPlayer is not { } localPlayer) return;
+        PlayerPresentation hud = localPlayer.GetPresentation();
+        presentation.DrawHudFlatBox(20, 124, 236, 198,
+            new Vector4(0, 0, 0, .78f));
+        hud.DrawText2D(128, 136, Align.Center, 0, "GAME OVER",
+            maxLength: 32, scale: .86f);
+        string winner = GetFinalWinnerLabel(presentation.World.Match.Result);
+        if (winner != "GAME OVER")
+            hud.DrawText2D(128, 165, Align.Center, 0, winner,
+                maxLength: 36, scale: .58f);
+    }
+
+    internal static string GetFinalWinnerLabel(MatchResult? result)
+    {
+        if (result == null || result.ResultSlots.IsDefaultOrEmpty
+            || (uint)result.ResultSlots[0] >= (uint)result.Players.Length)
+            return "GAME OVER";
+        int winnerSlot = result.ResultSlots[0];
+        if (result.Rules.Mode is MatchMode.Battle or MatchMode.Survival)
+        {
+            string nickname = result.Players[winnerSlot].Nickname;
+            return String.IsNullOrWhiteSpace(nickname)
+                ? "GAME OVER" : $"WINNER: {nickname}";
+        }
+        int team = result.Players[winnerSlot].TeamIndex;
+        return (uint)team < 8 ? $"WINNER: TEAM {team + 1}" : "GAME OVER";
+    }
+
+    private void Stop(KillcamEndReason reason, bool restoreLive = true)
     {
         ScenePresentation? presentation = _replay;
         ReplayPlaybackSession? session = _session;
         bool ownedPresentation = presentation != null || session != null
-            || _replayAudioActive || _pending != null || _pendingClip != null
+            || _replayAudioActive || _liveSuppressionActive
+            || _pending != null || _pendingClip != null
             || _activeClip != null;
         _replay = null;
         _session = null;
@@ -843,7 +1275,6 @@ internal sealed class KillcamController : IDisposable
         if (_replayAudioActive)
         {
             _replayAudioActive = false;
-            GamepadInput.EndGameplayInputQuarantine();
             try
             {
                 presentation?.SetPresentationAudio(false);
@@ -852,45 +1283,9 @@ internal sealed class KillcamController : IDisposable
             {
                 DebugLog.Exception("killcam-replay-audio", error);
             }
-            bool audioRestored = false;
-            try
-            {
-                _live.TryRestoreGameplayInputSuppressed(false, _liveInputVersion);
-            }
-            catch (Exception error) when (error is not OutOfMemoryException)
-            {
-                DebugLog.Exception("killcam-input-restore", error);
-            }
-            try
-            {
-                audioRestored = _live.TryRestorePresentationAudio(_liveAudioWasActive,
-                    _liveAudioVersion);
-            }
-            catch (Exception error) when (error is not OutOfMemoryException)
-            {
-                DebugLog.Exception("killcam-audio-restore", error);
-            }
-            if (audioRestored)
-            {
-                try
-                {
-                    Sfx.BindPresentation(_live.World);
-                    if (!Music.TryRestorePresentationAudio(_liveMusicSnapshot))
-                    {
-                        // The snapshot is deliberately best-effort: content
-                        // can be torn down while a replay is ending. Only
-                        // after the live scene still owns audio may we use its
-                        // current room as a safe, visible fallback.
-                        Console.WriteLine("[killcam] Live music snapshot restore unavailable; using current room track.");
-                        Music.TryPlayRoomMusic(_live.World.RoomId, 0);
-                    }
-                }
-                catch (Exception error) when (error is not OutOfMemoryException)
-                {
-                    Console.WriteLine($"[killcam] Live audio restore failed ({error.Message})");
-                }
-            }
         }
+        if (restoreLive && !_finalSuppressionActive)
+            RestoreLiveSuppression();
         try
         {
             presentation?.DoCleanup(preserveSharedAudio: true);
@@ -911,10 +1306,85 @@ internal sealed class KillcamController : IDisposable
             LastEndReason = reason;
     }
 
+    private void RestoreFinalSuppression()
+    {
+        if (!_finalSuppressionActive) return;
+        _finalSuppressionActive = false;
+        RestoreLiveSuppression();
+        try
+        {
+            _live.TryRestoreGameplayHudSuppressed(_liveHudWasSuppressed,
+                _liveHudVersion);
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam-final-hud-restore", error);
+        }
+    }
+
+    private void RestoreLiveSuppression()
+    {
+        if (!_liveSuppressionActive) return;
+        _liveSuppressionActive = false;
+        bool audioRestored = false;
+        try
+        {
+            GamepadInput.EndGameplayInputQuarantine();
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam-input-quarantine", error);
+        }
+        try
+        {
+            _live.TryRestoreGameplayInputSuppressed(_liveInputWasSuppressed,
+                _liveInputVersion);
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam-input-restore", error);
+        }
+        try
+        {
+            audioRestored = _live.TryRestorePresentationAudio(_liveAudioWasActive,
+                _liveAudioVersion);
+        }
+        catch (Exception error) when (error is not OutOfMemoryException)
+        {
+            DebugLog.Exception("killcam-audio-restore", error);
+        }
+        _replayAudioActive = false;
+        if (audioRestored)
+        {
+            try
+            {
+                Sfx.BindPresentation(_live.World);
+                if (!Music.TryRestorePresentationAudio(_liveMusicSnapshot))
+                    Music.TryPlayRoomMusic(_live.World.RoomId, 0);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                DebugLog.Exception("killcam-final-audio-bind", error);
+            }
+        }
+    }
+
     public void Dispose()
     {
-        if (_play != null) _play.LocalPlayerKilled -= OnLocalPlayerKilled;
+        if (_play != null)
+        {
+            _play.LocalPlayerKilled -= OnLocalPlayerKilled;
+            _play.AuthoritativeKillAccepted -= OnAuthoritativeKillAccepted;
+            _play.AuthoritativeMatchEndedAccepted -= OnAuthoritativeMatchEndedAccepted;
+        }
+        if (FinalSequenceActive)
+        {
+            EndFinalSequence();
+        }
+        else
+        {
+            Stop(KillcamEndReason.SceneClosing);
+        }
         _play = null;
-        Stop(KillcamEndReason.SceneClosing);
     }
 }

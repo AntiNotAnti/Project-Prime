@@ -1653,7 +1653,8 @@ namespace MphRead
         private ScenePresentation ActivePresentation
             => _killcam?.RenderedPresentation ?? _presentation;
 
-        public bool SuppressNativeInput => _killcam?.IsActive == true;
+        public bool SuppressNativeInput => _killcam?.FinalSequenceActive == true
+            || _killcam?.IsActive == true;
 
         public void OnResize(Vector2i size) => _killcam?.Resize(size);
 
@@ -1663,7 +1664,8 @@ namespace MphRead
                 || !_host.InputOwner.Owns(DesktopInputOwnerKind.Scene))
                 return;
             _killcam?.SubmitInput(input);
-            if (_killcam == null || _killcam.State == KillcamState.Idle)
+            if (_killcam == null
+                || !_killcam.FinalSequenceActive && _killcam.State == KillcamState.Idle)
                 Mods.Network.ReplayQuickCapture.HandleInput(input, _presentation);
         }
 
@@ -1681,7 +1683,8 @@ namespace MphRead
         public void OnDrawFrame()
         {
             ScenePresentation active = ActivePresentation;
-            if (_killcam?.IsPresenting != true && _host.IsFocused
+            if (_killcam?.FinalSequenceActive != true
+                && _killcam?.IsPresenting != true && _host.IsFocused
                 && _host.InputOwner.Owns(DesktopInputOwnerKind.Scene)
                 && Mods.Input.GamepadInput.TakeMenuPress()
                 && (_presentation.CameraMode == CameraMode.Player || _presentation.IsFreeCam))

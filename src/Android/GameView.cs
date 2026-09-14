@@ -913,7 +913,8 @@ namespace MphRead.Droid
                     SubmitQuickReplay();
                     for (int i = 0; i < steps; i++)
                     {
-                        if (_killcam?.IsPresenting == true)
+                        if (_killcam?.FinalSequenceActive == true
+                            || _killcam?.IsPresenting == true)
                         {
                             // The live world still advances, but its Android
                             // keyboard/mouse state must be committed neutral while
@@ -929,6 +930,13 @@ namespace MphRead.Droid
                         live.OnSimulationFrame();
                         _killcam?.Advance();
                         UpdateKillcamTouchMode();
+                    }
+                    if (steps == 0 && _killcam?.FinalSequenceActive == true)
+                    {
+                        // Keep the platform input projection neutral even on
+                        // a render-only frame while the terminal sequence owns
+                        // the scene.
+                        CommitNeutralInput();
                     }
                     // Replay presentation is render-paced rather than simulation-
                     // paced. Advance exactly once for every host frame, including
@@ -1062,7 +1070,8 @@ namespace MphRead.Droid
                     requested = _quickReplayRequested;
                     _quickReplayRequested = false;
                 }
-                if (requested && _killcam?.State is null or KillcamState.Idle)
+                if (requested && _killcam?.FinalSequenceActive != true
+                    && (_killcam?.State is null or KillcamState.Idle))
                     ReplayQuickCapture.Execute(ScenePresentation.Get(Scene!));
             }
 

@@ -28,6 +28,10 @@ namespace MphRead.Mods.Network
         public NodeMatchTransitionStarted? ExpectedTransition { get; private set; }
         public bool Interrupted { get; private set; }
         public MatchCompletionSummary? CompletionSummary { get; private set; }
+        /// <summary>Raised once for each accepted all-client authoritative kill.</summary>
+        internal event Action<KillEvent>? AuthoritativeKillAccepted;
+        /// <summary>Raised once for the accepted terminal semantic event for this match.</summary>
+        internal event Action<MatchEvent>? AuthoritativeMatchEndedAccepted;
         internal event Action<KillEvent>? LocalPlayerKilled;
         private MatchClientContext? _onlineContext;
         private int _disposeStarted;
@@ -79,7 +83,8 @@ namespace MphRead.Mods.Network
                 _onlineContext?.CancelPendingRejoin();
                 State = TerminalState.Transitioning;
             }
-            else if (State == TerminalState.Active && NodeMatchId is Guid completedMatchId
+            else if (State == TerminalState.Active
+                && NodeMatchId is Guid completedMatchId
                 && node?.CompletionFor(completedMatchId) is { } ended)
             {
                 CompletionSummary = node.CompletionSummaryFor(completedMatchId);
@@ -145,6 +150,7 @@ namespace MphRead.Mods.Network
         private bool _localVelocityApplied;
         private uint _localVelocityAppliedTick;
         private uint _timingRevision;
+        private MatchEvent? _acceptedMatchEnded;
         public NetClient Client { get; }
         public ClientPrediction Prediction { get; } = new();
         /// <summary>Per-match presentation diagnostics; never gameplay authority.</summary>
@@ -231,6 +237,7 @@ namespace MphRead.Mods.Network
             {
                 GamepadHaptics.Stop(clearIdentities: true);
                 InputBalanceTelemetry.ResetAttribution();
+                _acceptedMatchEnded = null;
             }
             _loadedMatch = Client.Accepted.MatchId;
             _world.Reset(_loadedMatch);
@@ -312,6 +319,7 @@ namespace MphRead.Mods.Network
                 {
                     GamepadHaptics.Stop(clearIdentities: true);
                     InputBalanceTelemetry.ResetAttribution();
+                    _acceptedMatchEnded = null;
                 }
                 _loadedMatch = Client.Accepted.MatchId;
                 scene.Match.MatchId = Client.Accepted.MatchId;
@@ -477,6 +485,7 @@ namespace MphRead.Mods.Network
                     if (_presentationScene?.Presentation is ScenePresentation killPresentation)
                     {
                         bool accepted = killPresentation.CombatFeedback.Process(kill);
+                        if (accepted) AuthoritativeKillAccepted?.Invoke(kill);
                         if (kill.Victim.Slot < scene.Players.Count
                             && _identities[kill.Victim.Slot] == kill.Victim.ConnectionId)
                         {
@@ -545,6 +554,8 @@ namespace MphRead.Mods.Network
                         else
                             semanticPresentation.Announcer.Consume(semanticEvent);
                     }
+                    if (TryAcceptMatchEnded(semanticEvent))
+                        AuthoritativeMatchEndedAccepted?.Invoke(semanticEvent);
                     continue;
                 }
                 if (message.MatchId != _loadedMatch || message.Type != ReliableEventType.Combat
@@ -769,6 +780,8 @@ namespace MphRead.Mods.Network
             Client.WorldPacketValidator = null;
             Client.WorldPacketReceived = null;
             LocalPlayerKilled = null;
+            AuthoritativeKillAccepted = null;
+            AuthoritativeMatchEndedAccepted = null;
             LocalRootShotObserved = null;
             AuthoritativeCombatEventObserved = null;
             PredictedContactObserved = null;
@@ -787,6 +800,15 @@ namespace MphRead.Mods.Network
             if (Current == this) { Current = null; }
             NetSession.ResetLiveState();
             ReplayRecorder.ResetTimelineForSession();
+        }
+
+        private bool TryAcceptMatchEnded(in MatchEvent value)
+        {
+            if (value.Kind != MatchEventKind.MatchEnded || !value.IsValid
+                || value.MatchId != _loadedMatch || _acceptedMatchEnded.HasValue)
+                return false;
+            _acceptedMatchEnded = value;
+            return true;
         }
 
         public void AdvancePresentation()

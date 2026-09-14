@@ -241,8 +241,10 @@ namespace MphRead
         private readonly bool _isolatedPresentation;
         private bool _audioActive;
         private bool _gameplayInputSuppressed;
+        private bool _gameplayHudSuppressed;
         private long _presentationAudioVersion;
         private long _gameplayInputVersion;
+        private long _gameplayHudVersion;
         internal Action<ScenePresentation>? AdditionalOverlay { get; set; }
 
         private bool PlaybackActive => _replaySession?.IsActive
@@ -1942,9 +1944,10 @@ namespace MphRead
         private void CapturePresentationFrame(Vector2i target,
             uint presentationTick, float renderFraction)
         {
-            bool playerHud = World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
+            bool playerHud = !GameplayHudSuppressed
+                && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
                 && CameraMode == CameraMode.Player;
-            bool scoreboard = ScoreboardOverFreeCamera;
+            bool scoreboard = !GameplayHudSuppressed && ScoreboardOverFreeCamera;
             PlayerPresentation hud = World.LocalPlayer!.GetPresentation();
 
             bool enhancedVisor = EnhancedVisorPolicy.IsEligible(
@@ -3203,13 +3206,15 @@ namespace MphRead
                 GL.UseProgram(_glesEnhanced.SceneProgram);
             }
 
-            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            if (!GameplayHudSuppressed
+                && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
+                && CameraMode == CameraMode.Player)
             {
                 SetHudLayerUniforms();
                 World.LocalPlayer!.GetPresentation().DrawHudModels();
                 UnsetHudLayerUniforms();
             }
-            else if (ScoreboardOverFreeCamera)
+            else if (!GameplayHudSuppressed && ScoreboardOverFreeCamera)
             {
                 // Only the filter that dims the scene behind the scoreboard;
                 // PlayerHud draws nothing else on the free camera.
@@ -3298,7 +3303,9 @@ namespace MphRead
                     ? _glesEnhanced.CompositionProgram : _rttShaderProgramId);
             }
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);
-            if (World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            if (!GameplayHudSuppressed
+                && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
+                && CameraMode == CameraMode.Player)
             {
                 DrawHudLayer(Layer4Info); // ice layer
                 DrawHudLayer(Layer3Info); // helmet back
@@ -3322,7 +3329,7 @@ namespace MphRead
                     GL.ActiveTexture(TextureUnit.Texture0);
                 }
             }
-            else if (ScoreboardOverFreeCamera)
+            else if (!GameplayHudSuppressed && ScoreboardOverFreeCamera)
             {
                 // The scoreboard, and nothing else: none of the helmet and
                 // visor layers above belong to a view that is not out of
@@ -5005,6 +5012,7 @@ namespace MphRead
         }
 
         internal long GameplayInputSuppressionVersion => _gameplayInputVersion;
+        internal bool GameplayInputSuppressed => _gameplayInputSuppressed;
 
         internal bool TryRestoreGameplayInputSuppressed(bool suppressed,
             long expectedVersion)
@@ -5012,6 +5020,24 @@ namespace MphRead
             if (_exiting || _gameplayInputVersion != expectedVersion) return false;
             _gameplayInputSuppressed = suppressed;
             _gameplayInputVersion++;
+            return true;
+        }
+
+        internal bool GameplayHudSuppressed => _gameplayHudSuppressed;
+        internal long GameplayHudSuppressionVersion => _gameplayHudVersion;
+
+        internal void SetGameplayHudSuppressed(bool suppressed)
+        {
+            _gameplayHudSuppressed = suppressed;
+            _gameplayHudVersion++;
+        }
+
+        internal bool TryRestoreGameplayHudSuppressed(bool suppressed,
+            long expectedVersion)
+        {
+            if (_exiting || _gameplayHudVersion != expectedVersion) return false;
+            _gameplayHudSuppressed = suppressed;
+            _gameplayHudVersion++;
             return true;
         }
 
