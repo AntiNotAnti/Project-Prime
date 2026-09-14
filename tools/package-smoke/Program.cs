@@ -67,7 +67,7 @@ public static class Program
             string nodePath = ResolveBundleFile(extracted, "ProjectPrimeServer", OperatingSystem.IsWindows());
             string workerPath = ResolveBundleFile(Path.Combine(extracted, "worker"), "ProjectPrime.Server.Worker", OperatingSystem.IsWindows());
             string example = Path.Combine(extracted, "server.example.json");
-            if (!File.Exists(example)) throw new InvalidDataException("Extracted bundle is missing server.example.json.");
+            string workerFileName = ReadExampleWorkerFileName(example, extracted, workerPath);
             if (File.Exists(Path.Combine(extracted, Path.GetFileName(workerPath))))
                 throw new InvalidDataException("Worker executable leaked into the bundle root.");
 
@@ -95,7 +95,7 @@ public static class Program
             int port = FreeTcpPort();
             string https = $"https://127.0.0.1:{port}";
             WriteSmokeConfiguration(extracted, nodeId, publicKeyPath, certificatePath, certificatePassword,
-                https, workerPath, content, contentRoot, replayRoot, artifactRoot);
+                https, workerFileName, content, contentRoot, replayRoot, artifactRoot);
 
             node = StartNode(nodePath, extracted, unrelatedCwd, https, certificatePath, certificatePassword, tempRoot);
             await WaitForHealthAsync(https, node, options.Timeout);
@@ -153,13 +153,9 @@ public static class Program
     }
 
     private static void WriteSmokeConfiguration(string root, Guid nodeId, string publicKeyPath,
-        string certificatePath, string certificatePassword, string https, string workerPath,
+        string certificatePath, string certificatePassword, string https, string workerFileName,
         WorkerContentIdentity content, string contentRoot, string replayRoot, string artifactRoot)
     {
-        string workerFileName = OperatingSystem.IsWindows() ? "worker/ProjectPrime.Server.Worker.exe" : "worker/ProjectPrime.Server.Worker";
-        // Keep the executable package-relative to prove the Node resolver. The
-        // absolute workerPath is used only to assert the extracted file exists.
-        if (!File.Exists(workerPath)) throw new FileNotFoundException("Worker executable is missing from the extracted bundle.", workerPath);
         var config = new
         {
             Node = new
@@ -206,6 +202,30 @@ public static class Program
             Urls = https
         };
         File.WriteAllText(Path.Combine(root, "appsettings.json"), JsonSerializer.Serialize(config, Json));
+    }
+
+    private static string ReadExampleWorkerFileName(string examplePath, string bundleRoot,
+        string expectedWorkerPath)
+    {
+        if (!File.Exists(examplePath))
+            throw new InvalidDataException("Extracted bundle is missing server.example.json.");
+        using JsonDocument document = JsonDocument.Parse(File.ReadAllText(examplePath));
+        JsonElement processes = document.RootElement.GetProperty("Node").GetProperty("Workers")
+            .GetProperty("Processes");
+        if (processes.GetArrayLength() != 1)
+            throw new InvalidDataException("Packaged server example must declare exactly one Worker process.");
+        string workerFileName = processes[0].GetProperty("FileName").GetString()
+            ?? throw new InvalidDataException("Packaged server example Worker filename is missing.");
+        string resolved = Path.GetFullPath(workerFileName, bundleRoot);
+        if (!String.Equals(resolved, expectedWorkerPath, OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"Packaged server example Worker path does not name {Path.GetFileName(expectedWorkerPath)}.");
+        }
+        if (!File.Exists(resolved))
+            throw new FileNotFoundException("Worker executable is missing from the extracted bundle.", resolved);
+        return workerFileName;
     }
 
     private static Process StartNode(string nodePath, string root, string cwd, string https,

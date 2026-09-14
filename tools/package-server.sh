@@ -107,7 +107,8 @@ fi
 # Rename only the native apphost. Leave all managed assembly/deps identities
 # emitted by the project untouched.
 mv "$NODE_APPHOST" "$PACKAGE_NODE"
-cp "$ROOT/tools/server.example.json" "$STAGE/node/server.example.json"
+python3 "$ROOT/tools/package-server-config.py" --rid "$RID" \
+  --output "$STAGE/node/server.example.json"
 chmod +x "$BACKEND_APPHOST" "$PACKAGE_NODE" "$WORKER_APPHOST"
 if [[ "$RID" == linux-x64 || "$RID" == linux-arm64 ]]; then
   cp "$ROOT/tools/start-bundle-dev.sh" "$STAGE/node/start-dev.sh"

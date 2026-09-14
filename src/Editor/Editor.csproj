@@ -26,5 +26,10 @@
     <PackageReference Include="SDL3-CS.Windows" />
     <PackageReference Include="SDL3-CS.Linux" />
     <PackageReference Include="SDL3-CS.MacOS" />
+    <None Include="../../WINDOWS_PREREQUISITES.txt"
+          Condition="$(RuntimeIdentifier.StartsWith('win'))"
+          Link="WINDOWS_PREREQUISITES.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

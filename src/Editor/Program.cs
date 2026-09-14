@@ -16,6 +16,15 @@ internal static class Program
             string contentVersion = Option(args, "--content-version") ?? "AMHE1";
             string? cache = Option(args, "--cache");
             using var builds = new EditorBuildService(content, contentVersion, cache);
+            if (args.Contains("--runtime-smoke", StringComparer.Ordinal))
+            {
+                int frames = PositiveNumber(args, "--runtime-smoke-frames", 1);
+                int result = new EditorApplication(
+                    MapDocument.New("community.runtime-smoke", "Runtime Smoke"), builds)
+                    .Run(frames);
+                if (result == 0) Console.WriteLine($"runtime-smoke: editor=ready frames={frames}");
+                return result;
+            }
             return args.FirstOrDefault() switch
             {
                 "new" => New(args),
@@ -129,4 +138,12 @@ internal static class Program
     private static float Number(string[] args, string name, float fallback)
         => Option(args, name) is { } value
             ? float.Parse(value, System.Globalization.CultureInfo.InvariantCulture) : fallback;
+
+    private static int PositiveNumber(string[] args, string name, int fallback)
+    {
+        if (Option(args, name) is not { } value) return fallback;
+        if (!int.TryParse(value, out int parsed) || parsed <= 0 || parsed > 600)
+            throw new ArgumentException($"{name} must be from 1 through 600.");
+        return parsed;
+    }
 }

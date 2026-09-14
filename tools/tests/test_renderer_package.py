@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import xml.etree.ElementTree as ET
 
 
@@ -82,6 +83,65 @@ class RendererPackageTests(unittest.TestCase):
         self.assertIn(
             "legacy renderer assembly remains: OpenTK.Graphics.dll", errors
         )
+
+    def test_windows_runtime_import_requires_prerequisite_declaration(self):
+        self.make_package("win-x64")
+        with mock.patch.object(
+            CHECKER, "_pe_imports", return_value={"KERNEL32.DLL", "VCRUNTIME140.DLL"}
+        ):
+            errors = CHECKER.inspect_package(self.root, "win-x64")
+
+        self.assertIn(
+            "native Microsoft runtime imports require WINDOWS_PREREQUISITES.txt",
+            errors,
+        )
+
+    def test_windows_runtime_import_accepts_complete_declaration(self):
+        self.make_package("win-x64")
+        (self.root / CHECKER.WINDOWS_PREREQUISITES).write_text(
+            "Microsoft Visual C++ v14 x64 Redistributable\n"
+            + CHECKER.WINDOWS_PREREQUISITE_URL
+            + "\nMSVCP140.dll VCRUNTIME140.dll VCRUNTIME140_1.dll\n",
+            encoding="utf-8",
+        )
+        with mock.patch.object(
+            CHECKER,
+            "_pe_imports",
+            return_value={"MSVCP140.DLL", "VCRUNTIME140.DLL", "VCRUNTIME140_1.DLL"},
+        ):
+            errors = CHECKER.inspect_package(self.root, "win-x64")
+
+        self.assertEqual([], errors)
+
+    def test_windows_runtime_import_rejects_incomplete_declaration(self):
+        self.make_package("win-x64")
+        (self.root / CHECKER.WINDOWS_PREREQUISITES).write_text(
+            "Microsoft Visual C++ v14 x64 Redistributable\n"
+            + CHECKER.WINDOWS_PREREQUISITE_URL
+            + "\nVCRUNTIME140.dll\n",
+            encoding="utf-8",
+        )
+        with mock.patch.object(
+            CHECKER, "_pe_imports", return_value={"MSVCP140.DLL", "VCRUNTIME140.DLL"}
+        ):
+            errors = CHECKER.inspect_package(self.root, "win-x64")
+
+        self.assertIn(
+            "incomplete WINDOWS_PREREQUISITES.txt: does not declare MSVCP140.DLL",
+            errors,
+        )
+
+    def test_windows_projects_publish_the_supported_prerequisite_declaration(self):
+        declaration = (ROOT / CHECKER.WINDOWS_PREREQUISITES).read_text(encoding="utf-8")
+        self.assertIn(CHECKER.WINDOWS_PREREQUISITE_URL, declaration)
+        self.assertIn("Microsoft Visual C++ v14 x64 Redistributable", declaration)
+        for runtime in ("MSVCP140.dll", "VCRUNTIME140.dll", "VCRUNTIME140_1.dll"):
+            self.assertIn(runtime, declaration)
+        for project in ("src/Client/Client.csproj", "src/Editor/Editor.csproj"):
+            source = (ROOT / project).read_text(encoding="utf-8")
+            self.assertIn("../../WINDOWS_PREREQUISITES.txt", source)
+            self.assertIn('Condition="$(RuntimeIdentifier.StartsWith(\'win\'))"', source)
+            self.assertIn("CopyToPublishDirectory", source)
 
     def test_client_pins_stable_native_sdl_without_ppy_snapshot_assets(self):
         project = ET.parse(ROOT / "src/Client/Client.csproj").getroot()

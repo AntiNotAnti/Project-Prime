@@ -62,6 +62,11 @@
 
   <ItemGroup>
     <AvaloniaXaml Remove="**/*.axaml" />
+    <None Include="../../WINDOWS_PREREQUISITES.txt"
+          Condition="$(RuntimeIdentifier.StartsWith('win'))"
+          Link="WINDOWS_PREREQUISITES.txt"
+          CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" />
     <None Update="paths.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

@@ -43,6 +43,10 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.name.outputs.tag }}
+      version: ${{ steps.name.outputs.version }}
+      commit: ${{ steps.source.outputs.commit }}
     steps:
       # Resolved before anything is checked out, because gh api needs no local
       # repo and this is what turns "typed without its v" or "that tag was
@@ -139,6 +143,10 @@ jobs:
       - uses: actions/checkout@v7
         with:
           ref: refs/tags/${{ steps.name.outputs.tag }}
+
+      - name: record resolved source revision
+        id: source
+        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - uses: actions/setup-dotnet@v6
         with:
@@ -354,7 +362,7 @@ jobs:
       - name: retain private protection maps
         env:
           VERSION: ${{ steps.name.outputs.version }}
-          COMMIT_SHA: ${{ github.sha }}
+          COMMIT_SHA: ${{ steps.source.outputs.commit }}
         run: |
           set -euo pipefail
           private="$RUNNER_TEMP/protection-maps"
@@ -475,6 +483,10 @@ jobs:
           next to this program and leaves the file alone. No game data is
           included in this download, and none is downloaded.
 
+          The .NET application is self-contained. SDL, OpenAL, and miniaudio
+          require the Microsoft Visual C++ v14 x64 Redistributable described in
+          WINDOWS_PREREQUISITES.txt. Install it before launching on a clean PC.
+
           Play online joins a server. Play offline is a match against bots.
           Host a game has a public machine run the match and puts you in it,
           so there is nothing to open on your router.
@@ -577,6 +589,11 @@ jobs:
 
             ./ProjectPrimeServer --contentRoot .
 
+          On Windows, use ProjectPrimeServer.exe and retain the packaged Worker
+          FileName worker/ProjectPrime.Server.Worker.exe. Windows has no bundled
+          whole-stack supervisor; configure and supervise the Backend and Node
+          separately, and let the Node own the Worker lifecycle.
+
           The Node launches its Worker from worker/ and keeps control traffic
           on the reliable Node connection. Gameplay uses the Worker's UDP
           endpoint. For an all-in-one development stack on Linux, supply your
@@ -614,14 +631,115 @@ jobs:
           dotnet test tests/Tests/Tests.csproj -c Release \
             --filter FullyQualifiedName~MphRead.Tests.Client.Update.UpdateContractTests
 
-      # The player feed is intentionally a separate public, distribution-only
-      # repository. Its tag is created on that repository's own main history;
-      # no private source SHA, PR URL, or credential enters the player feed.
+      # Keep public distribution closed until the exact protected Windows
+      # deliverables have executed on a Windows runner.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-release-dist-${{ steps.name.outputs.tag }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-release-windows-client-${{ steps.name.outputs.tag }}
+          path: publish/win-x64
+          if-no-files-found: error
+          retention-days: 7
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ProjectPrime-release-windows-server-${{ steps.name.outputs.tag }}
+          path: publish/server-win-x64
+          if-no-files-found: error
+          retention-days: 7
+
+  updater-windows:
+    name: protected package contract (Windows)
+    needs: release
+    if: ${{ needs.release.result == 'success' }}
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: refs/tags/${{ needs.release.outputs.tag }}
+      - uses: actions/download-artifact@v7
+        with:
+          name: ProjectPrime-release-windows-client-${{ needs.release.outputs.tag }}
+          path: publish/win-x64
+      - uses: actions/download-artifact@v7
+        with:
+          name: ProjectPrime-release-windows-server-${{ needs.release.outputs.tag }}
+          path: publish/server-win-x64
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: run updater contract tests
+        shell: pwsh
+        run: |
+          dotnet restore tests/Tests/Tests.csproj
+          dotnet test tests/Tests/Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MphRead.Tests.Client.Update.UpdateContractTests
+
+      - name: verify and execute protected Windows packages
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python tools/check-renderer-package.py --rid win-x64 publish/win-x64
+          python tools/check-renderer-package.py --rid win-x64 --executable ProjectPrime.Editor.exe publish/win-x64/editor
+
+          function Invoke-BoundedSmoke {
+              param([string]$Path, [string[]]$Arguments, [string]$Name)
+              $stdout = Join-Path $env:RUNNER_TEMP "$Name.stdout.log"
+              $stderr = Join-Path $env:RUNNER_TEMP "$Name.stderr.log"
+              $process = Start-Process -FilePath $Path -ArgumentList $Arguments -PassThru `
+                  -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+              if (-not $process.WaitForExit(120000)) {
+                  $process.Kill($true)
+                  throw "$Name exceeded the 120-second smoke timeout."
+              }
+              $process.WaitForExit()
+              if (Test-Path $stdout) { Get-Content $stdout }
+              if (Test-Path $stderr) { Get-Content $stderr | ForEach-Object { Write-Host $_ } }
+              if ($process.ExitCode -ne 0) {
+                  throw "$Name failed with exit code $($process.ExitCode)."
+              }
+          }
+
+          Invoke-BoundedSmoke `
+              (Resolve-Path publish/win-x64/ProjectPrime.exe) `
+              @('--runtime-smoke', '--runtime-smoke-frames', '1') 'client-runtime-smoke'
+          Invoke-BoundedSmoke `
+              (Resolve-Path publish/win-x64/editor/ProjectPrime.Editor.exe) `
+              @('--runtime-smoke', '--runtime-smoke-frames', '1') 'editor-runtime-smoke'
+
+          $serverRoot = (Resolve-Path publish/server-win-x64).Path
+          $config = Get-Content (Join-Path $serverRoot 'server.example.json') -Raw | ConvertFrom-Json
+          $workerName = $config.Node.Workers.Processes[0].FileName
+          if ($workerName -cne 'worker/ProjectPrime.Server.Worker.exe') {
+              throw "Packaged Windows Worker path is '$workerName'."
+          }
+          $workerPath = Join-Path $serverRoot ($workerName.Replace('/', [IO.Path]::DirectorySeparatorChar))
+          if (-not (Test-Path -LiteralPath $workerPath -PathType Leaf)) {
+              throw "Packaged Worker does not exist at $workerPath."
+          }
+          Invoke-BoundedSmoke $workerPath @('--runtime-smoke', 'true') 'worker-runtime-smoke'
+
+  publish-draft:
+    name: create public draft
+    needs: [release, updater-windows]
+    if: ${{ needs.release.result == 'success' && needs.updater-windows.result == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v7
+        with:
+          name: ProjectPrime-release-dist-${{ needs.release.outputs.tag }}
+          path: dist
+
+      # The player feed is a separate public, distribution-only repository.
+      # Its tag is created on that repository's main history; no private source
+      # SHA, PR URL, or credential enters the player feed.
       - name: publish public player feed draft
         env:
           GH_TOKEN: ${{ secrets.PROJECT_PRIME_RELEASE_TOKEN }}
-          TAG: ${{ steps.name.outputs.tag }}
-          VERSION: ${{ steps.name.outputs.version }}
+          TAG: ${{ needs.release.outputs.tag }}
           PUBLIC_REPOSITORY: AntiNotAnti/Project-Prime-Releases
         run: |
           set -euo pipefail
@@ -652,21 +770,3 @@ jobs:
             gh release create "$TAG" "${assets[@]}" --repo "$PUBLIC_REPOSITORY" \
               --draft --target main --title "Project Prime $TAG" --notes "$public_notes"
           fi
-
-  updater-windows:
-    name: updater contract (Windows)
-    needs: release
-    if: ${{ needs.release.result == 'success' }}
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.sha }}
-      - uses: actions/setup-dotnet@v6
-        with:
-          dotnet-version: '10.0.x'
-      - name: run updater contract tests
-        shell: pwsh
-        run: |
-          dotnet restore tests/Tests/Tests.csproj
-          dotnet test tests/Tests/Tests.csproj -c Release --no-restore --filter FullyQualifiedName~MphRead.Tests.Client.Update.UpdateContractTests

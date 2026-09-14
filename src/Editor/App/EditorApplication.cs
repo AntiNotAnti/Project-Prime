@@ -45,8 +45,9 @@ public sealed class EditorApplication
         if (_recoveryPath != null) _status = "RECOVERED VERSION AVAILABLE";
     }
 
-    public int Run()
+    public int Run(int? frameLimit = null)
     {
+        if (frameLimit is <= 0) throw new ArgumentOutOfRangeException(nameof(frameLimit));
         using var surface = new SdlRenderSurface(new Vector2i(1440, 900), Title());
         var clock = Stopwatch.StartNew();
         double previous = clock.Elapsed.TotalSeconds;
@@ -86,6 +87,7 @@ public sealed class EditorApplication
             _frameNumber++;
             _autosave.Tick(_document, TimeSpan.FromSeconds(30));
             surface.SetTitle(Title());
+            if (frameLimit.HasValue && _frameNumber >= frameLimit.Value) surface.Close();
             Thread.Sleep(1);
         }
         DeletePendingPlaySnapshot();

@@ -1,5 +1,6 @@
 """Structural checks for the public Backend + Node + Worker server bundle contract."""
 import json
+import importlib.util
 import os
 from pathlib import Path
 import subprocess
@@ -9,6 +10,11 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
+CONFIG_SCRIPT = ROOT / "tools" / "package-server-config.py"
+CONFIG_SPEC = importlib.util.spec_from_file_location("package_server_config", CONFIG_SCRIPT)
+CONFIG_TOOL = importlib.util.module_from_spec(CONFIG_SPEC)
+assert CONFIG_SPEC.loader is not None
+CONFIG_SPEC.loader.exec_module(CONFIG_TOOL)
 
 
 class ServerBundleContractTests(unittest.TestCase):
@@ -82,6 +88,24 @@ class ServerBundleContractTests(unittest.TestCase):
         self.assertNotIn("--content-dir", launch["Arguments"])
         self.assertNotIn("--content-hash", launch["Arguments"])
 
+    def test_packaged_worker_name_is_rid_specific(self):
+        portable = CONFIG_TOOL.packaged_config("linux-x64")
+        windows = CONFIG_TOOL.packaged_config("win-x64")
+
+        self.assertEqual(
+            "worker/ProjectPrime.Server.Worker",
+            portable["Node"]["Workers"]["Processes"][0]["FileName"],
+        )
+        self.assertEqual(
+            "worker/ProjectPrime.Server.Worker.exe",
+            windows["Node"]["Workers"]["Processes"][0]["FileName"],
+        )
+        self.assertEqual(
+            "worker/ProjectPrime.Server.Worker",
+            json.loads((ROOT / "tools/server.example.json").read_text(encoding="utf-8"))
+            ["Node"]["Workers"]["Processes"][0]["FileName"],
+        )
+
     def test_packager_keeps_worker_below_worker_directory_and_renames_only_node_apphost(self):
         script = (ROOT / "tools/package-server.sh").read_text(encoding="utf-8")
         self.assertIn("src/Backend/Backend.csproj", script)
@@ -102,6 +126,7 @@ class ServerBundleContractTests(unittest.TestCase):
         self.assertIn('if [[ "$SKIP_MAP_COOK" -eq 0 ]]', script)
         self.assertNotIn("| rg ", script)
         self.assertIn("osx-arm64", script)
+        self.assertIn("tools/package-server-config.py", script)
 
     def test_local_launcher_discovers_backend_from_combined_package(self):
         script = (ROOT / "tools/start-dev.sh").read_text(encoding="utf-8")
@@ -398,7 +423,7 @@ class ServerBundleContractTests(unittest.TestCase):
             "ClientWebSocket", "lobby.create", "lobby.configure", "lobby.start",
             "match.handoff", "NetMessageType.Join", "match.ended",
             "smoke-replay", "smoke-artifacts", "RequestGracefulStop",
-            "WaitForNoNewWorkersAsync",
+            "WaitForNoNewWorkersAsync", "ReadExampleWorkerFileName",
         ):
             self.assertIn(marker, smoke)
 

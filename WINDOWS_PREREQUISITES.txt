@@ -1,0 +1,13 @@
+Project Prime for Windows x64
+
+The .NET application is self-contained. Its SDL, OpenAL, and miniaudio native
+libraries require the Microsoft Visual C++ v14 x64 Redistributable. Install the
+current supported x64 package system-wide before starting Project Prime on a
+clean machine. Do not copy individual Microsoft runtime DLLs into this package.
+
+Microsoft documentation and download links:
+https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170
+
+The packaged native libraries currently import MSVCP140.dll, VCRUNTIME140.dll,
+and VCRUNTIME140_1.dll. These Microsoft runtime files are prerequisites and are
+not redistributed inside Project Prime.

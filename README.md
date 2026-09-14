@@ -83,7 +83,7 @@ only; the original campaign is outside the current runtime scope.
 
 | Package | Targets | Notes |
 |---|---|---|
-| Desktop client + editor | Windows x64, Linux x64, macOS x64, macOS Apple Silicon | Self-contained release packages |
+| Desktop client + editor | Windows x64, Linux x64, macOS x64, macOS Apple Silicon | Self-contained .NET applications; Windows x64 requires the Microsoft Visual C++ v14 x64 Redistributable |
 | Android client | Android ARM64 and x64 | Targets Android API 36; minimum supported API is 24 |
 | Release server | Windows x64, Linux x64, Linux ARM64 | Backend + persistent Node + managed Worker pool |
 | Local development server | macOS Apple Silicon | Intended for development, not a public release server |
@@ -218,6 +218,7 @@ ready; it does not permit a dead prior stack or bypass candidate validation. Ope
 
 - Git
 - [.NET SDK 10.x](https://dotnet.microsoft.com/download/dotnet/10.0)
+- On Windows x64: the current [Microsoft Visual C++ v14 x64 Redistributable](https://learn.microsoft.com/en-us/cpp/windows/latest-supported-vc-redist?view=msvc-170) for the packaged SDL, OpenAL, and miniaudio libraries
 - Your own extracted `AMHE1` content for content-backed builds and tests
 - For Android: the .NET Android workload, a JDK, and Android SDK/API 36 tooling
 
