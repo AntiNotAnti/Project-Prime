@@ -14,6 +14,21 @@ namespace MphRead.Tests.Client;
 public sealed class DesktopOverlayFoundationTests
 {
     [Theory]
+    [InlineData((int)DesktopOverlayMode.None, "None")]
+    [InlineData((int)DesktopOverlayMode.Pause, "Pause")]
+    [InlineData((int)DesktopOverlayMode.Settings, "Settings")]
+    [InlineData((int)DesktopOverlayMode.Results, "Results")]
+    [InlineData((int)DesktopOverlayMode.ContinuationLoading,
+        "ContinuationLoading")]
+    [InlineData(999, "Unknown(999)")]
+    public void OverlayDiagnosticNamesDoNotDependOnEnumMetadata(
+        int modeValue, string expected)
+    {
+        Assert.Equal(expected, DesktopGameOverlayCoordinator.DiagnosticName(
+            (DesktopOverlayMode)modeValue));
+    }
+
+    [Theory]
     [InlineData(false, false, true, false, false, false)]
     [InlineData(false, true, true, false, false, true)]
     [InlineData(true, false, true, false, false, true)]

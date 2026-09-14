@@ -12,6 +12,24 @@ public sealed class DesktopTransitionCoordinatorTests
         => new(stage, "map", "mode", "hunter", "detail");
 
     [Theory]
+    [InlineData((int)DesktopTransitionState.Shell, "shell")]
+    [InlineData((int)DesktopTransitionState.PreparingGame, "preparing-game")]
+    [InlineData((int)DesktopTransitionState.Game, "game")]
+    [InlineData((int)DesktopTransitionState.Results, "results")]
+    [InlineData((int)DesktopTransitionState.PreparingContinuation,
+        "preparing-continuation")]
+    [InlineData((int)DesktopTransitionState.ReturningToShell, "returning-to-shell")]
+    [InlineData((int)DesktopTransitionState.Failed, "failed")]
+    [InlineData((int)DesktopTransitionState.Closing, "closing")]
+    [InlineData(999, "unknown(999)")]
+    public void TransitionDiagnosticNamesDoNotDependOnEnumMetadata(
+        int stateValue, string expected)
+    {
+        Assert.Equal(expected, DesktopTransitionCoordinator.DiagnosticName(
+            (DesktopTransitionState)stateValue));
+    }
+
+    [Theory]
     [InlineData(MatchExitReason.Transitioning, false)]
     [InlineData(MatchExitReason.Completed, true)]
     [InlineData(MatchExitReason.LeftMatch, true)]

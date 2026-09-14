@@ -111,7 +111,7 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
         _state = DesktopTransitionState.PreparingContinuation;
         _continuationFromResults = source == DesktopTransitionState.Results;
         _scenePrepared = false;
-        Log($"generation={generation} {source.ToString().ToLowerInvariant()} -> preparing-continuation");
+        Log($"generation={generation} {DiagnosticName(source)} -> preparing-continuation");
         _surface.ShowContinuationTransition(state);
         return generation;
     }
@@ -271,6 +271,21 @@ internal sealed class DesktopTransitionCoordinator : IDisposable
 
     private void Log(string message)
         => _log($"elapsedMs={_clock.Elapsed.TotalMilliseconds:F1} {message}");
+
+    // Obfuscation renames private enum fields, so Enum.ToString() is not a
+    // stable diagnostic contract in protected client builds.
+    internal static string DiagnosticName(DesktopTransitionState state) => state switch
+    {
+        DesktopTransitionState.Shell => "shell",
+        DesktopTransitionState.PreparingGame => "preparing-game",
+        DesktopTransitionState.Game => "game",
+        DesktopTransitionState.Results => "results",
+        DesktopTransitionState.PreparingContinuation => "preparing-continuation",
+        DesktopTransitionState.ReturningToShell => "returning-to-shell",
+        DesktopTransitionState.Failed => "failed",
+        DesktopTransitionState.Closing => "closing",
+        _ => $"unknown({(int)state})"
+    };
 }
 
 internal sealed class DesktopTransitionSurface : IDesktopTransitionSurface

@@ -553,7 +553,7 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
             if (requestActivation)
             {
                 DebugLog.Line("sdl",
-                    $"window became activation-eligible with {_mode} overlay open; activating overlay");
+                    $"window became activation-eligible with {DiagnosticName(_mode)} overlay open; activating overlay");
             }
             _surface.ShowForHost(state, activate: requestActivation);
         }
@@ -562,6 +562,18 @@ internal sealed class DesktopGameOverlayCoordinator : IDisposable, IPauseMenuPre
     internal static bool IsHostActivationEligible(GameHostPresentationState state)
         => state.IsVisible && !state.IsMinimized && state.IsFocused
             && !state.ActivationDeferred;
+
+    // Protected builds rename private enum fields. Keep log vocabulary stable
+    // without weakening protection for the owning client assembly.
+    internal static string DiagnosticName(DesktopOverlayMode mode) => mode switch
+    {
+        DesktopOverlayMode.None => "None",
+        DesktopOverlayMode.Pause => "Pause",
+        DesktopOverlayMode.Settings => "Settings",
+        DesktopOverlayMode.Results => "Results",
+        DesktopOverlayMode.ContinuationLoading => "ContinuationLoading",
+        _ => $"Unknown({(int)mode})"
+    };
 
     private void BeginOverlayActivation()
     {
