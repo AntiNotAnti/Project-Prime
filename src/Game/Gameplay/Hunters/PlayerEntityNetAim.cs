@@ -569,6 +569,20 @@ namespace MphRead.Entities
                 : Position + PlayerVolumes[(int)Hunter,
                     IsAltForm ? 2 : 0].SpherePosition;
 
+        /// <summary>
+        /// A point inside the same top 0.3-unit biped region used by
+        /// LagCompensationState and BeamProjectileEntity to classify a
+        /// headshot. This is only an aiming preference; collision remains
+        /// authoritative and unchanged.
+        /// </summary>
+        internal Vector3 ModAssistHeadTarget
+            => Position.AddY(Fixed.ToFloat(Values.MaxPickupHeight) - 0.15f);
+
+        internal float ModAssistTargetRadius
+            => _volume.SphereRadius > 0
+                ? _volume.SphereRadius
+                : PlayerVolumes[(int)Hunter, IsAltForm ? 2 : 0].SphereRadius;
+
         internal PlayerEntity? ModAimAssistRetainedTarget
             => _aimAssist.RetainedTarget;
 
@@ -1167,7 +1181,11 @@ namespace MphRead.Entities
             // be amplified by the controller zoom multiplier.
             if (EquipInfo.Zoomed && controller != Vector2.Zero)
             {
-                controller *= Math.Clamp(_scene.Services.ControllerZoomMultiplier,
+                controller.X *= Math.Clamp(
+                    _scene.Services.ControllerZoomHorizontalMultiplier,
+                    0.01f, 10f);
+                controller.Y *= Math.Clamp(
+                    _scene.Services.ControllerZoomVerticalMultiplier,
                     0.01f, 10f);
             }
             float crosshairSensitivity = DynamicCrosshairTuning.MovementSensitivity(

@@ -10,6 +10,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public readonly record struct LagCompensationState
     {
+        internal const float HeadshotBandHeight = 0.35f;
         public int Slot { get; init; }
         public ulong ConnectionId { get; init; }
         public uint LifeId { get; init; }
@@ -85,6 +86,7 @@ namespace MphRead.Mods.Network
                 && CollisionDetection.CheckCylinderOverlapSphere(back, front, HalfturretPosition, beamRadius + 0.45f, ref result);
 
         public bool IsHeadshot(Vector3 hitPosition)
-            => CanBeHit && !AltForm && hitPosition.Y - Position.Y >= MaxPickupHeight - 0.3f;
+            => CanBeHit && !AltForm
+                && hitPosition.Y - Position.Y >= MaxPickupHeight - HeadshotBandHeight;
     }
 }

@@ -22,13 +22,20 @@ namespace MphRead.Entities
         float MaximumDistance,
         float DistanceScoreWeight,
         float SwitchingMarginDegrees,
-        float EscapeNeutralDot)
+        float EscapeNeutralDot,
+        float ProjectedRadiusScale,
+        float MaximumConeBonusDegrees,
+        float HeadPreferenceConeDegrees,
+        float HeadPreferenceToleranceDegrees,
+        float HeadScoreBonusDegrees,
+        float MotionTrackingFrames,
+        float MaximumMotionDegrees)
     {
         internal static AimAssistProfile Default => new(
-            // Double the rotational correction while widening acquisition
-            // and friction more conservatively. This makes controller assist
-            // materially stronger without doubling slowdown and making the
-            // stick feel trapped on a target.
+            // Rotational correction is now four times the original profile
+            // (twice the preceding strengthened profile). Keep acquisition
+            // and friction unchanged so the additional pull does not also
+            // make the stick feel more trapped on a target.
             AcquireConeDegrees: 8f,
             RetainConeDegrees: 11f,
             FrictionOuterConeDegrees: 8f,
@@ -37,13 +44,20 @@ namespace MphRead.Entities
             // Keep the wider profile from overpowering a full directed stick
             // input at the edge of the rotational assist cone.
             RotationConeDegrees: 6f,
-            MaxYawRate: 60f,
-            MaxPitchRate: 44f,
+            MaxYawRate: 120f,
+            MaxPitchRate: 88f,
             MinimumStickIntent: 0.08f,
             MaximumDistance: 80f,
             DistanceScoreWeight: 0.0025f,
             SwitchingMarginDegrees: 0.50f,
-            EscapeNeutralDot: 0.10f);
+            EscapeNeutralDot: 0.10f,
+            ProjectedRadiusScale: 0.50f,
+            MaximumConeBonusDegrees: 3f,
+            HeadPreferenceConeDegrees: 3.5f,
+            HeadPreferenceToleranceDegrees: 1.25f,
+            HeadScoreBonusDegrees: 0.35f,
+            MotionTrackingFrames: 0.75f,
+            MaximumMotionDegrees: 0.65f);
     }
 
     /// <summary>
@@ -111,7 +125,8 @@ namespace MphRead.Entities
             }
 
             PlayerEntity? target = SelectTarget(owner, retentionScale: 1,
-                out Vector2 error, out float angularDistance);
+                out Vector2 error, out float angularDistance,
+                out float rotationCone);
             float escapeIntent = target == null ? 0
                 : ComputeEscapeIntent(input, error, owner.Controls.InvertAimX,
                     owner.Controls.InvertAimY);
@@ -124,7 +139,7 @@ namespace MphRead.Entities
             {
                 float retentionScale = 1 - escapeIntent;
                 target = SelectTarget(owner, retentionScale, out error,
-                    out angularDistance);
+                    out angularDistance, out rotationCone);
                 if (target == null)
                 {
                     _retained = null;
@@ -164,7 +179,7 @@ namespace MphRead.Entities
                 owner.Controls.InvertAimX, owner.Controls.InvertAimY);
             Vector2 result = ApplyAssistance(input, appliedError,
                 angularDistance, frame.Magnitude, frame.AimAssistStrength,
-                deltaSeconds, escapeIntent);
+                deltaSeconds, escapeIntent, rotationCone);
             float friction = FrictionMultiplier(angularDistance,
                 frame.AimAssistStrength, escapeIntent);
             float rotation = (result - input * friction).Length;
@@ -197,17 +212,27 @@ namespace MphRead.Entities
         internal static Vector2 ApplyAssistance(Vector2 input, Vector2 error,
             float angularDistance, float stickMagnitude, float strength,
             float deltaSeconds, float escapeIntent)
+            => ApplyAssistance(input, error, angularDistance, stickMagnitude,
+                strength, deltaSeconds, escapeIntent,
+                Profile.RotationConeDegrees);
+
+        private static Vector2 ApplyAssistance(Vector2 input, Vector2 error,
+            float angularDistance, float stickMagnitude, float strength,
+            float deltaSeconds, float escapeIntent, float rotationConeDegrees)
         {
             strength = SanitizeStrength(strength);
             escapeIntent = SanitizeEscape(escapeIntent);
+            rotationConeDegrees = float.IsFinite(rotationConeDegrees)
+                ? MathF.Max(rotationConeDegrees, 0.001f)
+                : Profile.RotationConeDegrees;
             float friction = FrictionMultiplier(angularDistance, strength,
                 escapeIntent);
             input *= friction;
 
             if (stickMagnitude >= Profile.MinimumStickIntent
-                && angularDistance <= Profile.RotationConeDegrees)
+                && angularDistance <= rotationConeDegrees)
             {
-                float coneScale = 1f - angularDistance / Profile.RotationConeDegrees;
+                float coneScale = 1f - angularDistance / rotationConeDegrees;
                 float intentScale = Math.Clamp((stickMagnitude
                     - Profile.MinimumStickIntent) / (1f - Profile.MinimumStickIntent), 0, 1);
                 float scale = strength * SmoothStep(coneScale)
@@ -298,8 +323,10 @@ namespace MphRead.Entities
                 {
                     continue;
                 }
-                float error = AngularError(origin, viewRay,
-                    candidate.ModAssistAimTarget);
+                Vector3 target = PreferredAimPoint(owner, candidate,
+                    origin, viewRay, distanceSquared, requireLineOfSight: true,
+                    out _);
+                float error = AngularError(origin, viewRay, target);
                 if (!float.IsFinite(error)) continue;
                 nearest = candidate;
                 nearestDistanceSquared = distanceSquared;
@@ -314,8 +341,10 @@ namespace MphRead.Entities
                 && HasLineOfSight(owner, retained);
             if (hasRetained)
             {
-                retainedError = AngularError(origin, viewRay,
-                    retained!.ModAssistAimTarget);
+                Vector3 target = PreferredAimPoint(owner, retained!, origin,
+                    viewRay, (retained.ModAssistAimTarget - origin).LengthSquared,
+                    requireLineOfSight: true, out _);
+                retainedError = AngularError(origin, viewRay, target);
                 hasRetained = float.IsFinite(retainedError);
             }
             return new AimAssistTargetObservation(nearest != null,
@@ -341,10 +370,12 @@ namespace MphRead.Entities
         }
 
         private PlayerEntity? SelectTarget(PlayerEntity owner,
-            float retentionScale, out Vector2 error, out float angularDistance)
+            float retentionScale, out Vector2 error, out float angularDistance,
+            out float rotationCone)
         {
             error = Vector2.Zero;
             angularDistance = float.MaxValue;
+            rotationCone = Profile.RotationConeDegrees;
             retentionScale = SanitizeEscape(retentionScale);
             Candidate best0 = default;
             Candidate best1 = default;
@@ -362,18 +393,31 @@ namespace MphRead.Entities
                 {
                     continue;
                 }
-                (float X, float Y) aim = owner.ModAimDeltaTowards(
-                    candidate.ModAssistAimTarget);
+                Vector3 origin = owner.CameraInfo.Position;
+                Vector3 aimPoint = PreferredAimPoint(owner, candidate,
+                    origin, owner.ModGunVector, distanceSquared,
+                    requireLineOfSight: true, out bool headPreferred);
+                (float X, float Y) aim = owner.ModAimDeltaTowards(aimPoint);
+                Vector2 currentError = new(aim.X, aim.Y);
+                currentError += TargetMotionCorrection(owner, candidate,
+                    aimPoint, currentError);
+                aim = (currentError.X, currentError.Y);
                 float angle = MathF.Sqrt(aim.X * aim.X + aim.Y * aim.Y);
-                float cone = candidate == _retained
+                float coneBonus = ProjectedConeBonus(
+                    candidate.ModAssistTargetRadius,
+                    MathF.Sqrt(distanceSquared));
+                float cone = (candidate == _retained
                     ? Profile.AcquireConeDegrees
                         + (Profile.RetainConeDegrees - Profile.AcquireConeDegrees)
                             * retentionScale
-                    : Profile.AcquireConeDegrees;
+                    : Profile.AcquireConeDegrees) + coneBonus;
                 if (!float.IsFinite(angle) || angle > cone) continue;
                 Candidate value = new(candidate,
                     new Vector2(aim.X, aim.Y), angle,
-                    angle + MathF.Sqrt(distanceSquared) * Profile.DistanceScoreWeight);
+                    angle + MathF.Sqrt(distanceSquared) * Profile.DistanceScoreWeight
+                        - (headPreferred ? Profile.HeadScoreBonusDegrees : 0),
+                    Profile.RotationConeDegrees + coneBonus * 0.5f,
+                    aimPoint);
                 if (candidate == _retained)
                 {
                     retained = value;
@@ -389,7 +433,7 @@ namespace MphRead.Entities
             for (int i = 0; i < bestCount; i++)
             {
                 Candidate candidate = i == 0 ? best0 : i == 1 ? best1 : best2;
-                if (!HasLineOfSight(owner, candidate.Player!)) continue;
+                if (!HasLineOfSight(owner, candidate.AimPoint)) continue;
                 if (!hasBestVisible || candidate.Score < bestVisible.Score)
                 {
                     bestVisible = candidate;
@@ -405,7 +449,7 @@ namespace MphRead.Entities
             // candidates outranked it. Retention must not disappear merely
             // because the cheap shortlist was full.
             if (hasRetained && !Contains(best0, best1, best2, bestCount, retained)
-                && HasLineOfSight(owner, retained.Player!))
+                && HasLineOfSight(owner, retained.AimPoint))
             {
                 retainedVisible = retained;
                 hasRetainedVisible = true;
@@ -432,6 +476,7 @@ namespace MphRead.Entities
             }
             error = selected.Error;
             angularDistance = selected.Angle;
+            rotationCone = selected.RotationCone;
             return selected.Player;
         }
 
@@ -451,11 +496,103 @@ namespace MphRead.Entities
 
         private static bool HasLineOfSight(PlayerEntity owner,
             PlayerEntity candidate)
+            => HasLineOfSight(owner, candidate.ModAssistAimTarget);
+
+        private static bool HasLineOfSight(PlayerEntity owner, Vector3 target)
         {
             CollisionResult hit = default;
             return !CollisionDetection.CheckBetweenPoints(
-                owner.CameraInfo.Position, candidate.ModAssistAimTarget,
+                owner.CameraInfo.Position, target,
                 TestFlags.None, owner.ModScene, ref hit);
+        }
+
+        internal static float ProjectedConeBonus(float radius, float distance)
+        {
+            if (!float.IsFinite(radius) || !float.IsFinite(distance)
+                || radius <= 0 || distance <= 0)
+            {
+                return 0;
+            }
+            float angularRadius = MathHelper.RadiansToDegrees(
+                MathF.Atan2(radius, distance));
+            return Math.Clamp(angularRadius * Profile.ProjectedRadiusScale,
+                0, Profile.MaximumConeBonusDegrees);
+        }
+
+        internal static bool ShouldPreferHead(bool altForm, bool weaponCanHeadshot,
+            float bodyErrorDegrees, float headErrorDegrees)
+            => !altForm && weaponCanHeadshot
+                && float.IsFinite(bodyErrorDegrees)
+                && float.IsFinite(headErrorDegrees)
+                && headErrorDegrees <= Profile.HeadPreferenceConeDegrees
+                && headErrorDegrees <= bodyErrorDegrees
+                    + Profile.HeadPreferenceToleranceDegrees;
+
+        internal static bool WeaponCanHeadshot(BeamType beam, float distance)
+            => beam != BeamType.ShockCoil && float.IsFinite(distance)
+                && distance >= 0
+                && (beam == BeamType.Imperialist || distance <= 15f);
+
+        private static Vector3 PreferredAimPoint(PlayerEntity owner,
+            PlayerEntity candidate, Vector3 origin, Vector3 viewRay,
+            float distanceSquared, bool requireLineOfSight,
+            out bool headPreferred)
+        {
+            Vector3 body = candidate.ModAssistAimTarget;
+            headPreferred = false;
+            if (candidate.IsAltForm || owner.EquipInfo.Weapon == null)
+            {
+                return body;
+            }
+            float distance = MathF.Sqrt(distanceSquared);
+            if (!WeaponCanHeadshot(owner.EquipInfo.Weapon.Beam, distance))
+            {
+                return body;
+            }
+            Vector3 head = candidate.ModAssistHeadTarget;
+            float bodyError = AngularError(origin, viewRay, body);
+            float headError = AngularError(origin, viewRay, head);
+            if (ShouldPreferHead(candidate.IsAltForm, weaponCanHeadshot: true,
+                    bodyError, headError)
+                && (!requireLineOfSight || HasLineOfSight(owner, head)))
+            {
+                headPreferred = true;
+                return head;
+            }
+            return body;
+        }
+
+        private static Vector2 TargetMotionCorrection(PlayerEntity owner,
+            PlayerEntity candidate, Vector3 aimPoint, Vector2 currentError)
+        {
+            Vector3 displacement = candidate.Position - candidate.PrevPosition;
+            if (!IsUsable(displacement) || displacement.LengthSquared <= 0.000001f)
+            {
+                return Vector2.Zero;
+            }
+            float length = displacement.Length;
+            if (length > 0.75f)
+            {
+                displacement *= 0.75f / length;
+            }
+            (float X, float Y) previous = owner.ModAimDeltaTowards(
+                aimPoint - displacement);
+            return MotionTrackingCorrection(currentError,
+                new Vector2(previous.X, previous.Y));
+        }
+
+        internal static Vector2 MotionTrackingCorrection(Vector2 currentError,
+            Vector2 previousTargetError)
+        {
+            Vector2 motion = currentError - previousTargetError;
+            if (!IsUsable(motion)) return Vector2.Zero;
+            motion *= Profile.MotionTrackingFrames;
+            float magnitude = motion.Length;
+            if (magnitude > Profile.MaximumMotionDegrees)
+            {
+                motion *= Profile.MaximumMotionDegrees / magnitude;
+            }
+            return motion;
         }
 
         private static float AngularError(Vector3 origin, Vector3 viewRay,
@@ -545,7 +682,8 @@ namespace MphRead.Entities
             float EscapeIntent);
 
         private readonly record struct Candidate(PlayerEntity? Player,
-            Vector2 Error, float Angle, float Score);
+            Vector2 Error, float Angle, float Score, float RotationCone,
+            Vector3 AimPoint);
     }
 
     public partial class PlayerEntity

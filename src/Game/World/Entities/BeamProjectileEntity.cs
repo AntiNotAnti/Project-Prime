@@ -609,7 +609,8 @@ namespace MphRead.Entities
                             uint wholeDamage = 0;
                             bool isHeadshot = false;
                             bool headshotHeight = historicalHit ? historicalTarget.IsHeadshot(anyRes.Position)
-                                : !player.IsAltForm && anyRes.Position.Y - player.Position.Y >= Fixed.ToFloat(player.Values.MaxPickupHeight) - 0.3f;
+                                : !player.IsAltForm && anyRes.Position.Y - player.Position.Y
+                                    >= Fixed.ToFloat(player.Values.MaxPickupHeight) - LagCompensationState.HeadshotBandHeight;
                             if (headshotHeight && Beam != BeamType.ShockCoil)
                             {
                                 if (Beam == BeamType.Imperialist)

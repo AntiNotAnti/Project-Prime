@@ -17,6 +17,22 @@ namespace MphRead.Tests;
 public sealed class HistoricalDynamicCollisionTests
 {
     [Fact]
+    public void HeadshotBandCoversTopThirtyFiveHundredthsOfStandingPlayer()
+    {
+        var state = new LagCompensationState
+        {
+            Alive = true,
+            Position = Vector3.Zero,
+            MaxPickupHeight = 2
+        };
+
+        Assert.True(state.IsHeadshot(new Vector3(0, 1.65f, 0)));
+        Assert.False(state.IsHeadshot(new Vector3(0, 1.64f, 0)));
+        Assert.False((state with { AltForm = true }).IsHeadshot(
+            new Vector3(0, 2, 0)));
+    }
+
+    [Fact]
     public void DynamicGeometryIsDisabledUntilExplicitlyOptedIn()
     {
         Assert.False(new ServerCombat().HistoricalDynamicCollisionEnabled);
