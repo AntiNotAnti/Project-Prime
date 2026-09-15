@@ -117,7 +117,7 @@ namespace MphRead.Mods.Network
             text.AppendLine();
             text.AppendLine("Affinity weapon per hunter (the one whose enhanced version it uses):");
             text.AppendLine();
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < PlayableHunterCatalog.Count; i++)
             {
                 text.AppendLine($"- {(Hunter)i}: {MphRead.Weapons.GetAffinityBeam((Hunter)i)}");
             }
@@ -166,7 +166,7 @@ namespace MphRead.Mods.Network
             text.AppendLine("| Hunter | energy tank | MP max health | MP ammo cap | alt form | "
                 + "bombs | boost | alt attack |");
             text.AppendLine("|---|---|---|---|---|---|---|---|");
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < PlayableHunterCatalog.Count; i++)
             {
                 var hunter = (Hunter)i;
                 PlayerValues values = Metadata.PlayerValues[i];
@@ -211,7 +211,7 @@ namespace MphRead.Mods.Network
             text.AppendLine("| Hunter | walk cap | strafe cap | jump | biped gravity | alt gravity (air/ground) "
                 + "| boost cap | boost charge (min-max) | alt radius |");
             text.AppendLine("|---|---|---|---|---|---|---|---|---|");
-            for (int i = 0; i < 7; i++)
+            for (int i = 0; i < PlayableHunterCatalog.Count; i++)
             {
                 PlayerValues v = Metadata.PlayerValues[i];
                 text.AppendLine($"| {(Hunter)i} | {Fixed.ToFloat(v.WalkSpeedCap):0.###} "

@@ -103,7 +103,8 @@ separately and must not be inferred from build success; see [Current status](#cu
    - **macOS:** if Gatekeeper quarantined the extracted package, run
      `xattr -dr com.apple.quarantine /path/to/ProjectPrime`, then run `./ProjectPrime -launcher`.
 4. In **Settings → Game files**, select your own Metroid Prime Hunters `.nds` dump. The launcher
-   extracts and prepares it once with visible progress.
+   extracts and prepares it once with visible progress. Supported whole-image identities and the
+   evidence boundary are documented in [Supported cartridge identities](docs/CARTRIDGE_IDENTITIES.md).
 5. Sign in or explicitly choose guest access, then open **Play**.
 
 The main shell includes **Play**, **Maps**, **Hunter**, **Rankings**, **Theatre**, and **Settings**.
@@ -133,8 +134,9 @@ ballot. A compatible result can continue directly into a rematch or new map with
 launcher or persistent Node session. Interrupted matches reopen the lobby instead of inventing a
 result.
 
-All players need compatible build, content, and protocol identities. Live protocol admission is exact:
-protocol 15 and older peers cannot join a protocol 16 match.
+All players need compatible build, content, and protocol identities. Live protocol admission is
+exact: peers using a different protocol cannot join until their build matches the current live
+reference.
 
 For the complete state and ownership contract, read the
 [seamless online lifecycle](docs/SEAMLESS_ONLINE_FLOW.md) and

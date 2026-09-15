@@ -69,42 +69,69 @@ namespace MphRead
                 return false;
             }
             Console.WriteLine("Reading cartridge dump...");
-            byte[] bytes = File.ReadAllBytes(path);
-            RomHeader header = Read.ReadStruct<RomHeader>(bytes);
-            var mphCodes = new Dictionary<string, List<byte>>()
+            byte[] bytes;
+            CartridgeValidationResult validation;
+            try
             {
-                { "AMHE", new List<byte>() { 0, 1 } },
-                { "AMHP", new List<byte>() { 0, 1 } },
-                { "AMHJ", new List<byte>() { 0, 1 } },
-                { "AMHK", new List<byte>() { 0 } },
-                { "A76E", new List<byte>() { 0 } }
-            };
-            bool isFh = false;
-            string gameCode = header.GameCode.MarshalString();
-            if (!mphCodes.TryGetValue(gameCode, out List<byte>? mphVersions))
-            {
-                var fhCodes = new Dictionary<string, List<byte>>()
+                // Keep one read handle for identity verification and the bytes
+                // handed to extraction. FileShare.Read prevents replacement on
+                // platforms that enforce sharing modes, and avoids a
+                // validation/re-open time-of-check window everywhere else.
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+                validation = CartridgeCatalog.Supported.Validate(stream);
+                if (!validation.IsValid)
                 {
-                    { "AMFE", new List<byte>() { 0 } },
-                    { "AMFP", new List<byte>() { 0 } }
-                };
-                if (!fhCodes.TryGetValue(gameCode, out List<byte>? fhVersions))
-                {
-                    PrintExit($"The specified ROM file has invalid game code {gameCode}.");
+                    PrintCartridgeValidationFailure(validation);
                     return false;
                 }
-                if (!fhVersions.Contains(header.Version))
+                if (validation.ActualLength > int.MaxValue)
                 {
-                    PrintExit($"The specified {gameCode} ROM has unexpected version {header.Version}.");
+                    PrintCartridgeValidationFailure(new CartridgeValidationResult(
+                        CartridgeValidationStatus.InvalidLength, validation.Header,
+                        validation.Identity, validation.ActualLength,
+                        validation.ActualSha256, "The cartridge image is too large to extract."));
                     return false;
                 }
-                isFh = true;
+                stream.Position = 0;
+                bytes = new byte[checked((int)validation.ActualLength)];
+                stream.ReadExactly(bytes);
             }
-            else if (!mphVersions.Contains(header.Version))
+            catch (IOException)
             {
-                PrintExit($"The specified {gameCode} ROM has unexpected version {header.Version}.");
+                PrintCartridgeValidationFailure(new CartridgeValidationResult(
+                    CartridgeValidationStatus.ReadError, default, null, 0, null, null));
                 return false;
             }
+            catch (UnauthorizedAccessException)
+            {
+                PrintCartridgeValidationFailure(new CartridgeValidationResult(
+                    CartridgeValidationStatus.ReadError, default, null, 0, null, null));
+                return false;
+            }
+            catch (NotSupportedException)
+            {
+                PrintCartridgeValidationFailure(new CartridgeValidationResult(
+                    CartridgeValidationStatus.ReadError, default, null, 0, null, null));
+                return false;
+            }
+
+            RomHeader header = Read.ReadStruct<RomHeader>(bytes);
+            CartridgeIdentity identity = validation.Identity!;
+            if (!identity.MatchesHeader(validation.Header)
+                || !String.Equals(identity.GameCode, header.GameCode.MarshalString(),
+                    StringComparison.OrdinalIgnoreCase)
+                || identity.Revision != header.Version)
+            {
+                // The validated bytes and the parsed extraction header must
+                // agree. A discrepancy here is a malformed image, not a
+                // reason to bypass the catalog.
+                PrintCartridgeValidationFailure(new CartridgeValidationResult(
+                    CartridgeValidationStatus.Unsupported, validation.Header, identity,
+                    validation.ActualLength, validation.ActualSha256,
+                    "The validated cartridge header could not be parsed consistently."));
+                return false;
+            }
+            bool isFh = identity.Family == CartridgeFamily.FirstHunt;
             Paths.UpdatePaths();
             if (!replaceConfiguredPaths && !OperatingSystem.IsAndroid() && File.Exists("paths.txt"))
             {
@@ -149,6 +176,33 @@ namespace MphRead
             File.WriteAllText("paths.txt", String.Join(Environment.NewLine, lines));
             Nop();
             return true;
+        }
+
+        private static void PrintCartridgeValidationFailure(CartridgeValidationResult result)
+        {
+            switch (result.Status)
+            {
+                case CartridgeValidationStatus.HeaderValidWrongHash:
+                    string wrongHashName = result.Identity?.DisplayName ?? "This cartridge";
+                    PrintExit($"{wrongHashName} was detected, but the cartridge image does not match the "
+                        + "supported retail revision.\n\nThe file may be modified, trimmed, corrupted, "
+                        + "or dumped incorrectly.\nNo files were extracted.");
+                    break;
+                case CartridgeValidationStatus.InvalidLength:
+                    string expected = result.Identity == null
+                        ? "the expected cartridge image length"
+                        : $"the supported {result.Identity.VariantCode} image length of {result.Identity.Size} bytes";
+                    PrintExit($"The cartridge image does not match {expected} (received {result.ActualLength} bytes).\n"
+                        + "No files were extracted.");
+                    break;
+                case CartridgeValidationStatus.ReadError:
+                    PrintExit("Project Prime could not read this cartridge image.\nNo files were extracted.");
+                    break;
+                default:
+                    PrintExit("This cartridge image is not a supported Metroid Prime Hunters or First Hunt release.\n"
+                        + "No files were extracted.");
+                    break;
+            }
         }
 
         /// <summary>
@@ -357,8 +411,11 @@ namespace MphRead
         private static void PrintExit(string message)
         {
             Console.WriteLine(message);
-            Console.WriteLine("Press any key to exit...");
-            if (!OperatingSystem.IsAndroid()) Console.ReadKey();
+            if (!OperatingSystem.IsAndroid() && !Console.IsInputRedirected)
+            {
+                Console.WriteLine("Press any key to exit...");
+                Console.ReadKey();
+            }
         }
 
         private static void Nop()
