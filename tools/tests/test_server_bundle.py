@@ -346,6 +346,42 @@ class ServerBundleContractTests(unittest.TestCase):
         self.assertIsNone(config)
         self.assertIn("not present in the Worker descriptor", result.stderr)
 
+    def test_custom_map_identity_survives_node_configuration_generation(self):
+        required = {
+            "StableId": "community.test-arena",
+            "Version": "1.2.0",
+            "ContentHash": "a" * 64,
+            "ArtifactHash": "b" * 64,
+            "PackageSize": 123456,
+            "MatchContentHash": "c" * 64,
+        }
+        descriptor = {
+            "ContentVersion": "AMHE1",
+            "ContentHash": "base-hash",
+            "BuildVersion": "build-123",
+            "ProtocolVersion": 24,
+            "Maps": [{
+                "MapKey": "TEST ARENA",
+                "Modes": [1, 0],
+                "RequiredMap": required,
+                "PackagePath": "/srv/project-prime/maps/test-arena.fpmap",
+            }],
+        }
+
+        for name in ("start-dev.sh", "start-bundle-dev.sh"):
+            with self.subTest(name=name):
+                result, config = self._generate_config(name, descriptor)
+                self.assertEqual(0, result.returncode, result.stderr)
+                entry = config["Node"]["Maps"][0]
+                self.assertEqual("TEST ARENA", entry["MapKey"])
+                self.assertEqual([0, 1], entry["Modes"])
+                self.assertEqual(required["StableId"], entry["StableId"])
+                self.assertEqual(required["Version"], entry["Version"])
+                self.assertEqual(required["ContentHash"], entry["MapContentHash"])
+                self.assertEqual(required["ArtifactHash"], entry["ArtifactHash"])
+                self.assertEqual(required["PackageSize"], entry["PackageSize"])
+                self.assertEqual(descriptor["Maps"][0]["PackagePath"], entry["PackagePath"])
+
     def test_malformed_or_out_of_bounds_discovery_fails_clearly(self):
         malformed = {
             "ContentVersion": "AMHE1", "ContentHash": "hash", "BuildVersion": "build",

@@ -23,11 +23,15 @@ class MapGuardTests(unittest.TestCase):
             check=False,
         )
 
-    def write_bundle(self, root, *, include_bsp=True, include_texture=True, padding=8192):
+    def write_bundle(self, root, *, include_bsp=True, include_texture=True,
+                     redistribution=True, padding=8192):
         maps = root / "maps"
         maps.mkdir()
         bundle = maps / "large-listing.fpmap"
         with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_STORED) as archive:
+            archive.writestr("manifest.json", (
+                '{"format":2,"redistribution":%s}'
+                % str(redistribution).lower()).encode())
             if include_bsp:
                 # Put the matching entry first so grep -q would terminate while
                 # unzip still has a large listing to write.
@@ -61,11 +65,19 @@ class MapGuardTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not carry it", result.stdout)
 
+    def test_nonredistributable_bundle_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
+            self.write_bundle(Path(temporary), redistribution=False)
+            result = self.run_guard(MAP_GUARD, Path(temporary))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("online redistribution is disabled", result.stdout)
+
     def test_description_only_bundle_is_valid_without_a_level(self):
         with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             maps = Path(temporary) / "maps"
             maps.mkdir()
             with zipfile.ZipFile(maps / "arena.fpmap", "w", compression=zipfile.ZIP_STORED) as archive:
+                archive.writestr("manifest.json", b'{"format":2,"redistribution":true}')
                 archive.writestr("arena.json", b'{"name":"TEST ARENA","brushes":[{}],"materials":[{}]}')
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

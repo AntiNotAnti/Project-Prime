@@ -113,10 +113,12 @@ in Node status without taking the Node offline.
 
 Packaging a level does not grant permission to redistribute it. Publish only
 source, textures, previews, and imported data you have the right to distribute.
-The bundled metadata for `obiq1dm3` and `nodm13` deliberately leaves automatic
-online redistribution disabled. `nodm13.txt` also prohibits inclusion in a
-commercial product without the author's permission; obtain any additional
-permission needed for the intended release.
+All maps shipped in Project Prime's compiled artifact set must permit automatic
+online redistribution; the shipping guard rejects packages that disable it.
+The five bundled maps are public, redistributable maps. Preserve their included
+notices and attribution. Public redistribution does not override any separate
+commercial-use restriction stated by a map's notice; `nodm13.txt` requires the
+author's permission before inclusion in a commercial product.
 The repository asset guards continue to reject extracted game data and known
 commercial archives.
 

@@ -658,7 +658,9 @@ cfg={"Node":{
     "MaximumLobbies":n("MAX_LOBBIES"),"MaximumSessions":n("MAX_SESSIONS"),
     "Authentication":{"NodeId":os.environ["NODE_ID"],"Issuer":os.environ["TICKET_ISSUER"],
                       "Keys":[{"KeyId":os.environ["KEY_ID"],"PublicKeyPemPath":os.environ["PUBLIC_KEY"]}]},
-    "Maps":[{"MapKey":entry["MapKey"],**content,"Modes":entry["Modes"]} for entry in maps],
+    # Preserve exact custom-map identity and the local package path discovered
+    # by the Worker. NodeMapPackageStore owns the separate redistribution gate.
+    "Maps":[{**entry,**content} for entry in maps],
     "Workers":{"DrainTimeout":"00:00:30","ForceAfterDrainDeadline":False,"Processes":[{
         "FileName":"worker/ProjectPrime.Server.Worker","Content":content,
         "ArtifactDirectory":os.environ["ARTIFACT_DIR"],"WorkingDirectory":os.environ["PACKAGE_DIR"],

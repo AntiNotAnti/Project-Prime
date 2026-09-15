@@ -35,6 +35,14 @@ fi
 while IFS= read -r file; do
   found=$((found + 1))
   name=$(basename "$file")
+  manifest=$(unzip -p "$file" manifest.json 2>/dev/null)
+  if printf '%s' "$manifest" \
+      | grep -E '"redistribution"[[:space:]]*:[[:space:]]*true([,}[:space:]]|$)' >/dev/null; then
+    echo "ok:      $name permits online redistribution"
+  else
+    echo "ERROR:   $name cannot ship because online redistribution is disabled"
+    fail=1
+  fi
   recipe=$(unzip -p "$file" '*.json' 2>/dev/null)
   # Brush-only maps (for example TEST ARENA) are complete in their recipe:
   # their geometry and materials are generated from the JSON and they borrow

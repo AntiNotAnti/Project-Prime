@@ -1,4 +1,18 @@
 {
+  "format": 1,
+  "stableId": "legacy.parallax",
+  "version": "1.0.0",
+  "metadata": {
+    "name": "Parallax",
+    "author": "Project Prime contributors",
+    "description": "A symmetric competitive Project Prime arena.",
+    "redistribution": true
+  },
+  "supportedModes": [
+    "Battle",
+    "Survival"
+  ],
+  "map": {
   "name": "PARALLAX",
   "inGameName": "Parallax",
   "scaleFactor": 4,
@@ -175,7 +189,6 @@
       "spawnInterval": 240
     }
   ],
-  "//": "PARALLAX Graybox v0.1. MPH coordinates. Source and design audit in source/README.md. Generated assets are not authoritative.",
   "jumpPads": [
     {
       "position": [
@@ -216,4 +229,5 @@
       "controlLockTime": 0
     }
   ]
+  }
 }
