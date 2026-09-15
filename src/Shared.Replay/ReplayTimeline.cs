@@ -155,14 +155,20 @@ internal static class ReplayTimelineTickReader
         switch ((ReplayRecordKind)data[0])
         {
             case ReplayRecordKind.Match:
-                if (MatchTransitionPacket.TryRead(body, out MatchTransitionPacket match))
+                MatchTransitionPacket match = default;
+                if (protocol >= NetHeader.AltActionStateVersion
+                    && MatchTransitionPacket.TryRead(body, out match)
+                    || protocol == NetHeader.BalancedModeVersion
+                    && MatchTransitionPacket.TryReadLegacyProtocol24(body, out match)
+                    || protocol is >= 9 and < NetHeader.BalancedModeVersion
+                    && MatchTransitionPacket.TryReadLegacyProtocol23(body, out match))
                 {
                     tick = match.ServerTick;
                     return true;
                 }
                 // The original protocol-8 match record has the same envelope
                 // length but zeroes extension fields introduced later.
-                if (protocol != 8 || body.Length != MatchTransitionPacket.Size
+                if (protocol != 8 || body.Length != 8 + MatchRulesWire.LegacyProtocol23Size
                     || BinaryPrimitives.ReadUInt32LittleEndian(body) == 0) return false;
                 tick = BinaryPrimitives.ReadUInt32LittleEndian(body[4..]);
                 return true;
@@ -173,13 +179,14 @@ internal static class ReplayTimelineTickReader
                 if (body.Length < WorldPacket.HeaderSize) return false;
                 tick = BinaryPrimitives.ReadUInt32LittleEndian(body[8..]); return true;
             case ReplayRecordKind.Event:
-                return TryReadEvent(body, fallback, out tick);
+                return TryReadEvent(body, fallback, protocol, out tick);
             default:
                 return true;
         }
     }
 
-    private static bool TryReadEvent(ReadOnlySpan<byte> body, uint fallback, out uint tick)
+    private static bool TryReadEvent(ReadOnlySpan<byte> body, uint fallback,
+        byte protocol, out uint tick)
     {
         tick = fallback;
         if (body.Length < 6) return false;
@@ -188,8 +195,14 @@ internal static class ReplayTimelineTickReader
         switch (type)
         {
             case ReliableEventType.Combat:
-                Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
-                if (!CombatEventBatch.TryRead(payload, events, out int count)) return false;
+                Span<CombatEvent> events = stackalloc CombatEvent[6];
+                int count;
+                bool valid = protocol >= NetHeader.BalancedModeVersion
+                    ? CombatEventBatch.TryRead(payload, events, out count)
+                    : protocol == NetHeader.EnhancedHuntersVersion
+                        ? TryReadProtocol23CombatBatch(payload, events, out count)
+                        : CombatEventBatch.TryRead(payload, events, out count);
+                if (!valid) return false;
                 tick = events[0].Tick;
                 for (int i = 1; i < count; i++)
                     if (IsNewer(events[i].Tick, tick)) tick = events[i].Tick;
@@ -209,6 +222,29 @@ internal static class ReplayTimelineTickReader
             default:
                 return true;
         }
+    }
+
+    private static bool TryReadProtocol23CombatBatch(ReadOnlySpan<byte> bytes,
+        Span<CombatEvent> events, out int count)
+    {
+        const int maxCount = 6;
+        const int eventSize = 82;
+        count = 0;
+        if (bytes.IsEmpty || bytes[0] is < 1 or > maxCount
+            || bytes[0] > events.Length
+            || bytes.Length != 1 + bytes[0] * eventSize)
+            return false;
+        for (int i = 0; i < bytes[0]; i++)
+        {
+            if (!CombatEvent.TryRead(bytes.Slice(1 + i * eventSize, eventSize),
+                    out CombatEvent value)
+                || value.Kind > CombatEventKind.Effect
+                || (value.Flags & ~(CombatEventFlags)511) != 0)
+                return false;
+            events[i] = value;
+        }
+        count = bytes[0];
+        return true;
     }
 
     private static bool IsNewer(uint value, uint previous)

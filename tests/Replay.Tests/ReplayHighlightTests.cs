@@ -1,10 +1,12 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using MphRead.Mods.Network;
+using OpenTK.Mathematics;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -18,6 +20,19 @@ public sealed class ReplayHighlightTests : IDisposable
         $"project-prime-replay-highlights-{Guid.NewGuid():N}");
 
     public ReplayHighlightTests() => Directory.CreateDirectory(_root);
+
+    [Theory]
+    [InlineData(16, 96)]
+    [InlineData(17, 98)]
+    [InlineData(20, 98)]
+    [InlineData(21, 104)]
+    [InlineData(22, 104)]
+    [InlineData(NetHeader.EnhancedHuntersVersion, SnapshotPlayer.LegacySize)]
+    [InlineData(NetHeader.Version, SnapshotPlayer.Size)]
+    public void HighlightSnapshotStrideTracksFrozenProtocolLayouts(
+        byte protocol, int expected)
+        => Assert.Equal(expected,
+            ReplayHighlightMetadataService.SnapshotPlayerSize(protocol));
 
     [Fact]
     public void OrdinaryKillUsesTimelineMappingDefaultWindowAndFullActorIdentity()
@@ -411,6 +426,77 @@ public sealed class ReplayHighlightTests : IDisposable
     }
 
     [Fact]
+    public void Protocol23HighlightExtractionReadsFrozenMatchSnapshotAndCombatRecords()
+    {
+        string replay = Path.Combine(_root, "protocol-23.fpreplay");
+        using (var writer = new ReplayWriter(replay,
+            NetHeader.EnhancedHuntersVersion))
+        {
+            var match = new MatchTransitionPacket(1, 1000, GameMode.Battle,
+                "MP1 SANCTORUS");
+            byte[] currentMatch = new byte[MatchTransitionPacket.Size];
+            match.Write(currentMatch);
+            writer.WriteRecord(0, Record(ReplayRecordKind.Match,
+                currentMatch.AsSpan(0, 8 + MatchRulesWire.LegacyProtocol23Size)));
+
+            var player = new SnapshotPlayer
+            {
+                Slot = 0,
+                Hunter = Hunter.Samus,
+                TeamIndex = 0,
+                ConnectionId = 101,
+                Life = 1,
+                Aim = Vector3.UnitZ,
+                Facing = Vector3.UnitZ,
+                Health = 100,
+                AvailableWeapons = 1,
+                Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
+            };
+            byte[] currentSnapshot = new byte[SnapshotPacket.HeaderSize
+                + SnapshotPlayer.Size];
+            new SnapshotPacket(120, 1, 1, 0, false, 1, 2)
+                .Write(currentSnapshot, new[] { player });
+            // Protocol 23 replay records retain the historical 112-byte
+            // player wrapper even though the live writer has since grown.
+            byte[] snapshot = currentSnapshot.AsSpan(0,
+                SnapshotPacket.HeaderSize + SnapshotPlayer.LegacySize).ToArray();
+            writer.WriteRecord(1, Record(ReplayRecordKind.Snapshot, snapshot));
+
+            var combat = new CombatEvent(1, 1100, 1, CombatEventKind.Damage,
+                Weapon: (byte)BeamType.PowerBeam,
+                Flags: CombatEventFlags.None,
+                Actor: new CombatActor(0, 101, 1),
+                Target: new CombatActor(1, 202, 1), Health: 80, Amount: 20,
+                Position: Vector3.Zero, Direction: Vector3.UnitZ,
+                FrozenTicks: 0, BurnTicks: 0, DisruptTicks: 0);
+            byte[] combatPayload = new byte[1 + CombatEvent.Size];
+            CombatEventBatch.Write(combatPayload, new[] { combat });
+            byte[] combatBody = new byte[5 + combatPayload.Length];
+            BinaryPrimitives.WriteUInt32LittleEndian(combatBody, 1);
+            combatBody[4] = (byte)ReliableEventType.Combat;
+            combatPayload.CopyTo(combatBody.AsSpan(5));
+            writer.WriteRecord(2, Record(ReplayRecordKind.Event, combatBody));
+
+            var kill = new KillEvent(2, 1120, 1, 1,
+                new CombatActor(0, 101, 1), new CombatActor(1, 202, 1),
+                0, KillEventFlags.Headshot, ImmutableArray<CombatActor>.Empty);
+            byte[] killPayload = new byte[KillEvent.Size];
+            kill.Write(killPayload);
+            writer.WriteRecord(3, EventRecord(ReliableEventType.Kill,
+                killPayload));
+        }
+
+        ReplayHighlightMetadata metadata = new ReplayHighlightMetadataService(_root)
+            .Get(replay);
+
+        Assert.Equal(NetHeader.EnhancedHuntersVersion, metadata.ReplayProtocol);
+        Assert.True(metadata.IsAvailable);
+        ReplayHighlight highlight = Assert.Single(metadata.Highlights);
+        Assert.Equal(HighlightKind.Headshot, highlight.Kind);
+        Assert.Equal(new CombatActor(0, 101, 1), highlight.Focus);
+    }
+
+    [Fact]
     public void CacheCorruptionOldVersionAndReplayChangeRegenerateDeterministically()
     {
         string replay = Path.Combine(_root, "changing.fpreplay");
@@ -490,8 +576,14 @@ public sealed class ReplayHighlightTests : IDisposable
     {
         using var writer = new ReplayWriter(path, protocolVersion);
         var match = new MatchTransitionPacket(1, 1000, GameMode.Battle, "unit1");
-        byte[] matchBytes = new byte[MatchTransitionPacket.Size];
-        match.Write(matchBytes);
+        byte[] currentMatchBytes = new byte[MatchTransitionPacket.Size];
+        match.Write(currentMatchBytes);
+        byte[] matchBytes = protocolVersion >= NetHeader.AltActionStateVersion
+            ? currentMatchBytes
+            : currentMatchBytes.AsSpan(0, 8 + (protocolVersion
+                == NetHeader.BalancedModeVersion
+                ? MatchRulesWire.LegacyProtocol24Size
+                : MatchRulesWire.LegacyProtocol23Size)).ToArray();
         writer.WriteRecord(100, Record(ReplayRecordKind.Match, matchBytes));
 
         var kill = new KillEvent(10, killTick, 1, 1, Actor, Victim, 0,

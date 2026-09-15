@@ -18,11 +18,21 @@ namespace MphRead.Mods.Network
                 Launcher.Gui.GuiLauncher.Pump();
                 return true;
             }
-            if (play.DrainCompletion(scene)) host.StopScene();
+            bool drainFinished = play.DrainCompletion(scene);
+            // Draining terminal UDP events may have armed the final replay on
+            // this same pump. Let the normal frame loop advance and render it;
+            // close only after the controller releases terminal presentation.
+            if (ShouldStopCompletedScene(drainFinished,
+                    host.BlocksSceneCompletion)) host.StopScene();
             Launcher.Gui.GuiLauncher.Pump();
+            if (host.BlocksSceneCompletion) return false;
             System.Threading.Thread.Sleep(1);
             return true;
         }
+
+        internal static bool ShouldStopCompletedScene(bool drainFinished,
+            bool blocksSceneCompletion)
+            => drainFinished && !blocksSceneCompletion;
 
         public static void Run(string host, int port, string name, Hunter hunter, int recolor)
         {

@@ -42,6 +42,8 @@ public class ParticleInterpolationTests
         Assert.Equal(1, history.ResolveOwner(owner, .5f, true).M41);
         Assert.Equal(2, owner.Transform.M41);
         Assert.Equal(2, history.ResolveOwner(owner, .5f, false).M41);
+        Assert.Equal(2, history.ResolveOwner(owner, .5f, true,
+            presentationResolved: true).M41);
     }
 
     [Fact]

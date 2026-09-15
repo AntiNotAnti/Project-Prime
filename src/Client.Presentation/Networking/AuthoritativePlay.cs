@@ -28,8 +28,13 @@ namespace MphRead.Mods.Network
         public NodeMatchTransitionStarted? ExpectedTransition { get; private set; }
         public bool Interrupted { get; private set; }
         public MatchCompletionSummary? CompletionSummary { get; private set; }
-        /// <summary>Raised once for each accepted all-client authoritative kill.</summary>
-        internal event Action<KillEvent>? AuthoritativeKillAccepted;
+        /// <summary>
+        /// Raised for each parsed reliable kill whose envelope and payload both
+        /// belong to the loaded match. This is an observation seam for the
+        /// final presentation; it is deliberately independent of current
+        /// phase/feedback acceptance.
+        /// </summary>
+        internal event Action<KillEvent>? AuthoritativeKillObserved;
         /// <summary>Raised once for the accepted terminal semantic event for this match.</summary>
         internal event Action<MatchEvent>? AuthoritativeMatchEndedAccepted;
         internal event Action<KillEvent>? LocalPlayerKilled;
@@ -113,7 +118,14 @@ namespace MphRead.Mods.Network
                     Client.Poll();
                     ReplayRecorder.RecordFrame(Client, scene);
                     _world.Apply(scene, Client.HasSnapshot ? Client.Snapshot.ServerTick : null);
-                }, () => scene.Match.Result != null);
+                    // Node completion can arrive on the reliable control path
+                    // before the Worker's terminal UDP events. Process those
+                    // events during the bounded drain so the exact final kill
+                    // and MatchEnded facts can arm the final replay before the
+                    // desktop scene is allowed to close.
+                    DrainEvents();
+                }, () => scene.Match.Result != null
+                    && (_acceptedMatchEnded.HasValue || Interrupted));
         }
 
         private static AuthoritativePlay? _current;
@@ -410,11 +422,13 @@ namespace MphRead.Mods.Network
             { ScriptInput?.Invoke(scene.Players[LocalSlot], _sequence); }
             else if (LocalSlot >= 0) { scene.Players[LocalSlot].Controls.ClearAll(); }
             NetDiagnostics.ReportAuthoritative(Client, Prediction, _interpolation, _transport.Metrics,
-                _hitPrediction, _selfImpulse, _presentedCollision);
+                _hitPrediction, _selfImpulse, _presentedCollision, scene);
         }
 
         public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
         {
+            scene.RequiresCommittedReplicatedWorldState = true;
+            scene.HasCommittedReplicatedWorldState = false;
             scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             for (int slot = 0; slot < 8; slot++)
             {
@@ -480,12 +494,18 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 if (message.MatchId == _loadedMatch && message.Type == ReliableEventType.Kill
-                    && KillEvent.TryRead(message.Payload.Span, out KillEvent kill))
+                    && KillEvent.TryRead(message.Payload.Span, out KillEvent kill)
+                    && IsReliableKillObservation(message.MatchId, kill, _loadedMatch))
                 {
+                    // Record the all-client fact before the presentation
+                    // filter. A kill can legitimately arrive before the
+                    // terminal snapshot, or after it, and the final replay
+                    // consumer must see either ordering without widening the
+                    // ordinary local-death feedback path below.
+                    AuthoritativeKillObserved?.Invoke(kill);
                     if (_presentationScene?.Presentation is ScenePresentation killPresentation)
                     {
                         bool accepted = killPresentation.CombatFeedback.Process(kill);
-                        if (accepted) AuthoritativeKillAccepted?.Invoke(kill);
                         if (kill.Victim.Slot < scene.Players.Count
                             && _identities[kill.Victim.Slot] == kill.Victim.ConnectionId)
                         {
@@ -574,6 +594,10 @@ namespace MphRead.Mods.Network
                         // scenario correlation owns its own actor/life fence.
                         AuthoritativeCombatEventObserved?.Invoke(value);
                     }
+                    else if (value.Kind == CombatEventKind.Effect)
+                    {
+                        AuthoritativeCombatEventObserved?.Invoke(value);
+                    }
                     bool currentTarget = !value.Target.IsValid
                         || value.Target.Slot < _identities.Length
                         && _identities[value.Target.Slot] == value.Target.ConnectionId
@@ -602,7 +626,7 @@ namespace MphRead.Mods.Network
                                 out Vector3 authoritativeSpeed))
                             scene.Players[LocalSlot].Speed = authoritativeSpeed;
                     }
-                    CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb
+                    CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
                         ? value.Actor : value.Target;
                     if (!subject.IsValid || _identities[subject.Slot] != subject.ConnectionId
                         || _lives[subject.Slot] != subject.Life) { continue; }
@@ -734,7 +758,8 @@ namespace MphRead.Mods.Network
                         if (Prediction.LastCorrectionHard)
                         {
                             player.ApplyServerState(state, newLife: false,
-                                reconcileWeapon: applyWeapon);
+                                reconcileWeapon: applyWeapon,
+                                preservePredictedCharge: true);
                             player.Speed = state.Speed;
                             _localVelocityApplied = true;
                             _localVelocityAppliedTick = Client.Snapshot.ServerTick;
@@ -780,7 +805,7 @@ namespace MphRead.Mods.Network
             Client.WorldPacketValidator = null;
             Client.WorldPacketReceived = null;
             LocalPlayerKilled = null;
-            AuthoritativeKillAccepted = null;
+            AuthoritativeKillObserved = null;
             AuthoritativeMatchEndedAccepted = null;
             LocalRootShotObserved = null;
             AuthoritativeCombatEventObserved = null;
@@ -810,6 +835,11 @@ namespace MphRead.Mods.Network
             _acceptedMatchEnded = value;
             return true;
         }
+
+        internal static bool IsReliableKillObservation(uint envelopeMatchId,
+            in KillEvent kill, uint loadedMatchId)
+            => loadedMatchId != 0 && envelopeMatchId == loadedMatchId
+                && kill.MatchId == loadedMatchId;
 
         public void AdvancePresentation()
         {
@@ -1054,7 +1084,11 @@ namespace MphRead.Mods.Network
                     && _interpolation.TrySamplePresentation(slot, presentation,
                         out SnapshotPlayerPresentation sample))
                 {
-                    player.SetRemoteLocomotionIntent(sample.State, sample.VisualSpeed);
+                    bool trajectoryHeld = presentation.Mode is
+                        SnapshotPresentationMode.HistoryHold or
+                        SnapshotPresentationMode.ExtrapolationHold;
+                    player.SetRemoteLocomotionIntent(sample.State,
+                        sample.VisualSpeed, trajectoryHeld);
                 }
                 else
                 {

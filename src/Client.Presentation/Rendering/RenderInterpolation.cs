@@ -28,7 +28,7 @@ namespace MphRead
         private readonly List<EntityBase> _removedPoses = new();
         private readonly SimulationPoseHistory _cameraHistory = new();
         private readonly ScalarPoseHistory _cameraFovHistory = new();
-        private readonly Vector3PoseHistory _cameraAimHistory = new();
+        private readonly Vector3PoseHistory _cameraLocalAimHistory = new();
         private long _poseGeneration;
         private long _timingGeneration;
         private long _correctionGeneration;
@@ -118,10 +118,43 @@ namespace MphRead
                 cameraType, currentSequence);
         }
 
-        internal static Vector3 ResolvePresentedAimPosition(Vector3 current,
-            Vector3 interpolated, bool interpolateRotation)
-            => interpolateRotation && VectorMath.IsFinite(interpolated)
-                ? interpolated : current;
+        internal static Vector3 CameraLocalAimPosition(Vector3 worldAim,
+            Matrix4 simulationView)
+            => Matrix.Vec3MultMtx4(worldAim, simulationView);
+
+        internal static Vector3 AttachCameraLocalAimPosition(Vector3 fallbackWorld,
+            Vector3 cameraLocalAim, Matrix4 renderCamera)
+        {
+            if (!VectorMath.IsFinite(cameraLocalAim))
+            {
+                return fallbackWorld;
+            }
+
+            // The local point was produced by the completed simulation camera;
+            // attach it to the final render camera exactly once. This preserves
+            // depth and any presentation correction/visual offset without
+            // writing back into the gameplay aim state.
+            Vector3 resolvedWorld = Matrix.Vec3MultMtx4(cameraLocalAim,
+                renderCamera);
+            return VectorMath.IsFinite(resolvedWorld) ? resolvedWorld : fallbackWorld;
+        }
+
+        internal static Vector3 ResolveCurrentAimPosition(Vector3 currentWorldAim,
+            Matrix4 simulationView, Matrix4 renderCamera)
+            => AttachCameraLocalAimPosition(currentWorldAim,
+                CameraLocalAimPosition(currentWorldAim, simulationView), renderCamera);
+
+        internal static Vector3 ResolvePresentedAimPosition(Vector3 fallbackWorld,
+            Vector3 cameraLocalAim, Matrix4 renderCamera, bool useHistory)
+        {
+            if (!useHistory || !VectorMath.IsFinite(cameraLocalAim))
+            {
+                return fallbackWorld;
+            }
+
+            return AttachCameraLocalAimPosition(fallbackWorld, cameraLocalAim,
+                renderCamera);
+        }
 
         internal Vector3 ResolveLocalAimPosition(Vector3 current)
         {
@@ -129,12 +162,34 @@ namespace MphRead
             bool legacyCameraResponse = DynamicCrosshairTuning.UsesLegacyCameraResponse(
                 Mods.InputSettings.DynamicCrosshairTravelDegrees,
                 Mods.InputSettings.DynamicCrosshairTurnSpeed);
-            bool interpolateRotation = ControlsPlayer && InterpolationEnabled
-                && _cameraHistory.HasSamples && _cameraAimHistory.HasSamples
+            bool presentationEligible = ControlsPlayer && InterpolationEnabled
+                && IsStableCameraHistoryEligible(player.Health > 0,
+                    player.IsMorphing, player.IsUnmorphing);
+            if (!presentationEligible)
+            {
+                return current;
+            }
+            Matrix4 renderCamera = ViewMatrix.Inverted();
+
+            // Legacy first-person response keeps the completed simulation aim
+            // sample, but the final render camera may include translation,
+            // correction, or late legacy camera look. Convert the current aim
+            // through the same completed simulation view before attaching it;
+            // history is intentionally not required for this path.
+            if (!player.IsAltForm && player.CameraType == CameraType.First
+                && legacyCameraResponse)
+            {
+                return ResolveCurrentAimPosition(current,
+                    player.CameraInfo.ViewMatrix, renderCamera);
+            }
+
+            bool useHistory = _cameraHistory.HasSamples
+                && _cameraLocalAimHistory.HasSamples
                 && ShouldInterpolateCameraRotation(player.IsAltForm,
                     legacyCameraResponse);
             return ResolvePresentedAimPosition(current,
-                _cameraAimHistory.Resolve(Timing.RenderAlpha), interpolateRotation);
+                _cameraLocalAimHistory.Resolve(Timing.RenderAlpha), renderCamera,
+                useHistory);
         }
         private bool InterpolationEnabled => Timing.Active && !FrameAdvance
             && !Mods.SpectatorMode.IsSpectating && !Mods.Network.ReplayPlayback.IsActive && World.CameraSequences.Current == null;
@@ -157,7 +212,7 @@ namespace MphRead
             _particlePoses.Clear();
             _cameraHistory.Reset();
             _cameraFovHistory.Reset();
-            _cameraAimHistory.Reset();
+            _cameraLocalAimHistory.Reset();
             ResetRenderLook();
         }
         private void CaptureSimulationPoses()
@@ -265,25 +320,33 @@ namespace MphRead
             _removedPoses.Clear();
             foreach (var pair in _poses) if (pair.Value.Seen != _poseTick) _removedPoses.Add(pair.Key);
             foreach (EntityBase removed in _removedPoses) _poses.Remove(removed);
+            PlayerEntity localPlayer = World.LocalPlayer!;
             int cameraState = CameraHistoryState(
-                World.LocalPlayer!.Health == 0, World.LocalPlayer!.IsAltForm,
-                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing,
-                World.LocalPlayer!.EquipInfo.Zoomed, World.LocalPlayer!.CameraType,
+                localPlayer.Health == 0, localPlayer.IsAltForm,
+                localPlayer.IsMorphing, localPlayer.IsUnmorphing,
+                localPlayer.EquipInfo.Zoomed, localPlayer.CameraType,
                 World.CameraSequences.Current);
-            if (IsStableCameraHistoryEligible(World.LocalPlayer!.Health > 0,
-                World.LocalPlayer!.IsMorphing, World.LocalPlayer!.IsUnmorphing))
+            if (IsStableCameraHistoryEligible(localPlayer.Health > 0,
+                localPlayer.IsMorphing, localPlayer.IsUnmorphing))
             {
-                _cameraHistory.Capture(World.LocalPlayer!.CameraInfo.ViewMatrix.Inverted(), _poseTick, _poseGeneration, cameraState != _cameraState);
-                _cameraFovHistory.Capture(World.LocalPlayer!.CameraInfo.Fov, _poseTick,
+                // Snapshot the completed simulation state once so the camera
+                // view and aim point cannot come from different presentation
+                // samples if a caller observes this boundary mid-frame.
+                Matrix4 simulationView = localPlayer.CameraInfo.ViewMatrix;
+                Vector3 simulationAim = localPlayer._aimPosition;
+                _cameraHistory.Capture(simulationView.Inverted(), _poseTick,
                     _poseGeneration, cameraState != _cameraState);
-                _cameraAimHistory.Capture(World.LocalPlayer!._aimPosition, _poseTick,
+                _cameraFovHistory.Capture(localPlayer.CameraInfo.Fov, _poseTick,
+                    _poseGeneration, cameraState != _cameraState);
+                _cameraLocalAimHistory.Capture(CameraLocalAimPosition(
+                    simulationAim, simulationView), _poseTick,
                     _poseGeneration, cameraState != _cameraState);
             }
             else
             {
                 _cameraHistory.Reset();
                 _cameraFovHistory.Reset();
-                _cameraAimHistory.Reset();
+                _cameraLocalAimHistory.Reset();
             }
             _cameraState = cameraState;
         }
@@ -405,7 +468,8 @@ namespace MphRead
             Matrix4 root = player._modelTransform;
             root.Row3.Xyz = player.Position;
             if (player.Hunter == Hunter.Spire
-                && player.Flags2.TestFlag(PlayerFlags2.AltAttack))
+                && (player.Flags2.TestFlag(PlayerFlags2.AltAttack)
+                    || player.HasPresentedAltAction))
             {
                 Matrix4 attackRoot = PlayerEntity.GetTransformMatrix(
                     player._spireAltFacing, player._spireAltUp);
@@ -569,6 +633,16 @@ namespace MphRead
         internal static Matrix4 ViewmodelWorldPose(Matrix4 cameraLocalPose,
             Matrix4 renderCamera)
             => cameraLocalPose * renderCamera;
+
+        internal static void ResolveViewmodelEffectAnchor(Matrix4 gunRoot,
+            float muzzleOffset, out Vector3 right, out Vector3 aim,
+            out Vector3 position)
+        {
+            right = gunRoot.Row0.Xyz.Normalized();
+            aim = gunRoot.Row2.Xyz.Normalized();
+            position = Matrix.Vec3MultMtx4(
+                new Vector3(0, 0, muzzleOffset), gunRoot);
+        }
 
         public static void TransformCopiedStack(float[] stack, int count, Matrix4 delta)
         {

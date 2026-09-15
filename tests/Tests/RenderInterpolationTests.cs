@@ -65,7 +65,27 @@ public class RenderInterpolationTests
     }
 
     [Fact]
-    public void CameraAimHistoryInterpolatesAndResetsAtDiscontinuity()
+    public void CameraFovHistoryKeepsZoomAndRapidReversalContinuous()
+    {
+        var history = new ScalarPoseHistory();
+        history.Capture(78, 1, 0);
+        history.Capture(74, 2, 0);
+
+        Assert.Equal(78, history.Resolve(0));
+        Assert.Equal(76, history.Resolve(.5f));
+        Assert.Equal(74, history.Resolve(1));
+
+        // A rapid zoom reversal is another continuous FOV interval, not a
+        // camera discontinuity. The presentation must begin at the completed
+        // zoom-in sample and interpolate back toward the new target.
+        history.Capture(78, 3, 0);
+        Assert.Equal(74, history.Resolve(0));
+        Assert.Equal(76, history.Resolve(.5f));
+        Assert.Equal(78, history.Resolve(1));
+    }
+
+    [Fact]
+    public void CameraLocalAimHistoryInterpolatesAndResetsAtDiscontinuity()
     {
         var history = new Vector3PoseHistory();
         history.Capture(new Vector3(1, 2, 3), 1, 0);
@@ -80,7 +100,7 @@ public class RenderInterpolationTests
     [InlineData(3ul, 0L, false)] // missed completed step
     [InlineData(2ul, 1L, false)] // lifecycle epoch
     [InlineData(2ul, 0L, true)] // explicit teleport/form/pool barrier
-    public void CameraAimHistorySeedsCurrentAtTickBoundaries(ulong tick,
+    public void CameraLocalAimHistorySeedsCurrentAtTickBoundaries(ulong tick,
         long epoch, bool discontinuity)
     {
         var history = new Vector3PoseHistory();
@@ -96,7 +116,7 @@ public class RenderInterpolationTests
     [InlineData(1f)]
     [InlineData(float.NaN)]
     [InlineData(float.PositiveInfinity)]
-    public void CameraAimHistoryClampsNonFiniteAlpha(float alpha)
+    public void CameraLocalAimHistoryClampsNonFiniteAlpha(float alpha)
     {
         var history = new Vector3PoseHistory();
         history.Capture(Vector3.Zero, 1, 0);
@@ -109,7 +129,7 @@ public class RenderInterpolationTests
     }
 
     [Fact]
-    public void CameraAimHistoryRejectsNonFiniteSamplesAndHoldsLastValidPoint()
+    public void CameraLocalAimHistoryRejectsNonFiniteSamplesAndHoldsLastValidPoint()
     {
         var history = new Vector3PoseHistory();
         Vector3 valid = new(4, 5, 6);
@@ -121,20 +141,219 @@ public class RenderInterpolationTests
     }
 
     [Fact]
-    public void PresentedAimUsesTheSameRotationSampleAsTheCamera()
+    public void CameraLocalAimRemainsStationaryThroughCameraRotationAndTranslation()
     {
-        Vector3 current = new(10, 20, 30);
-        Vector3 interpolated = new(12, 22, 32);
+        Vector3 localAim = new(.8f, -.35f, -12);
+        Matrix4 previousCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(-18))
+            * Matrix4.CreateTranslation(4, 2, -7);
+        Matrix4 currentCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(24))
+            * Matrix4.CreateTranslation(9, 3, -2);
+        Vector3 previousWorld = Matrix.Vec3MultMtx4(localAim, previousCamera);
+        Vector3 currentWorld = Matrix.Vec3MultMtx4(localAim, currentCamera);
 
-        Assert.Equal(interpolated,
-            ScenePresentation.ResolvePresentedAimPosition(
-                current, interpolated, interpolateRotation: true));
-        Assert.Equal(current,
-            ScenePresentation.ResolvePresentedAimPosition(
-                current, interpolated, interpolateRotation: false));
-        Assert.Equal(current,
-            ScenePresentation.ResolvePresentedAimPosition(
-                current, new Vector3(float.NaN, 22, 32), interpolateRotation: true));
+        var history = new Vector3PoseHistory();
+        history.Capture(ScenePresentation.CameraLocalAimPosition(previousWorld,
+            previousCamera.Inverted()), 1, 0);
+        history.Capture(ScenePresentation.CameraLocalAimPosition(currentWorld,
+            currentCamera.Inverted()), 2, 0);
+        Vector3 resolvedLocal = history.Resolve(.5f);
+        Matrix4 renderCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(3))
+            * Matrix4.CreateTranslation(6.5f, 2.5f, -4.5f);
+        Vector3 presented = ScenePresentation.ResolvePresentedAimPosition(
+            currentWorld, resolvedLocal, renderCamera, useHistory: true);
+        Matrix4 renderView = renderCamera.Inverted();
+        Matrix.ProjectPosition(presented, renderView,
+            Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(52),
+                4 / 3f, .1f, 1000), out Vector2 projected);
+        Matrix.ProjectPosition(Matrix.Vec3MultMtx4(localAim, renderCamera),
+            renderView,
+            Matrix4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(52),
+                4 / 3f, .1f, 1000), out Vector2 expected);
+
+        Assert.True((localAim - resolvedLocal).Length < .00001f);
+        Assert.True((expected - projected).Length < .00001f);
+    }
+
+    [Fact]
+    public void CameraLocalAimPreservesDynamicOffsetDepthAndEndpoints()
+    {
+        Matrix4 camera = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(27))
+            * Matrix4.CreateTranslation(-3, 1, 8);
+        Vector3 first = new(-1.2f, .4f, -5);
+        Vector3 second = new(2.7f, -.9f, -19);
+        var history = new Vector3PoseHistory();
+        history.Capture(first, 1, 0);
+        history.Capture(second, 2, 0);
+
+        Vector3 atStart = ScenePresentation.ResolvePresentedAimPosition(
+            Vector3.Zero, history.Resolve(0), camera, useHistory: true);
+        Vector3 atEnd = ScenePresentation.ResolvePresentedAimPosition(
+            Vector3.Zero, history.Resolve(1), camera, useHistory: true);
+        Vector3 expectedStart = Matrix.Vec3MultMtx4(first, camera);
+        Vector3 expectedEnd = Matrix.Vec3MultMtx4(second, camera);
+
+        Assert.Equal(expectedStart, atStart);
+        Assert.Equal(expectedEnd, atEnd);
+        Assert.Equal(first.Z, history.Resolve(0).Z);
+        Assert.Equal(second.Z, history.Resolve(1).Z);
+    }
+
+    [Fact]
+    public void CameraLocalAimFallsBackForMissingOrInvalidHistory()
+    {
+        Vector3 fallback = new(3, 4, -8);
+        Matrix4 camera = Matrix4.CreateTranslation(10, 2, -4);
+
+        Assert.Equal(fallback, ScenePresentation.ResolvePresentedAimPosition(
+            fallback, Vector3.Zero, camera, useHistory: false));
+        Assert.Equal(fallback, ScenePresentation.ResolvePresentedAimPosition(
+            fallback, new Vector3(float.NaN, 1, 2), camera, useHistory: true));
+    }
+
+    [Theory]
+    [InlineData(0f)]
+    [InlineData(.5f)]
+    [InlineData(1f)]
+    public void PresentedAimProjectsOneCameraLocalTrajectorySample(float alpha)
+    {
+        Vector3 firstLocal = new(-1.2f, .4f, -7);
+        Vector3 secondLocal = new(1.8f, -.6f, -15);
+        Matrix4 firstCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(-14))
+            * Matrix4.CreateTranslation(3, 1, -5);
+        Matrix4 secondCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(18))
+            * Matrix4.CreateTranslation(6, 2, -2);
+        Vector3 firstWorld = Matrix.Vec3MultMtx4(firstLocal, firstCamera);
+        Vector3 secondWorld = Matrix.Vec3MultMtx4(secondLocal, secondCamera);
+
+        var aimHistory = new Vector3PoseHistory();
+        aimHistory.Capture(ScenePresentation.CameraLocalAimPosition(firstWorld,
+            firstCamera.Inverted()), 1, 0);
+        aimHistory.Capture(ScenePresentation.CameraLocalAimPosition(secondWorld,
+            secondCamera.Inverted()), 2, 0);
+        var cameraHistory = new SimulationPoseHistory();
+        cameraHistory.Capture(firstCamera, 1, 0);
+        cameraHistory.Capture(secondCamera, 2, 0);
+
+        Matrix4 renderCamera = cameraHistory.Resolve(alpha);
+        Vector3 resolvedLocal = aimHistory.Resolve(alpha);
+        Vector3 expectedLocal = Vector3.Lerp(firstLocal, secondLocal, alpha);
+        Vector3 presentedAim = ScenePresentation.ResolvePresentedAimPosition(
+            secondWorld, resolvedLocal, renderCamera, useHistory: true);
+        Matrix4 renderView = renderCamera.Inverted();
+        Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+            MathHelper.DegreesToRadians(52), 4 / 3f, .1f, 1000);
+        float w = Matrix.ProjectPosition(presentedAim, renderView,
+            projection, out Vector2 expected);
+
+        Vector2 reticle = MphRead.Entities.PlayerPresentation
+            .ResolveAuthoritativeReticlePosition(Vector2.Zero,
+                presentedAim, renderView, projection);
+
+        Assert.Equal(PlayerPresentation.NormalizeReticlePosition(w, expected),
+            reticle);
+        Assert.True((expectedLocal - resolvedLocal).Length < .00001f);
+        Assert.True(VectorMath.IsFinite(presentedAim));
+    }
+
+    [Fact]
+    public void PresentedAimKeepsLegacyResponseAndUsesCustomCameraHistory()
+    {
+        Vector3 fallback = new(2, -.5f, -12);
+        Vector3 localAim = new(-.75f, .3f, -10);
+        Matrix4 renderCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(21))
+            * Matrix4.CreateTranslation(4, 1, -3);
+
+        bool legacyResponse = DynamicCrosshairTuning.UsesLegacyCameraResponse(0, 1);
+        bool customResponse = DynamicCrosshairTuning.UsesLegacyCameraResponse(15, 1);
+        Vector3 legacyPresented = ScenePresentation.ResolvePresentedAimPosition(
+            fallback, localAim, renderCamera,
+            ScenePresentation.ShouldInterpolateCameraRotation(false,
+                legacyResponse));
+        Vector3 customPresented = ScenePresentation.ResolvePresentedAimPosition(
+            fallback, localAim, renderCamera,
+            ScenePresentation.ShouldInterpolateCameraRotation(false,
+                customResponse));
+
+        Assert.Equal(fallback, legacyPresented);
+        Assert.Equal(Matrix.Vec3MultMtx4(localAim, renderCamera), customPresented);
+    }
+
+    [Fact]
+    public void LegacyAimAttachesCurrentCompletedSampleWithoutHistory()
+    {
+        // Model the completed simulation camera and the final render camera
+        // separately: the latter includes the presentation-time correction
+        // and visual offset. Legacy first-person response must preserve the
+        // current aim's local depth without consulting camera history.
+        Vector3 currentAim = new(1.25f, -.4f, -14);
+        Matrix4 simulationCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(-31))
+            * Matrix4.CreateTranslation(-5, 2, 6);
+        Matrix4 simulationView = simulationCamera.Inverted();
+        Matrix4 renderCamera = Matrix4.CreateRotationY(
+                MathHelper.DegreesToRadians(17))
+            * Matrix4.CreateTranslation(8, -1, -3);
+
+        Vector3 expectedLocal = ScenePresentation.CameraLocalAimPosition(
+            currentAim, simulationView);
+        Vector3 expected = Matrix.Vec3MultMtx4(expectedLocal, renderCamera);
+        Vector3 presented = ScenePresentation.ResolveCurrentAimPosition(
+            currentAim, simulationView, renderCamera);
+
+        Assert.Equal(expected, presented);
+        Vector3 recoveredAim = Matrix.Vec3MultMtx4(expectedLocal,
+            simulationCamera);
+        Assert.True((currentAim - recoveredAim).Length < .00001f);
+        Assert.True(VectorMath.IsFinite(presented));
+    }
+
+    [Fact]
+    public void OldIndependentWorldChordMovesWhileCameraLocalProjectionStaysStill()
+    {
+        Vector3 localAim = new(1.1f, -.25f, -10);
+        Matrix4 firstCamera = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(-35))
+            * Matrix4.CreateTranslation(-4, 0, -5);
+        Matrix4 secondCamera = Matrix4.CreateRotationY(MathHelper.DegreesToRadians(35))
+            * Matrix4.CreateTranslation(7, 1, 3);
+        Vector3 firstWorld = Matrix.Vec3MultMtx4(localAim, firstCamera);
+        Vector3 secondWorld = Matrix.Vec3MultMtx4(localAim, secondCamera);
+        var cameraHistory = new SimulationPoseHistory();
+        cameraHistory.Capture(firstCamera, 1, 0);
+        cameraHistory.Capture(secondCamera, 2, 0);
+        const float alpha = .25f;
+        Matrix4 renderCamera = cameraHistory.Resolve(alpha);
+        Matrix4 renderView = renderCamera.Inverted();
+        Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+            MathHelper.DegreesToRadians(35), 4 / 3f, .1f, 1000);
+
+        Vector3 localPresented = ScenePresentation.ResolvePresentedAimPosition(
+            secondWorld, localAim, renderCamera, useHistory: true);
+        Matrix.ProjectPosition(localPresented, renderView, projection,
+            out Vector2 localProjection);
+        Vector3 worldChord = Vector3.Lerp(firstWorld, secondWorld, alpha);
+        Matrix.ProjectPosition(worldChord, renderView, projection,
+            out Vector2 worldProjection);
+
+        Assert.True((localProjection - new Vector2(.5f, .5f)).Length < .2f);
+        Assert.True((worldProjection - localProjection).Length > .01f);
+    }
+
+    [Fact]
+    public void CustomAndLegacyCameraResponseGatesRemainUnchanged()
+    {
+        Assert.True(ScenePresentation.ShouldInterpolateCameraRotation(false, false));
+        Assert.False(ScenePresentation.ShouldInterpolateCameraRotation(false, true));
+        Assert.True(ScenePresentation.ShouldInterpolateCameraRotation(true, true));
+        Assert.True(ScenePresentation.CameraHistoryState(false, false, false,
+            false, false, CameraType.First, null)
+            == ScenePresentation.CameraHistoryState(false, false, false,
+                false, true, CameraType.First, null));
     }
 
     [Fact]
@@ -176,6 +395,7 @@ public class RenderInterpolationTests
     }
 
     [Theory]
+    [InlineData(60)]
     [InlineData(120)]
     [InlineData(144)]
     [InlineData(240)]
@@ -302,6 +522,24 @@ public class RenderInterpolationTests
     }
 
     [Fact]
+    public void ViewmodelEffectAnchorUsesResolvedGunPose()
+    {
+        Matrix4 gunRoot = Matrix4.CreateRotationX(
+                MathHelper.DegreesToRadians(-12))
+            * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(25))
+            * Matrix4.CreateTranslation(8, 3, -4);
+        const float muzzleOffset = 1.75f;
+
+        ScenePresentation.ResolveViewmodelEffectAnchor(gunRoot, muzzleOffset,
+            out Vector3 right, out Vector3 aim, out Vector3 position);
+
+        AssertVectorNear(gunRoot.Row0.Xyz.Normalized(), right);
+        AssertVectorNear(gunRoot.Row2.Xyz.Normalized(), aim);
+        AssertVectorNear(Matrix.Vec3MultMtx4(
+            new Vector3(0, 0, muzzleOffset), gunRoot), position);
+    }
+
+    [Fact]
     public void ClockAlphaIsBoundedAndResetStallDebtHaveBarriers()
     {
         var timing = new FrameTiming();
@@ -347,5 +585,15 @@ public class RenderInterpolationTests
                     expected[row, column] + 0.00001f);
             }
         }
+    }
+
+    private static void AssertVectorNear(Vector3 expected, Vector3 actual)
+    {
+        Assert.InRange(actual.X, expected.X - 0.00001f,
+            expected.X + 0.00001f);
+        Assert.InRange(actual.Y, expected.Y - 0.00001f,
+            expected.Y + 0.00001f);
+        Assert.InRange(actual.Z, expected.Z - 0.00001f,
+            expected.Z + 0.00001f);
     }
 }

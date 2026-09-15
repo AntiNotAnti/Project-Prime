@@ -4726,6 +4726,7 @@ namespace MphRead
 
         private void GetDrawItems()
         {
+            BeginEffectPresentationFrame();
             if (World.Room != null)
             {
                 EntityPresentation.Get(World.Room, this).GetDrawInfo();

@@ -57,8 +57,13 @@ namespace MphRead
                 && track.History.HasSamples) return track.History.Resolve(alpha);
             return Matrix4.CreateTranslation(particle.Position);
         }
-        public Matrix4 ResolveOwner(EffectElementEntry owner, float alpha, bool enabled)
+        public Matrix4 ResolveOwner(EffectElementEntry owner, float alpha,
+            bool enabled, bool presentationResolved = false)
         {
+            if (presentationResolved)
+            {
+                return owner.Transform;
+            }
             if (enabled && _ownerPoses.TryGetValue(owner, out ParticlePoseTrack? track)
                 && track.History.HasSamples)
             {
@@ -70,10 +75,29 @@ namespace MphRead
     public partial class ScenePresentation
     {
         private readonly ParticlePoseHistory _particlePoses = new();
+        private readonly HashSet<EffectElementEntry> _presentationResolvedEffectOwners = new();
         private void CaptureParticlePoses(ulong tick) => _particlePoses.Capture(_activeElements, tick, _poseGeneration);
+        private void BeginEffectPresentationFrame()
+            => _presentationResolvedEffectOwners.Clear();
+        internal void AttachPlayerEffectToResolvedPose(EffectEntry effect,
+            Vector3 right, Vector3 aim, Vector3 position)
+        {
+            effect.SetDrawEnabled(true);
+            effect.Transform(right, aim, position);
+            foreach (EffectElementEntry element in effect.Elements)
+            {
+                // This attachment is already at the render-time gun/biped
+                // pose. Publish it for this frame even when no 60 Hz effect
+                // step is owed, and do not interpolate it a second time.
+                element.Transform = element.OwnTransform;
+                _presentationResolvedEffectOwners.Add(element);
+            }
+        }
         internal Matrix4 ResolveParticleTransform(EffectParticle particle) =>
             _particlePoses.Resolve(particle, Timing.RenderAlpha, InterpolationEnabled);
         internal Matrix4 ResolveEffectOwnerTransform(EffectElementEntry owner) =>
-            _particlePoses.ResolveOwner(owner, Timing.RenderAlpha, InterpolationEnabled);
+            _particlePoses.ResolveOwner(owner, Timing.RenderAlpha,
+                InterpolationEnabled,
+                _presentationResolvedEffectOwners.Contains(owner));
     }
 }

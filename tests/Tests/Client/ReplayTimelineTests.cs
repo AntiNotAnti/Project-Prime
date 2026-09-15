@@ -157,6 +157,25 @@ public sealed class ReplayTimelineTests
     }
 
     [Fact]
+    public void FinalKillcamFreezesTheLatestRetainedKillBeforeATimedEnding()
+    {
+        var timeline = new RollingReplayTimeline();
+        KillEvent kill = TestKill(82, 8_750);
+        MatchEvent ended = new(9, 9_000, 1, 2,
+            MatchEventKind.MatchEnded, CombatActor.None, CombatActor.None);
+        Assert.True(timeline.AppendRestorePoint(CompleteRestore(100, 5_000)));
+        Assert.True(timeline.Append(new ReplayTimelineRecord(400, kill.Tick,
+            KillRecord(kill))));
+
+        Assert.True(KillcamController.TryCaptureFinalClip(timeline, kill,
+            ended, out ReplayTimelineClip? clip));
+        Assert.Equal(100u, clip!.StartRecordingFrame);
+        Assert.Equal(400u, clip.EndRecordingFrame);
+        Assert.False(KillcamController.TryCaptureFinalClip(timeline,
+            kill with { Tick = 9_001 }, ended, out _));
+    }
+
+    [Fact]
     public void KillcamPendingCaptureUsesExactStartAndCapturesTheFullTailWhenReady()
     {
         var timeline = new RollingReplayTimeline();

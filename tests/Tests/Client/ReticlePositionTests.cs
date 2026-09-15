@@ -20,12 +20,22 @@ public sealed class ReticlePositionTests
     public void DynamicReticleUsesExactProjectileConvergenceProjection()
     {
         var previous = new Vector2(0.5f);
-        var projectedConvergence = new Vector2(0.75f, 0.25f);
+        var muzzlePosition = new Vector3(-0.7f, -0.4f, -2);
+        var authoritativeAimPosition = new Vector3(0.75f, 0.25f, -10);
+        Vector3 shotVector = authoritativeAimPosition - muzzlePosition;
+        Vector3 projectileConvergence = muzzlePosition + shotVector;
+        Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+            MathHelper.DegreesToRadians(70), 16 / 9f, 0.1f, 1000);
 
-        Vector2 reticle = PlayerPresentation.ResolveReticlePosition(
-            previous, w: 1, projectedConvergence);
+        float w = Matrix.ProjectPosition(projectileConvergence, Matrix4.Identity,
+            projection, out Vector2 projectedConvergence);
+        Assert.True(w > 0);
 
-        Assert.Equal(projectedConvergence, reticle);
+        Vector2 reticle = PlayerPresentation.ResolveAuthoritativeReticlePosition(
+            previous, authoritativeAimPosition, Matrix4.Identity, projection);
+
+        Assert.Equal(PlayerPresentation.NormalizeReticlePosition(
+            w, projectedConvergence), reticle);
     }
 
     [Theory]

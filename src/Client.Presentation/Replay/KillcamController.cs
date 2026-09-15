@@ -93,6 +93,8 @@ internal sealed class KillcamController : IDisposable
     internal const uint CaptureFallbackFrames = 120;
     internal const uint FinalGameOverFrames = 105;
     internal const uint FinalResultWaitFrames = 30;
+    internal const uint FinalReplaySeekFrames = 120;
+    internal const uint FinalCausalTickLag = 1;
 
     // Compatibility names are intentionally not used by the controller. Keep
     // them internal for older focused tests compiled against the previous
@@ -139,13 +141,14 @@ internal sealed class KillcamController : IDisposable
     private bool _liveAudioWasActive;
     private Music.PresentationAudioSnapshot _liveMusicSnapshot;
     private (uint Match, uint Event, CombatActor Victim) _last;
-    private KillEvent? _latestAcceptedKill;
+    private KillEvent? _latestObservedKill;
     private MatchEvent? _finalEnded;
     private ReplayTimelineClip? _finalClip;
     private FinalSequenceState _finalState;
     private bool _finalDecisionPending;
     private bool _finalClipCaptureAttempted;
     private uint _finalResultWaitFrames;
+    private uint _finalReplaySeekFrames;
     private uint _finalGameOverFrames;
     private bool _finalSuppressionActive;
 
@@ -173,6 +176,7 @@ internal sealed class KillcamController : IDisposable
             ? _replay : _live;
     internal FinalSequenceState FinalState => _finalState;
     internal bool FinalSequenceActive => _finalState != FinalSequenceState.None;
+    internal bool BlocksSceneCompletion => DoesBlockSceneCompletion(_finalState);
     internal bool FinalSequenceReplayActive => _finalState == FinalSequenceState.Replay;
     internal KillcamEndReason? LastEndReason { get; private set; }
     internal KillcamState State => _state;
@@ -287,21 +291,21 @@ internal sealed class KillcamController : IDisposable
         if (_play != null)
         {
             _play.LocalPlayerKilled -= OnLocalPlayerKilled;
-            _play.AuthoritativeKillAccepted -= OnAuthoritativeKillAccepted;
+            _play.AuthoritativeKillObserved -= OnAuthoritativeKillObserved;
             _play.AuthoritativeMatchEndedAccepted -= OnAuthoritativeMatchEndedAccepted;
         }
         _play = play;
-        _latestAcceptedKill = null;
+        _latestObservedKill = null;
         _finalEnded = null;
         if (_play != null)
         {
             _play.LocalPlayerKilled += OnLocalPlayerKilled;
-            _play.AuthoritativeKillAccepted += OnAuthoritativeKillAccepted;
+            _play.AuthoritativeKillObserved += OnAuthoritativeKillObserved;
             _play.AuthoritativeMatchEndedAccepted += OnAuthoritativeMatchEndedAccepted;
         }
     }
 
-    private void OnAuthoritativeKillAccepted(KillEvent kill)
+    private void OnAuthoritativeKillObserved(KillEvent kill)
     {
         if (_play == null || _play.Client.Accepted.MatchId != kill.MatchId)
             return;
@@ -310,10 +314,10 @@ internal sealed class KillcamController : IDisposable
         // decision is committed, the immutable clip/state machine is fenced.
         if (_finalState != FinalSequenceState.None && !_finalDecisionPending)
             return;
-        if (_latestAcceptedKill is { } previous
+        if (_latestObservedKill is { } previous
             && previous.MatchId == kill.MatchId && previous.Id == kill.Id
             && previous.Victim == kill.Victim) return;
-        _latestAcceptedKill = kill;
+        _latestObservedKill = kill;
     }
 
     private void OnLocalPlayerKilled(KillEvent kill)
@@ -364,17 +368,18 @@ internal sealed class KillcamController : IDisposable
 
         // This is deliberately a single freeze attempt, immediately after
         // ReplayRecorder.RecordEvent(message) in AuthoritativePlay.DrainEvents.
-        // The latest accepted kill is the only candidate; an older same-tick
-        // kill is never searched for as a causal substitute.
+        // The latest observed kill is the only candidate. Score-goal and
+        // survival endings still require a same-tick causal kill; a timed
+        // Battle ending may replay its most recent retained enemy kill.
         if (!_finalClipCaptureAttempted)
         {
             _finalClipCaptureAttempted = true;
-            if (_latestAcceptedKill is not { } latest
+            if (_latestObservedKill is not { } latest
                 || !IsFinalReplayFact(latest, ended)
                 || !TryCaptureFinalClip(ReplayRecorder.Timeline, latest, ended,
                     out ReplayTimelineClip? clip) || clip == null)
             {
-                EnterFinalGameOver();
+                EnterFinalGameOver("missing-or-invalid-latest-kill");
                 return;
             }
             _finalClip = clip;
@@ -387,12 +392,12 @@ internal sealed class KillcamController : IDisposable
     private void TryResolveFinalDecision()
     {
         if (!_finalDecisionPending || _finalEnded is not { } ended) return;
-        if (_latestAcceptedKill is not { } candidate
+        if (_latestObservedKill is not { } candidate
             || _finalClip is not { } clip
             || !IsFinalReplayFact(candidate, ended)
             || !TryMapKillToClip(clip, candidate, out _))
         {
-            EnterFinalGameOver();
+            EnterFinalGameOver("candidate-or-clip-fence");
             return;
         }
         MatchResult? result = _live.World.Match.Result;
@@ -400,18 +405,33 @@ internal sealed class KillcamController : IDisposable
             return;
 
         _finalDecisionPending = false;
-        if (result != null && IsFinalReplayEligible(candidate, ended, result)
-            && TryStartFinalReplay(candidate, clip))
+        if (result == null)
         {
-            _finalState = FinalSequenceState.Replay;
+            EnterFinalGameOver("result-timeout");
             return;
         }
-        EnterFinalGameOver();
+        if (!IsFinalReplayEligible(candidate, ended, result))
+        {
+            EnterFinalGameOver($"result-ineligible-{result.Rules.Mode}-{result.EndReason}"
+                + $"-killTick-{candidate.Tick}");
+            return;
+        }
+        if (TryStartFinalReplay(candidate, clip))
+        {
+            _finalState = FinalSequenceState.Replay;
+            _finalReplaySeekFrames = 0;
+            DebugLog.Line("killcam/final", $"state=replay match={ended.MatchId} "
+                + $"tick={candidate.Tick} kill={candidate.Id}");
+            return;
+        }
+        EnterFinalGameOver("replay-start-failed");
     }
 
     /// <summary>
-    /// Conservative final-replay gate. MatchEnded is only a terminal edge;
-    /// result mode/reason and winner alignment remain authoritative.
+    /// Conservative final-replay gate. MatchEnded is only a terminal edge.
+    /// Causal endings require the authoritative one-tick boundary and winner
+    /// alignment; timed Battle endings may present the most recent retained
+    /// enemy kill.
     /// </summary>
     internal static bool IsFinalReplayEligible(in KillEvent kill,
         in MatchEvent ended, MatchResult? result)
@@ -419,15 +439,19 @@ internal sealed class KillcamController : IDisposable
         if (result == null || !ended.IsValid
             || ended.Kind != MatchEventKind.MatchEnded
             || !kill.IsValid || kill.MatchId != ended.MatchId
-            || kill.Tick != ended.Tick || result.MatchId != ended.MatchId
+            || !IsKillAtOrBeforeEnd(kill, ended) || result.MatchId != ended.MatchId
             || !IsFinalEnemyKiller(kill) || result.ResultSlots.IsDefaultOrEmpty)
             return false;
 
-        bool battle = result.Rules.Mode is MatchMode.Battle or MatchMode.TeamBattle
-            && result.EndReason == MatchEndReason.ScoreGoal;
-        bool survival = result.Rules.Mode is MatchMode.Survival or MatchMode.TeamSurvival
-            && result.EndReason == MatchEndReason.Survival;
-        if (!battle && !survival) return false;
+        bool timedBattle = result.Rules.Mode is MatchMode.Battle or MatchMode.TeamBattle
+            && result.EndReason == MatchEndReason.TimeLimit;
+        bool causalBattle = result.Rules.Mode is MatchMode.Battle or MatchMode.TeamBattle
+            && result.EndReason == MatchEndReason.ScoreGoal
+            && IsCausalFinalKill(kill, ended);
+        bool causalSurvival = result.Rules.Mode is MatchMode.Survival or MatchMode.TeamSurvival
+            && result.EndReason == MatchEndReason.Survival
+            && IsCausalFinalKill(kill, ended);
+        if (!timedBattle && !causalBattle && !causalSurvival) return false;
 
         int winnerSlot = result.ResultSlots[0];
         if ((uint)winnerSlot >= (uint)result.Players.Length
@@ -437,6 +461,15 @@ internal sealed class KillcamController : IDisposable
             || !result.Players[kill.Killer.Slot].Active
             || !result.Players[kill.Victim.Slot].Active)
             return false;
+        if (timedBattle && result.Rules.Mode == MatchMode.Battle)
+            return true;
+        if (timedBattle && result.Rules.Mode == MatchMode.TeamBattle)
+        {
+            int timedKillerTeam = result.Players[kill.Killer.Slot].TeamIndex;
+            int timedVictimTeam = result.Players[kill.Victim.Slot].TeamIndex;
+            return timedKillerTeam >= 0 && timedVictimTeam >= 0
+                && timedKillerTeam != timedVictimTeam;
+        }
         if (result.Rules.Mode is MatchMode.Battle or MatchMode.Survival)
             return winnerSlot == kill.Killer.Slot;
         if (result.Rules.Mode is not (MatchMode.TeamBattle or MatchMode.TeamSurvival))
@@ -462,7 +495,7 @@ internal sealed class KillcamController : IDisposable
         clip = null;
         if (!ended.IsValid || ended.Kind != MatchEventKind.MatchEnded
             || !kill.IsValid || kill.MatchId != ended.MatchId
-            || kill.Tick != ended.Tick
+            || !IsKillAtOrBeforeEnd(kill, ended)
             || !timeline.TryMapKillToRecordingFrame(kill, out uint killFrame))
             return false;
         uint requestedStart = killFrame > PreKillFrames
@@ -488,11 +521,23 @@ internal sealed class KillcamController : IDisposable
     internal static bool IsFinalSequenceActive(FinalSequenceState state)
         => state != FinalSequenceState.None;
 
+    internal static bool DoesBlockSceneCompletion(FinalSequenceState state)
+        => state is FinalSequenceState.Replay or FinalSequenceState.GameOver;
+
     private static bool IsFinalReplayFact(in KillEvent kill,
         in MatchEvent ended)
         => ended.IsValid && ended.Kind == MatchEventKind.MatchEnded
             && kill.IsValid && kill.MatchId == ended.MatchId
-            && kill.Tick == ended.Tick && IsFinalEnemyKiller(kill);
+            && IsKillAtOrBeforeEnd(kill, ended) && IsFinalEnemyKiller(kill);
+
+    internal static bool IsKillAtOrBeforeEnd(in KillEvent kill,
+        in MatchEvent ended)
+        => kill.Tick == ended.Tick || Sequence32.IsNewer(ended.Tick, kill.Tick);
+
+    internal static bool IsCausalFinalKill(in KillEvent kill,
+        in MatchEvent ended)
+        => IsKillAtOrBeforeEnd(kill, ended)
+            && unchecked(ended.Tick - kill.Tick) <= FinalCausalTickLag;
 
     private void BeginCapture(in PendingKillcamCapture capture)
     {
@@ -702,7 +747,7 @@ internal sealed class KillcamController : IDisposable
             Console.Error.WriteLine($"[killcam] Advance failed: {error.Message}");
             try
             {
-                if (FinalSequenceActive) EnterFinalGameOver();
+                if (FinalSequenceActive) EnterFinalGameOver("advance-exception");
                 else Stop(KillcamEndReason.Failure);
             }
             catch (Exception cleanupError) when (cleanupError is not OutOfMemoryException)
@@ -856,27 +901,30 @@ internal sealed class KillcamController : IDisposable
             if (_pendingCommand == KillcamCommand.Skip)
             {
                 _pendingCommand = KillcamCommand.None;
-                EnterFinalGameOver();
+                EnterFinalGameOver("final-replay-skip");
                 return;
             }
             if (_replay == null || _session == null)
             {
-                EnterFinalGameOver();
+                EnterFinalGameOver("final-replay-missing-session");
                 return;
             }
             _replay.OnSimulationFrame();
             if (_session.IsSeeking)
             {
                 _state = KillcamState.Seeking;
+                if (FinalReplaySeekExpired(++_finalReplaySeekFrames))
+                    EnterFinalGameOver("final-replay-seek-timeout");
                 return;
             }
+            _finalReplaySeekFrames = 0;
             if (!TryEnsureFinalReplayFocus())
             {
-                EnterFinalGameOver();
+                EnterFinalGameOver("final-replay-focus-unavailable");
                 return;
             }
             _state = KillcamState.Presenting;
-            if (_session.AtEnd) EnterFinalGameOver();
+            if (_session.AtEnd) EnterFinalGameOver("final-replay-complete");
             return;
         }
 
@@ -884,6 +932,7 @@ internal sealed class KillcamController : IDisposable
         {
             if (++_finalGameOverFrames < FinalGameOverFrames) return;
             _finalState = FinalSequenceState.AwaitCompletion;
+            DebugLog.Line("killcam/final", "state=await-completion");
         }
     }
 
@@ -998,8 +1047,15 @@ internal sealed class KillcamController : IDisposable
         }
     }
 
-    private void EnterFinalGameOver()
+    internal static bool FinalReplaySeekExpired(uint waitedFrames)
+        => waitedFrames >= FinalReplaySeekFrames;
+
+    private void EnterFinalGameOver(string reason)
     {
+        DebugLog.Line("killcam/final", $"state=game-over reason={reason} "
+            + $"match={_finalEnded?.MatchId ?? 0} "
+            + $"endedTick={_finalEnded?.Tick ?? 0} "
+            + $"kill={_latestObservedKill?.Id ?? 0}");
         if (_replay != null || _session != null)
             Stop(KillcamEndReason.Completed, restoreLive: false);
         _finalState = FinalSequenceState.GameOver;
@@ -1019,7 +1075,7 @@ internal sealed class KillcamController : IDisposable
         _finalEnded = null;
         _finalClip = null;
         _finalClipCaptureAttempted = false;
-        _latestAcceptedKill = null;
+        _latestObservedKill = null;
         _live.AdditionalOverlay = null;
     }
 
@@ -1379,7 +1435,7 @@ internal sealed class KillcamController : IDisposable
         if (_play != null)
         {
             _play.LocalPlayerKilled -= OnLocalPlayerKilled;
-            _play.AuthoritativeKillAccepted -= OnAuthoritativeKillAccepted;
+            _play.AuthoritativeKillObserved -= OnAuthoritativeKillObserved;
             _play.AuthoritativeMatchEndedAccepted -= OnAuthoritativeMatchEndedAccepted;
         }
         if (FinalSequenceActive)

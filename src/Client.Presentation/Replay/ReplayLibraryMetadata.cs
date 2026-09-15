@@ -137,8 +137,16 @@ public sealed class ReplayLibraryMetadataService
             switch ((ReplayRecordKind)record.Data[0])
             {
                 case ReplayRecordKind.Match:
-                    if (MatchTransitionPacket.TryRead(body,
-                            out MatchTransitionPacket match))
+                    MatchTransitionPacket match = default;
+                    bool matchValid = reader.ProtocolVersion >= NetHeader.BalancedModeVersion
+                        ? MatchTransitionPacket.TryRead(body, out match)
+                        : reader.ProtocolVersion >= 9
+                            ? MatchTransitionPacket.TryReadLegacyProtocol23(body,
+                                out match)
+                            : reader.ProtocolVersion == 8
+                                ? Protocol8ReplayCodec.TryReadMatch(body, out match)
+                                : false;
+                    if (matchValid)
                     {
                         mapKey = match.Room;
                         mode = match.Mode;

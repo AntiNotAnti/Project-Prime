@@ -216,8 +216,7 @@ public sealed class ReplayHighlightMetadataService
     {
         serverTick = 0;
         matchId = 0;
-        int playerSize = protocol >= NetHeader.Version ? SnapshotPlayer.Size
-            : protocol >= 17 ? 98 : 96;
+        int playerSize = SnapshotPlayerSize(protocol);
         if (body.Length < SnapshotPacket.HeaderSize || body[16] > 1
             || body[17] > 8
             || body.Length != SnapshotPacket.HeaderSize + body[17] * playerSize)
@@ -226,6 +225,14 @@ public sealed class ReplayHighlightMetadataService
         matchId = BinaryPrimitives.ReadUInt32LittleEndian(body[8..]);
         return true;
     }
+
+    internal static int SnapshotPlayerSize(byte protocol)
+        => protocol >= NetHeader.AltActionStateVersion ? MphRead.Mods.Network.SnapshotPlayer.Size
+            : protocol >= NetHeader.BalancedModeVersion ? MphRead.Mods.Network.SnapshotPlayer.LegacySize
+            : protocol >= NetHeader.EnhancedHuntersVersion
+                ? MphRead.Mods.Network.SnapshotPlayer.LegacySize
+            : protocol >= 21 ? 104
+            : protocol >= 17 ? 98 : 96;
 
     private static void AddTimeline(uint frame, uint tick, uint matchId,
         List<ReplayHighlightTimelineAnchor> timeline,

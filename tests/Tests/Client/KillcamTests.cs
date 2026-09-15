@@ -120,7 +120,7 @@ public sealed class KillcamTests
     }
 
     [Fact]
-    public void FinalReplayRequiresSameTickAndAuthoritativeFfaWinner()
+    public void FinalReplayRequiresCausalWinnerExceptForTimedBattle()
     {
         MatchEvent ended = Ended(9_000);
         MatchResult result = Result(MatchMode.Battle, MatchEndReason.ScoreGoal,
@@ -128,13 +128,32 @@ public sealed class KillcamTests
         KillEvent kill = Kill(7, 9_000);
 
         Assert.True(KillcamController.IsFinalReplayEligible(kill, ended, result));
-        Assert.False(KillcamController.IsFinalReplayEligible(
+        Assert.True(KillcamController.IsFinalReplayEligible(
             kill with { Tick = 8_999 }, ended, result));
         Assert.False(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_998 }, ended, result));
+        Assert.True(KillcamController.IsFinalReplayEligible(
             kill, ended, Result(MatchMode.Battle, MatchEndReason.TimeLimit, 1)));
+        Assert.True(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_999 }, ended,
+            Result(MatchMode.Battle, MatchEndReason.TimeLimit, 2)));
+        Assert.False(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 9_001 }, ended,
+            Result(MatchMode.Battle, MatchEndReason.TimeLimit, 1)));
         Assert.False(KillcamController.IsFinalReplayEligible(
             kill, ended, Result(MatchMode.Battle, MatchEndReason.ScoreGoal, 2)));
         Assert.False(KillcamController.IsFinalReplayEligible(kill, ended, null));
+    }
+
+    [Fact]
+    public void FinalReplayCausalTickAllowsTheNextTickAcrossSequenceWrap()
+    {
+        Assert.True(KillcamController.IsCausalFinalKill(
+            Kill(7, uint.MaxValue), Ended(0)));
+        Assert.False(KillcamController.IsCausalFinalKill(
+            Kill(7, uint.MaxValue - 1), Ended(0)));
+        Assert.False(KillcamController.IsCausalFinalKill(
+            Kill(7, 1), Ended(0)));
     }
 
     [Fact]
@@ -169,6 +188,17 @@ public sealed class KillcamTests
                 teams: new[] { 1, 0, 1, 0 })));
         Assert.True(KillcamController.IsFinalReplayEligible(kill, ended,
             Result(MatchMode.Survival, MatchEndReason.Survival, winner: 1)));
+        Assert.True(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_999 }, ended,
+            Result(MatchMode.Survival, MatchEndReason.Survival, winner: 1)));
+        Assert.True(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_750 }, ended,
+            Result(MatchMode.TeamBattle, MatchEndReason.TimeLimit, winner: 2,
+                teams: new[] { 1, 0, 1, 0 })));
+        Assert.False(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_750 }, ended,
+            Result(MatchMode.TeamBattle, MatchEndReason.TimeLimit, winner: 2,
+                teams: new[] { 0, 0, 0, 1 })));
         Assert.Equal("GAME OVER", KillcamController.GetFinalWinnerLabel(null));
         Assert.Equal("WINNER: P2", KillcamController.GetFinalWinnerLabel(
             Result(MatchMode.Battle, MatchEndReason.ScoreGoal, winner: 1,
@@ -176,6 +206,111 @@ public sealed class KillcamTests
         Assert.Equal("WINNER: TEAM 2", KillcamController.GetFinalWinnerLabel(
             Result(MatchMode.TeamBattle, MatchEndReason.ScoreGoal, winner: 0,
                 teams: new[] { 1, 0, 1, 0 })));
+    }
+
+    [Fact]
+    public void NodeFirstCompletionCannotCloseAnArmedFinalSequence()
+    {
+        var drain = new CompletionResultDrain();
+        bool result = false;
+        bool terminalSemanticAccepted = false;
+        bool blocksSceneCompletion = false;
+
+        bool drainFinished = drain.Advance(10, () => result = true,
+            () => result && terminalSemanticAccepted);
+
+        // A terminal world result may beat the ordered reliable stream. It
+        // cannot close the scene until MatchEnded has also been accepted.
+        Assert.False(drainFinished);
+        drainFinished = drain.Advance(10.1, () =>
+        {
+            // Models the terminal UDP drain accepting the final kill and
+            // MatchEnded event after Node completion was already observed.
+            terminalSemanticAccepted = true;
+            blocksSceneCompletion = true;
+        }, () => result && terminalSemanticAccepted);
+
+        Assert.True(drainFinished);
+        Assert.False(AuthoritativePlayDesktop.ShouldStopCompletedScene(
+            drainFinished, blocksSceneCompletion));
+        Assert.True(AuthoritativePlayDesktop.ShouldStopCompletedScene(
+            drainFinished, blocksSceneCompletion: false));
+    }
+
+    [Theory]
+    [InlineData(1u, 1u, 1u, true)]
+    [InlineData(2u, 1u, 1u, false)]
+    [InlineData(1u, 2u, 1u, false)]
+    public void ReliableKillObservationRequiresEnvelopeAndPayloadMatch(
+        uint envelopeMatchId, uint payloadMatchId, uint loadedMatchId,
+        bool expected)
+    {
+        Assert.Equal(expected, AuthoritativePlay.IsReliableKillObservation(
+            envelopeMatchId, Kill(7) with { MatchId = payloadMatchId },
+            loadedMatchId));
+    }
+
+    [Fact]
+    public void AwaitCompletionReleasesSceneButFinalPresentationRemainsActive()
+    {
+        Assert.True(KillcamController.IsFinalSequenceActive(
+            FinalSequenceState.AwaitCompletion));
+        Assert.False(KillcamController.DoesBlockSceneCompletion(
+            FinalSequenceState.AwaitCompletion));
+        Assert.False(AuthoritativePlayDesktop.ShouldStopCompletedScene(
+            drainFinished: false, blocksSceneCompletion: false));
+        Assert.True(AuthoritativePlayDesktop.ShouldStopCompletedScene(
+            drainFinished: true, blocksSceneCompletion: false));
+        Assert.True(KillcamController.FinalReplaySeekExpired(
+            KillcamController.FinalReplaySeekFrames));
+        Assert.False(KillcamController.FinalReplaySeekExpired(
+            KillcamController.FinalReplaySeekFrames - 1));
+    }
+
+    [Theory]
+    [InlineData(0, false, false)]
+    [InlineData(1, true, true)]
+    [InlineData(2, true, true)]
+    [InlineData(3, true, false)]
+    public void FinalSequenceCompletionBoundaryTracksPresentationState(
+        int stateValue, bool active, bool blocksCompletion)
+    {
+        FinalSequenceState state = (FinalSequenceState)stateValue;
+        Assert.Equal(active, KillcamController.IsFinalSequenceActive(state));
+        Assert.Equal(blocksCompletion,
+            KillcamController.DoesBlockSceneCompletion(state));
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void ReliableKillObservationPreservesOrderIndependentMatchFence(
+        bool snapshotFirst)
+    {
+        KillEvent kill = Kill(7, 9_000) with { MatchId = 1 };
+        bool terminalSnapshotObserved = false;
+        KillEvent? observed = null;
+
+        void ObserveSnapshot() => terminalSnapshotObserved = true;
+        void ObserveKill()
+        {
+            if (AuthoritativePlay.IsReliableKillObservation(1, kill, 1))
+                observed = kill;
+        }
+
+        if (snapshotFirst)
+        {
+            ObserveSnapshot();
+            ObserveKill();
+        }
+        else
+        {
+            ObserveKill();
+            ObserveSnapshot();
+        }
+
+        Assert.True(terminalSnapshotObserved);
+        Assert.Equal(kill, observed);
     }
 
     private static PendingKillcamCapture Pending(KillcamPolicy policy)

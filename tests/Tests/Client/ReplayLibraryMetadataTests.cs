@@ -49,6 +49,28 @@ public sealed class ReplayLibraryMetadataTests : IDisposable
     }
 
     [Fact]
+    public void Protocol23MatchMetadataUsesTheFrozenEightyFourByteRulesPayload()
+    {
+        string replay = Path.Combine(_root, "protocol-23.fpreplay");
+        using (var writer = new ReplayWriter(replay,
+            NetHeader.EnhancedHuntersVersion))
+        {
+            byte[] current = new byte[MatchTransitionPacket.Size];
+            new MatchTransitionPacket(1, 1000, GameMode.Battle,
+                "MP1 SANCTORUS").Write(current);
+            writer.WriteRecord(0, Record(ReplayRecordKind.Match,
+                current.AsSpan(0, 8 + MatchRulesWire.LegacyProtocol23Size)));
+        }
+
+        ReplayLibraryMetadata metadata = new ReplayLibraryMetadataService()
+            .GetOrCreate(replay);
+
+        Assert.Equal(NetHeader.EnhancedHuntersVersion, metadata.ReplayProtocol);
+        Assert.Equal("MP1 SANCTORUS", metadata.MapKey);
+        Assert.Equal(GameMode.Battle, metadata.Mode);
+    }
+
+    [Fact]
     public void InvalidReplayStillHasStableFingerprintAndReusableSidecar()
     {
         string replay = Path.Combine(_root, "damaged.fpreplay");
