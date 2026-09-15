@@ -127,6 +127,7 @@ namespace MphRead
         private bool _focused = true;
         private readonly SceneHostLifetime _lifetime = new();
         private Func<bool>? _suspendFrame;
+        private SdlSceneFrameClient? _sceneFrameClient;
         private readonly SceneWindowModePreference _windowModePreference = new();
         private bool _disposed;
         private bool _sdlInitialized;
@@ -627,7 +628,15 @@ namespace MphRead
                 started?.Invoke();
                 using var frameClient = new SdlSceneFrameClient(this, _presentation,
                     transitionGeneration, firstFramePresented);
-                Run(frameClient);
+                _sceneFrameClient = frameClient;
+                try
+                {
+                    Run(frameClient);
+                }
+                finally
+                {
+                    _sceneFrameClient = null;
+                }
             }, () => beforeCleanup?.Invoke(), () =>
             {
                 try
@@ -672,6 +681,10 @@ namespace MphRead
         }
 
         public bool CloseRequested => _lifetime.CloseRequested;
+        internal bool FinalSequenceActive
+            => _sceneFrameClient?.FinalSequenceActive == true;
+        internal bool BlocksSceneCompletion
+            => _sceneFrameClient?.BlocksSceneCompletion == true;
         public void StopScene() => _lifetime.StopScene();
         void Mods.IPauseMenuHost.Close() => StopScene();
         public void Close() => _lifetime.Close();
@@ -1258,7 +1271,13 @@ namespace MphRead
                 $"gamepad:{capabilities.Id}", capabilities.Name, capabilities.Family,
                 capabilities.HasGyroscope,
                 // SDL 3.4.16 exposes rumble but no non-invasive capability query.
-                hasRumble: null, hasAnalogTriggers: capabilities.HasAnalogTriggers));
+                hasRumble: null, hasAnalogTriggers: capabilities.HasAnalogTriggers,
+                guid: capabilities.Guid, vendorId: capabilities.VendorId,
+                productId: capabilities.ProductId,
+                productVersion: capabilities.ProductVersion,
+                hasAccelerometer: capabilities.HasAccelerometer,
+                sdlMapping: capabilities.SdlMapping,
+                sdlRuntimeVersion: capabilities.SdlRuntimeVersion));
 
         private void HandlePenProximity(SDL_PenProximityEvent evt, bool entered)
         {
@@ -1655,6 +1674,9 @@ namespace MphRead
 
         public bool SuppressNativeInput => _killcam?.FinalSequenceActive == true
             || _killcam?.IsActive == true;
+
+        internal bool FinalSequenceActive => _killcam?.FinalSequenceActive == true;
+        internal bool BlocksSceneCompletion => _killcam?.BlocksSceneCompletion == true;
 
         public void OnResize(Vector2i size) => _killcam?.Resize(size);
 

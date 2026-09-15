@@ -248,6 +248,7 @@ namespace MphRead.Mods.Input
             Add(ref buttons, raw.Buttons, ButtonDpadLeft, GamepadButtons.DpadLeft);
             state.Buttons = buttons;
             GamepadInput.State = state;
+            GamepadInput.ObserveNativeState(state);
             EnsureCapabilityOwner()?.Publish(ControllerCapabilitySnapshot.Connected(
                 ControllerBackend.Glfw,
                 $"slot:{slot}",

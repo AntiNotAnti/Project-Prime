@@ -45,8 +45,45 @@ namespace MphRead.Mods
         private static string Path
             => System.IO.Path.Combine(Launcher.LauncherPrefs.Directory, "controls.txt");
 
-        /// <summary>Multiplier on mouse movement. 1.0 is the original feel.</summary>
-        public static float MouseSensitivity { get; set; } = 1;
+        /// <summary>
+        /// The shipped mouse multiplier. Keep this separate from the UI range:
+        /// controls.txt may preserve values above the launcher slider's maximum.
+        /// </summary>
+        public const float DefaultMouseSensitivity = 1.0f;
+
+        /// <summary>Smallest finite value accepted by the controls file.</summary>
+        public const float MinimumMouseSensitivity = 0.01f;
+
+        /// <summary>Largest finite value accepted by the controls file.</summary>
+        public const float MaximumMouseSensitivity = 10.0f;
+
+        /// <summary>Largest value exposed by the launcher settings slider.</summary>
+        public const float UiMaximumMouseSensitivity = 3.0f;
+
+        /// <summary>Launcher slider precision, in sensitivity units.</summary>
+        public const float MouseSensitivityStep = 0.01f;
+
+        /// <summary>
+        /// Multiplier on mouse movement. Values are normalized at the boundary
+        /// so direct edits, legacy files, and serialization share one contract.
+        /// </summary>
+        public static float MouseSensitivity
+        {
+            get => _mouseSensitivity;
+            set => _mouseSensitivity = NormalizeMouseSensitivity(value);
+        }
+
+        private static float _mouseSensitivity = DefaultMouseSensitivity;
+
+        /// <summary>
+        /// Normalize an input to the finite persistence range. Non-finite
+        /// values use the shipped default rather than entering the aim path or
+        /// being written to controls.txt.
+        /// </summary>
+        public static float NormalizeMouseSensitivity(float value)
+            => float.IsFinite(value)
+                ? Math.Clamp(value, MinimumMouseSensitivity, MaximumMouseSensitivity)
+                : DefaultMouseSensitivity;
 
         public static float DynamicCrosshairTravelDegrees
         {
@@ -1157,7 +1194,7 @@ namespace MphRead.Mods
                     {
                         if (Single.TryParse(value, NumberStyles.Float,
                             CultureInfo.InvariantCulture, out float parsed))
-                            MouseSensitivity = Math.Clamp(parsed, 0.05f, 10f);
+                            MouseSensitivity = parsed;
                         continue;
                     }
                     if (key == "dynamic_crosshair_travel_degrees"
@@ -1693,7 +1730,7 @@ namespace MphRead.Mods
             {
                     $"# {Branding.Name} controls. Delete a line to go back to the default.",
                     "input_schema=4",
-                    $"sensitivity={Float(MouseSensitivity)}",
+                    $"sensitivity={Float(NormalizeMouseSensitivity(MouseSensitivity))}",
                     "dynamic_crosshair_travel_degrees=" + Float(DynamicCrosshairTravelDegrees),
                     "dynamic_crosshair_sensitivity=" + Float(DynamicCrosshairSensitivity),
                     "dynamic_crosshair_turn_speed=" + Float(DynamicCrosshairTurnSpeed),
@@ -1822,7 +1859,7 @@ namespace MphRead.Mods
             _creating = true;
             _current = ClientPlayerBindings.GetDefault();
             _creating = false;
-            MouseSensitivity = 1;
+            MouseSensitivity = DefaultMouseSensitivity;
             DynamicCrosshairTravelDegrees
                 = DynamicCrosshairTuning.DefaultTravelDegrees;
             DynamicCrosshairSensitivity

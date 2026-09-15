@@ -165,6 +165,11 @@ namespace MphRead.Mods.Launcher.Gui
             IReadOnlyList<string> rooms = Array.Empty<string>();
 
             HomeWindow? persistentWindow = null;
+            // The semantic control endpoint is attached once to the same
+            // persistent shell that owns the dispatcher, Node session, and
+            // match handoff. It is never recreated for a rematch or nested
+            // launcher visit.
+            HomeWindow.SemanticControlAdapter? semanticControl = null;
             // Native window, GPU device and device caches belong to this GUI session.
             // MatchStart consumes only the per-round scene on a supplied host.
             SdlGameHost? persistentHost = null;
@@ -215,6 +220,8 @@ namespace MphRead.Mods.Launcher.Gui
                         {
                             persistentWindow = new HomeWindow(settings, rooms,
                                 desktopOverlay);
+                            semanticControl = persistentWindow
+                                .CreateSemanticControlAdapter();
                             desktopOverlay.AttachTransitionActions(
                                 persistentWindow.TransitionMenuActions);
                             persistentWindow.ResultsCloseRequested += (_, _) =>
@@ -398,6 +405,7 @@ namespace MphRead.Mods.Launcher.Gui
                 presentationCoordinator.Close();
                 PauseMenu.UnregisterPresenter(desktopOverlay);
                 PauseMenu.RegisterPresenter(LegacyPauseMenuPresenter.Instance);
+                semanticControl?.DisposeAsync().AsTask().GetAwaiter().GetResult();
                 persistentHost?.Dispose();
                 coordinator.Quit();
                 if (persistentWindow is { IsClosed: false }) persistentWindow.Close();

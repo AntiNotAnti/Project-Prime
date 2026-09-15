@@ -906,6 +906,47 @@ public sealed class ControllerInputTests
     }
 
     [Fact]
+    public void NativeTriggerTapBetweenSimulationStepsProducesOneFireEdge()
+    {
+        GamepadState previousState = GamepadInput.State;
+        InputSettings.Reset();
+        GamepadInput.Reset();
+        try
+        {
+            var pressed = new GamepadState
+            {
+                Connected = true,
+                RightTrigger = InputSettings.GamepadTriggerPressThreshold
+            };
+            var released = new GamepadState { Connected = true };
+
+            GamepadInput.ObserveNativeState(pressed);
+            GamepadInput.ObserveNativeState(released);
+            GamepadInput.State = released;
+            GamepadInput.BeginFrame(allowLook: false);
+
+            Assert.Equal(GamepadButtons.RightTrigger,
+                GamepadInput.PressedButtons & GamepadButtons.RightTrigger);
+            Assert.Equal(GamepadButtons.RightTrigger,
+                GamepadInput.ReleasedButtons & GamepadButtons.RightTrigger);
+            Assert.Equal(GamepadButtons.None,
+                GamepadInput.EffectiveButtons & GamepadButtons.RightTrigger);
+
+            GamepadInput.BeginFrame(allowLook: false);
+            Assert.Equal(GamepadButtons.None,
+                GamepadInput.PressedButtons & GamepadButtons.RightTrigger);
+            Assert.Equal(GamepadButtons.None,
+                GamepadInput.ReleasedButtons & GamepadButtons.RightTrigger);
+        }
+        finally
+        {
+            GamepadInput.State = previousState;
+            GamepadInput.Reset();
+            InputSettings.Reset();
+        }
+    }
+
+    [Fact]
     public void LookCurveBoostsOnlyAfterSustainedOuterRingAndResetsOnExit()
     {
         var processor = new GamepadLookProcessor();

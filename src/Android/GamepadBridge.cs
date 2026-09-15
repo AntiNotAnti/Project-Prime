@@ -73,6 +73,7 @@ namespace MphRead.Droid
                 state.Buttons &= ~button;
             }
             GamepadInput.State = state;
+            GamepadInput.ObserveNativeState(state);
             return true;
         }
 
@@ -136,6 +137,7 @@ namespace MphRead.Droid
             }
             state.Buttons = buttons;
             GamepadInput.State = state;
+            GamepadInput.ObserveNativeState(state);
             return true;
         }
 

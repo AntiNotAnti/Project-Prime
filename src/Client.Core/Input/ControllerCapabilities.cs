@@ -39,6 +39,20 @@ namespace MphRead.Mods.Input
         string? DeviceName)
     {
         /// <summary>
+        /// Optional SDL-owned physical identity. These values are captured
+        /// only when SDL opens a device (or selects a replacement), never by
+        /// polling the controller every frame. A null value means the binding
+        /// did not expose a truthful non-invasive query.
+        /// </summary>
+        public string? Guid { get; init; }
+        public ushort? VendorId { get; init; }
+        public ushort? ProductId { get; init; }
+        public ushort? ProductVersion { get; init; }
+        public bool? HasAccelerometer { get; init; }
+        public string? SdlMapping { get; init; }
+        public string? SdlRuntimeVersion { get; init; }
+
+        /// <summary>
         /// True only when this snapshot identifies a connected device and an
         /// active backend. A backend can remain available while no device is
         /// connected.
@@ -74,9 +88,25 @@ namespace MphRead.Mods.Input
             ControllerFamily family = ControllerFamily.Generic,
             bool? hasGyroscope = null,
             bool? hasRumble = null,
-            bool? hasAnalogTriggers = null)
+            bool? hasAnalogTriggers = null,
+            string? guid = null,
+            ushort? vendorId = null,
+            ushort? productId = null,
+            ushort? productVersion = null,
+            bool? hasAccelerometer = null,
+            string? sdlMapping = null,
+            string? sdlRuntimeVersion = null)
             => new(backend, true, true, family, hasGyroscope, hasRumble,
-                hasAnalogTriggers, deviceId, deviceName);
+                hasAnalogTriggers, deviceId, deviceName)
+            {
+                Guid = guid,
+                VendorId = vendorId,
+                ProductId = productId,
+                ProductVersion = productVersion,
+                HasAccelerometer = hasAccelerometer,
+                SdlMapping = sdlMapping,
+                SdlRuntimeVersion = sdlRuntimeVersion
+            };
     }
 
     /// <summary>One immutable transition in the active capability snapshot.</summary>

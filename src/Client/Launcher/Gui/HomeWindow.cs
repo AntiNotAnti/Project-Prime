@@ -18,7 +18,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// because a window with no frame that a Linux window manager will not let
     /// you move is a trap, and there are many window managers.
     /// </summary>
-    internal sealed class HomeWindow : Window
+    internal sealed partial class HomeWindow : Window
     {
         private readonly PrimeShellView _view;
         private readonly DesktopGameOverlayCoordinator? _overlay;

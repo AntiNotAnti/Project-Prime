@@ -326,7 +326,10 @@ namespace MphRead.Mods
                 {
                     seconds = parsed;
                 }
-                Environment.ExitCode = Input.GamepadProbe.Run(seconds);
+                // The diagnostic probe is intentionally on the same SDL host
+                // thread as shipping input. Do not resurrect the retired
+                // GLFW-only probe here.
+                Environment.ExitCode = SdlGamepadProbe.Run(seconds);
                 return true;
             }
 

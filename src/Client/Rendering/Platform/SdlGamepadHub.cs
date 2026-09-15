@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 using MphRead.Mods.Input;
 using SDL;
 using PrimeGamepadState = MphRead.Mods.Input.GamepadState;
@@ -94,6 +95,7 @@ internal unsafe sealed class SdlGamepadHub : IDisposable
             case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFT_TRIGGER: _state.LeftTrigger = Math.Clamp(normalized, 0, 1); break;
             case SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHT_TRIGGER: _state.RightTrigger = Math.Clamp(normalized, 0, 1); break;
         }
+        GamepadInput.ObserveNativeState(_state);
     }
 
     internal void HandleButton(SDL_GamepadButtonEvent evt)
@@ -121,6 +123,7 @@ internal unsafe sealed class SdlGamepadHub : IDisposable
         if (button == GamepadButtons.None) return;
         if (evt.down) _state.Buttons |= button;
         else _state.Buttons &= ~button;
+        GamepadInput.ObserveNativeState(_state);
     }
 
     internal void HandleSensor(SDL_GamepadSensorEvent evt)
@@ -205,8 +208,12 @@ internal unsafe sealed class SdlGamepadHub : IDisposable
     private static SdlGamepadCapabilities CapabilitiesFor(uint id, SDL_Gamepad* handle)
     {
         PrimeGamepadState state = StateFor(handle);
+        SDL_JoystickID instanceId = (SDL_JoystickID)id;
         return new(id, state.Name, state.Family, TryHasGyroscope(handle),
-            TryHasAnalogTriggers(handle));
+            TryHasAnalogTriggers(handle), TryHasAccelerometer(handle),
+            TryGuid(instanceId), TryVendor(instanceId), TryProduct(instanceId),
+            TryProductVersion(instanceId), TryMapping(instanceId),
+            RuntimeVersion());
     }
 
     private static bool? TryHasAnalogTriggers(SDL_Gamepad* handle)
@@ -229,6 +236,112 @@ internal unsafe sealed class SdlGamepadHub : IDisposable
             return null;
         }
     }
+
+    private static bool? TryHasAccelerometer(SDL_Gamepad* handle)
+    {
+        try
+        {
+            return SDL3.SDL_GamepadHasSensor(handle,
+                SDL_SensorType.SDL_SENSOR_ACCEL);
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static ushort? TryVendor(SDL_JoystickID id)
+    {
+        try
+        {
+            ushort value = SDL3.SDL_GetGamepadVendorForID(id);
+            return value == 0 ? null : value;
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static ushort? TryProduct(SDL_JoystickID id)
+    {
+        try
+        {
+            ushort value = SDL3.SDL_GetGamepadProductForID(id);
+            return value == 0 ? null : value;
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static ushort? TryProductVersion(SDL_JoystickID id)
+    {
+        try
+        {
+            ushort value = SDL3.SDL_GetGamepadProductVersionForID(id);
+            return value == 0 ? null : value;
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static string? TryMapping(SDL_JoystickID id)
+    {
+        try
+        {
+            string? value = SDL3.SDL_GetGamepadMappingForID(id);
+            return String.IsNullOrWhiteSpace(value) ? null : value;
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static string? TryGuid(SDL_JoystickID id)
+    {
+        try
+        {
+            SDL_GUID guid = SDL3.SDL_GetGamepadGUIDForID(id);
+            byte* buffer = stackalloc byte[64];
+            SDL3.SDL_GUIDToString(guid, buffer, 64);
+            int length = 0;
+            while (length < 64 && buffer[length] != 0) length++;
+            if (length == 0) return null;
+            return Encoding.ASCII.GetString(new ReadOnlySpan<byte>(buffer, length));
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static string? RuntimeVersion()
+    {
+        try
+        {
+            int encoded = SDL3.SDL_GetVersion();
+            if (encoded <= 0) return null;
+            int major = encoded / 1_000_000;
+            int minor = encoded / 1_000 % 1_000;
+            int patch = encoded % 1_000;
+            return $"{major}.{minor}.{patch}";
+        }
+        catch (Exception ex) when (IsOptionalApiFailure(ex))
+        {
+            return null;
+        }
+    }
+
+    private static bool IsOptionalApiFailure(Exception ex)
+        => ex is DllNotFoundException
+            or EntryPointNotFoundException
+            or BadImageFormatException
+            or InvalidOperationException;
 
     private static bool? TryHasAxis(SDL_Gamepad* handle, SDL_GamepadAxis axis)
     {
@@ -262,4 +375,6 @@ internal unsafe sealed class SdlGamepadHub : IDisposable
 
 internal readonly record struct SdlGamepadCapabilities(
     uint Id, string Name, ControllerFamily Family, bool? HasGyroscope,
-    bool? HasAnalogTriggers);
+    bool? HasAnalogTriggers, bool? HasAccelerometer, string? Guid,
+    ushort? VendorId, ushort? ProductId, ushort? ProductVersion,
+    string? SdlMapping, string? SdlRuntimeVersion);

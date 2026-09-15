@@ -89,6 +89,11 @@ namespace MphRead.Mods.Input
         private static GamepadButtons _pressed;
         private static GamepadButtons _released;
         private static GamepadButtons _effective;
+        private static readonly object _nativeEdgeSync = new();
+        private static TriggerProcessor _nativeEdgeTriggers = new();
+        private static GamepadButtons _nativeEffective;
+        private static GamepadButtons _pendingNativePressed;
+        private static GamepadButtons _pendingNativeReleased;
         private static GamepadMovementProcessor _movement = new(
             GamepadMovementProcessor.DefaultInnerDeadzone,
             GamepadMovementProcessor.DefaultActivateThreshold,
@@ -166,9 +171,10 @@ namespace MphRead.Mods.Input
         public static float AimDeltaY { get; private set; }
 
         /// <summary>
-        /// Called once per fixed simulation step. Native polling only updates
-        /// <see cref="State"/> and <see cref="SampleNativeFrame"/>; timing,
-        /// hysteresis, button edges and stateful look prediction advance here.
+        /// Called once per fixed simulation step. Platform adapters publish
+        /// <see cref="State"/> and may latch native transitions through
+        /// <see cref="ObserveNativeState"/>; timing, hysteresis, edge
+        /// consumption and stateful look prediction advance here.
         /// </summary>
         public static void BeginFrame(bool allowLook = true, bool zoomed = false,
             long timingGeneration = 0)
@@ -186,6 +192,7 @@ namespace MphRead.Mods.Input
                 ResetTimingState(timingGeneration);
             }
 
+            ObserveNativeState(State);
             bool quarantined = InputQuarantined;
             _triggers.Configure(InputSettings.GamepadTriggerPressThreshold,
                 InputSettings.GamepadTriggerReleaseThreshold);
@@ -194,8 +201,10 @@ namespace MphRead.Mods.Input
                 quarantined ? 0 : State.RightTrigger);
             _effective = quarantined ? GamepadButtons.None
                 : State.Buttons | trigger.Buttons;
-            _pressed = _effective & ~_previous;
-            _released = _previous & ~_effective;
+            TakeNativeEdges(out GamepadButtons pendingPressed,
+                out GamepadButtons pendingReleased);
+            _pressed = (_effective & ~_previous) | pendingPressed;
+            _released = (_previous & ~_effective) | pendingReleased;
             _previous = _effective;
             _movement.Configure(InputSettings.GamepadMoveDeadZone,
                 InputSettings.GamepadMoveActivateThreshold,
@@ -308,6 +317,7 @@ namespace MphRead.Mods.Input
             {
                 ResetTimingState(timingGeneration);
             }
+            ObserveNativeState(State);
             if ((EffectiveButtons & PadBindings.Get(PadAction.WeaponWheel)) != 0)
             {
                 // The radial owns the right stick for selection. Clear the
@@ -352,6 +362,7 @@ namespace MphRead.Mods.Input
             _effective = GamepadButtons.None;
             _pressed = GamepadButtons.None;
             _released = GamepadButtons.None;
+            ResetNativeEdgeCapture();
             AimDeltaX = AimDeltaY = 0;
             AimAngularVelocity = Vector2.Zero;
             GamepadGyro.Reset();
@@ -408,6 +419,7 @@ namespace MphRead.Mods.Input
             _effective = GamepadButtons.None;
             _pressed = GamepadButtons.None;
             _released = GamepadButtons.None;
+            ResetNativeEdgeCapture();
             AimDeltaX = AimDeltaY = 0;
             AimAngularVelocity = Vector2.Zero;
             _gyroAllowedForSimulation = false;
@@ -447,6 +459,62 @@ namespace MphRead.Mods.Input
 
         private static GamepadButtons GameplayButtons()
             => InputQuarantined ? GamepadButtons.None : State.Buttons;
+
+        /// <summary>
+        /// Preserve native button and trigger transitions until the next fixed
+        /// simulation step consumes them. Without this latch, a complete
+        /// press/release between two 60 Hz steps disappears from the reduced
+        /// <see cref="State"/> snapshot and semi-automatic weapons feel slower
+        /// on a controller than their authored cooldown permits.
+        /// </summary>
+        public static void ObserveNativeState(in GamepadState state)
+        {
+            lock (_nativeEdgeSync)
+            {
+                if (!state.Connected || InputQuarantined)
+                {
+                    ResetNativeEdgeCaptureLocked();
+                    return;
+                }
+                _nativeEdgeTriggers.Configure(
+                    InputSettings.GamepadTriggerPressThreshold,
+                    InputSettings.GamepadTriggerReleaseThreshold);
+                TriggerSample triggers = _nativeEdgeTriggers.Process(
+                    state.LeftTrigger, state.RightTrigger);
+                GamepadButtons current = state.Buttons | triggers.Buttons;
+                _pendingNativePressed |= current & ~_nativeEffective;
+                _pendingNativeReleased |= _nativeEffective & ~current;
+                _nativeEffective = current;
+            }
+        }
+
+        private static void TakeNativeEdges(out GamepadButtons pressed,
+            out GamepadButtons released)
+        {
+            lock (_nativeEdgeSync)
+            {
+                pressed = _pendingNativePressed;
+                released = _pendingNativeReleased;
+                _pendingNativePressed = GamepadButtons.None;
+                _pendingNativeReleased = GamepadButtons.None;
+            }
+        }
+
+        private static void ResetNativeEdgeCapture()
+        {
+            lock (_nativeEdgeSync)
+            {
+                ResetNativeEdgeCaptureLocked();
+            }
+        }
+
+        private static void ResetNativeEdgeCaptureLocked()
+        {
+            _nativeEdgeTriggers.Reset();
+            _nativeEffective = GamepadButtons.None;
+            _pendingNativePressed = GamepadButtons.None;
+            _pendingNativeReleased = GamepadButtons.None;
+        }
 
         private static bool PhysicalControllerInputActive()
         {
