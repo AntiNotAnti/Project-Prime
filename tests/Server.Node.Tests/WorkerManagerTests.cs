@@ -190,6 +190,8 @@ public sealed class WorkerManagerTests
     [InlineData("duplicate")]
     [InlineData("malformed")]
     [InlineData("silent")]
+    [InlineData("heartbeat-stall")]
+    [InlineData("heartbeat-stop-after-ready")]
     [InlineData("disconnect")]
     [InlineData("duplicate-ready")]
     public async Task ConsumedHelloMalformedFrameAndHeartbeatLossAreTerminal(string mode)
