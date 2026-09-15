@@ -134,38 +134,65 @@ public sealed class WindowsDpapiSessionStore : ISecureSessionStore
     }
 }
 
+/// <summary>The narrow native seam used by the macOS Keychain store. Keeping
+/// this at the P/Invoke boundary makes replacement failures testable without
+/// introducing a general platform-security abstraction.</summary>
+internal interface IMacKeychainApi
+{
+    int FindGenericPassword(byte[] service, byte[] account, out uint length,
+        out IntPtr data, out IntPtr item);
+    int AddGenericPassword(byte[] service, byte[] account, byte[] value);
+    int ModifyContent(IntPtr item, byte[] value);
+    int DeleteItem(IntPtr item);
+    void Release(IntPtr item);
+    int FreeContent(IntPtr data);
+}
+
 /// <summary>macOS Keychain generic-password storage. Keychain errors are
 /// surfaced rather than silently writing a plaintext file.</summary>
 public sealed class MacKeychainSessionStore : ISecureSessionStore
 {
-    private const int ItemNotFound = -25300;
-    private const int DuplicateItem = -25299;
-    private const int Success = 0;
+    internal const int ItemNotFound = -25300;
+    internal const int DuplicateItem = -25299;
+    internal const int Success = 0;
     private const string ServicePrefix = "ProjectPrime.AccountSession.";
+    private readonly IMacKeychainApi _api;
+
+    public MacKeychainSessionStore() : this(new NativeMacKeychainApi()) { }
+
+    internal MacKeychainSessionStore(IMacKeychainApi api)
+        => _api = api ?? throw new ArgumentNullException(nameof(api));
 
     public ValueTask<byte[]?> ReadAsync(string backendScope, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         SecureSessionRecordCodec.ValidateScope(backendScope);
         byte[] service = Service(backendScope);
-        byte[] account = Encoding.UTF8.GetBytes("refresh");
-        int status = MacKeychain.SecKeychainFindGenericPassword(IntPtr.Zero, (uint)service.Length,
-            service, (uint)account.Length, account, out uint length, out IntPtr data, out IntPtr item);
-        if (status == ItemNotFound) return ValueTask.FromResult<byte[]?>(null);
-        if (status != Success) throw new IOException($"macOS Keychain read failed ({status}).");
+        byte[] account = Account();
         try
         {
-            if (length is 0 or > SecureSessionRecordCodec.MaximumBytes)
-                return ValueTask.FromResult<byte[]?>(null);
-            byte[] result = new byte[length];
-            Marshal.Copy(data, result, 0, result.Length);
-            return ValueTask.FromResult<byte[]?>(result);
+            int status = _api.FindGenericPassword(service, account,
+                out uint length, out IntPtr data, out IntPtr item);
+            if (status == ItemNotFound) return ValueTask.FromResult<byte[]?>(null);
+            if (status != Success) throw new IOException($"macOS Keychain read failed ({status}).");
+            try
+            {
+                if (length is 0 or > SecureSessionRecordCodec.MaximumBytes)
+                    return ValueTask.FromResult<byte[]?>(null);
+                byte[] result = new byte[length];
+                Marshal.Copy(data, result, 0, result.Length);
+                return ValueTask.FromResult<byte[]?>(result);
+            }
+            finally
+            {
+                if (data != IntPtr.Zero) _api.FreeContent(data);
+                if (item != IntPtr.Zero) _api.Release(item);
+            }
         }
         finally
         {
-            if (data != IntPtr.Zero)
-                MacKeychain.SecKeychainItemFreeContent(IntPtr.Zero, data);
-            if (item != IntPtr.Zero) MacKeychain.CFRelease(item);
+            CryptographicOperations.ZeroMemory(service);
+            CryptographicOperations.ZeroMemory(account);
         }
     }
 
@@ -176,9 +203,8 @@ public sealed class MacKeychainSessionStore : ISecureSessionStore
         SecureSessionRecordCodec.ValidateScope(backendScope);
         if (record.Length is 0 or > SecureSessionRecordCodec.MaximumBytes)
             throw new ArgumentOutOfRangeException(nameof(record));
-        DeleteAsync(backendScope, CancellationToken.None);
         byte[] service = Service(backendScope);
-        byte[] account = Encoding.UTF8.GetBytes("refresh");
+        byte[] account = Account();
         byte[] value = record.ToArray();
         try
         {
@@ -187,10 +213,10 @@ public sealed class MacKeychainSessionStore : ISecureSessionStore
             {
                 try
                 {
-                    status = MacKeychain.SecKeychainItemModifyContent(item, IntPtr.Zero,
-                        (uint)value.Length, value);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    status = _api.ModifyContent(item, value);
                 }
-                finally { MacKeychain.CFRelease(item); }
+                finally { _api.Release(item); }
                 if (status != Success)
                     throw new IOException($"macOS Keychain update failed ({status}).");
                 return ValueTask.CompletedTask;
@@ -198,8 +224,8 @@ public sealed class MacKeychainSessionStore : ISecureSessionStore
             if (status != ItemNotFound)
                 throw new IOException($"macOS Keychain lookup failed ({status}).");
 
-            status = MacKeychain.SecKeychainAddGenericPassword(IntPtr.Zero, (uint)service.Length,
-                service, (uint)account.Length, account, (uint)value.Length, value, IntPtr.Zero);
+            cancellationToken.ThrowIfCancellationRequested();
+            status = _api.AddGenericPassword(service, account, value);
             if (status == DuplicateItem)
             {
                 // Another writer won the add race. Update that item in place;
@@ -210,16 +236,21 @@ public sealed class MacKeychainSessionStore : ISecureSessionStore
                 {
                     try
                     {
-                        status = MacKeychain.SecKeychainItemModifyContent(item, IntPtr.Zero,
-                            (uint)value.Length, value);
+                        cancellationToken.ThrowIfCancellationRequested();
+                        status = _api.ModifyContent(item, value);
                     }
-                    finally { MacKeychain.CFRelease(item); }
+                    finally { _api.Release(item); }
                 }
             }
             if (status != Success) throw new IOException($"macOS Keychain write failed ({status}).");
             return ValueTask.CompletedTask;
         }
-        finally { CryptographicOperations.ZeroMemory(value); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(value);
+            CryptographicOperations.ZeroMemory(service);
+            CryptographicOperations.ZeroMemory(account);
+        }
     }
 
     public ValueTask DeleteAsync(string backendScope, CancellationToken cancellationToken = default)
@@ -227,32 +258,71 @@ public sealed class MacKeychainSessionStore : ISecureSessionStore
         cancellationToken.ThrowIfCancellationRequested();
         SecureSessionRecordCodec.ValidateScope(backendScope);
         byte[] service = Service(backendScope);
-        byte[] account = Encoding.UTF8.GetBytes("refresh");
-        int status = MacKeychain.SecKeychainFindGenericPassword(IntPtr.Zero, (uint)service.Length,
-            service, (uint)account.Length, account, out uint length, out IntPtr data, out IntPtr item);
-        if (status == ItemNotFound) return ValueTask.CompletedTask;
-        if (status != Success) throw new IOException($"macOS Keychain lookup failed ({status}).");
+        byte[] account = Account();
         try
         {
-            if (data != IntPtr.Zero) MacKeychain.SecKeychainItemFreeContent(IntPtr.Zero, data);
-            status = MacKeychain.SecKeychainItemDelete(item);
-            if (status != Success) throw new IOException($"macOS Keychain delete failed ({status}).");
-            return ValueTask.CompletedTask;
+            int status = _api.FindGenericPassword(service, account,
+                out _, out IntPtr data, out IntPtr item);
+            if (status == ItemNotFound) return ValueTask.CompletedTask;
+            if (status != Success) throw new IOException($"macOS Keychain lookup failed ({status}).");
+            try
+            {
+                if (data != IntPtr.Zero) _api.FreeContent(data);
+                cancellationToken.ThrowIfCancellationRequested();
+                status = _api.DeleteItem(item);
+                if (status != Success) throw new IOException($"macOS Keychain delete failed ({status}).");
+                return ValueTask.CompletedTask;
+            }
+            finally { if (item != IntPtr.Zero) _api.Release(item); }
         }
-        finally { if (item != IntPtr.Zero) MacKeychain.CFRelease(item); }
+        finally
+        {
+            CryptographicOperations.ZeroMemory(service);
+            CryptographicOperations.ZeroMemory(account);
+        }
     }
 
-    private static int FindItem(byte[] service, byte[] account, out IntPtr item)
+    private int FindItem(byte[] service, byte[] account, out IntPtr item)
     {
-        int status = MacKeychain.SecKeychainFindGenericPassword(IntPtr.Zero, (uint)service.Length,
-            service, (uint)account.Length, account, out uint length, out IntPtr data, out item);
-        if (data != IntPtr.Zero) MacKeychain.SecKeychainItemFreeContent(IntPtr.Zero, data);
+        int status = _api.FindGenericPassword(service, account, out _,
+            out IntPtr data, out item);
+        if (data != IntPtr.Zero) _api.FreeContent(data);
         return status;
     }
+
+    private static byte[] Account() => Encoding.UTF8.GetBytes("refresh");
 
     private static byte[] Service(string scope)
         => Encoding.UTF8.GetBytes(ServicePrefix + Convert.ToHexString(
             SHA256.HashData(Encoding.UTF8.GetBytes(scope))).ToLowerInvariant());
+
+}
+
+/// <summary>Production implementation of the deliberately narrow Keychain
+/// adapter. It contains no policy and is never used on Windows or Linux.</summary>
+internal sealed class NativeMacKeychainApi : IMacKeychainApi
+{
+    public int FindGenericPassword(byte[] service, byte[] account, out uint length,
+        out IntPtr data, out IntPtr item)
+        => MacKeychain.SecKeychainFindGenericPassword(IntPtr.Zero,
+            (uint)service.Length, service, (uint)account.Length, account,
+            out length, out data, out item);
+
+    public int AddGenericPassword(byte[] service, byte[] account, byte[] value)
+        => MacKeychain.SecKeychainAddGenericPassword(IntPtr.Zero,
+            (uint)service.Length, service, (uint)account.Length, account,
+            (uint)value.Length, value, IntPtr.Zero);
+
+    public int ModifyContent(IntPtr item, byte[] value)
+        => MacKeychain.SecKeychainItemModifyContent(item, IntPtr.Zero,
+            (uint)value.Length, value);
+
+    public int DeleteItem(IntPtr item) => MacKeychain.SecKeychainItemDelete(item);
+
+    public void Release(IntPtr item) => MacKeychain.CFRelease(item);
+
+    public int FreeContent(IntPtr data)
+        => MacKeychain.SecKeychainItemFreeContent(IntPtr.Zero, data);
 
     private static class MacKeychain
     {
