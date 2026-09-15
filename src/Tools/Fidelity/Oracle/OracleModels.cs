@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace MphRead;
 
@@ -33,6 +34,7 @@ public sealed record OracleAction(
 /// three.
 /// </summary>
 public sealed record OracleCheckpointRequest(
+    [property: JsonPropertyName("vblank")]
     int VBlank,
     double? ElapsedMilliseconds,
     int? SemanticEventIndex);
@@ -73,6 +75,7 @@ public sealed record OracleArtifact(
 
 /// <summary>One normalized checkpoint emitted by an external oracle adapter.</summary>
 public sealed record OracleCheckpoint(
+    [property: JsonPropertyName("vblank")]
     int VBlank,
     double ElapsedMilliseconds,
     int SemanticEventIndex,
@@ -81,6 +84,7 @@ public sealed record OracleCheckpoint(
 public sealed record OracleEvent(
     int Index,
     string Name,
+    [property: JsonPropertyName("vblank")]
     int VBlank,
     double ElapsedMilliseconds);
 

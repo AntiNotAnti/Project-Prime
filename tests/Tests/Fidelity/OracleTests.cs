@@ -50,6 +50,30 @@ public sealed class OracleTests
     }
 
     [Fact, Trait("Category", "FidelitySchema")]
+    public void OracleSerializationUsesCanonicalVblankAndRoundTripsStrictly()
+    {
+        OracleScenario scenario = OracleJson.ParseScenario(
+            Encoding.UTF8.GetBytes(ScenarioJson()));
+        string serializedScenario = OracleJson.SerializeScenario(scenario);
+        Assert.Contains("\"vblank\"", serializedScenario, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"vBlank\"", serializedScenario, StringComparison.Ordinal);
+        OracleScenario reparsedScenario = OracleJson.ParseScenario(
+            Encoding.UTF8.GetBytes(serializedScenario));
+        Assert.Equal(scenario.Checkpoints[0], reparsedScenario.Checkpoints[0]);
+
+        OracleArtifact artifact = Artifact(Source(), 0);
+        string serializedArtifact = OracleJson.SerializeArtifact(artifact);
+        Assert.Contains("\"vblank\"", serializedArtifact, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"vBlank\"", serializedArtifact, StringComparison.Ordinal);
+        OracleArtifact reparsedArtifact = OracleJson.ParseArtifact(
+            Encoding.UTF8.GetBytes(serializedArtifact));
+        Assert.Equal(artifact.Checkpoints[0].VBlank, reparsedArtifact.Checkpoints[0].VBlank);
+        Assert.Equal(artifact.Checkpoints[0].ElapsedMilliseconds,
+            reparsedArtifact.Checkpoints[0].ElapsedMilliseconds);
+        Assert.Equal(artifact.Events[0].VBlank, reparsedArtifact.Events[0].VBlank);
+    }
+
+    [Fact, Trait("Category", "FidelitySchema")]
     public void ComparerUsesTolerancesAndReportsFirstDivergence()
     {
         OracleSourceIdentity source = Source();
