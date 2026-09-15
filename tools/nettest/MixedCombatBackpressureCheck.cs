@@ -41,11 +41,15 @@ internal static class MixedCombatBackpressureCheck
                 && healthy.Connection.State == NetConnectionState.Ready
                 && stalled.Connection.Reliable.PendingCount == 0 && healthy.Connection.Reliable.PendingCount == 0);
             stalled.Connection.StartPlaying(); healthy.Connection.StartPlaying();
-            // No socket polling between fill and dispatch: exhaustion and admission order are deterministic.
-            for (int i = 0; i < ReliableChannel.Capacity; i++)
+            // No socket polling between fill and dispatch: ordinary-event exhaustion
+            // and admission order are deterministic. Critical events retain their reserve.
+            for (int i = 0; i < ReliableChannel.OrdinaryCapacity; i++)
                 Require(network.TrySendEvent(stalled, ReliableEventType.Combat, new byte[] { 0 }), "Queue filled prematurely.");
-            Require(stalled.Connection.Reliable.PendingCount == ReliableChannel.Capacity, "Expected bounded full queue.");
+            Require(stalled.Connection.Reliable.PendingCount == ReliableChannel.OrdinaryCapacity,
+                "Expected bounded ordinary-event queue.");
             Require(MixedCombatSoak.SendCombatBatch(network, new byte[] { 41 }) == 1, "Refusal was not counted exactly once.");
+            Require(stalled.Connection.Reliable.LastAdmissionFailure == ReliableAdmissionFailure.ReservedCapacity,
+                "Ordinary-event saturation did not preserve the critical-event reserve.");
             Require(network.Count == 1 && network.Find(stalled.Connection.Id) == null
                 && stalled.Connection.State == NetConnectionState.Disconnecting, "Saturated peer remained admitted.");
             Require(network.Find(healthy.Connection.Id) == healthy && healthy.Connection.State == NetConnectionState.Playing,
