@@ -14,7 +14,7 @@ public sealed class WorkerManagerTests
     {
         FileName = Environment.GetEnvironmentVariable("DOTNET_HOST_PATH") ?? "dotnet",
         Arguments = [Harness(), "--mode", mode],
-        StartupTimeout = TimeSpan.FromSeconds(5), HeartbeatTimeout = TimeSpan.FromMilliseconds(600),
+        StartupTimeout = TimeSpan.FromSeconds(5), HeartbeatTimeout = TimeSpan.FromSeconds(5),
         ShutdownTimeout = TimeSpan.FromSeconds(2)
     };
     private static string Harness()
@@ -199,7 +199,13 @@ public sealed class WorkerManagerTests
     {
         await using var manager = Manager();
         ManagedWorker? worker = null;
-        try { worker = await manager.StartAsync(Launch(mode)); }
+        try
+        {
+            worker = await manager.StartAsync(Launch(mode) with
+            {
+                HeartbeatTimeout = TimeSpan.FromMilliseconds(600)
+            });
+        }
         catch (IOException) { } // The protocol violation can beat the ready continuation.
         if (worker != null) await worker.Completion.WaitAsync(TimeSpan.FromSeconds(4));
         Assert.Equal(WorkerStatus.Faulted, Assert.Single(manager.Snapshot()).Status);
