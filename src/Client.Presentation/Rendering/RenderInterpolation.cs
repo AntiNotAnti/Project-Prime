@@ -644,6 +644,34 @@ namespace MphRead
                 new Vector3(0, 0, muzzleOffset), gunRoot);
         }
 
+        /// <summary>
+        /// Resolve the gunless Guardian first-person feedback pose. The shot
+        /// origin is authoritative gameplay state; only the completed render
+        /// camera is presentation-interpolated. No Psycho Bit or biped model
+        /// node is read here.
+        /// </summary>
+        internal static void ResolveGuardianFirstPersonEffectAnchor(
+            Vector3 renderCameraPosition, Vector3 simulationCameraPosition,
+            Vector3 shotOrigin, Vector3 shotDirection,
+            out Vector3 right, out Vector3 aim, out Vector3 position)
+        {
+            aim = VectorMath.NormalizeOr(shotDirection, -Vector3.UnitZ);
+            right = VectorMath.Perpendicular(aim, Vector3.UnitY);
+
+            Vector3 renderCamera = VectorMath.IsFinite(renderCameraPosition)
+                ? renderCameraPosition
+                : VectorMath.IsFinite(simulationCameraPosition)
+                    ? simulationCameraPosition : Vector3.Zero;
+            Vector3 relativeOrigin = VectorMath.IsFinite(shotOrigin)
+                && VectorMath.IsFinite(simulationCameraPosition)
+                ? shotOrigin - simulationCameraPosition : Vector3.Zero;
+            position = renderCamera + relativeOrigin;
+            if (!VectorMath.IsFinite(position))
+            {
+                position = renderCamera;
+            }
+        }
+
         public static void TransformCopiedStack(float[] stack, int count, Matrix4 delta)
         {
             for (int index = 0; index < count; index++)

@@ -408,6 +408,18 @@ namespace MphRead.Entities
             return VectorMath.NormalizeOr(facingVector, gunVector);
         }
 
+        /// <summary>
+        /// Return the pitch envelope for the current form. Retail alternate
+        /// forms retain their authored rolling envelope; Guardian's ranged
+        /// Psycho Bit adaptation uses the ordinary biped envelope so a target
+        /// below the hover volume remains reachable.
+        /// </summary>
+        internal static (float Min, float Max) ResolveAimPitchLimits(
+            Hunter hunter, bool isAltForm)
+            => isAltForm && hunter != Hunter.Guardian
+                ? (-25, 5)
+                : (-85, 85);
+
         private void UpdateAimY(float amount)
         {
             if (Controls.InvertAimY)
@@ -430,14 +442,9 @@ namespace MphRead.Entities
             // unimpl-controls: these calculations are different when exact aim is not set
             float prevAim = _aimY;
             _aimY += amount;
-            if (IsAltForm)
-            {
-                _aimY = Math.Clamp(_aimY, -25, 5);
-            }
-            else
-            {
-                _aimY = Math.Clamp(_aimY, -85, 85);
-            }
+            (float minPitch, float maxPitch) = ResolveAimPitchLimits(
+                Hunter, IsAltForm);
+            _aimY = Math.Clamp(_aimY, minPitch, maxPitch);
             float diff = MathHelper.DegreesToRadians(_aimY - prevAim);
             Matrix4 transform = GetTransformMatrix(_gunVec1, Vector3.UnitY);
             Vector3 vector;
@@ -1563,8 +1570,6 @@ namespace MphRead.Entities
                             if (Controls.AltAttack.IsPressed)
                             {
                                 _altAttackTime = 1;
-                                _altModel.SetAnimation((int)PsychoBitAltAnim.Charge,
-                                    AnimFlags.NoLoop);
                                 _soundSource.PlaySfx(SfxId.PSYCHOBIT_CHARGE,
                                     loop: true);
                             }
@@ -1659,8 +1664,7 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             if (_frozenTimer == 0 && _health > 0
-                && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel
-                    || Hunter == Hunter.Guardian))
+                && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel))
             {
                 // Collision/support and the actual displacement are only
                 // final after ProcessMovement. Resolve the locomotion clip
@@ -1671,12 +1675,9 @@ namespace MphRead.Entities
                     Hunter, Flags1, Flags2.TestFlag(PlayerFlags2.AltAttack),
                     info.Index[0], info.Flags[0], animId, animFlags,
                     Position - PrevPosition, animRequiresMovement);
-                int attackAnimation = Hunter switch
-                {
-                    Hunter.Trace => (int)TraceAltAnim.Attack,
-                    Hunter.Weavel => (int)WeavelAltAnim.Attack,
-                    _ => (int)PsychoBitAltAnim.Beam
-                };
+                int attackAnimation = Hunter == Hunter.Trace
+                    ? (int)TraceAltAnim.Attack
+                    : (int)WeavelAltAnim.Attack;
                 if (animation == (int)TraceAltAnim.Idle)
                 {
                     if (info.Index[0] != (int)TraceAltAnim.Idle
@@ -1721,14 +1722,6 @@ namespace MphRead.Entities
                 if (lateralSign > 0) return (int)WeavelAltAnim.MoveRight;
                 if (lateralSign < 0) return (int)WeavelAltAnim.MoveLeft;
             }
-            else if (hunter == Hunter.Guardian
-                && (forwardSign != 0 || lateralSign != 0))
-            {
-                // Psycho Bit has one authored hover locomotion group; it is
-                // intentionally used only after the normal movement/collision
-                // pass, preserving Guardian's existing alt volume envelope.
-                return (int)PsychoBitAltAnim.Fly;
-            }
             return -1;
         }
 
@@ -1745,18 +1738,14 @@ namespace MphRead.Entities
             Vector3 displacement,
             bool requestedAnimationRequiresMovement = true)
         {
-            if (hunter != Hunter.Trace && hunter != Hunter.Weavel
-                && hunter != Hunter.Guardian)
+            if (hunter != Hunter.Trace && hunter != Hunter.Weavel)
             {
                 return (currentAnimation, currentFlags);
             }
 
-            int attackAnimation = hunter switch
-            {
-                Hunter.Trace => (int)TraceAltAnim.Attack,
-                Hunter.Weavel => (int)WeavelAltAnim.Attack,
-                _ => (int)PsychoBitAltAnim.Beam
-            };
+            int attackAnimation = hunter == Hunter.Trace
+                ? (int)TraceAltAnim.Attack
+                : (int)WeavelAltAnim.Attack;
             if (altAttackActive)
             {
                 if (currentAnimation == attackAnimation)
@@ -1787,12 +1776,9 @@ namespace MphRead.Entities
             {
                 return (requestedAnimation, requestedFlags);
             }
-            int idleAnimation = hunter switch
-            {
-                Hunter.Trace => (int)TraceAltAnim.Idle,
-                Hunter.Weavel => (int)WeavelAltAnim.Idle,
-                _ => (int)PsychoBitAltAnim.Idle
-            };
+            int idleAnimation = hunter == Hunter.Trace
+                ? (int)TraceAltAnim.Idle
+                : (int)WeavelAltAnim.Idle;
             return (idleAnimation, AnimFlags.None);
         }
 
@@ -2123,10 +2109,8 @@ namespace MphRead.Entities
             {
                 return;
             }
-            Vector3 direction = VectorMath.NormalizeOr(_aimPosition
-                - _volume.SpherePosition, _gunVec1);
-            Vector3 origin = _volume.SpherePosition
-                + direction * Fixed.ToFloat(Values.MuzzleOffset);
+            Vector3 origin = ModActiveShotOrigin;
+            Vector3 direction = ModActiveShotDirectionTowards(_aimPosition);
             int charge = Math.Min(_altAttackTime,
                 SimTicks.From30HzFrames(Values.AltAttackStartup));
             var equip = new EquipInfo
@@ -2206,8 +2190,7 @@ namespace MphRead.Entities
                 if (_altAttackTime > 0)
                 {
                     _soundSource.StopSfx(SfxId.PSYCHOBIT_CHARGE);
-                    _altModel.SetAnimation((int)PsychoBitAltAnim.Idle,
-                        AnimFlags.Paused);
+                    EnsureGuardianAltStablePose();
                     _altAttackCooldown = (ushort)SimTicks.From30HzFrames(
                         Values.AltAttackCooldown);
                     _altAttackTime = 0;

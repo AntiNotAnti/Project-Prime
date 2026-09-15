@@ -328,14 +328,11 @@ namespace MphRead.Entities
                     }
                     break;
                 case Hunter.Guardian:
-                    if (action.Phase == AltActionPhase.Active
-                        && (actionDiscontinuity || _altModel.AnimInfo.Index[0]
-                            != (int)PsychoBitAltAnim.Beam))
-                    {
-                        _altModel.SetAnimation((int)PsychoBitAltAnim.Beam,
-                            AnimFlags.NoLoop);
-                        SeekReplicatedAltActionAnimation(action);
-                    }
+                    // Psycho Bit's authored attack groups are enemy clips,
+                    // not a safe player locomotion/attack mapping. Keep the
+                    // replicated action as effects/audio/gameplay state and
+                    // leave the model on its stable player pose.
+                    EnsureGuardianAltStablePose();
                     break;
                 case Hunter.Noxus:
                     if (action.Phase is AltActionPhase.Charging
@@ -437,8 +434,7 @@ namespace MphRead.Entities
                         AnimFlags.None);
                     break;
                 case Hunter.Guardian:
-                    _altModel.SetAnimation((int)PsychoBitAltAnim.Idle,
-                        AnimFlags.Paused);
+                    EnsureGuardianAltStablePose();
                     break;
                 case Hunter.Noxus:
                     _altModel.SetAnimation((int)NoxusAltAnim.Extend,

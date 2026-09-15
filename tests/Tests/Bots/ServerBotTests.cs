@@ -172,21 +172,184 @@ public sealed class ServerBotTests
     }
 
     [Fact]
-    public void ChargedFireWaitsForScheduledDelayBeforeChargingAgain()
+    public void ChargedFireCooldownIsSampledOnceAndHeldUntilItsDeadline()
     {
         const int delay = 10;
         const int fullCharge = 60;
 
-        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
-            shooting: false, framesUp: 1, delay, chargeLevel: 0, fullCharge));
-        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
-            shooting: false, framesUp: delay, delay, chargeLevel: 0, fullCharge));
-        Assert.False(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
-            shooting: false, framesUp: delay + 1, delay, chargeLevel: 0, fullCharge));
-        Assert.True(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
-            shooting: true, framesUp: 0, delay, chargeLevel: fullCharge, fullCharge));
-        Assert.False(PlayerEntity.PlayerAiData.ShouldPauseChargedFire(
-            shooting: true, framesUp: 0, delay, chargeLevel: fullCharge - 1, fullCharge));
+        Assert.True(PlayerEntity.PlayerAiData.ShouldBeginChargedFireCooldown(
+            active: false, chargeLevel: fullCharge, fullCharge));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldBeginChargedFireCooldown(
+            active: true, chargeLevel: fullCharge, fullCharge));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldBeginChargedFireCooldown(
+            active: false, chargeLevel: fullCharge - 1, fullCharge));
+
+        Assert.True(PlayerEntity.PlayerAiData.ShouldHoldChargedFireCooldown(
+            active: true, shooting: true, framesUp: 0, delay));
+        Assert.True(PlayerEntity.PlayerAiData.ShouldHoldChargedFireCooldown(
+            active: true, shooting: false, framesUp: 1, delay));
+        Assert.True(PlayerEntity.PlayerAiData.ShouldHoldChargedFireCooldown(
+            active: true, shooting: false, framesUp: delay, delay));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldHoldChargedFireCooldown(
+            active: true, shooting: false, framesUp: delay + 1, delay));
+        Assert.False(PlayerEntity.PlayerAiData.ShouldHoldChargedFireCooldown(
+            active: false, shooting: true, framesUp: 0, delay));
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void LiveBotsProduceAuthoritativeWeaponShots()
+    {
+        string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY")
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "AMHE1");
+        using var content = ServerContent.PreserveContext("AMHE1");
+        ServerContent.Open(data, "AMHE1");
+        using var simulation = new ServerSimulation(
+            new MatchRules(MatchMode.Battle, "MP1 SANCTORUS"),
+            botFill: new BotFillPolicy(4, BotDifficulty.Normal));
+        using var transport = (INetTransport)Activator.CreateInstance(
+            typeof(ServerNetwork).Assembly.GetType(
+                "MphRead.Mods.Network.UdpTransport")!, new object[] { 0 })!;
+        var network = new ServerNetwork(transport, simulation.Scene.Match.Rules);
+        var connection = new NetConnection(100,
+            new IPEndPoint(IPAddress.Loopback, 10001), 1, 0);
+        connection.Ready(1);
+        var peer = new ServerPeer(connection, new JoinPacket
+        {
+            Hunter = Hunter.Samus,
+            Name = "Human",
+            Nonce = 100
+        }, 0, 0);
+        ((ServerPeer?[])typeof(ServerNetwork).GetField("_peers",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(network)!)[0]
+            = peer;
+
+        simulation.Step(network, 0);
+        Assert.Equal(3, simulation.Bots.Count);
+        simulation.Scene.Match.Phase = MatchPhase.Playing;
+        network.Phase = MatchPhase.Playing;
+        long shotsBefore = simulation.Combat.ShotsConsidered;
+        int[] shootIntentTicks = new int[4];
+        int[] bipedTicks = new int[4];
+        int[] targetTicks = new int[4];
+        for (uint tick = 1; tick <= SimTicks.Hz * 20; tick++)
+        {
+            simulation.Step(network, tick);
+            for (int slot = 1; slot <= 3; slot++)
+            {
+                PlayerEntity player = simulation.Scene.Players[slot];
+                if (!player.IsAltForm) bipedTicks[slot]++;
+                if (player.Controls.Shoot.IsDown || player.Controls.Shoot.IsPressed)
+                    shootIntentTicks[slot]++;
+                if (player.AiData.Flags2.TestFlag(AiFlags2.TargetPlayer))
+                    targetTicks[slot]++;
+            }
+        }
+
+        string botState = string.Join(" | ", Enumerable.Range(1, 3).Select(slot =>
+        {
+            PlayerEntity player = simulation.Scene.Players[slot];
+            object? target = typeof(PlayerEntity.PlayerAiData).GetField("_targetPlayer",
+                BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(player.AiData);
+            return $"slot={slot} hunter={player.Hunter} hp={player.Health} pos={player.Position} "
+                + $"facing={player.CameraInfo.Facing} fov={player.CameraInfo.Fov} "
+                + $"flags2={player.AiData.Flags2} target={(target as PlayerEntity)?.SlotIndex.ToString() ?? "none"} "
+                + $"targetTicks={targetTicks[slot]} bipedTicks={bipedTicks[slot]} shootTicks={shootIntentTicks[slot]} "
+                + $"weapon={player.CurrentWeapon} charge={player.EquipInfo.ChargeLevel}";
+        }));
+        var events = new CombatEvent[simulation.Combat.Count];
+        int copied = simulation.Combat.CopyPending(events);
+        CombatEvent[] botShots = events.AsSpan(0, copied).ToArray()
+            .Where(value => value.Kind == CombatEventKind.Shot
+                && value.Actor.Slot is >= 1 and <= 3
+                && simulation.Scene.Players[value.Actor.Slot].IsBot)
+            .ToArray();
+        Assert.True(simulation.Combat.ShotsConsidered > shotsBefore
+            && botShots.Length > 0,
+            $"Active bots did not produce an authoritative weapon shot in 20 seconds. {botState}");
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void ChargedBotReleasesOnceThenWaitsForOneFixedCooldown()
+    {
+        string data = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY")
+            ?? Path.Combine(Directory.GetCurrentDirectory(), "AMHE1");
+        using var content = ServerContent.PreserveContext("AMHE1");
+        ServerContent.Open(data, "AMHE1");
+        using var simulation = new ServerSimulation(
+            new MatchRules(MatchMode.Battle, "MP1 SANCTORUS"),
+            botFill: new BotFillPolicy(2, BotDifficulty.Normal));
+        using var transport = (INetTransport)Activator.CreateInstance(
+            typeof(ServerNetwork).Assembly.GetType(
+                "MphRead.Mods.Network.UdpTransport")!, new object[] { 0 })!;
+        var network = new ServerNetwork(transport, simulation.Scene.Match.Rules);
+        var connection = new NetConnection(100,
+            new IPEndPoint(IPAddress.Loopback, 10001), 1, 0);
+        connection.Ready(1);
+        ((ServerPeer?[])typeof(ServerNetwork).GetField("_peers",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(network)!)[0]
+            = new ServerPeer(connection, new JoinPacket
+            {
+                Hunter = Hunter.Samus,
+                Name = "Human",
+                Nonce = 100
+            }, 0, 0);
+
+        simulation.Step(network, 0);
+        Assert.Single(simulation.Bots.Participants.ToArray(), bot => bot != null);
+        simulation.Scene.Match.Phase = MatchPhase.Playing;
+        network.Phase = MatchPhase.Playing;
+        PlayerEntity bot = simulation.Scene.Players[1];
+        PlayerEntity.PlayerAiData ai = bot.AiData;
+        typeof(PlayerEntity.PlayerAiData).GetField("_forceDisable",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(ai, true);
+        typeof(PlayerEntity.PlayerAiData).GetField("_weapon1",
+            BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(ai, 0);
+        MethodInfo driveWeapon = typeof(PlayerEntity.PlayerAiData).GetMethod(
+            "Func2143A40", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        FieldInfo cooldownActive = typeof(PlayerEntity.PlayerAiData).GetField(
+            "_chargedFireCooldownActive",
+            BindingFlags.Instance | BindingFlags.NonPublic)!;
+        FieldInfo shotDelay = typeof(PlayerEntity.PlayerAiData).GetField(
+            "_shotDelay", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        var chargedReleases = new System.Collections.Generic.List<uint>();
+        int? activeCooldownSample = null;
+        int cooldownTransitions = 0;
+
+        ai.Flags4 |= AiFlags4.Bit1;
+        driveWeapon.Invoke(ai, null);
+        for (uint tick = 1; tick <= SimTicks.Hz * 15; tick++)
+        {
+            simulation.Step(network, tick);
+            if (bot.Flags1.TestFlag(PlayerFlags1.ShotCharged))
+                chargedReleases.Add(tick);
+            ai.Flags4 |= AiFlags4.Bit1;
+            driveWeapon.Invoke(ai, null);
+            if ((bool)cooldownActive.GetValue(ai)!)
+            {
+                int currentSample = (int)shotDelay.GetValue(ai)!;
+                if (!activeCooldownSample.HasValue)
+                {
+                    activeCooldownSample = currentSample;
+                    cooldownTransitions++;
+                }
+                Assert.Equal(activeCooldownSample.Value, currentSample);
+            }
+            else
+            {
+                activeCooldownSample = null;
+            }
+        }
+
+        Assert.True(chargedReleases.Count >= 2,
+            $"Expected two charged releases, observed [{string.Join(',', chargedReleases)}].");
+        Assert.True(cooldownTransitions >= 2,
+            $"Expected two sampled cooldown periods, observed {cooldownTransitions}.");
+        int fullCharge = SimTicks.From30HzFrames(bot.EquipInfo.Weapon.FullCharge);
+        Assert.All(chargedReleases.Zip(chargedReleases.Skip(1)), pair =>
+            Assert.True(pair.Second - pair.First > fullCharge,
+                $"Charged releases {pair.First} and {pair.Second} bypassed charge/cooldown."));
     }
 
     [Trait("RequiresGameContent", "true")]

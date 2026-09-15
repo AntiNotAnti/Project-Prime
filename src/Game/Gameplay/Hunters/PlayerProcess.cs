@@ -1748,7 +1748,7 @@ namespace MphRead.Entities
             }
             else if (Hunter == Hunter.Guardian)
             {
-                _altModel.SetAnimation((int)PsychoBitAltAnim.Idle, AnimFlags.Paused);
+                EnsureGuardianAltStablePose();
                 // Psycho Bit's hover sound is presentation-only. It is safe
                 // on headless scenes because SoundSource owns the no-op path.
                 _soundSource.PlaySfx(SfxId.PSYCHOBIT_FLY, loop: true);

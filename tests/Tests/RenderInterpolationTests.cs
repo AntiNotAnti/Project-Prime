@@ -540,6 +540,28 @@ public class RenderInterpolationTests
     }
 
     [Fact]
+    public void GuardianFirstPersonUsesGunlessFiniteAuthoritativeEffectAnchor()
+    {
+        ScenePresentation.ResolveGuardianFirstPersonEffectAnchor(
+            renderCameraPosition: new Vector3(11, 2, -4),
+            simulationCameraPosition: new Vector3(10, 2, -4),
+            shotOrigin: new Vector3(10, 2, -5),
+            shotDirection: new Vector3(0, 0, -2),
+            out Vector3 right, out Vector3 aim, out Vector3 position);
+
+        Assert.True(VectorMath.IsFinite(right));
+        Assert.True(VectorMath.IsFinite(aim));
+        Assert.True(VectorMath.IsFinite(position));
+        Assert.Equal(1, right.Length, precision: 5);
+        Assert.Equal(1, aim.Length, precision: 5);
+        Assert.Equal(new Vector3(11, 2, -5), position);
+        Assert.False(PlayerPresentation.ShouldSubmitFirstPersonGun(
+            Hunter.Guardian, hideViewmodel: false));
+        Assert.True(PlayerPresentation.ShouldSubmitFirstPersonGun(
+            Hunter.Samus, hideViewmodel: false));
+    }
+
+    [Fact]
     public void ClockAlphaIsBoundedAndResetStallDebtHaveBarriers()
     {
         var timing = new FrameTiming();

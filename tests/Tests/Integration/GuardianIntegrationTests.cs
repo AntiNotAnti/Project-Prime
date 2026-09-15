@@ -101,8 +101,11 @@ public sealed class GuardianIntegrationTests
             Assert.Equal(new AltActionState(AltActionPhase.Active, 0),
                 replica.PresentedAltAction);
             Assert.False(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
-            Assert.Equal((int)PsychoBitAltAnim.Beam,
+            Assert.Equal((int)PsychoBitAltAnim.Stable,
                 replica._altModel.AnimInfo.Index[0]);
+            Assert.Equal(0, replica._altModel.AnimInfo.Frame[0]);
+            Assert.True(replica._altModel.AnimInfo.Flags[0]
+                .TestFlag(AnimFlags.Paused));
         }
         finally
         {
@@ -131,6 +134,7 @@ public sealed class GuardianIntegrationTests
             scene.Players.ActiveCount = 2;
             scene.Match.Phase = MatchPhase.Playing;
             guardian.ModForceForm(altForm: true);
+            int initialTargetHealth = target.Health;
 
             Vector3 facing = VectorMath.NormalizeHorizontalOr(
                 guardian.FacingVector, -Vector3.UnitZ);
@@ -138,21 +142,31 @@ public sealed class GuardianIntegrationTests
                 -facing, guardian.NodeRef);
 
             int firstBeamTick = -1;
-            BeamProjectileEntity? fired = null;
+            BeamType firedBeam = BeamType.None;
+            BeamFlags firedFlags = BeamFlags.None;
+            CombatShot firedCombatShot = default;
+            int firedCooldown = 0;
             const int maxTicks = 360;
             for (int tick = 0; tick < maxTicks; tick++)
             {
                 scene.StepHeadlessFrame(advanceMatch: false);
-                foreach (BeamProjectileEntity beam in guardian.EquipInfo.Beams)
+                if (firedBeam == BeamType.None)
                 {
-                    if (beam.Lifespan > 0 && beam.Flags.TestFlag(BeamFlags.FromAlt))
+                    foreach (BeamProjectileEntity beam in guardian.EquipInfo.Beams)
                     {
-                        firstBeamTick = tick;
-                        fired = beam;
-                        break;
+                        if (beam.Lifespan > 0
+                            && beam.Flags.TestFlag(BeamFlags.FromAlt))
+                        {
+                            firstBeamTick = tick;
+                            firedBeam = beam.Beam;
+                            firedFlags = beam.Flags;
+                            firedCombatShot = beam.CombatShot;
+                            firedCooldown = guardian._altAttackCooldown;
+                            break;
+                        }
                     }
                 }
-                if (fired != null)
+                if (target.Health < initialTargetHealth)
                 {
                     break;
                 }
@@ -162,18 +176,20 @@ public sealed class GuardianIntegrationTests
                 $"guardianAlt={guardian.IsAltForm} health={guardian.Health} "
                 + $"targetHealth={target.Health} aiFlags={guardian.AiData.Flags2} "
                 + $"altAttackDown={guardian.Controls.AltAttack.IsDown}");
-            Assert.NotNull(fired);
-            Assert.Equal(BeamType.PowerBeam, fired!.Beam);
-            Assert.True(fired.Flags.TestFlag(BeamFlags.FromAlt));
-            Assert.True(fired.CombatShot.SourceAltForm,
+            Assert.Equal(BeamType.PowerBeam, firedBeam);
+            Assert.True(firedFlags.TestFlag(BeamFlags.FromAlt));
+            Assert.True(firedCombatShot.SourceAltForm,
                 $"tick={firstBeamTick} guardianAlt={guardian.IsAltForm} "
-                + $"guardianFlags={guardian.Flags1} shotActor={fired.CombatShot.Actor}");
-            Assert.True(fired.CombatShot.Affinity);
-            Assert.Equal(guardian.ServerCombatIdentity, fired.CombatShot.Actor);
+                + $"guardianFlags={guardian.Flags1} shotActor={firedCombatShot.Actor}");
+            Assert.True(firedCombatShot.Affinity);
+            Assert.Equal(guardian.ServerCombatIdentity, firedCombatShot.Actor);
             Assert.InRange(firstBeamTick,
                 SimTicks.From30HzFrames(guardian.Values.AltAttackStartup),
                 maxTicks - 1);
-            Assert.True(guardian._altAttackCooldown > 0);
+            Assert.True(firedCooldown > 0);
+            Assert.True(target.Health < initialTargetHealth,
+                $"target health did not decrease: initial={initialTargetHealth} "
+                + $"current={target.Health} tick={firstBeamTick}");
         }
         finally
         {

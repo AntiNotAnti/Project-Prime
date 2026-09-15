@@ -38,6 +38,34 @@ public sealed class ReticlePositionTests
             w, projectedConvergence), reticle);
     }
 
+    [Fact]
+    public void GuardianBipedShotRayAndReticleUseTheAuthoredMuzzlePath()
+    {
+        Vector3 muzzlePosition = new(-0.7f, -0.4f, -2);
+        Vector3 authoritativeAimPosition = new(0.75f, 0.25f, -10);
+        Vector3 shotOrigin = PlayerEntity.ResolveActiveShotOrigin(
+            Hunter.Guardian, isAltForm: false, muzzlePosition,
+            collisionSphere: new Vector3(90, 90, 90), aimBasis: Vector3.UnitX,
+            muzzleOffset: 3);
+        Vector3 shotDirection = PlayerEntity.ResolveActiveShotDirection(
+            authoritativeAimPosition, shotOrigin, Vector3.UnitZ);
+        Vector3 shotConvergence = shotOrigin
+            + shotDirection * (authoritativeAimPosition - shotOrigin).Length;
+
+        Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
+            MathHelper.DegreesToRadians(70), 16 / 9f, 0.1f, 1000);
+        float w = Matrix.ProjectPosition(shotConvergence, Matrix4.Identity,
+            projection, out Vector2 projectedConvergence);
+        Vector2 reticle = PlayerPresentation.ResolveAuthoritativeReticlePosition(
+            new Vector2(0.5f), authoritativeAimPosition, Matrix4.Identity,
+            projection);
+
+        Assert.Equal(muzzlePosition, shotOrigin);
+        Assert.True((shotConvergence - authoritativeAimPosition).Length < 0.00001f);
+        Assert.Equal(PlayerPresentation.NormalizeReticlePosition(
+            w, projectedConvergence), reticle);
+    }
+
     [Theory]
     [InlineData(0, 0.1, 0.2)]
     [InlineData(-1, 0.1, 0.2)]

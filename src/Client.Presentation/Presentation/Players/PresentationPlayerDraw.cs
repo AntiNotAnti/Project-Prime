@@ -16,6 +16,10 @@ namespace MphRead.Entities
             => PlayableHunterCatalog.ResolveAltRecolor(_player.Hunter,
                 _player.Recolor);
 
+        internal static bool ShouldSubmitFirstPersonGun(Hunter hunter,
+            bool hideViewmodel)
+            => !hideViewmodel && hunter != Hunter.Guardian;
+
         public void Draw()
         {
             BeginArmorSubmission();
@@ -258,7 +262,8 @@ namespace MphRead.Entities
                     if (_player._health > 0)
                         CaptureHiddenAliveDeathPose();
 
-                    if (!_player._field6D0 && _player.Hunter != Hunter.Guardian)
+                    if (ShouldSubmitFirstPersonGun(_player.Hunter,
+                        _player._field6D0))
                     {
                         Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
                         Matrix4 renderedGunRoot = transform;
@@ -314,6 +319,38 @@ namespace MphRead.Entities
                             transform.Row3.Xyz = drawPos;
                             UpdateTransforms(_player._gunSmokeModel, transform, recolor: 0);
                             GetDrawItems(_player._gunSmokeModel, _player._gunSmokeModel.Model.Nodes[0], _player._smokeAlpha, recolor: 0);
+                        }
+                    }
+                    else if (!_player._field6D0
+                        && _player.Hunter == Hunter.Guardian
+                        && (_player._chargeEffect != null
+                            || _player._muzzleEffect != null))
+                    {
+                        // Guardian is intentionally gunless in first person.
+                        // Keep charge/muzzle feedback visible by resolving a
+                        // camera-local anchor from the authoritative shot
+                        // geometry, never from a skeletal viewmodel node.
+                        ScenePresentation.ResolveGuardianFirstPersonEffectAnchor(
+                            Presentation.CameraPosition,
+                            _player.CameraInfo.Position,
+                            _player.ModActiveShotOrigin,
+                            _player.ModActiveShotDirectionTowards(
+                                _player._aimPosition),
+                            out Vector3 effectRight,
+                            out Vector3 effectAim,
+                            out Vector3 effectPosition);
+                        if (_player._chargeEffect != null)
+                        {
+                            Presentation.AttachPlayerEffectToResolvedPose(
+                                _player._chargeEffect, effectRight,
+                                effectAim, effectPosition);
+                        }
+
+                        if (_player._muzzleEffect != null)
+                        {
+                            Presentation.AttachPlayerEffectToResolvedPose(
+                                _player._muzzleEffect, effectRight,
+                                effectAim, effectPosition);
                         }
                     }
                 }

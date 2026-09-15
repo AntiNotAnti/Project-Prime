@@ -58,6 +58,50 @@ namespace MphRead.Entities
         internal Vector3 ModGunVector => _gunVec1;
 
         /// <summary>
+        /// Resolve the gameplay origin of the currently active shot. Biped
+        /// weapons intentionally retain the exact authored muzzle field;
+        /// Psycho Bit has no player weapon node, so its bounded v1 origin is
+        /// derived from the authoritative collision sphere and aim basis.
+        /// Presentation model nodes must never participate in this rule.
+        /// </summary>
+        internal Vector3 ModActiveShotOrigin
+            => ResolveActiveShotOrigin(Hunter, IsAltForm, _muzzlePos,
+                _volume.SpherePosition, _gunVec1,
+                Fixed.ToFloat(Values.MuzzleOffset));
+
+        internal Vector3 ModActiveShotDirectionTowards(Vector3 target)
+            => ResolveActiveShotDirection(target, ModActiveShotOrigin,
+                _gunVec1);
+
+        /// <summary>
+        /// Pure form of <see cref="ModActiveShotOrigin"/> for deterministic
+        /// tests and non-presentational aim helpers.
+        /// </summary>
+        internal static Vector3 ResolveActiveShotOrigin(Hunter hunter,
+            bool isAltForm, Vector3 bipedMuzzle, Vector3 collisionSphere,
+            Vector3 aimBasis, float muzzleOffset)
+        {
+            if (hunter != Hunter.Guardian || !isAltForm)
+            {
+                return bipedMuzzle;
+            }
+
+            Vector3 center = VectorMath.IsFinite(collisionSphere)
+                ? collisionSphere
+                : VectorMath.IsFinite(bipedMuzzle)
+                    ? bipedMuzzle : Vector3.Zero;
+            Vector3 basis = VectorMath.NormalizeOr(aimBasis,
+                -Vector3.UnitZ);
+            float offset = float.IsFinite(muzzleOffset) ? muzzleOffset : 0;
+            Vector3 origin = center + basis * offset;
+            return VectorMath.IsFinite(origin) ? origin : center;
+        }
+
+        internal static Vector3 ResolveActiveShotDirection(Vector3 target,
+            Vector3 shotOrigin, Vector3 aimBasis)
+            => VectorMath.NormalizeOr(target - shotOrigin, aimBasis);
+
+        /// <summary>
         /// Rolling forms use the existing Aim field for their stable control
         /// heading. They cannot fire a biped weapon, and sending the retained
         /// heading prevents the authority from rebuilding WASD axes from the
@@ -527,13 +571,14 @@ namespace MphRead.Entities
         {
             Vector3 eye = CameraInfo.Position;
             float aimDistance = Fixed.ToFloat(Values.AimDistance);
-            Vector3 fromMuzzle = target - _muzzlePos;
+            Vector3 shotOrigin = ModActiveShotOrigin;
+            Vector3 fromMuzzle = target - shotOrigin;
             if (fromMuzzle.LengthSquared < 0.0001f || aimDistance <= 0)
             {
                 return target - eye;
             }
             Vector3 direction = fromMuzzle.Normalized();
-            Vector3 offset = _muzzlePos - eye;
+            Vector3 offset = shotOrigin - eye;
             float b = Vector3.Dot(offset, direction);
             float c = Vector3.Dot(offset, offset) - aimDistance * aimDistance;
             float discriminant = b * b - c;
@@ -545,7 +590,7 @@ namespace MphRead.Entities
                 return target - eye;
             }
             float t = -b + MathF.Sqrt(discriminant);
-            return _muzzlePos + direction * t - eye;
+            return shotOrigin + direction * t - eye;
         }
 
         /// <summary>
@@ -556,7 +601,7 @@ namespace MphRead.Entities
         /// unchanged.
         /// </summary>
         internal Vector3 ModNetworkAimTowards(Vector3 target)
-            => ModAimVectorTowards(target);
+            => VectorMath.NormalizeOr(ModAimVectorTowards(target), _gunVec1);
 
         /// <summary>Where a shot aimed at this player should be pointed.</summary>
         internal Vector3 ModAimTarget => Position + PlayerVolumes[(int)Hunter, 0].SpherePosition;

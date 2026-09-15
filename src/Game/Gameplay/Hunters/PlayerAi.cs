@@ -92,6 +92,9 @@ namespace MphRead.Entities
             private int _weapon2 = 0;
             private int _findWeaponIndex = 0;
             private int _shotDelay = 0;
+            private bool _chargedFireCooldownActive = false;
+            private BeamType _chargedFireCooldownWeapon = BeamType.None;
+            private bool _combatPolicyDispatchedThisTick = false;
 
             public void Reset()
             {
@@ -143,6 +146,9 @@ namespace MphRead.Entities
                 _weapon1 = 0;
                 _weapon2 = 0;
                 _shotDelay = 0;
+                _chargedFireCooldownActive = false;
+                _chargedFireCooldownWeapon = BeamType.None;
+                _combatPolicyDispatchedThisTick = false;
                 for (int i = 0; i < _executionTree.Length; i++)
                 {
                     if (_executionTree[i] == null)
@@ -454,6 +460,9 @@ namespace MphRead.Entities
                 _buttons.R.Clear();
                 _buttons.Start.Clear();
                 _buttons.Select.Clear();
+                _shotDelay = 0;
+                _chargedFireCooldownActive = false;
+                _chargedFireCooldownWeapon = BeamType.None;
                 _touchAimX = 0;
                 _touchAimY = 0;
                 _hasTouch = false;
@@ -723,6 +732,11 @@ namespace MphRead.Entities
                 {
                     return;
                 }
+                if (_player.Health == 0 || _player.IsAltForm
+                    || _player.IsMorphing || _player.IsUnmorphing)
+                {
+                    ClearChargedFireCooldown();
+                }
                 if (Flags2.TestFlag(AiFlags2.TargetItem) && _itemC8?.DespawnTimer == 0)
                 {
                     Flags2 &= ~AiFlags2.TargetItem;
@@ -731,9 +745,11 @@ namespace MphRead.Entities
                 Flags2 &= ~AiFlags2.Bit19;
                 Flags2 &= ~AiFlags2.Bit20;
                 Flags4 &= ~AiFlags4.Bit2;
+                _combatPolicyDispatchedThisTick = false;
                 Func2134594();
                 Func2148ABC();
                 Execute(_executionTree[0]);
+                ApplyAuthoritativeCombatIntent();
                 ApplyGuardianAttackIntent();
                 Array.Fill(_slotHits, 0);
                 Array.Fill(_slotDamage, 0);
@@ -742,6 +758,31 @@ namespace MphRead.Entities
                 Flags2 &= ~AiFlags2.Bit16;
                 Flags2 &= ~AiFlags2.Bit17;
                 Flags2 &= ~AiFlags2.Bit21;
+            }
+
+            /// <summary>
+            /// Headless bots still use the retail tree for target selection,
+            /// movement, weapon choice, and aim. Some valid tree paths do not
+            /// dispatch their selected player target to the biped weapon
+            /// policy, which leaves an authoritative bot tracking an opponent
+            /// indefinitely without ever producing fire input. Complete that
+            /// handoff only when the tree did not dispatch any combat policy
+            /// for this tick; released R is itself a valid weapon decision.
+            /// </summary>
+            private void ApplyAuthoritativeCombatIntent()
+            {
+                if (!_scene.IsHeadless || _player.Health == 0
+                    || _player.Hunter == Hunter.Guardian
+                    || _player.IsAltForm || _player.IsMorphing
+                    || _player.IsUnmorphing || _combatPolicyDispatchedThisTick
+                    || !Flags2.TestFlag(AiFlags2.TargetPlayer)
+                    || _targetPlayer == null || _targetPlayer.Health == 0
+                    || !IsPlayerVisible(_player, _targetPlayer))
+                {
+                    return;
+                }
+
+                Func2143658();
             }
 
             /// <summary>
@@ -774,6 +815,19 @@ namespace MphRead.Entities
                     return;
                 }
 
+                // A few retail personality contexts can emit a generic L
+                // button for alternate-form actions. Guardian has no retail
+                // player action behind those contexts; clear that request so
+                // this adapter remains the sole owner of Psycho Bit charge.
+                _buttons.L.IsDown = false;
+                // The retail tree may leave a large generic aim delta in its
+                // per-tick button state even when its target branch was not
+                // valid for this frame. Guardian's ranged adapter owns both
+                // axes in alt form, so stale tree aim must not be consumed by
+                // the next ProcessInput call.
+                _buttonAimX = 0;
+                _buttonAimY = 0;
+
                 if (!_player._abilities.TestFlag(AbilityFlags.GuardianAltAttack)
                     || _player._altAttackCooldown > 0)
                 {
@@ -784,6 +838,7 @@ namespace MphRead.Entities
                     _player.Values.AltAttackStartup);
                 if (_player._altAttackTime > 0)
                 {
+                    ApplyGuardianAimToTarget();
                     // Once charge has begun, keep the intent held until the
                     // authoritative startup boundary. The next frame then
                     // observes release and spawns the regular Power Beam.
@@ -801,11 +856,11 @@ namespace MphRead.Entities
                     return;
                 }
 
-                // Reuse the tree's established alignment test and aim delta;
-                // this may queue a normal one-tick aim correction, but never
-                // bypasses the input/camera authority.
-                Func2145C14(_targetPlayer.Position);
-                if (!Flags2.TestFlag(AiFlags2.Bit0)
+                // Reuse the tree's established target validity and queue a
+                // bounded, deterministic convergence step. The subsequent
+                // ProcessInput call applies it through normal bot controls;
+                // this adapter never writes gameplay aim directly.
+                if (!ApplyGuardianAimToTarget()
                     || _buttons.L.FramesUp <= _field102E)
                 {
                     return;
@@ -814,6 +869,35 @@ namespace MphRead.Entities
                 _buttons.L.IsDown = true;
                 _field102E = _field102C
                     + _scene.Random.GetRandomInt2(_field102C / 2);
+            }
+
+            private bool ApplyGuardianAimToTarget()
+            {
+                if (!Flags2.TestFlag(AiFlags2.TargetPlayer)
+                    || _targetPlayer == null || _targetPlayer.Health == 0
+                    || !IsPlayerVisible(_player, _targetPlayer))
+                {
+                    return false;
+                }
+
+                Vector3 targetPosition = _targetPlayer.ModAssistAimTarget;
+                // Keep the retail horizontal alignment state updated for
+                // diagnostics and personality decisions, but use the shared
+                // convergence helper so Guardian's collision-derived origin
+                // participates in both pitch and yaw.
+                Func2145C14(targetPosition);
+                (float turn, float pitch) = _player.ModAimDeltaTowards(
+                    targetPosition);
+                if (!float.IsFinite(turn) || !float.IsFinite(pitch))
+                {
+                    return false;
+                }
+
+                float limit = _aimValues[DifficultyIndex];
+                _buttonAimX = Math.Clamp(turn, -limit, limit);
+                _buttonAimY = Math.Clamp(pitch, -limit, limit);
+                return MathF.Abs(turn) <= limit
+                    && MathF.Abs(pitch) <= limit;
             }
 
             // todo: member name
@@ -1431,13 +1515,13 @@ namespace MphRead.Entities
                 targetPos = targetPos.AddY(_targetPlayer.IsAltForm
                     ? Fixed.ToFloat(_targetPlayer.Values.AltColYPos)
                     : 0.5f);
-                return targetPos - _player._muzzlePos;
+                return targetPos - _player.ModActiveShotOrigin;
             }
 
             // todo: member name
             private Vector3 Func213A3C0()
             {
-                return _player._aimPosition - _player._muzzlePos;
+                return _player._aimPosition - _player.ModActiveShotOrigin;
             }
 
             // todo: member name
@@ -3901,6 +3985,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func2143578()
             {
+                _combatPolicyDispatchedThisTick = true;
                 // the game checks flags2 bit2 first, but we only call this helper inside that condition
                 Func21449DC();
                 _buttonAimX = Math.Clamp(_buttonAimX, -0.75f, 0.75f);
@@ -6635,6 +6720,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func21436D8()
             {
+                _combatPolicyDispatchedThisTick = true;
                 if (Flags2.TestFlag(AiFlags2.TargetPlayer))
                 {
                     Debug.Assert(_targetPlayer != null);
@@ -6729,7 +6815,8 @@ namespace MphRead.Entities
                         }
                         else
                         {
-                            Vector3 muzzleTarget = targetPos - _player._muzzlePos;
+                            Vector3 muzzleTarget = targetPos
+                                - _player.ModActiveShotOrigin;
                             float muzzleDist = muzzleTarget.Length;
                             vec *= muzzleDist;
                             // the game checks the third speed decay value, but the result is the same as the second
@@ -6828,7 +6915,8 @@ namespace MphRead.Entities
             private void Func2145738(Vector3 position)
             {
                 // update aim
-                Vector3 toTarget = _player._aimPosition - _player._muzzlePos;
+                Vector3 toTarget = _player._aimPosition
+                    - _player.ModActiveShotOrigin;
                 float toTargetX = toTarget.X;
                 float toTargetY = toTarget.Y;
                 float toTargetZ = toTarget.Z;
@@ -6836,7 +6924,7 @@ namespace MphRead.Entities
                 float toTargetYNrm = toTarget.Y;
                 toTarget = toTarget.WithY(0);
                 toTarget = toTarget != Vector3.Zero ? toTarget.Normalized() : Vector3.UnitX;
-                Vector3 toPos = position - _player._muzzlePos;
+                Vector3 toPos = position - _player.ModActiveShotOrigin;
                 float distToPosH = toPos.WithY(0).Length;
                 float posY = toPos.Y;
                 toPos = toPos.Normalized();
@@ -6930,13 +7018,46 @@ namespace MphRead.Entities
                 return Flags2.TestFlag(AiFlags2.Bit17);
             }
 
-            internal static bool ShouldPauseChargedFire(bool shooting, int framesUp,
-                int shotDelay, int chargeLevel, int fullCharge)
-                => (!shooting && framesUp <= shotDelay) || chargeLevel >= fullCharge;
+            internal static bool ShouldBeginChargedFireCooldown(bool active,
+                int chargeLevel, int fullCharge)
+                => !active && chargeLevel >= fullCharge;
+
+            internal static bool ShouldHoldChargedFireCooldown(bool active,
+                bool shooting, int framesUp, int shotDelay)
+                => active && (shooting || framesUp <= shotDelay);
+
+            private void ClearChargedFireCooldown()
+            {
+                _chargedFireCooldownActive = false;
+                _chargedFireCooldownWeapon = BeamType.None;
+            }
+
+            private bool HoldChargedFireCooldown()
+            {
+                if (!_chargedFireCooldownActive)
+                {
+                    return false;
+                }
+                if (_player.CurrentWeapon != _chargedFireCooldownWeapon)
+                {
+                    ClearChargedFireCooldown();
+                    return false;
+                }
+                bool hold = ShouldHoldChargedFireCooldown(
+                    active: true,
+                    _player.Flags2.TestFlag(PlayerFlags2.Shooting),
+                    _buttons.R.FramesUp, _shotDelay);
+                if (!hold)
+                {
+                    ClearChargedFireCooldown();
+                }
+                return hold;
+            }
 
             // todo: member name
             private void Func2143A40()
             {
+                _combatPolicyDispatchedThisTick = true;
                 EquipInfo equip = _player.EquipInfo;
                 WeaponInfo weapon = _player.EquipWeapon;
                 int shotDelay = _shotDelayFrames[DifficultyIndex];
@@ -6956,6 +7077,25 @@ namespace MphRead.Entities
                     _shotDelay = SimTicks.From30HzFrames(weapon.ShotCooldown) + (int)_scene.Random.GetRandomInt2(shotDelay);
                 }
 
+                void BeginChargedFireCooldown()
+                {
+                    if (_chargedFireCooldownActive)
+                    {
+                        return;
+                    }
+                    SetRandomDelay();
+                    _chargedFireCooldownActive = true;
+                    _chargedFireCooldownWeapon = _player.CurrentWeapon;
+                }
+
+                // A charged release owns its cooldown. The navigation/precharge
+                // path must not press fire again while the release edge is
+                // waiting to be consumed or its one sampled delay is running.
+                if (HoldChargedFireCooldown())
+                {
+                    return;
+                }
+
                 if (beam == BeamType.PowerBeam)
                 {
                     if (_player.CurrentWeapon != beam)
@@ -6964,12 +7104,11 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (ShouldPauseChargedFire(
-                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
-                            _shotDelay, equip.ChargeLevel,
+                        if (ShouldBeginChargedFireCooldown(_chargedFireCooldownActive,
+                            equip.ChargeLevel,
                             SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
-                            SetRandomDelay();
+                            BeginChargedFireCooldown();
                         }
                         else
                         {
@@ -6998,12 +7137,11 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (ShouldPauseChargedFire(
-                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
-                            _shotDelay, equip.ChargeLevel,
+                        if (ShouldBeginChargedFireCooldown(_chargedFireCooldownActive,
+                            equip.ChargeLevel,
                             SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
-                            SetRandomDelay();
+                            BeginChargedFireCooldown();
                         }
                         else
                         {
@@ -7024,12 +7162,11 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (ShouldPauseChargedFire(
-                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
-                            _shotDelay, equip.ChargeLevel,
+                        if (ShouldBeginChargedFireCooldown(_chargedFireCooldownActive,
+                            equip.ChargeLevel,
                             SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
-                            SetRandomDelay();
+                            BeginChargedFireCooldown();
                         }
                         else
                         {
@@ -7072,9 +7209,8 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (ShouldPauseChargedFire(
-                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
-                            _shotDelay, equip.ChargeLevel,
+                        if (ShouldBeginChargedFireCooldown(_chargedFireCooldownActive,
+                            equip.ChargeLevel,
                             SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
                             if (Flags2.TestFlag(AiFlags2.TargetPlayer))
@@ -7085,7 +7221,7 @@ namespace MphRead.Entities
                                 if (distSqr
                                     > _judicatorChargeDistanceSquared[DifficultyIndex])
                                 {
-                                    SetRandomDelay();
+                                    BeginChargedFireCooldown();
                                 }
                                 else
                                 {
@@ -7094,7 +7230,7 @@ namespace MphRead.Entities
                             }
                             else
                             {
-                                SetRandomDelay();
+                                BeginChargedFireCooldown();
                             }
                         }
                         else
@@ -7116,12 +7252,11 @@ namespace MphRead.Entities
                     }
                     else if (Flags4.TestFlag(AiFlags4.Bit1) && CanChargeWeapon())
                     {
-                        if (ShouldPauseChargedFire(
-                            _player.Flags2.TestFlag(PlayerFlags2.Shooting), _buttons.R.FramesUp,
-                            _shotDelay, equip.ChargeLevel,
+                        if (ShouldBeginChargedFireCooldown(_chargedFireCooldownActive,
+                            equip.ChargeLevel,
                             SimTicks.From30HzFrames(weapon.FullCharge)))
                         {
-                            SetRandomDelay();
+                            BeginChargedFireCooldown();
                         }
                         else
                         {
@@ -7194,8 +7329,13 @@ namespace MphRead.Entities
             // todo: member name
             private void Func214380C()
             {
+                _combatPolicyDispatchedThisTick = true;
                 // switch to _weapon1 if possible. if not possible or it's already equipped,
                 // hold the fire button charge whatever we have equipped (provided it can charge).
+                if (HoldChargedFireCooldown())
+                {
+                    return;
+                }
                 EquipInfo equip = _player.EquipInfo;
                 WeaponInfo weapon = _player.EquipWeapon;
                 if (!weapon.Flags.TestFlag(WeaponFlags.CanCharge))
@@ -7238,6 +7378,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func2143658()
             {
+                _combatPolicyDispatchedThisTick = true;
                 if (Flags2.TestFlag(AiFlags2.TargetPlayer))
                 {
                     Func2144AE4();
@@ -7269,6 +7410,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func21433E4()
             {
+                _combatPolicyDispatchedThisTick = true;
                 if (Flags2.TestFlag(AiFlags2.TargetPlayer))
                 {
                     Func2144B88();
@@ -7283,6 +7425,7 @@ namespace MphRead.Entities
             // todo: member name
             private void Func2143470()
             {
+                _combatPolicyDispatchedThisTick = true;
                 if (Flags2.TestFlag(AiFlags2.TargetHalfturret))
                 {
                     Debug.Assert(_targetHalfturret != null);

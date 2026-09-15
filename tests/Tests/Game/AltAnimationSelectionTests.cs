@@ -15,8 +15,6 @@ public sealed class AltAnimationSelectionTests
     [InlineData(Hunter.Weavel, -1f, 0f, 2)]
     [InlineData(Hunter.Weavel, 0f, 1f, 3)]
     [InlineData(Hunter.Weavel, 0f, -1f, 6)]
-    [InlineData(Hunter.Guardian, 1f, 0f, (int)PsychoBitAltAnim.Fly)]
-    [InlineData(Hunter.Guardian, 0f, -1f, (int)PsychoBitAltAnim.Fly)]
     public void StrafeAltMovementSelectsHunterSpecificAnimation(
         Hunter hunter, float lateralSign, float forwardSign, int expected)
     {
@@ -50,10 +48,7 @@ public sealed class AltAnimationSelectionTests
         Assert.Equal(5, (int)WeavelAltAnim.Turn);
         Assert.Equal(6, (int)WeavelAltAnim.MoveBackward);
 
-        Assert.Equal(0, (int)PsychoBitAltAnim.Idle);
-        Assert.Equal(1, (int)PsychoBitAltAnim.Charge);
-        Assert.Equal(2, (int)PsychoBitAltAnim.Beam);
-        Assert.Equal(3, (int)PsychoBitAltAnim.Fly);
+        Assert.Equal(0, (int)PsychoBitAltAnim.Stable);
     }
 
     [Theory]
@@ -97,7 +92,6 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace)]
     [InlineData(Hunter.Weavel)]
-    [InlineData(Hunter.Guardian)]
     public void AltLocomotionRequiresPhysicalGroundContact(Hunter hunter)
     {
         int requested = PlayerEntity.SelectAltMovementAnimation(
@@ -122,7 +116,6 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace)]
     [InlineData(Hunter.Weavel)]
-    [InlineData(Hunter.Guardian)]
     public void WallBlockedAltRequestFallsBackToIdle(Hunter hunter)
     {
         int requested = PlayerEntity.SelectAltMovementAnimation(
@@ -140,7 +133,6 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace, 1)]
     [InlineData(Hunter.Weavel, 1)]
-    [InlineData(Hunter.Guardian, (int)PsychoBitAltAnim.Beam)]
     public void ActiveEndedAttackRetainsItsEndPose(Hunter hunter,
         int expectedAttack)
     {
@@ -154,6 +146,28 @@ public sealed class AltAnimationSelectionTests
 
         Assert.Equal(expectedAttack, result.Animation);
         Assert.True(result.Flags.TestFlag(AnimFlags.Ended));
+    }
+
+    [Theory]
+    [InlineData(1f, 0f)]
+    [InlineData(-1f, 0f)]
+    [InlineData(0f, 1f)]
+    [InlineData(0f, -1f)]
+    public void GuardianMovementLeavesPsychoBitOnStablePose(float lateralSign,
+        float forwardSign)
+    {
+        Assert.Equal(-1, PlayerEntity.SelectAltMovementAnimation(
+            Hunter.Guardian, lateralSign, forwardSign));
+
+        var result = PlayerEntity.ResolveAltAnimation(
+            Hunter.Guardian, PlayerFlags1.Standing, altAttackActive: false,
+            currentAnimation: (int)PsychoBitAltAnim.Stable,
+            currentFlags: AnimFlags.Paused,
+            requestedAnimation: -1, requestedFlags: AnimFlags.None,
+            displacement: new Vector3(lateralSign, 0, -forwardSign));
+
+        Assert.Equal((int)PsychoBitAltAnim.Stable, result.Animation);
+        Assert.Equal(AnimFlags.Paused, result.Flags);
     }
 
     [Theory]

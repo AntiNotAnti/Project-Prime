@@ -165,17 +165,15 @@ namespace MphRead.Entities
     }
 
     /// <summary>
-    /// Project Prime's conservative Psycho Bit adaptation. The source model
-    /// exposes four animation groups (30/30/20/40 frames), but retail enemy
-    /// semantics are unavailable; these names describe the v1 presentation
-    /// mapping only.
+    /// Project Prime's conservative Psycho Bit adaptation. Retail enemy
+    /// semantics for the remaining authored groups are unavailable, so the
+    /// player form deliberately stays on its authored stable pose. Attack
+    /// timing and effects are authoritative gameplay state, not skeletal
+    /// animation state.
     /// </summary>
     public enum PsychoBitAltAnim : byte
     {
-        Idle = 0,
-        Charge = 1,
-        Beam = 2,
-        Fly = 3
+        Stable = 0
     }
 
     public partial class PlayerEntity : DynamicLightEntityBase
@@ -481,6 +479,28 @@ namespace MphRead.Entities
         public EntityBase? ShockCoilTarget => _shockCoilTarget;
 
         public bool IsAltForm => Flags1.TestFlag(PlayerFlags1.AltForm);
+        /// <summary>
+        /// Keep the Project Prime Psycho Bit adaptation on its one authored
+        /// player-safe pose. The guard avoids restarting the paused clip on
+        /// every snapshot or simulation tick, which would otherwise create
+        /// same-tick presentation churn while the form is moving or firing.
+        /// </summary>
+        private void EnsureGuardianAltStablePose()
+        {
+            if (_altModel == null)
+            {
+                return;
+            }
+            AnimationInfo info = _altModel.AnimInfo;
+            if (info.Index[0] != (int)PsychoBitAltAnim.Stable
+                || info.Frame[0] != 0
+                || !info.Flags[0].TestFlag(AnimFlags.Paused))
+            {
+                _altModel.SetAnimation((int)PsychoBitAltAnim.Stable,
+                    AnimFlags.Paused);
+            }
+        }
+
         /// <summary>
         /// Whether this player's alternate form uses the authored strafe-style
         /// movement controls. Guardian's Project Prime form intentionally keeps
