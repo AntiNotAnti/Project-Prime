@@ -14,6 +14,8 @@ README = Path("README.md")
 HANDOFF_DEPLOY = Path("deploy-server.sh")
 HANDOFF_TESTS = Path("tools/tests/test_deploy_server.py")
 HANDOFF_SERVICE = Path("tools/systemd/projectprime-stack.service")
+REFERENCE_DOC = Path("docs/reference/METROID_PRIME_HUNTERS_RECOMP_REFERENCE.md")
+REFERENCE_REPOSITORY = "mstan/Metroid" + "Prime" + "HuntersRecomp"
 FRUIT = "fru" + "ity"
 PRIME = "pri" + "me"
 HUNTERS = "hun" + "ters"
@@ -294,6 +296,21 @@ def _handoff_contract(root: Path) -> tuple[list[str], dict[str, tuple[tuple[int,
     return errors, allowed_ranges
 
 
+def _reference_contract(root: Path) -> tuple[list[str], tuple[tuple[int, int], ...]]:
+    path = root / REFERENCE_DOC
+    if not path.is_file():
+        return [f"missing {REFERENCE_DOC.as_posix()}"], ()
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError as error:
+        return [f"{REFERENCE_DOC.as_posix()}: expected UTF-8 text ({error})"], ()
+    spec_errors, ranges = _exact_ranges(
+        text,
+        (("external Recomp repository", REFERENCE_REPOSITORY, 1),),
+    )
+    return [f"{REFERENCE_DOC.as_posix()}: {error}" for error in spec_errors], ranges
+
+
 def _inspection_paths(root: Path) -> list[str]:
     paths = _tracked(root)
     service = HANDOFF_SERVICE.as_posix()
@@ -308,8 +325,10 @@ def inspect(root: Path) -> list[str]:
     errors: list[str] = []
     readme_errors, readme_ranges = _readme_credit_contract(root)
     handoff_errors, handoff_ranges = _handoff_contract(root)
+    reference_errors, reference_ranges = _reference_contract(root)
     errors.extend(readme_errors)
     errors.extend(handoff_errors)
+    errors.extend(reference_errors)
     for relative in _inspection_paths(root):
         errors.extend(scan_text(relative, relative, allow_franchise=True))
         path = root / relative
@@ -322,6 +341,8 @@ def inspect(root: Path) -> list[str]:
         allowed_ranges = handoff_ranges.get(relative, ())
         if relative == README.as_posix():
             allowed_ranges = readme_ranges
+        elif relative == REFERENCE_DOC.as_posix():
+            allowed_ranges = reference_ranges
         errors.extend(scan_text(text, relative, allow_franchise=True, allowed_ranges=allowed_ranges))
         for start, end, value in _split_identity_hits(text):
             if any(begin <= start and end <= finish for begin, finish in allowed_ranges):

@@ -11,12 +11,12 @@ namespace MphRead.Tests;
 
 /// <summary>
 /// Project Prime-native reproductions of the gameplay regressions found while
-/// comparing the older Fruity implementation. These tests deliberately stop at
-/// the existing admission, spawn, collision, and damage seams; they do not carry
-/// any Fruity implementation code into the game.
+/// comparing the earlier implementation. These tests deliberately stop at the
+/// existing admission, spawn, collision, and damage seams; they do not carry
+/// any legacy implementation code into the game.
 /// </summary>
 [Collection("Match baseline globals")]
-public sealed class FruityGameplayRegressionTests
+public sealed class GameplayRegressionTests
 {
     [Trait("RequiresGameContent", "true")]
     [Fact]

@@ -92,6 +92,11 @@ class ProjectIdentityGuardTests(unittest.TestCase):
         self.assertIn("tools/systemd/projectprime-stack.service", allowed_ranges)
         self.assertEqual(1, len(allowed_ranges["tools/systemd/projectprime-stack.service"]))
 
+    def test_external_reference_contract_is_exact(self):
+        errors, allowed_ranges = GUARD._reference_contract(ROOT)
+        self.assertEqual([], errors)
+        self.assertEqual(1, len(allowed_ranges))
+
 
 if __name__ == "__main__":
     unittest.main()
