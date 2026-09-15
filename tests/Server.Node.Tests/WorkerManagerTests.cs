@@ -7,6 +7,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Collection(WorkerProcessCollection.Name)]
 public sealed class WorkerManagerTests
 {
     internal static WorkerLaunchOptions Launch(string mode) => new()

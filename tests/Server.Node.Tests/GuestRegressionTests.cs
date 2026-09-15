@@ -16,6 +16,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Collection(WorkerProcessCollection.Name)]
 public sealed class GuestRegressionTests
 {
     [Fact]

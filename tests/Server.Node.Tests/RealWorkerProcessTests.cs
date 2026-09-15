@@ -8,6 +8,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Collection(WorkerProcessCollection.Name)]
 public sealed class RealWorkerProcessTests
 {
     [Trait("RequiresGameContent", "true")]

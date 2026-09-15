@@ -15,6 +15,7 @@ namespace ProjectPrime.Server.Node.Tests;
 /// clocks and identities are synthetic so the suite is deterministic and does
 /// not require a running Node, database, or external content.
 /// </summary>
+[Collection(WorkerProcessCollection.Name)]
 public sealed class Qz0ControlRegressionTests
 {
     private static readonly Guid RequestId = Guid.Parse("11111111-1111-1111-1111-111111111111");

@@ -9,6 +9,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Collection(WorkerProcessCollection.Name)]
 [Trait("LifecycleVertical", "true")]
 public sealed class ActiveMatchRestartVerticalTests
 {

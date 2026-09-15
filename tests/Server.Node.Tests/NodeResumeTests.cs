@@ -14,6 +14,7 @@ using Xunit;
 
 namespace ProjectPrime.Server.Node.Tests;
 
+[Collection(WorkerProcessCollection.Name)]
 [Trait("LifecycleFast", "true")]
 public sealed class NodeResumeTests
 {
