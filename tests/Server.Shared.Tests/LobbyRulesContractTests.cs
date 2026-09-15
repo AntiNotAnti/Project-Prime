@@ -37,7 +37,8 @@ public sealed class LobbyRulesContractTests
         LobbyRulesOptions prior = new(TimeLimitSeconds: 600, ScoreGoal: 11,
             StartingLives: 4, ObjectiveTimeGoalSeconds: 120, DamageLevel: 2,
             FriendlyFire: true, AffinityWeapons: true, PlayerRadar: true,
-            OctolithReset: true, KillcamPolicy: KillcamPolicy.PostRound);
+            OctolithReset: true, KillcamPolicy: KillcamPolicy.PostRound,
+            PowerupsEnabled: false, EnhancedHunters: true, BalancedMode: true);
 
         LobbyRulesOptions projected = prior.ForMode(MatchMode.Survival);
         Assert.Equal(600, projected.TimeLimitSeconds);
@@ -46,6 +47,9 @@ public sealed class LobbyRulesContractTests
         Assert.True(projected.AffinityWeapons);
         Assert.True(projected.PlayerRadar);
         Assert.Equal(KillcamPolicy.PostRound, projected.KillcamPolicy);
+        Assert.False(projected.PowerupsEnabled);
+        Assert.True(projected.EnhancedHunters);
+        Assert.True(projected.BalancedMode);
         Assert.Equal(4, projected.StartingLives);
         Assert.Null(projected.ScoreGoal);
         Assert.Null(projected.ObjectiveTimeGoalSeconds);
@@ -53,6 +57,13 @@ public sealed class LobbyRulesContractTests
         Assert.Equal(4, projected.ToMatchRules(MatchMode.Survival, "unit").StartingLives);
         Assert.Equal(KillcamPolicy.PostRound,
             projected.ToMatchRules(MatchMode.Survival, "unit").KillcamPolicy);
+        Assert.False(projected.ToMatchRules(MatchMode.Survival, "unit")
+            .PowerupsEnabled);
+        MatchRules enhanced = projected.ToMatchRules(MatchMode.Survival, "unit");
+        Assert.True(enhanced.EnhancedHunters);
+        Assert.True(enhanced.BalancedMode);
+        Assert.Equal(RulesetPreset.Custom, enhanced.RulesetPreset);
+        Assert.Equal(RankingEligibility.Unranked, enhanced.RankingEligibility);
     }
 
     [Fact]
@@ -90,6 +101,25 @@ public sealed class LobbyRulesContractTests
         Assert.Throws<ArgumentException>(() =>
             new LobbyRulesOptions(SpawnPolicy: (SpawnPolicy)255)
                 .Normalize(MatchMode.Battle));
+    }
+
+    [Fact]
+    public void ResourceRadarPolicyDefaultsToDisabledAndProjectsToMatchRules()
+    {
+        Assert.Null(LobbyRulesOptions.Empty.ResourceRadarPolicy);
+        Assert.Equal(ResourceRadarPolicy.Disabled,
+            LobbyRulesOptions.Empty.ToMatchRules(MatchMode.Battle, "unit")
+                .ResourceRadarPolicy);
+
+        LobbyRulesOptions selected = new(
+            ResourceRadarPolicy: ResourceRadarPolicy.AvailableWithRespawn);
+        Assert.Equal(ResourceRadarPolicy.AvailableWithRespawn,
+            selected.Normalize(MatchMode.Battle).ResourceRadarPolicy);
+        Assert.Equal(ResourceRadarPolicy.AvailableWithRespawn,
+            selected.ToMatchRules(MatchMode.Battle, "unit").ResourceRadarPolicy);
+
+        Assert.Throws<ArgumentException>(() => new LobbyRulesOptions(
+            ResourceRadarPolicy: (ResourceRadarPolicy)4).Normalize(MatchMode.Battle));
     }
 
     [Fact]

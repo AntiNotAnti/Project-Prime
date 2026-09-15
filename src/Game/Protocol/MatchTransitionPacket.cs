@@ -25,6 +25,34 @@ namespace MphRead.Mods.Network
                 BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), rules);
             return true;
         }
+
+        /// <summary>Frozen decoder for protocol 23's 84-byte rule payload.</summary>
+        public static bool TryReadLegacyProtocol23(ReadOnlySpan<byte> source,
+            out MatchTransitionPacket value)
+        {
+            value = default;
+            if (source.Length != 8 + MatchRulesWire.LegacyProtocol23Size
+                || BinaryPrimitives.ReadUInt32LittleEndian(source) == 0
+                || !MatchRulesWire.TryReadLegacyProtocol23(source[8..], out MatchRules rules))
+                return false;
+            value = new(BinaryPrimitives.ReadUInt32LittleEndian(source),
+                BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), rules);
+            return true;
+        }
+
+        /// <summary>Frozen decoder for protocol 24's 85-byte rule payload.</summary>
+        public static bool TryReadLegacyProtocol24(ReadOnlySpan<byte> source,
+            out MatchTransitionPacket value)
+        {
+            value = default;
+            if (source.Length != 8 + MatchRulesWire.LegacyProtocol24Size
+                || BinaryPrimitives.ReadUInt32LittleEndian(source) == 0
+                || !MatchRulesWire.TryReadLegacyProtocol24(source[8..], out MatchRules rules))
+                return false;
+            value = new(BinaryPrimitives.ReadUInt32LittleEndian(source),
+                BinaryPrimitives.ReadUInt32LittleEndian(source[4..]), rules);
+            return true;
+        }
     }
 
     public readonly record struct NetApplicationEvent(uint MatchId, ReliableEventType Type, ReadOnlyMemory<byte> Payload);

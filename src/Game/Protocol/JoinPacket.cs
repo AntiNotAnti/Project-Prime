@@ -71,7 +71,8 @@ namespace MphRead.Mods.Network
         public static bool TryRead(ReadOnlySpan<byte> source, out JoinPacket packet)
         {
             packet = default;
-            if (source.Length < Size || source.Length > MaxPayloadBytes || source[9] > (byte)Hunter.Guardian
+            if (source.Length < Size || source.Length > MaxPayloadBytes
+                || !PlayableHunterCatalog.IsPlayable((Hunter)source[9])
                 || BinaryPrimitives.ReadUInt64LittleEndian(source[1..]) == 0)
             {
                 return false;

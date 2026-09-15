@@ -76,6 +76,34 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void StarvationDoesNotInventAHeldTriggerRelease()
+        {
+            var stream = new ServerInputStream();
+            stream.ConfigurePlayout(1);
+            InputCommand held = Command(10,
+                InputButtons.Forward | InputButtons.Shoot,
+                InputButtons.Shoot);
+            stream.Receive(new[] { held }, 0);
+            _ = stream.Take(0);
+            Assert.Equal(held, stream.Take(1));
+
+            InputCommand fallback = default;
+            for (uint tick = 2; tick < 20; tick++)
+            {
+                fallback = stream.Take(tick);
+            }
+
+            Assert.Equal(InputButtons.Shoot, fallback.Buttons);
+            Assert.Equal(InputButtons.None, fallback.Pressed);
+            Assert.True(stream.StarvedTicks > 0);
+
+            InputCommand released = Command(11, InputButtons.None,
+                InputButtons.None);
+            stream.Receive(new[] { released }, 20);
+            Assert.Equal(released, stream.Take(20));
+        }
+
+        [Fact]
         public void LongClientStallAccountsForUnavailableHistoryAndResumes()
         {
             var stream = new ServerInputStream();

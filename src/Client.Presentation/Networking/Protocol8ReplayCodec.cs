@@ -13,7 +13,7 @@ namespace MphRead.Mods.Network
             out MatchTransitionPacket match)
         {
             match = default;
-            if (bytes.Length != MatchTransitionPacket.Size
+            if (bytes.Length != 8 + MatchRulesWire.LegacyProtocol23Size
                 || BinaryPrimitives.ReadUInt32LittleEndian(bytes) == 0
                 || !TryReadRules(bytes[8..], out MatchRules rules)) return false;
             match = new MatchTransitionPacket(
@@ -26,7 +26,7 @@ namespace MphRead.Mods.Network
             out MatchRules rules)
         {
             rules = null!;
-            if (source.Length != MatchRulesWire.Size
+            if (source.Length != MatchRulesWire.LegacyProtocol23Size
                 || source[0] < (byte)GameMode.Battle
                 || source[0] > (byte)GameMode.PrimeHunter
                 || source[1] is < 1 or > 8 || source[2] > 15 || source[3] > 2
@@ -36,7 +36,7 @@ namespace MphRead.Mods.Network
                     source.Slice(28, MatchStatePacket.MaxNameBytes))) return false;
             // In the original protocol-8 layout only spawn policy and the
             // cancel-protection flag used extension bytes 68 through 83.
-            for (int i = 69; i < MatchRulesWire.Size; i++)
+            for (int i = 69; i < MatchRulesWire.LegacyProtocol23Size; i++)
                 if (i is not (72 or 73) && source[i] != 0) return false;
 
             int score = BinaryPrimitives.ReadInt32LittleEndian(source[4..]);

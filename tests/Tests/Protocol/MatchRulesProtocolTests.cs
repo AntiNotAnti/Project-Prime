@@ -15,12 +15,127 @@ namespace MphRead.Tests
             friendlyFire: true, affinityWeapons: true, playerRadar: true, octolithReset: true, damageLevel: 2);
 
         [Fact]
+        public void EnhancedHuntersDefaultsOffAndWithPreservesUnrelatedRules()
+        {
+            MatchRules original = Rules();
+            Assert.False(original.EnhancedHunters);
+            Assert.False(MatchRules.CreateDefault(MatchMode.Battle, "DEFAULT")
+                .EnhancedHunters);
+
+            MatchRules enhanced = original.With(enhancedHunters: true,
+                rulesetPreset: RulesetPreset.Custom,
+                rankingEligibility: RankingEligibility.Unranked);
+
+            Assert.True(enhanced.EnhancedHunters);
+            Assert.Equal(original, enhanced.With(enhancedHunters: false,
+                rulesetPreset: original.RulesetPreset,
+                rankingEligibility: original.RankingEligibility));
+        }
+
+        [Fact]
+        public void EnhancedHuntersWireBitRoundTripsAndRejectsUnknownOrRankedTuples()
+        {
+            MatchRules enhanced = Rules().With(enhancedHunters: true,
+                rulesetPreset: RulesetPreset.Custom,
+                rankingEligibility: RankingEligibility.Unranked);
+            byte[] bytes = new byte[MatchRulesWire.Size];
+            MatchRulesWire.Write(bytes, enhanced);
+
+            Assert.Equal(0x10, bytes[2] & 0x10);
+            Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
+            Assert.True(decoded.EnhancedHunters);
+            Assert.Equal(enhanced, decoded);
+
+            bytes[2] |= 0x20;
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+            bytes[2] &= 0x1F;
+            bytes[71] = (byte)RulesetPreset.Classic;
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+            bytes[71] = (byte)RulesetPreset.Custom;
+            bytes[78] = (byte)RankingEligibility.VerifiedServerOnly;
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+        }
+
+        [Fact]
+        public void EnhancedHuntersCompetitivePolicyRequiresCustomUnranked()
+        {
+            MatchLifecycle.ValidateRules(new MatchRules(MatchMode.Battle, "VALID",
+                enhancedHunters: true, rulesetPreset: RulesetPreset.Custom,
+                rankingEligibility: RankingEligibility.Unranked));
+            Assert.Throws<ArgumentException>(() => MatchLifecycle.ValidateRules(
+                new MatchRules(MatchMode.Battle, "CLASSIC", enhancedHunters: true)));
+            Assert.Throws<ArgumentException>(() => MatchLifecycle.ValidateRules(
+                new MatchRules(MatchMode.Battle, "RANKED", enhancedHunters: true,
+                    rulesetPreset: RulesetPreset.Custom,
+                    rankingEligibility: RankingEligibility.VerifiedServerOnly)));
+        }
+
+        [Fact]
+        public void BalancedProfileAppendsAfterPowerupsAndFreezesProtocol23Rules()
+        {
+            MatchRules balanced = Rules().With(balancedMode: true);
+            byte[] bytes = new byte[MatchRulesWire.Size];
+            MatchRulesWire.Write(bytes, balanced);
+
+            Assert.Equal(86, MatchRulesWire.Size);
+            Assert.Equal(85, MatchRulesWire.LegacyProtocol24Size);
+            Assert.Equal(0, bytes[83]); // PowerupsEnabled remains in place.
+            Assert.Equal(1, bytes[84]); // Balanced V1 profile.
+            Assert.Equal(0, bytes[85]); // Resource radar defaults off.
+            Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
+            Assert.Equal(balanced, decoded);
+
+            bytes[84] = 2;
+            Assert.False(MatchRulesWire.TryRead(bytes, out _));
+            bytes[84] = 1;
+            Assert.False(MatchRulesWire.TryRead(bytes.AsSpan(0, 84), out _));
+            byte[] extended = new byte[87];
+            bytes.CopyTo(extended, 0);
+            Assert.False(MatchRulesWire.TryRead(extended, out _));
+
+            // Late-join admission carries the same authoritative profile as
+            // the MatchSpec baseline; it is not inferred by the client.
+            byte[] acceptedBytes = new byte[JoinAcceptedPacket.Size];
+            var accepted = new JoinAcceptedPacket(123, 5, 42, 100, 60, balanced);
+            accepted.Write(acceptedBytes);
+            Assert.True(JoinAcceptedPacket.TryRead(acceptedBytes,
+                out JoinAcceptedPacket acceptedDecoded));
+            Assert.True(acceptedDecoded.Rules.BalancedMode);
+
+            MatchRules classic = balanced.With(balancedMode: false);
+            MatchRulesWire.Write(bytes, classic);
+            Assert.True(MatchRulesWire.TryReadLegacyProtocol23(
+                bytes.AsSpan(0, MatchRulesWire.LegacyProtocol23Size),
+                out MatchRules legacy));
+            Assert.False(legacy.BalancedMode);
+            Assert.Equal(classic, legacy);
+        }
+
+        [Fact]
+        public void LegacyProtocol23TransitionUsesTheOldRuleLength()
+        {
+            MatchRules balanced = Rules().With(balancedMode: true);
+            var current = new MatchTransitionPacket(42, 100, balanced);
+            byte[] bytes = new byte[MatchTransitionPacket.Size];
+            current.Write(bytes);
+            Assert.True(MatchTransitionPacket.TryRead(bytes, out MatchTransitionPacket decoded));
+            Assert.True(decoded.Rules.BalancedMode);
+
+            byte[] legacy = bytes[..(8 + MatchRulesWire.LegacyProtocol23Size)];
+            Assert.True(MatchTransitionPacket.TryReadLegacyProtocol23(legacy,
+                out MatchTransitionPacket old));
+            Assert.False(old.Rules.BalancedMode);
+            Assert.Equal(current.MatchId, old.MatchId);
+            Assert.Equal(current.ServerTick, old.ServerTick);
+        }
+
+        [Fact]
         public void CompleteRulesRoundTripAcrossReliableBoundaries()
         {
             // Live protocol 18 carries the authoritative team count in addition
             // to the input epoch and frame timing denominator; older replay fixtures below
             // intentionally keep their historical protocol versions.
-            Assert.Equal(21, NetHeader.Version);
+            Assert.Equal(25, NetHeader.Version);
             foreach (MatchMode mode in Enum.GetValues<MatchMode>())
             {
                 MatchRules rules = Rules(mode);
@@ -82,7 +197,8 @@ namespace MphRead.Tests
                 rankingEligibility: RankingEligibility.VerifiedServerOnly,
                 radarPolicy: RadarPolicy.Disabled,
                 teamBalancePolicy: TeamBalancePolicy.Locked,
-                killcamPolicy: KillcamPolicy.PostRound);
+                killcamPolicy: KillcamPolicy.PostRound,
+                powerupsEnabled: false);
             byte[] bytes = new byte[MatchRulesWire.Size];
 
             MatchRulesWire.Write(bytes, rules);
@@ -92,6 +208,7 @@ namespace MphRead.Tests
             Assert.Equal((byte)RadarPolicy.Disabled, bytes[79]);
             Assert.Equal((byte)TeamBalancePolicy.Locked, bytes[80]);
             Assert.Equal((byte)KillcamPolicy.PostRound, bytes[81]);
+            Assert.Equal(1, bytes[83]);
             Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules decoded));
             Assert.Equal(rules, decoded);
         }
@@ -103,7 +220,7 @@ namespace MphRead.Tests
         [InlineData(80, 2)] // TeamBalancePolicy.Locked is the final assigned value.
         [InlineData(81, 3)] // KillcamPolicy.PostRound is the final assigned value.
         [InlineData(82, 5)]
-        [InlineData(83, 1)]
+        [InlineData(83, 2)]
         public void InvalidAssignedOrReservedExtensionBytesAreRejected(int offset, byte value)
         {
             byte[] bytes = new byte[MatchRulesWire.Size];
@@ -126,6 +243,7 @@ namespace MphRead.Tests
             Assert.Equal(KillcamPolicy.Disabled, decoded.KillcamPolicy);
             Assert.Equal(2, bytes[82]);
             Assert.Equal(0, bytes[83]);
+            Assert.True(decoded.PowerupsEnabled);
         }
 
         [Fact]

@@ -132,6 +132,7 @@ namespace MphRead
         {
             ArgumentNullException.ThrowIfNull(rules);
             _ = ConfiguredDurationTicks(rules);
+            EnhancedHuntersRankingPolicy.Validate(rules);
         }
 
         private static uint? ConfiguredDurationTicks(MatchRules rules) => rules.TimeLimit.HasValue
@@ -148,5 +149,21 @@ namespace MphRead
         }
 
         private static bool DeadlineReached(uint tick, uint deadline) => unchecked((int)(tick - deadline)) >= 0;
+    }
+
+    /// <summary>V1 competitive policy kept in one replaceable boundary.</summary>
+    public static class EnhancedHuntersRankingPolicy
+    {
+        public static void Validate(MatchRules rules)
+        {
+            if (rules.EnhancedHunters
+                && (rules.RulesetPreset != RulesetPreset.Custom
+                    || rules.RankingEligibility != RankingEligibility.Unranked))
+            {
+                throw new ArgumentException(
+                    "Enhanced Hunters is an unranked custom ruleset in protocol 23.",
+                    nameof(rules));
+            }
+        }
     }
 }

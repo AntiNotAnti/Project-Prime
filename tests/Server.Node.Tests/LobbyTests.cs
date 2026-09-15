@@ -28,7 +28,8 @@ public sealed class LobbyTests
         Assert.Equal(2, bots.Select(bot => bot.Hunter).Distinct().Count());
         Assert.All(bots, bot =>
         {
-            Assert.InRange(bot.Hunter, Hunter.Samus, Hunter.Weavel);
+            Assert.InRange(bot.Hunter, PlayableHunterCatalog.First,
+                PlayableHunterCatalog.Last);
             Assert.Null(bot.PlayerId);
             Assert.Null(bot.GuestSessionId);
         });

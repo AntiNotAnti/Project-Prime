@@ -7,11 +7,11 @@ namespace ProjectPrime.Server.Shared;
 
 public static class NodeControlCodec
 {
-    public const int Version = 3;
+    public const int Version = 4;
     public const string UnsupportedVersionMessage = "Unsupported control envelope version.";
     public const int MaximumFrameBytes = 32 * 1024;
     public const int MaximumLobbyListEntries = 16;
-    // LobbyConfigure.Rules is intentionally additive within envelope v3:
+    // LobbyConfigure.Rules is intentionally additive within envelope v4:
     // older Nodes use UnmappedMemberHandling.Disallow, so an advanced command
     // fails closed instead of silently dropping host rules. Missing optional
     // fields remain readable for legacy-shaped v3 payloads.
@@ -273,7 +273,11 @@ public static class NodeControlCodec
     private static bool InvalidListRuleMetadata(LobbyListEntry entry)
     {
         bool objective = entry.Mode is MatchMode.Defender or MatchMode.TeamDefender or MatchMode.PrimeHunter;
-        return objective ? entry.PointGoal is not null : entry.ObjectiveTimeGoalSeconds is not null;
+        bool invalidGoalProjection = objective
+            ? entry.PointGoal is not null
+            : entry.ObjectiveTimeGoalSeconds is not null;
+        return invalidGoalProjection
+            || entry.ResourceRadarPolicy is { } policy && !Enum.IsDefined(policy);
     }
 
     private static void ValidateCatalogIdentity(ContentIdentity identity)

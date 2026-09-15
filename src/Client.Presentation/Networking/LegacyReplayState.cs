@@ -107,6 +107,7 @@ namespace MphRead.Mods.Network
             _feedbackBytes = _pendingFeedback = _pendingClock = _pendingChat = null; _reloadOnNextApply = false; _feedbackOffset = _feedbackPart = 0;
             _world.LegacyProtocol = protocol is 5 or 6;
             _world.Protocol7Replay = protocol == 7;
+            _world.ProtocolVersion = protocol;
             Match = default; Snapshot = default; HasSnapshot = _dirty = false;
             PlayerCount = _eventCount = _killCount = _worldEventCount = _rosterCount = _chatCount = _semanticEventCount = 0; _loadedMatch = 0;
             _awardJournal.Reset(); _appliedAwardRevision = 0;
@@ -234,7 +235,13 @@ namespace MphRead.Mods.Network
                         return true;
                     }
                     Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
-                    if (type != ReliableEventType.Combat || !CombatEventBatch.TryRead(body[5..], events, out int eventCount)
+                    int eventCount;
+                    bool combatValid = _protocol >= NetHeader.BalancedModeVersion
+                        ? CombatEventBatch.TryRead(body[5..], events, out eventCount)
+                        : _protocol == NetHeader.EnhancedHuntersVersion
+                            ? Protocol23ReplayCodec.TryReadCombatBatch(body[5..], events, out eventCount)
+                            : Protocol21ReplayCodec.TryReadCombatBatch(body[5..], events, out eventCount);
+                    if (type != ReliableEventType.Combat || !combatValid
                         || _eventCount + eventCount > _events.Length) { return false; }
                     events[..eventCount].CopyTo(_events.AsSpan(_eventCount));
                     _eventCount += eventCount;
@@ -248,7 +255,14 @@ namespace MphRead.Mods.Network
 
         private bool TryReadSnapshot(ReadOnlySpan<byte> body, Span<SnapshotPlayer> players,
             out SnapshotPacket packet, out int count)
-            => _protocol >= NetHeader.Version ? SnapshotPacket.TryRead(body, players, out packet, out count)
+            => _protocol >= NetHeader.AltActionStateVersion ? SnapshotPacket.TryRead(body, players, out packet, out count)
+                : _protocol == NetHeader.BalancedModeVersion ? Protocol24ReplayCodec.TryReadSnapshot(
+                    body, players, out packet, out count)
+                : _protocol == NetHeader.EnhancedHuntersVersion ? Protocol23ReplayCodec.TryReadSnapshot(
+                    body, players, out packet, out count)
+                : _protocol is 21 or 22 ? Protocol21ReplayCodec.TryReadSnapshot(
+                    body, players, allowGuardianAltAttack: _protocol >= 22,
+                    out packet, out count)
                 : _protocol >= 17 ? Protocol20ReplayCodec.TryReadSnapshot(body, players, out packet, out count)
                 : _protocol >= 8 ? Protocol16ReplayCodec.TryReadSnapshot(body, players, out packet, out count)
                 : Protocol7ReplayCodec.TryReadSnapshot(body, players, out packet, out count);
@@ -260,10 +274,22 @@ namespace MphRead.Mods.Network
 
         private bool TryReadMatch(ReadOnlySpan<byte> body, out MatchTransitionPacket match)
         {
-            if (_protocol >= 9) { return MatchTransitionPacket.TryRead(body, out match); }
+            if (_protocol >= NetHeader.AltActionStateVersion)
+            {
+                return MatchTransitionPacket.TryRead(body, out match);
+            }
+            if (_protocol == NetHeader.BalancedModeVersion)
+            {
+                return MatchTransitionPacket.TryReadLegacyProtocol24(body, out match);
+            }
+            if (_protocol >= 9)
+            {
+                return MatchTransitionPacket.TryReadLegacyProtocol23(body, out match);
+            }
             if (_protocol == 8)
             {
                 return MatchTransitionPacket.TryRead(body, out match)
+                    || MatchTransitionPacket.TryReadLegacyProtocol23(body, out match)
                     || Protocol8ReplayCodec.TryReadMatch(body, out match);
             }
             if (_protocol == 7) { return Protocol7ReplayCodec.TryReadMatch(body, out match); }
@@ -321,6 +347,7 @@ namespace MphRead.Mods.Network
         {
             ApplyRoster(scene);
             if (Match.MatchId == 0) { return; }
+            scene.RequiresCommittedReplicatedWorldState = true;
             scene.Match.MatchId = Match.MatchId;
             if (_loadedMatch == 0 && !_reloadOnNextApply) { _loadedMatch = Match.MatchId; MatchesLoaded++; }
             else if (_loadedMatch != Match.MatchId || _reloadOnNextApply)
@@ -331,6 +358,7 @@ namespace MphRead.Mods.Network
                 // simulated, so the old life cannot leak into the replay.
                 foreach (PlayerEntity player in scene.GetPlayerEntities())
                     player.ResetRemoteLocomotion();
+                scene.HasCommittedReplicatedWorldState = false;
                 _loadedMatch = Match.MatchId;
                 _reloadOnNextApply = false;
                 MatchesLoaded++;
@@ -411,7 +439,8 @@ namespace MphRead.Mods.Network
                 if (scene.Presentation is ScenePresentation observedCombat)
                     observedCombat.BroadcastObservations.Record(value,
                         Match.MatchId, scene.Match.PhaseRevision);
-                CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? value.Actor : value.Target;
+                CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
+                    ? value.Actor : value.Target;
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)
                 { scene.Players[subject.Slot].GetPresentation().PresentCombat(value); }
             }

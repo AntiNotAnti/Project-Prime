@@ -33,6 +33,10 @@ namespace MphRead.Mods.Network
                 // power-up suffix is absent and must remain zero.
                 expanded.Slice(SnapshotPacket.HeaderSize + i * SnapshotPlayer.Size
                     + HistoricalPlayerSize, SnapshotPlayer.Size - HistoricalPlayerSize).Clear();
+                int offset = SnapshotPacket.HeaderSize + i * SnapshotPlayer.Size;
+                expanded[offset + 104] = 255;
+                if (!SnapshotPlayer.TryMapLegacyAltAction(
+                    expanded.Slice(offset, SnapshotPlayer.Size))) return false;
             }
             return SnapshotPacket.TryRead(expanded[..expandedLength], players,
                 out packet, out count);

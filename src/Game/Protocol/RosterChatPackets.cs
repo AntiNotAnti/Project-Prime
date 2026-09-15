@@ -50,7 +50,8 @@ namespace MphRead.Mods.Network
                 ReadOnlySpan<byte> entry = source.Slice(HeaderSize + i * EntrySize, EntrySize);
                 ulong id = BinaryPrimitives.ReadUInt64LittleEndian(entry[1..]);
                 if (entry[0] >= 8 || id == 0 || (occupied & (1 << entry[0])) != 0
-                    || entry[9] > (byte)Hunter.Guardian || entry[10] >= 8 || entry[29] > 1
+                    || !PlayableHunterCatalog.IsPlayable((Hunter)entry[9])
+                    || entry[10] >= 8 || entry[29] > 1
                     || !IsText(entry.Slice(11, ChatPacket.MaxNameBytes), required: true)) { return false; }
                 for (int other = 0; other < i; other++)
                 {

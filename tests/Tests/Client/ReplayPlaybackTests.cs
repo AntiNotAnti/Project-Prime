@@ -66,6 +66,15 @@ namespace MphRead.Tests
         [InlineData(17, false)]
         [InlineData(17, true)]
         [InlineData(21, false)]
+        [InlineData(21, true)]
+        [InlineData(22, false)]
+        [InlineData(22, true)]
+        [InlineData(23, false)]
+        [InlineData(23, true)]
+        [InlineData(24, false)]
+        [InlineData(24, true)]
+        [InlineData(25, false)]
+        [InlineData(25, true)]
         public void JoinRoutingRevisionPreservesAuthoritativeReplayFacts(byte protocol, bool indexed)
         {
             string path = TemporaryFile();
@@ -73,9 +82,11 @@ namespace MphRead.Tests
             {
                 using (var writer = new ReplayWriter(path, protocol, indexed))
                 {
-                    writer.WriteRecord(0, Match(5));
-                    writer.WriteRecord(0, protocol >= NetHeader.Version
+                    writer.WriteRecord(0, Match(5, protocol));
+                    writer.WriteRecord(0, protocol >= NetHeader.AltActionStateVersion
                         ? Snapshot(5, 7, 12)
+                        : protocol is 23 or 24 ? HistoricalProtocol23Snapshot(5, 7, 12)
+                        : protocol is 21 or 22 ? HistoricalProtocol21Snapshot(5, 7, 12)
                         : protocol >= 17 ? HistoricalProtocol20Snapshot(5, 7, 12)
                         : HistoricalProtocol16Snapshot(5, 7, 12));
                 }
@@ -86,7 +97,7 @@ namespace MphRead.Tests
                 var state = new ModernReplayState(); state.Reset(protocol);
                 while (reader.ReadNext() is { } record) Assert.True(state.Receive(record.Data));
                 Assert.Equal(12, state.Players[0].Points);
-                if (protocol >= NetHeader.Version)
+                if (protocol >= 21)
                 {
                     Assert.Equal((ushort)401, state.Players[0].DoubleDamageTicks);
                     Assert.Equal((ushort)402, state.Players[0].CloakTicks);
@@ -113,7 +124,7 @@ namespace MphRead.Tests
             {
                 using (var writer = new ReplayWriter(path, 14))
                 {
-                    writer.WriteRecord(0, Match(14));
+                    writer.WriteRecord(0, Match(14, 14));
                     writer.WriteRecord(1, HistoricalProtocol16Snapshot(14, 11, 30));
                 }
 
@@ -131,6 +142,75 @@ namespace MphRead.Tests
             {
                 File.Delete(path);
             }
+        }
+
+        [Fact]
+        public void Protocol23ReplayRestoresEnhancedSnapshotState()
+        {
+            var player = new SnapshotPlayer
+            {
+                Slot = 3,
+                Hunter = Hunter.Sylux,
+                TeamIndex = 3,
+                ConnectionId = 99,
+                Life = 1,
+                Aim = Vector3.UnitZ,
+                Facing = Vector3.UnitZ,
+                Health = 100,
+                AvailableWeapons = 1,
+                Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned,
+                EnhancedTargetSlot = 255,
+                Overcharge = 12,
+                ChilledTicks = 90
+            };
+            byte[] currentBody = new byte[SnapshotPacket.HeaderSize + SnapshotPlayer.Size];
+            new SnapshotPacket(120, 7, 5, 0, false, 1, 2)
+                .Write(currentBody, new[] { player });
+            byte[] body = new byte[SnapshotPacket.HeaderSize
+                + SnapshotPlayer.LegacySize];
+            currentBody.AsSpan(0, body.Length).CopyTo(body);
+            var state = new ModernReplayState();
+            state.Reset(NetHeader.EnhancedHuntersVersion);
+
+            Assert.True(state.Receive(Match(5, NetHeader.EnhancedHuntersVersion)));
+            Assert.True(state.Receive(Record(ReplayRecordKind.Snapshot, body)));
+            Assert.Equal((byte)12, state.Players[0].Overcharge);
+            Assert.Equal((ushort)90, state.Players[0].ChilledTicks);
+            Assert.Equal((byte)255, state.Players[0].EnhancedTargetSlot);
+        }
+
+        [Fact]
+        public void Protocol23ReplayUsesFrozenMatchSnapshotAndCombatSchemas()
+        {
+            var state = new ModernReplayState();
+            state.Reset(NetHeader.EnhancedHuntersVersion);
+
+            byte[] matchRecord = Match(5, NetHeader.EnhancedHuntersVersion);
+            Assert.True(state.Receive(matchRecord));
+            Assert.True(ReplayTimelineTickReader.TryRead(matchRecord, 0,
+                out uint matchTick, NetHeader.EnhancedHuntersVersion));
+            Assert.Equal(120u, matchTick);
+            Assert.False(state.Match.Rules.BalancedMode);
+            Assert.True(state.Receive(HistoricalProtocol23Snapshot(5, 7, 12)));
+            Assert.Equal(12, state.Players[0].Points);
+
+            CombatActor actor = new(0, 12, 1);
+            var hit = new CombatEvent(1, 20, 0, CombatEventKind.Damage,
+                Weapon: 0, Flags: CombatEventFlags.None, Actor: actor,
+                Target: new CombatActor(7, 99, 1), Health: 80, Amount: 20,
+                Position: Vector3.Zero, Direction: Vector3.UnitZ,
+                FrozenTicks: 0, BurnTicks: 0, DisruptTicks: 0);
+            byte[] body = new byte[5 + 1 + CombatEvent.Size];
+            BinaryPrimitives.WriteUInt32LittleEndian(body, 5);
+            body[4] = (byte)ReliableEventType.Combat;
+            CombatEventBatch.Write(body.AsSpan(5), new[] { hit });
+
+            byte[] combatRecord = Record(ReplayRecordKind.Event, body);
+            Assert.True(state.Receive(combatRecord));
+            Assert.True(ReplayTimelineTickReader.TryRead(combatRecord, 0,
+                out uint combatTick, NetHeader.EnhancedHuntersVersion));
+            Assert.Equal(20u, combatTick);
+            Assert.Equal(1, state.CombatEventsReceived);
         }
 
         [Fact]
@@ -561,7 +641,8 @@ namespace MphRead.Tests
         {
             var data = new byte[1 + body.Length]; data[0] = (byte)kind; body.CopyTo(data.AsSpan(1)); return data;
         }
-        internal static byte[] Match(uint match, bool legacy = false)
+        internal static byte[] Match(uint match, byte? protocol = null,
+            bool legacy = false)
         {
             if (legacy)
             {
@@ -572,14 +653,23 @@ namespace MphRead.Tests
                 NetText.Write(legacyBody.AsSpan(9), "MP1 SANCTORUS");
                 return Record(ReplayRecordKind.Match, legacyBody);
             }
-            var body = new byte[MatchTransitionPacket.Size];
-            new MatchTransitionPacket(match, 120, GameMode.Battle, "MP1 SANCTORUS").Write(body);
-            return Record(ReplayRecordKind.Match, body);
+            var currentBody = new byte[MatchTransitionPacket.Size];
+            new MatchTransitionPacket(match, 120, GameMode.Battle, "MP1 SANCTORUS").Write(currentBody);
+            if (protocol is >= 8 and < NetHeader.AltActionStateVersion)
+            {
+                int rulesSize = protocol == NetHeader.BalancedModeVersion
+                    ? MatchRulesWire.LegacyProtocol24Size
+                    : MatchRulesWire.LegacyProtocol23Size;
+                var historicalBody = new byte[8 + rulesSize];
+                currentBody.AsSpan(0, historicalBody.Length).CopyTo(historicalBody);
+                return Record(ReplayRecordKind.Match, historicalBody);
+            }
+            return Record(ReplayRecordKind.Match, currentBody);
         }
 
         private static byte[] HistoricalProtocolEightMatch(uint match)
         {
-            byte[] body = new byte[8 + MatchRulesWire.Size];
+            byte[] body = new byte[8 + MatchRulesWire.LegacyProtocol23Size];
             BinaryPrimitives.WriteUInt32LittleEndian(body, match);
             BinaryPrimitives.WriteUInt32LittleEndian(body.AsSpan(4), 120);
             Span<byte> rules = body.AsSpan(8);
@@ -632,6 +722,33 @@ namespace MphRead.Tests
             current.AsSpan(SnapshotPacket.HeaderSize, 98)
                 .CopyTo(historical.AsSpan(SnapshotPacket.HeaderSize));
             return Record(ReplayRecordKind.Snapshot, historical);
+        }
+
+        private static byte[] HistoricalProtocol23Snapshot(uint match,
+            uint sequence, int points)
+        {
+            byte[] current = Snapshot(match, sequence, points);
+            byte[] historical = new byte[1 + SnapshotPacket.HeaderSize
+                + SnapshotPlayer.LegacySize];
+            current.AsSpan(0, historical.Length).CopyTo(historical);
+            return historical;
+        }
+
+        // Protocol 21 and 22 carried the full 104-byte player record. It is frozen
+        // separately from the 98-byte protocol 17-20 replay codec so the
+        // protocol-22 semantic migration cannot reinterpret old captures.
+        private static byte[] HistoricalProtocol21Snapshot(uint match,
+            uint sequence, int points)
+        {
+            byte[] current = Snapshot(match, sequence, points);
+            ReadOnlySpan<byte> body = current.AsSpan(1);
+            byte[] historical = new byte[1 + SnapshotPacket.HeaderSize + 104];
+            historical[0] = current[0];
+            body[..SnapshotPacket.HeaderSize]
+                .CopyTo(historical.AsSpan(1, SnapshotPacket.HeaderSize));
+            body.Slice(SnapshotPacket.HeaderSize, 104)
+                .CopyTo(historical.AsSpan(1 + SnapshotPacket.HeaderSize));
+            return historical;
         }
         internal static byte[] Snapshot(uint match, uint sequence, int points)
         {

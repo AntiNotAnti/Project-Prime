@@ -51,8 +51,17 @@ namespace MphRead.Mods.Network
         // protocol 19 freezes presentation-only cosmetic IDs in reliable
         // roster state, protocol 20 gives rolling forms a stable control
         // heading in the existing input Aim field, and protocol 21 carries
-        // authoritative power-up timers and the active cloak flag.
-        public const byte Version = 21;
+        // authoritative power-up timers and the active cloak flag. Protocol
+        // 22 makes Guardian/Psycho Bit a normal playable Hunter and freezes
+        // protocol-21 replay decoding at the 104-byte snapshot layout. Protocol
+        // 23 carries authoritative Enhanced Hunters state. Protocol 24
+        // appends the Balanced Mode profile to MatchRulesWire. Protocol 25
+        // appends authoritative alternate-form action phase and elapsed ticks
+        // to SnapshotPlayer while retaining the legacy AltAttack indicator.
+        public const byte EnhancedHuntersVersion = 23;
+        public const byte BalancedModeVersion = 24;
+        public const byte AltActionStateVersion = 25;
+        public const byte Version = AltActionStateVersion;
 
         public void Write(Span<byte> destination)
         {

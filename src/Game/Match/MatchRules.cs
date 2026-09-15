@@ -3,6 +3,15 @@ using MphRead.Entities;
 
 namespace MphRead
 {
+    /// <summary>Authoritative resource-contact admission for the tactical radar.</summary>
+    public enum ResourceRadarPolicy : byte
+    {
+        Disabled = 0,
+        SpawnLocations = 1,
+        AvailableResources = 2,
+        AvailableWithRespawn = 3
+    }
+
     /// <summary>Validated immutable multiplayer configuration. Runtime counters and
     /// the effective Survival radar state belong to MatchRuntime.</summary>
     public sealed record MatchRules
@@ -33,6 +42,12 @@ namespace MphRead
         public RadarPolicy RadarPolicy { get; }
         public TeamBalancePolicy TeamBalancePolicy { get; }
         public KillcamPolicy KillcamPolicy { get; }
+        /// <summary>Whether Double Damage, Cloak, Deathalt, and Omega Cannon exist in the match.</summary>
+        public bool PowerupsEnabled { get; }
+        public bool EnhancedHunters { get; }
+        /// <summary>Enables the authoritative Project Prime Balanced V1 ruleset.</summary>
+        public bool BalancedMode { get; }
+        public ResourceRadarPolicy ResourceRadarPolicy { get; }
         public bool Teams => Mode.IsTeamMode();
         public int TeamCount { get; }
         /// <summary>
@@ -58,7 +73,8 @@ namespace MphRead
             RulesetPreset rulesetPreset = RulesetPreset.Classic, RankingEligibility rankingEligibility = RankingEligibility.Unranked,
             RadarPolicy radarPolicy = RadarPolicy.Classic, TeamBalancePolicy teamBalancePolicy = TeamBalancePolicy.BeforeStart,
             KillcamPolicy killcamPolicy = KillcamPolicy.Immediate,
-            int teamCount = 2)
+            int teamCount = 2, bool powerupsEnabled = true, bool enhancedHunters = false,
+            bool balancedMode = false, ResourceRadarPolicy resourceRadarPolicy = ResourceRadarPolicy.Disabled)
         {
             _ = mode.ToLegacyMode();
             if (String.IsNullOrWhiteSpace(roomKey)) { throw new ArgumentException("A room key is required.", nameof(roomKey)); }
@@ -80,6 +96,7 @@ namespace MphRead
             if (!Enum.IsDefined(radarPolicy)) throw new ArgumentOutOfRangeException(nameof(radarPolicy));
             if (!Enum.IsDefined(teamBalancePolicy)) throw new ArgumentOutOfRangeException(nameof(teamBalancePolicy));
             if (!Enum.IsDefined(killcamPolicy)) throw new ArgumentOutOfRangeException(nameof(killcamPolicy));
+            if (!Enum.IsDefined(resourceRadarPolicy)) throw new ArgumentOutOfRangeException(nameof(resourceRadarPolicy));
             if ((mode.IsTeamMode() && teamCount is < 2 or > MaximumTeamCount)
                 || (!mode.IsTeamMode() && teamCount is not (1 or 2)))
                 throw new ArgumentOutOfRangeException(nameof(teamCount));
@@ -91,6 +108,10 @@ namespace MphRead
             RulesetPreset = rulesetPreset; RankingEligibility = rankingEligibility;
             RadarPolicy = radarPolicy; TeamBalancePolicy = teamBalancePolicy;
             KillcamPolicy = killcamPolicy;
+            PowerupsEnabled = powerupsEnabled;
+            EnhancedHunters = enhancedHunters;
+            BalancedMode = balancedMode;
+            ResourceRadarPolicy = resourceRadarPolicy;
             TeamCount = mode.IsTeamMode() ? teamCount : 1;
             OvertimePolicy = overtimePolicy;
             LateJoinPolicy = lateJoinPolicy;
@@ -141,7 +162,9 @@ namespace MphRead
             OvertimePolicy? overtimePolicy = null, LateJoinPolicy? lateJoinPolicy = null, bool? pickupRespawnAnnouncements = null,
             RulesetPreset? rulesetPreset = null, RankingEligibility? rankingEligibility = null,
             RadarPolicy? radarPolicy = null, TeamBalancePolicy? teamBalancePolicy = null,
-            KillcamPolicy? killcamPolicy = null, int? teamCount = null)
+            KillcamPolicy? killcamPolicy = null, int? teamCount = null,
+            bool? powerupsEnabled = null, bool? enhancedHunters = null,
+            bool? balancedMode = null, ResourceRadarPolicy? resourceRadarPolicy = null)
         {
             return new MatchRules(mode ?? Mode, roomKey ?? RoomKey, maxPlayers ?? MaxPlayers,
                 clearTimeLimit ? null : timeLimit ?? TimeLimit, scoreGoal ?? ScoreGoal,
@@ -153,7 +176,9 @@ namespace MphRead
                 overtimePolicy ?? OvertimePolicy, lateJoinPolicy ?? LateJoinPolicy, pickupRespawnAnnouncements ?? PickupRespawnAnnouncements,
                 rulesetPreset ?? RulesetPreset, rankingEligibility ?? RankingEligibility,
                 radarPolicy ?? RadarPolicy, teamBalancePolicy ?? TeamBalancePolicy,
-                killcamPolicy ?? KillcamPolicy, teamCount ?? (Teams ? TeamCount : 2));
+                killcamPolicy ?? KillcamPolicy, teamCount ?? (Teams ? TeamCount : 2),
+                powerupsEnabled ?? PowerupsEnabled, enhancedHunters ?? EnhancedHunters,
+                balancedMode ?? BalancedMode, resourceRadarPolicy ?? ResourceRadarPolicy);
         }
 
         public static MatchRules CreateDefault(MatchMode mode, string roomKey, int maxPlayers = PlayerEntity.SlotCapacity)

@@ -489,7 +489,8 @@ public sealed partial class LobbyManager
                         l.Members.Values.Count(m => m.Observer), l.Revision, l.Waitlist.Count, l.Rules.ObserverLimit, l.BotCount,
                         l.MapKey, l.Mode, l.HostRules.TimeLimitSeconds, l.HostRules.LegacyPointGoal(l.Mode),
                         l.HostRules.ObjectiveTimeGoalSeconds, l.Rules.SeatPolicy,
-                        l.BotDifficulty)).ToImmutableArray(),
+                        l.BotDifficulty, l.HostRules.BalancedMode,
+                        l.HostRules.ResourceRadarPolicy)).ToImmutableArray(),
                         rows.Length > list.Limit ? list.Offset + list.Limit : null);
                 case LobbyCreate create:
                     if (_admissionClosed) throw Error("draining", "Node is draining.");
@@ -613,7 +614,7 @@ public sealed partial class LobbyManager
                             lobby.Members[identity.SessionId] = member with { Ready = ready.Ready };
                             break;
                         case LobbySelectHunter hunter:
-                            if (member.Observer || !Enum.IsDefined(hunter.Hunter) || hunter.Hunter > Hunter.Guardian)
+                            if (member.Observer || !PlayableHunterCatalog.IsPlayable(hunter.Hunter))
                                 throw Error("invalid", "Invalid hunter selection.");
                             if (postMatchSelection)
                             {
@@ -781,7 +782,7 @@ public sealed partial class LobbyManager
         Hunter[] hunters =
         [
             Hunter.Samus, Hunter.Kanden, Hunter.Trace, Hunter.Sylux,
-            Hunter.Noxus, Hunter.Spire, Hunter.Weavel
+            Hunter.Noxus, Hunter.Spire, Hunter.Weavel, Hunter.Guardian
         ];
         for (int index = hunters.Length - 1; index > 0; index--)
         {

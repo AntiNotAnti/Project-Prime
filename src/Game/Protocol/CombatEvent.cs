@@ -11,9 +11,13 @@ namespace MphRead.Mods.Network
         public bool IsNone => this == None;
     }
 
-    public enum CombatEventKind : byte { Shot = 1, Damage, Death, Spawn, Affliction, Bomb }
+    public enum CombatEventKind : byte { Shot = 1, Damage, Death, Spawn, Affliction, Bomb, Effect }
     [Flags]
-    public enum CombatEventFlags : ushort { None = 0, Charged = 1, Headshot = 2, Burn = 4, Deathalt = 8, Silent = 16, Affinity = 32 }
+    public enum CombatEventFlags : ushort
+    {
+        None = 0, Charged = 1, Headshot = 2, Burn = 4, Deathalt = 8, Silent = 16,
+        Affinity = 32, Concussive = 64, OverchargeAbsorb = 128, LingeringHeat = 256
+    }
 
     /// <summary>Presentation facts only. State snapshots remain the source of health, ammo and score.</summary>
     public readonly record struct CombatEvent(uint Id, uint Tick, uint CommandSequence, CombatEventKind Kind,
@@ -21,10 +25,19 @@ namespace MphRead.Mods.Network
         ushort Amount, Vector3 Position, Vector3 Direction, ushort FrozenTicks, ushort BurnTicks, ushort DisruptTicks, ushort ChargeLevel = 0, uint SpreadSeed = 0)
     {
         public const int Size = 82;
-        public bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Bomb
-            && (Flags & ~(CombatEventFlags)63) == 0
+        public bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Effect
+            && (Flags & ~(CombatEventFlags)511) == 0
             && (Actor.IsValid || Actor.IsNone) && (Target.IsValid || Target.IsNone)
-            && (Kind is CombatEventKind.Shot or CombatEventKind.Bomb ? Actor.IsValid : Target.IsValid)
+            && (Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
+                ? Actor.IsValid : Target.IsValid)
+            && (Kind != CombatEventKind.Effect || Actor.IsValid && Target.IsNone
+                && Weapon == (byte)BeamType.Magmaul && Flags == CombatEventFlags.LingeringHeat
+                && Health == 0 && Amount == 0 && FrozenTicks == 0 && BurnTicks == 0
+                && DisruptTicks == 0 && ChargeLevel == 0 && SpreadSeed == 0
+                && Direction == Vector3.Zero)
+            && ((Flags & CombatEventFlags.LingeringHeat) == 0 || Kind == CombatEventKind.Effect)
+            && ((Flags & (CombatEventFlags.Concussive | CombatEventFlags.OverchargeAbsorb)) == 0
+                || Kind is CombatEventKind.Damage or CombatEventKind.Death)
             && (Kind == CombatEventKind.Bomb ? Weapon <= 2 : Weapon <= 10 || Weapon == 255)
             && (Kind == CombatEventKind.Shot || SpreadSeed == 0)
             && Finite(Position) && Finite(Direction);

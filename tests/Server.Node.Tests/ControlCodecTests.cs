@@ -64,6 +64,25 @@ public sealed class ControlCodecTests
     }
 
     [Fact]
+    public void LobbyConfigureRoundTripsResourceRadarPolicyWithoutChangingLegacyShape()
+    {
+        byte[] bytes = NodeControlCodec.Write("lobby.configure", 1, null,
+            new LobbyConfigure(1, "unit", MatchMode.Battle,
+                new LobbyRulesOptions(ResourceRadarPolicy:
+                    ResourceRadarPolicy.AvailableWithRespawn)));
+        string json = Encoding.UTF8.GetString(bytes);
+        Assert.Contains("\"resourceRadarPolicy\":\"AvailableWithRespawn\"", json);
+
+        LobbyConfigure decoded = Assert.IsType<LobbyConfigure>(
+            NodeControlCodec.Read(Frame("lobby.configure",
+                "{\"expectedRevision\":1,\"mapKey\":\"unit\",\"mode\":\"Battle\","
+                + "\"rules\":{\"resourceRadarPolicy\":\"AvailableWithRespawn\"}}"))
+                .Command);
+        Assert.Equal(ResourceRadarPolicy.AvailableWithRespawn,
+            decoded.Rules!.ResourceRadarPolicy);
+    }
+
+    [Fact]
     public void LobbyConfigureWritesKillcamPolicyOnlyWhenHostSelectedIt()
     {
         byte[] unspecified = NodeControlCodec.Write("lobby.configure", 1, null,
@@ -97,10 +116,10 @@ public sealed class ControlCodecTests
     {
         var error = Assert.Throws<JsonException>(() => NodeControlCodec.Read(Frame("lobby.configure",
             "{\"futurePayload\":true}", version: 1)));
-        Assert.Equal("Unsupported control envelope version. Received 1; expected 3.", error.Message);
+        Assert.Equal($"Unsupported control envelope version. Received 1; expected {NodeControlCodec.Version}.", error.Message);
     }
     [Fact]
-    public void CurrentEnvelopeWritesAndReadsAtVersionThree()
+    public void CurrentEnvelopeWritesAndReadsAtVersionFour()
     {
         byte[] bytes = NodeControlCodec.Write("node.ping", 1, null, new NodePing());
         using JsonDocument eventDocument = JsonDocument.Parse(bytes);

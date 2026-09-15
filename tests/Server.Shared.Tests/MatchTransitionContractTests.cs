@@ -13,13 +13,13 @@ public sealed class MatchTransitionContractTests
     private static readonly Guid Transition = Guid.Parse("33333333-3333-3333-3333-333333333333");
 
     [Fact]
-    public void CurrentEnvelopeUsesVersionThreeAndFlatTransitionState()
+    public void CurrentEnvelopeUsesVersionFourAndFlatTransitionState()
     {
         NodeMatchTransitionVoteSnapshot state = Snapshot();
         byte[] bytes = NodeControlCodec.Write("match.transition.state", 7, null, state);
         string json = Encoding.UTF8.GetString(bytes);
 
-        Assert.Contains("\"version\":3", json);
+        Assert.Contains($"\"version\":{NodeControlCodec.Version}", json);
         Assert.Contains("\"proposerName\":\"Owner\"", json);
         Assert.Contains("\"yes\":1", json);
         Assert.Contains("\"no\":0", json);
@@ -31,17 +31,17 @@ public sealed class MatchTransitionContractTests
         Assert.Contains("\"proposerSessionId\"", json);
 
         using JsonDocument document = JsonDocument.Parse(bytes);
-        Assert.Equal(3, document.RootElement.GetProperty("version").GetInt32());
+        Assert.Equal(NodeControlCodec.Version, document.RootElement.GetProperty("version").GetInt32());
     }
 
     [Fact]
     public void ProposeAndVoteUseCanonicalMapKeyAndAcceptProperties()
     {
         Guid request = Guid.NewGuid();
-        byte[] propose = Encoding.UTF8.GetBytes("{\"version\":3,\"type\":\"match.transition.propose\",\"requestId\":\""
+        byte[] propose = Encoding.UTF8.GetBytes($"{{\"version\":{NodeControlCodec.Version},\"type\":\"match.transition.propose\",\"requestId\":\""
             + request.ToString("D") + "\",\"payload\":{\"expectedRevision\":4,\"matchId\":\""
             + Match.ToString("D") + "\",\"choice\":\"ChangeMap\",\"mapKey\":\"unit2\"}}");
-        byte[] vote = Encoding.UTF8.GetBytes("{\"version\":3,\"type\":\"match.transition.vote\",\"requestId\":\""
+        byte[] vote = Encoding.UTF8.GetBytes($"{{\"version\":{NodeControlCodec.Version},\"type\":\"match.transition.vote\",\"requestId\":\""
             + request.ToString("D") + "\",\"payload\":{\"expectedRevision\":5,\"matchId\":\""
             + Match.ToString("D") + "\",\"ballotRevision\":2,\"accept\":true}}");
 
@@ -49,7 +49,7 @@ public sealed class MatchTransitionContractTests
         var response = Assert.IsType<LobbyMatchTransitionVote>(NodeControlCodec.Read(vote).Command);
         Assert.Equal("unit2", proposal.MapKey);
         Assert.True(response.Accept);
-        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Encoding.UTF8.GetBytes("{\"version\":3,\"type\":\"match.transition.vote\",\"requestId\":\""
+        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Encoding.UTF8.GetBytes($"{{\"version\":{NodeControlCodec.Version},\"type\":\"match.transition.vote\",\"requestId\":\""
             + request.ToString("D") + "\",\"payload\":{\"expectedRevision\":5,\"matchId\":\""
             + Match.ToString("D") + "\",\"ballotRevision\":2,\"approve\":true}}")));
     }
@@ -66,7 +66,7 @@ public sealed class MatchTransitionContractTests
         Assert.Throws<ArgumentException>(() => NodeControlCodec.Write("match.transition.started", 1, null,
             new NodeMatchTransitionStarted(Lobby, Match, Transition, MatchTransitionChoice.ChangeMap, "", MatchMode.Battle)));
         string invalidRestart = Guid.NewGuid().ToString("D");
-        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Encoding.UTF8.GetBytes("{\"version\":3,\"type\":\"match.transition.propose\",\"requestId\":\""
+        Assert.Throws<JsonException>(() => NodeControlCodec.Read(Encoding.UTF8.GetBytes($"{{\"version\":{NodeControlCodec.Version},\"type\":\"match.transition.propose\",\"requestId\":\""
             + invalidRestart + "\",\"payload\":{\"expectedRevision\":4,\"matchId\":\""
             + Match.ToString("D") + "\",\"choice\":\"Restart\",\"mapKey\":\"unit2\"}}")));
     }

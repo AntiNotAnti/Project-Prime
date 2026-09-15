@@ -10,7 +10,7 @@ public sealed class CosmeticRosterProtocolTests
     [Fact]
     public void Protocol19RosterCarriesSixPresentationBytesPerSeat()
     {
-        Assert.Equal(21, NetHeader.Version);
+        Assert.Equal(25, NetHeader.Version);
         Assert.Equal(36, SessionRosterPacket.EntrySize);
         Assert.Equal(293, SessionRosterPacket.MaxSize);
         NetRosterEntry expected = new(7, 99, Hunter.Guardian, 3, "COSMETIC", 42, true,
@@ -62,7 +62,7 @@ public sealed class CosmeticRosterProtocolTests
     {
         var state = new ModernReplayState();
         state.Reset(protocol);
-        Assert.True(state.Receive(ReplayPlaybackTests.Match(42)));
+        Assert.True(state.Receive(ReplayPlaybackTests.Match(42, protocol)));
         NetRosterEntry expected = new(3, 77, Hunter.Samus, 1, "REPLAY", 21,
             SkinId: 1, ArmorEffectId: 4, DeathEffectId: 2);
         byte[] record;

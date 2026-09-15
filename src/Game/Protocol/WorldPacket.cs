@@ -1,10 +1,11 @@
 using System;
 using System.Buffers.Binary;
+using MphRead.Entities;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
-    public enum WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time, Lifecycle, CombatStats, ObjectiveStats, WeaponStats0, WeaponStats1, PlayerIdentity }
+    public enum WorldRecordKind : byte { Spawner = 1, Item, Node, Flag, Match, Score, Time, Lifecycle, CombatStats, ObjectiveStats, WeaponStats0, WeaponStats1, PlayerIdentity, EnhancedEffect }
 
     // Version-7 adds explicit lifecycle facts; versions 5/6 are decoded only for replays. Scalar
     // fields have kind-specific meanings; float bits are transported exactly.
@@ -36,7 +37,9 @@ namespace MphRead.Mods.Network
             if (data[0] == (byte)WorldRecordKind.PlayerIdentity)
             {
                 if (legacy || data[1] >= 8 || BinaryPrimitives.ReadUInt16LittleEndian(data[2..]) != 0
-                    || !NetWireIdentity.ValidText(data.Slice(4, 16)) || Get(data, 20) > (uint)Hunter.Guardian
+                    || !NetWireIdentity.ValidText(data.Slice(4, 16))
+                    || Get(data, 20) > byte.MaxValue
+                    || !PlayableHunterCatalog.IsPlayable((Hunter)Get(data, 20))
                     || (Get(data, 24) >= 8 && Get(data, 24) != uint.MaxValue) || (Get(data, 28) & ~3u) != 0
                     || ((Get(data, 28) & 1) != 0 && Get(data, 24) >= 8)
                     || (Get(data, 32) & 255) >= 8 || ((Get(data, 32) >> 8) & 255) >= 8
@@ -77,6 +80,11 @@ namespace MphRead.Mods.Network
                 WorldRecordKind.Score => record.Id == 0 && record.Slot < 8 && record.Flags == 0,
                 WorldRecordKind.Time => record.Id == 0 && record.Slot < 8 && record.Flags == 0
                     && float.IsFinite(Float(record.B)) && float.IsFinite(Float(record.C)),
+                WorldRecordKind.EnhancedEffect => !legacy && record.Slot < 8
+                    && record.Flags == 0 && record.Id != 0
+                    && ((ulong)record.B << 32 | record.A) != 0 && record.C != 0
+                    && record.D is >= 1 and <= EnhancedHunterTuning.SpireScorchLifetimeTicks
+                    && record.E == 0,
                 _ => false
             };
         }

@@ -85,7 +85,7 @@ public sealed record MatchSpec(MatchId MatchId, LobbyId LobbyId, NodeId NodeId, 
         {
             if (seat is null || seat.SeatId >= 32 || !seats.Add(seat.SeatId)) throw new ArgumentException("Duplicate or null seat.");
             ContractGuard.Text(seat.DisplayName, 64); ContractGuard.Defined(seat.Role);
-            if (!Enum.IsDefined(seat.Hunter) || seat.Hunter > Hunter.Guardian
+            if (!PlayableHunterCatalog.IsPlayable(seat.Hunter)
                 || seat.Role != SeatRole.Observer && Rules.Teams && seat.Team >= Rules.TeamCount
                 || seat.Role != SeatRole.Observer && seat.SeatId >= 8)
                 throw new ArgumentException($"Seat {seat.SeatId} has invalid hunter/team assignment "

@@ -13,9 +13,9 @@ import zipfile
 
 FAMILY = 2
 # Keep update manifests tied to the live authoritative wire identity.  The
-# current source protocol is 20; a stale package policy must fail closed
+# current source protocol is 25; a stale package policy must fail closed
 # rather than producing an artifact that cannot be admitted by the server.
-PROTOCOL = 20
+PROTOCOL = 25
 PACKAGE_LIMIT = 256 * 1024 * 1024
 EXPANDED_LIMIT = 512 * 1024 * 1024
 FILE_LIMIT = 2048
@@ -99,7 +99,12 @@ def check_source_identity():
     root = Path(__file__).resolve().parents[1]
     header = (root / "src/Game/Protocol/NetHeader.cs").read_text()
     identity = (root / "src/Game/Protocol/NetWireIdentity.cs").read_text()
-    if not re.search(rf"public const byte Version\s*=\s*{PROTOCOL}\s*;", header) or "Family = NetWireFamily.Authoritative" not in identity:
+    literal = re.search(rf"public const byte Version\s*=\s*{PROTOCOL}\s*;", header)
+    version_alias = re.search(
+        rf"public const byte Version\s*=\s*[A-Za-z_]\w*\s*;", header)
+    protocol_alias = re.search(
+        rf"public const byte [A-Za-z_]\w*\s*=\s*{PROTOCOL}\s*;", header)
+    if not (literal or version_alias and protocol_alias) or "Family = NetWireFamily.Authoritative" not in identity:
         reject("Update manifest policy does not match this source wire identity; review the protocol migration.")
 
 

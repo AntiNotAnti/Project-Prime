@@ -23,7 +23,7 @@ namespace MphRead.Tests
         {
             byte[] bytes = new byte[SnapshotPlayer.Size];
             Player().Write(bytes);
-            Assert.Equal(104, bytes.Length);
+            Assert.Equal(115, bytes.Length);
             Assert.Equal(300, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(88)));
             Assert.Equal(180, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(90)));
             Assert.Equal(7, BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(92)));
@@ -33,8 +33,8 @@ namespace MphRead.Tests
             Assert.Equal(180, parsed.DisruptTicks);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarReveal) != 0);
             Assert.True((parsed.Flags & SnapshotPlayerFlags.RadarRevealPrevious) != 0);
-            Assert.Equal(882, NetHeader.Size + SnapshotPacket.MaxSize);
-            Assert.Equal(21, NetHeader.Version);
+            Assert.Equal(970, NetHeader.Size + SnapshotPacket.MaxSize);
+            Assert.Equal(25, NetHeader.Version);
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 7));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 8));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 9));
@@ -48,7 +48,7 @@ namespace MphRead.Tests
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 18));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 19));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 20));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 21));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 25));
         }
 
         [Theory]
@@ -110,7 +110,7 @@ namespace MphRead.Tests
             byte[] bytes = new byte[MatchRulesWire.Size];
             Array.Fill(bytes, (byte)255);
             MatchRulesWire.Write(bytes, rules);
-            Assert.Equal(84, bytes.Length);
+            Assert.Equal(86, bytes.Length);
             Assert.Equal(2, bytes[68]);
             Assert.Equal(1, BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(72)));
             Assert.True(MatchRulesWire.TryRead(bytes, out MatchRules parsed));

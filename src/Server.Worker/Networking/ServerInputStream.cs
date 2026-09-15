@@ -241,7 +241,7 @@ namespace MphRead.Mods.Network
                     {
                         StarvedTicks++;
                         rewindPresentationDelayTicks = _lastRewindPresentationDelay;
-                        return _last.Neutral();
+                        return StarvedFallback();
                     }
                     rewindPresentationDelayTicks = _lastRewindPresentationDelay;
                     return _last.WithoutEdges();
@@ -256,6 +256,19 @@ namespace MphRead.Mods.Network
             HasProcessed = true;
             _gap = 0;
             return _last;
+        }
+
+        private InputCommand StarvedFallback()
+        {
+            InputCommand neutral = _last.Neutral();
+            // A missing packet is not evidence that the trigger was released.
+            // Preserve only the held fire level; movement and every edge stay
+            // neutral, and a later redundant command supplies the real release.
+            return neutral with
+            {
+                Buttons = neutral.Buttons
+                    | (_last.Buttons & InputButtons.Shoot)
+            };
         }
     }
 }

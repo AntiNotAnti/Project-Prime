@@ -37,7 +37,12 @@ public sealed record LobbyRulesOptions(
     int? TeamCount = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     SpawnPolicy? SpawnPolicy = null,
-    bool? CancelSpawnProtectionOnOffensiveAction = null)
+    bool? CancelSpawnProtectionOnOffensiveAction = null,
+    bool? PowerupsEnabled = null,
+    bool? EnhancedHunters = null,
+    bool? BalancedMode = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    ResourceRadarPolicy? ResourceRadarPolicy = null)
 {
     public static LobbyRulesOptions Empty { get; } = new();
 
@@ -90,6 +95,8 @@ public sealed record LobbyRulesOptions(
             throw new ArgumentException("Unknown killcam policy.", nameof(KillcamPolicy));
         if (SpawnPolicy.HasValue && !Enum.IsDefined(SpawnPolicy.Value))
             throw new ArgumentException("Unknown spawn policy.", nameof(SpawnPolicy));
+        if (ResourceRadarPolicy.HasValue && !Enum.IsDefined(ResourceRadarPolicy.Value))
+            throw new ArgumentException("Unknown resource radar policy.", nameof(ResourceRadarPolicy));
         if (SpawnPolicy == MphRead.SpawnPolicy.Duel && mode != MatchMode.Battle)
             throw new ArgumentException("Duel spawn policy requires Battle mode.", nameof(SpawnPolicy));
         if (TeamCount is < 2 or > MphRead.MatchRules.MaximumTeamCount)
@@ -132,7 +139,13 @@ public sealed record LobbyRulesOptions(
             spawnPolicy: normalized.SpawnPolicy ?? defaults.SpawnPolicy,
             cancelSpawnProtectionOnOffensiveAction:
                 normalized.CancelSpawnProtectionOnOffensiveAction
-                    ?? defaults.CancelSpawnProtectionOnOffensiveAction);
+                    ?? defaults.CancelSpawnProtectionOnOffensiveAction,
+            powerupsEnabled: normalized.PowerupsEnabled ?? defaults.PowerupsEnabled,
+            enhancedHunters: normalized.EnhancedHunters ?? defaults.EnhancedHunters,
+            balancedMode: normalized.BalancedMode ?? defaults.BalancedMode,
+            resourceRadarPolicy: normalized.ResourceRadarPolicy ?? defaults.ResourceRadarPolicy,
+            rulesetPreset: normalized.EnhancedHunters == true ? RulesetPreset.Custom : defaults.RulesetPreset,
+            rankingEligibility: normalized.EnhancedHunters == true ? RankingEligibility.Unranked : defaults.RankingEligibility);
     }
 
     /// <summary>
@@ -193,7 +206,7 @@ public sealed record LobbyMember(Guid SessionId, Guid? PlayerId, string DisplayN
         ContractGuard.Id(SessionId); IdentityKey.ToString();
         if (DisplayName is not { Length: >= 1 and <= 16 } || string.IsNullOrWhiteSpace(DisplayName)
             || DisplayName.Any(ch => ch < 32 || ch > 126)) throw new ArgumentException("Invalid lobby member.");
-        if (!Enum.IsDefined(Hunter) || Hunter > Hunter.Guardian
+        if (!PlayableHunterCatalog.IsPlayable(Hunter)
             || Team >= MphRead.MatchRules.MaximumTeamCount
             || !CosmeticCatalog.BuiltIn.IsValid(Cosmetics, Hunter)) throw new ArgumentException("Invalid lobby member.");
     }
@@ -226,7 +239,10 @@ public sealed record LobbyListEntry(Guid LobbyId, string Name, LobbyPhase Phase,
     int WaitlistCount = 0, int ObserverLimit = 16, int BotCount = 0, string MapKey = "", MatchMode Mode = MatchMode.Battle,
     int? TimeLimitSeconds = null, int? PointGoal = null, int? ObjectiveTimeGoalSeconds = null,
     LobbySeatPolicy SeatPolicy = LobbySeatPolicy.ImmediateSeat,
-    BotDifficulty BotDifficulty = BotDifficulty.Normal);
+    BotDifficulty BotDifficulty = BotDifficulty.Normal,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? BalancedMode = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    ResourceRadarPolicy? ResourceRadarPolicy = null);
 public sealed record LobbyListSnapshot(ImmutableArray<LobbyListEntry> Lobbies, int? NextOffset);
 public sealed record NodeSessionSnapshot(Guid SessionId, Guid? PlayerId, string DisplayName, Guid NodeId, string ResumeToken,
     Guid? GuestSessionId = null, bool PublicPresence = true)
