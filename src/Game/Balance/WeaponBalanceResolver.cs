@@ -17,8 +17,8 @@ namespace MphRead
         internal static void Apply(EquipInfo equip, Hunter hunter,
             MatchBalanceContext balance)
         {
-            if (equip == null) throw new ArgumentNullException(nameof(equip));
-            if (balance == null) throw new ArgumentNullException(nameof(balance));
+            ArgumentNullException.ThrowIfNull(equip);
+            ArgumentNullException.ThrowIfNull(balance);
 
             equip.ResetRuntimeOverrides();
             WeaponInfo? weapon = equip.Weapon;
@@ -42,8 +42,8 @@ namespace MphRead
         internal static WeaponBalanceValues Resolve(WeaponInfo weapon,
             Hunter hunter, MatchBalanceContext balance)
         {
-            if (weapon == null) throw new ArgumentNullException(nameof(weapon));
-            if (balance == null) throw new ArgumentNullException(nameof(balance));
+            ArgumentNullException.ThrowIfNull(weapon);
+            ArgumentNullException.ThrowIfNull(balance);
             return Resolve(weapon, hunter, IsAffinityWeapon(weapon, hunter), balance);
         }
 
@@ -55,8 +55,8 @@ namespace MphRead
         internal static WeaponBalanceValues Resolve(WeaponInfo weapon,
             Hunter hunter, bool affinity, MatchBalanceContext balance)
         {
-            if (weapon == null) throw new ArgumentNullException(nameof(weapon));
-            if (balance == null) throw new ArgumentNullException(nameof(balance));
+            ArgumentNullException.ThrowIfNull(weapon);
+            ArgumentNullException.ThrowIfNull(balance);
 
             BeamType beam = weapon.Beam;
             WeaponBalanceValues values = balance.GetWeapon(beam);

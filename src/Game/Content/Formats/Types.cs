@@ -675,10 +675,7 @@ namespace MphRead
     {
         public static string MarshalString(this byte[] array)
         {
-            if (array == null)
-            {
-                throw new ArgumentNullException(nameof(array));
-            }
+            ArgumentNullException.ThrowIfNull(array);
             string result = new string(array.Select(a => (char)a).ToArray());
             int index = result.IndexOf('\0');
             if (index != -1)
@@ -690,10 +687,7 @@ namespace MphRead
 
         public static string MarshalString(this char[] array)
         {
-            if (array == null)
-            {
-                throw new ArgumentNullException(nameof(array));
-            }
+            ArgumentNullException.ThrowIfNull(array);
             string result = new string(array);
             int index = result.IndexOf('\0');
             if (index != -1)

@@ -206,7 +206,7 @@ namespace MphRead
         /// Does not reset timers or accumulated scores.</summary>
         public void ApplyRules(MatchRules rules)
         {
-            if (rules == null) throw new ArgumentNullException(nameof(rules));
+            ArgumentNullException.ThrowIfNull(rules);
             GameplayBalanceProfile requestedProfile = MatchBalanceContext.ProfileFor(rules);
             if (Balance.Profile == requestedProfile)
             {

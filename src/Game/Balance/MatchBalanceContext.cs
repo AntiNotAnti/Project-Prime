@@ -113,7 +113,7 @@ namespace MphRead
 
         internal static GameplayBalanceProfile ProfileFor(MatchRules rules)
         {
-            if (rules == null) throw new ArgumentNullException(nameof(rules));
+            ArgumentNullException.ThrowIfNull(rules);
             return rules.BalancedMode
                 ? GameplayBalanceProfile.BalancedV1
                 : GameplayBalanceProfile.Classic;

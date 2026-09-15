@@ -1838,10 +1838,7 @@ namespace MphRead
         public static bool TryFind<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate,
             [NotNullWhen(true)] out TSource? result) where TSource : class
         {
-            if (source == null)
-            {
-                throw new ArgumentNullException(nameof(source));
-            }
+            ArgumentNullException.ThrowIfNull(source);
             result = source.FirstOrDefault(s => predicate.Invoke(s));
             return result != null;
         }
