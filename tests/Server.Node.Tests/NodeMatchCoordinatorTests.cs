@@ -386,7 +386,10 @@ public sealed class NodeMatchCoordinatorTests
         await using var scheduler = new WorkerScheduler(workers);
         using var issuer = new WorkerAdmissionIssuer("lifecycle-stress");
         await scheduler.StartWorkerAsync(WorkerManagerTests.Launch("controlled-completion") with
-        { Content = new("1", "hash", "test", 8) });
+        {
+            Content = new("1", "hash", "test", 8),
+            HeartbeatTimeout = TimeSpan.FromSeconds(5)
+        });
         var lobbies = new LobbyManager();
         var owner = new LobbyIdentity(Guid.NewGuid(), Guid.NewGuid(), "Owner");
         using var coordinator = new NodeMatchCoordinator(lobbies, scheduler, workers, issuer,
