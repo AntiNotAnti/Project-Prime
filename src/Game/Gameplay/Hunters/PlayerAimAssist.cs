@@ -335,14 +335,14 @@ namespace MphRead.Entities
 
             PlayerEntity? retained = owner.ModAimAssistRetainedTarget;
             float retainedError = float.NaN;
-            bool hasRetained = retained != null
-                && IsValidCandidate(owner, retained, maxDistanceSquared,
+            bool hasRetained = false;
+            if (retained is PlayerEntity retainedTarget
+                && IsValidCandidate(owner, retainedTarget, maxDistanceSquared,
                     out _)
-                && HasLineOfSight(owner, retained);
-            if (hasRetained)
+                && HasLineOfSight(owner, retainedTarget))
             {
-                Vector3 target = PreferredAimPoint(owner, retained!, origin,
-                    viewRay, (retained.ModAssistAimTarget - origin).LengthSquared,
+                Vector3 target = PreferredAimPoint(owner, retainedTarget, origin,
+                    viewRay, (retainedTarget.ModAssistAimTarget - origin).LengthSquared,
                     requireLineOfSight: true, out _);
                 retainedError = AngularError(origin, viewRay, target);
                 hasRetained = float.IsFinite(retainedError);

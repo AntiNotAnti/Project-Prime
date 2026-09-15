@@ -247,8 +247,23 @@ public sealed class HistoricalDynamicCollisionTests
         Assert.Equal(1, engine.TransformableShapeQueries);
 
         // Count-based proof is deterministic; also retain the QZ1 warmed
-        // allocation invariant while walking the bounded registry.
-        for (int i = 0; i < 100; i++) Assert.True(engine.TryQuery(hitQuery, 30, out _));
+        // allocation invariant while walking the bounded registry. Tiered JIT
+        // promotion may occur after the old 100-call warmup in a full suite,
+        // so require a complete allocation-free measurement-sized warmup
+        // window before taking the asserted sample.
+        long warmAllocated = long.MaxValue;
+        for (int attempt = 0; attempt < 8 && warmAllocated != 0; attempt++)
+        {
+            long warmBefore = GC.GetAllocatedBytesForCurrentThread();
+            bool warmQueriesHit = true;
+            for (int i = 0; i < 1_000; i++)
+            {
+                warmQueriesHit &= engine.TryQuery(hitQuery, 30, out _);
+            }
+            warmAllocated = GC.GetAllocatedBytesForCurrentThread() - warmBefore;
+            Assert.True(warmQueriesHit);
+        }
+        Assert.Equal(0, warmAllocated);
         long traversals = engine.TransformableShapeQueries;
         long before = GC.GetAllocatedBytesForCurrentThread();
         bool allQueriesHit = true;
