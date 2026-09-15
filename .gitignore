@@ -2,6 +2,8 @@ src/MphRead/paths.txt
 
 # Local cartridge extraction, launcher outputs and Finder metadata.
 /AMHE1/
+/MPH.nds
+/melonPrimeDS.app/
 /.project-prime-launcher/
 /ProjectPrime
 /output/

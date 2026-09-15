@@ -71,6 +71,26 @@ development build may proceed with open external gates only when its scope is
 stated explicitly and it is not represented as physical, retail-fidelity,
 deployed, or public-release acceptance.
 
+### Temporary P5 development decision
+
+At the project owner's explicit direction on 2026-09-15, P5 is treated as
+temporarily passing for continued development because the required physical,
+WAN, device, deployed-service, protected-package, rollback, and long-soak tests
+cannot currently be completed.
+
+```text
+evidenceStatus: not-run
+effectiveDecision: temporarily-passed
+scope: local and CI development only
+releaseEligible: false
+expires: before any public release candidate
+```
+
+This is an administrative waiver, not fabricated test evidence. It does not
+change any underlying gate from `not-run` to `passed`, certify a platform or
+retail-fidelity result, or permit a public release. Replace this decision with
+commit- and package-bound P5 evidence before public release certification.
+
 The roadmap ordering remains:
 
 ```text
