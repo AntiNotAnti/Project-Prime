@@ -25,7 +25,7 @@ internal sealed class AccountView : UserControl
     private readonly TextBox _name = new() { Watermark = "Display name (1–16 characters)" };
     private readonly TextBox _playerId = new() { Watermark = "Player ID from registration" };
     private readonly TextBox _code = new() { Watermark = "Email confirmation code" };
-    private readonly ComboBox _hunter = new() { ItemsSource = Enumerable.Range(0, 7).Select(i => ((Hunter)i).ToString()).ToArray(), SelectedIndex = 0 };
+    private readonly ComboBox _hunter = new() { ItemsSource = PlayableHunterCatalog.All.Select(hunter => hunter.ToString()).ToArray(), SelectedIndex = 0 };
     private readonly TextBlock _status = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextDimBrush };
     private readonly TextBlock _validation = new()
     {
@@ -39,7 +39,7 @@ internal sealed class AccountView : UserControl
     private readonly TextBlock _board = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextBrush };
     private static readonly string[] BoardMetrics = { "kills", "wins", "kd", "rp", "winPercentage", "headshots", "octolithScores", "nodesCaptured", "killsAsPrime" };
     private readonly ComboBox _boardMetric = new() { ItemsSource = new[] { "Kills", "Wins", "K/D", "Ranking Points", "Win percentage", "Headshots", "Octolith scores", "Nodes captured", "Kills as Prime" }, SelectedIndex = 0 };
-    private readonly ComboBox _boardHunter = new() { ItemsSource = new[] { "All Hunters" }.Concat(Enumerable.Range(0, 7).Select(i => ((Hunter)i).ToString())).ToArray(), SelectedIndex = 0 };
+    private readonly ComboBox _boardHunter = new() { ItemsSource = new[] { "All Hunters" }.Concat(PlayableHunterCatalog.All.Select(hunter => hunter.ToString())).ToArray(), SelectedIndex = 0 };
     private long? _historyCursor;
     private string? _boardCursor;
     public event EventHandler? Closed;
@@ -232,7 +232,9 @@ internal sealed class AccountView : UserControl
         PlayerId id = session.Identity?.PlayerId ?? throw new InvalidOperationException("Sign in to view your Hunter License.");
         HunterLicense license = await session.GetLicenseAsync(id, _cancel.Token);
         _name.Text = license.DisplayName;
-        _hunter.SelectedIndex = license.FavoriteHunter is >= 0 and <= 6 ? license.FavoriteHunter.Value : 0;
+        _hunter.SelectedIndex = license.FavoriteHunter is int favorite
+            && favorite >= 0 && favorite < PlayableHunterCatalog.Count
+            ? favorite : 0;
         _license.Text = $"{license.DisplayName}\nPlayer ID: {license.PlayerId}\nJoined {license.JoinedAt:yyyy-MM-dd}";
         CareerSummary career = await session.GetCareerAsync(id, _cancel.Token);
         CareerTotals totals = career.Totals;

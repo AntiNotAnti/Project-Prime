@@ -111,7 +111,7 @@ public sealed class AccountSessionTests
         {
             new HunterLicense(new PlayerId(player), "", 0, DateTimeOffset.UtcNow),
             new HunterLicense(new PlayerId(player), " Hunter", 0, DateTimeOffset.UtcNow),
-            new HunterLicense(new PlayerId(player), "Hunter", 7, DateTimeOffset.UtcNow)
+            new HunterLicense(new PlayerId(player), "Hunter", 8, DateTimeOffset.UtcNow)
         })
         {
             using var session = new AccountSession(new Uri("https://accounts.example.test/"),

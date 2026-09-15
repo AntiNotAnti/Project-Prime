@@ -66,7 +66,7 @@ public sealed partial class AccountSession
     private static AccountCosmeticLoadout ValidateCosmeticResponse(CosmeticLoadoutWire response)
     {
         if (!Enum.TryParse(response.Hunter, ignoreCase: true, out Hunter hunter)
-            || hunter is < Hunter.Samus or > Hunter.Guardian)
+            || !PlayableHunterCatalog.IsPlayable(hunter))
             throw new InvalidOperationException("The backend returned an invalid cosmetic Hunter.");
         var loadout = new CosmeticLoadout(response.SkinKey, response.ArmorEffectKey,
             response.DeathEffectKey);
@@ -77,7 +77,7 @@ public sealed partial class AccountSession
 
     private static void ValidateCosmeticHunter(Hunter hunter)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Guardian)
+        if (!PlayableHunterCatalog.IsPlayable(hunter))
             throw new ArgumentOutOfRangeException(nameof(hunter));
     }
 

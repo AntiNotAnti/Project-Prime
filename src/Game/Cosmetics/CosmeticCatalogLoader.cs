@@ -80,7 +80,8 @@ public static class CosmeticCatalogLoader
         {
             if (TryLoad<SkinManifest>(root, path, issues, out SkinManifest? value)
                 && ValidateHeader(value!.Format, value.Id, value.Key, "prime.skin.", path, issues)
-                && value.Hunter <= Hunter.Guardian && value.Materials is { Length: <= CosmeticPackageLimits.MaximumMaterialOverrides })
+                && PlayableHunterCatalog.IsPlayable(value.Hunter)
+                && value.Materials is { Length: <= CosmeticPackageLimits.MaximumMaterialOverrides })
             {
                 SkinMaterialOverride[] materials = value.Materials.Select(item => new SkinMaterialOverride(
                     item.Source ?? "", Asset(root, path, item.Albedo, issues), Asset(root, path, item.Normal, issues),
@@ -95,7 +96,7 @@ public static class CosmeticCatalogLoader
                         value.BaseRecolor, materials, accent), skinDefinitions, path, issues);
                 }
             }
-            else if (value != null && value.Hunter > Hunter.Guardian)
+            else if (value != null && !PlayableHunterCatalog.IsPlayable(value.Hunter))
                 issues.Add(new(CosmeticValidationIssueKind.InvalidDefinition, "Skin hunter is invalid.", value.Key, path));
         }
         foreach (string path in armor)

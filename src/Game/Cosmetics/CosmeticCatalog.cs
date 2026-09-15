@@ -98,7 +98,8 @@ public sealed class CosmeticCatalog
     {
         ids = default;
         issue = CosmeticLoadoutIssue.None;
-        if (hunter > Hunter.Guardian || !CosmeticId.IsValid(loadout.SkinKey))
+        if (!PlayableHunterCatalog.IsPlayable(hunter)
+            || !CosmeticId.IsValid(loadout.SkinKey))
         {
             issue = CosmeticLoadoutIssue.InvalidSkin;
             return false;
@@ -150,7 +151,7 @@ public sealed class CosmeticCatalog
     }
 
     public bool IsValid(CosmeticLoadoutIds ids, Hunter hunter)
-        => hunter <= Hunter.Guardian
+        => PlayableHunterCatalog.IsPlayable(hunter)
             && (ids.SkinId == 0 || TryGetSkin(ids.SkinId, out SkinDefinition skin) && skin.Hunter == hunter)
             && (ids.ArmorEffectId == 0 || _armorById.ContainsKey(ids.ArmorEffectId))
             && (ids.DeathEffectId == 0 || TryGetDeathEffect(ids.DeathEffectId,
@@ -174,7 +175,7 @@ public sealed class CosmeticCatalog
         ValidateIdentities(values.Select(value => (value.Id, value.Key)), "skin", "prime.skin.");
         foreach (SkinDefinition value in values)
         {
-            if (value.Hunter > Hunter.Guardian || !ValidLabel(value.DisplayName)
+            if (!PlayableHunterCatalog.IsPlayable(value.Hunter) || !ValidLabel(value.DisplayName)
                 || value.Materials?.Count > CosmeticPackageLimits.MaximumMaterialOverrides
                 || value.Materials?.Any(material => !ValidMaterial(material)) == true
                 || value.TeamAccent is { } accent
@@ -209,7 +210,7 @@ public sealed class CosmeticCatalog
         {
             if (!ValidLabel(value.DisplayName) || !Enum.IsDefined(value.BodyMode)
                 || !float.IsFinite(value.Duration) || value.Duration is <= 0 or > CosmeticPackageLimits.MaximumDeathDurationSeconds
-                || value.Hunter is Hunter hunter && hunter > Hunter.Guardian
+                || value.Hunter is Hunter hunter && !PlayableHunterCatalog.IsPlayable(hunter)
                 || value.Animation != null && !CosmeticPath.IsValidRelative(value.Animation)
                 || !ValidMaterial(value.Material)
                 || value.Particles?.Count > CosmeticPackageLimits.MaximumParticleEmitters
@@ -332,6 +333,10 @@ public sealed class CosmeticCatalog
             new(BuiltInCosmeticIds.SkinWeavelObsidian, "prime.skin.weavel.obsidian", "Obsidian Prime", Hunter.Weavel,
                 BaseRecolor: 1),
             new(BuiltInCosmeticIds.SkinWeavelSolar, "prime.skin.weavel.solar", "Solar Prime", Hunter.Weavel,
+                BaseRecolor: 2),
+            new(BuiltInCosmeticIds.SkinGuardianObsidian, "prime.skin.guardian.obsidian", "Obsidian Prime", Hunter.Guardian,
+                BaseRecolor: 1),
+            new(BuiltInCosmeticIds.SkinGuardianSolar, "prime.skin.guardian.solar", "Solar Prime", Hunter.Guardian,
                 BaseRecolor: 2)
         ];
         ArmorEffectDefinition[] armor =
@@ -400,6 +405,8 @@ public static class BuiltInCosmeticIds
     public const ushort SkinSpireSolar = 12;
     public const ushort SkinWeavelObsidian = 13;
     public const ushort SkinWeavelSolar = 14;
+    public const ushort SkinGuardianObsidian = 15;
+    public const ushort SkinGuardianSolar = 16;
     public const ushort ArmorLightning = 1;
     public const ushort ArmorPestilence = 2;
     public const ushort ArmorEclipse = 3;

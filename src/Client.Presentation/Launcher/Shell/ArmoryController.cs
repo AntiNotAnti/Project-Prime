@@ -26,9 +26,8 @@ public sealed class ArmoryController
             if ((int)beam >= MphRead.Weapons.Current.Count
                 || (int)beam >= Metadata.WeaponNames.Count) continue;
             WeaponInfo weapon = MphRead.Weapons.Current[(int)beam];
-            string affinity = string.Join(", ", Enum.GetValues<Hunter>()
-                .Where(hunter => hunter <= Hunter.Weavel
-                    && MphRead.Weapons.GetAffinityBeam(hunter) == beam)
+            string affinity = string.Join(", ", PlayableHunterCatalog.All
+                .Where(hunter => MphRead.Weapons.GetAffinityBeam(hunter) == beam)
                 .Select(hunter => hunter.ToString()));
             entries.Add(new PrimeWeaponDetails(beam, Metadata.WeaponNames[(int)beam],
                 weapon.Description, affinity.Length == 0 ? "None" : affinity,

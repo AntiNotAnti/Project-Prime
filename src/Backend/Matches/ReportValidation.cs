@@ -11,13 +11,17 @@ public static class ReportValidation
 
     public static bool Validate(MatchReportV1 report, Guid serverId, MatchTrustClass trust, DateTimeOffset now)
     {
-        if (!report.IsValid || report.ServerId != serverId
+        if (!report.IsValid) return false;
+        try { EnhancedHuntersRankingPolicy.Validate(report.Rules); }
+        catch (ArgumentException) { return false; }
+        if (report.ServerId != serverId
             || report.PlayedTicks > MaximumTicks || report.Rules.RoomKey.Length > 128
             || report.EndedAtUtc > now.AddMinutes(5) || report.EndedAtUtc - report.StartedAtUtc > MaximumDuration
             || report.Participants.Count(x => x.StartedMatch) > report.Rules.MaxPlayers) return false;
         foreach (var participant in report.Participants)
         {
-            if (participant.PlayedTicks > report.PlayedTicks || participant.Spans.Any(x => x.Hunter > Hunter.Weavel)
+            if (participant.PlayedTicks > report.PlayedTicks
+                || participant.Spans.Any(x => !PlayableHunterCatalog.IsPlayable(x.Hunter))
                 || participant.DisplayName.Any(char.IsControl)) return false;
             var m = participant.Metrics;
             int[] counts = [m.Kills, m.Deaths, m.Assists, m.DamageDealt, m.LongestKillStreak, m.HeadshotKills,

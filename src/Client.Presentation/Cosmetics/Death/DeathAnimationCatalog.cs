@@ -49,7 +49,7 @@ internal static class DeathAnimationCatalog
         Hunter hunter, out string? resource)
     {
         resource = null;
-        if (hunter is < Hunter.Samus or > Hunter.Weavel) return false;
+        if (!PlayableHunterCatalog.IsPlayable(hunter)) return false;
         if (effect.Id == BuiltInCosmeticIds.DeathSamusBackwardCollapse)
         {
             if (hunter != Hunter.Samus

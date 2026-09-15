@@ -154,7 +154,8 @@ public sealed partial class AccountSession
         CancellationToken cancel = default, Hunter? hunter = null)
     {
         if (!ValidMetric(metric) || cursor != null && (cursor.Length == 0 || cursor.Length > 256)
-            || hunter.HasValue && (int)hunter.Value is < 0 or > 6 || metric == "rp" && hunter.HasValue)
+            || hunter.HasValue && !PlayableHunterCatalog.IsPlayable(hunter.Value)
+                || metric == "rp" && hunter.HasValue)
             throw new ArgumentException("Invalid leaderboard category or cursor.");
         string query = cursor == null ? "" : "&cursor=" + Uri.EscapeDataString(cursor);
         if (hunter.HasValue) query += "&hunter=" + ((int)hunter.Value).ToString(CultureInfo.InvariantCulture);
@@ -222,7 +223,8 @@ public sealed partial class AccountSession
             || !requireOutcomeSample && choice.Value == 0
             || requireOutcomeSample && (choice.Samples < minimumSamples || choice.Value > choice.Samples)) return false;
         if (dimension == "hunter" && (!int.TryParse(choice.Key, NumberStyles.None,
-                CultureInfo.InvariantCulture, out int hunter) || hunter is < 0 or > 6)) return false;
+                CultureInfo.InvariantCulture, out int hunter)
+                || !PlayableHunterCatalog.IsPlayable((Hunter)hunter))) return false;
         if (dimension == "mode" && (!int.TryParse(choice.Key, NumberStyles.None,
                 CultureInfo.InvariantCulture, out int mode) || mode is < byte.MinValue or > byte.MaxValue
                 || !Enum.IsDefined((MatchMode)(byte)mode))) return false;

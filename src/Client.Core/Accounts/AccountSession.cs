@@ -307,7 +307,9 @@ public sealed partial class AccountSession : IDisposable
         if (license.PlayerId != player || license.DisplayName is not { Length: >= 1 and <= 16 }
             || license.DisplayName != license.DisplayName.Trim()
             || license.DisplayName.Any(c => c is < ' ' or > '~')
-            || license.FavoriteHunter is < 0 or > 6 || license.JoinedAt.Offset != TimeSpan.Zero
+            || license.FavoriteHunter is not int favoriteHunter
+                || !PlayableHunterCatalog.IsPlayable((Hunter)favoriteHunter)
+            || license.JoinedAt.Offset != TimeSpan.Zero
             || !ValidRating(new(license.Points, license.Tier, license.Title, license.NextThreshold,
                 license.LastOfficialDelta, license.Policy)))
         {
@@ -318,7 +320,8 @@ public sealed partial class AccountSession : IDisposable
 
     public async Task UpdateProfileAsync(string displayName, int favoriteHunter, CancellationToken cancel = default)
     {
-        if (favoriteHunter is < 0 or > 6) throw new ArgumentOutOfRangeException(nameof(favoriteHunter));
+        if (!PlayableHunterCatalog.IsPlayable((Hunter)favoriteHunter))
+            throw new ArgumentOutOfRangeException(nameof(favoriteHunter));
         await SendAsync<JsonElement>(HttpMethod.Patch, "v1/me/profile", new { displayName, favoriteHunter },
             await AccessTokenAsync(cancel).ConfigureAwait(false), cancel).ConfigureAwait(false);
     }

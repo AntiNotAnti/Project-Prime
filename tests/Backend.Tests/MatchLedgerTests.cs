@@ -79,6 +79,29 @@ public sealed class MatchLedgerTests
     }
 
     [Fact]
+    public void EnhancedHunterReportsRequireCustomUnrankedRules()
+    {
+        MatchReportV1 report = Report(Guid.NewGuid());
+        DateTimeOffset now = report.EndedAtUtc.AddMinutes(1);
+        MatchRules invalidPreset = new(MatchMode.Battle, "test-map",
+            enhancedHunters: true, rulesetPreset: RulesetPreset.Classic,
+            rankingEligibility: RankingEligibility.Unranked);
+        MatchRules invalidEligibility = new(MatchMode.Battle, "test-map",
+            enhancedHunters: true, rulesetPreset: RulesetPreset.Custom,
+            rankingEligibility: RankingEligibility.VerifiedServerOnly);
+        MatchRules valid = new(MatchMode.Battle, "test-map",
+            enhancedHunters: true, rulesetPreset: RulesetPreset.Custom,
+            rankingEligibility: RankingEligibility.Unranked);
+
+        Assert.False(ReportValidation.Validate(report with { Rules = invalidPreset },
+            Server, MatchTrustClass.VerifiedCasual, now));
+        Assert.False(ReportValidation.Validate(report with { Rules = invalidEligibility },
+            Server, MatchTrustClass.VerifiedCasual, now));
+        Assert.True(ReportValidation.Validate(report with { Rules = valid },
+            Server, MatchTrustClass.VerifiedCasual, now));
+    }
+
+    [Fact]
     public async Task HttpLedgerAuthenticatesValidatesAndReturnsExactIdempotentReceipt()
     {
         using var factory = Factory(); using var client = factory.CreateDatabaseClient();
@@ -187,7 +210,7 @@ public sealed class MatchLedgerTests
             p with { Metrics = p.Metrics with { Kills = int.MaxValue, BipedKills = int.MaxValue, AltFormKills = int.MaxValue } },
             p with { Metrics = p.Metrics with { BeamKills = [int.MaxValue, int.MaxValue, 0, 0, 0, 0, 0, 0, 0] } },
             p with { Spans = [p.Spans[0] with { PlayedTicks = 601 }] },
-            p with { Spans = [p.Spans[0] with { Hunter = Hunter.Guardian }] },
+            p with { Spans = [p.Spans[0] with { Hunter = Hunter.Random }] },
             p with { Spans = [p.Spans[0] with { Slot = 1 }] }
         })
             Assert.Equal(HttpStatusCode.BadRequest, (await Submit(client, report with { Participants = report.Participants.SetItem(0, changed) })).StatusCode);

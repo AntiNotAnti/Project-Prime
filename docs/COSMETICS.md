@@ -7,9 +7,14 @@ seat; the Worker only republishes those immutable IDs. `SnapshotPlayer` and the 
 snapshot wire format remain unchanged.
 
 User-facing appearance selection covers Samus, Kanden, Trace, Sylux, Noxus,
-Spire, and Weavel. Each has Base plus the authored AMHE1 lod0 recolors 1
-(`Obsidian Prime`) and 2 (`Solar Prime`). Guardian remains an internal gameplay
-model and cannot be equipped through account or Hunter Appearance APIs.
+Spire, Weavel, and Guardian. Each has Base plus the authored AMHE1 lod0
+recolors 1 (`Obsidian Prime`) and 2 (`Solar Prime`). Guardian is an official
+Project Prime extension, not a retail AMHE1 player-fidelity claim.
+
+Guardian keeps its canonical six-slot biped recolor in gameplay state. Psycho
+Bit has five authored recolors, so team presentation maps canonical team slots
+explicitly: slot 4 → Psycho Bit recolor 3 and slot 5 → recolor 4. No out-of-range
+index silently falls back to an arbitrary palette.
 
 ## Identity and compatibility
 

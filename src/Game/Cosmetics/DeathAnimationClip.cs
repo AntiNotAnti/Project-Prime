@@ -199,7 +199,8 @@ public static class DeathAnimationCodec
         var reader = new SpanReader(bytes);
         if (!reader.TryUInt32(out uint magic) || magic != Magic
             || !reader.TryByte(out byte version) || version != Version
-            || !reader.TryByte(out byte hunterRaw) || hunterRaw > (byte)Hunter.Guardian
+            || !reader.TryByte(out byte hunterRaw)
+            || !PlayableHunterCatalog.IsPlayable((Hunter)hunterRaw)
             || !reader.TryUInt16(out ushort durationMs) || durationMs == 0
             || durationMs > DeathAnimationClip.MaximumDuration * 1000
             || !reader.TryUInt16(out ushort blendMs) || blendMs > durationMs

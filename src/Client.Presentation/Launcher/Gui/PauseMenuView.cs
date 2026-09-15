@@ -349,8 +349,7 @@ namespace MphRead.Mods.Launcher.Gui
                 FontWeight = FontWeight.SemiBold,
                 Margin = new Thickness(0, 6, 0, 0)
             });
-            Hunter[] hunters = Enum.GetValues<Hunter>()
-                .Where(value => value <= Hunter.Weavel).ToArray();
+            Hunter[] hunters = PlayableHunterCatalog.All.ToArray();
             _hunterSelector = new ComboBox
             {
                 Name = "PauseNextHunter",

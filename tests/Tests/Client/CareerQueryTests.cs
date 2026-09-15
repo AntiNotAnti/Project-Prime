@@ -385,7 +385,8 @@ public sealed class CareerQueryTests
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("unknown"));
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", ""));
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", new string('x', 257)));
-        await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("kills", hunter: (Hunter)7));
+        await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync(
+            "kills", hunter: Hunter.Random));
         await Assert.ThrowsAsync<ArgumentException>(() => session.GetLeaderboardAsync("rp", hunter: Hunter.Samus));
     }
 

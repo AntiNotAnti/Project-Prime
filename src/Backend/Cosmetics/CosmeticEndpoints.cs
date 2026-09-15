@@ -122,13 +122,14 @@ public static class CosmeticEndpoints
     }
 
     private static bool TryParsePlayableHunter(string value, out Hunter hunter)
-        => Enum.TryParse(value, ignoreCase: true, out hunter) && hunter is >= Hunter.Samus and <= Hunter.Weavel;
+        => Enum.TryParse(value, ignoreCase: true, out hunter)
+            && PlayableHunterCatalog.IsPlayable(hunter);
 
     private static bool Bounded(string? value) => value is { Length: >= 1 and <= MaximumKeyLength };
 
     private static IEnumerable<Hunter> PlayableHunters()
     {
-        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++) yield return hunter;
+        foreach (Hunter hunter in PlayableHunterCatalog.All) yield return hunter;
     }
 
     private static CosmeticLoadout DefaultLoadout(Hunter hunter)

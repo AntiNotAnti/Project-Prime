@@ -151,8 +151,15 @@ public sealed class HunterAppearanceTests
             effect => effect.Id == BuiltInCosmeticIds.DeathSamusBackwardCollapse);
         Assert.Contains(controller.State.DeathEffects,
             effect => effect.Id == BuiltInCosmeticIds.DeathBackwardCollapse);
+
+        controller.SelectHunter(Hunter.Guardian);
+        Assert.Equal(Hunter.Guardian, controller.State.Hunter);
+        Assert.DoesNotContain(controller.State.DeathEffects,
+            effect => effect.Id == BuiltInCosmeticIds.DeathSamusBackwardCollapse);
+        Assert.Contains(controller.State.DeathEffects,
+            effect => effect.Id == BuiltInCosmeticIds.DeathBackwardCollapse);
         Assert.Throws<ArgumentOutOfRangeException>(() =>
-            controller.SelectHunter(Hunter.Guardian));
+            controller.SelectHunter(Hunter.Random));
     }
 
     [Fact]

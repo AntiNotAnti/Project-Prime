@@ -15,7 +15,7 @@ public sealed class CosmeticCatalogTests
     public void BuiltInCatalogUsesExplicitStableIdsAndZeroFallbacks()
     {
         CosmeticCatalog catalog = CosmeticCatalog.BuiltIn;
-        Assert.Equal(14, catalog.Skins.Count);
+        Assert.Equal(16, catalog.Skins.Count);
         Assert.Equal(16, catalog.ArmorEffects.Count);
         Assert.True(catalog.TryGetArmorEffect(BuiltInCosmeticIds.ArmorThunderstorm, out var thunderstorm));
         Assert.Equal("prime.armor_fx.thunderstorm", thunderstorm.Key);
@@ -34,7 +34,7 @@ public sealed class CosmeticCatalogTests
     [Fact]
     public void EverySelectableHunterHasObsidianAndSolarRecolors()
     {
-        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        foreach (Hunter hunter in PlayableHunterCatalog.All)
         {
             SkinDefinition[] skins = CosmeticCatalog.BuiltIn.Skins.Values
                 .Where(value => value.Hunter == hunter).OrderBy(value => value.Id)
@@ -54,8 +54,8 @@ public sealed class CosmeticCatalogTests
                 Assert.Equal(ids, CosmeticCatalog.BuiltIn.Sanitize(ids, hunter));
             }
         }
-        Assert.Empty(CosmeticCatalog.BuiltIn.Skins.Values
-            .Where(value => value.Hunter == Hunter.Guardian));
+        Assert.Equal(new[] { Hunter.Guardian, Hunter.Guardian },
+            skinsByHunter(Hunter.Guardian).Select(value => value.Hunter));
     }
 
     [Fact]
@@ -67,16 +67,38 @@ public sealed class CosmeticCatalogTests
         using var content = ServerContent.PreserveContext("AMHE1");
         Read.ServerMode = false;
         ServerContent.Open(data, "AMHE1");
-        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        foreach (Hunter hunter in PlayableHunterCatalog.All)
         {
             string modelName = Metadata.HunterModels[hunter][0];
             Model model = Read.GetModelInstance(modelName).Model;
             Assert.True(model.Recolors.Count >= 3,
                 $"{modelName} has {model.Recolors.Count} recolors.");
-            Assert.NotEmpty(model.Recolors[1].PaletteData);
-            Assert.NotEmpty(model.Recolors[2].PaletteData);
+            AssertAuthoredRecolor(model.Recolors[1]);
+            AssertAuthoredRecolor(model.Recolors[2]);
+        }
+        Model psychoBit = Read.GetModelInstance(
+            Metadata.HunterModels[Hunter.Guardian][2]).Model;
+        Assert.Equal(5, psychoBit.Recolors.Count);
+        Assert.All(psychoBit.Recolors, AssertAuthoredRecolor);
+    }
+
+    private static void AssertAuthoredRecolor(Recolor recolor)
+    {
+        Assert.NotEmpty(recolor.Textures);
+        Assert.Equal(recolor.Textures.Count, recolor.TextureData.Count);
+        Assert.All(recolor.TextureData, Assert.NotEmpty);
+        if (recolor.Textures.Any(texture => texture.Format != TextureFormat.DirectRgb))
+        {
+            Assert.NotEmpty(recolor.Palettes);
+            Assert.Equal(recolor.Palettes.Count, recolor.PaletteData.Count);
+            Assert.All(recolor.PaletteData, Assert.NotEmpty);
         }
     }
+
+    private static SkinDefinition[] skinsByHunter(Hunter hunter)
+        => CosmeticCatalog.BuiltIn.Skins.Values
+            .Where(value => value.Hunter == hunter).OrderBy(value => value.Id)
+            .ToArray();
 
     [Fact]
     public void CatalogHashAndLookupsDoNotDependOnInputOrdering()

@@ -58,7 +58,8 @@ public static class CosmeticKeys
 
     public static string DefaultSkin(Hunter hunter)
     {
-        if (hunter > Hunter.Guardian) throw new ArgumentOutOfRangeException(nameof(hunter));
+        if (!PlayableHunterCatalog.IsPlayable(hunter))
+            throw new ArgumentOutOfRangeException(nameof(hunter));
         return $"prime.skin.{hunter.ToString().ToLowerInvariant()}.classic";
     }
 }

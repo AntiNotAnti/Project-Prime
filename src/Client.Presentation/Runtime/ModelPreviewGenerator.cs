@@ -71,7 +71,7 @@ internal static class ModelPreviewCatalog
         ArmorEffectDefinition? armorEffect, out ModelPreviewSpec? spec)
     {
         spec = null;
-        if (hunter is < Hunter.Samus or > Hunter.Weavel
+        if (!PlayableHunterCatalog.IsPlayable(hunter)
             || !Metadata.HunterModels.TryGetValue(hunter, out var models)
             || models.Count == 0)
         {

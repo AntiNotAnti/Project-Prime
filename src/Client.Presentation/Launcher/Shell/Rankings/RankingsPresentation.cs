@@ -274,8 +274,7 @@ internal static class RankingsPresentation
         if (state.Metric != "rp")
         {
             var values = new List<object> { "All Hunters" };
-            values.AddRange(Enum.GetValues<Hunter>().Where(hunter => hunter <= Hunter.Weavel)
-                .Cast<object>());
+            values.AddRange(PlayableHunterCatalog.All.Cast<object>());
             var choice = new ComboBox
             {
                 ItemsSource = values,

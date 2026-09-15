@@ -195,7 +195,7 @@ public sealed class HunterLicenseController : IDisposable
     public async Task<bool> SetFavoriteHunterAsync(Hunter hunter,
         CancellationToken cancellationToken = default)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Weavel)
+        if (!PlayableHunterCatalog.IsPlayable(hunter))
             throw new ArgumentOutOfRangeException(nameof(hunter));
         IPrimeCareerQueries queries = ResolveQueries();
         RequirePlayer(queries);
@@ -345,10 +345,9 @@ public sealed class HunterLicenseController : IDisposable
         int? favorite = license?.FavoriteHunter;
         int? mostPlayed = ParseHunterChoice(career?.MostPlayedHunter);
         int? best = ParseHunterChoice(career?.BestHunter);
-        var result = new List<HunterDossier>(7);
-        foreach (Hunter hunter in Enum.GetValues<Hunter>())
+        var result = new List<HunterDossier>(PlayableHunterCatalog.Count);
+        foreach (Hunter hunter in PlayableHunterCatalog.All)
         {
-            if (hunter > Hunter.Weavel) continue;
             BeamType affinity = Weapons.GetAffinityBeam(hunter);
             string? model = Metadata.HunterModels.TryGetValue(hunter, out var models)
                 && models.Count > 2 ? models[0] : null;
@@ -364,10 +363,10 @@ public sealed class HunterLicenseController : IDisposable
     {
         if (choice == null) return null;
         if (Int32.TryParse(choice.Key, NumberStyles.None, CultureInfo.InvariantCulture,
-            out int numeric) && numeric is >= 0 and <= 6)
+            out int numeric) && PlayableHunterCatalog.TryFromIndex(numeric, out _))
             return numeric;
         return Enum.TryParse<Hunter>(choice.Key, ignoreCase: true, out Hunter hunter)
-            && hunter is >= Hunter.Samus and <= Hunter.Weavel ? (int)hunter : null;
+            && PlayableHunterCatalog.IsPlayable(hunter) ? (int)hunter : null;
     }
 
     private readonly record struct LicenseCacheKey(string BackendScope, PlayerId Player);

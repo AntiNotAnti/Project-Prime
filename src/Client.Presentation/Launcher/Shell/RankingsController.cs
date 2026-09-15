@@ -99,7 +99,7 @@ public sealed class RankingsController : IDisposable
 
     public void SetHunterFilter(Hunter? hunter)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Weavel)
+        if (hunter is { } selected && !PlayableHunterCatalog.IsPlayable(selected))
             throw new ArgumentOutOfRangeException(nameof(hunter));
         if (_state.Metric == "rp" && hunter.HasValue)
             throw new ArgumentException("Ranking Points cannot be filtered by Hunter.", nameof(hunter));

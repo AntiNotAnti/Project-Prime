@@ -69,7 +69,7 @@ public sealed class AccountTests
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PatchAsJsonAsync("/v1/me/profile", new { DisplayName = "Renamed" })).StatusCode);
         var tokens = await Login(client);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokens.GetProperty("accessToken").GetString());
-        Assert.Equal(HttpStatusCode.NoContent, (await client.PatchAsJsonAsync("/v1/me/profile", new { DisplayName = "Renamed", FavoriteHunter = 6 })).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PatchAsJsonAsync("/v1/me/profile", new { DisplayName = "Renamed", FavoriteHunter = 7 })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PatchAsJsonAsync("/v1/me/profile", new { PlayerId = secondId, DisplayName = "Stolen" })).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PatchAsJsonAsync("/v1/me/profile", new { RankingPoints = 850 })).StatusCode);
         string license = await client.GetStringAsync($"/v1/players/{firstId}/license");

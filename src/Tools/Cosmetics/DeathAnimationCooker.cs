@@ -90,7 +90,8 @@ internal static class DeathAnimationCooker
             throw new InvalidDataException("Death animation source is empty or exceeds 1 MiB.");
         DeathAnimationSource? source = JsonSerializer.Deserialize<DeathAnimationSource>(utf8,
             JsonOptions);
-        if (source == null || source.Format != 1 || source.Hunter > Hunter.Guardian
+        if (source == null || source.Format != 1
+            || !PlayableHunterCatalog.IsPlayable(source.Hunter)
             || source.Skeleton is not { Count: > 0 }
             || source.Tracks == null)
             throw new InvalidDataException("Death animation source header is invalid.");

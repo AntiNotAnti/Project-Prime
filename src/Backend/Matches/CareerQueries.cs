@@ -107,7 +107,7 @@ public static class CareerQueries
         ILogger logger = loggerFactory.CreateLogger(BackendDiagnostics.CareerCategory);
         metric ??= "kills";
         if ((trustClass.HasValue && !Enum.IsDefined(trustClass.Value)) || limit is < 1 or > 100
-            || hunter is < Hunter.Samus or > Hunter.Weavel
+            || hunter is { } && !PlayableHunterCatalog.IsPlayable(hunter.Value)
             || metric is not ("kills" or "wins" or "kd" or "rp" or "winPercentage" or "headshots" or "octolithScores" or "nodesCaptured" or "killsAsPrime"))
             return BackendProblem.Create("invalid_query", "The leaderboard query is invalid.", StatusCodes.Status400BadRequest);
         BoardCursor? after = null;

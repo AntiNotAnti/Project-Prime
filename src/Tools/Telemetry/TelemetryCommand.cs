@@ -100,7 +100,7 @@ namespace MphRead
                     {
                         weapon.Damage += entry.Value;
                         // Damage records describe the victim position; attribute Hunter damage to the sampled attacker.
-                        if (entry.OtherHunter < 7)
+                        if (PlayableHunterCatalog.IsPlayable((Hunter)entry.OtherHunter))
                         {
                             if (!hunters.TryGetValue(entry.OtherHunter, out HunterStats? source)) hunters.Add(entry.OtherHunter, source = new());
                             source.Damage += entry.Value;
@@ -150,7 +150,7 @@ namespace MphRead
                 weapons = weapons.OrderBy(p => p.Key).Select(p => new { weapon = p.Key, p.Value.Pickups, p.Value.Kills, p.Value.Damage,
                     p.Value.KillsAfterPickup, damageShare = totalDamage == 0 ? (double?)null : (double)p.Value.Damage / totalDamage,
                     averagePickupToKillSeconds = p.Value.KillsAfterPickup == 0 ? (double?)null : p.Value.PickupToKillSeconds / p.Value.KillsAfterPickup }),
-                hunters = hunters.Where(p => p.Key < 7).OrderBy(p => p.Key).Select(p => new { hunter = p.Key, p.Value.Kills, p.Value.Deaths,
+                hunters = hunters.Where(p => PlayableHunterCatalog.IsPlayable((Hunter)p.Key)).OrderBy(p => p.Key).Select(p => new { hunter = p.Key, p.Value.Kills, p.Value.Deaths,
                     sampledActiveSeconds = p.Value.Samples, p.Value.Damage,
                     damagePerMinute = p.Value.Samples == 0 ? (double?)null : p.Value.Damage * 60d / p.Value.Samples }),
                 objectiveTransitions = objectives.OrderBy(p => p.Key).Select(p => new { kind = ((WorldSignalKind)p.Key).ToString(), count = p.Value }),

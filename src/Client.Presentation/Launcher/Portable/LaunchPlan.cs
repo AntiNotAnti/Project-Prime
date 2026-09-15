@@ -8,9 +8,9 @@ namespace MphRead.Mods.Launcher
     /// Turning the player's choice of hunter into one the game can load.
     ///
     /// <see cref="Hunter.Random"/> is a *menu* entry, not a character:
-    /// <c>Metadata.HunterModels</c> has an entry for each of the seven and for
-    /// the Guardian, and none for it. Nothing used to roll it into a real one,
-    /// so picking Random and starting a match threw
+    /// <c>Metadata.HunterModels</c> has an entry for every playable Hunter and
+    /// none for the selector sentinel. Nothing used to roll it into a real
+    /// one, so picking Random and starting a match threw
     /// <see cref="System.Collections.Generic.KeyNotFoundException"/> the
     /// moment the player entity was created -- on every platform, and reported
     /// on Android as the raw resource name because a trimmed build has no
@@ -21,8 +21,8 @@ namespace MphRead.Mods.Launcher
     /// </summary>
     public static class Hunters
     {
-        /// <summary>The seven playable hunters. The Guardian is not one.</summary>
-        public const int Playable = 7;
+        /// <summary>The immutable playable-Hunter catalog size.</summary>
+        public static int Playable => PlayableHunterCatalog.Count;
 
         /// <summary>
         /// The roll, held for the length of one launch.
@@ -43,7 +43,8 @@ namespace MphRead.Mods.Launcher
             }
             if (_rolled == Hunter.Random)
             {
-                _rolled = (Hunter)Random.Shared.Next(Playable);
+                _rolled = PlayableHunterCatalog.FromIndex(
+                    Random.Shared.Next(Playable));
             }
             return _rolled;
         }

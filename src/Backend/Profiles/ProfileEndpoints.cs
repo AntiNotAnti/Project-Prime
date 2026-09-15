@@ -41,7 +41,8 @@ public static class ProfileEndpoints
                     StatusCodes.Status401Unauthorized);
             if ((patch.DisplayName == null && patch.FavoriteHunter == null)
                 || (patch.DisplayName != null && !ValidDisplayName(patch.DisplayName))
-                || (patch.FavoriteHunter.HasValue && patch.FavoriteHunter.Value > Hunter.Weavel))
+                || (patch.FavoriteHunter.HasValue
+                    && !PlayableHunterCatalog.IsPlayable(patch.FavoriteHunter.Value)))
             {
                 return BackendProblem.Create("invalid_display_name",
                     "Supply a valid display name or playable favorite hunter.",
