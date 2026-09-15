@@ -12,15 +12,50 @@
   "map": "MP1 SANCTORUS",
   "seed": 1347571021,
   "actions": [
-    { "at": 0, "action": "move", "values": { "x": 0, "y": 1 } },
-    { "at": 120, "action": "releaseMove", "values": {} }
+    {
+      "at": 0,
+      "action": "move",
+      "values": {
+        "x": 0,
+        "y": 1
+      }
+    },
+    {
+      "at": 120,
+      "action": "releaseMove",
+      "values": {}
+    }
   ],
   "checkpoints": [
-    { "vblank": 0, "elapsedMilliseconds": null, "semanticEventIndex": null },
-    { "vblank": 10, "elapsedMilliseconds": null, "semanticEventIndex": null },
-    { "vblank": 30, "elapsedMilliseconds": null, "semanticEventIndex": null },
-    { "vblank": 60, "elapsedMilliseconds": null, "semanticEventIndex": null },
-    { "vblank": 90, "elapsedMilliseconds": null, "semanticEventIndex": null },
-    { "vblank": 120, "elapsedMilliseconds": null, "semanticEventIndex": null }
+    {
+      "vblank": 0,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    },
+    {
+      "vblank": 10,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    },
+    {
+      "vblank": 30,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    },
+    {
+      "vblank": 60,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    },
+    {
+      "vblank": 90,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    },
+    {
+      "vblank": 120,
+      "elapsedMilliseconds": null,
+      "semanticEventIndex": null
+    }
   ]
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MphRead;
@@ -71,6 +72,21 @@ public sealed class OracleTests
         Assert.Equal(artifact.Checkpoints[0].ElapsedMilliseconds,
             reparsedArtifact.Checkpoints[0].ElapsedMilliseconds);
         Assert.Equal(artifact.Events[0].VBlank, reparsedArtifact.Events[0].VBlank);
+    }
+
+    [Fact, Trait("Category", "FidelitySchema")]
+    public void CheckedInSamusScenarioUsesFrozenCanonicalSerialization()
+    {
+        string path = FindCheckedInScenario();
+        byte[] raw = File.ReadAllBytes(path);
+        OracleScenario scenario = OracleJson.ParseScenario(raw);
+        byte[] canonical = Encoding.UTF8.GetBytes(OracleJson.SerializeScenario(scenario));
+
+        Assert.Equal(1323, raw.Length);
+        Assert.Equal(
+            "7ff3c27972c08ff0c80fe831b1dd0cefbdcd53a2b97f2be810751b842e373114",
+            Convert.ToHexString(SHA256.HashData(raw)).ToLowerInvariant());
+        Assert.Equal(canonical, raw);
     }
 
     [Fact, Trait("Category", "FidelitySchema")]
@@ -226,6 +242,27 @@ public sealed class OracleTests
         => new(OracleJson.DefaultProjectRevision, OracleJson.Amhe1Revision,
             OracleJson.Amhe1AnchorPath, OracleJson.Amhe1AnchorSha256,
             OracleJson.Amhe1AggregateSha256);
+
+    private static string FindCheckedInScenario()
+    {
+        const string relativePath = "tools/fidelity/scenarios/FID-RETAIL-SAMUS-001.json";
+        DirectoryInfo? directory = new(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (directory.LinkTarget is null
+                && (directory.Attributes & FileAttributes.ReparsePoint) == 0)
+            {
+                string candidate = Path.Combine(directory.FullName,
+                    relativePath.Replace('/', Path.DirectorySeparatorChar));
+                FileInfo file = new(candidate);
+                if (file.Exists && file.LinkTarget is null
+                    && (file.Attributes & FileAttributes.ReparsePoint) == 0)
+                    return file.FullName;
+            }
+            directory = directory.Parent;
+        }
+        throw new FileNotFoundException("Checked-in FID-RETAIL-SAMUS-001 scenario was not found.");
+    }
 
     private static string ScenarioJson()
         => $$"""
