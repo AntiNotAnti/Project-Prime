@@ -51,8 +51,10 @@ image is exactly 67,108,864 bytes, and its complete-image SHA-256 is
 `bcd9c2d408825589c35c6754c0efb547cbae78fbda9ce7f69500a9cab8e70b8f`. The
 path is never written to artifacts or committed. Without `--rom`, adapters
 must emit `romIdentity: "unverified:<reason>"`; with it, artifacts bind to
-`romIdentity: "sha256:<digest>"`. A deterministic external adapter is not
-present here, so no retail run is claimed by this repository.
+`romIdentity: "sha256:<digest>"`. The adapter remains external to Project
+Prime and is implemented in the adjacent `melonPrimeDS` checkout. No retail
+run is claimed until a private provenance-bound raw-retail savestate is run
+twice with matching normalized observations and captures.
 
 See [the oracle contract](../fidelity/ORACLE.md) for the schema and
 [the testing lab](../TESTING_LAB.md) for evidence levels.

@@ -113,6 +113,7 @@ public static class OracleHost
             string artifactPath = Path.Combine(runDirectory, "artifact.json");
             OracleArtifact artifact = OracleJson.LoadArtifact(artifactPath);
             ValidateRecordedArtifact(artifact, scenario, adapterIdentity, rom?.Identity);
+            ValidateRecordedCaptures(runDirectory, artifact);
             return new OracleRecordResult(runDirectory, artifact, process.ExitCode, false);
         }
         catch
@@ -210,6 +211,38 @@ public static class OracleHost
         string expectedHash = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(serialized)));
         if (!StringComparer.OrdinalIgnoreCase.Equals(expectedHash, artifact.Manifest.ScenarioHash))
             throw new InvalidDataException("Oracle adapter artifact scenario hash does not match the requested scenario.");
+        if (artifact.Checkpoints.Count != scenario.Checkpoints.Count)
+            throw new InvalidDataException("Oracle adapter artifact checkpoint count does not match the requested scenario.");
+        for (int i = 0; i < scenario.Checkpoints.Count; i++)
+            if (artifact.Checkpoints[i].VBlank != scenario.Checkpoints[i].VBlank)
+                throw new InvalidDataException("Oracle adapter artifact checkpoint timing does not match the requested scenario.");
+    }
+
+    public static void ValidateRecordedCaptures(string runDirectory, OracleArtifact artifact)
+    {
+        ArgumentNullException.ThrowIfNull(artifact);
+        string root = Path.GetFullPath(runDirectory);
+        EnsureRegularDirectory(root, create: false);
+        byte[] header = new byte[33];
+        foreach (OracleCheckpoint checkpoint in artifact.Checkpoints)
+        {
+            string path = Path.Combine(root, $"capture-{checkpoint.VBlank}.png");
+            FileInfo info = new(path);
+            if (!info.Exists || info.LinkTarget != null || (info.Attributes & FileAttributes.ReparsePoint) != 0
+                || info.Length < header.Length || info.Length > 4 * 1024 * 1024)
+                throw new InvalidDataException($"Oracle checkpoint {checkpoint.VBlank} is missing its bounded regular PNG capture.");
+            using FileStream stream = new(path, FileMode.Open, FileAccess.Read, FileShare.Read,
+                header.Length, FileOptions.SequentialScan);
+            stream.ReadExactly(header);
+            ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+            if (!header.AsSpan(0, 8).SequenceEqual(signature)
+                || System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(8, 4)) != 13
+                || !header.AsSpan(12, 4).SequenceEqual("IHDR"u8)
+                || System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(16, 4)) != 256
+                || System.Buffers.Binary.BinaryPrimitives.ReadUInt32BigEndian(header.AsSpan(20, 4)) != 384
+                || header[24] != 8 || header[25] != 6)
+                throw new InvalidDataException($"Oracle checkpoint {checkpoint.VBlank} capture is not a 256x384 8-bit RGBA PNG.");
+        }
     }
 
     private static string PrepareArtifactRoot(string path)

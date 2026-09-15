@@ -55,6 +55,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: prepare diagnostic artifact directories
+        run: mkdir -p artifacts/test-results artifacts/release
       - name: nothing from the game is tracked
         run: tools/check-no-game-assets.sh
 
@@ -62,23 +64,27 @@ jobs:
         run: tools/check-maps-shipped.sh
 
       - name: project boundaries and server dependency contract
+        id: boundaries
         run: |
           python3 tools/check-project-boundaries.py
           python3 tools/check-client-presentation-targets.py
 
       - name: current protocol documentation matches source
+        id: protocol
         run: python3 tools/check-current-protocol.py
 
       - name: generated renderer shaders are fresh
         run: python3 tools/check-render-shaders.py
 
       - name: no retired campaign runtime in source
+        id: multiplayer
         run: python3 tools/check-multiplayer-only.py
 
       - name: package and source boundary guardrails
         run: python3 tools/check-build-guardrails.py --root .
 
       - name: content-free compile of gameplay and client layers
+        id: builds
         run: |
           set -euo pipefail
           dotnet build src/Game/Game.csproj -c Release
@@ -87,30 +93,39 @@ jobs:
           dotnet build src/Client/Client.csproj -c Release
 
       - name: content-free server, replay and map tests
+        id: server_tests
         run: |
           dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=server-shared.trx"
           dotnet test tests/MapPlatform.Tests/MapPlatform.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=map-platform.trx"
           dotnet test tests/Replay.Tests/Replay.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=replay.trx"
           dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=server-worker.trx"
 
       # P2.1 owns these focused projects. Keep the aggregate content-heavy test
       # project out of the fast tier while the extracted suites cover the client
       # lifecycle and renderer contracts directly.
       - name: focused client and renderer tests
+        id: client_tests
         run: |
           dotnet test tests/Client.Tests/Client.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=client.trx"
           dotnet test tests/Renderer.Tests/Renderer.Tests.csproj -c Release \
-            --filter "RequiresGameContent!=true"
+            --filter "RequiresGameContent!=true" --results-directory artifacts/test-results \
+            --logger "trx;LogFileName=renderer.trx"
 
       # Keep analyzer/style diagnostics out of the repo-wide warnings-as-errors
       # policy, but make the named production-project budget a real gate.
       # Artifacts are uploaded below with always(), including failed builds.
       - name: production warning budget
+        id: warnings
         run: |
           set -euo pipefail
           mkdir -p artifacts/warnings
@@ -121,12 +136,46 @@ jobs:
             --current artifacts/warnings/current.json \
             --output artifacts/warnings/comparison.json
 
+      - name: generate release evidence
+        if: always()
+        run: |
+          python3 tools/generate-release-evidence.py \
+            --commit "${{ github.sha }}" \
+            --gate "builds=${{ steps.builds.outcome }}" \
+            --gate "tests=${{ steps.server_tests.outcome }}" \
+            --gate "tests=${{ steps.client_tests.outcome }}" \
+            --gate "warnings=${{ steps.warnings.outcome }}" \
+            --gate "projectBoundaries=${{ steps.boundaries.outcome }}" \
+            --gate "multiplayerGuard=${{ steps.multiplayer.outcome }}" \
+            --gate "protocolGuard=${{ steps.protocol.outcome }}" \
+            --warning-report artifacts/warnings/comparison.json \
+            --trx content-free-server-shared=artifacts/test-results/server-shared.trx \
+            --trx content-free-map-platform=artifacts/test-results/map-platform.trx \
+            --trx content-free-replay=artifacts/test-results/replay.trx \
+            --trx content-free-server-worker=artifacts/test-results/server-worker.trx \
+            --trx focused-client=artifacts/test-results/client.trx \
+            --trx focused-renderer=artifacts/test-results/renderer.trx
+
       - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: project-prime-warning-budget-${{ github.sha }}
           path: artifacts/warnings
           if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-fast-test-results-${{ github.sha }}
+          path: artifacts/test-results
+          if-no-files-found: warn
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-release-evidence-${{ github.sha }}
+          path: artifacts/release
+          if-no-files-found: error
 
   map-cook:
     name: cook maps once

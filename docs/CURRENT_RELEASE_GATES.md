@@ -1,64 +1,83 @@
 # Current Project Prime release gates
 
-Status: authoritative gate ledger, 2026-09-12. Labels are deliberately narrow:
+This document defines the gates. It does not duplicate a particular run's
+commit, protocol identifiers, warning counts, or test totals. CI and local
+acceptance runs generate those volatile facts with:
 
-- **FOCUSED** — source plus relevant automated tests; no physical claim.
-- **BLOCKED** — a reproducible local blocker prevents the intended validation.
-- **OPEN** — validation requires an external environment or a future pass.
-- **NOT RUN** — no evidence was produced in this checkout.
+```text
+python3 tools/generate-release-evidence.py
+```
 
-## Gate status
+The inspectable outputs are:
 
-The roadmap header and the detailed stabilization plan use different labels for
-QA8 and QA9. This ledger follows the detailed plan: QA8 is documentation, QA9
-is gameplay fidelity, and the subsequent enhancement wave is tracked
-separately.
+```text
+artifacts/release/release-evidence.json
+artifacts/release/release-evidence.md
+```
 
-| Gate | Current status | Boundary |
+## Evidence states
+
+Every gate uses one of three states:
+
+- `passed`: the named check ran in its qualifying environment and passed.
+- `failed`: the check ran and failed, or its evidence was malformed.
+- `not-run`: the check or required environment did not produce evidence.
+
+`not-run` is not success. Missing content, hardware, credentials, test results,
+or diagnostics must remain visible instead of being inferred from another gate.
+
+## Automated gates
+
+| Gate | Qualifying evidence | Release effect |
 | --- | --- | --- |
-| QA0 known-defect remediation | FOCUSED | framebuffer sizing/resize, exact actor identity, logical killcam commands, and quarantine are source-reviewed; the latest full test run passed 2664/2664 tests |
-| QA1 replay/killcam/highlights/broadcast | FOCUSED | lifecycle, audio ownership guard, exact identity, bounded director history, and camera final sweep are implemented; no rendered/device acceptance claim |
-| QA2 desktop transitions/session lifecycle | OPEN | existing coordinator remains the single owner; broader failure/reentrancy fuzzing is not a prerequisite for claiming QA0/QA1 |
-| QA3 protocol/reconnect/WAN | FOCUSED / OPEN | protocol 17 codec/auth/rejoin tests are local evidence; geographic WAN and deployed transport remain open |
-| QA4 map platform durability | FOCUSED | process-wide keyed acquisition ownership and resumable partial semantics have focused coverage; Android mount/unmount and long soak remain open |
-| QA5 Backend/PostgreSQL durability | FOCUSED / OPEN | Backend tests provide local evidence; 226 passed and 7 PostgreSQL-only tests were skipped because `PRIME_TEST_POSTGRES_FILE` was unset. Deployed PostgreSQL durability remains open |
-| QA6 protected release validation | OPEN | protected launch/symbol recovery matrix has not been established |
-| QA7 physical platform acceptance | OPEN | Windows/macOS/Linux/Android devices, high-refresh displays, physical controllers, audio, and real touch remain open |
-| QA8 documentation cleanup | FOCUSED | current architecture/protocol/release-gate documents and the evidence ledger are maintained locally; external acceptance is not implied |
-| QA9 gameplay fidelity cleanup | NOT RUN | no AMHE1 fidelity or balance changes are promoted during stabilization |
-| Next enhancement wave | BLOCKED | remains behind stabilization, QA9 fidelity, and release-gate acceptance |
+| `builds` | Release builds for the intended production projects and targets | Failure or missing target evidence blocks that target |
+| `tests` | Machine-readable TRX from the applicable content-free and content-backed suites | Any failure blocks release; omitted required suites remain `not-run` |
+| `warnings` | `check-warning-budget.py` comparison against the committed production baseline | New warnings or increased counts block release |
+| `projectBoundaries` | `check-project-boundaries.py` and applicable client/server boundary guards | A dependency or ownership violation blocks release |
+| `multiplayerGuard` | `check-multiplayer-only.py` | Retired campaign runtime in the shipping source blocks release |
+| `protocolGuard` | `check-current-protocol.py` plus protocol identity read from source by the evidence generator | Drift between source and protocol documentation blocks release |
+| `postgres` | Backend integration TRX produced with the private PostgreSQL connection-file contract | Failure blocks release; no configured database is `not-run` |
+| `lifecycle` | Lifecycle-fast, real Worker vertical, and required stress TRX | Required suite failure or absence blocks architecture acceptance |
+| `fidelity` | Scenario/oracle artifacts backed by a verified AMHE1 retail observation | Synthetic or Project Prime-only observations do not qualify |
+| `e2e` | Canonical two-client semantic lifecycle evidence and diagnostics | A harness smoke or status-only path does not qualify |
+| `platformAcceptance` | The manual matrix below, tied to the tested commit and package | Unaccepted required platforms block public release |
 
-## Evidence ledger
+The JSON artifact is authoritative for a run. Its protocol, Node-control, and
+replay-format identifiers are resolved from their defining C# constants. Test
+and lifecycle totals are read from TRX. Warning state is read from the warning
+budget comparison. A missing artifact is recorded as `not-run`.
 
-| Evidence | Result / interpretation |
-| --- | --- |
-| `GAME_DATA_DIRECTORY="$PWD/AMHE1" dotnet test tests/Tests/Tests.csproj -c Release` | PASS, 2664/2664 tests in 3 minutes 21 seconds |
-| `dotnet build src/Client/Client.csproj -c Release --no-restore -m:1` | PASS, 0 warnings / 0 errors |
-| `dotnet build src/Game/Game.csproj -c Release --no-restore -m:1` | PASS, 0 warnings / 0 errors |
-| `dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release` | PASS, 226 passed; 7 PostgreSQL-only tests skipped because `PRIME_TEST_POSTGRES_FILE` was unset. Deployed PostgreSQL durability remains open |
-| `dotnet build src/Server.Node/Server.Node.csproj -c Release --no-restore -m:1` | PASS, 0 warnings / 0 errors |
-| `dotnet build src/Server.Worker/Server.Worker.csproj -c Release --no-restore -m:1` | PASS, 0 warnings / 0 errors |
-| `dotnet build src/Backend/Backend.csproj -c Release --no-restore -m:1` | PASS, 0 warnings / 0 errors |
-| `GAME_DATA_DIRECTORY="$PWD/AMHE1" dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release --no-restore` | PASS, 227/227 tests in 1 minute 7 seconds; covers local Node/real-Worker integration only, not WAN, physical, or deployed acceptance |
-| `python3 -m unittest discover -s tools/tests` | PASS, 213/213 tests; Python tests do not prove client rendering or device input |
-| `python3 tools/check-project-boundaries.py` | PASS, 0 violations |
-| Post-audit production build matrix in section 70 of the implementation plan | PASS, all 10 desktop/server projects; ordinary Android build also passed, followed by a second successful desktop Client build to prove restore-graph isolation |
-| Post-audit content-free test matrix in section 71 | PASS after refreshing the stale protocol-15 authentication golden value for the existing protocol-16 implementation; no wire behavior changed. Seven focused projects passed 800/800 and aggregate `tests/Tests` passed 2543/2543 |
-| Protocol-17 remote charge presentation remediation | PASS for protocol/authentication/replay regression coverage, Client 48/48, Server.Shared 76/76, and content-free Server.Worker 39/39. The current aggregate reached 2558/2559 before an unrelated, independently reproducible aim-assist assertion failed; a second run excluding it reached 2557/2558 before an unrelated allocation-sensitive collision assertion failed, which then passed alone. Live two-client visual confirmation remains open. |
-| `dotnet run --project src/Client/Client.csproj -c Release --no-build -- --runtime-smoke --runtime-smoke-frames 1` | PASS on local Apple Silicon macOS, 2026-09-12: application path and macOS secure-session provider resolved, Avalonia bootstrapped, SDL GPU/Metal initialized, one hidden frame submitted, 32x32 drawable reported, clean exit. Content-free native lifetime evidence only; Windows/Linux scheduled jobs and rendered gameplay remain open |
+## Manual and external acceptance
 
-The earlier hidden compatibility-OpenGL probe is historical evidence for the
-retired probe. `ReplayPlaybackCheck` now uses the SDL `IRenderToolHost` path.
-The content-free macOS runtime smoke proves native initialization, submission,
-and disposal, but not replay, content-backed rendering, visual parity, input,
-or sustained performance.
+The generator cannot turn source or CI confidence into physical evidence. The
+following remain manual or environment-backed:
 
-## Explicit open gates
+- real Windows, macOS, Linux, and Android launch/render/input/audio checks;
+- physical controller, touch, high-refresh, resize, focus, and device-loss checks;
+- geographic WAN behavior and long-duration mixed-combat/worker soak;
+- deployed PostgreSQL backup and restore rehearsal;
+- protected binary launch, symbols, crash reporting, and recovery;
+- update publication, rollback, and clean-install/upgrade rehearsal;
+- retail AMHE1 oracle capture from a verified deterministic adapter.
 
-Do not promote focused/static results to physical Windows/macOS/Linux/Android
-acceptance, high-refresh traces, physical controller/touch ergonomics, audible
-mix quality, geographic-WAN behavior, deployed PostgreSQL durability, protected
-binary launch, or symbol recovery. Killcam touch skip currently has a logical
-submission API, but no active Android killcam host is wired; Android touch
-killcam acceptance is therefore OPEN rather than complete. QA9 remains blocked
-until the stabilization boundaries above are independently accepted.
+Each result must identify the commit or immutable package, platform/runtime,
+scenario, outcome, and artifact location. Secrets, tokens, private connection
+strings, cartridge data, and ROM paths must not enter release artifacts.
+
+## Release decision
+
+A release is blocked when any required gate is `failed` or `not-run`. A narrow
+development build may proceed with open external gates only when its scope is
+stated explicitly and it is not represented as physical, retail-fidelity,
+deployed, or public-release acceptance.
+
+The roadmap ordering remains:
+
+```text
+G1-G5 stabilization
+ -> multi-instance server architecture
+ -> isolation/architecture acceptance
+ -> G6 Lobby + UI/UX
+ -> stabilization
+ -> AMHE1 gameplay-fidelity audit
+```

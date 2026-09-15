@@ -3,9 +3,12 @@
 The oracle is an optional development adapter behind the existing `fidelity`
 command. Project Prime never depends on it at runtime. A private AMHE1 `.nds`
 image is accepted only through an explicit `--rom FILE` argument and the
-frozen header/length/SHA-256 identity below. No deterministic external oracle
-adapter executable is present, so recording remains blocked until an operator
-supplies that adapter and the matching extracted AMHE1 environment.
+frozen header/length/SHA-256 identity below. The adjacent `melonPrimeDS`
+checkout now provides a developer-only raw-retail adapter that bypasses the
+MelonPrime gameplay hooks and records state plus dual-screen PNG captures from
+the verified AMHE1 ROM. Deterministic recording remains blocked until an
+operator authors a pristine, provenance-bound `<scenario>.mln` savestate in
+`MELONPRIME_ORACLE_SAVESTATE_ROOT`; no such private state is checked in.
 
 ## Commands
 
@@ -29,9 +32,20 @@ and launches without a shell. With `--rom FILE`, it also verifies the private
 AMHE1 header, exact 67,108,864-byte length, and frozen whole-image SHA-256
 before passing that exact path to the adapter as `--rom`; the path is never
 written to an artifact. It kills only that direct child on timeout. The adapter
-must write `artifact.json` with `result: "normalized"`; missing, stale,
+must write `artifact.json` with `result: "normalized"` plus one regular
+`capture-<vblank>.png` per checkpoint. The host verifies the exact checkpoint
+schedule and requires bounded 256x384, 8-bit RGBA PNG headers. Missing, stale,
 mismatched, or unnormalized artifacts fail closed. Existing run directories
 are rejected rather than reused.
+
+The current raw-retail adapter executes only `move` and `releaseMove` actions.
+It rejects every other action instead of approximating retail behavior. Each
+savestate must have a sibling `<scenario>.provenance.json` binding the scenario
+ID, hunter, map label, clean-raw-retail flag, ROM hash, scenario hash, and state
+hash. The map label is provenance-bound metadata; it is not presented as a
+guest-memory verification. See the adjacent checkout's
+`docs/development/melonprime-raw-retail-oracle.md` for the exact invocation and
+state-authoring gate.
 
 The artifact must bind `oracleExecutableIdentity` to the computed
 `sha256:<digest>`. When `--rom` is supplied, `romIdentity` must bind to the

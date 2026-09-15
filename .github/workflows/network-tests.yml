@@ -47,22 +47,38 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: prepare lifecycle diagnostics
+        run: mkdir -p artifacts/test-results
       - name: content-free lifecycle fast tests
         run: >
           dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
           --filter "LifecycleFast=true&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=lifecycle-fast-node.trx"
       - name: shared lifecycle fast tests
         run: >
           dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
           --filter "LifecycleFast=true&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=lifecycle-fast-shared.trx"
       - name: Worker artifact lifecycle fast tests
         run: >
           dotnet test tests/Server.Worker.Tests/Server.Worker.Tests.csproj -c Release
           --filter "LifecycleFast=true&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=lifecycle-fast-worker.trx"
       - name: client codec lifecycle fast tests
         run: >
           dotnet test tests/Tests/Tests.csproj -c Release
           --filter "LifecycleFast=true&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=lifecycle-fast-client.trx"
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-network-results-lifecycle-fast-${{ github.sha }}
+          path: artifacts/test-results
+          if-no-files-found: warn
 
   lifecycle-vertical:
     name: lifecycle-vertical
@@ -74,6 +90,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: prepare lifecycle diagnostics
+        run: mkdir -p artifacts/test-results
       - name: real Node Worker UDP lifecycle tests when content is supplied
         env:
           GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
@@ -83,8 +101,16 @@ jobs:
             echo "GAME_DATA_DIRECTORY is not configured; lifecycle vertical tests were not run."
           else
             dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release \
-              --filter "LifecycleVertical=true&RequiresGameContent=true"
+              --filter "LifecycleVertical=true&RequiresGameContent=true" \
+              --results-directory artifacts/test-results \
+              --logger "trx;LogFileName=lifecycle-vertical.trx"
           fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-network-results-lifecycle-vertical-${{ github.sha }}
+          path: artifacts/test-results
+          if-no-files-found: warn
 
   lifecycle-stress:
     name: lifecycle-stress
@@ -96,10 +122,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: prepare lifecycle diagnostics
+        run: mkdir -p artifacts/test-results
       - name: content-free continuation stress
         run: >
           dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release
           --filter "LifecycleStress=true&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=lifecycle-stress-content-free.trx"
       - name: content-backed automatic rematch stress when content is supplied
         env:
           GAME_DATA_DIRECTORY: ${{ secrets.GAME_DATA_DIRECTORY }}
@@ -110,8 +140,16 @@ jobs:
             echo "GAME_DATA_DIRECTORY is not configured; content-backed lifecycle stress was not run."
           else
             dotnet test tests/Server.Node.Tests/Server.Node.Tests.csproj -c Release \
-              --filter "LifecycleStress=true&RequiresGameContent=true"
+              --filter "LifecycleStress=true&RequiresGameContent=true" \
+              --results-directory artifacts/test-results \
+              --logger "trx;LogFileName=lifecycle-stress-content-backed.trx"
           fi
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-network-results-lifecycle-stress-${{ github.sha }}
+          path: artifacts/test-results
+          if-no-files-found: warn
 
   map-platform:
     name: integration-map-platform
@@ -145,6 +183,11 @@ jobs:
     if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    outputs:
+      builds: ${{ steps.game_build.outcome }}
+      project_boundaries: ${{ steps.project_boundaries.outcome }}
+      multiplayer_guard: ${{ steps.multiplayer_guard.outcome }}
+      protocol_guard: ${{ steps.protocol_guard.outcome }}
     # The Backend integration boundary is opt-in locally through
     # PRIME_TEST_POSTGRES_FILE. CI supplies the same private connection-file
     # contract against an isolated service, so the PostgreSQL cases exercise
@@ -167,21 +210,34 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
-      - name: project boundaries and multiplayer source guards
-        run: |
-          python3 tools/check-project-boundaries.py
-          python3 tools/check-multiplayer-only.py
-          python3 tools/check-current-protocol.py
+      - name: prepare network diagnostics
+        run: mkdir -p artifacts/test-results artifacts/release
+      - name: project boundaries
+        id: project_boundaries
+        run: python3 tools/check-project-boundaries.py
+      - name: multiplayer source guard
+        id: multiplayer_guard
+        run: python3 tools/check-multiplayer-only.py
+      - name: current protocol guard
+        id: protocol_guard
+        run: python3 tools/check-current-protocol.py
       - name: direct Game compile
+        id: game_build
         run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
       - name: protocol and UDP safety tests (content-free)
-        run: dotnet test tests/Tests/Tests.csproj -c Release --filter "RequiresGameContent!=true"
+        run: >
+          dotnet test tests/Tests/Tests.csproj -c Release
+          --filter "RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=protocol-content-free.trx"
       - name: extracted replay tests
         run: dotnet test tests/Replay.Tests/Replay.Tests.csproj -c Release
       - name: fidelity fixture and manifest smoke tests
         run: >
           dotnet test tests/Tests/Tests.csproj -c Release --no-build
           --filter "Category=FidelitySmoke&RequiresGameContent!=true"
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=fidelity-smoke.trx"
       - name: Server.Shared contract tests
         run: dotnet test tests/Server.Shared.Tests/Server.Shared.Tests.csproj -c Release
       - name: Server.Worker runtime build
@@ -240,7 +296,10 @@ jobs:
       - name: Backend tests with the existing PostgreSQL boundary
         env:
           PRIME_TEST_POSTGRES_FILE: ${{ runner.temp }}/prime-postgres-connection.txt
-        run: dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
+        run: >
+          dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
+          --results-directory artifacts/test-results
+          --logger "trx;LogFileName=postgres-backend.trx"
       - name: isolated imaging tests
         run: dotnet test tests/Imaging/Imaging.Tests.csproj -c Release
       - name: network and deployment tooling tests
@@ -343,7 +402,9 @@ jobs:
             echo "GAME_DATA_DIRECTORY is not configured; content-backed fidelity smoke was not run."
           else
             dotnet test tests/Tests/Tests.csproj -c Release --no-build \
-              --filter "Category=FidelitySmoke&RequiresGameContent=true"
+              --filter "Category=FidelitySmoke&RequiresGameContent=true" \
+              --results-directory artifacts/test-results \
+              --logger "trx;LogFileName=fidelity-content-backed.trx"
           fi
       - name: authoritative WAN connection baseline (synthetic states, not gameplay)
         if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'schedule' }}
@@ -363,3 +424,50 @@ jobs:
           name: project-prime-performance-baseline
           path: artifacts/perf
           if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-network-results-protocol-${{ github.sha }}
+          path: artifacts/test-results
+          if-no-files-found: warn
+
+  release-evidence:
+    name: generated release evidence
+    if: always()
+    needs: [lifecycle-fast, lifecycle-vertical, lifecycle-stress, protocol]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
+        continue-on-error: true
+        with:
+          pattern: project-prime-network-results-*-${{ github.sha }}
+          path: artifacts/test-results
+          merge-multiple: true
+      - name: generate explicit network release evidence
+        if: always()
+        run: |
+          python3 tools/generate-release-evidence.py \
+            --commit "${{ github.sha }}" \
+            --gate "builds=${{ needs.protocol.outputs.builds }}" \
+            --gate "projectBoundaries=${{ needs.protocol.outputs.project_boundaries }}" \
+            --gate "multiplayerGuard=${{ needs.protocol.outputs.multiplayer_guard }}" \
+            --gate "protocolGuard=${{ needs.protocol.outputs.protocol_guard }}" \
+            --trx content-free-protocol=artifacts/test-results/protocol-content-free.trx \
+            --trx postgres=artifacts/test-results/postgres-backend.trx \
+            --trx lifecycle-fast-node=artifacts/test-results/lifecycle-fast-node.trx \
+            --trx lifecycle-fast-shared=artifacts/test-results/lifecycle-fast-shared.trx \
+            --trx lifecycle-fast-worker=artifacts/test-results/lifecycle-fast-worker.trx \
+            --trx lifecycle-fast-client=artifacts/test-results/lifecycle-fast-client.trx \
+            --trx lifecycle-vertical=artifacts/test-results/lifecycle-vertical.trx \
+            --trx lifecycle-stress-content-free=artifacts/test-results/lifecycle-stress-content-free.trx \
+            --trx lifecycle-stress-content-backed=artifacts/test-results/lifecycle-stress-content-backed.trx \
+            --trx fidelity-smoke=artifacts/test-results/fidelity-smoke.trx \
+            --trx fidelity-content-backed=artifacts/test-results/fidelity-content-backed.trx
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: project-prime-network-release-evidence-${{ github.sha }}
+          path: artifacts/release
+          if-no-files-found: error
