@@ -59,6 +59,20 @@
 - Coverage: bot admission/retirement, mixed teams, objective contention, isolation,
   replay, and reporting suites.
 
+## FID-HUNTER-001 — Guardian/Psycho Bit Project Prime extension
+
+- Guardian is a normal playable Hunter in Project Prime at enum value 7, with
+  `Hunter.Random` retained as selector sentinel 8.
+- Psycho Bit uses the supplied model/effect inventory and a conservative
+  grounded/hover-styled alternate form bounded by Guardian's authored collision
+  volume and `PlayerValues`. Its charge/release beam uses the normal authoritative
+  projectile, lag-compensation, and damage-attribution path.
+- Rationale: the supplied AMHE1 assets identify Psycho Bit resources, but exact
+  retail enemy semantics and player animation meaning are not available. This is
+  an explicit Project Prime extension, not retail fidelity.
+- Coverage: focused catalog, asset/model, morph, attack, collision, replay,
+  bot, cosmetic, selector, and Backend tests.
+
 No accessibility or presentation mismatch is pre-approved. The waiver closes missing
 evidence as `BlockedByEvidence`; it does not approve a silent gameplay or presentation
 mismatch. Add one only after its case records both behaviors, rationale, approval,

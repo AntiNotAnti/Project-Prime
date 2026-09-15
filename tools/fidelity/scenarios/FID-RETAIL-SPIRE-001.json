@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "FID-RETAIL-SPIRE-001",
+  "source": {
+    "projectRevision": "8a501aa8846915fa6b6d9b315934bead565e9637",
+    "referenceRevision": "AMHE1",
+    "referenceAnchorPath": "_bin/arm9.bin",
+    "referenceAnchorSha256": "1b70b078ec1b026004c89272acf619e7510e60fd294aa776b7bda48733ae850b",
+    "referenceAggregateSha256": "f64b99e2f976b30e5a667156bd7878f8a43c741bb1a5e02be1c6f40adc513226"
+  },
+  "hunter": "Spire",
+  "map": "MP3 PROVING GROUND",
+  "seed": 220323,
+  "actions": [
+    { "at": 0, "action": "enterAlt", "values": {} },
+    { "at": 1, "action": "move", "values": { "x": 1, "y": 1 } },
+    { "at": 100, "action": "releaseMove", "values": {} }
+  ],
+  "checkpoints": [
+    { "vblank": 0, "elapsedMilliseconds": null, "semanticEventIndex": null },
+    { "vblank": 1, "elapsedMilliseconds": null, "semanticEventIndex": null },
+    { "vblank": 50, "elapsedMilliseconds": null, "semanticEventIndex": null },
+    { "vblank": 100, "elapsedMilliseconds": null, "semanticEventIndex": null }
+  ]
+}

@@ -49,8 +49,9 @@ parity, because field-level AMHE1 provenance and dynamic trials are still absent
 
 ## Hunters and alt forms
 
-Each retail Hunter is a separate vertical audit row. No Hunter constants were
-changed because no exact AMHE1 discrepancy passed Gate C.
+Each retail Hunter is a separate vertical audit row. Guardian/Psycho Bit is listed
+below as an explicit Project Prime extension only; it is not a retail AMHE1 player
+fidelity row and no retail equivalence is claimed.
 
 | Case | Domain | Subject | Priority | Evidence | Reference | Project Prime | Classification | Status | Tests | Owner/Pass |
 |---|---|---|---|---|---|---|---|---|---|---|
@@ -61,7 +62,7 @@ changed because no exact AMHE1 discrepancy passed Gate C.
 | FID-HUNTER-NO | Hunter | Noxus and Vhoscythe | P1 | Project; E0/E1 missing | AMHE1 code/data/trial required | Player/alt state machine | Reference uncertainty | BlockedByEvidence | Existing Hunter/alt tests | F5 |
 | FID-HUNTER-SP | Hunter | Spire and Dialanche | P1 | Project; E0/E1 missing | AMHE1 code/data/trial required | Player/alt state machine | Reference uncertainty | BlockedByEvidence | Existing Hunter/alt tests | F5 |
 | FID-HUNTER-WE | Hunter | Weavel and Halfturret | P1 | Project; E0/E1 missing | AMHE1 code/data/trial required | Player/alt state machine | Reference uncertainty | BlockedByEvidence | Existing Hunter/alt tests | F5 |
-| FID-HUNTER-GU | Hunter | Guardian compatibility/bot path | P2 | Project compatibility path only | Not an in-scope retail player Hunter | Compatibility extension | Scope decision | Rejected | Existing bot/Hunter tests | F5 |
+| FID-HUNTER-GU | Hunter | Guardian/Psycho Bit Project Prime extension | P2 | Project source, AMHE1 asset inventory; E0/E1 missing | Official playable Guardian with conservative Psycho Bit adaptation | Intentional Project Prime extension; not retail fidelity | Scope decision | Accepted as extension | Catalog, model, alt, protocol, bot, cosmetic, selector, and Backend tests | F5/F7 |
 
 ## Retail multiplayer room entity inventories
 

@@ -62,8 +62,10 @@ bounds. Generated output is covered by the existing `artifacts/` ignore rule.
 
 - Every retail multiplayer room with metadata ID 93-118.
 - All 12 supported multiplayer modes.
-- Samus, Kanden, Trace, Sylux, Noxus, Spire, and Weavel. Guardian is audited only
-  where current compatibility/bot paths expose it.
+- Samus, Kanden, Trace, Sylux, Noxus, Spire, and Weavel for retail comparison.
+- Guardian/Psycho Bit is an explicit Project Prime extension backed by supplied
+  AMHE1 asset inventory; it is not a retail player-fidelity claim. See
+  `docs/fidelity/GUARDIAN_V1.md`.
 - Classic is the AMHE1 comparison target. Competitive remains explicitly separate.
 - Practice, hosted, dedicated, bot, remote-player, observer, and replay roles.
 - Custom maps receive shared-rule compatibility coverage but cannot claim AMHE1

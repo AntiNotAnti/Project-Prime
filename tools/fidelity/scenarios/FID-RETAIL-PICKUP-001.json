@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "FID-RETAIL-PICKUP-001",
+  "source": {
+    "projectRevision": "8a501aa8846915fa6b6d9b315934bead565e9637",
+    "referenceRevision": "AMHE1",
+    "referenceAnchorPath": "_bin/arm9.bin",
+    "referenceAnchorSha256": "1b70b078ec1b026004c89272acf619e7510e60fd294aa776b7bda48733ae850b",
+    "referenceAggregateSha256": "f64b99e2f976b30e5a667156bd7878f8a43c741bb1a5e02be1c6f40adc513226"
+  },
+  "hunter": "Noxus",
+  "map": "MP9 CRYOCHASM",
+  "seed": 220328,
+  "actions": [
+    { "at": 0, "action": "moveToPickup", "values": { "x": 1, "y": 0 } },
+    { "at": 60, "action": "consumePickup", "values": { "kind": 0 } },
+    { "at": 600, "action": "observeRespawn", "values": {} }
+  ],
+  "checkpoints": [
+    { "vblank": 0, "elapsedMilliseconds": null, "semanticEventIndex": null },
+    { "vblank": 60, "elapsedMilliseconds": null, "semanticEventIndex": null },
+    { "vblank": 600, "elapsedMilliseconds": null, "semanticEventIndex": null }
+  ]
+}

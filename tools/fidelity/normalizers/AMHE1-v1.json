@@ -1,0 +1,17 @@
+{
+  "schemaVersion": 1,
+  "revision": "AMHE1",
+  "fields": [
+    { "path": "timing.elapsedMilliseconds", "mode": "Tolerant", "absoluteTolerance": 0.1, "invariant": null },
+    { "path": "position", "mode": "Tolerant", "absoluteTolerance": 0.0001, "invariant": null },
+    { "path": "velocity", "mode": "Tolerant", "absoluteTolerance": 0.0001, "invariant": null },
+    { "path": "facing", "mode": "Tolerant", "absoluteTolerance": 0.0001, "invariant": null },
+    { "path": "aim", "mode": "Tolerant", "absoluteTolerance": 0.0001, "invariant": null },
+    { "path": "health", "mode": "Exact", "absoluteTolerance": null, "invariant": null },
+    { "path": "ammo", "mode": "Exact", "absoluteTolerance": null, "invariant": null },
+    { "path": "hunter", "mode": "Exact", "absoluteTolerance": null, "invariant": null },
+    { "path": "form", "mode": "Exact", "absoluteTolerance": null, "invariant": null },
+    { "path": "weapon", "mode": "Exact", "absoluteTolerance": null, "invariant": null },
+    { "path": "phase", "mode": "Invariant", "absoluteTolerance": null, "invariant": "nonEmpty" }
+  ]
+}
