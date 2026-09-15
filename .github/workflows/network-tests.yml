@@ -171,6 +171,7 @@ jobs:
         run: |
           python3 tools/check-project-boundaries.py
           python3 tools/check-multiplayer-only.py
+          python3 tools/check-current-protocol.py
       - name: direct Game compile
         run: dotnet build src/Game/Game.csproj -c Release --artifacts-path artifacts/game
       - name: protocol and UDP safety tests (content-free)
