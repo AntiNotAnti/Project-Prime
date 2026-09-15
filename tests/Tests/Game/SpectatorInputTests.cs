@@ -21,6 +21,8 @@ public sealed class SpectatorInputTests
         {
             InputCommand stale = stream.Take(tick);
             Assert.Equal(InputButtons.Spectate, stale.Buttons);
+            Assert.Equal(InputButtons.None, stale.Buttons & InputButtons.Shoot);
+            Assert.Equal(InputButtons.None, stale.Buttons & InputButtons.Forward);
             Assert.Equal(InputButtons.None, stale.Pressed);
             Assert.Equal(InputCommand.NoWeapon, stale.DesiredWeapon);
         }

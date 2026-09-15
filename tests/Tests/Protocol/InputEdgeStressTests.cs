@@ -76,7 +76,7 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void StarvationDoesNotInventAHeldTriggerRelease()
+        public void HardStarvationExpiresHeldGameplayControlsWithoutInventingAnEdge()
         {
             var stream = new ServerInputStream();
             stream.ConfigurePlayout(1);
@@ -93,7 +93,8 @@ namespace MphRead.Tests
                 fallback = stream.Take(tick);
             }
 
-            Assert.Equal(InputButtons.Shoot, fallback.Buttons);
+            Assert.Equal(InputButtons.None, fallback.Buttons
+                & (InputButtons.Shoot | InputButtons.Forward));
             Assert.Equal(InputButtons.None, fallback.Pressed);
             Assert.True(stream.StarvedTicks > 0);
 

@@ -259,16 +259,9 @@ namespace MphRead.Mods.Network
         }
 
         private InputCommand StarvedFallback()
-        {
-            InputCommand neutral = _last.Neutral();
-            // A missing packet is not evidence that the trigger was released.
-            // Preserve only the held fire level; movement and every edge stay
-            // neutral, and a later redundant command supplies the real release.
-            return neutral with
-            {
-                Buttons = neutral.Buttons
-                    | (_last.Buttons & InputButtons.Shoot)
-            };
-        }
+            // A hard-starved stream is no longer evidence of any gameplay
+            // control. Neutral preserves only persistent semantic state (the
+            // spectator mode bit); held movement, fire and every edge expire.
+            => _last.Neutral();
     }
 }

@@ -118,6 +118,66 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void HeldFireSurvivesShortGapWithoutRepeatingPressedEdge()
+        {
+            var stream = new ServerInputStream();
+            stream.Receive(new[]
+            {
+                Command(0, InputButtons.Shoot),
+                Command(2)
+            }, serverTick: 0);
+
+            stream.Take(0);
+            stream.Take(1);
+            InputCommand fired = stream.Take(2);
+            InputCommand shortGap = stream.Take(3);
+
+            Assert.Equal(InputButtons.Shoot, fired.Buttons & InputButtons.Shoot);
+            Assert.Equal(InputButtons.Shoot, fired.Pressed & InputButtons.Shoot);
+            Assert.Equal(InputButtons.Shoot, shortGap.Buttons & InputButtons.Shoot);
+            Assert.Equal(InputButtons.None, shortGap.Pressed & InputButtons.Shoot);
+        }
+
+        [Fact]
+        public void HardStarvationNeutralizesGameplayControls()
+        {
+            var stream = new ServerInputStream();
+            stream.Receive(new[] { Command(0, InputButtons.Shoot) }, serverTick: 0);
+            stream.Take(0);
+            stream.Take(1);
+            stream.Take(2);
+
+            InputCommand starved = stream.Take(9);
+
+            Assert.Equal(InputButtons.None, starved.Buttons
+                & (InputButtons.Shoot | InputButtons.Forward));
+            Assert.Equal(InputButtons.None, starved.Pressed);
+            Assert.Equal(Vector2.Zero, starved.AnalogMovement);
+        }
+
+        [Fact]
+        public void HardStarvationRecoversOnNextValidCommandWithoutSyntheticEdge()
+        {
+            var stream = new ServerInputStream();
+            stream.Receive(new[] { Command(0, InputButtons.Shoot) }, serverTick: 0);
+            stream.Take(0);
+            stream.Take(1);
+            stream.Take(2);
+            Assert.Equal(InputButtons.None, stream.Take(9).Buttons & InputButtons.Shoot);
+
+            InputCommand recovery = Command(1, InputButtons.None) with
+            {
+                Buttons = InputButtons.Back,
+                Pressed = InputButtons.None
+            };
+            stream.Receive(new[] { recovery }, serverTick: 10);
+
+            InputCommand resumed = stream.Take(10);
+            Assert.Equal(recovery, resumed);
+            Assert.Equal(InputButtons.None, resumed.Pressed);
+        }
+
+        [Fact]
         public void LateCommandsCannotRewindAndLongLossDoesNotWedgeTheStream()
         {
             var stream = new ServerInputStream();
