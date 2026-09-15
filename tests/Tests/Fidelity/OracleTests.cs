@@ -145,6 +145,44 @@ public sealed class OracleTests
         Assert.Equal(expected.Size, identity.Length);
     }
 
+    [Fact, Trait("Category", "FidelitySchema")]
+    public void RecordedCaptureRequiresBoundedDualScreenRgbaPng()
+    {
+        string root = Path.Combine(Path.GetTempPath(), "prime-oracle-capture-"
+            + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        OracleArtifact artifact = Artifact(Source(), 0);
+        string path = Path.Combine(root, "capture-0.png");
+        try
+        {
+            Assert.Throws<InvalidDataException>(() =>
+                OracleHost.ValidateRecordedCaptures(root, artifact));
+
+            byte[] png = new byte[33];
+            byte[] signature = [137, 80, 78, 71, 13, 10, 26, 10];
+            signature.CopyTo(png, 0);
+            png[11] = 13;
+            Encoding.ASCII.GetBytes("IHDR").CopyTo(png, 12);
+            png[18] = 1; // width: 256
+            png[22] = 1; // height: 384
+            png[23] = 128;
+            png[24] = 8;
+            png[25] = 6;
+            File.WriteAllBytes(path, png);
+            OracleHost.ValidateRecordedCaptures(root, artifact);
+
+            png[22] = 0;
+            png[23] = 192; // wrong height: 192
+            File.WriteAllBytes(path, png);
+            Assert.Throws<InvalidDataException>(() =>
+                OracleHost.ValidateRecordedCaptures(root, artifact));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static OracleArtifact Artifact(OracleSourceIdentity source, double positionX)
     {
         var state = new Dictionary<string, JsonElement>(StringComparer.Ordinal)
