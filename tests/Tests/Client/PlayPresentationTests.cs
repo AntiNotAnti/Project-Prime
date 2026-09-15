@@ -280,7 +280,8 @@ public sealed class PlayPresentationTests
                 Revision: 7, WaitlistCount: 2, ObserverLimit: 4, BotCount: 0,
                 MapKey: "MP1 SANCTORUS", Mode: MatchMode.TeamBattle,
                 TimeLimitSeconds: 600, PointGoal: 7,
-                SeatPolicy: LobbySeatPolicy.NextMatchSeat);
+                SeatPolicy: LobbySeatPolicy.NextMatchSeat,
+                ResourceRadarPolicy: ResourceRadarPolicy.AvailableWithRespawn);
             var card = new PrimeMatchCard(entry, () => { }, () => { }, () => { });
             var host = new StackPanel { Children = { home, card } };
             var window = new Window { Width = 940, Height = 900, Content = host };
@@ -327,6 +328,8 @@ public sealed class PlayPresentationTests
                 Assert.Contains("3/4 players · 1 open", cardText,
                     StringComparison.Ordinal);
                 Assert.Contains("Seat policy · Next match seat", cardText,
+                    StringComparison.Ordinal);
+                Assert.Contains("Available + respawn", cardText,
                     StringComparison.Ordinal);
                 PrimeButton join = Assert.Single(card.GetVisualDescendants()
                     .OfType<PrimeButton>(), button => Equals(button.Content, "Join"));
@@ -1233,9 +1236,21 @@ public sealed class PlayPresentationTests
                 {
                     "Lobby name", "Map", "Mode", "Player seats", "Observer seats",
                     "Bots", "Bot difficulty", "Seat policy", "Time limit", "Score limit", "Damage level",
-                    "Friendly fire", "Affinity weapons", "Player radar"
+                    "Friendly fire", "Affinity weapons", "Enhanced hunters",
+                    "Balanced Mode",
+                    "Player radar", "Resource radar"
                 })
                     Assert.Contains(required, text, StringComparison.Ordinal);
+                ComboBox resourceRadar = FieldEditor<ComboBox>(view, "Resource radar");
+                Assert.Equal(new[]
+                {
+                    "Disabled", "Spawn locations", "Available resources",
+                    "Available + respawn"
+                }, resourceRadar.ItemsSource!.Cast<object>()
+                    .Select(item => item.ToString()).ToArray());
+                resourceRadar.SelectedIndex = 3;
+                Assert.Equal(ResourceRadarPolicy.AvailableWithRespawn,
+                    ui.HostDraft.ResourceRadarPolicy);
                 PrimeButton create = Assert.Single(view.GetVisualDescendants()
                     .OfType<PrimeButton>(), button => Equals(button.Content, "Create lobby"));
                 Assert.True(create.IsVisible);

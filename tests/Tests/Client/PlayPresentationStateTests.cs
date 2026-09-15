@@ -119,6 +119,13 @@ public sealed class PlayPresentationStateTests
         Assert.True(survival.StartingLives);
         Assert.False(survival.ScoreGoal);
         Assert.False(survival.ObjectiveTimeGoal);
+        Assert.True(survival.EnhancedHunters);
+        Assert.True(survival.BalancedMode);
+        foreach (MatchMode mode in Enum.GetValues<MatchMode>())
+        {
+            Assert.True(LobbyRuleApplicability.For(mode).EnhancedHunters);
+            Assert.True(LobbyRuleApplicability.For(mode).BalancedMode);
+        }
 
         var draft = new HostMatchDraft
         {
@@ -128,7 +135,11 @@ public sealed class PlayPresentationStateTests
             ScoreGoalText = "not applicable",
             KillcamPolicy = KillcamPolicy.Disabled,
             SpawnPolicy = SpawnPolicy.Enhanced,
-            CancelSpawnProtectionOnOffensiveAction = true
+            CancelSpawnProtectionOnOffensiveAction = true,
+            PowerupsEnabled = false,
+            EnhancedHunters = true,
+            BalancedMode = true,
+            ResourceRadarPolicy = ResourceRadarPolicy.AvailableResources
         };
         Assert.True(draft.TryBuildRules(out LobbyRulesOptions rules, out string error), error);
         Assert.Equal(600, rules.TimeLimitSeconds);
@@ -137,6 +148,11 @@ public sealed class PlayPresentationStateTests
         Assert.Equal(KillcamPolicy.Disabled, rules.KillcamPolicy);
         Assert.Equal(SpawnPolicy.Enhanced, rules.SpawnPolicy);
         Assert.True(rules.CancelSpawnProtectionOnOffensiveAction);
+        Assert.False(rules.PowerupsEnabled);
+        Assert.True(rules.EnhancedHunters);
+        Assert.True(rules.BalancedMode);
+        Assert.Equal(ResourceRadarPolicy.AvailableResources,
+            rules.ResourceRadarPolicy);
 
         draft.Mode = MatchMode.Defender;
         draft.ObjectiveTimeGoalText = "120";
@@ -191,11 +207,15 @@ public sealed class PlayPresentationStateTests
         var lobby = new LobbySnapshot(Guid.NewGuid(), "Room", LobbyVisibility.Public,
             sessionId, LobbyPhase.Open, 1, 8, 16,
             [new LobbyMember(sessionId, Guid.NewGuid(), "Hunter", Hunter.Samus, 0, false, false)], [],
-            Mode: MatchMode.Battle, BotDifficulty: BotDifficulty.Expert);
+            Mode: MatchMode.Battle, BotDifficulty: BotDifficulty.Expert,
+            Rules: new LobbyRulesOptions(ResourceRadarPolicy:
+                ResourceRadarPolicy.SpawnLocations));
         HostMatchDraft fromLobby = HostMatchDraft.FromLobby(lobby);
         Assert.Equal("", fromLobby.TimeLimitText);
         Assert.Equal("", fromLobby.ScoreGoalText);
         Assert.Equal(BotDifficulty.Expert, fromLobby.BotDifficulty);
+        Assert.Equal(ResourceRadarPolicy.SpawnLocations,
+            fromLobby.ResourceRadarPolicy);
     }
 
     [Theory]

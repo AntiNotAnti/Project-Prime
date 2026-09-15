@@ -78,6 +78,9 @@ namespace MphRead.Mods.Launcher.Gui
             new("1920x1080", 1920, 1080),
             new("2560x1440", 2560, 1440),
             new("1280x720", 1280, 720),
+            new("830x390", 830, 390),
+            new("960x540", 960, 540),
+            new("1280x800", 1280, 800),
             new("1440x900", 1440, 900),
             // The 720-DIP boundary is the compact/mobile handoff used by the
             // route layouts. Keep a portrait companion height so wrapping and
@@ -1352,7 +1355,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static LobbyMember CaptureMember(Guid session, Guid player,
             string name, int index, bool teamMode, bool ready)
-            => new(session, player, name, (Hunter)(index % 7),
+            => new(session, player, name,
+                PlayableHunterCatalog.FromIndex(index % PlayableHunterCatalog.Count),
                 teamMode ? (byte)(index % 2) : (byte)0, ready, Observer: false);
 
         private static ImmutableArray<LobbyMember> MakeObserverLobbyMembers()
@@ -1833,8 +1837,8 @@ namespace MphRead.Mods.Launcher.Gui
         private static IReadOnlyList<HunterDossier> CaptureHunters()
         {
             string[] weapons = { "Power Beam", "Magmaul", "Judicator", "Imperialist",
-                "Shock Coil", "Battlehammer", "Volt Driver" };
-            return Enum.GetValues<Hunter>().Where(hunter => hunter <= Hunter.Weavel)
+                "Shock Coil", "Battlehammer", "Volt Driver", "Power Beam" };
+            return PlayableHunterCatalog.All
                 .Select((hunter, index) => new HunterDossier(hunter, hunter.ToString(),
                     weapons[index], ModelAsset: null, IsFavorite: index == 0,
                     IsMostPlayed: index == 1, IsBest: index == 0,

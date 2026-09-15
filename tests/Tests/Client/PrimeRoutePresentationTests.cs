@@ -127,6 +127,15 @@ public sealed class PrimeRoutePresentationTests
         Assert.Equal(PrimeLayoutMetrics.MobileContentVerticalMarginDip, content.Bottom);
         Assert.True(PrimeLayoutMetrics.MobileNavigationHeightDip
             >= PrimeLayoutMetrics.MinimumTouchTargetDip + footer.Top + footer.Bottom);
+
+        Thickness deviceInsets = new(30, 48, 28, 36);
+        Assert.Equal(deviceInsets, PrimeLayoutMetrics.ResolveSafeArea(deviceInsets));
+        Assert.Equal(new Thickness(30, 48, 28, 0),
+            PrimeLayoutMetrics.ResolveHeaderPadding(mobile: true, deviceInsets));
+        Assert.Equal(new Thickness(30, 4, 28, 36),
+            PrimeLayoutMetrics.ResolveMobileFooterPadding(deviceInsets));
+        Assert.Equal(new Thickness(30, 12, 28, 12),
+            PrimeLayoutMetrics.ResolveMobileContentMargin(deviceInsets));
     }
 
     [Fact]

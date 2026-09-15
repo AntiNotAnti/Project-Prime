@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -355,6 +356,52 @@ public sealed class PostMatchReviewTests
         finally
         {
             window.Close();
+        }
+    }
+
+    [AvaloniaFact]
+    public void ResultsFfaActionsStayInsideShortestRequiredViewport()
+    {
+        Control control = UiCapture.BuildFixture("results-ffa", new MenuSettings(),
+            Array.Empty<string>());
+        var view = Assert.IsType<PostMatchView>(control);
+        var window = new Window { Width = 830, Height = 390, Content = view };
+        try
+        {
+            window.Show();
+            Arrange(window, 830, 390);
+
+            Avalonia.Controls.Button[] actions = view.GetVisualDescendants()
+                .OfType<Avalonia.Controls.Button>()
+                .Where(button => button.Name is "ResultsLeaveLobby" or "ResultsCancelLeave")
+                .ToArray();
+            Assert.NotEmpty(actions);
+            static void AssertActionsInsideViewport(IEnumerable<Avalonia.Controls.Button> actions,
+                PostMatchView view)
+            {
+                foreach (Avalonia.Controls.Button action in actions)
+                {
+                    Point? origin = action.TranslatePoint(new Point(), view);
+                    Assert.True(origin.HasValue);
+                    Rect bounds = new(origin!.Value, action.Bounds.Size);
+                    Assert.True(bounds.Top >= -1 && bounds.Bottom <= 391,
+                        $"{action.Name} is clipped by the shortest viewport: {bounds}");
+                }
+            }
+            AssertActionsInsideViewport(actions, view);
+
+            view.RequestLeave();
+            Arrange(window, 830, 390);
+            actions = view.GetVisualDescendants().OfType<Avalonia.Controls.Button>()
+                .Where(button => button.Name is "ResultsLeaveLobby" or "ResultsCancelLeave")
+                .ToArray();
+            Assert.Equal(2, actions.Length);
+            AssertActionsInsideViewport(actions, view);
+        }
+        finally
+        {
+            window.Close();
+            view.Dispose();
         }
     }
 

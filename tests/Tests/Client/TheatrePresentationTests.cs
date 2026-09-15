@@ -65,7 +65,10 @@ public sealed class TheatrePresentationTests
         PrimeSectionPanel detail = panels[1];
 
         Assert.Empty(Walk(list).OfType<PrimeCard>());
-        Assert.Single(Walk(list).OfType<PrimeSelectedRow>());
+        PrimeSelectedRow selectedRow = Assert.Single(Walk(list)
+            .OfType<PrimeSelectedRow>());
+        Assert.True(selectedRow.IsSelected);
+        Assert.Contains("prime-selected", selectedRow.Classes);
         Assert.Contains(Walk(list).OfType<AvaloniaButton>(),
             button => Equals(button.Content, "Watch"));
 

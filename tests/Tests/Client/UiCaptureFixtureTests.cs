@@ -129,11 +129,12 @@ public sealed class UiCaptureFixtureTests
     public void CatalogContainsEveryP5FixtureAndRequiredViewport()
     {
         UiCaptureSize[] sizes = UiCapture.RequiredSizes.ToArray();
-        Assert.Equal(new[] { "1920x1080", "2560x1440", "1280x720", "1440x900", "720x900",
-            "940x560", "900x1100", "560x800" },
+        Assert.Equal(new[] { "1920x1080", "2560x1440", "1280x720", "830x390", "960x540",
+            "1280x800", "1440x900", "720x900", "940x560", "900x1100", "560x800" },
             sizes.Select(size => size.Name).ToArray());
         Assert.Equal(new[] { (1920, 1080), (2560, 1440), (1280, 720),
-            (1440, 900), (720, 900), (940, 560), (900, 1100), (560, 800) },
+            (830, 390), (960, 540), (1280, 800), (1440, 900), (720, 900),
+            (940, 560), (900, 1100), (560, 800) },
             sizes.Select(size => (size.Width, size.Height)).ToArray());
         Assert.Equal(RequiredFixtureNames,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name).ToArray());
@@ -147,6 +148,51 @@ public sealed class UiCaptureFixtureTests
         Assert.Equal(UiCapture.FixtureDefinitions.Count,
             UiCapture.FixtureDefinitions.Select(fixture => fixture.Name)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Count());
+    }
+
+    [AvaloniaFact]
+    public void ShortGatewayFormKeepsKeyboardFieldAndActionsScrollable()
+    {
+        PrimeShellView shell = Assert.IsType<PrimeShellView>(UiCapture.BuildFixture(
+            "gateway-login", new MenuSettings(), Array.Empty<string>()));
+        var window = new Window { Width = 830, Height = 390, Content = shell };
+        try
+        {
+            window.Show();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            ScrollViewer pageScroller = Assert.Single(shell.GetVisualDescendants()
+                .OfType<ScrollViewer>(), scroller => scroller.Name == "PageScroller");
+            TextBox[] fields = shell.GetVisualDescendants().OfType<TextBox>()
+                .Where(field => field.IsEffectivelyVisible && field.IsEffectivelyEnabled)
+                .ToArray();
+            Assert.True(fields.Length >= 2,
+                "The sign-in fixture should expose editable email and password fields.");
+
+            TextBox activeField = fields[^1];
+            Assert.True(activeField.Focus());
+            activeField.BringIntoView();
+            Dispatcher.UIThread.RunJobs();
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+
+            Assert.True(activeField.IsFocused);
+            AssertWithinScrollViewport(activeField, pageScroller,
+                "Focused sign-in field");
+
+            PrimeButton submit = Assert.Single(shell.GetVisualDescendants()
+                .OfType<PrimeButton>(), button => Equals(button.Content, "Sign in"));
+            Assert.True(submit.IsEffectivelyVisible);
+            submit.BringIntoView();
+            Dispatcher.UIThread.RunJobs();
+            AssertWithinScrollViewport(submit, pageScroller, "Sign-in action");
+        }
+        finally
+        {
+            window.Content = null;
+            window.Close();
+            DisposeView(shell);
+        }
     }
 
     [AvaloniaFact]
@@ -481,6 +527,7 @@ public sealed class UiCaptureFixtureTests
 
     [AvaloniaTheory]
     [InlineData(1024, 720)]
+    [InlineData(830, 390)]
     [InlineData(560, 800)]
     public void SettingsShellRouteCaptureOwnsOneResponsiveActionBar(int width, int height)
     {
@@ -817,6 +864,7 @@ public sealed class UiCaptureFixtureTests
 
     [AvaloniaTheory]
     [InlineData(940, 560)]
+    [InlineData(830, 390)]
     [InlineData(560, 800)]
     public void MapsCaptureFixturesRenderAtDesktopAndMobileSizes(int width, int height)
     {
@@ -1026,6 +1074,20 @@ public sealed class UiCaptureFixtureTests
         double right = corners.Max(point => point.X);
         double bottom = corners.Max(point => point.Y);
         return new Rect(left, top, right - left, bottom - top);
+    }
+
+    private static void AssertWithinScrollViewport(Control control,
+        ScrollViewer scroller, string description)
+    {
+        Rect? bounds = BoundsRelativeTo(control, scroller);
+        Assert.True(bounds.HasValue,
+            $"{description} could not be translated to PageScroller.");
+        Rect viewport = new(scroller.Viewport);
+        Assert.True(bounds.Value.Left >= viewport.Left - 1
+            && bounds.Value.Top >= viewport.Top - 1
+            && bounds.Value.Right <= viewport.Right + 1
+            && bounds.Value.Bottom <= viewport.Bottom + 1,
+            $"{description} is outside PageScroller ({bounds} vs {viewport}).");
     }
 
     [AvaloniaFact]
@@ -1261,6 +1323,7 @@ public sealed class UiCaptureFixtureTests
 
     [AvaloniaTheory]
     [InlineData(940, 560)]
+    [InlineData(830, 390)]
     [InlineData(560, 800)]
     public void SettingsSlidersKeepLabelsTrackAndValueGutterSeparated(
         int width, int height)
@@ -1606,9 +1669,11 @@ public sealed class UiCaptureFixtureTests
                 .GetValue(view) as SliderRow
                 ?? throw new Xunit.Sdk.XunitException("Mouse slider was not built.");
             float previousMouseSensitivity = MphRead.Mods.InputSettings.MouseSensitivity;
-            mouseSensitivity.Value = Math.Min(mouseSensitivity.Value + 1, 100);
+            mouseSensitivity.Value = Math.Min(mouseSensitivity.Value + 1,
+                (int)Math.Round(MphRead.Mods.InputSettings.UiMaximumMouseSensitivity
+                    / MphRead.Mods.InputSettings.MouseSensitivityStep));
             Assert.NotEqual(previousMouseSensitivity,
-                0.1f + mouseSensitivity.Value / 100f * 2.9f);
+                mouseSensitivity.Value * MphRead.Mods.InputSettings.MouseSensitivityStep);
 
             view.CommitForTests();
 

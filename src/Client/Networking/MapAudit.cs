@@ -267,7 +267,8 @@ namespace MphRead.Mods.Network
             // collision volumes rather than eight copies of Samus.
             for (int i = 0; i < players; i++)
             {
-                Scene.AddPlayer((Hunter)(i % 7), recolor: 0, team: -1);
+                Scene.AddPlayer(PlayableHunterCatalog.FromIndex(
+                    i % PlayableHunterCatalog.Count), recolor: 0, team: -1);
             }
             for (int i = 0; i < Scene.Players.Count; i++)
             {

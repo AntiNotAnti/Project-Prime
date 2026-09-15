@@ -1580,7 +1580,7 @@ public sealed class PlayController : IAsyncDisposable, IMatchTransitionMenuActio
     /// <summary>Match hunter is lobby state; it never updates the profile favorite.</summary>
     public Task SelectLobbyHunterAsync(Hunter hunter, CancellationToken cancellationToken = default)
     {
-        if (hunter is < Hunter.Samus or > Hunter.Weavel)
+        if (!PlayableHunterCatalog.IsPlayable(hunter))
             throw new ArgumentOutOfRangeException(nameof(hunter));
         Publish(State with { LobbyHunter = hunter });
         return SendLobbyCommandAndWaitAsync((lobby, _) => new LobbySelectHunter(hunter, lobby.Revision),

@@ -810,6 +810,19 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     internal PlayController Play => _play;
     internal GatewayController Gateway => _gateway;
     internal bool CaptureMode => _captureMode;
+
+    /// <summary>
+    /// Narrow route boundary used by the development-only semantic control
+    /// adapter. The adapter never receives a mutable navigator or controller;
+    /// it can request only the existing Play route through this owner.
+    /// </summary>
+    internal bool TryOpenPlayFromSemanticControl()
+    {
+        if (IsTitleBlocking || _disposed) return false;
+        Navigate(PrimeRoute.Play);
+        return true;
+    }
+
     internal int HunterPreviewLoadStarts => _hunterPreviewLoadStarts;
     internal int WeaponPreviewLoadStarts => _weaponPreviewLoadStarts;
     internal GatewayState? CaptureGatewayState => _captureGatewayState;
@@ -1346,6 +1359,27 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
     {
         if (IsTitleBlocking) return;
         _shell.Navigator.Navigate(route);
+        RefreshSelectedAccountRoute(route);
+    }
+
+    /// <summary>
+    /// Hunter and Rankings are live account projections. Selecting either
+    /// destination is an explicit refresh request even when the navigator is
+    /// already on that route and therefore emits no navigation change.
+    /// </summary>
+    private void RefreshSelectedAccountRoute(PrimeRoute route)
+    {
+        if (_captureMode || !_shell.SignedIn) return;
+        switch (PrimeRoutePresentation.Normalize(route))
+        {
+            case PrimeRoute.Hunter:
+                RunCommand("Refresh Hunter", RefreshLicenseOverviewAsync);
+                break;
+            case PrimeRoute.Rankings:
+                RunCommand("Refresh Rankings", () =>
+                    _rankings.LoadAsync(cancellationToken: _lifetime.Token));
+                break;
+        }
     }
 
     private PrimeFocusScope FocusScope(PrimeRoute route)
@@ -2645,6 +2679,12 @@ internal sealed partial class PrimeShellView : UserControl, IAsyncDisposable
         await _license.LoadOverviewAsync(_lifetime.Token).ConfigureAwait(false);
         if (!_lifetime.IsCancellationRequested)
             await _license.LoadRecentMatchesAsync(_lifetime.Token).ConfigureAwait(false);
+    }
+
+    private async Task RefreshLicenseOverviewAsync()
+    {
+        _license.Invalidate();
+        await LoadLicenseOverviewAsync().ConfigureAwait(false);
     }
 
     private Control BuildArmoryPage(bool includeHeading = true)

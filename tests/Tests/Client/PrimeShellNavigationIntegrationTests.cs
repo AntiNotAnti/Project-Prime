@@ -115,6 +115,43 @@ public sealed class PrimeShellNavigationIntegrationTests
     }
 
     [Fact]
+    public void HunterAndRankingsSelectionsRefreshTheirLiveAccountProjections()
+    {
+        string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");
+        int navigateStart = source.IndexOf("private void Navigate(PrimeRoute route)",
+            StringComparison.Ordinal);
+        int focusStart = source.IndexOf("private PrimeFocusScope FocusScope", navigateStart,
+            StringComparison.Ordinal);
+        Assert.True(navigateStart >= 0 && focusStart > navigateStart);
+
+        string navigation = source[navigateStart..focusStart];
+        Assert.Contains("_shell.Navigator.Navigate(route);", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("RefreshSelectedAccountRoute(route);", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("_captureMode || !_shell.SignedIn", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("case PrimeRoute.Hunter:", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("RefreshLicenseOverviewAsync", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("case PrimeRoute.Rankings:", navigation,
+            StringComparison.Ordinal);
+        Assert.Contains("_rankings.LoadAsync", navigation,
+            StringComparison.Ordinal);
+
+        int refreshStart = source.IndexOf("private async Task RefreshLicenseOverviewAsync()",
+            StringComparison.Ordinal);
+        int armoryStart = source.IndexOf("private Control BuildArmoryPage", refreshStart,
+            StringComparison.Ordinal);
+        Assert.True(refreshStart >= 0 && armoryStart > refreshStart);
+        string refresh = source[refreshStart..armoryStart];
+        Assert.Contains("_license.Invalidate();", refresh, StringComparison.Ordinal);
+        Assert.Contains("await LoadLicenseOverviewAsync()", refresh,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void ProductionShellOwnsLayeredModalRestoreMotionAndSectionInput()
     {
         string source = Read("src/Client.Presentation/Launcher/Shell/PrimeShellView.axaml.cs");

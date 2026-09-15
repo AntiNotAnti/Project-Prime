@@ -18,6 +18,8 @@ internal readonly record struct LobbyRuleApplicability(
     bool DamageLevel,
     bool FriendlyFire,
     bool AffinityWeapons,
+    bool EnhancedHunters,
+    bool BalancedMode,
     bool PlayerRadar,
     bool OctolithReset)
 {
@@ -34,6 +36,8 @@ internal readonly record struct LobbyRuleApplicability(
             DamageLevel: true,
             FriendlyFire: true,
             AffinityWeapons: true,
+            EnhancedHunters: true,
+            BalancedMode: true,
             PlayerRadar: true,
             OctolithReset: octolith);
     }
@@ -101,6 +105,17 @@ internal static class LobbyRuleDefaults
 
     public static string Bool(MatchMode mode, Func<MatchRules, bool> selector)
         => selector(For(mode)) ? "On" : "Off";
+
+    public static string ResourceRadar(ResourceRadarPolicy? value)
+        => value is { } policy ? ResourceRadar(policy) : "Disabled";
+
+    public static string ResourceRadar(ResourceRadarPolicy value) => value switch
+    {
+        ResourceRadarPolicy.SpawnLocations => "Spawn locations",
+        ResourceRadarPolicy.AvailableResources => "Available resources",
+        ResourceRadarPolicy.AvailableWithRespawn => "Available + respawn",
+        _ => "Disabled"
+    };
 
     private static string DamageName(int value) => value switch
     {

@@ -86,6 +86,10 @@ internal sealed class PrimeMatchCard : Border
             rules.Children.Add(Metric("BOT DIFFICULTY",
                 PrimeGameText.BotDifficultyLabel(entry.BotDifficulty)));
         }
+        if (entry.BalancedMode == true)
+            rules.Children.Add(Metric("BALANCED", "ON"));
+        rules.Children.Add(Metric("RESOURCE RADAR",
+            LobbyRuleDefaults.ResourceRadar(entry.ResourceRadarPolicy)));
         if (entry.WaitlistCount > 0)
             rules.Children.Add(Metric("WAITLIST", entry.WaitlistCount.ToString(CultureInfo.InvariantCulture)));
         body.Children.Add(rules);

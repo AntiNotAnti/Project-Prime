@@ -1031,12 +1031,41 @@ internal static class PlayPresentation
         TrackEditor(context, spawnPolicy);
         fields.Children.Add(Field("Spawn policy", spawnPolicy));
 
+        ResourceRadarPolicyChoice[] resourceRadarChoices =
+        [
+            new(ResourceRadarPolicy.Disabled, "Disabled"),
+            new(ResourceRadarPolicy.SpawnLocations, "Spawn locations"),
+            new(ResourceRadarPolicy.AvailableResources, "Available resources"),
+            new(ResourceRadarPolicy.AvailableWithRespawn, "Available + respawn")
+        ];
+        ResourceRadarPolicyChoice selectedResourceRadar = resourceRadarChoices
+            .FirstOrDefault(choice => choice.Value == draft.ResourceRadarPolicy)
+            ?? resourceRadarChoices[0];
+        ComboBox resourceRadar = Combo(resourceRadarChoices.Cast<object>().ToArray(),
+            selectedResourceRadar);
+        resourceRadar.SelectionChanged += (_, _) =>
+        {
+            if (resourceRadar.SelectedItem is ResourceRadarPolicyChoice choice)
+                draft.ResourceRadarPolicy = choice.Value;
+        };
+        TrackEditor(context, resourceRadar);
+        fields.Children.Add(Field("Resource radar", resourceRadar));
+
         AddBoolControl(fields, context, "Friendly fire", draft.FriendlyFire,
             defaults.FriendlyFire,
             value => draft.FriendlyFire = value, applicability.FriendlyFire);
         AddBoolControl(fields, context, "Affinity weapons", draft.AffinityWeapons,
             defaults.AffinityWeapons,
             value => draft.AffinityWeapons = value, applicability.AffinityWeapons);
+        AddBoolControl(fields, context, "Enhanced hunters", draft.EnhancedHunters,
+            defaults.EnhancedHunters,
+            value => draft.EnhancedHunters = value, applicability.EnhancedHunters);
+        AddBoolControl(fields, context, "Balanced Mode", draft.BalancedMode,
+            defaults.BalancedMode,
+            value => draft.BalancedMode = value, applicability.BalancedMode);
+        AddBoolControl(fields, context, "Power-ups", draft.PowerupsEnabled,
+            defaults.PowerupsEnabled,
+            value => draft.PowerupsEnabled = value, applicable: true);
         AddBoolControl(fields, context, "Player radar", draft.PlayerRadar,
             defaults.PlayerRadar,
             value => draft.PlayerRadar = value, applicability.PlayerRadar);
@@ -1064,6 +1093,16 @@ internal static class PlayPresentation
         BoolChoice selected = choices.FirstOrDefault(choice => choice.Value == value)
             ?? choices[0];
         ComboBox combo = Combo(choices.Cast<object>().ToArray(), selected);
+        if (label == "Enhanced hunters")
+        {
+            ToolTip.SetTip(combo,
+                "Enhances each Hunter's native affinity with an additional combat effect.");
+        }
+        else if (label == "Balanced Mode")
+        {
+            ToolTip.SetTip(combo,
+                "Applies Project Prime's competitive hunter and weapon balance adjustments. Disable for original MPH-style mechanics.");
+        }
         combo.SelectionChanged += (_, _) =>
         {
             if (combo.SelectedItem is BoolChoice choice) set(choice.Value);
@@ -1189,6 +1228,14 @@ internal static class PlayPresentation
             ?? LobbyRuleDefaults.For(lobby.Mode).SpawnPolicy;
         stats.Children.Add(PrimeControlFactory.StatTile("SPAWNS",
             SpawnPolicyLabel(effectiveSpawnPolicy)));
+        stats.Children.Add(PrimeControlFactory.StatTile("RESOURCE RADAR",
+            LobbyRuleDefaults.ResourceRadar(rules.ResourceRadarPolicy)));
+        stats.Children.Add(PrimeControlFactory.StatTile("POWER-UPS",
+            (rules.PowerupsEnabled ?? true) ? "ON" : "OFF"));
+        stats.Children.Add(PrimeControlFactory.StatTile("ENHANCED HUNTERS",
+            (rules.EnhancedHunters ?? false) ? "ON" : "OFF"));
+        stats.Children.Add(PrimeControlFactory.StatTile("BALANCED",
+            (rules.BalancedMode ?? false) ? "ON" : "OFF"));
         var details = Stack(stats, Text(
             $"{PrimeGameText.SeatPolicyLabel(lobby.SeatPolicy)} · "
             + $"{lobby.ObserverLimit} observer seats · "
@@ -1294,8 +1341,7 @@ internal static class PlayPresentation
             $"Hunter preview: {PrimeGameText.HunterLabel(current.Hunter)}");
         content.Children.Add(hunterPreview);
 
-        Hunter[] hunterValues = Enum.GetValues<Hunter>()
-            .Where(value => value <= Hunter.Weavel).ToArray();
+        Hunter[] hunterValues = PlayableHunterCatalog.All.ToArray();
         var hunter = new ComboBox
         {
             ItemsSource = hunterValues,
@@ -2312,6 +2358,9 @@ internal static class PlayPresentation
             SetStat("BOT DIFFICULTY", lobby.BotCount > 0
                 ? PrimeGameText.BotDifficultyLabel(lobby.BotDifficulty) : "OFF");
             SetStat("SEATS", lobby.PlayerLimit.ToString(CultureInfo.InvariantCulture));
+            SetStat("RESOURCE RADAR", LobbyRuleDefaults.ResourceRadar(
+                rules.ResourceRadarPolicy));
+            SetStat("BALANCED", (rules.BalancedMode ?? false) ? "ON" : "OFF");
             _details.Text = $"{PrimeGameText.SeatPolicyLabel(lobby.SeatPolicy)} · "
                 + $"{lobby.ObserverLimit} observer seats · "
                 + $"{lobby.Waitlist?.Count ?? 0} waiting";
@@ -2328,7 +2377,9 @@ internal static class PlayPresentation
                 CreateStat("OBJECTIVE"),
                 CreateStat("BOTS"),
                 CreateStat("BOT DIFFICULTY"),
-                CreateStat("SEATS")
+                CreateStat("SEATS"),
+                CreateStat("RESOURCE RADAR"),
+                CreateStat("BALANCED")
             };
             PrimeStatRail rail = PrimeControlFactory.StatRail(tiles.ToArray());
             rail.Classes.Add("prime-lobby-stat-rail");
@@ -2505,6 +2556,12 @@ internal static class PlayPresentation
     }
 
     private sealed record SpawnPolicyChoice(string Label, SpawnPolicy? Value)
+    {
+        public override string ToString() => Label;
+    }
+
+    private sealed record ResourceRadarPolicyChoice(ResourceRadarPolicy Value,
+        string Label)
     {
         public override string ToString() => Label;
     }

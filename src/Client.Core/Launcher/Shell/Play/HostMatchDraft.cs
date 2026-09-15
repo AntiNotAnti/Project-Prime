@@ -37,6 +37,10 @@ internal sealed class HostMatchDraft
     public int? TeamCount { get; set; }
     public SpawnPolicy? SpawnPolicy { get; set; }
     public bool? CancelSpawnProtectionOnOffensiveAction { get; set; }
+    public bool? PowerupsEnabled { get; set; }
+    public bool? EnhancedHunters { get; set; }
+    public bool? BalancedMode { get; set; }
+    public ResourceRadarPolicy? ResourceRadarPolicy { get; set; }
 
     public static HostMatchDraft FromLobby(LobbySnapshot lobby)
     {
@@ -66,7 +70,11 @@ internal sealed class HostMatchDraft
             TeamCount = rules.TeamCount,
             SpawnPolicy = rules.SpawnPolicy,
             CancelSpawnProtectionOnOffensiveAction =
-                rules.CancelSpawnProtectionOnOffensiveAction
+                rules.CancelSpawnProtectionOnOffensiveAction,
+            PowerupsEnabled = rules.PowerupsEnabled,
+            EnhancedHunters = rules.EnhancedHunters,
+            BalancedMode = rules.BalancedMode,
+            ResourceRadarPolicy = rules.ResourceRadarPolicy
         };
     }
 
@@ -128,7 +136,11 @@ internal sealed class HostMatchDraft
                 TeamCount: Mode.IsTeamMode() ? TeamCount : null,
                 SpawnPolicy: SpawnPolicy,
                 CancelSpawnProtectionOnOffensiveAction:
-                    CancelSpawnProtectionOnOffensiveAction).ForMode(Mode);
+                    CancelSpawnProtectionOnOffensiveAction,
+                PowerupsEnabled: PowerupsEnabled,
+                EnhancedHunters: EnhancedHunters,
+                BalancedMode: BalancedMode,
+                ResourceRadarPolicy: ResourceRadarPolicy).ForMode(Mode);
             _ = rules.ToMatchRules(Mode, "host-draft-validation", PlayerLimit);
             error = "";
             return true;

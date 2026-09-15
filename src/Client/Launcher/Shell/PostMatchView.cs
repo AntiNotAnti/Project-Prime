@@ -30,6 +30,7 @@ namespace MphRead.Mods.Launcher.Gui;
 public sealed class PostMatchView : UserControl, IDisposable
 {
     internal const double CompactResultsBreakpoint = 900;
+    private const double ShortCompactHeight = 480;
     private const double DefaultResultsHeight = 1080;
     private const double CompactScoreMaxHeight = 260;
     private const double CompactBallotMaxHeight = 240;
@@ -71,6 +72,7 @@ public sealed class PostMatchView : UserControl, IDisposable
     private string _optionSignature = "";
     private PostMatchBallotModel _ballotModel = PostMatchBallotModel.Loading;
     private bool _compactLayout;
+    private bool _shortCompactLayout;
     private bool _layoutInitialized;
     private bool _scoreboardUsesMobileCards;
     private PrimeInputDevice _lastInputDevice = PrimeInputDevice.KeyboardMouse;
@@ -165,8 +167,7 @@ public sealed class PostMatchView : UserControl, IDisposable
         };
         hunterPanel.Children.Add(Text("NEXT ROUND HUNTER", 10,
             FontWeight.SemiBold, GuiTheme.AccentBrush));
-        Hunter[] hunterValues = Enum.GetValues<Hunter>()
-            .Where(value => value <= Hunter.Weavel).ToArray();
+        Hunter[] hunterValues = PlayableHunterCatalog.All.ToArray();
         _hunterSelector = new ComboBox
         {
             Name = "ResultsNextHunter",
@@ -292,16 +293,24 @@ public sealed class PostMatchView : UserControl, IDisposable
         double width = Bounds.Width > 0 ? Bounds.Width : Width;
         bool compact = double.IsFinite(width) && width > 0
             && width < CompactResultsBreakpoint;
-        if (!_layoutInitialized || compact != _compactLayout)
+        double height = Bounds.Height > 0 ? Bounds.Height : Height;
+        bool shortCompact = compact && double.IsFinite(height) && height > 0
+            && height < ShortCompactHeight;
+        if (!_layoutInitialized || compact != _compactLayout
+            || shortCompact != _shortCompactLayout)
         {
             _layoutInitialized = true;
             _compactLayout = compact;
+            _shortCompactLayout = shortCompact;
             _zones.ColumnDefinitions = compact
                 ? new ColumnDefinitions("*")
                 : new ColumnDefinitions("1.15*,0.85*");
             _zones.RowDefinitions = compact
-                ? new RowDefinitions("Auto,Auto")
+                ? new RowDefinitions(shortCompact ? "*,Auto" : "Auto,Auto")
                 : new RowDefinitions("Auto");
+            _voteZone.ColumnDefinitions = shortCompact
+                ? new ColumnDefinitions("*,*")
+                : new ColumnDefinitions("*");
             Grid.SetColumn(_scoreZone, 0);
             Grid.SetColumn(_voteZone, compact ? 0 : 1);
             Grid.SetRow(_scoreZone, 0);
@@ -311,7 +320,27 @@ public sealed class PostMatchView : UserControl, IDisposable
                 : new Thickness(0, 0, 8, 0);
             BuildScoreboard(compact);
         }
+        ApplyShortLayoutDensity(shortCompact);
         ApplyScrollBounds();
+    }
+
+    private void ApplyShortLayoutDensity(bool shortCompact)
+    {
+        _leading.IsVisible = !shortCompact;
+        UpdateInputHints();
+
+        if (shortCompact)
+        {
+            Grid.SetRow(_cancelLeaveButton, 4);
+            Grid.SetColumn(_leaveButton, 0);
+            Grid.SetColumn(_cancelLeaveButton, 1);
+        }
+        else
+        {
+            Grid.SetRow(_cancelLeaveButton, 5);
+            Grid.SetColumn(_leaveButton, 0);
+            Grid.SetColumn(_cancelLeaveButton, 0);
+        }
     }
 
     private void ApplyScrollBounds()
@@ -326,10 +355,11 @@ public sealed class PostMatchView : UserControl, IDisposable
             // 160-DIP minimum for both scroll regions made the Leave action
             // unreachable immediately below the compact breakpoint.
             double flexibleHeight = Math.Max(0, height - 390);
+            double minimum = _shortCompactLayout ? 48 : 72;
             _scoreScroll.MaxHeight = Math.Min(CompactScoreMaxHeight,
-                Math.Max(72, flexibleHeight * .45));
+                Math.Max(minimum, flexibleHeight * .45));
             _ballotScroll.MaxHeight = Math.Min(CompactBallotMaxHeight,
-                Math.Max(72, flexibleHeight * .35));
+                Math.Max(minimum, flexibleHeight * .35));
         }
         else
         {
@@ -693,9 +723,9 @@ public sealed class PostMatchView : UserControl, IDisposable
             || !_canSelectHunter
             || _pendingHunter.HasValue || _authoritativeHunter is not { } current)
             return;
-        int count = (int)Hunter.Weavel + 1;
+        int count = PlayableHunterCatalog.Count;
         int next = ((int)current + Math.Sign(delta) + count) % count;
-        RequestHunter((Hunter)next);
+        RequestHunter(PlayableHunterCatalog.FromIndex(next));
     }
 
     public void Move(int delta)
@@ -890,7 +920,7 @@ public sealed class PostMatchView : UserControl, IDisposable
 
     private void UpdateInputHints()
     {
-        if (_lastInputDevice == PrimeInputDevice.Touch)
+        if (_shortCompactLayout || _lastInputDevice == PrimeInputDevice.Touch)
         {
             _hints.Text = "";
             _hints.IsVisible = false;

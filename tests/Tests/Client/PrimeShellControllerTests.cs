@@ -100,7 +100,7 @@ public sealed class PrimeShellControllerTests
         string[] hunterModels =
         [
             "Samus_lod0", "Kanden_lod0", "Trace_lod0", "Sylux_lod0",
-            "Nox_lod0", "Spire_lod0", "Weavel_lod0"
+            "Nox_lod0", "Spire_lod0", "Weavel_lod0", "Guardian_lod0"
         ];
         for (int i = 0; i < hunterModels.Length; i++)
         {
@@ -122,7 +122,7 @@ public sealed class PrimeShellControllerTests
         Assert.True(ModelPreviewCatalog.TryWorkerKey(weapon.WorkerKey,
             out ModelPreviewSpec? parsedWeapon));
         Assert.Equal(weapon, parsedWeapon);
-        Assert.False(ModelPreviewCatalog.TryWorkerKey("hunter:guardian", out _));
+        Assert.True(ModelPreviewCatalog.TryWorkerKey("hunter:guardian", out _));
         Assert.False(ModelPreviewCatalog.TryWorkerKey("weapon:enemy", out _));
         Assert.False(ModelPreviewCatalog.TryWorkerKey("../../arbitrary", out _));
     }

@@ -365,13 +365,10 @@ namespace MphRead.Mods.Launcher
 
         private static Hunter AskHunter()
         {
-            // Seven playable hunters plus Random, which is what the picker on
+            // Eight playable hunters plus Random, which is what the picker on
             // the window offers; the enum carries entries past those.
             var hunters = new List<Hunter>();
-            for (int i = 0; i < 7; i++)
-            {
-                hunters.Add((Hunter)i);
-            }
+            hunters.AddRange(PlayableHunterCatalog.All);
             hunters.Add(Hunter.Random);
             int current = Math.Max(0, hunters.IndexOf(LauncherPrefs.LastHunter));
             Console.WriteLine();
