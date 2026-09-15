@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -193,6 +195,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _radarObjectiveEmphasisRow = null!, _radarEnemiesRow = null!, _radarTeammatesRow = null!;
         private ToggleRow _radarObjectivesRow = null!, _radarFlagsRow = null!, _radarBasesRow = null!;
         private ToggleRow _radarNodesRow = null!, _radarDefendersRow = null!, _radarMapFillRow = null!;
+        private ToggleRow _radarResourcesRow = null!, _radarWeaponsRow = null!, _radarAmmoRow = null!;
+        private ToggleRow _radarHealthRow = null!, _radarPowerupsRow = null!;
         private ToggleRow _radarMapOutlinesRow = null!, _radarGridRow = null!, _radarRingsRow = null!;
         private ToggleRow _radarCompassRow = null!, _radarPulseRow = null!, _radarPriorityRow = null!;
         private bool _applyingRadarPreset;
@@ -312,6 +316,10 @@ namespace MphRead.Mods.Launcher.Gui
         private Note? _gyroCapabilityNote;
         private Expander? _advancedControllerExpander;
         private SliderRow _gamepadGyroSensitivity = null!, _gamepadHapticsStrength = null!;
+        private Note? _controllerDiagnosticsSummary;
+        private Note? _controllerDiagnosticsDetails;
+        private MenuEntry? _controllerDiagnosticsExport;
+        private DispatcherTimer? _controllerDiagnosticsTimer;
         private ToggleRow? _stylusAiming, _stylusInvertY, _stylusClassicGestures,
             _stylusDoubleTapJump, _stylusFlickBoost, _stylusPressureToFire;
         private SliderRow? _stylusSensitivity, _stylusPressureThreshold,
@@ -409,6 +417,12 @@ namespace MphRead.Mods.Launcher.Gui
         internal SettingsIdentityContext IdentityContext => _identity;
         internal bool HasHunterProfileAction => _hunterProfileAction != null;
         internal bool IsObservingControllerCapabilities => _observingControllerCapabilities;
+        internal string? RenderedControllerDiagnosticsSummary
+            => _controllerDiagnosticsSummary?.Text;
+        internal string? RenderedControllerDiagnosticsDetails
+            => _controllerDiagnosticsDetails?.Text;
+        internal string? ControllerDiagnosticsExportStatus
+            => _controllerDiagnosticsExport?.Subtitle;
 
         private const double _railWidth = 244;
 
@@ -674,12 +688,14 @@ namespace MphRead.Mods.Launcher.Gui
             }
             SubscribeControllerCapabilities();
             ApplyControllerCapabilities(ControllerCapabilities.Current);
+            StartControllerDiagnosticsRefresh();
             Dispatcher.UIThread.Post(() => _sections[0].Button.Focus(),
                 DispatcherPriority.Background);
         }
 
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
+            StopControllerDiagnosticsRefresh();
             UnsubscribeControllerCapabilities();
             if (_observingUpdates)
             {
@@ -758,6 +774,139 @@ namespace MphRead.Mods.Launcher.Gui
                         : snapshot.IsAvailable
                             ? "Gyro support is unknown for this controller; the saved preference is preserved."
                             : "Connect a controller with a reported gyroscope to enable these controls; the saved preference is preserved.";
+            RefreshControllerDiagnostics();
+        }
+
+        /// <summary>
+        /// Refresh the diagnostics panel from the immutable capability store
+        /// and the managed GamepadInput snapshot. This deliberately does not
+        /// poll a platform backend: the SDL host (or the Android owner) is
+        /// the only input owner and this view only observes what it has
+        /// already published.
+        /// </summary>
+        private void RefreshControllerDiagnostics()
+        {
+            if (_controllerDiagnosticsSummary == null
+                || _controllerDiagnosticsDetails == null)
+            {
+                return;
+            }
+
+            ControllerCapabilitySnapshot capabilities = ControllerCapabilities.Current;
+            GamepadState raw = GamepadInput.State;
+            ControllerDiagnosticReport report = CaptureControllerDiagnostics(
+                capabilities, raw);
+            _controllerDiagnosticsSummary.Text = DescribeControllerDiagnostics(capabilities,
+                raw);
+            _controllerDiagnosticsDetails.Text = DescribeControllerDiagnosticsDetails(report);
+        }
+
+        private static ControllerDiagnosticReport CaptureControllerDiagnostics(
+            ControllerCapabilitySnapshot capabilities, in GamepadState raw)
+        {
+            GamepadMovementSample movement = GamepadInput.Movement;
+            return ControllerDiagnosticReportBuilder.Capture(
+                capabilities,
+                raw,
+                GamepadInput.EffectiveButtons,
+                movement.Vector.X,
+                movement.Vector.Y,
+                GamepadInput.AimDeltaX,
+                GamepadInput.AimDeltaY,
+                GamepadInput.AimAngularVelocity.X,
+                GamepadInput.AimAngularVelocity.Y);
+        }
+
+        private static string DescribeControllerDiagnostics(
+            ControllerCapabilitySnapshot capabilities, in GamepadState raw)
+        {
+            if (!capabilities.IsBackendAvailable)
+            {
+                return "Controller diagnostics unavailable: no input backend is publishing a snapshot."
+                    + " This is not a physical-controller acceptance result.";
+            }
+            if (!capabilities.IsConnected)
+            {
+                return $"{capabilities.Backend} input backend is available, but it reports no connected controller."
+                    + " This is not a physical-controller acceptance result.";
+            }
+            if (capabilities.Backend != ControllerBackend.Sdl)
+            {
+                return $"{capabilities.Backend} input backend reports {raw.Name ?? "an unnamed controller"}."
+                    + " SDL identity and physical acceptance are unavailable on this backend.";
+            }
+            return $"SDL reports {capabilities.DeviceName ?? raw.Name ?? "an unnamed controller"}"
+                + $" ({capabilities.Family}); managed input is {(raw.Connected ? "connected" : "not connected")}."
+                + " This panel observes the active owner; it does not perform physical acceptance.";
+        }
+
+        private static string DescribeControllerDiagnosticsDetails(
+            ControllerDiagnosticReport report)
+        {
+            var text = new StringBuilder(4096);
+            text.Append(ControllerDiagnosticReportBuilder.SerializeText(report));
+            text.AppendLine("controllerTuning:");
+            text.AppendLine($"  responseCurve={InputSettings.GamepadResponseCurve}");
+            text.AppendLine($"  lookExponent={FiniteSetting(InputSettings.GamepadLookExponent)}");
+            text.AppendLine($"  turnAcceleration={InputSettings.GamepadTurnAcceleration}");
+            text.AppendLine($"  stickAimMode={InputSettings.GamepadStickAimMode}");
+            text.AppendLine($"  gyroMode={InputSettings.GamepadGyroMode}");
+            text.AppendLine($"  gyroSensitivity={FiniteSetting(InputSettings.GamepadGyroSensitivity)}");
+            text.AppendLine($"  hapticsStrength={FiniteSetting(InputSettings.GamepadHapticsStrength)}");
+            text.AppendLine($"  outerBoostEnabled={InputSettings.GamepadOuterBoostEnabled}");
+            text.AppendLine($"  outerBoostStart={FiniteSetting(InputSettings.GamepadOuterBoostStart)}");
+            return text.ToString();
+        }
+
+        private static string FiniteSetting(float value)
+            => float.IsFinite(value)
+                ? value.ToString("R", CultureInfo.InvariantCulture)
+                : "unknown";
+
+        private void StartControllerDiagnosticsRefresh()
+        {
+            if (_controllerDiagnosticsTimer != null)
+            {
+                return;
+            }
+            RefreshControllerDiagnostics();
+            _controllerDiagnosticsTimer = new DispatcherTimer(
+                TimeSpan.FromMilliseconds(200), DispatcherPriority.Background,
+                (_, _) => RefreshControllerDiagnostics());
+            _controllerDiagnosticsTimer.Start();
+        }
+
+        private void StopControllerDiagnosticsRefresh()
+        {
+            _controllerDiagnosticsTimer?.Stop();
+            _controllerDiagnosticsTimer = null;
+        }
+
+        private void ExportControllerDiagnostics()
+        {
+            if (_controllerDiagnosticsExport == null)
+            {
+                return;
+            }
+            try
+            {
+                ControllerCapabilitySnapshot capabilities = ControllerCapabilities.Current;
+                ControllerDiagnosticReport report = CaptureControllerDiagnostics(
+                    capabilities, GamepadInput.State);
+                (string jsonPath, string textPath) = ControllerDiagnosticReportBuilder
+                    .WriteToDirectory(Path.Combine(LauncherPrefs.Directory, "logs"), report);
+                _controllerDiagnosticsExport.Subtitle = $"Saved {Path.GetFileName(jsonPath)}"
+                    + $" and {Path.GetFileName(textPath)}";
+                _controllerDiagnosticsExport.SubtitleColor = GuiTheme.Good;
+            }
+            catch (Exception ex)
+            {
+                // Do not surface a launcher/data path in the view. Keep the
+                // diagnostic context in the local debug stream instead.
+                Console.WriteLine($"[settings] controller diagnostics export failed: {ex.Message}");
+                _controllerDiagnosticsExport.Subtitle = "Export failed; no report was overwritten.";
+                _controllerDiagnosticsExport.SubtitleColor = GuiTheme.Warm;
+            }
         }
 
         /// <summary>Release external observers when this view's lifetime ends.</summary>
@@ -769,6 +918,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _disposed = true;
             CompleteDraftSnapshot();
+            StopControllerDiagnosticsRefresh();
             UnsubscribeControllerCapabilities();
             if (_observingUpdates)
             {
@@ -1378,6 +1528,12 @@ namespace MphRead.Mods.Launcher.Gui
             _radarBasesRow = Add(page, new ToggleRow("Bases", radar.ShowBases), SettingRowIds.RadarBases);
             _radarNodesRow = Add(page, new ToggleRow("Nodes", radar.ShowNodes), SettingRowIds.RadarNodes);
             _radarDefendersRow = Add(page, new ToggleRow("Defenders", radar.ShowDefenders), SettingRowIds.RadarDefenders);
+            Heading(page, "Radar resources");
+            _radarResourcesRow = Add(page, new ToggleRow("Resources", radar.ShowResources), SettingRowIds.RadarResources);
+            _radarWeaponsRow = Add(page, new ToggleRow("Weapons", radar.ShowWeapons), SettingRowIds.RadarWeapons);
+            _radarAmmoRow = Add(page, new ToggleRow("Ammo", radar.ShowAmmo), SettingRowIds.RadarAmmo);
+            _radarHealthRow = Add(page, new ToggleRow("Health", radar.ShowHealth), SettingRowIds.RadarHealth);
+            _radarPowerupsRow = Add(page, new ToggleRow("Powerups", radar.ShowPowerups), SettingRowIds.RadarPowerups);
             Heading(page, "Radar map");
             _radarFloorRow = Add(page, new ChoiceRow("Visible floors", new[] { "Current", "Adjacent", "All" },
                 (int)radar.FloorMode), SettingRowIds.RadarFloors);
@@ -1488,7 +1644,9 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (ToggleRow row in new[] { _radarElevationRow, _radarMarkerOutlineRow,
                 _radarEdgeArrowsRow, _radarLabelsRow, _radarObjectiveEmphasisRow,
                 _radarEnemiesRow, _radarTeammatesRow, _radarObjectivesRow, _radarFlagsRow,
-                _radarBasesRow, _radarNodesRow, _radarDefendersRow, _radarMapFillRow,
+                _radarBasesRow, _radarNodesRow, _radarDefendersRow, _radarResourcesRow,
+                _radarWeaponsRow, _radarAmmoRow, _radarHealthRow, _radarPowerupsRow,
+                _radarMapFillRow,
                 _radarMapOutlinesRow, _radarGridRow, _radarRingsRow, _radarCompassRow,
                 _radarPulseRow, _radarPriorityRow })
                 row.Changed += refreshRadarPreview;
@@ -1505,7 +1663,9 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (ToggleRow row in new[] { _radarElevationRow, _radarMarkerOutlineRow,
                 _radarEdgeArrowsRow, _radarLabelsRow, _radarObjectiveEmphasisRow,
                 _radarEnemiesRow, _radarTeammatesRow, _radarObjectivesRow, _radarFlagsRow,
-                _radarBasesRow, _radarNodesRow, _radarDefendersRow, _radarMapFillRow,
+                _radarBasesRow, _radarNodesRow, _radarDefendersRow, _radarResourcesRow,
+                _radarWeaponsRow, _radarAmmoRow, _radarHealthRow, _radarPowerupsRow,
+                _radarMapFillRow,
                 _radarMapOutlinesRow, _radarGridRow, _radarRingsRow, _radarCompassRow,
                 _radarPulseRow, _radarPriorityRow })
                 row.Changed += (_, _) => MarkRadarPresetCustom();
@@ -1566,6 +1726,7 @@ namespace MphRead.Mods.Launcher.Gui
                 bool automaticZoom = _radarZoomRow.Index
                     != (int)global::MphRead.Hud.Radar.RadarZoomMode.Fixed;
                 bool objectives = _radarObjectivesRow.On;
+                bool resources = _radarResourcesRow.On;
                 _radarOffsetXRow.IsVisible = customPosition;
                 _radarOffsetYRow.IsVisible = customPosition;
                 radarAdvanced.IsVisible = enhanced;
@@ -1578,6 +1739,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _radarNodesRow.IsVisible = objectives;
                 _radarDefendersRow.IsVisible = objectives;
                 _radarObjectiveEmphasisRow.IsVisible = objectives;
+                _radarWeaponsRow.IsEnabled = resources;
+                _radarAmmoRow.IsEnabled = resources;
+                _radarHealthRow.IsEnabled = resources;
+                _radarPowerupsRow.IsEnabled = resources;
                 _radarElevationThresholdRow.IsVisible = _radarElevationRow.On;
                 _radarEdgeScaleRow.IsVisible = _radarEdgeArrowsRow.On;
                 _radarFloorBrightnessRow.IsVisible = _radarMapFillRow.On;
@@ -1588,6 +1753,7 @@ namespace MphRead.Mods.Launcher.Gui
             _radarPositionRow.Changed += (_, _) => RefreshRadarOptionVisibility();
             _radarZoomRow.Changed += (_, _) => RefreshRadarOptionVisibility();
             _radarObjectivesRow.Changed += (_, _) => RefreshRadarOptionVisibility();
+            _radarResourcesRow.Changed += (_, _) => RefreshRadarOptionVisibility();
             _radarElevationRow.Changed += (_, _) => RefreshRadarOptionVisibility();
             _radarEdgeArrowsRow.Changed += (_, _) => RefreshRadarOptionVisibility();
             _radarMapFillRow.Changed += (_, _) => RefreshRadarOptionVisibility();
@@ -2079,6 +2245,9 @@ namespace MphRead.Mods.Launcher.Gui
                 ShowObjectives = _radarObjectivesRow.On, ShowFlags = _radarFlagsRow.On,
                 ShowBases = _radarBasesRow.On, ShowNodes = _radarNodesRow.On,
                 ShowDefenders = _radarDefendersRow.On,
+                ShowResources = _radarResourcesRow.On, ShowWeapons = _radarWeaponsRow.On,
+                ShowAmmo = _radarAmmoRow.On, ShowHealth = _radarHealthRow.On,
+                ShowPowerups = _radarPowerupsRow.On,
                 FloorMode = (global::MphRead.Hud.Radar.RadarFloorMode)_radarFloorRow.Index,
                 ElevationThreshold = _radarElevationThresholdRow.Value / 100f,
                 MapFill = _radarMapFillRow.On, MapOutlines = _radarMapOutlinesRow.On,
@@ -2146,7 +2315,11 @@ namespace MphRead.Mods.Launcher.Gui
             _radarEnemiesRow.On = profile.ShowEnemies; _radarTeammatesRow.On = profile.ShowTeammates;
             _radarObjectivesRow.On = profile.ShowObjectives; _radarFlagsRow.On = profile.ShowFlags;
             _radarBasesRow.On = profile.ShowBases; _radarNodesRow.On = profile.ShowNodes;
-            _radarDefendersRow.On = profile.ShowDefenders; _radarFloorRow.Index = (int)profile.FloorMode;
+            _radarDefendersRow.On = profile.ShowDefenders;
+            _radarResourcesRow.On = profile.ShowResources; _radarWeaponsRow.On = profile.ShowWeapons;
+            _radarAmmoRow.On = profile.ShowAmmo; _radarHealthRow.On = profile.ShowHealth;
+            _radarPowerupsRow.On = profile.ShowPowerups;
+            _radarFloorRow.Index = (int)profile.FloorMode;
             _radarElevationThresholdRow.Value = (int)(profile.ElevationThreshold * 100);
             _radarMapFillRow.On = profile.MapFill; _radarMapOutlinesRow.On = profile.MapOutlines;
             _radarFloorBrightnessRow.Value = (int)(profile.FloorBrightness * 100);
@@ -2575,7 +2748,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
             _sensitivity = Add(page, new SliderRow("Sensitivity",
                 SensitivityToSlider(InputSettings.MouseSensitivity),
-                v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x"), SettingRowIds.MouseSensitivity);
+                v => $"{SliderToSensitivity(v).ToString("0.00", CultureInfo.InvariantCulture)}x",
+                min: MouseSensitivitySliderMinimum,
+                max: MouseSensitivitySliderMaximum,
+                keyStep: 1), SettingRowIds.MouseSensitivity);
             _sensitivity.ValueChanged += (_, _) => _mouseSensitivityEdited = true;
             _invertY = Add(page, new ToggleRow("Invert vertical aim", InputSettings.InvertMouseY), SettingRowIds.MouseInvertY);
             _invertX = Add(page, new ToggleRow("Invert horizontal aim", InputSettings.InvertMouseX), SettingRowIds.MouseInvertX);
@@ -2736,6 +2912,31 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Add(page, resetGyro, SettingRowIds.ControllerGyro + ".reset");
             Heading(page, "Feedback and diagnostics");
+            Heading(page, "Controller diagnostics");
+            _controllerDiagnosticsSummary = Explain(page,
+                "Reading the active input owner…", GuiTheme.Warm);
+            _controllerDiagnosticsDetails = new Note("");
+            var controllerDiagnosticsDetails = new Expander
+            {
+                Header = "Raw, effective, and configured controller state",
+                Content = _controllerDiagnosticsDetails,
+                IsExpanded = true,
+                Margin = new Thickness(0, 0, 0, 2)
+            };
+            PrimeAccessibility.SetName(controllerDiagnosticsDetails,
+                "Raw, effective, and configured controller state");
+            Add(page, controllerDiagnosticsDetails);
+            _controllerDiagnosticsExport = new MenuEntry(
+                "Export controller diagnostics",
+                "Write privacy-safe JSON and text reports to local logs",
+                titleSize: 13)
+            {
+                Height = 48,
+                Accent = GuiTheme.Accent,
+                Margin = new Thickness(0, 4, 0, 0)
+            };
+            _controllerDiagnosticsExport.Click += (_, _) => ExportControllerDiagnostics();
+            Add(page, _controllerDiagnosticsExport);
             _gamepadHaptics = Add(page, new ToggleRow("Rumble and haptics",
                 InputSettings.GamepadHapticsEnabled), SettingRowIds.ControllerHaptics);
             _gamepadHapticsStrength = Add(page, new SliderRow("Vibration strength",
@@ -3245,13 +3446,27 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static int SensitivityToSlider(float sensitivity)
         {
-            return Math.Clamp((int)Math.Round((sensitivity - 0.1f) / 2.9f * 100), 0, 100);
+            float normalized = InputSettings.NormalizeMouseSensitivity(sensitivity);
+            return Math.Clamp(
+                (int)Math.Round(normalized / InputSettings.MouseSensitivityStep),
+                MouseSensitivitySliderMinimum, MouseSensitivitySliderMaximum);
         }
 
         private static float SliderToSensitivity(int value)
         {
-            return 0.1f + value / 100f * 2.9f;
+            int clamped = Math.Clamp(value,
+                MouseSensitivitySliderMinimum, MouseSensitivitySliderMaximum);
+            return InputSettings.NormalizeMouseSensitivity(
+                clamped * InputSettings.MouseSensitivityStep);
         }
+
+        private static int MouseSensitivitySliderMinimum
+            => (int)Math.Round(InputSettings.MinimumMouseSensitivity
+                / InputSettings.MouseSensitivityStep);
+
+        private static int MouseSensitivitySliderMaximum
+            => (int)Math.Round(InputSettings.UiMaximumMouseSensitivity
+                / InputSettings.MouseSensitivityStep);
 
         // Controller and stylus multipliers share the persisted .01x-10x
         // range. A single mapping keeps those values round-trippable through
@@ -3419,8 +3634,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Explain(page, "Your guest name is saved only on this device.");
             }
-            string[] hunters = Enumerable.Range(0, 7)
-                .Select(i => ((Hunter)i).ToString())
+            string[] hunters = PlayableHunterCatalog.All
+                .Select(hunter => hunter.ToString())
                 .Append(Hunter.Random.ToString()).ToArray();
             _hunterRow = Add(page, new ChoiceRow("Preferred Hunter", hunters,
                 Math.Max(0, Array.IndexOf(hunters, LauncherPrefs.LastHunter.ToString()))),

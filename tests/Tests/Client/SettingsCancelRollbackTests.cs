@@ -50,6 +50,44 @@ public sealed class SettingsCancelRollbackTests
     }
 
     [AvaloniaFact]
+    public void SettingsCancelRestoresPreviousValue()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        SettingsView? view = null;
+        try
+        {
+            InputSettings.Reset();
+            InputSettings.MouseSensitivity = InputSettings.MaximumMouseSensitivity;
+            view = new SettingsView(new MenuSettings());
+
+            SliderRow slider = Slider(view, "_sensitivity");
+            int uiMinimum = (int)Math.Round(InputSettings.MinimumMouseSensitivity
+                / InputSettings.MouseSensitivityStep);
+            int uiMaximum = (int)Math.Round(InputSettings.UiMaximumMouseSensitivity
+                / InputSettings.MouseSensitivityStep);
+            Assert.Equal(uiMaximum, slider.Value);
+
+            slider.Value = int.MinValue;
+            Assert.Equal(uiMinimum, slider.Value);
+            slider.Value = int.MaxValue;
+            Assert.Equal(uiMaximum, slider.Value);
+
+            slider.Value--;
+            view.CancelForTests();
+
+            // The launcher exposes at most 3x, but cancelling must retain a
+            // valid persisted value that was previously above that UI range.
+            Assert.Equal(InputSettings.MaximumMouseSensitivity,
+                InputSettings.MouseSensitivity);
+        }
+        finally
+        {
+            view?.Dispose();
+            prior.Restore();
+        }
+    }
+
+    [AvaloniaFact]
     public void CancelRestoresExactInputStateAfterEagerPresetBindingAndResetMutations()
     {
         InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
@@ -235,7 +273,12 @@ public sealed class SettingsCancelRollbackTests
         SettingsView? view = null;
         try
         {
-            RadarSettings.Apply(new RadarProfile { Name = "Original", Range = 40 });
+            RadarSettings.Apply(new RadarProfile
+            {
+                Name = "Original", Range = 40, ShowResources = false,
+                ShowWeapons = false, ShowAmmo = false, ShowHealth = false,
+                ShowPowerups = false
+            });
             RadarSettings.ClearModeProfiles();
             RadarSettings.SetModeProfile("Capture",
                 new RadarProfile { Name = "Original capture", Range = 44 });
@@ -244,7 +287,12 @@ public sealed class SettingsCancelRollbackTests
                 new RadarProfile { Name = "Original handheld", Range = 36 });
             view = new SettingsView(new MenuSettings());
 
-            RadarSettings.Apply(new RadarProfile { Name = "Imported", Range = 70 });
+            RadarSettings.Apply(new RadarProfile
+            {
+                Name = "Imported", Range = 70, ShowResources = true,
+                ShowWeapons = true, ShowAmmo = true, ShowHealth = true,
+                ShowPowerups = true
+            });
             RadarSettings.ClearModeProfiles();
             RadarSettings.SetModeProfile("Battle",
                 new RadarProfile { Name = "Imported battle", Range = 72 });
@@ -255,6 +303,11 @@ public sealed class SettingsCancelRollbackTests
             view.CancelForTests();
 
             Assert.Equal("Original", RadarSettings.DefaultProfile.Name);
+            Assert.False(RadarSettings.DefaultProfile.ShowResources);
+            Assert.False(RadarSettings.DefaultProfile.ShowWeapons);
+            Assert.False(RadarSettings.DefaultProfile.ShowAmmo);
+            Assert.False(RadarSettings.DefaultProfile.ShowHealth);
+            Assert.False(RadarSettings.DefaultProfile.ShowPowerups);
             Assert.Equal("Original capture", RadarSettings.ForMode("Capture").Name);
             Assert.DoesNotContain("Battle", RadarSettings.ModeProfiles.Keys);
             Assert.Equal("Original handheld",

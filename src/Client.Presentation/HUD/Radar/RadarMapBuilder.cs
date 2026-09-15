@@ -29,6 +29,54 @@ public static class RadarMapBuilder
         return BuildGeometry(polygons);
     }
 
+    /// <summary>
+    /// Computes an in-process content fingerprint for the CPU map cache. This
+    /// is only called after a room revision changes (never on the steady-state
+    /// per-frame path), and includes the collision payload rather than relying
+    /// on a room object or name as identity.
+    /// </summary>
+    public static int ComputeCollisionFingerprint(IReadOnlyList<CollisionInstance> collisions)
+    {
+        ArgumentNullException.ThrowIfNull(collisions);
+        var hash = new HashCode();
+        hash.Add(collisions.Count);
+        for (int i = 0; i < collisions.Count; i++)
+        {
+            CollisionInstance instance = collisions[i];
+            if (instance == null)
+            {
+                hash.Add(0);
+                continue;
+            }
+            hash.Add(instance.Name, StringComparer.Ordinal);
+            hash.Add(instance.Active);
+            hash.Add(instance.Translation);
+            CollisionInfo info = instance.Info;
+            hash.Add(info.GetType());
+            hash.Add(info.FirstHunt);
+            AddList(ref hash, info.Points);
+            AddList(ref hash, info.Planes);
+            hash.Add(info.Portals.Count);
+            if (info is MphCollisionInfo mph)
+            {
+                AddList(ref hash, mph.PointIndices);
+                AddList(ref hash, mph.Data);
+                AddList(ref hash, mph.DataIndices);
+                AddList(ref hash, mph.Entries);
+            }
+            else if (info is FhCollisionInfo fh)
+            {
+                AddList(ref hash, fh.Data);
+                AddList(ref hash, fh.Vectors);
+                AddList(ref hash, fh.DataIndices);
+                AddList(ref hash, fh.Entries);
+                AddList(ref hash, fh.TreeNodeIndices);
+                AddList(ref hash, fh.TreeNodes);
+            }
+        }
+        return hash.ToHashCode();
+    }
+
     public static RadarMapGeometry BuildGeometry(IReadOnlyList<RadarPolygon> source)
     {
         if (source == null) throw new ArgumentNullException(nameof(source));
@@ -142,4 +190,10 @@ public static class RadarMapBuilder
     private static bool Finite(Vector3 value) => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z);
     private static bool Finite(Vector4 value) => float.IsFinite(value.X) && float.IsFinite(value.Y)
         && float.IsFinite(value.Z) && float.IsFinite(value.W);
+
+    private static void AddList<T>(ref HashCode hash, IReadOnlyList<T> values)
+    {
+        hash.Add(values.Count);
+        for (int i = 0; i < values.Count; i++) hash.Add(values[i]);
+    }
 }

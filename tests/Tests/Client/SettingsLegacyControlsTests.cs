@@ -172,6 +172,11 @@ public sealed class SettingsLegacyControlsTests
         GetPrivateField<ToggleRow>(view, "_radarBasesRow").On = false;
         GetPrivateField<ToggleRow>(view, "_radarNodesRow").On = false;
         GetPrivateField<ToggleRow>(view, "_radarDefendersRow").On = false;
+        GetPrivateField<ToggleRow>(view, "_radarResourcesRow").On = false;
+        GetPrivateField<ToggleRow>(view, "_radarWeaponsRow").On = false;
+        GetPrivateField<ToggleRow>(view, "_radarAmmoRow").On = false;
+        GetPrivateField<ToggleRow>(view, "_radarHealthRow").On = false;
+        GetPrivateField<ToggleRow>(view, "_radarPowerupsRow").On = false;
         GetPrivateField<ChoiceRow>(view, "_radarFloorRow").Index = (int)RadarFloorMode.All;
         GetPrivateField<SliderRow>(view, "_radarElevationThresholdRow").Value = 325;
         GetPrivateField<ToggleRow>(view, "_radarMapFillRow").On = false;
@@ -207,7 +212,9 @@ public sealed class SettingsLegacyControlsTests
             EdgeArrows = false, Labels = false, ObjectiveEmphasis = false,
             ShowEnemies = false, ShowTeammates = false, ShowObjectives = false,
             ShowFlags = false, ShowBases = false, ShowNodes = false,
-            ShowDefenders = false, FloorMode = RadarFloorMode.All,
+            ShowDefenders = false, ShowResources = false, ShowWeapons = false,
+            ShowAmmo = false, ShowHealth = false, ShowPowerups = false,
+            FloorMode = RadarFloorMode.All,
             ElevationThreshold = 3.25f, MapFill = false, MapOutlines = false,
             FloorBrightness = 1.25f, AdjacentFloorOpacity = .35f,
             BackgroundDim = .45f, BackgroundBlur = .3f, Grid = true,
@@ -262,6 +269,70 @@ public sealed class SettingsLegacyControlsTests
         Assert.False(automaticMinimum.IsVisible);
     }
 
+    [AvaloniaFact]
+    public void RadarResourceRowsRoundTripAndMasterControlsCategoryEnablement()
+    {
+        using var view = new SettingsView(new MenuSettings());
+        ToggleRow resources = GetPrivateField<ToggleRow>(view, "_radarResourcesRow");
+        ToggleRow weapons = GetPrivateField<ToggleRow>(view, "_radarWeaponsRow");
+        ToggleRow ammo = GetPrivateField<ToggleRow>(view, "_radarAmmoRow");
+        ToggleRow health = GetPrivateField<ToggleRow>(view, "_radarHealthRow");
+        ToggleRow powerups = GetPrivateField<ToggleRow>(view, "_radarPowerupsRow");
+
+        Assert.True(resources.On);
+        Assert.True(weapons.IsEnabled);
+        Assert.True(ammo.IsEnabled);
+        Assert.True(health.IsEnabled);
+        Assert.True(powerups.IsEnabled);
+
+        resources.On = false;
+
+        Assert.False(weapons.IsEnabled);
+        Assert.False(ammo.IsEnabled);
+        Assert.False(health.IsEnabled);
+        Assert.False(powerups.IsEnabled);
+        Assert.True(weapons.On);
+
+        weapons.On = false;
+        ammo.On = false;
+        health.On = false;
+        powerups.On = false;
+        RadarProfile profile = InvokePrivate<RadarProfile>(view,
+            "BuildRadarProfileFromRows");
+        Assert.False(profile.ShowResources);
+        Assert.False(profile.ShowWeapons);
+        Assert.False(profile.ShowAmmo);
+        Assert.False(profile.ShowHealth);
+        Assert.False(profile.ShowPowerups);
+
+        InvokePrivateVoid(view, "ApplyRadarPresetToRows",
+            RadarProfile.Create(RadarPreset.Competitive));
+        Assert.True(resources.On);
+        Assert.True(weapons.On);
+        Assert.True(ammo.On);
+        Assert.True(health.On);
+        Assert.True(powerups.On);
+        Assert.True(weapons.IsEnabled);
+        Assert.True(ammo.IsEnabled);
+    }
+
+    [AvaloniaFact]
+    public void RadarPositionResetLeavesResourceFiltersUntouched()
+    {
+        using var view = new SettingsView(new MenuSettings());
+        ToggleRow resources = GetPrivateField<ToggleRow>(view, "_radarResourcesRow");
+        ToggleRow weapons = GetPrivateField<ToggleRow>(view, "_radarWeaponsRow");
+        resources.On = false;
+        weapons.On = false;
+
+        InvokePrivateVoid(view, "ResetRadarPosition");
+
+        RadarProfile profile = InvokePrivate<RadarProfile>(view,
+            "BuildRadarProfileFromRows");
+        Assert.False(profile.ShowResources);
+        Assert.False(profile.ShowWeapons);
+    }
+
     private static void Arrange(Control control, double width)
     {
         control.Measure(new Size(width, PrimeTouchTargets.MinimumDip));
@@ -277,6 +348,13 @@ public sealed class SettingsLegacyControlsTests
         => (T)(typeof(SettingsView).GetMethod(name,
             BindingFlags.Instance | BindingFlags.NonPublic)?.Invoke(view, null)
             ?? throw new InvalidOperationException($"Missing SettingsView method {name}."));
+
+    private static void InvokePrivateVoid(SettingsView view, string name,
+        params object[] arguments)
+        => (typeof(SettingsView).GetMethod(name,
+            BindingFlags.Instance | BindingFlags.NonPublic)
+            ?? throw new InvalidOperationException($"Missing SettingsView method {name}."))
+            .Invoke(view, arguments);
 
     private static IEnumerable<Control> Walk(Control control)
     {

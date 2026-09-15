@@ -30,6 +30,11 @@ public sealed record RadarColors
     public RadarColor Teammate { get; init; } = new(64, 204, 255);
     public RadarColor Objective { get; init; } = new(255, 199, 51);
     public RadarColor PrimeHunter { get; init; } = new(255, 140, 26);
+    public RadarColor Resource { get; init; } = new(236, 236, 236);
+    public RadarColor Weapon { get; init; } = new(205, 145, 255);
+    public RadarColor Ammo { get; init; } = new(105, 218, 255);
+    public RadarColor Health { get; init; } = new(116, 255, 145);
+    public RadarColor Powerup { get; init; } = new(255, 155, 72);
     public RadarColor Above { get; init; } = new(255, 255, 255);
     public RadarColor Below { get; init; } = new(145, 160, 175);
 
@@ -40,24 +45,32 @@ public sealed record RadarColors
             Background = new(0, 0, 0, 220), Border = new(255, 255, 255), Ring = new(220, 220, 220, 190),
             Floor = new(185, 185, 185, 230), MapOutline = new(255, 255, 255),
             Player = new(255, 255, 255), Enemy = new(255, 64, 64), Teammate = new(64, 224, 255),
-            Objective = new(255, 230, 0), PrimeHunter = new(255, 128, 0)
+            Objective = new(255, 230, 0), PrimeHunter = new(255, 128, 0), Resource = new(245, 245, 245),
+            Weapon = new(224, 170, 255), Ammo = new(110, 230, 255), Health = new(130, 255, 150),
+            Powerup = new(255, 170, 80)
         },
         RadarColorPreset.Deuteranopia => new()
         {
             Enemy = new(222, 96, 32), Teammate = new(46, 170, 255), Objective = new(255, 221, 87),
-            Floor = new(74, 119, 148, 230), MapOutline = new(143, 207, 237),
+            Floor = new(74, 119, 148, 230), MapOutline = new(143, 207, 237), Resource = new(232, 232, 232),
+            Weapon = new(210, 130, 255), Ammo = new(78, 208, 255), Health = new(103, 235, 137),
+            Powerup = new(255, 153, 62),
             PrimeHunter = new(187, 103, 255), Above = new(255, 255, 255), Below = new(100, 160, 230)
         },
         RadarColorPreset.Protanopia => new()
         {
             Enemy = new(225, 139, 34), Teammate = new(36, 169, 255), Objective = new(255, 232, 98),
-            Floor = new(73, 120, 153, 230), MapOutline = new(144, 211, 242),
+            Floor = new(73, 120, 153, 230), MapOutline = new(144, 211, 242), Resource = new(233, 233, 233),
+            Weapon = new(207, 126, 255), Ammo = new(70, 202, 255), Health = new(104, 237, 133),
+            Powerup = new(255, 160, 70),
             PrimeHunter = new(177, 111, 255), Above = new(255, 255, 255), Below = new(92, 157, 225)
         },
         RadarColorPreset.Tritanopia => new()
         {
             Enemy = new(255, 72, 98), Teammate = new(60, 220, 153), Objective = new(246, 164, 255),
-            Floor = new(71, 128, 112, 230), MapOutline = new(138, 224, 193),
+            Floor = new(71, 128, 112, 230), MapOutline = new(138, 224, 193), Resource = new(245, 245, 245),
+            Weapon = new(255, 170, 236), Ammo = new(60, 242, 178), Health = new(151, 255, 109),
+            Powerup = new(255, 123, 163),
             PrimeHunter = new(255, 120, 164), Above = new(255, 255, 255), Below = new(105, 190, 145)
         },
         RadarColorPreset.Monochrome => new()
@@ -65,7 +78,9 @@ public sealed record RadarColors
             Border = new(230, 230, 230), Ring = new(180, 180, 180, 150), Player = new(255, 255, 255),
             Floor = new(145, 145, 145, 230), MapOutline = new(225, 225, 225),
             Enemy = new(235, 235, 235), Teammate = new(185, 185, 185), Objective = new(255, 255, 255),
-            PrimeHunter = new(210, 210, 210), Above = new(255, 255, 255), Below = new(125, 125, 125)
+            PrimeHunter = new(210, 210, 210), Resource = new(220, 220, 220), Weapon = new(240, 240, 240),
+            Ammo = new(205, 205, 205), Health = new(190, 190, 190), Powerup = new(255, 255, 255),
+            Above = new(255, 255, 255), Below = new(125, 125, 125)
         },
         _ => new()
     };
@@ -105,6 +120,11 @@ public sealed record RadarProfile
     public bool ShowBases { get; init; } = true;
     public bool ShowNodes { get; init; } = true;
     public bool ShowDefenders { get; init; } = true;
+    public bool ShowResources { get; init; } = true;
+    public bool ShowWeapons { get; init; } = true;
+    public bool ShowAmmo { get; init; } = true;
+    public bool ShowHealth { get; init; } = true;
+    public bool ShowPowerups { get; init; } = true;
 
     public RadarFloorMode FloorMode { get; init; } = RadarFloorMode.Adjacent;
     public float AdjacentFloorOpacity { get; init; } = .24f;

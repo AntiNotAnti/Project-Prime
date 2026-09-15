@@ -4,6 +4,7 @@ using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using MphRead.Hud.Radar;
+using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Render;
 using MphRead.Mods.Update;
@@ -346,6 +347,17 @@ public static class SettingRegistry
             Availability = availability, AvailabilityReason = reason, Advanced = advanced
         };
 
+    private static SettingDescriptor RadarProfileToggle(string id, string label,
+        string rowId, string? dependsOn = null)
+        => new()
+        {
+            Id = id, Label = label,
+            Description = "Local visibility filter; it never changes authoritative radar discovery.",
+            Category = SettingCategory.Hud, Scope = SettingScope.ClientPreference,
+            Kind = SettingControlKind.Toggle, Advanced = true, Platform = SettingPlatform.All,
+            RowId = rowId, DependsOn = dependsOn, DefaultValue = true
+        };
+
     private static IReadOnlyList<SettingChoice> ChoiceList(params string[] labels)
         => labels.Select(value => new SettingChoice(value, value)).ToArray();
 
@@ -476,6 +488,15 @@ public static class SettingRegistry
                 minimum: RadarSettings.MinimumOpacity, maximum: RadarSettings.MaximumOpacity, step: .01),
             Json("hud.radar.elevation", "Radar elevation markers", SettingCategory.Hud,
                 SettingControlKind.Toggle, "RadarElevationIndicators", SettingRowIds.RadarElevation),
+            RadarProfileToggle("hud.radar.resources", "Radar resources", SettingRowIds.RadarResources),
+            RadarProfileToggle("hud.radar.weapons", "Radar weapons", SettingRowIds.RadarWeapons,
+                dependsOn: "hud.radar.resources"),
+            RadarProfileToggle("hud.radar.ammo", "Radar ammo", SettingRowIds.RadarAmmo,
+                dependsOn: "hud.radar.resources"),
+            RadarProfileToggle("hud.radar.health", "Radar health", SettingRowIds.RadarHealth,
+                dependsOn: "hud.radar.resources"),
+            RadarProfileToggle("hud.radar.powerups", "Radar powerups", SettingRowIds.RadarPowerups,
+                dependsOn: "hud.radar.resources"),
 
             Json("audio.feedback-volume", "Combat feedback", SettingCategory.Audio,
                 SettingControlKind.Slider, "FeedbackVolume", SettingRowIds.FeedbackVolume,
@@ -513,7 +534,10 @@ public static class SettingRegistry
                 maximum: DynamicCrosshairTuning.MaximumTurnSpeed, step: .01),
             Controls("controls.mouse-sensitivity", "Mouse sensitivity", SettingControlKind.Slider,
                 "sensitivity", SettingRowIds.MouseSensitivity, group: "General",
-                minimum: .1, maximum: 3, step: .01),
+                defaultValue: InputSettings.DefaultMouseSensitivity,
+                minimum: InputSettings.MinimumMouseSensitivity,
+                maximum: InputSettings.UiMaximumMouseSensitivity,
+                step: InputSettings.MouseSensitivityStep),
             Controls("controls.mouse-invert-y", "Invert vertical aim", SettingControlKind.Toggle,
                 "invert_y", SettingRowIds.MouseInvertY, group: "General"),
             Controls("controls.mouse-invert-x", "Invert horizontal aim", SettingControlKind.Toggle,
@@ -638,7 +662,7 @@ public static class SettingRegistry
                 SettingControlKind.Text, "player_name", SettingRowIds.PlayerName),
             Launcher("gameplay.hunter", "Preferred Hunter", SettingCategory.Player,
                 SettingControlKind.Choice, "hunter", SettingRowIds.Hunter,
-                choices: ChoiceList("Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Random")),
+                choices: ChoiceList("Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Guardian", "Random")),
             Launcher("gameplay.show-online-presence", "Show me in Online Players",
                 SettingCategory.Player, SettingControlKind.Toggle, "show_online_presence",
                 SettingRowIds.ShowOnlinePresence, defaultValue: true),

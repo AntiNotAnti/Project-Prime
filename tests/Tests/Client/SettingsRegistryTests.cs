@@ -30,6 +30,97 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
+    public void PreferredHunterOffersGuardianBeforeRandom()
+    {
+        SettingDescriptor descriptor = SettingRegistry.Get("gameplay.hunter");
+
+        Assert.Equal(new[]
+        {
+            "Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel",
+            "Guardian", "Random"
+        }, descriptor.Choices.Select(choice => choice.Id));
+    }
+
+    [Fact]
+    public void MouseSensitivityAccepts001()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.MouseSensitivity = InputSettings.MinimumMouseSensitivity;
+
+            Assert.Equal(.01f, InputSettings.MouseSensitivity);
+            Assert.Contains("sensitivity=0.01", InputSettings.GetSaveLines());
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
+    public void MouseSensitivityUiRangeMatchesRegistry()
+    {
+        SettingDescriptor descriptor = SettingRegistry.Get(
+            "controls.mouse-sensitivity");
+
+        Assert.Equal(InputSettings.DefaultMouseSensitivity,
+            Assert.IsType<float>(descriptor.DefaultValue));
+        Assert.Equal((double)InputSettings.MinimumMouseSensitivity,
+            descriptor.Minimum!.Value);
+        Assert.Equal((double)InputSettings.UiMaximumMouseSensitivity,
+            descriptor.Maximum!.Value);
+        Assert.Equal((double)InputSettings.MouseSensitivityStep,
+            descriptor.Step!.Value);
+    }
+
+    [Fact]
+    public void LegacyLowSensitivityLoadsCorrectly()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.LoadLines(new[] { "sensitivity=0.05" });
+
+            Assert.Equal(.05f, InputSettings.MouseSensitivity);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
+    public void OutOfRangeSensitivityClamps()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.MouseSensitivity = -1;
+            Assert.Equal(InputSettings.MinimumMouseSensitivity,
+                InputSettings.MouseSensitivity);
+
+            InputSettings.MouseSensitivity = 11;
+            Assert.Equal(InputSettings.MaximumMouseSensitivity,
+                InputSettings.MouseSensitivity);
+
+            InputSettings.MouseSensitivity = float.NaN;
+            Assert.Equal(InputSettings.DefaultMouseSensitivity,
+                InputSettings.MouseSensitivity);
+            InputSettings.MouseSensitivity = float.PositiveInfinity;
+            Assert.Equal(InputSettings.DefaultMouseSensitivity,
+                InputSettings.MouseSensitivity);
+            InputSettings.MouseSensitivity = float.NegativeInfinity;
+            Assert.Equal(InputSettings.DefaultMouseSensitivity,
+                InputSettings.MouseSensitivity);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
     public void EveryMenuSettingsPropertyHasOneIndependentOwner()
     {
         var descriptorKeys = SettingRegistry.Descriptors
@@ -158,6 +249,39 @@ public sealed class SettingsRegistryTests
         {
             GameSettings.Apply(restore);
         }
+    }
+
+    [Fact]
+    public void RadarResourceFiltersAreRegisteredAsLocalProfileControls()
+    {
+        var expected = new[]
+        {
+            ("hud.radar.resources", SettingRowIds.RadarResources),
+            ("hud.radar.weapons", SettingRowIds.RadarWeapons),
+            ("hud.radar.ammo", SettingRowIds.RadarAmmo),
+            ("hud.radar.health", SettingRowIds.RadarHealth),
+            ("hud.radar.powerups", SettingRowIds.RadarPowerups)
+        };
+
+        foreach ((string id, string rowId) in expected)
+        {
+            SettingDescriptor descriptor = SettingRegistry.Get(id);
+            Assert.Equal(rowId, descriptor.RowId);
+            Assert.Equal(SettingCategory.Hud, descriptor.Category);
+            Assert.Equal(SettingScope.ClientPreference, descriptor.Scope);
+            Assert.Equal(SettingControlKind.Toggle, descriptor.Kind);
+            Assert.True(descriptor.Advanced);
+            Assert.True(descriptor.DefaultValue is true);
+            Assert.Null(descriptor.PersistenceFile);
+            Assert.Null(descriptor.PersistenceKey);
+        }
+
+        Assert.Equal("hud.radar.resources",
+            SettingRegistry.Get("hud.radar.resources").RowId);
+        Assert.Equal("hud.radar.resources",
+            SettingRegistry.Get("hud.radar.weapons").DependsOn);
+        Assert.Equal("hud.radar.resources",
+            SettingRegistry.Get("hud.radar.powerups").DependsOn);
     }
 
     [Fact]

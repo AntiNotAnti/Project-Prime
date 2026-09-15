@@ -634,7 +634,7 @@ namespace MphRead.Hud
             @"_archives\common\enemy_noxus.bin",
             @"_archives\common\enemy_spyre.bin",
             @"_archives\common\enemy_weavel.bin",
-            @"_archives\common\enemy_samus.bin" // todo: Guardian portrait
+            @"_archives\common\enemy_samus.bin" // Project Prime runtime fallback: no AMHE1 Guardian sheet
         };
 
         public static readonly IReadOnlyList<string> MapDots = new string[8]

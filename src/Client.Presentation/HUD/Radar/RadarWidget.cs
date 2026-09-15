@@ -51,6 +51,16 @@ public static class RadarWidget
         RadarContactType.Enemy => "o",
         RadarContactType.Teammate => "<>",
         RadarContactType.PrimeHunter => "P",
+        RadarContactType.Resource => contact.Resource switch
+        {
+            RadarResource.Weapon => "W",
+            RadarResource.AffinityWeapon => "A+",
+            RadarResource.Ammo => "A",
+            RadarResource.Health => "H",
+            RadarResource.Powerup => "*",
+            RadarResource.OmegaCannon => "O",
+            _ => "+"
+        },
         _ => contact.Objective switch
         {
             RadarObjective.Flag => "F", RadarObjective.Base => "B",

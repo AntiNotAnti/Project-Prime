@@ -21,6 +21,14 @@ public static class RadarPresentationPolicy
                 RadarObjective.Defender => profile.ShowDefenders,
                 _ => true
             },
+            RadarContactType.Resource => profile.ShowResources && contact.Resource switch
+            {
+                RadarResource.Weapon or RadarResource.AffinityWeapon => profile.ShowWeapons,
+                RadarResource.Ammo => profile.ShowAmmo,
+                RadarResource.Health => profile.ShowHealth,
+                RadarResource.Powerup or RadarResource.OmegaCannon => profile.ShowPowerups,
+                _ => false
+            },
             _ => false
         };
     }
@@ -29,10 +37,18 @@ public static class RadarPresentationPolicy
     {
         int type = contact.Type switch
         {
-            RadarContactType.Objective when objectivePriority => 400,
-            RadarContactType.PrimeHunter => 350,
-            RadarContactType.Teammate => 250,
-            RadarContactType.Enemy => 200,
+            RadarContactType.Objective when objectivePriority => 500,
+            RadarContactType.PrimeHunter => 450,
+            RadarContactType.Enemy => 400,
+            RadarContactType.Teammate => 300,
+            RadarContactType.Resource => contact.Resource switch
+            {
+                RadarResource.Powerup or RadarResource.OmegaCannon => 250,
+                RadarResource.Weapon or RadarResource.AffinityWeapon => 225,
+                RadarResource.Health => 200,
+                RadarResource.Ammo => 150,
+                _ => 100
+            },
             _ => 100
         };
         return type + (int)MathF.Round(Math.Clamp(contact.Visibility, 0, 1) * 20)
@@ -59,6 +75,14 @@ public static class RadarPresentationPolicy
             RadarContactType.Enemy => profile.Colors.Enemy,
             RadarContactType.Teammate => profile.Colors.Teammate,
             RadarContactType.PrimeHunter => profile.Colors.PrimeHunter,
+            RadarContactType.Resource => contact.Resource switch
+            {
+                RadarResource.Weapon or RadarResource.AffinityWeapon => profile.Colors.Weapon,
+                RadarResource.Ammo => profile.Colors.Ammo,
+                RadarResource.Health => profile.Colors.Health,
+                RadarResource.Powerup or RadarResource.OmegaCannon => profile.Colors.Powerup,
+                _ => profile.Colors.Resource
+            },
             _ => profile.Colors.Objective
         };
         return color.Vector;
@@ -78,6 +102,13 @@ public static class RadarPresentationPolicy
             RadarContactType.Teammate => RadarMarkerShape.Square,
             RadarContactType.Objective => RadarMarkerShape.Triangle,
             RadarContactType.PrimeHunter => RadarMarkerShape.DoubleDiamond,
+            RadarContactType.Resource => contact.Resource switch
+            {
+                RadarResource.Weapon or RadarResource.AffinityWeapon => RadarMarkerShape.Square,
+                RadarResource.Health => RadarMarkerShape.Triangle,
+                RadarResource.Powerup or RadarResource.OmegaCannon => RadarMarkerShape.DoubleDiamond,
+                _ => RadarMarkerShape.Diamond
+            },
             _ => RadarMarkerShape.Diamond
         };
 

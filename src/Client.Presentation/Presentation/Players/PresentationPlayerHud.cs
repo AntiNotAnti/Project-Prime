@@ -244,24 +244,11 @@ namespace MphRead.Entities
                 HudObject hunter = HudInfo.GetHudObject(HudElements.Hunters[i]);
                 var hunterInst = new HudObjectInstance(hunter.Width, hunter.Height);
                 hunterInst.SetCharacterData(hunter.CharacterData, _player._scene);
-                if (i == 7)
-                {
-                    // skdebug: black out the Guardian portrait (using Samus's) except the frame
-                    var palette = hunter.PaletteData.ToList();
-                    for (int j = 0; j < palette.Count; j++)
-                    {
-                        if (j != 1)
-                        {
-                            palette[j] = new ColorRgba(0, 0, 0, 255);
-                        }
-                    }
-
-                    hunterInst.SetPaletteData(palette, _player._scene);
-                }
-                else
-                {
-                    hunterInst.SetPaletteData(hunter.PaletteData, _player._scene);
-                }
+                // AMHE1 has no Guardian portrait sheet. Keep the explicit
+                // Samus portrait source-backed and fully coloured until a
+                // Guardian HUD asset exists; a black placeholder is not a
+                // useful presentation of an official playable Hunter.
+                hunterInst.SetPaletteData(hunter.PaletteData, _player._scene);
 
                 hunterInst.Enabled = true;
                 _hunterInsts[i] = hunterInst;
@@ -720,18 +707,24 @@ namespace MphRead.Entities
             // the smoothly interpolated world. DrawHudObjects runs after both
             // matrices are final, so the reticle and scene now share exactly
             // one camera/FOV sample.
-            // A projectile travels from _muzzlePos toward the authoritative
-            // world convergence samples (PlayerInput.TryFireWeapon). Resolve
-            // those samples at the camera's presentation time, then project
-            // with the matrices used for this picture. Do not translate,
-            // expand, clamp, or smooth the projected result: any such cosmetic
-            // offset makes the visible crosshair disagree with the presented
-            // shot trajectory.
-            Vector3 aimPosition = Presentation.ResolveLocalAimPosition(_player._aimPosition);
-            float w = Matrix.ProjectPosition(aimPosition, Presentation.ViewMatrix,
-                Presentation.PerspectiveMatrix, out Vector2 projected);
-            CurrentReticlePosition = ResolveReticlePosition(
-                CurrentReticlePosition, w, projected);
+            // PlayerInput.TryFireWeapon directs every local shot from _muzzlePos
+            // toward _aimPosition. Resolve the exact camera-local presentation
+            // sample first, then project it once with this picture's final
+            // camera. This keeps the reticle on the presented trajectory while
+            // preserving the legacy response gate in ResolveLocalAimPosition.
+            Vector3 presentedAimPosition = Presentation.ResolveLocalAimPosition(
+                _player._aimPosition);
+            CurrentReticlePosition = ResolveAuthoritativeReticlePosition(
+                CurrentReticlePosition, presentedAimPosition,
+                Presentation.ViewMatrix, Presentation.PerspectiveMatrix);
+        }
+
+        internal static Vector2 ResolveAuthoritativeReticlePosition(Vector2 current,
+            Vector3 authoritativeAimPosition, Matrix4 viewMatrix, Matrix4 projectionMatrix)
+        {
+            float w = Matrix.ProjectPosition(authoritativeAimPosition, viewMatrix,
+                projectionMatrix, out Vector2 projected);
+            return ResolveReticlePosition(current, w, projected);
         }
 
         internal static Vector2 NormalizeReticlePosition(float w, Vector2 projected)
@@ -1031,6 +1024,7 @@ namespace MphRead.Entities
             // is up has still arrived.
             ModDrawChat();
             ModDrawCombatFeedback();
+            DrawEnhancedHunterStatus();
             if (Mods.SpectatorMode.WaitingForNextMatch)
                 DrawText2D(128, 32, Align.Center, 0, "SPECTATING - NEXT MATCH", new ColorRgba(0x3FEF), scale: .75f);
             DrawWeaponRadial();
@@ -1119,11 +1113,43 @@ namespace MphRead.Entities
                         // What it puts in their place is in DrawProHud.
                         if (!Features.ProHud)
                         {
-                            DrawAmmoBar();
-                            _weaponIconInst.PositionX = (_hudObjects.WeaponIconPosX + _objShiftX) / 256f;
-                            _weaponIconInst.PositionY = (_hudObjects.WeaponIconPosY + _objShiftY) / 192f;
+                            float weaponIconX = _hudObjects.WeaponIconPosX + _objShiftX;
+                            float weaponIconY = _hudObjects.WeaponIconPosY + _objShiftY;
+                            float weaponIconScale = 1;
+                            Hud.Radar.RadarAvoidancePlacement? weaponIconObstacle = null;
+                            Hud.Radar.RadarProfile radarProfile = CurrentRadarProfile;
+                            if (radarProfile.Style == Hud.Radar.RadarStyle.Enhanced)
+                            {
+                                float aspectFix = HudAspectFix;
+                                Hud.Radar.RadarLayout radar
+                                    = Hud.Radar.RadarLayoutCalculator.Calculate(
+                                        radarProfile.Anchor, radarProfile.Scale,
+                                        radarProfile.OffsetX, radarProfile.OffsetY,
+                                        aspectFix);
+                                Hud.Radar.RadarAvoidancePlacement placement
+                                    = Hud.Radar.RadarLayoutCalculator.FitHudObjectBelow(
+                                        radar, weaponIconX, weaponIconY,
+                                        _weaponIconInst.Width,
+                                        _weaponIconInst.Height / aspectFix,
+                                        Hud.Radar.RadarLayoutCalculator.HudObjectBottomLimit(
+                                            _hudObjects.AmmoBarPosY + _objShiftY,
+                                            _ammoBarMeter.Length));
+                                weaponIconX = placement.Left;
+                                weaponIconY = placement.Top;
+                                weaponIconScale = placement.Scale;
+                                if (weaponIconX != _hudObjects.WeaponIconPosX + _objShiftX
+                                    || weaponIconY != _hudObjects.WeaponIconPosY + _objShiftY
+                                    || weaponIconScale != 1)
+                                {
+                                    weaponIconObstacle = placement;
+                                }
+                            }
+                            DrawAmmoBar(weaponIconObstacle);
+                            _weaponIconInst.PositionX = weaponIconX / 256f;
+                            _weaponIconInst.PositionY = weaponIconY / 192f;
                             _weaponIconInst.Alpha = Features.HudOpacity;
-                            Presentation.DrawHudObject(_weaponIconInst);
+                            Presentation.DrawHudObject(_weaponIconInst,
+                                scale: weaponIconScale);
                         }
 
                         if (Features.CustomCrosshair)
@@ -1231,7 +1257,8 @@ namespace MphRead.Entities
 
         private readonly List<LocatorInfo> _locatorInfo = new List<LocatorInfo>(15);
         public void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1,
-            int team = -1, Hud.Radar.RadarContactType? playerContactType = null)
+            int team = -1, Hud.Radar.RadarContactType? playerContactType = null,
+            bool affinityEmphasis = false, Vector3? radarPosition = null)
         {
             _locatorInfo.Add(new LocatorInfo(position, inst, color, alpha));
             // This sink receives only contacts admitted by the existing mode
@@ -1244,7 +1271,8 @@ namespace MphRead.Entities
                 : _player._scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes ? Hud.Radar.RadarObjective.Node
                 : _player._scene.Match.Rules.Mode is MatchMode.Defender or MatchMode.TeamDefender ? Hud.Radar.RadarObjective.Defender
                 : Hud.Radar.RadarObjective.Base;
-            _radarFrame.AddApproved(new(type, position, team, objective, alpha));
+            _radarFrame.AddApproved(new(type, radarPosition ?? position, team, objective, alpha,
+                AffinityEmphasis: affinityEmphasis));
         }
 
         internal static bool TryClassifyRadarPlayer(MatchMode mode, bool radarPlayers,
@@ -1633,7 +1661,7 @@ namespace MphRead.Entities
             DrawMeter(_hudObjects.HealthSubPosX + _objShiftX, _hudObjects.HealthSubPosY + _healthbarYOffset + _objShiftY, _player.Values.EnergyTank - 1, amount, _healthbarPalette, _healthbarSubMeter, drawText: false, drawTanks: false, Features.HudOpacity);
         }
 
-        public void DrawAmmoBar()
+        public void DrawAmmoBar(Hud.Radar.RadarAvoidancePlacement? weaponIconObstacle = null)
         {
             WeaponInfo info = _player.EquipInfo.Weapon;
             if (info.AmmoCost == 0 || !_ammoBarMeter.BarInst.Enabled)
@@ -1655,6 +1683,13 @@ namespace MphRead.Entities
                     radarProfile.OffsetX, radarProfile.OffsetY, HudAspectFix);
                 meterLength = Hud.Radar.RadarLayoutCalculator.FitVerticalMeterBelow(
                     radar, meterY, meterLength);
+            }
+            if (weaponIconObstacle is Hud.Radar.RadarAvoidancePlacement placement)
+            {
+                float iconBottom = placement.Top
+                    + _weaponIconInst.Height / HudAspectFix * placement.Scale;
+                meterLength = Hud.Radar.RadarLayoutCalculator.FitVerticalMeterBelow(
+                    iconBottom, meterY, meterLength);
             }
 
             DrawMeter(_hudObjects.AmmoBarPosX + _objShiftX, meterY, amount, amount,
@@ -2017,7 +2052,8 @@ namespace MphRead.Entities
         public void ProcessModeHud()
         {
             _locatorInfo.Clear();
-            _radarFrame.Begin(_player.Position, _player.FacingVector, _player._scene.FrameCount,
+            _radarFrame.Begin(Hud.Radar.RadarAnchorResolver.Resolve(_player),
+                _player.FacingVector, _player._scene.FrameCount,
                 CurrentRadarProfile.PrioritizeObjectives);
             ProcessOpponent();
             ProcessHudRadarPlayers();
@@ -2045,13 +2081,23 @@ namespace MphRead.Entities
             {
                 ProcessHudPrimeHunter();
             }
+            // The scene contains only the last committed authoritative/replica
+            // world state here; resource admission never reads network records
+            // directly and profile switches remain presentation-only filters.
+            Hud.Radar.RadarResourceCollector.AppendCommittedScene(_radarFrame,
+                _player._scene, _player._scene.Match.Rules.ResourceRadarPolicy);
         }
 
         private void ProcessHudRadarPlayers()
         {
             MatchRuntime match = _player._scene.Match;
             MatchMode mode = match.Rules.Mode;
-            if (!match.RadarPlayers || mode is MatchMode.Survival or MatchMode.TeamSurvival)
+            if (!match.RadarPlayers)
+            {
+                ProcessEnhancedTargetScreenLocator();
+                return;
+            }
+            if (mode is MatchMode.Survival or MatchMode.TeamSurvival)
             {
                 return;
             }
@@ -2076,13 +2122,65 @@ namespace MphRead.Entities
                 {
                     pos.Y += 0.75f;
                 }
-                ColorRgb color = type == Hud.Radar.RadarContactType.PrimeHunter
+                bool affinityEmphasis = _player._scene.Match.Rules.EnhancedHunters
+                    && _player.EnhancedTargetTicks > 0
+                    && _player.EnhancedTarget.Slot == player.SlotIndex;
+                ColorRgb color = affinityEmphasis ? new ColorRgb(31, 18, 0)
+                    : type == Hud.Radar.RadarContactType.PrimeHunter
                     ? new ColorRgb(31, 0, 0)
                     : new ColorRgb(31, 31, 31);
                 AddLocatorInfo(pos, _playerLocator, color, team: player.TeamIndex,
-                    playerContactType: type);
+                    playerContactType: type, affinityEmphasis: affinityEmphasis,
+                    radarPosition: Hud.Radar.RadarAnchorResolver.Resolve(player));
             }
         }
+
+        private void ProcessEnhancedTargetScreenLocator()
+        {
+            if (!_player._scene.Match.Rules.EnhancedHunters || _player.EnhancedTargetTicks == 0)
+            {
+                return;
+            }
+
+            int inspected = 0;
+            foreach (PlayerEntity player in _player._scene.GetPlayerEntities())
+            {
+                if (inspected++ == PlayerEntity.SlotCapacity)
+                {
+                    break;
+                }
+                bool visible = IsVisible(player.NodeRef) || player.ModNodeUnresolved;
+                if (!IsEnhancedTargetScreenLocatorEligible(
+                    enhancedHunters: true, radarPlayers: false, _player.EnhancedTargetTicks,
+                    _player.SlotIndex, _player.EnhancedTarget.Slot, player.SlotIndex,
+                    _player.TeamIndex, player.TeamIndex,
+                    player.LoadFlags.TestFlag(LoadFlags.Active), player.Health,
+                    player.GetTargetable(), visible))
+                {
+                    continue;
+                }
+
+                Vector3 pos = player.Position;
+                if (!player.IsAltForm)
+                {
+                    pos.Y += 0.75f;
+                }
+                // Screen-space locator only. Deliberately bypass AddLocatorInfo so
+                // a radar-disabled match never receives a private minimap contact.
+                _locatorInfo.Add(new LocatorInfo(pos, _playerLocator,
+                    new ColorRgb(31, 18, 0), alpha: 1));
+                return;
+            }
+        }
+
+        internal static bool IsEnhancedTargetScreenLocatorEligible(bool enhancedHunters,
+            bool radarPlayers, ushort targetTicks, int localSlot, int enhancedTargetSlot,
+            int contactSlot, int localTeam, int contactTeam, bool active, int health,
+            bool targetable, bool presentationVisible)
+            => enhancedHunters && !radarPlayers && targetTicks > 0
+                && enhancedTargetSlot == contactSlot && contactSlot != localSlot
+                && contactTeam != localTeam
+                && active && health > 0 && targetable && presentationVisible;
 
         public void ProcessHudSurvival()
         {
@@ -2140,7 +2238,9 @@ namespace MphRead.Entities
                     pos.Y += 0.75f;
                 }
 
-                AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 31, 31), alpha, player.TeamIndex);
+                AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 31, 31), alpha,
+                    player.TeamIndex,
+                    radarPosition: Hud.Radar.RadarAnchorResolver.Resolve(player));
             }
 
             if (reveal == 1)
@@ -2368,7 +2468,8 @@ namespace MphRead.Entities
                     }
 
                     AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0), team: primeHunter.TeamIndex,
-                        playerContactType: Hud.Radar.RadarContactType.PrimeHunter);
+                        playerContactType: Hud.Radar.RadarContactType.PrimeHunter,
+                        radarPosition: Hud.Radar.RadarAnchorResolver.Resolve(primeHunter));
                 }
             }
 

@@ -30,6 +30,28 @@ public sealed class RadarTests
     }
 
     [Fact]
+    public void RadarDisabledEnhancedTargetUsesOnlyVisibleScreenLocator()
+    {
+        Assert.True(PlayerPresentation.IsEnhancedTargetScreenLocatorEligible(
+            enhancedHunters: true, radarPlayers: false, targetTicks: 1,
+            localSlot: 0, enhancedTargetSlot: 2, contactSlot: 2,
+            localTeam: 0, contactTeam: 1,
+            active: true, health: 99, targetable: true, presentationVisible: true));
+        Assert.False(PlayerPresentation.IsEnhancedTargetScreenLocatorEligible(
+            true, radarPlayers: true, 1, 0, 2, 2, 0, 1,
+            active: true, health: 99, targetable: true, presentationVisible: true));
+        Assert.False(PlayerPresentation.IsEnhancedTargetScreenLocatorEligible(
+            true, radarPlayers: false, 1, 0, 2, 2, 0, 1,
+            active: true, health: 99, targetable: true, presentationVisible: false));
+        Assert.False(PlayerPresentation.IsEnhancedTargetScreenLocatorEligible(
+            true, radarPlayers: false, 1, 0, 2, 1, 0, 1,
+            active: true, health: 99, targetable: true, presentationVisible: true));
+        Assert.False(PlayerPresentation.IsEnhancedTargetScreenLocatorEligible(
+            true, radarPlayers: false, 1, 0, 2, 2, 0, 0,
+            active: true, health: 99, targetable: true, presentationVisible: true));
+    }
+
+    [Fact]
     public void PlayerRadarClassifiesTeammateEnemyAndExactlyOnePrimeHunter()
     {
         Assert.True(PlayerPresentation.TryClassifyRadarPlayer(MatchMode.TeamBattle, radarPlayers: true,
@@ -262,6 +284,57 @@ public sealed class RadarTests
         Assert.Equal(40, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 100, 72));
         Assert.Equal(64, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 180, 64));
         Assert.Equal(8, RadarLayoutCalculator.FitVerticalMeterBelow(radar, 40, 8));
+    }
+
+    [Fact]
+    public void OverlappingHunterWeaponIconMovesBelowRadarAndScalesToMeterGap()
+    {
+        RadarLayout radar = RadarLayoutCalculator.Calculate(RadarAnchor.TopRight,
+            1.5f, 0, 0, .75f);
+
+        const float meterBottom = 128;
+        RadarAvoidancePlacement placement = RadarLayoutCalculator.FitHudObjectBelow(
+            radar, left: 227, top: 20, width: 32, height: 64,
+            RadarLayoutCalculator.HudObjectBottomLimit(meterBottom, 80));
+        float iconBottom = placement.Top + 64 * placement.Scale;
+        int meterLength = RadarLayoutCalculator.FitVerticalMeterBelow(
+            iconBottom, meterBottom, originalLength: 80);
+        float meterTop = meterBottom - (meterLength - 8);
+
+        Assert.Equal(radar.Top + radar.Height
+            + RadarLayoutCalculator.HudClearance, placement.Top, 3);
+        Assert.InRange(placement.Scale, RadarLayoutCalculator.MinimumHudObjectScale, 1);
+        Assert.True(placement.Top >= radar.Top + radar.Height);
+        Assert.True(placement.Left + 32 * placement.Scale <= 256);
+        Assert.True(iconBottom + RadarLayoutCalculator.HudClearance <= meterTop);
+        Assert.InRange(meterLength, 8, RadarLayoutCalculator.MinimumVerticalMeterLength);
+    }
+
+    [Fact]
+    public void NonOverlappingHunterHudObjectKeepsAuthoredPlacementAndScale()
+    {
+        RadarLayout radar = RadarLayoutCalculator.Calculate(RadarAnchor.TopLeft,
+            1, 0, 0, .75f);
+
+        RadarAvoidancePlacement placement = RadarLayoutCalculator.FitHudObjectBelow(
+            radar, left: 227, top: 20, width: 32, height: 48, lowerEdge: 128);
+
+        Assert.Equal(new RadarAvoidancePlacement(227, 20, 1), placement);
+    }
+
+    [Fact]
+    public void HunterHudObjectUsesMinimumScaleWhenRadarConsumesReservedGap()
+    {
+        RadarLayout radar = RadarLayoutCalculator.Calculate(RadarAnchor.Custom,
+            RadarSettings.MaximumScale, 150, -2, .75f);
+
+        RadarAvoidancePlacement placement = RadarLayoutCalculator.FitHudObjectBelow(
+            radar, left: 227, top: 20, width: 32, height: 64,
+            RadarLayoutCalculator.HudObjectBottomLimit(128, 80));
+
+        Assert.Equal(RadarLayoutCalculator.MinimumHudObjectScale, placement.Scale);
+        Assert.Equal(radar.Top + radar.Height
+            + RadarLayoutCalculator.HudClearance, placement.Top, 3);
     }
 
     [Fact]

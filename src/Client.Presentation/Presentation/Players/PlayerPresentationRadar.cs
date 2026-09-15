@@ -174,10 +174,13 @@ compass:
                 _radarFrame.Facing, profile.Orientation, range, profile.ElevationThreshold);
             if (point.Clamped && !profile.EdgeArrows) continue;
             Vector4 baseColor = RadarPresentationPolicy.Color(profile, contact, point.Elevation);
+            if (contact.AffinityEmphasis)
+                baseColor = new Vector4(1f, .55f, .08f, baseColor.W);
             Vector4 color = new(baseColor.X, baseColor.Y, baseColor.Z,
                 baseColor.W * alpha * profile.Opacity);
             float markerScale = profile.MarkerScale * (contact.Type == RadarContactType.Objective
                 && profile.ObjectiveEmphasis ? 1.3f : 1);
+            if (contact.AffinityEmphasis) markerScale *= 1.45f;
             float radius = point.Clamped
                 ? RadarPresentationPolicy.EdgeMarkerRadius(layout.Radius,
                     markerScale, profile.ClampedEdgeScale)

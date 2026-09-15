@@ -18,6 +18,25 @@ namespace MphRead.Tests;
 public sealed class SettingsResetTests
 {
     [Fact]
+    public void ResetRestoresOne()
+    {
+        InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();
+        try
+        {
+            InputSettings.MouseSensitivity = InputSettings.MaximumMouseSensitivity;
+
+            InputSettings.Reset();
+
+            Assert.Equal(InputSettings.DefaultMouseSensitivity,
+                InputSettings.MouseSensitivity);
+        }
+        finally
+        {
+            prior.Restore();
+        }
+    }
+
+    [Fact]
     public void FullResetRestoresControllerDiagnosticsDefaults()
     {
         try

@@ -30,7 +30,9 @@ public sealed class RadarFrame
     {
         if (!float.IsFinite(contact.Position.X) || !float.IsFinite(contact.Position.Y)
             || !float.IsFinite(contact.Position.Z) || !float.IsFinite(contact.Visibility)
-            || contact.Visibility <= 0) return false;
+            || contact.Visibility <= 0
+            || contact.Type == RadarContactType.Resource
+                && !RadarResourceClassifier.IsKnown(contact.Resource)) return false;
         RadarContact admitted = contact with { Visibility = Math.Clamp(contact.Visibility, 0, 1) };
         int priority = RadarPresentationPolicy.Priority(admitted, _prioritizeObjectives);
         if (_count == Capacity)

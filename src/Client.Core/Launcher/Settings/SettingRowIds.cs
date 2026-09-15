@@ -60,6 +60,11 @@ public static class SettingRowIds
     public const string RadarBases = "hud.radar.bases";
     public const string RadarNodes = "hud.radar.nodes";
     public const string RadarDefenders = "hud.radar.defenders";
+    public const string RadarResources = "hud.radar.resources";
+    public const string RadarWeapons = "hud.radar.weapons";
+    public const string RadarAmmo = "hud.radar.ammo";
+    public const string RadarHealth = "hud.radar.health";
+    public const string RadarPowerups = "hud.radar.powerups";
     public const string RadarFloors = "hud.radar.floors";
     public const string RadarElevationThreshold = "hud.radar.elevation-threshold";
     public const string RadarZoom = "hud.radar.zoom";
@@ -217,7 +222,8 @@ public static class SettingRowIds
         RadarOffsetX, RadarOffsetY, RadarRange, RadarOpacity, RadarElevation,
         RadarPreset, RadarColors, RadarMarkerScale, RadarMarkerOpacity, RadarMarkerOutline, RadarEdgeArrows,
         RadarLabels, RadarObjectiveEmphasis, RadarEnemies, RadarTeammates, RadarObjectives,
-        RadarFlags, RadarBases, RadarNodes, RadarDefenders, RadarFloors, RadarElevationThreshold,
+        RadarFlags, RadarBases, RadarNodes, RadarDefenders, RadarResources, RadarWeapons,
+        RadarAmmo, RadarHealth, RadarPowerups, RadarFloors, RadarElevationThreshold,
         RadarZoom, RadarAutoMinimum, RadarAutoMaximum, RadarZoomSmoothing, RadarMapFill,
         RadarMapOutlines, RadarFloorBrightness, RadarAdjacentOpacity, RadarBackgroundDim,
         RadarBackgroundBlur, RadarGrid, RadarRings, RadarCompass, RadarPersistence,
