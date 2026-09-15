@@ -28,6 +28,27 @@ if [ ! -d "$maps" ]; then
   exit 0
 fi
 
+# The redistribution decision is a top-level boolean in manifest.json.  Parse
+# the document instead of searching its text: a nested notice or a string such
+# as "true" must never satisfy the shipping guard, and malformed JSON fails
+# closed. Python is already a required Project Prime tooling dependency.
+manifest_allows_redistribution() {
+  python3 -c '
+import json
+import sys
+
+try:
+    manifest = json.load(sys.stdin)
+except ValueError:
+    raise SystemExit(1)
+
+if (type(manifest) is not dict
+        or type(manifest.get("redistribution")) is not bool
+        or manifest["redistribution"] is not True):
+    raise SystemExit(1)
+'
+}
+
 # A bundle is a map and its level in one file, so there is nothing beside it to
 # look for: what has to be true is that the level is inside. Read the index
 # without unpacking anything -- unzip -l is in every runner image, and a bundle
@@ -36,8 +57,7 @@ while IFS= read -r file; do
   found=$((found + 1))
   name=$(basename "$file")
   manifest=$(unzip -p "$file" manifest.json 2>/dev/null)
-  if printf '%s' "$manifest" \
-      | grep -E '"redistribution"[[:space:]]*:[[:space:]]*true([,}[:space:]]|$)' >/dev/null; then
+  if printf '%s' "$manifest" | manifest_allows_redistribution; then
     echo "ok:      $name permits online redistribution"
   else
     echo "ERROR:   $name cannot ship because online redistribution is disabled"

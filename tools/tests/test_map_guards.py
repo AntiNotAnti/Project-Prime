@@ -24,14 +24,16 @@ class MapGuardTests(unittest.TestCase):
         )
 
     def write_bundle(self, root, *, include_bsp=True, include_texture=True,
-                     redistribution=True, padding=8192):
+                     redistribution=True, manifest_content=None, padding=8192):
         maps = root / "maps"
         maps.mkdir()
         bundle = maps / "large-listing.fpmap"
         with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_STORED) as archive:
-            archive.writestr("manifest.json", (
-                '{"format":2,"redistribution":%s}'
-                % str(redistribution).lower()).encode())
+            if manifest_content is None:
+                manifest_content = (
+                    '{"format":2,"redistribution":%s}'
+                    % str(redistribution).lower()).encode()
+            archive.writestr("manifest.json", manifest_content)
             if include_bsp:
                 # Put the matching entry first so grep -q would terminate while
                 # unzip still has a large listing to write.
@@ -68,6 +70,30 @@ class MapGuardTests(unittest.TestCase):
     def test_nonredistributable_bundle_is_rejected(self):
         with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
             self.write_bundle(Path(temporary), redistribution=False)
+            result = self.run_guard(MAP_GUARD, Path(temporary))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("online redistribution is disabled", result.stdout)
+
+    def test_nested_redistribution_decoy_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
+            self.write_bundle(Path(temporary), manifest_content=(
+                b'{"format":2,"metadata":{"redistribution":true}}'))
+            result = self.run_guard(MAP_GUARD, Path(temporary))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("online redistribution is disabled", result.stdout)
+
+    def test_string_redistribution_decoy_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
+            self.write_bundle(Path(temporary), manifest_content=(
+                b'{"format":2,"redistribution":"true"}'))
+            result = self.run_guard(MAP_GUARD, Path(temporary))
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("online redistribution is disabled", result.stdout)
+
+    def test_malformed_manifest_is_rejected(self):
+        with tempfile.TemporaryDirectory(prefix="project-prime-map-guard-") as temporary:
+            self.write_bundle(Path(temporary), manifest_content=(
+                b'{"format":2,"redistribution":true'))
             result = self.run_guard(MAP_GUARD, Path(temporary))
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("online redistribution is disabled", result.stdout)

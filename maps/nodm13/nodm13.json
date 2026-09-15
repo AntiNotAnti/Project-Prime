@@ -6,7 +6,7 @@
     "name": "The Dark Zone",
     "author": "Rich \"swelt\" Jacques",
     "description": "An Egyptian-styled Quake III Arena map for duel, team deathmatch, and free-for-all.",
-    "redistribution": true
+    "redistribution": false
   },
   "supportedModes": [
     "Battle",

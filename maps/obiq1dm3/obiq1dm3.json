@@ -6,7 +6,7 @@
     "name": "The Abandoned Base III",
     "author": "Obi-Wan",
     "description": "A Quake III Arena port of the classic Quake DM3, rebuilt by Obi-Wan.",
-    "redistribution": true
+    "redistribution": false
   },
   "supportedModes": [
     "Battle",
