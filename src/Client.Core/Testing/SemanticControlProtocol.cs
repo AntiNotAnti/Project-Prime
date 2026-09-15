@@ -193,7 +193,8 @@ public sealed class SemanticControlDispatcher
 
     public static bool IsGameplay(SemanticControlCommand command)
         => command is SemanticControlCommand.SubmitMovement
-            or SemanticControlCommand.SubmitFire;
+            or SemanticControlCommand.SubmitFire
+            or SemanticControlCommand.CaptureFrame;
 }
 
 /// <summary>Strict line protocol and bounded argument helpers.</summary>
@@ -402,8 +403,8 @@ public static partial class SemanticControlProtocol
             [SemanticControlCommand.SetReady] = Set("ready"),
             [SemanticControlCommand.SelectHunter] = Set("hunter"),
             [SemanticControlCommand.StartMatch] = Set(),
-            [SemanticControlCommand.SubmitMovement] = Set("x", "y"),
-            [SemanticControlCommand.SubmitFire] = Set("pressed", "weapon"),
+            [SemanticControlCommand.SubmitMovement] = Set("x", "y", "durationMs"),
+            [SemanticControlCommand.SubmitFire] = Set("pressed", "weapon", "durationMs"),
             [SemanticControlCommand.VoteRematch] = Set("accept"),
             [SemanticControlCommand.VoteReturnLobby] = Set("accept"),
             [SemanticControlCommand.CaptureFrame] = Set("label"),

@@ -10,6 +10,7 @@ using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
+using MphRead.Mods.Testing;
 
 namespace MphRead
 {
@@ -144,6 +145,9 @@ namespace MphRead
         // coordinator, so input ownership is never process-global.
         private readonly DesktopInputOwner _fallbackInputOwner = new();
         private DesktopInputOwner? _attachedInputOwner;
+        private SemanticSyntheticInputOwner? _semanticInputOwner;
+        private SemanticRuntimeCaptureOwner? _semanticCaptureOwner;
+        private bool _semanticSyntheticInputActive;
         internal KeyboardState Keyboard => _compatibilityInput.Keyboard;
         internal MouseState Mouse => _compatibilityInput.Mouse;
 
@@ -156,6 +160,8 @@ namespace MphRead
 
         internal DesktopInputOwner InputOwner
             => _attachedInputOwner ?? _fallbackInputOwner;
+
+        internal bool SemanticSyntheticInputActive => _semanticSyntheticInputActive;
 
         /// <summary>
         /// Raised only when the host presentation contract changes.  Consumers
@@ -190,6 +196,37 @@ namespace MphRead
                 _attachedInputOwner = null;
                 _fallbackInputOwner.Reset(_gamepadHub.Buttons);
             }
+        }
+
+        internal void AttachSemanticControlOwners(
+            SemanticSyntheticInputOwner inputOwner,
+            SemanticRuntimeCaptureOwner captureOwner)
+        {
+            ArgumentNullException.ThrowIfNull(inputOwner);
+            ArgumentNullException.ThrowIfNull(captureOwner);
+            if (_semanticInputOwner != null && !ReferenceEquals(_semanticInputOwner, inputOwner)
+                || _semanticCaptureOwner != null && !ReferenceEquals(_semanticCaptureOwner, captureOwner))
+                throw new InvalidOperationException(
+                    "A different semantic control owner is already attached.");
+            _semanticInputOwner = inputOwner;
+            _semanticCaptureOwner = captureOwner;
+        }
+
+        internal void DetachSemanticControlOwners(
+            SemanticSyntheticInputOwner inputOwner,
+            SemanticRuntimeCaptureOwner captureOwner)
+        {
+            if (ReferenceEquals(_semanticInputOwner, inputOwner))
+            {
+                inputOwner.DetachHost();
+                _semanticInputOwner = null;
+            }
+            if (ReferenceEquals(_semanticCaptureOwner, captureOwner))
+            {
+                captureOwner.DetachHost();
+                _semanticCaptureOwner = null;
+            }
+            _semanticSyntheticInputActive = false;
         }
 
         public SdlGameHost(Vector2i? initialSize = null, string title = "Project Prime — SDL GPU",
@@ -447,10 +484,12 @@ namespace MphRead
                 previous = now;
                 WindowInputSnapshot snapshot = BuildSnapshot();
                 SyncPresentationSize();
-                _compatibilityInput.Apply(snapshot, client.SuppressNativeInput);
+                WindowInputSnapshot gameplaySnapshot = ApplySemanticInput(snapshot,
+                    client, now, out bool semanticFocusBypass);
+                _compatibilityInput.Apply(gameplaySnapshot, client.SuppressNativeInput);
                 client.OnResize(_framebufferSize.X > 0 && _framebufferSize.Y > 0
                     ? _framebufferSize : _logicalSize);
-                DispatchCompatibilityInput(snapshot, client);
+                DispatchCompatibilityInput(gameplaySnapshot, client, semanticFocusBypass);
                 // Re-read flags and focus after the event pump and publish the
                 // final gate immediately before Tick. A focus-loss event that
                 // arrived during the pacing wait therefore suppresses the GPU
@@ -459,8 +498,10 @@ namespace MphRead
                     || ComputeInteractivePresentationAvailability();
                 _backend.SetInteractivePresentationAvailable(
                     interactivePresentationAvailable);
-                _frameLoop.Tick(elapsed, snapshot, client, _backend!);
+                QueueSemanticCapture();
+                _frameLoop.Tick(elapsed, gameplaySnapshot, client, _backend!);
                 DrainCaptureResults();
+                _semanticSyntheticInputActive = false;
             }
         }
 
@@ -594,6 +635,8 @@ namespace MphRead
             {
                 ProcessEvents();
                 if (_lifetime.CloseRequested) return;
+                _semanticInputOwner?.AttachHost();
+                _semanticCaptureOwner?.AttachHost();
                 ResetInput();
                 _inputHub.BeginFrame();
                 _compatibilityInput.Apply(BuildSnapshot());
@@ -648,6 +691,9 @@ namespace MphRead
                 {
                     try
                     {
+                        _semanticCaptureOwner?.RejectQueued("capture-owner-detached");
+                        _semanticInputOwner?.DetachHost();
+                        _semanticCaptureOwner?.DetachHost();
                         if (_presentation != null) _presentation.DoCleanup();
                         else scene.CloseWorld();
                     }
@@ -1059,10 +1105,114 @@ namespace MphRead
         private WindowInputSnapshot BuildSnapshot()
             => _inputHub.Snapshot(_focused, _presentation?.FrameAdvance ?? false);
 
-        private void DispatchCompatibilityInput(WindowInputSnapshot snapshot,
-            IGameWindowFrameClient? frameClient = null)
+        private WindowInputSnapshot ApplySemanticInput(
+            WindowInputSnapshot native, IGameWindowFrameClient frameClient,
+            double nowSeconds, out bool semanticFocusBypass)
         {
-            Mods.ClientInputState.WindowFocused = snapshot.Focused;
+            semanticFocusBypass = false;
+            _semanticSyntheticInputActive = false;
+            if (_presentation == null || _semanticInputOwner == null
+                || frameClient.SuppressNativeInput)
+            {
+                _semanticInputOwner?.Clear();
+                return native;
+            }
+            SemanticSyntheticInputScope scope = BuildSemanticInputScope(frameClient);
+            long nowMilliseconds = checked((long)Math.Round(nowSeconds * 1000));
+            SemanticSyntheticInputFrame frame = _semanticInputOwner.Drain(
+                scope, nowMilliseconds);
+            if (!frame.Active || _presentation.World.LocalPlayer is not { } local)
+                return native;
+
+            var keys = new HashSet<int>(native.Keys);
+            var buttons = new HashSet<int>(native.MouseButtons);
+            ClientPlayerBindings bindings = local.GetPresentation().Bindings;
+            if (frame.MoveLeft) AddBinding(bindings.MoveLeft, keys, buttons);
+            if (frame.MoveRight) AddBinding(bindings.MoveRight, keys, buttons);
+            if (frame.MoveUp) AddBinding(bindings.MoveUp, keys, buttons);
+            if (frame.MoveDown) AddBinding(bindings.MoveDown, keys, buttons);
+            if (frame.Fire)
+            {
+                AddBinding(bindings.Shoot, keys, buttons);
+            }
+            _semanticSyntheticInputActive = true;
+            semanticFocusBypass = ShouldBypassSemanticNativeFocus(
+                native.Focused, frame.Active, scope.Eligible);
+            return new WindowInputSnapshot(keys, buttons, native.MousePosition,
+                native.RelativeMouse, native.Wheel, native.Text, native.Focused,
+                native.KeyEvents, native.MouseButtonEvents, native.FrameAdvanceMode);
+        }
+
+        private SemanticSyntheticInputScope BuildSemanticInputScope(
+            IGameWindowFrameClient frameClient)
+        {
+            AuthoritativePlay? play = AuthoritativePlay.Current;
+            NetConnection? connection = play?.Client.Connection;
+            PlayerEntity? local = _presentation?.World.LocalPlayer;
+            CombatActor combat = local?.CombatIdentity ?? CombatActor.None;
+            string matchId = play?.NodeMatchId?.ToString("N")
+                ?? _semanticInputOwner?.Identity.MatchId ?? "no-match";
+            string phaseId = _semanticInputOwner?.Identity.PhaseId ?? "no-phase";
+            bool connected = play != null && connection != null
+                && play.Client.State is NetConnectionState.Ready or NetConnectionState.Playing
+                && !play.IsObserver && combat.IsValid;
+            return new SemanticSyntheticInputScope(
+                matchId, phaseId, connection?.Id ?? 0, combat.Life,
+                connected,
+                play?.State == AuthoritativePlay.TerminalState.Active
+                    && _presentation?.World.Match.Phase == MatchPhase.Playing,
+                InputOwner.Owns(DesktopInputOwnerKind.Scene),
+                Mods.PauseMenu.Open,
+                Mods.Network.ReplayPlayback.IsActive || frameClient.SuppressNativeInput,
+                _presentation?.FrameAdvance == true);
+        }
+
+        private static void AddBinding(Keybind binding, HashSet<int> keys,
+            HashSet<int> buttons)
+        {
+            if (binding.Type == ButtonType.Key && binding.Key != PrimeKey.Unknown)
+                keys.Add((int)binding.Key);
+            else if (binding.Type == ButtonType.Mouse
+                && binding.MouseButton != PrimeMouseButton.Last)
+                buttons.Add((int)binding.MouseButton);
+        }
+
+        internal static bool ShouldBypassSemanticNativeFocus(
+            bool nativeFocused, bool syntheticActive, bool scopeEligible)
+            => !nativeFocused && syntheticActive && scopeEligible;
+
+        private void QueueSemanticCapture()
+        {
+            if (_semanticCaptureOwner == null || _presentation == null) return;
+            SemanticSyntheticInputScope scope = BuildSemanticInputScope(
+                frameClient: _sceneFrameClient!);
+            if (!scope.Eligible)
+            {
+                _semanticCaptureOwner.RejectQueued("capture-owner-unavailable");
+                return;
+            }
+            Vector2i size = _presentation.Size;
+            if (!_semanticCaptureOwner.TryTakeForHost(size.X, size.Y,
+                    _frameTiming.TotalFrames,
+                    out SemanticRuntimeCaptureOwner.SemanticRuntimeCaptureHostRequest? request))
+                return;
+            try
+            {
+                _presentation.QueueSdlCapture(request!.Request);
+            }
+            catch (Exception error) when (error is not OutOfMemoryException)
+            {
+                _semanticCaptureOwner.RejectHostRequest(request!.Request.RequestId,
+                    error is InvalidOperationException ? "capture-queue-full"
+                        : "capture-queue-failed");
+            }
+        }
+
+        private void DispatchCompatibilityInput(WindowInputSnapshot snapshot,
+            IGameWindowFrameClient? frameClient = null,
+            bool semanticFocusBypass = false)
+        {
+            Mods.ClientInputState.WindowFocused = snapshot.Focused || semanticFocusBypass;
             if (_presentation == null) return;
             if (frameClient?.SuppressNativeInput == true)
             {
@@ -1535,10 +1685,12 @@ namespace MphRead
             if (_backend == null) return;
             while (_backend.TryDequeueCapture(out RenderCaptureResult? result))
             {
+                if (_semanticCaptureOwner?.TryDeliver(result!) == true) continue;
                 MphRead.Export.ScreenCapture.Deliver(result!);
             }
             while (_backend.TryDequeueCaptureFailure(out RenderCaptureFailure? failure))
             {
+                if (_semanticCaptureOwner?.TryDeliver(failure!) == true) continue;
                 Console.Error.WriteLine($"[capture] request {failure!.RequestId} ({failure.Delivery}) failed: {failure.Error}");
             }
         }
@@ -1587,6 +1739,10 @@ namespace MphRead
                 _fullscreen = false;
                 Mods.WindowMode.SetFullscreenState(false);
                 if (_sdlInitialized) SDL3.SDL_Quit();
+                _semanticInputOwner?.Shutdown();
+                _semanticCaptureOwner?.Shutdown();
+                _semanticInputOwner = null;
+                _semanticCaptureOwner = null;
             }
         }
 
@@ -1682,7 +1838,9 @@ namespace MphRead
 
         public void OnInput(WindowInputSnapshot input)
         {
-            if (!input.Focused || !_host.IsFocused
+            bool syntheticGameplay = _host.SemanticSyntheticInputActive;
+            if ((!input.Focused && !syntheticGameplay)
+                || (!_host.IsFocused && !syntheticGameplay)
                 || !_host.InputOwner.Owns(DesktopInputOwnerKind.Scene))
                 return;
             _killcam?.SubmitInput(input);

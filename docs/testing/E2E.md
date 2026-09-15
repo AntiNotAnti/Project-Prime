@@ -38,13 +38,26 @@ through `Dispatcher.UIThread` and the existing Gateway/Play owners. It is
 disposed with the persistent launcher window and is not recreated for a
 rematch.
 
-`SubmitMovement`, `SubmitFire`, and `CaptureFrame` are intentionally rejected
-with explicit unavailable errors. This checkout has no safe pre-
-`CaptureNetworkInput` injection owner and no runtime frame-readback command
-owner; the adapter does not bypass those boundaries or claim coverage for
-those milestones. `GetShellState` and `GetDiagnostics` remain read-only
-queries, and all mutating commands require the current session/match/phase
-identity immediately before invoking an existing owner.
+`SubmitMovement` and `SubmitFire` now enter a 64-command bounded,
+match-scoped owner that the shipping SDL host drains immediately before both
+compatibility input and the fixed-step frame loop. Inputs expire after a
+bounded lease and are cleared on session, match, phase, connection, life,
+pause, replay, frame-advance, scene-ownership, detach, or shutdown changes.
+The semantic focus exception bypasses only native-window focus eligibility;
+all match and scene ownership gates remain in force. `SubmitFire` activates
+the configured primary-fire binding only. Deterministic semantic look/aim is
+not available, so firing alone is not accepted as proof of authoritative
+damage.
+
+`CaptureFrame` uses the same bounded SDL GPU readback path as production
+captures. At most eight requests are pending, labels are filename-safe, PNG
+encoding runs off the SDL host thread, and output is confined to
+`<PRIME_E2E_RUN_DIR>/client-{a,b}/screenshots`. A response is accepted only
+after the PNG is written. `GetShellState` and `GetDiagnostics` remain
+read-only queries, and all mutating commands require the current
+session/match/phase identity immediately before invoking an existing owner.
+Diagnostics explicitly report deterministic aim and client-visible Worker
+identity as unavailable rather than inventing evidence for those assertions.
 
 ## Coordinator
 

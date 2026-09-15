@@ -77,6 +77,8 @@ namespace MphRead
 
     public partial class ScenePresentation : IScenePresentation
     {
+        private static readonly int[] HudQuadIndices = { 0, 1, 2, 2, 1, 3 };
+
         public FrameTiming Timing { get; }
         public Vector2i Size { get; set; }
         /// <summary>
@@ -93,7 +95,7 @@ namespace MphRead
 
         private CameraMode _cameraMode = CameraMode.Pivot;
         public CameraMode CameraMode => _cameraMode;
-        public bool ShowCursor => World.LocalPlayer!?.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) == true;
+        public bool ShowCursor => World.LocalPlayer?.Flags1.TestFlag(PlayerFlags1.WeaponMenuOpen) == true;
         private float _pivotAngleY = 0.0f;
         private float _pivotAngleX = 0.0f;
         private float _pivotDistance = 5.0f;
@@ -1949,17 +1951,24 @@ namespace MphRead
         private void CapturePresentationFrame(Vector2i target,
             uint presentationTick, float renderFraction)
         {
+            // A presentation frame always has a selected player by the time
+            // this HUD/visor pass runs (including passive replay views). Make
+            // that scene invariant explicit once so the nullable state cannot
+            // leak into the rest of the capture path.
+            PlayerEntity localPlayer = World.LocalPlayer
+                ?? throw new InvalidOperationException(
+                    "Presentation capture requires a selected local player.");
             bool playerHud = !GameplayHudSuppressed
-                && World.LocalPlayer!.LoadFlags.TestFlag(LoadFlags.Active)
+                && localPlayer.LoadFlags.TestFlag(LoadFlags.Active)
                 && CameraMode == CameraMode.Player;
             bool scoreboard = !GameplayHudSuppressed && ScoreboardOverFreeCamera;
-            PlayerPresentation hud = World.LocalPlayer!.GetPresentation();
+            PlayerPresentation hud = localPlayer.GetPresentation();
 
             bool enhancedVisor = EnhancedVisorPolicy.IsEligible(
                 _renderFrame.Options.Quality.GraphicsPreset, playerHud,
-                Mods.SpectatorMode.IsSpectating, World.LocalPlayer.Health > 0,
-                World.LocalPlayer.IsAltForm, World.LocalPlayer.IsMorphing,
-                World.LocalPlayer.CameraType == CameraType.First,
+                Mods.SpectatorMode.IsSpectating, localPlayer.Health > 0,
+                localPlayer.IsAltForm, localPlayer.IsMorphing,
+                localPlayer.CameraType == CameraType.First,
                 World.CameraSequences.Current != null);
             _renderFrame.CaptureVisor(enhancedVisor
                 ? hud.CaptureVisorState(presentationTick, renderFraction,
@@ -2224,7 +2233,7 @@ namespace MphRead
                 new(new Vector3(-Size.X, -Size.Y, -1), new Vector4(1), Vector3.UnitZ,
                     new Vector2(0, 1))
             };
-            var mesh = new CpuMesh(vertices, new[] { 0, 1, 2, 2, 1, 3 });
+            var mesh = new CpuMesh(vertices, HudQuadIndices);
             AddHudSceneMaterial(material, texture, material.Alpha / 31f * alpha,
                 polygonId: 0, Matrix4.Identity, matrixStackCount: 0, null, null, mesh);
         }

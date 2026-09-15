@@ -239,6 +239,7 @@ namespace MphRead.Mods.Launcher.Gui
                                 try
                                 {
                                     persistentHost = new SdlGameHost(showWindow: false);
+                                    semanticControl?.AttachSceneHost(persistentHost);
                                     desktopOverlay.AttachHost(persistentHost);
                                     persistentHost.SetInitialPosition(
                                         new OpenTK.Mathematics.Vector2i(
@@ -314,6 +315,7 @@ namespace MphRead.Mods.Launcher.Gui
                         if (!ClassicUi && persistentHost == null)
                         {
                             persistentHost = new SdlGameHost(showWindow: false);
+                            semanticControl?.AttachSceneHost(persistentHost);
                             desktopOverlay.AttachHost(persistentHost);
                             if (persistentWindow != null)
                                 persistentHost.SetInitialPosition(new OpenTK.Mathematics.Vector2i(

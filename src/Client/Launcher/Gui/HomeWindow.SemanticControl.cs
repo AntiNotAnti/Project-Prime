@@ -43,13 +43,19 @@ internal sealed partial class HomeWindow
         private readonly SemanticControlPhaseGuard _phaseGuard;
         private readonly SemanticControlDispatcher _dispatcher;
         private readonly SemanticControlServer _server;
+        private readonly SemanticSyntheticInputOwner _syntheticInput;
+        private readonly SemanticRuntimeCaptureOwner _runtimeCapture;
+        private MphRead.SdlGameHost? _sceneHost;
         private int _disposed;
 
         private SemanticControlAdapter(HomeWindow owner,
-            SemanticControlServerOptions options)
+            SemanticControlServerOptions options, string clientSlot)
         {
             _owner = owner ?? throw new ArgumentNullException(nameof(owner));
             _phaseGuard = new SemanticControlPhaseGuard(CurrentIdentity());
+            _syntheticInput = new SemanticSyntheticInputOwner(_phaseGuard.Current);
+            _runtimeCapture = new SemanticRuntimeCaptureOwner(_phaseGuard.Current,
+                Environment.GetEnvironmentVariable("PRIME_E2E_RUN_DIR"), clientSlot);
             _dispatcher = new SemanticControlDispatcher(DispatchUiAsync,
                 DispatchGameplayAsync);
             _server = new SemanticControlServer(options, _phaseGuard,
@@ -91,14 +97,26 @@ internal sealed partial class HomeWindow
                     out string tokenFile))
                 throw new InvalidOperationException(
                     "Semantic controls are enabled but endpoint/token configuration is incomplete.");
+            if (!TryResolveClientSlot(environment, out string clientSlot))
+                throw new InvalidOperationException(
+                    "Semantic controls are enabled but PRIME_E2E_CLIENT_SLOT is not a or b.");
 
             var options = new SemanticControlServerOptions(
                 Enabled: true,
                 Endpoint: endpoint,
                 TokenFile: tokenFile);
-            var adapter = new SemanticControlAdapter(owner, options);
+            var adapter = new SemanticControlAdapter(owner, options, clientSlot);
             adapter._server.Start();
             return adapter;
+        }
+
+        internal void AttachSceneHost(MphRead.SdlGameHost host)
+        {
+            ArgumentNullException.ThrowIfNull(host);
+            if (_sceneHost != null && !ReferenceEquals(_sceneHost, host))
+                _sceneHost.DetachSemanticControlOwners(_syntheticInput, _runtimeCapture);
+            _sceneHost = host;
+            host.AttachSemanticControlOwners(_syntheticInput, _runtimeCapture);
         }
 
         public async ValueTask DisposeAsync()
@@ -109,6 +127,10 @@ internal sealed partial class HomeWindow
             _owner._view.Play.Changed -= OwnerPlayChanged;
             _owner._view.Online.Changed -= OwnerOnlineChanged;
             _owner._view.Online.Flow.Changed -= OwnerFlowChanged;
+            _sceneHost?.DetachSemanticControlOwners(_syntheticInput, _runtimeCapture);
+            _sceneHost = null;
+            _syntheticInput.Shutdown();
+            _runtimeCapture.Shutdown();
             await _server.DisposeAsync().ConfigureAwait(false);
         }
 
@@ -155,6 +177,14 @@ internal sealed partial class HomeWindow
             IReadOnlyDictionary<string, string?> environment, string name)
             => environment.TryGetValue(name, out string? value) ? value : null;
 
+        private static bool TryResolveClientSlot(
+            IReadOnlyDictionary<string, string?> environment, out string slot)
+        {
+            slot = (Get(environment, SlotVariable)
+                ?? Get(environment, LegacySlotVariable))?.Trim().ToLowerInvariant() ?? "";
+            return slot is "a" or "b";
+        }
+
         private void OwnerStateChanged(object? sender, EventArgs args)
             => RefreshPhaseIdentity();
 
@@ -174,6 +204,8 @@ internal sealed partial class HomeWindow
         {
             SemanticControlIdentity identity = CurrentIdentity();
             _phaseGuard.Advance(identity);
+            _syntheticInput.AdvanceIdentity(identity);
+            _runtimeCapture.AdvanceIdentity(identity);
             return identity;
         }
 
@@ -213,10 +245,112 @@ internal sealed partial class HomeWindow
         private ValueTask<SemanticControlResponse> DispatchGameplayAsync(
             SemanticControlRequest request, CancellationToken cancellationToken)
         {
-            _ = cancellationToken;
-            return ValueTask.FromResult(SemanticControlResponse.Rejected(
-                request.CommandId, "gameplay-input-unavailable"));
+            return request.Command switch
+            {
+                SemanticControlCommand.SubmitMovement
+                    => SubmitMovementAsync(request, cancellationToken),
+                SemanticControlCommand.SubmitFire
+                    => SubmitFireAsync(request, cancellationToken),
+                SemanticControlCommand.CaptureFrame
+                    => CaptureFrameAsync(request, cancellationToken),
+                _ => ValueTask.FromResult(Rejected(request, "command-unavailable"))
+            };
         }
+
+        private ValueTask<SemanticControlResponse> SubmitMovementAsync(
+            SemanticControlRequest request, CancellationToken cancellationToken)
+        {
+            if (request.Identity != _syntheticInput.Identity)
+                return ValueTask.FromResult(Stale(request));
+            if (!SemanticControlProtocol.TryGetNumber(request, "x", out double x)
+                || !SemanticControlProtocol.TryGetNumber(request, "y", out double y))
+                return ValueTask.FromResult(Rejected(request, "invalid-arguments"));
+            if (!TryDuration(request, out int duration))
+                return ValueTask.FromResult(Rejected(request, "invalid-arguments"));
+            SemanticSyntheticInputSubmission submission = _syntheticInput.SubmitMovement(
+                request.Identity, x, y, duration, cancellationToken);
+            return ValueTask.FromResult(MapSubmission(request, submission));
+        }
+
+        private ValueTask<SemanticControlResponse> SubmitFireAsync(
+            SemanticControlRequest request, CancellationToken cancellationToken)
+        {
+            if (request.Identity != _syntheticInput.Identity)
+                return ValueTask.FromResult(Stale(request));
+            if (!SemanticControlProtocol.TryGetBoolean(request, "pressed",
+                    out bool pressed) || !TryDuration(request, out int duration))
+                return ValueTask.FromResult(Rejected(request, "invalid-arguments"));
+            // The optional weapon field remains a compatibility argument for
+            // existing drivers. Weapon selection is owned by production
+            // bindings and is not synthesized by this first lifecycle.
+            if (request.Arguments.TryGetValue("weapon", out JsonElement weapon)
+                && weapon.ValueKind is not (JsonValueKind.String or JsonValueKind.Number))
+                return ValueTask.FromResult(Rejected(request, "invalid-arguments"));
+            SemanticSyntheticInputSubmission submission = _syntheticInput.SubmitFire(
+                request.Identity, pressed, duration, cancellationToken);
+            return ValueTask.FromResult(MapSubmission(request, submission));
+        }
+
+        private async ValueTask<SemanticControlResponse> CaptureFrameAsync(
+            SemanticControlRequest request, CancellationToken cancellationToken)
+        {
+            if (request.Identity != _runtimeCapture.Identity)
+                return Stale(request);
+            if (!SemanticControlProtocol.TryGetString(request, "label",
+                    out string label))
+                return Rejected(request, "invalid-arguments");
+            SemanticRuntimeCaptureSubmission submission = _runtimeCapture.TrySubmit(
+                request.Identity, label, cancellationToken, out Task<SemanticRuntimeCaptureCompletion>? completion);
+            if (submission != SemanticRuntimeCaptureSubmission.Accepted)
+                return MapSubmission(request, submission);
+            SemanticRuntimeCaptureCompletion result = await completion!.WaitAsync(
+                cancellationToken).ConfigureAwait(false);
+            if (!result.Accepted)
+                return Rejected(request, result.Error ?? "capture-failed");
+            return Success(request, JsonSerializer.SerializeToElement(new
+            {
+                label,
+                path = result.Path
+            }));
+        }
+
+        private static bool TryDuration(SemanticControlRequest request, out int duration)
+        {
+            duration = SemanticSyntheticInputOwner.DefaultDurationMilliseconds;
+            if (!request.Arguments.ContainsKey("durationMs")) return true;
+            if (!SemanticControlProtocol.TryGetNumber(request, "durationMs",
+                    out double number) || number != Math.Truncate(number)
+                || number < 1 || number > SemanticSyntheticInputOwner.MaximumDurationMilliseconds)
+                return false;
+            duration = (int)number;
+            return true;
+        }
+
+        private static SemanticControlResponse MapSubmission(
+            SemanticControlRequest request, SemanticSyntheticInputSubmission submission)
+            => submission switch
+            {
+                SemanticSyntheticInputSubmission.Accepted => Success(request),
+                SemanticSyntheticInputSubmission.QueueFull => Rejected(request, "queue-full"),
+                SemanticSyntheticInputSubmission.StaleIdentity => Stale(request),
+                SemanticSyntheticInputSubmission.Canceled => Rejected(request, "canceled"),
+                SemanticSyntheticInputSubmission.InvalidArguments
+                    => Rejected(request, "invalid-arguments"),
+                _ => Rejected(request, "gameplay-input-unavailable")
+            };
+
+        private static SemanticControlResponse MapSubmission(
+            SemanticControlRequest request, SemanticRuntimeCaptureSubmission submission)
+            => submission switch
+            {
+                SemanticRuntimeCaptureSubmission.Accepted => Success(request),
+                SemanticRuntimeCaptureSubmission.QueueFull => Rejected(request, "queue-full"),
+                SemanticRuntimeCaptureSubmission.StaleIdentity => Stale(request),
+                SemanticRuntimeCaptureSubmission.Canceled => Rejected(request, "canceled"),
+                SemanticRuntimeCaptureSubmission.InvalidArguments
+                    => Rejected(request, "invalid-arguments"),
+                _ => Rejected(request, "runtime-capture-unavailable")
+            };
 
         private async Task<SemanticControlResponse> ExecuteUiAsync(
             SemanticControlRequest request, CancellationToken cancellationToken)
@@ -261,7 +395,7 @@ internal sealed partial class HomeWindow
                         => await VoteReturnLobbyAsync(request, cancellationToken)
                             .ConfigureAwait(true),
                     SemanticControlCommand.CaptureFrame
-                        => Rejected(request, "runtime-capture-unavailable"),
+                        => Rejected(request, "command-unavailable"),
                     _ => Rejected(request, "command-unavailable")
                 };
             }
@@ -500,8 +634,15 @@ internal sealed partial class HomeWindow
             => JsonSerializer.SerializeToElement(new
             {
                 semanticControls = "enabled",
-                gameplayInput = "unavailable",
-                runtimeCapture = "unavailable",
+                gameplayInput = _syntheticInput.IsHostAttached
+                    ? "synthetic-bindings" : "unavailable",
+                runtimeCapture = _runtimeCapture.IsHostAttached
+                    && _runtimeCapture.HasEvidenceRoot
+                    ? "async-sdl-readback" : "unavailable",
+                aim = "unavailable; no deterministic semantic look source",
+                workerIdentity = "unavailable; Node handoff does not expose Worker identity",
+                authoritative = MphRead.Mods.Network.AuthoritativePlay.Current
+                    ?.ReadSemanticDiagnostics(),
                 transport = OperatingSystem.IsWindows()
                     ? "current-user-named-pipe" : "owner-only-unix-socket",
                 identity = CurrentIdentity()

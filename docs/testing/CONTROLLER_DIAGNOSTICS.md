@@ -50,6 +50,10 @@ directory without exposing that private path in the report or status text.
 These remain manual hardware gates. A source test or an unavailable-device
 report does not mark a row passed.
 
+The shipping-path probe run on 2026-09-15 reported `SDL saw no connected
+gamepad`. It validated the unavailable-device failure path but accepted no
+physical matrix row.
+
 | Controller | Connection | Status |
 | --- | --- | --- |
 | Xbox Series | USB | Not run |

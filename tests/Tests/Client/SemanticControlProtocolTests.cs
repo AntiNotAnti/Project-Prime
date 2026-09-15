@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Testing;
 using Xunit;
 
@@ -260,6 +261,90 @@ public sealed class SemanticControlProtocolTests
             await server.DisposeAsync();
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
+    }
+
+    [Fact]
+    public void SyntheticInputExpiresAndClearsOnLifeOrPhaseIdentity()
+    {
+        var identity = new SemanticControlIdentity("session-a", "match-a", "phase-a");
+        using var owner = new SemanticSyntheticInputOwner(identity);
+        Assert.True(owner.AttachHost());
+        var scope = new SemanticSyntheticInputScope("match-a", "phase-a",
+            ConnectionId: 10, Life: 1, Connected: true, MatchPlaying: true,
+            SceneOwned: true, Paused: false, Replay: false, FrameAdvance: false);
+
+        Assert.Equal(SemanticSyntheticInputSubmission.Accepted,
+            owner.SubmitMovement(identity, -1, 0, 100, CancellationToken.None));
+        Assert.Equal(SemanticSyntheticInputSubmission.Accepted,
+            owner.SubmitFire(identity, true, 100, CancellationToken.None));
+        Assert.True(owner.Drain(scope, 0).Active);
+        Assert.True(owner.Drain(scope, 99).Active);
+        Assert.False(owner.Drain(scope, 100).Active);
+
+        Assert.Equal(SemanticSyntheticInputSubmission.Accepted,
+            owner.SubmitFire(identity, true, 100, CancellationToken.None));
+        Assert.True(owner.Drain(scope, 200).Fire);
+        var newLife = scope with { Life = 2 };
+        Assert.False(owner.Drain(newLife, 201).Active);
+        Assert.True(owner.SubmitFire(identity, true, 100, CancellationToken.None)
+            == SemanticSyntheticInputSubmission.Accepted);
+        owner.AdvanceIdentity(identity with { PhaseId = "rematch-b" });
+        Assert.False(owner.Drain(newLife with { PhaseId = "rematch-b" }, 300).Active);
+    }
+
+    [Fact]
+    public void SyntheticInputRejectsStaleCancellationAndShutdown()
+    {
+        var identity = new SemanticControlIdentity("session-a", "match-a", "phase-a");
+        using var owner = new SemanticSyntheticInputOwner(identity);
+        Assert.True(owner.AttachHost());
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        Assert.Equal(SemanticSyntheticInputSubmission.Canceled,
+            owner.SubmitFire(identity, true, 100, cancellation.Token));
+        Assert.Equal(SemanticSyntheticInputSubmission.StaleIdentity,
+            owner.SubmitFire(identity with { PhaseId = "old" }, true, 100,
+                CancellationToken.None));
+        owner.Shutdown();
+        Assert.Equal(SemanticSyntheticInputSubmission.Unavailable,
+            owner.SubmitFire(identity, true, 100, CancellationToken.None));
+    }
+
+    [Fact]
+    public void UnfocusedSyntheticInputBypassesOnlyNativeFocusEligibility()
+    {
+        Assert.True(SdlGameHost.ShouldBypassSemanticNativeFocus(
+            nativeFocused: false, syntheticActive: true, scopeEligible: true));
+        Assert.False(SdlGameHost.ShouldBypassSemanticNativeFocus(
+            nativeFocused: false, syntheticActive: true, scopeEligible: false));
+        Assert.False(SdlGameHost.ShouldBypassSemanticNativeFocus(
+            nativeFocused: true, syntheticActive: true, scopeEligible: true));
+    }
+
+    [Fact]
+    public async Task CaptureOwnerCompletesOnlyAfterConfinedReadbackDelivery()
+    {
+        string root = Path.Combine("/tmp", "semantic-capture-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(Path.Combine(root, "client-a", "screenshots"));
+        var identity = new SemanticControlIdentity("session-a", "match-a", "phase-a");
+        using var owner = new SemanticRuntimeCaptureOwner(identity, root, "a");
+        Assert.True(owner.AttachHost());
+        Assert.Equal(SemanticRuntimeCaptureSubmission.InvalidArguments,
+            owner.TrySubmit(identity, "../outside", CancellationToken.None, out _));
+        Assert.Equal(SemanticRuntimeCaptureSubmission.Accepted,
+            owner.TrySubmit(identity, "match-start", CancellationToken.None,
+                out Task<SemanticRuntimeCaptureCompletion>? completion));
+        Assert.True(owner.TryTakeForHost(1, 1, 12, out var request));
+        Assert.True(owner.TryDeliver(new RenderCaptureResult(request!.Request.RequestId,
+            12, CaptureTargetKind.FinalPresentedFrame, 1, 1, CapturePixelFormat.Rgb8,
+            CaptureRowOrientation.BottomUp, new byte[] { 1, 2, 3 }, "match-start")));
+        SemanticRuntimeCaptureCompletion result = await completion!;
+        Assert.True(result.Accepted);
+        Assert.StartsWith(Path.Combine(root, "client-a", "screenshots"),
+            result.Path!, StringComparison.Ordinal);
+        Assert.True(new FileInfo(result.Path!).Length > 0);
+        owner.Shutdown();
+        Directory.Delete(root, recursive: true);
     }
 
     private static string RequestJson(string command, string arguments, string commandId = "cmd-1",
