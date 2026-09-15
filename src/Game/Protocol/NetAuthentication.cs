@@ -39,6 +39,16 @@ public static class NetAuthentication
     /// </summary>
     public static bool TrySign(ReadOnlySpan<byte> key, NetAuthDirection direction,
         in NetHeader header, ReadOnlySpan<byte> payload, Span<byte> destination, out int length)
+        => TrySignForProtocol(NetHeader.Version, key, direction, header, payload,
+            destination, out length);
+
+    /// <summary>
+    /// Test seam for frozen authentication-domain vectors. Production callers
+    /// must use <see cref="TrySign"/>, which binds the live protocol version.
+    /// </summary>
+    internal static bool TrySignForProtocol(byte protocolVersion,
+        ReadOnlySpan<byte> key, NetAuthDirection direction, in NetHeader header,
+        ReadOnlySpan<byte> payload, Span<byte> destination, out int length)
     {
         length = 0;
         if (!ValidKey(key) || !ValidDirection(direction)
@@ -48,7 +58,7 @@ public static class NetAuthentication
         if (destination.Length < total) return false;
         header.Write(destination);
         payload.CopyTo(destination[NetHeader.Size..]);
-        ComputeTag(key, direction, destination[..NetHeader.Size], payload,
+        ComputeTag(protocolVersion, key, direction, destination[..NetHeader.Size], payload,
             destination.Slice(NetHeader.Size + payload.Length, TagSize));
         length = total;
         return true;
@@ -73,6 +83,17 @@ public static class NetAuthentication
     /// </summary>
     public static bool TryVerify(ReadOnlySpan<byte> key, NetAuthDirection direction,
         ReadOnlySpan<byte> datagram, out NetHeader header, out ReadOnlySpan<byte> payload)
+        => TryVerifyForProtocol(NetHeader.Version, key, direction, datagram,
+            out header, out payload);
+
+    /// <summary>
+    /// Test seam for verifying an explicitly versioned authentication domain.
+    /// It keeps frozen historical vectors independent from the live protocol.
+    /// </summary>
+    internal static bool TryVerifyForProtocol(byte protocolVersion,
+        ReadOnlySpan<byte> key, NetAuthDirection direction,
+        ReadOnlySpan<byte> datagram, out NetHeader header,
+        out ReadOnlySpan<byte> payload)
     {
         header = default;
         payload = default;
@@ -85,7 +106,7 @@ public static class NetAuthentication
         payload = datagram.Slice(NetHeader.Size, payloadLength);
         ReadOnlySpan<byte> receivedTag = datagram[^TagSize..];
         Span<byte> expected = stackalloc byte[TagSize];
-        ComputeTag(key, direction, datagram[..NetHeader.Size], payload, expected);
+        ComputeTag(protocolVersion, key, direction, datagram[..NetHeader.Size], payload, expected);
         if (!CryptographicOperations.FixedTimeEquals(expected, receivedTag))
         {
             header = default;
@@ -100,7 +121,8 @@ public static class NetAuthentication
     private static bool ValidDirection(NetAuthDirection direction)
         => direction is NetAuthDirection.ClientToServer or NetAuthDirection.ServerToClient;
 
-    private static void ComputeTag(ReadOnlySpan<byte> key, NetAuthDirection direction,
+    private static void ComputeTag(byte protocolVersion, ReadOnlySpan<byte> key,
+        NetAuthDirection direction,
         ReadOnlySpan<byte> header, ReadOnlySpan<byte> payload, Span<byte> tag)
     {
         int contextLength = DomainPrefix.Length + 2 + header.Length + payload.Length;
@@ -108,7 +130,7 @@ public static class NetAuthentication
         int offset = 0;
         DomainPrefix.CopyTo(context);
         offset += DomainPrefix.Length;
-        context[offset++] = NetHeader.Version;
+        context[offset++] = protocolVersion;
         context[offset++] = (byte)direction;
         header.CopyTo(context[offset..]);
         offset += header.Length;

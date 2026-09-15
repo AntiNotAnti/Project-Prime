@@ -24,7 +24,28 @@ public sealed class NetAuthenticationTests
     private static readonly IPEndPoint EndpointC = new(IPAddress.Loopback, 31003);
 
     [Fact]
-    public void SignVerifyUsesStableVectorAndSeparatesDirectionAndKey()
+    public void FrozenAlgorithmVectorUsesExplicitProtocol24Domain()
+    {
+        var header = new NetHeader(NetMessageType.Event, NetHeaderFlags.HasAck,
+            0x0102030405060708, 0x11223344, 0x55667788, 0x99AABBCC);
+        byte[] payload = { 0xA5, 0x00, 0x7F };
+        byte[] datagram = new byte[NetAuthentication.AuthenticatedSize(payload.Length)];
+
+        Assert.True(NetAuthentication.TrySignForProtocol(24, Key,
+            NetAuthDirection.ClientToServer, header, payload, datagram,
+            out int length));
+        Assert.Equal(datagram.Length, length);
+        Assert.Equal("892FC1A0A5ECE130521749733574C377",
+            Convert.ToHexString(datagram[^NetAuthentication.TagSize..]));
+        Assert.True(NetAuthentication.TryVerifyForProtocol(24, Key,
+            NetAuthDirection.ClientToServer, datagram, out NetHeader decoded,
+            out ReadOnlySpan<byte> decodedPayload));
+        Assert.Equal(header, decoded);
+        Assert.Equal(payload, decodedPayload.ToArray());
+    }
+
+    [Fact]
+    public void CurrentProtocolVectorUsesLiveNetHeaderVersion()
     {
         var header = new NetHeader(NetMessageType.Event, NetHeaderFlags.HasAck,
             0x0102030405060708, 0x11223344, 0x55667788, 0x99AABBCC);
@@ -34,19 +55,40 @@ public sealed class NetAuthenticationTests
         Assert.True(NetAuthentication.TrySign(Key, NetAuthDirection.ClientToServer,
             header, payload, datagram, out int length));
         Assert.Equal(datagram.Length, length);
-        Assert.Equal("892FC1A0A5ECE130521749733574C377",
+        Assert.Equal("054D70B1B5E292189CA735B207DBD6AB",
             Convert.ToHexString(datagram[^NetAuthentication.TagSize..]));
         Assert.True(NetAuthentication.TryVerify(Key, NetAuthDirection.ClientToServer,
             datagram, out NetHeader decoded, out ReadOnlySpan<byte> decodedPayload));
         Assert.Equal(header, decoded);
         Assert.Equal(payload, decodedPayload.ToArray());
+    }
 
-        byte[] wrongKey = (byte[])Key.Clone();
-        wrongKey[0] ^= 0xFF;
-        Assert.False(NetAuthentication.TryVerify(wrongKey, NetAuthDirection.ClientToServer,
-            datagram, out _, out _));
-        Assert.False(NetAuthentication.TryVerify(Key, NetAuthDirection.ServerToClient,
-            datagram, out _, out _));
+    [Fact]
+    public void AuthenticationDomainSeparatesKeyDirectionProtocolHeaderAndPayload()
+    {
+        var header = new NetHeader(NetMessageType.Event, NetHeaderFlags.HasAck,
+            0x0102030405060708, 0x11223344, 0x55667788, 0x99AABBCC);
+        byte[] payload = { 0xA5, 0x00, 0x7F };
+        byte[] baseline = SignWithProtocol(25, Key,
+            NetAuthDirection.ClientToServer, header, payload);
+
+        byte[] otherKey = (byte[])Key.Clone();
+        otherKey[0] ^= 0xFF;
+        byte[] otherPayload = (byte[])payload.Clone();
+        otherPayload[0] ^= 0x01;
+        Assert.NotEqual(Tag(baseline), Tag(SignWithProtocol(25, otherKey,
+            NetAuthDirection.ClientToServer, header, payload)));
+        Assert.NotEqual(Tag(baseline), Tag(SignWithProtocol(25, Key,
+            NetAuthDirection.ServerToClient, header, payload)));
+        Assert.NotEqual(Tag(baseline), Tag(SignWithProtocol(24, Key,
+            NetAuthDirection.ClientToServer, header, payload)));
+        Assert.NotEqual(Tag(baseline), Tag(SignWithProtocol(25, Key,
+            NetAuthDirection.ClientToServer, header, otherPayload)));
+        Assert.NotEqual(Tag(baseline), Tag(SignWithProtocol(25, Key,
+            NetAuthDirection.ClientToServer, header with { Ack = 0 }, payload)));
+
+        Assert.False(NetAuthentication.TryVerifyForProtocol(24, Key,
+            NetAuthDirection.ClientToServer, baseline, out _, out _));
     }
 
     [Fact]
@@ -576,6 +618,19 @@ public sealed class NetAuthenticationTests
             payload, datagram));
         return datagram;
     }
+
+    private static byte[] SignWithProtocol(byte protocol, byte[] key,
+        NetAuthDirection direction, NetHeader header, ReadOnlySpan<byte> payload)
+    {
+        byte[] datagram = new byte[NetAuthentication.AuthenticatedSize(payload.Length)];
+        Assert.True(NetAuthentication.TrySignForProtocol(protocol, key, direction,
+            header, payload, datagram, out int length));
+        Assert.Equal(datagram.Length, length);
+        return datagram;
+    }
+
+    private static string Tag(byte[] datagram)
+        => Convert.ToHexString(datagram[^NetAuthentication.TagSize..]);
 
     private static byte[] SignWithHeader(NetHeader header, ReadOnlySpan<byte> payload)
         => SignWithKey(Key, NetAuthDirection.ClientToServer, header, payload);
