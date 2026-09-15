@@ -643,9 +643,10 @@ jobs:
           path: artifacts/maps/current
 
       - name: package Backend, Node and Worker
-        run: tools/package-server.sh --rid "${{ matrix.rid }}" --skip-map-cook \
-          --map-artifacts "$GITHUB_WORKSPACE/artifacts/maps/current" \
-          --output "publish/server-${{ matrix.rid }}"
+        run: |
+          tools/package-server.sh --rid "${{ matrix.rid }}" --skip-map-cook \
+            --map-artifacts "$GITHUB_WORKSPACE/artifacts/maps/current" \
+            --output "publish/server-${{ matrix.rid }}"
 
       - name: server package structural checks
         run: |
