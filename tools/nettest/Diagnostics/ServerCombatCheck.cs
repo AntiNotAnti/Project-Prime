@@ -1,5 +1,6 @@
 using System;
 using MphRead.Entities;
+using MphRead.NetTest;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -7,12 +8,13 @@ namespace MphRead.Mods.Network
     /// <summary>Extracted-content diagnostic. Direct hit probes validate the resolver, not live hit registration.</summary>
     public static class ServerCombatCheck
     {
-        public static int Run(string data, string version, string room)
+        public static int Run(string data, string version, string room, bool balancedMode = false)
         {
             ServerContent.Open(data, version);
             Scene scene = Scene.CreateHeadless();
             try
             {
+                scene.Match.ApplyRules(BalanceProfileOptions.CreateRules(room, GameMode.Battle, balancedMode));
                 scene.LoadServerRoom(room, GameMode.Battle, players: 2);
                 PlayerEntity shooter = scene.Players[0], target = scene.Players[1];
                 var combat = new ServerCombat();
@@ -141,7 +143,7 @@ namespace MphRead.Mods.Network
                     if (target.Health != health) throw new ProgramException("Stale projectile transferred to replacement connection.");
                     Console.WriteLine("[combatcheck] death-once=PASS respawn-life=PASS replacement-connection=PASS");
                 }
-                Console.WriteLine($"[combatcheck] PASS weapons={covered} controlled-damage={damageEvents} dropped={combat.Dropped}");
+                Console.WriteLine($"[combatcheck] PASS profile={(balancedMode ? "Balanced" : "Classic")} weapons={covered} controlled-damage={damageEvents} dropped={combat.Dropped}");
                 return 0;
             }
             finally { scene.CloseHeadless(); }

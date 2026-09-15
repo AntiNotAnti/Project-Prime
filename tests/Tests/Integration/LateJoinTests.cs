@@ -53,7 +53,7 @@ public sealed class LateJoinTests
         {
             (71, (byte)4), // RulesetPreset.Custom is the final assigned value.
             (78, (byte)2), // RankingEligibility.VerifiedServerOnly is the final assigned value.
-            (83, (byte)1)
+            (83, (byte)2) // PowerupsEnabled accepts only zero or one.
         })
         {
             byte previous = bytes[index];

@@ -137,6 +137,29 @@ namespace MphRead.Tests
             Assert.False(client.Receive(Batch(records, 48, 2)));
             Assert.False(client.HasState);
         }
+
+        [Fact]
+        public void SceneAuthorityGateOpensOnlyAfterCompleteWorldIsApplied()
+        {
+            WorldRecord[] records = Records(WorldPacket.CanonicalRecordCount);
+            var client = new ClientWorldState();
+            client.Reset(7);
+            using Scene scene = Scene.CreateHeadless();
+
+            Assert.False(scene.HasCommittedReplicatedWorldState);
+            Assert.False(client.Receive(Batch(records, 0)));
+            client.Apply(scene);
+            Assert.False(scene.HasCommittedReplicatedWorldState);
+            Assert.False(client.Receive(Batch(records, 24)));
+            client.Apply(scene);
+            Assert.False(scene.HasCommittedReplicatedWorldState);
+            Assert.True(client.Receive(Batch(records, 48)));
+            Assert.False(scene.HasCommittedReplicatedWorldState);
+
+            client.Apply(scene);
+
+            Assert.True(scene.HasCommittedReplicatedWorldState);
+        }
         [Fact]
         public void AuthoritativeGoalRepairsTheRoomSetupDefault()
         {
@@ -167,6 +190,59 @@ namespace MphRead.Tests
             {
                 scene.CloseHeadless();
             }
+        }
+
+        [Fact]
+        public void EnhancedEffectRecordIsCanonicalProtocol23PresentationState()
+        {
+            const ulong connectionId = 0xFEDCBA9876543210;
+            WorldRecord effect = new(WorldRecordKind.EnhancedEffect, 3, 0, 77,
+                new Vector3(1, 2, 3), unchecked((uint)connectionId),
+                (uint)(connectionId >> 32), 9, 90, 0);
+            byte[] bytes = new byte[WorldRecord.Size];
+            effect.Write(bytes);
+            Assert.True(WorldRecord.TryRead(bytes, out WorldRecord decoded));
+            Assert.Equal(effect, decoded);
+            Assert.False(ClientWorldState.ShouldBootstrapEnhancedEffect(90));
+            Assert.True(ClientWorldState.ShouldBootstrapEnhancedEffect(89));
+            foreach (WorldRecord malformed in new[]
+            {
+                effect with { Slot = 8 }, effect with { Flags = 1 },
+                effect with { Id = 0 }, effect with { A = 0, B = 0 },
+                effect with { C = 0 }, effect with { D = 0 },
+                effect with { D = 91 }, effect with { E = 1 }
+            })
+            {
+                malformed.Write(bytes);
+                Assert.False(WorldRecord.TryRead(bytes, out _));
+            }
+
+            WorldRecord[] records = Records(WorldPacket.CanonicalRecordCount + 1);
+            records[^1] = effect;
+            var historical = new ClientWorldState { ProtocolVersion = 22 };
+            historical.Reset(7);
+            Assert.False(historical.ValidatePacket(Batch(records, 48)));
+
+            var current = new ClientWorldState();
+            current.Reset(7);
+            Assert.False(current.Receive(Batch(records, 0)));
+            Assert.False(current.Receive(Batch(records, 24)));
+            Assert.True(current.Receive(Batch(records, 48)));
+            using var scene = Scene.CreateHeadless();
+            scene.Match.ApplyRules(new MatchRules(MatchMode.Battle, "EH",
+                enhancedHunters: true, rulesetPreset: RulesetPreset.Custom,
+                rankingEligibility: RankingEligibility.Unranked));
+            current.Apply(scene);
+            Assert.Equal(1, current.EnhancedEffectCount);
+
+            WorldRecord[] retired = Records(WorldPacket.CanonicalRecordCount);
+            Assert.False(current.Receive(Batch(retired, 0, revision: 2)));
+            Assert.False(current.Receive(Batch(retired, 24, revision: 2)));
+            Assert.True(current.Receive(Batch(retired, 48, revision: 2)));
+            current.Apply(scene);
+            Assert.Equal(0, current.EnhancedEffectCount);
+            current.Reset(8);
+            Assert.Equal(0, current.EnhancedEffectCount);
         }
         [Fact]
         public void RandomPayloadsAreBoundedAndNonthrowing()

@@ -172,6 +172,10 @@ namespace MphRead.Entities
         {
             ItemInstanceEntity? item = null;
             if (scene.Services.IsReplica) { return null; }
+            if (!scene.Match.Rules.PowerupsEnabled && IsMajorPowerup(type))
+            {
+                return null;
+            }
             if (type != ItemType.None && (!chance.HasValue || scene.Random.GetRandomInt2(100) < chance.Value))
             {
                 item = new ItemInstanceEntity(new ItemInstanceEntityData(position, type, despawnTime), nodeRef, scene);
@@ -179,6 +183,10 @@ namespace MphRead.Entities
             }
             return item;
         }
+
+        public static bool IsMajorPowerup(ItemType type)
+            => type is ItemType.DoubleDamage or ItemType.Cloak
+                or ItemType.Deathalt or ItemType.OmegaCannon;
     }
 
     public class FhItemSpawnEntity : EntityBase

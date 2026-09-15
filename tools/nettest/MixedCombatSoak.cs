@@ -18,22 +18,25 @@ namespace MphRead.NetTest
 
         public static int RunServer(string[] args)
         {
-            if (args.Length != 7 || !int.TryParse(args[2], out int port) || port is < 1 or > 65535
+            if (!BalanceProfileOptions.TryGetTrailingProfile(args, 7, out bool balancedMode)
+                || !int.TryParse(args[2], out int port) || port is < 1 or > 65535
                 || !int.TryParse(args[3], out int seconds) || seconds is < 10 or > 300 || args[5] is not ("on" or "trace-only" or "off") || !uint.TryParse(args[6], out uint seed))
-            { Console.Error.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON on|trace-only|off SEED"); return 2; }
-            try { return Server(args[1], port, seconds, args[4], args[5], seed); }
+            { Console.Error.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON on|trace-only|off SEED [--balanced]"); return 2; }
+            try { return Server(args[1], port, seconds, args[4], args[5], seed, balancedMode); }
             catch (Exception error) { Console.Error.WriteLine(error); return 1; }
         }
 
-        private static int Server(string data, int port, int seconds, string report, string mode, uint seed)
+        private static int Server(string data, int port, int seconds, string report, string mode,
+            uint seed, bool balancedMode)
         {
             const string room = "MP1 SANCTORUS";
             ServerContent.Open(data, "AMHE1");
 
-            using var simulation = new ServerSimulation(new RotationEntry { RoomKey = room, Mode = GameMode.Battle, PointGoal = 0 }, lagCompEnabled: mode != "off", projectileCatchUpEnabled: mode == "on", rng1: seed, rng2: unchecked(seed + 1));
+            MatchRules rules = BalanceProfileOptions.CreateRules(room, GameMode.Battle, balancedMode);
+            using var simulation = new ServerSimulation(rules, lagCompEnabled: mode != "off", projectileCatchUpEnabled: mode == "on", rng1: seed, rng2: unchecked(seed + 1));
             using var transport = new NetTransport(port);
             using var process = Process.GetCurrentProcess();
-            var network = new ServerNetwork(transport, room, GameMode.Battle);
+            var network = new ServerNetwork(transport, rules);
             var scheduler = new FixedTickScheduler();
             var world = new WorldStateCapture();
             var lives = new uint[8];
@@ -54,7 +57,7 @@ namespace MphRead.NetTest
             bool arranged = false, finished = false, success = false;
             Span<byte> packet = stackalloc byte[NetConfig.MaxPacketSize];
             Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
-            Console.WriteLine($"MIXEDSOAK listening on UDP {port}; fixed loadouts, infinite ammo, normal deaths/respawns; no rendering");
+            Console.WriteLine($"MIXEDSOAK listening on UDP {port} profile={(balancedMode ? "Balanced" : "Classic")}; fixed loadouts, infinite ammo, normal deaths/respawns; no rendering");
             while (!finished || Stopwatch.GetElapsedTime(measureAt).TotalSeconds < seconds + 10)
             {
                 int due = scheduler.TakeDue(Stopwatch.GetTimestamp());
@@ -188,7 +191,7 @@ namespace MphRead.NetTest
                             && unresolvedMechanics == 0 && simulation.Combat.CatchUp.QueueDrops == 0 && simulation.Combat.CatchUp.Pending == 0
                             && simulation.Combat.CatchUp.MaxSteps <= LagCompensationPolicy.MaxProjectileFastForwardTicks
                             && (activeMechanics[2] > 0 || homingRootTargets > 0) && activeMechanics[3] > 0 && maxDue <= FixedTickScheduler.MaxCatchUp;
-                        var result = new { passed = pass, mode, seed, lagCompensation = simulation.Combat.LagCompEnabled, projectileCatchUp = simulation.Combat.ProjectileCatchUpEnabled, seconds = wall, ticks = durationCount, minimumPeers,
+                        var result = new { passed = pass, profile = balancedMode ? "Balanced" : "Classic", balancedMode, mode, seed, lagCompensation = simulation.Combat.LagCompEnabled, projectileCatchUp = simulation.Combat.ProjectileCatchUpEnabled, seconds = wall, ticks = durationCount, minimumPeers,
                             conditions = "fixed server loadouts; infinite ammo; normal inputs, damage, death and respawn; no rendering",
                             modeNames = new[] { "travelingProjectile", "historicalTrace", "homingProjectile", "continuousBeam" },
                             rootShots = modes, unresolvedMechanics, homingRootTargets,

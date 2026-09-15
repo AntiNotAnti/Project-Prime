@@ -11,7 +11,8 @@ namespace MphRead.NetTest
     {
         private const uint Tick = 100, ActionTick = 85;
 
-        public static void RunCases(string data, string version = "AMHE1", string room = "MP1 SANCTORUS")
+        public static void RunCases(string data, string version = "AMHE1",
+            string room = "MP1 SANCTORUS", bool balancedMode = false)
         {
             ServerContent.Open(data, version);
             foreach (string name in new[] { "moving-history", "current-only-miss", "wall-before-player",
@@ -19,13 +20,21 @@ namespace MphRead.NetTest
                 "single-kill", "historical-splash", "splash-wall-los" })
             {
                 Scene scene = Scene.CreateHeadless();
-                try { scene.LoadServerRoom(room, GameMode.Battle, players: 2); Run(scene, name); }
+                try
+                {
+                    scene.Match.ApplyRules(BalanceProfileOptions.CreateRules(room, GameMode.Battle, balancedMode));
+                    scene.LoadServerRoom(room, GameMode.Battle, players: 2); Run(scene, name);
+                }
                 finally { scene.CloseHeadless(); }
             }
             foreach (bool later in new[] { false, true })
             {
                 Scene scene = Scene.CreateHeadless();
-                try { scene.LoadServerRoom(room, GameMode.Battle, players: 2); RunChild(scene, later); }
+                try
+                {
+                    scene.Match.ApplyRules(BalanceProfileOptions.CreateRules(room, GameMode.Battle, balancedMode));
+                    scene.LoadServerRoom(room, GameMode.Battle, players: 2); RunChild(scene, later);
+                }
                 finally { scene.CloseHeadless(); }
             }
         }
@@ -46,6 +55,7 @@ namespace MphRead.NetTest
             var beam = new BeamProjectileEntity(scene);
             var impactObserver = new ImpactObserver(scene);
             var equip = new EquipInfo(Weapons.Current[(int)BeamType.Judicator], new[] { beam }) { InfiniteAmmo = true };
+            WeaponBalanceResolver.Apply(equip, shooter.Hunter, scene.Match.BalanceContext);
             var combat = new ServerCombat();
             for (uint tick = ActionTick; tick < Tick; tick++)
                 foreach (PlayerEntity player in new[] { shooter, target })
@@ -53,7 +63,7 @@ namespace MphRead.NetTest
                     CombatActor actor = player.ServerCombatIdentity;
                     combat.History.Record(tick, player, actor.ConnectionId, actor.Life);
                 }
-            using (var services = new CombatSceneScope(scene, combat))
+            using var services = new CombatSceneScope(scene, combat);
             combat.BeginTick(Tick);
             {
                 combat.SetCommand(0, new(1, Tick, later ? Tick - 1 : ActionTick, 0, 0, direction, (byte)BeamType.Judicator), 250);
@@ -161,8 +171,9 @@ namespace MphRead.NetTest
             int initialHealth = target.Health;
             BeamType weapon = splash ? BeamType.Magmaul : BeamType.PowerBeam;
             var equip = new EquipInfo(Weapons.Current[(int)weapon], shooter.EquipInfo.Beams) { InfiniteAmmo = true };
+            WeaponBalanceResolver.Apply(equip, shooter.Hunter, scene.Match.BalanceContext);
             if (splash) equip.ChargeLevel = (ushort)(equip.Weapon.FullCharge * 2);
-            using (var services = new CombatSceneScope(scene, combat))
+            using var services = new CombatSceneScope(scene, combat);
             combat.BeginTick(Tick);
             {
                 combat.SetCommand(0, new(1, Tick, name == "replacement-current-endpoint" ? Tick - 2 : ActionTick, 0, 0, direction, (byte)weapon), 250);

@@ -16,6 +16,7 @@ public sealed class AltFormTransitionTests
     [InlineData(Hunter.Noxus)]
     [InlineData(Hunter.Spire)]
     [InlineData(Hunter.Weavel)]
+    [InlineData(Hunter.Guardian)]
     public void GroundedFormTransitionsPreserveWorldBottom(Hunter hunter)
     {
         Vector3 origin = new(12.5f, 3.25f, -8.75f);
@@ -34,6 +35,7 @@ public sealed class AltFormTransitionTests
     [InlineData(Hunter.Noxus)]
     [InlineData(Hunter.Spire)]
     [InlineData(Hunter.Weavel)]
+    [InlineData(Hunter.Guardian)]
     public void AirborneFormTransitionsPreserveSphereCenter(Hunter hunter)
     {
         Vector3 origin = new(-3.5f, 11.25f, 5.75f);
@@ -45,12 +47,12 @@ public sealed class AltFormTransitionTests
     }
 
     [Fact]
-    public void GuardianIsTheCataloguedBipedOnlyBoundary()
+    public void GuardianUsesTheOfficialPlayableAltBoundary()
     {
-        Assert.False(PlayerEntity.SupportsAltForm(Hunter.Guardian));
+        Assert.True(PlayerEntity.SupportsAltForm(Hunter.Guardian));
         Assert.Equal(Hunter.Guardian,
             Metadata.PlayerValues[(int)Hunter.Guardian].Hunter);
-        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Guardian; hunter++)
         {
             Assert.True(PlayerEntity.SupportsAltForm(hunter));
         }
@@ -86,30 +88,31 @@ public sealed class AltFormTransitionTests
     [Fact]
     public void ReplicatedAltAttackIsGenericAcrossOfficialHunters()
     {
-        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Weavel; hunter++)
+        for (Hunter hunter = Hunter.Samus; hunter <= Hunter.Guardian; hunter++)
         {
-            bool supported = hunter is Hunter.Trace or Hunter.Spire or Hunter.Weavel;
+            bool supported = PlayableHunterCatalog.Get(hunter)
+                .SupportsReplicatedAltAttack;
             Assert.Equal(supported, PlayerEntity.SupportsReplicatedAltAttack(hunter));
             Assert.Equal(supported, PlayerEntity.ShouldCaptureReplicatedAltAttack(
                 hunter, alive: true, altForm: true, altAttack: true));
             Assert.Equal(supported, PlayerEntity.ShouldApplyReplicatedAltAttack(
                 spawned: true, health: 1, hunter: hunter,
-                flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack));
+                flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.AltAttack));
             Assert.Equal(supported,
                 PlayerEntity.ShouldReconcileReplicatedAltAttack(hunter,
                     predicted: false, newLife: false));
         }
 
-        Assert.False(PlayerEntity.ShouldCaptureReplicatedAltAttack(
+        Assert.True(PlayerEntity.ShouldCaptureReplicatedAltAttack(
             Hunter.Guardian, alive: true, altForm: true, altAttack: true));
-        Assert.False(PlayerEntity.ShouldApplyReplicatedAltAttack(
+        Assert.True(PlayerEntity.ShouldApplyReplicatedAltAttack(
             spawned: true, health: 1, hunter: Hunter.Guardian,
-            flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack));
+            flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.AltAttack));
         Assert.False(PlayerEntity.ShouldCaptureReplicatedAltAttack(
             Hunter.Samus, alive: true, altForm: false, altAttack: true));
         Assert.False(PlayerEntity.ShouldApplyReplicatedAltAttack(
             spawned: true, health: 0, hunter: Hunter.Samus,
-            flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack));
+            flags: SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.AltAttack));
         Assert.False(PlayerEntity.ShouldReconcileReplicatedAltAttack(
             Hunter.Noxus, predicted: false, newLife: false));
     }
@@ -146,7 +149,8 @@ public sealed class AltFormTransitionTests
             TeamIndex = 0,
             Weapon = 0,
             Flags = SnapshotPlayerFlags.Active | SnapshotPlayerFlags.Spawned
-                | SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.SpireAltAttack,
+                | SnapshotPlayerFlags.AltForm | SnapshotPlayerFlags.AltAttack,
+            AltAction = new AltActionState(AltActionPhase.Active, 0),
             Health = 100,
             Life = 1,
             ConnectionId = 1,
@@ -154,7 +158,8 @@ public sealed class AltFormTransitionTests
             Speed = Vector3.Zero,
             Aim = -Vector3.UnitZ,
             Facing = -Vector3.UnitZ,
-            AvailableWeapons = 1
+            AvailableWeapons = 1,
+            EnhancedTargetSlot = 255
         };
         byte[] bytes = new byte[SnapshotPlayer.Size];
 

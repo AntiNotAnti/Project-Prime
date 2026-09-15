@@ -10,6 +10,9 @@ namespace MphRead
         // Assigned from the existing server/protocol identity at the session boundary.
         public uint MatchId { get; set; }
         public MatchRules Rules { get; private set; }
+        /// <summary>Immutable balance profile captured for this match.</summary>
+        internal MatchBalanceContext Balance { get; private set; }
+        internal MatchBalanceContext BalanceContext => Balance;
         public MatchPhase Phase { get; set; } = MatchPhase.Playing;
         public MatchPeriod Period { get; set; } = MatchPeriod.Regulation;
         public uint PeriodStartTick { get; set; }
@@ -112,6 +115,7 @@ namespace MphRead
         public MatchRuntime(MatchRules rules, Scene? scene = null)
         {
             Rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            Balance = MatchBalanceContext.For(rules);
             SemanticEvents.Subscribe(Awards);
             _scene = scene;
             if (scene != null)
@@ -202,7 +206,39 @@ namespace MphRead
         /// Does not reset timers or accumulated scores.</summary>
         public void ApplyRules(MatchRules rules)
         {
-            Rules = rules ?? throw new ArgumentNullException(nameof(rules));
+            if (rules == null) throw new ArgumentNullException(nameof(rules));
+            GameplayBalanceProfile requestedProfile = MatchBalanceContext.ProfileFor(rules);
+            if (Balance.Profile == requestedProfile)
+            {
+                // Rule replication can update non-balance settings frequently.
+                // Keep the immutable profile object (and all effective equip
+                // state) when the requested balance profile is unchanged.
+                Rules = rules;
+                return;
+            }
+
+            MatchBalanceContext balance = MatchBalanceContext.For(rules);
+            Rules = rules;
+            Balance = balance;
+            if (_scene == null)
+            {
+                return;
+            }
+
+            // A profile transition is a rules-boundary operation. Reconcile
+            // only slots that have actually been prepared by the scene; the
+            // other fixed slot objects are inert placeholders with no equip
+            // boundary yet. PlayerEntity also propagates the transition to
+            // its owned halfturret when one exists.
+            for (int i = 0; i < _scene.Players.Count; i++)
+            {
+                PlayerEntity player = _scene.Players[i];
+                if (!player.Initialized || !player.LoadFlags.TestFlag(LoadFlags.SlotActive))
+                {
+                    continue;
+                }
+                player.ApplyBalanceProfile(balance);
+            }
         }
     }
 }

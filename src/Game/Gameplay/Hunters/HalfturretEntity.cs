@@ -75,12 +75,22 @@ namespace MphRead.Entities
             }
             _grounded = Owner.Flags1.TestFlag(PlayerFlags1.Standing);
             EquipInfo.Beams = Owner.EquipInfo.Beams;
-            EquipInfo.Weapon = Weapons.Current[3]; // non-affinity Battlehammer
+            EquipInfo.Weapon = Weapons.Current[(int)BeamType.Battlehammer]; // non-affinity Battlehammer
+            WeaponBalanceResolver.Apply(EquipInfo, Owner.Hunter, _scene.Match.Balance);
             _models[0].SetAnimation(1, AnimFlags.NoLoop);
             _light1Vector = Owner.Light1Vector;
             _light1Color = Owner.Light1Color;
             _light2Vector = Owner.Light2Vector;
             _light2Color = Owner.Light2Color;
+        }
+
+        internal void ApplyBalanceProfile(MatchBalanceContext balance)
+        {
+            if (EquipInfo.Weapon == null || EquipInfo.Beams == null) return;
+            // The turret always equips the non-affinity Battlehammer metadata;
+            // the resolver consequently applies the shared profile without
+            // inheriting Weavel's affinity radius exception.
+            WeaponBalanceResolver.Apply(EquipInfo, Owner.Hunter, balance);
         }
 
         public override void GetVectors(out Vector3 position, out Vector3 up, out Vector3 facing)
@@ -287,8 +297,8 @@ namespace MphRead.Entities
             float hMagSqr = aimVector.X * aimVector.X + aimVector.Z * aimVector.Z;
             float hMag = MathF.Sqrt(hMagSqr);
             // todo?: seems okay without FPS stuff here, but we need to confirm
-            float uncSpeed = Fixed.ToFloat(weapon.UnchargedSpeed);
-            float speed = (Fixed.ToFloat(weapon.MinChargeSpeed) - uncSpeed) * chargePct;
+            float uncSpeed = Fixed.ToFloat(equipInfo.UnchargedSpeed);
+            float speed = (Fixed.ToFloat(equipInfo.MinChargeSpeed) - uncSpeed) * chargePct;
             float uncGravity = Fixed.ToFloat(weapon.UnchargedGravity);
             float gravity = (Fixed.ToFloat(weapon.MinChargeGravity) - uncGravity) * chargePct;
             float v23 = hMagSqr * (uncGravity + gravity) / ((uncSpeed + speed) * (uncSpeed + speed));

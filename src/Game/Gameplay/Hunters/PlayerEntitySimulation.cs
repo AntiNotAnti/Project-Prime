@@ -26,7 +26,8 @@ namespace MphRead.Entities
             Hunter = hunter;
             TeamIndex = team;
             Team = _scene.Match.Rules.Teams ? team == 0 ? Team.Orange : Team.Green : Team.None;
-            Recolor = _scene.Match.Rules.Teams ? team == 0 ? 4 : 5 : 0;
+            Recolor = PlayableHunterCatalog.ValidateRecolor(hunter,
+                _scene.Match.Rules.Teams ? team == 0 ? 4 : 5 : 0);
             IsBot = botSkill.HasValue;
             if (botSkill.HasValue)
             {
@@ -60,8 +61,10 @@ namespace MphRead.Entities
 
         internal void ServerDeactivate()
         {
+            ResetEnhancedHunterState();
             ClearClientCombatIdentity();
             ClearPowerupPresentationState();
+            ResetPresentedAltAction();
             _aimAssist.Reset();
             ResetLockjawBombState();
             AdvancePresentationPoseEpoch();
@@ -195,6 +198,7 @@ namespace MphRead.Entities
         internal SnapshotPlayer CaptureServerState()
         {
             bool alive = Health > 0 && LoadFlags.TestFlag(LoadFlags.Spawned);
+            AltActionState altAction = CaptureAltActionState(alive);
             if (alive && !_serverWasAlive) { _serverLife++; }
             _serverWasAlive = alive;
             SnapshotPlayerFlags flags = SnapshotPlayerFlags.Active;
@@ -211,10 +215,9 @@ namespace MphRead.Entities
             if (Flags2.TestFlag(PlayerFlags2.Spectating)) flags |= SnapshotPlayerFlags.Spectating;
             if (Flags1.TestFlag(PlayerFlags1.Grounded)) flags |= SnapshotPlayerFlags.Grounded;
             if (Flags2.TestFlag(PlayerFlags2.Cloaking) && _cloakTimer > 0) flags |= SnapshotPlayerFlags.Cloaking;
-            if (ShouldCaptureReplicatedAltAttack(Hunter, alive, IsAltForm,
-                Flags2.TestFlag(PlayerFlags2.AltAttack)))
+            if (altAction.Phase != AltActionPhase.None)
             {
-                flags |= SnapshotPlayerFlags.SpireAltAttack;
+                flags |= SnapshotPlayerFlags.AltAttack;
             }
             ushort available = 0;
             for (int weapon = 0; weapon <= 8; weapon++)
@@ -235,9 +238,98 @@ namespace MphRead.Entities
                 ChargeLevel = EquipInfo.ChargeLevel,
                 DoubleDamageTicks = _doubleDmgTimer, CloakTicks = _cloakTimer,
                 DeathaltTicks = _deathaltTimer,
+                EnhancedTargetSlot = EnhancedHuntersEnabled && _enhancedTargetTicks > 0
+                    ? _enhancedTarget.Slot : (byte)255,
+                EnhancedTargetTicks = EnhancedHuntersEnabled ? _enhancedTargetTicks : (ushort)0,
+                Overcharge = EnhancedHuntersEnabled ? _overcharge : (byte)0,
+                ChilledTicks = EnhancedHuntersEnabled ? _chilledTicks : (ushort)0,
+                CloakFadeTicks = EnhancedHuntersEnabled ? _cloakFadeTicks : (ushort)0,
+                AltAction = altAction,
                 Points = _scene.Match.Players[SlotIndex].Points, Kills = _scene.Match.Players[SlotIndex].Kills,
                 Deaths = _scene.Match.Players[SlotIndex].Deaths
             };
+        }
+
+        internal AltActionState CaptureAltActionState(bool alive)
+        {
+            AltActionState current = ResolveAltActionState(Hunter, alive,
+                IsAltForm, Flags2.TestFlag(PlayerFlags2.AltAttack),
+                _altAttackTime,
+                SimTicks.From30HzFrames(Values.AltAttackStartup));
+            if (current.Phase == AltActionPhase.None)
+                return AltActionState.None;
+            // Noxus's charging pose is authored directly by _altAttackTime.
+            // That timer pauses while frozen, so never replace it with the
+            // general wall-clock-like active phase counter.
+            if (Hunter == Hunter.Noxus
+                && current.Phase == AltActionPhase.Charging)
+            {
+                return current;
+            }
+            ushort ticks = _authoritativeAltActionPhase == current.Phase
+                ? _authoritativeAltActionTicks : (ushort)0;
+            return new AltActionState(current.Phase, ticks);
+        }
+
+        /// <summary>
+        /// Advance exactly once per simulation tick, after gameplay input and
+        /// collision have settled the action phase for this player. Snapshot
+        /// capture is deliberately read-only and therefore cannot make action
+        /// time depend on replication frequency.
+        /// </summary>
+        private void AdvanceAuthoritativeAltActionClock()
+        {
+            bool alive = Health > 0 && LoadFlags.TestFlag(LoadFlags.Spawned);
+            AltActionPhase phase = ResolveAltActionState(Hunter, alive,
+                IsAltForm, Flags2.TestFlag(PlayerFlags2.AltAttack),
+                _altAttackTime,
+                SimTicks.From30HzFrames(Values.AltAttackStartup)).Phase;
+            AltActionState next = AdvanceAltActionClock(
+                new AltActionState(_authoritativeAltActionPhase,
+                    _authoritativeAltActionTicks), phase);
+            _authoritativeAltActionPhase = next.Phase;
+            _authoritativeAltActionTicks = next.Ticks;
+        }
+
+        internal static AltActionState AdvanceAltActionClock(
+            AltActionState current, AltActionPhase phase)
+        {
+            if (phase == AltActionPhase.None) return AltActionState.None;
+            if (phase != current.Phase) return new AltActionState(phase, 0);
+            return new AltActionState(phase,
+                current.Ticks == ushort.MaxValue
+                    ? ushort.MaxValue : (ushort)(current.Ticks + 1));
+        }
+
+        /// <summary>
+        /// Resolve the one authoritative alternate-action representation. The
+        /// Noxus is the only current action with an authored charging phase.
+        /// Elapsed phase ticks are supplied by the independent simulation
+        /// clock above rather than this phase classifier.
+        /// </summary>
+        internal static AltActionState ResolveAltActionState(Hunter hunter,
+            bool alive, bool altForm, bool altAttack, ushort altAttackTime,
+            int startupTicks)
+        {
+            if (!alive || !altForm) return AltActionState.None;
+            if (hunter is Hunter.Trace or Hunter.Weavel or Hunter.Spire
+                or Hunter.Guardian)
+            {
+                return altAttack
+                    ? new AltActionState(AltActionPhase.Active, 0)
+                    : AltActionState.None;
+            }
+            if (hunter != Hunter.Noxus || altAttackTime == 0)
+                return AltActionState.None;
+            startupTicks = Math.Max(1, startupTicks);
+            if (altAttackTime < startupTicks)
+            {
+                return new AltActionState(AltActionPhase.Charging,
+                    (ushort)Math.Max(0, altAttackTime - 1));
+            }
+            int elapsed = altAttackTime - startupTicks;
+            return new AltActionState(AltActionPhase.Active,
+                (ushort)Math.Clamp(elapsed, 0, ushort.MaxValue));
         }
 
         internal static bool ShouldCaptureReplicatedAltAttack(Hunter hunter,

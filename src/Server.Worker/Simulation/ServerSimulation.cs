@@ -316,7 +316,8 @@ namespace MphRead.Mods.Network
                         Slot = peer.Slot, Hunter = peer.Hunter, TeamIndex = peer.TeamIndex,
                         ConnectionId = peer.Connection.Id, Life = 1,
                         Flags = SnapshotPlayerFlags.Spectating | SnapshotPlayerFlags.WaitingForMatch,
-                        Aim = -OpenTK.Mathematics.Vector3.UnitZ, Facing = -OpenTK.Mathematics.Vector3.UnitZ
+                        Aim = -OpenTK.Mathematics.Vector3.UnitZ, Facing = -OpenTK.Mathematics.Vector3.UnitZ,
+                        EnhancedTargetSlot = 255
                     };
                     continue;
                 }

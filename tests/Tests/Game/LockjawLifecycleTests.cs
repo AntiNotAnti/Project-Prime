@@ -1,9 +1,14 @@
+using System;
+using System.IO;
 using System.Reflection;
 using MphRead.Entities;
+using MphRead.Mods.Network;
+using OpenTK.Mathematics;
 using Xunit;
 
 namespace MphRead.Tests;
 
+[Collection("Match baseline globals")]
 public sealed class LockjawLifecycleTests
 {
     [Fact]
@@ -128,6 +133,44 @@ public sealed class LockjawLifecycleTests
         Assert.Equal(3, owner.SyluxBombCount);
     }
 
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void ActualDeathThenRespawnClearsRegisteredLockjawBombs()
+    {
+        using var content = OpenContent();
+        using var simulation = new ServerSimulation(new MatchRules(
+            MatchMode.Battle, "MP1 SANCTORUS", maxPlayers: 1));
+        Scene scene = simulation.Scene;
+        scene.Match.Phase = MatchPhase.Playing;
+        PlayerEntity owner = scene.Players[0];
+        owner.ServerActivate(0x601, Hunter.Sylux, team: 0);
+        scene.Players.ActiveCount = 1;
+
+        BombEntity bomb = BombEntity.Spawn(owner,
+            Matrix4.CreateTranslation(owner.Position), scene)!;
+        Assert.True(owner.TryRegisterLockjawBomb(bomb));
+        Assert.Equal(1, owner.SyluxBombCount);
+
+        owner.TakeDamage((uint)owner.HealthMax,
+            DamageFlags.Death | DamageFlags.NoDmgInvuln, null, null);
+        Assert.Equal(0, owner.Health);
+        Assert.Equal(1, owner.SyluxBombCount);
+
+        // Drive the production PlayerProcess caller: a held fire input is the
+        // normal death-screen respawn edge in a non-replica match. This keeps
+        // the assertion separate from the direct registry reset tests above:
+        // a caller can preserve the generation fence while still forgetting
+        // to invoke it on the real respawn path.
+        owner.RespawnTimer = 1;
+        owner.Controls.Shoot.IsDown = true;
+        scene.StepHeadlessFrame(advanceMatch: false);
+
+        Assert.True(owner.Health > 0);
+        Assert.Equal(0, owner.SyluxBombCount);
+        Assert.All(owner.SyluxBombs, Assert.Null);
+        Assert.Equal(-1, bomb.BombIndex);
+    }
+
     private static (Scene Scene, PlayerEntity Owner) CreateOwner()
     {
         var scene = new Scene();
@@ -144,5 +187,39 @@ public sealed class LockjawLifecycleTests
         typeof(BombEntity).GetProperty(nameof(BombEntity.BombType), BindingFlags.Instance | BindingFlags.Public)!
             .SetValue(bomb, type);
         return bomb;
+    }
+
+    private static IDisposable OpenContent()
+    {
+        string? configured = Environment.GetEnvironmentVariable("GAME_DATA_DIRECTORY");
+        string[] starts = configured is null
+            ? new[] { Directory.GetCurrentDirectory(), AppContext.BaseDirectory }
+            : new[] { configured, Directory.GetCurrentDirectory(), AppContext.BaseDirectory };
+        foreach (string start in starts)
+        {
+            DirectoryInfo? directory = new(Path.GetFullPath(start));
+            while (directory != null)
+            {
+                string candidate = Path.Combine(directory.FullName, "AMHE1");
+                if (File.Exists(Path.Combine(candidate, "_bin", "arm9.bin"))
+                    && Directory.Exists(Path.Combine(candidate, "models"))
+                    && Directory.Exists(Path.Combine(candidate, "levels")))
+                {
+                    IDisposable context = ServerContent.PreserveContext("AMHE1");
+                    try
+                    {
+                        ServerContent.Open(candidate, "AMHE1");
+                        return context;
+                    }
+                    catch
+                    {
+                        context.Dispose();
+                        throw;
+                    }
+                }
+                directory = directory.Parent;
+            }
+        }
+        throw new DirectoryNotFoundException("AMHE1 extracted content was not found.");
     }
 }

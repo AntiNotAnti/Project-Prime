@@ -113,10 +113,12 @@ namespace MphRead
         void NoteShot(in CombatShot shot, BeamType weapon, bool charged, Vector3 position, Vector3 direction,
             ushort chargeLevel = 0, bool affinity = false, uint spreadSeed = 0);
         void NoteBomb(in CombatShot shot, BombType type, Vector3 position, Vector3 facing);
+        void NoteEnhancedEffect(in CombatShot shot, BeamType weapon,
+            CombatEventFlags flags, Vector3 position) { }
         void NoteSpawn(PlayerEntity player);
         void NoteHealing(PlayerEntity player, int amount) { }
         void NoteDamage(PlayerEntity victim, EntityBase? source, PlayerEntity? attacker, BeamType weapon,
             DamageFlags flags, Vector3? direction, int previousHealth, ushort frozen, ushort burn,
-            ushort disrupt, bool afflictionChanged);
+            ushort disrupt, bool afflictionChanged, int absorbedOvercharge = 0);
     }
 }

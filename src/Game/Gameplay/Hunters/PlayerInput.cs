@@ -279,9 +279,11 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            WeaponInfo info = Weapons.Current[(int)beam];
+            WeaponInfo info = WeaponBalanceResolver.SelectWeapon(beam, Hunter);
             int ammo = _ammo[info.AmmoType];
-            return beam == BeamType.PowerBeam || ammo == -1 || ammo >= info.AmmoCost;
+            ushort ammoCost = WeaponBalanceResolver.GetEffectiveAmmoCost(
+                info, Hunter, _scene.Match.Balance);
+            return beam == BeamType.PowerBeam || ammo == -1 || ammo >= ammoCost;
         }
 
         private bool EndWeaponMenu()
@@ -805,7 +807,7 @@ namespace MphRead.Entities
                     else
                     {
                         bool releaseCharge = false;
-                        if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
+                        if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipInfo.ChargeCost)
                         {
                             releaseCharge = true; // charge released/insufficient
                         }
@@ -838,8 +840,8 @@ namespace MphRead.Entities
                                 if (EquipInfo.ChargeLevel > minCharge)
                                 {
                                     int fullCharge = SimTicks.From30HzFrames(EquipWeapon.FullCharge);
-                                    int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
-                                    int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
+                                    int chargeCost = EquipInfo.ChargeCost * 2; // todo: FPS stuff
+                                    int minCost = EquipInfo.MinChargeCost * 2; // todo: FPS stuff
                                     int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
                                     if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
                                     {
@@ -942,6 +944,8 @@ namespace MphRead.Entities
                         }
                     }
                 }
+                speedDelta = ApplyEnhancedChillAcceleration(speedDelta,
+                    _chilledTicks);
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
                 Speed += speedDelta; // todo: FPS stuff?
                 float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
@@ -968,11 +972,17 @@ namespace MphRead.Entities
                 // their delayed presentation sample supplies only the local
                 // animation decision. Physics, movement flags, and control state
                 // remain untouched.
+                bool remoteBipedAnimation = false;
                 if (anim1 == PlayerAnimation.None
                     && _desiredRemoteBipedAnimation != PlayerAnimation.None
                     && CanApplySnapshotBipedAnimation(Biped1Anim, Biped1Flags))
                 {
                     anim1 = _desiredRemoteBipedAnimation;
+                    remoteBipedAnimation = true;
+                    if (IsSnapshotJumpAnimation(anim1))
+                    {
+                        animFlags1 = AnimFlags.NoLoop;
+                    }
                 }
                 if (anim1 == PlayerAnimation.None)
                 {
@@ -992,8 +1002,8 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                else if (anim1 != Biped1Anim || anim1 == PlayerAnimation.JumpForward || anim1 == PlayerAnimation.JumpBack
-                    || anim1 == PlayerAnimation.JumpLeft || anim1 == PlayerAnimation.JumpRight || anim1 == PlayerAnimation.JumpNeutral)
+                else if (ShouldSetBipedLocomotionAnimation(anim1,
+                    Biped1Anim, remoteBipedAnimation))
                 {
                     SetBiped1Animation(anim1, animFlags1);
                 }
@@ -1062,8 +1072,14 @@ namespace MphRead.Entities
             WeaponInfo curWeapon = EquipInfo.Weapon;
             if (IsPrimeHunter)
             {
-                // todo?: make this more solid to avoid e.g. the battlehammer ammo cost thing
-                EquipInfo.Weapon = Weapons.Current[(int)CurrentWeapon + 9];
+                // Prime Hunter shots use the affinity table entry for the
+                // selected beam. Reapply the profile for the temporary equip
+                // so cost and projectile values remain authoritative, then
+                // restore the player's actual equip below.
+                EquipInfo.Weapon = WeaponBalanceResolver.SelectWeapon(
+                    CurrentWeapon, Hunter, forceAffinity: true);
+                WeaponBalanceResolver.Apply(EquipInfo, Hunter,
+                    _scene.Match.Balance);
             }
             BeamSpawnFlags flags = BeamSpawnFlags.NoMuzzle;
             if (_doubleDmgTimer > 0)
@@ -1079,6 +1095,8 @@ namespace MphRead.Entities
             if (result == BeamResultFlags.NoSpawn)
             {
                 EquipInfo.Weapon = curWeapon;
+                WeaponBalanceResolver.Apply(EquipInfo, Hunter,
+                    _scene.Match.Balance);
                 PlayBeamEmptySfx(EquipInfo.Weapon.Beam);
                 return false;
             }
@@ -1128,11 +1146,12 @@ namespace MphRead.Entities
             bool homing = result.TestFlag(BeamResultFlags.Homing);
             float amountA = 0x3FFF * _shockCoilTimer / (float)SimTicks.Hz;
             PlayBeamShotSfx(EquipInfo.Weapon.Beam, charged, continuous, homing, amountA);
-            if (EquipInfo.Weapon.Beam == BeamType.Imperialist && EquipInfo.Ammo >= EquipInfo.Weapon.AmmoCost)
+            if (EquipInfo.Weapon.Beam == BeamType.Imperialist && EquipInfo.Ammo >= EquipInfo.AmmoCost)
             {
                 _soundSource.PlaySfx(SfxId.SNIPER_RELOAD);
             }
             EquipInfo.Weapon = curWeapon;
+            WeaponBalanceResolver.Apply(EquipInfo, Hunter, _scene.Match.Balance);
             UnequipOmegaCannon(); // todo?: set the flag if wifi
             return true;
         }
@@ -1197,9 +1216,13 @@ namespace MphRead.Entities
                     }
                 }
 
-                if (Values.AltFormStrafe != 0)
+                if (UsesStrafeAltMovement)
                 {
-                    // Trace, Sylux, Weavel
+                    // Trace, Sylux, Weavel, and Project Prime's Guardian
+                    // adaptation. Guardian uses the generic grounded
+                    // movement/collision pass even though its authored value
+                    // does not advertise the retail strafe flag; this keeps
+                    // Psycho Bit inside the normal alternate-form envelope.
                     // The pad's stick and a remote player's relayed aim, in
                     // the same place the mouse's goes in -- as in ProcessBiped,
                     // which was the only caller until now. An alt form that
@@ -1389,6 +1412,10 @@ namespace MphRead.Entities
                         new Vector3(_altRollLrX, 0, _altRollLrZ),
                         rollForwardSign, rollLateralSign, traction);
                 }
+                // Chill affects only acceleration produced by ordinary movement
+                // controls. Apply it before attacks and boosts add their impulses.
+                speedDelta = ApplyEnhancedChillAcceleration(speedDelta,
+                    _chilledTicks);
                 if (!IsMorphing)
                 {
                     if (_abilities.TestFlag(AbilityFlags.Bombs) && Controls.AltAttack.IsPressed
@@ -1522,6 +1549,44 @@ namespace MphRead.Entities
                             _soundSource.PlaySfx(SfxId.WEAVEL_ALT_ATTACK);
                         }
                     }
+                    if (_abilities.TestFlag(AbilityFlags.GuardianAltAttack))
+                    {
+                        if (_altAttackCooldown > 0)
+                        {
+                            if (_altAttackTime > 0)
+                            {
+                                EndAltAttack();
+                            }
+                        }
+                        else if (Controls.AltAttack.IsDown)
+                        {
+                            if (Controls.AltAttack.IsPressed)
+                            {
+                                _altAttackTime = 1;
+                                _altModel.SetAnimation((int)PsychoBitAltAnim.Charge,
+                                    AnimFlags.NoLoop);
+                                _soundSource.PlaySfx(SfxId.PSYCHOBIT_CHARGE,
+                                    loop: true);
+                            }
+                            else if (_altAttackTime > 0)
+                            {
+                                int startupTime = SimTicks.From30HzFrames(
+                                    Values.AltAttackStartup);
+                                _altAttackTime = (ushort)Math.Min(
+                                    startupTime, _altAttackTime + 1);
+                                if (_altAttackTime >= startupTime)
+                                {
+                                    Flags2 |= PlayerFlags2.AltAttack;
+                                    NoteOffensiveAction();
+                                }
+                            }
+                        }
+                        else if (_altAttackTime > 0)
+                        {
+                            FireGuardianPsychoBitBeam();
+                            EndAltAttack();
+                        }
+                    }
                     if (_abilities.TestFlag(AbilityFlags.Boost))
                     {
                         if (boostIntent.IsFlick)
@@ -1564,12 +1629,15 @@ namespace MphRead.Entities
                 float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
                 Speed += speedDelta; // todo: FPS stuff?
                 float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
-                if (magAfter > magBefore && magAfter > _hSpeedCap)
+                float effectiveSpeedCap = HunterBalanceResolver.ResolveAltSpeedCap(
+                    _hSpeedCap, Hunter, Flags1.TestFlag(PlayerFlags1.Boosting),
+                    _scene.Match.Balance);
+                if (magAfter > magBefore && magAfter > effectiveSpeedCap)
                 {
                     float factor;
-                    if (magBefore <= _hSpeedCap)
+                    if (magBefore <= effectiveSpeedCap)
                     {
-                        factor = _hSpeedCap / magAfter;
+                        factor = effectiveSpeedCap / magAfter;
                     }
                     else
                     {
@@ -1591,7 +1659,8 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             if (_frozenTimer == 0 && _health > 0
-                && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel))
+                && (Hunter == Hunter.Trace || Hunter == Hunter.Weavel
+                    || Hunter == Hunter.Guardian))
             {
                 // Collision/support and the actual displacement are only
                 // final after ProcessMovement. Resolve the locomotion clip
@@ -1602,8 +1671,12 @@ namespace MphRead.Entities
                     Hunter, Flags1, Flags2.TestFlag(PlayerFlags2.AltAttack),
                     info.Index[0], info.Flags[0], animId, animFlags,
                     Position - PrevPosition, animRequiresMovement);
-                int attackAnimation = Hunter == Hunter.Trace
-                    ? (int)TraceAltAnim.Attack : (int)WeavelAltAnim.Attack;
+                int attackAnimation = Hunter switch
+                {
+                    Hunter.Trace => (int)TraceAltAnim.Attack,
+                    Hunter.Weavel => (int)WeavelAltAnim.Attack,
+                    _ => (int)PsychoBitAltAnim.Beam
+                };
                 if (animation == (int)TraceAltAnim.Idle)
                 {
                     if (info.Index[0] != (int)TraceAltAnim.Idle
@@ -1648,6 +1721,14 @@ namespace MphRead.Entities
                 if (lateralSign > 0) return (int)WeavelAltAnim.MoveRight;
                 if (lateralSign < 0) return (int)WeavelAltAnim.MoveLeft;
             }
+            else if (hunter == Hunter.Guardian
+                && (forwardSign != 0 || lateralSign != 0))
+            {
+                // Psycho Bit has one authored hover locomotion group; it is
+                // intentionally used only after the normal movement/collision
+                // pass, preserving Guardian's existing alt volume envelope.
+                return (int)PsychoBitAltAnim.Fly;
+            }
             return -1;
         }
 
@@ -1664,13 +1745,18 @@ namespace MphRead.Entities
             Vector3 displacement,
             bool requestedAnimationRequiresMovement = true)
         {
-            if (hunter != Hunter.Trace && hunter != Hunter.Weavel)
+            if (hunter != Hunter.Trace && hunter != Hunter.Weavel
+                && hunter != Hunter.Guardian)
             {
                 return (currentAnimation, currentFlags);
             }
 
-            int attackAnimation = hunter == Hunter.Trace
-                ? (int)TraceAltAnim.Attack : (int)WeavelAltAnim.Attack;
+            int attackAnimation = hunter switch
+            {
+                Hunter.Trace => (int)TraceAltAnim.Attack,
+                Hunter.Weavel => (int)WeavelAltAnim.Attack,
+                _ => (int)PsychoBitAltAnim.Beam
+            };
             if (altAttackActive)
             {
                 if (currentAnimation == attackAnimation)
@@ -1701,8 +1787,12 @@ namespace MphRead.Entities
             {
                 return (requestedAnimation, requestedFlags);
             }
-            int idleAnimation = hunter == Hunter.Trace
-                ? (int)TraceAltAnim.Idle : (int)WeavelAltAnim.Idle;
+            int idleAnimation = hunter switch
+            {
+                Hunter.Trace => (int)TraceAltAnim.Idle,
+                Hunter.Weavel => (int)WeavelAltAnim.Idle,
+                _ => (int)PsychoBitAltAnim.Idle
+            };
             return (idleAnimation, AnimFlags.None);
         }
 
@@ -1917,8 +2007,10 @@ namespace MphRead.Entities
             _altAttackCooldown = (ushort)SimTicks.From30HzFrames(Values.AltAttackCooldown);
             Flags1 |= PlayerFlags1.Boosting;
             NoteOffensiveAction();
-            _boostDamage = (ushort)(Values.AltAttackDamage * _boostCharge
-                / SimTicks.From30HzFrames(Values.BoostChargeMax));
+            _boostDamage = HunterBalanceResolver.ResolveBoostDamage(
+                Values.AltAttackDamage, _boostCharge,
+                SimTicks.From30HzFrames(Values.BoostChargeMax), Hunter,
+                _scene.Match.Balance);
             if (IsMainPlayer)
             {
                 StartBoostPresentation();
@@ -1986,8 +2078,10 @@ namespace MphRead.Entities
                 bomb.NodeRef = NodeRef;
                 bomb.Radius = Fixed.ToFloat(Values.BombRadius);
                 bomb.SelfRadius = Fixed.ToFloat(Values.BombSelfRadius);
-                bomb.Damage = (ushort)Values.BombDamage;
-                bomb.EnemyDamage = (ushort)Values.BombEnemyDamage;
+                int stinglarvaDelta = _scene.Match.Balance
+                    .GetHunter(Hunter).StinglarvaDamageDelta;
+                bomb.Damage = (ushort)Math.Clamp(Values.BombDamage + stinglarvaDelta, 0, ushort.MaxValue);
+                bomb.EnemyDamage = (ushort)Math.Clamp(Values.BombEnemyDamage + stinglarvaDelta, 0, ushort.MaxValue);
                 if (_doubleDmgTimer > 0)
                 {
                     bomb.Damage *= 2;
@@ -2014,6 +2108,51 @@ namespace MphRead.Entities
                 }
                 bomb.PlaySpawnSfx();
             }
+        }
+
+        /// <summary>
+        /// Fire the Project Prime Psycho Bit adaptation through the regular
+        /// beam authority. The exact retail enemy attack is unavailable, so
+        /// the authored Guardian startup/damage values are the only values
+        /// used here; the existing Power Beam affinity supplies collision,
+        /// lag compensation, forcefield, and projectile attribution.
+        /// </summary>
+        private void FireGuardianPsychoBitBeam()
+        {
+            if (Hunter != Hunter.Guardian || !IsAltForm || _altAttackTime == 0)
+            {
+                return;
+            }
+            Vector3 direction = VectorMath.NormalizeOr(_aimPosition
+                - _volume.SpherePosition, _gunVec1);
+            Vector3 origin = _volume.SpherePosition
+                + direction * Fixed.ToFloat(Values.MuzzleOffset);
+            int charge = Math.Min(_altAttackTime,
+                SimTicks.From30HzFrames(Values.AltAttackStartup));
+            var equip = new EquipInfo
+            {
+                Weapon = Weapons.Current[(int)BeamType.PowerBeam + 9],
+                Beams = _beams,
+                ChargeLevel = (ushort)charge,
+                InfiniteAmmo = true
+            };
+            equip.UnchargedDamage = (ushort)Values.AltAttackDamage;
+            equip.MinChargeDamage = (ushort)Values.AltAttackDamage;
+            equip.ChargedDamage = (ushort)Values.AltAttackDamage;
+            equip.HeadshotDamage = (ushort)Values.AltAttackDamage;
+            equip.MinChargeHeadshotDamage = (ushort)Values.AltAttackDamage;
+            equip.ChargedHeadshotDamage = (ushort)Values.AltAttackDamage;
+            BeamResultFlags result = BeamProjectileEntity.Spawn(this, equip,
+                origin, direction, BeamSpawnFlags.NoMuzzle | BeamSpawnFlags.FromAlt,
+                NodeRef, _scene);
+            if (result == BeamResultFlags.NoSpawn)
+            {
+                return;
+            }
+            _scene.Services.NoteFired(this, direction, _gunVec1);
+            _soundSource.StopSfx(SfxId.PSYCHOBIT_CHARGE);
+            _soundSource.PlaySfx(SfxId.PSYCHOBIT_BEAM);
+            NoteOffensiveAction();
         }
 
         private void BeginSpireAltAttack()
@@ -2062,6 +2201,18 @@ namespace MphRead.Entities
                     _altAttackTime = 0;
                 }
             }
+            else if (Hunter == Hunter.Guardian)
+            {
+                if (_altAttackTime > 0)
+                {
+                    _soundSource.StopSfx(SfxId.PSYCHOBIT_CHARGE);
+                    _altModel.SetAnimation((int)PsychoBitAltAnim.Idle,
+                        AnimFlags.Paused);
+                    _altAttackCooldown = (ushort)SimTicks.From30HzFrames(
+                        Values.AltAttackCooldown);
+                    _altAttackTime = 0;
+                }
+            }
             Flags2 &= ~PlayerFlags2.AltAttack;
         }
 
@@ -2081,7 +2232,7 @@ namespace MphRead.Entities
             else
             {
                 hSpeed /= hSpeedMag;
-                if (Values.AltFormStrafe == 0)
+                if (!UsesStrafeAltMovement)
                 {
                     if (hSpeedMag > Fixed.ToFloat(Values.Field5C)) // todo: FPS stuff?
                     {
@@ -2131,7 +2282,7 @@ namespace MphRead.Entities
             _field78 = _gunVec2.X;
             _field7C = _gunVec2.Z;
             _upVector = VectorMath.NormalizeOr(Vector3.Cross(_facingVector, _gunVec2), Vector3.UnitY);
-            if (Values.AltFormStrafe != 0)
+            if (UsesStrafeAltMovement)
             {
                 _field80 = _field70;
                 _field84 = _field74;
@@ -2246,7 +2397,7 @@ namespace MphRead.Entities
                     {
                         if (IsAltForm || Flags2.TestFlag(PlayerFlags2.AltFormGravity))
                         {
-                            if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness == 0 && Values.AltFormStrafe != 0)
+                            if (Flags1.TestFlag(PlayerFlags1.Standing) && _slipperiness == 0 && UsesStrafeAltMovement)
                             {
                                 _gravity = 0;
                             }

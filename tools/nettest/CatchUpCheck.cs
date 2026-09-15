@@ -10,11 +10,14 @@ namespace MphRead.NetTest
     {
         public static int Run(string[] args)
         {
-            if (args.Length is < 2 or > 3) { Console.Error.WriteLine("Usage: nettest --catch-up DATA [VERSION]"); return 2; }
+            if (!BalanceProfileOptions.TryParseDataVersion(args,
+                out string data, out string version, out bool balancedMode))
+            { Console.Error.WriteLine("Usage: nettest --catch-up DATA [VERSION] [balanced]"); return 2; }
             try
             {
-                ServerContent.Open(args[1], args.Length == 3 ? args[2] : "AMHE1");
-                using (var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle }))
+                ServerContent.Open(data, version);
+                using (var simulation = new ServerSimulation(
+                    BalanceProfileOptions.CreateRules("MP1 SANCTORUS", GameMode.Battle, balancedMode)))
                 {
                     Scene scene = simulation.Scene;
                     // This fixture drives the scene directly instead of the
@@ -36,16 +39,21 @@ namespace MphRead.NetTest
                     MaxBudget(scene, owner);
                     QueueBound(scene, owner);
                 }
-                CatchUpCollisionCheck.RunCases(args[1], args.Length == 3 ? args[2] : "AMHE1");
-                Console.WriteLine("CATCHUP PASS boundary=completed-T firstStep=T+1 maxHistoricalSteps=15");
+                CatchUpCollisionCheck.RunCases(data, version, "MP1 SANCTORUS", balancedMode);
+                Console.WriteLine($"CATCHUP PASS profile={(balancedMode ? "Balanced" : "Classic")} boundary=completed-T firstStep=T+1 maxHistoricalSteps=15");
                 return 0;
             }
             catch (Exception error) { Console.Error.WriteLine("CATCHUP FAIL " + error); return 1; }
         }
 
-        private static EquipInfo Equipment(Scene scene, BeamType type, int pool = 8)
-            => new(Weapons.Current[(int)type], Enumerable.Range(0, pool).Select(_ => new BeamProjectileEntity(scene)).ToArray())
+        private static EquipInfo Equipment(Scene scene, Hunter hunter, BeamType type, int pool = 8)
+        {
+            var equip = new EquipInfo(Weapons.Current[(int)type],
+                Enumerable.Range(0, pool).Select(_ => new BeamProjectileEntity(scene)).ToArray())
             { InfiniteAmmo = true };
+            WeaponBalanceResolver.Apply(equip, hunter, scene.Match.BalanceContext);
+            return equip;
+        }
         private static InputCommand Command(uint tick, uint view)
             => new(tick, tick, view, InputButtons.Shoot, InputButtons.Shoot, Vector3.UnitZ, InputCommand.NoWeapon);
         private static BeamProjectileEntity Spawn(Scene scene, PlayerEntity owner, EquipInfo equip, ServerCombat combat, uint tick, uint view)
@@ -63,9 +71,9 @@ namespace MphRead.NetTest
         }
         private static void Progression(Scene scene, PlayerEntity owner, BeamType type, bool charged = false)
         {
-            var controlEquip = Equipment(scene, type);
-            var delayedEquip = Equipment(scene, type);
-            var uncompensatedEquip = Equipment(scene, type);
+            var controlEquip = Equipment(scene, owner.Hunter, type);
+            var delayedEquip = Equipment(scene, owner.Hunter, type);
+            var uncompensatedEquip = Equipment(scene, owner.Hunter, type);
             if (charged) controlEquip.ChargeLevel = delayedEquip.ChargeLevel = uncompensatedEquip.ChargeLevel = (ushort)(controlEquip.Weapon.FullCharge * 2);
             var control = new ServerCombat(projectileCatchUpEnabled: false);
             var delayed = new ServerCombat();
@@ -83,8 +91,8 @@ namespace MphRead.NetTest
             scene.Random.SetRng2(123);
             var uncompensated = Spawn(scene, owner, uncompensatedEquip, control, now, start);
             using (var services = new CombatSceneScope(scene, delayed))
-            delayed.BeginTick(now);
             {
+                delayed.BeginTick(now);
                 scene.StepHeadlessFrame(advanceMatch: false);
                 Require(actual.Age == 0, "Pending beam received an extra scene step.");
                 delayed.CatchUp.Drain();
@@ -99,7 +107,10 @@ namespace MphRead.NetTest
                     && controlEquip.Beams[pellet].Position == delayedEquip.Beams[pellet].Position, "Pellet progression differs.");
             Require(delayed.CatchUp.Steps == 9 * pellets && delayed.CatchUp.MaxSteps == 9, "Incorrect catch-up step count.");
             using (var services = new CombatSceneScope(scene, delayed))
-            delayed.BeginTick(now + 1); scene.StepHeadlessFrame(advanceMatch: false);
+            {
+                delayed.BeginTick(now + 1);
+                scene.StepHeadlessFrame(advanceMatch: false);
+            }
             Require(expected.Position == actual.Position && expected.Age == actual.Age, "Post-catch-up normal progression differs.");
             Console.WriteLine($"CATCHUP parity={type} charged={charged} pellets={pellets} stepsPerProjectile=9 position=bitExact velocity=bitExact age=bitExact PASS");
             Clean(scene, controlEquip); Clean(scene, delayedEquip); Clean(scene, uncompensatedEquip);
@@ -109,10 +120,14 @@ namespace MphRead.NetTest
             foreach (bool enabled in new[] { false, true })
             {
                 var combat = new ServerCombat(projectileCatchUpEnabled: enabled);
-                var equip = Equipment(scene, BeamType.PowerBeam);
+                var equip = Equipment(scene, owner.Hunter, BeamType.PowerBeam);
                 var beam = Spawn(scene, owner, equip, combat, 200, 200);
                 using (var services = new CombatSceneScope(scene, combat))
-                combat.BeginTick(200); { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
+                {
+                    combat.BeginTick(200);
+                    scene.StepHeadlessFrame(false);
+                    combat.CatchUp.Drain();
+                }
                 Require(beam.Age == scene.FrameTime && combat.CatchUp.Steps == 0, "Zero rewind changed the ordinary one-step spawn.");
                 Clean(scene, equip);
             }
@@ -121,14 +136,18 @@ namespace MphRead.NetTest
         private static void ExpiryAndRecycling(Scene scene, PlayerEntity owner)
         {
             var combat = new ServerCombat();
-            var equip = Equipment(scene, BeamType.PowerBeam, 1);
+            var equip = Equipment(scene, owner.Hunter, BeamType.PowerBeam, 1);
             var beam = Spawn(scene, owner, equip, combat, 300, 285);
             uint generation = beam.Generation;
             Spawn(scene, owner, equip, combat, 300, 285);
             Require(beam.Generation != generation && combat.CatchUp.Pending == 2, "Fixture failed to recycle queued generation.");
             beam.Lifespan = scene.FrameTime * 2;
             using (var services = new CombatSceneScope(scene, combat))
-            combat.BeginTick(300); { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
+            {
+                combat.BeginTick(300);
+                scene.StepHeadlessFrame(false);
+                combat.CatchUp.Drain();
+            }
             Require(combat.CatchUp.ProjectilesCaughtUp == 1 && combat.CatchUp.Steps == 2 && combat.CatchUp.Collisions == 1,
                 "Expired/recycled beam advanced or collided twice.");
             Clean(scene, equip);
@@ -137,29 +156,38 @@ namespace MphRead.NetTest
         private static void MaxBudget(Scene scene, PlayerEntity owner)
         {
             var combat = new ServerCombat();
-            var equip = Equipment(scene, BeamType.PowerBeam);
+            var equip = Equipment(scene, owner.Hunter, BeamType.PowerBeam);
             using (var services = new CombatSceneScope(scene, combat))
-            combat.BeginTick(500);
             {
+                combat.BeginTick(500);
                 combat.SetCommand(owner.SlotIndex, Command(500, 1), 250);
-                BeamProjectileEntity.Spawn(owner, equip, new Vector3(0, 500, 0), Vector3.UnitZ,
+                BeamResultFlags result = BeamProjectileEntity.Spawn(owner, equip, new Vector3(0, 500, 0), Vector3.UnitZ,
                     BeamSpawnFlags.NoMuzzle, owner.NodeRef, scene);
                 scene.StepHeadlessFrame(false);
                 combat.CatchUp.Drain();
+                Require(result.TestFlag(BeamResultFlags.Spawned),
+                    $"Ancient-view fixture did not spawn (result={result}, actor={owner.ServerCombatIdentity}).");
             }
             Require(combat.ShotsClamped == 1 && combat.CatchUp.Steps == 15 && combat.CatchUp.MaxSteps == 15,
-                "Ancient view did not clamp to exactly15 catch-up steps.");
+                $"Ancient view did not clamp to exactly 15 catch-up steps "
+                    + $"(shotsConsidered={combat.ShotsConsidered}, shotsEligible={combat.ShotsEligible}, "
+                    + $"shotsRewound={combat.ShotsRewound}, shotsClamped={combat.ShotsClamped}, steps={combat.CatchUp.Steps}, "
+                    + $"maxSteps={combat.CatchUp.MaxSteps}).");
             Clean(scene, equip);
             Console.WriteLine("CATCHUP ancientView=clamped maximum=15steps PASS");
         }
         private static void QueueBound(Scene scene, PlayerEntity owner)
         {
             var combat = new ServerCombat();
-            var equip = Equipment(scene, BeamType.PowerBeam, 1);
+            var equip = Equipment(scene, owner.Hunter, BeamType.PowerBeam, 1);
             for (int i = 0; i <= ProjectileCatchUp.Capacity; i++) Spawn(scene, owner, equip, combat, 400, 385);
             Require(combat.CatchUp.Pending == ProjectileCatchUp.Capacity && combat.CatchUp.QueueDrops == 1, "Catch-up queue is not bounded.");
             using (var services = new CombatSceneScope(scene, combat))
-            combat.BeginTick(400); { scene.StepHeadlessFrame(false); combat.CatchUp.Drain(); }
+            {
+                combat.BeginTick(400);
+                scene.StepHeadlessFrame(false);
+                combat.CatchUp.Drain();
+            }
             Require(combat.CatchUp.Pending == 0 && combat.CatchUp.Steps <= ProjectileCatchUp.Capacity * 15,
                 "Catch-up drain exceeded work bound.");
             Clean(scene, equip);

@@ -18,12 +18,22 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            bool wasFrozen = _frozenTimer > 0;
             bool result = ProcessPlayer();
+            AdvanceAuthoritativeAltActionClock();
+            if (Flags1.TestAny(PlayerFlags1.ShotCharged | PlayerFlags1.ShotMissile
+                    | PlayerFlags1.ShotUncharged)
+                || Flags2.TestFlag(PlayerFlags2.AltAttack) || IsMorphing || IsUnmorphing)
+            {
+                CancelEnhancedCloakFade();
+            }
+            TickEnhancedHunterState(wasFrozen);
             SetTransform(_facingVector, _upVector, Position);
             // Collision reads the animated rocks even when no client renders this player.
             // Previously only Draw refreshed them, leaving dedicated-server positions stale.
             if (result && LoadFlags.TestFlag(LoadFlags.Active) && Hunter == Hunter.Spire
-                && Flags2.TestFlag(PlayerFlags2.AltAttack))
+                && (Flags2.TestFlag(PlayerFlags2.AltAttack)
+                    || HasPresentedAltAction))
             {
                 UpdateSpireAltAttack();
             }
@@ -392,8 +402,13 @@ namespace MphRead.Entities
                 _scene.UnlinkEffectEntry(_deathaltEffect);
                 _deathaltEffect = null;
             }
+            bool fullTraceAffinityCloak = IsFullyEstablishedPersonalTraceCloak(
+                Hunter, IsPrimeHunter, Flags2.TestFlag(PlayerFlags2.Cloaking),
+                _cloakTimer, _targetAlpha);
+            float traceAffinityCloakAlpha = _targetAlpha;
             if (Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
+                CancelEnhancedCloakFade();
                 Debug.Assert(_cloakTimer != 0);
                 _cloakTimer--;
                 if (_cloakTimer > 0)
@@ -447,6 +462,11 @@ namespace MphRead.Entities
                 else
                 {
                     _cloakTimer = 0;
+                    if (fullTraceAffinityCloak) BeginEnhancedCloakFade(traceAffinityCloakAlpha);
+                    if (_cloakFadeTicks > 0)
+                    {
+                        _targetAlpha = EnhancedCloakFadeAlpha;
+                    }
                 }
             }
             if (IsBot && AiData.Flags3.TestFlag(AiFlags3.Bit2))
@@ -490,7 +510,7 @@ namespace MphRead.Entities
                 }
             }
             int ammo = EquipInfo.Ammo;
-            if (ammo >= 0 && ammo < EquipInfo.Weapon.AmmoCost)
+            if (ammo >= 0 && ammo < EquipInfo.AmmoCost)
             {
                 int slot = 0;
                 int priority = 0;
@@ -499,8 +519,10 @@ namespace MphRead.Entities
                     BeamType slotWeap = _weaponSlots[i];
                     if (slotWeap != BeamType.None)
                     {
-                        WeaponInfo slotInfo = Weapons.Current[(int)slotWeap];
-                        if (slotInfo.Priority > priority && _ammo[slotInfo.AmmoType] >= slotInfo.AmmoCost)
+                        WeaponInfo slotInfo = WeaponBalanceResolver.SelectWeapon(slotWeap, Hunter);
+                        ushort slotAmmoCost = WeaponBalanceResolver.GetEffectiveAmmoCost(
+                            slotInfo, Hunter, _scene.Match.Balance);
+                        if (slotInfo.Priority > priority && _ammo[slotInfo.AmmoType] >= slotAmmoCost)
                         {
                             priority = slotInfo.Priority;
                             slot = i;
@@ -518,7 +540,7 @@ namespace MphRead.Entities
             {
                 Flags1 &= ~PlayerFlags1.Boosting;
             }
-            if (Flags1.TestFlag(PlayerFlags1.Walking))
+            if (Flags1.TestFlag(PlayerFlags1.Walking) || _replayWeaponBob)
             {
                 _gunViewBob += 14 / 2f; // todo: FPS stuff
                 if (_gunViewBob > 450)
@@ -668,7 +690,26 @@ namespace MphRead.Entities
                     _muzzleEffect.Transform(_gunVec2, _gunVec1, _muzzlePos);
                 }
             }
-            if (EquipInfo.ChargeLevel < SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
+            if (Hunter == Hunter.Guardian && IsAltForm && _altAttackTime > 0)
+            {
+                // Psycho Bit has its own authored charge effect. Keep it in
+                // the existing charge-effect slot so death, freeze, cloak,
+                // and form cancellation all use the normal cleanup path.
+                if (_chargeEffect == null)
+                {
+                    _chargeEffect = _scene.SpawnEffectGetEntry(
+                        240, Vector3.UnitY, _facingVector, _volume.SpherePosition);
+                }
+                if (_chargeEffect != null)
+                {
+                    _chargeEffect.Transform(Vector3.UnitY, _facingVector,
+                        _volume.SpherePosition);
+                    _chargeEffect.SetElementExtension(_altAttackTime
+                        >= SimTicks.From30HzFrames(Values.AltAttackStartup));
+                    Flags2 |= PlayerFlags2.ChargeEffect;
+                }
+            }
+            else if (EquipInfo.ChargeLevel < SimTicks.From30HzFrames(EquipInfo.Weapon.MinCharge))
             {
                 if (_chargeEffect != null)
                 {
@@ -1256,11 +1297,12 @@ namespace MphRead.Entities
             bool affinityGrantsMissileAmmo = false;
             if (itemType == ItemType.AffinityWeapon)
             {
-                if (Hunter == Hunter.Samus || Hunter == Hunter.Guardian) // game doesn't check for Guardian
-                {
-                    affinityGrantsMissileAmmo = true;
-                }
                 weapon = Weapons.GetAffinityBeam(Hunter);
+                // Samus's signature pickup is the only affinity weapon that
+                // grants missile ammo. Guardian's signature is Power Beam;
+                // it is a deliberate equip/selection pickup with no hidden
+                // missile refill or generic ammo side effect.
+                affinityGrantsMissileAmmo = weapon == BeamType.Missile;
             }
             else
             {
@@ -1285,7 +1327,7 @@ namespace MphRead.Entities
             {
                 _ammo[Missiles] = Math.Min(_ammo[Missiles] + 50, _ammoMax[Missiles]);
             }
-            else if (_ammo[info.AmmoType] < 60)
+            else if (weapon != BeamType.PowerBeam && _ammo[info.AmmoType] < 60)
             {
                 _ammo[info.AmmoType] = Math.Min(_ammo[info.AmmoType] + 60, 60);
             }
@@ -1678,7 +1720,7 @@ namespace MphRead.Entities
             _altRollLrZ = _gunVec2.Z;
             Flags1 |= PlayerFlags1.Morphing;
             var camFacing = new Vector3(_field70, 0, _field74);
-            SwitchCamera(Values.AltFormStrafe != 0 ? CameraType.Third2 : CameraType.Third1, camFacing);
+            SwitchCamera(UsesStrafeAltMovement ? CameraType.Third2 : CameraType.Third1, camFacing);
             InitAltTransform();
             _modelTransform.Row3.Xyz = Vector3.Zero;
             if (Hunter == Hunter.Spire)
@@ -1703,6 +1745,13 @@ namespace MphRead.Entities
             {
                 _altModel.SetAnimation((int)WeavelAltAnim.Idle);
                 SetWeavelHalfturretActive(true, transferHalfturretHealth);
+            }
+            else if (Hunter == Hunter.Guardian)
+            {
+                _altModel.SetAnimation((int)PsychoBitAltAnim.Idle, AnimFlags.Paused);
+                // Psycho Bit's hover sound is presentation-only. It is safe
+                // on headless scenes because SoundSource owns the no-op path.
+                _soundSource.PlaySfx(SfxId.PSYCHOBIT_FLY, loop: true);
             }
             else if (Hunter == Hunter.Samus)
             {
@@ -1747,6 +1796,10 @@ namespace MphRead.Entities
             EquipInfo.ChargeLevel = 0;
             EquipInfo.SmokeLevel = 0;
             PlayHunterSfx(HunterSfx.Unmorph);
+            if (Hunter == Hunter.Guardian)
+            {
+                _soundSource.StopSfx(SfxId.PSYCHOBIT_FLY);
+            }
             if (IsAltForm)
             {
                 UpdateForm(altForm: false);
@@ -1844,7 +1897,8 @@ namespace MphRead.Entities
         }
 
         internal static bool SupportsAltForm(Hunter hunter)
-            => hunter >= Hunter.Samus && hunter <= Hunter.Weavel;
+            => PlayableHunterCatalog.IsPlayable(hunter)
+                && PlayableHunterCatalog.Get(hunter).SupportsAltForm;
 
         internal static bool ShouldPreserveFormBottom(PlayerFlags1 flags)
             => flags.TestAny(PlayerFlags1.Standing
@@ -1860,7 +1914,8 @@ namespace MphRead.Entities
                 && !flags.TestFlag(PlayerFlags1.UsedJumpPad);
 
         internal static bool SupportsReplicatedAltAttack(Hunter hunter)
-            => hunter is Hunter.Trace or Hunter.Spire or Hunter.Weavel;
+            => PlayableHunterCatalog.IsPlayable(hunter)
+                && PlayableHunterCatalog.Get(hunter).SupportsReplicatedAltAttack;
 
         private void SetWeavelHalfturretActive(bool active,
             bool transferHealth = true)
@@ -1895,32 +1950,6 @@ namespace MphRead.Entities
                 GainHealth(_halfturret.Health);
             }
             _halfturret.Die();
-        }
-
-        internal void BeginReplicatedAltAttack()
-        {
-            if (!IsAltForm || !SupportsReplicatedAltAttack(Hunter))
-            {
-                return;
-            }
-            if (Hunter == Hunter.Spire)
-            {
-                BeginSpireAltAttack();
-                return;
-            }
-            if (Flags2.TestFlag(PlayerFlags2.AltAttack))
-            {
-                return;
-            }
-            Flags2 |= PlayerFlags2.AltAttack;
-            if (Hunter == Hunter.Trace)
-            {
-                _altModel.SetAnimation((int)TraceAltAnim.Attack, AnimFlags.NoLoop);
-            }
-            else if (Hunter == Hunter.Weavel)
-            {
-                _altModel.SetAnimation((int)WeavelAltAnim.Attack, AnimFlags.NoLoop);
-            }
         }
 
         private void CreateBurnEffect()

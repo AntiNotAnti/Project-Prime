@@ -1,6 +1,7 @@
 using System;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.NetTest;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -8,7 +9,7 @@ namespace MphRead.Mods.Network
     /// <summary>Content-backed participation and objective-release regression.</summary>
     public static class ServerSpectatorCheck
     {
-        public static int Run(string data, string version, string room)
+        public static int Run(string data, string version, string room, bool balancedMode = false)
         {
             try
             {
@@ -16,7 +17,7 @@ namespace MphRead.Mods.Network
                 foreach (GameMode mode in new[] { GameMode.Battle, GameMode.Capture, GameMode.Nodes, GameMode.PrimeHunter })
                 {
                     Scene scene = Scene.CreateHeadless();
-                    try { Check(scene, room, mode); }
+                    try { Check(scene, room, mode, balancedMode); }
                     finally { scene.CloseHeadless(); }
                 }
                 Console.WriteLine("[spectatorcheck] participation, no kill award, objective release, delayed rejoin PASS");
@@ -29,8 +30,9 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void Check(Scene scene, string room, GameMode mode)
+        private static void Check(Scene scene, string room, GameMode mode, bool balancedMode)
         {
+            scene.Match.ApplyRules(BalanceProfileOptions.CreateRules(room, mode, balancedMode));
             scene.LoadServerRoom(room, mode, players: 2);
             PlayerEntity player = scene.Players[0], opponent = scene.Players[1];
             player.ServerActivate(100, Hunter.Samus, 0);

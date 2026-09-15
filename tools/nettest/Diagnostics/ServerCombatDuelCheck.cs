@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using MphRead.Entities;
 using MphRead.Formats;
+using MphRead.NetTest;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -10,7 +11,8 @@ namespace MphRead.Mods.Network
     /// <summary>Two real UDP clients; server fixture arranges an arena, then only normal input and collision decide combat.</summary>
     public static class ServerCombatDuelCheck
     {
-        public static int Run(string data, string version, string room, int seconds = 20, BeamType weapon = BeamType.Imperialist)
+        public static int Run(string data, string version, string room, int seconds = 20,
+            BeamType weapon = BeamType.Imperialist, bool balancedMode = false)
         {
             if (seconds is < 10 or > 120 || weapon is not (BeamType.Imperialist or BeamType.Judicator
                 or BeamType.Magmaul or BeamType.VoltDriver))
@@ -19,9 +21,10 @@ namespace MphRead.Mods.Network
                 return 2;
             }
             ServerContent.Open(data, version);
-            using var simulation = new ServerSimulation(new RotationEntry { RoomKey = room, Mode = GameMode.Battle, PointGoal = 0 });
+            MatchRules rules = BalanceProfileOptions.CreateRules(room, GameMode.Battle, balancedMode);
+            using var simulation = new ServerSimulation(rules);
             using var serverTransport = new NetTransport(0);
-            var network = new ServerNetwork(serverTransport, simulation.Scene.Match.Rules);
+            var network = new ServerNetwork(serverTransport, rules);
             using var shooterTransport = new NetTransport(0);
             using var targetTransport = new NetTransport(0);
             var endpoint = new IPEndPoint(IPAddress.Loopback, serverTransport.LocalPort);
@@ -154,10 +157,12 @@ namespace MphRead.Mods.Network
                     }
                     if (client.State != NetConnectionState.Playing || network.Phase != MatchPhase.Playing) continue;
                     Vector3 origin = default, targetPosition = default;
+                    uint inputEpoch = 1;
                     foreach (SnapshotPlayer state in client.SnapshotPlayers)
                     {
                         if (state.Slot == shooterClient.Accepted.Slot) origin = state.Position;
                         if (state.Slot == targetClient.Accepted.Slot) targetPosition = state.Position;
+                        if (state.Slot == client.Accepted.Slot) inputEpoch = state.Life;
                     }
                     Vector3 delta = targetPosition - origin;
                     Vector3 aim = delta.LengthSquared > 0.01f ? delta.Normalized() : -Vector3.UnitZ;
@@ -171,7 +176,8 @@ namespace MphRead.Mods.Network
                     InputButtons buttons = held ? InputButtons.Shoot : 0;
                     InputButtons pressed = shoot && fireTick % firePeriod == 0 ? InputButtons.Shoot : 0;
                     histories[clientIndex, sequence % InputBundle.Capacity] = new(sequence, sequence,
-                        client.Snapshot.ServerTick, buttons, pressed, aim, InputCommand.NoWeapon);
+                        client.Snapshot.ServerTick, buttons, pressed, aim,
+                        InputCommand.NoWeapon, inputEpoch);
                     int countCommands = (int)Math.Min(sequence + 1, InputBundle.Capacity);
                     for (int i = 0; i < countCommands; i++)
                         bundle[i] = histories[clientIndex, (sequence - (uint)(countCommands - 1 - i)) % InputBundle.Capacity];
@@ -187,7 +193,7 @@ namespace MphRead.Mods.Network
                 && delivered[0, (int)CombatEventKind.Death] > 0 && delivered[1, (int)CombatEventKind.Death] > 0;
             bool pass = affinityPass && deathPass && arrangedAt.HasValue && resolvedDamage > 0 && missDamage == 0 && occludedShots > 0
                 && delivered[0, (int)CombatEventKind.Damage] > 0 && delivered[1, (int)CombatEventKind.Damage] > 0;
-            Console.WriteLine($"[combatduel] weapon={weapon} resolvedDamage={resolvedDamage} resolvedDeaths={resolvedDeaths} occludedShots={occludedShots} missDamage={missDamage} afflictions={afflictions} "
+            Console.WriteLine($"[combatduel] profile={(balancedMode ? "Balanced" : "Classic")} phase={network.Phase} revision={network.PhaseRevision} clients={shooterClient.State}/{targetClient.State} weapon={weapon} resolvedDamage={resolvedDamage} resolvedDeaths={resolvedDeaths} occludedShots={occludedShots} missDamage={missDamage} afflictions={afflictions} "
                 + $"clientDamage={delivered[0,2]}/{delivered[1,2]} clientDeaths={delivered[0,3]}/{delivered[1,3]} "
                 + $"rttMs={shooterClient.Clock.Metrics.SmoothedRttMs:F1} shotsRewound={simulation.Combat.ShotsRewound} historyQueries={simulation.Combat.History.Queries} "
                 + $"result={(pass ? "PASS" : "FAIL")}");

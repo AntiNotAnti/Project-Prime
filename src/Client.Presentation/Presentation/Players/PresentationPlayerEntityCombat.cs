@@ -21,6 +21,17 @@ namespace MphRead.Entities
                 PresentNetworkAffliction(value);
                 return;
             }
+            if (value.Kind == CombatEventKind.Effect)
+            {
+                if ((value.Flags & CombatEventFlags.LingeringHeat) != 0)
+                {
+                    int effectId = Metadata.BeamDrawEffects[4];
+                    if (effectId != 0)
+                        Presentation.SpawnEffect(effectId, Vector3.UnitX,
+                            Vector3.UnitY, value.Position);
+                }
+                return;
+            }
             if (value.Kind == CombatEventKind.Shot)
             {
                 ClientSceneServices.PlayFor(_player._scene)?.ObserveAuthoritativeProjectileVisual(value,
@@ -121,6 +132,11 @@ namespace MphRead.Entities
                 int indicator = MphRead.Combat.CombatFeedback.DamageSector(direction, _player._gunVec1, _player._gunVec2);
                 if (indicator >= 0) _damageIndicatorTimers[indicator] = (ushort)SimTicks.From30HzFrames(63);
                 _player.CameraInfo.SetShake(Math.Clamp(value.Amount * 0.01f, 0.03f, 0.25f));
+                if ((value.Flags & CombatEventFlags.Concussive) != 0)
+                {
+                    _player.CameraInfo.SetShake(0.25f);
+                    _player.ApplyEnhancedConcussion();
+                }
             }
         // Death/spawn/form/affliction transitions are rendered from snapshots.
         // Re-running their gameplay paths here would duplicate effects and scores.

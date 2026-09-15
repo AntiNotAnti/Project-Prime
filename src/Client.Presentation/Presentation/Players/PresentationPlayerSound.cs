@@ -16,6 +16,20 @@ namespace MphRead.Entities
                 GamepadHaptics.Play(sfx == HunterSfx.Death
                     ? HapticEvent.Death : HapticEvent.TakingDamage,
                     unchecked((uint)_player.ModScene.FrameCount));
+            if (_player.Hunter == Hunter.Guardian
+                && sfx is HunterSfx.Damage or HunterSfx.Death)
+            {
+                int psycho = (int)(sfx == HunterSfx.Death
+                    ? SfxId.PSYCHOBIT_DIE : SfxId.PSYCHOBIT_DAMAGE);
+                if (sfx == HunterSfx.Death && _player.IsMainPlayer)
+                    _player._soundSource.PlayFreeSfx(psycho);
+                else
+                    _player._soundSource.PlaySfx(psycho,
+                        recency: sfx == HunterSfx.Damage
+                            ? 5 / (float)SimTicks.LegacyHz : -1,
+                        sourceOnly: !_player.IsMainPlayer);
+                return;
+            }
             int id = Metadata.HunterSfx[(int)_player.Hunter, (int)sfx];
             if (id == -1)
             {
@@ -109,7 +123,8 @@ namespace MphRead.Entities
             BeamSfx sfx;
             if (charged)
             {
-                sfx = beam == Weapons.AffinityWeapons[(int)_player.Hunter] ? BeamSfx.AffinityChargeShot : BeamSfx.ChargeShot;
+                sfx = beam == PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter)
+                    ? BeamSfx.AffinityChargeShot : BeamSfx.ChargeShot;
             }
             else
             {

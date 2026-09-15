@@ -410,10 +410,21 @@ namespace MphRead.Mods.Network
                 .Append(" clamp_vertical_p95/max=").Append(Percentiles(ClampVerticalError, p95Only: true, includeMax: true))
                 .Append(" clamp_history_unavailable=").Append(ClampHistoryUnavailable)
                 .Append(" path_start=").Append(Vector3Text(projectileStart))
-                .Append(" path_end=").Append(Vector3Text(projectileEnd));
+                .Append(" path_end=").Append(Vector3Text(projectileEnd))
+                .AppendLine();
+            HitRegistrationAuthorityDiagnostic authority
+                = ServerHitRegistrationDiagnostics.Capture(this);
+            var hitRegistration = new HitRegistrationDiagnosticSnapshot(
+                HitRegistrationDiagnosticScope.Window,
+                HitRegistrationClientDiagnostic.Unavailable,
+                authority,
+                HitRegistrationFeedbackDiagnostic.Unavailable,
+                RttMs: null,
+                JitterMs: null);
+            output.AppendLine(HitRegistrationDiagnosticFormatter.Format(in hitRegistration));
             if (history)
             {
-                output.Append(" players=").Append(playerCount).AppendLine();
+                output.Append("players=").Append(playerCount).AppendLine();
                 for (int i = 0; i < playerCount; i++)
                 {
                     HistoricalPlayerVolumeDiagnostic player = players[i];
@@ -690,6 +701,14 @@ namespace MphRead.Mods.Network
             TryRecord(new(0, Tick, shot.CommandSequence, CombatEventKind.Bomb, (byte)type,
                 0, shot.Actor, CombatActor.None, 0, 0, position, facing, 0, 0, 0));
         }
+        public void NoteEnhancedEffect(in CombatShot shot, BeamType weapon,
+            CombatEventFlags flags, Vector3 position)
+        {
+            if (!shot.IsValid || flags != CombatEventFlags.LingeringHeat) return;
+            TryRecord(new(0, Tick, shot.CommandSequence, CombatEventKind.Effect,
+                (byte)weapon, flags, shot.Actor, CombatActor.None, 0, 0,
+                position, Vector3.Zero, 0, 0, 0));
+        }
         public bool TryPeekKill(out KillEvent value)
         {
             value = _killCount == 0 ? default : _kills[_killHead];
@@ -721,7 +740,7 @@ namespace MphRead.Mods.Network
         }
         public void NoteDamage(PlayerEntity victim, EntityBase? source, PlayerEntity? attacker, BeamType weapon,
             DamageFlags flags, Vector3? direction, int previousHealth, ushort frozen, ushort burn, ushort disrupt,
-            bool afflictionChanged)
+            bool afflictionChanged, int absorbedOvercharge = 0)
         {
             CombatActor target = victim.ServerCombatIdentity;
             if (!target.IsValid) return;
@@ -729,6 +748,7 @@ namespace MphRead.Mods.Network
             {
                 BeamProjectileEntity beam => beam.CombatShot,
                 BombEntity bomb => bomb.CombatShot,
+                SpireScorchPatchEntity scorch => scorch.CombatShot,
                 _ => attacker == null ? default : CaptureAttribution(attacker)
             };
             if (flags.TestFlag(DamageFlags.Burn) && victim.CombatBurnSource.IsValid)
@@ -748,7 +768,9 @@ namespace MphRead.Mods.Network
             if (flags.TestFlag(DamageFlags.Deathalt)) eventFlags |= CombatEventFlags.Deathalt;
             if (flags.TestFlag(DamageFlags.NoSfx)) eventFlags |= CombatEventFlags.Silent;
             if (shot.Affinity) eventFlags |= CombatEventFlags.Affinity;
-            ushort amount = (ushort)Math.Clamp(previousHealth - victim.Health, 0, UInt16.MaxValue);
+            if (flags.TestFlag(DamageFlags.Concussive)) eventFlags |= CombatEventFlags.Concussive;
+            if (absorbedOvercharge > 0) eventFlags |= CombatEventFlags.OverchargeAbsorb;
+            ushort amount = (ushort)Math.Clamp(previousHealth - victim.Health + absorbedOvercharge, 0, UInt16.MaxValue);
             CombatEvent value = new(0, Tick, shot.CommandSequence, CombatEventKind.Damage,
                 weapon == BeamType.None ? (byte)255 : (byte)weapon, eventFlags, actor, target,
                 (ushort)Math.Clamp(victim.Health, 0, UInt16.MaxValue), amount, victim.Position,

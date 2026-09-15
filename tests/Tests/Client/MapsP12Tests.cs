@@ -65,6 +65,9 @@ public sealed class MapsP12Tests
         Control? builtCard = template.Build(map, list);
         Assert.NotNull(builtCard);
         Control card = builtCard!;
+        MapsPreviewView preview = Assert.Single(Walk(card)
+            .OfType<MapsPreviewView>());
+        Assert.True(preview.Classes.Contains("prime-surface"));
         string[] actions = Walk(card).OfType<AvaloniaButton>()
             .Select(button => button.Content as string)
             .OfType<string>()

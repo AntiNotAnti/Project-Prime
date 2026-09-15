@@ -678,7 +678,7 @@ namespace MphRead
             ),
             new(
                 Hunter.Guardian,
-                new List<string>() { "Guardian_lod0", "Guardian_lod1", "SamusAlt_lod0", "SamusGun" }
+                new List<string>() { "Guardian_lod0", "Guardian_lod1", "PsychoBit", "SamusGun" }
             )
         ]);
 
@@ -2846,6 +2846,7 @@ namespace MphRead
                             "img_03",
                             "img_04"
                         },
+                        animationPath: @"models\PsychoBit_Anim.bin",
                         animation: true,
                         mdlSuffix: MdlSuffix.Model)
                 ),

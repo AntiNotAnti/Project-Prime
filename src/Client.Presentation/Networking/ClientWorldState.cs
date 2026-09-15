@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Formats.Culling;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
 {
@@ -15,6 +16,8 @@ namespace MphRead.Mods.Network
         private readonly bool[] _received = new bool[WorldPacket.Capacity];
         private readonly Dictionary<uint, ItemInstanceEntity> _items = new(WorldPacket.Capacity);
         private readonly HashSet<uint> _present = new(WorldPacket.Capacity);
+        private readonly HashSet<uint> _enhancedEffects = new(8);
+        private readonly HashSet<uint> _presentEnhancedEffects = new(8);
         private readonly uint[] _retired = new uint[WorldPacket.Capacity];
         private uint _pendingRevision;
         private uint _pendingTick;
@@ -25,14 +28,30 @@ namespace MphRead.Mods.Network
         public uint MatchId { get; private set; }
         internal bool LegacyProtocol { get; set; }
         internal bool Protocol7Replay { get; set; }
+        internal byte ProtocolVersion { get; set; } = NetHeader.Version;
         private bool HistoricalProtocol => LegacyProtocol || Protocol7Replay;
         private readonly PlayerResultIdentity[] _resultIdentities = new PlayerResultIdentity[8];
-        public bool ValidatePacket(ReadOnlySpan<byte> body) => HistoricalProtocol
-            ? Protocol7WorldPacket.TryValidate(body, MatchId, LegacyProtocol)
-            : WorldPacket.TryValidate(body, MatchId);
+        public bool ValidatePacket(ReadOnlySpan<byte> body)
+        {
+            bool valid = HistoricalProtocol
+                ? Protocol7WorldPacket.TryValidate(body, MatchId, LegacyProtocol)
+                : WorldPacket.TryValidate(body, MatchId);
+            if (!valid) return false;
+            for (int i = 0; i < body[16]; i++)
+            {
+                if (!ReadRecord(body.Slice(WorldPacket.HeaderSize
+                    + i * WorldRecord.Size, WorldRecord.Size), out _)) return false;
+            }
+            return true;
+        }
         private bool ReadRecord(ReadOnlySpan<byte> bytes, out WorldRecord record)
         {
-            if (!HistoricalProtocol) return WorldRecord.TryRead(bytes, out record);
+            if (!HistoricalProtocol)
+            {
+                if (!WorldRecord.TryRead(bytes, out record)) return false;
+                return ProtocolVersion >= NetHeader.EnhancedHuntersVersion
+                    || record.Kind != WorldRecordKind.EnhancedEffect;
+            }
             record = default;
             if (!Protocol7WorldRecord.TryRead(bytes, LegacyProtocol, out var old)) return false;
             record = new((WorldRecordKind)old.Kind, old.Slot, old.Flags, old.Id, old.Position, old.A, old.B, old.C, old.D, old.E);
@@ -55,6 +74,7 @@ namespace MphRead.Mods.Network
             Count = _pendingCount = _receivedCount = 0;
             // Scene lifetime is owned by the caller; call Reset after closing the old scene.
             _items.Clear(); _present.Clear();
+            _enhancedEffects.Clear(); _presentEnhancedEffects.Clear();
         }
         public bool Receive(ReadOnlySpan<byte> body)
         {
@@ -75,7 +95,12 @@ namespace MphRead.Mods.Network
             {
                 int index = offset + i;
                 if (_received[index]) { continue; }
-                ReadRecord(body.Slice(WorldPacket.HeaderSize + i * WorldRecord.Size, WorldRecord.Size), out _pending[index]);
+                if (!ReadRecord(body.Slice(WorldPacket.HeaderSize
+                    + i * WorldRecord.Size, WorldRecord.Size), out _pending[index]))
+                {
+                    _assembling = false;
+                    return false;
+                }
                 _received[index] = true; _receivedCount++;
             }
             if (_receivedCount != total) { return false; }
@@ -142,10 +167,15 @@ namespace MphRead.Mods.Network
         public void Apply(Scene scene, uint? playerSnapshotTick = null)
         {
             if (!_dirty) { return; }
-            _dirty = false; _present.Clear();
+            _dirty = false; _present.Clear(); _presentEnhancedEffects.Clear();
             if (scene.Match.MatchId != MatchId) { scene.Match.ResetResult(); scene.Match.MatchId = MatchId; }
             bool terminal = !HistoricalProtocol && _current[0].E > 0;
-            foreach (WorldRecord state in Records) { if (state.Kind == WorldRecordKind.Item) { _present.Add(state.Id); } }
+            foreach (WorldRecord state in Records)
+            {
+                if (state.Kind == WorldRecordKind.Item) _present.Add(state.Id);
+                else if (state.Kind == WorldRecordKind.EnhancedEffect)
+                    _presentEnhancedEffects.Add(state.Id);
+            }
             int retired = 0;
             foreach (var pair in _items)
             {
@@ -159,6 +189,12 @@ namespace MphRead.Mods.Network
                 }
             }
             for (int i = 0; i < retired; i++) { _items.Remove(_retired[i]); }
+            retired = 0;
+            foreach (uint id in _enhancedEffects)
+            {
+                if (!_presentEnhancedEffects.Contains(id)) _retired[retired++] = id;
+            }
+            for (int i = 0; i < retired; i++) _enhancedEffects.Remove(_retired[i]);
             foreach (WorldRecord state in Records)
             {
                 switch (state.Kind)
@@ -176,6 +212,16 @@ namespace MphRead.Mods.Network
                         if (state.A != uint.MaxValue && scene.TryGetEntity(unchecked((int)state.A), out EntityBase? owner)
                             && owner is ItemSpawnEntity spawnerOwner)
                         { item.Owner = spawnerOwner; spawnerOwner.Item = item; }
+                        break;
+                    case WorldRecordKind.EnhancedEffect:
+                        if (_enhancedEffects.Add(state.Id)
+                            && ShouldBootstrapEnhancedEffect(state.D))
+                        {
+                            int effectId = Metadata.BeamDrawEffects[(int)BeamType.Magmaul];
+                            if (effectId != 0)
+                                scene.SpawnEffect(effectId, Vector3.UnitX,
+                                    Vector3.UnitY, state.Position);
+                        }
                         break;
                     case WorldRecordKind.Spawner:
                         if (scene.TryGetEntity(unchecked((int)state.Id), out EntityBase? spawner) && spawner is ItemSpawnEntity itemSpawner)
@@ -272,6 +318,14 @@ namespace MphRead.Mods.Network
                 foreach (var identity in _resultIdentities) if (identity.Active) scene.Match.ActivePlayers++;
                 scene.Match.CaptureReplicatedResult(_current[0].Position.Z, (MatchEndReason)(_current[0].E - 1), _resultIdentities);
             }
+            // Set only after every record in the complete atomic revision has
+            // been applied. Partial batches and initial map state cannot pass
+            // resource-radar authority checks.
+            scene.HasCommittedReplicatedWorldState = true;
         }
+
+        internal int EnhancedEffectCount => _enhancedEffects.Count;
+        internal static bool ShouldBootstrapEnhancedEffect(uint remainingTicks)
+            => remainingTicks < EnhancedHunterTuning.SpireScorchLifetimeTicks;
     }
 }

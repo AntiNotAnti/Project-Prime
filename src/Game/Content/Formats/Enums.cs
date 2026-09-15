@@ -33,6 +33,7 @@ namespace MphRead
         Player = 25,
         BeamProjectile = 26,
         ListHead = 27,
+        EnhancedEffect = 28,
         // First Hunt
         FhUnknown0 = 100,
         FhPlayerSpawn = 101,

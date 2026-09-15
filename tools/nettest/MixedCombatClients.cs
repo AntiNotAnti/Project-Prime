@@ -35,6 +35,7 @@ namespace MphRead.NetTest
             var combatCounts = new long[ports.Length, 7];
             var histories = new InputCommand[ports.Length, 8];
             var sent = new uint[ports.Length];
+            var inputEpochs = new uint[ports.Length];
             var origins = new Vector3[ports.Length];
             var placed = new bool[ports.Length];
             var maxDistance = new float[ports.Length];
@@ -92,12 +93,14 @@ namespace MphRead.NetTest
                         Vector3 aim = -Vector3.UnitZ;
                         Vector3 position = default;
                         byte currentWeapon = InputCommand.NoWeapon;
+                        uint inputEpoch = 1;
                         foreach (SnapshotPlayer player in client.SnapshotPlayers)
                         {
                             if (player.Slot == client.Accepted.Slot)
                             {
                                 position = player.Position;
                                 currentWeapon = player.Weapon;
+                                inputEpoch = player.Life;
                                 if (!placed[i]) { placed[i] = true; origins[i] = position; }
                                 maxDistance[i] = Math.Max(maxDistance[i], (position - origins[i]).Length);
                             }
@@ -105,6 +108,11 @@ namespace MphRead.NetTest
                             {
                                 throw new InvalidOperationException("Server equipped an unavailable weapon.");
                             }
+                        }
+                        if (inputEpochs[i] != inputEpoch)
+                        {
+                            inputEpochs[i] = inputEpoch;
+                            sent[i] = 0;
                         }
                         uint sequence = sent[i]++;
                         // Small alternating strafe keeps targets moving while retaining the short-range arena.
@@ -133,7 +141,9 @@ namespace MphRead.NetTest
                         }
                         interpolation[i].TryCaptureViewTick(out uint viewTick);
                         histories[i, sequence % 8] = new InputCommand(sequence, sequence,
-                            viewTick, buttons, pressed, aim, currentWeapon == (byte)weapon ? InputCommand.NoWeapon : (byte)weapon);
+                            viewTick, buttons, pressed, aim,
+                            currentWeapon == (byte)weapon ? InputCommand.NoWeapon : (byte)weapon,
+                            inputEpoch);
                         int count = (int)Math.Min(sequence + 1, 8);
                         for (int item = 0; item < count; item++)
                         {

@@ -79,7 +79,9 @@ public sealed class ServerBotManager
             byte team = (byte)(_simulation.Scene.Match.Rules.Teams
                 ? MinimumTeam(teams, teamCount) : slot);
             ulong identity = NetConnection.NewIdentity();
-            var bot = new BotParticipant((byte)slot, identity, (Hunter)(slot % 7), team, $"BOT {slot + 1}");
+            var bot = new BotParticipant((byte)slot, identity,
+                PlayableHunterCatalog.FromIndex(slot % PlayableHunterCatalog.Count),
+                team, $"BOT {slot + 1}");
             _slots[slot] = bot; NetScoreboard.ForgetSlot(_simulation.Scene, slot);
             Activate(bot); count++; if (team < teamCount) teams[team]++;
             network.InvalidateRoster();

@@ -13,6 +13,30 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class CombatAttributionTests
 {
+    [Fact]
+    public void AltSpawnFlagPersistsOnProjectile()
+    {
+        using var state = new MatchBaselineTests.State();
+        state.Configure(GameMode.Battle);
+        PreparePlayer(state, 0, 0, 100, 1, altForm: true);
+        PlayerEntity owner = state.Players[0];
+        var beam = new BeamProjectileEntity(state.Scene);
+        var equip = new EquipInfo(Weapons.Current[(int)BeamType.PowerBeam + 9],
+            new[] { beam })
+        {
+            InfiniteAmmo = true
+        };
+        equip.DrawFuncIds[0] = 0;
+
+        BeamResultFlags result = BeamProjectileEntity.Spawn(owner, equip,
+            Vector3.Zero, Vector3.UnitZ,
+            BeamSpawnFlags.NoMuzzle | BeamSpawnFlags.FromAlt,
+            owner.NodeRef, state.Scene);
+
+        Assert.Equal(BeamResultFlags.Spawned, result);
+        Assert.True(beam.Flags.TestFlag(BeamFlags.FromAlt));
+    }
+
     [Trait("RequiresGameContent", "true")]
     [Fact]
     public void DefenderKillPublishesDistinctAuthoritativeObjectiveDefendedFact()

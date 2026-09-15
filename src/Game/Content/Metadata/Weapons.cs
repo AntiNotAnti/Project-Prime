@@ -50,6 +50,18 @@ namespace MphRead
         private ushort _minChargeSplashDamage = UInt16.MaxValue;
         private ushort _chargedSplashDamage = UInt16.MaxValue;
         private int _homingTolerance = Int32.MaxValue;
+        private ushort _ammoCost = UInt16.MaxValue;
+        private ushort _minChargeCost = UInt16.MaxValue;
+        private ushort _chargeCost = UInt16.MaxValue;
+        private int _unchargedSpeed = Int32.MaxValue;
+        private int _minChargeSpeed = Int32.MaxValue;
+        private int _chargedSpeed = Int32.MaxValue;
+        private int _unchargedFinalSpeed = Int32.MaxValue;
+        private int _minChargeFinalSpeed = Int32.MaxValue;
+        private int _chargedFinalSpeed = Int32.MaxValue;
+        private int _unchargedSplashRadius = Int32.MaxValue;
+        private int _minChargeSplashRadius = Int32.MaxValue;
+        private int _chargedSplashRadius = Int32.MaxValue;
 
         public ushort UnchargedDamage
         {
@@ -110,6 +122,157 @@ namespace MphRead
             get => _homingTolerance == Int32.MaxValue ? Weapon.HomingTolerance : _homingTolerance;
             set => _homingTolerance = value;
         }
+
+        public ushort AmmoCost
+        {
+            get => _ammoCost == UInt16.MaxValue ? Weapon.AmmoCost : _ammoCost;
+            set => _ammoCost = value;
+        }
+
+        public ushort MinChargeCost
+        {
+            get => _minChargeCost == UInt16.MaxValue ? Weapon.MinChargeCost : _minChargeCost;
+            set => _minChargeCost = value;
+        }
+
+        public ushort ChargeCost
+        {
+            get => _chargeCost == UInt16.MaxValue ? Weapon.ChargeCost : _chargeCost;
+            set => _chargeCost = value;
+        }
+
+        public int UnchargedSpeed
+        {
+            get => _unchargedSpeed == Int32.MaxValue ? Weapon.UnchargedSpeed : _unchargedSpeed;
+            set => _unchargedSpeed = value;
+        }
+
+        public int MinChargeSpeed
+        {
+            get => _minChargeSpeed == Int32.MaxValue ? Weapon.MinChargeSpeed : _minChargeSpeed;
+            set => _minChargeSpeed = value;
+        }
+
+        public int ChargedSpeed
+        {
+            get => _chargedSpeed == Int32.MaxValue ? Weapon.ChargedSpeed : _chargedSpeed;
+            set => _chargedSpeed = value;
+        }
+
+        public int UnchargedFinalSpeed
+        {
+            get => _unchargedFinalSpeed == Int32.MaxValue ? Weapon.UnchargedFinalSpeed : _unchargedFinalSpeed;
+            set => _unchargedFinalSpeed = value;
+        }
+
+        public int MinChargeFinalSpeed
+        {
+            get => _minChargeFinalSpeed == Int32.MaxValue ? Weapon.MinChargeFinalSpeed : _minChargeFinalSpeed;
+            set => _minChargeFinalSpeed = value;
+        }
+
+        public int ChargedFinalSpeed
+        {
+            get => _chargedFinalSpeed == Int32.MaxValue ? Weapon.ChargedFinalSpeed : _chargedFinalSpeed;
+            set => _chargedFinalSpeed = value;
+        }
+
+        public int UnchargedSplashRadius
+        {
+            get => _unchargedSplashRadius == Int32.MaxValue ? Weapon.UnchargedSplashRadius : _unchargedSplashRadius;
+            set => _unchargedSplashRadius = value;
+        }
+
+        public int MinChargeSplashRadius
+        {
+            get => _minChargeSplashRadius == Int32.MaxValue ? Weapon.MinChargeSplashRadius : _minChargeSplashRadius;
+            set => _minChargeSplashRadius = value;
+        }
+
+        public int ChargedSplashRadius
+        {
+            get => _chargedSplashRadius == Int32.MaxValue ? Weapon.ChargedSplashRadius : _chargedSplashRadius;
+            set => _chargedSplashRadius = value;
+        }
+
+        internal bool HasExplicitUnchargedDamage => _unchargedDamage != UInt16.MaxValue;
+        internal bool HasExplicitMinChargeDamage => _minChargeDamage != UInt16.MaxValue;
+        internal bool HasExplicitChargedDamage => _chargedDamage != UInt16.MaxValue;
+        internal bool HasExplicitHeadshotDamage => _headshotDamage != UInt16.MaxValue;
+        internal bool HasExplicitMinChargeHeadshotDamage => _minChargeHeadshotDamage != UInt16.MaxValue;
+        internal bool HasExplicitChargedHeadshotDamage => _chargedHeadshotDamage != UInt16.MaxValue;
+        internal bool HasExplicitSplashDamage => _splashDamage != UInt16.MaxValue;
+        internal bool HasExplicitMinChargeSplashDamage => _minChargeSplashDamage != UInt16.MaxValue;
+        internal bool HasExplicitChargedSplashDamage => _chargedSplashDamage != UInt16.MaxValue;
+        internal bool HasExplicitHomingTolerance => _homingTolerance != Int32.MaxValue;
+        internal bool HasExplicitAmmoCost => _ammoCost != UInt16.MaxValue;
+        internal bool HasExplicitMinChargeCost => _minChargeCost != UInt16.MaxValue;
+        internal bool HasExplicitChargeCost => _chargeCost != UInt16.MaxValue;
+        internal bool HasExplicitUnchargedSpeed => _unchargedSpeed != Int32.MaxValue;
+        internal bool HasExplicitMinChargeSpeed => _minChargeSpeed != Int32.MaxValue;
+        internal bool HasExplicitChargedSpeed => _chargedSpeed != Int32.MaxValue;
+        internal bool HasExplicitUnchargedFinalSpeed => _unchargedFinalSpeed != Int32.MaxValue;
+        internal bool HasExplicitMinChargeFinalSpeed => _minChargeFinalSpeed != Int32.MaxValue;
+        internal bool HasExplicitChargedFinalSpeed => _chargedFinalSpeed != Int32.MaxValue;
+        internal bool HasExplicitUnchargedSplashRadius => _unchargedSplashRadius != Int32.MaxValue;
+        internal bool HasExplicitMinChargeSplashRadius => _minChargeSplashRadius != Int32.MaxValue;
+        internal bool HasExplicitChargedSplashRadius => _chargedSplashRadius != Int32.MaxValue;
+
+        internal void SetRuntimeUnchargedDamage(int value) => _unchargedDamage = ClampUShort(value);
+        internal void SetRuntimeMinChargeDamage(int value) => _minChargeDamage = ClampUShort(value);
+        internal void SetRuntimeChargedDamage(int value) => _chargedDamage = ClampUShort(value);
+        internal void SetRuntimeHeadshotDamage(int value) => _headshotDamage = ClampUShort(value);
+        internal void SetRuntimeMinChargeHeadshotDamage(int value) => _minChargeHeadshotDamage = ClampUShort(value);
+        internal void SetRuntimeChargedHeadshotDamage(int value) => _chargedHeadshotDamage = ClampUShort(value);
+        internal void SetRuntimeSplashDamage(int value) => _splashDamage = ClampUShort(value);
+        internal void SetRuntimeMinChargeSplashDamage(int value) => _minChargeSplashDamage = ClampUShort(value);
+        internal void SetRuntimeChargedSplashDamage(int value) => _chargedSplashDamage = ClampUShort(value);
+        internal void SetRuntimeHomingTolerance(int value) => _homingTolerance = value;
+        internal void SetRuntimeAmmoCost(int value) => _ammoCost = ClampUShort(value);
+        internal void SetRuntimeMinChargeCost(int value) => _minChargeCost = ClampUShort(value);
+        internal void SetRuntimeChargeCost(int value) => _chargeCost = ClampUShort(value);
+        internal void SetRuntimeUnchargedSpeed(int value) => _unchargedSpeed = value;
+        internal void SetRuntimeMinChargeSpeed(int value) => _minChargeSpeed = value;
+        internal void SetRuntimeChargedSpeed(int value) => _chargedSpeed = value;
+        internal void SetRuntimeUnchargedFinalSpeed(int value) => _unchargedFinalSpeed = value;
+        internal void SetRuntimeMinChargeFinalSpeed(int value) => _minChargeFinalSpeed = value;
+        internal void SetRuntimeChargedFinalSpeed(int value) => _chargedFinalSpeed = value;
+        internal void SetRuntimeUnchargedSplashRadius(int value) => _unchargedSplashRadius = value;
+        internal void SetRuntimeMinChargeSplashRadius(int value) => _minChargeSplashRadius = value;
+        internal void SetRuntimeChargedSplashRadius(int value) => _chargedSplashRadius = value;
+
+        /// <summary>
+        /// Clear all equip-level runtime fallbacks while retaining the equipped
+        /// weapon, projectile array, delegates, and mutable presentation state.
+        /// </summary>
+        public void ResetRuntimeOverrides()
+        {
+            _unchargedDamage = UInt16.MaxValue;
+            _minChargeDamage = UInt16.MaxValue;
+            _chargedDamage = UInt16.MaxValue;
+            _headshotDamage = UInt16.MaxValue;
+            _minChargeHeadshotDamage = UInt16.MaxValue;
+            _chargedHeadshotDamage = UInt16.MaxValue;
+            _splashDamage = UInt16.MaxValue;
+            _minChargeSplashDamage = UInt16.MaxValue;
+            _chargedSplashDamage = UInt16.MaxValue;
+            _homingTolerance = Int32.MaxValue;
+            _ammoCost = UInt16.MaxValue;
+            _minChargeCost = UInt16.MaxValue;
+            _chargeCost = UInt16.MaxValue;
+            _unchargedSpeed = Int32.MaxValue;
+            _minChargeSpeed = Int32.MaxValue;
+            _chargedSpeed = Int32.MaxValue;
+            _unchargedFinalSpeed = Int32.MaxValue;
+            _minChargeFinalSpeed = Int32.MaxValue;
+            _chargedFinalSpeed = Int32.MaxValue;
+            _unchargedSplashRadius = Int32.MaxValue;
+            _minChargeSplashRadius = Int32.MaxValue;
+            _chargedSplashRadius = Int32.MaxValue;
+        }
+
+        private static ushort ClampUShort(int value)
+            => (ushort)Math.Clamp(value, 0, UInt16.MaxValue);
 
         public EquipInfo()
         {
@@ -355,9 +518,7 @@ namespace MphRead
     public static class Weapons
     {
         public static BeamType GetAffinityBeam(Hunter hunter)
-        {
-            return AffinityWeapons[(int)hunter];
-        }
+            => PlayableHunterCatalog.GetAffinityWeapon(hunter);
 
         public static readonly IReadOnlyList<BeamType> AffinityWeapons = new List<BeamType>()
         {

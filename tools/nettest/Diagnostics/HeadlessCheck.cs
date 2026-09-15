@@ -11,7 +11,8 @@ namespace MphRead.Mods.Network
     public static class HeadlessCheck
     {
         public static int Run(string? data, string version, string room, int frames, int players,
-            GameMode mode = GameMode.Battle, bool realtime = false)
+            GameMode mode = GameMode.Battle, bool realtime = false,
+            bool balancedMode = false)
         {
             if (data == null || frames < -1 || frames == 0 || frames > 216000 || players < 0 || players > 8
                 || mode < GameMode.Battle || mode > GameMode.PrimeHunter || (frames == -1 && !realtime))
@@ -26,6 +27,7 @@ namespace MphRead.Mods.Network
                 ServerContent.Open(data, version);
                 long loadStart = Stopwatch.GetTimestamp();
                 scene = Scene.CreateHeadless();
+                scene.Match.ApplyRules(BalanceProfileOptions.CreateRules(room, mode, balancedMode));
                 scene.LoadServerRoom(room, mode, players, bots: true);
                 double loadMs = Stopwatch.GetElapsedTime(loadStart).TotalMilliseconds;
                 var duration = new NetSample();
@@ -34,7 +36,7 @@ namespace MphRead.Mods.Network
                 using var signals = new ConsoleShutdown(cancellation);
                 int spawned = 0;
                 int frame = 0;
-                Console.WriteLine($"[headless] loaded {room} mode={mode}, {players} bots, realtime={realtime}");
+                Console.WriteLine($"[headless] loaded {room} mode={mode} profile={(balancedMode ? "Balanced" : "Classic")}, {players} bots, realtime={realtime}");
                 while (!cancellation.IsCancellationRequested && (frames == -1 || frame < frames))
                 {
                     int due = realtime ? scheduler.TakeDue(Stopwatch.GetTimestamp()) : 1;

@@ -64,14 +64,14 @@ namespace MphRead.Entities
         /// ball's changing velocity.
         /// </summary>
         internal Vector3 ModInputAim => ResolveNetworkInputAim(IsAltForm,
-            IsMorphing, Values.AltFormStrafe, _gunVec1,
+            IsMorphing, UsesStrafeAltMovement, _gunVec1,
             new Vector3(_altRollFbX, 0, _altRollFbZ));
 
         internal static Vector3 ResolveNetworkInputAim(bool isAltForm,
-            bool isMorphing, int altFormStrafe, Vector3 gunAim,
+            bool isMorphing, bool usesStrafeAltMovement, Vector3 gunAim,
             Vector3 rollingForward)
         {
-            if ((isAltForm || isMorphing) && altFormStrafe == 0)
+            if ((isAltForm || isMorphing) && !usesStrafeAltMovement)
             {
                 return VectorMath.NormalizeHorizontalOr(rollingForward,
                     VectorMath.NormalizeHorizontalOr(gunAim, -Vector3.UnitZ));
@@ -363,6 +363,10 @@ namespace MphRead.Entities
             // than a test for a bad one.
             if (!(facing.LengthSquared > 0.0001f))
             {
+                if (IsAltForm || IsMorphing || IsUnmorphing)
+                {
+                    _altInvalidHeadingFallbacks++;
+                }
                 return;
             }
             _facingVector = facing.Normalized();
@@ -593,6 +597,11 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetHunter(Hunter hunter)
         {
+            if (Hunter != hunter)
+            {
+                ResetEnhancedHunterState();
+                ResetPresentedAltAction();
+            }
             ResetLockjawBombState();
             if (Hunter != hunter) AdvancePresentationPoseEpoch();
             Hunter = hunter;
@@ -645,12 +654,22 @@ namespace MphRead.Entities
             {
                 return;
             }
+            _altFormForcedCorrections++;
             _scene.Services.NoteEvent($"slot {SlotIndex} form forced to {(altForm ? "alt" : "biped")} "
                 + $"from {ModFormState()}");
             Flags1 &= ~PlayerFlags1.Morphing;
             Flags1 &= ~PlayerFlags1.Unmorphing;
             SetWeavelHalfturretActive(altForm, transferHalfturretHealth);
             UpdateForm(altForm);
+            // A replay checkpoint can restore an already-settled form without
+            // replaying the transition animation. Keep the camera presentation
+            // in the same state as the form instead of leaving a rebuilt alt
+            // actor on the biped first-person camera.
+            Vector3 camFacing = altForm
+                ? new(_field70, 0, _field74) : _facingVector;
+            SwitchCamera(altForm
+                ? (UsesStrafeAltMovement ? CameraType.Third2 : CameraType.Third1)
+                : CameraType.First, camFacing);
         }
 
         /// <summary>

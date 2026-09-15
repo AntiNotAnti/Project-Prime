@@ -508,6 +508,8 @@ namespace MphRead.Entities
                     return;
                 }
                 Flags3 |= AiFlags3.NoInput;
+                bool usesAltMovementControls = _player.IsAltForm
+                    && _player.UsesStrafeAltMovement;
                 for (int i = 0; i < _buttons.AllButtons.Count; i++)
                 {
                     AiButton button = _buttons.AllButtons[i];
@@ -538,27 +540,23 @@ namespace MphRead.Entities
                     }
                     else if (button == _buttons.A)
                     {
-                        control = _player.IsAltForm && _player.Values.AltFormStrafe == 0
-                            ? _player.Controls.AimRight
-                            : _player.Controls.MoveRight;
+                        control = _player.IsAltForm && !usesAltMovementControls
+                            ? _player.Controls.AimRight : _player.Controls.MoveRight;
                     }
                     else if (button == _buttons.B)
                     {
-                        control = _player.IsAltForm && _player.Values.AltFormStrafe == 0
-                            ? _player.Controls.AimDown
-                            : _player.Controls.MoveDown;
+                        control = _player.IsAltForm && !usesAltMovementControls
+                            ? _player.Controls.AimDown : _player.Controls.MoveDown;
                     }
                     else if (button == _buttons.X)
                     {
-                        control = _player.IsAltForm && _player.Values.AltFormStrafe == 0
-                            ? _player.Controls.AimUp
-                            : _player.Controls.MoveUp;
+                        control = _player.IsAltForm && !usesAltMovementControls
+                            ? _player.Controls.AimUp : _player.Controls.MoveUp;
                     }
                     else if (button == _buttons.Y)
                     {
-                        control = _player.IsAltForm && _player.Values.AltFormStrafe == 0
-                            ? _player.Controls.AimLeft
-                            : _player.Controls.MoveLeft;
+                        control = _player.IsAltForm && !usesAltMovementControls
+                            ? _player.Controls.AimLeft : _player.Controls.MoveLeft;
                     }
                     else if (button == _buttons.L)
                     {
@@ -736,6 +734,7 @@ namespace MphRead.Entities
                 Func2134594();
                 Func2148ABC();
                 Execute(_executionTree[0]);
+                ApplyGuardianAttackIntent();
                 Array.Fill(_slotHits, 0);
                 Array.Fill(_slotDamage, 0);
                 DamageFromHalfturret = 0;
@@ -743,6 +742,78 @@ namespace MphRead.Entities
                 Flags2 &= ~AiFlags2.Bit16;
                 Flags2 &= ~AiFlags2.Bit17;
                 Flags2 &= ~AiFlags2.Bit21;
+            }
+
+            /// <summary>
+            /// Adapts the existing AI target result to Guardian's attacks.
+            /// The normal tree remains responsible for navigation and target
+            /// selection. Biped form reuses the established weapon/aim policy;
+            /// alternate form only supplies the L-button intent that the
+            /// authoritative input path consumes for Psycho Bit charge/release.
+            /// </summary>
+            private void ApplyGuardianAttackIntent()
+            {
+                if (_player.Hunter != Hunter.Guardian
+                    || _player.IsMorphing || _player.IsUnmorphing)
+                {
+                    return;
+                }
+
+                if (!_player.IsAltForm)
+                {
+                    if (Flags2.TestFlag(AiFlags2.TargetPlayer)
+                        && _targetPlayer != null && _targetPlayer.Health > 0
+                        && IsPlayerVisible(_player, _targetPlayer))
+                    {
+                        // Guardian has no retail personality branch that
+                        // invokes the normal biped weapon policy. Reuse that
+                        // policy directly instead of inventing another fire
+                        // cadence or impersonating a retail Hunter.
+                        Func2143658();
+                    }
+                    return;
+                }
+
+                if (!_player._abilities.TestFlag(AbilityFlags.GuardianAltAttack)
+                    || _player._altAttackCooldown > 0)
+                {
+                    return;
+                }
+
+                int startup = SimTicks.From30HzFrames(
+                    _player.Values.AltAttackStartup);
+                if (_player._altAttackTime > 0)
+                {
+                    // Once charge has begun, keep the intent held until the
+                    // authoritative startup boundary. The next frame then
+                    // observes release and spawns the regular Power Beam.
+                    if (_player._altAttackTime < startup)
+                    {
+                        _buttons.L.IsDown = true;
+                    }
+                    return;
+                }
+
+                if (!Flags2.TestFlag(AiFlags2.TargetPlayer)
+                    || _targetPlayer == null || _targetPlayer.Health == 0
+                    || !IsPlayerVisible(_player, _targetPlayer))
+                {
+                    return;
+                }
+
+                // Reuse the tree's established alignment test and aim delta;
+                // this may queue a normal one-tick aim correction, but never
+                // bypasses the input/camera authority.
+                Func2145C14(_targetPlayer.Position);
+                if (!Flags2.TestFlag(AiFlags2.Bit0)
+                    || _buttons.L.FramesUp <= _field102E)
+                {
+                    return;
+                }
+
+                _buttons.L.IsDown = true;
+                _field102E = _field102C
+                    + _scene.Random.GetRandomInt2(_field102C / 2);
             }
 
             // todo: member name
@@ -768,24 +839,17 @@ namespace MphRead.Entities
                     {
                         continue;
                     }
-                    float w = Matrix.ProjectPosition(other.Position, _player.CameraInfo.ViewMatrix, perspectiveMatrix, out Vector2 proj);
-                    if (w < 0)
-                    {
-                        // sktodo-ai: bug? should this be a continue? or is the byte array check only expected to pass for one player?
-                        // but then why do we continue if the screen coordinates are out of range?
-                        //Debugger.Break();
-                        return;
-                    }
-                    if (proj.X >= 1 || proj.Y >= 1)
-                    {
-                        continue;
-                    }
-                    if (other.CurAlpha >= 1 || other.Flags2.TestFlag(PlayerFlags2.RadarReveal) || _scene.Match.RadarPlayers
-                        || other.OctolithFlag != null || _scene.Match.PrimeHunter == other.SlotIndex)
+                    float w = Matrix.ProjectPosition(other.Position,
+                        _player.CameraInfo.ViewMatrix, perspectiveMatrix, out Vector2 proj);
+                    bool seesOther = IsProjectedOpponentOnScreen(w, proj);
+                    if (seesOther && (other.CurAlpha >= 1
+                        || other.Flags2.TestFlag(PlayerFlags2.RadarReveal)
+                        || _scene.Match.RadarPlayers || other.OctolithFlag != null
+                        || _scene.Match.PrimeHunter == other.SlotIndex))
                     {
                         AggroFunc214864C(6, 1, 2, null, other, 0, 30, 10, 3);
                     }
-                    else
+                    else if (seesOther)
                     {
                         Vector3 between = other.Position - _player.CameraInfo.Position;
                         between = between.AddY(other.IsAltForm ? Fixed.ToFloat(other.Values.AltColYPos) : 0.5f);
@@ -806,29 +870,25 @@ namespace MphRead.Entities
                         {
                             div = 4;
                         }
-                        if (_scene.Random.GetRandomInt2((31 - alpha + rand) / div) != 0)
+                        if (_scene.Random.GetRandomInt2((31 - alpha + rand) / div) == 0)
                         {
-                            // sktodo-ai: same as above
-                            return;
+                            alpha = alpha <= 2 ? 1 : (alpha - 2);
+                            AggroFunc214864C(6, 1, 2, null, other, 0, alpha, 10, 3);
                         }
-                        alpha = alpha <= 2 ? 1 : (alpha - 2);
-                        AggroFunc214864C(6, 1, 2, null, other, 0, alpha, 10, 3);
                     }
                     float otherFov = MathHelper.DegreesToRadians(other.CameraInfo.Fov > 0 ? other.CameraInfo.Fov : 78);
                     Matrix4 otherPerspective = _scene.GetPerspectiveMatrix(otherFov);
                     w = Matrix.ProjectPosition(_player.Position, other.CameraInfo.ViewMatrix, otherPerspective, out proj);
-                    if (w < 0)
-                    {
-                        // sktodo-ai: same as above
-                        //Debugger.Break();
-                        return;
-                    }
-                    if (proj.X < 1 && proj.Y < 1)
+                    if (IsProjectedOpponentOnScreen(w, proj))
                     {
                         AggroFunc214864C(6, 2, 1, other, null, 0, 30, 10, 3);
                     }
                 }
             }
+
+            internal static bool IsProjectedOpponentOnScreen(float w, Vector2 projected)
+                => w > 0 && projected.X >= 0 && projected.X < 1
+                    && projected.Y >= 0 && projected.Y < 1;
 
             private bool IsPlayerVisible(PlayerEntity player, PlayerEntity other)
             {
@@ -2030,18 +2090,28 @@ namespace MphRead.Entities
             #region Funcs1
 
             // helper
+            private bool HasAmmo(BeamType beam, bool charged = false)
+            {
+                WeaponInfo info = WeaponBalanceResolver.SelectWeapon(beam, _player.Hunter);
+                ushort cost = charged
+                    ? WeaponBalanceResolver.GetEffectiveChargeCost(info, _player.Hunter, _scene.Match.Balance)
+                    : WeaponBalanceResolver.GetEffectiveAmmoCost(info, _player.Hunter, _scene.Match.Balance);
+                int ammo = _player._ammo[info.AmmoType];
+                return ammo == -1 || ammo >= cost;
+            }
+
+            // helper
             private bool CheckBeam(BeamType beam)
             {
-                WeaponInfo info = Weapons.Current[(int)beam];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost && _player._availableWeapons[beam];
+                return HasAmmo(beam) && _player._availableWeapons[beam];
             }
 
             // helper
             private bool CheckCharge(BeamType beam)
             {
-                WeaponInfo info = Weapons.Current[(int)beam];
+                WeaponInfo info = WeaponBalanceResolver.SelectWeapon(beam, _player.Hunter);
                 return info.Flags.TestFlag(WeaponFlags.CanCharge)
-                    && _player._ammo[info.AmmoType] >= info.ChargeCost && _player._availableCharges[beam];
+                    && HasAmmo(beam, charged: true) && _player._availableCharges[beam];
             }
 
             private void Func1_214A39C()
@@ -2085,7 +2155,8 @@ namespace MphRead.Entities
             private void Func1_214A098()
             {
                 // check item spawns for missing affinity weapons
-                BeamType affinityWeapon = Weapons.AffinityWeapons[(int)_player.Hunter];
+                BeamType affinityWeapon = PlayableHunterCatalog.GetAffinityWeapon(
+                    _player.Hunter);
                 int affinityIndex = GetWeaponIndex(affinityWeapon);
                 int seenBits = 1 | 2;
                 bool sawAffinity = false;
@@ -2111,7 +2182,7 @@ namespace MphRead.Entities
                         // Noxus    - VoltDriver
                         // Spire    - MissileExpansion
                         // Weavel   - DoubleDamage
-                        // Guardian - HealthMedium
+                        // Guardian - Power Beam (Project Prime extension)
                         // only Sylux's and Noxus's options are covered below at all, and they aren't their actual affinity
                         type = (ItemType)affinityWeapon;
                     }
@@ -2161,14 +2232,15 @@ namespace MphRead.Entities
                 int affinityIndex = 0;
                 int candidateCount = 0;
                 Span<int> candidates = stackalloc int[8];
-                bool includeMissile = Weapons.AffinityWeapons[(int)_player.Hunter] == BeamType.Missile;
+                BeamType affinityWeapon = PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter);
+                bool includeMissile = affinityWeapon == BeamType.Missile;
                 for (int i = includeMissile ? 1 : 2; i < 9; i++)
                 {
                     BeamType beam = GetBeamType(i);
                     if (CheckBeam(beam))
                     {
                         candidates[candidateCount++] = i;
-                        if (Weapons.AffinityWeapons[(int)_player.Hunter] == beam)
+                        if (affinityWeapon == beam)
                         {
                             affinityIndex = i;
                         }
@@ -2313,7 +2385,8 @@ namespace MphRead.Entities
             {
                 WeaponInfo weapon = _player.EquipWeapon;
                 return weapon.Flags.TestFlag(WeaponFlags.CanCharge) && _player._availableCharges[_player.CurrentWeapon]
-                    && (_player._ammo[weapon.AmmoType] >= weapon.ChargeCost || _player._ammo[weapon.AmmoType] == -1);
+                    && (_player._ammo[weapon.AmmoType] >= _player.EquipInfo.ChargeCost
+                        || _player._ammo[weapon.AmmoType] == -1);
             }
 
             private void Func1_2149AD8()
@@ -3071,7 +3144,7 @@ namespace MphRead.Entities
                 Vector3 targetPos = Vector3.Zero;
                 if (_player.IsAltForm || context.FieldA == 31)
                 {
-                    if (_player.Values.AltFormStrafe != 0 && context.FieldA == 31)
+                    if (_player.UsesStrafeAltMovement && context.FieldA == 31)
                     {
                         if (context.FieldB == 4 && Flags2.TestFlag(AiFlags2.TargetPlayer))
                         {
@@ -3179,7 +3252,7 @@ namespace MphRead.Entities
                     if (context.FieldD == 29)
                     {
                         Func2140094(context);
-                        if (_player.Values.AltFormStrafe != 0 && _buttonAimX == 0 && _buttonAimY == 0)
+                        if (_player.UsesStrafeAltMovement && _buttonAimX == 0 && _buttonAimY == 0)
                         {
                             if (Flags2.TestFlag(AiFlags2.TargetPlayer) && context.Field9 == 4)
                             {
@@ -3308,7 +3381,7 @@ namespace MphRead.Entities
                     {
                         if (_player.IsAltForm)
                         {
-                            if (_player.Values.AltFormStrafe != 0)
+                            if (_player.UsesStrafeAltMovement)
                             {
                                 Func2145C14(targetPos);
                                 Func2142AE8(position.Value);
@@ -3432,8 +3505,10 @@ namespace MphRead.Entities
                     }
                     else if (context.FieldF == 70)
                     {
-                        if (_player._abilities.TestFlag(AbilityFlags.WeavelAltAttack)
-                            && _player._altAttackCooldown == 0 && Flags2.TestFlag(AiFlags2.Bit0))
+                        if (_player._abilities.TestFlag(
+                            AbilityFlags.WeavelAltAttack)
+                            && _player._altAttackCooldown == 0
+                            && Flags2.TestFlag(AiFlags2.Bit0))
                         {
                             ShootAndSetDelay();
                         }
@@ -3472,7 +3547,8 @@ namespace MphRead.Entities
                 {
                     PressButton(_buttons.L, 5);
                 }
-                if (Flags2.TestFlag(AiFlags2.Bit21) && _scene.Random.GetRandomInt2(10) == 0 // sktodo-ai: FPS stuff if this is called repeatedly
+                if (Flags2.TestFlag(AiFlags2.Bit21)
+                    && _scene.Random.GetRandomInt2(10) == 0 // sktodo-ai: FPS stuff if this is called repeatedly
                     && !_player.IsAltForm && !_player.IsMorphing && !_player.Flags1.TestFlag(PlayerFlags1.UsedJump))
                 {
                     PressButton(_buttons.L, 5);
@@ -4883,29 +4959,25 @@ namespace MphRead.Entities
             // same as Func3_213BFFC but for _weapon1 instead of _weapon2
             private int Func3_213C078(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)GetBeamType(_weapon1)];
-                return _player._ammo[info.AmmoType] < info.AmmoCost ? 1 : 0;
+                return HasAmmo(GetBeamType(_weapon1)) ? 0 : 1;
             }
 
             // same as Func3_213BFD8 but for _weapon1 instead of _weapon2
             private int Func3_213C054(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)GetBeamType(_weapon1)];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost ? 1 : 0; // inverted
+                return HasAmmo(GetBeamType(_weapon1)) ? 1 : 0; // inverted
             }
 
             // same as Func3_213C078 but for _weapon2 instead of _weapon1
             private int Func3_213BFFC(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)GetBeamType(_weapon2)];
-                return _player._ammo[info.AmmoType] < info.AmmoCost ? 1 : 0;
+                return HasAmmo(GetBeamType(_weapon2)) ? 0 : 1;
             }
 
             // same as Func3_213C054 but for _weapon2 instead of _weapon1
             private int Func3_213BFD8(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)GetBeamType(_weapon2)];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost ? 1 : 0;
+                return HasAmmo(GetBeamType(_weapon2)) ? 1 : 0;
             }
 
             private int Func3_213BED8(AiContext context, AiPersonalityData5 param)
@@ -4971,14 +5043,12 @@ namespace MphRead.Entities
 
             private int Func3_213BE10(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)BeamType.Missile];
-                return _player._ammo[info.AmmoType] < info.AmmoCost ? 1 : 0;
+                return HasAmmo(BeamType.Missile) ? 0 : 1;
             }
 
             private int Func3_213BDF4(AiContext context, AiPersonalityData5 param)
             {
-                WeaponInfo info = Weapons.Current[(int)BeamType.Missile];
-                return _player._ammo[info.AmmoType] >= info.AmmoCost ? 1 : 0; // inverted
+                return HasAmmo(BeamType.Missile) ? 1 : 0; // inverted
             }
 
             private int Func3_213BD7C(AiContext context, AiPersonalityData5 param)
@@ -5898,7 +5968,7 @@ namespace MphRead.Entities
                         _node40 = _entityRefs.Field1;
                     }
                     Debug.Assert(_node40 != null);
-                    if (_node40.NodeType != NodeType.AltForm || _player.Hunter == Hunter.Guardian)
+                    if (_node40.NodeType != NodeType.AltForm)
                     {
                         context.Field18 = 1;
                     }
@@ -5992,7 +6062,7 @@ namespace MphRead.Entities
                         if (position.HasValue)
                         {
                             NodeData3 node = FindClosestNonHazardNodeToPosition(position.Value);
-                            if (node.NodeType == NodeType.AltForm && _player.Hunter != Hunter.Guardian
+                            if (node.NodeType == NodeType.AltForm
                                 && context.FieldD != 29)
                             {
                                 context.FieldD = 29;
@@ -6210,7 +6280,7 @@ namespace MphRead.Entities
                         {
                             _node48 = _node44 = _node40;
                             _field4C[0] = _node40 = v25;
-                            if (_node40.NodeType != NodeType.AltForm || _player.Hunter == Hunter.Guardian)
+                            if (_node40.NodeType != NodeType.AltForm)
                             {
                                 context.Field18 = 1;
                             }
@@ -6449,6 +6519,10 @@ namespace MphRead.Entities
                 }
             }
 
+            // These values are the verified retail-derived difficulty bands.
+            // Keep the original arrays as the runtime source of truth; the
+            // snapshot helper only makes those constants testable without
+            // introducing a second tuning table.
             // todo: member name -- dword_214C75C, dword_214C750
             private static readonly IReadOnlyList<float> _dotValues
                 = [255 / 256f, 4025 / 4096f, 3956 / 4096f, 3849 / 4096f, 3780 / 4096f];
@@ -6459,6 +6533,35 @@ namespace MphRead.Entities
             private static readonly IReadOnlyList<float> _aimDistanceErrorDivisor = [2, 4, 9, 50, 100];
             private static readonly IReadOnlyList<int> _shotDelayFrames = [60, 30, 15, 5, 2];
             private static readonly IReadOnlyList<float> _judicatorChargeDistanceSquared = [9, 10, 11, 13, 16];
+
+            internal readonly record struct DifficultyTuning(
+                int AwarenessChecksPerFrame,
+                float TurnDegreesPerTick,
+                float ExactTurnDotThreshold,
+                int AimPredictionFrames,
+                float AimMotionErrorScale,
+                float AimMinimumError,
+                float AimDistanceErrorDivisor,
+                int ShotDelayFrames,
+                float JudicatorChargeDistanceSquared,
+                int DodgeChanceOneIn);
+
+            internal static DifficultyTuning GetDifficultyTuning(BotDifficulty difficulty)
+            {
+                int index = Math.Clamp((int)difficulty,
+                    (int)BotDifficulty.Beginner, (int)BotDifficulty.Expert);
+                return new(
+                    AwarenessChecksPerFrame: 1,
+                    TurnDegreesPerTick: _aimValues[index],
+                    ExactTurnDotThreshold: _dotValues[index],
+                    AimPredictionFrames: _aimPredictionFrames[index],
+                    AimMotionErrorScale: _aimMotionErrorScale[index],
+                    AimMinimumError: _aimMinimumError[index],
+                    AimDistanceErrorDivisor: _aimDistanceErrorDivisor[index],
+                    ShotDelayFrames: _shotDelayFrames[index],
+                    JudicatorChargeDistanceSquared: _judicatorChargeDistanceSquared[index],
+                    DodgeChanceOneIn: 10);
+            }
 
             // todo: member name -- Func2145C14() updates X, Func21447E8() updates X and Y
             private void Func2145C14(Vector3 position)
@@ -6610,13 +6713,13 @@ namespace MphRead.Entities
                         {
                             homing = (weapon.MinChargeHoming
                                 + ((weapon.ChargedHoming - weapon.MinChargeHoming) * chargePct)) / 4096f / 2; // todo: FPS stuff
-                            speed = (weapon.MinChargeSpeed
-                                + ((weapon.ChargedSpeed - weapon.MinChargeSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
+                            speed = (equip.MinChargeSpeed
+                                + ((equip.ChargedSpeed - equip.MinChargeSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
                         }
                         else
                         {
                             homing = weapon.UnchargedHoming / 4096f / 2; // todo: FPS stuff
-                            speed = weapon.UnchargedSpeed / 4096f / 2; // todo: FPS stuff
+                            speed = equip.UnchargedSpeed / 4096f / 2; // todo: FPS stuff
                         }
                         if (homing > 0 || speed <= 0)
                         {
@@ -6638,12 +6741,12 @@ namespace MphRead.Entities
                             }
                             else if (isCharged)
                             {
-                                finalSpeed = (weapon.MinChargeFinalSpeed
-                                    + ((weapon.ChargedFinalSpeed - weapon.MinChargeFinalSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
+                                finalSpeed = (equip.MinChargeFinalSpeed
+                                    + ((equip.ChargedFinalSpeed - equip.MinChargeFinalSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
                             }
                             else
                             {
-                                finalSpeed = weapon.UnchargedFinalSpeed / 4096f / 2; // todo: FPS stuff
+                                finalSpeed = equip.UnchargedFinalSpeed / 4096f / 2; // todo: FPS stuff
                             }
                             vec /= finalSpeed; // sktodo-ai: FPS stuff, by usage --> leading shots
                         }
@@ -6663,15 +6766,14 @@ namespace MphRead.Entities
                     float dot2 = MathF.Abs(Vector3.Dot(speedDiff, _player.CameraInfo.UpVector));
                     float v52;
                     float v66;
-                    int difficulty = DifficultyIndex;
-                    v52 = dot1 * _aimMotionErrorScale[difficulty]
-                        + _aimMinimumError[difficulty];
-                    v66 = dot2 * _aimMotionErrorScale[difficulty]
-                        + _aimMinimumError[difficulty];
+                    v52 = dot1 * _aimMotionErrorScale[DifficultyIndex]
+                        + _aimMinimumError[DifficultyIndex];
+                    v66 = dot2 * _aimMotionErrorScale[DifficultyIndex]
+                        + _aimMinimumError[DifficultyIndex];
                     if (!Flags4.TestFlag(AiFlags4.Bit2))
                     {
-                        v52 += targetDist / _aimDistanceErrorDivisor[difficulty];
-                        v66 += targetDist / _aimDistanceErrorDivisor[difficulty];
+                        v52 += targetDist / _aimDistanceErrorDivisor[DifficultyIndex];
+                        v66 += targetDist / _aimDistanceErrorDivisor[DifficultyIndex];
                     }
                     if (_player._disruptedTimer > 0)
                     {
@@ -6773,8 +6875,8 @@ namespace MphRead.Entities
                 // it should be a factor between min and max charge values (or uncharged should be used directly for 0% charge).
                 // going between uncharged and min charge will make the calculation wrong for any weapon where uncahrged, min, and max
                 // aren't all identical.
-                float speed = (weapon.UnchargedSpeed
-                    + ((weapon.MinChargeSpeed - weapon.UnchargedSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
+                float speed = (equip.UnchargedSpeed
+                    + ((equip.MinChargeSpeed - equip.UnchargedSpeed) * chargePct)) / 4096f / 2; // todo: FPS stuff
                 float gravity = (weapon.UnchargedGravity
                     + ((weapon.MinChargeGravity - weapon.UnchargedGravity) * chargePct)) / 4096f / 2; // todo: FPS stuff
                 float div = distToPosH * distToPosH * gravity / (speed * speed);
@@ -7275,7 +7377,7 @@ namespace MphRead.Entities
                 {
                 }
                 Debug.Assert(_node40 != null);
-                context.Field18 = _node40.NodeType == NodeType.AltForm && _player.Hunter != Hunter.Guardian ? 2 : 0;
+                context.Field18 = _node40.NodeType == NodeType.AltForm ? 2 : 0;
                 if (_player.IsAltForm)
                 {
                     if (_player._deathaltTimer == 0 && (context.Field1C == 1 || !context.Field28 && context.Field18 != 2))
@@ -7284,7 +7386,7 @@ namespace MphRead.Entities
                     }
                     if (context.Field20 != 0 && (context.Field1C != 1 || _player._deathaltTimer != 0))
                     {
-                        if (_player.Values.AltFormStrafe != 0)
+                        if (_player.UsesStrafeAltMovement)
                         {
                             if (context.Field30 && context.Field2C == 0)
                             {
@@ -7414,7 +7516,7 @@ namespace MphRead.Entities
                         }
                         _node48 = _node44 = _node40;
                         _field4C[0] = _node40 = node1;
-                        context.Field18 = _node40.NodeType == NodeType.AltForm && _player.Hunter != Hunter.Guardian ? 2 : 0;
+                        context.Field18 = _node40.NodeType == NodeType.AltForm ? 2 : 0;
                         Flags2 |= AiFlags2.Bit7;
                         return context.Field24 != 0;
                     }
@@ -7434,7 +7536,7 @@ namespace MphRead.Entities
                             FindEntityRef(AiEntRefType.Type1);
                             _node40 = _entityRefs.Field1;
                             Debug.Assert(_node40 != null);
-                            context.Field18 = _node40.NodeType == NodeType.AltForm && _player.Hunter != Hunter.Guardian ? 2 : 0;
+                            context.Field18 = _node40.NodeType == NodeType.AltForm ? 2 : 0;
                         }
                         else if (Flags2.TestFlag(AiFlags2.TargetPlayer) && _targetPlayer != null
                             && _targetPlayer.Hunter == Hunter.Sylux && _targetPlayer.IsAltForm)
@@ -7469,7 +7571,7 @@ namespace MphRead.Entities
                         FindEntityRef(AiEntRefType.Type1);
                         _node40 = _entityRefs.Field1;
                         Debug.Assert(_node40 != null);
-                        context.Field18 = _node40.NodeType == NodeType.AltForm && _player.Hunter != Hunter.Guardian ? 2 : 0;
+                        context.Field18 = _node40.NodeType == NodeType.AltForm ? 2 : 0;
                     }
                     else
                     {
@@ -8004,7 +8106,7 @@ namespace MphRead.Entities
                 {
                     context.Field44--;
                     PressL();
-                    if (!_player.IsAltForm || _player.Values.AltFormStrafe != 0)
+                    if (!_player.IsAltForm || _player.UsesStrafeAltMovement)
                     {
                         _buttons.X.IsDown = false;
                         _buttons.B.IsDown = false;
@@ -9643,7 +9745,7 @@ namespace MphRead.Entities
             private ItemSpawnEntity? FindItemSpawnForWeapon(ItemType itemType, BeamType beamType)
             {
                 ItemType type2 = ItemType.None;
-                if (Weapons.AffinityWeapons[(int)_player.Hunter] == beamType)
+                if (PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter) == beamType)
                 {
                     type2 = ItemType.AffinityWeapon;
                 }
@@ -9653,7 +9755,7 @@ namespace MphRead.Entities
             private ItemInstanceEntity? FindItemForWeapon(ItemType itemType, BeamType beamType)
             {
                 ItemType type2 = ItemType.None;
-                if (Weapons.AffinityWeapons[(int)_player.Hunter] == beamType)
+                if (PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter) == beamType)
                 {
                     type2 = ItemType.AffinityWeapon;
                 }
@@ -9673,7 +9775,7 @@ namespace MphRead.Entities
             private ItemSpawnEntity? FindItemSpawnForMissiles()
             {
                 ItemType type3 = ItemType.None;
-                if (Weapons.AffinityWeapons[(int)_player.Hunter] == BeamType.Missile)
+                if (PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter) == BeamType.Missile)
                 {
                     type3 = ItemType.AffinityWeapon;
                 }
@@ -9684,7 +9786,7 @@ namespace MphRead.Entities
             private ItemInstanceEntity? FindItemForMissiles()
             {
                 ItemType type3 = ItemType.None;
-                if (Weapons.AffinityWeapons[(int)_player.Hunter] == BeamType.Missile)
+                if (PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter) == BeamType.Missile)
                 {
                     type3 = ItemType.AffinityWeapon;
                 }
@@ -10115,21 +10217,16 @@ namespace MphRead.Entities
 
             private PlayerEntity FindClosestOpponentToPosition(Vector3 position, bool botsOnly = false)
             {
-                PlayerEntity? result = null;
+                PlayerEntity result = _player;
                 float minDist = Single.MaxValue;
                 Flags2 |= AiFlags2.Bit9;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (result == null)
-                    {
-                        result = player;
-                        minDist = Vector3.DistanceSquared(player.Position, position);
-                    }
                     if (player != _player && player.TeamIndex != _player.TeamIndex && player.ModInPlay
                         && (!botsOnly || player.IsBot))
                     {
                         float dist = Vector3.DistanceSquared(player.Position, position);
-                        if (dist <= minDist || result.Health == 0 || botsOnly && !result.IsBot)
+                        if (dist <= minDist)
                         {
                             result = player;
                             minDist = dist;
@@ -10137,7 +10234,6 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                Debug.Assert(result != null);
                 return result;
             }
 
@@ -10145,21 +10241,16 @@ namespace MphRead.Entities
             private PlayerEntity Func2138038(Vector3 position)
             {
                 // same as FindClosestOpponentToPosition(), but only testing those for whom Func214857C() returns true
-                PlayerEntity? result = null;
+                PlayerEntity result = _player;
                 float minDist = Single.MaxValue;
                 Flags2 |= AiFlags2.Bit9;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (result == null)
-                    {
-                        result = player;
-                        minDist = Vector3.DistanceSquared(player.Position, position);
-                    }
                     if (AggroFunc214857C(6, 1, 2, null, player)
                         && player != _player && player.TeamIndex != _player.TeamIndex && player.ModInPlay)
                     {
                         float dist = Vector3.DistanceSquared(player.Position, position);
-                        if (dist <= minDist || result.Health == 0)
+                        if (dist <= minDist)
                         {
                             result = player;
                             minDist = dist;
@@ -10167,7 +10258,6 @@ namespace MphRead.Entities
                         }
                     }
                 }
-                Debug.Assert(result != null);
                 return result;
             }
 
@@ -10175,41 +10265,25 @@ namespace MphRead.Entities
             private PlayerEntity Func2137E8C(Vector3 position)
             {
                 // get opponent with primary criteria being max value from Func2148394(), then min distance as tiebreaker
-                PlayerEntity? result = null;
+                PlayerEntity result = _player;
                 float minDist = Single.MaxValue;
-                float dist = 0;
-                int maxValue = 0;
+                int maxValue = -1;
                 Flags2 |= AiFlags2.Bit9;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (result == null)
-                    {
-                        result = player;
-                        minDist = Vector3.DistanceSquared(player.Position, position);
-                    }
                     if (player != _player && player.TeamIndex != _player.TeamIndex && player.ModInPlay)
                     {
                         int value = AggroFunc2148394(7, 2, 1, player, null);
-                        if (value > maxValue)
+                        float dist = Vector3.DistanceSquared(player.Position, position);
+                        if (IsBetterTargetCandidate(value, dist, maxValue, minDist))
                         {
                             result = player;
-                            minDist = dist; // the game might use an undefined value here
+                            minDist = dist;
                             maxValue = value;
                             Flags2 &= ~AiFlags2.Bit9;
                         }
-                        else if (value == maxValue)
-                        {
-                            dist = Vector3.DistanceSquared(player.Position, position);
-                            if (dist <= minDist || result.Health == 0)
-                            {
-                                result = player;
-                                minDist = dist;
-                                Flags2 &= ~AiFlags2.Bit9;
-                            }
-                        }
                     }
                 }
-                Debug.Assert(result != null);
                 return result;
             }
 
@@ -10217,44 +10291,33 @@ namespace MphRead.Entities
             private PlayerEntity Func21378C0(Vector3 position)
             {
                 // same as FuncFunc2137E8C(), but only testing those for whom Func214857C() returns true
-                PlayerEntity? result = null;
+                PlayerEntity result = _player;
                 float minDist = Single.MaxValue;
-                float dist = minDist;
-                int maxValue = 0;
+                int maxValue = -1;
                 Flags2 |= AiFlags2.Bit9;
                 foreach (PlayerEntity player in _scene.GetPlayerEntities())
                 {
-                    if (result == null)
-                    {
-                        result = player;
-                        minDist = Vector3.DistanceSquared(player.Position, position);
-                    }
                     if (AggroFunc214857C(6, 1, 2, null, player)
                         && player != _player && player.TeamIndex != _player.TeamIndex && player.ModInPlay)
                     {
                         int value = AggroFunc2148394(7, 2, 1, player, null);
-                        if (value > maxValue)
+                        float dist = Vector3.DistanceSquared(player.Position, position);
+                        if (IsBetterTargetCandidate(value, dist, maxValue, minDist))
                         {
                             result = player;
-                            minDist = dist; // the game might use an undefined value here
+                            minDist = dist;
                             maxValue = value;
                             Flags2 &= ~AiFlags2.Bit9;
                         }
-                        else if (value == maxValue)
-                        {
-                            dist = Vector3.DistanceSquared(player.Position, position);
-                            if (dist <= minDist || result.Health == 0)
-                            {
-                                result = player;
-                                minDist = dist;
-                                Flags2 &= ~AiFlags2.Bit9;
-                            }
-                        }
                     }
                 }
-                Debug.Assert(result != null);
                 return result;
             }
+
+            internal static bool IsBetterTargetCandidate(int priority,
+                float distanceSquared, int bestPriority, float bestDistanceSquared)
+                => priority > bestPriority
+                    || priority == bestPriority && distanceSquared <= bestDistanceSquared;
 
             // todo: member name
             private PlayerEntity? Func2137AA4(Vector3 position)
@@ -10492,7 +10555,9 @@ namespace MphRead.Entities
                     return _player._ammo[0] == _player._ammoMax[0];
                 }
                 if (itemType == ItemType.MissileSmall || itemType == ItemType.MissileBig
-                    || itemType == ItemType.AffinityWeapon && _player.Hunter == Hunter.Samus)
+                    || itemType == ItemType.AffinityWeapon
+                        && PlayableHunterCatalog.GetAffinityWeapon(_player.Hunter)
+                            == BeamType.Missile)
                 {
                     return _player._ammo[1] == _player._ammoMax[1];
                 }
@@ -10503,7 +10568,14 @@ namespace MphRead.Entities
                     int weapon = (int)itemType - 4;
                     if (itemType == ItemType.AffinityWeapon)
                     {
-                        weapon = (int)Weapons.AffinityWeapons[(int)_player.Hunter];
+                        weapon = (int)PlayableHunterCatalog.GetAffinityWeapon(
+                            _player.Hunter);
+                        // Guardian's Power Beam affinity is an explicit
+                        // selection pickup, not an ammo-full early exit.
+                        if (_player.Hunter == Hunter.Guardian)
+                        {
+                            return false;
+                        }
                     }
                     return _player.AvailableWeapons[weapon];
                 }

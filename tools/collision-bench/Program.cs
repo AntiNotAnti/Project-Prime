@@ -74,7 +74,8 @@ static ulong Run(bool baseline, Scene scene, PlayerEntity player, CollisionResul
 
 static MatchInstance Create(int index)
 {
-    var roster = Enumerable.Range(0, 8).Select(i => new RosterSeat((byte)i, null, null, $"BOT {i}", (Hunter)(i % 7), (byte)(i % 2), SeatRole.Bot, false)).ToImmutableArray();
+    var roster = Enumerable.Range(0, 8).Select(i => new RosterSeat((byte)i, null, null, $"BOT {i}",
+        PlayableHunterCatalog.FromIndex(i % PlayableHunterCatalog.Count), (byte)(i % 2), SeatRole.Bot, false)).ToImmutableArray();
     var spec = new MatchSpec(new(Guid.NewGuid()), new(Guid.NewGuid()), new(Guid.NewGuid()), Guid.NewGuid(),
         new MatchRules(MatchMode.Battle, "MP1 SANCTORUS"), new("MP1 SANCTORUS", "benchmark", "AMHE1", "benchmark", NetHeader.Version),
         MatchTrustClass.Community, null, null, roster, ProjectPrime.Server.Shared.BotFillPolicy.Disabled,

@@ -164,6 +164,20 @@ namespace MphRead.Entities
         Attack = 0
     }
 
+    /// <summary>
+    /// Project Prime's conservative Psycho Bit adaptation. The source model
+    /// exposes four animation groups (30/30/20/40 frames), but retail enemy
+    /// semantics are unavailable; these names describe the v1 presentation
+    /// mapping only.
+    /// </summary>
+    public enum PsychoBitAltAnim : byte
+    {
+        Idle = 0,
+        Charge = 1,
+        Beam = 2,
+        Fly = 3
+    }
+
     public partial class PlayerEntity : DynamicLightEntityBase
     {
         internal readonly ModelInstance[] _bipedModelLods = new ModelInstance[2];
@@ -363,6 +377,13 @@ namespace MphRead.Entities
         private ushort _boostDamage = 0;
         internal ushort _altAttackCooldown = 0;
         private ushort _altAttackTime = 0;
+        // Protocol 25 publishes elapsed ticks for the current authoritative
+        // action phase. Keep this clock independent of hunter-specific
+        // cooldown/startup fields so snapshots and replay checkpoints can
+        // seek an in-progress authored animation without deriving time from
+        // packet cadence.
+        private AltActionPhase _authoritativeAltActionPhase;
+        private ushort _authoritativeAltActionTicks;
         private float _altSpinSpeed = 0;
 
         public Team Team { get; set; } = Team.None;
@@ -460,6 +481,15 @@ namespace MphRead.Entities
         public EntityBase? ShockCoilTarget => _shockCoilTarget;
 
         public bool IsAltForm => Flags1.TestFlag(PlayerFlags1.AltForm);
+        /// <summary>
+        /// Whether this player's alternate form uses the authored strafe-style
+        /// movement controls. Guardian's Project Prime form intentionally keeps
+        /// the retail-authored <see cref="PlayerValues.AltFormStrafe"/> value
+        /// unset, but follows the same grounded movement envelope as the
+        /// strafe-capable alternate forms.
+        /// </summary>
+        internal bool UsesStrafeAltMovement
+            => Values.AltFormStrafe != 0 || Hunter == Hunter.Guardian;
         public bool IsMorphing => Flags1.TestFlag(PlayerFlags1.Morphing);
         public bool IsUnmorphing => Flags1.TestFlag(PlayerFlags1.Unmorphing);
         public PlayerFlags1 Flags1 { get; private set; }
@@ -676,7 +706,7 @@ namespace MphRead.Entities
             player.ResetLockjawBombState();
             if (player.Hunter != hunter) player.AdvancePresentationPoseEpoch();
             player.Hunter = hunter;
-            player.Recolor = recolor;
+            player.Recolor = PlayableHunterCatalog.ValidateRecolor(hunter, recolor);
             player.ResetRemoteLocomotion();
             if (player.IsBot)
             {
@@ -726,6 +756,7 @@ namespace MphRead.Entities
             InitializePresentation();
             _healthMax = 2 * Values.EnergyTank - 1;
             _ammoMax[UA] = _ammoMax[Missiles] = Values.MpAmmoCap;
+            ApplyBalanceAmmoCap(_scene.Match.Balance);
             InitializeWeapon();
             _pendingAutoEquipWeapon = BeamType.None;
             _hasAuthoritativeWeaponPickupFence = false;
@@ -823,6 +854,7 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
+            ResetEnhancedHunterState();
             _aimAssist.Reset();
             Input.ClearBoostIntents();
             ResetLockjawBombState();
@@ -875,6 +907,10 @@ namespace MphRead.Entities
             {
                 _abilities |= AbilityFlags.WeavelAltAttack;
             }
+            else if (Hunter == Hunter.Guardian)
+            {
+                _abilities |= AbilityFlags.GuardianAltAttack;
+            }
             _health = Values.EnergyTank - 1;
             ClearAnalogMovement();
             // todo?: a lot of this doesn't need to be set at all in create/init when it gets set every time you spawn anyway
@@ -916,6 +952,13 @@ namespace MphRead.Entities
             IdlePosition = Position;
             _gunVec2 = Vector3.Cross(up, facing).Normalized();
             _gunVec1 = facing;
+            // A command accepted while this player was still dead may be cached
+            // until input is processed later in the respawn frame. Keep that
+            // prior-life aim from replacing the spawn's authored direction.
+            if (_networkInputActive)
+            {
+                _networkAim = facing;
+            }
             float hMag = MathF.Sqrt(facing.X * facing.X + facing.Z * facing.Z);
             _field70 = facing.X / hMag;
             _field74 = facing.Z / hMag;
@@ -979,6 +1022,8 @@ namespace MphRead.Entities
             _spawnInvulnTimer = (ushort)SimTicks.From30HzFrames(Values.SpawnInvulnerability);
             _boostCharge = 0;
             _altAttackCooldown = 0;
+            _authoritativeAltActionPhase = AltActionPhase.None;
+            _authoritativeAltActionTicks = 0;
             _field4E8 = Vector3.Zero;
             _modelTransform = Matrix4.Identity;
             _timeSinceMorphCamera = UInt16.MaxValue;
@@ -1275,6 +1320,39 @@ namespace MphRead.Entities
             }
         }
 
+        private void ApplyBalanceAmmoCap(MatchBalanceContext balance)
+        {
+            int universalCap = (int)Values.MpAmmoCap
+                + balance.GetHunter(Hunter).UniversalAmmoCapDelta;
+            _ammoMax[UA] = Math.Max(0, universalCap);
+            _ammoMax[Missiles] = Math.Max(0, (int)Values.MpAmmoCap);
+            if (_ammo[UA] >= 0)
+            {
+                _ammo[UA] = Math.Min(_ammo[UA], _ammoMax[UA]);
+            }
+            if (_ammo[Missiles] >= 0)
+            {
+                _ammo[Missiles] = Math.Min(_ammo[Missiles], _ammoMax[Missiles]);
+            }
+        }
+
+        /// <summary>
+        /// Reapply the match-owned profile to an already initialized player.
+        /// Only the player's equip boundary and its ammo cap are touched; the
+        /// mutable charge/presentation state and non-player equip boundaries
+        /// remain owned by their respective entities.
+        /// </summary>
+        internal void ApplyBalanceProfile(MatchBalanceContext balance)
+        {
+            if (EquipInfo.Weapon == null || EquipInfo.Beams == null)
+            {
+                return;
+            }
+            ApplyBalanceAmmoCap(balance);
+            WeaponBalanceResolver.Apply(EquipInfo, Hunter, balance);
+            _halfturret?.ApplyBalanceProfile(balance);
+        }
+
         private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false,
             bool suppressFailureSound = false)
         {
@@ -1283,7 +1361,7 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            WeaponInfo info = Weapons.Current[(int)beam];
+            WeaponInfo info = WeaponBalanceResolver.SelectWeapon(beam, Hunter);
             byte ammoType = info.AmmoType;
             if (debug && _scene.Features.Cheats.FreeWeaponSelect)
             {
@@ -1291,7 +1369,9 @@ namespace MphRead.Entities
                 _availableCharges[beam] = true;
                 _ammo[info.AmmoType] = _ammoMax[info.AmmoType];
             }
-            bool hasAmmo = beam == BeamType.PowerBeam || _ammo[ammoType] >= info.AmmoCost || _ammo[ammoType] == -1;
+            ushort ammoCost = WeaponBalanceResolver.GetEffectiveAmmoCost(
+                info, Hunter, _scene.Match.Balance);
+            bool hasAmmo = beam == BeamType.PowerBeam || _ammo[ammoType] >= ammoCost || _ammo[ammoType] == -1;
             if (!silent && (!hasAmmo || !_availableWeapons[beam] || GunAnimation == GunAnimation.UpDown))
             {
                 if (IsMainPlayer && !suppressFailureSound)
@@ -1320,6 +1400,7 @@ namespace MphRead.Entities
             EquipInfo.SmokeLevel = 0;
             EquipInfo.GetAmmo = () => _ammo[ammoType];
             EquipInfo.SetAmmo = (newAmmo) => _ammo[ammoType] = newAmmo;
+            WeaponBalanceResolver.Apply(EquipInfo, Hunter, _scene.Match.Balance);
             _timeSinceInput = 0;
             if (!silent)
             {
@@ -1422,8 +1503,11 @@ namespace MphRead.Entities
                 {
                     if (i != 2 && _availableWeapons[i])
                     {
-                        WeaponInfo info = Weapons.Current[i];
-                        if (info.Priority > priority && _ammo[info.AmmoType] >= info.AmmoCost)
+                        BeamType candidateBeam = (BeamType)i;
+                        WeaponInfo info = WeaponBalanceResolver.SelectWeapon(candidateBeam, Hunter);
+                        ushort ammoCost = WeaponBalanceResolver.GetEffectiveAmmoCost(
+                            info, Hunter, _scene.Match.Balance);
+                        if (info.Priority > priority && _ammo[info.AmmoType] >= ammoCost)
                         {
                             priority = info.Priority;
                             nextBeam = (BeamType)i;
@@ -1488,7 +1572,7 @@ namespace MphRead.Entities
         private void UpdateGunAnimation()
         {
             bool shockCoilFiring = ShouldPlayShockCoilAnimation(CurrentWeapon,
-                Flags2.TestFlag(PlayerFlags2.Shooting), EquipInfo.Ammo, EquipWeapon.AmmoCost,
+                Flags2.TestFlag(PlayerFlags2.Shooting), EquipInfo.Ammo, EquipInfo.AmmoCost,
                 _health, IsAltForm, IsMorphing, IsUnmorphing);
             if (shockCoilFiring)
             {
@@ -1629,42 +1713,47 @@ namespace MphRead.Entities
 
         public void TakeDamage(int damage, DamageFlags flags, Vector3? direction, EntityBase? source)
         {
-            TakeDamage((uint)damage, flags, direction, source);
+            _ = TakeDamageResolved((uint)damage, flags, direction, source);
         }
 
         public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
+        {
+            _ = TakeDamageResolved(damage, flags, direction, source);
+        }
+
+        internal int TakeDamageResolved(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
         {
             _scene.Services.ObserveDamageAttempt(this, damage, flags, direction, source);
             if (_scene.Services.SuppressDamage(this) || (_scene.Services.Combat?.IsStaleSource(source) == true)
                 || flags.TestFlag(DamageFlags.Burn) && (_scene.Services.Combat?.IsStaleActor(CombatBurnSource.Actor) == true))
             {
-                return;
+                return 0;
             }
             if (_health == 0)
             {
-                return;
+                return 0;
             }
             if (IsMainPlayer && _scene.CameraSequences.Current?.BlockInput == true)
             {
                 if (!flags.TestFlag(DamageFlags.Death))
                 {
-                    return;
+                    return 0;
                 }
                 _scene.SpecialEntities.CancelCameraSequence();
             }
             if (_spawnInvulnTimer > 0 && !flags.TestFlag(DamageFlags.Death) && !flags.TestFlag(DamageFlags.IgnoreInvuln))
             {
-                return;
+                return 0;
             }
             if (IsBot && AiData.Flags2.TestFlag(AiFlags2.Bit13))
             {
-                return;
+                return 0;
             }
             if (!flags.TestAny(DamageFlags.Death | DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln))
             {
                 if (_damageInvulnTimer > 0)
                 {
-                    return;
+                    return 0;
                 }
                 _damageInvulnTimer = (ushort)SimTicks.From30HzFrames(Values.DamageInvuln);
             }
@@ -1672,6 +1761,7 @@ namespace MphRead.Entities
             bool fromHalfturret = false;
             BombEntity? bomb = null;
             BeamProjectileEntity? beam = null;
+            SpireScorchPatchEntity? scorch = null;
             if (source != null)
             {
                 if (source.Type == EntityType.BeamProjectile)
@@ -1680,7 +1770,7 @@ namespace MphRead.Entities
                     Effectiveness effectiveness = BeamEffectiveness[(int)beam.Beam];
                     if (effectiveness == Effectiveness.Zero)
                     {
-                        return;
+                        return 0;
                     }
                     if (beam.Owner?.Type == EntityType.Player)
                     {
@@ -1717,6 +1807,11 @@ namespace MphRead.Entities
                     bomb = (BombEntity)source;
                     attacker = bomb.Owner;
                 }
+                else if (source is SpireScorchPatchEntity patch)
+                {
+                    scorch = patch;
+                    attacker = patch.Owner;
+                }
             }
             bool ignoreDamage = false;
             if (_scene.Match.Rules.Teams && !_scene.Match.Rules.FriendlyFire
@@ -1746,6 +1841,12 @@ namespace MphRead.Entities
                 {
                     damage = 1;
                 }
+            }
+            if (EnhancedHuntersEnabled && !ignoreDamage && attacker?.Hunter == Hunter.Weavel && beam?.Beam == BeamType.Battlehammer
+                && beam.CombatShot.Affinity && (flags.TestFlag(DamageFlags.Direct)
+                    || flags.TestFlag(DamageFlags.NearSplash)))
+            {
+                flags |= DamageFlags.Concussive;
             }
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
             {
@@ -1790,6 +1891,8 @@ namespace MphRead.Entities
             int combatPreviousHealth = _health;
             ushort combatFrozen = _frozenTimer, combatBurn = _burnTimer, combatDisrupt = _disruptedTimer;
             _scene.Services.NoteDamage(this, attacker, beam?.Beam ?? BeamType.None, flags, direction);
+            int absorbedOvercharge = AbsorbEnhancedOvercharge((int)Math.Min(damage, Int32.MaxValue), flags);
+            damage -= (uint)absorbedOvercharge;
             bool dead = false;
             if (_health <= damage || flags.TestFlag(DamageFlags.Death))
             {
@@ -2082,6 +2185,7 @@ namespace MphRead.Entities
                                 else if (attacker.Health > 0 && (_scene.Match.PrimeHunter == -1 || IsPrimeHunter))
                                 {
                                     _scene.Match.PrimeHunter = attacker.SlotIndex;
+                                    attacker.ClearEnhancedOvercharge();
                                     _scene.Match.Players[attacker.SlotIndex].PrimesKilled++;
                                     if (_scene.LocalPlayer?.IsPrimeHunter == true)
                                     {
@@ -2331,13 +2435,20 @@ namespace MphRead.Entities
                 }
                 CameraInfo.SetShake(shake);
             }
-            _scene.Services.Combat?.NoteDamage(this, source, attacker, beam?.Beam ?? BeamType.None,
+            int resolvedDamage = Math.Max(0, combatPreviousHealth - _health) + absorbedOvercharge;
+            if (resolvedDamage > 0) CancelEnhancedCloakFade();
+            HandleEnhancedAcceptedHit(attacker, beam, flags, resolvedDamage);
+            _scene.Services.Combat?.NoteDamage(this, source, attacker,
+                beam?.Beam ?? (scorch != null ? BeamType.Magmaul : BeamType.None),
                 flags, direction, combatPreviousHealth, _frozenTimer, _burnTimer, _disruptedTimer,
-                combatFrozen != _frozenTimer || combatBurn != _burnTimer || combatDisrupt != _disruptedTimer);
+                combatFrozen != _frozenTimer || combatBurn != _burnTimer || combatDisrupt != _disruptedTimer,
+                absorbedOvercharge);
+            if (dead) ResetEnhancedHunterState();
             if (IsMainPlayer)
             {
                 // todo: rumble
             }
+            return resolvedDamage;
         }
 
         private static IReadOnlyList<string> _altAttackNames = Array.AsReadOnly(new string[8]);
@@ -2362,10 +2473,11 @@ namespace MphRead.Entities
                 {
                     hunterNames[i] = Strings.GetMessage('H', i + 1, StringTables.WeaponNames);
                 }
-                // todo: Guardian alt form
-                for (int i = 0; i < 7; ++i)
+                for (int i = 0; i < PlayableHunterCatalog.Count; ++i)
                 {
-                    altAttackNames[i] = Strings.GetMessage('A', i + 1, StringTables.WeaponNames);
+                    altAttackNames[i] = i == (int)Hunter.Guardian
+                        ? "Psycho Bit"
+                        : Strings.GetMessage('A', i + 1, StringTables.WeaponNames);
                 }
                 _weaponNames = Array.AsReadOnly(weaponNames);
                 _hunterNames = Array.AsReadOnly(hunterNames);
@@ -2440,7 +2552,12 @@ namespace MphRead.Entities
         Deathalt = 0x20,
         Burn = 0x40,
         NoSfx = 0x80,
-        FromAlt = 0x100
+        FromAlt = 0x100,
+        Direct = 0x200,
+        Splash = 0x400,
+        NearSplash = 0x800,
+        OverchargeAbsorb = 0x1000,
+        Concussive = 0x2000
     }
 
     [Flags]
@@ -2517,7 +2634,8 @@ namespace MphRead.Entities
         NoxusAltAttack = 0x100,
         SpireAltAttack = 0x200,
         TraceAltAttack = 0x400,
-        WeavelAltAttack = 0x1000
+        WeavelAltAttack = 0x1000,
+        GuardianAltAttack = 0x2000
     }
 
     [Flags]

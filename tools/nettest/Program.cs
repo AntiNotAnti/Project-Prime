@@ -54,6 +54,7 @@ namespace MphRead.NetTest
                     case "--udp-receive-baseline": return UdpReceiveBaseline.Run(args);
                     case "--udp-receive-baseline-self-test": return UdpReceiveBaseline.SelfTest();
                     case "--snapshot-cadence": return SnapshotCadenceCheck.Run(args);
+                    case "--balance-profile-self-test": return BalanceProfileOptions.SelfTest();
                     case "--help": PrintUsage(); return 0;
                 }
             }
@@ -97,21 +98,24 @@ namespace MphRead.NetTest
             if (data == null) { Console.Error.WriteLine("This diagnostic requires --data DIRECTORY."); return 2; }
             string version = Value("dataversion") ?? "AMHE1";
             string room = Value(command) ?? "MP1 SANCTORUS";
+            bool balanced = Has("balanced");
             try
             {
                 if (Value("mapdir") is string maps) MphRead.Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(maps);
                 return command switch
                 {
-                    "combatcheck" => ServerCombatCheck.Run(data, version, room),
-                    "spectatorcheck" => ServerSpectatorCheck.Run(data, version, room),
+                    "combatcheck" => ServerCombatCheck.Run(data, version, room, balanced),
+                    "spectatorcheck" => ServerSpectatorCheck.Run(data, version, room, balanced),
                     "combatduel" => ServerCombatDuelCheck.Run(data, version, room,
                         Int32.TryParse(Value("seconds"), out int duration) ? duration : 30,
-                        Enum.TryParse(Value("weapon"), true, out BeamType weapon) ? weapon : BeamType.Imperialist),
+                        Enum.TryParse(Value("weapon"), true, out BeamType weapon) ? weapon : BeamType.Imperialist,
+                        balanced),
                     _ => HeadlessCheck.Run(data, version, room,
                         Int32.TryParse(Value("frames"), out int frames) ? frames : command == "server-sim" ? -1 : 600,
                         Int32.TryParse(Value("players"), out int players) ? players : 8,
                         Enum.TryParse(Value("mode"), true, out GameMode mode) ? mode : GameMode.Battle,
-                        realtime: Has("realtime") || command == "server-sim")
+                        realtime: Has("realtime") || command == "server-sim",
+                        balancedMode: balanced)
                 };
             }
             catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
@@ -124,7 +128,7 @@ namespace MphRead.NetTest
             Console.WriteLine("--combatcheck [ROOM] --data DIRECTORY: direct authoritative weapon probes");
             Console.WriteLine("--spectatorcheck [ROOM] --data DIRECTORY: participation and objective checks");
             Console.WriteLine("--combatduel [ROOM] --data DIRECTORY [--seconds 30 --weapon Imperialist]: real UDP combat fixture");
-            Console.WriteLine("Content diagnostics accept --dataversion AMHE1 and --mapdir DIRECTORY; legacy single-dash spellings remain accepted.");
+            Console.WriteLine("Content diagnostics accept --dataversion AMHE1, --mapdir DIRECTORY, and opt-in --balanced; legacy single-dash spellings remain accepted.");
             Console.WriteLine("nettest [HOST [PORT]]: authoritative join, ready, roster, clock, input and snapshot checks");
             Console.WriteLine("--simulation SECONDS PORT,... | --authority-check PORT,... | --baseline SECONDS PORT,...");
             Console.WriteLine("--world-check DATA MODE | --connection-server PORT");
@@ -141,12 +145,14 @@ namespace MphRead.NetTest
             Console.WriteLine("--audit-multiplayer-self-test: malformed and edge-case content audit checks");
             Console.WriteLine("--history-boundary DATA [VERSION]: completed simulation history and snapshot invariants");
             Console.WriteLine("--bomb-pool DATA [VERSION]: headless bomb creation, expiry and pool reuse");
-            Console.WriteLine("--catch-up DATA [VERSION]: completed-boundary projectile catch-up and collision invariants");
-            Console.WriteLine("--weapon-policy DATA [VERSION]: actual multiplayer weapon timing variants");
+            Console.WriteLine("--catch-up DATA [VERSION] [balanced]: completed-boundary projectile catch-up and collision invariants");
+            Console.WriteLine("--homing DATA [VERSION] [balanced]: historical homing and target identity invariants");
+            Console.WriteLine("--weapon-policy DATA [VERSION] [balanced]: actual multiplayer weapon timing variants");
             Console.WriteLine("--shared-lock DATA [VERSION]: actual force-field lock beam and bomb variants");
             Console.WriteLine("--lagcomp-script DATA CONFIG_JSON OUTPUT_JSON: deterministic comparison fixture");
-            Console.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON MODE SEED: MODE on, trace-only or off");
+            Console.WriteLine("--mixed-soak-server DATA PORT SECONDS REPORT_JSON MODE SEED [--balanced]: MODE on, trace-only or off");
             Console.WriteLine("--mixed-soak-clients SECONDS PORT,... REPORT_JSON SERVER_COMPLETION_JSON: eight UDP clients");
+            Console.WriteLine("--balance-profile-self-test: content-free Classic/Balanced selector and argument compatibility checks");
             Console.WriteLine("--interpolation-ab OUTPUT_JSON: deterministic fixed-six versus experimental adaptive policy comparison");
             Console.WriteLine("--projectile-presentation [OUTPUT_JSON]: deterministic 100/150/200 ms Shot-echo presentation measurement; not rendered WAN proof");
             Console.WriteLine("--dynamic-lagcomp-comparison [OUTPUT_JSON]: deterministic 0/50/100/150/200 ms historical-geometry comparison; not rendered WAN proof");

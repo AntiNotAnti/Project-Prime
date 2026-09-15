@@ -12,6 +12,10 @@ namespace MphRead.Entities
 {
     public partial class PlayerPresentation
     {
+        private int AltModelRecolor
+            => PlayableHunterCatalog.ResolveAltRecolor(_player.Hunter,
+                _player.Recolor);
+
         public void Draw()
         {
             BeginArmorSubmission();
@@ -65,16 +69,20 @@ namespace MphRead.Entities
                         out float[] altStack);
                     if (interpolatedAlt)
                     {
-                        UpdateMaterials(_player._altModel, _player.Recolor);
+                        int recolor = AltModelRecolor;
+                        UpdateMaterials(_player._altModel, recolor);
                         GetDrawItems(_player._altModel,
                             _player._altModel.Model.Nodes[0], _player._curAlpha,
-                            nodePoses: altNodes, nodeStack: altStack);
+                            recolor: recolor, nodePoses: altNodes,
+                            nodeStack: altStack);
                     }
                     else if (_player.Hunter == Hunter.Kanden)
                     {
                         DrawKandenAlt();
                     }
-                    else if (_player.Hunter == Hunter.Spire && _player.Flags2.TestFlag(PlayerFlags2.AltAttack))
+                    else if (_player.Hunter == Hunter.Spire
+                        && (_player.Flags2.TestFlag(PlayerFlags2.AltAttack)
+                            || _player.HasPresentedAltAction))
                     {
                         // DrawSpireAltAttack applies world translation to these
                         // nodes. Reevaluate the authored pose without changing
@@ -88,8 +96,11 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        UpdateTransforms(_player._altModel, _player._modelTransform, _player.Recolor);
-                        GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0], _player._curAlpha);
+                        int recolor = AltModelRecolor;
+                        UpdateTransforms(_player._altModel, _player._modelTransform, recolor);
+                        GetDrawItems(_player._altModel,
+                            _player._altModel.Model.Nodes[0], _player._curAlpha,
+                            recolor: recolor);
                     }
 
                     SubmitArmorPrimitives(_player._altModel.Model,
@@ -182,14 +193,16 @@ namespace MphRead.Entities
                             muzzlePos = Matrix.Vec3MultMtx4(muzzlePos, muzzleTransform);
                             if (_player._chargeEffect != null)
                             {
-                                _player._chargeEffect.SetDrawEnabled(true);
-                                _player._chargeEffect.Transform(_player._gunVec2, _player._gunVec1, muzzlePos);
+                                Presentation.AttachPlayerEffectToResolvedPose(
+                                    _player._chargeEffect, _player._gunVec2,
+                                    _player._gunVec1, muzzlePos);
                             }
 
                             if (_player._muzzleEffect != null)
                             {
-                                _player._muzzleEffect.SetDrawEnabled(true);
-                                _player._muzzleEffect.Transform(_player._gunVec2, _player._gunVec1, muzzlePos);
+                                Presentation.AttachPlayerEffectToResolvedPose(
+                                    _player._muzzleEffect, _player._gunVec2,
+                                    _player._gunVec1, muzzlePos);
                             }
                         }
 
@@ -248,6 +261,7 @@ namespace MphRead.Entities
                     if (!_player._field6D0 && _player.Hunter != Hunter.Guardian)
                     {
                         Matrix4 transform = PlayerEntity.GetTransformMatrix(_player._aimVec, _player._upVector, _player._gunDrawPos);
+                        Matrix4 renderedGunRoot = transform;
                         UpdateTransforms(_player._gunModel, transform, _player.Recolor);
                         // Interpolate authored animation and bob in camera-local
                         // space, then attach it to this frame's resolved camera.
@@ -257,6 +271,7 @@ namespace MphRead.Entities
                             _player._gunModel, out Matrix4[] gunNodes,
                             out float[] gunStack))
                         {
+                            renderedGunRoot = gunNodes[0];
                             GetDrawItems(_player._gunModel,
                                 _player._gunModel.Model.Nodes[0],
                                 _player._curAlpha, nodePoses: gunNodes,
@@ -267,6 +282,29 @@ namespace MphRead.Entities
                             GetDrawItems(_player._gunModel,
                                 _player._gunModel.Model.Nodes[0],
                                 _player._curAlpha);
+                        }
+                        if (_player._chargeEffect != null
+                            || _player._muzzleEffect != null)
+                        {
+                            ScenePresentation.ResolveViewmodelEffectAnchor(
+                                renderedGunRoot,
+                                Fixed.ToFloat(_player.Values.MuzzleOffset),
+                                out Vector3 effectRight,
+                                out Vector3 effectAim,
+                                out Vector3 effectPosition);
+                            if (_player._chargeEffect != null)
+                            {
+                                Presentation.AttachPlayerEffectToResolvedPose(
+                                    _player._chargeEffect, effectRight,
+                                    effectAim, effectPosition);
+                            }
+
+                            if (_player._muzzleEffect != null)
+                            {
+                                Presentation.AttachPlayerEffectToResolvedPose(
+                                    _player._muzzleEffect, effectRight,
+                                    effectAim, effectPosition);
+                            }
                         }
                         if (_player.Flags1.TestFlag(PlayerFlags1.DrawGunSmoke))
                         {
@@ -305,8 +343,10 @@ namespace MphRead.Entities
             }
 
             _player._altModel.Model.UpdateMatrixStack();
-            UpdateMaterials(_player._altModel, _player.Recolor);
-            GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0], _player._curAlpha);
+            int recolor = AltModelRecolor;
+            UpdateMaterials(_player._altModel, recolor);
+            GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0],
+                _player._curAlpha, recolor: recolor);
         }
 
         public void DrawSpireAltAttack()
@@ -321,8 +361,10 @@ namespace MphRead.Entities
             }
 
             _player._altModel.Model.UpdateMatrixStack();
-            UpdateMaterials(_player._altModel, _player.Recolor);
-            GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0], _player._curAlpha);
+            int recolor = AltModelRecolor;
+            UpdateMaterials(_player._altModel, recolor);
+            GetDrawItems(_player._altModel, _player._altModel.Model.Nodes[0],
+                _player._curAlpha, recolor: recolor);
         }
 
         public void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1,

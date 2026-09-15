@@ -15,6 +15,7 @@ namespace MphRead.Entities
     public class BeamProjectileEntity : EntityBase
     {
         internal CombatShot CombatShot { get; private set; }
+        internal bool IsRootCombatProjectile { get; private set; }
         private uint? _spreadSeed;
         internal uint Generation { get; private set; }
         internal bool CatchUpPending { get; set; }
@@ -597,7 +598,11 @@ namespace MphRead.Entities
                         {
                             player = ((HalfturretEntity)colWith).Owner;
                         }
-                        DamageFlags damageFlags = DamageFlags.NoDmgInvuln;
+                        DamageFlags damageFlags = DamageFlags.NoDmgInvuln | DamageFlags.Direct;
+                        if (Flags.TestFlag(BeamFlags.FromAlt))
+                        {
+                            damageFlags |= DamageFlags.FromAlt;
+                        }
                         if (player.BeamEffectiveness[(int)Beam] != Effectiveness.Zero)
                         {
                             if (hitHalfturret)
@@ -653,18 +658,19 @@ namespace MphRead.Entities
                                 }
                             }
                             wholeDamage = (uint)Math.Clamp(damage, 0, Int32.MaxValue);
-                            if (wholeDamage != 0)
-                            {
-                                player.TakeDamage(wholeDamage, damageFlags, damageDir, this);
-                            }
-                            if (!_scene.Services.IsReplica && _scene.Services.Combat?.IsStaleSource(this) != true
+                            int resolvedDamage = wholeDamage == 0 ? 0
+                                : player.TakeDamageResolved(wholeDamage, damageFlags, damageDir, this);
+                            if (resolvedDamage > 0 && !_scene.Services.IsReplica
+                                && _scene.Services.Combat?.IsStaleSource(this) != true
                                 && Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
                             {
                                 var ownerPlayer = (PlayerEntity)Owner;
                                 if (!ownerPlayer.IsPrimeHunter && ownerPlayer.TeamIndex != player.TeamIndex)
                                 {
                                     // GainHealth checks if the player is alive
-                                    ownerPlayer.GainHealth(wholeDamage);
+                                    if (CombatShot.Affinity && ownerPlayer.Hunter == Hunter.Sylux)
+                                        ownerPlayer.GainEnhancedAffinityHealth((int)wholeDamage);
+                                    else ownerPlayer.GainHealth(wholeDamage);
                                 }
                             }
                             if (!player.IsMainPlayer || player.IsAltForm || player.IsMorphing)
@@ -946,6 +952,12 @@ namespace MphRead.Entities
             _catchUpCollision = true;
             uint generation = Generation;
             bool impactSent = false;
+            if (IsRootCombatProjectile && !Flags.TestFlag(BeamFlags.Collided) && Owner is PlayerEntity spire
+                && spire.Hunter == Hunter.Spire && Beam == BeamType.Magmaul
+                && Flags.TestFlag(BeamFlags.Charged) && CombatShot.Affinity)
+            {
+                spire.SpawnEnhancedSpireScorch(colRes.Position, NodeRef, CombatShot);
+            }
             if (Effect != null) // game also checks the HasModel flag, but it's either-or
             {
                 _scene.DetachEffectEntry(Effect, setExpired: true);
@@ -1005,6 +1017,13 @@ namespace MphRead.Entities
 
         private void CheckSplashDamage(EntityBase? colWith)
         {
+            int directOwnerSlot = colWith switch
+            {
+                PlayerEntity player => player.SlotIndex,
+                HalfturretEntity turret => turret.Owner.SlotIndex,
+                _ => -1
+            };
+            MatchBalanceContext balance = _scene.Match.Balance;
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {
                 if (player == colWith)
@@ -1022,34 +1041,95 @@ namespace MphRead.Entities
 
                 if (player.Health > 0)
                 {
-                    if (!player.Flags2.TestFlag(PlayerFlags2.Halfturret) || Owner != player.Halfturret)
+                    ICombatAuthority? combat = _scene.Services.Combat;
+                    bool historical = CombatShot.IsValid && combat != null;
+                    LagCompensationState history = default;
+                    if (historical && !combat!.TryGetPlayerCollider(
+                        player, CombatShot, out history))
                     {
-                        CollisionResult discard = default;
-                        Vector3 targetPosition = player.Position;
-                        if (_scene.Services.Combat is {} combat && CombatShot.IsValid)
+                        continue;
+                    }
+
+                    HalfturretEntity? currentTurret = player.Halfturret;
+                    bool currentHasHalfturret = player.Flags2.TestFlag(
+                        PlayerFlags2.Halfturret) && currentTurret != null;
+                    // A rewind must use only the captured turret state. Do
+                    // not let a current flag leak into a historical splash
+                    // decision when a turret was created or removed later.
+                    bool hasHalfturret = historical
+                        ? history.HasHalfturret : currentHasHalfturret;
+                    Vector3 bodyPosition = historical ? history.Position
+                        : player.Position;
+                    Vector3 headPosition = historical
+                        ? history.HalfturretPosition
+                        : currentHasHalfturret
+                            ? currentTurret!.Position : Vector3.Zero;
+                    int ownerSlot = player.SlotIndex;
+                    bool bodyEligible = (!hasHalfturret
+                        || Owner != currentTurret)
+                        && BlastDamagePolicy.AllowsPlayerSplash(balance,
+                            historical ? history.Hunter : player.Hunter,
+                            historical ? history.AltForm : player.IsAltForm);
+                    bool headEligible = hasHalfturret
+                        && BlastDamagePolicy.AllowsHalfturretHeadSplash(
+                            balance, historical ? history.Hunter : player.Hunter)
+                        && Owner != currentTurret;
+
+                    CollisionResult discard = default;
+                    float bodyDistance = Vector3.Distance(bodyPosition, Position);
+                    bool bodyVisible = bodyEligible
+                        && bodyDistance < SplashRadius
+                        && !CollisionDetection.CheckBetweenPoints(
+                            Position, bodyPosition, TestFlags.Beams, _scene,
+                            ref discard);
+                    BlastDamageCandidate body = new(ownerSlot, bodyDistance,
+                        bodyEligible, bodyVisible);
+
+                    discard = default;
+                    float headDistance = Vector3.Distance(headPosition, Position);
+                    bool headVisible = headEligible
+                        && headDistance < SplashRadius
+                        && !CollisionDetection.CheckBetweenPoints(
+                            Position, headPosition, TestFlags.Beams, _scene,
+                            ref discard);
+                    BlastDamageCandidate head = new(ownerSlot, headDistance,
+                        headEligible, headVisible);
+                    BlastDamageSelection selection =
+                        BlastDamagePolicy.SelectTarget(directOwnerSlot,
+                            body, head);
+                    if (!selection.IsValid)
+                    {
+                        OmegaCannonFlash();
+                        continue;
+                    }
+
+                    Vector3 targetPosition = selection.IsHalfturret
+                        ? headPosition : bodyPosition;
+                    float dist = selection.Distance;
+                    Vector3 damageDir = GetDamageDirection(Position,
+                        targetPosition);
+                    float ratio = dist / SplashRadius;
+                    int damage = (int)GetInterpolatedValue(SplashDamageType,
+                        SplashDamage, 0, ratio);
+                    DamageFlags splashFlags = DamageFlags.NoDmgInvuln
+                        | DamageFlags.Splash;
+                    if (selection.IsHalfturret)
+                    {
+                        splashFlags |= DamageFlags.Halfturret;
+                    }
+                    if (ratio <= EnhancedHunterTuning.WeavelConcussiveSplashFraction)
+                    {
+                        splashFlags |= DamageFlags.NearSplash;
+                    }
+                    player.TakeDamage(damage, splashFlags, damageDir, this);
+                    if (Owner != null)
+                    {
+                        if (!_scene.Services.IsReplica)
                         {
-                            if (!combat.TryGetPlayerCollider(player, CombatShot, out LagCompensationState collider)) continue;
-                            targetPosition = collider.Position;
+                            _scene.SendMessage(Message.Impact, this, Owner,
+                                player, 0);
                         }
-                        float dist = Vector3.Distance(targetPosition, Position);
-                        // todo?: wifi conditions
-                        if (dist >= SplashRadius
-                            || CollisionDetection.CheckBetweenPoints(Position, targetPosition, TestFlags.Beams, _scene, ref discard))
-                        {
-                            OmegaCannonFlash();
-                        }
-                        else
-                        {
-                            Vector3 damageDir = GetDamageDirection(Position, targetPosition);
-                            float ratio = dist / SplashRadius;
-                            int damage = (int)GetInterpolatedValue(SplashDamageType, SplashDamage, 0, ratio);
-                            player.TakeDamage(damage, DamageFlags.NoDmgInvuln, damageDir, this);
-                            if (Owner != null)
-                            {
-                                if (!_scene.Services.IsReplica) _scene.SendMessage(Message.Impact, this, Owner, player, 0);
-                                StopHomingSfx();
-                            }
-                        }
+                        StopHomingSfx();
                     }
                 }
                 else
@@ -1209,7 +1289,7 @@ namespace MphRead.Entities
             {
                 return chargePct <= 0 ? unchargedAmt : minChargeAmt + ((fullChargeAmt - minChargeAmt) * chargePct);
             }
-            int cost = (int)GetAmount(weapon.AmmoCost, weapon.MinChargeCost, weapon.ChargeCost);
+            int cost = (int)GetAmount(equip.AmmoCost, equip.MinChargeCost, equip.ChargeCost);
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous))
             {
                 // todo?: figure out what the intent behind this actually is
@@ -1270,9 +1350,13 @@ namespace MphRead.Entities
                 || (!charged && weapon.Flags.TestFlag(WeaponFlags.AoeUncharged));
 
             BeamFlags flags = BeamFlags.None;
+            if (spawnFlags.TestFlag(BeamSpawnFlags.FromAlt))
+            {
+                flags |= BeamFlags.FromAlt;
+            }
             // todo: FPS stuff
-            float speed = GetAmount(weapon.UnchargedSpeed, weapon.MinChargeSpeed, weapon.ChargedSpeed) / 4096f / 2;
-            float finalSpeed = GetAmount(weapon.UnchargedFinalSpeed, weapon.MinChargeFinalSpeed, weapon.ChargedFinalSpeed) / 4096f / 2;
+            float speed = GetAmount(equip.UnchargedSpeed, equip.MinChargeSpeed, equip.ChargedSpeed) / 4096f / 2;
+            float finalSpeed = GetAmount(equip.UnchargedFinalSpeed, equip.MinChargeFinalSpeed, equip.ChargedFinalSpeed) / 4096f / 2;
             float speedDecayTime = weapon.SpeedDecayTimes[charged ? 1 : 0] * SimTicks.LegacyFrameSeconds;
             ushort speedInterpolation = weapon.SpeedInterpolations[charged ? 1 : 0];
             float gravity = GetAmount(weapon.UnchargedGravity, weapon.MinChargeGravity, weapon.ChargedGravity) / 4096f;
@@ -1331,7 +1415,7 @@ namespace MphRead.Entities
             int damage = (int)GetAmount(equip.UnchargedDamage, equip.MinChargeDamage, equip.ChargedDamage);
             int hsDamage = (int)GetAmount(equip.HeadshotDamage, equip.MinChargeHeadshotDamage, equip.ChargedHeadshotDamage);
             int splashDmg = (int)GetAmount(equip.SplashDamage, equip.MinChargeSplashDamage, equip.ChargedSplashDamage);
-            float splashRadius = GetAmount(weapon.UnchargedSplashRadius, weapon.MinChargeSplashRadius, weapon.ChargedSplashRadius) / 4096f;
+            float splashRadius = GetAmount(equip.UnchargedSplashRadius, equip.MinChargeSplashRadius, equip.ChargedSplashRadius) / 4096f;
             byte splashDmgType = weapon.SplashDamageTypes[charged ? 1 : 0];
             if (spawnFlags.TestFlag(BeamSpawnFlags.DoubleDamage))
             {
@@ -1471,6 +1555,7 @@ namespace MphRead.Entities
                     beam.TimingMode = LagCompensationMode.None;
                 beam.Owner = owner;
                 beam.CombatShot = combatShot;
+                beam.IsRootCombatProjectile = !inheritedShot.HasValue;
                 beam._spreadSeed = spreadSeed;
                 beam.Beam = weapon.Beam;
                 beam.BeamKind = weapon.BeamKind;
@@ -1572,7 +1657,30 @@ namespace MphRead.Entities
                 Debug.Assert(beam.Target == null);
                 if (beam.Flags.TestFlag(BeamFlags.Homing))
                 {
-                    if (CheckHomingTargets(beam, equip, scene))
+                    CombatActor preferred = default;
+                    bool enhancedLock = !inheritedShot.HasValue && i == 0 && charged
+                        && combatShot.Affinity && beam.Beam == BeamType.Missile
+                        && owner is PlayerEntity samus && samus.Hunter == Hunter.Samus
+                        && samus.TryConsumeEnhancedTarget(out preferred);
+                    bool acquired = false;
+                    if (enhancedLock)
+                    {
+                        CheckHomingTargets(beam, equip, scene, preferred);
+                        CombatActor assigned = beam._homingTargetIdentity.IsValid
+                            ? beam._homingTargetIdentity
+                            : (beam.Target as PlayerEntity)?.CombatIdentity ?? default;
+                        acquired = beam.Target != null && assigned == preferred;
+                        if (acquired) beam._homingTargetIdentity = preferred;
+                    }
+                    if (acquired)
+                        beam.Homing *= EnhancedHunterTuning.SamusLockedMissileHomingMultiplier;
+                    else
+                    {
+                        beam.Target = null;
+                        beam._homingTargetIdentity = default;
+                        acquired = CheckHomingTargets(beam, equip, scene);
+                    }
+                    if (acquired)
                     {
                         result |= BeamResultFlags.Homing;
                     }
@@ -1615,7 +1723,8 @@ namespace MphRead.Entities
             EntityType.Platform
         };
 
-        private static bool CheckHomingTargets(BeamProjectileEntity beam, EquipInfo equip, Scene scene)
+        private static bool CheckHomingTargets(BeamProjectileEntity beam, EquipInfo equip, Scene scene,
+            CombatActor preferred = default)
         {
             bool result = false;
             WeaponInfo weapon = equip.Weapon;
@@ -1625,6 +1734,7 @@ namespace MphRead.Entities
             for (int i = 0; i < _homingTargetTypes.Count; i++)
             {
                 EntityType type = _homingTargetTypes[i];
+                if (preferred.IsValid && type != EntityType.Player) continue;
                 if (type == EntityType.ForceFieldLock
                     && (beam.Owner.Type == EntityType.ForceFieldLock || beam.Owner.Type == EntityType.Platform))
                 {
@@ -1664,6 +1774,8 @@ namespace MphRead.Entities
                     if (type == EntityType.Player)
                     {
                         var player = (PlayerEntity)entity;
+                        CombatActor identity = targetIdentity.IsValid ? targetIdentity : player.CombatIdentity;
+                        if (preferred.IsValid && identity != preferred) continue;
                         if (beam.Owner.Type != EntityType.Player)
                         {
                             tryTarget = true;
@@ -1808,6 +1920,10 @@ namespace MphRead.Entities
             {
                 Vector3 dir = GetDamageDirection(Position, player.Position);
                 DamageFlags flags = DamageFlags.NoDmgInvuln;
+                if (Flags.TestFlag(BeamFlags.FromAlt))
+                {
+                    flags |= DamageFlags.FromAlt;
+                }
                 if (halfturret)
                 {
                     flags |= DamageFlags.Halfturret;
@@ -2014,7 +2130,8 @@ namespace MphRead.Entities
         RadiusIndex2 = 0x400,
         LifeDrain = 0x800,
         SurfaceCollision = 0x1000,
-        DestroyMuzzle = 0x2000 // viewer only
+        DestroyMuzzle = 0x2000, // viewer only
+        FromAlt = 0x4000
     }
 
     [Flags]
@@ -2025,7 +2142,8 @@ namespace MphRead.Entities
         Charged = 0x2,
         NoMuzzle = 0x4,
         PrimeHunter = 0x8,
-        DestroyMuzzle = 0x10 // viewer only
+        DestroyMuzzle = 0x10, // viewer only
+        FromAlt = 0x20
     }
 
     [Flags]

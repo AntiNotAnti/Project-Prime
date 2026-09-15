@@ -276,11 +276,17 @@ namespace MphRead
                 }
                 else if (entity.Type == EntityType.ItemSpawn)
                 {
-                    results.Add(new ItemSpawnEntity(((Entity<ItemSpawnEntityData>)entity).Data, nodeName, scene));
+                    ItemSpawnEntityData data = ((Entity<ItemSpawnEntityData>)entity).Data;
+                    if (scene.Match.Rules.PowerupsEnabled
+                        || !ItemSpawnEntity.IsMajorPowerup(data.ItemType))
+                        results.Add(new ItemSpawnEntity(data, nodeName, scene));
                 }
                 else if (entity.Type == EntityType.FhItemSpawn)
                 {
-                    results.Add(new FhItemSpawnEntity(((Entity<FhItemSpawnEntityData>)entity).Data, scene));
+                    FhItemSpawnEntityData data = ((Entity<FhItemSpawnEntityData>)entity).Data;
+                    if (scene.Match.Rules.PowerupsEnabled
+                        || data.ItemType != FhItemType.DoubleDamage)
+                        results.Add(new FhItemSpawnEntity(data, scene));
                 }
                 else if (entity.Type == EntityType.FhEnemySpawn)
                 {
@@ -443,6 +449,11 @@ namespace MphRead
             else if (hunter == Hunter.Noxus)
             {
                 scene.LoadEffect(235, persistent: true); // noxHit
+            }
+            else if (hunter == Hunter.Guardian)
+            {
+                scene.LoadEffect(240, persistent: true); // psychoCharge
+                scene.LoadEffect(115, persistent: true); // ineffectivePsycho
             }
         }
 
@@ -639,7 +650,9 @@ namespace MphRead
             }
             if (platform.Data.ItemChance > 0)
             {
-                LoadItem(platform.Data.ItemType, scene);
+                if (scene.Match.Rules.PowerupsEnabled
+                    || !ItemSpawnEntity.IsMajorPowerup(platform.Data.ItemType))
+                    LoadItem(platform.Data.ItemType, scene);
             }
         }
 

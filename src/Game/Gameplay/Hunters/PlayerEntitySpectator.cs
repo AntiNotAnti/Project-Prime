@@ -28,6 +28,7 @@ namespace MphRead.Entities
             EquipInfo.Zoomed = false;
             if (spectating)
             {
+                ResetEnhancedHunterState();
                 ClearPowerupPresentationState();
                 _health = 0;
                 _healthRecovery = 0;

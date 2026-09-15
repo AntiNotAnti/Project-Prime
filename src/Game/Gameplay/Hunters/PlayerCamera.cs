@@ -161,7 +161,7 @@ namespace MphRead.Entities
             // charge of their own position; they must not receive this carry.
             CameraInfo.Position = TranslateRollingCameraOrbit(
                 CameraInfo.Position, oldTarget, nextTarget,
-                rollingForm: Values.AltFormStrafe == 0,
+                rollingForm: !UsesStrafeAltMovement,
                 cameraSwitchComplete: cameraSwitchComplete,
                 morphCameraActive: MorphCamera != null);
             CameraInfo.Target.X = nextTarget.X;

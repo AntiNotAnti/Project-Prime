@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Mods.Network;
+using MphRead.Sound;
 using OpenTK.Mathematics;
 using Xunit;
 
@@ -12,6 +14,44 @@ namespace MphRead.Tests;
 [Collection("Match baseline globals")]
 public sealed class SpireAltAttackTests
 {
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void ClientActivationPreparesReplacementHunterModelsForPresentation()
+    {
+        bool previousServerMode = Read.ServerMode;
+        try
+        {
+            using var saved = ServerContent.PreserveContext("AMHE1");
+            ServerContent.Open(FindAmhe1(), "AMHE1");
+            using var simulation = new ServerSimulation(new RotationEntry
+            {
+                RoomKey = "MP1 SANCTORUS",
+                Mode = GameMode.Battle
+            });
+            IScenePresentation presentation
+                = DispatchProxy.Create<IScenePresentation, RecordingPresentationProxy>();
+            var recording = (RecordingPresentationProxy)(object)presentation;
+            simulation.Scene.Presentation = presentation;
+
+            PlayerEntity authority = simulation.Scene.Players[0];
+            authority.ServerActivate(0x51, Hunter.Kanden, team: 0);
+            SnapshotPlayer state = authority.CaptureServerState();
+            state.Slot = 1;
+            state.ConnectionId = 0x52;
+            PlayerEntity replica = simulation.Scene.Players[1];
+
+            replica.ClientActivate(state);
+
+            Assert.Contains(replica, recording.InitializedEntities);
+            Assert.Equal(Hunter.Kanden, replica.Hunter);
+            Assert.Contains("Kanden_lod0", recording.InitializedModelNames);
+        }
+        finally
+        {
+            Read.ServerMode = previousServerMode;
+        }
+    }
+
     [Trait("RequiresGameContent", "true")]
     [Fact]
     public void SpireAltAttackRocksFollowCpuMovementWithoutRendering()
@@ -88,24 +128,123 @@ public sealed class SpireAltAttackTests
             authority.ModForceForm(altForm: true);
             authority.Flags2 |= PlayerFlags2.AltAttack;
             SnapshotPlayer state = authority.CaptureServerState();
+            state.AltAction = new AltActionState(AltActionPhase.Active, 8);
 
-            Assert.True((state.Flags & SnapshotPlayerFlags.SpireAltAttack) != 0);
+            Assert.True((state.Flags & SnapshotPlayerFlags.AltAttack) != 0);
             authority.Health = 0;
             Assert.False((authority.CaptureServerState().Flags
-                & SnapshotPlayerFlags.SpireAltAttack) != 0);
+                & SnapshotPlayerFlags.AltAttack) != 0);
 
             state.Slot = 1;
             state.ConnectionId = 0x52;
             PlayerEntity replica = simulation.Scene.Players[1];
             replica.ClientActivate(state);
             replica.ApplyServerState(state, newLife: true);
-            Assert.True(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            Assert.Equal(new AltActionState(AltActionPhase.Active, 8),
+                replica.PresentedAltAction);
+            Assert.False(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            Assert.Equal((int)SpireAltAnim.Attack,
+                replica._altModel.AnimInfo.Index[0]);
             Assert.Equal(replica.Position, replica._spireRockPosL);
             Assert.Equal(replica.Position, replica._spireRockPosR);
+            Assert.Equal(PlayerEntity.ResolveAltActionPresentationFrame(
+                    state.AltAction, replica._altModel.AnimInfo.FrameCount[0]),
+                replica._altModel.AnimInfo.Frame[0]);
 
-            state.Flags &= ~SnapshotPlayerFlags.SpireAltAttack;
+            uint epoch = replica.PresentationPoseEpoch;
+            state.AltAction = new AltActionState(AltActionPhase.Active, 2);
+            replica.ApplyServerState(state, newLife: false);
+            Assert.True(replica.PresentationPoseEpoch > epoch);
+            Assert.Equal(PlayerEntity.ResolveAltActionPresentationFrame(
+                    state.AltAction, replica._altModel.AnimInfo.FrameCount[0]),
+                replica._altModel.AnimInfo.Frame[0]);
+
+            state.Flags &= ~SnapshotPlayerFlags.AltAttack;
+            state.AltAction = AltActionState.None;
             replica.ApplyServerState(state, newLife: false);
             Assert.False(replica.Flags2.TestFlag(PlayerFlags2.AltAttack));
+            Assert.Equal(AltActionState.None, replica.PresentedAltAction);
+        }
+        finally
+        {
+            Read.ServerMode = previousServerMode;
+        }
+    }
+
+    [Trait("RequiresGameContent", "true")]
+    [Fact]
+    public void NoxusReplicaBootstrapsAndTearsDownPresentationAudio()
+    {
+        bool previousServerMode = Read.ServerMode;
+        try
+        {
+            using var saved = ServerContent.PreserveContext("AMHE1");
+            ServerContent.Open(FindAmhe1(), "AMHE1");
+            using var simulation = new ServerSimulation(new RotationEntry
+            {
+                RoomKey = "MP1 SANCTORUS",
+                Mode = GameMode.Battle
+            });
+
+            PlayerEntity authority = simulation.Scene.Players[0];
+            authority.ServerActivate(0x61, Hunter.Noxus, team: 0);
+            authority.ModForceForm(altForm: true);
+            SnapshotPlayer state = authority.CaptureServerState();
+            state.Flags |= SnapshotPlayerFlags.AltAttack;
+            state.AltAction = new AltActionState(AltActionPhase.Charging,
+                ushort.MaxValue);
+            state.Slot = 1;
+            state.ConnectionId = 0x62;
+            PlayerEntity replica = simulation.Scene.Players[1];
+            replica.ClientActivate(state);
+
+            var requests = new List<AudioRequest>();
+            simulation.Scene.Audio.Requested += requests.Add;
+            replica.ApplyServerState(state, newLife: true);
+
+            Assert.Contains(requests, request => request.Kind == AudioRequestKind.Play
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK2 && request.Loop);
+            Assert.DoesNotContain(requests, request => request.Kind == AudioRequestKind.Play
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK1);
+
+            requests.Clear();
+            state.Flags &= ~SnapshotPlayerFlags.AltAttack;
+            state.AltAction = AltActionState.None;
+            replica.ApplyServerState(state, newLife: false);
+            Assert.Contains(requests, request => request.Kind
+                == AudioRequestKind.StopSourceSound
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK2);
+            Assert.Contains(requests, request => request.Kind == AudioRequestKind.Play
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK3);
+
+            // If packet loss hides the None phase, Active -> Charging is still
+            // a new action and must retire/bootstrap its presentation audio.
+            requests.Clear();
+            state.Flags |= SnapshotPlayerFlags.AltAttack;
+            state.AltAction = new AltActionState(AltActionPhase.Active, 4);
+            replica.ApplyServerState(state, newLife: false);
+            requests.Clear();
+            state.AltAction = new AltActionState(AltActionPhase.Charging, 0);
+            replica.ApplyServerState(state, newLife: false);
+            Assert.Contains(requests, request => request.Kind
+                == AudioRequestKind.StopSourceSound
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK2);
+
+            requests.Clear();
+            state.AltAction = new AltActionState(AltActionPhase.Charging,
+                ushort.MaxValue);
+            replica.ApplyServerState(state, newLife: false);
+            Assert.Contains(requests, request => request.Kind == AudioRequestKind.Play
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK2 && request.Loop);
+
+            requests.Clear();
+            state.Flags |= SnapshotPlayerFlags.Spectating;
+            replica.ApplyServerState(state, newLife: false);
+            Assert.Contains(requests, request => request.Kind
+                == AudioRequestKind.StopSourceSound
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK2);
+            Assert.DoesNotContain(requests, request => request.Kind == AudioRequestKind.Play
+                && request.Id == (int)SfxId.NOX_TOP_ATTACK3);
         }
         finally
         {
@@ -209,7 +348,7 @@ public sealed class SpireAltAttackTests
             Assert.True(replica.Flags2.TestFlag(PlayerFlags2.Halfturret));
 
             state.Flags &= ~(SnapshotPlayerFlags.AltForm
-                | SnapshotPlayerFlags.SpireAltAttack);
+                | SnapshotPlayerFlags.AltAttack);
             replica.ApplyServerState(state, newLife: false);
 
             Assert.Equal(state.Health, replica.Health);
@@ -259,4 +398,31 @@ public sealed class SpireAltAttackTests
             BindingFlags.Instance | BindingFlags.NonPublic)
             ?? throw new MissingFieldException(typeof(PlayerEntity).FullName, name))
             .SetValue(player, value);
+
+    private class RecordingPresentationProxy : DispatchProxy
+    {
+        public List<EntityBase> InitializedEntities { get; } = new();
+        public List<string> InitializedModelNames { get; } = new();
+
+        protected override object? Invoke(MethodInfo? targetMethod, object?[]? args)
+        {
+            if (targetMethod?.Name == nameof(IScenePresentation.InitEntity)
+                && args is [EntityBase entity])
+            {
+                InitializedEntities.Add(entity);
+                foreach (ModelInstance model in entity.GetModels())
+                {
+                    InitializedModelNames.Add(model.Model.Name);
+                }
+            }
+            if (targetMethod?.ReturnType == null
+                || targetMethod.ReturnType == typeof(void))
+            {
+                return null;
+            }
+            return targetMethod.ReturnType.IsValueType
+                ? Activator.CreateInstance(targetMethod.ReturnType)
+                : null;
+        }
+    }
 }

@@ -47,6 +47,15 @@ namespace MphRead
         internal void NoteTeleport(PlayerEntity player, int entityId) => PlayerTeleported?.Invoke(player, entityId);
         public ISceneServices Services { get; set; } = SceneServices.Local;
         public IScenePresentation? Presentation { get; internal set; }
+        /// <summary>
+        /// True only after a complete replicated world revision has been
+        /// atomically applied to this scene. Presentation features which can
+        /// reveal authoritative world entities must fail closed until then.
+        /// </summary>
+        public bool HasCommittedReplicatedWorldState { get; internal set; }
+        /// <summary>Marks a network/replay replica whose initial map entities
+        /// must not be treated as authoritative before a world commit.</summary>
+        public bool RequiresCommittedReplicatedWorldState { get; internal set; }
 
         public MatchFeatureSet Features { get; }
 
@@ -301,6 +310,11 @@ namespace MphRead
             return new LinkedListIteratorSpecialized<BeamProjectileEntity>(_entityNodesByType[EntityType.BeamProjectile]);
         }
 
+        public LinkedListIteratorSpecialized<SpireScorchPatchEntity> GetSpireScorchPatchEntities()
+        {
+            return new LinkedListIteratorSpecialized<SpireScorchPatchEntity>(_entityNodesByType[EntityType.EnhancedEffect]);
+        }
+
         public LinkedListIteratorSpecialized<FhDoorEntity> GetFhDoorEntities()
         {
             return new LinkedListIteratorSpecialized<FhDoorEntity>(_entityNodesByType[EntityType.FhDoor]);
@@ -370,6 +384,7 @@ namespace MphRead
                 { EntityType.Halfturret, null },
                 { EntityType.Player, null },
                 { EntityType.BeamProjectile, null },
+                { EntityType.EnhancedEffect, null },
                 { EntityType.FhUnknown0, null },
                 { EntityType.FhPlayerSpawn, null },
                 { EntityType.FhUnknown2, null },
@@ -498,6 +513,7 @@ namespace MphRead
             new(typeof(HalfturretEntity), EntityType.Halfturret),
             new(typeof(PlayerEntity), EntityType.Player),
             new(typeof(BeamProjectileEntity), EntityType.BeamProjectile),
+            new(typeof(SpireScorchPatchEntity), EntityType.EnhancedEffect),
             // todo: revisit for First Hunt entity types
             //new(typeof(), EntityType.FhUnknown0),
             //new(typeof(), EntityType.FhPlayerSpawn),

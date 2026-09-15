@@ -89,7 +89,8 @@ namespace MphRead.Tests
             for (int slot = 1; slot < PlayerEntity.SlotCapacity; slot++)
             {
                 PlayerEntity enemy = scene.Players[slot];
-                enemy.ServerActivate((ulong)(0x5100 + slot), (Hunter)(slot % 7), -1);
+                enemy.ServerActivate((ulong)(0x5100 + slot),
+                    PlayableHunterCatalog.FromIndex(slot % PlayableHunterCatalog.Count), -1);
                 enemy.Position = target.Position + new Vector3((slot % 3) * 0.5f, 0, (slot % 4) * 0.5f);
                 enemy.PrevPosition = enemy.Position;
                 enemy.Health = 100;

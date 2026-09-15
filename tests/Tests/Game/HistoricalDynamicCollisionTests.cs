@@ -515,6 +515,8 @@ public sealed class HistoricalDynamicCollisionTests
         Assert.Contains("query_tick=42", history);
         Assert.Contains("rewind_ticks=0", history);
         Assert.Contains("path_end=(1,0,0)", history);
+        Assert.Contains("HITREG scope=window", history);
+        Assert.Contains("authority=unavailable", history);
         Assert.Contains("dynamic=0", dynamic);
         Assert.DoesNotContain("packet", dynamic, StringComparison.OrdinalIgnoreCase);
         Assert.Throws<ArgumentException>(() => combat.NetDebug("netdebug gameplay", default,

@@ -115,6 +115,21 @@ namespace MphRead.Mods.Network
                 Add(new WorldRecord(WorldRecordKind.Item, (byte)item.ItemType, 0, id, item.Position,
                     unchecked((uint)(item.Owner?.Id ?? -1)), unchecked((uint)item.DespawnTimer), 0, 0, 0));
             }
+            if (rules.EnhancedHunters)
+            {
+                foreach (SpireScorchPatchEntity patch in scene.GetSpireScorchPatchEntities())
+                {
+                    CombatActor actor = patch.CombatShot.Actor;
+                    if (patch.RemainingTicks == 0 || !actor.IsValid) continue;
+                    uint id = scene.Services.GetWorldEntityId(scene, patch);
+                    if (id == 0) throw new InvalidOperationException(
+                        "World capture requires scene-owned Enhanced effect identity.");
+                    Add(new WorldRecord(WorldRecordKind.EnhancedEffect, actor.Slot, 0,
+                        id, patch.Position, (uint)actor.ConnectionId,
+                        (uint)(actor.ConnectionId >> 32), actor.Life,
+                        patch.RemainingTicks, 0));
+                }
+            }
             if (scene.Match.Rules.Mode is MatchMode.Nodes or MatchMode.TeamNodes or MatchMode.Defender or MatchMode.TeamDefender)
             {
                 foreach (NodeDefenseEntity node in scene.GetNodeDefenseEntities()) { Add(node.CaptureWorldState()); }

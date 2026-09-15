@@ -93,26 +93,27 @@ public sealed class RollingAltLookTests
         Assert.Equal(forward.Z, unchanged.Z, 5);
 
         Vector3 transmitted = PlayerEntity.ResolveNetworkInputAim(
-            isAltForm: true, isMorphing: false, altFormStrafe: 0,
+            isAltForm: true, isMorphing: false,
+            usesStrafeAltMovement: false,
             gunAim: Vector3.UnitX, rollingForward: forward);
         Assert.Equal(forward.X, transmitted.X, 5);
         Assert.Equal(forward.Z, transmitted.Z, 5);
     }
 
     [Theory]
-    [InlineData(true, false, 0, true)]
-    [InlineData(false, true, 0, true)]
-    [InlineData(true, false, 1, false)]
-    [InlineData(false, false, 0, false)]
+    [InlineData(true, false, false, true)]
+    [InlineData(false, true, false, true)]
+    [InlineData(true, false, true, false)]
+    [InlineData(false, false, false, false)]
     public void InputAimUsesRollingHeadingOnlyDuringRollingControl(
-        bool isAltForm, bool isMorphing, int altFormStrafe,
+        bool isAltForm, bool isMorphing, bool usesStrafeAltMovement,
         bool expectedRolling)
     {
         Vector3 gun = Vector3.UnitX;
         Vector3 rolling = -Vector3.UnitZ;
 
         Vector3 result = PlayerEntity.ResolveNetworkInputAim(isAltForm,
-            isMorphing, altFormStrafe, gun, rolling);
+            isMorphing, usesStrafeAltMovement, gun, rolling);
 
         Assert.Equal(expectedRolling ? rolling : gun, result);
     }
@@ -138,7 +139,8 @@ public sealed class RollingAltLookTests
         (Vector3 localForward, Vector3 localLeft) =
             PlayerEntity.RotateRollingAltControlBasis(-Vector3.UnitZ, 37);
         Vector3 sentHeading = PlayerEntity.ResolveNetworkInputAim(
-            isAltForm: true, isMorphing: false, altFormStrafe: 0,
+            isAltForm: true, isMorphing: false,
+            usesStrafeAltMovement: false,
             gunAim: Vector3.UnitX, rollingForward: localForward);
         (Vector3 authorityForward, Vector3 authorityLeft) =
             PlayerEntity.ResolveRollingAltControlBasis(sentHeading,

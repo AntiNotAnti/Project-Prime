@@ -272,7 +272,7 @@ namespace MphRead.Tests
         }
 
         [Fact]
-        public void SpireAltAttackEdgeDoesNotBlendAcrossPresentationModes()
+        public void SpireAltActionPhaseEdgeKeepsPositionInterpolationContinuous()
         {
             var history = new SnapshotInterpolation();
             SnapshotPlayer before = Player(0);
@@ -280,13 +280,14 @@ namespace MphRead.Tests
             before.Flags |= SnapshotPlayerFlags.AltForm;
             SnapshotPlayer attack = before;
             attack.Position = new Vector3(10, 0, 0);
-            attack.Flags |= SnapshotPlayerFlags.SpireAltAttack;
+            attack.Flags |= SnapshotPlayerFlags.AltAttack;
+            attack.AltAction = new AltActionState(AltActionPhase.Active, 0);
             Add(history, 100, before);
             Add(history, 110, attack);
 
             Assert.True(history.TrySample(0, 111, out SnapshotPlayer sampled));
-            Assert.Equal(attack.Position, sampled.Position);
-            Assert.True((sampled.Flags & SnapshotPlayerFlags.SpireAltAttack) != 0);
+            Assert.Equal(5, sampled.Position.X);
+            Assert.True((sampled.Flags & SnapshotPlayerFlags.AltAttack) != 0);
         }
 
         [Fact]

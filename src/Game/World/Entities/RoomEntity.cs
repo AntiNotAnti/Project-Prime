@@ -16,6 +16,12 @@ namespace MphRead.Entities
     {
         internal readonly List<CollisionInstance> _roomCollision = new List<CollisionInstance>();
         public IReadOnlyList<CollisionInstance> RoomCollision => _roomCollision;
+        /// <summary>
+        /// Monotonic identity for the room collision content used by
+        /// presentation caches. All production collision mutations go through
+        /// the methods below so readers can compare this value in O(1).
+        /// </summary>
+        public ulong RadarGeometryRevision { get; private set; }
         internal readonly List<Portal> _portals = new List<Portal>();
         internal readonly List<List<(Portal Portal, bool OtherSide)>> _portalSides = new List<List<(Portal, bool)>>();
         internal readonly List<PortalNodeRef> _forceFields = new List<PortalNodeRef>();
@@ -69,6 +75,83 @@ namespace MphRead.Entities
         {
 
         }
+
+        public void SetupRoomCollision(CollisionInstance collision)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            collision.Translation = Vector3.Zero;
+            _roomCollision.Clear();
+            _roomCollision.Add(collision);
+            TouchRadarGeometry();
+        }
+
+        public void ReplaceRoomCollision(CollisionInstance collision)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            int index = _roomCollision.IndexOf(collision);
+            if (index >= 0) return;
+            if (_roomCollision.Count == 0)
+            {
+                _roomCollision.Add(collision);
+            }
+            else
+            {
+                _roomCollision[0] = collision;
+            }
+            TouchRadarGeometry();
+        }
+
+        public bool ReplaceRoomCollision(CollisionInstance current,
+            CollisionInstance replacement)
+        {
+            ArgumentNullException.ThrowIfNull(current);
+            ArgumentNullException.ThrowIfNull(replacement);
+            int index = _roomCollision.IndexOf(current);
+            if (index < 0) return false;
+            if (ReferenceEquals(current, replacement)) return false;
+            _roomCollision[index] = replacement;
+            TouchRadarGeometry();
+            return true;
+        }
+
+        public bool AddRoomCollision(CollisionInstance collision)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            if (_roomCollision.Contains(collision)) return false;
+            _roomCollision.Add(collision);
+            TouchRadarGeometry();
+            return true;
+        }
+
+        public bool SetRoomCollisionActive(CollisionInstance collision, bool active)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            if (!_roomCollision.Contains(collision) || collision.Active == active) return false;
+            collision.Active = active;
+            TouchRadarGeometry();
+            return true;
+        }
+
+        public bool SetRoomCollisionTranslation(CollisionInstance collision,
+            Vector3 translation)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            if (!_roomCollision.Contains(collision) || collision.Translation == translation) return false;
+            collision.Translation = translation;
+            TouchRadarGeometry();
+            return true;
+        }
+
+        public bool RemoveRoomCollision(CollisionInstance collision)
+        {
+            ArgumentNullException.ThrowIfNull(collision);
+            if (!_roomCollision.Remove(collision)) return false;
+            TouchRadarGeometry();
+            return true;
+        }
+
+        private void TouchRadarGeometry()
+            => RadarGeometryRevision = unchecked(RadarGeometryRevision + 1);
 
         public void Setup(string name, RoomMetadata meta, CollisionInstance collision, int layerMask, int roomId)
         {
@@ -196,15 +279,7 @@ namespace MphRead.Entities
                 }
             }
             Debug.Assert(model.Nodes.Any(n => n.RoomPartId >= 0));
-            collision.Translation = Vector3.Zero;
-            if (_roomCollision.Count == 0)
-            {
-                _roomCollision.Add(collision);
-            }
-            else
-            {
-                _roomCollision[0] = collision;
-            }
+            SetupRoomCollision(collision);
             RoomId = roomId;
             _scene.RoomId = roomId;
         }
@@ -365,7 +440,7 @@ namespace MphRead.Entities
             _scene.SetRoomValues(roomMeta);
             if (_roomCollision.Count > 0)
             {
-                _roomCollision[0].Active = true;
+                SetRoomCollisionActive(_roomCollision[0], true);
             }
             foreach (EntityBase entity in _scene.Entities)
             {

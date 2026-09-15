@@ -125,6 +125,40 @@ public sealed class SnapshotLocomotionTests
             resolver.Resolve(state, -Vector3.UnitX));
     }
 
+    [Theory]
+    [InlineData(0, 0, 0, PlayerAnimation.JumpNeutral)]
+    [InlineData(0, 0, 1, PlayerAnimation.JumpForward)]
+    [InlineData(0, 0, -1, PlayerAnimation.JumpBack)]
+    [InlineData(1, 0, 0, PlayerAnimation.JumpLeft)]
+    [InlineData(-1, 0, 0, PlayerAnimation.JumpRight)]
+    public void AirborneSnapshotSelectsAuthoredJumpPose(float x, float y,
+        float z, PlayerAnimation expected)
+    {
+        SnapshotPlayer state = Player(Vector3.Zero);
+        state.Flags &= ~SnapshotPlayerFlags.Grounded;
+
+        Assert.Equal(expected, PlayerEntity.DeriveRemoteBipedAnimation(
+            state, new Vector3(x, y, z)));
+    }
+
+    [Fact]
+    public void BriefTrajectoryHoldPreservesMovingAnimationThenSettles()
+    {
+        var resolver = new RemoteLocomotionHysteresis();
+        SnapshotPlayer state = Player(Vector3.Zero);
+        Assert.Equal(PlayerAnimation.WalkForward,
+            resolver.Resolve(state, Vector3.UnitZ));
+
+        for (int tick = 0; tick < RemoteLocomotionHysteresis.HeldMotionGraceTicks;
+            tick++)
+        {
+            Assert.Equal(PlayerAnimation.WalkForward,
+                resolver.Resolve(state, Vector3.Zero, trajectoryHeld: true));
+        }
+        Assert.Equal(PlayerAnimation.Idle,
+            resolver.Resolve(state, Vector3.Zero, trajectoryHeld: true));
+    }
+
     [Fact]
     public void InvalidLocomotionStateResetsDirectionHistory()
     {
@@ -153,8 +187,6 @@ public sealed class SnapshotLocomotionTests
             unspawned.Flags &= ~SnapshotPlayerFlags.Spawned;
             SnapshotPlayer dead = Player(Vector3.UnitZ);
             dead.Health = 0;
-            SnapshotPlayer airborne = Player(Vector3.UnitZ);
-            airborne.Flags &= ~SnapshotPlayerFlags.Grounded;
             SnapshotPlayer invalidFacing = Player(Vector3.UnitZ, Vector3.UnitY);
             SnapshotPlayer nonFiniteFacing = Player(Vector3.UnitZ,
                 new Vector3(float.NaN, 0, 1));
@@ -164,7 +196,6 @@ public sealed class SnapshotLocomotionTests
                 inactive,
                 unspawned,
                 dead,
-                airborne,
                 WithFlag(SnapshotPlayerFlags.AltForm),
                 WithFlag(SnapshotPlayerFlags.Morphing),
                 WithFlag(SnapshotPlayerFlags.Unmorphing),
@@ -221,14 +252,41 @@ public sealed class SnapshotLocomotionTests
         Assert.True(PlayerEntity.CanApplySnapshotBipedAnimation(current, AnimFlags.NoLoop));
     }
 
+    [Theory]
+    [InlineData(PlayerAnimation.JumpNeutral)]
+    [InlineData(PlayerAnimation.JumpForward)]
+    [InlineData(PlayerAnimation.JumpBack)]
+    [InlineData(PlayerAnimation.JumpLeft)]
+    [InlineData(PlayerAnimation.JumpRight)]
+    public void SnapshotLocomotionCanLeaveOrRedirectJumpPose(
+        PlayerAnimation current)
+    {
+        Assert.True(PlayerEntity.CanApplySnapshotBipedAnimation(current,
+            AnimFlags.NoLoop));
+    }
+
+    [Fact]
+    public void RemoteJumpPoseIsNotRestartedEverySimulationTick()
+    {
+        Assert.False(PlayerEntity.ShouldSetBipedLocomotionAnimation(
+            PlayerAnimation.JumpForward, PlayerAnimation.JumpForward,
+            remoteAnimation: true));
+        Assert.True(PlayerEntity.ShouldSetBipedLocomotionAnimation(
+            PlayerAnimation.JumpForward, PlayerAnimation.JumpForward,
+            remoteAnimation: false));
+        Assert.True(PlayerEntity.ShouldSetBipedLocomotionAnimation(
+            PlayerAnimation.JumpLeft, PlayerAnimation.JumpForward,
+            remoteAnimation: true));
+    }
+
     [Fact]
     public void SnapshotWireContractIsUnchanged()
     {
-        Assert.Equal(21, NetHeader.Version);
-        Assert.Equal(104, SnapshotPlayer.Size);
-        Assert.Equal(858, SnapshotPacket.MaxSize);
-        Assert.Equal(882, SnapshotPacket.MaxSize + NetHeader.Size);
-        Assert.Equal(898, SnapshotPacket.MaxSize + NetHeader.Size + NetAuthentication.TagSize);
+        Assert.Equal(NetHeader.AltActionStateVersion, NetHeader.Version);
+        Assert.Equal(115, SnapshotPlayer.Size);
+        Assert.Equal(946, SnapshotPacket.MaxSize);
+        Assert.Equal(970, SnapshotPacket.MaxSize + NetHeader.Size);
+        Assert.Equal(986, SnapshotPacket.MaxSize + NetHeader.Size + NetAuthentication.TagSize);
     }
 
     private static SnapshotPlayer WithFlag(SnapshotPlayerFlags flag)

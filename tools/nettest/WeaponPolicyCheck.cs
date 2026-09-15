@@ -14,15 +14,17 @@ namespace MphRead.NetTest
 
         public static int Run(string[] args)
         {
-            if (args.Length is < 2 or > 3)
+            if (!BalanceProfileOptions.TryParseDataVersion(args,
+                out string data, out string version, out bool balancedMode))
             {
-                Console.Error.WriteLine("Usage: nettest --weapon-policy DATA_DIRECTORY [VERSION]");
+                Console.Error.WriteLine("Usage: nettest --weapon-policy DATA_DIRECTORY [VERSION] [balanced]");
                 return 2;
             }
             try
             {
-                ServerContent.Open(args[1], args.Length > 2 ? args[2] : "AMHE1");
-                using var simulation = new ServerSimulation(new RotationEntry { RoomKey = "MP1 SANCTORUS", Mode = GameMode.Battle });
+                ServerContent.Open(data, version);
+                using var simulation = new ServerSimulation(
+                    BalanceProfileOptions.CreateRules("MP1 SANCTORUS", GameMode.Battle, balancedMode));
                 simulation.Scene.Match.Phase = MatchPhase.Playing;
                 PlayerEntity owner = simulation.Scene.Players[0];
                 owner.ServerActivate(100, Hunter.Samus, 0);
@@ -64,7 +66,7 @@ namespace MphRead.NetTest
                 Check(10, 119, new(2.5f, 0));
                 Check(11, 89, new(.125f, 0));
                 Check(14, 119, new(1, 0, Child: true));
-                Console.WriteLine($"WEAPONPOLICY PASS cases={cases} variants=18 source=actual-Spawn");
+                Console.WriteLine($"WEAPONPOLICY PASS profile={(balancedMode ? "Balanced" : "Classic")} cases={cases} variants=18 source=actual-Spawn");
                 return 0;
 
                 void Check(int index, ushort level, Expected expected)
@@ -72,6 +74,7 @@ namespace MphRead.NetTest
                     BeamProjectileEntity[] pool = new BeamProjectileEntity[8];
                     for (int i = 0; i < pool.Length; i++) pool[i] = new(simulation.Scene);
                     var equip = new EquipInfo(Weapons.WeaponsMP[index], pool) { ChargeLevel = level, InfiniteAmmo = true };
+                    WeaponBalanceResolver.Apply(equip, owner.Hunter, simulation.Scene.Match.BalanceContext);
                     BeamProjectileEntity.Spawn(owner, equip, owner.Position.AddY(1), Vector3.UnitZ,
                         BeamSpawnFlags.NoMuzzle, owner.NodeRef, simulation.Scene, spreadSeed: 123);
                     BeamProjectileEntity first = pool[0];

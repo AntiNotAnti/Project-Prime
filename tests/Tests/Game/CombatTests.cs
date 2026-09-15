@@ -1,6 +1,7 @@
 using System;
 using System.Buffers.Binary;
 using MphRead.Mods.Network;
+using MphRead.Replay;
 using OpenTK.Mathematics;
 using Xunit;
 
@@ -27,6 +28,76 @@ namespace MphRead.Tests
             Assert.True(CombatEvent.TryRead(bytes, out CombatEvent decoded));
             Assert.Equal(value, decoded);
             Assert.True(CombatEventBatch.MaxSize <= 508);
+        }
+
+        [Fact]
+        public void EnhancedEffectAndDamageFlagsRemainBoundedAndCanonical()
+        {
+            CombatActor actor = new(5, 100, 3);
+            CombatEvent effect = new(7, 123, 0, CombatEventKind.Effect,
+                (byte)BeamType.Magmaul, CombatEventFlags.LingeringHeat,
+                actor, CombatActor.None, 0, 0, new Vector3(1, 2, 3),
+                Vector3.Zero, 0, 0, 0);
+            byte[] bytes = new byte[CombatEvent.Size];
+
+            effect.Write(bytes);
+            Assert.True(CombatEvent.TryRead(bytes, out CombatEvent decoded));
+            Assert.Equal(effect, decoded);
+
+            (effect with { Direction = Vector3.UnitY }).Write(bytes);
+            Assert.False(CombatEvent.TryRead(bytes, out _));
+
+            (effect with { Flags = CombatEventFlags.Concussive }).Write(bytes);
+            Assert.False(CombatEvent.TryRead(bytes, out _));
+            (Hit() with { Flags = CombatEventFlags.Concussive
+                | CombatEventFlags.OverchargeAbsorb }).Write(bytes);
+            Assert.True(CombatEvent.TryRead(bytes, out _));
+            (Hit() with { Flags = (CombatEventFlags)512 }).Write(bytes);
+            Assert.False(CombatEvent.TryRead(bytes, out _));
+        }
+
+        [Fact]
+        public void Protocol21And22CombatBatchesRejectProtocol23KindsAndFlags()
+        {
+            CombatActor actor = new(5, 100, 3);
+            CombatEvent effect = new(7, 123, 0, CombatEventKind.Effect,
+                (byte)BeamType.Magmaul, CombatEventFlags.LingeringHeat,
+                actor, CombatActor.None, 0, 0, Vector3.Zero, Vector3.Zero,
+                0, 0, 0);
+            byte[] bytes = new byte[1 + CombatEvent.Size];
+            Assert.Equal(bytes.Length, CombatEventBatch.Write(bytes, new[] { effect }));
+            Span<CombatEvent> events = stackalloc CombatEvent[1];
+            Assert.False(Protocol21ReplayCodec.TryReadCombatBatch(bytes, events,
+                out int count));
+            Assert.Equal(0, count);
+
+            CombatEvent legacy = Hit() with { Flags = CombatEventFlags.Affinity };
+            CombatEventBatch.Write(bytes, new[] { legacy });
+            Assert.True(Protocol21ReplayCodec.TryReadCombatBatch(bytes, events,
+                out count));
+            Assert.Equal(1, count);
+        }
+
+        [Fact]
+        public void Pre23ModernReplayRejectsEnhancedCombatSemantics()
+        {
+            CombatActor actor = new(5, 100, 3);
+            CombatEvent effect = new(7, 123, 0, CombatEventKind.Effect,
+                (byte)BeamType.Magmaul, CombatEventFlags.LingeringHeat,
+                actor, CombatActor.None, 0, 0, Vector3.Zero, Vector3.Zero,
+                0, 0, 0);
+            byte[] record = new byte[1 + 5 + 1 + CombatEvent.Size];
+            record[0] = (byte)ReplayRecordKind.Event;
+            record[5] = (byte)ReliableEventType.Combat;
+            CombatEventBatch.Write(record.AsSpan(6), new[] { effect });
+
+            var replay = new ModernReplayState();
+            replay.Reset(20);
+            Assert.False(replay.Receive(record));
+
+            CombatEvent legacy = Hit() with { Flags = CombatEventFlags.Affinity };
+            CombatEventBatch.Write(record.AsSpan(6), new[] { legacy });
+            Assert.True(replay.Receive(record));
         }
 
         [Fact]
@@ -69,7 +140,7 @@ namespace MphRead.Tests
             Assert.False(CombatEvent.TryRead(new byte[CombatEvent.Size + 1], out _));
             foreach (CombatEvent value in new[]
             {
-                Hit() with { Kind = (CombatEventKind)7 }, Hit() with { Flags = (CombatEventFlags)64 },
+                Hit() with { Kind = (CombatEventKind)8 }, Hit() with { Flags = (CombatEventFlags)512 },
                 Hit() with { Weapon = 11 }, Hit() with { Actor = new CombatActor(8, 100, 1) },
                 Hit() with { Target = new CombatActor(0, 0, 1) }, Hit() with { Target = CombatActor.None },
                 Hit() with { Target = new CombatActor(0, 200, 0) },

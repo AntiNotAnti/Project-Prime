@@ -52,6 +52,40 @@ namespace MphRead.Entities
                 && blockingLateralCollision && float.IsFinite(speedDot)
                 && speedDot < 0;
 
+        /// <summary>
+        /// Resolve the main alternate-form sphere contacts with supporting
+        /// faces before radial edges. This is a stable in-place partition:
+        /// faces precede edges, and unknown contact kinds remain last without
+        /// changing their relative order.
+        /// </summary>
+        internal static void OrderAltTerrainContacts(CollisionResult[] results,
+            int count)
+        {
+            if (results == null || count <= 1)
+            {
+                return;
+            }
+            count = Math.Min(count, results.Length);
+            for (int i = 1; i < count; i++)
+            {
+                CollisionResult contact = results[i];
+                int contactPriority = GetAltTerrainContactPriority(
+                    contact.Field0);
+                int insert = i - 1;
+                while (insert >= 0
+                    && GetAltTerrainContactPriority(results[insert].Field0)
+                        > contactPriority)
+                {
+                    results[insert + 1] = results[insert];
+                    insert--;
+                }
+                results[insert + 1] = contact;
+            }
+        }
+
+        private static int GetAltTerrainContactPriority(byte field0)
+            => field0 == 0 ? 0 : field0 == 1 ? 1 : 2;
+
         internal static Vector3 RemoveInwardHorizontalComponent(
             Vector3 acceleration, Vector3 collisionNormal)
         {
@@ -196,12 +230,14 @@ namespace MphRead.Entities
                         {
                             if (other.Flags1.TestFlag(PlayerFlags1.Boosting))
                             {
-                                TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln | DamageFlags.Halfturret, other.Speed, other);
+                                TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln | DamageFlags.Halfturret
+                                    | DamageFlags.Direct, other.Speed, other);
                                 other.EndAltAttack();
                             }
                             if (other._deathaltTimer > 0)
                             {
-                                TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret, other.Speed, other);
+                                TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln | DamageFlags.Halfturret
+                                    | DamageFlags.Direct, other.Speed, other);
                             }
                             CheckAltAttackHit2(other, this, halfturret: true);
                         }
@@ -242,21 +278,23 @@ namespace MphRead.Entities
                     }
                     if (Flags1.TestFlag(PlayerFlags1.Boosting))
                     {
-                        other.TakeDamage(_boostDamage, DamageFlags.NoDmgInvuln, Speed, this);
+                        other.TakeDamage(_boostDamage, DamageFlags.NoDmgInvuln | DamageFlags.Direct, Speed, this);
                         EndAltAttack();
                     }
                     if (other.Flags1.TestFlag(PlayerFlags1.Boosting))
                     {
-                        TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln, other.Speed, other);
+                        TakeDamage(other._boostDamage, DamageFlags.NoDmgInvuln | DamageFlags.Direct, other.Speed, other);
                         other.EndAltAttack();
                     }
                     if (_deathaltTimer > 0)
                     {
-                        other.TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln, Speed, this);
+                        other.TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln
+                            | DamageFlags.Direct, Speed, this);
                     }
                     if (other._deathaltTimer > 0)
                     {
-                        TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln, other.Speed, other);
+                        TakeDamage(200, DamageFlags.Deathalt | DamageFlags.NoDmgInvuln
+                            | DamageFlags.Direct, other.Speed, other);
                     }
                     CheckAltAttackHit2(this, other, halfturret: false);
                     CheckAltAttackHit2(other, this, halfturret: false);
@@ -303,7 +341,8 @@ namespace MphRead.Entities
                             new Vector3(x, 0, z), attacker._facingVector, 1 / 4f);
                     }
                     ushort damage = attacker.Values.AltAttackDamage;
-                    DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
+                    DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln
+                        | DamageFlags.Direct;
                     if (halfturret)
                     {
                         flags |= DamageFlags.Halfturret;
@@ -336,7 +375,8 @@ namespace MphRead.Entities
                         target.Acceleration = dir;
                         target._accelerationTimer = (ushort)SimTicks.From30HzFrames(8);
                         ushort damage = attacker.Values.AltAttackDamage;
-                        DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
+                        DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln
+                            | DamageFlags.Direct;
                         if (halfturret)
                         {
                             flags |= DamageFlags.Halfturret;
@@ -377,7 +417,8 @@ namespace MphRead.Entities
                 target._accelerationTimer = (ushort)SimTicks.From30HzFrames(attacker.Values.AltAttackKnockbackTime);
             }
             ushort damage = attacker.Values.AltAttackDamage;
-            DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln;
+            DamageFlags flags = DamageFlags.NoSfx | DamageFlags.NoDmgInvuln
+                | DamageFlags.Direct;
             if (halfturret)
             {
                 flags |= DamageFlags.Halfturret;
@@ -435,7 +476,8 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            if ((Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags2.TestFlag(PlayerFlags2.AltAttack))
+            if ((Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                && Flags2.TestFlag(PlayerFlags2.AltAttack))
             {
                 Vector3 between = _volume.SpherePosition - target.HurtVolume.SpherePosition;
                 float distSqr = between.LengthSquared;
@@ -448,7 +490,8 @@ namespace MphRead.Entities
                 if (distSqr < radii * radii)
                 {
                     target.TakeDamage(Values.AltAttackDamage, this);
-                    SfxId sfx = Hunter == Hunter.Weavel ? SfxId.WEAVEL_ALT_ATTACK_HIT : SfxId.TRACE_ALT_ATTACK_HIT;
+                    SfxId sfx = Hunter == Hunter.Weavel ? SfxId.WEAVEL_ALT_ATTACK_HIT
+                        : SfxId.TRACE_ALT_ATTACK_HIT;
                     _soundSource.PlaySfx(sfx);
                     EndAltAttack();
                     return true;
@@ -459,7 +502,8 @@ namespace MphRead.Entities
 
         private void AltAttackHitDoor(DoorEntity door)
         {
-            if ((Hunter == Hunter.Spire || Hunter == Hunter.Trace || Hunter == Hunter.Weavel) && Flags2.TestFlag(PlayerFlags2.AltAttack)
+            if ((Hunter == Hunter.Spire || Hunter == Hunter.Trace || Hunter == Hunter.Weavel)
+                && Flags2.TestFlag(PlayerFlags2.AltAttack)
                 || Hunter == Hunter.Noxus && _altAttackTime >= SimTicks.From30HzFrames(Values.AltAttackStartup)
                 || _scene.Features.BoostOpensDoors && Hunter == Hunter.Samus && Flags1.TestFlag(PlayerFlags1.Boosting))
             {
@@ -505,6 +549,20 @@ namespace MphRead.Entities
             Vector3 limitMax;
             float margin;
             float sweepPadding = IsAltForm ? ResolveAltSweepPadding(Hunter) : 0.4f;
+            float dialancheDiameter = 0;
+            float dialancheProbeRadius = 0;
+            float dialancheForwardDistance = 0;
+            bool dialancheEnabled = IsAltForm && Hunter == Hunter.Spire
+                && _scene.Match.Balance.GetHunter(Hunter).CanClimbLedges
+                && DialancheLedgePolicy.TryResolveProbeDimensions(
+                    altVolume.SphereRadius, sweepPadding,
+                    out dialancheDiameter, out dialancheProbeRadius,
+                    out dialancheForwardDistance);
+            Vector3 dialancheCurrentCenter = Position + altVolume.SpherePosition;
+            Vector3 dialancheContactSpeed = Speed;
+            CollisionResult dialancheWall = default;
+            float dialancheWallTop = 0;
+            bool hasDialancheWall = false;
             if (IsAltForm)
             {
                 point1 = PrevPosition + altVolume.SpherePosition;
@@ -539,6 +597,15 @@ namespace MphRead.Entities
                             _kandenSegPos[i].AddY(Fixed.ToFloat(Values.AltColYPos)), segmentRadius);
                     }
                 }
+                if (dialancheEnabled)
+                {
+                    // Keep every transition probe inside a radius derived
+                    // from the canonical Spire sphere and narrow-phase pad.
+                    float probeExtent = MathF.Max(dialancheForwardDistance,
+                        dialancheDiameter) + dialancheProbeRadius;
+                    ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                        dialancheCurrentCenter, probeExtent);
+                }
             }
             else
             {
@@ -568,6 +635,13 @@ namespace MphRead.Entities
                 float radius = altVolume.SphereRadius + sweepPadding;
                 int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
                     limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
+                OrderAltTerrainContacts(results, count);
+                if (dialancheEnabled)
+                {
+                    hasDialancheWall = DialancheLedgePolicy.TryFindStaticLateralWall(
+                        candidates, results, count, dialancheContactSpeed,
+                        out dialancheWall, out dialancheWallTop);
+                }
                 for (int i = 0; i < count; i++)
                 {
                     HandleCollision(results[i], endLungeOnBlockingCollision: true);
@@ -697,6 +771,93 @@ namespace MphRead.Entities
                             ffResult.Plane *= -1;
                         }
                         HandleCollision(ffResult);
+                    }
+                }
+            }
+            if (dialancheEnabled && hasDialancheWall
+                && DialancheLedgePolicy.TryResolveWallForward(
+                    dialancheWall, out Vector3 dialancheForward)
+                && DialancheLedgePolicy.TryFindStaticForwardAboveCandidate(
+                    candidates, dialancheWall, dialancheCurrentCenter,
+                    dialancheForward, dialancheWallTop,
+                    altVolume.SphereRadius, dialancheForwardDistance,
+                    dialancheProbeRadius, out CollisionResult forwardAbove))
+            {
+                Vector3 supportProbeCenter = new(
+                    dialancheCurrentCenter.X
+                        + dialancheForward.X * dialancheForwardDistance,
+                    dialancheWallTop + altVolume.SphereRadius,
+                    dialancheCurrentCenter.Z
+                        + dialancheForward.Z * dialancheForwardDistance);
+                Vector3 supportProbeStart = supportProbeCenter.AddY(
+                    dialancheProbeRadius);
+                Vector3 supportProbeEnd = supportProbeCenter.AddY(
+                    -dialancheProbeRadius);
+                int supportCount = CollisionDetection.CheckSphereBetweenPoints(
+                    candidates, supportProbeStart, supportProbeEnd,
+                    dialancheProbeRadius, limit: 40, includeOffset: true,
+                    TestFlags.Players, _scene, results);
+                if (DialancheLedgePolicy.TryFindDownwardSupport(results,
+                        supportCount, dialancheWallTop, dialancheProbeRadius,
+                        supportProbeCenter, out CollisionResult support,
+                        out float supportHeight))
+                {
+                    Vector3 landingProbeCenter = new(
+                        supportProbeCenter.X, supportHeight
+                            + altVolume.SphereRadius, supportProbeCenter.Z);
+                    int clearanceCount =
+                        CollisionDetection.CheckSphereBetweenPoints(candidates,
+                            landingProbeCenter, landingProbeCenter,
+                            altVolume.SphereRadius, limit: 40,
+                            includeOffset: true, TestFlags.Players, _scene,
+                            results);
+                    bool dialancheClear =
+                        DialancheLedgePolicy.IsStationaryDialancheClear(
+                            results, clearanceCount, support);
+                    int pathCount = CollisionDetection.CheckSphereBetweenPoints(
+                        candidates, dialancheCurrentCenter, landingProbeCenter,
+                        dialancheProbeRadius, limit: 40,
+                        includeOffset: true, TestFlags.Players, _scene,
+                        results);
+                    bool pathClear = DialancheLedgePolicy.IsTransitionPathClear(
+                        results, pathCount, dialancheWall, forwardAbove,
+                        support);
+                    bool forceFieldBlocked = false;
+                    foreach (ForceFieldEntity forceField
+                        in _scene.GetForceFieldEntities())
+                    {
+                        if (DialancheLedgePolicy.IsTransitionBlockedByForceField(
+                                forceField.Active, dialancheCurrentCenter,
+                                landingProbeCenter, dialancheProbeRadius,
+                                forceField.Plane, forceField.Position,
+                                forceField.UpVector, forceField.RightVector,
+                                forceField.Width, forceField.Height))
+                        {
+                            forceFieldBlocked = true;
+                            break;
+                        }
+                    }
+                    if (DialancheLedgePolicy.TryResolve(
+                            Hunter, IsAltForm,
+                            _scene.Match.Balance.GetHunter(Hunter)
+                                .CanClimbLedges,
+                            dialancheCurrentCenter, dialancheContactSpeed,
+                            Speed, dialancheWall, dialancheWallTop,
+                            forwardAbove, hasForwardAbove: true, support,
+                            hasSupport: true, dialancheClear && pathClear,
+                            forceFieldBlocked, altVolume.SphereRadius,
+                            sweepPadding, out Vector3 landingCenter,
+                            out Vector3 landingSpeed))
+                    {
+                        Position = landingCenter - altVolume.SpherePosition;
+                        Speed = landingSpeed;
+                        Flags1 |= PlayerFlags1.Standing;
+                        Flags1 &= ~PlayerFlags1.CollidingLateral;
+                        Flags2 &= ~PlayerFlags2.SpireClimbing;
+                        _timeSinceStanding = 0;
+                        _slipperiness = support.Slipperiness;
+                        _standTerrain = support.Terrain;
+                        _terrainDamage = false;
                     }
                 }
             }

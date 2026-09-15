@@ -15,6 +15,8 @@ public sealed class AltAnimationSelectionTests
     [InlineData(Hunter.Weavel, -1f, 0f, 2)]
     [InlineData(Hunter.Weavel, 0f, 1f, 3)]
     [InlineData(Hunter.Weavel, 0f, -1f, 6)]
+    [InlineData(Hunter.Guardian, 1f, 0f, (int)PsychoBitAltAnim.Fly)]
+    [InlineData(Hunter.Guardian, 0f, -1f, (int)PsychoBitAltAnim.Fly)]
     public void StrafeAltMovementSelectsHunterSpecificAnimation(
         Hunter hunter, float lateralSign, float forwardSign, int expected)
     {
@@ -47,6 +49,11 @@ public sealed class AltAnimationSelectionTests
         Assert.Equal(4, (int)WeavelAltAnim.MoveRight);
         Assert.Equal(5, (int)WeavelAltAnim.Turn);
         Assert.Equal(6, (int)WeavelAltAnim.MoveBackward);
+
+        Assert.Equal(0, (int)PsychoBitAltAnim.Idle);
+        Assert.Equal(1, (int)PsychoBitAltAnim.Charge);
+        Assert.Equal(2, (int)PsychoBitAltAnim.Beam);
+        Assert.Equal(3, (int)PsychoBitAltAnim.Fly);
     }
 
     [Theory]
@@ -90,6 +97,7 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace)]
     [InlineData(Hunter.Weavel)]
+    [InlineData(Hunter.Guardian)]
     public void AltLocomotionRequiresPhysicalGroundContact(Hunter hunter)
     {
         int requested = PlayerEntity.SelectAltMovementAnimation(
@@ -114,6 +122,7 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace)]
     [InlineData(Hunter.Weavel)]
+    [InlineData(Hunter.Guardian)]
     public void WallBlockedAltRequestFallsBackToIdle(Hunter hunter)
     {
         int requested = PlayerEntity.SelectAltMovementAnimation(
@@ -131,6 +140,7 @@ public sealed class AltAnimationSelectionTests
     [Theory]
     [InlineData(Hunter.Trace, 1)]
     [InlineData(Hunter.Weavel, 1)]
+    [InlineData(Hunter.Guardian, (int)PsychoBitAltAnim.Beam)]
     public void ActiveEndedAttackRetainsItsEndPose(Hunter hunter,
         int expectedAttack)
     {
