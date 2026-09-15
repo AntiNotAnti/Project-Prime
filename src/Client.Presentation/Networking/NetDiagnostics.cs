@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System;
+using System.Globalization;
 using System.Text;
 using MphRead.Entities;
 
@@ -53,7 +54,7 @@ namespace MphRead.Mods.Network
         public static void ReportAuthoritative(NetClient client, ClientPrediction prediction,
             SnapshotInterpolation interpolation, NetTrafficMetrics traffic,
             PredictedHitFeedback hitPrediction, PredictedSelfImpulse selfImpulsePrediction,
-            PresentedCollisionFrame? presentedCollision = null)
+            PresentedCollisionFrame? presentedCollision = null, Scene? scene = null)
         {
             if (!Enabled) return;
             long now = Stopwatch.GetTimestamp();
@@ -150,6 +151,16 @@ namespace MphRead.Mods.Network
                 + $" continuous predicted/confirmed/denied/authority-only/pending="
                 + $"{hit.ContinuousPredicted}/{hit.ContinuousConfirmed}/{hit.ContinuousDenied}"
                 + $"/{hit.ContinuousAuthoritativeUnpredicted}/{hit.ContinuousPending}");
+            HitRegistrationDiagnosticSnapshot hitRegistration = HitRegistrationDiagnostics.CaptureWindow(
+                client.HasSnapshot ? client.Snapshot.ServerTick : null,
+                interpolation.Metrics,
+                presentedCollision?.HasCommittedFrame == true ? presentedCollision.Metrics : null,
+                hit,
+                presentedCollision?.HasCommittedFrame == true ? presentedCollision.CommittedTick : null,
+                estimatedAge,
+                rttMs: clock.Rtt.Count > 0 ? clock.Rtt.Last : null,
+                jitterMs: clock.Rtt.Count > 1 ? clock.JitterMs : null);
+            Console.WriteLine(HitRegistrationDiagnosticFormatter.Format(in hitRegistration));
             Console.WriteLine($"[net-self-impulse] predicted/confirmed/expired/authority-applied="
                 + $"{selfImpulse.Predicted}/{selfImpulse.Confirmed}/{selfImpulse.Expired}"
                 + $"/{selfImpulse.AuthoritativeApplied} bomb-jumps={selfImpulse.BombJumpsPredicted}"
@@ -158,7 +169,88 @@ namespace MphRead.Mods.Network
                 + $"/{Sample(selfImpulse.ImpulseMagnitudeMax)} corrections avg/max="
                 + $"{Sample(selfImpulse.MeanCorrectionDistance)}/{Sample(selfImpulse.CorrectionDistanceMax)}"
                 + $" hard={selfImpulse.HardCorrections}");
+            if (scene is not null)
+            {
+                Console.WriteLine(FormatAltDiagnostics(scene, client.SnapshotPlayers));
+            }
         }
+
+        /// <summary>
+        /// Compact, single-line formatting for one allocation-free ALT
+        /// diagnostic snapshot. Formatting is intentionally separate from the
+        /// value snapshot so the simulation path never creates strings.
+        /// </summary>
+        internal static string FormatAltDiagnostic(in AltFormDiagnostic diagnostic)
+        {
+            var line = new StringBuilder("[net-alt] ");
+            AppendAltDiagnostic(line, in diagnostic);
+            return line.ToString();
+        }
+
+        internal static string FormatAltDiagnostics(Scene scene,
+            ReadOnlySpan<SnapshotPlayer> authorityStates)
+        {
+            var line = new StringBuilder("[net-alt]");
+            bool wrote = false;
+            for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
+            {
+                PlayerEntity? player = scene.Players[slot];
+                if (player == null) continue;
+                int stateIndex = -1;
+                for (int i = 0; i < authorityStates.Length; i++)
+                {
+                    if (authorityStates[i].Slot == slot)
+                    {
+                        stateIndex = i;
+                        break;
+                    }
+                }
+                AltFormDiagnostic diagnostic;
+                if (stateIndex >= 0)
+                {
+                    SnapshotPlayer state = authorityStates[stateIndex];
+                    diagnostic = player.CaptureAltFormDiagnostic(in state);
+                }
+                else
+                {
+                    diagnostic = player.CaptureAltFormDiagnostic();
+                }
+                line.Append(wrote ? " | " : " ");
+                AppendAltDiagnostic(line, in diagnostic);
+                wrote = true;
+            }
+            if (!wrote) line.Append(" none");
+            return line.ToString();
+        }
+
+        private static void AppendAltDiagnostic(StringBuilder line,
+            in AltFormDiagnostic diagnostic)
+        {
+            line.Append("slot=").Append(diagnostic.Slot)
+                .Append(" hunter=").Append(diagnostic.Hunter)
+                .Append(" authForm=").Append(diagnostic.AuthorityAltForm ? 'a' : 'b')
+                .Append(" presentedForm=").Append(diagnostic.PresentedAltForm ? 'a' : 'b')
+                .Append(" morph=");
+            if (diagnostic.Morphing) line.Append('i');
+            else if (diagnostic.Unmorphing) line.Append('o');
+            else line.Append('-');
+            line.Append(" phase=").Append(diagnostic.AltActionPhase)
+                .Append(':').Append(diagnostic.AltActionTicks)
+                .Append(" epoch=").Append(diagnostic.PoseEpoch)
+                .Append(" heading=").Append(FormatFloat(diagnostic.ControlHeading.X))
+                .Append(',').Append(FormatFloat(diagnostic.ControlHeading.Y))
+                .Append(',').Append(FormatFloat(diagnostic.ControlHeading.Z))
+                .Append(" camera=").Append(diagnostic.CameraType)
+                .Append(" formRec=").Append(diagnostic.FormReconciliationEvents)
+                .Append(" forced=").Append(diagnostic.ForcedFormCorrections)
+                .Append(" actionRec=").Append(diagnostic.AltActionCorrections)
+                .Append(" morphMis=").Append(diagnostic.MorphPhaseMismatches)
+                .Append(" headingFallback=").Append(diagnostic.InvalidHeadingFallbacks)
+                .Append(" cameraRecovery=").Append(diagnostic.CameraRecoveryEvents);
+        }
+
+        private static string FormatFloat(float value)
+            => value.ToString("0.00", CultureInfo.InvariantCulture);
 
         private static string Sample(double? value)
             => value?.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) ?? "n/a";
@@ -244,6 +336,9 @@ namespace MphRead.Mods.Network
                 line.Append("  !! ").Append(botRemotes).Append(" remote slot(s) still AI-driven");
             }
 
+            string altLine = FormatAltDiagnostics(scene,
+                ReadOnlySpan<SnapshotPlayer>.Empty);
+
             MatchStatePacket? match = NetSession.ServerMatch;
             if (match != null)
             {
@@ -251,6 +346,7 @@ namespace MphRead.Mods.Network
                 line.Append(" serverPlayers=").Append(match.Value.PlayerCount);
             }
             Console.WriteLine(line.ToString());
+            Console.WriteLine(altLine);
             Console.WriteLine("[netmetrics] " + NetSession.Metrics.Describe(Stopwatch.GetTimestamp())
                 + $" frame-work avg/max {NetSession.Metrics.WorkDurationMs.Mean:0.000}"
                 + $"/{NetSession.Metrics.WorkDurationMs.Max:0.000} ms");

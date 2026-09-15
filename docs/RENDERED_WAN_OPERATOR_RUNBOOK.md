@@ -25,6 +25,28 @@ identity, and failure classification. It remains a loopback developer fixture,
 is always reported with `renderedWanProof=false`, and is not a substitute for
 the split real-WAN matrix below.
 
+## Evidence classes and acceptance boundaries
+
+Every artifact and conclusion must carry one of these labels. The split
+operator and client reports are candidate evidence; their flags remain false
+until the independent path and human gates are complete.
+
+| Label | Establishes | Does not establish |
+| --- | --- | --- |
+| `SOURCE` | Current call paths, ownership, constants, and documented exclusions | Runtime, rendering, device, or Internet behavior |
+| `UNIT` | Focused assertions over one code seam | A native window, physical input, or WAN path |
+| `HEADLESS` | Deterministic simulation/harness output without a native display | GPU output, device lifecycle, human feel, or geographic path |
+| `RENDERED` | A native host produced a frame/capture on the named host | Physical Android, high-refresh, or real-WAN behavior |
+| `DEVICE` | The exact APK, Android hardware, display, peripherals, and lifecycle run | Another device, deployment, or WAN geography |
+| `WAN` | Two independent endpoints, verified public path, Node admission, direct Worker UDP, and recorded transport/authority metrics | Visual quality without human inspection |
+| `HUMAN` | Reviewer's conclusions for the exact captures and run | Unrecorded protocol, authority, or transport facts |
+
+`--rendered-wan-validation` and `--rendered-wan-snapshot-matrix-plan` are
+headless/process-local or same-host rendered evidence, even when their
+impairment values resemble a WAN profile. They cannot fill a `WAN` cell.
+Likewise, a real-WAN report is not a `HUMAN` visual pass until every capture is
+reviewed. Keep the labels separate in the run manifest.
+
 ## Server/operator prerequisites
 
 - Reserve one fixed TCP port for the Node's TLS listener and one fixed UDP port
@@ -103,6 +125,72 @@ build, protocol, ordinary-room constraint, and exact Worker endpoint before it
 joins. It then uses the same live Node control session for `match.rejoin` and
 connects directly to the Worker over UDP.
 
+## Real geographic WAN matrix
+
+Run every cell independently with a fresh output directory, run ID, and
+short-lived admission. `US`, `Europe`, and `Japan/APAC` identify the verified
+public endpoint geography recorded by the operator; an endpoint label or IP
+spelling by itself is not geography or path proof. Record redacted metro/ASN,
+UTC start/end, Node/Worker region, and the independent route/path evidence in
+the private run record.
+
+The matrix cell notation is `effective RTT target / jitter target / loss target /
+client-to-server:server-to-client nominal contribution`. Jitter is the target
+p95 absolute deviation, and loss is the requested total impairment envelope;
+the real run must record measured loss separately in each direction. The
+asymmetry values are a repeatable profile for planning, not an acceptance
+substitute for measured one-way data.
+
+| Geographic path | `50` cell | `100` cell | `150` cell | `200` cell | `250` cell | `300+` cell |
+| --- | --- | --- | --- | --- | --- | --- |
+| US | `50 ms / ±2 ms / 0% / 50:50` | `100 ms / ±5 ms / 1% / 45:55` | `150 ms / ±8 ms / 2% / 40:60` | `200 ms / ±12 ms / 3% / 40:60` | `250 ms / ±20 ms / 3% / 35:65` | `≥300 ms / ±30 ms / 5% / 35:65` |
+| Europe | `50 ms / ±2 ms / 0% / 50:50` | `100 ms / ±5 ms / 1% / 45:55` | `150 ms / ±8 ms / 2% / 40:60` | `200 ms / ±12 ms / 3% / 40:60` | `250 ms / ±20 ms / 3% / 35:65` | `≥300 ms / ±30 ms / 5% / 35:65` |
+| Japan/APAC | `50 ms / ±2 ms / 0% / 50:50` | `100 ms / ±5 ms / 1% / 45:55` | `150 ms / ±8 ms / 2% / 40:60` | `200 ms / ±12 ms / 3% / 40:60` | `250 ms / ±20 ms / 3% / 35:65` | `≥300 ms / ±30 ms / 5% / 35:65` |
+
+For each cell, retain the target and the measured values; do not replace an
+actual asymmetric path with the nominal profile. At minimum record:
+
+| Record | Required fields |
+| --- | --- |
+| Path identity | `region`, redacted endpoint/provider/metro, `real-wan-independent-path`, direct Node/Worker endpoint, route evidence, and whether VPN/relay/tunnel was absent |
+| Timing | `rtt_p50_ms`, `rtt_p95_ms`, `jitter_client_to_server_p95_ms`, `jitter_server_to_client_p95_ms`, and the configured/observed target cell |
+| Delivery | `loss_client_to_server_pct`, `loss_server_to_client_pct`, packets sent/received/dropped per endpoint, and any reordering/duplication observation |
+| Asymmetry | Measured one-way client-to-server and server-to-client p50/p95 contributions and the resulting ratio; do not infer it from RTT alone |
+| Lifecycle | Node/control session, Worker handoff, match identity, `match.rejoin`, same seat, reconnect timing, and terminal state |
+| Review | Per-capture file/hash, reviewer, date, defects, and `HUMAN` disposition |
+
+The `--rtt`, `--jitter`, and `--loss` options on the same-host validation
+command describe process-local impairment and have no real asymmetric-path
+semantics. They may help prepare a scenario but cannot be recorded as the
+geographic cell's measured WAN values.
+
+### Exact hit-registration metrics per cell
+
+Attach the secret-free report schema and the before/after reconnect snapshots
+to every cell. Do not reduce hit registration to a single hit count. The
+following are the exact existing metric groups to retain (zero is a valid
+value):
+
+| Domain | Exact metrics |
+| --- | --- |
+| Client/path | `MeasuredRttMs`, `MeasuredJitterMs`, `PacketsSent`, `PacketsReceived`, `PacketsDropped` where present in the two-client report; also retain the external per-direction timing/loss fields above |
+| Discrete feedback | `Predicted`, `Confirmed`, `Denied`, `AuthoritativeUnpredicted`, `DuplicatePrevented`, `Pending`, `ConfirmationRate`, and `DenialRate` |
+| Continuous feedback | `ContinuousPredicted`, `ContinuousConfirmed`, `ContinuousDenied`, `ContinuousAuthoritativeUnpredicted`, `ContinuousPending`, and `ContinuousConfirmationRate` |
+| Headshot/kill feedback | `AuthoritativeHeadshotCues`, `PredictedHeadshots`, `ConfirmedHeadshots`, `HeadshotsDowngraded`, `HeadshotsPromoted`, `HeadshotsDenied`, `AuthoritativeHeadshotsUnpredicted`, `KillPromotions`, `HeadshotAgreementRate`, `HeadshotDowngradeRate`, and `HeadshotPromotionRate` |
+| Feedback timing | `MeanShotToPredictionFrames`, `MeanShotToConfirmationFrames`, `MeanPredictionLeadFrames`, and `TimingSamples` |
+| Authority rewind | `RequestedRewindTicks`, `ValidatedRewindTicks`, `MaximumRequestedRewindTicks`, `MaximumValidatedRewindTicks`, `ClampPositionError`, and `ClampVerticalError`; treat `ValidatedRewindTicks < RequestedRewindTicks` as the raw clamp indication |
+| Presented collision | `PresentedPoseSamples`, `PresentedPoseErrorMean`, `PresentedPoseErrorPercentiles` (`P50/P95/P99/P999/Max`), `PresentedPoseErrorMax`, `PresentedVerticalSamples`, `PresentedVerticalErrorMean`, `PresentedVerticalErrorPercentiles`, `PresentedVerticalErrorMax`, `SpeculativeHitSamples`, `SpeculativeHitPresentedPoseDistanceMean`, `SpeculativeHitPresentedPoseDistancePercentiles`, `SpeculativeHitPresentedPoseDistanceMax`, `ShotTickMismatchSamples`, `PresentedTickVsShotTickMismatchMean`, `PresentedTickVsShotTickMismatchPercentiles`, `PresentedTickVsShotTickMismatchMax`, `SimulationTickMismatchSamples`, `PresentedTickVsSimulationTickMismatchMean`, `PresentedTickVsSimulationTickMismatchPercentiles`, `PresentedTickVsSimulationTickMismatchMax`, `PresentedPoseUnavailable`, and `Aligned/Minor/Material/Severe` buckets |
+| Interpolation | `InterpolatedSamples`, `ExtrapolatedSamples`, `SnapshotUnderrunSamples`, `HeldSamples`, `PresentedFrames`, `InterpolatedFrames`, `UnderrunFrames`, `ExtrapolatedFrames`, `HeldFrames`, `MaximumExtrapolationTicks`, `DelayTicks`, and `TargetDelayTicks` |
+
+The two-client headshot schema additionally requires the scenario counters
+`TriggerAttempts`, `LocalRootShots`, `AuthoritativeRootShots`,
+`CorrelatedRootShots`, `PredictedContacts`, `PredictedHeadshots`,
+`AuthoritativeHits`, `AuthoritativeHeadshots`, `ConfirmedHeadshots`,
+`DowngradedHeadshots`, `PromotedHeadshots`, `DeniedHeadshots`, and
+`HeadshotAgreementRate`. Keep discrete and continuous confirmation rates
+separate. A cell is incomplete when shot identity/correlation, headshot
+evidence, authority rewind, or presentation data is missing.
+
 ## Offline merge and review
 
 After both processes finish, collect the public descriptor, secret-free reports,
@@ -147,6 +235,24 @@ Inspect every PNG for false walls, door/field/platform presentation defects,
 projectile duplication or disappearance, broken interpolation, and reconnect
 discontinuities. Automation evidence and human visual conclusions must be
 reported separately.
+
+## Policy guardrails and deferred voting
+
+- `LagCompensationPolicy.MaxRewindTicks` remains `15` (250 ms at the fixed
+  60 Hz simulation). Do not raise it from loopback, emulator, headless, or
+  same-host rendered observations. Revisit the cap only if the real geographic
+  matrix records material clamping and the smallest evidence-backed alternative
+  is selected.
+- The existing Node-owned Results ballot remains unchanged. This runbook may
+  exercise Results display and offered option selection, but it does not alter
+  ballot options, revisions, authority, or the reliable wire contract described
+  in `docs/G5_VOTING.md`.
+- In-match voting is explicitly **DEFERRED**. Do not implement or evaluate a
+  second vote surface until repeated live
+  `match -> Results -> ballot -> continuation -> next match` cycles have shown
+  stable result retention, handoff, reconnect, and next-match startup (use the
+  existing 20-cycle live policy when that gate is run). A source, unit,
+  headless, emulator, or single rendered run cannot advance this gate.
 
 ## STOP conditions
 
