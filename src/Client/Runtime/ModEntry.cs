@@ -83,6 +83,8 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
+            Input.GamepadInput.InitializeControllerCalibrationPersistence(
+                Launcher.LauncherPrefs.Directory);
             Accounts.AccountSessions.UseSecureStore(
                 Accounts.SecureSessionStoreFactory.CreateDefault());
             // Pictures of the launcher's own screens are intentionally handled
@@ -403,6 +405,18 @@ namespace MphRead.Mods
             if (HasFlag(args, "frametimingcheck"))
             {
                 Environment.ExitCode = Render.FrameTimingCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "renderbench"))
+            {
+                if (!RenderBenchmarkOptions.TryParse(args,
+                        out RenderBenchmarkOptions? benchmark, out string? error))
+                {
+                    Console.Error.WriteLine($"renderbench: {error}");
+                    Environment.ExitCode = 2;
+                    return true;
+                }
+                Environment.ExitCode = RenderBenchmark.Run(benchmark!);
                 return true;
             }
 

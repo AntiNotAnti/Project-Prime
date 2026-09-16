@@ -1707,6 +1707,11 @@ namespace MphRead
             Features.NoRepeatEncounters = false;
             Features.AllowInvalidTeams = true;
             Features.TopScreenTargetInfo = true;
+            Features.ProHud = false;
+            Features.ProHudFixedWeapon = true;
+            Features.ProHudSize = ProHudSize.Standard;
+            Features.ProHudSafeArea = true;
+            Features.ProHudHighContrast = false;
             Features.HelmetOpacity = 1;
             Features.VisorOpacity = 0.5f;
             Features.HudOpacity = 1;

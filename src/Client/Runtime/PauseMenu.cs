@@ -235,6 +235,17 @@ namespace MphRead.Mods
             _refocus = true;
         }
 
+        /// <summary>
+        /// Close the logical pause session because the host was hidden or
+        /// minimized. Unlike a user close, this must not queue a focus request:
+        /// the host is not an eligible native target yet.
+        /// </summary>
+        internal static void CloseForHostSuspension()
+        {
+            _open = false;
+            _refocus = false;
+        }
+
         private static void OpenMenu(Scene scene)
         {
             _open = _presenter?.Open(scene) == true;

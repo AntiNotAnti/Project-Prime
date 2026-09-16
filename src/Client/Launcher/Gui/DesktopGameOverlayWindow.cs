@@ -29,9 +29,8 @@ internal interface IDesktopGameOverlaySurface : IDisposable
 
 /// <summary>
 /// One Avalonia window reused for every desktop in-game presentation.  A
-/// minimized host is represented by native minimization/visibility only; the
-/// content remains attached so a live SettingsView does not roll its draft
-/// back through its visual-tree detach hook.
+/// minimized host releases native overlay visibility. SettingsView explicitly
+/// fences its draft rollback while the persistent content is detached.
 /// </summary>
 internal sealed class DesktopGameOverlayWindow : Window, IDesktopGameOverlaySurface
 {
@@ -82,17 +81,14 @@ internal sealed class DesktopGameOverlayWindow : Window, IDesktopGameOverlaySurf
         LastHostState = state;
         if (_mode == DesktopOverlayMode.None) return;
         ApplyGeometry(state);
-        if (state.IsMinimized)
+        if (!state.IsVisible || state.IsMinimized)
         {
-            // WindowState keeps Content attached. Calling Hide here would
-            // detach SettingsView and intentionally restore its draft.
-            if (IsVisible) WindowState = WindowState.Minimized;
+            if (IsVisible) Hide();
             SetZOrderOwned(false);
             _nativeVisible = false;
             return;
         }
         if (!IsVisible) Show();
-        if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
         _nativeVisible = true;
         if (activate)
         {
@@ -110,9 +106,7 @@ internal sealed class DesktopGameOverlayWindow : Window, IDesktopGameOverlaySurf
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         LastHostState = state;
-        // See ShowForHost: native minimization is the only hide operation that
-        // preserves the exact visual-tree lifetime of an active settings view.
-        if (IsVisible) WindowState = WindowState.Minimized;
+        if (IsVisible) Hide();
         SetZOrderOwned(false);
         _nativeVisible = false;
     }

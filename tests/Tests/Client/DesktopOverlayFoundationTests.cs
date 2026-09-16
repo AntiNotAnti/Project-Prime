@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
+using MphRead.Mods;
 using MphRead.Mods.Input;
 using MphRead.Mods.Launcher.Gui;
 using OpenTK.Mathematics;
@@ -215,8 +216,9 @@ public sealed class DesktopOverlayFoundationTests
     }
 
     [AvaloniaFact]
-    public void OverlayModeSurvivesMinimizeAndRestoresWithoutReplacingContent()
+    public void PauseMinimizeClosesLogicalOverlayWithoutRefocusingHost()
     {
+        PauseMenu.CloseForHostSuspension();
         var surface = new RecordingSurface();
         GameHostPresentationState state = State(visible: true, minimized: false);
         using var coordinator = new DesktopGameOverlayCoordinator(surface, () => state);
@@ -230,27 +232,16 @@ public sealed class DesktopOverlayFoundationTests
         Control content = surface.Content!;
         state = State(visible: false, minimized: true);
         coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(DesktopOverlayMode.Pause, coordinator.Mode);
-        Assert.Same(content, surface.Content);
-        Assert.Equal(1, surface.HideCount);
-
-        state = State(visible: true, minimized: false);
-        coordinator.ApplyHostPresentationForTests(state);
-        Assert.Same(content, surface.Content);
-        Assert.Equal(2, surface.ShowCount);
-        Assert.False(surface.ZOrderOwned);
-        surface.RaiseActivated();
-        Assert.True(surface.ZOrderOwned);
-
-        surface.RaiseDeactivated();
+        Assert.Equal(DesktopOverlayMode.None, coordinator.Mode);
+        Assert.Null(surface.Content);
+        Assert.False(PauseMenu.Open);
         Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
         Assert.False(surface.ZOrderOwned);
-        coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
-        Assert.False(surface.ZOrderOwned);
-        surface.RaiseActivated();
-        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
-        Assert.True(surface.ZOrderOwned);
+        Assert.NotSame(content, surface.Content);
+
+        var host = new RecordingPauseHost();
+        PauseMenu.Poll(host);
+        Assert.Equal(0, host.FocusCount);
     }
 
     [AvaloniaFact]
@@ -277,6 +268,32 @@ public sealed class DesktopOverlayFoundationTests
         surface.RaiseDeactivated();
         Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
         Assert.False(surface.ZOrderOwned);
+    }
+
+    [AvaloniaFact]
+    public void OverlayActivationAcknowledgementWinsAfterHostFocusLoss()
+    {
+        GameHostPresentationState state = State(visible: true,
+            minimized: false, focused: true);
+        var surface = new RecordingSurface();
+        using var coordinator = new DesktopGameOverlayCoordinator(surface,
+            () => state);
+        using var scene = new Scene();
+
+        Assert.True(coordinator.OpenPause(scene));
+        Assert.Equal(1, surface.ActivationRequestCount);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+
+        // The activation request itself moves focus away from SDL. That
+        // state change may arrive before Avalonia acknowledges the overlay.
+        state = State(visible: true, minimized: false, focused: false);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+        Assert.False(surface.ZOrderOwned);
+
+        surface.RaiseActivated();
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+        Assert.True(surface.ZOrderOwned);
     }
 
     [AvaloniaFact]
@@ -314,7 +331,6 @@ public sealed class DesktopOverlayFoundationTests
     }
 
     [AvaloniaTheory]
-    [InlineData((int)DesktopOverlayMode.Pause)]
     [InlineData((int)DesktopOverlayMode.Settings)]
     [InlineData((int)DesktopOverlayMode.Results)]
     [InlineData((int)DesktopOverlayMode.ContinuationLoading)]
@@ -348,8 +364,9 @@ public sealed class DesktopOverlayFoundationTests
     }
 
     [AvaloniaFact]
-    public void HiddenInitialOverlayPreservesContentUntilHostBecomesEligible()
+    public void HiddenInitialPauseDoesNotQueueActivationOrRetainContent()
     {
+        PauseMenu.CloseForHostSuspension();
         GameHostPresentationState state = State(visible: false,
             minimized: false, focused: false);
         var surface = new RecordingSurface();
@@ -357,47 +374,48 @@ public sealed class DesktopOverlayFoundationTests
             () => state);
         using var scene = new Scene();
 
-        Assert.True(coordinator.OpenPause(scene));
-        Control content = Assert.IsAssignableFrom<Control>(surface.Content);
-        Assert.Equal(DesktopOverlayMode.Pause, coordinator.Mode);
+        PauseMenu.RegisterPresenter(coordinator);
+        try
+        {
+            // Exercise the same private bridge used by HandleEscape: the
+            // presenter result must not reopen the legacy flag after the
+            // coordinator synchronously rejects a hidden-host pause.
+            typeof(PauseMenu).GetMethod("OpenMenu",
+                BindingFlags.Static | BindingFlags.NonPublic)!.Invoke(null,
+                new object[] { scene });
+        }
+        finally
+        {
+            PauseMenu.UnregisterPresenter(coordinator);
+        }
+        Assert.Equal(DesktopOverlayMode.None, coordinator.Mode);
+        Assert.Null(surface.Content);
         Assert.False(surface.NativeVisible);
-        Assert.Equal(1, surface.HideCount);
+        Assert.False(PauseMenu.Open);
         Assert.Equal(0, surface.ActivationRequestCount);
-
-        state = State(visible: true, minimized: false, focused: false);
-        coordinator.ApplyHostPresentationForTests(state);
-        Assert.Same(content, surface.Content);
-        Assert.True(surface.NativeVisible);
-        Assert.Equal(0, surface.ActivationRequestCount);
-
-        state = State(visible: true, minimized: false, focused: true);
-        coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(1, surface.ActivationRequestCount);
-        Assert.False(surface.ZOrderOwned);
-        surface.RaiseActivated();
-        Assert.True(surface.ZOrderOwned);
     }
 
     [AvaloniaFact]
     public void FocusBeforeRestoreAndRestoreBeforeFocusEachReactivateOnce()
     {
         var surface = new RecordingSurface();
-        GameHostPresentationState state = State(visible: false,
-            minimized: true, focused: false);
+        GameHostPresentationState state = State(visible: true,
+            minimized: false, focused: true);
         using var coordinator = new DesktopGameOverlayCoordinator(surface,
             () => state);
         using var scene = new Scene();
         Assert.True(coordinator.OpenPause(scene));
-        Assert.Equal(0, surface.ActivationRequestCount);
+        coordinator.OpenSettings();
+        Assert.Equal(1, surface.ActivationRequestCount);
 
         // Focus-before-restore: the host is still ineligible at focus gain;
         // only the restored eligible edge requests activation.
         state = State(visible: false, minimized: true, focused: true);
         coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(0, surface.ActivationRequestCount);
+        Assert.Equal(1, surface.ActivationRequestCount);
         state = State(visible: true, minimized: false, focused: true);
         coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(1, surface.ActivationRequestCount);
+        Assert.Equal(2, surface.ActivationRequestCount);
 
         surface.RaiseActivated();
         surface.RaiseDeactivated();
@@ -407,12 +425,41 @@ public sealed class DesktopOverlayFoundationTests
         coordinator.ApplyHostPresentationForTests(state);
         state = State(visible: true, minimized: false, focused: false);
         coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(1, surface.ActivationRequestCount);
+        Assert.Equal(2, surface.ActivationRequestCount);
+        state = State(visible: true, minimized: false, focused: true);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(3, surface.ActivationRequestCount);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(3, surface.ActivationRequestCount);
+    }
+
+    [AvaloniaFact]
+    public void LateActivationWhileMinimizedCannotClaimOverlayOwnership()
+    {
+        GameHostPresentationState state = State(visible: true,
+            minimized: false, focused: true);
+        var surface = new RecordingSurface();
+        using var coordinator = new DesktopGameOverlayCoordinator(surface,
+            () => state);
+        using var scene = new Scene();
+        Assert.True(coordinator.OpenPause(scene));
+        coordinator.OpenSettings();
+        surface.RaiseActivated();
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
+
+        state = State(visible: false, minimized: true, focused: false);
+        coordinator.ApplyHostPresentationForTests(state);
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+        Assert.False(surface.ZOrderOwned);
+        surface.RaiseActivated();
+        Assert.Equal(DesktopInputOwnerKind.None, coordinator.InputOwner.Current);
+        Assert.False(surface.ZOrderOwned);
+
         state = State(visible: true, minimized: false, focused: true);
         coordinator.ApplyHostPresentationForTests(state);
         Assert.Equal(2, surface.ActivationRequestCount);
-        coordinator.ApplyHostPresentationForTests(state);
-        Assert.Equal(2, surface.ActivationRequestCount);
+        surface.RaiseActivated();
+        Assert.Equal(DesktopInputOwnerKind.Overlay, coordinator.InputOwner.Current);
     }
 
     [AvaloniaFact]
@@ -503,9 +550,9 @@ public sealed class DesktopOverlayFoundationTests
 
         public void ShowForHost(GameHostPresentationState state, bool activate)
         {
-            NativeVisible = true;
+            NativeVisible = state.IsVisible && !state.IsMinimized;
             ShowCount++;
-            if (activate)
+            if (activate && NativeVisible)
             {
                 ActivationRequestCount++;
                 if (ActivateSynchronously) RaiseActivated();
@@ -532,5 +579,15 @@ public sealed class DesktopOverlayFoundationTests
         public void RaiseActivated() => Activated?.Invoke(this, EventArgs.Empty);
         public void RaiseDeactivated() => Deactivated?.Invoke(this, EventArgs.Empty);
         public void Dispose() { }
+    }
+
+    private sealed class RecordingPauseHost : IPauseMenuHost
+    {
+        public Vector2i ClientLocation => new(10, 20);
+        public Vector2i ClientSize => new(1280, 720);
+        public int FocusCount { get; private set; }
+        public void Focus() => FocusCount++;
+        public void Close() { }
+        public void ToggleFullscreen() { }
     }
 }
