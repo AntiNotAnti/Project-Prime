@@ -95,7 +95,8 @@ internal static class SdlGamepadProbe
             GamepadInput.AimDeltaX,
             GamepadInput.AimDeltaY,
             GamepadInput.AimAngularVelocity.X,
-            GamepadInput.AimAngularVelocity.Y);
+            GamepadInput.AimAngularVelocity.Y,
+            processing: ProcessingDiagnostics());
         string diagnosticsDirectory = Path.Combine(LauncherPrefs.Directory, "logs");
         try
         {
@@ -121,6 +122,21 @@ internal static class SdlGamepadProbe
         }
         Console.WriteLine("[gamepad] PASS: SDL input reached GamepadInput and its configured bindings/processors.");
         return 0;
+    }
+
+    private static ControllerDiagnosticProcessing ProcessingDiagnostics()
+    {
+        ControllerStickCalibrationSample calibration = GamepadInput.LookCalibration;
+        GamepadLookSample look = GamepadInput.ProcessedLook;
+        GyroConditioningStatus gyro = GamepadGyro.Status.Conditioning;
+        return new ControllerDiagnosticProcessing(calibration.Value.X,
+            calibration.Value.Y, calibration.InnerDeadzone,
+            calibration.OuterDeadzone, calibration.LearnedCenter.X,
+            calibration.LearnedCenter.Y, calibration.LearnedNoise,
+            calibration.LearnedMaximumMagnitude, look.Magnitude,
+            look.ResponseMagnitude, look.BoostProgress,
+            gyro.CalibrationState, gyro.CalibrationSamples,
+            gyro.HasFreshOutput);
     }
 
     private static string Describe(GamepadState state)

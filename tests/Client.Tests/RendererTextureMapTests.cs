@@ -49,6 +49,40 @@ public sealed class RendererTextureMapTests
         Assert.True(value.OnlyOpaque);
     }
 
+    [Fact]
+    public void RendererUnloadDoesNotEvictTheSharedParsedModelCache()
+    {
+        const string name = "renderer-cache-ownership-probe";
+        var model = new Model(name, firstHunt: false, default,
+            Array.Empty<RawNode>(), Array.Empty<RawMesh>(),
+            Array.Empty<RawMaterial>(), Array.Empty<DisplayList>(),
+            Array.Empty<IReadOnlyList<RenderInstruction>>(),
+            new AnimationResults(), Array.Empty<Matrix4>(),
+            Array.Empty<Recolor>(), Array.Empty<int>(),
+            Array.Empty<Vector3Fx>(), Array.Empty<Vector3Fx>(),
+            Array.Empty<int>(), Array.Empty<Fixed>());
+        FieldInfo cacheField = typeof(Read).GetField("_modelCache",
+            BindingFlags.Static | BindingFlags.NonPublic)!;
+        var cache = (Dictionary<string, Model>)cacheField.GetValue(null)!;
+        string key = $"{MetaDir.Models}:{name}";
+        ScenePresentation presentation = CreateUninitializedPresentation();
+
+        lock (ContentEnvironment.SyncRoot)
+        {
+            cache.Add(key, model);
+            try
+            {
+                presentation.UnloadModel(model);
+
+                Assert.Same(model, cache[key]);
+            }
+            finally
+            {
+                cache.Remove(key);
+            }
+        }
+    }
+
     private static ScenePresentation CreateUninitializedPresentation()
     {
         var presentation = (ScenePresentation)RuntimeHelpers.GetUninitializedObject(
@@ -56,6 +90,8 @@ public sealed class RendererTextureMapTests
         SetField(presentation, "_texPalMap", new Dictionary<int, TextureMap>());
         SetField(presentation, "_textureResources",
             new Dictionary<TextureIdentity, RenderTexturePixels>());
+        SetField(presentation, "_bindingTextureIdentities",
+            new Dictionary<int, TextureIdentity>());
 
         FieldInfo bindings = typeof(ScenePresentation).GetField("_materialBindings",
             BindingFlags.Instance | BindingFlags.NonPublic)!;

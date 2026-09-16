@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using MphRead;
 using MphRead.Mods.Render;
 using OpenTK.Mathematics;
@@ -41,6 +42,14 @@ public sealed class GameWindowFrameLoopTests
         Assert.Equal(1, snapshot.AfterFrame.Count);
         Assert.Equal(1, snapshot.WholeFrame.Count);
         Assert.Equal(1, snapshot.LegacyTotalRender.Count);
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(1, snapshot.AcquiredFrames);
+        Assert.Equal(1, snapshot.SubmittedFrames);
+        Assert.Equal(1, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
+        Assert.Equal(1, snapshot.FrameTimingAdvance.Count);
+        Assert.Equal(1, snapshot.SwapchainAcquire.Count);
+        Assert.Equal(1, snapshot.PresentedWholeFrame.Count);
     }
 
     [Fact]
@@ -67,6 +76,13 @@ public sealed class GameWindowFrameLoopTests
         Assert.Equal(0, snapshot.AfterFrame.Count);
         Assert.Equal(1, snapshot.WholeFrame.Count);
         Assert.Equal(1, snapshot.LegacyTotalRender.Count);
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(0, snapshot.AcquiredFrames);
+        Assert.Equal(0, snapshot.SubmittedFrames);
+        Assert.Equal(0, snapshot.PresentedFrames);
+        Assert.Equal(1, snapshot.UnacquiredFrames);
+        Assert.Equal(1, snapshot.FrameTimingAdvance.Count);
+        Assert.Equal(1, snapshot.SwapchainAcquire.Count);
     }
 
     [Fact]
@@ -86,6 +102,11 @@ public sealed class GameWindowFrameLoopTests
         Assert.Equal(1, snapshot.OverlayUi.Count);
         Assert.Equal(0, snapshot.AfterFrame.Count);
         Assert.Equal(1, snapshot.WholeFrame.Count);
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(1, snapshot.AcquiredFrames);
+        Assert.Equal(0, snapshot.SubmittedFrames);
+        Assert.Equal(0, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
     }
 
     [Fact]
@@ -102,6 +123,52 @@ public sealed class GameWindowFrameLoopTests
         Assert.Equal(1, client.Rendered);
         Assert.Equal(0, client.Presented);
         Assert.Equal(1, client.AfterRender);
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(1, snapshot.AcquiredFrames);
+        Assert.Equal(1, snapshot.SubmittedFrames);
+        Assert.Equal(0, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
+        Assert.Equal(0, snapshot.PresentedWholeFrame.Count);
+    }
+
+    [Fact]
+    public void HostTimingContextAddsHostPhasesWithoutChangingCallbackOrder()
+    {
+        var timing = new FrameTiming();
+        var client = new RecordingClient();
+        using var backend = new RecordingBackend(begin: true, submit: true, client.Order);
+        long hostStart = Stopwatch.GetTimestamp();
+        var hostTiming = new FrameLoopHostTimingContext(hostStart, 4.25, 2.5);
+
+        new GameWindowFrameLoop(timing).Tick(FrameTiming.StepSeconds, default,
+            client, backend, in hostTiming);
+
+        Assert.Equal(SuccessfulOrder, client.Order);
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(4.25, snapshot.HostWork.P50);
+        Assert.Equal(2.5, snapshot.SoftwarePacing.P50);
+        Assert.Equal(1, snapshot.WholeFrame.Count);
+        Assert.Equal(1, snapshot.PresentedWholeFrame.Count);
+    }
+
+    [Fact]
+    public void PresentationShortCircuitDoesNotCountAsNoDrawableFrame()
+    {
+        var timing = new FrameTiming();
+        var client = new RecordingClient { CanRender = false };
+        using var backend = new RecordingBackend(begin: true, submit: true, client.Order);
+
+        new GameWindowFrameLoop(timing).Tick(0, default, client, backend);
+
+        Assert.Equal(["input", "simulation", "draw", "pause"], client.Order);
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(0, snapshot.AcquiredFrames);
+        Assert.Equal(0, snapshot.SubmittedFrames);
+        Assert.Equal(0, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
+        Assert.Equal(0, snapshot.SwapchainAcquire.Count);
     }
 
     [Fact]
@@ -120,6 +187,27 @@ public sealed class GameWindowFrameLoopTests
         Assert.Equal(1, client.SimulationSteps);
         Assert.Equal(1, timing.StepsThisFrame);
         Assert.Equal(0, timing.Advance(0));
+    }
+
+    [Fact]
+    public void DiscardedInputIsNeutralBeforeSceneHandlingAndFrameAdvance()
+    {
+        var timing = new FrameTiming();
+        var client = new RecordingClient { DiscardInput = true };
+        using var backend = new RecordingBackend(begin: true, submit: true, client.Order);
+        var input = new WindowInputSnapshot(new HashSet<int> { 1 }, null,
+            new Vector2(12, 34), new Vector2(5, 6), new Vector2(0, 1), "typed",
+            focused: true, frameAdvanceMode: true);
+
+        new GameWindowFrameLoop(timing).Tick(0, input, client, backend);
+
+        Assert.Equal(SuccessfulOrder, client.Order);
+        Assert.False(client.LastInput.Focused);
+        Assert.False(client.LastInput.FrameAdvanceMode);
+        Assert.Empty(client.LastInput.Keys);
+        Assert.Empty(client.LastInput.Text);
+        Assert.Equal(0, client.SimulationSteps);
+        Assert.Equal(0, timing.StepsThisFrame);
     }
 
     [Fact]
@@ -147,8 +235,17 @@ public sealed class GameWindowFrameLoopTests
         public int Rendered { get; private set; }
         public int Presented { get; private set; }
         public int AfterRender { get; private set; }
+        public bool CanRender { get; set; } = true;
+        public bool DiscardInput { get; set; }
+        public WindowInputSnapshot LastInput { get; private set; }
+        public bool CanRenderFrame => CanRender;
+        public bool DiscardInputSnapshot => DiscardInput;
 
-        public void OnInput(WindowInputSnapshot input) => Order.Add("input");
+        public void OnInput(WindowInputSnapshot input)
+        {
+            LastInput = input;
+            Order.Add("input");
+        }
         public void AdvanceSimulation(int steps)
         {
             SimulationSteps += steps;

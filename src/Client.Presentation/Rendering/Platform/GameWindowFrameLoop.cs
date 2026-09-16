@@ -14,6 +14,15 @@ namespace MphRead
     /// </summary>
     public readonly struct WindowInputSnapshot
     {
+        private static readonly IReadOnlySet<int> EmptyKeys = new HashSet<int>();
+
+        /// <summary>
+        /// Stable input-free snapshot for deterministic host modes. Unlike the
+        /// default struct value, its collection and text properties are never null.
+        /// </summary>
+        public static WindowInputSnapshot Neutral { get; } = new(null, null,
+            default, default, default, string.Empty, focused: false);
+
         public WindowInputSnapshot(IReadOnlySet<int>? keys, IReadOnlySet<int>? mouseButtons,
             Vector2 mousePosition, Vector2 relativeMouse, Vector2 wheel, string text, bool focused,
             IReadOnlyList<WindowKeyEvent>? keyEvents = null,
@@ -32,7 +41,6 @@ namespace MphRead
             FrameAdvanceMode = frameAdvanceMode;
         }
 
-        private static readonly IReadOnlySet<int> EmptyKeys = new HashSet<int>();
         public IReadOnlySet<int> Keys { get; }
         public IReadOnlySet<int> MouseButtons { get; }
         public Vector2 MousePosition { get; }
@@ -66,6 +74,12 @@ namespace MphRead
         /// native compatibility input must not reach the live scene this tick.
         /// </summary>
         bool SuppressNativeInput => false;
+        /// <summary>
+        /// Replace the host snapshot with a neutral value before scene input
+        /// handling and frame-advance evaluation. Deterministic benchmark hosts
+        /// use this to prevent local input from changing measured work.
+        /// </summary>
+        bool DiscardInputSnapshot => false;
         /// <summary>Notify presentation-owned overlays of the current drawable size.</summary>
         void OnResize(Vector2i size) { }
         void AdvanceSimulation(int steps);
@@ -87,6 +101,37 @@ namespace MphRead
     }
 
     /// <summary>
+    /// Timing captured by a native host around the work that happens before a
+    /// presentation tick. This is deliberately a value type: the SDL loop
+    /// passes one through every frame without creating a diagnostic object.
+    /// </summary>
+    public readonly struct FrameLoopHostTimingContext
+    {
+        private readonly long _wholeFrameStartTimestamp;
+        private readonly double _hostWorkMilliseconds;
+        private readonly double _softwarePacingMilliseconds;
+
+        public FrameLoopHostTimingContext(long wholeFrameStartTimestamp,
+            double hostWorkMilliseconds, double softwarePacingMilliseconds)
+        {
+            _wholeFrameStartTimestamp = wholeFrameStartTimestamp;
+            _hostWorkMilliseconds = hostWorkMilliseconds;
+            _softwarePacingMilliseconds = softwarePacingMilliseconds;
+        }
+
+        /// <summary>Timestamp captured immediately before host pacing begins.</summary>
+        public long WholeFrameStartTimestamp => _wholeFrameStartTimestamp;
+
+        /// <summary>Host event/input/snapshot work before <see cref="GameWindowFrameLoop.Tick"/>.</summary>
+        public double HostWorkMilliseconds => _wholeFrameStartTimestamp == 0
+            ? double.NaN : _hostWorkMilliseconds;
+
+        /// <summary>Time spent in the host's optional software pacing wait.</summary>
+        public double SoftwarePacingMilliseconds => _wholeFrameStartTimestamp == 0
+            ? double.NaN : _softwarePacingMilliseconds;
+    }
+
+    /// <summary>
     /// Shared loop ordering used by SDL and deterministic host tests.
     /// FrameTiming remains the only source of simulation ticks, preserving the
     /// fixed 60 Hz contract and late-latched input ordering.
@@ -102,13 +147,22 @@ namespace MphRead
 
         public void Tick(double elapsedSeconds, WindowInputSnapshot input,
             IGameWindowFrameClient client, IRenderBackend backend)
+            => Tick(elapsedSeconds, input, client, backend, default);
+
+        public void Tick(double elapsedSeconds, WindowInputSnapshot input,
+            IGameWindowFrameClient client, IRenderBackend backend,
+            in FrameLoopHostTimingContext hostTiming)
         {
             if (client == null) throw new ArgumentNullException(nameof(client));
             if (backend == null) throw new ArgumentNullException(nameof(backend));
 
-            long wholeFrameStart = Stopwatch.GetTimestamp();
-            long inputStart = wholeFrameStart;
+            long tickStart = Stopwatch.GetTimestamp();
+            long wholeFrameStart = hostTiming.WholeFrameStartTimestamp != 0
+                ? hostTiming.WholeFrameStartTimestamp : tickStart;
+            long inputStart = tickStart;
             long inputEnd = 0;
+            long frameTimingAdvanceStart = 0;
+            long frameTimingAdvanceEnd = 0;
             long simulationStart = 0;
             long simulationEnd = 0;
             long legacyRenderStart = 0;
@@ -122,25 +176,38 @@ namespace MphRead
             long overlayUiEnd = 0;
             long afterFrameStart = 0;
             long afterFrameEnd = 0;
+            long swapchainAcquireStart = 0;
+            long swapchainAcquireEnd = 0;
+            bool acquisitionAttempted = false;
+            bool acquired = false;
+            bool submitted = false;
+            bool presented = false;
+            RenderBackendFrame? frame = null;
             try
             {
                 // 1. Native polling/translation stays in the host before Tick.
                 // This is the portable input-consumption seam before simulation.
-                client.OnInput(input);
+                WindowInputSnapshot frameInput = client.DiscardInputSnapshot
+                    ? WindowInputSnapshot.Neutral : input;
+                client.OnInput(frameInput);
                 inputEnd = Stopwatch.GetTimestamp();
                 int steps;
-                if (input.FrameAdvanceMode)
+                if (frameInput.FrameAdvanceMode)
                 {
                     // A manual step is a discontinuity in wall-clock time. Reset
                     // the accumulator first so a held display interval cannot
                     // add a second simulation tick to the explicitly requested
                     // one.
+                    frameTimingAdvanceStart = Stopwatch.GetTimestamp();
                     _timing.Reset();
                     steps = _timing.ManualStep();
+                    frameTimingAdvanceEnd = Stopwatch.GetTimestamp();
                 }
                 else
                 {
+                    frameTimingAdvanceStart = Stopwatch.GetTimestamp();
                     steps = _timing.Advance(elapsedSeconds);
+                    frameTimingAdvanceEnd = Stopwatch.GetTimestamp();
                 }
                 simulationStart = Stopwatch.GetTimestamp();
                 client.AdvanceSimulation(steps);
@@ -160,11 +227,15 @@ namespace MphRead
                     return;
                 }
 
-                // 3. The backend may have no drawable image while minimized or
-                // occluded. In that case there is deliberately no presentation
+                // 3. The backend may decline acquisition (normally because no
+                // drawable image exists while minimized or occluded). The
+                // portable bool contract does not expose the exact cause. In
+                // every case there is deliberately no presentation
                 // acknowledgement, but the pause-menu pump still runs below.
-                bool submitted = false;
-                bool acquired = backend.TryBeginFrame(out RenderBackendFrame? frame);
+                swapchainAcquireStart = Stopwatch.GetTimestamp();
+                acquired = backend.TryBeginFrame(out frame);
+                swapchainAcquireEnd = Stopwatch.GetTimestamp();
+                acquisitionAttempted = true;
                 if (acquired)
                 {
                     renderEncodeStart = Stopwatch.GetTimestamp();
@@ -180,8 +251,9 @@ namespace MphRead
                     if (submitSucceeded)
                     {
                         submitted = true;
+                        presented = frame.HasSwapchain;
                         client.OnFrameRendered();
-                        if (frame.HasSwapchain)
+                        if (presented)
                         {
                             client.OnFramePresented();
                         }
@@ -236,7 +308,19 @@ namespace MphRead
                     AfterFrameMilliseconds: Milliseconds(afterFrameStart, afterFrameEnd, now),
                     WholeFrameMilliseconds: Milliseconds(wholeFrameStart, now, now),
                     LegacyTotalRenderMilliseconds: Milliseconds(legacyRenderStart, now, now),
-                    ElapsedSeconds: elapsedSeconds);
+                    ElapsedSeconds: elapsedSeconds,
+                    HostWorkMilliseconds: hostTiming.HostWorkMilliseconds,
+                    SoftwarePacingMilliseconds: hostTiming.SoftwarePacingMilliseconds,
+                    FrameTimingAdvanceMilliseconds: Milliseconds(frameTimingAdvanceStart,
+                        frameTimingAdvanceEnd, now),
+                    SwapchainAcquireMilliseconds: Milliseconds(swapchainAcquireStart,
+                        swapchainAcquireEnd, now),
+                    PresentedWholeFrameMilliseconds: presented
+                        ? Milliseconds(wholeFrameStart, now, now) : double.NaN,
+                    Acquired: acquired,
+                    Submitted: submitted,
+                    Presented: presented,
+                    AcquisitionAttempted: acquisitionAttempted);
                 _timing.RecordRuntimeFrame(in sample);
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 
 namespace MphRead;
 
@@ -35,6 +36,32 @@ public readonly record struct RenderTelemetrySnapshot(
 
     /// <summary>All SDL draw API calls, indexed and non-indexed.</summary>
     public int DrawCallCount => checked(IndexedDrawCount + PrimitiveDrawCount);
+
+    /// <summary>
+    /// Whether this frame collected the optional native-call timing fields.
+    /// Existing counters remain available when this is false.
+    /// </summary>
+    public bool NativeTimingEnabled { get; init; }
+
+    public long VertexUniformPushCalls { get; init; }
+    public long VertexUniformRequestedBytes { get; init; }
+    public long VertexUniformAlignedBytes { get; init; }
+    public long VertexUniformNativeTicks { get; init; }
+    public long FragmentUniformPushCalls { get; init; }
+    public long FragmentUniformRequestedBytes { get; init; }
+    public long FragmentUniformAlignedBytes { get; init; }
+    public long FragmentUniformNativeTicks { get; init; }
+    public long VertexBufferBindCalls { get; init; }
+    public long VertexBufferBindNativeTicks { get; init; }
+    public long IndexBufferBindCalls { get; init; }
+    public long IndexBufferBindNativeTicks { get; init; }
+    public long IndexedDrawNativeCalls { get; init; }
+    public long IndexedDrawNativeTicks { get; init; }
+    public long DescriptorBearingDraws { get; init; }
+    public long PipelineBindNativeCalls { get; init; }
+    public long PipelineBindNativeTicks { get; init; }
+    public long SamplerBindNativeCalls { get; init; }
+    public long SamplerBindNativeTicks { get; init; }
 
     public static RenderTelemetrySnapshot Empty(long frameNumber = 0)
         => new(frameNumber, false, false, false, false, 0, 0, 0, 0, 0,
@@ -77,11 +104,13 @@ public sealed class RenderTelemetryAccumulator
     public long CurrentUploadScheduledBytes => _current.UploadScheduledBytes;
     public long DroppedSamples { get; private set; }
     public RenderTelemetrySnapshot Latest { get; private set; }
+    public bool NativeTimingEnabled { get; set; }
 
     public RenderTelemetryAccumulator(int capacity = DefaultCapacity)
     {
         if (capacity < 1) throw new ArgumentOutOfRangeException(nameof(capacity));
         _completed = new RenderTelemetrySnapshot[capacity];
+        NativeTimingEnabled = RenderTelemetryConfiguration.NativeTimingEnabled;
         Latest = RenderTelemetrySnapshot.Empty();
     }
 
@@ -90,6 +119,7 @@ public sealed class RenderTelemetryAccumulator
         if (_active) throw new InvalidOperationException("A telemetry frame is already active.");
         _active = true;
         _current = new FrameCounters(++_nextFrameNumber);
+        _current.NativeTimingEnabled = NativeTimingEnabled;
         _current.SessionCacheEntryPeak = _sessionCacheEntryPeak;
     }
 
@@ -187,11 +217,97 @@ public sealed class RenderTelemetryAccumulator
         _current.VertexUniformBytes = checked(_current.VertexUniformBytes + bytes);
     }
 
+    /// <summary>
+    /// Records a vertex-uniform push after the native call has returned. The
+    /// raw timestamp delta is deliberately supplied by the caller so no
+    /// telemetry work is performed inside the measured interval.
+    /// </summary>
+    public void VertexUniformNative(long requestedBytes, long nativeTicks)
+    {
+        VertexUniform(requestedBytes);
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.VertexUniformPushCalls = checked(_current.VertexUniformPushCalls + 1);
+        _current.VertexUniformRequestedBytes = checked(
+            _current.VertexUniformRequestedBytes + requestedBytes);
+        _current.VertexUniformAlignedBytes = checked(
+            _current.VertexUniformAlignedBytes + AlignUniformBytes(requestedBytes));
+        _current.VertexUniformNativeTicks = checked(
+            _current.VertexUniformNativeTicks + nativeTicks);
+    }
+
     public void FragmentUniform(long bytes)
     {
         RequireActive();
         if (bytes < 0) throw new ArgumentOutOfRangeException(nameof(bytes));
         _current.FragmentUniformBytes = checked(_current.FragmentUniformBytes + bytes);
+    }
+
+    /// <summary>Records a fragment-uniform push and its optional native delta.</summary>
+    public void FragmentUniformNative(long requestedBytes, long nativeTicks)
+    {
+        FragmentUniform(requestedBytes);
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.FragmentUniformPushCalls = checked(_current.FragmentUniformPushCalls + 1);
+        _current.FragmentUniformRequestedBytes = checked(
+            _current.FragmentUniformRequestedBytes + requestedBytes);
+        _current.FragmentUniformAlignedBytes = checked(
+            _current.FragmentUniformAlignedBytes + AlignUniformBytes(requestedBytes));
+        _current.FragmentUniformNativeTicks = checked(
+            _current.FragmentUniformNativeTicks + nativeTicks);
+    }
+
+    public void VertexBufferBindNative(long nativeTicks)
+    {
+        RequireActive();
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.VertexBufferBindCalls = checked(_current.VertexBufferBindCalls + 1);
+        _current.VertexBufferBindNativeTicks = checked(
+            _current.VertexBufferBindNativeTicks + nativeTicks);
+    }
+
+    public void IndexBufferBindNative(long nativeTicks)
+    {
+        RequireActive();
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.IndexBufferBindCalls = checked(_current.IndexBufferBindCalls + 1);
+        _current.IndexBufferBindNativeTicks = checked(
+            _current.IndexBufferBindNativeTicks + nativeTicks);
+    }
+
+    public void IndexedDrawNative(long nativeTicks, bool descriptorBearing)
+    {
+        IndexedDraw();
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.IndexedDrawNativeCalls = checked(_current.IndexedDrawNativeCalls + 1);
+        _current.IndexedDrawNativeTicks = checked(
+            _current.IndexedDrawNativeTicks + nativeTicks);
+        if (descriptorBearing)
+            _current.DescriptorBearingDraws = checked(_current.DescriptorBearingDraws + 1);
+    }
+
+    public void PipelineBindNative(long nativeTicks)
+    {
+        PipelineBind();
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.PipelineBindNativeCalls = checked(_current.PipelineBindNativeCalls + 1);
+        _current.PipelineBindNativeTicks = checked(
+            _current.PipelineBindNativeTicks + nativeTicks);
+    }
+
+    public void SamplerBindNative(int descriptorCount, long nativeTicks)
+    {
+        SamplerBind(descriptorCount);
+        if (!_current.NativeTimingEnabled) return;
+        if (nativeTicks < 0) throw new ArgumentOutOfRangeException(nameof(nativeTicks));
+        _current.SamplerBindNativeCalls = checked(_current.SamplerBindNativeCalls + 1);
+        _current.SamplerBindNativeTicks = checked(
+            _current.SamplerBindNativeTicks + nativeTicks);
     }
 
     public void DeviceCacheEntryCount(int count)
@@ -262,6 +378,26 @@ public sealed class RenderTelemetryAccumulator
         public long UploadCommittedBytes;
         public int DeviceCacheEntryCount;
         public int SessionCacheEntryPeak;
+        public bool NativeTimingEnabled;
+        public long VertexUniformPushCalls;
+        public long VertexUniformRequestedBytes;
+        public long VertexUniformAlignedBytes;
+        public long VertexUniformNativeTicks;
+        public long FragmentUniformPushCalls;
+        public long FragmentUniformRequestedBytes;
+        public long FragmentUniformAlignedBytes;
+        public long FragmentUniformNativeTicks;
+        public long VertexBufferBindCalls;
+        public long VertexBufferBindNativeTicks;
+        public long IndexBufferBindCalls;
+        public long IndexBufferBindNativeTicks;
+        public long IndexedDrawNativeCalls;
+        public long IndexedDrawNativeTicks;
+        public long DescriptorBearingDraws;
+        public long PipelineBindNativeCalls;
+        public long PipelineBindNativeTicks;
+        public long SamplerBindNativeCalls;
+        public long SamplerBindNativeTicks;
 
         public RenderTelemetrySnapshot ToSnapshot()
             => new RenderTelemetrySnapshot(FrameNumber, Attempted, Encoded,
@@ -273,9 +409,42 @@ public sealed class RenderTelemetryAccumulator
                 null, "unavailable: SDL GPU timestamp queries are not exposed",
                 null, "unavailable: SDL GPU memory budgeting is not exposed")
             {
-                PrimitiveDrawCount = this.PrimitiveDrawCount
+                PrimitiveDrawCount = this.PrimitiveDrawCount,
+                NativeTimingEnabled = this.NativeTimingEnabled,
+                VertexUniformPushCalls = this.VertexUniformPushCalls,
+                VertexUniformRequestedBytes = this.VertexUniformRequestedBytes,
+                VertexUniformAlignedBytes = this.VertexUniformAlignedBytes,
+                VertexUniformNativeTicks = this.VertexUniformNativeTicks,
+                FragmentUniformPushCalls = this.FragmentUniformPushCalls,
+                FragmentUniformRequestedBytes = this.FragmentUniformRequestedBytes,
+                FragmentUniformAlignedBytes = this.FragmentUniformAlignedBytes,
+                FragmentUniformNativeTicks = this.FragmentUniformNativeTicks,
+                VertexBufferBindCalls = this.VertexBufferBindCalls,
+                VertexBufferBindNativeTicks = this.VertexBufferBindNativeTicks,
+                IndexBufferBindCalls = this.IndexBufferBindCalls,
+                IndexBufferBindNativeTicks = this.IndexBufferBindNativeTicks,
+                IndexedDrawNativeCalls = this.IndexedDrawNativeCalls,
+                IndexedDrawNativeTicks = this.IndexedDrawNativeTicks,
+                DescriptorBearingDraws = this.DescriptorBearingDraws,
+                PipelineBindNativeCalls = this.PipelineBindNativeCalls,
+                PipelineBindNativeTicks = this.PipelineBindNativeTicks,
+                SamplerBindNativeCalls = this.SamplerBindNativeCalls,
+                SamplerBindNativeTicks = this.SamplerBindNativeTicks
             };
     }
+
+    private static long AlignUniformBytes(long bytes)
+        => checked((bytes + 255) & ~255L);
+}
+
+/// <summary>
+/// Process-scoped opt-in used while the SDL backend constructs its
+/// graphics-thread-owned telemetry accumulator. It keeps the existing backend
+/// ownership graph intact while allowing renderbench to select native timing.
+/// </summary>
+public static class RenderTelemetryConfiguration
+{
+    public static bool NativeTimingEnabled { get; set; }
 }
 
 /// <summary>
@@ -294,12 +463,38 @@ internal static class SdlGpuTelemetryContext
         => _current = accumulator;
 
     public static void VertexUniform(long bytes) => _current?.VertexUniform(bytes);
+    public static void VertexUniformNative(long bytes, long nativeTicks)
+        => _current?.VertexUniformNative(bytes, nativeTicks);
     public static void FragmentUniform(long bytes) => _current?.FragmentUniform(bytes);
+    public static void FragmentUniformNative(long bytes, long nativeTicks)
+        => _current?.FragmentUniformNative(bytes, nativeTicks);
     public static void RenderPass() => _current?.RenderPass();
     public static void IndexedDraw() => _current?.IndexedDraw();
+    public static void IndexedDrawNative(long nativeTicks, bool descriptorBearing)
+        => _current?.IndexedDrawNative(nativeTicks, descriptorBearing);
     public static void PrimitiveDraw() => _current?.PrimitiveDraw();
     public static void PipelineBind() => _current?.PipelineBind();
+    public static void PipelineBindNative(long nativeTicks)
+        => _current?.PipelineBindNative(nativeTicks);
     public static void SamplerBind(int count) => _current?.SamplerBind(count);
+    public static void SamplerBindNative(int count, long nativeTicks)
+        => _current?.SamplerBindNative(count, nativeTicks);
+    public static void VertexBufferBindNative(long nativeTicks)
+        => _current?.VertexBufferBindNative(nativeTicks);
+    public static void IndexBufferBindNative(long nativeTicks)
+        => _current?.IndexBufferBindNative(nativeTicks);
     public static void UploadScheduled(long bytes) => _current?.UploadScheduled(bytes);
     public static void UploadCommitted(long bytes) => _current?.UploadCommitted(bytes);
+
+    /// <summary>Returns zero when native timing is disabled or no frame is active.</summary>
+    public static long BeginNativeCall()
+    {
+        RenderTelemetryAccumulator? current = _current;
+        return current != null && current.IsFrameActive && current.NativeTimingEnabled
+            ? Stopwatch.GetTimestamp() : 0;
+    }
+
+    /// <summary>Completes a native interval without touching the clock when disabled.</summary>
+    public static long EndNativeCall(long start)
+        => start == 0 ? 0 : Stopwatch.GetTimestamp() - start;
 }

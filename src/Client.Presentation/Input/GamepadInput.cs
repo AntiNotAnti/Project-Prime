@@ -107,15 +107,41 @@ namespace MphRead.Mods.Input
         private static GamepadStickAimMode _configuredStickAimMode
             = GamepadStickAimMode.Traditional;
         private static bool _gyroAllowedForSimulation;
+        private static ControllerStickCalibrationSample _lookCalibrationSample;
+        private static GamepadLookSample _lookSample;
+        private static string? _calibrationDirectory;
+        private static bool _calibrationPersistenceInitialized;
 
         /// <summary>The fixed-step movement result used by <see cref="Apply"/>.</summary>
         public static GamepadMovementSample Movement => _movement.Processed;
 
         /// <summary>Latest side-effect-free render-rate velocity in degrees/sec.</summary>
         public static Vector2 AimAngularVelocity { get; private set; }
+        public static ControllerStickCalibrationSample LookCalibration
+            => _lookCalibrationSample;
+        public static GamepadLookSample ProcessedLook => _lookSample;
 
         /// <summary>Local look ownership and render prediction boundary.</summary>
         public static LookInputCoordinator LookCoordinator { get; } = LookInputCoordinator.Shared;
+
+        internal static void InitializeControllerCalibrationPersistence(
+            string directory)
+        {
+            if (_calibrationPersistenceInitialized) return;
+            _calibrationPersistenceInitialized = true;
+            _calibrationDirectory = directory;
+            ControllerCalibrationPersistence.Initialize(directory, _lookCalibration);
+            AppDomain.CurrentDomain.ProcessExit += SaveControllerCalibration;
+        }
+
+        private static void SaveControllerCalibration(object? sender, EventArgs args)
+            => SaveControllerCalibrationPersistence();
+
+        internal static void SaveControllerCalibrationPersistence()
+        {
+            if (_calibrationDirectory is string directory)
+                ControllerCalibrationPersistence.Save(directory, _lookCalibration);
+        }
 
         /// <summary>
         /// True while a pad is connected.
@@ -186,6 +212,7 @@ namespace MphRead.Mods.Input
                 ResetControllerState();
                 return;
             }
+            ControllerCalibrationPersistence.Activate(ActiveDeviceId());
 
             if (_timingGeneration != timingGeneration)
             {
@@ -232,6 +259,7 @@ namespace MphRead.Mods.Input
                         stepSeconds, InputSettings.GamepadAutoCalibrationEnabled,
                         InputSettings.GamepadLookDeadZone,
                         InputSettings.GamepadOuterDeadZone);
+                _lookCalibrationSample = calibrated;
                 ConfigureLookProcessor(calibrated.InnerDeadzone,
                     calibrated.OuterDeadzone);
                 LookDeviceKind activeOwner = LookCoordinator.ActiveLookDevice;
@@ -256,12 +284,14 @@ namespace MphRead.Mods.Input
                         flick.PredictionDegreesPerSecond, 0);
                     stickDelta = new Vector2(flick.DeltaDegrees, 0);
                     stickMagnitude = flick.Magnitude;
+                    _lookSample = default;
                 }
                 else
                 {
                     _flickStick.Reset();
                     GamepadLookSample look = _look.Advance(calibrated.Value,
                         stepSeconds);
+                    _lookSample = look;
                     stickVelocity = look.AngularVelocity;
                     stickDelta = stickVelocity * stepSeconds;
                     stickMagnitude = look.Magnitude;
@@ -313,6 +343,7 @@ namespace MphRead.Mods.Input
                 ResetControllerState();
                 return;
             }
+            ControllerCalibrationPersistence.Activate(ActiveDeviceId());
             if (_timingGeneration != timingGeneration)
             {
                 ResetTimingState(timingGeneration);
@@ -334,6 +365,7 @@ namespace MphRead.Mods.Input
                     InputSettings.GamepadAutoCalibrationEnabled,
                     InputSettings.GamepadLookDeadZone,
                     InputSettings.GamepadOuterDeadZone);
+            _lookCalibrationSample = calibrated;
             ConfigureLookProcessor(calibrated.InnerDeadzone,
                 calibrated.OuterDeadzone);
             Vector2 stickVelocity;
@@ -347,7 +379,8 @@ namespace MphRead.Mods.Input
             }
             else
             {
-                stickVelocity = _look.Evaluate(calibrated.Value).AngularVelocity;
+                _lookSample = _look.Evaluate(calibrated.Value);
+                stickVelocity = _lookSample.AngularVelocity;
             }
             AimAngularVelocity = stickVelocity
                 + (_gyroAllowedForSimulation
@@ -388,6 +421,8 @@ namespace MphRead.Mods.Input
             AimDeltaX = AimDeltaY = 0;
             AimAngularVelocity = Vector2.Zero;
             _gyroAllowedForSimulation = false;
+            _lookCalibrationSample = default;
+            _lookSample = default;
             GamepadGyro.Reset();
             // A frame-timing discontinuity invalidates controller filters,
             // not an active relative-input capture. Resetting the whole
@@ -741,6 +776,8 @@ namespace MphRead.Mods.Input
             _look.Reset();
             _flickStick.Reset();
             _lookConfigured = false;
+            _lookCalibrationSample = default;
+            _lookSample = default;
         }
 
         private static GamepadLookProcessor CreateLookProcessor(
@@ -753,7 +790,9 @@ namespace MphRead.Mods.Input
                 InputSettings.GamepadOuterBoostEnabled,
                 InputSettings.GamepadHorizontalSensitivity,
                 InputSettings.GamepadVerticalSensitivity,
-                InputSettings.GamepadInvertY, InputSettings.GamepadZoomMultiplier);
+                InputSettings.GamepadInvertY, InputSettings.GamepadZoomMultiplier,
+                InputSettings.GamepadLookAntiDeadzone,
+                InputSettings.GamepadLookSmoothingSeconds);
 
         private static void ConfigureLookProcessor(float innerDeadzone,
             float outerDeadzone)
@@ -778,10 +817,25 @@ namespace MphRead.Mods.Input
                 InputSettings.GamepadBoostRampSeconds, InputSettings.GamepadOuterBoostEnabled,
                 InputSettings.GamepadHorizontalSensitivity,
                 InputSettings.GamepadVerticalSensitivity, InputSettings.GamepadInvertY,
-                InputSettings.GamepadZoomMultiplier);
+                InputSettings.GamepadZoomMultiplier,
+                InputSettings.GamepadLookAntiDeadzone,
+                InputSettings.GamepadLookSmoothingSeconds);
         }
 
         private static string? ActiveDeviceId()
-            => Capabilities.DeviceId ?? Capabilities.DeviceName;
+        {
+            ControllerCapabilitySnapshot value = Capabilities;
+            if (!String.IsNullOrWhiteSpace(value.Guid))
+            {
+                return $"{value.Backend}:{value.Guid}:{value.VendorId ?? 0}:"
+                    + $"{value.ProductId ?? 0}:{value.ProductVersion ?? 0}";
+            }
+            if (value.Backend == ControllerBackend.Glfw
+                && !String.IsNullOrWhiteSpace(value.DeviceName))
+            {
+                return $"{value.Backend}:{value.DeviceName}";
+            }
+            return value.DeviceId ?? value.DeviceName;
+        }
     }
 }

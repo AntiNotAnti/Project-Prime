@@ -32,7 +32,7 @@ namespace MphRead.Mods.Input
     }
 
     /// <summary>Platform-neutral pointer data; Android types stop at its view boundary.</summary>
-    public readonly record struct PointerSample(int Id, PointerToolKind Tool,
+    public readonly record struct PointerSample(long Id, PointerToolKind Tool,
         float X, float Y, float Pressure, StylusButtons Buttons, long Timestamp,
         PointerCoordinateKind CoordinateKind = PointerCoordinateKind.Unknown,
         float LogicalDisplayScale = 1,

@@ -61,11 +61,12 @@ namespace MphRead.Droid
         public GameView(Context context, TouchControls controls, StylusInput stylus,
             AndroidInput input, FrameTiming timing,
             Func<AndroidInput, Vector2i, FrameTiming, Scene> build, Action onEnd, Action onLoaded,
-            Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
+            Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard,
+            Action onBottomScreenInteractionInvalidated)
             : base(context)
         {
             _loop = new RenderLoop(controls, stylus, input, timing, build, onEnd, onLoaded, onError,
-                onPauseMenu, onSoftKeyboard);
+                onPauseMenu, onSoftKeyboard, onBottomScreenInteractionInvalidated);
             Holder?.AddCallback(this);
             // So this view can receive key events at all: from a keyboard
             // plugged into the phone, from one paired over Bluetooth, from the
@@ -374,6 +375,8 @@ namespace MphRead.Droid
             /// has, and for the same reason.
             /// </summary>
             private readonly Action<bool> _onSoftKeyboard;
+            private readonly Action _onBottomScreenInteractionInvalidated;
+            private long _bottomInteractionEpoch = long.MinValue;
             private bool _menuWasHeld;
             private bool _resultNextHeld, _resultPrevHeld, _resultToggleHeld;
             private bool _spectateCycleHeld;
@@ -401,10 +404,13 @@ namespace MphRead.Droid
             public RenderLoop(TouchControls controls, StylusInput stylus,
                 AndroidInput input, FrameTiming timing,
                 Func<AndroidInput, Vector2i, FrameTiming, Scene> build, Action onEnd, Action onLoaded,
-                Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
+                Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard,
+                Action onBottomScreenInteractionInvalidated)
             {
                 _onPauseMenu = onPauseMenu;
                 _onSoftKeyboard = onSoftKeyboard;
+                _onBottomScreenInteractionInvalidated
+                    = onBottomScreenInteractionInvalidated;
                 _controls = controls;
                 _stylus = stylus;
                 _input = input;
@@ -1368,7 +1374,15 @@ namespace MphRead.Droid
                     Mods.InputSettings.StylusFlickBoost, main.IsAltForm,
                     _controls.Density);
                 NativeBottomScreenPlatformBridge.Configure(_size, _size,
-                    Mods.InputSettings.BottomScreenMode);
+                    Mods.InputSettings.BottomScreenMode,
+                    Mods.InputSettings.BottomScreenAimMode);
+                long bottomInteractionEpoch
+                    = NativeBottomScreenPlatformBridge.InteractionEpoch;
+                if (_bottomInteractionEpoch != bottomInteractionEpoch)
+                {
+                    _bottomInteractionEpoch = bottomInteractionEpoch;
+                    _onBottomScreenInteractionInvalidated();
+                }
                 StylusState stylus = _stylus.ConsumeState();
                 StylusBindings stylusBindings = Mods.InputSettings.CurrentStylusBindings;
                 PlayerPresentation presentation = main.GetPresentation();

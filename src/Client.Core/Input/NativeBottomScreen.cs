@@ -34,6 +34,34 @@ namespace MphRead.Mods.Input
         AffinitySelector
     }
 
+    /// <summary>
+    /// Ownership policy for the Classic DS panel's aim surface. Free keeps
+    /// the historical global stylus/touch look path; TrueDs routes a contact
+    /// started on the panel through the native bottom-screen path.
+    /// </summary>
+    public enum NativeBottomScreenAimMode
+    {
+        Free,
+        TrueDs
+    }
+
+    /// <summary>Immutable route selected for one native pointer contact.</summary>
+    public enum NativeBottomScreenPointerRoute
+    {
+        None,
+        Control,
+        Aim,
+        Suppressed
+    }
+
+    /// <summary>
+    /// Immutable canonical position of the native True DS aim contact for the
+    /// current presentation frame. The position is expressed in the DS
+    /// panel's 256x192 coordinate space rather than in window pixels.
+    /// </summary>
+    public readonly record struct NativeBottomScreenAimContactSnapshot(
+        bool Active, Vector2 PositionDs);
+
     /// <summary>Interactive regions on the DS-inspired lower screen.</summary>
     public enum NativeBottomScreenRegion
     {
@@ -698,12 +726,13 @@ namespace MphRead.Mods.Input
     public sealed partial class NativeBottomScreenController
     {
         private const int QueueCapacity = 128;
-        public const int DesktopPointerId = int.MinValue + 1;
+        public const long DesktopPointerId = int.MinValue + 1L;
         private readonly object _sync = new();
         private readonly Queue<NativeBottomScreenPointerEvent> _events = new();
-        private readonly HashSet<int> _queuedPointers = new();
+        private readonly HashSet<long> _queuedPointers = new();
         private NativeBottomScreenMode _mode;
         private NativeBottomScreenStyle _style = NativeBottomScreenStyle.AffinitySelector;
+        private NativeBottomScreenAimMode _aimMode;
         private NativeBottomScreenLayoutOptions _layoutOptions
             = NativeBottomScreenLayoutOptions.Default;
         private NativeBottomScreenClassicLayoutOptions _classicLayoutOptions
@@ -716,8 +745,12 @@ namespace MphRead.Mods.Input
             = NativeBottomScreenAffinityLayoutOptions.Default.CreateLayout();
         private NativeBottomScreenLayout _layout;
         private long _generation;
+        private long _interactionEpoch;
         private long _platformToken;
-        private int? _capturedPointer;
+        private long? _capturedPointer;
+        private NativeBottomScreenPointerRoute _capturedRoute;
+        private NativeBottomScreenAimContactSnapshot _aimContact
+            = new(false, Vector2.Zero);
         private bool _popupOpen;
         private bool _selectorOpen;
         private bool _desktopSessionActive;
@@ -729,6 +762,8 @@ namespace MphRead.Mods.Input
 
         public NativeBottomScreenMode Mode { get { lock (_sync) return _mode; } }
         public NativeBottomScreenStyle Style { get { lock (_sync) return _style; } }
+        public NativeBottomScreenAimMode AimMode { get { lock (_sync) return _aimMode; } }
+        public long InteractionEpoch { get { lock (_sync) return _interactionEpoch; } }
         public NativeBottomScreenClassicLayoutSnapshot ClassicLayout
         {
             get { lock (_sync) return _classicLayout; }
@@ -738,6 +773,10 @@ namespace MphRead.Mods.Input
             get { lock (_sync) return _affinityLayout; }
         }
         public NativeBottomScreenLayout Layout { get { lock (_sync) return _layout; } }
+        public NativeBottomScreenAimContactSnapshot AimContact
+        {
+            get { lock (_sync) return _aimContact; }
+        }
         public long Generation { get { lock (_sync) return _generation; } }
         public bool PopupOpen { get { lock (_sync) return _popupOpen; } }
         public bool SelectorOpen { get { lock (_sync) return _selectorOpen; } }
@@ -777,17 +816,51 @@ namespace MphRead.Mods.Input
             }
         }
 
+        /// <summary>
+        /// True DS owns pen contacts while the visible Classic DS panel is
+        /// active. The host uses this only to prevent an outside-panel pen
+        /// contact from falling through to global stylus aiming.
+        /// </summary>
+        public bool SuppressGlobalStylus
+        {
+            get
+            {
+                lock (_sync)
+                {
+                    return _aimMode == NativeBottomScreenAimMode.TrueDs
+                        && _style == NativeBottomScreenStyle.ClassicDs
+                        && _mode != NativeBottomScreenMode.Off
+                        && (_mode == NativeBottomScreenMode.AlwaysVisible || _popupOpen);
+                }
+            }
+        }
+
+        public bool TryGetVisiblePanel(out BottomScreenRect panel)
+        {
+            lock (_sync)
+            {
+                bool visible = _layout.IsValid
+                    && _mode != NativeBottomScreenMode.Off
+                    && (_mode == NativeBottomScreenMode.AlwaysVisible || _popupOpen);
+                panel = _layout.PanelLogical;
+                return visible;
+            }
+        }
+
         public void Configure(Vector2i logicalSize, Vector2i framebufferSize,
-            NativeBottomScreenMode mode)
+            NativeBottomScreenMode mode,
+            NativeBottomScreenAimMode aimMode = NativeBottomScreenAimMode.Free)
         {
             if (!Enum.IsDefined(mode)) mode = NativeBottomScreenMode.Off;
+            if (!Enum.IsDefined(aimMode)) aimMode = NativeBottomScreenAimMode.Free;
             lock (_sync)
             {
                 NativeBottomScreenLayout layout = NativeBottomScreenLayout.Compute(
                     logicalSize, framebufferSize, _layoutOptions);
-                if (mode == _mode && layout == _layout) return;
+                if (mode == _mode && aimMode == _aimMode && layout == _layout) return;
                 CancelQueuedLocked();
                 _mode = mode;
+                _aimMode = aimMode;
                 _layout = layout;
                 _popupOpen = mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;
@@ -798,10 +871,12 @@ namespace MphRead.Mods.Input
         public void UpdatePreferences(NativeBottomScreenMode mode,
             NativeBottomScreenStyle style, NativeBottomScreenLayoutOptions options,
             NativeBottomScreenClassicLayoutOptions? classicOptions = null,
-            NativeBottomScreenAffinityLayoutOptions? affinityOptions = null)
+            NativeBottomScreenAffinityLayoutOptions? affinityOptions = null,
+            NativeBottomScreenAimMode aimMode = NativeBottomScreenAimMode.Free)
         {
             if (!Enum.IsDefined(mode)) mode = NativeBottomScreenMode.Off;
             if (!Enum.IsDefined(style)) style = NativeBottomScreenStyle.ClassicDs;
+            if (!Enum.IsDefined(aimMode)) aimMode = NativeBottomScreenAimMode.Free;
             options = options.Sanitized();
             lock (_sync)
             {
@@ -811,7 +886,8 @@ namespace MphRead.Mods.Input
                     = (affinityOptions ?? _affinityLayoutOptions).Sanitized();
                 NativeBottomScreenLayout layout = NativeBottomScreenLayout.Compute(
                     _layout.LogicalSize, _layout.FramebufferSize, options);
-                if (mode == _mode && style == _style && options == _layoutOptions
+                if (mode == _mode && style == _style && aimMode == _aimMode
+                    && options == _layoutOptions
                     && layout == _layout && sanitizedClassic == _classicLayoutOptions
                     && sanitizedAffinity == _affinityLayoutOptions)
                 {
@@ -820,6 +896,7 @@ namespace MphRead.Mods.Input
                 CancelQueuedLocked();
                 _mode = mode;
                 _style = style;
+                _aimMode = aimMode;
                 _layoutOptions = options;
                 _classicLayoutOptions = sanitizedClassic;
                 _classicLayout = sanitizedClassic.CreateLayout();
@@ -879,6 +956,9 @@ namespace MphRead.Mods.Input
                 _events.Clear();
                 _queuedPointers.Clear();
                 _capturedPointer = null;
+                _capturedRoute = NativeBottomScreenPointerRoute.None;
+                _aimContact = new NativeBottomScreenAimContactSnapshot(false,
+                    Vector2.Zero);
                 _popupOpen = _mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;
                 _desktopSessionActive = false;
@@ -1114,7 +1194,11 @@ namespace MphRead.Mods.Input
                 _desktopCursorOptions.StartY * NativeBottomScreenClassicLayout.DsHeight);
 
         public bool TryPointerDown(in PointerSample sample)
-            => TryPointerDown(0, 0, sample);
+            => RoutePointerDown(0, 0, sample) is NativeBottomScreenPointerRoute.Control
+                or NativeBottomScreenPointerRoute.Aim;
+
+        public NativeBottomScreenPointerRoute RoutePointerDown(in PointerSample sample)
+            => RoutePointerDown(0, 0, sample);
 
         public bool TryPointerMove(in PointerSample sample)
             => TryPointerMove(0, 0, sample);
@@ -1122,7 +1206,7 @@ namespace MphRead.Mods.Input
         public bool TryPointerUp(in PointerSample sample)
             => TryPointerUp(0, 0, sample);
 
-        public bool CancelPointer(int pointerId)
+        public bool CancelPointer(long pointerId)
             => CancelPointer(0, 0, pointerId);
 
         public void Cancel() => Cancel(0, 0);
@@ -1157,38 +1241,85 @@ namespace MphRead.Mods.Input
             }
         }
 
-        internal bool TryPointerDown(long token, long generation,
-            in PointerSample sample)
+        internal NativeBottomScreenPointerRoute RoutePointerDown(long token,
+            long generation, in PointerSample sample)
         {
             lock (_sync)
             {
-                if (!ValidTokenLocked(token, generation)) return false;
+                if (!ValidTokenLocked(token, generation)) return NativeBottomScreenPointerRoute.None;
                 if (_mode == NativeBottomScreenMode.Off
-                    || !Finite(sample.X, sample.Y)
-                    || _capturedPointer.HasValue && _capturedPointer.Value != sample.Id)
-                    return false;
-                if (_mode == NativeBottomScreenMode.Popup && !_popupOpen) return false;
-                if (!_layout.ContainsPanel(sample.X, sample.Y)) return false;
+                    || !Finite(sample.X, sample.Y))
+                    return NativeBottomScreenPointerRoute.None;
+                if (_capturedPointer == sample.Id) return _capturedRoute;
+                if (_capturedPointer.HasValue)
+                {
+                    // The first contact owns the native panel. Keep later
+                    // contacts out of both the queue and the global stylus
+                    // path until the owner lifts/cancels.
+                    return _layout.ContainsPanel(sample.X, sample.Y)
+                        ? NativeBottomScreenPointerRoute.Suppressed
+                        : NativeBottomScreenPointerRoute.None;
+                }
+                if (_mode == NativeBottomScreenMode.Popup && !_popupOpen) return NativeBottomScreenPointerRoute.None;
+                if (!_layout.ContainsPanel(sample.X, sample.Y)) return NativeBottomScreenPointerRoute.None;
                 if (_style == NativeBottomScreenStyle.ClassicDs && !_selectorOpen)
                 {
                     Vector2 canonical = _layout.LogicalToDs(sample.X, sample.Y);
                     NativeBottomScreenRegion region
                         = _classicLayout.RegionAt(canonical);
-                    // The original lower screen's middle is an aiming surface.
-                    // Leave it unclaimed so the existing stylus/touch look path
-                    // remains the only owner of camera movement.
-                    if (region is NativeBottomScreenRegion.None
-                        or NativeBottomScreenRegion.Aim)
+                    if (region is NativeBottomScreenRegion.None)
                     {
-                        return false;
+                        return NativeBottomScreenPointerRoute.None;
+                    }
+                    if (region is NativeBottomScreenRegion.Aim)
+                    {
+                        if (_aimMode != NativeBottomScreenAimMode.TrueDs)
+                            return NativeBottomScreenPointerRoute.None;
+                        _capturedPointer = sample.Id;
+                        _capturedRoute = NativeBottomScreenPointerRoute.Aim;
+                        bool aimContact = false;
+                        Vector2 aimPosition = Vector2.Zero;
+                        if (IsAimContactTool(sample.Tool)
+                            && TryMapAimSampleLocked(sample,
+                                out PointerSample mapped))
+                        {
+                            aimContact = true;
+                            aimPosition = new Vector2(mapped.X, mapped.Y);
+                        }
+                        _aimContact = new NativeBottomScreenAimContactSnapshot(
+                            aimContact, aimPosition);
+                        return _capturedRoute;
                     }
                 }
+                _aimContact = new NativeBottomScreenAimContactSnapshot(false,
+                    Vector2.Zero);
                 _capturedPointer = sample.Id;
+                _capturedRoute = NativeBottomScreenPointerRoute.Control;
                 _queuedPointers.Add(sample.Id);
                 EnqueueLocked(NativeBottomScreenPointerPhase.Down, sample);
-                return true;
+                return _capturedRoute;
             }
         }
+
+        internal PointerSample MapAimSample(long token, long generation,
+            in PointerSample sample)
+        {
+            lock (_sync)
+            {
+                return !ValidTokenLocked(token, generation)
+                    || !TryMapAimSampleLocked(sample,
+                        out PointerSample mapped) ? sample : mapped;
+            }
+        }
+
+        public PointerSample MapAimSample(in PointerSample sample)
+            => MapAimSample(0, 0, sample);
+
+        internal bool TryPointerDown(long token, long generation,
+            in PointerSample sample)
+            => RoutePointerDown(token, generation, sample)
+                is NativeBottomScreenPointerRoute.Control
+                    or NativeBottomScreenPointerRoute.Aim;
 
         internal bool TryPointerMove(long token, long generation,
             in PointerSample sample)
@@ -1197,6 +1328,20 @@ namespace MphRead.Mods.Input
             {
                 if (!ValidTokenLocked(token, generation)) return false;
                 if (_capturedPointer != sample.Id) return false;
+                if (_capturedRoute == NativeBottomScreenPointerRoute.Aim)
+                {
+                    // Eligibility is fixed by the down sample. Do not let a
+                    // later tool label reclassify a contact that was not
+                    // eligible for the True DS aim snapshot.
+                    if (_aimContact.Active
+                        && TryMapAimSampleLocked(sample,
+                            out PointerSample mapped))
+                    {
+                        _aimContact = new NativeBottomScreenAimContactSnapshot(
+                            true, new Vector2(mapped.X, mapped.Y));
+                    }
+                    return true;
+                }
                 EnqueueLocked(NativeBottomScreenPointerPhase.Move, sample);
                 return true;
             }
@@ -1209,13 +1354,22 @@ namespace MphRead.Mods.Input
             {
                 if (!ValidTokenLocked(token, generation)) return false;
                 if (_capturedPointer != sample.Id) return false;
+                if (_capturedRoute == NativeBottomScreenPointerRoute.Aim)
+                {
+                    _aimContact = new NativeBottomScreenAimContactSnapshot(false,
+                        Vector2.Zero);
+                    _capturedPointer = null;
+                    _capturedRoute = NativeBottomScreenPointerRoute.None;
+                    return true;
+                }
                 EnqueueLocked(NativeBottomScreenPointerPhase.Up, sample);
                 _capturedPointer = null;
+                _capturedRoute = NativeBottomScreenPointerRoute.None;
                 return true;
             }
         }
 
-        internal bool CancelPointer(long token, long generation, int pointerId)
+        internal bool CancelPointer(long token, long generation, long pointerId)
         {
             lock (_sync)
             {
@@ -1223,9 +1377,21 @@ namespace MphRead.Mods.Input
                 bool matched = _capturedPointer == pointerId
                     || _queuedPointers.Contains(pointerId);
                 if (!matched) return false;
+                if (_capturedPointer == pointerId
+                    && _capturedRoute == NativeBottomScreenPointerRoute.Aim)
+                {
+                    _aimContact = new NativeBottomScreenAimContactSnapshot(false,
+                        Vector2.Zero);
+                    _capturedPointer = null;
+                    _capturedRoute = NativeBottomScreenPointerRoute.None;
+                    _interactionEpoch++;
+                    return true;
+                }
                 QueueCancelLocked(pointerId);
                 _capturedPointer = null;
+                _capturedRoute = NativeBottomScreenPointerRoute.None;
                 _queuedPointers.Remove(pointerId);
+                _interactionEpoch++;
                 return true;
             }
         }
@@ -1252,14 +1418,50 @@ namespace MphRead.Mods.Input
 
         private void CancelQueuedLocked()
         {
-            var ids = new HashSet<int>(_queuedPointers);
+            var ids = new HashSet<long>(_queuedPointers);
             if (_capturedPointer.HasValue) ids.Add(_capturedPointer.Value);
-            foreach (int id in ids) QueueCancelLocked(id);
+            foreach (long id in ids) QueueCancelLocked(id);
             _queuedPointers.Clear();
             _capturedPointer = null;
+            _capturedRoute = NativeBottomScreenPointerRoute.None;
+            _aimContact = new NativeBottomScreenAimContactSnapshot(false,
+                Vector2.Zero);
+            _interactionEpoch++;
         }
 
-        private void QueueCancelLocked(int pointerId)
+        private bool TryMapAimSampleLocked(in PointerSample sample,
+            out PointerSample mapped)
+        {
+            mapped = sample;
+            if (!_layout.IsValid || !Finite(sample.X, sample.Y)) return false;
+
+            Vector2 canonical = _layout.LogicalToDs(sample.X, sample.Y);
+            if (!Finite(canonical.X, canonical.Y)) return false;
+            canonical = new Vector2(
+                Math.Clamp(canonical.X,
+                    0, NativeBottomScreenClassicLayoutSnapshot.DsWidth),
+                Math.Clamp(canonical.Y,
+                    0, NativeBottomScreenClassicLayoutSnapshot.DsHeight));
+            mapped = sample with
+            {
+                Tool = PointerToolKind.Stylus,
+                X = canonical.X,
+                Y = canonical.Y,
+                Pressure = 0,
+                Buttons = StylusButtons.None,
+                CoordinateKind = PointerCoordinateKind.Unknown,
+                LogicalDisplayScale = 1,
+                MappedExtentX = 0,
+                MappedExtentY = 0
+            };
+            return true;
+        }
+
+        private static bool IsAimContactTool(PointerToolKind tool)
+            => tool is PointerToolKind.Finger or PointerToolKind.Stylus
+                or PointerToolKind.Eraser;
+
+        private void QueueCancelLocked(long pointerId)
         {
             PointerSample sample = new(pointerId, PointerToolKind.Unknown,
                 float.NaN, float.NaN, 0, StylusButtons.None,
@@ -1287,6 +1489,8 @@ namespace MphRead.Mods.Input
                 // whose history was discarded into a weapon commit.
                 _queuedPointers.Remove(sample.Id);
                 if (_capturedPointer == sample.Id) _capturedPointer = null;
+                _capturedRoute = NativeBottomScreenPointerRoute.None;
+                _interactionEpoch++;
                 return;
             }
             _events.Enqueue(new NativeBottomScreenPointerEvent(phase, sample, _generation));
@@ -1309,6 +1513,8 @@ namespace MphRead.Mods.Input
         private static NativeBottomScreenController? _current;
         private static long _token;
         private static long _nextToken;
+        private static long _bridgeInteractionEpoch;
+        private static long _observedControllerEpoch;
 
         public static NativeBottomScreenPlatformRegistration Register(
             NativeBottomScreenController controller)
@@ -1324,6 +1530,8 @@ namespace MphRead.Mods.Input
                 token = ++_nextToken;
                 _current = controller;
                 _token = token;
+                _observedControllerEpoch = controller.InteractionEpoch;
+                _bridgeInteractionEpoch++;
             }
             if (previous != null)
             {
@@ -1347,6 +1555,8 @@ namespace MphRead.Mods.Input
                     token = _token;
                     _current = null;
                     _token = 0;
+                    _observedControllerEpoch = 0;
+                    _bridgeInteractionEpoch++;
                 }
             }
             if (controller != null)
@@ -1357,16 +1567,26 @@ namespace MphRead.Mods.Input
         }
 
         public static void Configure(Vector2i logicalSize, Vector2i framebufferSize,
-            NativeBottomScreenMode mode)
+            NativeBottomScreenMode mode,
+            NativeBottomScreenAimMode aimMode = NativeBottomScreenAimMode.Free)
         {
             if (!Snapshot(out NativeBottomScreenController? controller,
                 out long token, out long generation)) return;
             controller!.ConfigureWithToken(token, generation, logicalSize,
-                framebufferSize, mode);
+                framebufferSize, mode, aimMode);
         }
 
         public static bool TryPointerDown(in PointerSample sample)
             => TryPointerDown(default, sample, requireRegistration: false);
+
+        public static NativeBottomScreenPointerRoute RoutePointerDown(
+            in PointerSample sample)
+            => RoutePointerDown(default, sample, requireRegistration: false);
+
+        public static NativeBottomScreenPointerRoute RoutePointerDown(
+            in NativeBottomScreenPlatformRegistration registration,
+            in PointerSample sample)
+            => RoutePointerDown(registration, sample, requireRegistration: true);
 
         public static bool TryPointerDown(
             in NativeBottomScreenPlatformRegistration registration,
@@ -1376,9 +1596,42 @@ namespace MphRead.Mods.Input
         private static bool TryPointerDown(in NativeBottomScreenPlatformRegistration registration,
             in PointerSample sample, bool requireRegistration)
         {
+            return RoutePointerDown(registration, sample, requireRegistration)
+                is NativeBottomScreenPointerRoute.Control
+                    or NativeBottomScreenPointerRoute.Aim;
+        }
+
+        private static NativeBottomScreenPointerRoute RoutePointerDown(
+            in NativeBottomScreenPlatformRegistration registration,
+            in PointerSample sample, bool requireRegistration)
+        {
             if (!Snapshot(out NativeBottomScreenController? controller, out long token,
-                out long generation, registration, requireRegistration)) return false;
-            return controller!.TryPointerDown(token, generation, sample);
+                out long generation, registration, requireRegistration))
+                return NativeBottomScreenPointerRoute.None;
+            return controller!.RoutePointerDown(token, generation, sample);
+        }
+
+        /// <summary>
+        /// Convert a claimed True DS contact into canonical 256x192 absolute
+        /// coordinates. The neutral sample deliberately carries no tip
+        /// pressure or buttons: contact is drag-to-aim, never an implicit fire.
+        /// </summary>
+        public static PointerSample MapAimSample(in PointerSample sample)
+            => MapAimSample(default, sample, requireRegistration: false);
+
+        public static PointerSample MapAimSample(
+            in NativeBottomScreenPlatformRegistration registration,
+            in PointerSample sample)
+            => MapAimSample(registration, sample, requireRegistration: true);
+
+        private static PointerSample MapAimSample(
+            in NativeBottomScreenPlatformRegistration registration,
+            in PointerSample sample, bool requireRegistration)
+        {
+            if (!Snapshot(out NativeBottomScreenController? controller,
+                out long token, out long generation, registration, requireRegistration))
+                return sample;
+            return controller!.MapAimSample(token, generation, sample);
         }
 
         public static bool TryPointerMove(in PointerSample sample)
@@ -1476,11 +1729,47 @@ namespace MphRead.Mods.Input
             }
         }
 
-        public static bool CancelPointer(int pointerId)
+        public static bool CancelPointer(long pointerId)
         {
             if (!Snapshot(out NativeBottomScreenController? controller,
                 out long token, out long generation)) return false;
             return controller!.CancelPointer(token, generation, pointerId);
+        }
+
+        public static bool SuppressGlobalStylus
+        {
+            get
+            {
+                lock (Sync) return _current?.SuppressGlobalStylus == true;
+            }
+        }
+
+        public static long InteractionEpoch
+        {
+            get
+            {
+                lock (Sync)
+                {
+                    long controllerEpoch = _current?.InteractionEpoch ?? 0;
+                    if (controllerEpoch != _observedControllerEpoch)
+                    {
+                        _observedControllerEpoch = controllerEpoch;
+                        _bridgeInteractionEpoch++;
+                    }
+                    return _bridgeInteractionEpoch;
+                }
+            }
+        }
+
+        public static bool TryGetVisiblePanel(out BottomScreenRect panel)
+        {
+            if (!Snapshot(out NativeBottomScreenController? controller,
+                out _, out _))
+            {
+                panel = default;
+                return false;
+            }
+            return controller!.TryGetVisiblePanel(out panel);
         }
 
         public static void Cancel()
@@ -1543,17 +1832,20 @@ namespace MphRead.Mods.Input
 
         internal void ConfigureWithToken(long token, long generation,
             Vector2i logicalSize, Vector2i framebufferSize,
-            NativeBottomScreenMode mode)
+            NativeBottomScreenMode mode,
+            NativeBottomScreenAimMode aimMode = NativeBottomScreenAimMode.Free)
         {
             if (!Enum.IsDefined(mode)) mode = NativeBottomScreenMode.Off;
+            if (!Enum.IsDefined(aimMode)) aimMode = NativeBottomScreenAimMode.Free;
             lock (_sync)
             {
                 if (!ValidTokenLocked(token, generation)) return;
                 NativeBottomScreenLayout layout = NativeBottomScreenLayout.Compute(
                     logicalSize, framebufferSize, _layoutOptions);
-                if (mode == _mode && layout == _layout) return;
+                if (mode == _mode && aimMode == _aimMode && layout == _layout) return;
                 CancelQueuedLocked();
                 _mode = mode;
+                _aimMode = aimMode;
                 _layout = layout;
                 _popupOpen = mode == NativeBottomScreenMode.AlwaysVisible;
                 _selectorOpen = false;

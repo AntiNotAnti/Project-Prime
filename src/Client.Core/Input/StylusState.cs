@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Input
 {
-    public readonly record struct StylusState(bool Contact, int PointerId,
+    public readonly record struct StylusState(bool Contact, long PointerId,
         float X, float Y, float Pressure, StylusButtons Buttons,
         StylusButtons PressedButtons, StylusButtons ReleasedButtons,
         long Timestamp, bool PressureFireActive, bool DoubleTapJump,

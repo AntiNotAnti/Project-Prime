@@ -1365,6 +1365,8 @@ namespace MphRead
             if (pass == null)
                 throw new InvalidOperationException(
                     $"SDL distortion vector pass failed: {SDL3.SDL_GetError()}");
+            SdlGpuPassBindingCache passBindings = default;
+            passBindings.Reset();
             SdlGpuTelemetryContext.RenderPass();
             try
             {
@@ -1385,10 +1387,9 @@ namespace MphRead
                     if (++encoded > EnhancedDistortionSubmission.MaximumCount)
                         throw new InvalidOperationException(
                             "Enhanced distortion draw bound exceeded.");
-                    SDL3.SDL_BindGPUGraphicsPipeline(pass,
+                    BindPipeline(pass, ref passBindings,
                         GetDistortionPipeline(source.CullingMode,
                             frame.Options.FaceCulling, configuration));
-                    SdlGpuTelemetryContext.PipelineBind();
                     SDL_GPUBufferBinding vertex = new()
                     {
                         buffer = mesh.VertexBuffer
@@ -1397,8 +1398,8 @@ namespace MphRead
                     {
                         buffer = mesh.TriangleIndexBuffer
                     };
-                    SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-                    SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+                    BindVertexBuffer(pass, &vertex, 1);
+                    BindIndexBuffer(pass, &index,
                         SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
                     DistortionVertexConstants vertexConstants
                         = BuildDistortionVertexConstants(frame, draw);
@@ -1410,9 +1411,8 @@ namespace MphRead
                                 source.Falloff,
                                 source.PresentationPhase, 0)
                         });
-                    SDL3.SDL_DrawGPUIndexedPrimitives(pass,
-                        checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
-                    SdlGpuTelemetryContext.IndexedDraw();
+                    DrawIndexed(pass, ref passBindings,
+                        checked((uint)mesh.TriangleIndexCount));
                 }
             }
             finally
@@ -1552,6 +1552,8 @@ namespace MphRead
             if (pass == null)
                 throw new InvalidOperationException(
                     $"SDL directional shadow pass failed: {SDL3.SDL_GetError()}");
+            SdlGpuPassBindingCache passBindings = default;
+            passBindings.Reset();
             SdlGpuTelemetryContext.RenderPass();
             try
             {
@@ -1583,13 +1585,12 @@ namespace MphRead
                     if (++encoded > RenderFrame.DefaultMaximumCapacity)
                         throw new InvalidOperationException(
                             "Directional shadow caster bound exceeded.");
-                    SDL3.SDL_BindGPUGraphicsPipeline(pass,
+                    BindPipeline(pass, ref passBindings,
                         GetShadowPipeline(ShadowPipelineKey(frame, draw)));
-                    SdlGpuTelemetryContext.PipelineBind();
                     SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
                     SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
-                    SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-                    SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+                    BindVertexBuffer(pass, &vertex, 1);
+                    BindIndexBuffer(pass, &index,
                         SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
                     GpuTexture albedo = ResolveBoundTexture(frame, draw);
                     SDL_GPUSampler* sampler = GetSampler(
@@ -1598,16 +1599,14 @@ namespace MphRead
                         { texture = albedo.Handle, sampler = sampler };
                     SdlGpuSamplerBindingAbi.Pad(bindings, 1, bindingCount,
                         _whiteTexture!.Handle, sampler);
-                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                    BindFragmentSamplers(pass, ref passBindings, 0, bindings,
                         checked((uint)bindingCount));
-                    SdlGpuTelemetryContext.SamplerBind(bindingCount);
                     LegacyDrawConstants constants = BuildLegacyDrawConstants(frame, draw,
                         RenderPassKind.Opaque, RenderTopology.Triangles);
                     PushVertex(commandBuffer, 1, constants);
                     PushFragment(commandBuffer, 0, constants);
-                    SDL3.SDL_DrawGPUIndexedPrimitives(pass,
-                        checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
-                    SdlGpuTelemetryContext.IndexedDraw();
+                    DrawIndexed(pass, ref passBindings,
+                        checked((uint)mesh.TriangleIndexCount));
                 }
             }
             finally
@@ -1732,6 +1731,8 @@ namespace MphRead
                 if (pass == null)
                     throw new InvalidOperationException(
                         $"SDL enhanced surface pass failed: {SDL3.SDL_GetError()}");
+                SdlGpuPassBindingCache passBindings = default;
+                passBindings.Reset();
                 SdlGpuTelemetryContext.RenderPass();
                 try
                 {
@@ -1749,7 +1750,8 @@ namespace MphRead
                             throw new InvalidOperationException(
                                 "Enhanced surface draw bound exceeded.");
                         if (!meshes.TryGetValue(draw, out GpuMesh? mesh)) continue;
-                        DrawSurface(commandBuffer, pass, frame, draw, mesh);
+                        DrawSurface(commandBuffer, pass, ref passBindings,
+                            frame, draw, mesh);
                     }
                 }
                 finally
@@ -1766,8 +1768,8 @@ namespace MphRead
         }
 
         private void DrawSurface(SDL_GPUCommandBuffer* commandBuffer,
-            SDL_GPURenderPass* pass, RenderFrame frame, DrawSubmission draw,
-            GpuMesh mesh)
+            SDL_GPURenderPass* pass, ref SdlGpuPassBindingCache passBindings,
+            RenderFrame frame, DrawSubmission draw, GpuMesh mesh)
         {
             if (mesh.TriangleIndexCount == 0
                 || (draw.Primitive == RenderPrimitive.Ngon
@@ -1779,8 +1781,7 @@ namespace MphRead
                 frame.Options.Wireframe || draw.Material.Wireframe,
                 frame.Options.FaceCulling, SdlGpuHdrPolicy.HdrFormat,
                 SurfaceData: true);
-            SDL3.SDL_BindGPUGraphicsPipeline(pass, GetPipeline(key));
-            SdlGpuTelemetryContext.PipelineBind();
+            BindPipeline(pass, ref passBindings, GetPipeline(key));
             SDL3.SDL_SetGPUStencilReference(pass,
                 checked((byte)Math.Clamp(draw.PolygonId, 0, 255)));
 
@@ -1789,8 +1790,8 @@ namespace MphRead
             {
                 buffer = mesh.TriangleIndexBuffer
             };
-            SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-            SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+            BindVertexBuffer(pass, &vertex, 1);
+            BindIndexBuffer(pass, &index,
                 SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
             GpuTexture albedo = ResolveBoundTexture(frame, draw);
             GpuTexture normal = ResolveBoundNormalTexture(frame, draw);
@@ -1803,17 +1804,15 @@ namespace MphRead
             bindings[1] = new() { texture = normal.Handle, sampler = sampler };
             SdlGpuSamplerBindingAbi.Pad(bindings, 2, bindingCount,
                 _whiteTexture!.Handle, sampler);
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+            BindFragmentSamplers(pass, ref passBindings, 0, bindings,
                 checked((uint)bindingCount));
-            SdlGpuTelemetryContext.SamplerBind(bindingCount);
 
             LegacyDrawConstants constants = BuildLegacyDrawConstants(frame, draw,
                 RenderPassKind.Opaque, RenderTopology.Triangles);
             PushVertex(commandBuffer, 1, constants);
             PushFragment(commandBuffer, 0, constants);
-            SDL3.SDL_DrawGPUIndexedPrimitives(pass,
-                checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
-            SdlGpuTelemetryContext.IndexedDraw();
+            DrawIndexed(pass, ref passBindings,
+                checked((uint)mesh.TriangleIndexCount));
         }
 
         private void RecordSurfaceFailure(
@@ -1856,6 +1855,8 @@ namespace MphRead
             };
             SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(commandBuffer, &colorTarget, 1, &depthTarget);
             if (pass == null) throw new InvalidOperationException($"SDL scene pass {passKind} failed: {SDL3.SDL_GetError()}");
+            SdlGpuPassBindingCache passBindings = default;
+            passBindings.Reset();
             SdlGpuTelemetryContext.RenderPass();
             try
             {
@@ -1868,11 +1869,13 @@ namespace MphRead
                 {
                     if (++encoded > MaximumDraws) throw new InvalidOperationException("Encoded scene draw bound exceeded.");
                     if (!meshes.TryGetValue(draw, out GpuMesh? mesh)) continue;
-                    Draw(commandBuffer, pass, frame, draw, mesh, passKind, RenderTopology.Triangles);
+                    Draw(commandBuffer, pass, ref passBindings, frame, draw, mesh,
+                        passKind, RenderTopology.Triangles);
                     if (draw.Primitive == RenderPrimitive.Ngon && mesh.LineIndexCount > 0
                         && frame.Options.VolumeEdges != 2 && !draw.NoLines)
                     {
-                        Draw(commandBuffer, pass, frame, draw, mesh, passKind, RenderTopology.Lines);
+                        Draw(commandBuffer, pass, ref passBindings, frame, draw, mesh,
+                            passKind, RenderTopology.Lines);
                     }
                 }
             }
@@ -1925,6 +1928,8 @@ namespace MphRead
             SDL_GPURenderPass* pass = SDL3.SDL_BeginGPURenderPass(commandBuffer,
                 &colorTarget, 1, depth != null ? &depthTarget : null);
             if (pass == null) throw new InvalidOperationException($"SDL HUD scene pass failed: {SDL3.SDL_GetError()}");
+            SdlGpuPassBindingCache passBindings = default;
+            passBindings.Reset();
             SdlGpuTelemetryContext.RenderPass();
             try
             {
@@ -1945,16 +1950,15 @@ namespace MphRead
                     RenderMaterial material = hud.Material;
                     PipelineKey baseKey = CreateHudPipelineKey(material,
                         targetFormat.ToString(), sampleCount);
-                    SDL3.SDL_BindGPUGraphicsPipeline(pass,
+                    BindPipeline(pass, ref passBindings,
                         GetPipeline(new ScenePipelineKey(baseKey,
                             frame.Options.Wireframe || material.Wireframe,
                             frame.Options.FaceCulling, targetFormat)));
-                    SdlGpuTelemetryContext.PipelineBind();
 
                     SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
                     SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
-                    SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-                    SDL3.SDL_BindGPUIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
+                    BindVertexBuffer(pass, &vertex, 1);
+                    BindIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
                     SDL_GPUTexture* texture = material.Textured
                         ? (SDL_GPUTexture*)ResolveTextureHandle(frame, hud.TextureIdentity,
                             $"HUD scene polygon {hud.PolygonId}")
@@ -1978,9 +1982,8 @@ namespace MphRead
                         texture = _blackEmissiveTexture!.Handle, sampler = sampler
                     };
                     PadD3D12SceneSampler(bindings, sampler);
-                    SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                    BindFragmentSamplers(pass, ref passBindings, 0, bindings,
                         checked((uint)_sceneSamplerBindingCount));
-                    SdlGpuTelemetryContext.SamplerBind(_sceneSamplerBindingCount);
 
                     SdlGpuSceneVertexFrameConstants vertexFrame
                         = SdlGpuSceneVertexFrameConstants.Create(
@@ -1996,8 +1999,8 @@ namespace MphRead
                     if (hud.MatrixStackCount > 0)
                         PushVertex(commandBuffer, 2, constants.Palette);
                     PushFragment(commandBuffer, 1, constants.Fragment);
-                    SDL3.SDL_DrawGPUIndexedPrimitives(pass, checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
-                    SdlGpuTelemetryContext.IndexedDraw();
+                    DrawIndexed(pass, ref passBindings,
+                        checked((uint)mesh.TriangleIndexCount));
                 }
             }
             finally
@@ -2039,6 +2042,8 @@ namespace MphRead
                 &colorTarget, 1, &depthTarget);
             if (pass == null)
                 throw new InvalidOperationException($"SDL bloom emission pass failed: {SDL3.SDL_GetError()}");
+            SdlGpuPassBindingCache passBindings = default;
+            passBindings.Reset();
             SdlGpuTelemetryContext.RenderPass();
             try
             {
@@ -2060,7 +2065,7 @@ namespace MphRead
                     if (!meshes.TryGetValue(draw, out GpuMesh? mesh))
                         throw new InvalidOperationException(
                             $"Bloom mesh was not resolved for polygon {draw.PolygonId}.");
-                    DrawBloom(commandBuffer, pass, frame, draw, mesh);
+                    DrawBloom(commandBuffer, pass, ref passBindings, frame, draw, mesh);
                 }
             }
             finally
@@ -2070,7 +2075,8 @@ namespace MphRead
         }
 
         private void DrawBloom(SDL_GPUCommandBuffer* commandBuffer, SDL_GPURenderPass* pass,
-            RenderFrame frame, DrawSubmission draw, GpuMesh mesh)
+            ref SdlGpuPassBindingCache passBindings, RenderFrame frame,
+            DrawSubmission draw, GpuMesh mesh)
         {
             if (mesh.TriangleIndexCount == 0
                 || (draw.Primitive == RenderPrimitive.Ngon && frame.Options.VolumeEdges == 1)) return;
@@ -2085,15 +2091,14 @@ namespace MphRead
                 _targetSampleCount, RenderAlphaTestMode.Disabled,
                 RenderColorWriteMask.All, decalDepthBias: false,
                 _sceneColorFormat.ToString());
-            SDL3.SDL_BindGPUGraphicsPipeline(pass, GetPipeline(new ScenePipelineKey(
+            BindPipeline(pass, ref passBindings, GetPipeline(new ScenePipelineKey(
                 baseKey, Wireframe: false, FaceCulling: frame.Options.FaceCulling,
                 _sceneColorFormat, BloomEmission: true)));
-            SdlGpuTelemetryContext.PipelineBind();
 
             SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer };
             SDL_GPUBufferBinding index = new() { buffer = mesh.TriangleIndexBuffer };
-            SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-            SDL3.SDL_BindGPUIndexBuffer(pass, &index,
+            BindVertexBuffer(pass, &vertex, 1);
+            BindIndexBuffer(pass, &index,
                 SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
             GpuTexture texture = ResolveBoundTexture(frame, draw);
             GpuTexture normalTexture = ResolveBoundNormalTexture(frame, draw);
@@ -2131,9 +2136,8 @@ namespace MphRead
                     RepeatMode.Clamp, RepeatMode.Clamp))
             };
             PadD3D12SceneSampler(bindings, sampler);
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+            BindFragmentSamplers(pass, ref passBindings, 0, bindings,
                 checked((uint)_sceneSamplerBindingCount));
-            SdlGpuTelemetryContext.SamplerBind(_sceneSamplerBindingCount);
 
             SceneDrawData constants = BuildSceneDrawData(frame, draw, draw.Pass,
                 RenderTopology.Triangles, SdlGpuBloomPlan.Strength(draw.Material,
@@ -2142,9 +2146,8 @@ namespace MphRead
             if (draw.MatrixStackCount > 0)
                 PushVertex(commandBuffer, 2, constants.Palette);
             PushFragment(commandBuffer, 1, constants.Fragment);
-            SDL3.SDL_DrawGPUIndexedPrimitives(pass,
-                checked((uint)mesh.TriangleIndexCount), 1, 0, 0, 0);
-            SdlGpuTelemetryContext.IndexedDraw();
+            DrawIndexed(pass, ref passBindings,
+                checked((uint)mesh.TriangleIndexCount));
         }
 
         internal static PipelineKey CreateHudPipelineKey(RenderMaterial material, string targetFormat,
@@ -2195,7 +2198,8 @@ namespace MphRead
         }
 
         private void Draw(SDL_GPUCommandBuffer* commandBuffer, SDL_GPURenderPass* pass,
-            RenderFrame frame, DrawSubmission draw, GpuMesh mesh, RenderPassKind passKind,
+            ref SdlGpuPassBindingCache passBindings, RenderFrame frame,
+            DrawSubmission draw, GpuMesh mesh, RenderPassKind passKind,
             RenderTopology topology)
         {
             int indexCount = topology == RenderTopology.Lines ? mesh.LineIndexCount : mesh.TriangleIndexCount;
@@ -2216,8 +2220,7 @@ namespace MphRead
                 frame.Options.FaceCulling, _sceneColorFormat,
                 FullCoverageShader: fullCoverageShader);
             SDL_GPUGraphicsPipeline* pipeline = GetPipeline(key);
-            SDL3.SDL_BindGPUGraphicsPipeline(pass, pipeline);
-            SdlGpuTelemetryContext.PipelineBind();
+            BindPipeline(pass, ref passBindings, pipeline);
             SDL3.SDL_SetGPUStencilReference(pass, checked((byte)Math.Clamp(draw.PolygonId, 0, 255)));
 
             SDL_GPUBufferBinding vertex = new() { buffer = mesh.VertexBuffer, offset = 0 };
@@ -2226,8 +2229,8 @@ namespace MphRead
                 buffer = topology == RenderTopology.Lines ? mesh.LineIndexBuffer : mesh.TriangleIndexBuffer,
                 offset = 0
             };
-            SDL3.SDL_BindGPUVertexBuffers(pass, 0, &vertex, 1);
-            SDL3.SDL_BindGPUIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
+            BindVertexBuffer(pass, &vertex, 1);
+            BindIndexBuffer(pass, &index, SDL_GPUIndexElementSize.SDL_GPU_INDEXELEMENTSIZE_32BIT);
 
             GpuTexture texture = ResolveBoundTexture(frame, draw);
             SDL_GPUSampler* sampler = GetSampler(
@@ -2241,50 +2244,48 @@ namespace MphRead
                     { texture = texture.Handle, sampler = sampler };
                 SdlGpuSamplerBindingAbi.Pad(bindings, 1, bindingCount,
                     _whiteTexture!.Handle, sampler);
-                SDL3.SDL_BindGPUFragmentSamplers(pass, 0, bindings,
+                BindFragmentSamplers(pass, ref passBindings, 0, bindings,
                     checked((uint)bindingCount));
-                SdlGpuTelemetryContext.SamplerBind(bindingCount);
             }
             else
             {
                 GpuTexture normalTexture = ResolveBoundNormalTexture(frame, draw);
                 GpuTexture emissiveTexture = ResolveBoundEmissiveTexture(frame, draw);
-            SDL_GPUTextureSamplerBinding* textureBindings
-                = stackalloc SDL_GPUTextureSamplerBinding[_sceneSamplerBindingCount];
-            textureBindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture.Handle, sampler = sampler };
-            textureBindings[SdlGpuSceneSamplerAbi.Normal] = new() { texture = normalTexture.Handle, sampler = sampler };
-            textureBindings[SdlGpuSceneSamplerAbi.Emissive] = new() { texture = emissiveTexture.Handle, sampler = sampler };
-            textureBindings[SdlGpuSceneSamplerAbi.Reflection] = new()
-            {
-                texture = ResolveBoundReflectionTexture(frame).Handle,
-                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
-                    RepeatMode.Clamp, RepeatMode.Clamp))
-            };
-            textureBindings[SdlGpuSceneSamplerAbi.AmbientOcclusion] = new()
-            {
-                texture = SdlGpuAmbientOcclusionPolicy.UsesForPass(passKind)
-                    && _ambientOcclusionForFrame != null
-                    ? _ambientOcclusionForFrame : _whiteTexture!.Handle,
-                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
-                    RepeatMode.Clamp, RepeatMode.Clamp))
-            };
-            textureBindings[SdlGpuSceneSamplerAbi.Shadow] = new()
-            {
-                texture = _shadowAvailableForFrame ? _shadowDepth : _whiteTexture!.Handle,
-                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
-                    RepeatMode.Clamp, RepeatMode.Clamp))
-            };
-            textureBindings[SdlGpuSceneSamplerAbi.SurfaceData] = new()
-            {
-                texture = _surfaceAvailableForFrame ? _surfaceColor
-                    : _blackEmissiveTexture!.Handle,
-                sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
-                    RepeatMode.Clamp, RepeatMode.Clamp))
-            };
-            PadD3D12SceneSampler(textureBindings, sampler);
-            SDL3.SDL_BindGPUFragmentSamplers(pass, 0, textureBindings,
-                checked((uint)_sceneSamplerBindingCount));
-            SdlGpuTelemetryContext.SamplerBind(_sceneSamplerBindingCount);
+                SDL_GPUTextureSamplerBinding* textureBindings
+                    = stackalloc SDL_GPUTextureSamplerBinding[_sceneSamplerBindingCount];
+                textureBindings[SdlGpuSceneSamplerAbi.Albedo] = new() { texture = texture.Handle, sampler = sampler };
+                textureBindings[SdlGpuSceneSamplerAbi.Normal] = new() { texture = normalTexture.Handle, sampler = sampler };
+                textureBindings[SdlGpuSceneSamplerAbi.Emissive] = new() { texture = emissiveTexture.Handle, sampler = sampler };
+                textureBindings[SdlGpuSceneSamplerAbi.Reflection] = new()
+                {
+                    texture = ResolveBoundReflectionTexture(frame).Handle,
+                    sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                        RepeatMode.Clamp, RepeatMode.Clamp))
+                };
+                textureBindings[SdlGpuSceneSamplerAbi.AmbientOcclusion] = new()
+                {
+                    texture = SdlGpuAmbientOcclusionPolicy.UsesForPass(passKind)
+                        && _ambientOcclusionForFrame != null
+                        ? _ambientOcclusionForFrame : _whiteTexture!.Handle,
+                    sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                        RepeatMode.Clamp, RepeatMode.Clamp))
+                };
+                textureBindings[SdlGpuSceneSamplerAbi.Shadow] = new()
+                {
+                    texture = _shadowAvailableForFrame ? _shadowDepth : _whiteTexture!.Handle,
+                    sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                        RepeatMode.Clamp, RepeatMode.Clamp))
+                };
+                textureBindings[SdlGpuSceneSamplerAbi.SurfaceData] = new()
+                {
+                    texture = _surfaceAvailableForFrame ? _surfaceColor
+                        : _blackEmissiveTexture!.Handle,
+                    sampler = GetSampler(new SamplerKey(RenderFilterMode.Linear,
+                        RepeatMode.Clamp, RepeatMode.Clamp))
+                };
+                PadD3D12SceneSampler(textureBindings, sampler);
+                BindFragmentSamplers(pass, ref passBindings, 0, textureBindings,
+                    checked((uint)_sceneSamplerBindingCount));
             }
 
             SceneDrawData constants = BuildSceneDrawData(frame, draw, passKind, topology);
@@ -2310,8 +2311,7 @@ namespace MphRead
                 });
             }
             else PushFragment(commandBuffer, 1, constants.Fragment);
-            SDL3.SDL_DrawGPUIndexedPrimitives(pass, checked((uint)indexCount), 1, 0, 0, 0);
-            SdlGpuTelemetryContext.IndexedDraw();
+            DrawIndexed(pass, ref passBindings, checked((uint)indexCount));
         }
 
         internal static bool RequiresFullAlphaCoverageShader(RenderFrame frame,
@@ -2330,6 +2330,59 @@ namespace MphRead
         {
             SdlGpuSamplerBindingAbi.Pad(bindings, SdlGpuSceneSamplerAbi.Count,
                 _sceneSamplerBindingCount, _whiteTexture!.Handle, sampler);
+        }
+
+        private static void BindPipeline(SDL_GPURenderPass* pass,
+            ref SdlGpuPassBindingCache passBindings,
+            SDL_GPUGraphicsPipeline* pipeline)
+        {
+            if (!passBindings.ShouldBindPipeline(pipeline)) return;
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
+            SDL3.SDL_BindGPUGraphicsPipeline(pass, pipeline);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.PipelineBindNative(nativeTicks);
+        }
+
+        private static void BindFragmentSamplers(SDL_GPURenderPass* pass,
+            ref SdlGpuPassBindingCache passBindings, uint firstSlot,
+            SDL_GPUTextureSamplerBinding* bindings, uint count)
+        {
+            // All current scene shaders bind at slot zero; the cache keeps the
+            // first slot explicit so future multi-slot shaders remain correct.
+            if (!passBindings.ShouldBindFragmentSamplers(firstSlot, count,
+                bindings)) return;
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
+            SDL3.SDL_BindGPUFragmentSamplers(pass, firstSlot, bindings, count);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.SamplerBindNative(checked((int)count), nativeTicks);
+        }
+
+        private static void BindVertexBuffer(SDL_GPURenderPass* pass,
+            SDL_GPUBufferBinding* binding, uint count)
+        {
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
+            SDL3.SDL_BindGPUVertexBuffers(pass, 0, binding, count);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.VertexBufferBindNative(nativeTicks);
+        }
+
+        private static void BindIndexBuffer(SDL_GPURenderPass* pass,
+            SDL_GPUBufferBinding* binding, SDL_GPUIndexElementSize elementSize)
+        {
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
+            SDL3.SDL_BindGPUIndexBuffer(pass, binding, elementSize);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.IndexBufferBindNative(nativeTicks);
+        }
+
+        private static void DrawIndexed(SDL_GPURenderPass* pass,
+            ref SdlGpuPassBindingCache passBindings, uint indexCount)
+        {
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
+            SDL3.SDL_DrawGPUIndexedPrimitives(pass, indexCount, 1, 0, 0, 0);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            bool descriptorBearing = passBindings.ConsumeDescriptorBearing();
+            SdlGpuTelemetryContext.IndexedDrawNative(nativeTicks, descriptorBearing);
         }
 
         private int SamplerBindingCount(int shaderSamplerCount)
@@ -3420,15 +3473,19 @@ namespace MphRead
         private static void PushVertex<T>(SDL_GPUCommandBuffer* commandBuffer, uint slot, T value) where T : unmanaged
         {
             uint bytes = (uint)sizeof(T);
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
             SDL3.SDL_PushGPUVertexUniformData(commandBuffer, slot, (IntPtr)(&value), bytes);
-            SdlGpuTelemetryContext.VertexUniform(bytes);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.VertexUniformNative(bytes, nativeTicks);
         }
 
         private static void PushFragment<T>(SDL_GPUCommandBuffer* commandBuffer, uint slot, T value) where T : unmanaged
         {
             uint bytes = (uint)sizeof(T);
+            long nativeStart = SdlGpuTelemetryContext.BeginNativeCall();
             SDL3.SDL_PushGPUFragmentUniformData(commandBuffer, slot, (IntPtr)(&value), bytes);
-            SdlGpuTelemetryContext.FragmentUniform(bytes);
+            long nativeTicks = SdlGpuTelemetryContext.EndNativeCall(nativeStart);
+            SdlGpuTelemetryContext.FragmentUniformNative(bytes, nativeTicks);
         }
 
         private static unsafe MatrixPaletteConstants IdentityPalette()

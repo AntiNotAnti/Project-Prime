@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using MphRead.Mods;
 using MphRead.Mods.Input;
 using OpenTK.Mathematics;
@@ -246,6 +247,141 @@ public sealed class ControllerProcessingCoreTests
             "pad-a", new Vector2(.5f, 0), 1f / 60f, enabled: true,
             innerDeadzone: .1f, outerDeadzone: .02f);
         Assert.True(deliberate.Value.X > .44f);
+
+        for (int i = 0; i < 15; i++)
+        {
+            deliberate = calibration.Advance("pad-a", new Vector2(.9f, -.02f),
+                1f / 60f, enabled: true, innerDeadzone: .1f,
+                outerDeadzone: .02f);
+        }
+        Assert.Equal(.85f, deliberate.LearnedMaximumMagnitude, 4);
+        Assert.Equal(1f, deliberate.Value.X, 4);
+    }
+
+    [Fact]
+    public void CalibrationProfilesRoundTripWithoutMergingDevices()
+    {
+        var source = new ControllerStickCalibrationStore();
+        for (int i = 0; i < 30; i++)
+        {
+            source.Advance("pad-a", new Vector2(.04f, -.015f), 1f / 60f,
+                enabled: true, innerDeadzone: .1f, outerDeadzone: .02f);
+        }
+
+        var restored = new ControllerStickCalibrationStore();
+        restored.ImportProfiles(source.ExportProfiles());
+        ControllerStickCalibrationSample padA = restored.Evaluate("pad-a",
+            new Vector2(.04f, -.015f), enabled: true,
+            innerDeadzone: .1f, outerDeadzone: .02f);
+        ControllerStickCalibrationSample padB = restored.Evaluate("pad-b",
+            new Vector2(.04f, -.015f), enabled: true,
+            innerDeadzone: .1f, outerDeadzone: .02f);
+
+        Assert.InRange(padA.Value.Length, 0, .001f);
+        Assert.Equal(Vector2.Zero, padB.LearnedCenter);
+        Assert.True(padB.Value.Length > .04f);
+    }
+
+    [Fact]
+    public void CalibrationFileRoundTripsWithoutRuntimeJsonReflection()
+    {
+        string directory = Path.Combine(Path.GetTempPath(),
+            "prime-controller-calibration-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var source = new ControllerStickCalibrationStore();
+            for (int i = 0; i < 30; i++)
+            {
+                source.Advance("pad,with-delimiter", new Vector2(.03f, -.01f),
+                    1f / 60f, enabled: true, innerDeadzone: .1f,
+                    outerDeadzone: .02f);
+            }
+            ControllerCalibrationPersistence.Save(directory, source);
+
+            var restored = new ControllerStickCalibrationStore();
+            ControllerCalibrationPersistence.Load(directory, restored);
+            ControllerStickCalibrationSample sample = restored.Evaluate(
+                "pad,with-delimiter", new Vector2(.03f, -.01f), enabled: true,
+                innerDeadzone: .1f, outerDeadzone: .02f);
+
+            Assert.InRange(sample.Value.Length, 0, .001f);
+            Assert.Equal(new Vector2(.03f, -.01f), sample.LearnedCenter);
+        }
+        finally
+        {
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void ControllerSettingsProfilesFollowStableDeviceIdentity()
+    {
+        string directory = Path.Combine(Path.GetTempPath(),
+            "prime-controller-profile-" + Guid.NewGuid().ToString("N"));
+        InputSettings.Reset();
+        ControllerCalibrationPersistence.ResetForTests();
+        try
+        {
+            var calibration = new ControllerStickCalibrationStore();
+            ControllerCalibrationPersistence.Initialize(directory, calibration);
+            ControllerCalibrationPersistence.Activate("pad-a");
+            InputSettings.GamepadHorizontalSensitivity = 2;
+            InputSettings.GamepadInvertY = true;
+
+            ControllerCalibrationPersistence.Activate("pad-b");
+            Assert.Equal(1, InputSettings.GamepadHorizontalSensitivity);
+            Assert.False(InputSettings.GamepadInvertY);
+            InputSettings.GamepadHorizontalSensitivity = 3;
+
+            ControllerCalibrationPersistence.Activate("pad-a");
+            Assert.Equal(2, InputSettings.GamepadHorizontalSensitivity);
+            Assert.True(InputSettings.GamepadInvertY);
+            ControllerCalibrationPersistence.Save(directory, calibration);
+
+            ControllerCalibrationPersistence.ResetForTests();
+            InputSettings.Reset();
+            ControllerCalibrationPersistence.Initialize(directory,
+                new ControllerStickCalibrationStore());
+            ControllerCalibrationPersistence.Activate("pad-b");
+            Assert.Equal(3, InputSettings.GamepadHorizontalSensitivity);
+        }
+        finally
+        {
+            ControllerCalibrationPersistence.ResetForTests();
+            InputSettings.Reset();
+            if (Directory.Exists(directory)) Directory.Delete(directory, true);
+        }
+    }
+
+    [Fact]
+    public void AntiDeadzoneRaisesOnlyActiveLookOutput()
+    {
+        StickSample neutral = StickProcessor.Process(new Vector2(.1f, 0),
+            .1f, .02f, 1.6f, .08f);
+        StickSample active = StickProcessor.Process(new Vector2(.11f, 0),
+            .1f, .02f, 1.6f, .08f);
+
+        Assert.False(neutral.IsActive);
+        Assert.InRange(active.ResponseMagnitude, .08f, .081f);
+    }
+
+    [Fact]
+    public void AdaptiveSmoothingFiltersFineNoiseButReleasesAtFullSpeed()
+    {
+        var processor = new GamepadLookProcessor(smoothingSeconds: .05f);
+        GamepadLookSample first = processor.Advance(new Vector2(.2f, 0),
+            1f / 60f);
+        GamepadLookSample fine = processor.Advance(new Vector2(.21f, 0),
+            1f / 60f);
+        GamepadLookSample fineTarget = new GamepadLookProcessor(
+            smoothingSeconds: 0).Advance(new Vector2(.21f, 0), 1f / 60f);
+        GamepadLookSample full = processor.Advance(Vector2.UnitX, 1f / 60f);
+
+        Assert.InRange(fine.AngularVelocity.X,
+            fineTarget.AngularVelocity.X, first.AngularVelocity.X);
+        Assert.NotEqual(fineTarget.AngularVelocity.X,
+            fine.AngularVelocity.X);
+        Assert.InRange(MathF.Abs(full.AngularVelocity.X), 250, 300);
     }
 
     [Fact]

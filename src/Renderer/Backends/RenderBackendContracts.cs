@@ -58,7 +58,23 @@ namespace MphRead
         string PresentMode,
         bool SupportsFinalComposite,
         bool SupportsStaticMeshCache,
-        bool SupportsTextureCache);
+        bool SupportsTextureCache)
+    {
+        /// <summary>Canonical CLI request that led to this device, when known.</summary>
+        public string? RequestedDriver { get; init; }
+
+        /// <summary>Whether intentional SDL GPU validation was enabled.</summary>
+        public bool GpuDebug { get; init; }
+
+        /// <summary>Best-effort adapter name reported by the native backend.</summary>
+        public string? DeviceName { get; init; }
+
+        /// <summary>Best-effort native driver identity/version.</summary>
+        public string? DeviceDriverInfo { get; init; }
+
+        /// <summary>Native renderer runtime version used by this backend.</summary>
+        public string? RuntimeVersion { get; init; }
+    }
 
     public readonly record struct RenderSurfaceInfo(
         Vector2i LogicalSize,

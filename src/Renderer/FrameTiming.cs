@@ -112,8 +112,22 @@ namespace MphRead.Mods.Render
         public long TotalFrames { get; private set; }
         public long DroppedSteps { get; private set; }
         public long Stalls { get; private set; }
+        public long TickAttempts { get; private set; }
+        public long AcquiredFrames { get; private set; }
+        public long SubmittedFrames { get; private set; }
+        public long PresentedFrames { get; private set; }
+        /// <summary>
+        /// Acquisition attempts for which the backend returned no frame. The
+        /// portable contract cannot distinguish a missing drawable from other
+        /// backend refusal/failure paths, so this deliberately uses the
+        /// narrower observable name.
+        /// </summary>
+        public long UnacquiredFrames { get; private set; }
+        public FramePhaseTimingSample LatestRuntimeSample { get; private set; }
 
-        private const int RuntimeSampleCapacity = 256;
+        // Long enough to retain a representative bounded window at high
+        // refresh rates without turning diagnostics into an unbounded trace.
+        private const int RuntimeSampleCapacity = 1024;
         private readonly BoundedPercentileSampler _inputFrameTimes
             = new(RuntimeSampleCapacity);
         private readonly BoundedPercentileSampler _simulationFrameTimes
@@ -135,6 +149,16 @@ namespace MphRead.Mods.Render
         private readonly BoundedPercentileSampler _wholeFrameTimes
             = new(RuntimeSampleCapacity);
         private readonly BoundedPercentileSampler _legacyTotalRenderFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _hostWorkFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _softwarePacingFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _frameTimingAdvanceFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _swapchainAcquireFrameTimes
+            = new(RuntimeSampleCapacity);
+        private readonly BoundedPercentileSampler _presentedWholeFrameTimes
             = new(RuntimeSampleCapacity);
         private long _gcAllocatedBaseline;
         private long _gcAllocatedBytes;
@@ -162,6 +186,11 @@ namespace MphRead.Mods.Render
             _afterFrameTimes.TrySnapshot(out BoundedPercentileSnapshot afterFrame);
             _wholeFrameTimes.TrySnapshot(out BoundedPercentileSnapshot wholeFrame);
             _legacyTotalRenderFrameTimes.TrySnapshot(out BoundedPercentileSnapshot legacyTotalRender);
+            _hostWorkFrameTimes.TrySnapshot(out BoundedPercentileSnapshot hostWork);
+            _softwarePacingFrameTimes.TrySnapshot(out BoundedPercentileSnapshot softwarePacing);
+            _frameTimingAdvanceFrameTimes.TrySnapshot(out BoundedPercentileSnapshot frameTimingAdvance);
+            _swapchainAcquireFrameTimes.TrySnapshot(out BoundedPercentileSnapshot swapchainAcquire);
+            _presentedWholeFrameTimes.TrySnapshot(out BoundedPercentileSnapshot presentedWholeFrame);
             double allocationRate = _gcElapsedSeconds > 0
                 ? _gcAllocatedBytes / _gcElapsedSeconds : 0;
             return new FrameTimingDiagnosticsSnapshot(input, simulation, scenePreparation,
@@ -173,7 +202,10 @@ namespace MphRead.Mods.Render
                 _gcBaselineInitialized ? Math.Max(0,
                     GC.CollectionCount(1) - _gcGen1Baseline) : 0,
                 _gcBaselineInitialized ? Math.Max(0,
-                    GC.CollectionCount(2) - _gcGen2Baseline) : 0);
+                    GC.CollectionCount(2) - _gcGen2Baseline) : 0,
+                hostWork, softwarePacing, frameTimingAdvance, swapchainAcquire,
+                presentedWholeFrame, TickAttempts, AcquiredFrames, SubmittedFrames,
+                PresentedFrames, UnacquiredFrames);
         }
 
         /// <summary>
@@ -183,6 +215,24 @@ namespace MphRead.Mods.Render
         /// </summary>
         public void RecordRuntimeFrame(in FramePhaseTimingSample sample)
         {
+            LatestRuntimeSample = sample;
+            TickAttempts++;
+            if (sample.Acquired)
+            {
+                AcquiredFrames++;
+            }
+            else if (sample.AcquisitionAttempted)
+            {
+                UnacquiredFrames++;
+            }
+            if (sample.Submitted)
+            {
+                SubmittedFrames++;
+            }
+            if (sample.Presented)
+            {
+                PresentedFrames++;
+            }
             _inputFrameTimes.Record(sample.InputMilliseconds);
             _simulationFrameTimes.Record(sample.SimulationMilliseconds);
             _scenePreparationFrameTimes.Record(sample.ScenePreparationMilliseconds);
@@ -194,6 +244,14 @@ namespace MphRead.Mods.Render
             _afterFrameTimes.Record(sample.AfterFrameMilliseconds);
             _wholeFrameTimes.Record(sample.WholeFrameMilliseconds);
             _legacyTotalRenderFrameTimes.Record(sample.LegacyTotalRenderMilliseconds);
+            _hostWorkFrameTimes.Record(sample.HostWorkMilliseconds);
+            _softwarePacingFrameTimes.Record(sample.SoftwarePacingMilliseconds);
+            _frameTimingAdvanceFrameTimes.Record(sample.FrameTimingAdvanceMilliseconds);
+            _swapchainAcquireFrameTimes.Record(sample.SwapchainAcquireMilliseconds);
+            if (sample.Presented)
+            {
+                _presentedWholeFrameTimes.Record(sample.PresentedWholeFrameMilliseconds);
+            }
             if (!Double.IsFinite(sample.ElapsedSeconds) || sample.ElapsedSeconds <= 0)
                 return;
 
@@ -236,6 +294,12 @@ namespace MphRead.Mods.Render
             TotalFrames = 0;
             DroppedSteps = 0;
             Stalls = 0;
+            TickAttempts = 0;
+            AcquiredFrames = 0;
+            SubmittedFrames = 0;
+            PresentedFrames = 0;
+            UnacquiredFrames = 0;
+            LatestRuntimeSample = default;
             Array.Clear(StepHistogram);
             MeasuredSimulationHz = 0;
             MeasuredFrameHz = 0;
@@ -253,6 +317,11 @@ namespace MphRead.Mods.Render
             _afterFrameTimes.Clear();
             _wholeFrameTimes.Clear();
             _legacyTotalRenderFrameTimes.Clear();
+            _hostWorkFrameTimes.Clear();
+            _softwarePacingFrameTimes.Clear();
+            _frameTimingAdvanceFrameTimes.Clear();
+            _swapchainAcquireFrameTimes.Clear();
+            _presentedWholeFrameTimes.Clear();
             _gcAllocatedBaseline = 0;
             _gcAllocatedBytes = 0;
             _gcElapsedSeconds = 0;
@@ -435,7 +504,16 @@ namespace MphRead.Mods.Render
         double AfterFrameMilliseconds,
         double WholeFrameMilliseconds,
         double LegacyTotalRenderMilliseconds,
-        double ElapsedSeconds);
+        double ElapsedSeconds,
+        double HostWorkMilliseconds = double.NaN,
+        double SoftwarePacingMilliseconds = double.NaN,
+        double FrameTimingAdvanceMilliseconds = double.NaN,
+        double SwapchainAcquireMilliseconds = double.NaN,
+        double PresentedWholeFrameMilliseconds = double.NaN,
+        bool Acquired = false,
+        bool Submitted = false,
+        bool Presented = false,
+        bool AcquisitionAttempted = false);
 
     public readonly record struct FrameTimingDiagnosticsSnapshot(
         BoundedPercentileSnapshot Input,
@@ -451,7 +529,14 @@ namespace MphRead.Mods.Render
         BoundedPercentileSnapshot LegacyTotalRender,
         long TotalFrames, long TotalSteps, long DroppedSteps, long Stalls,
         double GcAllocatedBytesPerSecond, int Gen0Collections,
-        int Gen1Collections, int Gen2Collections)
+        int Gen1Collections, int Gen2Collections,
+        BoundedPercentileSnapshot HostWork = default,
+        BoundedPercentileSnapshot SoftwarePacing = default,
+        BoundedPercentileSnapshot FrameTimingAdvance = default,
+        BoundedPercentileSnapshot SwapchainAcquire = default,
+        BoundedPercentileSnapshot PresentedWholeFrame = default,
+        long TickAttempts = 0, long AcquiredFrames = 0, long SubmittedFrames = 0,
+        long PresentedFrames = 0, long UnacquiredFrames = 0)
     {
         /// <summary>Compatibility alias for the original broad render window.</summary>
         public BoundedPercentileSnapshot Render => LegacyTotalRender;

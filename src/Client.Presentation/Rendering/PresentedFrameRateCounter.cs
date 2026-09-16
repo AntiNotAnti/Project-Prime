@@ -4,9 +4,10 @@ using System.Diagnostics;
 namespace MphRead
 {
     /// <summary>
-    /// Measures successful frame submissions over a bounded wall-clock window.
-    /// The window begins at the first submission so scene construction and
-    /// content loading can never depress the first displayed FPS sample.
+    /// Measures successful drawable presentations over a bounded wall-clock
+    /// window. The window begins at the first presentation so scene
+    /// construction and content loading can never depress the first displayed
+    /// FPS sample.
     /// </summary>
     internal sealed class PresentedFrameRateCounter
     {

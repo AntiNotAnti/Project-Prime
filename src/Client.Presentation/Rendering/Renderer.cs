@@ -2728,12 +2728,15 @@ namespace MphRead
         }
 #endif
 
-        /// <summary>Called after an encoded frame is successfully submitted to the GPU.</summary>
+        /// <summary>
+        /// Called after an encoded frame is successfully submitted to the GPU.
+        /// SDL-only submission duties live here; drawable FPS is counted by
+        /// OnFramePresented instead.
+        /// </summary>
         public void OnFrameRendered()
         {
             if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
             {
-                CountFrame();
                 // The request has crossed the backend submission boundary. A
                 // failed frame never reaches this callback and keeps the same
                 // request pending for the next GPU render.
@@ -2741,9 +2744,16 @@ namespace MphRead
             }
         }
 
-        /// <summary>Called only after a window successfully presents this scene.</summary>
+        /// <summary>
+        /// Called only after a window successfully presents this scene. SDL
+        /// records its drawable FPS sample at this presentation boundary.
+        /// </summary>
         public void OnFramePresented()
         {
+            if (RenderBackendSelection.Current == RenderBackendKind.Sdl)
+            {
+                CountFrame();
+            }
             Mods.Network.AuthoritativePlay.Current?.CommitRemotePresentation(World);
         }
 
@@ -2926,8 +2936,7 @@ namespace MphRead
 
         /// <summary>
         /// Frames a second over the recent rolling window. Desktop counts
-        /// successful GPU-render submissions, including offscreen frames made
-        /// while an immediate-mode swapchain image is busy. Android counts its
+        /// successful SDL drawable presentations; Android counts its
         /// render-thread frames.
         /// Wall time is intentional so slow frames remain visible in the result.
         /// </summary>
@@ -3456,7 +3465,11 @@ namespace MphRead
                 GL.ReleaseStaticMesh(mesh.GeometryIdentity);
 #endif
             }
-            Read.RemoveModel(model.Name, model.FirstHunt);
+            // Parsed models are owned by the content generation, not by this
+            // renderer. Live, replay, and preview renderers share Read's cache;
+            // evicting here makes one scene's entity teardown force unrelated
+            // scenes to parse the same pickup/effect model again. The cache is
+            // cleared when ContentEnvironment changes generation.
         }
 
         private void TransformCamera()
@@ -3741,10 +3754,27 @@ namespace MphRead
         }
 
         private EffectElementEntry? InitEffectElement(Effect effect, EffectElement element,
-            int elementIndex, EntityCollision? entCol, bool child)
+            int elementIndex, EntityCollision? entCol, bool child, bool impactPriority)
         {
+            if (_inactiveElements.Count == 0 && impactPriority)
+            {
+                EffectElementEntry? oldest = null;
+                foreach (EffectElementEntry candidate in _activeElements)
+                {
+                    if (!candidate.ImpactPriority
+                        && (oldest == null || candidate.CreationTime < oldest.CreationTime))
+                        oldest = candidate;
+                }
+                if (oldest != null)
+                {
+                    oldest.EffectEntry?.Elements.Remove(oldest);
+                    oldest.EffectEntry = null;
+                    UnlinkEffectElement(oldest);
+                }
+            }
             if (_inactiveElements.Count == 0)
             {
+                DroppedEffectElements++;
                 return null;
             }
             EffectElementEntry entry = _inactiveElements.Dequeue();
@@ -3768,6 +3798,7 @@ namespace MphRead
             entry.Transform = Matrix4.Identity;
             entry.ParticleAmount = 0;
             entry.Expired = false;
+            entry.ImpactPriority = impactPriority;
             entry.ChildEffectId = (int)element.ChildEffectId;
             entry.Acceleration = element.Acceleration;
             entry.ParticleDefinitions.AddRange(element.Particles);
@@ -3798,6 +3829,7 @@ namespace MphRead
             element.Nodes.Clear();
             element.EffectName = "";
             element.ElementName = "";
+            element.ImpactPriority = false;
             element.ParticleDefinitions.Clear();
             GetEffectTextureBindings(element).Clear();
             ClearSoftParticleProfile(element);
@@ -3805,10 +3837,29 @@ namespace MphRead
             _inactiveElements.Enqueue(element);
         }
 
-        private EffectParticle? InitEffectParticle()
+        private EffectParticle? InitEffectParticle(bool impactPriority)
         {
+            if (_inactiveParticles.Count == 0 && impactPriority)
+            {
+                EffectParticle? oldest = null;
+                foreach (EffectElementEntry owner in _activeElements)
+                {
+                    if (owner.ImpactPriority) continue;
+                    foreach (EffectParticle candidate in owner.Particles)
+                    {
+                        if (oldest == null || candidate.CreationTime < oldest.CreationTime)
+                            oldest = candidate;
+                    }
+                }
+                if (oldest != null)
+                {
+                    oldest.Owner.Particles.Remove(oldest);
+                    UnlinkEffectParticle(oldest);
+                }
+            }
             if (_inactiveParticles.Count == 0)
             {
+                DroppedEffectParticles++;
                 return null;
             }
             EffectParticle particle = _inactiveParticles.Dequeue();
@@ -3884,10 +3935,17 @@ namespace MphRead
 
         public void SpawnEffect(int effectId, Matrix4 transform, bool child = false, EntityCollision? entCol = null)
         {
-            SpawnEffect(effectId, transform, child, entry: null, entCol);
+            SpawnEffect(effectId, transform, child, entry: null, entCol,
+                impactPriority: false);
         }
 
-        private void SpawnEffect(int effectId, Matrix4 transform, bool child, EffectEntry? entry, EntityCollision? entCol)
+        public void SpawnImpactEffect(int effectId, Matrix4 transform,
+            EntityCollision? entCol = null)
+            => SpawnEffect(effectId, transform, child: false, entry: null,
+                entCol, impactPriority: true);
+
+        private void SpawnEffect(int effectId, Matrix4 transform, bool child,
+            EffectEntry? entry, EntityCollision? entCol, bool impactPriority = false)
         {
             Effect? effect = _loadedEffects.GetValueOrDefault(effectId);
             if (effect == null)
@@ -3898,7 +3956,8 @@ namespace MphRead
             for (int i = 0; i < effect.Elements.Count; i++)
             {
                 EffectElement elementDef = effect.Elements[i];
-                EffectElementEntry? element = InitEffectElement(effect, elementDef, i, entCol, child);
+                EffectElementEntry? element = InitEffectElement(effect, elementDef,
+                    i, entCol, child, impactPriority);
                 if (element == null)
                 {
                     return;
@@ -4040,7 +4099,7 @@ namespace MphRead
                     for (int j = 0; j < spawnCount; j++)
                     {
                         Vector3 temp = Vector3.Zero;
-                        EffectParticle? particle = InitEffectParticle();
+                        EffectParticle? particle = InitEffectParticle(element.ImpactPriority);
                         if (particle == null)
                         {
                             break;
@@ -4359,6 +4418,8 @@ namespace MphRead
         /// gets one of its own.
         /// </summary>
         public long ModEffectParticles { get; private set; }
+        public long DroppedEffectElements { get; private set; }
+        public long DroppedEffectParticles { get; private set; }
 
         /// <summary>
         /// Simulation steps owed to <see cref="UpdateFade"/>, which runs in
@@ -4981,6 +5042,7 @@ namespace MphRead
                     BottomScreen.EndPresentation(BottomScreen.Generation);
                 }
                 DisposeAnnouncerAudio();
+                DisposeFeedbackAudio();
                 World.CloseWorld();
                 if (!preserveSharedAudio)
                 {

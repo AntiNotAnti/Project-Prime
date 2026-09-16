@@ -39,27 +39,30 @@ namespace MphRead.Mods.Input
         public const float DefaultExponent = 1.60f;
 
         public StickProcessor(float innerDeadzone = DefaultInnerDeadzone,
-            float outerDeadzone = DefaultOuterDeadzone, float exponent = 1)
+            float outerDeadzone = DefaultOuterDeadzone, float exponent = 1,
+            float antiDeadzone = 0)
         {
             InnerDeadzone = SanitizeDeadzone(innerDeadzone, 0);
             OuterDeadzone = SanitizeDeadzone(outerDeadzone, 0,
                 1 - InnerDeadzone);
             Exponent = SanitizeExponent(exponent);
+            AntiDeadzone = SanitizeAntiDeadzone(antiDeadzone);
         }
 
         public float InnerDeadzone { get; }
         public float OuterDeadzone { get; }
         public float Exponent { get; }
+        public float AntiDeadzone { get; }
 
         public StickSample Process(Vector2 raw)
-            => Process(raw, InnerDeadzone, OuterDeadzone, Exponent);
+            => Process(raw, InnerDeadzone, OuterDeadzone, Exponent, AntiDeadzone);
 
         /// <summary>
         /// Process a raw -1..1 pair.  The outer deadzone maps the last usable
         /// ring to one, so a worn stick can still reach full turn speed.
         /// </summary>
         public static StickSample Process(Vector2 raw, float innerDeadzone,
-            float outerDeadzone, float exponent = 1)
+            float outerDeadzone, float exponent = 1, float antiDeadzone = 0)
         {
             if (!IsFinite(raw))
             {
@@ -69,6 +72,7 @@ namespace MphRead.Mods.Input
             float inner = SanitizeDeadzone(innerDeadzone, 0);
             float outer = SanitizeDeadzone(outerDeadzone, 0, 1 - inner);
             float curve = SanitizeExponent(exponent);
+            float minimumOutput = SanitizeAntiDeadzone(antiDeadzone);
             float rawMagnitude = raw.Length;
             if (!float.IsFinite(rawMagnitude) || rawMagnitude <= inner || rawMagnitude <= 0)
             {
@@ -78,7 +82,9 @@ namespace MphRead.Mods.Input
             float usableRange = MathF.Max(1e-6f, 1 - inner - outer);
             float magnitude = Math.Clamp((rawMagnitude - inner) / usableRange, 0, 1);
             Vector2 direction = raw / rawMagnitude;
-            float response = MathF.Pow(magnitude, curve);
+            float curved = MathF.Pow(magnitude, curve);
+            float response = curved <= 0 ? 0
+                : minimumOutput + (1 - minimumOutput) * curved;
             if (!float.IsFinite(response))
             {
                 return default;
@@ -107,5 +113,8 @@ namespace MphRead.Mods.Input
 
         private static float SanitizeExponent(float value)
             => !float.IsFinite(value) || value <= 0 ? 1 : Math.Clamp(value, 0.05f, 8);
+
+        private static float SanitizeAntiDeadzone(float value)
+            => !float.IsFinite(value) ? 0 : Math.Clamp(value, 0, .5f);
     }
 }

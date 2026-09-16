@@ -58,6 +58,22 @@ public sealed record ControllerDiagnosticInputSettings(
     bool HapticsEnabled,
     IReadOnlyDictionary<string, string> PadBindings);
 
+public sealed record ControllerDiagnosticProcessing(
+    float? CalibratedRightX,
+    float? CalibratedRightY,
+    float? EffectiveInnerDeadzone,
+    float? EffectiveOuterDeadzone,
+    float? LearnedCenterX,
+    float? LearnedCenterY,
+    float? LearnedNoise,
+    float? LearnedMaximumMagnitude,
+    float? ProcessedMagnitude,
+    float? ResponseMagnitude,
+    float? BoostProgress,
+    GyroCalibrationState GyroCalibration,
+    int GyroCalibrationSamples,
+    bool GyroHasFreshOutput);
+
 /// <summary>
 /// Privacy-safe controller diagnostics. It contains SDL's immutable device
 /// metadata and the current neutral/effective input samples, but never account
@@ -83,6 +99,7 @@ public sealed record ControllerDiagnosticReport(
     string? SdlRuntimeVersion,
     ControllerDiagnosticState RawState,
     ControllerDiagnosticState EffectiveState,
+    ControllerDiagnosticProcessing? Processing,
     ControllerDiagnosticInputSettings InputSettings);
 
 public static class ControllerDiagnosticReportBuilder
@@ -106,7 +123,8 @@ public static class ControllerDiagnosticReportBuilder
         float aimDeltaY,
         float aimVelocityX,
         float aimVelocityY,
-        DateTimeOffset? capturedAt = null)
+        DateTimeOffset? capturedAt = null,
+        ControllerDiagnosticProcessing? processing = null)
     {
         ControllerDiagnosticState rawState = State(raw, raw.Buttons,
             effectiveMoveX: null, effectiveMoveY: null,
@@ -135,6 +153,7 @@ public static class ControllerDiagnosticReportBuilder
             SafeText(capabilities.SdlRuntimeVersion),
             rawState,
             effectiveState,
+            processing,
             Settings());
     }
 
@@ -213,6 +232,21 @@ public static class ControllerDiagnosticReportBuilder
         text.AppendLine($"sdlRuntimeVersion={report.SdlRuntimeVersion ?? "unknown"}");
         AppendState(text, "raw", report.RawState);
         AppendState(text, "effective", report.EffectiveState);
+        if (report.Processing is ControllerDiagnosticProcessing processing)
+        {
+            text.AppendLine("processing:");
+            text.AppendLine($"  calibratedRightStick={Pair(processing.CalibratedRightX, processing.CalibratedRightY)}");
+            text.AppendLine($"  effectiveDeadzones={Pair(processing.EffectiveInnerDeadzone, processing.EffectiveOuterDeadzone)}");
+            text.AppendLine($"  learnedCenter={Pair(processing.LearnedCenterX, processing.LearnedCenterY)}");
+            text.AppendLine($"  learnedNoise={Number(processing.LearnedNoise)}");
+            text.AppendLine($"  learnedMaximumMagnitude={Number(processing.LearnedMaximumMagnitude)}");
+            text.AppendLine($"  processedMagnitude={Number(processing.ProcessedMagnitude)}");
+            text.AppendLine($"  responseMagnitude={Number(processing.ResponseMagnitude)}");
+            text.AppendLine($"  boostProgress={Number(processing.BoostProgress)}");
+            text.AppendLine($"  gyroCalibration={processing.GyroCalibration}");
+            text.AppendLine($"  gyroCalibrationSamples={processing.GyroCalibrationSamples}");
+            text.AppendLine($"  gyroHasFreshOutput={processing.GyroHasFreshOutput}");
+        }
         text.AppendLine("inputSettings:");
         text.AppendLine($"  moveDeadZone={report.InputSettings.MoveDeadZone.ToString("R", CultureInfo.InvariantCulture)}");
         text.AppendLine($"  lookDeadZone={report.InputSettings.LookDeadZone.ToString("R", CultureInfo.InvariantCulture)}");

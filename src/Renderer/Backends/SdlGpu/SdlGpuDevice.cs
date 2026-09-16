@@ -1,4 +1,5 @@
 using System;
+using System.Runtime.InteropServices;
 using OpenTK.Mathematics;
 using SDL;
 
@@ -52,12 +53,19 @@ namespace MphRead
 
         private SdlGpuDevice(SDL_GPUDevice* handle, SDL_Window* window, Vector2i logicalSize,
             Vector2i framebufferSize, SDL_GPUTextureFormat swapchainFormat, string driver,
-            SDL_GPUShaderFormat shaderFormats, bool supportsImmediatePresent)
+            SDL_GPUShaderFormat shaderFormats, bool supportsImmediatePresent,
+            DesktopGpuBackend requestedBackend, bool gpuDebug, string? deviceName,
+            string? deviceDriverInfo, string runtimeVersion)
         {
             Handle = handle;
             Window = window;
             SwapchainFormat = swapchainFormat;
             Driver = driver;
+            RequestedBackend = requestedBackend;
+            GpuDebug = gpuDebug;
+            DeviceName = deviceName;
+            DeviceDriverInfo = deviceDriverInfo;
+            RuntimeVersion = runtimeVersion;
             ShaderFormats = shaderFormats;
             SupportsImmediatePresent = supportsImmediatePresent;
             Caches = new DeviceRenderCaches();
@@ -76,13 +84,26 @@ namespace MphRead
         /// </summary>
         public bool SwapchainIsSrgb => IsSrgbFormat(SwapchainFormat);
         public string Driver { get; }
+        public DesktopGpuBackend RequestedBackend { get; }
+        public string RequestedDriver => DesktopGpuBackendResolver.ToCliValue(RequestedBackend);
+        public bool GpuDebug { get; }
+        public string? DeviceName { get; }
+        public string? DeviceDriverInfo { get; }
+        public string RuntimeVersion { get; }
         public SDL_GPUShaderFormat ShaderFormats { get; }
         public bool SupportsImmediatePresent { get; }
         public DeviceRenderCaches Caches { get; }
         public SdlGpuFrameResources FrameResources { get; }
         public RenderSurfaceInfo Surface { get; set; }
 
-        public static SdlGpuDevice Create(SDL_Window* window, Vector2i logicalSize, Vector2i framebufferSize)
+        public static SdlGpuDevice Create(SDL_Window* window, Vector2i logicalSize,
+            Vector2i framebufferSize)
+            => Create(window, logicalSize, framebufferSize,
+                SdlGpuDeviceOptions.ForCurrentPlatform());
+
+        public static SdlGpuDevice Create(SDL_Window* window, Vector2i logicalSize,
+            Vector2i framebufferSize, SdlGpuDeviceOptions options,
+            DesktopGpuBackend requestedBackend = DesktopGpuBackend.Auto)
         {
             if (window == null) throw new ArgumentNullException(nameof(window));
 
@@ -94,11 +115,16 @@ namespace MphRead
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_DXBC
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_MSL
                     | SDL_GPUShaderFormat.SDL_GPU_SHADERFORMAT_METALLIB;
-            SDL.Utf8String preferredDriver = PreferredDriverNameForPlatform(OperatingSystem.IsMacOS());
-            SDL_GPUDevice* device = SDL3.SDL_CreateGPUDevice(requested, true, preferredDriver);
+            SDL.Utf8String preferredDriver = options.PreferredDriver;
+            string requestedDriver = DesktopGpuBackendResolver.ToCliValue(requestedBackend);
+            SDL_GPUDevice* device = SDL3.SDL_CreateGPUDevice(requested,
+                options.DebugMode, preferredDriver);
             if (device == null)
             {
-                throw new InvalidOperationException($"SDL GPU device creation failed: {SDL3.SDL_GetError()}");
+                throw new InvalidOperationException(
+                    $"SDL GPU device creation failed for requested-driver={requestedDriver} "
+                    + $"gpu-debug={options.DebugMode.ToString().ToLowerInvariant()}: "
+                    + SDL3.SDL_GetError());
             }
 
             try
@@ -123,10 +149,31 @@ namespace MphRead
                 }
 
                 string driver = SDL3.SDL_GetGPUDeviceDriver(device) ?? "unknown";
+                if (requestedBackend != DesktopGpuBackend.Auto
+                    && !String.Equals(driver, options.PreferredDriver,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException(
+                        $"SDL GPU selected actual-driver={driver} for explicit "
+                        + $"requested-driver={requestedDriver}; refusing silent fallback.");
+                }
                 SDL_GPUShaderFormat formats = SDL3.SDL_GetGPUShaderFormats(device);
-                Console.WriteLine($"[render] renderer=sdl-gpu driver={driver} shaders={DescribeShaderFormats(formats)} swapchain={swapchainFormat} present=vsync");
+                SDL_PropertiesID properties = SDL3.SDL_GetGPUDeviceProperties(device);
+                string? deviceName = SDL3.SDL_GetStringProperty(properties,
+                    SDL3.SDL_PROP_GPU_DEVICE_NAME_STRING, null);
+                string? driverInfo = SDL3.SDL_GetStringProperty(properties,
+                    SDL3.SDL_PROP_GPU_DEVICE_DRIVER_INFO_STRING, null)
+                    ?? SDL3.SDL_GetStringProperty(properties,
+                        SDL3.SDL_PROP_GPU_DEVICE_DRIVER_VERSION_STRING, null)
+                    ?? SDL3.SDL_GetStringProperty(properties,
+                        SDL3.SDL_PROP_GPU_DEVICE_DRIVER_NAME_STRING, null);
+                Console.WriteLine($"[render] renderer=sdl-gpu requested-driver={requestedDriver} "
+                    + $"actual-driver={driver} gpu-debug={options.DebugMode.ToString().ToLowerInvariant()} "
+                    + $"shaders={DescribeShaderFormats(formats)} swapchain={swapchainFormat} present=vsync");
                 return new SdlGpuDevice(device, window, logicalSize, framebufferSize,
-                    swapchainFormat, driver, formats, supportsImmediatePresent);
+                    swapchainFormat, driver, formats, supportsImmediatePresent,
+                    requestedBackend, options.DebugMode, deviceName, driverInfo,
+                    SDL3.SDL_GetVersion().ToString());
             }
             catch
             {
@@ -168,7 +215,8 @@ namespace MphRead
                 or SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM_SRGB;
 
         internal static string? PreferredDriverNameForPlatform(bool isMacOS)
-            => isMacOS ? "metal" : null;
+            => DesktopGpuBackendResolver.ResolvePreferredDriver(
+                DesktopGpuBackend.Auto, isMacOS ? OSPlatform.OSX : OSPlatform.Windows);
 
         public void Dispose()
         {

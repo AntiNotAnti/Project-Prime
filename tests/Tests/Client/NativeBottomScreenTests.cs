@@ -515,6 +515,319 @@ public sealed class NativeBottomScreenTests
     }
 
     [Fact]
+    public void TrueDsAimRouteUsesCanonicalStylusSamplesWithoutQueueTraffic()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        long generation = controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenLayout layout = controller.Layout;
+        PointerSample down = PanelSample(layout, 41, 128, 96);
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(down));
+        Assert.Empty(controller.Consume(generation));
+
+        var coordinator = new LookInputCoordinator();
+        var stylus = new StylusInput(coordinator);
+        stylus.Configure(true, 1, false, true, .35f, 1);
+        PointerSample canonicalDown = controller.MapAimSample(down);
+        Assert.Equal(new Vector2(128, 96),
+            new Vector2(canonicalDown.X, canonicalDown.Y),
+            new Vector2Comparer(.01f));
+        Assert.Equal(0, canonicalDown.Pressure);
+        Assert.Equal(StylusButtons.None, canonicalDown.Buttons);
+        Assert.True(stylus.PointerDown(canonicalDown));
+        Assert.Equal(Vector2.Zero,
+            coordinator.ConsumeForSimulation(1f / 60f).DeltaDegrees);
+
+        PointerSample move = down with
+        {
+            X = down.X + layout.PanelLogical.Width * 8 / 256f,
+            Y = down.Y + layout.PanelLogical.Height * 4 / 192f
+        };
+        Assert.True(controller.TryPointerMove(move));
+        Assert.True(stylus.PointerMove(controller.MapAimSample(move)));
+        LocalLookFrame moved = coordinator.ConsumeForSimulation(1f / 60f);
+        Assert.Equal(new Vector2(-2, -1), moved.DeltaDegrees,
+            new Vector2Comparer(.01f));
+        Assert.Empty(controller.Consume(generation));
+
+        Assert.True(controller.TryPointerUp(move));
+        Assert.True(stylus.PointerUp(controller.MapAimSample(move)));
+        Assert.Equal(Vector2.Zero,
+            coordinator.ConsumeForSimulation(1f / 60f).DeltaDegrees);
+    }
+
+    [Fact]
+    public void TrueDsDuplicateDownRetainsTheOriginalAimRoute()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        PointerSample sample = PanelSample(controller.Layout, 42, 128, 96);
+
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(sample));
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(sample));
+        Assert.True(controller.TryPointerUp(sample));
+    }
+
+    [Fact]
+    public void TrueDsAimContactSnapshotStartsAtDownAndClampsOwnerMoves()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenLayout layout = controller.Layout;
+        PointerSample down = PanelSample(layout, 81, 130, 100);
+
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(down));
+        NativeBottomScreenAimContactSnapshot initial = controller.AimContact;
+        Assert.True(initial.Active);
+        Assert.Equal(new Vector2(130, 100), initial.PositionDs,
+            new Vector2Comparer(.01f));
+
+        PointerSample outside = down with
+        {
+            X = layout.PanelLogical.Right + layout.PanelLogical.Width,
+            Y = layout.PanelLogical.Top - layout.PanelLogical.Height,
+            Tool = PointerToolKind.Unknown
+        };
+        Assert.True(controller.TryPointerMove(outside));
+        NativeBottomScreenAimContactSnapshot moved = controller.AimContact;
+        Assert.True(moved.Active);
+        Assert.Equal(new Vector2(256, 0), moved.PositionDs,
+            new Vector2Comparer(.01f));
+        Assert.True(controller.TryPointerUp(outside));
+        Assert.False(controller.AimContact.Active);
+    }
+
+    [Fact]
+    public void TrueDsAimContactSnapshotCancelsAcrossReconfigureAndPresentationReset()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        PointerSample sample = PanelSample(controller.Layout, 82, 128, 96);
+
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(sample));
+        Assert.True(controller.AimContact.Active);
+        Assert.True(controller.CancelPointer(sample.Id));
+        Assert.False(controller.AimContact.Active);
+
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(sample with { Timestamp = 2 }));
+        Assert.True(controller.AimContact.Active);
+        controller.Configure(new Vector2i(1000, 700), new Vector2i(1000, 700),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        Assert.False(controller.AimContact.Active);
+
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        PointerSample recontact = PanelSample(controller.Layout, 83, 128, 96);
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(recontact));
+        Assert.True(controller.AimContact.Active);
+        controller.BeginPresentation();
+        Assert.False(controller.AimContact.Active);
+    }
+
+    [Fact]
+    public void TrueDsAimContactSnapshotExcludesMouseControlSuppressedAndDesktop()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenLayout layout = controller.Layout;
+
+        PointerSample mouseAim = PanelSample(layout, 84, 128, 96) with
+        {
+            Tool = PointerToolKind.Mouse
+        };
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(mouseAim));
+        Assert.False(controller.AimContact.Active);
+        Assert.True(controller.TryPointerMove(mouseAim with
+        {
+            Tool = PointerToolKind.Stylus,
+            X = mouseAim.X + layout.PanelLogical.Width / 4f
+        }));
+        Assert.False(controller.AimContact.Active);
+        Assert.True(controller.TryPointerUp(mouseAim));
+
+        PointerSample control = PanelSample(layout, 85, 26, 26);
+        Assert.Equal(NativeBottomScreenPointerRoute.Control,
+            controller.RoutePointerDown(control));
+        PointerSample suppressedAim = PanelSample(layout, 86, 128, 96);
+        Assert.Equal(NativeBottomScreenPointerRoute.Suppressed,
+            controller.RoutePointerDown(suppressedAim));
+        Assert.False(controller.AimContact.Active);
+        Assert.True(controller.TryPointerUp(control));
+
+        controller.BeginPresentation();
+        Assert.True(controller.BeginDesktopSession(
+            NativeBottomScreenActivationMode.Hold));
+        Assert.False(controller.AimContact.Active);
+        controller.EndDesktopSession();
+    }
+
+    [Fact]
+    public void AndroidTrueDsSuppressesOutsideFingerAimButKeepsPanelAim()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1000, 500), new Vector2i(1000, 500),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenPlatformRegistration registration
+            = NativeBottomScreenPlatformBridge.Register(controller);
+        try
+        {
+            var touch = new TouchControls();
+            touch.Layout(1000, 500, 1);
+            var stylus = new StylusInput(new LookInputCoordinator());
+            stylus.Configure(true, 1, false, false, .35f, 1);
+            var router = new PointerInputRouter(touch, stylus);
+            PointerSample outside = new(71, PointerToolKind.Finger,
+                500, 10, 1, StylusButtons.None, 1);
+
+            router.PointerDown(outside);
+            router.PointerMove(outside with { X = 600, Timestamp = 2 });
+            Assert.Equal((0f, 0f), touch.TakeAimDelta());
+            Assert.False(stylus.Active);
+            router.PointerUp(outside with { X = 600, Timestamp = 3 });
+
+            TouchButton fire = touch.Buttons.Single(button =>
+                button.Action == TouchAction.Shoot);
+            PointerSample fireFinger = new(73, PointerToolKind.Finger,
+                fire.CentreX, fire.CentreY, 1, StylusButtons.None, 4);
+            router.PointerDown(fireFinger);
+            Assert.True(touch.IsHeld(TouchAction.Shoot));
+            router.PointerMove(fireFinger with
+            {
+                X = fireFinger.X + 50,
+                Timestamp = 5
+            });
+            Assert.Equal((0f, 0f), touch.TakeAimDelta());
+            router.PointerUp(fireFinger with { Timestamp = 6 });
+            Assert.False(touch.IsHeld(TouchAction.Shoot));
+
+            PointerSample panel = PanelSample(controller.Layout, 72, 128, 96)
+                with { Tool = PointerToolKind.Finger };
+            router.PointerDown(panel);
+            Assert.True(stylus.Active);
+            controller.Cancel();
+            router.ReconcileBottomScreenEpoch();
+            Assert.False(stylus.Active);
+        }
+        finally
+        {
+            NativeBottomScreenPlatformBridge.Unregister(registration);
+        }
+    }
+
+    [Fact]
+    public void TrueDsRouteIsImmutableAndOnlyTheFirstPanelPointerWins()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        long generation = controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenLayout layout = controller.Layout;
+
+        PointerSample aim = PanelSample(layout, 51, 128, 96);
+        PointerSample control = PanelSample(layout, 52, 26, 26);
+        Assert.Equal(NativeBottomScreenPointerRoute.Aim,
+            controller.RoutePointerDown(aim));
+        Assert.Equal(NativeBottomScreenPointerRoute.Suppressed,
+            controller.RoutePointerDown(control));
+        Assert.True(controller.TryPointerMove(aim with { X = control.X }));
+        Assert.True(controller.TryPointerUp(aim));
+        Assert.False(controller.TryPointerUp(control));
+        Assert.Empty(controller.Consume(generation));
+
+        controller.BeginPresentation();
+        generation = controller.Generation;
+        Assert.Equal(NativeBottomScreenPointerRoute.Control,
+            controller.RoutePointerDown(control));
+        Assert.True(controller.TryPointerMove(control with { X = aim.X }));
+        Assert.True(controller.TryPointerUp(control));
+        Assert.Equal(new[]
+        {
+            NativeBottomScreenPointerPhase.Down,
+            NativeBottomScreenPointerPhase.Move,
+            NativeBottomScreenPointerPhase.Up
+        }, controller.Consume(generation).Select(item => item.Phase));
+    }
+
+    [Fact]
+    public void TrueDsRejectsContactsOutsideTheVisibleClassicPanel()
+    {
+        var controller = new NativeBottomScreenController();
+        controller.Configure(new Vector2i(1280, 720), new Vector2i(1280, 720),
+            NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenAimMode.TrueDs);
+        long generation = controller.BeginPresentation();
+        controller.UpdatePreferences(NativeBottomScreenMode.AlwaysVisible,
+            NativeBottomScreenStyle.ClassicDs,
+            NativeBottomScreenLayoutOptions.Default,
+            aimMode: NativeBottomScreenAimMode.TrueDs);
+        NativeBottomScreenLayout layout = controller.Layout;
+        PointerSample outside = new(61, PointerToolKind.Stylus,
+            layout.PanelLogical.Left - 1, layout.PanelLogical.Top + 10,
+            1, StylusButtons.None, 1);
+
+        Assert.Equal(NativeBottomScreenPointerRoute.None,
+            controller.RoutePointerDown(outside));
+        Assert.False(controller.TryPointerDown(outside));
+        Assert.Empty(controller.Consume(generation));
+    }
+
+    [Fact]
     public void DesktopToggleSessionCentersClampsAndAcceptsMouseClicks()
     {
         var controller = new NativeBottomScreenController();
@@ -694,6 +1007,7 @@ public sealed class NativeBottomScreenTests
             {
                 "HudOverlay=Key:F12",
                 "bottom_screen_mode=AlwaysVisible",
+                "bottom_screen_aim_mode=TrueDs",
                 "bottom_screen_activation=Hold",
                 "bottom_screen_cursor_sensitivity=1.75",
                 "bottom_screen_cursor_start_x=0.2",
@@ -720,6 +1034,10 @@ public sealed class NativeBottomScreenTests
             Assert.Equal(PrimeKey.F12, InputSettings.Current.HudOverlay.Key);
             Assert.Equal(NativeBottomScreenMode.AlwaysVisible,
                 InputSettings.BottomScreenMode);
+            Assert.Equal(NativeBottomScreenAimMode.TrueDs,
+                InputSettings.BottomScreenAimMode);
+            Assert.Contains("bottom_screen_aim_mode=TrueDs",
+                InputSettings.GetSaveLines());
             Assert.Contains("bottom_screen_mode=AlwaysVisible",
                 InputSettings.GetSaveLines());
             Assert.Equal(NativeBottomScreenActivationMode.Hold,
@@ -790,6 +1108,7 @@ public sealed class NativeBottomScreenTests
         try
         {
             InputSettings.BottomScreenCursorSensitivity = 3.2f;
+            InputSettings.BottomScreenAimMode = NativeBottomScreenAimMode.TrueDs;
             InputSettings.BottomScreenCursorStartX = .1f;
             InputSettings.BottomScreenCursorStartY = .9f;
             InputSettings.BottomScreenPowerBeamX = .9f;
@@ -809,6 +1128,8 @@ public sealed class NativeBottomScreenTests
             Assert.Equal(NativeBottomScreenAffinityLayoutOptions.Default,
                 InputSettings.CurrentBottomScreenAffinityLayout);
             Assert.True(InputSettings.BottomScreenDirectionalSwipeAssist);
+            Assert.Equal(NativeBottomScreenAimMode.Free,
+                InputSettings.BottomScreenAimMode);
         }
         finally
         {

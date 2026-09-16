@@ -250,6 +250,33 @@ namespace MphRead.Mods
 
         private static float _gamepadLookExponent = 1.60f;
 
+        /// <summary>
+        /// Minimum non-zero look output after the radial deadzone. This
+        /// compensates for games/controllers whose first usable samples would
+        /// otherwise be too small to move the camera reliably.
+        /// </summary>
+        public static float GamepadLookAntiDeadzone
+        {
+            get => _gamepadLookAntiDeadzone;
+            set => _gamepadLookAntiDeadzone = Clamp(value,
+                Input.GamepadLookProcessor.DefaultAntiDeadzone, 0, .5f);
+        }
+        private static float _gamepadLookAntiDeadzone
+            = Input.GamepadLookProcessor.DefaultAntiDeadzone;
+
+        /// <summary>
+        /// Maximum low-speed controller-look filter time. Filtering fades out
+        /// with stick speed so full turns remain responsive.
+        /// </summary>
+        public static float GamepadLookSmoothingSeconds
+        {
+            get => _gamepadLookSmoothingSeconds;
+            set => _gamepadLookSmoothingSeconds = Clamp(value,
+                Input.GamepadLookProcessor.DefaultSmoothingSeconds, 0, .25f);
+        }
+        private static float _gamepadLookSmoothingSeconds
+            = Input.GamepadLookProcessor.DefaultSmoothingSeconds;
+
         public static float GamepadYawRate
         {
             get => _gamepadYawRate;
@@ -524,6 +551,18 @@ namespace MphRead.Mods
         /// </summary>
         public static NativeBottomScreenMode BottomScreenMode { get; set; }
             = NativeBottomScreenMode.Off;
+        /// <summary>
+        /// Opt-in retail-style DS drag-to-aim ownership for the Classic DS
+        /// panel. Free preserves the existing global stylus behavior.
+        /// </summary>
+        public static NativeBottomScreenAimMode BottomScreenAimMode
+        {
+            get => _bottomScreenAimMode;
+            set => _bottomScreenAimMode = Enum.IsDefined(value)
+                ? value : NativeBottomScreenAimMode.Free;
+        }
+        private static NativeBottomScreenAimMode _bottomScreenAimMode
+            = NativeBottomScreenAimMode.Free;
         /// <summary>
         /// Desktop HudOverlay activation semantics. Toggle closes after a
         /// completed selection (or a second press); Hold remains focused until
@@ -1350,6 +1389,14 @@ namespace MphRead.Mods
                         _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Custom;
                     }
                     return true;
+                case "gamepad_look_anti_deadzone":
+                case "gamepad_anti_deadzone":
+                    if (parsed) GamepadLookAntiDeadzone = number;
+                    return true;
+                case "gamepad_look_smoothing_seconds":
+                case "gamepad_look_smoothing":
+                    if (parsed) GamepadLookSmoothingSeconds = number;
+                    return true;
                 case "gamepad_response_curve":
                     if (Enum.TryParse(value, true,
                         out Input.GamepadResponseCurvePreset responseCurve))
@@ -1459,6 +1506,21 @@ namespace MphRead.Mods
                         && Enum.IsDefined(bottomScreenMode))
                     {
                         BottomScreenMode = bottomScreenMode;
+                    }
+                    return true;
+                case "bottom_screen_aim_mode":
+                case "bottom_screen_true_ds_aim":
+                    if (Enum.TryParse(value, true,
+                        out NativeBottomScreenAimMode bottomScreenAimMode)
+                        && Enum.IsDefined(bottomScreenAimMode))
+                    {
+                        BottomScreenAimMode = bottomScreenAimMode;
+                    }
+                    else if (boolean)
+                    {
+                        BottomScreenAimMode = flag
+                            ? NativeBottomScreenAimMode.TrueDs
+                            : NativeBottomScreenAimMode.Free;
                     }
                     return true;
                 case "bottom_screen_activation":
@@ -1748,6 +1810,8 @@ namespace MphRead.Mods
                     "gamepad_move_activate=" + Float(GamepadMoveActivateThreshold),
                     "gamepad_move_release=" + Float(GamepadMoveReleaseThreshold),
                     "gamepad_look_exponent=" + Float(GamepadLookExponent),
+                    "gamepad_look_anti_deadzone=" + Float(GamepadLookAntiDeadzone),
+                    "gamepad_look_smoothing_seconds=" + Float(GamepadLookSmoothingSeconds),
                     $"gamepad_response_curve={GamepadResponseCurve}",
                     "gamepad_yaw_rate=" + Float(GamepadYawRate),
                     "gamepad_pitch_rate=" + Float(GamepadPitchRate),
@@ -1789,6 +1853,7 @@ namespace MphRead.Mods
                     $"stylus_pressure_to_fire={StylusPressureToFire.ToString().ToLowerInvariant()}",
                     "stylus_pressure_threshold=" + Float(StylusPressureThreshold),
                     $"bottom_screen_mode={BottomScreenMode}",
+                    $"bottom_screen_aim_mode={BottomScreenAimMode}",
                     $"bottom_screen_activation={BottomScreenActivation}",
                     "bottom_screen_cursor_sensitivity=" + Float(BottomScreenCursorSensitivity),
                     "bottom_screen_cursor_start_x=" + Float(BottomScreenCursorStartX),
@@ -1894,6 +1959,7 @@ namespace MphRead.Mods
             StylusPressureToFire = false;
             StylusPressureThreshold = 0.35f;
             BottomScreenMode = NativeBottomScreenMode.Off;
+            BottomScreenAimMode = NativeBottomScreenAimMode.Free;
             BottomScreenActivation = NativeBottomScreenActivationMode.Toggle;
             BottomScreenCursorSensitivity = 1;
             BottomScreenCursorStartX = .5f;
@@ -1994,6 +2060,8 @@ namespace MphRead.Mods
             GamepadMoveActivateThreshold = 0.25f;
             GamepadMoveReleaseThreshold = 0.18f;
             GamepadLookExponent = 1.60f;
+            GamepadLookAntiDeadzone = Input.GamepadLookProcessor.DefaultAntiDeadzone;
+            GamepadLookSmoothingSeconds = Input.GamepadLookProcessor.DefaultSmoothingSeconds;
             _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Balanced;
             GamepadYawRate = 300;
             GamepadPitchRate = 240;
@@ -2034,6 +2102,8 @@ namespace MphRead.Mods
             GamepadMoveActivateThreshold = 0.25f;
             GamepadMoveReleaseThreshold = 0.18f;
             GamepadLookExponent = 1.60f;
+            GamepadLookAntiDeadzone = Input.GamepadLookProcessor.DefaultAntiDeadzone;
+            GamepadLookSmoothingSeconds = Input.GamepadLookProcessor.DefaultSmoothingSeconds;
             _gamepadResponseCurve = Input.GamepadResponseCurvePreset.Balanced;
             GamepadYawRate = 300;
             GamepadPitchRate = 240;
@@ -2089,6 +2159,8 @@ namespace MphRead.Mods
                 && GamepadMoveActivateThreshold == .25f
                 && GamepadMoveReleaseThreshold == .18f
                 && GamepadLookExponent == 1.60f
+                && GamepadLookAntiDeadzone == Input.GamepadLookProcessor.DefaultAntiDeadzone
+                && GamepadLookSmoothingSeconds == Input.GamepadLookProcessor.DefaultSmoothingSeconds
                 && GamepadResponseCurve == Input.GamepadResponseCurvePreset.Balanced
                 && GamepadYawRate == 300
                 && GamepadPitchRate == 240

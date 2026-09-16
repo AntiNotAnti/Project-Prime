@@ -197,7 +197,8 @@ namespace MphRead.Entities
                     Mods.InputSettings.BottomScreenCenterX,
                     Mods.InputSettings.BottomScreenCenterY),
                 Mods.InputSettings.CurrentBottomScreenClassicLayout,
-                Mods.InputSettings.CurrentBottomScreenAffinityLayout);
+                Mods.InputSettings.CurrentBottomScreenAffinityLayout,
+                Mods.InputSettings.BottomScreenAimMode);
             controller.UpdateDesktopCursorPreferences(
                 Mods.InputSettings.BottomScreenCursorSensitivity,
                 Mods.InputSettings.BottomScreenCursorStartX,
@@ -512,6 +513,8 @@ namespace MphRead.Entities
                 * Features.HudOpacity, 0, 1);
 
             if (!controller.Visible) return;
+            NativeBottomScreenAimContactSnapshot aimContact
+                = controller.AimContact;
 
             BottomScreenRect panel = layout.PanelFramebuffer;
             DrawBottomScreenRect(panel,
@@ -545,6 +548,10 @@ namespace MphRead.Entities
             {
                 DrawBottomScreenCursor(layout, controller.DesktopCursorDs,
                     opacity);
+            }
+            if (aimContact.Active)
+            {
+                DrawBottomScreenCursor(layout, aimContact.PositionDs, opacity);
             }
         }
 

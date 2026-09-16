@@ -42,11 +42,144 @@ public sealed class ControllerP2InputTests
     }
 
     [Fact]
-    public void SdlPenCompatibilityMouseIsFilteredButDesktopTouchMouseIsPreserved()
+    public void SdlPenAndTouchCompatibilityMouseEventsAreFiltered()
     {
-        Assert.True(SdlGameHost.IsSyntheticPenMouseId((uint)SDL3.SDL_PEN_MOUSEID));
-        Assert.False(SdlGameHost.IsSyntheticPenMouseId((uint)SDL3.SDL_TOUCH_MOUSEID));
-        Assert.False(SdlGameHost.IsSyntheticPenMouseId(1));
+        Assert.True(SdlGameHost.IsSyntheticPointerMouseId((uint)SDL3.SDL_PEN_MOUSEID));
+        Assert.True(SdlGameHost.IsSyntheticPointerMouseId((uint)SDL3.SDL_TOUCH_MOUSEID));
+        Assert.False(SdlGameHost.IsSyntheticPointerMouseId(1));
+    }
+
+    [Fact]
+    public void SdlFingerCoordinatesRemainUnclampedWindowLogicalCoordinates()
+    {
+        Assert.Equal(new Vector2(-128, 810),
+            SdlPointerHub.MapFingerPosition(-.1f, 1.125f,
+                new Vector2i(1280, 720)));
+    }
+
+    [Fact]
+    public void BottomPanelMouseRectUsesLogicalBoundsAndOutwardRounding()
+    {
+        SDL_Rect rect = SdlWindowController.ToSdlMouseRect(
+            new BottomScreenRect(99.2f, 200.8f, 900.1f, 700.01f),
+            new Vector2i(800, 600));
+
+        Assert.Equal(99, rect.x);
+        Assert.Equal(200, rect.y);
+        Assert.Equal(701, rect.w);
+        Assert.Equal(400, rect.h);
+    }
+
+    [Fact]
+    public void SdlFingerIdentityIncludesTouchDeviceAndCancelReleasesOwnership()
+    {
+        var downIds = new System.Collections.Generic.List<long>();
+        var canceledIds = new System.Collections.Generic.List<long>();
+        var upIds = new System.Collections.Generic.List<long>();
+        using var hub = new SdlPointerHub(_ => { },
+            sample =>
+            {
+                downIds.Add(sample.Id);
+                return NativeBottomScreenPointerRoute.Control;
+            }, sample => sample, _ => true,
+            sample =>
+            {
+                upIds.Add(sample.Id);
+                return true;
+            }, id =>
+            {
+                canceledIds.Add(id);
+                return true;
+            }, () => true, () => 1, () => 1);
+
+        SDL_TouchFingerEvent first = new()
+        {
+            type = SDL_EventType.SDL_EVENT_FINGER_DOWN,
+            touchID = (SDL_TouchID)10,
+            fingerID = (SDL_FingerID)7,
+            x = .25f,
+            y = .5f
+        };
+        SDL_TouchFingerEvent second = first;
+        second.touchID = (SDL_TouchID)11;
+        hub.HandleFinger(first, new Vector2i(1280, 720), cancel: false);
+        hub.HandleFinger(second, new Vector2i(1280, 720), cancel: false);
+
+        Assert.Equal(2, downIds.Count);
+        Assert.NotEqual(downIds[0], downIds[1]);
+        first.type = SDL_EventType.SDL_EVENT_FINGER_CANCELED;
+        second.type = SDL_EventType.SDL_EVENT_FINGER_UP;
+        hub.HandleFinger(first, new Vector2i(1280, 720), cancel: true);
+        hub.HandleFinger(second, new Vector2i(1280, 720), cancel: false);
+
+        Assert.Equal(new[] { downIds[0] }, canceledIds);
+        Assert.Equal(new[] { downIds[1] }, upIds);
+    }
+
+    [Fact]
+    public void SdlBottomContactIsCanceledWhenTheSceneEpochChanges()
+    {
+        long epoch = 1;
+        var canceledIds = new System.Collections.Generic.List<long>();
+        using var hub = new SdlPointerHub(_ => { },
+            _ => NativeBottomScreenPointerRoute.Control,
+            sample => sample, _ => true, _ => true,
+            id =>
+            {
+                canceledIds.Add(id);
+                return true;
+            }, () => true, () => epoch, () => 1);
+        SDL_TouchFingerEvent down = new()
+        {
+            type = SDL_EventType.SDL_EVENT_FINGER_DOWN,
+            touchID = (SDL_TouchID)5,
+            fingerID = (SDL_FingerID)9,
+            x = .5f,
+            y = .5f
+        };
+
+        hub.HandleFinger(down, new Vector2i(800, 600), cancel: false);
+        epoch++;
+        hub.ReconcileBottomScreenEpoch();
+
+        Assert.Single(canceledIds);
+    }
+
+    [Fact]
+    public void SdlControlEpochChangeDoesNotCancelAnUnrelatedStylusStroke()
+    {
+        long epoch = 1;
+        using var hub = new SdlPointerHub(input =>
+            input.Configure(true, 1, false, false, .35f, 1),
+            sample => sample.Tool == PointerToolKind.Finger
+                ? NativeBottomScreenPointerRoute.Control
+                : NativeBottomScreenPointerRoute.None,
+            sample => sample, _ => true, _ => true, _ => true,
+            () => false, () => epoch, () => 1);
+        SDL_PenTouchEvent penDown = new()
+        {
+            which = (SDL_PenID)99,
+            down = true,
+            x = 10,
+            y = 10,
+            pen_state = SDL_PenInputFlags.SDL_PEN_INPUT_DOWN
+        };
+        hub.HandleTouch(penDown);
+        Assert.True(hub.StylusActive);
+
+        SDL_TouchFingerEvent controlDown = new()
+        {
+            type = SDL_EventType.SDL_EVENT_FINGER_DOWN,
+            touchID = (SDL_TouchID)6,
+            fingerID = (SDL_FingerID)10,
+            x = .5f,
+            y = .5f
+        };
+        hub.HandleFinger(controlDown, new Vector2i(800, 600), cancel: false);
+        epoch++;
+        hub.ReconcileBottomScreenEpoch();
+
+        Assert.True(hub.StylusActive);
     }
 
     [Theory]

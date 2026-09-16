@@ -59,13 +59,22 @@ namespace MphRead
         private bool _loggedFirstSubmit;
         private readonly RenderTelemetryAccumulator _telemetry = new();
 
-        public SdlGpuBackend(SDL_Window* window, Vector2i logicalSize, Vector2i framebufferSize)
+        public SdlGpuBackend(SDL_Window* window, Vector2i logicalSize,
+            Vector2i framebufferSize)
+            : this(window, logicalSize, framebufferSize,
+                SdlGpuRuntimeConfiguration.Current)
+        {
+        }
+
+        public SdlGpuBackend(SDL_Window* window, Vector2i logicalSize,
+            Vector2i framebufferSize, SdlGpuRuntimeOptions options)
         {
             if (window == null) throw new ArgumentNullException(nameof(window));
             _window = window;
             _logicalSize = logicalSize;
             _framebufferSize = framebufferSize;
-            _device = SdlGpuDevice.Create(window, logicalSize, framebufferSize);
+            _device = SdlGpuDevice.Create(window, logicalSize, framebufferSize,
+                options.DeviceOptions, options.RequestedBackend);
             _readback = new SdlGpuReadback(_device);
             try
             {
@@ -89,7 +98,14 @@ namespace MphRead
             _presentModeLabel,
             _finalComposite != null,
             true,
-            true);
+            true)
+        {
+            RequestedDriver = _device.RequestedDriver,
+            GpuDebug = _device.GpuDebug,
+            DeviceName = _device.DeviceName,
+            DeviceDriverInfo = _device.DeviceDriverInfo,
+            RuntimeVersion = _device.RuntimeVersion
+        };
         public RenderSurfaceInfo Surface => _device.Surface;
         public DeviceRenderCaches Caches => _device.Caches;
         public RenderTelemetrySnapshot Telemetry => _telemetry.Latest;
@@ -183,10 +199,10 @@ namespace MphRead
             // Explicit caps use immediate presentation and must not let the
             // display's refresh rate pace the entire render loop. If all
             // swapchain images are busy, SDL's non-blocking acquire returns a
-            // successful null image; the frame is still rendered into the
-            // final-composite target and submitted as a real offscreen GPU
-            // frame. Display/VSync mode keeps the blocking acquire so it stays
-            // naturally synchronized to the monitor without a busy loop.
+            // successful null image. That is a no-drawable result, not an
+            // offscreen render opportunity; the dedicated
+            // TryBeginOffscreenFrame path remains the only intentional
+            // offscreen path.
             bool nonBlocking = _presentMode
                 == SDL_GPUPresentMode.SDL_GPU_PRESENTMODE_IMMEDIATE;
             bool acquired = nonBlocking
@@ -202,23 +218,25 @@ namespace MphRead
                 return false;
             }
             _swapchainAcquireSucceeded = swapchainTexture != null;
-            // A null image is the expected non-blocking result while the GPU
-            // or display owns every swapchain image. Keep the command buffer
-            // and produce an offscreen frame instead of stalling. The blocking
-            // VSync path retains its existing no-drawable behavior.
-            if (swapchainTexture == null && nonBlocking)
+            // SDL uses true + null to indicate that no drawable image is
+            // currently available. No swapchain texture was acquired, so
+            // cancellation is valid here. Do not encode or submit an
+            // offscreen frame from this interactive path.
+            if (swapchainTexture == null)
             {
-                _swapchainWidth = checked((uint)_framebufferSize.X);
-                _swapchainHeight = checked((uint)_framebufferSize.Y);
-                frame = new RenderBackendFrame(false, false, _framebufferSize);
-                _currentFrame = frame;
-                return true;
+                SDL3.SDL_CancelGPUCommandBuffer(commandBuffer);
+                _commandBuffer = null;
+                _currentFrame = null;
+                _swapchainTexture = null;
+                _swapchainWidth = 0;
+                _swapchainHeight = 0;
+                _swapchainAcquireSucceeded = false;
+                CompleteTelemetry();
+                return false;
             }
-            // SDL has successfully acquired the swapchain operation at this
-            // point. Even if it reports no drawable image (minimized/window
-            // manager race), cancellation is invalid; submit this empty
-            // command buffer and suppress presentation acknowledgement.
-            if (swapchainTexture == null || width == 0 || height == 0)
+            // A texture was acquired, so SDL requires this command buffer to
+            // be submitted even if its dimensions became unusable.
+            if (width == 0 || height == 0)
             {
                 SubmitEmpty(commandBuffer);
                 return false;
@@ -708,8 +726,9 @@ namespace MphRead
             if (_commandBuffer != null)
             {
                 // SDL requires submission after a successful swapchain
-                // acquire, including an interrupted/empty frame. Cancellation
-                // is reserved for the pre-acquire failure path.
+                // texture acquire, including an interrupted/empty frame.
+                // Cancellation remains valid before texture acquisition,
+                // including SDL's successful null-image result.
                 if (_swapchainAcquireSucceeded)
                 {
                     SubmitEmpty(_commandBuffer);

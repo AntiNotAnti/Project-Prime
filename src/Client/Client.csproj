@@ -114,6 +114,28 @@
     <Compile Include="../Shared/Hosting/ConsoleSetup.cs" Link="Shared/Hosting/ConsoleSetup.cs" />
   </ItemGroup>
 
+  <!-- Benchmark reports must identify the exact source revision used to build
+       the executable. Keep this in generated assembly metadata so published
+       packages do not depend on a .git directory at runtime. -->
+  <Target Name="ResolveProjectPrimeGitCommit" BeforeTargets="GetAssemblyAttributes"
+          Condition="'$(DesignTimeBuild)' != 'true'">
+    <Exec Command="git rev-parse HEAD"
+          WorkingDirectory="$(MSBuildProjectDirectory)/../.."
+          ConsoleToMSBuild="true" StandardOutputImportance="Low"
+          IgnoreExitCode="true">
+      <Output TaskParameter="ConsoleOutput" ItemName="_ProjectPrimeGitCommitOutput" />
+      <Output TaskParameter="ExitCode" PropertyName="_ProjectPrimeGitCommitExitCode" />
+    </Exec>
+    <PropertyGroup>
+      <ProjectPrimeGitCommit>@(_ProjectPrimeGitCommitOutput)</ProjectPrimeGitCommit>
+      <ProjectPrimeGitCommit Condition="'$(_ProjectPrimeGitCommitExitCode)' != '0' or '$(ProjectPrimeGitCommit)' == ''">unavailable</ProjectPrimeGitCommit>
+    </PropertyGroup>
+    <ItemGroup>
+      <AssemblyMetadata Include="ProjectPrimeGitCommit"
+                        Value="$(ProjectPrimeGitCommit)" />
+    </ItemGroup>
+  </Target>
+
   <!-- Desktop-only entry points, native hosts and platform adapters. The
        cross-platform implementation is compiled once by Client.Presentation. -->
   <ItemGroup>
@@ -123,7 +145,7 @@
       Launcher/Portable/MatchStart.cs;Launcher/Portable/TextLauncher.cs;Launcher/Shell/PostMatchCommandScope.cs;Launcher/Shell/PostMatchSelection.cs;Launcher/Shell/PostMatchView.cs;
       Networking/AuthoritativeCheck.cs;Networking/AuthoritativePlay.Desktop.cs;Networking/MapAudit.cs;Networking/NetCheckClient.cs;Networking/NetProbe.cs;Networking/ReplayPlaybackCheck.cs;Networking/WeaponDps.cs;
       Program.cs;Rendering/FrameTimingCheck.cs;Rendering/Platform/GameHostPresentationState.cs;Rendering/Platform/RenderToolHost.cs;Rendering/Platform/SceneHostLifetime.cs;Rendering/Platform/SdlCompatibilityInput.cs;Rendering/Platform/SdlGameHost.cs;Rendering/Platform/SdlWindowController.cs;Rendering/Platform/SdlInputHub.cs;Rendering/Platform/SdlGamepadHub.cs;Rendering/Platform/SdlPointerHub.cs;
-      Runtime/AssemblyInfo.cs;Runtime/ConsoleWindow.cs;Runtime/DesktopPresentationServices.cs;Runtime/Menu.cs;Runtime/ModEntry.cs;Runtime/ModelPreviewCapture.cs;Runtime/PauseMenu.cs;Runtime/ThumbnailBatch.cs;Runtime/ThumbnailCapture.cs;Runtime/ThumbnailGenerator.Desktop.cs" />
+      Runtime/AssemblyInfo.cs;Runtime/ConsoleWindow.cs;Runtime/DesktopPresentationServices.cs;Runtime/Menu.cs;Runtime/ModEntry.cs;Runtime/ModelPreviewCapture.cs;Runtime/PauseMenu.cs;Runtime/RenderBenchmark.cs;Runtime/ThumbnailBatch.cs;Runtime/ThumbnailCapture.cs;Runtime/ThumbnailGenerator.Desktop.cs" />
     <Compile Include="Update/DesktopUpdate.cs;Update/DesktopUpdateInstaller.cs;Update/UpdateTransaction.cs" />
   </ItemGroup>
 

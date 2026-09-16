@@ -101,6 +101,27 @@ public sealed class LogFixRegressionTests
             StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void SetupFailureDoesNotReadKeysFromRedirectedChildProcess()
+    {
+        string source = ReadRepositoryFile("src", "Client", "Program.cs");
+        int checkSetup = source.IndexOf("private static bool CheckSetup",
+            StringComparison.Ordinal);
+        Assert.True(checkSetup >= 0);
+        int finishSetup = source.IndexOf("private static void FinishSetupFailure",
+            checkSetup, StringComparison.Ordinal);
+
+        Assert.True(finishSetup > checkSetup);
+        string setup = source[checkSetup..finishSetup];
+        Assert.DoesNotContain("Console.ReadKey", setup, StringComparison.Ordinal);
+        Assert.Equal(2, setup.Split("FinishSetupFailure();",
+            StringSplitOptions.None).Length - 1);
+        Assert.Contains("if (Console.IsInputRedirected) return;", source,
+            StringComparison.Ordinal);
+        Assert.Contains("catch (InvalidOperationException)", source,
+            StringComparison.Ordinal);
+    }
+
     private static void SetHudReady(PlayerPresentation presentation, bool ready)
         => typeof(PlayerPresentation)
             .GetField("<HudReady>k__BackingField",

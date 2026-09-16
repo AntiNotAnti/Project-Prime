@@ -1,8 +1,16 @@
 using System;
+using MphRead.Mods.Input;
 using SDL;
 using OpenTK.Mathematics;
 
 namespace MphRead;
+
+internal enum SdlCursorPolicy
+{
+    UiNormal,
+    GameplayRelative,
+    BottomPanelConfined
+}
 
 /// <summary>
 /// Tracks the requested fullscreen intent separately from the native state
@@ -65,6 +73,10 @@ internal unsafe sealed class SdlWindowController : IDisposable
     private SDL_Window* _window;
     private bool _disposed;
     private readonly FullscreenTransitionTracker _fullscreen = new();
+    private SdlCursorPolicy _cursorPolicy;
+    private BottomScreenRect? _cursorPanel;
+    private BottomScreenRect? _confinementRetryPanel;
+    private long _nextConfinementRetryAt;
 
     internal SdlWindowController(Vector2i size, string title)
     {
@@ -103,6 +115,7 @@ internal unsafe sealed class SdlWindowController : IDisposable
     internal bool RequestedFullscreen => _fullscreen.Requested;
     internal bool ActivationDeferred { get; private set; }
     internal bool CursorCaptured { get; private set; }
+    internal SdlCursorPolicy CursorPolicy => _cursorPolicy;
 
     internal bool IsOurWindow(SDL_WindowID windowId)
         => windowId == WindowId;
@@ -129,13 +142,105 @@ internal unsafe sealed class SdlWindowController : IDisposable
         => Focused = focused;
 
     internal void SetCursorCaptured(bool captured)
+        => SetCursorPolicy(captured ? SdlCursorPolicy.GameplayRelative
+            : SdlCursorPolicy.UiNormal);
+
+    internal void SetCursorPolicy(SdlCursorPolicy policy,
+        BottomScreenRect? panel = null)
     {
         ThrowIfDisposed();
-        if (!SDL3.SDL_SetWindowRelativeMouseMode(_window, captured))
-            throw new InvalidOperationException($"SDL relative mouse mode failed: {SDL3.SDL_GetError()}");
-        if (captured) SDL3.SDL_HideCursor();
-        else SDL3.SDL_ShowCursor();
-        CursorCaptured = captured;
+        if (policy == SdlCursorPolicy.BottomPanelConfined
+            && (panel is not BottomScreenRect rect
+                || rect.Width <= 0 || rect.Height <= 0))
+        {
+            policy = SdlCursorPolicy.UiNormal;
+            panel = null;
+        }
+        if (policy == SdlCursorPolicy.BottomPanelConfined
+            && _confinementRetryPanel == panel
+            && Environment.TickCount64 < _nextConfinementRetryAt)
+        {
+            return;
+        }
+        if (policy != SdlCursorPolicy.BottomPanelConfined)
+        {
+            _confinementRetryPanel = null;
+            _nextConfinementRetryAt = 0;
+        }
+        if (_cursorPolicy == policy && _cursorPanel == panel) return;
+
+        if (policy == SdlCursorPolicy.GameplayRelative)
+        {
+            _confinementRetryPanel = null;
+            _nextConfinementRetryAt = 0;
+            ClearMouseRectBestEffort();
+            if (!SDL3.SDL_SetWindowRelativeMouseMode(_window, true))
+                throw new InvalidOperationException(
+                    $"SDL relative mouse mode failed: {SDL3.SDL_GetError()}");
+            SDL3.SDL_HideCursor();
+            CursorCaptured = true;
+            _cursorPanel = null;
+        }
+        else
+        {
+            if (!SDL3.SDL_SetWindowRelativeMouseMode(_window, false))
+                throw new InvalidOperationException(
+                    $"SDL relative mouse mode failed: {SDL3.SDL_GetError()}");
+            CursorCaptured = false;
+            if (policy == SdlCursorPolicy.BottomPanelConfined
+                && panel is BottomScreenRect confined)
+            {
+                SDL_Rect mouseRect = ToSdlMouseRect(confined, LogicalSize);
+                if (!SDL3.SDL_SetWindowMouseRect(_window, &mouseRect))
+                {
+                    Mods.DebugLog.Line("sdl", "mouse confinement failed; "
+                        + $"continuing with software-clamped panel cursor: {SDL3.SDL_GetError()}");
+                    ClearMouseRectBestEffort();
+                    _confinementRetryPanel = confined;
+                    _nextConfinementRetryAt = Environment.TickCount64 + 1000;
+                    policy = SdlCursorPolicy.UiNormal;
+                    panel = null;
+                }
+                else
+                {
+                    _confinementRetryPanel = null;
+                    _nextConfinementRetryAt = 0;
+                }
+                _cursorPanel = panel;
+            }
+            else
+            {
+                _confinementRetryPanel = null;
+                _nextConfinementRetryAt = 0;
+                ClearMouseRectBestEffort();
+                _cursorPanel = null;
+            }
+            SDL3.SDL_ShowCursor();
+        }
+        _cursorPolicy = policy;
+    }
+
+    internal static SDL_Rect ToSdlMouseRect(BottomScreenRect panel,
+        Vector2i logicalSize)
+    {
+        int left = Math.Clamp((int)MathF.Floor(panel.Left), 0,
+            Math.Max(0, logicalSize.X));
+        int top = Math.Clamp((int)MathF.Floor(panel.Top), 0,
+            Math.Max(0, logicalSize.Y));
+        int right = Math.Clamp((int)MathF.Ceiling(panel.Right), left,
+            Math.Max(left, logicalSize.X));
+        int bottom = Math.Clamp((int)MathF.Ceiling(panel.Bottom), top,
+            Math.Max(top, logicalSize.Y));
+        return new SDL_Rect { x = left, y = top, w = right - left,
+            h = bottom - top };
+    }
+
+    private void ClearMouseRectBestEffort()
+    {
+        if (!SDL3.SDL_SetWindowMouseRect(_window, null))
+        {
+            Mods.DebugLog.Line("sdl", $"mouse confinement release failed: {SDL3.SDL_GetError()}");
+        }
     }
 
     internal void SetWindowFocusable(bool focusable)
@@ -249,6 +354,7 @@ internal unsafe sealed class SdlWindowController : IDisposable
     public void Dispose()
     {
         if (_disposed) return;
+        if (_window != null) ClearMouseRectBestEffort();
         _disposed = true;
         if (_window != null)
         {

@@ -954,6 +954,7 @@ namespace MphRead.Droid
                 ReleasePlayLease();
                 return;
             }
+            _overlay = new TouchOverlayView(this, _controls, _stylus);
             _gameView = new GameView(this, _controls, _stylus, input, _frameTiming,
                 (i, size, timing) => AndroidMatch.Build(i, size, plan,
                     () => RunOnUiThread(EndMatch), timing),
@@ -961,14 +962,14 @@ namespace MphRead.Droid
                 () => RunOnUiThread(MatchLoaded),
                 error => RunOnUiThread(() => FailMatch(error)),
                 () => RunOnUiThread(TogglePauseMenu),
-                show => RunOnUiThread(() => ShowSoftKeyboard(show)));
+                show => RunOnUiThread(() => ShowSoftKeyboard(show)),
+                () => _overlay?.ReconcileBottomScreenInteraction());
             // The launcher is Avalonia, which draws on a surface of its own,
             // and two surfaces in one window have no z-order between them
             // unless one is asked for. Above the other surface and below the
             // window, so the touch controls and the loading notice -- ordinary
             // views -- still draw over the game.
             _gameView.SetZOrderMediaOverlay(true);
-            _overlay = new TouchOverlayView(this, _controls, _stylus);
             _content.AddView(_gameView);
             _content.AddView(_overlay);
             // The notice has been up since StartMatch. The GameView draws

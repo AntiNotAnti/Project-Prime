@@ -92,6 +92,139 @@ public sealed class FrameTimingTelemetryTests
     }
 
     [Fact]
+    public void HostAndPresentationTelemetryIsRecordedWithOutcomeCounters()
+    {
+        var timing = new FrameTiming();
+        var sample = new FramePhaseTimingSample(
+            InputMilliseconds: 1,
+            SimulationMilliseconds: 2,
+            ScenePreparationMilliseconds: 3,
+            DrawListBuildMilliseconds: 4,
+            RenderEncodeMilliseconds: 5,
+            RenderSubmitMilliseconds: 6,
+            PresentMilliseconds: 7,
+            OverlayUiMilliseconds: 8,
+            AfterFrameMilliseconds: 9,
+            WholeFrameMilliseconds: 10,
+            LegacyTotalRenderMilliseconds: 11,
+            ElapsedSeconds: 0,
+            HostWorkMilliseconds: 12,
+            SoftwarePacingMilliseconds: 13,
+            FrameTimingAdvanceMilliseconds: 14,
+            SwapchainAcquireMilliseconds: 15,
+            PresentedWholeFrameMilliseconds: 16,
+            Acquired: true,
+            Submitted: true,
+            Presented: true,
+            AcquisitionAttempted: true);
+
+        timing.RecordRuntimeFrame(in sample);
+
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(1, snapshot.HostWork.Count);
+        Assert.Equal(12, snapshot.HostWork.P50);
+        Assert.Equal(1, snapshot.SoftwarePacing.Count);
+        Assert.Equal(13, snapshot.SoftwarePacing.P50);
+        Assert.Equal(1, snapshot.FrameTimingAdvance.Count);
+        Assert.Equal(14, snapshot.FrameTimingAdvance.P50);
+        Assert.Equal(1, snapshot.SwapchainAcquire.Count);
+        Assert.Equal(15, snapshot.SwapchainAcquire.P50);
+        Assert.Equal(1, snapshot.PresentedWholeFrame.Count);
+        Assert.Equal(16, snapshot.PresentedWholeFrame.P50);
+        Assert.Equal(1, snapshot.TickAttempts);
+        Assert.Equal(1, snapshot.AcquiredFrames);
+        Assert.Equal(1, snapshot.SubmittedFrames);
+        Assert.Equal(1, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
+    }
+
+    [Fact]
+    public void PresentedWholeFrameExcludesUnpresentedSamples()
+    {
+        var timing = new FrameTiming();
+        var unpresented = new FramePhaseTimingSample(
+            InputMilliseconds: double.NaN,
+            SimulationMilliseconds: double.NaN,
+            ScenePreparationMilliseconds: double.NaN,
+            DrawListBuildMilliseconds: double.NaN,
+            RenderEncodeMilliseconds: double.NaN,
+            RenderSubmitMilliseconds: double.NaN,
+            PresentMilliseconds: double.NaN,
+            OverlayUiMilliseconds: double.NaN,
+            AfterFrameMilliseconds: double.NaN,
+            WholeFrameMilliseconds: 20,
+            LegacyTotalRenderMilliseconds: double.NaN,
+            ElapsedSeconds: 0,
+            PresentedWholeFrameMilliseconds: 100,
+            Acquired: false,
+            Submitted: false,
+            Presented: false,
+            AcquisitionAttempted: true);
+        var presented = unpresented with
+        {
+            PresentedWholeFrameMilliseconds = 200,
+            Acquired = true,
+            Submitted = true,
+            Presented = true
+        };
+
+        timing.RecordRuntimeFrame(in unpresented);
+        timing.RecordRuntimeFrame(in presented);
+
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(1, snapshot.PresentedWholeFrame.Count);
+        Assert.Equal(200, snapshot.PresentedWholeFrame.P50);
+        Assert.Equal(2, snapshot.TickAttempts);
+        Assert.Equal(1, snapshot.AcquiredFrames);
+        Assert.Equal(1, snapshot.SubmittedFrames);
+        Assert.Equal(1, snapshot.PresentedFrames);
+        Assert.Equal(1, snapshot.UnacquiredFrames);
+    }
+
+    [Fact]
+    public void ResetClearsOutcomeCountersAndAdditionalTelemetryWindows()
+    {
+        var timing = new FrameTiming();
+        var sample = new FramePhaseTimingSample(
+            InputMilliseconds: double.NaN,
+            SimulationMilliseconds: double.NaN,
+            ScenePreparationMilliseconds: double.NaN,
+            DrawListBuildMilliseconds: double.NaN,
+            RenderEncodeMilliseconds: double.NaN,
+            RenderSubmitMilliseconds: double.NaN,
+            PresentMilliseconds: double.NaN,
+            OverlayUiMilliseconds: double.NaN,
+            AfterFrameMilliseconds: double.NaN,
+            WholeFrameMilliseconds: double.NaN,
+            LegacyTotalRenderMilliseconds: double.NaN,
+            ElapsedSeconds: 0,
+            HostWorkMilliseconds: 1,
+            SoftwarePacingMilliseconds: 2,
+            FrameTimingAdvanceMilliseconds: 3,
+            SwapchainAcquireMilliseconds: 4,
+            PresentedWholeFrameMilliseconds: 5,
+            Acquired: true,
+            Submitted: true,
+            Presented: true,
+            AcquisitionAttempted: true);
+        timing.RecordRuntimeFrame(in sample);
+
+        timing.ResetDiagnostics();
+
+        FrameTimingDiagnosticsSnapshot snapshot = timing.CaptureDiagnostics();
+        Assert.Equal(0, snapshot.HostWork.Count);
+        Assert.Equal(0, snapshot.SoftwarePacing.Count);
+        Assert.Equal(0, snapshot.FrameTimingAdvance.Count);
+        Assert.Equal(0, snapshot.SwapchainAcquire.Count);
+        Assert.Equal(0, snapshot.PresentedWholeFrame.Count);
+        Assert.Equal(0, snapshot.TickAttempts);
+        Assert.Equal(0, snapshot.AcquiredFrames);
+        Assert.Equal(0, snapshot.SubmittedFrames);
+        Assert.Equal(0, snapshot.PresentedFrames);
+        Assert.Equal(0, snapshot.UnacquiredFrames);
+    }
+
+    [Fact]
     public void MeanTracksOnlyTheBoundedRetainedWindow()
     {
         var sampler = new BoundedPercentileSampler(4);

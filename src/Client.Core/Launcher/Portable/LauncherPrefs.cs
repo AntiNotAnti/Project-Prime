@@ -229,6 +229,16 @@ namespace MphRead.Mods.Launcher
         public static WindowStartMode WindowMode { get; set; } = WindowStartMode.Windowed;
 
         /// <summary>
+        /// Persisted Windows SDL GPU choice. The SDL device is process-scoped,
+        /// so changing this value takes effect when the renderer is restarted.
+        /// The diagnostic <c>-gpu-debug</c> switch is intentionally not stored.
+        /// </summary>
+        public const string AutomaticGraphicsApi = "auto";
+        public const string Direct3D12GraphicsApi = "d3d12";
+        public const string VulkanGraphicsApi = "vulkan";
+        public static string GraphicsApi { get; set; } = AutomaticGraphicsApi;
+
+        /// <summary>
         /// Whether the program writes a file of everything it can say about
         /// itself. See <see cref="Mods.DebugLog"/>.
         ///
@@ -294,6 +304,7 @@ namespace MphRead.Mods.Launcher
             MusicPack = null;
             UpdatePolicy = UpdatePolicy.Automatic;
             PreferredRegion = AutomaticPreferredRegionId;
+            GraphicsApi = AutomaticGraphicsApi;
             DebugLogs = true;
             ReducedMotion = false;
             ShowOnlinePresence = true;
@@ -355,6 +366,9 @@ namespace MphRead.Mods.Launcher
                             break;
                         case "window_mode":
                             WindowMode = Mods.WindowMode.Parse(value, WindowMode);
+                            break;
+                        case "graphics_api":
+                            GraphicsApi = NormalizeGraphicsApi(value);
                             break;
                         case "backend_address":
                             if (value.Length > 0)
@@ -451,6 +465,20 @@ namespace MphRead.Mods.Launcher
             }
         }
 
+        /// <summary>
+        /// Reload a player-selected settings import and publish the same
+        /// presence-change seam as an ordinary successful Settings save.
+        /// </summary>
+        internal static void LoadImported()
+        {
+            bool priorPresence = ShowOnlinePresence;
+            Load();
+            if (priorPresence != ShowOnlinePresence)
+            {
+                ShowOnlinePresenceChanged?.Invoke(null, EventArgs.Empty);
+            }
+        }
+
         /// <summary>Persist the current launcher preferences without publishing a presence update.</summary>
         public static void Save() => Save(notifyPresenceChange: false);
 
@@ -496,6 +524,7 @@ namespace MphRead.Mods.Launcher
             {
                 $"# {Branding.Name} launcher preferences.",
                 $"backend_address={BackendAddress}",
+                $"graphics_api={GraphicsApi}",
                 $"last_role={LastRole.ToString(CultureInfo.InvariantCulture)}",
                 $"player_name={PlayerName}",
                 $"hunter={LastHunter}",
@@ -510,6 +539,19 @@ namespace MphRead.Mods.Launcher
                 $"announcer_pack={OptionalContentPreferenceCodec.Encode(AnnouncerPack)}",
                 $"music_pack={OptionalContentPreferenceCodec.Encode(MusicPack)}",
                 $"window_mode={(WindowMode == WindowStartMode.BorderlessFullscreen ? "borderless" : "windowed")}"
+            };
+        }
+
+        private static string NormalizeGraphicsApi(string? value)
+        {
+            if (String.IsNullOrWhiteSpace(value)) return AutomaticGraphicsApi;
+            string normalized = value.Trim().ToLowerInvariant();
+            return normalized switch
+            {
+                "auto" or "automatic" => AutomaticGraphicsApi,
+                "d3d12" or "direct3d12" or "direct3d-12" => Direct3D12GraphicsApi,
+                "vulkan" => VulkanGraphicsApi,
+                _ => AutomaticGraphicsApi
             };
         }
 

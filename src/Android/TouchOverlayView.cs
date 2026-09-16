@@ -58,7 +58,8 @@ namespace MphRead.Droid
             _controls.Layout(w, h, Resources?.DisplayMetrics?.Density ?? 1f);
             NativeBottomScreenPlatformBridge.Configure(new OpenTK.Mathematics.Vector2i(w, h),
                 new OpenTK.Mathematics.Vector2i(w, h),
-                Mods.InputSettings.BottomScreenMode);
+                Mods.InputSettings.BottomScreenMode,
+                Mods.InputSettings.BottomScreenAimMode);
             Invalidate();
         }
 
@@ -79,13 +80,17 @@ namespace MphRead.Droid
                 NativeBottomScreenPlatformBridge.Configure(
                     new OpenTK.Mathematics.Vector2i(Width, Height),
                     new OpenTK.Mathematics.Vector2i(Width, Height),
-                    Mods.InputSettings.BottomScreenMode);
+                    Mods.InputSettings.BottomScreenMode,
+                    Mods.InputSettings.BottomScreenAimMode);
             }
             RequestLayout();
             Invalidate();
         }
 
         public void CancelInput() => _router.Cancel();
+
+        public void ReconcileBottomScreenInteraction()
+            => _router.ReconcileBottomScreenEpoch();
 
         protected override void OnDraw(Canvas canvas)
         {

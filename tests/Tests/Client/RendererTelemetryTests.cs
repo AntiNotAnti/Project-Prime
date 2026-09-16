@@ -84,6 +84,96 @@ public sealed class RendererTelemetryTests
     }
 
     [Fact]
+    public void NativeSnapshotAccumulatesBytesTicksAndDescriptorDraws()
+    {
+        var telemetry = new RenderTelemetryAccumulator(capacity: 1)
+        {
+            NativeTimingEnabled = true
+        };
+        telemetry.BeginFrame();
+        telemetry.MarkAttempted();
+        telemetry.VertexUniformNative(17, 3);
+        telemetry.VertexUniformNative(513, 5);
+        telemetry.FragmentUniformNative(32, 7);
+        telemetry.VertexBufferBindNative(11);
+        telemetry.IndexBufferBindNative(13);
+        telemetry.PipelineBindNative(17);
+        telemetry.SamplerBindNative(4, 19);
+        telemetry.IndexedDrawNative(23, descriptorBearing: true);
+        telemetry.IndexedDrawNative(29, descriptorBearing: false);
+
+        RenderTelemetrySnapshot sample = telemetry.CompleteFrame();
+
+        Assert.True(sample.NativeTimingEnabled);
+        Assert.Equal(530, sample.VertexUniformBytes);
+        Assert.Equal(2, sample.VertexUniformPushCalls);
+        Assert.Equal(530, sample.VertexUniformRequestedBytes);
+        Assert.Equal(1024, sample.VertexUniformAlignedBytes);
+        Assert.Equal(8, sample.VertexUniformNativeTicks);
+        Assert.Equal(1, sample.FragmentUniformPushCalls);
+        Assert.Equal(32, sample.FragmentUniformRequestedBytes);
+        Assert.Equal(256, sample.FragmentUniformAlignedBytes);
+        Assert.Equal(7, sample.FragmentUniformNativeTicks);
+        Assert.Equal(1, sample.VertexBufferBindCalls);
+        Assert.Equal(11, sample.VertexBufferBindNativeTicks);
+        Assert.Equal(1, sample.IndexBufferBindCalls);
+        Assert.Equal(13, sample.IndexBufferBindNativeTicks);
+        Assert.Equal(2, sample.IndexedDrawNativeCalls);
+        Assert.Equal(52, sample.IndexedDrawNativeTicks);
+        Assert.Equal(1, sample.DescriptorBearingDraws);
+        Assert.Equal(1, sample.PipelineBindNativeCalls);
+        Assert.Equal(17, sample.PipelineBindNativeTicks);
+        Assert.Equal(1, sample.SamplerBindNativeCalls);
+        Assert.Equal(19, sample.SamplerBindNativeTicks);
+    }
+
+    [Fact]
+    public void NativeSnapshotKeepsExistingCountersButDisabledTimingIsZero()
+    {
+        var telemetry = new RenderTelemetryAccumulator(capacity: 1);
+        telemetry.BeginFrame();
+        telemetry.MarkAttempted();
+        telemetry.VertexUniformNative(17, 3);
+        telemetry.FragmentUniformNative(32, 7);
+        telemetry.PipelineBindNative(11);
+        telemetry.SamplerBindNative(2, 13);
+        telemetry.IndexedDrawNative(17, descriptorBearing: true);
+
+        RenderTelemetrySnapshot sample = telemetry.CompleteFrame();
+
+        Assert.False(sample.NativeTimingEnabled);
+        Assert.Equal(17, sample.VertexUniformBytes);
+        Assert.Equal(32, sample.FragmentUniformBytes);
+        Assert.Equal(1, sample.PipelineBindCount);
+        Assert.Equal(1, sample.SamplerBindCount);
+        Assert.Equal(2, sample.TextureBindCount);
+        Assert.Equal(1, sample.IndexedDrawCount);
+        Assert.Equal(0, sample.VertexUniformPushCalls);
+        Assert.Equal(0, sample.FragmentUniformPushCalls);
+        Assert.Equal(0, sample.PipelineBindNativeCalls);
+        Assert.Equal(0, sample.SamplerBindNativeCalls);
+        Assert.Equal(0, sample.IndexedDrawNativeCalls);
+        Assert.Equal(0, sample.DescriptorBearingDraws);
+    }
+
+    [Fact]
+    public void NativeTimingContextDoesNotReadStopwatchWhenDisabled()
+    {
+        var telemetry = new RenderTelemetryAccumulator(capacity: 1);
+        telemetry.BeginFrame();
+        SdlGpuTelemetryContext.Set(telemetry);
+        try
+        {
+            Assert.Equal(0, SdlGpuTelemetryContext.BeginNativeCall());
+        }
+        finally
+        {
+            SdlGpuTelemetryContext.Set(null);
+            telemetry.CompleteFrame();
+        }
+    }
+
+    [Fact]
     public void BaselineRetainsBackendCountersWithoutInventingGpuMetrics()
     {
         var frame = new RenderFrame(capacity: 1, maximumCapacity: 1);

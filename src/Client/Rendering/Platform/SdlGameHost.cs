@@ -7,6 +7,7 @@ using OpenTK.Windowing.GraphicsLibraryFramework;
 using SDL;
 using MphRead.Entities;
 using MphRead.Mods.Input;
+using MphRead.Mods.Launcher;
 using MphRead.Mods.Launcher.Gui;
 using MphRead.Mods.Network;
 using MphRead.Mods.Render;
@@ -14,6 +15,16 @@ using MphRead.Mods.Testing;
 
 namespace MphRead
 {
+    /// <summary>
+    /// Optional host-thread observer for bounded diagnostics such as the
+    /// renderer benchmark. It runs after a complete fixed-step loop tick and
+    /// must not perform blocking I/O.
+    /// </summary>
+    internal interface ISdlGameHostFrameObserver
+    {
+        void OnFrameCompleted(SdlGameHost host);
+    }
+
     internal enum SdlSoftwarePacingMode
     {
         Disabled,
@@ -134,7 +145,9 @@ namespace MphRead
         private bool _sdlInitialized;
         private bool _fullscreen;
         private bool _cursorCaptured;
+        private SdlCursorPolicy _cursorPolicy;
         private bool _activationDeferred;
+        private BottomScreenHostConfiguration? _bottomScreenConfiguration;
         private bool? _focusEventThisPump;
         private bool _focusGainedThisPump;
         private ControllerCapabilityOwner? _capabilityOwner;
@@ -236,10 +249,13 @@ namespace MphRead
             if (size.X <= 0 || size.Y <= 0) throw new ArgumentOutOfRangeException(nameof(initialSize));
             _frameLoop = new GameWindowFrameLoop(_frameTiming);
             _pointerHub = new SdlPointerHub(ConfigureStylus,
-                sample => NativeBottomScreenPlatformBridge.TryPointerDown(sample),
+                sample => NativeBottomScreenPlatformBridge.RoutePointerDown(sample),
+                sample => NativeBottomScreenPlatformBridge.MapAimSample(sample),
                 sample => NativeBottomScreenPlatformBridge.TryPointerMove(sample),
                 sample => NativeBottomScreenPlatformBridge.TryPointerUp(sample),
                 id => NativeBottomScreenPlatformBridge.CancelPointer(id),
+                () => NativeBottomScreenPlatformBridge.SuppressGlobalStylus,
+                () => NativeBottomScreenPlatformBridge.InteractionEpoch,
                 LogicalDisplayScale);
 
             try
@@ -249,6 +265,7 @@ namespace MphRead
                 // compatibility synthesis before initializing the event system.
                 SDL3.SDL_SetHint("SDL_PEN_MOUSE_EVENTS", "0");
                 SDL3.SDL_SetHint("SDL_PEN_TOUCH_EVENTS", "0");
+                SDL3.SDL_SetHint("SDL_TOUCH_MOUSE_EVENTS", "0");
                 SDL_InitFlags initFlags = SDL_InitFlags.SDL_INIT_VIDEO
                     | SDL_InitFlags.SDL_INIT_EVENTS
                     | SDL_InitFlags.SDL_INIT_GAMEPAD
@@ -269,7 +286,18 @@ namespace MphRead
                 Mods.DebugLog.Line("sdl", $"window creation complete; logical={_logicalSize.X}x{_logicalSize.Y} "
                     + $"framebuffer={_framebufferSize.X}x{_framebufferSize.Y} fullscreen=false visible={showWindow}");
                 Mods.DebugLog.Line("gpu", "device creation starting");
-                _backend = new SdlGpuBackend(window, _logicalSize, _framebufferSize);
+                // Capture immutable process-scoped GPU choices once for this
+                // host. A device cannot be rebuilt safely in the middle of a
+                // match, so subsequent settings changes take effect on the
+                // next host/process rather than mutating this chain.
+                if (OperatingSystem.IsWindows())
+                {
+                    SdlGpuRuntimeConfiguration.ApplyPersistedBackend(
+                        LauncherPrefs.GraphicsApi);
+                }
+                SdlGpuRuntimeOptions gpuOptions = SdlGpuRuntimeConfiguration.Current;
+                _backend = new SdlGpuBackend(window, _logicalSize, _framebufferSize,
+                    gpuOptions);
                 Mods.DebugLog.Line("gpu", $"device creation complete; backend={_backend.Info.Name} "
                     + $"driver={_backend.Info.Driver} shaders={_backend.Info.ShaderFormats}");
                 Mods.DebugLog.Line("gpu", $"swapchain creation complete; format={_backend.Surface.SwapchainFormat} "
@@ -451,6 +479,10 @@ namespace MphRead
         }
 
         public void Run(IGameWindowFrameClient client)
+            => RunObserved(client, null);
+
+        internal void RunObserved(IGameWindowFrameClient client,
+            ISdlGameHostFrameObserver? frameObserver)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ArgumentNullException.ThrowIfNull(client);
@@ -459,6 +491,7 @@ namespace MphRead
             double previous = clock.Elapsed.TotalSeconds;
             while (!_lifetime.CloseRequested && !_lifetime.SceneStopRequested)
             {
+                long wholeFrameStart = Stopwatch.GetTimestamp();
                 int frameRateCap = Mods.Render.FrameTiming.FrameRateCap;
                 SdlGpuPresentPolicy presentPolicy = _backend!.ApplyPresentPolicy(frameRateCap);
                 // Pace from the state known at the start of this iteration.
@@ -472,11 +505,16 @@ namespace MphRead
                     preliminaryPresentationAvailable);
                 SdlFramePaceDecision decision = _framePacer.Plan(clock.Elapsed.TotalSeconds,
                     pacing, _frameTiming.Discontinuities);
+                long pacingStart = 0;
+                long pacingEnd = 0;
                 if (decision.ShouldWait)
                 {
+                    pacingStart = Stopwatch.GetTimestamp();
                     WaitUntil(clock, decision.DeadlineSeconds);
+                    pacingEnd = Stopwatch.GetTimestamp();
                 }
-                ProcessEvents();
+                long hostWorkStart = Stopwatch.GetTimestamp();
+                ProcessEvents(client.DiscardInputSnapshot);
                 if (_lifetime.CloseRequested) break;
                 if (_suspendFrame?.Invoke() == true) continue;
                 double now = clock.Elapsed.TotalSeconds;
@@ -499,8 +537,14 @@ namespace MphRead
                 _backend.SetInteractivePresentationAvailable(
                     interactivePresentationAvailable);
                 QueueSemanticCapture();
-                _frameLoop.Tick(elapsed, gameplaySnapshot, client, _backend!);
+                long hostWorkEnd = Stopwatch.GetTimestamp();
+                var hostTiming = new FrameLoopHostTimingContext(wholeFrameStart,
+                    Milliseconds(hostWorkStart, hostWorkEnd),
+                    decision.ShouldWait ? Milliseconds(pacingStart, pacingEnd) : 0);
+                _frameLoop.Tick(elapsed, gameplaySnapshot, client, _backend!,
+                    in hostTiming);
                 DrainCaptureResults();
+                frameObserver?.OnFrameCompleted(this);
                 _semanticSyntheticInputActive = false;
             }
         }
@@ -599,6 +643,12 @@ namespace MphRead
             }
         }
 
+        private static double Milliseconds(long start, long end)
+        {
+            if (start == 0 || end == 0) return double.NaN;
+            return (end - start) * 1000.0 / Stopwatch.Frequency;
+        }
+
         /// <summary>
         /// Pumps native events for a deterministic render utility without
         /// entering the wall-clock fixed-step loop. The utility owns the
@@ -627,6 +677,16 @@ namespace MphRead
             SceneExitPresentation exitPresentation = SceneExitPresentation.HideWindow,
             ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null,
             Action<ulong>? windowPrepared = null, ISceneServices? sceneServices = null)
+            => RunSceneObserved(scene, configure, beforeCleanup, started, suspendFrame,
+                exitPresentation, transitionGeneration, firstFramePresented, windowPrepared,
+                sceneServices, null, suppressNativeInput: false);
+
+        internal void RunSceneObserved(Scene scene, Action<ScenePresentation> configure,
+            Action? beforeCleanup, Action? started, Func<bool>? suspendFrame,
+            SceneExitPresentation exitPresentation, ulong transitionGeneration,
+            Action<ulong>? firstFramePresented, Action<ulong>? windowPrepared,
+            ISceneServices? sceneServices, ISdlGameHostFrameObserver? frameObserver,
+            bool suppressNativeInput)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             ArgumentNullException.ThrowIfNull(scene);
@@ -649,7 +709,9 @@ namespace MphRead
                 Vector2i drawable = _framebufferSize.X > 0 && _framebufferSize.Y > 0
                     ? _framebufferSize : _logicalSize;
                 NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
-                    Mods.InputSettings.BottomScreenMode);
+                    Mods.InputSettings.BottomScreenMode,
+                    Mods.InputSettings.BottomScreenAimMode);
+                _bottomScreenConfiguration = CaptureBottomScreenConfiguration();
                 _presentation.EnableDesktopLook();
                 InputOwner.SetOwner(DesktopInputOwnerKind.Scene,
                     _gamepadHub.Buttons);
@@ -670,11 +732,11 @@ namespace MphRead
                 }
                 started?.Invoke();
                 using var frameClient = new SdlSceneFrameClient(this, _presentation,
-                    transitionGeneration, firstFramePresented);
+                    transitionGeneration, firstFramePresented, suppressNativeInput);
                 _sceneFrameClient = frameClient;
                 try
                 {
-                    Run(frameClient);
+                    RunObserved(frameClient, frameObserver);
                 }
                 finally
                 {
@@ -699,7 +761,11 @@ namespace MphRead
                     }
                     finally
                     {
+                        SetCursorPolicy(SdlCursorPolicy.UiNormal);
+                        _pointerHub.CancelInteraction();
+                        NativeBottomScreenPlatformBridge.Cancel();
                         _presentation = null;
+                        _bottomScreenConfiguration = null;
                         _suspendFrame = null;
                         if (exitPresentation == SceneExitPresentation.HideWindow)
                         {
@@ -745,8 +811,17 @@ namespace MphRead
         public void SetCursorCaptured(bool captured)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            _windowController!.SetCursorCaptured(captured);
-            _cursorCaptured = captured;
+            SetCursorPolicy(captured ? SdlCursorPolicy.GameplayRelative
+                : SdlCursorPolicy.UiNormal);
+        }
+
+        private void SetCursorPolicy(SdlCursorPolicy policy,
+            BottomScreenRect? panel = null)
+        {
+            if (_windowController == null) return;
+            _windowController.SetCursorPolicy(policy, panel);
+            _cursorPolicy = _windowController.CursorPolicy;
+            _cursorCaptured = _windowController.CursorCaptured;
         }
 
         public void ApplyWindowMode(Mods.WindowStartMode mode)
@@ -768,8 +843,9 @@ namespace MphRead
             RefreshWindowSize();
         }
 
-        private void ProcessEvents()
+        private void ProcessEvents(bool discardGamepadInput = false)
         {
+            _pointerHub.ReconcileBottomScreenEpoch();
             _inputHub.BeginFrame();
             _focusEventThisPump = null;
             _focusGainedThisPump = false;
@@ -891,7 +967,7 @@ namespace MphRead
                         break;
                     case SDL_EventType.SDL_EVENT_MOUSE_MOTION:
                         if (IsOurWindow(evt.motion.windowID)
-                            && !IsSyntheticPenMouseId((uint)evt.motion.which))
+                            && !IsSyntheticPointerMouseId((uint)evt.motion.which))
                         {
                             _inputHub.HandleMouseMotion(evt.motion);
                         }
@@ -899,7 +975,7 @@ namespace MphRead
                     case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN:
                     case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP:
                         if (IsOurWindow(evt.button.windowID)
-                            && !IsSyntheticPenMouseId((uint)evt.button.which))
+                            && !IsSyntheticPointerMouseId((uint)evt.button.which))
                         {
                             if (evt.button.down) ConfirmFocusFromInputEvent();
                             HandleMouseButton(evt.button);
@@ -907,9 +983,22 @@ namespace MphRead
                         break;
                     case SDL_EventType.SDL_EVENT_MOUSE_WHEEL:
                         if (IsOurWindow(evt.wheel.windowID)
-                            && !IsSyntheticPenMouseId((uint)evt.wheel.which))
+                            && !IsSyntheticPointerMouseId((uint)evt.wheel.which))
                         {
                             _inputHub.AddWheel(evt.wheel.x, evt.wheel.y);
+                        }
+                        break;
+                    case SDL_EventType.SDL_EVENT_FINGER_DOWN:
+                    case SDL_EventType.SDL_EVENT_FINGER_MOTION:
+                    case SDL_EventType.SDL_EVENT_FINGER_UP:
+                    case SDL_EventType.SDL_EVENT_FINGER_CANCELED:
+                        if ((_presentation is null || _focused)
+                            && (evt.tfinger.windowID == 0
+                                || IsOurWindow(evt.tfinger.windowID)))
+                        {
+                            _pointerHub.HandleFinger(evt.tfinger, _logicalSize,
+                                cancel: (SDL_EventType)evt.type
+                                    == SDL_EventType.SDL_EVENT_FINGER_CANCELED);
                         }
                         break;
                     case SDL_EventType.SDL_EVENT_GAMEPAD_ADDED:
@@ -961,7 +1050,10 @@ namespace MphRead
             // both SDL's cached flag and direct keyboard-focus owner so a
             // Windows Alt-Tab cannot leave input latched off indefinitely.
             SynchronizeNativeFocus();
-            GamepadDesktop.Publish(_gamepadHub.State);
+            // Deterministic host modes still pump SDL so the window remains
+            // responsive, but must not publish connected-controller state to
+            // simulation or presentation input consumers.
+            GamepadDesktop.Publish(discardGamepadInput ? default : _gamepadHub.State);
             GamepadHaptics.Pump();
             PublishPresentationState();
         }
@@ -1214,6 +1306,7 @@ namespace MphRead
         {
             Mods.ClientInputState.WindowFocused = snapshot.Focused || semanticFocusBypass;
             if (_presentation == null) return;
+            ReconcileBottomScreenConfiguration();
             if (frameClient?.SuppressNativeInput == true)
             {
                 // Keep the window responsive while quarantining all live
@@ -1221,7 +1314,8 @@ namespace MphRead
                 _pointerHub.CancelInteraction();
                 NativeBottomScreenPlatformBridge.Cancel();
                 _presentation.ResetRenderLook();
-                if (_cursorCaptured) SetCursorCaptured(false);
+                if (_cursorPolicy != SdlCursorPolicy.UiNormal)
+                    SetCursorPolicy(SdlCursorPolicy.UiNormal);
                 return;
             }
             bool shouldCapture = snapshot.Focused && _focused
@@ -1230,11 +1324,20 @@ namespace MphRead
                 && !Mods.PauseMenu.Open
                 && !_presentation.ShowCursor
                 && !_presentation.FrameAdvance;
-            if (shouldCapture != _cursorCaptured) SetCursorCaptured(shouldCapture);
             bool bottomScreenSession
                 = NativeBottomScreenPlatformBridge.DesktopSessionActive;
             bool bottomScreenHoldContact
                 = NativeBottomScreenPlatformBridge.DesktopHoldContactActive;
+            BottomScreenRect panel = default;
+            bool confineToBottomPanel = shouldCapture && bottomScreenSession
+                && NativeBottomScreenPlatformBridge.SuppressGlobalStylus
+                && NativeBottomScreenPlatformBridge.TryGetVisiblePanel(out panel);
+            SdlCursorPolicy desiredCursorPolicy = confineToBottomPanel
+                ? SdlCursorPolicy.BottomPanelConfined
+                : shouldCapture ? SdlCursorPolicy.GameplayRelative
+                    : SdlCursorPolicy.UiNormal;
+            SetCursorPolicy(desiredCursorPolicy,
+                confineToBottomPanel ? panel : null);
             if (shouldCapture && bottomScreenSession)
             {
                 _pointerHub.CancelInteraction();
@@ -1349,11 +1452,37 @@ namespace MphRead
             NativeBottomScreenPlatformBridge.Cancel();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
-            if (_cursorCaptured)
-            {
-                SetCursorCaptured(false);
-            }
+            SetCursorPolicy(SdlCursorPolicy.UiNormal);
         }
+
+        private void ReconcileBottomScreenConfiguration()
+        {
+            BottomScreenHostConfiguration current
+                = CaptureBottomScreenConfiguration();
+            if (_bottomScreenConfiguration is BottomScreenHostConfiguration prior
+                && prior != current)
+            {
+                _pointerHub.CancelInteraction();
+                NativeBottomScreenPlatformBridge.Cancel();
+                Vector2i drawable = _framebufferSize.X > 0
+                    && _framebufferSize.Y > 0 ? _framebufferSize : _logicalSize;
+                NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
+                    current.Mode, current.AimMode);
+            }
+            _bottomScreenConfiguration = current;
+        }
+
+        private static BottomScreenHostConfiguration CaptureBottomScreenConfiguration()
+            => new(Mods.InputSettings.BottomScreenMode,
+                Mods.InputSettings.BottomScreenAimMode,
+                Mods.InputSettings.BottomScreenStyle,
+                Mods.InputSettings.BottomScreenActivation,
+                Mods.InputSettings.BottomScreenScale,
+                Mods.InputSettings.BottomScreenCenterX,
+                Mods.InputSettings.BottomScreenCenterY,
+                Mods.InputSettings.BottomScreenCursorSensitivity,
+                Mods.InputSettings.BottomScreenCursorStartX,
+                Mods.InputSettings.BottomScreenCursorStartY);
 
         private void SyncPresentationSize()
         {
@@ -1368,7 +1497,15 @@ namespace MphRead
                 _presentation.OnResize();
             }
             NativeBottomScreenPlatformBridge.Configure(_logicalSize, drawable,
-                Mods.InputSettings.BottomScreenMode);
+                Mods.InputSettings.BottomScreenMode,
+                Mods.InputSettings.BottomScreenAimMode);
+            if (_cursorPolicy == SdlCursorPolicy.BottomPanelConfined)
+            {
+                if (NativeBottomScreenPlatformBridge.TryGetVisiblePanel(out
+                    BottomScreenRect panel))
+                    SetCursorPolicy(SdlCursorPolicy.BottomPanelConfined, panel);
+                else SetCursorPolicy(SdlCursorPolicy.UiNormal);
+            }
         }
 
         private void HandleGamepadAdded(SDL_JoystickID id)
@@ -1482,8 +1619,9 @@ namespace MphRead
         internal static bool ShouldOfferPenToBottomScreen(bool stylusActive)
             => SdlPointerHub.ShouldOfferPenToBottomScreen(stylusActive);
 
-        internal static bool IsSyntheticPenMouseId(uint id)
-            => id == (uint)SDL3.SDL_PEN_MOUSEID;
+        internal static bool IsSyntheticPointerMouseId(uint id)
+            => id == (uint)SDL3.SDL_PEN_MOUSEID
+                || id == (uint)SDL3.SDL_TOUCH_MOUSEID;
 
         private float LogicalDisplayScale()
         {
@@ -1702,6 +1840,7 @@ namespace MphRead
             _disposed = true;
             _pointerHub.Dispose();
             NativeBottomScreenPlatformBridge.Cancel();
+            SetCursorPolicy(SdlCursorPolicy.UiNormal);
             GamepadGyro.ResetDevice();
             GamepadHaptics.Stop();
             GamepadHaptics.Pump();
@@ -1745,6 +1884,14 @@ namespace MphRead
                 _semanticCaptureOwner = null;
             }
         }
+
+        private readonly record struct BottomScreenHostConfiguration(
+            NativeBottomScreenMode Mode,
+            NativeBottomScreenAimMode AimMode,
+            NativeBottomScreenStyle Style,
+            NativeBottomScreenActivationMode Activation,
+            float Scale, float CenterX, float CenterY,
+            float CursorSensitivity, float CursorStartX, float CursorStartY);
 
     }
 
@@ -1800,12 +1947,15 @@ namespace MphRead
         private readonly ReplayPresentationController? _replayPresentation;
         private readonly SceneFirstFrameNotification? _firstFrame;
         private IRenderBackendTelemetry? _telemetry;
+        private readonly bool _suppressNativeInput;
 
         public SdlSceneFrameClient(SdlGameHost host, ScenePresentation presentation,
-            ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null)
+            ulong transitionGeneration = 0, Action<ulong>? firstFramePresented = null,
+            bool suppressNativeInput = false)
         {
             _host = host ?? throw new ArgumentNullException(nameof(host));
             _presentation = presentation ?? throw new ArgumentNullException(nameof(presentation));
+            _suppressNativeInput = suppressNativeInput;
             if (firstFramePresented != null)
             {
                 if (transitionGeneration == 0)
@@ -1828,8 +1978,11 @@ namespace MphRead
         private ScenePresentation ActivePresentation
             => _killcam?.RenderedPresentation ?? _presentation;
 
-        public bool SuppressNativeInput => _killcam?.FinalSequenceActive == true
+        public bool SuppressNativeInput => _suppressNativeInput
+            || _killcam?.FinalSequenceActive == true
             || _killcam?.IsActive == true;
+
+        public bool DiscardInputSnapshot => _suppressNativeInput;
 
         internal bool FinalSequenceActive => _killcam?.FinalSequenceActive == true;
         internal bool BlocksSceneCompletion => _killcam?.BlocksSceneCompletion == true;

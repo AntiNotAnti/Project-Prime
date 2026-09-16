@@ -13,9 +13,10 @@ public sealed class SdlGpuHdrPolicyTests
         = SDL_GPUTextureFormat.SDL_GPU_TEXTUREFORMAT_B8G8R8A8_UNORM;
 
     [Fact]
-    public void NonMacPlatformsAllowSdlToSelectTheGpuDriver()
+    public void WindowsDefaultsToVulkanAndMacDefaultsToMetal()
     {
-        Assert.Null(SdlGpuDevice.PreferredDriverNameForPlatform(isMacOS: false));
+        Assert.Equal("vulkan",
+            SdlGpuDevice.PreferredDriverNameForPlatform(isMacOS: false));
         Assert.Equal("metal", SdlGpuDevice.PreferredDriverNameForPlatform(isMacOS: true));
     }
 

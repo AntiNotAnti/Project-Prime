@@ -55,6 +55,11 @@ namespace MphRead
                 Console.Error.WriteLine(rendererError);
                 Exit();
             }
+            if (!SdlGpuRuntimeConfiguration.ApplyArguments(args, out string? gpuError))
+            {
+                Console.Error.WriteLine(gpuError);
+                Exit();
+            }
             // Native smoke is intentionally content-free. Route it before
             // paths.txt/game-data setup so published artifacts can validate
             // SDL video/GPU lifetime on a clean runner.
@@ -218,8 +223,7 @@ namespace MphRead
                 Console.WriteLine("It is recommended that you delete the file as well as any extracted game files, " +
                     "then perform setup again.");
                 Console.WriteLine();
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadKey();
+                FinishSetupFailure();
                 return true;
             }
             if (!File.Exists("paths.txt"))
@@ -227,14 +231,32 @@ namespace MphRead
                 Console.WriteLine("Could not find the paths.txt file.");
                 Console.WriteLine($"Perform first-time setup by passing a ROM path to ProjectPrimeTools.");
                 Console.WriteLine();
-                Console.WriteLine("Press any key to exit...");
-                Console.ReadKey();
+                FinishSetupFailure();
                 return true;
             }
             Paths.UpdatePaths();
             Paths.ChooseMphPath();
             Paths.ChooseFhPath();
             return false;
+        }
+
+        private static void FinishSetupFailure()
+        {
+            Environment.ExitCode = 1;
+            // Editor playtests and other child commands redirect stdin. They
+            // must report missing setup and exit instead of crashing in
+            // Console.ReadKey when no interactive console exists.
+            if (Console.IsInputRedirected) return;
+            Console.WriteLine("Press any key to exit...");
+            try
+            {
+                Console.ReadKey();
+            }
+            catch (InvalidOperationException)
+            {
+                // GUI processes and detached terminals can have no readable
+                // console even when the runtime did not mark stdin redirected.
+            }
         }
 
         private static void ConfigureSetupOutput()

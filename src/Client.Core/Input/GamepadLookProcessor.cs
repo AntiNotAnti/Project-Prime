@@ -42,9 +42,13 @@ namespace MphRead.Mods.Input
         public const float DefaultOuterPitchBoost = 80;
         public const float DefaultBoostDelaySeconds = 0.18f;
         public const float DefaultBoostRampSeconds = 0.12f;
+        public const float DefaultAntiDeadzone = 0.02f;
+        public const float DefaultSmoothingSeconds = 0.018f;
 
         private float _outerSeconds;
         private Vector2 _boostDirection;
+        private Vector2 _smoothedVelocity;
+        private bool _hasSmoothedVelocity;
 
         public GamepadLookProcessor()
             : this(DefaultInnerDeadzone, DefaultOuterDeadzone, DefaultExponent,
@@ -68,14 +72,19 @@ namespace MphRead.Mods.Input
             float horizontalSensitivity = 1,
             float verticalSensitivity = 1,
             bool invertY = false,
-            float zoomMultiplier = 1)
+            float zoomMultiplier = 1,
+            float antiDeadzone = DefaultAntiDeadzone,
+            float smoothingSeconds = DefaultSmoothingSeconds)
         {
             _outerSeconds = 0;
             _boostDirection = Vector2.Zero;
+            _smoothedVelocity = Vector2.Zero;
+            _hasSmoothedVelocity = false;
             Configure(innerDeadzone, outerDeadzone, exponent, yawRate, pitchRate,
                 outerBoostStart, outerYawBoost, outerPitchBoost, boostDelaySeconds,
                 boostRampSeconds, outerBoostEnabled, horizontalSensitivity,
-                verticalSensitivity, invertY, zoomMultiplier);
+                verticalSensitivity, invertY, zoomMultiplier, antiDeadzone,
+                smoothingSeconds);
         }
 
         public float InnerDeadzone { get; private set; }
@@ -93,6 +102,8 @@ namespace MphRead.Mods.Input
         public float VerticalSensitivity { get; private set; }
         public bool InvertY { get; private set; }
         public float ZoomMultiplier { get; private set; }
+        public float AntiDeadzone { get; private set; }
+        public float SmoothingSeconds { get; private set; }
         public readonly float OuterSeconds => _outerSeconds;
 
         /// <summary>
@@ -105,7 +116,8 @@ namespace MphRead.Mods.Input
             float outerYawBoost, float outerPitchBoost, float boostDelaySeconds,
             float boostRampSeconds, bool outerBoostEnabled,
             float horizontalSensitivity, float verticalSensitivity, bool invertY,
-            float zoomMultiplier)
+            float zoomMultiplier, float antiDeadzone = DefaultAntiDeadzone,
+            float smoothingSeconds = DefaultSmoothingSeconds)
         {
             InnerDeadzone = SanitizeDeadzone(innerDeadzone, DefaultInnerDeadzone);
             OuterDeadzone = SanitizeDeadzone(outerDeadzone, DefaultOuterDeadzone,
@@ -126,6 +138,9 @@ namespace MphRead.Mods.Input
             VerticalSensitivity = SanitizePositive(verticalSensitivity, 1, 0.01f, 10);
             InvertY = invertY;
             ZoomMultiplier = SanitizePositive(zoomMultiplier, 1, 0.01f, 10);
+            AntiDeadzone = SanitizePositive(antiDeadzone, DefaultAntiDeadzone, 0, .5f);
+            SmoothingSeconds = SanitizePositive(smoothingSeconds,
+                DefaultSmoothingSeconds, 0, .25f);
         }
 
         /// <summary>Evaluate the current stick without changing boost timing.</summary>
@@ -133,7 +148,7 @@ namespace MphRead.Mods.Input
             bool zoomed = false)
         {
             StickSample processed = StickProcessor.Process(raw, InnerDeadzone,
-                OuterDeadzone, Exponent);
+                OuterDeadzone, Exponent, AntiDeadzone);
             if (!processed.IsActive)
             {
                 return default;
@@ -145,7 +160,9 @@ namespace MphRead.Mods.Input
             // next fixed sample.
             float boost = IsMeaningfulReversal(processed.Direction)
                 ? 0 : CurrentBoost(processed);
-            return MakeSample(processed, boost, zoomScale, zoomed);
+            GamepadLookSample target = MakeSample(processed, boost, zoomScale, zoomed);
+            return WithVelocity(target, PreviewSmoothedVelocity(
+                target.AngularVelocity, 1f / 60f, target.ResponseMagnitude));
         }
 
         /// <summary>
@@ -162,7 +179,7 @@ namespace MphRead.Mods.Input
             }
 
             StickSample processed = StickProcessor.Process(raw, InnerDeadzone,
-                OuterDeadzone, Exponent);
+                OuterDeadzone, Exponent, AntiDeadzone);
             if (!processed.IsActive)
             {
                 Reset();
@@ -172,7 +189,7 @@ namespace MphRead.Mods.Input
             bool inOuter = processed.Magnitude >= OuterBoostStart;
             if (!inOuter)
             {
-                Reset();
+                ResetBoostState();
             }
             else
             {
@@ -187,7 +204,10 @@ namespace MphRead.Mods.Input
             }
 
             float boost = CurrentBoost(processed);
-            return MakeSample(processed, boost, zoomScale, zoomed);
+            GamepadLookSample target = MakeSample(processed, boost, zoomScale, zoomed);
+            Vector2 velocity = AdvanceSmoothedVelocity(target.AngularVelocity,
+                deltaSeconds, target.ResponseMagnitude);
+            return WithVelocity(target, velocity);
         }
 
         /// <summary>Alias used by callers that model a processor as a stepper.</summary>
@@ -197,9 +217,52 @@ namespace MphRead.Mods.Input
 
         public void Reset()
         {
+            ResetBoostState();
+            _smoothedVelocity = Vector2.Zero;
+            _hasSmoothedVelocity = false;
+        }
+
+        private void ResetBoostState()
+        {
             _outerSeconds = 0;
             _boostDirection = Vector2.Zero;
         }
+
+        private Vector2 AdvanceSmoothedVelocity(Vector2 target, float deltaSeconds,
+            float responseMagnitude)
+        {
+            Vector2 value = PreviewSmoothedVelocity(target, deltaSeconds,
+                responseMagnitude);
+            _smoothedVelocity = value;
+            _hasSmoothedVelocity = true;
+            return value;
+        }
+
+        private readonly Vector2 PreviewSmoothedVelocity(Vector2 target,
+            float deltaSeconds, float responseMagnitude)
+        {
+            if (SmoothingSeconds <= 0 || !_hasSmoothedVelocity
+                || Vector2.Dot(target, _smoothedVelocity) < 0)
+            {
+                return target;
+            }
+
+            // Noise is most visible during small precision corrections. Fade
+            // filtering out toward full deflection so fast turns retain their
+            // authored acceleration and do not feel delayed.
+            float speed = Math.Clamp(responseMagnitude, 0, 1);
+            float timeConstant = SmoothingSeconds * (1 - .85f * speed * speed);
+            if (timeConstant <= .0001f) return target;
+            float seconds = float.IsFinite(deltaSeconds)
+                ? Math.Clamp(deltaSeconds, 0, .25f) : 0;
+            float alpha = 1 - MathF.Exp(-seconds / timeConstant);
+            return _smoothedVelocity + (target - _smoothedVelocity) * alpha;
+        }
+
+        private static GamepadLookSample WithVelocity(GamepadLookSample sample,
+            Vector2 velocity)
+            => new(velocity, sample.Direction, sample.Magnitude,
+                sample.ResponseMagnitude, sample.BoostProgress);
 
         private readonly float CurrentBoost(StickSample processed)
         {
