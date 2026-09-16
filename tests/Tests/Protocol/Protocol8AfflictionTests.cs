@@ -48,7 +48,7 @@ namespace MphRead.Tests
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 18));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 19));
             Assert.False(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 20));
-            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 25));
+            Assert.True(NetWireIdentity.IsCompatible(NetWireIdentity.Family, 26));
         }
 
         [Theory]
