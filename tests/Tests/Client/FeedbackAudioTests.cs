@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using MphRead.Combat;
 using MphRead.Entities;
@@ -13,6 +14,37 @@ namespace MphRead.Tests.Client;
 [Collection("Match baseline globals")]
 public sealed class FeedbackAudioTests
 {
+    [Fact]
+    public void WarzoneIsDefaultAndEverySelectableHeadshotKillClipIsEmbedded()
+    {
+        Assert.Equal("Warzone", new MenuSettings().HeadshotKillSound);
+        Assert.Equal(HeadshotKillSoundStyle.Warzone,
+            HeadshotKillSoundCatalog.Parse(null));
+
+        foreach (HeadshotKillSoundStyle style in Enum.GetValues<HeadshotKillSoundStyle>())
+        {
+            using Stream? stream = HeadshotKillSoundCatalog.Open(style);
+            Assert.NotNull(stream);
+            Assert.True(stream.Length > 1_000);
+        }
+    }
+
+    [Theory]
+    [InlineData(HitMarkerKind.Kill, CombatEventFlags.Headshot, true,
+        FeedbackCue.HeadshotKill)]
+    [InlineData(HitMarkerKind.Kill, CombatEventFlags.None, true,
+        FeedbackCue.Kill)]
+    [InlineData(HitMarkerKind.Kill, CombatEventFlags.Headshot, false,
+        FeedbackCue.Kill)]
+    [InlineData(HitMarkerKind.Headshot, CombatEventFlags.Headshot, true,
+        FeedbackCue.Headshot)]
+    public void AuthoritativeMarkerSelectsDedicatedHeadshotKillCue(
+        HitMarkerKind marker, CombatEventFlags flags, bool enabled,
+        FeedbackCue expected)
+    {
+        Assert.Equal(expected, FeedbackAudio.MarkerCue(marker, flags, enabled));
+    }
+
     [Fact]
     public void StopRequestsPreserveBusOrderAndForceSemantics()
     {

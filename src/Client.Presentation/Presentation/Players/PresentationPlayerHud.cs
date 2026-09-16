@@ -276,7 +276,9 @@ namespace MphRead.Entities
             _nodeProgressMeter.BarInst.SetPaletteData(systemLoad.PaletteData, _player._scene);
             _nodeProgressMeter.BarInst.Enabled = true;
             _textInst = new HudObjectInstance(width: 8, height: 8, maxWidth: 16, maxHeight: 16);
-            _textInst.SetCharacterData(Font.Normal.CharacterData, _player._scene);
+            Font hudFont = global::MphRead.Hud.HudFontSettings.Current;
+            _textInst.SetCharacterData(hudFont.CharacterData, _player._scene);
+            _loadedHudFont = hudFont;
             _textInst.SetPaletteData(ammoBar.PaletteData, _player._scene);
             _textInst.Enabled = true;
             for (int i = 0; i < _hudMessageQueue.Count; i++)
@@ -1172,15 +1174,15 @@ namespace MphRead.Entities
                         }
                     }
 
-                    DrawModeHud();
-                    DrawDoubleDamageHud();
-                    DrawCloakHud();
                     if (Features.ProHud)
                     {
                         DrawProHud();
                     }
                     else
                     {
+                        DrawModeHud();
+                        DrawDoubleDamageHud();
+                        DrawCloakHud();
                         DrawHealthbars();
                     }
                 }
@@ -1233,7 +1235,7 @@ namespace MphRead.Entities
                     DrawLocatorIcons();
                 }
 
-                if (_damageIndicator.Active)
+                if (_damageIndicator.Active && !Features.ProHud)
                 {
                     Presentation.DrawHudDamageModel(_damageIndicator);
                 }
@@ -1779,6 +1781,16 @@ namespace MphRead.Entities
             new ColorRgba(0x50, 0x98, 0xD0, 255), // Shock Coil
             new ColorRgba(0xD0, 0xD0, 0xD0, 255) // Omega Cannon
         };
+        private readonly byte[] _proWeaponOrder = new byte[9];
+        private byte _proWeaponOrderCount;
+        private bool _proWeaponOrderInitialized;
+        private readonly int[] _proWeaponAmmo = new int[9];
+        private readonly bool[] _proWeaponAmmoObserved = new bool[9];
+        private readonly float[] _proWeaponFlashUntil = new float[9];
+        private readonly string[] _proWeaponAmmoText = new string[9];
+        private static readonly string[] ProWeaponSlotLabels =
+            { "1", "2", "3", "4", "5", "6", "7", "8", "9" };
+
         public void DrawWeaponList()
         {
             // Below the score block in the top-left corner, and short enough
@@ -1810,9 +1822,10 @@ namespace MphRead.Entities
             // Against the left edge, not inset. The reference has no margin
             // worth the name and the panel reads as part of the frame because
             // of it.
-            float panelX = 2 * aspectFix;
+            float panelX = Features.ProHud
+                ? ProHudLeftEdge(aspectFix) : 2 * aspectFix;
             float rowHeight = 8f * scale;
-            float panelWidth = 26f * scale * aspectFix;
+            float panelWidth = (Features.ProHud ? 30f : 26f) * scale * aspectFix;
             // The icon sits in a square block of the row's own height at the
             // left of it, and the count is right-aligned in what is left.
             // iconBox is that block's side in HUD *height* units; iconBoxX is
@@ -1821,14 +1834,26 @@ namespace MphRead.Entities
             float iconBox = rowHeight - 1f * scale;
             float iconBoxX = iconBox * aspectFix;
             float ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
-            float y = 46;
+            float y = Features.ProHud
+                ? Math.Max(46, ModChatClearance(12) + 24 * Features.ProHudScale)
+                : 46;
             for (int i = 0; i < _weaponListIcons.Length; i++)
             {
-                var beam = (BeamType)i;
-                if (!_player.AvailableWeapons[beam])
+                if (_player.AvailableWeapons[(BeamType)i]
+                    && _proWeaponOrder[i] == 0)
                 {
-                    continue;
+                    _proWeaponOrder[i] = ++_proWeaponOrderCount;
+                    if (Features.ProHud && _proWeaponOrderInitialized)
+                        _proWeaponFlashUntil[i] = _player._scene.ElapsedTime + .35f;
                 }
+            }
+            _proWeaponOrderInitialized = true;
+
+            for (int order = 1; order <= _proWeaponOrderCount; order++)
+            {
+                int i = Array.IndexOf(_proWeaponOrder, (byte)order);
+                if (i < 0 || !_player.AvailableWeapons[(BeamType)i]) continue;
+                var beam = (BeamType)i;
 
                 bool equipped = beam == _player.CurrentWeapon;
                 WeaponInfo info = Weapons.Current[i];
@@ -1837,7 +1862,37 @@ namespace MphRead.Entities
                 // colour of the *shot* and is nothing like it for several.
                 ColorRgba tint = _weaponListColors[i];
                 float rowBottom = y + rowHeight - 1f * scale;
-                Presentation.DrawHudFlatBox(panelX, y, panelX + panelWidth, rowBottom, equipped ? new Vector4(0.45f, 0.4f, 0.2f, 0.72f * Features.HudOpacity) : new Vector4(0, 0, 0, 0.42f * Features.HudOpacity));
+                int ammoAmount = _player._ammo[info.AmmoType];
+                if (_proWeaponAmmoObserved[i] && _proWeaponAmmo[i] != ammoAmount)
+                    _proWeaponFlashUntil[i] = _player._scene.ElapsedTime + .25f;
+                if (!_proWeaponAmmoObserved[i] || _proWeaponAmmo[i] != ammoAmount)
+                {
+                    _proWeaponAmmoText[i] = info.AmmoCost > 0 && ammoAmount >= 0
+                        ? (ammoAmount / info.AmmoCost).ToString() : "--";
+                    if (info.AmmoCost > 0 && ammoAmount == 0)
+                        _proWeaponAmmoText[i] += "!";
+                }
+                _proWeaponAmmoObserved[i] = true;
+                _proWeaponAmmo[i] = ammoAmount;
+                bool ammoFlash = _proWeaponFlashUntil[i] > _player._scene.ElapsedTime;
+                bool empty = info.AmmoCost > 0 && ammoAmount == 0;
+                Vector4 rowColor = ammoFlash
+                    ? new Vector4(.2f, .65f, 1f, .82f * Features.HudOpacity)
+                    : equipped
+                        ? new Vector4(.45f, .4f, .2f,
+                            (Features.ProHudHighContrast ? .9f : .72f) * Features.HudOpacity)
+                        : new Vector4(0, 0, 0, .42f * Features.HudOpacity);
+                Presentation.DrawHudFlatBox(panelX, y, panelX + panelWidth,
+                    rowBottom, rowColor);
+                if (Features.ProHud)
+                {
+                    DrawText2D(panelX + 1.2f * scale * aspectFix,
+                        y + 1.7f * scale, Align.Left, 0,
+                        ProWeaponSlotLabels[order - 1],
+                        color: empty ? new ColorRgba(255, 96, 96, 255)
+                            : new ColorRgba(178, 186, 200, 255),
+                        scale: .3f * scale);
+                }
                 HudObjectInstance icon = _weaponListIcons[i];
                 // The glyph itself in the weapon's colour, on nothing.
                 //
@@ -1876,10 +1931,13 @@ namespace MphRead.Entities
                 // pitch's, since the row is drawn one unit shorter than it.
                 float iconFit = iconBox - 1f * scale;
                 float iconScale = iconFit / Math.Max(bounds.Width, bounds.Height);
-                icon.PositionX = (panelX + iconBoxX / 2 - bounds.CentreX * iconScale * aspectFix) / 256f;
+                float iconStartX = panelX + (Features.ProHud
+                    ? 4f * scale * aspectFix : 0);
+                icon.PositionX = (iconStartX + iconBoxX / 2
+                    - bounds.CentreX * iconScale * aspectFix) / 256f;
                 icon.PositionY = (y + iconBox / 2 - bounds.CentreY * iconScale) / 192f;
                 // Never faded. A dimmed icon at this size is an empty box.
-                icon.Alpha = Features.HudOpacity;
+                icon.Alpha = Features.HudOpacity * (empty ? .35f : 1f);
                 Presentation.DrawHudObject(icon, mode: 1, scale: iconScale);
                 // Shots, not the internal ammo pool.
                 //
@@ -1894,8 +1952,7 @@ namespace MphRead.Entities
                 // marker single-player bots carry; a blank where every other
                 // row has a number reads as "unknown" rather than as
                 // "unlimited", so both say so.
-                int ammoAmount = _player._ammo[info.AmmoType];
-                string ammo = info.AmmoCost > 0 && ammoAmount >= 0 ? (ammoAmount / info.AmmoCost).ToString() : "--";
+                string ammo = _proWeaponAmmoText[i];
                 // White, like the reference's: the colour is carried by the
                 // icon block beside it, and a coloured number as well made
                 // every row a different brightness to read.
@@ -1906,7 +1963,21 @@ namespace MphRead.Entities
                 // the icon. Spacing is left to the font: fontSpacing is in HUD
                 // units and does not follow `scale`, so setting it spread the
                 // digits back out and undid the shrink.
-                DrawText2D(ammoRightX, y + 1.6f * scale, Align.Right, palette: 0, ammo, color: new ColorRgba(230, 234, 242, 255), alpha: Features.HudOpacity, scale: 0.42f * scale);
+                DrawText2D(ammoRightX, y + 1.6f * scale, Align.Right,
+                    palette: 0, ammo,
+                    color: empty ? new ColorRgba(255, 96, 96, 255)
+                        : new ColorRgba(230, 234, 242, 255),
+                    alpha: Features.HudOpacity, scale: 0.42f * scale);
+                if (Features.ProHud && equipped)
+                {
+                    float charge = ProChargeFraction();
+                    if (charge > 0)
+                    {
+                        ProBar(panelX + aspectFix, rowBottom - .8f * scale,
+                            28 * scale, .8f * scale, charge,
+                            charge >= 1 ? ProGood : ProWarn);
+                    }
+                }
                 y += rowHeight;
             }
         }
@@ -2991,7 +3062,7 @@ namespace MphRead.Entities
             _textSpacingY = 0;
         }
 
-        private bool _usingKanjiFont = false;
+        private Font? _loadedHudFont;
         public static int GlyphIndex(Font font, int ch)
         {
             int index = ch - font.MinCharacter;
@@ -3006,20 +3077,18 @@ namespace MphRead.Entities
 
         public Font SetUpFont(char firstChar, bool set)
         {
-            Font font = Font.Normal;
+            Font font = global::MphRead.Hud.HudFontSettings.Current;
             if (Scene.Language == Language.Japanese && (Paths.IsMphJapan || Paths.IsMphKorea) && (firstChar & 0xA0) == 0xA0)
             {
                 font = Font.Kanji;
-                if (set && !_usingKanjiFont)
-                {
-                    _textInst.SetCharacterData(Font.Kanji.CharacterData, width: 16, height: 16, _player._scene);
-                    _usingKanjiFont = true;
-                }
             }
-            else if (set && _usingKanjiFont)
+
+            if (set && !ReferenceEquals(_loadedHudFont, font))
             {
-                _textInst.SetCharacterData(Font.Normal.CharacterData, width: 8, height: 8, _player._scene);
-                _usingKanjiFont = false;
+                int cell = ReferenceEquals(font, Font.Kanji) ? 16 : 8;
+                _textInst.SetCharacterData(font.CharacterData, width: cell,
+                    height: cell, _player._scene);
+                _loadedHudFont = font;
             }
 
             return font;

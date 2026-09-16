@@ -17,7 +17,12 @@ namespace MphRead.Mods.Render
         Dot = 1,
         CrossDot = 2,
         Circle = 3,
-        Brackets = 4
+        Brackets = 4,
+        RingDot = 5,
+        TDot = 6,
+        Box = 7,
+        Precision = 8,
+        Shotgun = 9
     }
 
     /// <summary>
@@ -89,7 +94,8 @@ namespace MphRead.Mods.Render
 
         public static readonly string[] StyleNames =
         {
-            "Cross", "Dot", "Cross + dot", "Circle", "Brackets"
+            "Cross", "Dot", "Cross + dot", "Circle", "Brackets",
+            "Ring + dot", "T + dot", "Box", "Precision", "Shotgun"
         };
 
         /// <summary>
@@ -101,6 +107,8 @@ namespace MphRead.Mods.Render
             return style switch
             {
                 CrosshairStyle.Circle => (8f * scale, 2f * scale),
+                CrosshairStyle.RingDot => (8f * scale, 2f * scale),
+                CrosshairStyle.Shotgun => (10f * scale, 2f * scale),
                 _ => (0f, 0f)
             };
         }
@@ -124,6 +132,23 @@ namespace MphRead.Mods.Render
                 break;
             case CrosshairStyle.Brackets:
                 AddBrackets(bars, corner: 10f, length: 6f, thickness: 2f, scale);
+                break;
+            case CrosshairStyle.RingDot:
+                bars.Add(Dot(3f, scale));
+                break;
+            case CrosshairStyle.TDot:
+                AddT(bars, arm: 7f, thickness: 2f, gap: 5f, scale);
+                bars.Add(Dot(3f, scale));
+                break;
+            case CrosshairStyle.Box:
+                AddBox(bars, radius: 8f, thickness: 2f, scale);
+                break;
+            case CrosshairStyle.Precision:
+                AddCross(bars, arm: 11f, thickness: 1f, gap: 4f, scale);
+                bars.Add(Dot(2f, scale));
+                break;
+            case CrosshairStyle.Shotgun:
+                AddCross(bars, arm: 4f, thickness: 2f, gap: 12f, scale);
                 break;
             }
             return bars;
@@ -158,6 +183,26 @@ namespace MphRead.Mods.Render
             case CrosshairStyle.Brackets:
                 AddBrackets(destination, ref count, corner: 10f, length: 6f,
                     thickness: 2f, scale);
+                break;
+            case CrosshairStyle.RingDot:
+                destination[count++] = Dot(3f, scale);
+                break;
+            case CrosshairStyle.TDot:
+                AddT(destination, ref count, arm: 7f, thickness: 2f,
+                    gap: 5f, scale);
+                destination[count++] = Dot(3f, scale);
+                break;
+            case CrosshairStyle.Box:
+                AddBox(destination, ref count, radius: 8f, thickness: 2f, scale);
+                break;
+            case CrosshairStyle.Precision:
+                AddCross(destination, ref count, arm: 11f, thickness: 1f,
+                    gap: 4f, scale);
+                destination[count++] = Dot(2f, scale);
+                break;
+            case CrosshairStyle.Shotgun:
+                AddCross(destination, ref count, arm: 4f, thickness: 2f,
+                    gap: 12f, scale);
                 break;
             case CrosshairStyle.Circle:
                 break;
@@ -196,6 +241,53 @@ namespace MphRead.Mods.Render
             bars[count++] = new CrosshairBar(0, -offset, shortSide, longSide);
             bars[count++] = new CrosshairBar(-offset, 0, longSide, shortSide);
             bars[count++] = new CrosshairBar(offset, 0, longSide, shortSide);
+        }
+
+        /// <summary>Left, right and lower arms: the familiar competitive T.</summary>
+        private static void AddT(List<CrosshairBar> bars, float arm, float thickness,
+            float gap, float scale)
+        {
+            float offset = (gap + arm / 2) * scale;
+            float longSide = arm * scale;
+            float shortSide = thickness * scale;
+            bars.Add(new CrosshairBar(-offset, 0, longSide, shortSide));
+            bars.Add(new CrosshairBar(offset, 0, longSide, shortSide));
+            bars.Add(new CrosshairBar(0, -offset, shortSide, longSide));
+        }
+
+        private static void AddT(Span<CrosshairBar> bars, ref int count,
+            float arm, float thickness, float gap, float scale)
+        {
+            float offset = (gap + arm / 2) * scale;
+            float longSide = arm * scale;
+            float shortSide = thickness * scale;
+            bars[count++] = new CrosshairBar(-offset, 0, longSide, shortSide);
+            bars[count++] = new CrosshairBar(offset, 0, longSide, shortSide);
+            bars[count++] = new CrosshairBar(0, -offset, shortSide, longSide);
+        }
+
+        private static void AddBox(List<CrosshairBar> bars, float radius,
+            float thickness, float scale)
+        {
+            float edge = radius * scale;
+            float thick = thickness * scale;
+            float side = radius * 2 * scale;
+            bars.Add(new CrosshairBar(0, edge, side, thick));
+            bars.Add(new CrosshairBar(0, -edge, side, thick));
+            bars.Add(new CrosshairBar(-edge, 0, thick, side));
+            bars.Add(new CrosshairBar(edge, 0, thick, side));
+        }
+
+        private static void AddBox(Span<CrosshairBar> bars, ref int count,
+            float radius, float thickness, float scale)
+        {
+            float edge = radius * scale;
+            float thick = thickness * scale;
+            float side = radius * 2 * scale;
+            bars[count++] = new CrosshairBar(0, edge, side, thick);
+            bars[count++] = new CrosshairBar(0, -edge, side, thick);
+            bars[count++] = new CrosshairBar(-edge, 0, thick, side);
+            bars[count++] = new CrosshairBar(edge, 0, thick, side);
         }
 
         /// <summary>

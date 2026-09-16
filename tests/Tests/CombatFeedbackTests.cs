@@ -13,12 +13,20 @@ public class CombatFeedbackTests : IDisposable
     private readonly HitMarkerMode _markers = CombatFeedbackSettings.HitMarkers;
     private readonly HitMarkerTiming _timing = CombatFeedbackSettings.Timing;
     private readonly bool _headshot = CombatFeedbackSettings.HeadshotCue, _kill = CombatFeedbackSettings.KillConfirmation;
+    private readonly float _scale = CombatFeedbackSettings.MarkerScale;
+    private readonly float _opacity = CombatFeedbackSettings.MarkerOpacity;
+    private readonly float _animation = CombatFeedbackSettings.MarkerAnimation;
+    private readonly HitMarkerPalette _palette = CombatFeedbackSettings.Palette;
     public void Dispose()
     {
         CombatFeedbackSettings.HitMarkers = _markers;
         CombatFeedbackSettings.Timing = _timing;
         CombatFeedbackSettings.HeadshotCue = _headshot;
         CombatFeedbackSettings.KillConfirmation = _kill;
+        CombatFeedbackSettings.MarkerScale = _scale;
+        CombatFeedbackSettings.MarkerOpacity = _opacity;
+        CombatFeedbackSettings.MarkerAnimation = _animation;
+        CombatFeedbackSettings.Palette = _palette;
     }
     private static readonly CombatActor Local = new(0, 100, 1), Enemy = new(1, 200, 1);
     private static readonly NetRosterEntry[] Roster = { new(0, 100, Hunter.Samus, 0, "Local"), new(1, 200, Hunter.Samus, 1, "Enemy") };
@@ -64,7 +72,38 @@ public class CombatFeedbackTests : IDisposable
         sequence = f.State.MarkerSequence;
         Assert.True(f.Process(Damage(4, Local, Enemy)));
         Assert.Equal(sequence, f.State.MarkerSequence);
+        Assert.Equal(HitMarkerKind.Hit, f.State.MarkerAudioKind);
+        Assert.Equal(4u, f.State.MarkerPulseSequence);
         Assert.Equal(HitMarkerKind.None, f.VisibleMarker(118));
+    }
+
+    [Fact]
+    public void RapidHitsPulseIndependentlyAndCarryAuthoritativeVisualDetail()
+    {
+        var f = New();
+        Assert.True(f.Process(Damage(10, Local, Enemy, amount: 12, health: 88,
+            flags: CombatEventFlags.Charged)));
+        Assert.Equal((ushort)12, f.State.MarkerDamage);
+        Assert.Equal((ushort)88, f.State.MarkerHealth);
+        Assert.Equal(CombatEventFlags.Charged, f.State.MarkerFlags);
+        Assert.Equal((byte)1, f.State.MarkerBurst);
+
+        Assert.True(f.Process(Damage(11, Local, Enemy, amount: 30, health: 58)));
+        Assert.Equal((byte)2, f.State.MarkerBurst);
+        Assert.Equal(2u, f.State.MarkerPulseSequence);
+        Assert.Equal(2u, f.State.MarkerAudioSequence);
+        Assert.NotEqual(0u, f.State.MarkerHapticIdentity);
+    }
+
+    [Fact]
+    public void MarkerPresentationSettingsClampInvalidValues()
+    {
+        CombatFeedbackSettings.MarkerScale = -10;
+        CombatFeedbackSettings.MarkerOpacity = 10;
+        CombatFeedbackSettings.MarkerAnimation = float.NaN;
+        Assert.Equal(.5f, CombatFeedbackSettings.MarkerScale);
+        Assert.Equal(1f, CombatFeedbackSettings.MarkerOpacity);
+        Assert.Equal(1f, CombatFeedbackSettings.MarkerAnimation);
     }
     private static CombatEvent Damage(uint id, CombatActor source, CombatActor target, ushort amount = 10, ushort health = 90,
         CombatEventFlags flags = 0) => new(id, 100, 1, CombatEventKind.Damage, 0, flags, source, target, health, amount,

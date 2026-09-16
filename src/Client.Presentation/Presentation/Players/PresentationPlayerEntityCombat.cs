@@ -130,7 +130,12 @@ namespace MphRead.Entities
                 ObserveVisorDamage(value);
                 // Direction is an authoritative fact. Do not consult a reused attacker slot for a fallback.
                 int indicator = MphRead.Combat.CombatFeedback.DamageSector(direction, _player._gunVec1, _player._gunVec2);
-                if (indicator >= 0) _damageIndicatorTimers[indicator] = (ushort)SimTicks.From30HzFrames(63);
+                if (indicator >= 0)
+                {
+                    _damageIndicatorTimers[indicator]
+                        = (ushort)SimTicks.From30HzFrames(63);
+                    RecordProDamage(indicator, value.Amount);
+                }
                 _player.CameraInfo.SetShake(Math.Clamp(value.Amount * 0.01f, 0.03f, 0.25f));
                 if ((value.Flags & CombatEventFlags.Concussive) != 0)
                 {

@@ -5,16 +5,19 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Combat;
 
-public enum FeedbackCue { Hit, Headshot, Kill, CriticalHealth, PickupRespawned, ObjectiveTaken, ObjectiveDropped, ObjectiveScored, PrimeChanged, Overtime, MatchPoint }
+public enum FeedbackCue { Hit, Headshot, Kill, CriticalHealth, PickupRespawned, ObjectiveTaken, ObjectiveDropped, ObjectiveScored, PrimeChanged, Overtime, MatchPoint, HeadshotKill }
 
 /// <summary>Bounded presentation cues with a separate gain and no gameplay callbacks.</summary>
-public sealed class FeedbackAudio
+public sealed class FeedbackAudio : IDisposable
 {
     public static float Volume { get; set; } = .7f;
+    public static HeadshotKillSoundStyle HeadshotKillSound { get; set; }
+        = HeadshotKillSoundStyle.Warzone;
     private readonly SoundSource _ui;
     private readonly SoundSource _world;
-    private readonly uint[] _last = new uint[11];
-    private readonly bool[] _played = new bool[11];
+    private readonly HeadshotKillAudioPlayer _headshotKillAudio = new();
+    private readonly uint[] _last = new uint[(int)FeedbackCue.HeadshotKill + 1];
+    private readonly bool[] _played = new bool[(int)FeedbackCue.HeadshotKill + 1];
     private CombatActor _identity = CombatActor.None;
     private bool _lowHealth;
 
@@ -26,9 +29,11 @@ public sealed class FeedbackAudio
 
     public static SfxId Sound(FeedbackCue cue) => cue switch
     {
-        FeedbackCue.Hit => SfxId.LETTER_BLIP,
-        FeedbackCue.Headshot => SfxId.MENU_CURSOR,
-        FeedbackCue.Kill => SfxId.MENU_CONFIRM,
+        // Purpose-specific combat cues: do not reuse launcher/menu navigation
+        // sounds for an in-match authoritative confirmation.
+        FeedbackCue.Hit => SfxId.OPPONENT_DAMAGE,
+        FeedbackCue.Headshot => SfxId.SNIPER_HIT,
+        FeedbackCue.Kill => SfxId.SUCCESS,
         FeedbackCue.CriticalHealth => SfxId.ENERGY_ALARM,
         FeedbackCue.PickupRespawned => SfxId.ITEM_SPAWN1,
         FeedbackCue.ObjectiveTaken => SfxId.POWER_UP1,
@@ -37,8 +42,20 @@ public sealed class FeedbackAudio
         FeedbackCue.PrimeChanged => SfxId.POWER_UP2,
         FeedbackCue.Overtime => SfxId.ALARM,
         FeedbackCue.MatchPoint => SfxId.WEAPON_ALARM,
+        // Used only if the selected embedded clip cannot be opened or decoded.
+        FeedbackCue.HeadshotKill => SfxId.SUCCESS,
         _ => throw new ArgumentOutOfRangeException(nameof(cue))
     };
+
+    public static FeedbackCue MarkerCue(HitMarkerKind marker,
+        CombatEventFlags flags, bool headshotCueEnabled)
+        => marker == HitMarkerKind.Kill
+            && headshotCueEnabled
+            && (flags & CombatEventFlags.Headshot) != 0
+                ? FeedbackCue.HeadshotKill
+                : marker == HitMarkerKind.Kill ? FeedbackCue.Kill
+                : marker == HitMarkerKind.Headshot ? FeedbackCue.Headshot
+                : FeedbackCue.Hit;
 
     public static bool TryGetPickupSound(ItemType itemType, out SfxId sound)
     {
@@ -97,6 +114,8 @@ public sealed class FeedbackAudio
         _last[index] = tick;
         float gain = float.IsFinite(Volume) ? Math.Clamp(Volume, 0, 1) : 0;
         if (gain == 0 || Sfx.TimedSfxMute > 0) return false;
+        if (cue == FeedbackCue.HeadshotKill && !position.HasValue
+            && _headshotKillAudio.TryPlay(HeadshotKillSound, gain)) return true;
         SoundSource source = position.HasValue ? _world : _ui;
         source.Volume = gain;
         if (position.HasValue) source.Position = position.Value;
@@ -137,4 +156,6 @@ public sealed class FeedbackAudio
         // Hysteresis prevents small recovery/damage oscillations from producing a tone each tick.
         if (low || health >= 35) _lowHealth = low;
     }
+
+    public void Dispose() => _headshotKillAudio.Dispose();
 }

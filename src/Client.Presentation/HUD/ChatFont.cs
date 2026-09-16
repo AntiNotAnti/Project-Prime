@@ -3,7 +3,7 @@ using System;
 namespace MphRead.Mods.Chat
 {
     /// <summary>
-    /// A compact proportional pixel font, for the chat log alone.
+    /// A compact proportional pixel font shared by chat and the modern HUD.
     ///
     /// The game's own font is the reason this exists. It is 8x8, it is bold,
     /// and it has **one alphabet**: everything drawn with it comes out in
@@ -16,7 +16,8 @@ namespace MphRead.Mods.Chat
     /// So: real lowercase, real descenders, proportional widths (2 units for
     /// an i, 6 for an m), caps six rows tall against the game font's eight.
     /// A sentence lands in about half the width, which is the whole point --
-    /// a chat line has to fit across a 256-unit screen next to a name.
+    /// a chat line has to fit across a 256-unit screen next to a name, while
+    /// the wider HUD gains a cleaner and less crowded alternative face.
     ///
     /// Authored as pixel art below rather than shipped as a file, for three
     /// reasons: it is 95 glyphs and about six kilobytes expanded, so a file

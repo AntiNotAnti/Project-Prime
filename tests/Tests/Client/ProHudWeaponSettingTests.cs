@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using MphRead.Mods.Render;
 using Xunit;
 
 namespace MphRead.Tests.Client;
@@ -80,6 +81,86 @@ public sealed class ProHudWeaponSettingTests
         finally
         {
             Features.ReticleScale = before;
+        }
+    }
+
+    [Fact]
+    public void CohesiveHudPreferencesRoundTripAndResolveScale()
+    {
+        ProHudSize beforeSize = Features.ProHudSize;
+        bool beforeSafeArea = Features.ProHudSafeArea;
+        bool beforeContrast = Features.ProHudHighContrast;
+        try
+        {
+            Features.ProHudSize = ProHudSize.Large;
+            Features.ProHudSafeArea = false;
+            Features.ProHudHighContrast = true;
+            var committed = FeaturesSettings.Commit();
+
+            Features.ProHudSize = ProHudSize.Compact;
+            Features.ProHudSafeArea = true;
+            Features.ProHudHighContrast = false;
+            FeaturesSettings.Load(committed);
+
+            Assert.Equal(ProHudSize.Large, Features.ProHudSize);
+            Assert.Equal(1.18f, Features.ProHudScale);
+            Assert.False(Features.ProHudSafeArea);
+            Assert.True(Features.ProHudHighContrast);
+        }
+        finally
+        {
+            Features.ProHudSize = beforeSize;
+            Features.ProHudSafeArea = beforeSafeArea;
+            Features.ProHudHighContrast = beforeContrast;
+        }
+    }
+
+    [Fact]
+    public void InvalidHudSizePreservesCurrentPreference()
+    {
+        ProHudSize before = Features.ProHudSize;
+        try
+        {
+            Features.ProHudSize = ProHudSize.Standard;
+            FeaturesSettings.Load(new Dictionary<string, string>
+            {
+                [nameof(Features.ProHudSize)] = "billboard"
+            });
+            Assert.Equal(ProHudSize.Standard, Features.ProHudSize);
+        }
+        finally
+        {
+            Features.ProHudSize = before;
+        }
+    }
+
+    [Fact]
+    public void ExpandedCrosshairStylesRoundTripThroughFeatureSettings()
+    {
+        CrosshairStyle before = Crosshair.Style;
+        CrosshairStyle[] expanded =
+        {
+            CrosshairStyle.RingDot,
+            CrosshairStyle.TDot,
+            CrosshairStyle.Box,
+            CrosshairStyle.Precision,
+            CrosshairStyle.Shotgun
+        };
+        try
+        {
+            foreach (CrosshairStyle style in expanded)
+            {
+                Crosshair.Style = style;
+                IReadOnlyDictionary<string, string> committed
+                    = FeaturesSettings.Commit();
+                Crosshair.Style = CrosshairStyle.Cross;
+                FeaturesSettings.Load(committed);
+                Assert.Equal(style, Crosshair.Style);
+            }
+        }
+        finally
+        {
+            Crosshair.Style = before;
         }
     }
 }

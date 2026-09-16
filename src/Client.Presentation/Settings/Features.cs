@@ -2,6 +2,13 @@ using System;
 
 namespace MphRead
 {
+    public enum ProHudSize : byte
+    {
+        Compact,
+        Standard,
+        Large
+    }
+
     public static class Bugfixes
     {
         public static bool SmoothCamSeqHandoff { get; set; } = false;
@@ -52,12 +59,31 @@ namespace MphRead
         /// </summary>
         public static bool ProHud { get; set; } = false;
 
+        /// <summary>Scales the competitive HUD as one layout instead of exposing
+        /// independent controls that can overlap each other.</summary>
+        public static ProHudSize ProHudSize { get; set; } = ProHudSize.Standard;
+
+        /// <summary>Keeps competitive readouts inside a 16:9-safe horizontal
+        /// region on ultrawide displays.</summary>
+        public static bool ProHudSafeArea { get; set; } = true;
+
+        /// <summary>Uses brighter accents and redundant text/symbol cues so
+        /// state is never communicated by hue alone.</summary>
+        public static bool ProHudHighContrast { get; set; } = false;
+
+        public static float ProHudScale => ProHudSize switch
+        {
+            ProHudSize.Compact => 0.85f,
+            ProHudSize.Large => 1.18f,
+            _ => 1f
+        };
+
         /// <summary>
-        /// How big the weapon list is drawn under <see cref="ProHud"/>.
-        /// Large enough to read without looking straight at it, which is the
-        /// whole job of that column.
+        /// How big the weapon list is drawn under <see cref="ProHud"/>. It
+        /// follows the cohesive HUD-size preset so the inventory never drifts
+        /// out of proportion with the score and resource panels.
         /// </summary>
-        public const float ProHudWeaponListScale = 1.7f;
+        public static float ProHudWeaponListScale => 1.7f * ProHudScale;
 
         // These, below, read as what the game should actually draw: Pro
         // mode's answer while that is on, the field's own default otherwise.

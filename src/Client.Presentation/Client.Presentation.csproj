@@ -54,6 +54,8 @@
                       Exclude="Assets/Cosmetics/DeathAnimations/**" />
     <EmbeddedResource Include="Assets/Cosmetics/DeathAnimations/*.pda"
                       LogicalName="MphRead.Cosmetics.DeathAnimations.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="Assets/Audio/HeadshotKills/*.mp3"
+                      LogicalName="MphRead.Combat.HeadshotKills.%(Filename)%(Extension)" />
     <AvaloniaXaml Include="Launcher/**/*.axaml" />
     <EmbeddedResource Include="Launcher/Resources/PrimeUiCopy.resx"
                       LogicalName="MphRead.Mods.Launcher.Resources.PrimeUiCopy.resources" />

@@ -12,7 +12,10 @@ namespace MphRead.Mods.Input
         Missile,
         MorphBoost,
         Death,
-        MajorPickup
+        MajorPickup,
+        HitConfirm,
+        HeadshotConfirm,
+        KillConfirm
     }
 
     public readonly record struct HapticPattern(ushort LowFrequency,
@@ -173,6 +176,9 @@ namespace MphRead.Mods.Input
             HapticEvent.MorphBoost => new(22000, 12000, 110, 2),
             HapticEvent.TakingDamage => new(36000, 18000, 160, 4),
             HapticEvent.MajorPickup => new(18000, 32000, 240, 3),
+            HapticEvent.HitConfirm => new(3500, 9500, 32, 1),
+            HapticEvent.HeadshotConfirm => new(6500, 18000, 52, 2),
+            HapticEvent.KillConfirm => new(12000, 26000, 82, 3),
             HapticEvent.Death => new(52000, 28000, 400, 5),
             _ => default
         };

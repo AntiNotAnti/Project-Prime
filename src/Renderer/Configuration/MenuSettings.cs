@@ -42,9 +42,15 @@ namespace MphRead
         public string AdvancedNetwork { get; set; } = "off";
         public string HitMarkers { get; set; } = "Visual";
         public string HitMarkerTiming { get; set; } = "Confirmed";
+        public string HitMarkerSize { get; set; } = "1.0";
+        public string HitMarkerOpacity { get; set; } = "1.0";
+        public string HitMarkerPalette { get; set; } = "Classic";
+        public string HitMarkerAnimation { get; set; } = "1.0";
         public string HeadshotCue { get; set; } = "on";
+        public string HeadshotKillSound { get; set; } = "Warzone";
         public string KillConfirmation { get; set; } = "on";
         public string Killcam { get; set; } = "off";
+        public string HudFont { get; set; } = "modern";
         public string RadarStyle { get; set; } = "Enhanced";
         public string RadarOrientation { get; set; } = "heading";
         public string RadarPosition { get; set; } = "TopRight";

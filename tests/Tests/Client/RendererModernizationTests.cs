@@ -538,6 +538,33 @@ public sealed class RendererModernizationTests
     }
 
     [Fact]
+    public void ExpandedCrosshairCatalogHasPreviewAndRendererGeometryForEveryStyle()
+    {
+        CrosshairStyle[] styles = Enum.GetValues<CrosshairStyle>();
+        Assert.Equal(styles.Length, Crosshair.StyleNames.Length);
+        Assert.Equal(10, styles.Length);
+
+        foreach (CrosshairStyle style in styles)
+        {
+            IReadOnlyList<CrosshairBar> bars = Crosshair.BarsOf(style, 1f);
+            (float radius, float thickness) = Crosshair.RingOf(style, 1f);
+            Assert.True(bars.Count > 0 || thickness > 0,
+                $"{style} has no visible geometry.");
+            Assert.InRange(bars.Count, 0, 8);
+            Assert.True(radius >= 0);
+            Assert.True(thickness >= 0);
+        }
+
+        Assert.True(Crosshair.RingOf(CrosshairStyle.RingDot, 1f).Thickness > 0);
+        Assert.Single(Crosshair.BarsOf(CrosshairStyle.RingDot, 1f));
+        Assert.Equal(4, Crosshair.BarsOf(CrosshairStyle.TDot, 1f).Count);
+        Assert.Equal(4, Crosshair.BarsOf(CrosshairStyle.Box, 1f).Count);
+        Assert.Equal(5, Crosshair.BarsOf(CrosshairStyle.Precision, 1f).Count);
+        Assert.Equal(4, Crosshair.BarsOf(CrosshairStyle.Shotgun, 1f).Count);
+        Assert.True(Crosshair.RingOf(CrosshairStyle.Shotgun, 1f).Thickness > 0);
+    }
+
+    [Fact]
     public void DynamicPrimitiveCompilerPreservesQuadAndTrailWinding()
     {
         var quad = new DrawSubmission { Primitive = RenderPrimitive.Quad,

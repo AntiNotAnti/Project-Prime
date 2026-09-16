@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using MphRead.Combat;
 using MphRead.Hud;
 using MphRead.Hud.Radar;
@@ -28,6 +29,11 @@ namespace MphRead
         }
         private FeedbackAudio? _feedbackAudio;
         public FeedbackAudio FeedbackAudio => _feedbackAudio ??= new(World);
+        internal void DisposeFeedbackAudio()
+        {
+            _feedbackAudio?.Dispose();
+            _feedbackAudio = null;
+        }
 
         /// <summary>
         /// Consume discrete world notices once from the scene presentation.
@@ -82,14 +88,17 @@ namespace MphRead.Entities
     public partial class PlayerPresentation
     {
         private uint _feedbackSoundSequence;
+        private uint _feedbackHapticSequence;
         private uint _awardHudRevision;
         private MatchAward? _activeAward;
         private CombatActor _feedbackSoundIdentity = CombatActor.None;
+        private readonly List<HudGeometryVertex> _hitMarkerGeometry = new(48);
         internal void SynchronizeReplayFeedbackAudio()
         {
             ResetVisorPresentation();
             _feedbackSoundIdentity = Presentation.CombatFeedback.Local;
             _feedbackSoundSequence = Presentation.CombatFeedback.State.MarkerAudioSequence;
+            _feedbackHapticSequence = Presentation.CombatFeedback.State.MarkerAudioSequence;
         }
 
         private void ModDrawCombatFeedback()
@@ -108,13 +117,34 @@ namespace MphRead.Entities
             {
                 _feedbackSoundIdentity = feedback.Local;
                 _feedbackSoundSequence = 0;
+                _feedbackHapticSequence = 0;
             }
             if (_feedbackSoundSequence != feedback.State.MarkerAudioSequence)
             {
                 _feedbackSoundSequence = feedback.State.MarkerAudioSequence;
-                if (localView && marker != HitMarkerKind.None && CombatFeedbackSettings.HitMarkers == HitMarkerMode.VisualAndAudio)
-                    Presentation.FeedbackAudio.Play(marker == HitMarkerKind.Kill ? FeedbackCue.Kill
-                        : marker == HitMarkerKind.Headshot ? FeedbackCue.Headshot : FeedbackCue.Hit, tick);
+                HitMarkerKind cue = feedback.State.MarkerAudioKind;
+                if (localView && cue != HitMarkerKind.None)
+                {
+                    FeedbackCue audioCue = FeedbackAudio.MarkerCue(cue,
+                        feedback.State.MarkerFlags, CombatFeedbackSettings.HeadshotCue);
+                    if (audioCue == FeedbackCue.HeadshotKill
+                        || CombatFeedbackSettings.HitMarkers == HitMarkerMode.VisualAndAudio)
+                        Presentation.FeedbackAudio.Play(audioCue, tick);
+                }
+            }
+            if (_feedbackHapticSequence != feedback.State.MarkerAudioSequence)
+            {
+                _feedbackHapticSequence = feedback.State.MarkerAudioSequence;
+                HitMarkerKind cue = feedback.State.MarkerAudioKind;
+                if (localView && cue != HitMarkerKind.None
+                    && CombatFeedbackSettings.HitMarkers != HitMarkerMode.Off)
+                {
+                    GamepadHaptics.Play(cue == HitMarkerKind.Kill
+                        ? HapticEvent.KillConfirm
+                        : cue == HitMarkerKind.Headshot
+                            ? HapticEvent.HeadshotConfirm : HapticEvent.HitConfirm,
+                        feedback.State.MarkerHapticIdentity);
+                }
             }
             if (localView) Presentation.FeedbackAudio.ObserveHealth(feedback.Local, (ushort)_player.Health, tick);
             if (localView && _awardHudRevision != Presentation.AwardHud.Revision)
@@ -135,8 +165,20 @@ namespace MphRead.Entities
             if (world.Message.Length > 0 && CombatFeedback.Age(tick, world.Tick) < 120)
             {
                 bool pickupNotice = world.LastKind == WorldSignalKind.PickupConsumed;
-                DrawText2D(128, pickupNotice ? 42 : 62, Align.Center, 0, world.Message,
-                    scale: pickupNotice ? .5f : .7f);
+                if (pickupNotice && Features.ProHud)
+                {
+                    float scale = Features.ProHudScale;
+                    float aspect = HudAspectFix;
+                    float x = ProHudLeftEdge(aspect) + 2 * scale * aspect;
+                    float y = 190 - 22 * scale - 17 * scale;
+                    DrawText2D(x, y, Align.Left, 0, ProPickupMessage(world),
+                        ProHudInk, maxLength: 36, scale: .42f * scale);
+                }
+                else
+                {
+                    DrawText2D(128, pickupNotice ? 42 : 62, Align.Center, 0,
+                        world.Message, scale: pickupNotice ? .5f : .7f);
+                }
             }
             if (localView && play?.NodeMatchId is Guid matchId
                 && node?.TransitionVoteFor(matchId) is
@@ -154,24 +196,20 @@ namespace MphRead.Entities
                     scale: .75f);
             if (localView && _player.Health > 0 && marker != HitMarkerKind.None)
             {
-                uint age = CombatFeedback.Age(tick, feedback.State.MarkerTick);
+                float renderAlpha = float.IsFinite(Presentation.Timing.RenderAlpha)
+                    ? Math.Clamp(Presentation.Timing.RenderAlpha, 0, 1) : 0;
+                float age = CombatFeedback.Age(tick, feedback.State.MarkerTick)
+                    + renderAlpha;
                 uint duration = CombatFeedback.MarkerDuration(marker);
-                float fade = duration == 0 ? 0 : Math.Clamp((duration - age) / (float)duration, 0, 1);
-                float punch = marker == HitMarkerKind.Predicted
-                    ? .85f + .15f * Math.Min(age / 2f, 1f)
-                    : 1f + .1f * Math.Max(0, 1f - age / 2f);
                 float hudScale = Features.CustomCrosshair
                     ? Mods.Render.Crosshair.Scale : Features.ReticleScale;
-                float scale = .75f * hudScale * punch;
-                int markerX = Math.Clamp((int)MathF.Round(CurrentReticlePosition.X * 256), 0, 255);
-                int markerY = Math.Clamp((int)MathF.Round(CurrentReticlePosition.Y * 192), 0, 191);
-                string text = marker == HitMarkerKind.Kill ? "[X]" : marker == HitMarkerKind.Headshot ? "[+]"
-                    : marker == HitMarkerKind.Predicted ? "x" : "][";
-                ColorRgba color = marker == HitMarkerKind.Kill ? new ColorRgba(255, 64, 64, 255)
-                    : marker == HitMarkerKind.Headshot ? new ColorRgba(255, 255, 64, 255)
-                    : marker == HitMarkerKind.Predicted ? new ColorRgba(210, 210, 210, (byte)(150 * fade))
-                    : new ColorRgba(255, 255, 255, (byte)(255 * fade));
-                DrawText2D(markerX, markerY, Align.Center, 0, text, color, scale: scale);
+                float pulseAge = CombatFeedback.Age(tick,
+                    feedback.State.MarkerPulseTick) + renderAlpha;
+                HitMarkerVisual.Build(_hitMarkerGeometry, CurrentReticlePosition,
+                    marker, age, duration, pulseAge, feedback.State, hudScale,
+                    Mods.Launcher.LauncherPrefs.ReducedMotion);
+                if (_hitMarkerGeometry.Count >= 3)
+                    Presentation.DrawHudGeometry(_hitMarkerGeometry);
             }
             int feedY = 22;
             RadarProfile radarProfile = CurrentRadarProfile;
@@ -187,8 +225,29 @@ namespace MphRead.Entities
             {
                 KillFeedEntry entry = feedback.FeedAt(i);
                 if (CombatFeedback.Age(tick, entry.Tick) >= CombatFeedback.FeedTicks) continue;
-                DrawText2D(252, feedY + row++ * 8, Align.Right, 0, entry.Text,
-                    maxLength: 44, scale: .65f);
+                int y = feedY + row++ * 8;
+                if (Features.ProHud)
+                {
+                    ColorRgba color = ProHudInk;
+                    Presentation.DrawHudFlatBox(164, y - 1, 255, y + 7,
+                        new OpenTK.Mathematics.Vector4(.02f, .03f, .05f, .55f));
+                    if (entry.Killer.Slot < _player._scene.Players.Count)
+                    {
+                        PlayerEntity killer = _player._scene.Players[entry.Killer.Slot];
+                        int team = killer.TeamIndex;
+                        if (_player._scene.Match.Rules.Teams
+                            && killer.CombatIdentity == entry.Killer)
+                            color = ProTeamInk[Math.Clamp(team, 0,
+                                ProTeamInk.Length - 1)];
+                    }
+                    DrawText2D(252, y, Align.Right, 0, entry.Text, color,
+                        maxLength: 44, scale: .65f);
+                }
+                else
+                {
+                    DrawText2D(252, y, Align.Right, 0, entry.Text,
+                        maxLength: 44, scale: .65f);
+                }
             }
             if (deathRecapVisible)
             {

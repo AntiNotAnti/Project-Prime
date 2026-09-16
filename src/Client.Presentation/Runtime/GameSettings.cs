@@ -61,9 +61,22 @@ namespace MphRead.Mods
             Combat.CombatFeedbackSettings.Timing = Enum.TryParse(settings.HitMarkerTiming, true,
                 out Combat.HitMarkerTiming timing) && Enum.IsDefined(timing)
                 ? timing : Combat.HitMarkerTiming.Confirmed;
+            Combat.CombatFeedbackSettings.MarkerScale = ParseRadarNumber(
+                settings.HitMarkerSize, 1, .5f, 2f);
+            Combat.CombatFeedbackSettings.MarkerOpacity = ParseRadarNumber(
+                settings.HitMarkerOpacity, 1, .2f, 1f);
+            Combat.CombatFeedbackSettings.Palette = Enum.TryParse(
+                settings.HitMarkerPalette, true, out Combat.HitMarkerPalette palette)
+                && Enum.IsDefined(palette) ? palette : Combat.HitMarkerPalette.Classic;
+            Combat.CombatFeedbackSettings.MarkerAnimation = ParseRadarNumber(
+                settings.HitMarkerAnimation, 1, 0, 1);
             Combat.CombatFeedbackSettings.HeadshotCue = RenderOptions.ParseOnOff(settings.HeadshotCue, true);
+            Combat.FeedbackAudio.HeadshotKillSound
+                = Combat.HeadshotKillSoundCatalog.Parse(settings.HeadshotKillSound);
             Combat.CombatFeedbackSettings.KillConfirmation = RenderOptions.ParseOnOff(settings.KillConfirmation, true);
             KillcamEnabled = RenderOptions.ParseOnOff(settings.Killcam, false);
+            global::MphRead.Hud.HudFontSettings.Style
+                = global::MphRead.Hud.HudFontSettings.Parse(settings.HudFont);
             global::MphRead.Hud.Radar.RadarSettings.Style = Enum.TryParse(settings.RadarStyle, true, out global::MphRead.Hud.Radar.RadarStyle radarStyle)
                 && Enum.IsDefined(radarStyle) ? radarStyle : global::MphRead.Hud.Radar.RadarStyle.Enhanced;
             global::MphRead.Hud.Radar.RadarSettings.Orientation = Enum.TryParse(settings.RadarOrientation, true, out global::MphRead.Hud.Radar.RadarOrientation radarOrientation)

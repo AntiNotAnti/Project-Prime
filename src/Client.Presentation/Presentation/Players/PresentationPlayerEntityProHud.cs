@@ -34,22 +34,79 @@ namespace MphRead.Entities
         private static readonly ColorRgba ProHudInk = new ColorRgba(235, 238, 245, 255);
         private static readonly ColorRgba ProHudDim = new ColorRgba(178, 186, 200, 255);
         private static readonly ColorRgba ProHudShadow = new ColorRgba(0, 0, 0, 255);
+        private static readonly ColorRgba[] ProTeamInk =
+        {
+            new(255, 170, 48, 255), new(80, 235, 120, 255),
+            new(80, 175, 255, 255), new(225, 105, 255, 255)
+        };
+        private static readonly Vector2[] ProDamageOffsets =
+        {
+            new(0, -1), new(.72f, -.72f), new(1, 0), new(.72f, .72f),
+            new(0, 1), new(-.72f, .72f), new(-1, 0), new(-.72f, -.72f)
+        };
+        private static readonly string[] ProDamageLabels =
+            { "N", "NE", "E", "SE", "S", "SW", "W", "NW" };
+        private readonly float[] _proDamageStrength = new float[8];
+        private uint _proPickupSequence;
+        private uint _proPickupTick;
+        private uint _proPickupItem;
+        private int _proPickupCount;
+        private string _proPickupMessage = "";
+        private ulong _proHudTextFrame = ulong.MaxValue;
+        private string _proHealthText = "";
+        private string? _proAmmoText;
+        private string _proMatchClockText = "";
+        private string _proMatchScoreText = "";
+        private string _proObjectiveText = "";
+        private string _proModeScoreLabel = "";
+        private string _proModeScoreText = "";
+        private string? _proDoubleDamageText;
+        private string? _proCloakText;
+        private string? _proBombText;
+
         public void DrawProHud()
         {
+            RefreshProHudText();
             float aspect = HudAspectFix;
+            float scale = Features.ProHudScale;
+            float edge = ProHudLeftEdge(aspect);
+            float bottom = 190;
+            float height = 22 * scale;
+            float top = bottom - height;
             Vector4 health = ProHealthColor();
-            DrawProPanel(2 * aspect, 168, 60 * aspect, 190, health);
-            ProNumber(6 * aspect, 172, Align.Left, _player._health.ToString(), ProInk(health), 1.5f);
-            ProBar(4 * aspect, 186, 54, 3, ProHealthFraction(), health);
-            DrawProAmmo();
+            DrawProPanel(edge, top, edge + 58 * scale * aspect, bottom, health);
+            ProNumber(edge + 4 * scale * aspect, top + 4 * scale, Align.Left,
+                _proHealthText, ProInk(health), 1.5f * scale);
+            ProBar(edge + 2 * scale * aspect, bottom - 4 * scale,
+                54 * scale, 3 * scale, ProHealthFraction(), health);
+            DrawProAmmo(scale, top, bottom);
+            DrawProStatusRow(edge, top, scale);
+            DrawProMatchStrip(scale);
+            DrawProDamageIndicators(scale);
             // Below the chat log: the pro score sits in the same corner the
             // log is drawn into, and at 12 units down it was underneath the
             // second line of it. See ModChatClearance.
             float scoreY = ModChatClearance(12);
-            DrawProPanel(2 * aspect, scoreY - 2, 70 * aspect, scoreY + 22,
+            DrawProPanel(edge, scoreY - 2, edge + 68 * scale * aspect,
+                scoreY + 22 * scale,
                 new Vector4(0.42f, 0.72f, 1f, 1));
-            ProScore(5 * aspect, scoreY + 1, Align.Left, 1.1f);
+            ProScore(edge + 3 * scale * aspect, scoreY + scale,
+                Align.Left, 1.1f * scale);
         }
+
+        private float ProHudLeftEdge(float aspect)
+        {
+            float edge = 2 * aspect;
+            if (Features.ProHudSafeArea)
+            {
+                // At 16:9 HudAspectFix is .75. On wider displays this adds the
+                // centered 16:9 pillar margin in the HUD's 256-unit space.
+                edge += Math.Max(0, 128 * (1 - 4f / 3f * aspect));
+            }
+            return edge;
+        }
+
+        private float ProHudRightEdge(float aspect) => 256 - ProHudLeftEdge(aspect);
 
         /// <summary>
         /// Panel geometry for the ammo corner, in HUD units off the screen's
@@ -60,9 +117,10 @@ namespace MphRead.Entities
         /// </summary>
         private const float ProAmmoPanelWidth = 58;
         private const float ProAmmoNumberScale = 1.5f;
-        public void DrawProAmmo()
+        public void DrawProAmmo(float scale, float top, float bottom)
         {
-            string? ammo = ProAmmoText();
+            RefreshProHudText();
+            string? ammo = _proAmmoText;
             if (ammo == null)
             {
                 return;
@@ -70,15 +128,26 @@ namespace MphRead.Entities
 
             float aspect = HudAspectFix;
             Vector4 color = ProAmmoColor();
-            float right = 256 - 2 * aspect;
-            float left = right - ProAmmoPanelWidth * aspect;
-            DrawProPanel(left, 168, right, 190, color);
-            DrawProAmmoIcon(left + 2 * aspect, 172);
-            ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale);
-            ProBar(left + 2 * aspect, 186, ProAmmoPanelWidth - 4, 3, ProAmmoFraction(), color);
+            float right = ProHudRightEdge(aspect);
+            float left = right - ProAmmoPanelWidth * scale * aspect;
+            DrawProPanel(left, top, right, bottom, color);
+            DrawProAmmoIcon(left + 2 * scale * aspect, top + 4 * scale,
+                scale);
+            ProNumber(right - 4 * scale * aspect, top + 4 * scale,
+                Align.Right, ammo, ProInk(color), ProAmmoNumberScale * scale);
+            ProBar(left + 2 * scale * aspect, bottom - 4 * scale,
+                (ProAmmoPanelWidth - 4) * scale, 3 * scale,
+                ProAmmoFraction(), color);
+            float charge = ProChargeFraction();
+            if (charge > 0)
+            {
+                ProBar(left + 2 * scale * aspect, top + 1.5f * scale,
+                    (ProAmmoPanelWidth - 4) * scale, 1.25f * scale,
+                    charge, charge >= 1 ? ProGood : ProWarn);
+            }
         }
 
-        public void DrawProAmmoIcon(float x, float y)
+        public void DrawProAmmoIcon(float x, float y, float hudScale)
         {
             int index = (int)_player.CurrentWeapon;
             if (index < 0 || index >= _weaponListIcons.Length)
@@ -94,7 +163,7 @@ namespace MphRead.Entities
 
             // A glyph is 8 units tall before scaling, so this is exactly the
             // height of the number it stands next to.
-            float side = 8 * ProAmmoNumberScale;
+            float side = 8 * ProAmmoNumberScale * hudScale;
             float aspect = HudAspectFix;
             IconBounds bounds = _weaponListIconBounds[index];
             float scale = side / Math.Max(bounds.Width, bounds.Height);
@@ -106,6 +175,18 @@ namespace MphRead.Entities
             icon.PositionX = (x + side * aspect / 2 - bounds.CentreX * scale * aspect) / 256f;
             icon.PositionY = (y + side / 2 - bounds.CentreY * scale) / 192f;
             Presentation.DrawHudObject(icon, mode: 1, scale: scale);
+        }
+
+        private float ProChargeFraction()
+        {
+            WeaponInfo weapon = _player.EquipInfo.Weapon;
+            if (!weapon.Flags.TestFlag(WeaponFlags.CanCharge)
+                || _player.EquipInfo.ChargeLevel == 0)
+            {
+                return 0;
+            }
+            int full = Math.Max(SimTicks.From30HzFrames(weapon.FullCharge), 1);
+            return Math.Clamp(_player.EquipInfo.ChargeLevel / (float)full, 0, 1);
         }
 
         public float ProHealthFraction()
@@ -123,15 +204,18 @@ namespace MphRead.Entities
             float fraction = ProHealthFraction();
             if (fraction > ProHudWarn)
             {
-                return ProGood;
+                return Features.ProHudHighContrast
+                    ? new Vector4(.2f, 1f, .55f, 1) : ProGood;
             }
 
             if (fraction > ProHudDanger)
             {
-                return ProWarn;
+                return Features.ProHudHighContrast
+                    ? new Vector4(1f, .82f, .05f, 1) : ProWarn;
             }
 
-            return ProDanger;
+            return Features.ProHudHighContrast
+                ? new Vector4(1f, .08f, .55f, 1) : ProDanger;
         }
 
         public static ColorRgba ProInk(Vector4 color)
@@ -186,15 +270,300 @@ namespace MphRead.Entities
             int amount = _player._ammo[_player.EquipInfo.Weapon.AmmoType];
             if (amount < 0 || amount >= ProAmmoFull / 2)
             {
-                return ProGood;
+                return Features.ProHudHighContrast
+                    ? new Vector4(.2f, 1f, .55f, 1) : ProGood;
             }
 
             if (amount >= ProAmmoFull / 5)
             {
-                return ProWarn;
+                return Features.ProHudHighContrast
+                    ? new Vector4(1f, .82f, .05f, 1) : ProWarn;
             }
 
-            return ProDanger;
+            return Features.ProHudHighContrast
+                ? new Vector4(1f, .08f, .55f, 1) : ProDanger;
+        }
+
+        private void DrawProMatchStrip(float scale)
+        {
+            float aspect = HudAspectFix;
+            float width = 116 * scale * aspect;
+            float left = 128 - width / 2;
+            float top = 3;
+            float bottom = top + 27 * scale;
+            ColorRgba teamInk = ProTeamInk[Math.Clamp(_player.TeamIndex, 0,
+                ProTeamInk.Length - 1)];
+            Vector4 accent = _player._scene.Match.Period != MatchPeriod.Regulation
+                ? ProWarn : _player._scene.Match.Rules.Teams
+                    ? new Vector4(teamInk.Red / 255f, teamInk.Green / 255f,
+                        teamInk.Blue / 255f, 1)
+                    : new Vector4(.32f, .72f, 1f, 1);
+            DrawProPanel(left, top, left + width, bottom, accent);
+
+            ProNumber(128, top + 2 * scale, Align.Center,
+                _proMatchClockText, ProHudInk, .62f * scale);
+            ProNumber(128, top + 10 * scale, Align.Center,
+                _proMatchScoreText, ProHudInk, .58f * scale);
+            if (_proObjectiveText.Length > 0)
+            {
+                ColorRgba objectiveColor = _proObjectiveText.Contains("CONTESTED",
+                    StringComparison.Ordinal) ? ProInk(ProWarn) : ProHudDim;
+                ProNumber(128, top + 18 * scale, Align.Center,
+                    _proObjectiveText, objectiveColor, .48f * scale);
+            }
+        }
+
+        private void RefreshProHudText()
+        {
+            ulong frame = _player._scene.FrameCount;
+            if (_proHudTextFrame == frame)
+            {
+                return;
+            }
+            _proHudTextFrame = frame;
+
+            _proHealthText = _player._health.ToString();
+            _proAmmoText = ProAmmoText();
+            string clock = _player._scene.Match.MatchTime < 0 ? "--:--"
+                : FormatTime(TimeSpan.FromSeconds(
+                    Math.Max(0, _player._scene.Match.MatchTime)));
+            string period = _player._scene.Match.Period switch
+            {
+                MatchPeriod.Overtime => "OT",
+                MatchPeriod.SuddenDeath => "SD",
+                _ => "TIME"
+            };
+            _proMatchClockText = $"{period} {clock}";
+            _proMatchScoreText = ProMatchScoreText();
+            _proObjectiveText = ProObjectiveStatus();
+            _proModeScoreLabel = Strings.GetHudMessage(ProScoreMessageId());
+            _proModeScoreText = FormatModeScore(_player.SlotIndex);
+            _proDoubleDamageText = _player._doubleDmgTimer > 0
+                ? $"2X {ProSeconds(_player._doubleDmgTimer)}" : null;
+            _proCloakText = _player._cloakTimer > 0
+                && _player.Flags2.TestFlag(PlayerFlags2.Cloaking)
+                    ? $"CLOAK {ProSeconds(_player._cloakTimer)}" : null;
+            _proBombText = _player.IsAltForm
+                && _player._abilities.TestFlag(AbilityFlags.Bombs)
+                    ? $"BOMBS {_player._bombAmmo}" : null;
+        }
+
+        internal string ProMatchScoreText()
+        {
+            MatchRuntime match = _player._scene.Match;
+            if (match.Rules.Teams)
+            {
+                int teams = Math.Clamp(match.Rules.TeamCount, 2,
+                    MatchRules.MaximumTeamCount);
+                string text = "";
+                for (int team = 0; team < teams; team++)
+                {
+                    if (team > 0) text += "  |  ";
+                    text += $"T{team + 1} {ProTeamScore(team)}";
+                }
+                return text;
+            }
+
+            int localSlot = _player.SlotIndex;
+            string local = ProPlayerScore(localSlot);
+            int leader = localSlot;
+            for (int slot = 0; slot < _player._scene.Players.Count; slot++)
+            {
+                PlayerEntity candidate = _player._scene.Players[slot];
+                if (!candidate.LoadFlags.TestFlag(LoadFlags.Active)) continue;
+                if (ProPlayerScoreValue(slot) > ProPlayerScoreValue(leader))
+                    leader = slot;
+            }
+            string goal = ProGoalText();
+            return leader == localSlot ? $"YOU {local}{goal}"
+                : $"YOU {local}{goal}  |  LEAD {ProPlayerScore(leader)}";
+        }
+
+        private string ProTeamScore(int team)
+        {
+            MatchRuntime match = _player._scene.Match;
+            MatchMode mode = match.Rules.Mode;
+            if (mode is MatchMode.TeamSurvival)
+            {
+                return Math.Max(match.Rules.StartingLives
+                    - match.TeamDeaths[team], 0).ToString();
+            }
+            if (mode is MatchMode.TeamDefender)
+                return FormatTime(TimeSpan.FromSeconds(match.TeamTime[team]));
+            return match.TeamPoints[team].ToString();
+        }
+
+        private string ProPlayerScore(int slot)
+        {
+            MatchRuntime match = _player._scene.Match;
+            MatchMode mode = match.Rules.Mode;
+            if (mode is MatchMode.Survival)
+                return Math.Max(match.Rules.StartingLives
+                    - match.TeamDeaths[_player._scene.Players[slot].TeamIndex], 0)
+                    .ToString();
+            if (mode is MatchMode.Defender or MatchMode.PrimeHunter)
+                return FormatTime(TimeSpan.FromSeconds(match.Players[slot].Time));
+            return match.Players[slot].Points.ToString();
+        }
+
+        private float ProPlayerScoreValue(int slot)
+        {
+            MatchRuntime match = _player._scene.Match;
+            MatchMode mode = match.Rules.Mode;
+            if (mode is MatchMode.Survival)
+                return Math.Max(match.Rules.StartingLives
+                    - match.TeamDeaths[_player._scene.Players[slot].TeamIndex], 0);
+            if (mode is MatchMode.Defender or MatchMode.PrimeHunter)
+                return match.Players[slot].Time;
+            return match.Players[slot].Points;
+        }
+
+        private string ProGoalText()
+        {
+            MatchRules rules = _player._scene.Match.Rules;
+            if (rules.IsObjectiveTimeMode)
+                return rules.LegacyTimeGoal > 0
+                    ? $"/{FormatTime(TimeSpan.FromSeconds(rules.LegacyTimeGoal))}" : "";
+            return rules.LegacyPointGoal > 0 ? $"/{rules.LegacyPointGoal}" : "";
+        }
+
+        internal string ProObjectiveStatus()
+        {
+            MatchMode mode = _player._scene.Match.Rules.Mode;
+            if (mode is MatchMode.Nodes or MatchMode.TeamNodes)
+            {
+                int friendly = 0, enemy = 0, contested = 0;
+                foreach (NodeDefenseEntity node in _player._scene.GetNodeDefenseEntities())
+                {
+                    if (node.Contested) contested++;
+                    else if (node.CurrentTeam == _player.TeamIndex) friendly++;
+                    else if (node.CurrentTeam != NodeDefenseEntity.NeutralTeam) enemy++;
+                }
+                string text = $"NODES {friendly}-{enemy}";
+                return contested > 0 ? text + "  CONTESTED" : text;
+            }
+            if (mode is MatchMode.Defender or MatchMode.TeamDefender)
+            {
+                foreach (NodeDefenseEntity ring in _player._scene.GetNodeDefenseEntities())
+                {
+                    if (ring.Contested) return "RING CONTESTED";
+                    if (ring.CurrentTeam == NodeDefenseEntity.NeutralTeam) return "RING OPEN";
+                    return ring.CurrentTeam == _player.TeamIndex ? "RING OURS" : "RING ENEMY";
+                }
+                return "RING OPEN";
+            }
+            if (mode is MatchMode.Capture or MatchMode.Bounty or MatchMode.TeamBounty)
+            {
+                bool localCarrier = false, allyCarrier = false;
+                bool enemyCarrier = false, available = false;
+                foreach (OctolithFlagEntity flag in _player._scene.GetOctolithFlagEntities())
+                {
+                    localCarrier |= ReferenceEquals(flag.Carrier, _player);
+                    allyCarrier |= flag.Carrier != null
+                        && flag.Carrier.TeamIndex == _player.TeamIndex
+                        && !ReferenceEquals(flag.Carrier, _player);
+                    enemyCarrier |= flag.Carrier != null
+                        && flag.Carrier.TeamIndex != _player.TeamIndex;
+                    available |= flag.AtBase;
+                }
+                if (localCarrier) return "CARRYING OCTOLITH";
+                if (allyCarrier) return "ALLY CARRIER";
+                if (enemyCarrier) return "ENEMY CARRIER";
+                return available ? "OCTOLITH AVAILABLE" : "OCTOLITH DROPPED";
+            }
+            if (mode == MatchMode.PrimeHunter)
+            {
+                if (_player.IsPrimeHunter) return "YOU ARE PRIME";
+                int prime = _player._scene.Match.PrimeHunter;
+                return prime >= 0 ? $"PRIME P{prime + 1}" : "PRIME UNCLAIMED";
+            }
+            return _player._scene.Match.Period switch
+            {
+                MatchPeriod.Overtime => "OVERTIME",
+                MatchPeriod.SuddenDeath => "SUDDEN DEATH",
+                _ => ""
+            };
+        }
+
+        private void DrawProStatusRow(float left, float healthTop, float scale)
+        {
+            float x = left;
+            float y = healthTop - 9 * scale;
+            if (_proDoubleDamageText != null)
+                DrawProBadge(ref x, y, _proDoubleDamageText,
+                    new Vector4(1f, .72f, .08f, 1), scale);
+            if (_proCloakText != null)
+                DrawProBadge(ref x, y, _proCloakText,
+                    new Vector4(.42f, .82f, 1f, 1), scale);
+            if (_player.IsPrimeHunter)
+                DrawProBadge(ref x, y, "PRIME", new Vector4(1f, .45f, .08f, 1), scale);
+            if (_player.OctolithFlag != null)
+                DrawProBadge(ref x, y, "FLAG", new Vector4(.92f, .85f, .15f, 1), scale);
+            if (_proBombText != null)
+                DrawProBadge(ref x, y, _proBombText,
+                    new Vector4(.72f, .72f, .82f, 1), scale);
+        }
+
+        private static int ProSeconds(ushort ticks)
+            => Math.Max(1, (ticks + SimTicks.Hz - 1) / SimTicks.Hz);
+
+        private void DrawProBadge(ref float x, float y, string text,
+            Vector4 accent, float scale)
+        {
+            float aspect = HudAspectFix;
+            float width = Math.Max(15, 4 + text.Length * 3.25f) * scale;
+            DrawProPanel(x, y, x + width * aspect, y + 7 * scale, accent);
+            ProNumber(x + 2 * scale * aspect, y + 1.2f * scale,
+                Align.Left, text, ProHudInk, .42f * scale);
+            x += (width + 2) * aspect;
+        }
+
+        internal void RecordProDamage(int index, int amount)
+        {
+            if ((uint)index >= _proDamageStrength.Length) return;
+            _proDamageStrength[index] = Math.Clamp(amount / 80f, .35f, 1f);
+        }
+
+        private void DrawProDamageIndicators(float scale)
+        {
+            const float maxTicks = 126;
+            float aspect = HudAspectFix;
+            for (int index = 0; index < _damageIndicatorTimers.Length; index++)
+            {
+                ushort timer = _damageIndicatorTimers[index];
+                if (timer == 0) continue;
+                float fade = Math.Clamp(timer / maxTicks, 0, 1);
+                float strength = Math.Max(_proDamageStrength[index], .35f);
+                Vector2 offset = ProDamageOffsets[index];
+                float x = 128 + offset.X * 26 * scale * aspect;
+                float y = 96 + offset.Y * 21 * scale;
+                Vector4 color = strength >= .7f ? ProDanger : ProWarn;
+                Presentation.DrawHudFlatBox(x - 4 * scale * aspect,
+                    y - 3 * scale, x + 4 * scale * aspect, y + 3 * scale,
+                    new Vector4(color.X, color.Y, color.Z, .32f * fade));
+                DrawText2D(x, y - 2.2f * scale, Align.Center, 0,
+                    ProDamageLabels[index], ProInk(color), alpha: fade,
+                    scale: .38f * scale);
+            }
+        }
+
+        internal string ProPickupMessage(MphRead.Combat.WorldFeedback world)
+        {
+            if (_proPickupMessage.Length == 0
+                || _proPickupSequence != world.Sequence)
+            {
+                bool combine = world.LastKind == WorldSignalKind.PickupConsumed
+                    && world.Sequence == unchecked(_proPickupSequence + 1)
+                    && _proPickupCount > 0 && _proPickupItem == world.LastEvent.A
+                    && MphRead.Combat.CombatFeedback.Age(world.Tick, _proPickupTick) <= 60;
+                _proPickupCount = combine ? _proPickupCount + 1 : 1;
+                _proPickupSequence = world.Sequence;
+                _proPickupTick = world.Tick;
+                _proPickupItem = world.LastEvent.A;
+                _proPickupMessage = _proPickupCount > 1
+                    ? $"{world.Message} x{_proPickupCount}" : world.Message;
+            }
+            return _proPickupMessage;
         }
 
         public void ProBar(float x, float y, float width, float height, float fill, Vector4 color)
@@ -229,9 +598,10 @@ namespace MphRead.Entities
 
         public void ProScore(float x, float y, Align align, float scale)
         {
-            string label = Strings.GetHudMessage(ProScoreMessageId());
-            ProNumber(x, y, align, label, ProHudDim, 0.55f);
-            ProNumber(x, y + 8, align, FormatModeScore(_player._scene.LocalPlayerSlot), ProHudInk, scale);
+            RefreshProHudText();
+            ProNumber(x, y, align, _proModeScoreLabel, ProHudDim, .5f * scale);
+            ProNumber(x, y + 7.25f * scale, align,
+                _proModeScoreText, ProHudInk, scale);
         }
 
         public int ProScoreMessageId()

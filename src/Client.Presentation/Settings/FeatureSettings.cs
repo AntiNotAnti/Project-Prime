@@ -71,6 +71,22 @@ public static class FeaturesSettings
             {
                 Features.ProHudFixedWeapon = boolean;
             }
+            if (values.TryGetValue(nameof(Features.ProHudSize), out value)
+                && Enum.TryParse(value, true, out ProHudSize proHudSize)
+                && Enum.IsDefined(proHudSize))
+            {
+                Features.ProHudSize = proHudSize;
+            }
+            if (values.TryGetValue(nameof(Features.ProHudSafeArea), out value)
+                && Boolean.TryParse(value, out boolean))
+            {
+                Features.ProHudSafeArea = boolean;
+            }
+            if (values.TryGetValue(nameof(Features.ProHudHighContrast), out value)
+                && Boolean.TryParse(value, out boolean))
+            {
+                Features.ProHudHighContrast = boolean;
+            }
             // Pro mode's crosshair: which shape, and how big. Both persist,
             // because a crosshair is a thing a player picks once and then does
             // not want to think about again.
@@ -88,7 +104,8 @@ public static class FeaturesSettings
 
         /// <summary>
         /// What the launcher can still be asked about: the Pro HUD switch,
-        /// its independent weapon-motion preference, and crosshair choices.
+        /// its cohesive size/accessibility choices, independent weapon-motion
+        /// preference, and crosshair choices.
         ///
         /// Everything else was reachable either through the generic
         /// reflection-built "Features" page or through a Display-page row of
@@ -106,6 +123,9 @@ public static class FeaturesSettings
                 new(nameof(Features.ReticleScale), Features.ReticleScale.ToString(CultureInfo.InvariantCulture)),
                 new(nameof(Features.ProHud), Features.ProHud.ToString().ToLower()),
                 new(nameof(Features.ProHudFixedWeapon), Features.ProHudFixedWeapon.ToString().ToLower()),
+                new(nameof(Features.ProHudSize), Features.ProHudSize.ToString()),
+                new(nameof(Features.ProHudSafeArea), Features.ProHudSafeArea.ToString().ToLower()),
+                new(nameof(Features.ProHudHighContrast), Features.ProHudHighContrast.ToString().ToLower()),
                 new("CrosshairStyle", Mods.Render.Crosshair.Style.ToString()),
                 new("CrosshairSize", Mods.Render.Crosshair.Size.ToString())
             ]);
