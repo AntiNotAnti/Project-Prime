@@ -78,6 +78,173 @@ public sealed class RollingAltLookTests
     }
 
     [Fact]
+    public void CanonicalMoveButtonsResolveAllFourDirections()
+    {
+        (InputButtons Buttons, float Lateral, float Forward)[] directions =
+        [
+            (InputButtons.Forward, 0, 1),
+            (InputButtons.Back, 0, -1),
+            (InputButtons.Left, -1, 0),
+            (InputButtons.Right, 1, 0)
+        ];
+
+        foreach ((InputButtons buttons, float lateral, float forward) in directions)
+        {
+            (float actualLateral, float actualForward) =
+                PlayerEntity.ResolveAltMovementAxes(Vector2.Zero, buttons,
+                    Vector2.Zero, InputButtons.None, Vector2.Zero,
+                    analogPresent: false, rolling: false);
+
+            Assert.Equal(lateral, actualLateral);
+            Assert.Equal(forward, actualForward);
+        }
+    }
+
+    [Fact]
+    public void RollingMovementUsesLegacyRollOnlyForMissingMoveAxis()
+    {
+        (float lateral, float forward) = PlayerEntity.ResolveAltMovementAxes(
+            Vector2.Zero, InputButtons.None,
+            new Vector2(-1, 1), InputButtons.RollLeft | InputButtons.RollForward,
+            Vector2.Zero, analogPresent: false, rolling: true);
+
+        Assert.Equal(-1, lateral);
+        Assert.Equal(1, forward);
+    }
+
+    [Fact]
+    public void MoveWinsLegacyConflictAndOpposingMoveCancels()
+    {
+        (float lateral, float forward) = PlayerEntity.ResolveAltMovementAxes(
+            Vector2.Zero, InputButtons.Left | InputButtons.Right,
+            Vector2.Zero, InputButtons.RollLeft | InputButtons.RollBack,
+            Vector2.Zero, analogPresent: false, rolling: true);
+
+        Assert.Equal(0, lateral);
+        Assert.Equal(-1, forward);
+    }
+
+    [Fact]
+    public void CanonicalMoveDirectionWinsLegacyRollConflict()
+    {
+        (float lateral, float forward) = PlayerEntity.ResolveAltMovementAxes(
+            Vector2.Zero, InputButtons.Right | InputButtons.Back,
+            Vector2.Zero, InputButtons.RollLeft | InputButtons.RollForward,
+            Vector2.Zero, analogPresent: false, rolling: true);
+
+        Assert.Equal(1, lateral);
+        Assert.Equal(-1, forward);
+    }
+
+    [Fact]
+    public void PreControllerDigitalMovementCombinesWithAnalogAfterSelection()
+    {
+        (float lateral, float forward) = PlayerEntity.ResolveAltMovementAxes(
+            new Vector2(1, 0), InputButtons.Right,
+            Vector2.Zero, InputButtons.None,
+            new Vector2(.25f, -.5f), analogPresent: true, rolling: false);
+
+        Assert.Equal(1, lateral);
+        Assert.Equal(-.5f, forward, 5);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void CanonicalAndLegacyForwardUseTheSameAnalogComposition(
+        bool canonical)
+    {
+        (float lateral, float forward) = PlayerEntity.ResolveAltMovementAxes(
+            canonical ? Vector2.UnitY : Vector2.Zero,
+            canonical ? InputButtons.Forward : InputButtons.None,
+            canonical ? Vector2.Zero : Vector2.UnitY,
+            canonical ? InputButtons.None : InputButtons.RollForward,
+            new Vector2(.25f, -.5f), analogPresent: true, rolling: true);
+
+        Assert.Equal(.25f, lateral, 5);
+        Assert.Equal(1, forward);
+    }
+
+    [Theory]
+    [InlineData(90, -1, 0, 0, 1)]
+    [InlineData(-90, 1, 0, 0, -1)]
+    public void ExplicitYawProducesExpectedCardinalBasis(float yaw,
+        float expectedForwardX, float expectedForwardZ, float expectedLeftX,
+        float expectedLeftZ)
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.RotateRollingAltControlBasis(-Vector3.UnitZ, yaw);
+
+        Assert.Equal(expectedForwardX, forward.X, 5);
+        Assert.Equal(expectedForwardZ, forward.Z, 5);
+        Assert.Equal(expectedLeftX, left.X, 5);
+        Assert.Equal(expectedLeftZ, left.Z, 5);
+    }
+
+    [Theory]
+    [InlineData(90, -1, 0, 0, 1, 1, 0, 0, -1)]
+    [InlineData(-90, 1, 0, 0, -1, -1, 0, 0, 1)]
+    public void WasdCardinalsFollowExplicitCameraYaw(float yaw,
+        float forwardX, float forwardZ, float leftX, float leftZ,
+        float backX, float backZ, float rightX, float rightZ)
+    {
+        (Vector3 forward, Vector3 left) =
+            PlayerEntity.RotateRollingAltControlBasis(-Vector3.UnitZ, yaw);
+
+        Vector3 w = PlayerEntity.ResolveRollingAltMovement(forward, left,
+            forwardInput: 1, lateralInput: 0, traction: 1);
+        Vector3 a = PlayerEntity.ResolveRollingAltMovement(forward, left,
+            forwardInput: 0, lateralInput: -1, traction: 1);
+        Vector3 s = PlayerEntity.ResolveRollingAltMovement(forward, left,
+            forwardInput: -1, lateralInput: 0, traction: 1);
+        Vector3 d = PlayerEntity.ResolveRollingAltMovement(forward, left,
+            forwardInput: 0, lateralInput: 1, traction: 1);
+
+        Assert.Equal(forwardX, w.X, 5);
+        Assert.Equal(forwardZ, w.Z, 5);
+        Assert.Equal(leftX, a.X, 5);
+        Assert.Equal(leftZ, a.Z, 5);
+        Assert.Equal(backX, s.X, 5);
+        Assert.Equal(backZ, s.Z, 5);
+        Assert.Equal(rightX, d.X, 5);
+        Assert.Equal(rightZ, d.Z, 5);
+    }
+
+    [Fact]
+    public void CanonicalForwardUsesForwardWireBit()
+    {
+        InputButtons forward = PlayerEntity.ResolveAltMovementButtons(
+            left: false, right: false, forward: true, back: false);
+        var command = new InputCommand(4, 4, 3, forward, forward,
+            -Vector3.UnitZ, InputCommand.NoWeapon);
+        Span<byte> wire = stackalloc byte[InputCommand.Size];
+
+        command.Write(wire);
+
+        Assert.True(InputCommand.TryRead(wire, out InputCommand decoded));
+        Assert.Equal(InputButtons.Forward,
+            decoded.Buttons & (InputButtons.Left | InputButtons.Right
+                | InputButtons.Forward | InputButtons.Back));
+        Assert.Equal(InputButtons.Forward,
+            decoded.Pressed & (InputButtons.Left | InputButtons.Right
+                | InputButtons.Forward | InputButtons.Back));
+    }
+
+    [Theory]
+    [InlineData(false, false, false, false, true)]
+    [InlineData(true, false, false, false, false)]
+    [InlineData(false, true, false, false, true)]
+    [InlineData(false, false, true, false, false)]
+    public void AltDirectionOverrideObservesMoveAndLegacyInput(
+        bool moveHeld, bool movePressed, bool rollHeld, bool rollPressed,
+        bool expectedClear)
+    {
+        Assert.Equal(expectedClear,
+            PlayerEntity.ShouldClearAltDirectionOverride(moveHeld,
+                movePressed, rollHeld, rollPressed));
+    }
+
+    [Fact]
     public void ExplicitYawRotatesControlBasisWhilePitchAndVelocityCannot()
     {
         (Vector3 forward, Vector3 left) =
@@ -121,8 +288,8 @@ public sealed class RollingAltLookTests
     [Fact]
     public void WireAndPacketLossFallbackRetainRollingHeading()
     {
-        var command = new InputCommand(4, 4, 3, InputButtons.RollForward,
-            InputButtons.RollForward, -Vector3.UnitZ,
+        var command = new InputCommand(4, 4, 3, InputButtons.Forward,
+            InputButtons.Forward, -Vector3.UnitZ,
             InputCommand.NoWeapon);
         Span<byte> wire = stackalloc byte[InputCommand.Size];
 

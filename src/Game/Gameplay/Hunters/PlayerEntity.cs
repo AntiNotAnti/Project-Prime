@@ -628,6 +628,85 @@ namespace MphRead.Entities
                 analogAxis, analogPresent: true);
         }
 
+        /// <summary>
+        /// Convert the directional action states to the canonical movement
+        /// bits. Rolling forms may still use their legacy Roll* actions as a
+        /// fallback, but every alternate form's primary movement is Move*.
+        /// </summary>
+        internal static InputButtons ResolveAltMovementButtons(bool left,
+            bool right, bool forward, bool back)
+        {
+            InputButtons buttons = InputButtons.None;
+            if (left) buttons |= InputButtons.Left;
+            if (right) buttons |= InputButtons.Right;
+            if (forward) buttons |= InputButtons.Forward;
+            if (back) buttons |= InputButtons.Back;
+            return buttons;
+        }
+
+        /// <summary>
+        /// Resolve one alternate-form movement frame. Move* is authoritative
+        /// for each axis independently; a rolling form consults Roll* only
+        /// when that Move* axis has no input at all. Keeping presence separate
+        /// from the signed result makes opposing Move buttons cancel instead
+        /// of accidentally falling through to a legacy Roll* direction.
+        /// </summary>
+        internal static (float Lateral, float Forward) ResolveAltMovementAxes(
+            Vector2 digitalMovement, InputButtons movementButtons,
+            Vector2 digitalRoll, InputButtons rollButtons,
+            Vector2 analogMovement, bool analogPresent, bool rolling)
+        {
+            float moveLateral = ResolveAltDigitalAxis(digitalMovement.X,
+                movementButtons, InputButtons.Right, InputButtons.Left,
+                out bool moveLateralPresent);
+            float moveForward = ResolveAltDigitalAxis(digitalMovement.Y,
+                movementButtons, InputButtons.Forward, InputButtons.Back,
+                out bool moveForwardPresent);
+            float rollLateral = ResolveAltDigitalAxis(digitalRoll.X,
+                rollButtons, InputButtons.RollRight, InputButtons.RollLeft,
+                out _);
+            float rollForward = ResolveAltDigitalAxis(digitalRoll.Y,
+                rollButtons, InputButtons.RollForward, InputButtons.RollBack,
+                out _);
+
+            float lateral = rolling && !moveLateralPresent
+                ? rollLateral : moveLateral;
+            float forward = rolling && !moveForwardPresent
+                ? rollForward : moveForward;
+            if (!analogPresent)
+            {
+                return (lateral, forward);
+            }
+            return (ResolveAnalogMovementAxis(lateral, analogMovement.X,
+                    analogPresent: true),
+                ResolveAnalogMovementAxis(forward, analogMovement.Y,
+                    analogPresent: true));
+        }
+
+        private static float ResolveAltDigitalAxis(float vectorAxis,
+            InputButtons buttons, InputButtons positive, InputButtons negative,
+            out bool present)
+        {
+            bool positiveDown = (buttons & positive) != 0;
+            bool negativeDown = (buttons & negative) != 0;
+            present = positiveDown || negativeDown;
+            if (present)
+            {
+                return positiveDown == negativeDown ? 0
+                    : positiveDown ? 1 : -1;
+            }
+            if (!float.IsFinite(vectorAxis))
+            {
+                return 0;
+            }
+            present = MathF.Abs(vectorAxis) > VectorMath.DefaultEpsilon;
+            return Math.Clamp(vectorAxis, -1, 1);
+        }
+
+        internal static bool ShouldClearAltDirectionOverride(
+            bool moveHeld, bool movePressed, bool rollHeld, bool rollPressed)
+            => !moveHeld && !rollHeld || movePressed || rollPressed;
+
         private float _gravity = 0;
         private int _slipperiness = 0; // from stand_ter_flags
         internal Terrain _standTerrain; // from stand_ter_flags

@@ -66,6 +66,10 @@ public sealed class AltFormTransitionTests
         Assert.True(PlayerEntity.ShouldPreserveFormBottom(
             PlayerFlags1.StandingPrevious));
         Assert.False(PlayerEntity.ShouldPreserveFormBottom(
+            PlayerFlags1.Standing | PlayerFlags1.UsedJumpPad));
+        Assert.False(PlayerEntity.ShouldPreserveFormBottom(
+            PlayerFlags1.StandingPrevious | PlayerFlags1.UsedJumpPad));
+        Assert.False(PlayerEntity.ShouldPreserveFormBottom(
             PlayerFlags1.Grounded));
         Assert.False(PlayerEntity.ShouldPreserveFormBottom(PlayerFlags1.None));
     }

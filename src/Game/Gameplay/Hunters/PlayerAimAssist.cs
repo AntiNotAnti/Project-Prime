@@ -32,7 +32,7 @@ namespace MphRead.Entities
         float MaximumMotionDegrees)
     {
         internal static AimAssistProfile Default => new(
-            // Rotational correction is now eight times the original profile
+            // Rotational correction is now sixteen times the original profile
             // (twice the preceding strengthened profile). Keep acquisition
             // and friction unchanged so the additional pull does not also
             // make the stick feel more trapped on a target.
@@ -44,8 +44,8 @@ namespace MphRead.Entities
             // Keep the wider profile from overpowering a full directed stick
             // input at the edge of the rotational assist cone.
             RotationConeDegrees: 6f,
-            MaxYawRate: 240f,
-            MaxPitchRate: 176f,
+            MaxYawRate: 480f,
+            MaxPitchRate: 352f,
             MinimumStickIntent: 0.08f,
             MaximumDistance: 80f,
             DistanceScoreWeight: 0.0025f,

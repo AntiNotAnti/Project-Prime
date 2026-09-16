@@ -186,6 +186,22 @@ public sealed class AltCollisionReliabilityTests
     }
 
     [Fact]
+    public void JumpPadAccelerationRemovesInwardComponentFromSlopedBlockers()
+    {
+        Vector3 normal = VectorMath.NormalizeOr(new Vector3(0.6f, 0.8f, 0),
+            Vector3.UnitX);
+        Vector3 acceleration = new Vector3(-normal.X * 2, 3,
+            -normal.Z * 2);
+
+        Vector3 result = PlayerEntity.RemoveInwardHorizontalComponent(
+            acceleration, normal);
+
+        Assert.Equal(0, result.X, precision: 5);
+        Assert.Equal(3, result.Y, precision: 5);
+        Assert.Equal(0, result.Z, precision: 5);
+    }
+
+    [Fact]
     public void JumpPadAccelerationLeavesOutwardAndNonLateralContactsUnchanged()
     {
         Vector3 acceleration = new(1.25f, -2.5f, 3.75f);
@@ -199,6 +215,38 @@ public sealed class AltCollisionReliabilityTests
         Assert.Equal(acceleration,
             PlayerEntity.RemoveInwardHorizontalComponent(acceleration,
                 Vector3.Zero));
+    }
+
+    [Theory]
+    [InlineData(0.6f, 0.8f, 0, true)]
+    [InlineData(0.001f, 0.9999995f, 0, false)]
+    [InlineData(0.001f, -0.9999995f, 0, false)]
+    [InlineData(0, 1, 0, false)]
+    public void JumpPadClippingRequiresAMaterialLateralNormal(float x,
+        float y, float z, bool expected)
+    {
+        Assert.Equal(expected,
+            PlayerEntity.IsMaterialLateralNormal(new Vector3(x, y, z)));
+    }
+
+    [Fact]
+    public void TerrainDamageAggregatesOnlyActualContactsAndIsOrderIndependent()
+    {
+        Assert.False(PlayerEntity.AggregateTerrainDamage(
+            terrainDamage: false, actualContact: false, damaging: true));
+
+        bool damagingFirst = PlayerEntity.AggregateTerrainDamage(
+            terrainDamage: false, actualContact: true, damaging: true);
+        damagingFirst = PlayerEntity.AggregateTerrainDamage(damagingFirst,
+            actualContact: true, damaging: false);
+
+        bool nonDamagingFirst = PlayerEntity.AggregateTerrainDamage(
+            terrainDamage: false, actualContact: true, damaging: false);
+        nonDamagingFirst = PlayerEntity.AggregateTerrainDamage(
+            nonDamagingFirst, actualContact: true, damaging: true);
+
+        Assert.True(damagingFirst);
+        Assert.Equal(damagingFirst, nonDamagingFirst);
     }
 
     [Theory]
@@ -243,6 +291,143 @@ public sealed class AltCollisionReliabilityTests
 
         AssertMarkers(edgeFirst, 2, 5, 1, 4, 3);
         AssertMarkers(faceFirst, 7, 9, 8, 10, 6);
+    }
+
+    [Fact]
+    public void AltSupportSelectionIgnoresWallsInEitherInputOrder()
+    {
+        CollisionResult floor = Support(Vector3.Zero);
+        floor.Flags = TerrainFlags(Terrain.Sand, slipperiness: 2,
+            damaging: true);
+        CollisionResult wall = Wall(Vector3.UnitZ);
+        wall.Flags = TerrainFlags(Terrain.Lava, slipperiness: 3,
+            damaging: true);
+        CollisionResult[] floorFirst = { floor, wall };
+        CollisionResult[] wallFirst = { wall, floor };
+
+        int firstIndex = PlayerEntity.SelectAltSupportIndex(floorFirst,
+            floorFirst.Length);
+        int secondIndex = PlayerEntity.SelectAltSupportIndex(wallFirst,
+            wallFirst.Length);
+
+        Assert.True(firstIndex >= 0);
+        Assert.True(secondIndex >= 0);
+        Assert.Equal(Terrain.Sand, floorFirst[firstIndex].Terrain);
+        Assert.Equal(2, floorFirst[firstIndex].Slipperiness);
+        Assert.True(floorFirst[firstIndex].Flags.TestFlag(
+            CollisionFlags.Damaging));
+        Assert.Equal(Terrain.Sand, wallFirst[secondIndex].Terrain);
+        Assert.Equal(2, wallFirst[secondIndex].Slipperiness);
+    }
+
+    [Fact]
+    public void AltSupportSelectionOrdersCompetingFacesDeterministically()
+    {
+        CollisionResult left = Support(Vector3.Zero);
+        left.Plane = new Vector4(-0.2f, 0.8f, 0, 0.5f);
+        left.Flags = TerrainFlags(Terrain.Rock, slipperiness: 1,
+            damaging: false);
+        CollisionResult right = Support(Vector3.Zero);
+        right.Plane = new Vector4(0.2f, 0.8f, 0, 0.5f);
+        right.Flags = TerrainFlags(Terrain.Lava, slipperiness: 3,
+            damaging: true);
+        CollisionResult[] first = { left, right };
+        CollisionResult[] reversed = { right, left };
+
+        int firstIndex = PlayerEntity.SelectAltSupportIndex(first,
+            first.Length);
+        int reversedIndex = PlayerEntity.SelectAltSupportIndex(reversed,
+            reversed.Length);
+
+        Assert.Equal(Terrain.Rock, first[firstIndex].Terrain);
+        Assert.Equal(Terrain.Rock, reversed[reversedIndex].Terrain);
+        Assert.Equal(1, first[firstIndex].Slipperiness);
+        Assert.Equal(1, reversed[reversedIndex].Slipperiness);
+        Assert.False(first[firstIndex].Flags.TestFlag(
+            CollisionFlags.Damaging));
+        Assert.False(reversed[reversedIndex].Flags.TestFlag(
+            CollisionFlags.Damaging));
+    }
+
+    [Fact]
+    public void AltSupportSelectionRejectsSweepPaddingOutsideTheTrueRadius()
+    {
+        const float trueRadius = 1;
+        float sweepPadding = PlayerEntity.ResolveAltSweepPadding(Hunter.Noxus);
+        float contactEpsilon = Fixed.ToFloat(5);
+        CollisionResult paddedFloor = Support(Vector3.Zero);
+        paddedFloor.Field14 = trueRadius + sweepPadding * 0.5f;
+
+        Assert.Equal(-1, PlayerEntity.SelectAltSupportIndex(
+            new[] { paddedFloor }, 1, trueRadius + contactEpsilon));
+    }
+
+    [Fact]
+    public void AltSupportSelectionPrefersDeeperContactBeforePlaneIdentity()
+    {
+        CollisionResult shallow = Support(Vector3.Zero);
+        shallow.Field14 = 0.4f;
+        shallow.Plane = new Vector4(0.2f, 0.8f, 0, 0.5f);
+        CollisionResult deep = Support(Vector3.Zero);
+        deep.Field14 = 0.2f;
+        deep.Plane = new Vector4(-0.2f, 0.8f, 0, 0.5f);
+
+        CollisionResult[] contacts = { shallow, deep };
+        int index = PlayerEntity.SelectAltSupportIndex(contacts,
+            contacts.Length);
+
+        Assert.Equal(0.2f, contacts[index].Field14);
+    }
+
+    [Fact]
+    public void CorrectedClearanceSpheresRefreshOnlyOutsideOriginalBounds()
+    {
+        Vector3 min = new(-2, -2, -2);
+        Vector3 max = new(2, 2, 2);
+
+        Assert.True(PlayerEntity.AreCollisionSpheresCoveredByBounds(
+            min, max, Vector3.Zero, 0.5f, new Vector3(0, 1, 0), 0.5f));
+        Assert.False(PlayerEntity.AreCollisionSpheresCoveredByBounds(
+            min, max, new Vector3(2, 0, 0), 0.5f, Vector3.Zero, 0.5f));
+    }
+
+    [Fact]
+    public void SpirePenetrationUsesOnlyTheDeepestFiniteSample()
+    {
+        Vector3[] offsets =
+        {
+            new(-1, 0, 0), new(0, 0, 0), new(1, 0, 0),
+            new(float.NaN, 0, 0)
+        };
+        bool hit = PlayerEntity.TryGetDeepestSpirePenetration(
+            Vector3.Zero, offsets, new Vector4(Vector3.UnitX, 0.5f),
+            out int index, out Vector3 sample, out float penetration);
+
+        Assert.True(hit);
+        Assert.Equal(0, index);
+        Assert.Equal(new Vector3(-1, 0, 0), sample);
+        Assert.Equal(1.5f, penetration, precision: 5);
+
+        Assert.True(PlayerEntity.TryGetDeepestSpirePenetration(
+            Vector3.Zero, new[] { Vector3.Zero },
+            new Vector4(Vector3.UnitX, 0.5f), out _,
+            out Vector3 equalSample, out _));
+        Assert.Equal(Vector3.Zero, equalSample);
+
+        Assert.False(PlayerEntity.TryGetDeepestSpirePenetration(
+            Vector3.Zero, new[] { new Vector3(1, 0, 0) },
+            new Vector4(Vector3.UnitX, 0.5f), out _, out _, out _));
+    }
+
+    [Fact]
+    public void SpireAltVectorsUseTheSettledModelTransform()
+    {
+        Vector3[] destination = new Vector3[2];
+        PlayerEntity.InitializeSpireAltVectors(destination,
+            new[] { Vector3.UnitX }, Matrix4.Identity);
+
+        Assert.Equal(Vector3.UnitX, destination[0]);
+        Assert.Equal(Vector3.Zero, destination[1]);
     }
 
     [Trait("RequiresGameContent", "true")]
@@ -598,6 +783,11 @@ public sealed class AltCollisionReliabilityTests
             Plane = new Vector4(Vector3.UnitY, 0.5f),
             Position = position
         };
+
+    private static CollisionFlags TerrainFlags(Terrain terrain,
+        int slipperiness, bool damaging)
+        => (CollisionFlags)((int)terrain << 5 | slipperiness << 3
+            | (damaging ? (int)CollisionFlags.Damaging : 0));
 
     private static CollisionCandidate CoplanarWallFace(float minY,
         float maxY)

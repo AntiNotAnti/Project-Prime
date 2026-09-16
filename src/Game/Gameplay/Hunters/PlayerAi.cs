@@ -526,25 +526,25 @@ namespace MphRead.Entities
                     if (button == _buttons.Up)
                     {
                         control = _player.IsAltForm
-                            ? _player.Controls.RollUp
+                            ? _player.Controls.MoveUp
                             : _player.Controls.AimUp;
                     }
                     else if (button == _buttons.Down)
                     {
                         control = _player.IsAltForm
-                            ? _player.Controls.RollDown
+                            ? _player.Controls.MoveDown
                             : _player.Controls.AimDown;
                     }
                     else if (button == _buttons.Left)
                     {
                         control = _player.IsAltForm
-                            ? _player.Controls.RolltLeft
+                            ? _player.Controls.MoveLeft
                             : _player.Controls.AimLeft;
                     }
                     else if (button == _buttons.Right)
                     {
                         control = _player.IsAltForm
-                            ? _player.Controls.RollRight
+                            ? _player.Controls.MoveRight
                             : _player.Controls.AimRight;
                     }
                     else if (button == _buttons.A)

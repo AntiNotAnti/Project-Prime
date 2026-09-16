@@ -86,6 +86,169 @@ namespace MphRead.Entities
         private static int GetAltTerrainContactPriority(byte field0)
             => field0 == 0 ? 0 : field0 == 1 ? 1 : 2;
 
+        /// <summary>
+        /// Select the one supporting face that owns alternate-form terrain
+        /// metadata for a narrow-phase batch. Collision result order is not a
+        /// gameplay ordering, so prefer the most upward-facing finite plane
+        /// and use stable plane/material fields for ties.
+        /// </summary>
+        internal static int SelectAltSupportIndex(CollisionResult[] results,
+            int count, float maxContactDistance = Single.MaxValue)
+        {
+            if (results == null || count <= 0
+                || !float.IsFinite(maxContactDistance)
+                || maxContactDistance < 0)
+            {
+                return -1;
+            }
+            count = Math.Min(count, results.Length);
+            int selected = -1;
+            for (int i = 0; i < count; i++)
+            {
+                CollisionResult candidate = results[i];
+                if (!IsAltSupportFace(candidate))
+                {
+                    continue;
+                }
+                if (candidate.Field14 > maxContactDistance)
+                {
+                    continue;
+                }
+                if (selected < 0
+                    || IsAltSupportPreferred(candidate, results[selected]))
+                {
+                    selected = i;
+                }
+            }
+            return selected;
+        }
+
+        private static bool IsAltSupportFace(CollisionResult result)
+            => result.Field0 == 0 && result.Plane.Y > 0.5f
+                && VectorMath.IsFinite(result.Plane.Xyz)
+                && float.IsFinite(result.Plane.W);
+
+        private static bool IsAltSupportPreferred(CollisionResult candidate,
+            CollisionResult current)
+        {
+            int compare = CompareDescending(candidate.Plane.Y,
+                current.Plane.Y);
+            if (compare != 0) return compare < 0;
+            compare = CompareAscending(candidate.Field14, current.Field14);
+            if (compare != 0) return compare < 0;
+            compare = CompareAscending(candidate.Plane.X, current.Plane.X);
+            if (compare != 0) return compare < 0;
+            compare = CompareAscending(candidate.Plane.Z, current.Plane.Z);
+            if (compare != 0) return compare < 0;
+            compare = CompareAscending(candidate.Plane.W, current.Plane.W);
+            if (compare != 0) return compare < 0;
+            compare = candidate.Terrain.CompareTo(current.Terrain);
+            if (compare != 0) return compare < 0;
+            compare = candidate.Slipperiness.CompareTo(
+                current.Slipperiness);
+            if (compare != 0) return compare < 0;
+            compare = ((ushort)candidate.Flags).CompareTo(
+                (ushort)current.Flags);
+            if (compare != 0) return compare < 0;
+            return false;
+        }
+
+        private static int CompareDescending(float left, float right)
+            => right.CompareTo(left);
+
+        private static int CompareAscending(float left, float right)
+        {
+            bool leftFinite = float.IsFinite(left);
+            bool rightFinite = float.IsFinite(right);
+            if (!leftFinite) return rightFinite ? 1 : 0;
+            if (!rightFinite) return -1;
+            return left.CompareTo(right);
+        }
+
+        internal static bool AreCollisionSpheresCoveredByBounds(
+            Vector3 limitMin, Vector3 limitMax, Vector3 firstCenter,
+            float firstRadius, Vector3 secondCenter, float secondRadius)
+            => IsCollisionSphereCoveredByBounds(limitMin, limitMax,
+                    firstCenter, firstRadius)
+                && IsCollisionSphereCoveredByBounds(limitMin, limitMax,
+                    secondCenter, secondRadius);
+
+        private static bool IsCollisionSphereCoveredByBounds(Vector3 limitMin,
+            Vector3 limitMax, Vector3 center, float radius)
+            => VectorMath.IsFinite(limitMin) && VectorMath.IsFinite(limitMax)
+                && VectorMath.IsFinite(center) && float.IsFinite(radius)
+                && radius >= 0
+                && center.X - radius >= limitMin.X
+                && center.Y - radius >= limitMin.Y
+                && center.Z - radius >= limitMin.Z
+                && center.X + radius <= limitMax.X
+                && center.Y + radius <= limitMax.Y
+                && center.Z + radius <= limitMax.Z;
+
+        internal static bool TryGetDeepestSpirePenetration(Vector3 position,
+            Vector3[] offsets, Vector4 plane, out int index,
+            out Vector3 samplePosition, out float penetration)
+        {
+            index = -1;
+            samplePosition = Vector3.Zero;
+            penetration = 0;
+            if (offsets == null || !VectorMath.IsFinite(position)
+                || !VectorMath.IsFinite(plane.Xyz)
+                || !float.IsFinite(plane.W))
+            {
+                return false;
+            }
+            float normalLengthSquared = plane.Xyz.LengthSquared;
+            if (!float.IsFinite(normalLengthSquared)
+                || normalLengthSquared <= VectorMath.DefaultEpsilon
+                    * VectorMath.DefaultEpsilon)
+            {
+                return false;
+            }
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                if (!VectorMath.IsFinite(offsets[i]))
+                {
+                    continue;
+                }
+                Vector3 candidatePosition = position + offsets[i];
+                float candidatePenetration = plane.W
+                    - Vector3.Dot(candidatePosition, plane.Xyz);
+                if (!float.IsFinite(candidatePenetration)
+                    || candidatePenetration <= VectorMath.DefaultEpsilon
+                    || index >= 0 && candidatePenetration <= penetration)
+                {
+                    continue;
+                }
+                index = i;
+                samplePosition = candidatePosition;
+                penetration = candidatePenetration;
+            }
+            return index >= 0 && VectorMath.IsFinite(samplePosition)
+                && float.IsFinite(penetration);
+        }
+
+        internal static void InitializeSpireAltVectors(Vector3[] destination,
+            IReadOnlyList<Vector3> source, Matrix4 transform)
+        {
+            if (destination == null || source == null)
+            {
+                return;
+            }
+            int count = Math.Min(destination.Length, source.Count);
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 transformed = Matrix.Vec3MultMtx3(source[i],
+                    transform);
+                destination[i] = VectorMath.IsFinite(transformed)
+                    ? transformed : Vector3.Zero;
+            }
+            for (int i = count; i < destination.Length; i++)
+            {
+                destination[i] = Vector3.Zero;
+            }
+        }
+
         internal static Vector3 RemoveInwardHorizontalComponent(
             Vector3 acceleration, Vector3 collisionNormal)
         {
@@ -115,6 +278,29 @@ namespace MphRead.Entities
             Vector3 result = acceleration - horizontalNormal * inward;
             return VectorMath.IsFinite(result) ? result : acceleration;
         }
+
+        internal static bool IsMaterialLateralNormal(Vector3 normal)
+        {
+            if (!VectorMath.IsFinite(normal))
+            {
+                return false;
+            }
+            float totalLengthSquared = normal.LengthSquared;
+            if (!(totalLengthSquared > VectorMath.DefaultEpsilon
+                    * VectorMath.DefaultEpsilon)
+                || !float.IsFinite(totalLengthSquared))
+            {
+                return false;
+            }
+            float horizontalLengthSquared = normal.X * normal.X
+                + normal.Z * normal.Z;
+            return float.IsFinite(horizontalLengthSquared)
+                && horizontalLengthSquared >= totalLengthSquared * 0.01f;
+        }
+
+        internal static bool AggregateTerrainDamage(bool terrainDamage,
+            bool actualContact, bool damaging)
+            => terrainDamage || actualContact && damaging;
 
         internal static void ExpandCollisionBoundsForSphere(ref Vector3 limitMin,
             ref Vector3 limitMax, Vector3 center, float radius)
@@ -644,7 +830,58 @@ namespace MphRead.Entities
                 }
                 for (int i = 0; i < count; i++)
                 {
-                    HandleCollision(results[i], endLungeOnBlockingCollision: true);
+                    HandleCollision(results[i],
+                        endLungeOnBlockingCollision: true,
+                        publishAltTerrain: false);
+                }
+                float contactEpsilon = Fixed.ToFloat(5);
+                float finalAltRadius = altVolume.SphereRadius
+                    + contactEpsilon;
+                Vector3 finalAltCenter = Position + altVolume.SpherePosition;
+                if (!AreCollisionSpheresCoveredByBounds(
+                        limitMin, limitMax, finalAltCenter, finalAltRadius,
+                        finalAltCenter, finalAltRadius))
+                {
+                    ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                        finalAltCenter, finalAltRadius);
+                    candidates = CollisionDetection.GetCandidatesForLimits(
+                        point1, point2, margin, limitMin, limitMax,
+                        includeEntities, _scene);
+                }
+                int supportCount = CollisionDetection.CheckSphereBetweenPoints(
+                    candidates, finalAltCenter, finalAltCenter,
+                    finalAltRadius, limit: 40, includeOffset: true,
+                    TestFlags.Players, _scene, results);
+                OrderAltTerrainContacts(results, supportCount);
+                int supportIndex = SelectAltSupportIndex(results, supportCount,
+                    finalAltRadius);
+                if (supportIndex >= 0)
+                {
+                    PublishAltSupport(results[supportIndex]);
+                }
+                // The alt sphere can be pushed by a face after the first
+                // candidate bounds were built. Reuse that candidate lease
+                // when the corrected biped clearance spheres remain inside
+                // it; refresh only when correction escaped the original
+                // bounds.
+                bipedClearanceOrigin = ResolveFormOrigin(Position, altVolume,
+                    bipedBottomVolume, ShouldPreserveFormBottom(Flags1));
+                Vector3 clearanceBottomCenter = bipedClearanceOrigin
+                    + bipedBottomVolume.SpherePosition;
+                Vector3 clearanceTopCenter = bipedClearanceOrigin
+                    + bipedTopVolume.SpherePosition;
+                if (!AreCollisionSpheresCoveredByBounds(
+                        limitMin, limitMax, clearanceBottomCenter,
+                        bipedBottomVolume.SphereRadius, clearanceTopCenter,
+                        bipedTopVolume.SphereRadius))
+                {
+                    ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                        clearanceBottomCenter, bipedBottomVolume.SphereRadius);
+                    ExpandCollisionBoundsForSphere(ref limitMin, ref limitMax,
+                        clearanceTopCenter, bipedTopVolume.SphereRadius);
+                    candidates = CollisionDetection.GetCandidatesForLimits(
+                        point1, point2, margin, limitMin, limitMax,
+                        includeEntities, _scene);
                 }
                 radius = bipedBottomVolume.SphereRadius;
                 point1 = bipedClearanceOrigin + bipedBottomVolume.SpherePosition;
@@ -857,7 +1094,6 @@ namespace MphRead.Entities
                         _timeSinceStanding = 0;
                         _slipperiness = support.Slipperiness;
                         _standTerrain = support.Terrain;
-                        _terrainDamage = false;
                     }
                 }
             }
@@ -884,11 +1120,36 @@ namespace MphRead.Entities
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
         }
 
+        private void PublishAltSupport(CollisionResult result)
+        {
+            if (!IsAltForm || !IsAltSupportFace(result))
+            {
+                return;
+            }
+            _slipperiness = result.Slipperiness;
+            _standTerrain = result.Terrain;
+            if (result.Flags.TestFlag(CollisionFlags.Damaging))
+            {
+                Flags1 |= PlayerFlags1.OnAcid;
+            }
+            if (_standTerrain == Terrain.Lava)
+            {
+                Flags1 |= PlayerFlags1.OnLava;
+            }
+            Flags1 |= PlayerFlags1.Standing;
+            _timeSinceStanding = 0;
+            if (!Flags1.TestFlag(PlayerFlags1.StandingPrevious)
+                || Flags1.TestFlag(PlayerFlags1.AltFormPrevious))
+            {
+                Flags1 &= ~PlayerFlags1.UsedJump;
+            }
+        }
+
         public void HandleCollision(CollisionResult result)
             => HandleCollision(result, endLungeOnBlockingCollision: false);
 
         private void HandleCollision(CollisionResult result,
-            bool endLungeOnBlockingCollision)
+            bool endLungeOnBlockingCollision, bool publishAltTerrain = true)
         {
             bool v163 = false;
             bool v164 = false;
@@ -1142,7 +1403,8 @@ namespace MphRead.Entities
                     {
                         EndAltAttack();
                     }
-                    if (v165 && Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
+                    if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad)
+                        && IsMaterialLateralNormal(result.Plane.Xyz))
                     {
                         _jumpPadAccel = RemoveInwardHorizontalComponent(
                             _jumpPadAccel, result.Plane.Xyz);
@@ -1196,36 +1458,32 @@ namespace MphRead.Entities
                 bool climbing = Hunter == Hunter.Spire && result.Field0 == 0;
                 if (climbing)
                 {
-                    for (int i = 0; i < _spireAltVecs.Length; i++)
+                    if (TryGetDeepestSpirePenetration(position,
+                            _spireAltVecs, result.Plane, out _,
+                            out Vector3 vec, out float penetration))
                     {
-                        Vector3 vec = position + _spireAltVecs[i];
-                        float dot = result.Plane.W - Vector3.Dot(vec, result.Plane.Xyz);
-                        if (dot >= 0)
+                        v164 = true;
+                        // todo: revisit these calculations and improve the wall climbing "stickiness" issue
+                        // --> related to the need for a hack to get pushed out more by horizontal collision (without jittering)
+                        position += result.Plane.Xyz * penetration;
+                        vec = VectorMath.NormalizeHorizontalOr(
+                            new Vector3(position.X - vec.X, 0, position.Z - vec.Z),
+                            result.Plane.Xyz);
+                        vec.X *= penetration / 4;
+                        vec.Z *= penetration / 4;
+                        vec.X *= _hSpeedMag + 0.1f;
+                        vec.Z *= _hSpeedMag + 0.1f;
+                        Speed += vec / 2;
+                        if (result.Plane.Y > Fixed.ToFloat(-357) && Speed.Y < 0.15f)
                         {
-                            Debug.Assert(vec != position);
-                            v164 = true;
-                            // todo: revisit these calculations and improve the wall climbing "stickiness" issue
-                            // --> related to the need for a hack to get pushed out more by horizontal collision (without jittering)
-                            position += result.Plane.Xyz * dot;
-                            vec = VectorMath.NormalizeHorizontalOr(
-                                new Vector3(position.X - vec.X, 0, position.Z - vec.Z),
-                                result.Plane.Xyz);
-                            vec.X *= dot / 4;
-                            vec.Z *= dot / 4;
-                            vec.X *= _hSpeedMag + 0.1f;
-                            vec.Z *= _hSpeedMag + 0.1f;
-                            Speed += vec / 2;
-                            if (result.Plane.Y > Fixed.ToFloat(-357) && Speed.Y < 0.15f)
+                            v166 = true;
+                            float yFactor = _hSpeedMag / 2;
+                            if (Speed.Y < 0.01f)
                             {
-                                v166 = true;
-                                float yFactor = _hSpeedMag / 2;
-                                if (Speed.Y < 0.01f)
-                                {
-                                    yFactor += 0.3f;
-                                }
-                                Speed = Speed.AddY(4 * dot * yFactor / 2);
-                                Speed = Speed.WithY(Math.Min(Speed.Y, 0.15f));
+                                yFactor += 0.3f;
                             }
+                            Speed = Speed.AddY(4 * penetration * yFactor / 2);
+                            Speed = Speed.WithY(Math.Min(Speed.Y, 0.15f));
                         }
                     }
                 }
@@ -1323,19 +1581,22 @@ namespace MphRead.Entities
                     }
                 }
             }
-            _terrainDamage = result.Flags.TestFlag(CollisionFlags.Damaging);
             if (v164)
             {
+                _terrainDamage = AggregateTerrainDamage(_terrainDamage,
+                    actualContact: true,
+                    damaging: result.Flags.TestFlag(CollisionFlags.Damaging));
                 _field449 = 0;
                 if (result.Plane.Y >= Fixed.ToFloat(1401))
                 {
                     _fieldC0 += result.Plane.Xyz;
                 }
-                if (!v163)
+                bool altSupport = !IsAltForm || IsAltSupportFace(result);
+                if (!v163 && altSupport && publishAltTerrain)
                 {
                     _slipperiness = result.Slipperiness;
                     _standTerrain = result.Terrain;
-                    if (_terrainDamage)
+                    if (result.Flags.TestFlag(CollisionFlags.Damaging))
                     {
                         Flags1 |= PlayerFlags1.OnAcid;
                     }

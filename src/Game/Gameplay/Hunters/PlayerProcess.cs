@@ -1586,6 +1586,13 @@ namespace MphRead.Entities
             }
             else if (Hunter == Hunter.Samus || Hunter == Hunter.Spire)
             {
+                if (Hunter == Hunter.Spire)
+                {
+                    // Keep collision samples valid even on a stationary
+                    // frame; the old path only refreshed them after rolling.
+                    InitializeSpireAltVectors(_spireAltVecs,
+                        Metadata.SpireAltVectors, _modelTransform);
+                }
                 Vector3 axis = Vector3.Zero;
                 float altRadius = Fixed.ToFloat(Values.AltColRadius);
                 if (Hunter == Hunter.Spire || Flags1.TestFlag(PlayerFlags1.CollidingEntity))
@@ -1632,10 +1639,8 @@ namespace MphRead.Entities
                     transform.Row2.Xyz = transform.Row2.Xyz.Normalized();
                     if (Hunter == Hunter.Spire)
                     {
-                        for (int i = 0; i < _spireAltVecs.Length; i++)
-                        {
-                            _spireAltVecs[i] = Matrix.Vec3MultMtx3(Metadata.SpireAltVectors[i], transform);
-                        }
+                        InitializeSpireAltVectors(_spireAltVecs,
+                            Metadata.SpireAltVectors, transform);
                     }
                     _modelTransform = transform;
                 }
@@ -1725,10 +1730,8 @@ namespace MphRead.Entities
             _modelTransform.Row3.Xyz = Vector3.Zero;
             if (Hunter == Hunter.Spire)
             {
-                for (int i = 0; i < _spireAltVecs.Length; i++)
-                {
-                    _spireAltVecs[i] = Vector3.Zero;
-                }
+                InitializeSpireAltVectors(_spireAltVecs,
+                    Metadata.SpireAltVectors, _modelTransform);
                 _altModel.SetAnimation((int)SpireAltAnim.Attack, AnimFlags.Paused);
             }
             else if (Hunter == Hunter.Noxus)
@@ -1847,6 +1850,8 @@ namespace MphRead.Entities
                 }
                 else if (Hunter == Hunter.Spire)
                 {
+                    InitializeSpireAltVectors(_spireAltVecs,
+                        Metadata.SpireAltVectors, _modelTransform);
                     _scene.SpawnEffect(37, Vector3.UnitX, Vector3.UnitY, Position); // spireAltSlam
                     CameraInfo.SetShake(0.3f);
                     foreach (PlayerEntity other in _scene.GetPlayerEntities())
@@ -1901,8 +1906,9 @@ namespace MphRead.Entities
                 && PlayableHunterCatalog.Get(hunter).SupportsAltForm;
 
         internal static bool ShouldPreserveFormBottom(PlayerFlags1 flags)
-            => flags.TestAny(PlayerFlags1.Standing
-                | PlayerFlags1.StandingPrevious);
+            => !flags.TestFlag(PlayerFlags1.UsedJumpPad)
+                && flags.TestAny(PlayerFlags1.Standing
+                    | PlayerFlags1.StandingPrevious);
 
         /// <summary>
         /// A standing flag from a jump pad describes the launch support, not

@@ -1175,8 +1175,21 @@ namespace MphRead.Entities
             if (_frozenTimer == 0 && _health > 0)
             {
                 // todo?: if touch movement for alt form was a thing, this would need extra conditions
-                if ((!Controls.RollRight.IsDown && !Controls.RolltLeft.IsDown && !Controls.RollUp.IsDown && !Controls.RollDown.IsDown)
-                    || Controls.RollRight.IsPressed || Controls.RolltLeft.IsPressed || Controls.RollUp.IsPressed || Controls.RollDown.IsPressed)
+                bool moveDirectionHeld = Controls.MoveLeft.IsDown
+                    || Controls.MoveRight.IsDown || Controls.MoveUp.IsDown
+                    || Controls.MoveDown.IsDown;
+                bool moveDirectionPressed = Controls.MoveLeft.IsPressed
+                    || Controls.MoveRight.IsPressed || Controls.MoveUp.IsPressed
+                    || Controls.MoveDown.IsPressed;
+                bool rollDirectionHeld = Controls.RolltLeft.IsDown
+                    || Controls.RollRight.IsDown || Controls.RollUp.IsDown
+                    || Controls.RollDown.IsDown;
+                bool rollDirectionPressed = Controls.RolltLeft.IsPressed
+                    || Controls.RollRight.IsPressed || Controls.RollUp.IsPressed
+                    || Controls.RollDown.IsPressed;
+                if (ShouldClearAltDirectionOverride(moveDirectionHeld,
+                    moveDirectionPressed, rollDirectionHeld,
+                    rollDirectionPressed))
                 {
                     Flags1 &= ~PlayerFlags1.AltDirOverride;
                 }
@@ -1280,14 +1293,24 @@ namespace MphRead.Entities
                     }
                     if (!Flags2.TestFlag(PlayerFlags2.BipedLock) && (Hunter != Hunter.Trace || !Flags2.TestFlag(PlayerFlags2.AltAttack)))
                     {
-                        float digitalLateralSign = Controls.MoveRight.IsDown ? 1
-                            : Controls.MoveLeft.IsDown ? -1 : 0;
-                        float digitalForwardSign = Controls.MoveUp.IsDown ? 1
-                            : Controls.MoveDown.IsDown ? -1 : 0;
-                        float lateralSign = ResolveMovementAxis(digitalLateralSign,
-                            _analogMovement.X, horizontal: true, roll: false);
-                        float forwardSign = ResolveMovementAxis(digitalForwardSign,
-                            _analogMovement.Y, horizontal: false, roll: false);
+                        bool analogPresent = AnalogMovementPresent;
+                        InputButtons movementButtons = analogPresent
+                            ? DigitalMovementButtonsBeforeAnalog
+                            : GetCurrentAltMovementButtons(rolling: false);
+                        InputButtons rollButtons = analogPresent
+                            ? DigitalRollButtonsBeforeAnalog
+                            : GetCurrentAltMovementButtons(rolling: true);
+                        Vector2 digitalMovement = analogPresent
+                            ? DigitalMovementBeforeAnalog : Vector2.Zero;
+                        Vector2 digitalRoll = analogPresent
+                            ? DigitalRollBeforeAnalog : Vector2.Zero;
+                        Vector2 analogMovement = analogPresent
+                            ? AnalogMovement : Vector2.Zero;
+                        (float lateralSign, float forwardSign) =
+                            ResolveAltMovementAxes(digitalMovement,
+                                movementButtons, digitalRoll, rollButtons,
+                                analogMovement, analogPresent,
+                                rolling: false);
                         // unimpl-controls: the game also tests for either the free strafe flag, or the strafe button held
                         // and later, for up/down, it tests for either flag, or the look button not held
 
@@ -1408,12 +1431,23 @@ namespace MphRead.Entities
                     {
                         traction *= Fixed.ToFloat(Values.JumpPadSlideFactor);
                     }
-                    float rollForwardSign = ResolveMovementAxis(
-                        Controls.RollUp.IsDown ? 1 : Controls.RollDown.IsDown ? -1 : 0,
-                        _analogMovement.Y, horizontal: false, roll: true);
-                    float rollLateralSign = ResolveMovementAxis(
-                        Controls.RollRight.IsDown ? 1 : Controls.RolltLeft.IsDown ? -1 : 0,
-                        _analogMovement.X, horizontal: true, roll: true);
+                    bool analogPresent = AnalogMovementPresent;
+                    InputButtons movementButtons = analogPresent
+                        ? DigitalMovementButtonsBeforeAnalog
+                        : GetCurrentAltMovementButtons(rolling: false);
+                    InputButtons rollButtons = analogPresent
+                        ? DigitalRollButtonsBeforeAnalog
+                        : GetCurrentAltMovementButtons(rolling: true);
+                    Vector2 digitalMovement = analogPresent
+                        ? DigitalMovementBeforeAnalog : Vector2.Zero;
+                    Vector2 digitalRoll = analogPresent
+                        ? DigitalRollBeforeAnalog : Vector2.Zero;
+                    Vector2 analogMovement = analogPresent
+                        ? AnalogMovement : Vector2.Zero;
+                    (float rollLateralSign, float rollForwardSign) =
+                        ResolveAltMovementAxes(digitalMovement,
+                            movementButtons, digitalRoll, rollButtons,
+                            analogMovement, analogPresent, rolling: true);
                     speedDelta += ResolveRollingAltMovement(
                         new Vector3(_altRollFbX, 0, _altRollFbZ),
                         new Vector3(_altRollLrX, 0, _altRollLrZ),
@@ -1697,6 +1731,22 @@ namespace MphRead.Entities
                 }
             }
             UpdateCamera();
+        }
+
+        private InputButtons GetCurrentAltMovementButtons(bool rolling)
+        {
+            if (!rolling)
+            {
+                return ResolveAltMovementButtons(Controls.MoveLeft.IsDown,
+                    Controls.MoveRight.IsDown, Controls.MoveUp.IsDown,
+                    Controls.MoveDown.IsDown);
+            }
+            InputButtons buttons = InputButtons.None;
+            if (Controls.RolltLeft.IsDown) buttons |= InputButtons.RollLeft;
+            if (Controls.RollRight.IsDown) buttons |= InputButtons.RollRight;
+            if (Controls.RollUp.IsDown) buttons |= InputButtons.RollForward;
+            if (Controls.RollDown.IsDown) buttons |= InputButtons.RollBack;
+            return buttons;
         }
 
         /// <summary>
