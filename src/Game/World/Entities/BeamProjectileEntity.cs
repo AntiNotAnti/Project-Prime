@@ -2020,6 +2020,11 @@ namespace MphRead.Entities
                     colRes.Position.Z + colRes.Plane.Z / 8
                 );
                 Vector3 up = Beam == BeamType.Imperialist ? -Direction : colRes.Plane.Xyz;
+                _scene.Services.Combat?.NoteImpact(CombatShot, Beam,
+                    Flags.TestFlag(BeamFlags.Charged), CollisionEffect, noSplat,
+                    spawnPos, up);
+                if (_scene.Services.AuthoritativeImpactPresentation)
+                    return;
                 if (colRes.EntityCollision != null)
                 {
                     spawnPos = Matrix.Vec3MultMtx4(spawnPos, colRes.EntityCollision.Inverse1);

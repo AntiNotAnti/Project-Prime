@@ -714,6 +714,7 @@ namespace MphRead.Effects
         public bool Func39Called { get; set; }
         public float ParticleAmount { get; set; }
         public bool Expired { get; set; }
+        public bool ImpactPriority { get; set; }
         public int ChildEffectId { get; set; }
         public float RoField1 { get; set; }
         public float RoField2 { get; set; }

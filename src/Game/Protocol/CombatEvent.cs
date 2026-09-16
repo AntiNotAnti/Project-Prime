@@ -11,12 +11,13 @@ namespace MphRead.Mods.Network
         public bool IsNone => this == None;
     }
 
-    public enum CombatEventKind : byte { Shot = 1, Damage, Death, Spawn, Affliction, Bomb, Effect }
+    public enum CombatEventKind : byte { Shot = 1, Damage, Death, Spawn, Affliction, Bomb, Effect, Impact }
     [Flags]
     public enum CombatEventFlags : ushort
     {
         None = 0, Charged = 1, Headshot = 2, Burn = 4, Deathalt = 8, Silent = 16,
-        Affinity = 32, Concussive = 64, OverchargeAbsorb = 128, LingeringHeat = 256
+        Affinity = 32, Concussive = 64, OverchargeAbsorb = 128, LingeringHeat = 256,
+        NoSplat = 512
     }
 
     /// <summary>Presentation facts only. State snapshots remain the source of health, ammo and score.</summary>
@@ -25,17 +26,26 @@ namespace MphRead.Mods.Network
         ushort Amount, Vector3 Position, Vector3 Direction, ushort FrozenTicks, ushort BurnTicks, ushort DisruptTicks, ushort ChargeLevel = 0, uint SpreadSeed = 0)
     {
         public const int Size = 82;
-        public bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Effect
-            && (Flags & ~(CombatEventFlags)511) == 0
+        public bool IsValid => Kind >= CombatEventKind.Shot && Kind <= CombatEventKind.Impact
+            && (Flags & ~(CombatEventFlags)1023) == 0
             && (Actor.IsValid || Actor.IsNone) && (Target.IsValid || Target.IsNone)
-            && (Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
+            && (Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect or CombatEventKind.Impact
                 ? Actor.IsValid : Target.IsValid)
             && (Kind != CombatEventKind.Effect || Actor.IsValid && Target.IsNone
                 && Weapon == (byte)BeamType.Magmaul && Flags == CombatEventFlags.LingeringHeat
                 && Health == 0 && Amount == 0 && FrozenTicks == 0 && BurnTicks == 0
                 && DisruptTicks == 0 && ChargeLevel == 0 && SpreadSeed == 0
                 && Direction == Vector3.Zero)
+            && (Kind != CombatEventKind.Impact || Actor.IsValid && Target.IsNone
+                && Weapon <= 10 && Amount < byte.MaxValue
+                && (Flags & ~(CombatEventFlags.Charged | CombatEventFlags.Affinity
+                    | CombatEventFlags.NoSplat)) == 0
+                && Health == 0 && FrozenTicks == 0 && BurnTicks == 0
+                && DisruptTicks == 0 && ChargeLevel == 0 && SpreadSeed == 0
+                && Single.IsFinite(Direction.LengthSquared)
+                && Direction.LengthSquared > 0.000001f)
             && ((Flags & CombatEventFlags.LingeringHeat) == 0 || Kind == CombatEventKind.Effect)
+            && ((Flags & CombatEventFlags.NoSplat) == 0 || Kind == CombatEventKind.Impact)
             && ((Flags & (CombatEventFlags.Concussive | CombatEventFlags.OverchargeAbsorb)) == 0
                 || Kind is CombatEventKind.Damage or CombatEventKind.Death)
             && (Kind == CombatEventKind.Bomb ? Weapon <= 2 : Weapon <= 10 || Weapon == 255)

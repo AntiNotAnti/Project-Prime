@@ -10,7 +10,7 @@ public sealed class CosmeticRosterProtocolTests
     [Fact]
     public void Protocol19RosterCarriesSixPresentationBytesPerSeat()
     {
-        Assert.Equal(25, NetHeader.Version);
+        Assert.Equal(26, NetHeader.Version);
         Assert.Equal(36, SessionRosterPacket.EntrySize);
         Assert.Equal(293, SessionRosterPacket.MaxSize);
         NetRosterEntry expected = new(7, 99, Hunter.Guardian, 3, "COSMETIC", 42, true,

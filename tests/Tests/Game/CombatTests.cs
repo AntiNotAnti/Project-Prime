@@ -57,6 +57,83 @@ namespace MphRead.Tests
         }
 
         [Fact]
+        public void AuthoritativeImpactRoundTripsAndRejectsNoncanonicalPayloads()
+        {
+            CombatActor actor = new(2, 100, 4);
+            CombatEvent impact = new(9, 123, 77, CombatEventKind.Impact,
+                (byte)BeamType.Missile,
+                CombatEventFlags.Charged | CombatEventFlags.NoSplat,
+                actor, CombatActor.None, 0, 6, new Vector3(1, 2, 3),
+                Vector3.UnitY, 0, 0, 0);
+            byte[] bytes = new byte[CombatEvent.Size];
+
+            impact.Write(bytes);
+            Assert.True(CombatEvent.TryRead(bytes, out CombatEvent decoded));
+            Assert.Equal(impact, decoded);
+
+            foreach (CombatEvent invalid in new[]
+            {
+                impact with { Actor = CombatActor.None },
+                impact with { Target = actor },
+                impact with { Amount = byte.MaxValue },
+                impact with { Direction = Vector3.Zero },
+                impact with { Flags = CombatEventFlags.Headshot },
+                Hit() with { Flags = CombatEventFlags.NoSplat }
+            })
+            {
+                invalid.Write(bytes);
+                Assert.False(CombatEvent.TryRead(bytes, out _));
+            }
+        }
+
+        [Fact]
+        public void ServerRecordsCanonicalImpactPresentationFact()
+        {
+            var collector = new ServerCombat();
+            collector.BeginTick(44);
+            CombatActor actor = new(2, 100, 4);
+            var shot = new CombatShot(actor, 77, 40, 40, 40, 0)
+            {
+                Affinity = true
+            };
+
+            collector.NoteImpact(shot, BeamType.Missile, charged: true,
+                collisionEffect: 6, noSplat: true, new Vector3(1, 2, 3),
+                new Vector3(0, 2, 0));
+
+            Span<CombatEvent> pending = stackalloc CombatEvent[1];
+            Assert.Equal(1, collector.CopyPending(pending));
+            CombatEvent impact = pending[0];
+            Assert.Equal(CombatEventKind.Impact, impact.Kind);
+            Assert.Equal(44u, impact.Tick);
+            Assert.Equal(actor, impact.Actor);
+            Assert.Equal((ushort)6, impact.Amount);
+            Assert.Equal(Vector3.UnitY, impact.Direction);
+            Assert.Equal(CombatEventFlags.Charged | CombatEventFlags.Affinity
+                | CombatEventFlags.NoSplat, impact.Flags);
+        }
+
+        [Fact]
+        public void Protocol25ReplayRejectsProtocol26ImpactSemantics()
+        {
+            CombatActor actor = new(2, 100, 4);
+            CombatEvent impact = new(9, 123, 77, CombatEventKind.Impact,
+                (byte)BeamType.Missile, CombatEventFlags.NoSplat,
+                actor, CombatActor.None, 0, 6, new Vector3(1, 2, 3),
+                Vector3.UnitY, 0, 0, 0);
+            byte[] record = new byte[1 + 5 + 1 + CombatEvent.Size];
+            record[0] = (byte)ReplayRecordKind.Event;
+            record[5] = (byte)ReliableEventType.Combat;
+            CombatEventBatch.Write(record.AsSpan(6), new[] { impact });
+
+            var replay = new ModernReplayState();
+            replay.Reset(NetHeader.AltActionStateVersion);
+            Assert.False(replay.Receive(record));
+            replay.Reset(NetHeader.AuthoritativeImpactVersion);
+            Assert.True(replay.Receive(record));
+        }
+
+        [Fact]
         public void Protocol21And22CombatBatchesRejectProtocol23KindsAndFlags()
         {
             CombatActor actor = new(5, 100, 3);
@@ -140,7 +217,7 @@ namespace MphRead.Tests
             Assert.False(CombatEvent.TryRead(new byte[CombatEvent.Size + 1], out _));
             foreach (CombatEvent value in new[]
             {
-                Hit() with { Kind = (CombatEventKind)8 }, Hit() with { Flags = (CombatEventFlags)512 },
+                Hit() with { Kind = (CombatEventKind)9 }, Hit() with { Flags = (CombatEventFlags)1024 },
                 Hit() with { Weapon = 11 }, Hit() with { Actor = new CombatActor(8, 100, 1) },
                 Hit() with { Target = new CombatActor(0, 0, 1) }, Hit() with { Target = CombatActor.None },
                 Hit() with { Target = new CombatActor(0, 200, 0) },

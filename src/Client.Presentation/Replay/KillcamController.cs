@@ -94,7 +94,11 @@ internal sealed class KillcamController : IDisposable
     internal const uint FinalGameOverFrames = 105;
     internal const uint FinalResultWaitFrames = 30;
     internal const uint FinalReplaySeekFrames = 120;
-    internal const uint FinalCausalTickLag = 1;
+    // A kill is recorded during the world step. Team totals are derived at
+    // the end of that step and the score-goal transition can be published on
+    // either of the next two authoritative boundaries, depending on whether
+    // the damage was resolved by the normal or catch-up combat pass.
+    internal const uint FinalCausalTickLag = 2;
 
     // Compatibility names are intentionally not used by the controller. Keep
     // them internal for older focused tests compiled against the previous
@@ -429,7 +433,7 @@ internal sealed class KillcamController : IDisposable
 
     /// <summary>
     /// Conservative final-replay gate. MatchEnded is only a terminal edge.
-    /// Causal endings require the authoritative one-tick boundary and winner
+    /// Causal endings require the bounded authoritative transition and winner
     /// alignment; timed Battle endings may present the most recent retained
     /// enemy kill.
     /// </summary>

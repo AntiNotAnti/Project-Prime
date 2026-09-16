@@ -1,10 +1,10 @@
 # Current Project Prime protocol
 
-Status: authoritative live-wire reference, 2026-09-14. The current
-authoritative wire family is `Authoritative`, protocol **25**. Protocol 25 and
+Status: authoritative live-wire reference, 2026-09-16. The current
+authoritative wire family is `Authoritative`, protocol **26**. Protocol 26 and
 older peers are intentionally incompatible with the live build. Protocol 21,
-22, 23, and 24 replay records remain readable through frozen version-specific
-decoders.
+22, 23, 24, and 25 replay records remain readable through frozen
+version-specific decoders.
 
 ## Envelope and admission
 
@@ -35,9 +35,10 @@ from client-supplied hints.
 | **23** | Enhanced Hunters rule, authoritative player suffix, and bounded combat effects |
 | **24** | Balanced Mode profile metadata appended to `MatchRulesWire` |
 | **25** | Authoritative alternate-form action state in `SnapshotPlayer` and resource-radar policy in `MatchRulesWire` |
+| **26** | Authoritative projectile-impact presentation facts in the existing `CombatEvent` wire record |
 
 This table records wire history; it does not make old live peers compatible
-with protocol 25.
+with protocol 26.
 
 ## Input command (introduced in protocol 15)
 
@@ -158,9 +159,18 @@ to the protocol-24 live decoder.
 Protocol 24 replay records retain the 112-byte snapshot, 82-byte combat, and
 Enhanced Hunters world layouts already introduced by protocol 23. They are
 decoded by explicit frozen adapters and never fall through to the protocol-25
-live snapshot decoder. Protocol 25 is the current live family. It adds the
-alternate-action snapshot suffix and the resource-radar match-rule byte
-described above; combat and world layouts are otherwise unchanged.
+live snapshot decoder. Protocol 25 records add the alternate-action snapshot
+suffix and the resource-radar match-rule byte described above; combat and world
+layouts are otherwise unchanged.
+
+Protocol 26 retains the fixed 82-byte `CombatEvent` record and six-event batch
+capacity. `CombatEventKind.Impact` records carry the authoritative collision
+effect ID in `Amount`, the impact position in `Position`, and the normalized
+surface normal in `Direction`; `NoSplat`, `Charged`, and `Affinity` are the
+only permitted impact flags. Impact records are presentation-only: replicas
+and replay readers may spawn the bounded impact effect, while gameplay state
+continues to come from snapshots and Worker-owned combat mutation. Protocols
+before 26 reject impact kinds and the `NoSplat` flag.
 
 ## Guardian/Psycho Bit extension
 

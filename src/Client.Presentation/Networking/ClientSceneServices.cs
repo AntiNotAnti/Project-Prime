@@ -32,6 +32,9 @@ namespace MphRead.Mods.Network
             => (scene.Services as ClientSceneServices)?.Play;
 
         public bool IsReplica => _match != null || ReplayPlayback.IsModern;
+        public bool AuthoritativeImpactPresentation => _match != null
+            || ReplayPlayback.IsModern
+            && ReplayPlayback.Modern.ProtocolVersion >= NetHeader.AuthoritativeImpactVersion;
         public bool RebuildingRoom => NetRoomChange.Rebuilding;
         public int RoomPlayerCount => NetRoomChange.RoomPlayerCount;
         public PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)

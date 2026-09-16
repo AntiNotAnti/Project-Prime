@@ -709,6 +709,22 @@ namespace MphRead.Mods.Network
                 (byte)weapon, flags, shot.Actor, CombatActor.None, 0, 0,
                 position, Vector3.Zero, 0, 0, 0));
         }
+        public void NoteImpact(in CombatShot shot, BeamType weapon, bool charged,
+            byte collisionEffect, bool noSplat, Vector3 position, Vector3 normal)
+        {
+            if (!shot.IsValid || collisionEffect == byte.MaxValue
+                || !Single.IsFinite(normal.X) || !Single.IsFinite(normal.Y)
+                || !Single.IsFinite(normal.Z) || !Single.IsFinite(normal.LengthSquared)
+                || normal.LengthSquared <= 0.000001f)
+                return;
+            normal = normal.Normalized();
+            CombatEventFlags flags = (charged ? CombatEventFlags.Charged : 0)
+                | (shot.Affinity ? CombatEventFlags.Affinity : 0)
+                | (noSplat ? CombatEventFlags.NoSplat : 0);
+            TryRecord(new(0, Tick, shot.CommandSequence, CombatEventKind.Impact,
+                (byte)weapon, flags, shot.Actor, CombatActor.None, 0,
+                collisionEffect, position, normal, 0, 0, 0));
+        }
         public bool TryPeekKill(out KillEvent value)
         {
             value = _killCount == 0 ? default : _kills[_killHead];

@@ -594,7 +594,7 @@ namespace MphRead.Mods.Network
                         // scenario correlation owns its own actor/life fence.
                         AuthoritativeCombatEventObserved?.Invoke(value);
                     }
-                    else if (value.Kind == CombatEventKind.Effect)
+                    else if (value.Kind is CombatEventKind.Effect or CombatEventKind.Impact)
                     {
                         AuthoritativeCombatEventObserved?.Invoke(value);
                     }
@@ -625,6 +625,13 @@ namespace MphRead.Mods.Network
                                 scene.Players[LocalSlot].Speed, scene.Players[LocalSlot].IsAltForm,
                                 out Vector3 authoritativeSpeed))
                             scene.Players[LocalSlot].Speed = authoritativeSpeed;
+                    }
+                    if (value.Kind == CombatEventKind.Impact)
+                    {
+                        BeamEffectEntity.PresentImpact(scene, (byte)value.Amount,
+                            (value.Flags & CombatEventFlags.NoSplat) != 0,
+                            value.Position, value.Direction);
+                        continue;
                     }
                     CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
                         ? value.Actor : value.Target;

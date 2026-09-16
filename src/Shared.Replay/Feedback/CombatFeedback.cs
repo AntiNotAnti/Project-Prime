@@ -122,22 +122,39 @@ namespace MphRead.Combat
             _ => 0
         };
 
-        private void Marker(HitMarkerKind kind, uint tick, bool authoritative = true)
+        private void Marker(HitMarkerKind kind, uint tick, bool authoritative = true,
+            ushort damage = 0, ushort health = 0, byte weapon = 0,
+            CombatEventFlags flags = CombatEventFlags.None, uint eventId = 0)
         {
             tick = ReceiptTick(tick);
             if (kind == HitMarkerKind.Kill && !CombatFeedbackSettings.KillConfirmation) return;
             if (kind == HitMarkerKind.Headshot && !CombatFeedbackSettings.HeadshotCue) kind = HitMarkerKind.Hit;
+            bool continuingBurst = State.MarkerPulseSequence != 0
+                && Age(tick, State.MarkerPulseTick) <= 10;
+            State.MarkerBurst = continuingBurst
+                ? (byte)Math.Min(State.MarkerBurst + 1, 8) : (byte)1;
+            State.MarkerPulseTick = tick;
+            State.MarkerPulseSequence++;
+            if (authoritative && kind != HitMarkerKind.Predicted)
+            {
+                State.MarkerAudioSequence++;
+                State.MarkerAudioKind = kind;
+                State.MarkerHapticIdentity = unchecked(_match * 16777619u ^ eventId);
+            }
             // A stronger authoritative cue promotes a speculative or weaker
             // cue and refreshes the one marker lifetime.  A weaker event in an
-            // active marker window cannot erase the stronger cue.
+            // active marker window cannot erase the stronger cue, but the
+            // independent pulse above still acknowledges a rapid follow-up hit.
             if (State.Marker != HitMarkerKind.None
                 && Age(tick, State.MarkerTick) < MarkerDuration(State.Marker)
                 && MarkerPriority(kind) < MarkerPriority(State.Marker)) return;
             State.Marker = kind;
             State.MarkerTick = tick;
             State.MarkerSequence++;
-            if (authoritative && kind != HitMarkerKind.Predicted)
-                State.MarkerAudioSequence++;
+            State.MarkerDamage = damage;
+            State.MarkerHealth = health;
+            State.MarkerWeapon = weapon;
+            State.MarkerFlags = flags;
         }
 
         /// <summary>
@@ -163,7 +180,9 @@ namespace MphRead.Combat
                 && (value.Flags & CombatEventFlags.Silent) == 0)
             {
                 bool headshot = (value.Flags & CombatEventFlags.Headshot) != 0;
-                Marker(headshot ? HitMarkerKind.Headshot : HitMarkerKind.Hit, value.Tick);
+                Marker(headshot ? HitMarkerKind.Headshot : HitMarkerKind.Hit, value.Tick,
+                    damage: value.Amount, health: value.Health, weapon: value.Weapon,
+                    flags: value.Flags, eventId: value.Id);
                 if (headshot && CombatFeedbackSettings.HeadshotCue)
                     State.HeadshotNotice = new("HEADSHOT!", ReceiptTick(value.Tick));
             }
@@ -202,7 +221,10 @@ namespace MphRead.Combat
             _feed[FeedCount++] = new(ReceiptTick(value.Tick), value.Killer, value.Victim, text);
             if (value.Killer == Local && Local.IsValid && value.Victim != Local)
             {
-                Marker(HitMarkerKind.Kill, value.Tick);
+                CombatEventFlags markerFlags = (value.Flags & KillEventFlags.Headshot) != 0
+                    ? CombatEventFlags.Headshot : CombatEventFlags.None;
+                Marker(HitMarkerKind.Kill, value.Tick, health: 0,
+                    weapon: value.Weapon, flags: markerFlags, eventId: value.Id);
                 if (CombatFeedbackSettings.KillConfirmation)
                 {
                     State.KillNotice = new(

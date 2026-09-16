@@ -89,7 +89,7 @@ public sealed class ReplayStateTests
     }
 
     [Fact]
-    public void FeedbackCheckpointV2RoundTripsNoticesAndV1RestoresWithEmptyNotices()
+    public void FeedbackCheckpointV3RoundTripsMarkerDetailsAndOlderVersionsRemainReadable()
     {
         var source = new CombatFeedback();
         var world = new WorldFeedback();
@@ -108,14 +108,32 @@ public sealed class ReplayStateTests
             KillEventFlags.Headshot, ImmutableArray<CombatActor>.Empty)));
         world.Bind(1, 1);
 
-        byte[] v2 = ReplayFeedbackState.Capture(source, world);
-        Assert.Equal(2, v2[0]);
+        byte[] v3 = ReplayFeedbackState.Capture(source, world);
+        Assert.Equal(3, v3[0]);
+        var restoredV3 = new CombatFeedback();
+        var restoredWorldV3 = new WorldFeedback();
+        Assert.True(ReplayFeedbackState.Restore(v3, restoredV3, restoredWorldV3));
+        Assert.Equal("HEADSHOT!", restoredV3.State.HeadshotNotice.Text);
+        Assert.Equal("YOUR HEADSHOT KILLED Original!", restoredV3.State.KillNotice.Text);
+        Assert.Equal(source.State.MarkerPulseSequence, restoredV3.State.MarkerPulseSequence);
+        Assert.Equal(source.State.MarkerAudioSequence, restoredV3.State.MarkerAudioSequence);
+        Assert.Equal(source.State.MarkerDamage, restoredV3.State.MarkerDamage);
+        Assert.Equal(source.State.MarkerFlags, restoredV3.State.MarkerFlags);
+        Assert.Equal(v3, ReplayFeedbackState.Capture(restoredV3, restoredWorldV3));
+
+        byte[] v2;
+        using (var stream = new MemoryStream())
+        using (var writer = new BinaryWriter(stream))
+        {
+            writer.Write((byte)2);
+            source.WriteReplay(writer, includeNotices: true);
+            world.WriteReplay(writer);
+            v2 = stream.ToArray();
+        }
         var restoredV2 = new CombatFeedback();
-        var restoredWorldV2 = new WorldFeedback();
-        Assert.True(ReplayFeedbackState.Restore(v2, restoredV2, restoredWorldV2));
+        Assert.True(ReplayFeedbackState.Restore(v2, restoredV2, new WorldFeedback()));
         Assert.Equal("HEADSHOT!", restoredV2.State.HeadshotNotice.Text);
-        Assert.Equal("YOUR HEADSHOT KILLED Original!", restoredV2.State.KillNotice.Text);
-        Assert.Equal(v2, ReplayFeedbackState.Capture(restoredV2, restoredWorldV2));
+        Assert.Equal(source.State.Marker, restoredV2.State.MarkerAudioKind);
 
         // Build the old outer-v1 layout through the compatibility writer. It
         // deliberately omits the new notice fields while retaining every old

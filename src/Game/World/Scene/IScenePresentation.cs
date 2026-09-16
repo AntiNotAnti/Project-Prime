@@ -39,6 +39,10 @@ namespace MphRead
         EffectEntry? SpawnEffectGetEntry(int effectId, Matrix4 transform, EntityCollision? entCol = null);
         void SpawnEffect(int effectId, Vector3 facing, Vector3 up, Vector3 position, bool child = false, EntityCollision? entCol = null);
         void SpawnEffect(int effectId, Matrix4 transform, bool child = false, EntityCollision? entCol = null);
+        /// <summary>Admits a short-lived weapon impact ahead of ordinary ambient effects.</summary>
+        void SpawnImpactEffect(int effectId, Matrix4 transform,
+            EntityCollision? entCol = null)
+            => SpawnEffect(effectId, transform, entCol: entCol);
         void UnlinkEffectEntry(EffectEntry entry);
         void DetachEffectEntry(EffectEntry entry, bool setExpired);
         void ClearEffects();

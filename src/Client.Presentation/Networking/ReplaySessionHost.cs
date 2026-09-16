@@ -84,6 +84,8 @@ namespace MphRead.Mods.Network
         private readonly ReplayPlaybackSession _session;
         internal ReplaySceneServices(ReplayPlaybackSession session) => _session = session;
         public bool IsReplica => true;
+        public bool AuthoritativeImpactPresentation
+            => _session.Modern.ProtocolVersion >= NetHeader.AuthoritativeImpactVersion;
         public bool RebuildingRoom => true;
         public int LocalSlot => _session.PerspectiveSlot;
         public uint WorldServerTick => _session.WorldServerTick ?? _session.SnapshotServerTick ?? _session.CurrentFrame;

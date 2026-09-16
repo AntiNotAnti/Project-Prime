@@ -1,3 +1,4 @@
+using System;
 using MphRead.Formats.Collision;
 using OpenTK.Mathematics;
 
@@ -111,10 +112,34 @@ namespace MphRead.Entities
                         effectId = 98;
                     }
                 }
-                scene.SpawnEffect(effectId, data.Transform, entCol: data.EntityCollision);
+                // Impacts are transient gameplay feedback. The presentation
+                // layer may reclaim an ordinary ambient effect if its bounded
+                // pool is full rather than silently losing the explosion.
+                scene.SpawnImpactEffect(effectId, data.Transform,
+                    data.EntityCollision);
                 return null;
             }
             return scene.InitBeamEffect(data);
+        }
+
+        public static void PresentImpact(Scene scene, byte collisionEffect,
+            bool noSplat, Vector3 position, Vector3 normal)
+        {
+            if (scene.IsHeadless || collisionEffect == byte.MaxValue
+                || !Single.IsFinite(normal.X) || !Single.IsFinite(normal.Y)
+                || !Single.IsFinite(normal.Z) || !Single.IsFinite(normal.LengthSquared)
+                || normal.LengthSquared <= 0.000001f)
+                return;
+            normal = normal.Normalized();
+            Vector3 facing = normal.Z <= Fixed.ToFloat(-3686)
+                || normal.Z >= Fixed.ToFloat(3686)
+                ? Vector3.Cross(Vector3.UnitX, normal).Normalized()
+                : Vector3.Cross(Vector3.UnitZ, normal).Normalized();
+            Matrix4 transform = GetTransformMatrix(facing, normal);
+            transform.Row3.Xyz = position;
+            BeamEffectEntity? entity = Create(
+                new BeamEffectEntityData(collisionEffect, noSplat, transform), scene);
+            if (entity != null) scene.AddEntity(entity);
         }
     }
 }

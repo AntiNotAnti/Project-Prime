@@ -197,12 +197,19 @@ internal static class ReplayTimelineTickReader
             case ReliableEventType.Combat:
                 Span<CombatEvent> events = stackalloc CombatEvent[6];
                 int count;
-                bool valid = protocol >= NetHeader.BalancedModeVersion
+                bool valid = protocol >= NetHeader.AuthoritativeImpactVersion
                     ? CombatEventBatch.TryRead(payload, events, out count)
-                    : protocol == NetHeader.EnhancedHuntersVersion
+                    : protocol >= NetHeader.EnhancedHuntersVersion
                         ? TryReadProtocol23CombatBatch(payload, events, out count)
                         : CombatEventBatch.TryRead(payload, events, out count);
                 if (!valid) return false;
+                if (protocol < NetHeader.AuthoritativeImpactVersion)
+                {
+                    for (int i = 0; i < count; i++)
+                        if (events[i].Kind == CombatEventKind.Impact
+                            || (events[i].Flags & CombatEventFlags.NoSplat) != 0)
+                            return false;
+                }
                 tick = events[0].Tick;
                 for (int i = 1; i < count; i++)
                     if (IsNewer(events[i].Tick, tick)) tick = events[i].Tick;

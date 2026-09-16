@@ -12,7 +12,8 @@ namespace MphRead.Combat
         internal static byte[] Capture(CombatFeedback combat, WorldFeedback world)
         {
             using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
-            writer.Write((byte)2); combat.WriteReplay(writer, includeNotices: true); world.WriteReplay(writer);
+            writer.Write((byte)3); combat.WriteReplay(writer, includeNotices: true,
+                includeMarkerDetails: true); world.WriteReplay(writer);
             if (stream.Length > MaximumBytes) throw new InvalidDataException("Replay feedback exceeds its bound.");
             return stream.ToArray();
         }
@@ -33,8 +34,9 @@ namespace MphRead.Combat
         {
             using var stream = new MemoryStream(bytes, false); using var reader = new BinaryReader(stream);
             byte version = reader.ReadByte();
-            if (version is not (1 or 2)) throw new InvalidDataException("Replay feedback version.");
-            combat.ReadReplay(reader, includeNotices: version >= 2); world.ReadReplay(reader);
+            if (version is not (1 or 2 or 3)) throw new InvalidDataException("Replay feedback version.");
+            combat.ReadReplay(reader, includeNotices: version >= 2,
+                includeMarkerDetails: version >= 3); world.ReadReplay(reader);
             if (stream.Position != stream.Length) throw new InvalidDataException("Replay feedback trailing bytes.");
         }
         internal static void Text(BinaryWriter writer, string text)
@@ -126,7 +128,8 @@ namespace MphRead.Combat
     }
     public sealed partial class CombatFeedback
     {
-        internal void WriteReplay(BinaryWriter writer, bool includeNotices = false)
+        internal void WriteReplay(BinaryWriter writer, bool includeNotices = false,
+            bool includeMarkerDetails = false)
         {
             writer.Write(_match); writer.Write(_presentationTick); writer.Write(_phase);
             _combatEvents.WriteReplay(writer); _killEvents.WriteReplay(writer);
@@ -153,9 +156,26 @@ namespace MphRead.Combat
                 ReplayFeedbackState.Notice(writer, State.HeadshotNotice);
                 ReplayFeedbackState.Notice(writer, State.KillNotice);
             }
+            if (includeMarkerDetails)
+            {
+                bool authoritativeMarker = replayMarker != HitMarkerKind.None;
+                writer.Write(authoritativeMarker ? State.MarkerAudioSequence : 0);
+                writer.Write(authoritativeMarker ? State.MarkerPulseSequence : 0);
+                writer.Write(authoritativeMarker ? State.MarkerPulseTick : 0);
+                writer.Write(authoritativeMarker ? State.MarkerHapticIdentity : 0);
+                writer.Write((byte)(authoritativeMarker
+                    ? State.MarkerAudioKind : HitMarkerKind.None));
+                writer.Write(authoritativeMarker ? State.MarkerDamage : (ushort)0);
+                writer.Write(authoritativeMarker ? State.MarkerHealth : (ushort)0);
+                writer.Write(authoritativeMarker ? State.MarkerWeapon : (byte)0);
+                writer.Write((ushort)(authoritativeMarker
+                    ? State.MarkerFlags : CombatEventFlags.None));
+                writer.Write(authoritativeMarker ? State.MarkerBurst : (byte)0);
+            }
             History.WriteReplay(writer); Recaps.WriteReplay(writer);
         }
-        internal void ReadReplay(BinaryReader reader, bool includeNotices = false)
+        internal void ReadReplay(BinaryReader reader, bool includeNotices = false,
+            bool includeMarkerDetails = false)
         {
             _match = reader.ReadUInt32(); _presentationTick = reader.ReadUInt32(); _phase = reader.ReadUInt32();
             _combatEvents.ReadReplay(reader); _killEvents.ReadReplay(reader);
@@ -182,6 +202,33 @@ namespace MphRead.Combat
             {
                 State.HeadshotNotice = ReplayFeedbackState.Notice(reader);
                 State.KillNotice = ReplayFeedbackState.Notice(reader);
+            }
+            State.MarkerPulseSequence = State.MarkerSequence;
+            State.MarkerPulseTick = State.MarkerTick;
+            State.MarkerHapticIdentity = 0;
+            State.MarkerAudioKind = State.Marker;
+            State.MarkerDamage = State.MarkerHealth = 0;
+            State.MarkerWeapon = 0;
+            State.MarkerFlags = CombatEventFlags.None;
+            State.MarkerBurst = State.Marker == HitMarkerKind.None ? (byte)0 : (byte)1;
+            if (includeMarkerDetails)
+            {
+                State.MarkerAudioSequence = reader.ReadUInt32();
+                State.MarkerPulseSequence = reader.ReadUInt32();
+                State.MarkerPulseTick = reader.ReadUInt32();
+                State.MarkerHapticIdentity = reader.ReadUInt32();
+                State.MarkerAudioKind = (HitMarkerKind)reader.ReadByte();
+                if (State.MarkerAudioKind > HitMarkerKind.Predicted)
+                    throw new InvalidDataException("Replay marker audio kind invalid.");
+                State.MarkerDamage = reader.ReadUInt16();
+                State.MarkerHealth = reader.ReadUInt16();
+                State.MarkerWeapon = reader.ReadByte();
+                State.MarkerFlags = (CombatEventFlags)reader.ReadUInt16();
+                if ((State.MarkerFlags & ~(CombatEventFlags)1023) != 0)
+                    throw new InvalidDataException("Replay marker flags invalid.");
+                State.MarkerBurst = reader.ReadByte();
+                if (State.MarkerBurst > 8)
+                    throw new InvalidDataException("Replay marker burst invalid.");
             }
             History.ReadReplay(reader); Recaps.ReadReplay(reader);
         }

@@ -41,6 +41,7 @@ namespace MphRead.Mods.Network
         private uint _loadedMatch;
         private byte _protocol = NetHeader.Version;
         internal MatchRules? InitialRules => _protocol >= 7 && Match.MatchId != 0 ? Match.Rules : null;
+        internal byte ProtocolVersion => _protocol;
         private int _eventCount;
         private bool _dirty;
         private byte[]? _feedbackBytes;
@@ -236,9 +237,9 @@ namespace MphRead.Mods.Network
                     }
                     Span<CombatEvent> events = stackalloc CombatEvent[CombatEventBatch.MaxCount];
                     int eventCount;
-                    bool combatValid = _protocol >= NetHeader.BalancedModeVersion
+                    bool combatValid = _protocol >= NetHeader.AuthoritativeImpactVersion
                         ? CombatEventBatch.TryRead(body[5..], events, out eventCount)
-                        : _protocol == NetHeader.EnhancedHuntersVersion
+                        : _protocol >= NetHeader.EnhancedHuntersVersion
                             ? Protocol23ReplayCodec.TryReadCombatBatch(body[5..], events, out eventCount)
                             : Protocol21ReplayCodec.TryReadCombatBatch(body[5..], events, out eventCount);
                     if (type != ReliableEventType.Combat || !combatValid
@@ -439,6 +440,13 @@ namespace MphRead.Mods.Network
                 if (scene.Presentation is ScenePresentation observedCombat)
                     observedCombat.BroadcastObservations.Record(value,
                         Match.MatchId, scene.Match.PhaseRevision);
+                if (value.Kind == CombatEventKind.Impact)
+                {
+                    BeamEffectEntity.PresentImpact(scene, (byte)value.Amount,
+                        (value.Flags & CombatEventFlags.NoSplat) != 0,
+                        value.Position, value.Direction);
+                    continue;
+                }
                 CombatActor subject = value.Kind is CombatEventKind.Shot or CombatEventKind.Bomb or CombatEventKind.Effect
                     ? value.Actor : value.Target;
                 if (subject.IsValid && _identities[subject.Slot] == subject.ConnectionId && _lives[subject.Slot] == subject.Life)

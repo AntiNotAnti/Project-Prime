@@ -130,8 +130,10 @@ public sealed class KillcamTests
         Assert.True(KillcamController.IsFinalReplayEligible(kill, ended, result));
         Assert.True(KillcamController.IsFinalReplayEligible(
             kill with { Tick = 8_999 }, ended, result));
-        Assert.False(KillcamController.IsFinalReplayEligible(
+        Assert.True(KillcamController.IsFinalReplayEligible(
             kill with { Tick = 8_998 }, ended, result));
+        Assert.False(KillcamController.IsFinalReplayEligible(
+            kill with { Tick = 8_997 }, ended, result));
         Assert.True(KillcamController.IsFinalReplayEligible(
             kill, ended, Result(MatchMode.Battle, MatchEndReason.TimeLimit, 1)));
         Assert.True(KillcamController.IsFinalReplayEligible(
@@ -150,8 +152,10 @@ public sealed class KillcamTests
     {
         Assert.True(KillcamController.IsCausalFinalKill(
             Kill(7, uint.MaxValue), Ended(0)));
-        Assert.False(KillcamController.IsCausalFinalKill(
+        Assert.True(KillcamController.IsCausalFinalKill(
             Kill(7, uint.MaxValue - 1), Ended(0)));
+        Assert.False(KillcamController.IsCausalFinalKill(
+            Kill(7, uint.MaxValue - 2), Ended(0)));
         Assert.False(KillcamController.IsCausalFinalKill(
             Kill(7, 1), Ended(0)));
     }

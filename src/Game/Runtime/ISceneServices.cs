@@ -9,6 +9,11 @@ namespace MphRead
     public interface ISceneServices
     {
         bool IsReplica => false;
+        /// <summary>
+        /// Replica projectile collisions are visual approximations. Protocols
+        /// that carry authoritative impact facts suppress those local effects.
+        /// </summary>
+        bool AuthoritativeImpactPresentation => false;
         bool RebuildingRoom => false;
         int RoomPlayerCount => 0;
         PlayerEntity RebuildPlayers(Scene scene, Hunter hunter, int recolor)
@@ -115,6 +120,8 @@ namespace MphRead
         void NoteBomb(in CombatShot shot, BombType type, Vector3 position, Vector3 facing);
         void NoteEnhancedEffect(in CombatShot shot, BeamType weapon,
             CombatEventFlags flags, Vector3 position) { }
+        void NoteImpact(in CombatShot shot, BeamType weapon, bool charged,
+            byte collisionEffect, bool noSplat, Vector3 position, Vector3 normal) { }
         void NoteSpawn(PlayerEntity player);
         void NoteHealing(PlayerEntity player, int amount) { }
         void NoteDamage(PlayerEntity victim, EntityBase? source, PlayerEntity? attacker, BeamType weapon,

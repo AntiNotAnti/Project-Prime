@@ -58,10 +58,13 @@ namespace MphRead.Mods.Network
         // appends the Balanced Mode profile to MatchRulesWire. Protocol 25
         // appends authoritative alternate-form action phase and elapsed ticks
         // to SnapshotPlayer while retaining the legacy AltAttack indicator.
+        // Protocol 26 adds reliable authoritative projectile-impact presentation
+        // facts without changing the fixed CombatEvent wire size.
         public const byte EnhancedHuntersVersion = 23;
         public const byte BalancedModeVersion = 24;
         public const byte AltActionStateVersion = 25;
-        public const byte Version = AltActionStateVersion;
+        public const byte AuthoritativeImpactVersion = 26;
+        public const byte Version = AuthoritativeImpactVersion;
 
         public void Write(Span<byte> destination)
         {
