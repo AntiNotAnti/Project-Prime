@@ -98,6 +98,34 @@ public sealed class SettingsRouteActionBarTests
     }
 
     [AvaloniaFact]
+    public void ExportAllSettingsRequiresACleanSettingsDraft()
+    {
+        using var view = new SettingsView(new MenuSettings());
+        MenuEntry export = Assert.Single(Walk(view).OfType<MenuEntry>(),
+            entry => entry.Title == "Export all settings");
+        MenuEntry import = Assert.Single(Walk(view).OfType<MenuEntry>(),
+            entry => entry.Title == "Import settings");
+        Assert.True(export.IsEnabled);
+        Assert.True(import.IsEnabled);
+        Assert.Contains("ZIP", export.Subtitle, StringComparison.Ordinal);
+
+        SliderRow fieldOfView = GetPrivateField<SliderRow>(view, "_fieldOfView");
+        int initial = fieldOfView.Value;
+        fieldOfView.Value++;
+        Dispatcher.UIThread.RunJobs();
+        Assert.False(export.IsEnabled);
+        Assert.False(import.IsEnabled);
+        Assert.Equal("Save or discard changes before exporting.", export.Subtitle);
+        Assert.Equal("Save or discard changes before importing.", import.Subtitle);
+
+        fieldOfView.Value = initial;
+        Dispatcher.UIThread.RunJobs();
+        Assert.True(export.IsEnabled);
+        Assert.True(import.IsEnabled);
+        Assert.Contains("ZIP", export.Subtitle, StringComparison.Ordinal);
+    }
+
+    [AvaloniaFact]
     public void InGameSettingsKeepTheirDraftAcrossMinimizeAndCancelBackToPause()
     {
         InputSettings.Snapshot prior = InputSettings.CaptureSnapshot();

@@ -17,6 +17,37 @@ namespace MphRead.Tests.Client;
 public sealed class SettingsRegistryTests
 {
     [Fact]
+    public void HitMarkerAppearanceDefaultsPersistAndClamp()
+    {
+        MenuSettings restore = GameSettings.Current ?? new MenuSettings();
+        try
+        {
+            var defaults = new MenuSettings();
+            Assert.Equal("1.0", defaults.HitMarkerSize);
+            Assert.Equal("1.0", defaults.HitMarkerOpacity);
+            Assert.Equal("Classic", defaults.HitMarkerPalette);
+            Assert.Equal("1.0", defaults.HitMarkerAnimation);
+
+            GameSettings.Apply(new MenuSettings
+            {
+                HitMarkerSize = "9",
+                HitMarkerOpacity = "0.1",
+                HitMarkerPalette = "Colorblind",
+                HitMarkerAnimation = "invalid"
+            });
+            Assert.Equal(2f, Combat.CombatFeedbackSettings.MarkerScale);
+            Assert.Equal(.2f, Combat.CombatFeedbackSettings.MarkerOpacity);
+            Assert.Equal(Combat.HitMarkerPalette.Colorblind,
+                Combat.CombatFeedbackSettings.Palette);
+            Assert.Equal(1f, Combat.CombatFeedbackSettings.MarkerAnimation);
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
+    }
+
+    [Fact]
     public void BuiltInInventoryIsValidAndLifecycleSafe()
     {
         SettingRegistry.Validate();
@@ -180,6 +211,42 @@ public sealed class SettingsRegistryTests
     }
 
     [Fact]
+    public void HudFontDefaultsModernPersistsAndRetainsOriginalOption()
+    {
+        MenuSettings restore = GameSettings.Current ?? new MenuSettings();
+        try
+        {
+            var defaults = new MenuSettings();
+            SettingDescriptor descriptor = SettingRegistry.Get("hud.font");
+
+            Assert.Equal("modern", defaults.HudFont);
+            Assert.Equal(nameof(MenuSettings.HudFont), descriptor.PersistenceKey);
+            Assert.Equal(new[] { "Original", "Modern" },
+                descriptor.Choices.Select(choice => choice.Label));
+            string json = JsonSerializer.Serialize(
+                new MenuSettings { HudFont = "original" });
+            Assert.Equal("original",
+                JsonSerializer.Deserialize<MenuSettings>(json)!.HudFont);
+            Assert.Equal("modern",
+                JsonSerializer.Deserialize<MenuSettings>("{}")!.HudFont);
+
+            GameSettings.Apply(defaults);
+            Assert.Equal(Hud.HudFontStyle.Modern, Hud.HudFontSettings.Style);
+            Assert.NotSame(Text.Font.Normal, Hud.HudFontSettings.Current);
+            Assert.NotEqual(Hud.HudFontSettings.Current.Widths['i' - ' '],
+                Hud.HudFontSettings.Current.Widths['m' - ' ']);
+
+            GameSettings.Apply(new MenuSettings { HudFont = "original" });
+            Assert.Equal(Hud.HudFontStyle.Original, Hud.HudFontSettings.Style);
+            Assert.Same(Text.Font.Normal, Hud.HudFontSettings.Current);
+        }
+        finally
+        {
+            GameSettings.Apply(restore);
+        }
+    }
+
+    [Fact]
     public void FpsCounterDefaultsOnAndCanBeDisabled()
     {
         MenuSettings restore = GameSettings.Current ?? new MenuSettings();
@@ -326,7 +393,8 @@ public sealed class SettingsRegistryTests
 
         Assert.All(committedKeys, key => Assert.Contains(key, descriptorKeys));
         Assert.Equal(new[] { "CrosshairSize", "CrosshairStyle", "ProHud",
-            "ProHudFixedWeapon", "ReticleOpacity", "ReticleScale" },
+            "ProHudFixedWeapon", "ProHudHighContrast", "ProHudSafeArea",
+            "ProHudSize", "ReticleOpacity", "ReticleScale" },
             committedKeys.OrderBy(key => key));
 
         SettingDescriptor proHud = SettingRegistry.Get("hud.pro");

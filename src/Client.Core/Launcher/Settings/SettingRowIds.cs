@@ -13,6 +13,7 @@ public static class SettingRowIds
     public const string RenderScale = "graphics.render-scale";
     public const string FieldOfView = "graphics.field-of-view";
     public const string FpsLimit = "graphics.fps-limit";
+    public const string GraphicsApi = "graphics.api";
     public const string GraphicsPreset = "graphics.quality";
     public const string TextureFiltering = "graphics.texture-filtering";
     public const string Anisotropy = "graphics.texture-detail";
@@ -27,13 +28,22 @@ public static class SettingRowIds
 
     public const string ProHud = "hud.pro";
     public const string ProHudWeapon = "hud.pro-weapon";
+    public const string ProHudSize = "hud.pro-size";
+    public const string ProHudSafeArea = "hud.pro-safe-area";
+    public const string ProHudHighContrast = "hud.pro-high-contrast";
+    public const string HudFont = "hud.font";
     public const string ReticleOpacity = "hud.reticle-opacity";
     public const string ReticleScale = "hud.reticle-scale";
     public const string CrosshairSize = "hud.crosshair-size";
     public const string CrosshairStyle = "hud.crosshair-style";
     public const string HitMarkers = "hud.hit-markers";
     public const string HitMarkerTiming = "hud.hit-marker-timing";
+    public const string HitMarkerSize = "hud.hit-marker-size";
+    public const string HitMarkerOpacity = "hud.hit-marker-opacity";
+    public const string HitMarkerPalette = "hud.hit-marker-palette";
+    public const string HitMarkerAnimation = "hud.hit-marker-animation";
     public const string HeadshotCue = "hud.headshot-cue";
+    public const string HeadshotKillSound = "hud.headshot-kill-sound";
     public const string KillConfirmation = "hud.kill-confirmation";
     public const string Killcam = "hud.killcam";
     public const string RadarStyle = "hud.radar.style";
@@ -115,6 +125,8 @@ public static class SettingRowIds
     public const string ControllerMoveActivate = "controls.controller.move-activate";
     public const string ControllerMoveRelease = "controls.controller.move-release";
     public const string ControllerExponent = "controls.controller.response-exponent";
+    public const string ControllerAntiDeadzone = "controls.controller.anti-deadzone";
+    public const string ControllerLookSmoothing = "controls.controller.look-smoothing";
     public const string ControllerResponseCurve = "controls.controller.response-curve";
     public const string ControllerTurnAcceleration = "controls.controller.turn-acceleration";
     public const string ControllerYawRate = "controls.controller.yaw-rate";
@@ -149,6 +161,7 @@ public static class SettingRowIds
     public const string StylusPressureToFire = "controls.stylus.pressure-to-fire";
     public const string StylusPressureThreshold = "controls.stylus.pressure-threshold";
     public const string BottomScreenMode = "controls.stylus.bottom-screen-mode";
+    public const string BottomScreenAimMode = "controls.stylus.bottom-screen-aim-mode";
     public const string BottomScreenActivation = "controls.stylus.bottom-screen-activation";
     public const string BottomScreenCursorSensitivity = "controls.stylus.bottom-screen-cursor-sensitivity";
     public const string BottomScreenCursorStartX = "controls.stylus.bottom-screen-cursor-start-x";
@@ -194,6 +207,8 @@ public static class SettingRowIds
     public const string ShowOnlinePresence = "gameplay.show-online-presence";
     public const string Updates = "system.updates";
     public const string GameFiles = "system.game-files";
+    public const string ExportSettings = "system.export-settings";
+    public const string ImportSettings = "system.import-settings";
     public const string DebugLogging = "system.debug-logging";
     public const string ShareLogs = "system.share-logs";
     public const string PreferredRegion = "network.preferred-region";
@@ -214,10 +229,13 @@ public static class SettingRowIds
     /// <summary>All fixed IDs; dynamic rows are added by SettingRegistry.</summary>
     public static IReadOnlyList<string> Fixed { get; } =
     [
-        WindowMode, RenderScale, FieldOfView, FpsLimit, GraphicsPreset, TextureFiltering,
+        WindowMode, RenderScale, FieldOfView, FpsLimit, GraphicsApi, GraphicsPreset, TextureFiltering,
         Anisotropy, Msaa, Bloom, DynamicLighting, Lighting, Fog, FpsCounter,
-        TexturePack, VisualStyle, ProHud, ProHudWeapon, ReticleOpacity, ReticleScale, CrosshairSize,
-        CrosshairStyle, HitMarkers, HitMarkerTiming, HeadshotCue,
+        TexturePack, VisualStyle, ProHud, ProHudWeapon, ProHudSize, ProHudSafeArea,
+        ProHudHighContrast, HudFont, ReticleOpacity, ReticleScale, CrosshairSize,
+        CrosshairStyle, HitMarkers, HitMarkerTiming, HitMarkerSize,
+        HitMarkerOpacity, HitMarkerPalette, HitMarkerAnimation, HeadshotCue,
+        HeadshotKillSound,
         KillConfirmation, Killcam, RadarStyle, RadarOrientation, RadarAnchor, RadarScale,
         RadarOffsetX, RadarOffsetY, RadarRange, RadarOpacity, RadarElevation,
         RadarPreset, RadarColors, RadarMarkerScale, RadarMarkerOpacity, RadarMarkerOutline, RadarEdgeArrows,
@@ -238,6 +256,7 @@ public static class SettingRowIds
         ControllerInvertY, ControllerHaptics, ControllerHapticsStrength, ControllerMoveDeadZone,
         ControllerLookDeadZone, ControllerOuterDeadZone, ControllerMoveActivate,
         ControllerMoveRelease, ControllerResponseCurve, ControllerExponent,
+        ControllerAntiDeadzone, ControllerLookSmoothing,
         ControllerTurnAcceleration, ControllerYawRate,
         ControllerPitchRate, ControllerOuterBoost, ControllerOuterBoostStart,
         ControllerOuterYawBoost, ControllerOuterPitchBoost, ControllerBoostDelay,
@@ -248,7 +267,8 @@ public static class SettingRowIds
         TouchButtons, StylusAiming, StylusSensitivity, StylusInvertY,
         StylusPrimary, StylusSecondary, StylusClassicGestures,
         StylusDoubleTapJump, StylusFlickBoost, StylusPressureToFire,
-        StylusPressureThreshold, BottomScreenMode, BottomScreenActivation,
+        StylusPressureThreshold, BottomScreenMode, BottomScreenAimMode,
+        BottomScreenActivation,
         BottomScreenCursorSensitivity, BottomScreenCursorStartX, BottomScreenCursorStartY,
         BottomScreenPowerBeamX, BottomScreenPowerBeamY, BottomScreenMissileX,
         BottomScreenMissileY, BottomScreenNextWeaponX, BottomScreenNextWeaponY,
@@ -266,7 +286,9 @@ public static class SettingRowIds
         BottomScreenStyle,
         BottomScreenScale, BottomScreenCenterX, BottomScreenCenterY,
         BottomScreenOpacity, BottomScreenLabels,
-        PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, DebugLogging, ShareLogs,
+        PlayerName, Hunter, ShowOnlinePresence, Updates, GameFiles, ExportSettings,
+        ImportSettings,
+        DebugLogging, ShareLogs,
         PreferredRegion, NetworkDiagnostics, ReducedMotion, CosmeticQuality,
         ShowOtherPlayerCosmetics, ReduceCosmeticFlashes, ForceStrongTeamColors,
         DisableCosmeticDistortion, DisableCosmeticParticles

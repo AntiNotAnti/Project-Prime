@@ -12,6 +12,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Layout;
 using Avalonia.Media;
+using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using MphRead.Cosmetics;
 using MphRead.Cosmetics.Presentation;
@@ -81,9 +82,10 @@ namespace MphRead.Mods.Launcher.Gui
     /// one page at a time beside it, everything painted here.
     ///
     /// The same view opens from the front screen, from the pause menu inside a
-    /// match, and from the Android head -- which is why nothing here needs a
-    /// restart to take effect except the window mode, and why it is a
-    /// <see cref="UserControl"/> rather than a <see cref="Window"/>: a phone has
+    /// match, and from the Android head. Window mode and Graphics API are read
+    /// by the persistent SDL host process at startup and therefore require a
+    /// process restart; other settings apply without restarting. This is why
+    /// it is a <see cref="UserControl"/> rather than a <see cref="Window"/>: a phone has
     /// no second window to open it in. <c>SettingsWindow</c> is the frame
     /// the desktop puts around it.
     ///
@@ -108,6 +110,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly IReadOnlyDictionary<global::MphRead.Hud.Radar.RadarDeviceClass,
             global::MphRead.Hud.Radar.RadarProfile> _radarDeviceProfilesSnapshot;
         private bool _draftSnapshotCompleted;
+        private bool _visualHostSuspended;
         private bool _closed;
         private bool _observingControllerCapabilities;
         private bool _disposed;
@@ -166,6 +169,7 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _fieldOfView = null!;
         private ToggleRow _lightingRow = null!;
         private ToggleRow _fogRow = null!;
+        private ChoiceRow? _graphicsApiRow;
         private ChoiceRow _graphicsPresetRow = null!;
         private Note _graphicsPresetNote = null!;
         private ChoiceRow _textureFilteringPresetRow = null!;
@@ -202,6 +206,8 @@ namespace MphRead.Mods.Launcher.Gui
         private bool _applyingRadarPreset;
         private bool _synchronizingRadarRange;
         private ToggleRow _headshotCueRow = null!, _killConfirmationRow = null!, _killcamRow = null!;
+        private ChoiceRow _headshotKillSoundRow = null!;
+        private ChoiceRow _hudFontRow = null!;
 
         /// <summary>
         /// The stops the FPS limit slides over, and the cap each one means.
@@ -260,11 +266,33 @@ namespace MphRead.Mods.Launcher.Gui
             }
             return best;
         }
+
+        private static int GraphicsApiIndex(string? value)
+        {
+            if (String.Equals(value, LauncherPrefs.Direct3D12GraphicsApi,
+                StringComparison.OrdinalIgnoreCase)
+                || String.Equals(value, "direct3d12", StringComparison.OrdinalIgnoreCase))
+            {
+                return 1;
+            }
+            if (String.Equals(value, LauncherPrefs.VulkanGraphicsApi,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return 2;
+            }
+            return 0;
+        }
         private SliderRow _fpsLimitRow = null!;
         private ToggleRow _proHud = null!;
         private ChoiceRow _proHudWeaponRow = null!;
+        private ChoiceRow _proHudSizeRow = null!;
+        private ToggleRow _proHudSafeAreaRow = null!;
+        private ToggleRow _proHudHighContrastRow = null!;
         private SliderRow _reticleOpacity = null!, _reticleScale = null!;
         private ChoiceRow _hitMarkerTimingRow = null!;
+        private SliderRow _hitMarkerSizeRow = null!, _hitMarkerOpacityRow = null!;
+        private SliderRow _hitMarkerAnimationRow = null!;
+        private ChoiceRow _hitMarkerPaletteRow = null!;
         private ChoiceRow _crosshairSizeRow = null!;
         private ChoiceRow _crosshairStyleRow = null!;
         private SliderRow _sfxVolume = null!;
@@ -294,6 +322,8 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _gamepadHorizontalSensitivity = null!;
         private SliderRow _gamepadVerticalSensitivity = null!;
         private SliderRow _gamepadLook = null!;
+        private SliderRow _gamepadAntiDeadzone = null!;
+        private SliderRow _gamepadLookSmoothing = null!;
         private SliderRow _gamepadDeadZone = null!;
         private SliderRow _gamepadLookDeadZone = null!;
         private SliderRow _gamepadOuterDeadZone = null!;
@@ -336,7 +366,8 @@ namespace MphRead.Mods.Launcher.Gui
             _dynamicCrosshairTurnSpeedEdited, _mouseSensitivityEdited,
             _stylusSensitivityEdited;
         private ChoiceRow? _stylusPrimary, _stylusSecondary;
-        private ChoiceRow? _bottomScreenMode, _bottomScreenActivation,
+        private ChoiceRow? _bottomScreenMode, _bottomScreenAimMode,
+            _bottomScreenActivation,
             _bottomScreenStyle;
         private ToggleRow? _bottomScreenLabels, _bottomScreenDirectionalSwipeAssist;
         private FieldRow _playerName = null!;
@@ -348,6 +379,8 @@ namespace MphRead.Mods.Launcher.Gui
             = Array.Empty<PreferredRegionOption>();
         private MenuEntry? _hunterProfileAction;
         private ToggleRow _debugLogging = null!;
+        private MenuEntry _exportAllSettings = null!;
+        private MenuEntry _importSettings = null!;
         private MenuEntry _shareLogs = null!;
         private Note _updateStatus = null!;
         private ToggleRow _reducedMotion = null!;
@@ -463,7 +496,10 @@ namespace MphRead.Mods.Launcher.Gui
             _radarProfileSnapshot = global::MphRead.Hud.Radar.RadarSettings.DefaultProfile;
             _radarModeProfilesSnapshot = global::MphRead.Hud.Radar.RadarSettings.ModeProfiles;
             _radarDeviceProfilesSnapshot = global::MphRead.Hud.Radar.RadarSettings.DeviceProfiles;
-            DetachedFromVisualTree += (_, _) => CompleteDraftSnapshot();
+            DetachedFromVisualTree += (_, _) =>
+            {
+                if (!_visualHostSuspended) CompleteDraftSnapshot();
+            };
 
             Background = GuiTheme.InkBrush;
             Focusable = true;
@@ -496,6 +532,8 @@ namespace MphRead.Mods.Launcher.Gui
             // The sections did not exist when the first layout ran, so the one
             // that is wanted is chosen again now that they do.
             InitializeDirtyTracking();
+            _dirtyTracker.Changed += SettingsTransferDirtyStateChanged;
+            RefreshSettingsTransfer();
             if (_embedActionBar)
             {
                 _footerPanel = new SettingsActionBar(this, _inGame);
@@ -705,6 +743,15 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnDetachedFromVisualTree(e);
         }
 
+        /// <summary>
+        /// The desktop overlay may be hidden while the settings draft remains
+        /// logically open. Detaching the visual tree still stops observers and
+        /// timers, but must not complete the draft until the host explicitly
+        /// closes or disposes this view.
+        /// </summary>
+        internal void SetVisualHostSuspended(bool suspended)
+            => _visualHostSuspended = suspended;
+
         private void SubscribeControllerCapabilities()
         {
             if (_observingControllerCapabilities || _disposed)
@@ -805,6 +852,9 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerCapabilitySnapshot capabilities, in GamepadState raw)
         {
             GamepadMovementSample movement = GamepadInput.Movement;
+            ControllerStickCalibrationSample calibration = GamepadInput.LookCalibration;
+            GamepadLookSample look = GamepadInput.ProcessedLook;
+            GyroConditioningStatus gyro = GamepadGyro.Status.Conditioning;
             return ControllerDiagnosticReportBuilder.Capture(
                 capabilities,
                 raw,
@@ -814,7 +864,16 @@ namespace MphRead.Mods.Launcher.Gui
                 GamepadInput.AimDeltaX,
                 GamepadInput.AimDeltaY,
                 GamepadInput.AimAngularVelocity.X,
-                GamepadInput.AimAngularVelocity.Y);
+                GamepadInput.AimAngularVelocity.Y,
+                processing: new ControllerDiagnosticProcessing(
+                    calibration.Value.X, calibration.Value.Y,
+                    calibration.InnerDeadzone, calibration.OuterDeadzone,
+                    calibration.LearnedCenter.X, calibration.LearnedCenter.Y,
+                    calibration.LearnedNoise, calibration.LearnedMaximumMagnitude,
+                    look.Magnitude,
+                    look.ResponseMagnitude, look.BoostProgress,
+                    gyro.CalibrationState, gyro.CalibrationSamples,
+                    gyro.HasFreshOutput));
         }
 
         private static string DescribeControllerDiagnostics(
@@ -848,6 +907,8 @@ namespace MphRead.Mods.Launcher.Gui
             text.AppendLine("controllerTuning:");
             text.AppendLine($"  responseCurve={InputSettings.GamepadResponseCurve}");
             text.AppendLine($"  lookExponent={FiniteSetting(InputSettings.GamepadLookExponent)}");
+            text.AppendLine($"  lookAntiDeadzone={FiniteSetting(InputSettings.GamepadLookAntiDeadzone)}");
+            text.AppendLine($"  lookSmoothingSeconds={FiniteSetting(InputSettings.GamepadLookSmoothingSeconds)}");
             text.AppendLine($"  turnAcceleration={InputSettings.GamepadTurnAcceleration}");
             text.AppendLine($"  stickAimMode={InputSettings.GamepadStickAimMode}");
             text.AppendLine($"  gyroMode={InputSettings.GamepadGyroMode}");
@@ -855,6 +916,8 @@ namespace MphRead.Mods.Launcher.Gui
             text.AppendLine($"  hapticsStrength={FiniteSetting(InputSettings.GamepadHapticsStrength)}");
             text.AppendLine($"  outerBoostEnabled={InputSettings.GamepadOuterBoostEnabled}");
             text.AppendLine($"  outerBoostStart={FiniteSetting(InputSettings.GamepadOuterBoostStart)}");
+            text.AppendLine($"  aimAssistEnabled={InputSettings.GamepadAimAssistEnabled}");
+            text.AppendLine($"  aimAssistStrength={FiniteSetting(InputSettings.GamepadAimAssistStrength)}");
             return text.ToString();
         }
 
@@ -1413,6 +1476,22 @@ namespace MphRead.Mods.Launcher.Gui
                 FpsLimitStopIndex(FrameTiming.FrameRateCap),
                 v => _fpsLimitStops[Math.Clamp(v, 0, _fpsLimitStops.Length - 1)].Label,
                 min: 0, max: _fpsLimitStops.Length - 1, keyStep: 1), SettingRowIds.FpsLimit);
+            if (!OperatingSystem.IsAndroid())
+            {
+                Heading(page, "Advanced / diagnostics");
+                _graphicsApiRow = Add(page, new ChoiceRow("Graphics API",
+                    new[] { "Automatic", "Direct3D 12", "Vulkan" },
+                    GraphicsApiIndex(LauncherPrefs.GraphicsApi)), SettingRowIds.GraphicsApi);
+                if (!OperatingSystem.IsWindows())
+                {
+                    _graphicsApiRow.IsEnabled = false;
+                    Explain(page, "Graphics API selection is available on Windows; the persistent SDL host reads it at process start, so restart Project Prime after changing it.");
+                }
+                else
+                {
+                    Explain(page, "Applied when the persistent SDL host process starts. Restart Project Prime after changing it. GPU debug validation is command-line only and is never saved here.");
+                }
+            }
             Heading(page, "Quality");
             _textureFilteringPresetRow = Add(page, new ChoiceRow("Texture filtering",
                 RenderOptions.TextureFilteringLabels, (int)RenderOptions.TextureFilteringPreset), SettingRowIds.TextureFiltering);
@@ -1457,12 +1536,13 @@ namespace MphRead.Mods.Launcher.Gui
             // One switch, and none of what it drives.
             //
             // Pro mode is the whole HUD decision now: helmet and visor,
-            // crosshair, weapon list and its size, and where energy, ammo and
+            // crosshair, weapon list, and where energy, ammo and
             // the score are drawn. Off is the game as the DS drew it; on is
             // the competitive layout. The six settings underneath were six
             // ways to end up somewhere between the two, and a player who has
             // to answer six questions to get one look has been handed the
-            // design problem. They keep working -- Features still holds them,
+            // design problem. Size remains one cohesive three-step layout
+            // preset, not separate element sliders. They keep working -- Features still holds them,
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
@@ -1471,10 +1551,41 @@ namespace MphRead.Mods.Launcher.Gui
                 + "a high-contrast crosshair and an always-visible weapon column.");
             _proHudWeaponRow = Add(page, new ChoiceRow("Weapon motion", new[] { "Static", "Dynamic" },
                 Features.ProHudFixedWeapon ? 0 : 1), SettingRowIds.ProHudWeapon);
+            _proHudSizeRow = Add(page, new ChoiceRow("Pro HUD size",
+                new[] { "Compact", "Standard", "Large" }, (int)Features.ProHudSize),
+                SettingRowIds.ProHudSize);
+            _proHudSafeAreaRow = Add(page, new ToggleRow("Ultrawide safe area",
+                Features.ProHudSafeArea), SettingRowIds.ProHudSafeArea);
+            _proHudHighContrastRow = Add(page, new ToggleRow("High-contrast Pro HUD",
+                Features.ProHudHighContrast), SettingRowIds.ProHudHighContrast);
+            _hudFontRow = Add(page, new ChoiceRow("HUD font",
+                global::MphRead.Hud.HudFontSettings.StyleNames,
+                (int)global::MphRead.Hud.HudFontSettings.Style), SettingRowIds.HudFont);
+            Explain(page, "Modern uses a clean proportional face. Original preserves the classic game lettering. Japanese and Korean glyphs keep their original font.");
             _hitMarkerRow = Add(page, new ChoiceRow("Hit markers", new[] { "Off", "Visual", "Visual + audio" }, (int)Combat.CombatFeedbackSettings.HitMarkers), SettingRowIds.HitMarkers);
             _hitMarkerTimingRow = Add(page, new ChoiceRow("Hit marker timing",
                 new[] { "Confirmed", "Instant" }, (int)Combat.CombatFeedbackSettings.Timing), SettingRowIds.HitMarkerTiming);
+            _hitMarkerSizeRow = Add(page, new SliderRow("Hit marker size",
+                (int)MathF.Round(Combat.CombatFeedbackSettings.MarkerScale * 100),
+                value => $"{value}%", min: 50, max: 200, keyStep: 5),
+                SettingRowIds.HitMarkerSize);
+            _hitMarkerOpacityRow = Add(page, new SliderRow("Hit marker opacity",
+                (int)MathF.Round(Combat.CombatFeedbackSettings.MarkerOpacity * 100),
+                value => $"{value}%", min: 20, max: 100, keyStep: 5),
+                SettingRowIds.HitMarkerOpacity);
+            _hitMarkerPaletteRow = Add(page, new ChoiceRow("Hit marker palette",
+                new[] { "Classic", "High contrast", "Colorblind", "Monochrome" },
+                (int)Combat.CombatFeedbackSettings.Palette), SettingRowIds.HitMarkerPalette);
+            _hitMarkerAnimationRow = Add(page, new SliderRow("Hit marker animation",
+                (int)MathF.Round(Combat.CombatFeedbackSettings.MarkerAnimation * 100),
+                value => value == 0 ? "Off" : $"{value}%", min: 0, max: 100,
+                keyStep: 5), SettingRowIds.HitMarkerAnimation);
+            Explain(page, "Confirmed hits use smooth vector markers. Headshots, kills, rapid hits, damage strength, audio, and controller feedback receive distinct cues.");
             _headshotCueRow = Add(page, new ToggleRow("Headshot cue", Combat.CombatFeedbackSettings.HeadshotCue), SettingRowIds.HeadshotCue);
+            _headshotKillSoundRow = Add(page, new ChoiceRow("Headshot kill sound",
+                Combat.HeadshotKillSoundCatalog.StyleNames,
+                (int)Combat.FeedbackAudio.HeadshotKillSound),
+                SettingRowIds.HeadshotKillSound);
             _killConfirmationRow = Add(page, new ToggleRow("Kill confirmation", Combat.CombatFeedbackSettings.KillConfirmation), SettingRowIds.KillConfirmation);
             _killcamRow = Add(page, new ToggleRow("Killcam", GameSettings.KillcamEnabled), SettingRowIds.Killcam);
             Heading(page, "Radar");
@@ -1864,9 +1975,15 @@ namespace MphRead.Mods.Launcher.Gui
             // rendering them disabled instead of making the page jump while
             // the master HUD switch changes.
             _proHudWeaponRow.IsVisible = true;
+            _proHudSizeRow.IsVisible = true;
+            _proHudSafeAreaRow.IsVisible = true;
+            _proHudHighContrastRow.IsVisible = true;
             _crosshairSizeRow.IsVisible = true;
             _crosshairStyleRow.IsVisible = true;
             _proHudWeaponRow.IsEnabled = enabled;
+            _proHudSizeRow.IsEnabled = enabled;
+            _proHudSafeAreaRow.IsEnabled = enabled;
+            _proHudHighContrastRow.IsEnabled = enabled;
             _crosshairSizeRow.IsEnabled = enabled;
             _crosshairStyleRow.IsEnabled = enabled;
         }
@@ -2062,6 +2179,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadMoveActivate.Value = ThresholdToSlider(InputSettings.GamepadMoveActivateThreshold);
             _gamepadMoveRelease.Value = ThresholdToSlider(InputSettings.GamepadMoveReleaseThreshold);
             _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+            _gamepadAntiDeadzone.Value = DeadZoneToSlider(
+                InputSettings.GamepadLookAntiDeadzone, .5f);
+            _gamepadLookSmoothing.Value = (int)Math.Round(
+                InputSettings.GamepadLookSmoothingSeconds * 1000);
             _gamepadResponseCurve.Index = (int)InputSettings.GamepadResponseCurve;
             _gamepadYawRate.Value = (int)Math.Round(InputSettings.GamepadYawRate);
             _gamepadPitchRate.Value = (int)Math.Round(InputSettings.GamepadPitchRate);
@@ -2088,6 +2209,7 @@ namespace MphRead.Mods.Launcher.Gui
             ClearEditedControllerSliders(
                 _gamepadDeadZone, _gamepadLookDeadZone, _gamepadOuterDeadZone,
                 _gamepadMoveActivate, _gamepadMoveRelease, _gamepadLook,
+                _gamepadAntiDeadzone, _gamepadLookSmoothing,
                 _gamepadYawRate, _gamepadPitchRate, _gamepadOuterBoostStart,
                 _gamepadOuterYawBoost, _gamepadOuterPitchBoost, _gamepadBoostDelay,
                 _gamepadBoostRamp, _gamepadTriggerPress, _gamepadTriggerRelease);
@@ -2100,6 +2222,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadMoveActivate.Value = ThresholdToSlider(InputSettings.GamepadMoveActivateThreshold);
             _gamepadMoveRelease.Value = ThresholdToSlider(InputSettings.GamepadMoveReleaseThreshold);
             _gamepadLook.Value = ExponentToSlider(InputSettings.GamepadLookExponent);
+            _gamepadAntiDeadzone.Value = DeadZoneToSlider(
+                InputSettings.GamepadLookAntiDeadzone, .5f);
+            _gamepadLookSmoothing.Value = (int)Math.Round(
+                InputSettings.GamepadLookSmoothingSeconds * 1000);
             _gamepadYawRate.Value = (int)Math.Round(InputSettings.GamepadYawRate);
             _gamepadPitchRate.Value = (int)Math.Round(InputSettings.GamepadPitchRate);
             _gamepadOuterDeadZone.Value = DeadZoneToSlider(InputSettings.GamepadOuterDeadZone, .5f);
@@ -2163,6 +2289,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _stylusPressureThreshold!.Value = (int)Math.Round(
                         InputSettings.StylusPressureThreshold * 100);
                     _bottomScreenMode!.Index = (int)InputSettings.BottomScreenMode;
+                    _bottomScreenAimMode!.Index
+                        = (int)InputSettings.BottomScreenAimMode;
                     _bottomScreenActivation!.Index
                         = (int)InputSettings.BottomScreenActivation;
                     _bottomScreenCursorSensitivity!.Value = (int)Math.Round(
@@ -2957,6 +3085,10 @@ namespace MphRead.Mods.Launcher.Gui
                 "Automatic stick calibration",
                 InputSettings.GamepadAutoCalibrationEnabled),
                 SettingRowIds.ControllerAutoCalibration);
+            _gamepadAntiDeadzone = Add(page, new SliderRow("Look anti-deadzone",
+                DeadZoneToSlider(InputSettings.GamepadLookAntiDeadzone, .5f),
+                v => $"{SliderToDeadZone(v, .5f).ToString("0.00", CultureInfo.InvariantCulture)}"),
+                SettingRowIds.ControllerAntiDeadzone);
             _gamepadOuterDeadZone = Add(page, new SliderRow("Outer dead zone",
                 DeadZoneToSlider(InputSettings.GamepadOuterDeadZone, .5f),
                 v => $"{SliderToDeadZone(v, .5f).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerOuterDeadZone);
@@ -2975,6 +3107,10 @@ namespace MphRead.Mods.Launcher.Gui
             _gamepadLook = Add(page, new SliderRow("Response exponent",
                 ExponentToSlider(InputSettings.GamepadLookExponent),
                 v => $"{SliderToExponent(v).ToString("0.00", CultureInfo.InvariantCulture)}"), SettingRowIds.ControllerExponent);
+            _gamepadLookSmoothing = Add(page, new SliderRow("Adaptive look smoothing",
+                (int)Math.Round(InputSettings.GamepadLookSmoothingSeconds * 1000),
+                v => v == 0 ? "Off" : $"{v} ms", min: 0, max: 250, keyStep: 1),
+                SettingRowIds.ControllerLookSmoothing);
             _gamepadYawRate = Add(page, new SliderRow("Yaw rate",
                 (int)Math.Round(InputSettings.GamepadYawRate),
                 v => $"{v}°/s", min: 0, max: 2000, keyStep: 25), SettingRowIds.ControllerYawRate);
@@ -3089,6 +3225,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _gamepadVerticalSensitivity, _gamepadDeadZone,
                 _gamepadLookDeadZone, _gamepadOuterDeadZone, _gamepadMoveActivate,
                 _gamepadMoveRelease, _gamepadLook, _gamepadYawRate, _gamepadPitchRate,
+                _gamepadAntiDeadzone, _gamepadLookSmoothing,
                 _gamepadOuterBoostStart, _gamepadOuterYawBoost, _gamepadOuterPitchBoost,
                 _gamepadBoostDelay, _gamepadBoostRamp, _gamepadTriggerPress,
                 _gamepadTriggerRelease, _gamepadZoomMultiplier,
@@ -3278,6 +3415,12 @@ namespace MphRead.Mods.Launcher.Gui
             _bottomScreenMode = Add(page, new ChoiceRow("DS bottom screen",
                 new[] { "Off", "Popup", "Always visible" },
                 (int)InputSettings.BottomScreenMode), SettingRowIds.BottomScreenMode);
+            _bottomScreenAimMode = Add(page, new ChoiceRow("Touch-screen aiming",
+                new[] { "Free tablet", "True DS surface" },
+                (int)InputSettings.BottomScreenAimMode),
+                SettingRowIds.BottomScreenAimMode);
+            Add(page, new Note("True DS surface accepts native pen or touch only inside the "
+                + "Classic DS lower screen. Dragging aims; tip contact does not fire."));
             _bottomScreenActivation = Add(page, new ChoiceRow("Touch screen bind",
                 new[] { "Toggle", "Hold" },
                 (int)InputSettings.BottomScreenActivation),
@@ -3686,6 +3829,18 @@ namespace MphRead.Mods.Launcher.Gui
             };
             Add(page, files, SettingRowIds.GameFiles);
 
+            Heading(page, "Settings data");
+            _exportAllSettings = new MenuEntry("Export all settings", titleSize: 15);
+            _exportAllSettings.Click += (_, _) => ExportAllSettings();
+            PrimeAccessibility.SetDescription(_exportAllSettings,
+                "Save a portable ZIP backup of gameplay, controls, and launcher settings.");
+            Add(page, _exportAllSettings, SettingRowIds.ExportSettings);
+            _importSettings = new MenuEntry("Import settings", titleSize: 15);
+            _importSettings.Click += (_, _) => ImportSettings();
+            PrimeAccessibility.SetDescription(_importSettings,
+                "Restore gameplay, controls, and launcher settings from a Project Prime settings ZIP.");
+            Add(page, _importSettings, SettingRowIds.ImportSettings);
+
             Heading(page, "Diagnostics");
             _debugLogging = Add(page, new ToggleRow("Debug logging", LauncherPrefs.DebugLogs),
                 SettingRowIds.DebugLogging);
@@ -3694,6 +3849,153 @@ namespace MphRead.Mods.Launcher.Gui
             _shareLogs.Click += (_, _) => ShareLogs();
             Add(page, _shareLogs, SettingRowIds.ShareLogs);
             RefreshShareLogs();
+        }
+
+        private void SettingsTransferDirtyStateChanged(object? sender, EventArgs args)
+            => RefreshSettingsTransfer();
+
+        private void RefreshSettingsTransfer()
+        {
+            if (_exportAllSettings == null || _importSettings == null
+                || _dirtyTracker == null)
+            {
+                return;
+            }
+            bool dirty = _dirtyTracker.IsDirty;
+            _exportAllSettings.IsEnabled = !dirty;
+            _exportAllSettings.Subtitle = dirty
+                ? "Save or discard changes before exporting."
+                : "Back up gameplay, controls, and launcher settings to a ZIP file.";
+            _exportAllSettings.SubtitleColor = dirty ? GuiTheme.Warm : GuiTheme.TextDim;
+            _importSettings.IsEnabled = !dirty;
+            _importSettings.Subtitle = dirty
+                ? "Save or discard changes before importing."
+                : "Restore a settings ZIP; the settings screen will close when complete.";
+            _importSettings.SubtitleColor = dirty ? GuiTheme.Warm : GuiTheme.TextDim;
+        }
+
+        private void ExportAllSettings()
+            => _ = ObserveUiTask(ExportAllSettingsAsync(), "export settings");
+
+        private async Task ExportAllSettingsAsync()
+        {
+            if (_dirtyTracker?.IsDirty != false)
+            {
+                RefreshSettingsTransfer();
+                return;
+            }
+            TopLevel? top = TopLevel.GetTopLevel(this);
+            if (top?.StorageProvider is not { CanSave: true } storage)
+            {
+                _exportAllSettings.Subtitle = "Settings export is unavailable on this platform.";
+                _exportAllSettings.SubtitleColor = GuiTheme.Warm;
+                return;
+            }
+            IStorageFile? destination = await storage.SaveFilePickerAsync(
+                new FilePickerSaveOptions
+                {
+                    Title = "Export all Project Prime settings",
+                    SuggestedFileName = SettingsArchive.SuggestedFileName,
+                    DefaultExtension = "zip",
+                    FileTypeChoices = OperatingSystem.IsAndroid() ? null :
+                        [new FilePickerFileType("ZIP archive") { Patterns = ["*.zip"] }]
+                });
+            if (destination == null)
+            {
+                return;
+            }
+            try
+            {
+                await using Stream stream = await destination.OpenWriteAsync();
+                if (stream.CanSeek)
+                {
+                    stream.SetLength(0);
+                }
+                SettingsArchive.Write(stream, _settings);
+                await stream.FlushAsync();
+                _exportAllSettings.Subtitle = "Settings backup exported.";
+                _exportAllSettings.SubtitleColor = GuiTheme.Good;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[settings] settings export failed: {ex.Message}");
+                _exportAllSettings.Subtitle = "Export failed; no settings were changed.";
+                _exportAllSettings.SubtitleColor = GuiTheme.Warm;
+            }
+        }
+
+        private void ImportSettings()
+            => _ = ObserveUiTask(ImportSettingsAsync(), "import settings");
+
+        private async Task ImportSettingsAsync()
+        {
+            if (_dirtyTracker?.IsDirty != false)
+            {
+                RefreshSettingsTransfer();
+                return;
+            }
+            TopLevel? top = TopLevel.GetTopLevel(this);
+            if (top?.StorageProvider is not { CanOpen: true } storage)
+            {
+                _importSettings.Subtitle = "Settings import is unavailable on this platform.";
+                _importSettings.SubtitleColor = GuiTheme.Warm;
+                return;
+            }
+            IReadOnlyList<IStorageFile> files = await storage.OpenFilePickerAsync(
+                new FilePickerOpenOptions
+                {
+                    Title = "Import Project Prime settings",
+                    AllowMultiple = false,
+                    FileTypeFilter = OperatingSystem.IsAndroid() ? null :
+                        [new FilePickerFileType("Project Prime settings ZIP")
+                            { Patterns = ["*.zip"] }]
+                });
+            if (files.Count == 0)
+            {
+                return;
+            }
+            SettingsArchive.Content content;
+            try
+            {
+                await using Stream stream = await files[0].OpenReadAsync();
+                content = SettingsArchive.Read(stream);
+                SettingsArchive.Install(content);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[settings] settings import failed: {ex.Message}");
+                _importSettings.Subtitle = "Import failed; existing settings were kept.";
+                _importSettings.SubtitleColor = GuiTheme.Warm;
+                return;
+            }
+            try
+            {
+                LauncherPrefs.LoadImported();
+                InputSettings.Load();
+                MenuSettings imported = ClientSettings.ApplyImportedSettings(
+                    content.SettingsJson);
+                WindowMode.Startup = LauncherPrefs.WindowMode;
+                ApplyDebugLogging();
+                ClientPresentationContent.Refresh();
+                Mods.GameSettings.Apply(imported);
+                if (_scene != null)
+                {
+                    InputSettings.ApplyToPlayers(_scene.Players.Select(
+                        player => player.GetPresentation().Bindings));
+                }
+                Saved = true;
+                _dirtyTracker.MarkSaved();
+                Close();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[settings] imported settings require restart: {ex.Message}");
+                Saved = true;
+                _dirtyTracker.MarkSaved();
+                _importSettings.Subtitle
+                    = "Settings imported; restart Project Prime to finish applying them.";
+                _importSettings.SubtitleColor = GuiTheme.Warm;
+            }
         }
 
         private static string DescribeUpdateStatus()
@@ -3951,9 +4253,20 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.DisableCosmeticParticles = RenderOptions.OnOff(_disableCosmeticParticles.On);
             _settings.HitMarkers = ((Combat.HitMarkerMode)_hitMarkerRow.Index).ToString();
             _settings.HitMarkerTiming = ((Combat.HitMarkerTiming)_hitMarkerTimingRow.Index).ToString();
+            _settings.HitMarkerSize = (_hitMarkerSizeRow.Value / 100f)
+                .ToString("0.00", CultureInfo.InvariantCulture);
+            _settings.HitMarkerOpacity = (_hitMarkerOpacityRow.Value / 100f)
+                .ToString("0.00", CultureInfo.InvariantCulture);
+            _settings.HitMarkerPalette = ((Combat.HitMarkerPalette)_hitMarkerPaletteRow.Index).ToString();
+            _settings.HitMarkerAnimation = (_hitMarkerAnimationRow.Value / 100f)
+                .ToString("0.00", CultureInfo.InvariantCulture);
             _settings.HeadshotCue = RenderOptions.OnOff(_headshotCueRow.On);
+            _settings.HeadshotKillSound = Combat.HeadshotKillSoundCatalog.Format(
+                (Combat.HeadshotKillSoundStyle)_headshotKillSoundRow.Index);
             _settings.KillConfirmation = RenderOptions.OnOff(_killConfirmationRow.On);
             _settings.Killcam = RenderOptions.OnOff(_killcamRow.On);
+            _settings.HudFont = global::MphRead.Hud.HudFontSettings.Format(
+                (global::MphRead.Hud.HudFontStyle)_hudFontRow.Index);
             _settings.RadarStyle = ((global::MphRead.Hud.Radar.RadarStyle)_radarStyleRow.Index).ToString();
             _settings.RadarOrientation = ((global::MphRead.Hud.Radar.RadarOrientation)_radarOrientationRow.Index).ToString();
             _settings.RadarPosition = ((global::MphRead.Hud.Radar.RadarAnchor)_radarPositionRow.Index).ToString();
@@ -3980,6 +4293,15 @@ namespace MphRead.Mods.Launcher.Gui
                 _fpsLimitStops.Length - 1)].Cap;
             FrameTiming.FrameRateCap = cap;
             _settings.FrameRateCap = FrameTiming.CapString(cap);
+            if (_graphicsApiRow != null && OperatingSystem.IsWindows())
+            {
+                LauncherPrefs.GraphicsApi = _graphicsApiRow.Index switch
+                {
+                    1 => LauncherPrefs.Direct3D12GraphicsApi,
+                    2 => LauncherPrefs.VulkanGraphicsApi,
+                    _ => LauncherPrefs.AutomaticGraphicsApi
+                };
+            }
             VisualStyle visualStyle = (VisualStyle)_visualStyleRow.Index;
             _settings.VisualStyle = RenderOptions.FormatVisualStyle(visualStyle);
             _settings.TexturePack = _texturePacks[Math.Clamp(_texturePackRow.Index,
@@ -3990,6 +4312,9 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.CelEdge = "50";
             Features.ProHud = _proHud.On;
             Features.ProHudFixedWeapon = _proHudWeaponRow.Index == 0;
+            Features.ProHudSize = (ProHudSize)_proHudSizeRow.Index;
+            Features.ProHudSafeArea = _proHudSafeAreaRow.On;
+            Features.ProHudHighContrast = _proHudHighContrastRow.On;
             Features.ReticleOpacity = SliderToOpacity(_reticleOpacity.Value);
             Features.ReticleScale = SliderToReticleScale(_reticleScale.Value);
             Crosshair.Size = (CrosshairSize)_crosshairSizeRow.Index;
@@ -4067,6 +4392,9 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.StylusPressureThreshold = _stylusPressureThreshold!.Value / 100f;
                 InputSettings.BottomScreenMode = (Mods.Input.NativeBottomScreenMode)
                     _bottomScreenMode!.Index;
+                InputSettings.BottomScreenAimMode
+                    = (Mods.Input.NativeBottomScreenAimMode)
+                        _bottomScreenAimMode!.Index;
                 InputSettings.BottomScreenActivation
                     = (Mods.Input.NativeBottomScreenActivationMode)
                         _bottomScreenActivation!.Index;
@@ -4146,6 +4474,7 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.BottomScreenLabels = _bottomScreenLabels!.On;
             }
             InputSettings.Save();
+            GamepadInput.SaveControllerCalibrationPersistence();
             // The players in the match already have their own copies of these.
             if (_scene != null)
                 InputSettings.ApplyToPlayers(_scene.Players.Select(
@@ -4251,6 +4580,16 @@ namespace MphRead.Mods.Launcher.Gui
                     = SliderToExponent(_gamepadLook.Value);
                 InputSettings.GamepadResponseCurve
                     = Mods.Input.GamepadResponseCurvePreset.Custom;
+            }
+            if (ControllerSliderWasEdited(_gamepadAntiDeadzone))
+            {
+                InputSettings.GamepadLookAntiDeadzone
+                    = SliderToDeadZone(_gamepadAntiDeadzone.Value, .5f);
+            }
+            if (ControllerSliderWasEdited(_gamepadLookSmoothing))
+            {
+                InputSettings.GamepadLookSmoothingSeconds
+                    = _gamepadLookSmoothing.Value / 1000f;
             }
             if (ControllerSliderWasEdited(_gamepadYawRate))
             {

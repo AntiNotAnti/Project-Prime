@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using MphRead.Entities;
 using MphRead.Hud.Radar;
@@ -44,6 +45,41 @@ public sealed class SettingsCancelRollbackTests
         }
         finally
         {
+            view?.Dispose();
+            RenderOptions.FieldOfView = prior;
+        }
+    }
+
+    [AvaloniaFact]
+    public void SuspendedSettingsDraftSurvivesHideThenRestoresOnOrdinaryDetach()
+    {
+        int prior = RenderOptions.FieldOfView;
+        SettingsView? view = null;
+        Window? window = null;
+        try
+        {
+            RenderOptions.FieldOfView = 80;
+            view = new SettingsView(new MenuSettings { FieldOfView = "80" });
+            FieldOfViewSlider(view).Value = 96;
+            window = new Window { Content = view };
+            window.Show();
+
+            // The coordinator marks this before hiding the native surface, so
+            // detachment stops observers without completing the draft.
+            view.SetVisualHostSuspended(true);
+            window.Content = null;
+            Assert.Equal(96, RenderOptions.FieldOfView);
+
+            // Restore clears the suspension before reattaching. A later
+            // ordinary detach must therefore complete the uncommitted draft.
+            view.SetVisualHostSuspended(false);
+            window.Content = view;
+            window.Content = null;
+            Assert.Equal(80, RenderOptions.FieldOfView);
+        }
+        finally
+        {
+            window?.Close();
             view?.Dispose();
             RenderOptions.FieldOfView = prior;
         }
