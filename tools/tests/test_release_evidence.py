@@ -18,7 +18,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
     def test_source_identifiers_resolve_aliases_from_authoritative_constants(self):
         identifiers = RELEASE_EVIDENCE.source_identifiers(ROOT)
 
-        self.assertEqual(25, identifiers["protocol"])
+        self.assertEqual(26, identifiers["protocol"])
         self.assertEqual(4, identifiers["nodeControlProtocol"])
         self.assertEqual({"linear": 2, "indexed": 3}, identifiers["replayFormats"])
 
@@ -75,7 +75,7 @@ class ReleaseEvidenceTests(unittest.TestCase):
             self.assertEqual(95, evidence["lifecycle"]["totals"]["passed"])
             self.assertEqual("passed", evidence["warnings"]["status"])
             self.assertEqual(41, evidence["warnings"]["projects"]["Game"]["count"])
-            self.assertIn("Gameplay protocol: `25`", (output / "release-evidence.md").read_text())
+            self.assertIn("Gameplay protocol: `26`", (output / "release-evidence.md").read_text())
 
     def test_a_failed_suite_dominates_other_gate_inputs(self):
         self.assertEqual(
