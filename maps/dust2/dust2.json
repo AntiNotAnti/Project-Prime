@@ -6,7 +6,7 @@
     "name": "Dust II",
     "author": "Project Prime contributors",
     "description": "A Project Prime conversion of the df_dust2 arena.",
-    "redistribution": false
+    "redistribution": true
   },
   "supportedModes": [
     "Battle",
