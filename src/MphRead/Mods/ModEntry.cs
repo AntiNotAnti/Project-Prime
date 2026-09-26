@@ -101,11 +101,17 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
-            if (HasFlag(args, "debuglog") || HasFlag(args, "respawnrendercheck"))
+            Input.AltFormMoveDebug.Enabled = HasFlag(args, "altmovecheck");
+            if (HasFlag(args, "debuglog") || HasFlag(args, "respawnrendercheck")
+                || Input.AltFormMoveDebug.Enabled)
             {
                 DebugLog.Force();
             }
             DebugLog.Attach();
+            if (Input.AltFormMoveDebug.Enabled)
+            {
+                Console.WriteLine("[altmove] live rolling-alt movement trace enabled");
+            }
             if (OperatingSystem.IsMacOS()) { Diagnostics.PlatformDiagnostics.Start(); }
             Update.Updater.Disabled = HasFlag(args, "noupdate");
             ApplyRenderOverrides(args);
