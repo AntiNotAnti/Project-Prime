@@ -53,11 +53,25 @@ namespace MphRead
                 direction = direction.Normalized();
 
                 Vector3 center = _cameraPosition + _cameraFacing * 24f;
-                Vector3 eye = center - direction * 96f;
                 Vector3 up = MathF.Abs(Vector3.Dot(direction, Vector3.UnitY)) > .92f
                     ? Vector3.UnitZ : Vector3.UnitY;
-                _shadowView = Matrix4.LookAt(eye, center, up);
                 float span = Mods.RenderOptions.Shadows == Mods.ShadowQuality.Low ? 100f : 130f;
+
+                // Stabilize the orthographic light camera to whole shadow texels.
+                // Without this, every sub-pixel camera movement slides the entire
+                // shadow map and produces visible crawl at high refresh rates.
+                Vector3 lightRight = Vector3.Cross(direction, up).Normalized();
+                Vector3 lightUp = Vector3.Cross(lightRight, direction).Normalized();
+                float worldPerTexel = span / Math.Max(1, _shadowTargetSize);
+                float alongRight = Vector3.Dot(center, lightRight);
+                float alongUp = Vector3.Dot(center, lightUp);
+                center += lightRight * (MathF.Round(alongRight / worldPerTexel)
+                        * worldPerTexel - alongRight)
+                    + lightUp * (MathF.Round(alongUp / worldPerTexel)
+                        * worldPerTexel - alongUp);
+
+                Vector3 eye = center - direction * 96f;
+                _shadowView = Matrix4.LookAt(eye, center, up);
                 _shadowProjection = Matrix4.CreateOrthographic(span, span, 1f, 220f);
 
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _shadowFramebuffer);

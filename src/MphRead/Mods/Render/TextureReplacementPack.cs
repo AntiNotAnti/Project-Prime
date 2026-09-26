@@ -40,13 +40,15 @@ namespace MphRead.Mods.Render
             return false;
         }
 
-        public static MaterialMapBindings UploadCompanions(string albedoPath, Func<int> allocateTexture)
+        public static MaterialMapBindings UploadCompanions(string albedoPath,
+            Func<int> allocateTexture, Action<int> releaseTexture)
             => OperatingSystem.IsAndroid() ? default : new(
-                UploadCompanion(albedoPath, 'n', allocateTexture),
-                UploadCompanion(albedoPath, 's', allocateTexture),
-                UploadCompanion(albedoPath, 'e', allocateTexture));
+                UploadCompanion(albedoPath, 'n', allocateTexture, releaseTexture),
+                UploadCompanion(albedoPath, 's', allocateTexture, releaseTexture),
+                UploadCompanion(albedoPath, 'e', allocateTexture, releaseTexture));
 
-        private static int UploadCompanion(string albedoPath, char kind, Func<int> allocateTexture)
+        private static int UploadCompanion(string albedoPath, char kind,
+            Func<int> allocateTexture, Action<int> releaseTexture)
         {
             string path = CompanionPath(albedoPath, kind);
             if (!File.Exists(path)) return 0;
@@ -55,7 +57,12 @@ namespace MphRead.Mods.Render
             {
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, texture);
-                if (!TryUploadBound(path, out int width, out int height)) return 0;
+                if (!TryUploadBound(path, out int width, out int height))
+                {
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                    releaseTexture(texture);
+                    return 0;
+                }
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
@@ -69,6 +76,8 @@ namespace MphRead.Mods.Render
             }
             catch (Exception ex)
             {
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+                releaseTexture(texture);
                 DebugLog.Line("render", $"material map ignored {path}: {ex.Message}");
                 return 0;
             }

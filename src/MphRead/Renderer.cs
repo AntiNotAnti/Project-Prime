@@ -1517,7 +1517,8 @@ namespace MphRead
             if (replacementPath != null)
             {
                 Mods.Render.MaterialMapBindings maps =
-                    Mods.Render.TextureReplacementPack.UploadCompanions(replacementPath, AllocateTexture);
+                    Mods.Render.TextureReplacementPack.UploadCompanions(
+                        replacementPath, AllocateTexture, ReleaseTexture);
                 if (maps.Any) _materialMaps[_lastTextureId] = maps;
             }
             _flatColors[_lastTextureId] = average.Result;

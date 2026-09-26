@@ -17,8 +17,12 @@ namespace MphRead
     public partial class Scene
     {
         private int _graphicsProgram;
+        private int _graphicsToneMapProgram;
+        private int _graphicsToneMapSource;
         private int _graphicsOutputTexture;
         private int _graphicsOutputFramebuffer;
+        private int _graphicsHdrTexture;
+        private int _graphicsHdrFramebuffer;
         private Vector2i _graphicsOutputSize;
         private bool _graphicsOutputReady;
         private bool _graphicsPipelineRefused;
@@ -38,6 +42,10 @@ namespace MphRead
         private int _gfxShadowTexel, _gfxShadowLightDir;
         private readonly int[] _gfxDynamicLightPos = new int[8];
         private readonly int[] _gfxDynamicLightColor = new int[8];
+        private readonly DynamicLightCandidate[] _dynamicLightScratch = new DynamicLightCandidate[8];
+
+        private readonly record struct DynamicLightCandidate(float Distance, Vector3 Position,
+            Vector3 Color, float Radius, float Intensity);
 
         private void ApplyGraphicsPostProcess()
         {
@@ -55,7 +63,10 @@ namespace MphRead
                 }
 
                 Vector2i target = _targetSize;
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
+                bool hdrActive = RenderOptions.InternalHdr && _graphicsOutputHdr
+                    && !_graphicsHdrRefused && _graphicsHdrFramebuffer != 0;
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer,
+                    hdrActive ? _graphicsHdrFramebuffer : _graphicsOutputFramebuffer);
                 GL.Viewport(0, 0, target.X, target.Y);
                 SetScreenPassState();
                 GL.Disable(EnableCap.Blend);
@@ -106,7 +117,7 @@ namespace MphRead
                 GL.Uniform1(_gfxContactShadows, RenderOptions.ContactShadows ? 1 : 0);
                 GL.Uniform1(_gfxEnhancedFog, RenderOptions.EnhancedFog ? 1 : 0);
                 GL.Uniform1(_gfxVolumetricFog, RenderOptions.VolumetricFog ? 1 : 0);
-                GL.Uniform1(_gfxHdr, RenderOptions.InternalHdr ? 1 : 0);
+                GL.Uniform1(_gfxHdr, hdrActive ? 1 : 0);
                 GL.Uniform1(_gfxReflections, RenderOptions.Reflections ? 1 : 0);
                 GL.Uniform1(_gfxDynamicGlow, RenderOptions.DynamicGlow ? 1 : 0);
                 GL.Uniform4(_gfxFogColor, _fogColor);
@@ -121,6 +132,10 @@ namespace MphRead
                 UploadDynamicLights();
 
                 DrawGraphicsFullscreenQuad();
+                if (hdrActive)
+                {
+                    ResolveGraphicsHdr(target);
+                }
                 _graphicsOutputReady = true;
                 RenderPostProcessCount++;
                 CheckGlError("GraphicsPostProcess");
@@ -222,20 +237,50 @@ namespace MphRead
                 }
             }
 
+            if (_graphicsToneMapProgram == 0)
+            {
+                int vertex = CompileGraphicsShader(ShaderType.VertexShader,
+                    Mods.Render.GraphicsToneMapShader.VertexSource);
+                int fragment = 0;
+                try
+                {
+                    fragment = CompileGraphicsShader(ShaderType.FragmentShader,
+                        Mods.Render.GraphicsToneMapShader.FragmentSource);
+                    _graphicsToneMapProgram = GL.CreateProgram();
+                    GL.AttachShader(_graphicsToneMapProgram, vertex);
+                    GL.AttachShader(_graphicsToneMapProgram, fragment);
+                    GL.LinkProgram(_graphicsToneMapProgram);
+#if !ANDROID
+                    GL.GetProgram(_graphicsToneMapProgram, GetProgramParameterName.LinkStatus,
+                        out int linked);
+                    if (linked == 0)
+                    {
+                        throw new ProgramException(GL.GetProgramInfoLog(_graphicsToneMapProgram));
+                    }
+#endif
+                    _graphicsToneMapSource = GL.GetUniformLocation(
+                        _graphicsToneMapProgram, "hdr_tex");
+                }
+                finally
+                {
+                    GL.DeleteShader(vertex);
+                    if (fragment != 0) GL.DeleteShader(fragment);
+                }
+            }
+
             if (_graphicsOutputFramebuffer == 0)
             {
                 _graphicsOutputFramebuffer = GL.GenFramebuffer();
                 _graphicsOutputTexture = GL.GenTexture();
             }
 
-            bool wantHdr = RenderOptions.InternalHdr && !_graphicsHdrRefused;
-            if (_graphicsOutputSize != _targetSize || _graphicsOutputHdr != wantHdr)
+            bool sizeChanged = _graphicsOutputSize != _targetSize;
+            if (sizeChanged)
             {
                 GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0,
-                    wantHdr ? PixelInternalFormat.Rgba16f : PixelInternalFormat.Rgba8,
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
                     _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
-                    wantHdr ? PixelType.Float : PixelType.UnsignedByte, IntPtr.Zero);
+                    PixelType.UnsignedByte, IntPtr.Zero);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
@@ -245,33 +290,74 @@ namespace MphRead
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
                     (int)TextureWrapMode.ClampToEdge);
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-                    TextureTarget.Texture2D, _graphicsOutputTexture, 0);
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
+                    _graphicsOutputTexture, 0);
+                ValidateFramebuffer("Enhanced graphics output");
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+            }
 
-                FramebufferErrorCode status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
-                if (wantHdr && status != FramebufferErrorCode.FramebufferComplete)
+            bool wantHdr = RenderOptions.InternalHdr && !_graphicsHdrRefused;
+            if (wantHdr)
+            {
+                if (_graphicsHdrFramebuffer == 0)
                 {
-                    _graphicsHdrRefused = true;
-                    wantHdr = false;
-                    GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    _graphicsHdrFramebuffer = GL.GenFramebuffer();
+                    _graphicsHdrTexture = GL.GenTexture();
+                    sizeChanged = true;
+                }
+                if (sizeChanged || !_graphicsOutputHdr)
+                {
+                    GL.BindTexture(TextureTarget.Texture2D, _graphicsHdrTexture);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
                         _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
-                        PixelType.UnsignedByte, IntPtr.Zero);
-                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
+                        PixelType.Float, IntPtr.Zero);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                        (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                        (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
+                        (int)TextureWrapMode.ClampToEdge);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
+                        (int)TextureWrapMode.ClampToEdge);
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsHdrFramebuffer);
                     GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                         FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
-                        _graphicsOutputTexture, 0);
-                    ValidateFramebuffer("Enhanced graphics HDR fallback");
-                    Console.WriteLine("[render] half-float HDR target unavailable; using RGBA8.");
+                        _graphicsHdrTexture, 0);
+                    FramebufferErrorCode hdrStatus = GL.CheckFramebufferStatus(
+                        FramebufferTarget.Framebuffer);
+                    if (hdrStatus != FramebufferErrorCode.FramebufferComplete)
+                    {
+                        _graphicsHdrRefused = true;
+                        _graphicsOutputHdr = false;
+                        Console.WriteLine("[render] half-float HDR target unavailable; using RGBA8.");
+                    }
+                    else
+                    {
+                        _graphicsOutputHdr = true;
+                    }
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
                 }
-                else
-                {
-                    ValidateFramebuffer("Enhanced graphics");
-                }
-                GL.BindTexture(TextureTarget.Texture2D, 0);
-                _graphicsOutputSize = _targetSize;
-                _graphicsOutputHdr = wantHdr;
             }
+            else
+            {
+                _graphicsOutputHdr = false;
+            }
+
+            _graphicsOutputSize = _targetSize;
+        }
+
+        private void ResolveGraphicsHdr(Vector2i target)
+        {
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
+            GL.Viewport(0, 0, target.X, target.Y);
+            SetScreenPassState();
+            GL.Disable(EnableCap.Blend);
+            GL.UseProgram(_graphicsToneMapProgram);
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, _graphicsHdrTexture);
+            GL.Uniform1(_graphicsToneMapSource, 0);
+            DrawGraphicsFullscreenQuad();
         }
 
         private void UploadDynamicLights()
@@ -282,38 +368,50 @@ namespace MphRead
                 return;
             }
 
-            var lights = new System.Collections.Generic.List<(float Distance, Vector3 Position,
-                Vector3 Color, float Radius, float Intensity)>(16);
+            int count = 0;
             foreach (EntityBase entity in Entities)
             {
-                if (entity is BeamProjectileEntity beam && beam.Lifespan > 0
-                    && !beam.Flags.TestFlag(BeamFlags.Collided))
+                if (entity is not BeamProjectileEntity beam || beam.Lifespan <= 0
+                    || beam.Flags.TestFlag(BeamFlags.Collided))
                 {
-                    Vector3 color = beam.Color;
-                    if (color.LengthSquared < 0.01f)
+                    continue;
+                }
+
+                Vector3 color = beam.Color;
+                if (color.LengthSquared < 0.01f)
+                {
+                    color = BeamLightColor(beam.Beam);
+                }
+                color = new Vector3(Math.Clamp(color.X, 0f, 1f),
+                    Math.Clamp(color.Y, 0f, 1f), Math.Clamp(color.Z, 0f, 1f));
+                float intensity = beam.Flags.TestFlag(BeamFlags.Charged) ? 1.25f : 0.85f;
+                if (beam.Flags.TestFlag(BeamFlags.Continuous)) intensity *= 0.75f;
+
+                var candidate = new DynamicLightCandidate(
+                    (beam.Position - _cameraPosition).LengthSquared,
+                    beam.Position, color, BeamLightRadius(beam.Beam), intensity);
+
+                int insert = count;
+                while (insert > 0
+                    && _dynamicLightScratch[insert - 1].Distance > candidate.Distance)
+                {
+                    if (insert < _dynamicLightScratch.Length)
                     {
-                        color = BeamLightColor(beam.Beam);
+                        _dynamicLightScratch[insert] = _dynamicLightScratch[insert - 1];
                     }
-                    color = new Vector3(
-                        Math.Clamp(color.X, 0f, 1f),
-                        Math.Clamp(color.Y, 0f, 1f),
-                        Math.Clamp(color.Z, 0f, 1f));
-                    float radius = BeamLightRadius(beam.Beam);
-                    float intensity = beam.Flags.TestFlag(BeamFlags.Charged) ? 1.25f : 0.85f;
-                    if (beam.Flags.TestFlag(BeamFlags.Continuous))
-                    {
-                        intensity *= 0.75f;
-                    }
-                    lights.Add(((beam.Position - _cameraPosition).LengthSquared,
-                        beam.Position, color, radius, intensity));
+                    insert--;
+                }
+                if (insert < _dynamicLightScratch.Length)
+                {
+                    _dynamicLightScratch[insert] = candidate;
+                    if (count < _dynamicLightScratch.Length) count++;
                 }
             }
-            lights.Sort((a, b) => a.Distance.CompareTo(b.Distance));
-            int count = Math.Min(8, lights.Count);
+
             GL.Uniform1(_gfxDynamicLightCount, count);
             for (int i = 0; i < count; i++)
             {
-                var light = lights[i];
+                DynamicLightCandidate light = _dynamicLightScratch[i];
                 GL.Uniform4(_gfxDynamicLightPos[i],
                     light.Position.X, light.Position.Y, light.Position.Z, light.Radius);
                 GL.Uniform4(_gfxDynamicLightColor[i],
@@ -361,8 +459,15 @@ namespace MphRead
                 GL.DeleteFramebuffer(_graphicsOutputFramebuffer);
                 _graphicsOutputFramebuffer = 0;
             }
+            if (_graphicsHdrFramebuffer != 0)
+            {
+                GL.DeleteFramebuffer(_graphicsHdrFramebuffer);
+                _graphicsHdrFramebuffer = 0;
+            }
             DeleteTexture(ref _graphicsOutputTexture);
+            DeleteTexture(ref _graphicsHdrTexture);
             DeleteProgram(ref _graphicsProgram);
+            DeleteProgram(ref _graphicsToneMapProgram);
         }
 
         private static int CompileGraphicsShader(ShaderType type, string source)
@@ -812,9 +917,34 @@ void main() {
     color = pow(max(color, vec3(0.0)), vec3(1.0 / max(0.25, gamma_value)));
 
     if (hdr_mode != 0) {
-        color = aces(max(color, vec3(0.0)));
+        OUTPUT = vec4(max(color, vec3(0.0)), 1.0);
     }
-    OUTPUT = vec4(clamp(color, 0.0, 1.0), 1.0);
+    else {
+        OUTPUT = vec4(clamp(color, 0.0, 1.0), 1.0);
+    }
+}
+";
+    }
+
+    internal static class GraphicsToneMapShader
+    {
+        public static string VertexSource => GraphicsPipelineShader.VertexSource;
+#if ANDROID
+        public static string FragmentSource { get; } = "#version 300 es\nprecision highp float;\n"
+            + "in vec2 texcoord;\nout vec4 frag_color;\n#define SAMPLE texture\n#define OUTPUT frag_color\n" + Body;
+#else
+        public static string FragmentSource { get; } = "#version 120\nvarying vec2 texcoord;\n"
+            + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
+#endif
+        private const string Body = @"
+uniform sampler2D hdr_tex;
+vec3 aces(vec3 x) {
+    return clamp((x * (2.51 * x + 0.03))
+        / (x * (2.43 * x + 0.59) + 0.14), 0.0, 1.0);
+}
+void main() {
+    vec3 hdr = max(SAMPLE(hdr_tex, texcoord).rgb, vec3(0.0));
+    OUTPUT = vec4(aces(hdr), 1.0);
 }
 ";
     }
