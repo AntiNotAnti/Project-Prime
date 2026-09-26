@@ -128,14 +128,23 @@ namespace MphRead.Mods.Input.AimAssist
                 Vector2 selectionError = AimAssistMath.SelectionError(t, profile);
                 float angle = selectionError.Length();
                 float normalizedDistance = AimAssistMath.NormalizedSelectionDistance(t, profile);
+                bool candidateHeadVisible = AimAssistMath.VisibleHead(t, profile);
+                AimAssistRegion? trajectoryRegion = candidateHeadVisible
+                    && t.HeadRegion is { } hr
+                    && AimAssistMath.HeadError(t).LengthSquared() <= AimAssistMath.BodyError(t).LengthSquared()
+                        ? hr : t.BodyRegion;
+                float trajectoryScore = trajectoryRegion is { } path
+                    ? AimAssistMath.TrajectoryRegionScore(path, trajectoryTravel) : 0;
+                bool trajectoryAcquire = !keep && trajectoryScore >= .90f;
                 if (!t.Eligible || !AimAssistMath.Finite(selectionError) || !AimAssistMath.Finite(t.BodyError)
                     || !float.IsFinite(t.Distance) || t.Distance < .2f || t.Distance > 60
-                    || angle > cone * 1.5f || normalizedDistance > normalizedLimit)
+                    || angle > cone * 1.5f
+                    || normalizedDistance > normalizedLimit && !trajectoryAcquire)
                 {
                     continue;
                 }
 
-                bool candidateHeadVisible = AimAssistMath.VisibleHead(t, profile);
+
                 if (!t.BodyVisible && !candidateHeadVisible)
                 {
                     if (keep) occludedRetained = i;
@@ -154,14 +163,9 @@ namespace MphRead.Mods.Input.AimAssist
                     + (keep && firing ? .18f : 0)
                     - (!keep && state.TargetSlot >= 0 ? .12f * (1 - alignment) : 0);
 
-                AimAssistRegion? trajectoryRegion = candidateHeadVisible
-                    && t.HeadRegion is { } hr
-                    && AimAssistMath.HeadError(t).LengthSquared() <= AimAssistMath.BodyError(t).LengthSquared()
-                        ? hr : t.BodyRegion;
-                if (trajectoryRegion is { } pathRegion)
+                if (trajectoryRegion.HasValue)
                 {
-                    score += AimAssistTuning.TrajectoryScoreWeight
-                        * AimAssistMath.TrajectoryRegionScore(pathRegion, trajectoryTravel);
+                    score += AimAssistTuning.TrajectoryScoreWeight * trajectoryScore;
                 }
 
                 if (flickSelecting)
