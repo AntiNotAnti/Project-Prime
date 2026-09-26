@@ -206,11 +206,12 @@ namespace MphRead.Entities
                 float factor = Fixed.ToFloat(Values.Field84);
                 CameraInfo.Position += (posVec - CameraInfo.Position) * factor; // sktodo: FPS stuff?
             }
-            // Capture the camera heading the controller was trying to have
-            // before any wall/door/sphere collision correction mutates the
-            // rendered camera. This is the target for the virtual movement yaw.
+            // Capture the heading the camera was trying to have before this
+            // frame's collision correction. Do not publish it to the movement
+            // basis yet: the starting camera position can still carry the
+            // previous frame's collision displacement. It becomes trustworthy
+            // only after the collision recovery tail below reaches zero.
             Vector3 intendedControlFacing = CameraInfo.Target - CameraInfo.Position;
-            ModSetAltControlDesired(intendedControlFacing.X, intendedControlFacing.Z);
 
             if (_field553 > 0)
             {
@@ -534,6 +535,16 @@ namespace MphRead.Entities
             else if (_altControlCollisionFrames > 0)
             {
                 _altControlCollisionFrames--;
+            }
+
+            // Keep the desired yaw itself clean as well as the output yaw. A
+            // camera that was pushed around a corner last frame can look clear
+            // before its smoothed position has recovered; waiting through the
+            // short clear tail prevents that stale displacement from becoming
+            // a new long-lived definition of "forward".
+            if (!cameraObstructed && !playerCollision && _altControlCollisionFrames == 0)
+            {
+                ModSetAltControlDesired(intendedControlFacing.X, intendedControlFacing.Z);
             }
 
             if (IsMainPlayer && Mods.Input.AltFormMoveDebug.Enabled)
