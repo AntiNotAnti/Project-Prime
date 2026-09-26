@@ -72,7 +72,7 @@ namespace MphRead.Entities
             DrawText2D(accX, headerY, Align.Center, 0,
                 "ACC", _killFeedSpecial, scale: 0.31f);
             DrawText2D(dmgX, headerY, Align.Center, 0,
-                "DMG OUT", _killFeedSpecial, scale: 0.31f);
+                "DAMAGE DEALT", _killFeedSpecial, scale: 0.31f);
 
             int localSlot = networked && NetSession.LocalSlot >= 0
                 ? NetSession.LocalSlot
@@ -151,7 +151,7 @@ namespace MphRead.Entities
                     _killFeedInk, scale: 0.40f);
 
                 DrawText2D(right - 1.2f * aspect, y + 7.15f, Align.Right, 0,
-                    $"DMG IN {state.MatchDamageTaken[slot]}   HS {state.HeadshotKills[slot]}   BEST {state.LongestKillStreak[slot]}",
+                    $"DAMAGE TAKEN {state.MatchDamageTaken[slot]}   HS {state.HeadshotKills[slot]}   BEST {state.LongestKillStreak[slot]}",
                     _killFeedSpecial, scale: 0.29f);
             }
         }
