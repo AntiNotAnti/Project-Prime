@@ -6059,9 +6059,9 @@ namespace MphRead
 
         private void DoTexture(RenderItem item)
         {
+            Mods.Render.MaterialMapBindings materialMaps = default;
             bool advanced = Mods.RenderOptions.AdvancedMaterials && item.HasTexture
-                && _materialMaps.TryGetValue(item.TextureBindingId,
-                    out Mods.Render.MaterialMapBindings materialMaps);
+                && _materialMaps.TryGetValue(item.TextureBindingId, out materialMaps);
             GL.Uniform1(_shaderLocations.AdvancedMaterials, advanced ? 1 : 0);
             GL.Uniform1(_shaderLocations.UseNormalMap, advanced && materialMaps.Normal != 0 ? 1 : 0);
             GL.Uniform1(_shaderLocations.UseSpecularMap, advanced && materialMaps.Specular != 0 ? 1 : 0);
