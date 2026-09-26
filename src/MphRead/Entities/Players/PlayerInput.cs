@@ -2264,6 +2264,10 @@ namespace MphRead.Entities
                     }
                     if ((IsAltForm || IsMorphing) && hSpeedMag > Fixed.ToFloat(Values.Field58)) // todo: FPS stuff?
                     {
+                        // Native roll facing follows actual velocity for visuals,
+                        // attacks and cartridge physics. The virtual _altRoll
+                        // control basis is intentionally not derived from this:
+                        // a wall redirecting Speed must not rotate WASD/stick.
                         _field70 = hSpeed.X;
                         _field74 = hSpeed.Z;
                         _facingVector = new Vector3(_field70, 0, _field74);
