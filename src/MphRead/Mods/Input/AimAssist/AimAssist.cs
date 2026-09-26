@@ -554,9 +554,9 @@ namespace MphRead.Mods.Input.AimAssist
                     && error.LengthSquared() > .000001f
                     && Vector2.Dot(cameraVelocity, error) > 0);
             AimAssistMotionPhase phase = escaping ? AimAssistMotionPhase.Escaping
+                : braking ? AimAssistMotionPhase.Braking
                 : activeInside || Math.Abs(closingSpeed) <= AimAssistTuning.MotionMatchedSpeed
                     ? AimAssistMotionPhase.Matched
-                : braking ? AimAssistMotionPhase.Braking
                 : closingSpeed > AimAssistTuning.MotionPhaseSpeed ? AimAssistMotionPhase.Approaching
                 : closingSpeed < -AimAssistTuning.MotionPhaseSpeed ? AimAssistMotionPhase.Overshooting
                 : AimAssistMotionPhase.None;
