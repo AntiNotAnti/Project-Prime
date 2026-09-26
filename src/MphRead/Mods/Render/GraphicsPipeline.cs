@@ -825,8 +825,8 @@ vec3 temporal_resolve(vec2 uv, vec3 current, float d) {
     vec3 history = clamp(SAMPLE(history_tex, previousUv).rgb,
         lo - vec3(0.025), hi + vec3(0.025));
     float motionPixels = length((previousUv - uv) / texel);
-    float historyWeight = mix(0.88, 0.08,
-        smoothstep(0.35, 5.0, motionPixels));
+    float historyWeight = 0.88
+        * (1.0 - smoothstep(0.35, 2.5, motionPixels));
     float luminanceDelta = abs(luma(history) - luma(current));
     historyWeight *= 1.0 - smoothstep(0.08, 0.35, luminanceDelta);
     return mix(current, history, clamp(historyWeight, 0.0, 0.88));
