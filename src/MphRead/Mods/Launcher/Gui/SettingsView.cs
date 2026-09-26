@@ -1241,7 +1241,7 @@ namespace MphRead.Mods.Launcher.Gui
                 scale = 400; aa = AntiAliasingMode.Smaa; sharpen = 12;
                 bloomOn = true; bloom = 95; grade = ColorGradeProfile.Cinematic;
                 contrast = 112; saturation = 118; enhancedLight = true;
-                advancedMaterials = true; shadow = ShadowQuality.Ultra;
+                advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.Ultra;
                 ao = AmbientOcclusionQuality.High; contacts = true; enhancedFog = true;
                 volumeFog = true; hdr = true; reflections = true; glow = true;
                 filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
