@@ -723,7 +723,7 @@ namespace MphRead.Mods.Input.AimAssist
                 Vector2 flickCorrection = safe
                     * (1 - MathF.Exp(-AimAssistTuning.HeadFlickSnapGain * dt));
                 position = AimAssistMath.ClampLength(flickCorrection,
-                    profile.MaxPositionSpeed * dt);
+                    profile.MaxPositionSpeed * AimAssistTuning.FlickSnapSpeedScale * dt);
                 tracking = Vector2.Zero;
                 state.ServoVelocity = Vector2.Zero;
                 error = safe; state.HeadBlend = 1;
