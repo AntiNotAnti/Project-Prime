@@ -177,7 +177,9 @@ namespace MphRead.Mods.Input.AimAssist
                         // center for direction and the projected region for landing.
                         Vector2 flickHead = AimAssistMath.Finite(t.HeadError)
                             ? t.HeadError : AimAssistMath.HeadError(t);
-                        float candidateFlickAlignment = AimAssistMath.Alignment(state.FlickDirection, flickHead);
+                        float candidateFlickAlignment = Math.Max(
+                            AimAssistMath.Alignment(state.FlickDirection, flickHead),
+                            AimAssistMath.Alignment(physicalStick, flickHead));
                         if (!keep && candidateFlickAlignment < AimAssistTuning.FlickTargetAlignment) continue;
                         float headDistance = flickHead.Length();
                         float candidateSpeedT = AimAssistMath.Smooth(AimAssistTuning.FlickDirectionalSpeed,
@@ -284,7 +286,8 @@ namespace MphRead.Mods.Input.AimAssist
                 state.PreviousCameraVelocity = cameraVelocity;
                 state.PushCameraVelocity(cameraVelocity);
                 return new(raw.X, raw.Y, StickIntent: physicalStick, FlickActive: pendingFlick,
-                    FlickAge: pendingAge, Firing: firing, ScopeBlend: profile.ScopeBlend,
+                    FlickAge: pendingAge, FlickBraking: pendingBraking, Firing: firing,
+                    ScopeBlend: profile.ScopeBlend,
                     CorrectionBudget: profile.CorrectionBudgetDegrees <= 0 ? 0
                         : savedBudget / profile.CorrectionBudgetDegrees,
                     ShotPhase: shotPhase,
