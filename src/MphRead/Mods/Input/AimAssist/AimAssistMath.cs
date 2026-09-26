@@ -44,25 +44,26 @@ namespace MphRead.Mods.Input.AimAssist
         public static float NormalizedSelectionDistance(in AimAssistTarget target,
             AimAssistWeaponProfile profile)
         {
-            Vector2 bodyError = BodyError(target);
+            // Projected regions are the broad acquisition/release envelope.
+            // AimAssistSurface is deliberately the precise mechanical surface
+            // used later for correction and containment; using it here makes a
+            // retained target disappear before overshoot/braking can be classified.
             float bodyDistance = target.BodyRegion is { } bodyRegion
-                ? NormalizeToRegion(bodyError, bodyRegion).Length()
-                : bodyError.Length();
+                ? NormalizedRegionError(bodyRegion).Length()
+                : BodyError(target).Length();
 
             if (!VisibleHead(target, profile))
             {
                 return bodyDistance;
             }
 
-            Vector2 headError = HeadError(target);
             float headDistance = target.HeadRegion is { } headRegion
-                ? NormalizeToRegion(headError, headRegion).Length()
-                : headError.Length();
+                ? NormalizedRegionError(headRegion).Length()
+                : HeadError(target).Length();
 
-            // SelectionError uses the visible head when the chest is hidden and
-            // whichever visible region is closer otherwise. Use that same region
-            // for the normalized acquire gate. Requiring HeadRegion here made
-            // head-only targets silently fall back to an occluded/far-away chest.
+            // SelectionError prefers a visible head when the chest is hidden and
+            // whichever visible region is closer otherwise. Keep the normalized
+            // gate on the same choice so head-only targets remain selectable.
             return !target.BodyVisible ? headDistance : Math.Min(headDistance, bodyDistance);
         }
 
