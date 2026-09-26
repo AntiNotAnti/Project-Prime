@@ -102,6 +102,28 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _filteringRow = null!;
         private ToggleRow _mipmapRow = null!;
         private ChoiceRow _anisotropyRow = null!;
+        private ChoiceRow _textureUpscaleRow = null!;
+        private ChoiceRow _graphicsPresetRow = null!;
+        private ChoiceRow _antiAliasingRow = null!;
+        private SliderRow _sharpenRow = null!;
+        private ToggleRow _bloomRow = null!;
+        private SliderRow _bloomIntensityRow = null!;
+        private ChoiceRow _colorGradeRow = null!;
+        private SliderRow _gammaRow = null!;
+        private SliderRow _contrastRow = null!;
+        private SliderRow _saturationRow = null!;
+        private ToggleRow _enhancedLightingRow = null!;
+        private ToggleRow _advancedMaterialsRow = null!;
+        private ToggleRow _deferredPbrRow = null!;
+        private ChoiceRow _shadowQualityRow = null!;
+        private ChoiceRow _ambientOcclusionRow = null!;
+        private ToggleRow _contactShadowsRow = null!;
+        private ToggleRow _enhancedFogRow = null!;
+        private ToggleRow _volumetricFogRow = null!;
+        private ToggleRow _internalHdrRow = null!;
+        private ToggleRow _reflectionsRow = null!;
+        private ToggleRow _dynamicGlowRow = null!;
+        private ToggleRow _textureReplacementsRow = null!;
         private ToggleRow _celRow = null!;
         private SliderRow _celBandsRow = null!;
         private SliderRow _celEdgeRow = null!;
@@ -777,6 +799,8 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(reset, "settings.maintenance.reset-performance");
             reset.Click += (_, _) =>
             {
+                _graphicsPresetRow.Index = (int)GraphicsPreset.Original;
+                ApplyGraphicsPresetDraft(GraphicsPreset.Original);
                 _resolutionScale.Value = 100;
                 _fovRow.Value = RenderOptions.DefaultFov;
                 _lightingRow.On = true;
@@ -1066,17 +1090,28 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildGraphics(StackPanel page)
         {
+            Heading(page, "Quality preset");
+            _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
+                new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
+                (int)RenderOptions.Preset));
+            Explain(page, "Original preserves the existing renderer. Enhanced and above add presentation-only processing after the 3D world is rendered and before the full-resolution HUD.");
+
             Heading(page, "Rendering");
-            Explain(page, "100% is native framebuffer resolution. Above 100% supersamples the 3D world before resolving it to the display; 300% is an extreme 3x-per-axis mode that shades nine times as many scene pixels.");
+            Explain(page, "100% is native. 200%, 400% and 800% are true 2x, 4x and 8x internal dimensions. If that exceeds the GPU's render-target limit, Project Prime automatically fits the largest aspect-correct target the driver supports.");
             _resolutionScale = Add(page, new SliderRow("Render scale",
                 RenderOptions.ResolutionScale,
                 v => v == 100 ? "100% (native)"
+                    : v == 200 ? "200% (2x)"
+                    : v == 400 ? "400% (4x)"
+                    : v == 800 ? "800% (8x)"
                     : v > 100 ? $"{v}% (supersampled)" : $"{v}%",
                 min: RenderOptions.MinScale, max: RenderOptions.MaxScale, keyStep: 5));
+            _antiAliasingRow = Add(page, new ChoiceRow("Anti-aliasing",
+                new[] { "Off", "FXAA", "FXAA High", "SMAA 1x", "TAA (reprojection)" }, (int)RenderOptions.AntiAliasing));
+            _sharpenRow = Add(page, new SliderRow("Image sharpening",
+                RenderOptions.SharpenStrength, v => $"{v}%", min: 0, max: 100, keyStep: 5));
 
-            Heading(page, "Scene quality");
-            _lightingRow = Add(page, new ToggleRow("Lighting", RenderOptions.Lighting));
-            _fogRow = Add(page, new ToggleRow("Fog", RenderOptions.Fog));
+            Heading(page, "Textures");
             _filteringRow = Add(page, new ToggleRow("Bilinear texture filtering",
                 RenderOptions.TextureFiltering));
             _mipmapRow = Add(page, new ToggleRow("Trilinear mipmaps",
@@ -1084,13 +1119,62 @@ namespace MphRead.Mods.Launcher.Gui
             _anisotropyRow = Add(page, new ChoiceRow("Anisotropic filtering",
                 new[] { "Off", "2x", "4x", "8x", "16x" },
                 AnisotropyIndex(RenderOptions.TextureAnisotropy)));
-            Explain(page, "Mipmaps reduce distant texture shimmer. Anisotropic filtering sharpens oblique surfaces and is capped to what the active GPU reports.");
+            _textureUpscaleRow = Add(page, new ChoiceRow("Source texture upscale",
+                new[] { "Off (original)", "Scale2x", "Scale4x" },
+                (int)RenderOptions.TextureUpscale));
+            _textureReplacementsRow = Add(page, new ToggleRow("HD texture replacements",
+                RenderOptions.TextureReplacements));
+            Explain(page, "Scale2x/4x enlarges the original cartridge textures with an edge-aware pixel-art filter before mip generation. HD replacements take priority when present and always fall back safely to the original texture.");
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 
-            var maxQuality = new HubNavButton("MAX QUALITY",
-                "300% supersampling + trilinear mipmaps + 16x anisotropic filtering",
-                primary: true)
+            Heading(page, "Lighting and depth");
+            _lightingRow = Add(page, new ToggleRow("Original lighting", RenderOptions.Lighting));
+            _enhancedLightingRow = Add(page, new ToggleRow("Enhanced per-pixel lighting",
+                RenderOptions.EnhancedLighting));
+            _advancedMaterialsRow = Add(page, new ToggleRow("Advanced material maps",
+                RenderOptions.AdvancedMaterials));
+            _deferredPbrRow = Add(page, new ToggleRow("Deferred PBR lighting",
+                RenderOptions.DeferredPbr));
+            _shadowQualityRow = Add(page, new ChoiceRow("Directional shadows",
+                new[] { "Off", "Low", "High", "Ultra" }, (int)RenderOptions.Shadows));
+            _ambientOcclusionRow = Add(page, new ChoiceRow("Ambient occlusion",
+                new[] { "Off", "Low", "Medium", "High" }, (int)RenderOptions.AmbientOcclusion));
+            _contactShadowsRow = Add(page, new ToggleRow("Contact shadows",
+                RenderOptions.ContactShadows));
+            _reflectionsRow = Add(page, new ToggleRow("Screen-space reflections",
+                RenderOptions.Reflections));
+            Explain(page, "Deferred PBR replays opaque geometry into albedo/normal/material buffers and lights it with a GGX pass. Enhanced lighting, AO, shadows and reflections remain presentation-only and do not alter collision, networking or weapon simulation.");
+
+            Heading(page, "Atmosphere and glow");
+            _fogRow = Add(page, new ToggleRow("Original fog", RenderOptions.Fog));
+            _enhancedFogRow = Add(page, new ToggleRow("Enhanced atmospheric fog",
+                RenderOptions.EnhancedFog));
+            _volumetricFogRow = Add(page, new ToggleRow("Volumetric fog detail",
+                RenderOptions.VolumetricFog));
+            _bloomRow = Add(page, new ToggleRow("Bloom", RenderOptions.Bloom));
+            _bloomIntensityRow = Add(page, new SliderRow("Bloom intensity",
+                RenderOptions.BloomIntensity, v => $"{v}%", min: 0, max: 150, keyStep: 5));
+            _dynamicGlowRow = Add(page, new ToggleRow("Dynamic energy glow",
+                RenderOptions.DynamicGlow));
+            _internalHdrRow = Add(page, new ToggleRow("HDR tone mapping",
+                RenderOptions.InternalHdr));
+            _bloomRow.Changed += (_, _) => ShowModernGraphicsRows();
+            _enhancedFogRow.Changed += (_, _) => ShowModernGraphicsRows();
+
+            Heading(page, "Color");
+            _colorGradeRow = Add(page, new ChoiceRow("Color profile",
+                new[] { "Original", "Enhanced", "Vibrant", "Cinematic" },
+                (int)RenderOptions.ColorGrade));
+            _gammaRow = Add(page, new SliderRow("Gamma", RenderOptions.Gamma,
+                v => $"{v}%", min: 50, max: 150, keyStep: 5));
+            _contrastRow = Add(page, new SliderRow("Contrast", RenderOptions.Contrast,
+                v => $"{v}%", min: 50, max: 150, keyStep: 5));
+            _saturationRow = Add(page, new SliderRow("Saturation", RenderOptions.Saturation,
+                v => $"{v}%", min: 0, max: 200, keyStep: 5));
+
+            var maxQuality = new HubNavButton("APPLY EXTREME PRESET",
+                "4x internal resolution plus every enhanced rendering effect", primary: true)
             {
                 MinHeight = 50,
                 Margin = new Thickness(0, 10, 0, 4)
@@ -1098,16 +1182,11 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(maxQuality, "settings.graphics.max");
             maxQuality.Click += (_, _) =>
             {
-                _resolutionScale.Value = RenderOptions.MaxScale;
-                _lightingRow.On = true;
-                _fogRow.On = true;
-                _filteringRow.On = true;
-                _mipmapRow.On = true;
-                _anisotropyRow.Index = _anisotropyStops.Length - 1;
-                ShowTextureQualityRows();
+                _graphicsPresetRow.Index = (int)GraphicsPreset.Extreme;
+                ApplyGraphicsPresetDraft(GraphicsPreset.Extreme);
             };
             page.Children.Add(maxQuality);
-            Explain(page, "MAX QUALITY is intentionally extreme: at a 4K display, 300% renders roughly 12K-class scene dimensions and shades nine times the native scene pixels.");
+            Explain(page, "Ultra uses 2x internal resolution. Extreme uses 4x; the render-scale slider additionally exposes 8x for screenshots, testing and very high-end GPUs.");
 
             Heading(page, "Cel shading");
             _celRow = Add(page, new ToggleRow("Cel shading", RenderOptions.CelShading));
@@ -1117,7 +1196,101 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)MathF.Round(RenderOptions.CelEdge * 100),
                 v => $"{v}%", min: 0, max: 100, keyStep: 5));
             _celRow.Changed += (_, _) => ShowCelRows();
+            _graphicsPresetRow.Changed += (_, _) =>
+                ApplyGraphicsPresetDraft((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5));
+            ShowModernGraphicsRows();
             ShowCelRows();
+        }
+
+        private void ApplyGraphicsPresetDraft(GraphicsPreset preset)
+        {
+            int scale;
+            AntiAliasingMode aa;
+            int sharpen, bloom;
+            bool bloomOn, enhancedLight, advancedMaterials, deferredPbr, contacts, enhancedFog, volumeFog, hdr, reflections, glow;
+            AmbientOcclusionQuality ao;
+            ShadowQuality shadow;
+            ColorGradeProfile grade;
+            int contrast, saturation, anisotropy;
+            TextureUpscaleMode upscale;
+            bool filtering, mipmaps;
+            switch (preset)
+            {
+            case GraphicsPreset.Performance:
+                scale = 85; aa = AntiAliasingMode.Fxaa; sharpen = 20; bloomOn = false; bloom = 45;
+                grade = ColorGradeProfile.Enhanced; contrast = 104; saturation = 106;
+                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
+                enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = false;
+                filtering = mipmaps = true; anisotropy = 4; upscale = TextureUpscaleMode.Off;
+                break;
+            case GraphicsPreset.Enhanced:
+                scale = 100; aa = AntiAliasingMode.Smaa; sharpen = 22; bloomOn = true; bloom = 60;
+                grade = ColorGradeProfile.Enhanced; contrast = 108; saturation = 112;
+                enhancedLight = true; advancedMaterials = true; deferredPbr = false; shadow = ShadowQuality.Low; ao = AmbientOcclusionQuality.Medium; contacts = true;
+                enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = true;
+                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale2x;
+                break;
+            case GraphicsPreset.Ultra:
+                scale = 200; aa = AntiAliasingMode.Smaa; sharpen = 16; bloomOn = true; bloom = 80;
+                grade = ColorGradeProfile.Cinematic; contrast = 110; saturation = 115;
+                enhancedLight = true; advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.High; ao = AmbientOcclusionQuality.High; contacts = true;
+                enhancedFog = true; volumeFog = true; hdr = true; reflections = true; glow = true;
+                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
+                break;
+            case GraphicsPreset.Extreme:
+                scale = 400; aa = AntiAliasingMode.Smaa; sharpen = 12;
+                bloomOn = true; bloom = 95; grade = ColorGradeProfile.Cinematic;
+                contrast = 112; saturation = 118; enhancedLight = true;
+                advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.Ultra;
+                ao = AmbientOcclusionQuality.High; contacts = true; enhancedFog = true;
+                volumeFog = true; hdr = true; reflections = true; glow = true;
+                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
+                break;
+            case GraphicsPreset.Original:
+                scale = 100; aa = AntiAliasingMode.Off; sharpen = 0; bloomOn = false; bloom = 60;
+                grade = ColorGradeProfile.Original; contrast = saturation = 100;
+                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
+                enhancedFog = volumeFog = hdr = reflections = glow = false;
+                filtering = mipmaps = false; anisotropy = 1; upscale = TextureUpscaleMode.Off;
+                _textureReplacementsRow.On = false;
+                break;
+            default:
+                return;
+            }
+            _resolutionScale.Value = scale;
+            _antiAliasingRow.Index = (int)aa;
+            _sharpenRow.Value = sharpen;
+            _bloomRow.On = bloomOn;
+            _bloomIntensityRow.Value = bloom;
+            _colorGradeRow.Index = (int)grade;
+            _gammaRow.Value = 100;
+            _contrastRow.Value = contrast;
+            _saturationRow.Value = saturation;
+            _enhancedLightingRow.On = enhancedLight;
+            _advancedMaterialsRow.On = advancedMaterials;
+            _deferredPbrRow.On = deferredPbr;
+            _shadowQualityRow.Index = (int)shadow;
+            _ambientOcclusionRow.Index = (int)ao;
+            _contactShadowsRow.On = contacts;
+            _enhancedFogRow.On = enhancedFog;
+            _volumetricFogRow.On = volumeFog;
+            _internalHdrRow.On = hdr;
+            _reflectionsRow.On = reflections;
+            _dynamicGlowRow.On = glow;
+            _lightingRow.On = true;
+            _fogRow.On = true;
+            _filteringRow.On = filtering;
+            _mipmapRow.On = mipmaps;
+            _anisotropyRow.Index = AnisotropyIndex(anisotropy);
+            _textureUpscaleRow.Index = (int)upscale;
+            ShowTextureQualityRows();
+            ShowModernGraphicsRows();
+        }
+
+        private void ShowModernGraphicsRows()
+        {
+            _bloomIntensityRow.IsVisible = _bloomRow.On;
+            _volumetricFogRow.IsVisible = _enhancedFogRow.On;
         }
 
         private void ShowTextureQualityRows()
@@ -2116,6 +2289,34 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
+            _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
+                .ToString().ToLowerInvariant();
+            _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))
+                .ToString().ToLowerInvariant();
+            _settings.SharpenStrength = _sharpenRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.Bloom = RenderOptions.OnOff(_bloomRow.On);
+            _settings.BloomIntensity = _bloomIntensityRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.ColorGrade = ((ColorGradeProfile)Math.Clamp(_colorGradeRow.Index, 0, 3))
+                .ToString().ToLowerInvariant();
+            _settings.Gamma = _gammaRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.Contrast = _contrastRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.Saturation = _saturationRow.Value.ToString(CultureInfo.InvariantCulture);
+            _settings.EnhancedLighting = RenderOptions.OnOff(_enhancedLightingRow.On);
+            _settings.AdvancedMaterials = RenderOptions.OnOff(_advancedMaterialsRow.On);
+            _settings.DeferredPbr = RenderOptions.OnOff(_deferredPbrRow.On);
+            _settings.ShadowQuality = ((ShadowQuality)Math.Clamp(_shadowQualityRow.Index, 0, 3))
+                .ToString().ToLowerInvariant();
+            _settings.AmbientOcclusion = ((AmbientOcclusionQuality)Math.Clamp(_ambientOcclusionRow.Index, 0, 3))
+                .ToString().ToLowerInvariant();
+            _settings.ContactShadows = RenderOptions.OnOff(_contactShadowsRow.On);
+            _settings.EnhancedFog = RenderOptions.OnOff(_enhancedFogRow.On);
+            _settings.VolumetricFog = RenderOptions.OnOff(_volumetricFogRow.On);
+            _settings.InternalHdr = RenderOptions.OnOff(_internalHdrRow.On);
+            _settings.Reflections = RenderOptions.OnOff(_reflectionsRow.On);
+            _settings.DynamicGlow = RenderOptions.OnOff(_dynamicGlowRow.On);
+            _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);
+            _settings.TextureUpscale = ((TextureUpscaleMode)Math.Clamp(_textureUpscaleRow.Index, 0, 2))
+                .ToString().ToLowerInvariant();
             RenderOptions.BrightSkins = _brightSkinsRow.Index != 0;
             if (RenderOptions.BrightSkins)
             {

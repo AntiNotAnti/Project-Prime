@@ -412,16 +412,23 @@ namespace MphRead.Mods.Input
                 StylusZone.Update(x, y, false);
                 Require(!StylusZone.CapturingPointer && !StylusZone.MenuHeld, "release ends ownership");
             }
+            // Use the centre of the DS map as a known aim point. The old
+            // hard-coded (.5, .4) landed inside the Missile box after the
+            // native three-box weapon strip geometry was corrected.
+            float aimX = 128f / StylusZone.DsWidth;
+            float aimY = 96f / StylusZone.DsHeight * StylusZone.Height;
+            Require(StylusZone.RegionAt(aimX, aimY) == StylusRegion.Aim,
+                "centre of native bottom screen remains aim surface");
             StylusZone.Reset();
             StylusZone.Update(-1, -1, true);
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             Require(!StylusZone.CapturingPointer && StylusZone.Held == StylusRegion.None, "outside contact stays ordinary");
             StylusZone.Reset();
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             StylusZone.Update(-1, -1, true);
             Require(StylusZone.Aiming && StylusZone.Held == StylusRegion.Aim, "aim ownership stays sticky outside zone");
             StylusZone.BeginPlacement();
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             Require(StylusZone.CapturingPointer && !StylusZone.CapturingPrimaryButton && !StylusZone.Aiming,
                 "placement owns pointer separately from zone contact");
             StylusZone.CancelPlacement();
@@ -548,11 +555,11 @@ namespace MphRead.Mods.Input
             setKey(keyboard, Keys.H, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
 
-            // The stylus WPN action writes directly into NextWeapon after the
-            // raw pass. If its keyboard side is unbound, that contribution must
-            // still last exactly one simulation frame.
-            controls.NextWeapon.Type = ButtonType.Key;
-            controls.NextWeapon.Key = Keys.Unknown;
+            // The stylus WPN box is a direct affinity-slot select, not a
+            // weapon-cycle action. If its keyboard side is unbound, that virtual
+            // contribution must still last exactly one simulation frame.
+            controls.AffinitySlot.Type = ButtonType.Key;
+            controls.AffinitySlot.Key = Keys.Unknown;
             PointerDevice.Reset();
             PointerInput.StylusMode = true;
             StylusZone.Enabled = true;
@@ -564,14 +571,14 @@ namespace MphRead.Mods.Input
             Frame(wpnX, wpnY, false);
             Frame(wpnX, wpnY, true);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
-            Require(controls.NextWeapon.IsDown && controls.NextWeapon.IsPressed,
-                "stylus reaches keyboard-unbound WPN action once");
+            Require(controls.AffinitySlot.IsDown && controls.AffinitySlot.IsPressed,
+                "stylus reaches keyboard-unbound affinity WPN action once");
             Frame(wpnX, wpnY, false);
             PointerDevice.AdvanceSimulationStep();
             Frame(wpnX, wpnY, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
-            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
-                "stylus WPN contribution clears after release when keyboard side is unbound");
+            Require(!controls.AffinitySlot.IsDown && !controls.AffinitySlot.IsPressed,
+                "stylus affinity WPN contribution clears after release when keyboard side is unbound");
 
             // Continue with the ordinary aim/capture path.
             Frame(1000, 600, false);

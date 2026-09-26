@@ -44,16 +44,27 @@ namespace MphRead.Mods.Input.AimAssist
         public static float NormalizedSelectionDistance(in AimAssistTarget target,
             AimAssistWeaponProfile profile)
         {
-            if (VisibleHead(target, profile) && target.HeadRegion is { } hr)
-            {
-                Vector2 head = NormalizeToRegion(HeadError(target), hr);
-                if (!target.BodyVisible || target.BodyRegion is not { } br) return head.Length();
-                Vector2 body = NormalizeToRegion(BodyError(target), br);
-                return Math.Min(head.Length(), body.Length());
-            }
-            return target.BodyRegion is { } bodyRegion
-                ? NormalizeToRegion(BodyError(target), bodyRegion).Length()
+            // Projected regions are the broad acquisition/release envelope.
+            // AimAssistSurface is deliberately the precise mechanical surface
+            // used later for correction and containment; using it here makes a
+            // retained target disappear before overshoot/braking can be classified.
+            float bodyDistance = target.BodyRegion is { } bodyRegion
+                ? NormalizedRegionError(bodyRegion).Length()
                 : BodyError(target).Length();
+
+            if (!VisibleHead(target, profile))
+            {
+                return bodyDistance;
+            }
+
+            float headDistance = target.HeadRegion is { } headRegion
+                ? NormalizedRegionError(headRegion).Length()
+                : HeadError(target).Length();
+
+            // SelectionError prefers a visible head when the chest is hidden and
+            // whichever visible region is closer otherwise. Keep the normalized
+            // gate on the same choice so head-only targets remain selectable.
+            return !target.BodyVisible ? headDistance : Math.Min(headDistance, bodyDistance);
         }
 
         /// <summary>
@@ -152,7 +163,9 @@ namespace MphRead.Mods.Input.AimAssist
                 : target.BodyRegion is { } r && InsideRegion(r);
         public static bool InsideHead(in AimAssistTarget target)
             => target.HeadSurface is { } s ? s.Inside
-                : target.HeadRegion is { } r && InsideRegion(r);
+                : target.HeadRegion is { } r ? InsideRegion(r)
+                : Finite(HeadError(target)) && HeadError(target).Length()
+                    <= Math.Max(.05f, target.HeadRadiusDegrees);
         public static bool CanHeadshotAtDistance(BeamType weapon, float distance)
             => float.IsFinite(distance) && distance >= 0 && (weapon == BeamType.Imperialist
                 || (weapon is BeamType.PowerBeam or BeamType.VoltDriver && distance <= 15));

@@ -163,7 +163,8 @@ internal static class Protocol19Tests
         Check(failures == 1 && Directory.GetFiles(Path.Combine(config.Directory, "pending"), "*.retry").Length == 1,
             slow ? "slow HTTP timeout retains retry without simulation work" : "HTTP 500 retains local summary with exponential retry");
     }
-    private static TelemetryHeader Header() => new(3, 21, Guid.NewGuid().ToString("N"), "test", "test", "test", "Battle", "test-room", 8);
+    private static TelemetryHeader Header() => new(3, NetConfig.ProtocolVersion,
+        Guid.NewGuid().ToString("N"), "test", "test", "test", "Battle", "test-room", 8);
     private static void ConfigDefaults(string root)
     {
         string? before = Environment.GetEnvironmentVariable("PRIME_TELEMETRY_CONFIG");
@@ -246,7 +247,7 @@ internal static class Protocol19Tests
         Check(real.WaitForExit(5000), "real gzip writer completes");
         using var gzip = new GZipStream(File.OpenRead(Directory.GetFiles(output, "*.gz", SearchOption.AllDirectories).Single()), CompressionMode.Decompress);
         using var reader = new StreamReader(gzip); string raw = reader.ReadToEnd();
-        Check(raw.Contains("protocol\":22") && raw.Contains("ServerStep") && !raw.Contains("127.0.0.1"), "versioned compressed header/events and privacy-safe schema");
+        Check(raw.Contains($"protocol\":{NetConfig.ProtocolVersion}") && raw.Contains("ServerStep") && !raw.Contains("127.0.0.1"), "versioned compressed header/events and privacy-safe schema");
         string summary = Directory.GetFiles(output, "*.summary.json", SearchOption.AllDirectories).Single();
         UploadFailure(config with { Directory = Path.Combine(root, "http500") }, summary, false);
         UploadFailure(config with { Directory = Path.Combine(root, "http-slow") }, summary, true);

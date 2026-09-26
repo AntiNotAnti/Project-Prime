@@ -201,6 +201,7 @@ namespace MphRead
         private readonly HashSet<Model> _modelLeases = new();
         private readonly Dictionary<int, TextureMap> _texPalMap = new Dictionary<int, TextureMap>();
         private readonly HashSet<int> _mipmappedTextures = new();
+        private readonly Dictionary<int, Mods.Render.MaterialMapBindings> _materialMaps = new();
         private int _maxTextureAnisotropy = -1;
         private const int TextureMaxAnisotropyExt = 0x84FE;
         private const int MaxTextureMaxAnisotropyExt = 0x84FF;
@@ -958,6 +959,10 @@ namespace MphRead
             _shaderLocations.UseLight = GL.GetUniformLocation(_shaderProgramId, "use_light");
             _shaderLocations.ShowColors = GL.GetUniformLocation(_shaderProgramId, "show_colors");
             _shaderLocations.UseTexture = GL.GetUniformLocation(_shaderProgramId, "use_texture");
+            _shaderLocations.AdvancedMaterials = GL.GetUniformLocation(_shaderProgramId, "advanced_materials");
+            _shaderLocations.UseNormalMap = GL.GetUniformLocation(_shaderProgramId, "use_normal_map");
+            _shaderLocations.UseSpecularMap = GL.GetUniformLocation(_shaderProgramId, "use_specular_map");
+            _shaderLocations.UseEmissiveMap = GL.GetUniformLocation(_shaderProgramId, "use_emissive_map");
             _shaderLocations.Light1Color = GL.GetUniformLocation(_shaderProgramId, "light1col");
             _shaderLocations.Light1Vector = GL.GetUniformLocation(_shaderProgramId, "light1vec");
             _shaderLocations.Light2Color = GL.GetUniformLocation(_shaderProgramId, "light2col");
@@ -989,6 +994,12 @@ namespace MphRead
             _shaderLocations.TexgenMode = GL.GetUniformLocation(_shaderProgramId, "texgen_mode");
             _shaderLocations.MatrixStack = GL.GetUniformLocation(_shaderProgramId, "mtx_stack");
             _shaderLocations.ToonTable = GL.GetUniformLocation(_shaderProgramId, "toon_table");
+
+            GL.UseProgram(_shaderProgramId);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
+            GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "emissive_tex"), 3);
 
             _shaderLocations.CelOutline = GL.GetUniformLocation(_celShaderProgramId, "outline");
             _shaderLocations.CelTexelWidth = GL.GetUniformLocation(_celShaderProgramId, "texel_w");
@@ -1461,6 +1472,12 @@ namespace MphRead
 
         private void ReleaseTexture(int texture)
         {
+            if (_materialMaps.Remove(texture, out Mods.Render.MaterialMapBindings maps))
+            {
+                if (maps.Normal != 0) ReleaseTexture(maps.Normal);
+                if (maps.Specular != 0) ReleaseTexture(maps.Specular);
+                if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
+            }
             if (_ownedTextures.Remove(texture)) GL.DeleteTexture(texture);
         }
 
@@ -1478,13 +1495,32 @@ namespace MphRead
             }
             Texture texture = model.Recolors[recolorId].Textures[textureId];
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, texture.Width, texture.Height, 0,
-                PixelFormat.Rgba, PixelType.UnsignedByte, pixels.ToArray());
+            bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
+                textureId, paletteId, recolorId, out _, out _, out string? replacementPath);
+            if (!replaced)
+            {
+                uint[] uploadPixels = pixels.ToArray();
+                int uploadWidth = texture.Width;
+                int uploadHeight = texture.Height;
+                uploadPixels = Mods.Render.TextureUpscaler.Scale(uploadPixels,
+                    uploadWidth, uploadHeight, Mods.RenderOptions.TextureUpscaleFactor,
+                    out uploadWidth, out uploadHeight);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                    uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
+                    PixelType.UnsignedByte, uploadPixels);
+            }
             // Mipmaps are generated lazily if/when the player enables them.
             // The default DS/competitive path therefore pays no extra upload
             // time or GPU memory simply because the option exists.
             _mipmappedTextures.Remove(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
+            if (replacementPath != null)
+            {
+                Mods.Render.MaterialMapBindings maps =
+                    Mods.Render.TextureReplacementPack.UploadCompanions(
+                        replacementPath, AllocateTexture, ReleaseTexture);
+                if (maps.Any) _materialMaps[_lastTextureId] = maps;
+            }
             _flatColors[_lastTextureId] = average.Result;
             return onlyOpaque;
         }
@@ -2318,7 +2354,7 @@ namespace MphRead
                 return null;
             }
             byte[] buffer = new byte[width * height * 3];
-            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _frameBuffer);
+            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, GraphicsReadFramebuffer());
             GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
             GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
             GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
@@ -2356,8 +2392,9 @@ namespace MphRead
         /// </summary>
         private void UpdateDepthAttachment(Vector2i target)
         {
-            bool want = !_depthTextureRefused && Mods.RenderOptions.CelShading
-                && Mods.RenderOptions.CelEdge > 0;
+            bool want = !_depthTextureRefused
+                && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
+                    || Mods.RenderOptions.NeedsReadableDepth);
             if (want == (_depthTexture != 0))
             {
                 return;
@@ -2807,6 +2844,7 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
+            RenderShadowMap();
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
             GL.ClearStencil(0);
 
@@ -2913,6 +2951,12 @@ namespace MphRead
                 this.Players.Main.DrawHudModels();
                 UnsetHudLayerUniforms();
             }
+
+            RenderDeferredPbrGBuffer();
+
+            // Process the completed scene target before it is presented. The full
+            // visor/HUD is still drawn afterwards at window resolution.
+            ApplyGraphicsPostProcess();
 
             // After the weapon, so it is drawn around too, and before the
             // target is put on screen, so the helmet and the HUD are not.
@@ -4750,6 +4794,7 @@ namespace MphRead
             }
             _texPalMap.Clear();
             _mipmappedTextures?.Clear();
+            _materialMaps.Clear();
             if (_modelLeases != null)
             {
                 foreach (Model model in _modelLeases) Mods.Render.SharedModelResources.Release(model);
@@ -4757,6 +4802,9 @@ namespace MphRead
             }
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
+            DisposeGraphicsPipeline();
+            DisposeDeferredPbr();
+            DisposeShadowMap();
             // The cel target also owns a reference to _screenTexture. Release
             // it before deleting that texture in the shell's persistent context.
             if (_celFrameBuffer != 0)
@@ -6015,6 +6063,21 @@ namespace MphRead
 
         private void DoTexture(RenderItem item)
         {
+            Mods.Render.MaterialMapBindings materialMaps = default;
+            bool advanced = Mods.RenderOptions.AdvancedMaterials && item.HasTexture
+                && _materialMaps.TryGetValue(item.TextureBindingId, out materialMaps);
+            GL.Uniform1(_shaderLocations.AdvancedMaterials, advanced ? 1 : 0);
+            GL.Uniform1(_shaderLocations.UseNormalMap, advanced && materialMaps.Normal != 0 ? 1 : 0);
+            GL.Uniform1(_shaderLocations.UseSpecularMap, advanced && materialMaps.Specular != 0 ? 1 : 0);
+            GL.Uniform1(_shaderLocations.UseEmissiveMap, advanced && materialMaps.Emissive != 0 ? 1 : 0);
+            GL.ActiveTexture(TextureUnit.Texture1);
+            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Normal : 0);
+            GL.ActiveTexture(TextureUnit.Texture2);
+            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Specular : 0);
+            GL.ActiveTexture(TextureUnit.Texture3);
+            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Emissive : 0);
+            GL.ActiveTexture(TextureUnit.Texture0);
+
             if (item.HasTexture)
             {
                 GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);

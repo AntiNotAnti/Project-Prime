@@ -17,6 +17,56 @@ namespace MphRead.Mods
         Red
     }
 
+    public enum GraphicsPreset
+    {
+        Original,
+        Performance,
+        Enhanced,
+        Ultra,
+        Extreme,
+        Custom
+    }
+
+    public enum AntiAliasingMode
+    {
+        Off,
+        Fxaa,
+        FxaaHigh,
+        Smaa,
+        Taa
+    }
+
+    public enum TextureUpscaleMode
+    {
+        Off,
+        Scale2x,
+        Scale4x
+    }
+
+    public enum ShadowQuality
+    {
+        Off,
+        Low,
+        High,
+        Ultra
+    }
+
+    public enum AmbientOcclusionQuality
+    {
+        Off,
+        Low,
+        Medium,
+        High
+    }
+
+    public enum ColorGradeProfile
+    {
+        Original,
+        Enhanced,
+        Vibrant,
+        Cinematic
+    }
+
     /// <summary>
     /// The knobs that trade picture for frame rate.
     ///
@@ -37,9 +87,10 @@ namespace MphRead.Mods
     public static class RenderOptions
     {
         /// <summary>
-        /// Percent of the window the 3D scene is rendered at, 25 to 300.
-        /// Halving it quarters the pixels; values above 100 supersample the
-        /// world before it is downsampled to the display.
+        /// Percent of the window the 3D scene is rendered at, 25 to 800.
+        /// Halving it quarters the pixels; 200/400/800 are true 2x/4x/8x
+        /// internal dimensions. The renderer additionally clamps to the active
+        /// GPU's maximum render-target dimension while preserving aspect ratio.
         /// </summary>
         public static int ResolutionScale
         {
@@ -50,8 +101,8 @@ namespace MphRead.Mods
         private static int _resolutionScale = 100;
 
         public const int MinScale = 25;
-        /// <summary>300% is 3x per axis / 9x the shaded pixels. This is intentionally an extreme ceiling.</summary>
-        public const int MaxScale = 300;
+        /// <summary>800% exposes an 8x-per-axis research/extreme mode; runtime GPU limits still win.</summary>
+        public const int MaxScale = 800;
 
         /// <summary>
         /// How wide the view is, in degrees, measured the way the game
@@ -225,6 +276,170 @@ namespace MphRead.Mods
         }
 
         private static int _textureAnisotropy = 1;
+
+        /// <summary>
+        /// Optional edge-aware source-texture enlargement before mip generation.
+        /// This is independent of render-scale supersampling and HD replacement packs.
+        /// </summary>
+        public static TextureUpscaleMode TextureUpscale { get; set; } = TextureUpscaleMode.Off;
+
+        public static int TextureUpscaleFactor => TextureUpscale switch
+        {
+            TextureUpscaleMode.Scale2x => 2,
+            TextureUpscaleMode.Scale4x => 4,
+            _ => 1
+        };
+
+        /// <summary>
+        /// Named bundles for the modern presentation path. Individual values remain
+        /// authoritative so a saved preset can be edited into a custom setup.
+        /// </summary>
+        public static GraphicsPreset Preset { get; set; } = GraphicsPreset.Original;
+
+        public static AntiAliasingMode AntiAliasing { get; set; } = AntiAliasingMode.Off;
+
+        /// <summary>Contrast-adaptive scene sharpening, 0..100 percent.</summary>
+        public static int SharpenStrength
+        {
+            get => _sharpenStrength;
+            set => _sharpenStrength = Math.Clamp(value, 0, 100);
+        }
+        private static int _sharpenStrength;
+
+        public static bool Bloom { get; set; }
+        public static int BloomIntensity
+        {
+            get => _bloomIntensity;
+            set => _bloomIntensity = Math.Clamp(value, 0, 150);
+        }
+        private static int _bloomIntensity = 60;
+
+        public static ColorGradeProfile ColorGrade { get; set; } = ColorGradeProfile.Original;
+        public static int Gamma
+        {
+            get => _gamma;
+            set => _gamma = Math.Clamp(value, 50, 150);
+        }
+        private static int _gamma = 100;
+        public static int Contrast
+        {
+            get => _contrast;
+            set => _contrast = Math.Clamp(value, 50, 150);
+        }
+        private static int _contrast = 100;
+        public static int Saturation
+        {
+            get => _saturation;
+            set => _saturation = Math.Clamp(value, 0, 200);
+        }
+        private static int _saturation = 100;
+
+        /// <summary>
+        /// Depth-derived per-pixel relief lighting. It complements the cartridge's
+        /// authored vertex/material lighting without changing simulation or maps.
+        /// </summary>
+        public static bool EnhancedLighting { get; set; }
+        /// <summary>Use optional normal/specular/emissive maps from HD texture packs.</summary>
+        public static bool AdvancedMaterials { get; set; }
+        /// <summary>Replay opaque geometry into a compact deferred GGX material buffer.</summary>
+        public static bool DeferredPbr { get; set; }
+        public static ShadowQuality Shadows { get; set; } = ShadowQuality.Off;
+        public static AmbientOcclusionQuality AmbientOcclusion { get; set; } = AmbientOcclusionQuality.Off;
+        public static bool ContactShadows { get; set; }
+        public static bool EnhancedFog { get; set; }
+        public static bool VolumetricFog { get; set; }
+        public static bool InternalHdr { get; set; }
+        public static bool Reflections { get; set; }
+        public static bool DynamicGlow { get; set; }
+
+        /// <summary>
+        /// Look for user-supplied desktop texture replacements under
+        /// texture-packs/default/&lt;model&gt;/. Missing files fall back to cartridge pixels.
+        /// </summary>
+        public static bool TextureReplacements { get; set; }
+
+        public static bool NeedsReadableDepth => Shadows != ShadowQuality.Off
+            || AmbientOcclusion != AmbientOcclusionQuality.Off
+            || ContactShadows || EnhancedLighting || DeferredPbr
+            || EnhancedFog || VolumetricFog || Reflections;
+
+        public static bool PostProcessingEnabled => AntiAliasing != AntiAliasingMode.Off
+            || SharpenStrength > 0 || Bloom || ColorGrade != ColorGradeProfile.Original
+            || Gamma != 100 || Contrast != 100 || Saturation != 100
+            || EnhancedLighting || DeferredPbr || Shadows != ShadowQuality.Off
+            || AmbientOcclusion != AmbientOcclusionQuality.Off
+            || ContactShadows || EnhancedFog || VolumetricFog || InternalHdr
+            || Reflections || DynamicGlow;
+
+        public static void ApplyGraphicsPreset(GraphicsPreset preset)
+        {
+            Preset = preset;
+            switch (preset)
+            {
+            case GraphicsPreset.Original:
+                ResolutionScale = 100;
+                Lighting = true; Fog = true;
+                TextureFiltering = false; TextureMipmaps = false; TextureAnisotropy = 1;
+                TextureUpscale = TextureUpscaleMode.Off;
+                AntiAliasing = AntiAliasingMode.Off; SharpenStrength = 0;
+                Bloom = false; BloomIntensity = 60;
+                ColorGrade = ColorGradeProfile.Original; Gamma = Contrast = Saturation = 100;
+                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
+                ContactShadows = false; EnhancedFog = false; VolumetricFog = false;
+                InternalHdr = false; Reflections = false; DynamicGlow = false;
+                break;
+            case GraphicsPreset.Performance:
+                ResolutionScale = 85;
+                Lighting = true; Fog = true;
+                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 4;
+                TextureUpscale = TextureUpscaleMode.Off;
+                AntiAliasing = AntiAliasingMode.Fxaa; SharpenStrength = 20;
+                Bloom = false; BloomIntensity = 45;
+                ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 104; Saturation = 106;
+                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
+                ContactShadows = false; EnhancedFog = true; VolumetricFog = false;
+                InternalHdr = false; Reflections = false; DynamicGlow = false;
+                break;
+            case GraphicsPreset.Enhanced:
+                ResolutionScale = 100;
+                Lighting = true; Fog = true;
+                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale2x;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 22;
+                Bloom = true; BloomIntensity = 60;
+                ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 108; Saturation = 112;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = false; Shadows = ShadowQuality.Low; AmbientOcclusion = AmbientOcclusionQuality.Medium;
+                ContactShadows = true; EnhancedFog = true; VolumetricFog = false;
+                InternalHdr = false; Reflections = false; DynamicGlow = true;
+                break;
+            case GraphicsPreset.Ultra:
+                ResolutionScale = 200;
+                Lighting = true; Fog = true;
+                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale4x;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 16;
+                Bloom = true; BloomIntensity = 80;
+                ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
+                ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
+                InternalHdr = true; Reflections = true; DynamicGlow = true;
+                break;
+            case GraphicsPreset.Extreme:
+                ResolutionScale = 400;
+                Lighting = true; Fog = true;
+                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale4x;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 12;
+                Bloom = true; BloomIntensity = 95;
+                ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;
+                ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
+                InternalHdr = true; Reflections = true; DynamicGlow = true;
+                break;
+            case GraphicsPreset.Custom:
+                break;
+            }
+        }
 
         /// <summary>Apply a scale to one dimension, never below one pixel.</summary>
         public static int Scaled(int pixels)

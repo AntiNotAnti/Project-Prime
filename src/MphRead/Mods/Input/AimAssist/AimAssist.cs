@@ -75,7 +75,7 @@ namespace MphRead.Mods.Input.AimAssist
                 if (state.FlickActive)
                 {
                     float speed = Math.Max(directionalSpeed, historySpeed);
-                    state.FlickBraking = state.FlickAge > dt
+                    state.FlickBraking = state.FlickAge >= dt
                         && state.FlickSpeed > AimAssistTuning.FlickDirectionalSpeed
                         && speed <= state.FlickSpeed * AimAssistTuning.FlickBrakeRatio;
                     state.FlickSpeed = Math.Max(state.FlickSpeed, speed);
@@ -128,14 +128,23 @@ namespace MphRead.Mods.Input.AimAssist
                 Vector2 selectionError = AimAssistMath.SelectionError(t, profile);
                 float angle = selectionError.Length();
                 float normalizedDistance = AimAssistMath.NormalizedSelectionDistance(t, profile);
+                bool candidateHeadVisible = AimAssistMath.VisibleHead(t, profile);
+                AimAssistRegion? trajectoryRegion = candidateHeadVisible
+                    && t.HeadRegion is { } hr
+                    && AimAssistMath.HeadError(t).LengthSquared() <= AimAssistMath.BodyError(t).LengthSquared()
+                        ? hr : t.BodyRegion;
+                float trajectoryScore = trajectoryRegion is { } path
+                    ? AimAssistMath.TrajectoryRegionScore(path, trajectoryTravel) : 0;
+                bool trajectoryAcquire = !keep && trajectoryScore >= .99f;
                 if (!t.Eligible || !AimAssistMath.Finite(selectionError) || !AimAssistMath.Finite(t.BodyError)
                     || !float.IsFinite(t.Distance) || t.Distance < .2f || t.Distance > 60
-                    || angle > cone * 1.5f || normalizedDistance > normalizedLimit)
+                    || angle > cone * 1.5f
+                    || normalizedDistance > normalizedLimit && !trajectoryAcquire)
                 {
                     continue;
                 }
 
-                bool candidateHeadVisible = AimAssistMath.VisibleHead(t, profile);
+
                 if (!t.BodyVisible && !candidateHeadVisible)
                 {
                     if (keep) occludedRetained = i;
@@ -154,14 +163,9 @@ namespace MphRead.Mods.Input.AimAssist
                     + (keep && firing ? .18f : 0)
                     - (!keep && state.TargetSlot >= 0 ? .12f * (1 - alignment) : 0);
 
-                AimAssistRegion? trajectoryRegion = candidateHeadVisible
-                    && t.HeadRegion is { } hr
-                    && AimAssistMath.HeadError(t).LengthSquared() <= AimAssistMath.BodyError(t).LengthSquared()
-                        ? hr : t.BodyRegion;
-                if (trajectoryRegion is { } pathRegion)
+                if (trajectoryRegion.HasValue)
                 {
-                    score += AimAssistTuning.TrajectoryScoreWeight
-                        * AimAssistMath.TrajectoryRegionScore(pathRegion, trajectoryTravel);
+                    score += AimAssistTuning.TrajectoryScoreWeight * trajectoryScore;
                 }
 
                 if (flickSelecting)
@@ -173,7 +177,9 @@ namespace MphRead.Mods.Input.AimAssist
                         // center for direction and the projected region for landing.
                         Vector2 flickHead = AimAssistMath.Finite(t.HeadError)
                             ? t.HeadError : AimAssistMath.HeadError(t);
-                        float candidateFlickAlignment = AimAssistMath.Alignment(state.FlickDirection, flickHead);
+                        float candidateFlickAlignment = Math.Max(
+                            AimAssistMath.Alignment(state.FlickDirection, flickHead),
+                            AimAssistMath.Alignment(physicalStick, flickHead));
                         if (!keep && candidateFlickAlignment < AimAssistTuning.FlickTargetAlignment) continue;
                         float headDistance = flickHead.Length();
                         float candidateSpeedT = AimAssistMath.Smooth(AimAssistTuning.FlickDirectionalSpeed,
@@ -193,10 +199,9 @@ namespace MphRead.Mods.Input.AimAssist
                             + .20f * (1 - AimAssistMath.Smooth(0, Math.Max(.25f, Math.Min(2, cone)), headDistance))
                             + .35f * (1 - AimAssistMath.Smooth(0, 1.25f, landing));
                     }
-                    else if (!keep)
-                    {
-                        continue;
-                    }
+                    // A strong first stick movement is also a valid normal turn.
+                    // If this candidate has no head refinement target, leave it in
+                    // ordinary body/trajectory scoring instead of discarding it.
                 }
 
                 if (keep)
@@ -281,7 +286,8 @@ namespace MphRead.Mods.Input.AimAssist
                 state.PreviousCameraVelocity = cameraVelocity;
                 state.PushCameraVelocity(cameraVelocity);
                 return new(raw.X, raw.Y, StickIntent: physicalStick, FlickActive: pendingFlick,
-                    FlickAge: pendingAge, Firing: firing, ScopeBlend: profile.ScopeBlend,
+                    FlickAge: pendingAge, FlickBraking: pendingBraking, Firing: firing,
+                    ScopeBlend: profile.ScopeBlend,
                     CorrectionBudget: profile.CorrectionBudgetDegrees <= 0 ? 0
                         : savedBudget / profile.CorrectionBudgetDegrees,
                     ShotPhase: shotPhase,
@@ -303,7 +309,22 @@ namespace MphRead.Mods.Input.AimAssist
             }
 
             ref readonly var target = ref targets[best];
-            if (flickSelecting) state.FlickTarget = target.Slot;
+            if (flickSelecting)
+            {
+                if (AimAssistMath.VisibleHead(target, profile))
+                {
+                    state.FlickTarget = target.Slot;
+                }
+                else
+                {
+                    // No head target was captured. Treat the same input as the
+                    // ordinary camera turn it also is, rather than pinning a
+                    // body-only target into head-flick state.
+                    state.FlickActive = false;
+                    state.FlickTarget = -1;
+                    state.FlickBraking = false;
+                }
+            }
             bool same = state.TargetSlot == target.Slot && state.TargetLife == target.Life;
             if (!same)
             {
@@ -468,7 +489,15 @@ namespace MphRead.Mods.Input.AimAssist
                 if (state.HeadBlend < .001f) state.HeadBlend = 0;
             }
 
-            if (headInside && !opposingHead) state.HeadBlend = 1;
+            // Geometry may already contain the crosshair on acquisition, but a
+            // normal body+head target still observes the first-frame head dwell.
+            // Head-only targets may lock immediately because there is no visible
+            // torso to fall back to, and retained targets may stay fully refined.
+            if (headInside && !opposingHead
+                && (headOnly || same && state.PreviousHeadVisible))
+            {
+                state.HeadBlend = 1;
+            }
 
             // The weak head pocket moves slightly with target angular motion.
             // This is not projectile lead: it stays fully inside the real headshot
@@ -525,9 +554,9 @@ namespace MphRead.Mods.Input.AimAssist
                     && error.LengthSquared() > .000001f
                     && Vector2.Dot(cameraVelocity, error) > 0);
             AimAssistMotionPhase phase = escaping ? AimAssistMotionPhase.Escaping
+                : braking ? AimAssistMotionPhase.Braking
                 : activeInside || Math.Abs(closingSpeed) <= AimAssistTuning.MotionMatchedSpeed
                     ? AimAssistMotionPhase.Matched
-                : braking ? AimAssistMotionPhase.Braking
                 : closingSpeed > AimAssistTuning.MotionPhaseSpeed ? AimAssistMotionPhase.Approaching
                 : closingSpeed < -AimAssistTuning.MotionPhaseSpeed ? AimAssistMotionPhase.Overshooting
                 : AimAssistMotionPhase.None;
@@ -624,8 +653,27 @@ namespace MphRead.Mods.Input.AimAssist
                     profile.MaxTrackingSpeed);
                 float servoScale = Math.Clamp(profile.TrackingGain * bubble * coverageScale
                     * (.70f + .30f * intent), 0, 1.2f);
-                position = servoStep * servoScale;
-                tracking = Vector2.Zero;
+                Vector2 servoCorrection = servoStep * servoScale;
+
+                // The critically damped follower produces one total correction,
+                // but diagnostics and visibility policy still need to know how
+                // much of that correction exists to follow target velocity. Split
+                // out at most the feed-forward request already computed above,
+                // then leave the residual in the position channel. Their sum is
+                // exactly servoCorrection, so camera behavior is unchanged.
+                Vector2 servoTracking = Vector2.Zero;
+                float trackingLength = tracking.Length();
+                float servoLength = servoCorrection.Length();
+                if (trackingLength > .000001f && servoLength > .000001f)
+                {
+                    Vector2 trackingDirection = tracking / trackingLength;
+                    float aligned = Math.Max(0, Vector2.Dot(servoCorrection, trackingDirection));
+                    float trackingAmount = Math.Min(trackingLength,
+                        Math.Min(servoLength, aligned));
+                    servoTracking = trackingDirection * trackingAmount;
+                }
+                position = servoCorrection - servoTracking;
+                tracking = servoTracking;
             }
             else
             {
@@ -658,7 +706,12 @@ namespace MphRead.Mods.Input.AimAssist
             if (state.FlickSpeed > 45 && flickLandingError > captureRadii * 1.5f)
                 captureRadii *= .75f;
             bool naturalLanding = flickLandingError <= captureRadii;
-            bool currentCapture = normalizedHead > 0 && normalizedHead <= captureRadii;
+            // Normalized target radii keep flick behavior consistent across distance,
+            // but a very small projected head can make a tiny sub-degree miss look
+            // numerically huge. Preserve the existing precision behavior: an aligned
+            // flick may finish the last 0.30 degrees into the mechanical head region.
+            bool currentCapture = normalizedHead > 0
+                && (normalizedHead <= captureRadii || headAngle <= .30f);
             bool capture = state.FlickActive && !state.FlickConsumed && visibleHead && !opposingHead
                 && state.FlickTarget == target.Slot
                 && (currentCapture || state.FlickBraking && naturalLanding)
