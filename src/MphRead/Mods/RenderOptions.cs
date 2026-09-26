@@ -341,6 +341,8 @@ namespace MphRead.Mods
         public static bool EnhancedLighting { get; set; }
         /// <summary>Use optional normal/specular/emissive maps from HD texture packs.</summary>
         public static bool AdvancedMaterials { get; set; }
+        /// <summary>Replay opaque geometry into a compact deferred GGX material buffer.</summary>
+        public static bool DeferredPbr { get; set; }
         public static ShadowQuality Shadows { get; set; } = ShadowQuality.Off;
         public static AmbientOcclusionQuality AmbientOcclusion { get; set; } = AmbientOcclusionQuality.Off;
         public static bool ContactShadows { get; set; }
@@ -358,12 +360,13 @@ namespace MphRead.Mods
 
         public static bool NeedsReadableDepth => Shadows != ShadowQuality.Off
             || AmbientOcclusion != AmbientOcclusionQuality.Off
-            || ContactShadows || EnhancedLighting || EnhancedFog || VolumetricFog || Reflections;
+            || ContactShadows || EnhancedLighting || DeferredPbr
+            || EnhancedFog || VolumetricFog || Reflections;
 
         public static bool PostProcessingEnabled => AntiAliasing != AntiAliasingMode.Off
             || SharpenStrength > 0 || Bloom || ColorGrade != ColorGradeProfile.Original
             || Gamma != 100 || Contrast != 100 || Saturation != 100
-            || EnhancedLighting || Shadows != ShadowQuality.Off
+            || EnhancedLighting || DeferredPbr || Shadows != ShadowQuality.Off
             || AmbientOcclusion != AmbientOcclusionQuality.Off
             || ContactShadows || EnhancedFog || VolumetricFog || InternalHdr
             || Reflections || DynamicGlow;
