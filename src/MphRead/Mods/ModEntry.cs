@@ -153,6 +153,14 @@ namespace MphRead.Mods
                 return true;
             }
 
+            // Graphics presets, settings migration and source-texture enhancement
+            // are deterministic and need neither a display nor extracted game data.
+            if (HasFlag(args, "graphicscheck"))
+            {
+                Environment.ExitCode = Render.GraphicsOptionsCheck.Run();
+                return true;
+            }
+
             // Arithmetic and cosmetic-noise checks need no extracted game files.
             if (HasFlag(args, "frametimingcheck"))
             {

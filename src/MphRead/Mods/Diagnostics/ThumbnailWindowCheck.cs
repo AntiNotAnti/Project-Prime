@@ -28,6 +28,7 @@ namespace MphRead.Mods.Diagnostics
                     debugSkipped |= line.Contains("GL debug output unavailable", StringComparison.Ordinal);
                 });
                 Console.WriteLine(ScreenCapture.DescribeContext());
+                CompileRendererShaders();
                 if (GL.GetError() != ErrorCode.NoError)
                     throw new InvalidOperationException("Thumbnail diagnostics raised an OpenGL error.");
                 if (legacyCheck && (!debugSkipped
@@ -78,6 +79,53 @@ namespace MphRead.Mods.Diagnostics
                 return 1;
             }
         }
+        private static void CompileRendererShaders()
+        {
+            CompileProgram("world", Shaders.VertexShader, Shaders.FragmentShader);
+            CompileProgram("graphics post-process",
+                Render.GraphicsPipelineShader.VertexSource,
+                Render.GraphicsPipelineShader.FragmentSource);
+            CompileProgram("graphics HDR tone map",
+                Render.GraphicsToneMapShader.VertexSource,
+                Render.GraphicsToneMapShader.FragmentSource);
+        }
+
+        private static void CompileProgram(string label, string vertexSource, string fragmentSource)
+        {
+            int vertex = 0, fragment = 0, program = 0;
+            try
+            {
+                vertex = GL.CreateShader(ShaderType.VertexShader);
+                GL.ShaderSource(vertex, vertexSource);
+                GL.CompileShader(vertex);
+                GL.GetShader(vertex, ShaderParameter.CompileStatus, out int vertexOk);
+                if (vertexOk == 0)
+                    throw new InvalidOperationException($"{label} vertex shader: {GL.GetShaderInfoLog(vertex)}");
+
+                fragment = GL.CreateShader(ShaderType.FragmentShader);
+                GL.ShaderSource(fragment, fragmentSource);
+                GL.CompileShader(fragment);
+                GL.GetShader(fragment, ShaderParameter.CompileStatus, out int fragmentOk);
+                if (fragmentOk == 0)
+                    throw new InvalidOperationException($"{label} fragment shader: {GL.GetShaderInfoLog(fragment)}");
+
+                program = GL.CreateProgram();
+                GL.AttachShader(program, vertex);
+                GL.AttachShader(program, fragment);
+                GL.LinkProgram(program);
+                GL.GetProgram(program, GetProgramParameterName.LinkStatus, out int linked);
+                if (linked == 0)
+                    throw new InvalidOperationException($"{label} program: {GL.GetProgramInfoLog(program)}");
+                Console.WriteLine($"[thumbnailwindowcheck] {label} shaders linked");
+            }
+            finally
+            {
+                if (program != 0) GL.DeleteProgram(program);
+                if (fragment != 0) GL.DeleteShader(fragment);
+                if (vertex != 0) GL.DeleteShader(vertex);
+            }
+        }
+
     }
 }
 #endif
