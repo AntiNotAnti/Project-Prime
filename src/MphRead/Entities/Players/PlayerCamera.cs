@@ -152,6 +152,7 @@ namespace MphRead.Entities
             if (MorphCamera != null)
             {
                 CameraInfo.Position = MorphCamera.Position;
+                _altControlCollisionFrames = 0;
                 return;
             }
             Vector3 posVec;
