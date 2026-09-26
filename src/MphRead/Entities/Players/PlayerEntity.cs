@@ -1026,10 +1026,7 @@ namespace MphRead.Entities
             SwitchVisors(reset: true);
             CloseDialogs();
             // todo: update more UI fields
-            _altRollFbX = CameraInfo.Field48;
-            _altRollFbZ = CameraInfo.Field4C;
-            _altRollLrX = CameraInfo.Field50;
-            _altRollLrZ = CameraInfo.Field54;
+            ModResetAltControlBasis(CameraInfo.Field48, CameraInfo.Field4C);
             _light1Vector = _scene.Light1Vector;
             _light1Color = _scene.Light1Color;
             _light2Vector = _scene.Light2Vector;
