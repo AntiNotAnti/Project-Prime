@@ -114,6 +114,8 @@ namespace MphRead.Mods
                 RenderOptions.EnhancedLighting);
             RenderOptions.AdvancedMaterials = RenderOptions.ParseOnOff(settings.AdvancedMaterials,
                 RenderOptions.AdvancedMaterials);
+            RenderOptions.DeferredPbr = RenderOptions.ParseOnOff(settings.DeferredPbr,
+                RenderOptions.DeferredPbr);
             if (Enum.TryParse(settings.ShadowQuality, true, out ShadowQuality shadows))
                 RenderOptions.Shadows = shadows;
             if (Enum.TryParse(settings.AmbientOcclusion, true, out AmbientOcclusionQuality ao))

@@ -15,7 +15,7 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 5;
+        public const int CurrentSchema = 6;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
@@ -92,6 +92,8 @@ namespace MphRead.Mods
                 "enhanced lighting", changed);
             settings.AdvancedMaterials = NormalizeToggle(settings.AdvancedMaterials, false,
                 "advanced materials", changed);
+            settings.DeferredPbr = NormalizeToggle(settings.DeferredPbr, false,
+                "deferred PBR", changed);
             settings.ShadowQuality = NormalizeEnum(settings.ShadowQuality,
                 ShadowQuality.Off, "shadow quality", changed);
             settings.AmbientOcclusion = NormalizeEnum(settings.AmbientOcclusion,
@@ -154,6 +156,7 @@ namespace MphRead.Mods
             settings.Saturation = "100";
             settings.EnhancedLighting = "off";
             settings.AdvancedMaterials = "off";
+            settings.DeferredPbr = "off";
             settings.ShadowQuality = "off";
             settings.AmbientOcclusion = "off";
             settings.ContactShadows = "off";

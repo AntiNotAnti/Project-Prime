@@ -114,6 +114,7 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow _saturationRow = null!;
         private ToggleRow _enhancedLightingRow = null!;
         private ToggleRow _advancedMaterialsRow = null!;
+        private ToggleRow _deferredPbrRow = null!;
         private ChoiceRow _shadowQualityRow = null!;
         private ChoiceRow _ambientOcclusionRow = null!;
         private ToggleRow _contactShadowsRow = null!;
@@ -1133,6 +1134,8 @@ namespace MphRead.Mods.Launcher.Gui
                 RenderOptions.EnhancedLighting));
             _advancedMaterialsRow = Add(page, new ToggleRow("Advanced material maps",
                 RenderOptions.AdvancedMaterials));
+            _deferredPbrRow = Add(page, new ToggleRow("Deferred PBR lighting",
+                RenderOptions.DeferredPbr));
             _shadowQualityRow = Add(page, new ChoiceRow("Directional shadows",
                 new[] { "Off", "Low", "High", "Ultra" }, (int)RenderOptions.Shadows));
             _ambientOcclusionRow = Add(page, new ChoiceRow("Ambient occlusion",
@@ -1141,7 +1144,7 @@ namespace MphRead.Mods.Launcher.Gui
                 RenderOptions.ContactShadows));
             _reflectionsRow = Add(page, new ToggleRow("Screen-space reflections",
                 RenderOptions.Reflections));
-            Explain(page, "Enhanced lighting, AO, contact shadows and reflections use the scene depth buffer only; they do not alter collision, networking or weapon simulation.");
+            Explain(page, "Deferred PBR replays opaque geometry into albedo/normal/material buffers and lights it with a GGX pass. Enhanced lighting, AO, shadows and reflections remain presentation-only and do not alter collision, networking or weapon simulation.");
 
             Heading(page, "Atmosphere and glow");
             _fogRow = Add(page, new ToggleRow("Original fog", RenderOptions.Fog));
@@ -1204,7 +1207,7 @@ namespace MphRead.Mods.Launcher.Gui
             int scale;
             AntiAliasingMode aa;
             int sharpen, bloom;
-            bool bloomOn, enhancedLight, advancedMaterials, contacts, enhancedFog, volumeFog, hdr, reflections, glow;
+            bool bloomOn, enhancedLight, advancedMaterials, deferredPbr, contacts, enhancedFog, volumeFog, hdr, reflections, glow;
             AmbientOcclusionQuality ao;
             ShadowQuality shadow;
             ColorGradeProfile grade;
@@ -1216,26 +1219,26 @@ namespace MphRead.Mods.Launcher.Gui
             case GraphicsPreset.Performance:
                 scale = 85; aa = AntiAliasingMode.Fxaa; sharpen = 20; bloomOn = false; bloom = 45;
                 grade = ColorGradeProfile.Enhanced; contrast = 104; saturation = 106;
-                enhancedLight = false; advancedMaterials = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
+                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
                 enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = false;
                 filtering = mipmaps = true; anisotropy = 4; upscale = TextureUpscaleMode.Off;
                 break;
             case GraphicsPreset.Enhanced:
                 scale = 100; aa = AntiAliasingMode.Smaa; sharpen = 22; bloomOn = true; bloom = 60;
                 grade = ColorGradeProfile.Enhanced; contrast = 108; saturation = 112;
-                enhancedLight = true; advancedMaterials = true; shadow = ShadowQuality.Low; ao = AmbientOcclusionQuality.Medium; contacts = true;
+                enhancedLight = true; advancedMaterials = true; deferredPbr = false; shadow = ShadowQuality.Low; ao = AmbientOcclusionQuality.Medium; contacts = true;
                 enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = true;
                 filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale2x;
                 break;
             case GraphicsPreset.Ultra:
-                scale = 200; aa = AntiAliasingMode.Taa; sharpen = 16; bloomOn = true; bloom = 80;
+                scale = 200; aa = AntiAliasingMode.Smaa; sharpen = 16; bloomOn = true; bloom = 80;
                 grade = ColorGradeProfile.Cinematic; contrast = 110; saturation = 115;
-                enhancedLight = true; advancedMaterials = true; shadow = ShadowQuality.High; ao = AmbientOcclusionQuality.High; contacts = true;
+                enhancedLight = true; advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.High; ao = AmbientOcclusionQuality.High; contacts = true;
                 enhancedFog = true; volumeFog = true; hdr = true; reflections = true; glow = true;
                 filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
                 break;
             case GraphicsPreset.Extreme:
-                scale = 400; aa = AntiAliasingMode.Taa; sharpen = 12;
+                scale = 400; aa = AntiAliasingMode.Smaa; sharpen = 12;
                 bloomOn = true; bloom = 95; grade = ColorGradeProfile.Cinematic;
                 contrast = 112; saturation = 118; enhancedLight = true;
                 advancedMaterials = true; shadow = ShadowQuality.Ultra;
@@ -1246,7 +1249,7 @@ namespace MphRead.Mods.Launcher.Gui
             case GraphicsPreset.Original:
                 scale = 100; aa = AntiAliasingMode.Off; sharpen = 0; bloomOn = false; bloom = 60;
                 grade = ColorGradeProfile.Original; contrast = saturation = 100;
-                enhancedLight = false; advancedMaterials = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
+                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
                 enhancedFog = volumeFog = hdr = reflections = glow = false;
                 filtering = mipmaps = false; anisotropy = 1; upscale = TextureUpscaleMode.Off;
                 _textureReplacementsRow.On = false;
@@ -1265,6 +1268,7 @@ namespace MphRead.Mods.Launcher.Gui
             _saturationRow.Value = saturation;
             _enhancedLightingRow.On = enhancedLight;
             _advancedMaterialsRow.On = advancedMaterials;
+            _deferredPbrRow.On = deferredPbr;
             _shadowQualityRow.Index = (int)shadow;
             _ambientOcclusionRow.Index = (int)ao;
             _contactShadowsRow.On = contacts;
@@ -2299,6 +2303,7 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.Saturation = _saturationRow.Value.ToString(CultureInfo.InvariantCulture);
             _settings.EnhancedLighting = RenderOptions.OnOff(_enhancedLightingRow.On);
             _settings.AdvancedMaterials = RenderOptions.OnOff(_advancedMaterialsRow.On);
+            _settings.DeferredPbr = RenderOptions.OnOff(_deferredPbrRow.On);
             _settings.ShadowQuality = ((ShadowQuality)Math.Clamp(_shadowQualityRow.Index, 0, 3))
                 .ToString().ToLowerInvariant();
             _settings.AmbientOcclusion = ((AmbientOcclusionQuality)Math.Clamp(_ambientOcclusionRow.Index, 0, 3))

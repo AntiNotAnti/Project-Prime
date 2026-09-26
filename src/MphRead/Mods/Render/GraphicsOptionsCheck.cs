@@ -43,17 +43,23 @@ namespace MphRead.Mods.Render
                     && RenderOptions.TextureUpscale == TextureUpscaleMode.Scale4x
                     && RenderOptions.Shadows == ShadowQuality.High
                     && RenderOptions.InternalHdr
+                    && RenderOptions.DeferredPbr
                     && RenderOptions.Reflections
                     && RenderOptions.VolumetricFog,
                     "ultra preset enables high-end effects");
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
                 Check(RenderOptions.ResolutionScale == 400
-                    && RenderOptions.AntiAliasing == AntiAliasingMode.Taa
+                    && RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
+                    && RenderOptions.DeferredPbr
                     && RenderOptions.Shadows == ShadowQuality.Ultra
                     && RenderOptions.InternalHdr
                     && RenderOptions.DynamicGlow,
                     "extreme preset remains bounded but maximal");
+
+                RenderOptions.AntiAliasing = AntiAliasingMode.Taa;
+                Check(RenderOptions.PostProcessingEnabled,
+                    "TAA remains available as an explicit temporal reprojection mode");
 
                 uint pixel = 0x7F3366CCu;
                 uint[] scaled = TextureUpscaler.Scale(new[] { pixel }, 1, 1, 4,

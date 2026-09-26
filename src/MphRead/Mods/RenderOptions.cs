@@ -381,7 +381,7 @@ namespace MphRead.Mods
                 AntiAliasing = AntiAliasingMode.Off; SharpenStrength = 0;
                 Bloom = false; BloomIntensity = 60;
                 ColorGrade = ColorGradeProfile.Original; Gamma = Contrast = Saturation = 100;
-                EnhancedLighting = false; AdvancedMaterials = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
+                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
                 ContactShadows = false; EnhancedFog = false; VolumetricFog = false;
                 InternalHdr = false; Reflections = false; DynamicGlow = false;
                 break;
@@ -393,7 +393,7 @@ namespace MphRead.Mods
                 AntiAliasing = AntiAliasingMode.Fxaa; SharpenStrength = 20;
                 Bloom = false; BloomIntensity = 45;
                 ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 104; Saturation = 106;
-                EnhancedLighting = false; AdvancedMaterials = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
+                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
                 ContactShadows = false; EnhancedFog = true; VolumetricFog = false;
                 InternalHdr = false; Reflections = false; DynamicGlow = false;
                 break;
@@ -405,7 +405,7 @@ namespace MphRead.Mods
                 AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 22;
                 Bloom = true; BloomIntensity = 60;
                 ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 108; Saturation = 112;
-                EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.Low; AmbientOcclusion = AmbientOcclusionQuality.Medium;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = false; Shadows = ShadowQuality.Low; AmbientOcclusion = AmbientOcclusionQuality.Medium;
                 ContactShadows = true; EnhancedFog = true; VolumetricFog = false;
                 InternalHdr = false; Reflections = false; DynamicGlow = true;
                 break;
@@ -414,10 +414,10 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Taa; SharpenStrength = 16;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 16;
                 Bloom = true; BloomIntensity = 80;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
-                EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
                 ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
                 InternalHdr = true; Reflections = true; DynamicGlow = true;
                 break;
@@ -426,10 +426,10 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Taa; SharpenStrength = 12;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 12;
                 Bloom = true; BloomIntensity = 95;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;
-                EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;
+                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;
                 ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
                 InternalHdr = true; Reflections = true; DynamicGlow = true;
                 break;
