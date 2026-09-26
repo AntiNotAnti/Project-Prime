@@ -72,6 +72,8 @@ uniform mat4 mtx_stack[32];
 
 out vec2 texcoord;
 out vec4 color;
+out vec3 surface_normal;
+out vec3 surface_position;
 
 vec3 light_calc(vec3 light_vec, vec3 light_col, vec3 normal_vec, vec3 dif_col, vec3 amb_col, vec3 spe_col)
 {
@@ -95,6 +97,8 @@ void main()
     gl_Position = proj_mtx * view_mtx * model_mtx * a_position;
     vec4 vtx_color = show_colors ? vtx_in_color : vec4(1.0);
     vec3 normal = normalize(mat3(model_mtx) * a_normal);
+    surface_normal = normal;
+    surface_position = (model_mtx * a_position).xyz;
     if (use_light) {
         vec3 dif_current = diffuse;
         vec3 amb_current = ambient;
@@ -148,6 +152,19 @@ uniform vec4 fog_color;
 uniform float fog_min;
 uniform float fog_max;
 uniform sampler2D tex;
+uniform sampler2D normal_tex;
+uniform sampler2D specular_tex;
+uniform sampler2D emissive_tex;
+uniform bool advanced_materials;
+uniform bool use_normal_map;
+uniform bool use_specular_map;
+uniform bool use_emissive_map;
+uniform bool use_light;
+uniform vec3 light1vec;
+uniform vec3 light1col;
+uniform vec3 light2vec;
+uniform vec3 light2col;
+uniform vec3 specular;
 uniform bool use_override;
 uniform int textured_player_skin;
 uniform bool player_outline_mask;
@@ -172,8 +189,44 @@ uniform vec3 flat_color;
 
 in vec2 texcoord;
 in vec4 color;
+in vec3 surface_normal;
+in vec3 surface_position;
 
 out vec4 frag_color;
+
+vec3 mapped_normal()
+{
+    vec3 n = normalize(surface_normal);
+    if (!use_normal_map) return n;
+    vec3 dp1 = dFdx(surface_position), dp2 = dFdy(surface_position);
+    vec2 duv1 = dFdx(texcoord), duv2 = dFdy(texcoord);
+    float det = duv1.x * duv2.y - duv1.y * duv2.x;
+    if (abs(det) < 0.000001) return n;
+    vec3 tangent = normalize((dp1 * duv2.y - dp2 * duv1.y) / det);
+    vec3 bitangent = normalize((-dp1 * duv2.x + dp2 * duv1.x) / det);
+    vec3 mapNormal = texture(normal_tex, texcoord).xyz * 2.0 - 1.0;
+    return normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z);
+}
+
+void apply_material_lighting(inout vec4 col)
+{
+    if (!advanced_materials || !use_light) return;
+    vec3 n = mapped_normal();
+    float d1 = max(0.0, -dot(light1vec, n)), d2 = max(0.0, -dot(light2vec, n));
+    float l1 = dot(light1col, vec3(0.2126, 0.7152, 0.0722));
+    float l2 = dot(light2col, vec3(0.2126, 0.7152, 0.0722));
+    col.rgb *= mix(0.92, 1.10, clamp((d1 * l1 + d2 * l2) * 0.65, 0.0, 1.0));
+    vec4 sm = use_specular_map ? texture(specular_tex, texcoord)
+        : vec4(max(max(specular.r, specular.g), specular.b), 0.55, 0.0, 1.0);
+    float roughness = clamp(sm.g, 0.04, 1.0);
+    vec3 viewDir = vec3(0.0, 0.0, 1.0);
+    vec3 h1 = normalize(-light1vec + viewDir), h2 = normalize(-light2vec + viewDir);
+    float exponent = mix(72.0, 4.0, roughness);
+    float highlight = pow(max(dot(n, h1), 0.0), exponent) * l1
+        + pow(max(dot(n, h2), 0.0), exponent) * l2;
+    col.rgb += vec3(highlight * clamp(sm.r, 0.0, 1.0) * 0.16);
+    if (use_emissive_map) col.rgb += texture(emissive_tex, texcoord).rgb * 0.75;
+}
 
 vec4 toon_color(vec4 vtx_color)
 {
@@ -266,6 +319,7 @@ void main()
         col = mat_mode == 2 ? toon_color(color) : color;
         col.a *= mat_alpha;
     }
+    apply_material_lighting(col);
     if (player_outline_mask) {
         if (col.a <= 0.01) discard;
         col.rgb = player_outline_color;
@@ -621,9 +675,9 @@ void main()
             }
             _checked = true;
             Check("VertexShader", Shaders.VertexShader,
-                "4cf1422bddaa3ece44c9cfbf6dab1ede192ee8c3f4fbed362e7da5eebfdfc428");
+                "6f1b01955020fefd225fcfdf8dbe52dcc38e05cd9bb0736bb0f98bb72e65f876");
             Check("FragmentShader", Shaders.FragmentShader,
-                "074c6dec8b9616fda9dff92c2b5f4fa1b6176f20264c1715c75bc36ee2745cf5");
+                "00fac4dde7b87b45e729f56a256afa39b4ecadfe757ba4d90ad75893b39941b6");
             Check("RttVertexShader", Shaders.RttVertexShader,
                 "af070f447840bf1fc51d6bba88a339fab067a4e3a01e460351a2549ca9107f4f");
             Check("RttFragmentShader", Shaders.RttFragmentShader,
