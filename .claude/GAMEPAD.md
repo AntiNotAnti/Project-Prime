@@ -166,6 +166,16 @@ mode-specific Zoom behavior as an additional route: the normal Zoom action
 releases morph-ball boost while transformed. The existing Jump/Boost action
 remains available, so established layouts do not lose a control.
 
+Rolling movement now owns a **virtual camera-relative control yaw**. The camera's
+pre-collision heading is the target; wall/door/player collision may move the
+rendered camera and redirect physical velocity without rewriting the movement
+basis in one frame. Held input follows that target at 12 degrees per simulation
+step, tightened to 4 degrees briefly around collision. Neutral input snaps the
+control yaw to the current intended camera heading. Controller direction changes
+are detected from the actual analogue MoveX/MoveY vector, not synthetic button
+presses. `-altmovecheck` forces a debug log and prints camera, desired and control
+yaw plus input and collision state at 10 Hz.
+
 ## Both at once, on a phone
 
 Using the pad hides the touch layout (`TouchControls.NotePadActivity`) and

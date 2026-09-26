@@ -152,6 +152,7 @@ namespace MphRead.Entities
             if (MorphCamera != null)
             {
                 CameraInfo.Position = MorphCamera.Position;
+                _altControlCollisionFrames = 0;
                 return;
             }
             Vector3 posVec;
@@ -205,6 +206,13 @@ namespace MphRead.Entities
                 float factor = Fixed.ToFloat(Values.Field84);
                 CameraInfo.Position += (posVec - CameraInfo.Position) * factor; // sktodo: FPS stuff?
             }
+            // Capture the heading the camera was trying to have before this
+            // frame's collision correction. Do not publish it to the movement
+            // basis yet: the starting camera position can still carry the
+            // previous frame's collision displacement. It becomes trustworthy
+            // only after the collision recovery tail below reaches zero.
+            Vector3 intendedControlFacing = CameraInfo.Target - CameraInfo.Position;
+
             if (_field553 > 0)
             {
                 _field553--;
@@ -515,18 +523,39 @@ namespace MphRead.Entities
             // Any displacement produced by this collision phase counts too.
             cameraObstructed |= (CameraInfo.Position - cameraCollisionStart).LengthSquared > 0.000001f;
 
-            bool rollingInputHeld = Controls.RollUp.IsDown || Controls.RollDown.IsDown
-                || Controls.RolltLeft.IsDown || Controls.RollRight.IsDown || Input.AltSwipeEngaged;
-            if (cameraObstructed && IsMainPlayer && rollingInputHeld)
+            bool playerCollision = Flags1.TestFlag(PlayerFlags1.CollidingLateral);
+            if (cameraObstructed || playerCollision)
             {
-                // Rolling alt-form movement is camera-relative. Do not let the
-                // collision-adjusted third-person camera rotate an already-held
-                // WASD/stick/drag command underneath the player. ProcessAlt owns
-                // the unlock policy: release/new direction re-anchors immediately;
-                // otherwise the lock expires after the camera has stayed clear.
-                _altCameraCollisionBasisLock = true;
-                Flags1 |= PlayerFlags1.AltDirOverride;
-                _timeSinceMorphCamera = 0;
+                // Collision does not freeze the control frame anymore. It only
+                // asks ProcessAlt to use the tighter yaw slew for a short tail,
+                // which covers both camera collision and the harder-to-see case
+                // where player collision jerks the camera target itself.
+                _altControlCollisionFrames = 8;
+            }
+            else if (_altControlCollisionFrames > 0)
+            {
+                _altControlCollisionFrames--;
+            }
+
+            // Keep the desired yaw itself clean as well as the output yaw. A
+            // camera that was pushed around a corner last frame can look clear
+            // before its smoothed position has recovered; waiting through the
+            // short clear tail prevents that stale displacement from becoming
+            // a new long-lived definition of "forward".
+            if (!cameraObstructed && !playerCollision && _altControlCollisionFrames == 0)
+            {
+                ModSetAltControlDesired(intendedControlFacing.X, intendedControlFacing.Z);
+            }
+
+            if (IsMainPlayer && Mods.Input.AltFormMoveDebug.Enabled)
+            {
+                Vector3 physicalFacing = CameraInfo.Target - CameraInfo.Position;
+                Mods.Input.AltFormMoveDebug.Log(SlotIndex,
+                    physicalFacing.X, physicalFacing.Z,
+                    _altControlDesiredX, _altControlDesiredZ,
+                    _altRollFbX, _altRollFbZ,
+                    _altControlPrevInputX, _altControlPrevInputY,
+                    cameraObstructed, playerCollision, _altControlCollisionFrames);
             }
         }
 
