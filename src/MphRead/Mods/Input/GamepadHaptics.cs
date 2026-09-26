@@ -8,7 +8,7 @@ namespace MphRead.Mods.Input
         void Rumble(float lowFrequency, float highFrequency, TimeSpan duration);
         void Stop();
     }
-    public enum GamepadFeedback { Fire, ChargedShot, Damage, Explosion, Boost, Landing, Death }
+    public enum GamepadFeedback { Fire, ChargedShot, Damage, Explosion, Boost, Landing, Death, ShadowFreezeReady, ShadowFreezeTarget }
     public static class GamepadHaptics
     {
         private static readonly Dictionary<string, IGamepadHaptics> Backends = new();
@@ -37,6 +37,8 @@ namespace MphRead.Mods.Input
                 GamepadFeedback.Explosion => (0.40f, 0.20f, 140),
                 GamepadFeedback.Boost => (0.22f, 0.10f, 90),
                 GamepadFeedback.Landing => (0.16f, 0.06f, 65),
+                GamepadFeedback.ShadowFreezeReady => (0.05f, 0.16f, 45),
+                GamepadFeedback.ShadowFreezeTarget => (0.12f, 0.34f, 70),
                 _ => (0.38f, 0.18f, 220)
             };
             lock (Gate) if (Backends.TryGetValue(id, out var backend))
