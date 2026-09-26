@@ -100,7 +100,7 @@ namespace MphRead
                     for (int i = 0; i < _nonDecalItems.Count; i++)
                     {
                         RenderItem item = _nonDecalItems[i];
-                        if (item.Type != RenderItemType.Mesh || item.Alpha < .999f
+                        if (item.Type != RenderItemType.Mesh || item.ViewModel || item.Alpha < .999f
                             || item.RenderMode == RenderMode.Translucent)
                         {
                             continue;
