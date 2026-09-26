@@ -632,8 +632,20 @@ namespace MphRead.Mods.Input.AimAssist
                     profile.MaxTrackingSpeed);
                 float servoScale = Math.Clamp(profile.TrackingGain * bubble * coverageScale
                     * (.70f + .30f * intent), 0, 1.2f);
-                position = servoStep * servoScale;
-                tracking = Vector2.Zero;
+                Vector2 servoCorrection = servoStep * servoScale;
+                if (profile.PositionGain <= .0001f)
+                {
+                    // Tracking-only profiles still use the damped follower, but
+                    // report that correction in the tracking channel rather than
+                    // disguising target velocity compensation as position pull.
+                    position = Vector2.Zero;
+                    tracking = servoCorrection;
+                }
+                else
+                {
+                    position = servoCorrection;
+                    tracking = Vector2.Zero;
+                }
             }
             else
             {
