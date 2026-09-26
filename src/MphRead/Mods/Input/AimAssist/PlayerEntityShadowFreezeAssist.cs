@@ -17,6 +17,7 @@ namespace MphRead.Entities
         private bool _shadowFreezeAssistActive;
         private bool _shadowFreezeAngleLatched;
         private bool _shadowFreezeTargetLatched;
+        private bool _shadowFreezeOvershootLatched;
         private int _shadowFreezeReleaseFrames;
         private float _shadowFreezePreviousCameraY;
         private float _shadowFreezeAdaptiveStrength = 1f;
@@ -27,6 +28,7 @@ namespace MphRead.Entities
 
         internal bool ModShadowFreezeAngleReady { get; private set; }
         internal bool ModShadowFreezeTargetReady { get; private set; }
+        internal bool ModShadowFreezeAssistTelemetryActive => _shadowFreezeAssistActive;
 
         private bool ModShadowFreezeWeapon(out WeaponInfo weapon, out float charge)
         {
@@ -82,6 +84,7 @@ namespace MphRead.Entities
                 && (_aimY <= ShadowFreezeAssistMath.ExitPitch || y <= -.60f))
             {
                 _shadowFreezeAssistActive = true;
+                _shadowFreezeOvershootLatched = false;
                 AimAssistTelemetry.ShadowFreezeAttempt();
             }
             else if (_shadowFreezeAssistActive && !postRelease
@@ -130,7 +133,14 @@ namespace MphRead.Entities
             }
 
             bool downwardFlick = y <= -1.25f && _shadowFreezePreviousCameraY > -.35f;
-            float projectedPitch = Math.Clamp(_aimY + assistedY, -85f, 85f);
+            float uncorrectedPitch = Math.Clamp(_aimY + assistedY, -85f, 85f);
+            if (!_shadowFreezeOvershootLatched
+                && uncorrectedPitch < ShadowFreezeAssistMath.TargetPitch)
+            {
+                _shadowFreezeOvershootLatched = true;
+                AimAssistTelemetry.ShadowFreezeOvershoot();
+            }
+            float projectedPitch = uncorrectedPitch;
             float error = ShadowFreezeAssistMath.TargetPitch - projectedPitch;
             float gain = fullCharge ? .34f : .14f;
             float correctionCap = downwardFlick ? 2.60f : fullCharge ? .95f : .45f;
@@ -332,6 +342,7 @@ namespace MphRead.Entities
         private void ModResetShadowFreezeControllerAssist()
         {
             _shadowFreezeAssistActive = false;
+            _shadowFreezeOvershootLatched = false;
             _shadowFreezeReleaseFrames = 0;
             _shadowFreezePreviousCameraY = 0;
             ModClearShadowFreezeFeedback();
