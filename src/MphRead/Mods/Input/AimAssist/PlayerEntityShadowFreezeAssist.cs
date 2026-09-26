@@ -61,7 +61,8 @@ namespace MphRead.Entities
                 && GamepadContexts.Current == GamepadContext.Gameplay
                 && !GamepadInput.WheelHeld
                 && InputSourceTracker.Current == InputSource.Gamepad;
-            if (!controllerOwned || IsAltForm || !ModShadowFreezeWeapon(out _, out float charge))
+            if (!controllerOwned || IsAltForm || AimAssistDebug.UnassistedArm
+                || !ModShadowFreezeWeapon(out _, out float charge))
             {
                 ModResetShadowFreezeControllerAssist();
                 _shadowFreezePreviousCameraY = y;
