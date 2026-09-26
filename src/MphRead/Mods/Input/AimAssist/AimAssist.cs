@@ -472,7 +472,11 @@ namespace MphRead.Mods.Input.AimAssist
             // normal body+head target still observes the first-frame head dwell.
             // Head-only targets may lock immediately because there is no visible
             // torso to fall back to, and retained targets may stay fully refined.
-            if (headInside && !opposingHead && (same || headOnly)) state.HeadBlend = 1;
+            if (headInside && !opposingHead
+                && (headOnly || same && state.PreviousHeadVisible))
+            {
+                state.HeadBlend = 1;
+            }
 
             // The weak head pocket moves slightly with target angular motion.
             // This is not projectile lead: it stays fully inside the real headshot
