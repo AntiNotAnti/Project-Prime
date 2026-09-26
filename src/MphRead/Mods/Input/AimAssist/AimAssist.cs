@@ -75,7 +75,7 @@ namespace MphRead.Mods.Input.AimAssist
                 if (state.FlickActive)
                 {
                     float speed = Math.Max(directionalSpeed, historySpeed);
-                    state.FlickBraking = state.FlickAge > dt
+                    state.FlickBraking = state.FlickAge >= dt
                         && state.FlickSpeed > AimAssistTuning.FlickDirectionalSpeed
                         && speed <= state.FlickSpeed * AimAssistTuning.FlickBrakeRatio;
                     state.FlickSpeed = Math.Max(state.FlickSpeed, speed);
