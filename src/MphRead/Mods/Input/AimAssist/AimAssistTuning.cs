@@ -3,7 +3,7 @@ namespace MphRead.Mods.Input.AimAssist
     // Deliberately not player preferences. Changes require regression and balance validation.
     public static class AimAssistTuning
     {
-        public const float HeadFlickCaptureSeconds = .090f, HeadFlickSnapGain = 65f;
+        public const float HeadFlickCaptureSeconds = .090f, HeadFlickSnapGain = 75f;
         // Flick capture already passed trajectory/alignment/visibility gates, so
         // it may settle a little faster than ordinary positional magnetism.
         // Keep the envelope unchanged; this only strengthens the final landing.
