@@ -633,19 +633,26 @@ namespace MphRead.Mods.Input.AimAssist
                 float servoScale = Math.Clamp(profile.TrackingGain * bubble * coverageScale
                     * (.70f + .30f * intent), 0, 1.2f);
                 Vector2 servoCorrection = servoStep * servoScale;
-                if (profile.PositionGain <= .0001f)
+
+                // The critically damped follower produces one total correction,
+                // but diagnostics and visibility policy still need to know how
+                // much of that correction exists to follow target velocity. Split
+                // out at most the feed-forward request already computed above,
+                // then leave the residual in the position channel. Their sum is
+                // exactly servoCorrection, so camera behavior is unchanged.
+                Vector2 servoTracking = Vector2.Zero;
+                float trackingLength = tracking.Length();
+                float servoLength = servoCorrection.Length();
+                if (trackingLength > .000001f && servoLength > .000001f)
                 {
-                    // Tracking-only profiles still use the damped follower, but
-                    // report that correction in the tracking channel rather than
-                    // disguising target velocity compensation as position pull.
-                    position = Vector2.Zero;
-                    tracking = servoCorrection;
+                    Vector2 trackingDirection = tracking / trackingLength;
+                    float aligned = Math.Max(0, Vector2.Dot(servoCorrection, trackingDirection));
+                    float trackingAmount = Math.Min(trackingLength,
+                        Math.Min(servoLength, aligned));
+                    servoTracking = trackingDirection * trackingAmount;
                 }
-                else
-                {
-                    position = servoCorrection;
-                    tracking = Vector2.Zero;
-                }
+                position = servoCorrection - servoTracking;
+                tracking = servoTracking;
             }
             else
             {
