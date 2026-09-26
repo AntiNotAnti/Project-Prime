@@ -75,7 +75,7 @@ namespace MphRead.Entities
             bool postRelease = _shadowFreezeReleaseFrames > 0;
             bool shotState = holding || released || postRelease;
             bool downwardIntent = y < -0.08f
-                || (_shadowFreezeAssistActive && ShadowFreezeAssistMath.InCaptureRange(_aimY));
+                || ShadowFreezeAssistMath.InCaptureRange(_aimY);
 
             bool wasActive = _shadowFreezeAssistActive;
             if (!_shadowFreezeAssistActive && shotState && charge >= .40f && downwardIntent
@@ -342,7 +342,10 @@ namespace MphRead.Entities
     {
         internal const float CaptureRangeMultiplier = 2.5f;
         internal const float ReadyRangeMultiplier = 8f;
-        internal const float TargetRangeMultiplier = 10f;
+        // The biped camera clamps at -85 degrees, whose cartridge projection is
+        // about 11.47x. Stay a hair inside the clamp so the assist can settle
+        // instead of grinding against it every frame.
+        internal const float TargetRangeMultiplier = 11.25f;
         internal const int ReleaseBlendFrames = 6;
         internal const int OcclusionRetentionMs = 180;
 
