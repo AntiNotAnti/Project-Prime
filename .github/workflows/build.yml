@@ -20,7 +20,7 @@ permissions:
 # push supersedes the older revision; keeping both burns runner time and makes
 # the useful result wait behind code nobody intends to ship.
 concurrency:
-  group: build-${{ github.workflow }}-${{ github.ref }}
+  group: build-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
