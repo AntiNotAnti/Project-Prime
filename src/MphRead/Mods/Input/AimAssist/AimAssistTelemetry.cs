@@ -55,6 +55,8 @@ namespace MphRead.Mods.Input.AimAssist
             public int ShadowFreezeAttempts { get; set; }
             public int ShadowFreezeAngleEntries { get; set; }
             public int ShadowFreezeTargetCues { get; set; }
+            public int ShadowFreezeOvershoots { get; set; }
+            public int ShadowFreezeConfirmedFreezes { get; set; }
             public int ShadowFreezeReleases { get; set; }
             public double ShadowFreezeReleaseErrorSum { get; set; }
             public double ShadowFreezeAdaptiveStrengthSum { get; set; }
@@ -186,6 +188,23 @@ namespace MphRead.Mods.Input.AimAssist
         public static void ShadowFreezeTargetCue()
         {
             if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeTargetCues++;
+        }
+
+        public static void ShadowFreezeOvershoot()
+        {
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeOvershoots++;
+        }
+
+        public static void ShadowFreezeConfirmed(PlayerEntity? attacker)
+        {
+            if (_path == null || attacker?.IsMainPlayer != true || attacker.IsBot
+                || SpectatorMode.IsSpectating
+                || AimInputSourceTracker.Current != AimInputSource.Gamepad
+                || !attacker.ModShadowFreezeAssistTelemetryActive)
+            {
+                return;
+            }
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeConfirmedFreezes++;
         }
 
         public static void ShadowFreezeRelease(float angleError, float adaptiveStrength)
