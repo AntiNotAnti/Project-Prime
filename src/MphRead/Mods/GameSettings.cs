@@ -112,6 +112,8 @@ namespace MphRead.Mods
             RenderOptions.Saturation = RenderOptions.ParseInt(settings.Saturation, RenderOptions.Saturation);
             RenderOptions.EnhancedLighting = RenderOptions.ParseOnOff(settings.EnhancedLighting,
                 RenderOptions.EnhancedLighting);
+            RenderOptions.AdvancedMaterials = RenderOptions.ParseOnOff(settings.AdvancedMaterials,
+                RenderOptions.AdvancedMaterials);
             if (Enum.TryParse(settings.AmbientOcclusion, true, out AmbientOcclusionQuality ao))
                 RenderOptions.AmbientOcclusion = ao;
             RenderOptions.ContactShadows = RenderOptions.ParseOnOff(settings.ContactShadows,
