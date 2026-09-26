@@ -46,6 +46,8 @@ namespace MphRead.Mods.Diagnostics
                     Link(Shaders.RttVertexShader, Shaders.RttFragmentShader);
                     Link(Shaders.RttVertexShader, Shaders.CelFragmentShader);
                     Link(Shaders.RttVertexShader, Shaders.ShiftFragmentShader);
+                    Link(Render.GraphicsPipelineShader.VertexSource,
+                        Render.GraphicsPipelineShader.FragmentSource);
                 }
                 int width = window.FramebufferSize.X, height = window.FramebufferSize.Y;
                 if (!Render.UiOverlay.HasFrame || width <= 0 || height <= 0)
