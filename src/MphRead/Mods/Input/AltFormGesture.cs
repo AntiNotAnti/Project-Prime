@@ -1,4 +1,5 @@
 using System;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Input
 {
