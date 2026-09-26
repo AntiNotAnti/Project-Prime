@@ -1443,7 +1443,8 @@ namespace MphRead.Entities
                     Flags1 &= ~PlayerFlags1.AltDirOverride;
                 }
 
-                if (!Flags1.TestFlag(PlayerFlags1.AltDirOverride))
+                bool externalCameraSettled = _timeSinceMorphCamera > 10 * 2 || directionChanged;
+                if (!Flags1.TestFlag(PlayerFlags1.AltDirOverride) && externalCameraSettled)
                 {
                     bool collisionTight = _altControlCollisionFrames > 0 && !directionChanged;
                     (_altRollFbX, _altRollFbZ) = Mods.Input.AltFormControlBasis.Step(
