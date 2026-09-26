@@ -40,7 +40,7 @@ namespace MphRead
         private int _gfxLighting, _gfxAo, _gfxContactShadows;
         private int _gfxEnhancedFog, _gfxVolumetricFog, _gfxHdr;
         private int _gfxReflections, _gfxDynamicGlow, _gfxFogColor, _gfxTime;
-        private int _gfxInvProjection, _gfxInvView, _gfxProjection, _gfxCameraPosition;
+        private int _gfxInvProjection, _gfxInvView, _gfxView, _gfxProjection, _gfxCameraPosition;
         private int _gfxDynamicLightCount;
         private int _gfxShadowSampler, _gfxShadowEnabled, _gfxShadowView, _gfxShadowProjection;
         private int _gfxShadowTexel, _gfxShadowLightDir;
@@ -160,6 +160,8 @@ namespace MphRead
                 Matrix4 invView = _viewMatrix.Inverted();
                 GL.UniformMatrix4(_gfxInvProjection, false, ref invProjection);
                 GL.UniformMatrix4(_gfxInvView, false, ref invView);
+                Matrix4 viewMatrix = _viewMatrix;
+                GL.UniformMatrix4(_gfxView, false, ref viewMatrix);
                 Matrix4 projection = _perspectiveMatrix;
                 GL.UniformMatrix4(_gfxProjection, false, ref projection);
                 GL.Uniform3(_gfxCameraPosition, _cameraPosition);
@@ -256,6 +258,7 @@ namespace MphRead
                     _gfxTime = GL.GetUniformLocation(_graphicsProgram, "time_value");
                     _gfxInvProjection = GL.GetUniformLocation(_graphicsProgram, "inv_projection");
                     _gfxInvView = GL.GetUniformLocation(_graphicsProgram, "inv_view");
+                    _gfxView = GL.GetUniformLocation(_graphicsProgram, "view_matrix");
                     _gfxProjection = GL.GetUniformLocation(_graphicsProgram, "projection");
                     _gfxCameraPosition = GL.GetUniformLocation(_graphicsProgram, "camera_position");
                     _gfxShadowSampler = GL.GetUniformLocation(_graphicsProgram, "shadow_tex");
@@ -671,6 +674,7 @@ uniform vec4 fog_color;
 uniform float time_value;
 uniform mat4 inv_projection;
 uniform mat4 inv_view;
+uniform mat4 view_matrix;
 uniform mat4 previous_view_projection;
 uniform int history_valid;
 uniform mat4 projection;
@@ -1074,7 +1078,7 @@ void main() {
         : aa_mode == 4 ? temporal_resolve(uv, center, d)
         : fxaa(uv, center);
 
-    if (sharpen_strength > 0.0001) {
+    if (sharpen_strength > 0.0001 && deferred.r < 0.0) {
         vec3 blur = (scene(uv + vec2(texel.x, 0.0))
             + scene(uv - vec2(texel.x, 0.0))
             + scene(uv + vec2(0.0, texel.y))
@@ -1085,8 +1089,10 @@ void main() {
     }
 
     if (depth_available != 0 && d < 0.999999) {
-        vec3 n = pbr_enabled != 0 && SAMPLE(pbr_normal, uv).a > 0.5
-            ? normalize(SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0)
+        bool pbrPixel = pbr_enabled != 0 && SAMPLE(pbr_normal, uv).a > 0.5;
+        vec3 n = pbrPixel
+            ? normalize(mat3(view_matrix)
+                * (SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0))
             : depth_normal(uv, d);
         if (enhanced_lighting != 0 && deferred.r < 0.0) {
             vec3 ld = normalize(vec3(-0.45, 0.58, 0.68));
