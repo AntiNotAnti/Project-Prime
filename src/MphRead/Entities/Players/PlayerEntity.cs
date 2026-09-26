@@ -382,6 +382,8 @@ namespace MphRead.Entities
         private float _altControlDesiredZ = -1;
         private float _altControlPrevInputX = 0;
         private float _altControlPrevInputY = 0;
+        private float _altControlLastOutputX = 0;
+        private float _altControlLastOutputZ = -1;
         private byte _altControlCollisionFrames = 0;
         private bool _altControlBasisInitialized = false;
 
