@@ -45,6 +45,9 @@ namespace MphRead
         private int _gfxShadowSampler, _gfxShadowEnabled, _gfxShadowView, _gfxShadowProjection;
         private int _gfxShadowTexel, _gfxShadowLightDir;
         private int _gfxHistorySampler, _gfxHistoryValid, _gfxPreviousViewProjection;
+        private int _gfxPbrEnabled, _gfxPbrAlbedo, _gfxPbrNormal, _gfxPbrMaterial;
+        private int _gfxPbrLight1Direction, _gfxPbrLight1Color;
+        private int _gfxPbrLight2Direction, _gfxPbrLight2Color;
         private readonly int[] _gfxDynamicLightPos = new int[8];
         private readonly int[] _gfxDynamicLightColor = new int[8];
         private readonly DynamicLightCandidate[] _dynamicLightScratch = new DynamicLightCandidate[8];
@@ -114,6 +117,22 @@ namespace MphRead
                 GL.Uniform1(_gfxHistoryValid, taa && _graphicsHistoryValid ? 1 : 0);
                 Matrix4 previousViewProjection = _graphicsPreviousViewProjection;
                 GL.UniformMatrix4(_gfxPreviousViewProjection, false, ref previousViewProjection);
+
+                bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;
+                GL.ActiveTexture(TextureUnit.Texture4);
+                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrAlbedo : 0);
+                GL.Uniform1(_gfxPbrAlbedo, 4);
+                GL.ActiveTexture(TextureUnit.Texture5);
+                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrNormal : 0);
+                GL.Uniform1(_gfxPbrNormal, 5);
+                GL.ActiveTexture(TextureUnit.Texture6);
+                GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrMaterial : 0);
+                GL.Uniform1(_gfxPbrMaterial, 6);
+                GL.Uniform1(_gfxPbrEnabled, pbrAvailable ? 1 : 0);
+                GL.Uniform3(_gfxPbrLight1Direction, _light1Vector);
+                GL.Uniform3(_gfxPbrLight1Color, _light1Color);
+                GL.Uniform3(_gfxPbrLight2Direction, _light2Vector);
+                GL.Uniform3(_gfxPbrLight2Color, _light2Color);
                 GL.ActiveTexture(TextureUnit.Texture0);
 
                 GL.Uniform2(_gfxTexel, 1f / Math.Max(1, target.X), 1f / Math.Max(1, target.Y));
@@ -164,6 +183,12 @@ namespace MphRead
             }
             finally
             {
+                GL.ActiveTexture(TextureUnit.Texture6);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+                GL.ActiveTexture(TextureUnit.Texture5);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
+                GL.ActiveTexture(TextureUnit.Texture4);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture3);
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture2);
@@ -243,6 +268,14 @@ namespace MphRead
                     _gfxHistoryValid = GL.GetUniformLocation(_graphicsProgram, "history_valid");
                     _gfxPreviousViewProjection = GL.GetUniformLocation(_graphicsProgram,
                         "previous_view_projection");
+                    _gfxPbrEnabled = GL.GetUniformLocation(_graphicsProgram, "pbr_enabled");
+                    _gfxPbrAlbedo = GL.GetUniformLocation(_graphicsProgram, "pbr_albedo");
+                    _gfxPbrNormal = GL.GetUniformLocation(_graphicsProgram, "pbr_normal");
+                    _gfxPbrMaterial = GL.GetUniformLocation(_graphicsProgram, "pbr_material");
+                    _gfxPbrLight1Direction = GL.GetUniformLocation(_graphicsProgram, "pbr_light1_dir");
+                    _gfxPbrLight1Color = GL.GetUniformLocation(_graphicsProgram, "pbr_light1_color");
+                    _gfxPbrLight2Direction = GL.GetUniformLocation(_graphicsProgram, "pbr_light2_dir");
+                    _gfxPbrLight2Color = GL.GetUniformLocation(_graphicsProgram, "pbr_light2_color");
                     _gfxDynamicLightCount = GL.GetUniformLocation(_graphicsProgram, "dynamic_light_count");
                     for (int i = 0; i < 8; i++)
                     {
@@ -431,7 +464,7 @@ namespace MphRead
                 target.X, target.Y);
             GL.ActiveTexture(TextureUnit.Texture0);
 
-            _graphicsPreviousViewProjection = _viewMatrix * _perspectiveMatrix;
+            _graphicsPreviousViewProjection = _perspectiveMatrix * _viewMatrix;
             _graphicsHistoryValid = true;
         }
 
@@ -594,6 +627,8 @@ void main() {
         public static string FragmentSource { get; } = "#version 300 es\nprecision highp float;\nprecision highp int;\n"
             + "in vec2 texcoord;\nout vec4 frag_color;\nuniform highp sampler2D depth_tex;\n"
             + "uniform highp sampler2D shadow_tex;\n"
+            + "uniform highp sampler2D pbr_albedo;\nuniform highp sampler2D pbr_normal;\n"
+            + "uniform highp sampler2D pbr_material;\n"
             + "#define SAMPLE texture\n#define OUTPUT frag_color\n" + Body;
 #else
         public static string VertexSource { get; } = @"#version 120
@@ -605,6 +640,8 @@ void main() {
 ";
         public static string FragmentSource { get; } = "#version 120\nvarying vec2 texcoord;\n"
             + "uniform sampler2D depth_tex;\nuniform sampler2D shadow_tex;\n"
+            + "uniform sampler2D pbr_albedo;\nuniform sampler2D pbr_normal;\n"
+            + "uniform sampler2D pbr_material;\n"
             + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
 #endif
 
@@ -643,6 +680,11 @@ uniform mat4 shadow_view;
 uniform mat4 shadow_projection;
 uniform vec2 shadow_texel;
 uniform vec3 shadow_light_dir;
+uniform int pbr_enabled;
+uniform vec3 pbr_light1_dir;
+uniform vec3 pbr_light1_color;
+uniform vec3 pbr_light2_dir;
+uniform vec3 pbr_light2_color;
 uniform int dynamic_light_count;
 uniform vec4 dynamic_light_pos[8];
 uniform vec4 dynamic_light_color[8];
@@ -757,7 +799,8 @@ vec3 projectile_lighting(vec3 worldPos) {
 }
 
 vec3 temporal_resolve(vec2 uv, vec3 current, float d) {
-    if (aa_mode != 4 || history_valid == 0 || depth_available == 0
+    if (aa_mode != 4 || hdr_mode != 0 || pbr_enabled != 0
+        || history_valid == 0 || depth_available == 0
         || d >= 0.999999) return current;
 
     vec3 world = world_position(uv, d);
@@ -783,6 +826,63 @@ vec3 temporal_resolve(vec2 uv, vec3 current, float d) {
     float luminanceDelta = abs(luma(history) - luma(current));
     historyWeight *= 1.0 - smoothstep(0.08, 0.35, luminanceDelta);
     return mix(current, history, clamp(historyWeight, 0.0, 0.88));
+}
+
+float pbr_distribution_ggx(vec3 n, vec3 h, float roughness) {
+    float a = roughness * roughness;
+    float a2 = a * a;
+    float nh = max(dot(n, h), 0.0);
+    float d = nh * nh * (a2 - 1.0) + 1.0;
+    return a2 / max(3.14159265 * d * d, 0.0001);
+}
+float pbr_geometry_schlick(float nv, float roughness) {
+    float r = roughness + 1.0;
+    float k = r * r / 8.0;
+    return nv / max(nv * (1.0 - k) + k, 0.0001);
+}
+vec3 pbr_fresnel(float cosTheta, vec3 f0) {
+    return f0 + (1.0 - f0) * pow(clamp(1.0 - cosTheta, 0.0, 1.0), 5.0);
+}
+vec3 pbr_direct(vec3 albedo, vec3 n, vec3 v, vec3 l, vec3 radiance,
+    float metallic, float roughness) {
+    vec3 h = normalize(v + l);
+    float nv = max(dot(n, v), 0.0);
+    float nl = max(dot(n, l), 0.0);
+    if (nl <= 0.0 || nv <= 0.0) return vec3(0.0);
+    vec3 f0 = mix(vec3(0.04), albedo, metallic);
+    vec3 f = pbr_fresnel(max(dot(h, v), 0.0), f0);
+    float d = pbr_distribution_ggx(n, h, roughness);
+    float g = pbr_geometry_schlick(nv, roughness) * pbr_geometry_schlick(nl, roughness);
+    vec3 spec = d * g * f / max(4.0 * nv * nl, 0.001);
+    vec3 kd = (vec3(1.0) - f) * (1.0 - metallic);
+    return (kd * albedo / 3.14159265 + spec) * radiance * nl;
+}
+vec3 deferred_pbr(vec2 uv, vec3 worldPos) {
+    vec4 a = SAMPLE(pbr_albedo, uv);
+    if (pbr_enabled == 0 || a.a < 0.5) return vec3(-1.0);
+    vec3 n = normalize(SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0);
+    vec4 m = SAMPLE(pbr_material, uv);
+    float metallic = clamp(m.r, 0.0, 1.0);
+    float roughness = clamp(m.g, 0.04, 1.0);
+    vec3 v = normalize(camera_position - worldPos);
+    vec3 result = a.rgb * (0.10 + 0.08 * (1.0 - metallic));
+    result += pbr_direct(a.rgb, n, v, normalize(-pbr_light1_dir), pbr_light1_color, metallic, roughness);
+    result += pbr_direct(a.rgb, n, v, normalize(-pbr_light2_dir), pbr_light2_color, metallic, roughness);
+    for (int i = 0; i < 8; i++) {
+        if (i >= dynamic_light_count) break;
+        vec3 delta = dynamic_light_pos[i].xyz - worldPos;
+        float dist = length(delta);
+        float radius = max(dynamic_light_pos[i].w, 0.01);
+        if (dist < radius) {
+            float attenuation = 1.0 - smoothstep(radius * 0.1, radius, dist);
+            attenuation *= attenuation;
+            result += pbr_direct(a.rgb, n, v, normalize(delta),
+                dynamic_light_color[i].rgb * dynamic_light_color[i].a * attenuation,
+                metallic, roughness);
+        }
+    }
+    result += a.rgb * m.b * 1.4;
+    return result;
 }
 
 vec3 depth_normal(vec2 uv, float centerDepth) {
@@ -968,7 +1068,10 @@ void main() {
     vec2 uv = texcoord;
     vec3 center = scene(uv);
     float d = raw_depth(uv);
-    vec3 color = aa_mode == 4 ? temporal_resolve(uv, center, d)
+    vec3 worldP = d < 0.999999 ? world_position(uv, d) : vec3(0.0);
+    vec3 deferred = d < 0.999999 ? deferred_pbr(uv, worldP) : vec3(-1.0);
+    vec3 color = deferred.r >= 0.0 ? deferred
+        : aa_mode == 4 ? temporal_resolve(uv, center, d)
         : fxaa(uv, center);
 
     if (sharpen_strength > 0.0001) {
@@ -982,19 +1085,21 @@ void main() {
     }
 
     if (depth_available != 0 && d < 0.999999) {
-        vec3 n = depth_normal(uv, d);
-        if (enhanced_lighting != 0) {
+        vec3 n = pbr_enabled != 0 && SAMPLE(pbr_normal, uv).a > 0.5
+            ? normalize(SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0)
+            : depth_normal(uv, d);
+        if (enhanced_lighting != 0 && deferred.r < 0.0) {
             vec3 ld = normalize(vec3(-0.45, 0.58, 0.68));
             float diffuse = dot(n, ld) * 0.5 + 0.5;
             float relief = mix(0.93, 1.09, diffuse);
             float spec = pow(max(0.0, dot(reflect(-ld, n), vec3(0.0, 0.0, 1.0))), 18.0);
             color = color * relief + vec3(spec * 0.035);
         }
-        vec3 worldPos = world_position(uv, d);
+        vec3 worldPos = worldP;
         color *= ambient_occlusion(uv, d);
         color *= contact_shadow(uv, d);
         color *= directional_shadow(worldPos, n);
-        color += projectile_lighting(worldPos);
+        if (deferred.r < 0.0) color += projectile_lighting(worldPos);
         if (reflections != 0) {
             float fresnel = pow(clamp(1.0 - n.z, 0.0, 1.0), 3.0);
             vec3 reflected = screen_reflection(uv, d, n);

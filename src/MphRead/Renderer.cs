@@ -2952,6 +2952,8 @@ namespace MphRead
                 UnsetHudLayerUniforms();
             }
 
+            RenderDeferredPbrGBuffer();
+
             // Process the completed scene target before it is presented. The full
             // visor/HUD is still drawn afterwards at window resolution.
             ApplyGraphicsPostProcess();
@@ -4801,6 +4803,7 @@ namespace MphRead
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
+            DisposeDeferredPbr();
             DisposeShadowMap();
             // The cel target also owns a reference to _screenTexture. Release
             // it before deleting that texture in the shell's persistent context.

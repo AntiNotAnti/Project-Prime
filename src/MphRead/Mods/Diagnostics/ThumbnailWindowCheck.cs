@@ -88,6 +88,9 @@ namespace MphRead.Mods.Diagnostics
             CompileProgram("graphics HDR tone map",
                 Render.GraphicsToneMapShader.VertexSource,
                 Render.GraphicsToneMapShader.FragmentSource);
+            CompileProgram("deferred PBR G-buffer",
+                Render.DeferredPbrShader.VertexSource,
+                Render.DeferredPbrShader.FragmentSource);
         }
 
         private static void CompileProgram(string label, string vertexSource, string fragmentSource)
