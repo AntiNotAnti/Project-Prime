@@ -412,16 +412,23 @@ namespace MphRead.Mods.Input
                 StylusZone.Update(x, y, false);
                 Require(!StylusZone.CapturingPointer && !StylusZone.MenuHeld, "release ends ownership");
             }
+            // Use the centre of the DS map as a known aim point. The old
+            // hard-coded (.5, .4) landed inside the Missile box after the
+            // native three-box weapon strip geometry was corrected.
+            float aimX = 128f / StylusZone.DsWidth;
+            float aimY = 96f / StylusZone.DsHeight * StylusZone.Height;
+            Require(StylusZone.RegionAt(aimX, aimY) == StylusRegion.Aim,
+                "centre of native bottom screen remains aim surface");
             StylusZone.Reset();
             StylusZone.Update(-1, -1, true);
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             Require(!StylusZone.CapturingPointer && StylusZone.Held == StylusRegion.None, "outside contact stays ordinary");
             StylusZone.Reset();
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             StylusZone.Update(-1, -1, true);
             Require(StylusZone.Aiming && StylusZone.Held == StylusRegion.Aim, "aim ownership stays sticky outside zone");
             StylusZone.BeginPlacement();
-            StylusZone.Update(.5f, .4f, true);
+            StylusZone.Update(aimX, aimY, true);
             Require(StylusZone.CapturingPointer && !StylusZone.CapturingPrimaryButton && !StylusZone.Aiming,
                 "placement owns pointer separately from zone contact");
             StylusZone.CancelPlacement();
