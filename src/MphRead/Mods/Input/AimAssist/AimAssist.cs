@@ -135,7 +135,7 @@ namespace MphRead.Mods.Input.AimAssist
                         ? hr : t.BodyRegion;
                 float trajectoryScore = trajectoryRegion is { } path
                     ? AimAssistMath.TrajectoryRegionScore(path, trajectoryTravel) : 0;
-                bool trajectoryAcquire = !keep && trajectoryScore >= .90f;
+                bool trajectoryAcquire = !keep && trajectoryScore >= .99f;
                 if (!t.Eligible || !AimAssistMath.Finite(selectionError) || !AimAssistMath.Finite(t.BodyError)
                     || !float.IsFinite(t.Distance) || t.Distance < .2f || t.Distance > 60
                     || angle > cone * 1.5f
