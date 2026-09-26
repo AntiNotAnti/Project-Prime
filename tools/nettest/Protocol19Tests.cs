@@ -163,7 +163,8 @@ internal static class Protocol19Tests
         Check(failures == 1 && Directory.GetFiles(Path.Combine(config.Directory, "pending"), "*.retry").Length == 1,
             slow ? "slow HTTP timeout retains retry without simulation work" : "HTTP 500 retains local summary with exponential retry");
     }
-    private static TelemetryHeader Header() => new(3, 21, Guid.NewGuid().ToString("N"), "test", "test", "test", "Battle", "test-room", 8);
+    private static TelemetryHeader Header() => new(3, NetConfig.ProtocolVersion,
+        Guid.NewGuid().ToString("N"), "test", "test", "test", "Battle", "test-room", 8);
     private static void ConfigDefaults(string root)
     {
         string? before = Environment.GetEnvironmentVariable("PRIME_TELEMETRY_CONFIG");
