@@ -626,7 +626,7 @@ void main() {
 ";
         public static string FragmentSource { get; } = "#version 300 es\nprecision highp float;\nprecision highp int;\n"
             + "in vec2 texcoord;\nout vec4 frag_color;\nuniform highp sampler2D depth_tex;\n"
-            + "uniform highp sampler2D shadow_tex;\n"
+            + "uniform highp sampler2D shadow_tex;\nuniform highp sampler2D history_tex;\n"
             + "uniform highp sampler2D pbr_albedo;\nuniform highp sampler2D pbr_normal;\n"
             + "uniform highp sampler2D pbr_material;\n"
             + "#define SAMPLE texture\n#define OUTPUT frag_color\n" + Body;
@@ -639,7 +639,7 @@ void main() {
 }
 ";
         public static string FragmentSource { get; } = "#version 120\nvarying vec2 texcoord;\n"
-            + "uniform sampler2D depth_tex;\nuniform sampler2D shadow_tex;\n"
+            + "uniform sampler2D depth_tex;\nuniform sampler2D shadow_tex;\nuniform sampler2D history_tex;\n"
             + "uniform sampler2D pbr_albedo;\nuniform sampler2D pbr_normal;\n"
             + "uniform sampler2D pbr_material;\n"
             + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
