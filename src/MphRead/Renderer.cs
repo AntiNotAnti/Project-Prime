@@ -2843,6 +2843,7 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
+            RenderShadowMap();
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
             GL.ClearStencil(0);
 
@@ -4799,6 +4800,7 @@ namespace MphRead
             if (Services?.IsReplica != true) Read.ClearCache();
             DisposePlayerOutlines();
             DisposeGraphicsPipeline();
+            DisposeShadowMap();
             // The cel target also owns a reference to _screenTexture. Release
             // it before deleting that texture in the shell's persistent context.
             if (_celFrameBuffer != 0)

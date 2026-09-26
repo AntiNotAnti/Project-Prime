@@ -57,6 +57,7 @@ namespace MphRead
         public string Saturation { get; set; } = "100";
         public string EnhancedLighting { get; set; } = "off";
         public string AdvancedMaterials { get; set; } = "off";
+        public string ShadowQuality { get; set; } = "off";
         public string AmbientOcclusion { get; set; } = "off";
         public string ContactShadows { get; set; } = "off";
         public string EnhancedFog { get; set; } = "off";
