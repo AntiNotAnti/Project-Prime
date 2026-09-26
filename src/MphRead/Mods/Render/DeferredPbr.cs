@@ -87,12 +87,13 @@ namespace MphRead
                 GL.Uniform1(_pbrSpecularSampler, 2);
                 GL.Uniform1(_pbrEmissiveSampler, 3);
 
-                int[] targets = { _pbrAlbedoTexture, _pbrNormalTexture, _pbrMaterialTexture };
                 for (int mode = 1; mode <= 3; mode++)
                 {
+                    int target = mode == 1 ? _pbrAlbedoTexture
+                        : mode == 2 ? _pbrNormalTexture : _pbrMaterialTexture;
                     GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                         FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
-                        targets[mode - 1], 0);
+                        target, 0);
                     GL.ClearColor(0, 0, 0, 0);
                     GL.Clear(ClearBufferMask.ColorBufferBit);
                     GL.Uniform1(_pbrMode, mode);
