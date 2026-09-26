@@ -468,7 +468,11 @@ namespace MphRead.Mods.Input.AimAssist
                 if (state.HeadBlend < .001f) state.HeadBlend = 0;
             }
 
-            if (headInside && !opposingHead) state.HeadBlend = 1;
+            // Geometry may already contain the crosshair on acquisition, but a
+            // normal body+head target still observes the first-frame head dwell.
+            // Head-only targets may lock immediately because there is no visible
+            // torso to fall back to, and retained targets may stay fully refined.
+            if (headInside && !opposingHead && (same || headOnly)) state.HeadBlend = 1;
 
             // The weak head pocket moves slightly with target angular motion.
             // This is not projectile lead: it stays fully inside the real headshot
