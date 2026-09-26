@@ -555,11 +555,11 @@ namespace MphRead.Mods.Input
             setKey(keyboard, Keys.H, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
 
-            // The stylus WPN action writes directly into NextWeapon after the
-            // raw pass. If its keyboard side is unbound, that contribution must
-            // still last exactly one simulation frame.
-            controls.NextWeapon.Type = ButtonType.Key;
-            controls.NextWeapon.Key = Keys.Unknown;
+            // The stylus WPN box is a direct affinity-slot select, not a
+            // weapon-cycle action. If its keyboard side is unbound, that virtual
+            // contribution must still last exactly one simulation frame.
+            controls.AffinitySlot.Type = ButtonType.Key;
+            controls.AffinitySlot.Key = Keys.Unknown;
             PointerDevice.Reset();
             PointerInput.StylusMode = true;
             StylusZone.Enabled = true;
@@ -571,14 +571,14 @@ namespace MphRead.Mods.Input
             Frame(wpnX, wpnY, false);
             Frame(wpnX, wpnY, true);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
-            Require(controls.NextWeapon.IsDown && controls.NextWeapon.IsPressed,
-                "stylus reaches keyboard-unbound WPN action once");
+            Require(controls.AffinitySlot.IsDown && controls.AffinitySlot.IsPressed,
+                "stylus reaches keyboard-unbound affinity WPN action once");
             Frame(wpnX, wpnY, false);
             PointerDevice.AdvanceSimulationStep();
             Frame(wpnX, wpnY, false);
             PlayerEntity.ProcessInput(scene.Players, keyboard, mouse, false);
-            Require(!controls.NextWeapon.IsDown && !controls.NextWeapon.IsPressed,
-                "stylus WPN contribution clears after release when keyboard side is unbound");
+            Require(!controls.AffinitySlot.IsDown && !controls.AffinitySlot.IsPressed,
+                "stylus affinity WPN contribution clears after release when keyboard side is unbound");
 
             // Continue with the ordinary aim/capture path.
             Frame(1000, 600, false);
