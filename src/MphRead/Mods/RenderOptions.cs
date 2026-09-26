@@ -31,7 +31,8 @@ namespace MphRead.Mods
     {
         Off,
         Fxaa,
-        FxaaHigh
+        FxaaHigh,
+        Smaa
     }
 
     public enum TextureUpscaleMode
@@ -400,7 +401,7 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale2x;
-                AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 25;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 22;
                 Bloom = true; BloomIntensity = 60;
                 ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 108; Saturation = 112;
                 EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.Low; AmbientOcclusion = AmbientOcclusionQuality.Medium;
@@ -412,7 +413,7 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 18;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 16;
                 Bloom = true; BloomIntensity = 80;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
                 EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
@@ -424,7 +425,7 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 12;
+                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 12;
                 Bloom = true; BloomIntensity = 95;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;
                 EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;

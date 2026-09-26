@@ -22,6 +22,8 @@ namespace MphRead
         private Vector2i _graphicsOutputSize;
         private bool _graphicsOutputReady;
         private bool _graphicsPipelineRefused;
+        private bool _graphicsOutputHdr;
+        private bool _graphicsHdrRefused;
 
         private int _gfxSceneSampler, _gfxDepthSampler, _gfxTexel;
         private int _gfxNear, _gfxFar, _gfxDepthAvailable;
@@ -226,12 +228,14 @@ namespace MphRead
                 _graphicsOutputTexture = GL.GenTexture();
             }
 
-            if (_graphicsOutputSize != _targetSize)
+            bool wantHdr = RenderOptions.InternalHdr && !_graphicsHdrRefused;
+            if (_graphicsOutputSize != _targetSize || _graphicsOutputHdr != wantHdr)
             {
                 GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                GL.TexImage2D(TextureTarget.Texture2D, 0,
+                    wantHdr ? PixelInternalFormat.Rgba16f : PixelInternalFormat.Rgba8,
                     _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
-                    PixelType.UnsignedByte, IntPtr.Zero);
+                    wantHdr ? PixelType.Float : PixelType.UnsignedByte, IntPtr.Zero);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.Linear);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
@@ -243,9 +247,30 @@ namespace MphRead
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
                     TextureTarget.Texture2D, _graphicsOutputTexture, 0);
-                ValidateFramebuffer("Enhanced graphics");
+
+                FramebufferErrorCode status = GL.CheckFramebufferStatus(FramebufferTarget.Framebuffer);
+                if (wantHdr && status != FramebufferErrorCode.FramebufferComplete)
+                {
+                    _graphicsHdrRefused = true;
+                    wantHdr = false;
+                    GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                        _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
+                        PixelType.UnsignedByte, IntPtr.Zero);
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                        FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
+                        _graphicsOutputTexture, 0);
+                    ValidateFramebuffer("Enhanced graphics HDR fallback");
+                    Console.WriteLine("[render] half-float HDR target unavailable; using RGBA8.");
+                }
+                else
+                {
+                    ValidateFramebuffer("Enhanced graphics");
+                }
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 _graphicsOutputSize = _targetSize;
+                _graphicsOutputHdr = wantHdr;
             }
         }
 
@@ -329,6 +354,8 @@ namespace MphRead
             _graphicsOutputReady = false;
             _graphicsPipelineRefused = false;
             _graphicsOutputSize = default;
+            _graphicsOutputHdr = false;
+            _graphicsHdrRefused = false;
             if (_graphicsOutputFramebuffer != 0)
             {
                 GL.DeleteFramebuffer(_graphicsOutputFramebuffer);
@@ -458,8 +485,35 @@ float view_depth(float d) {
     return (2.0 * n * f) / max(0.0001, f + n - z * (f - n));
 }
 
+vec3 smaa_resolve(vec2 uv, vec3 center) {
+    float m = luma(center);
+    vec3 cn = scene(uv + vec2(0.0, texel.y));
+    vec3 cs = scene(uv - vec2(0.0, texel.y));
+    vec3 ce = scene(uv + vec2(texel.x, 0.0));
+    vec3 cw = scene(uv - vec2(texel.x, 0.0));
+    float n = luma(cn), s = luma(cs), e = luma(ce), w = luma(cw);
+    float edgeX = abs(w - e);
+    float edgeY = abs(n - s);
+    float localMin = min(m, min(min(n, s), min(e, w)));
+    float localMax = max(m, max(max(n, s), max(e, w)));
+    float contrast = localMax - localMin;
+    if (contrast < max(0.025, localMax * 0.055)) return center;
+
+    vec2 axis = edgeX > edgeY ? vec2(texel.x, 0.0) : vec2(0.0, texel.y);
+    vec3 a = scene(uv - axis * 0.5);
+    vec3 b = scene(uv + axis * 0.5);
+    vec3 c = scene(uv - axis * 1.5);
+    vec3 d = scene(uv + axis * 1.5);
+    float subpixel = clamp(abs(m - (n + s + e + w) * 0.25)
+        / max(contrast, 0.0001), 0.0, 1.0);
+    float blend = 0.42 + subpixel * 0.28;
+    vec3 morphological = (a + b) * 0.375 + (c + d) * 0.125;
+    return mix(center, morphological, blend);
+}
+
 vec3 fxaa(vec2 uv, vec3 center) {
     if (aa_mode == 0) return center;
+    if (aa_mode == 3) return smaa_resolve(uv, center);
     float m = luma(center);
     float n = luma(scene(uv + vec2(0.0, texel.y)));
     float s = luma(scene(uv - vec2(0.0, texel.y)));
