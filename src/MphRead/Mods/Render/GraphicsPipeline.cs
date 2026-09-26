@@ -30,7 +30,10 @@ namespace MphRead
         private int _gfxLighting, _gfxAo, _gfxContactShadows;
         private int _gfxEnhancedFog, _gfxVolumetricFog, _gfxHdr;
         private int _gfxReflections, _gfxDynamicGlow, _gfxFogColor, _gfxTime;
-        private int _gfxInvProjection, _gfxInvView, _gfxDynamicLightCount;
+        private int _gfxInvProjection, _gfxInvView, _gfxProjection, _gfxCameraPosition;
+        private int _gfxDynamicLightCount;
+        private int _gfxShadowSampler, _gfxShadowEnabled, _gfxShadowView, _gfxShadowProjection;
+        private int _gfxShadowTexel, _gfxShadowLightDir;
         private readonly int[] _gfxDynamicLightPos = new int[8];
         private readonly int[] _gfxDynamicLightColor = new int[8];
 
@@ -65,6 +68,24 @@ namespace MphRead
                 GL.BindTexture(TextureTarget.Texture2D, depthAvailable ? _depthTexture : 0);
                 GL.Uniform1(_gfxDepthSampler, 1);
                 GL.Uniform1(_gfxDepthAvailable, depthAvailable ? 1 : 0);
+
+                bool shadowAvailable = depthAvailable && ShadowMapReady
+                    && RenderOptions.Shadows != ShadowQuality.Off;
+                GL.ActiveTexture(TextureUnit.Texture2);
+                GL.BindTexture(TextureTarget.Texture2D, shadowAvailable ? _shadowDepthTexture : 0);
+                GL.Uniform1(_gfxShadowSampler, 2);
+                GL.Uniform1(_gfxShadowEnabled, shadowAvailable ? 1 : 0);
+                if (shadowAvailable)
+                {
+                    GL.UniformMatrix4(_gfxShadowView, false, ref _shadowView);
+                    GL.UniformMatrix4(_gfxShadowProjection, false, ref _shadowProjection);
+                    GL.Uniform2(_gfxShadowTexel, 1f / Math.Max(1, _shadowTargetSize),
+                        1f / Math.Max(1, _shadowTargetSize));
+                    Vector3 shadowDirection = _light1Vector;
+                    if (shadowDirection.LengthSquared < .0001f)
+                        shadowDirection = new Vector3(-.45f, -.82f, -.35f);
+                    GL.Uniform3(_gfxShadowLightDir, shadowDirection.Normalized());
+                }
                 GL.ActiveTexture(TextureUnit.Texture0);
 
                 GL.Uniform2(_gfxTexel, 1f / Math.Max(1, target.X), 1f / Math.Max(1, target.Y));
@@ -92,6 +113,9 @@ namespace MphRead
                 Matrix4 invView = _viewMatrix.Inverted();
                 GL.UniformMatrix4(_gfxInvProjection, false, ref invProjection);
                 GL.UniformMatrix4(_gfxInvView, false, ref invView);
+                Matrix4 projection = _perspectiveMatrix;
+                GL.UniformMatrix4(_gfxProjection, false, ref projection);
+                GL.Uniform3(_gfxCameraPosition, _cameraPosition);
                 UploadDynamicLights();
 
                 DrawGraphicsFullscreenQuad();
@@ -107,6 +131,8 @@ namespace MphRead
             }
             finally
             {
+                GL.ActiveTexture(TextureUnit.Texture2);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture1);
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture0);
@@ -170,6 +196,14 @@ namespace MphRead
                     _gfxTime = GL.GetUniformLocation(_graphicsProgram, "time_value");
                     _gfxInvProjection = GL.GetUniformLocation(_graphicsProgram, "inv_projection");
                     _gfxInvView = GL.GetUniformLocation(_graphicsProgram, "inv_view");
+                    _gfxProjection = GL.GetUniformLocation(_graphicsProgram, "projection");
+                    _gfxCameraPosition = GL.GetUniformLocation(_graphicsProgram, "camera_position");
+                    _gfxShadowSampler = GL.GetUniformLocation(_graphicsProgram, "shadow_tex");
+                    _gfxShadowEnabled = GL.GetUniformLocation(_graphicsProgram, "shadow_enabled");
+                    _gfxShadowView = GL.GetUniformLocation(_graphicsProgram, "shadow_view");
+                    _gfxShadowProjection = GL.GetUniformLocation(_graphicsProgram, "shadow_projection");
+                    _gfxShadowTexel = GL.GetUniformLocation(_graphicsProgram, "shadow_texel");
+                    _gfxShadowLightDir = GL.GetUniformLocation(_graphicsProgram, "shadow_light_dir");
                     _gfxDynamicLightCount = GL.GetUniformLocation(_graphicsProgram, "dynamic_light_count");
                     for (int i = 0; i < 8; i++)
                     {
@@ -348,6 +382,7 @@ void main() {
 ";
         public static string FragmentSource { get; } = "#version 300 es\nprecision highp float;\nprecision highp int;\n"
             + "in vec2 texcoord;\nout vec4 frag_color;\nuniform highp sampler2D depth_tex;\n"
+            + "uniform highp sampler2D shadow_tex;\n"
             + "#define SAMPLE texture\n#define OUTPUT frag_color\n" + Body;
 #else
         public static string VertexSource { get; } = @"#version 120
@@ -358,7 +393,8 @@ void main() {
 }
 ";
         public static string FragmentSource { get; } = "#version 120\nvarying vec2 texcoord;\n"
-            + "uniform sampler2D depth_tex;\n#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
+            + "uniform sampler2D depth_tex;\nuniform sampler2D shadow_tex;\n"
+            + "#define SAMPLE texture2D\n#define OUTPUT gl_FragColor\n" + Body;
 #endif
 
         private const string Body = @"
@@ -387,6 +423,13 @@ uniform vec4 fog_color;
 uniform float time_value;
 uniform mat4 inv_projection;
 uniform mat4 inv_view;
+uniform mat4 projection;
+uniform vec3 camera_position;
+uniform int shadow_enabled;
+uniform mat4 shadow_view;
+uniform mat4 shadow_projection;
+uniform vec2 shadow_texel;
+uniform vec3 shadow_light_dir;
 uniform int dynamic_light_count;
 uniform vec4 dynamic_light_pos[8];
 uniform vec4 dynamic_light_color[8];
@@ -440,12 +483,21 @@ vec3 fxaa(vec2 uv, vec3 center) {
     return resolved;
 }
 
-vec3 world_position(vec2 uv, float d) {
+vec3 view_position(vec2 uv, float d) {
     vec4 clip = vec4(uv * 2.0 - 1.0, d * 2.0 - 1.0, 1.0);
     vec4 view = inv_projection * clip;
-    view /= max(abs(view.w), 0.000001);
-    vec4 world = inv_view * view;
+    return view.xyz / max(abs(view.w), 0.000001);
+}
+
+vec3 world_position(vec2 uv, float d) {
+    vec4 world = inv_view * vec4(view_position(uv, d), 1.0);
     return world.xyz / max(abs(world.w), 0.000001);
+}
+
+vec2 project_view(vec3 p, out float clipW) {
+    vec4 clip = projection * vec4(p, 1.0);
+    clipW = clip.w;
+    return clip.xy / max(abs(clip.w), 0.000001) * 0.5 + 0.5;
 }
 
 vec3 projectile_lighting(vec3 worldPos) {
@@ -466,14 +518,86 @@ vec3 projectile_lighting(vec3 worldPos) {
 
 vec3 depth_normal(vec2 uv, float centerDepth) {
     if (depth_available == 0 || centerDepth >= 0.999999) return vec3(0.0, 0.0, 1.0);
-    float c = view_depth(centerDepth);
-    float l = view_depth(raw_depth(uv - vec2(texel.x, 0.0)));
-    float r = view_depth(raw_depth(uv + vec2(texel.x, 0.0)));
-    float d = view_depth(raw_depth(uv - vec2(0.0, texel.y)));
-    float u = view_depth(raw_depth(uv + vec2(0.0, texel.y)));
-    float scale = max(c, 1.0);
-    vec2 slope = vec2(r - l, u - d) / scale;
-    return normalize(vec3(-slope.x * 3.5, -slope.y * 3.5, 1.0));
+    vec3 p = view_position(uv, centerDepth);
+    float dx = raw_depth(uv + vec2(texel.x, 0.0));
+    float dy = raw_depth(uv + vec2(0.0, texel.y));
+    vec3 px = view_position(uv + vec2(texel.x, 0.0), dx);
+    vec3 py = view_position(uv + vec2(0.0, texel.y), dy);
+    vec3 n = normalize(cross(px - p, py - p));
+    if (n.z < 0.0) n = -n;
+    return n;
+}
+
+float directional_shadow(vec3 worldPos, vec3 viewNormal) {
+    if (shadow_enabled == 0) return 1.0;
+    vec4 lightClip = shadow_projection * shadow_view * vec4(worldPos, 1.0);
+    if (lightClip.w <= 0.0) return 1.0;
+    vec3 ndc = lightClip.xyz / lightClip.w;
+    vec2 suv = ndc.xy * 0.5 + 0.5;
+    float receiver = ndc.z * 0.5 + 0.5;
+    if (suv.x <= 0.002 || suv.x >= 0.998 || suv.y <= 0.002 || suv.y >= 0.998
+        || receiver <= 0.0 || receiver >= 1.0) return 1.0;
+    vec3 worldNormal = normalize(mat3(inv_view) * viewNormal);
+    float alignment = abs(dot(worldNormal, normalize(shadow_light_dir)));
+    float bias = mix(0.0032, 0.0007, alignment);
+    float lit = 0.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            float stored = SAMPLE(shadow_tex, suv + vec2(float(x), float(y)) * shadow_texel).r;
+            lit += receiver - bias <= stored ? 1.0 : 0.0;
+        }
+    }
+    lit /= 9.0;
+    return mix(0.58, 1.0, lit);
+}
+
+vec3 screen_reflection(vec2 uv, float d, vec3 n) {
+    if (reflections == 0 || depth_available == 0) return vec3(0.0);
+    vec3 origin = view_position(uv, d);
+    vec3 incident = normalize(origin);
+    vec3 rayDir = normalize(reflect(incident, n));
+    if (rayDir.z >= -0.02) return vec3(0.0);
+    float stepLength = max(0.25, abs(origin.z) * 0.025);
+    vec3 ray = origin;
+    for (int i = 0; i < 10; i++) {
+        ray += rayDir * stepLength * (1.0 + float(i) * 0.16);
+        float clipW = 1.0;
+        vec2 hitUv = project_view(ray, clipW);
+        if (clipW <= 0.0 || hitUv.x <= 0.01 || hitUv.x >= 0.99
+            || hitUv.y <= 0.01 || hitUv.y >= 0.99) break;
+        float sd = raw_depth(hitUv);
+        if (sd >= 0.999999) continue;
+        vec3 surface = view_position(hitUv, sd);
+        float thickness = max(0.12, abs(surface.z) * 0.012);
+        if (abs(ray.z - surface.z) <= thickness) {
+            float edge = min(min(hitUv.x, 1.0 - hitUv.x), min(hitUv.y, 1.0 - hitUv.y));
+            float fade = smoothstep(0.01, 0.12, edge);
+            return scene(hitUv) * fade;
+        }
+    }
+    return vec3(0.0);
+}
+
+vec3 volumetric_scattering(vec3 worldPos) {
+    if (volumetric_fog == 0 || dynamic_light_count <= 0) return vec3(0.0);
+    vec3 cameraRay = worldPos - camera_position;
+    float rayLength = length(cameraRay);
+    if (rayLength <= 0.001) return vec3(0.0);
+    vec3 rayDir = cameraRay / rayLength;
+    vec3 scatter = vec3(0.0);
+    for (int i = 0; i < 8; i++) {
+        if (i >= dynamic_light_count) break;
+        vec3 toLight = dynamic_light_pos[i].xyz - camera_position;
+        float alongRay = clamp(dot(toLight, rayDir), 0.0, rayLength);
+        vec3 closest = camera_position + rayDir * alongRay;
+        float radius = max(dynamic_light_pos[i].w * 1.4, 0.5);
+        float distanceToRay = length(dynamic_light_pos[i].xyz - closest);
+        float beam = 1.0 - smoothstep(radius * 0.08, radius, distanceToRay);
+        float distanceFade = 1.0 - smoothstep(8.0, 85.0, length(toLight));
+        scatter += dynamic_light_color[i].rgb * dynamic_light_color[i].a
+            * beam * beam * distanceFade * 0.10;
+    }
+    return scatter;
 }
 
 float ambient_occlusion(vec2 uv, float centerDepth) {
@@ -596,12 +720,15 @@ void main() {
             float spec = pow(max(0.0, dot(reflect(-ld, n), vec3(0.0, 0.0, 1.0))), 18.0);
             color = color * relief + vec3(spec * 0.035);
         }
+        vec3 worldPos = world_position(uv, d);
         color *= ambient_occlusion(uv, d);
         color *= contact_shadow(uv, d);
-        color += projectile_lighting(world_position(uv, d));
+        color *= directional_shadow(worldPos, n);
+        color += projectile_lighting(worldPos);
         if (reflections != 0) {
             float fresnel = pow(clamp(1.0 - n.z, 0.0, 1.0), 3.0);
-            color += vec3(0.035, 0.050, 0.070) * fresnel;
+            vec3 reflected = screen_reflection(uv, d, n);
+            color = mix(color, reflected, fresnel * 0.22);
         }
 
         if (enhanced_fog != 0 || volumetric_fog != 0) {
@@ -618,6 +745,7 @@ void main() {
             float amount = enhanced_fog != 0 ? 0.18 : 0.08;
             if (volumetric_fog != 0) amount += 0.10;
             color = mix(color, fog_color.rgb, clamp(fog * amount, 0.0, 0.32));
+            color += volumetric_scattering(worldPos);
         }
     }
 
