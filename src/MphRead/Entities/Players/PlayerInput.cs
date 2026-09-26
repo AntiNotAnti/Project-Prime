@@ -1357,13 +1357,17 @@ namespace MphRead.Entities
             _altControlDesiredX = forwardX;
             _altControlDesiredZ = forwardZ;
             _altControlPrevInputX = _altControlPrevInputY = 0;
+            _altControlLastOutputX = forwardX;
+            _altControlLastOutputZ = forwardZ;
             _altControlCollisionFrames = 0;
             _altControlBasisInitialized = true;
         }
 
         private void ModEnsureAltControlBasis()
         {
-            if (_altControlBasisInitialized
+            bool outputMatches = MathF.Abs(_altRollFbX - _altControlLastOutputX) < 0.0001f
+                && MathF.Abs(_altRollFbZ - _altControlLastOutputZ) < 0.0001f;
+            if (_altControlBasisInitialized && outputMatches
                 && Mods.Input.AltFormControlBasis.TryNormalize(_altRollFbX, _altRollFbZ,
                     out _, out _))
             {
@@ -1453,6 +1457,8 @@ namespace MphRead.Entities
                         rollInputHeld, collisionTight);
                     _altRollLrX = _altRollFbZ;
                     _altRollLrZ = -_altRollFbX;
+                    _altControlLastOutputX = _altRollFbX;
+                    _altControlLastOutputZ = _altRollFbZ;
                 }
                 // todo?: field35C targeting(?) stuff
 
