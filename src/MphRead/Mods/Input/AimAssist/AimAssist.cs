@@ -197,10 +197,9 @@ namespace MphRead.Mods.Input.AimAssist
                             + .20f * (1 - AimAssistMath.Smooth(0, Math.Max(.25f, Math.Min(2, cone)), headDistance))
                             + .35f * (1 - AimAssistMath.Smooth(0, 1.25f, landing));
                     }
-                    else if (!keep)
-                    {
-                        continue;
-                    }
+                    // A strong first stick movement is also a valid normal turn.
+                    // If this candidate has no head refinement target, leave it in
+                    // ordinary body/trajectory scoring instead of discarding it.
                 }
 
                 if (keep)
@@ -307,7 +306,22 @@ namespace MphRead.Mods.Input.AimAssist
             }
 
             ref readonly var target = ref targets[best];
-            if (flickSelecting) state.FlickTarget = target.Slot;
+            if (flickSelecting)
+            {
+                if (AimAssistMath.VisibleHead(target, profile))
+                {
+                    state.FlickTarget = target.Slot;
+                }
+                else
+                {
+                    // No head target was captured. Treat the same input as the
+                    // ordinary camera turn it also is, rather than pinning a
+                    // body-only target into head-flick state.
+                    state.FlickActive = false;
+                    state.FlickTarget = -1;
+                    state.FlickBraking = false;
+                }
+            }
             bool same = state.TargetSlot == target.Slot && state.TargetLife == target.Life;
             if (!same)
             {
