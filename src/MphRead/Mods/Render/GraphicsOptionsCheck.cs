@@ -49,6 +49,7 @@ namespace MphRead.Mods.Render
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
                 Check(RenderOptions.ResolutionScale == 400
+                    && RenderOptions.AntiAliasing == AntiAliasingMode.Taa
                     && RenderOptions.Shadows == ShadowQuality.Ultra
                     && RenderOptions.InternalHdr
                     && RenderOptions.DynamicGlow,

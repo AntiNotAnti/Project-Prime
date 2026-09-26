@@ -1106,7 +1106,7 @@ namespace MphRead.Mods.Launcher.Gui
                     : v > 100 ? $"{v}% (supersampled)" : $"{v}%",
                 min: RenderOptions.MinScale, max: RenderOptions.MaxScale, keyStep: 5));
             _antiAliasingRow = Add(page, new ChoiceRow("Anti-aliasing",
-                new[] { "Off", "FXAA", "FXAA High", "SMAA 1x" }, (int)RenderOptions.AntiAliasing));
+                new[] { "Off", "FXAA", "FXAA High", "SMAA 1x", "TAA (reprojection)" }, (int)RenderOptions.AntiAliasing));
             _sharpenRow = Add(page, new SliderRow("Image sharpening",
                 RenderOptions.SharpenStrength, v => $"{v}%", min: 0, max: 100, keyStep: 5));
 
@@ -1228,14 +1228,14 @@ namespace MphRead.Mods.Launcher.Gui
                 filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale2x;
                 break;
             case GraphicsPreset.Ultra:
-                scale = 200; aa = AntiAliasingMode.Smaa; sharpen = 16; bloomOn = true; bloom = 80;
+                scale = 200; aa = AntiAliasingMode.Taa; sharpen = 16; bloomOn = true; bloom = 80;
                 grade = ColorGradeProfile.Cinematic; contrast = 110; saturation = 115;
                 enhancedLight = true; advancedMaterials = true; shadow = ShadowQuality.High; ao = AmbientOcclusionQuality.High; contacts = true;
                 enhancedFog = true; volumeFog = true; hdr = true; reflections = true; glow = true;
                 filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
                 break;
             case GraphicsPreset.Extreme:
-                scale = 400; aa = AntiAliasingMode.Smaa; sharpen = 12;
+                scale = 400; aa = AntiAliasingMode.Taa; sharpen = 12;
                 bloomOn = true; bloom = 95; grade = ColorGradeProfile.Cinematic;
                 contrast = 112; saturation = 118; enhancedLight = true;
                 advancedMaterials = true; shadow = ShadowQuality.Ultra;
@@ -2287,7 +2287,7 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
-            _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 3))
+            _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))
                 .ToString().ToLowerInvariant();
             _settings.SharpenStrength = _sharpenRow.Value.ToString(CultureInfo.InvariantCulture);
             _settings.Bloom = RenderOptions.OnOff(_bloomRow.On);

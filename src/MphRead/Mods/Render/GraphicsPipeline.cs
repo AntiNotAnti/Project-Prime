@@ -23,6 +23,10 @@ namespace MphRead
         private int _graphicsOutputFramebuffer;
         private int _graphicsHdrTexture;
         private int _graphicsHdrFramebuffer;
+        private int _graphicsHistoryTexture;
+        private Vector2i _graphicsHistorySize;
+        private bool _graphicsHistoryValid;
+        private Matrix4 _graphicsPreviousViewProjection = Matrix4.Identity;
         private Vector2i _graphicsOutputSize;
         private bool _graphicsOutputReady;
         private bool _graphicsPipelineRefused;
@@ -40,6 +44,7 @@ namespace MphRead
         private int _gfxDynamicLightCount;
         private int _gfxShadowSampler, _gfxShadowEnabled, _gfxShadowView, _gfxShadowProjection;
         private int _gfxShadowTexel, _gfxShadowLightDir;
+        private int _gfxHistorySampler, _gfxHistoryValid, _gfxPreviousViewProjection;
         private readonly int[] _gfxDynamicLightPos = new int[8];
         private readonly int[] _gfxDynamicLightColor = new int[8];
         private readonly DynamicLightCandidate[] _dynamicLightScratch = new DynamicLightCandidate[8];
@@ -99,6 +104,16 @@ namespace MphRead
                         shadowDirection = new Vector3(-.45f, -.82f, -.35f);
                     GL.Uniform3(_gfxShadowLightDir, shadowDirection.Normalized());
                 }
+
+                bool taa = RenderOptions.AntiAliasing == AntiAliasingMode.Taa;
+                EnsureGraphicsHistory(target);
+                GL.ActiveTexture(TextureUnit.Texture3);
+                GL.BindTexture(TextureTarget.Texture2D,
+                    taa && _graphicsHistoryValid ? _graphicsHistoryTexture : 0);
+                GL.Uniform1(_gfxHistorySampler, 3);
+                GL.Uniform1(_gfxHistoryValid, taa && _graphicsHistoryValid ? 1 : 0);
+                Matrix4 previousViewProjection = _graphicsPreviousViewProjection;
+                GL.UniformMatrix4(_gfxPreviousViewProjection, false, ref previousViewProjection);
                 GL.ActiveTexture(TextureUnit.Texture0);
 
                 GL.Uniform2(_gfxTexel, 1f / Math.Max(1, target.X), 1f / Math.Max(1, target.Y));
@@ -136,6 +151,7 @@ namespace MphRead
                 {
                     ResolveGraphicsHdr(target);
                 }
+                UpdateGraphicsHistory(target);
                 _graphicsOutputReady = true;
                 RenderPostProcessCount++;
                 CheckGlError("GraphicsPostProcess");
@@ -148,6 +164,8 @@ namespace MphRead
             }
             finally
             {
+                GL.ActiveTexture(TextureUnit.Texture3);
+                GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture2);
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 GL.ActiveTexture(TextureUnit.Texture1);
@@ -221,6 +239,10 @@ namespace MphRead
                     _gfxShadowProjection = GL.GetUniformLocation(_graphicsProgram, "shadow_projection");
                     _gfxShadowTexel = GL.GetUniformLocation(_graphicsProgram, "shadow_texel");
                     _gfxShadowLightDir = GL.GetUniformLocation(_graphicsProgram, "shadow_light_dir");
+                    _gfxHistorySampler = GL.GetUniformLocation(_graphicsProgram, "history_tex");
+                    _gfxHistoryValid = GL.GetUniformLocation(_graphicsProgram, "history_valid");
+                    _gfxPreviousViewProjection = GL.GetUniformLocation(_graphicsProgram,
+                        "previous_view_projection");
                     _gfxDynamicLightCount = GL.GetUniformLocation(_graphicsProgram, "dynamic_light_count");
                     for (int i = 0; i < 8; i++)
                     {
@@ -360,6 +382,59 @@ namespace MphRead
             DrawGraphicsFullscreenQuad();
         }
 
+        private void EnsureGraphicsHistory(Vector2i target)
+        {
+            if (RenderOptions.AntiAliasing != AntiAliasingMode.Taa)
+            {
+                _graphicsHistoryValid = false;
+                return;
+            }
+            if (_graphicsHistoryTexture == 0)
+            {
+                _graphicsHistoryTexture = GL.GenTexture();
+            }
+            if (_graphicsHistorySize == target) return;
+            GL.ActiveTexture(TextureUnit.Texture3);
+            GL.BindTexture(TextureTarget.Texture2D, _graphicsHistoryTexture);
+            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                target.X, target.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                (int)TextureMinFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                (int)TextureMagFilter.Linear);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
+                (int)TextureWrapMode.ClampToEdge);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
+                (int)TextureWrapMode.ClampToEdge);
+            GL.ActiveTexture(TextureUnit.Texture0);
+            _graphicsHistorySize = target;
+            _graphicsHistoryValid = false;
+        }
+
+        private void UpdateGraphicsHistory(Vector2i target)
+        {
+            if (RenderOptions.AntiAliasing != AntiAliasingMode.Taa
+                || _graphicsHistoryTexture == 0)
+            {
+                _graphicsHistoryValid = false;
+                return;
+            }
+
+            // History stores the raw scene, not the already processed frame.
+            // That keeps color grading, bloom and HDR from being accumulated
+            // repeatedly and makes the temporal stage independent of tone mapping.
+            GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _frameBuffer);
+            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
+            GL.ActiveTexture(TextureUnit.Texture3);
+            GL.BindTexture(TextureTarget.Texture2D, _graphicsHistoryTexture);
+            GL.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 0, 0,
+                target.X, target.Y);
+            GL.ActiveTexture(TextureUnit.Texture0);
+
+            _graphicsPreviousViewProjection = _viewMatrix * _perspectiveMatrix;
+            _graphicsHistoryValid = true;
+        }
+
         private void UploadDynamicLights()
         {
             if (!RenderOptions.DynamicGlow)
@@ -466,6 +541,10 @@ namespace MphRead
             }
             DeleteTexture(ref _graphicsOutputTexture);
             DeleteTexture(ref _graphicsHdrTexture);
+            DeleteTexture(ref _graphicsHistoryTexture);
+            _graphicsHistorySize = default;
+            _graphicsHistoryValid = false;
+            _graphicsPreviousViewProjection = Matrix4.Identity;
             DeleteProgram(ref _graphicsProgram);
             DeleteProgram(ref _graphicsToneMapProgram);
         }
@@ -555,6 +634,8 @@ uniform vec4 fog_color;
 uniform float time_value;
 uniform mat4 inv_projection;
 uniform mat4 inv_view;
+uniform mat4 previous_view_projection;
+uniform int history_valid;
 uniform mat4 projection;
 uniform vec3 camera_position;
 uniform int shadow_enabled;
@@ -673,6 +754,35 @@ vec3 projectile_lighting(vec3 worldPos) {
             * dynamic_light_color[i].a * falloff * 0.34;
     }
     return result;
+}
+
+vec3 temporal_resolve(vec2 uv, vec3 current, float d) {
+    if (aa_mode != 4 || history_valid == 0 || depth_available == 0
+        || d >= 0.999999) return current;
+
+    vec3 world = world_position(uv, d);
+    vec4 previousClip = previous_view_projection * vec4(world, 1.0);
+    if (previousClip.w <= 0.000001) return current;
+    vec2 previousUv = previousClip.xy / previousClip.w * 0.5 + 0.5;
+    if (previousUv.x <= 0.0 || previousUv.x >= 1.0
+        || previousUv.y <= 0.0 || previousUv.y >= 1.0) return current;
+
+    vec3 lo = current, hi = current;
+    vec3 a = scene(uv + vec2(texel.x, 0.0));
+    vec3 b = scene(uv - vec2(texel.x, 0.0));
+    vec3 c = scene(uv + vec2(0.0, texel.y));
+    vec3 e = scene(uv - vec2(0.0, texel.y));
+    lo = min(lo, min(min(a, b), min(c, e)));
+    hi = max(hi, max(max(a, b), max(c, e)));
+
+    vec3 history = clamp(SAMPLE(history_tex, previousUv).rgb,
+        lo - vec3(0.025), hi + vec3(0.025));
+    float motionPixels = length((previousUv - uv) / texel);
+    float historyWeight = mix(0.88, 0.08,
+        smoothstep(0.35, 5.0, motionPixels));
+    float luminanceDelta = abs(luma(history) - luma(current));
+    historyWeight *= 1.0 - smoothstep(0.08, 0.35, luminanceDelta);
+    return mix(current, history, clamp(historyWeight, 0.0, 0.88));
 }
 
 vec3 depth_normal(vec2 uv, float centerDepth) {
@@ -857,8 +967,9 @@ vec3 aces(vec3 x) {
 void main() {
     vec2 uv = texcoord;
     vec3 center = scene(uv);
-    vec3 color = fxaa(uv, center);
     float d = raw_depth(uv);
+    vec3 color = aa_mode == 4 ? temporal_resolve(uv, center, d)
+        : fxaa(uv, center);
 
     if (sharpen_strength > 0.0001) {
         vec3 blur = (scene(uv + vec2(texel.x, 0.0))

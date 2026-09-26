@@ -32,7 +32,8 @@ namespace MphRead.Mods
         Off,
         Fxaa,
         FxaaHigh,
-        Smaa
+        Smaa,
+        Taa
     }
 
     public enum TextureUpscaleMode
@@ -413,7 +414,7 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 16;
+                AntiAliasing = AntiAliasingMode.Taa; SharpenStrength = 16;
                 Bloom = true; BloomIntensity = 80;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
                 EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
@@ -425,7 +426,7 @@ namespace MphRead.Mods
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
                 TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 12;
+                AntiAliasing = AntiAliasingMode.Taa; SharpenStrength = 12;
                 Bloom = true; BloomIntensity = 95;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;
                 EnhancedLighting = true; AdvancedMaterials = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;
