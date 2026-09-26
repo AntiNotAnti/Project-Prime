@@ -1227,6 +1227,14 @@ namespace MphRead.Entities
 
         private Vector3 GetCrosshairColor()
         {
+            if (ModShadowFreezeTargetReady)
+            {
+                return new Vector3(.10f, .88f, 1f);
+            }
+            if (ModShadowFreezeAngleReady)
+            {
+                return new Vector3(.45f, .78f, 1f);
+            }
             if (Health > 60)
             {
                 return new Vector3(0, 1, 0);
@@ -1622,7 +1630,14 @@ namespace MphRead.Entities
                                     }
                                     else
                                     {
-                                        _targetCircleInst.Alpha = Features.ReticleOpacity;
+                                        float reticleAlpha = Features.ReticleOpacity;
+                                        if (ModShadowFreezeAngleReady)
+                                        {
+                                            float speed = ModShadowFreezeTargetReady ? 16f : 10f;
+                                            float wave = .5f + .5f * MathF.Sin(_scene.GlobalElapsedTime * speed);
+                                            reticleAlpha *= .82f + .18f * wave;
+                                        }
+                                        _targetCircleInst.Alpha = reticleAlpha;
                                         _scene.DrawHudObject(_targetCircleInst, scale: Mods.Render.Crosshair.Scale);
                                     }
                                     float hitMarker = Mods.Network.NetHitPrediction.MarkerAlpha;

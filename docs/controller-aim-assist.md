@@ -109,6 +109,32 @@ increases positional snap. Abrupt target-motion transitions such as a strafe rev
 jump apex/landing or impulse clear stale acceleration and temporarily speed convergence.
 Normal target selection remains trajectory-aware outside flicks.
 
+## Shadow Freeze technique assist
+
+The affinity Judicator has a controller-only technique assist for the cartridge-style
+Shadow Freeze. It is built in and has no player-facing settings. The assist activates
+only after an intentional downward camera move while charging the affinity Judicator
+with the room's Shadow Freeze compatibility rule enabled.
+
+The controller helper never aims toward an opponent. It shapes pitch only: it brakes
+outer-stick acceleration near the steep downward window, adds a small bounded
+down-flick capture, suppresses minor cross-axis stick leakage, retains the angle through
+small stick noise, and preserves the release pose for a few simulation frames. Charge
+progress scales the strength, with the strongest help reserved for a fully charged shot.
+A small session-local adaptive term can raise or lower the capture strength from recent
+release error, but the target pitch itself never moves.
+
+Readiness is derived from the same cartridge range geometry rather than a hard-coded
+button combo. The HUD gives subtle reticle feedback when the charged shot is in the
+high-multiplier window. Haptics give one light notch on angle readiness and a distinct
+pulse when the current ice-wave geometry would actually intersect a visible opponent.
+Hidden opponents cannot be acquired by the cue; a target that was already visible may
+be retained for a very short occlusion grace so doorway-edge flicker does not chatter.
+
+The technique assist does not run for mouse/touch input, bots, remote/replay actors,
+alt-form input, or the controller baseline diagnostic arm. It does not change the
+server-authoritative Judicator collision rule.
+
 ## Correction budget and stick response
 
 Each weapon/state has a small leaky correction budget measured in assisted camera

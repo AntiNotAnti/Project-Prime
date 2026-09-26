@@ -2600,6 +2600,10 @@ namespace MphRead.Entities
                         || attacker == this;
                     if (applyBeamAfflictions && beam.Afflictions.TestFlag(Affliction.Freeze))
                     {
+                        if (beam.Beam == BeamType.Judicator && _scene.GameState.ShadowFreeze)
+                        {
+                            Mods.Input.AimAssist.AimAssistTelemetry.ShadowFreezeConfirmed(attacker);
+                        }
                         if (flags.TestFlag(DamageFlags.Halfturret))
                         {
                             _soundSource.PlaySfx(SfxId.SHOTGUN_FREEZE);

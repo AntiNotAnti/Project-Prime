@@ -117,6 +117,7 @@ namespace MphRead.Mods.Input.AimAssist
             TrackingChecks();
             V3Checks();
             V4Checks();
+            ShadowFreezeChecks();
             AimAssistCameraChecks.Run();
 
             AimInputSourceTracker.Reset();
@@ -716,6 +717,33 @@ namespace MphRead.Mods.Input.AimAssist
                 new Vector2(.05f, 0), new Vector2(.4f, 0), 0, dt, true, profile);
             Check(brake.TurnAccelerationBrake > .5f,
                 "precision braking tells outer-stick acceleration to unwind");
+        }
+
+        private static void ShadowFreezeChecks()
+        {
+            void Check(bool ok, string name) => GamepadChecks.Check(ok, "shadow freeze assist: " + name);
+
+            Check(ShadowFreezeAssistMath.CapturePitch > ShadowFreezeAssistMath.ReadyPitch
+                && ShadowFreezeAssistMath.ReadyPitch > ShadowFreezeAssistMath.TargetPitch,
+                "capture, ready and target windows tighten toward straight down");
+            Check(Math.Abs(ShadowFreezeAssistMath.RangeMultiplier(
+                    ShadowFreezeAssistMath.TargetPitch)
+                    - ShadowFreezeAssistMath.TargetRangeMultiplier) < .01f,
+                "target pitch is derived from the cartridge range multiplier");
+            Check(ShadowFreezeAssistMath.AngleReady(-85f)
+                && !ShadowFreezeAssistMath.AngleReady(-70f),
+                "readiness requires the steep shadow-freeze pitch rather than ordinary downward aim");
+
+            float pitch = ShadowFreezeAssistMath.TargetPitch * MathF.PI / 180f;
+            var direction = new OpenTK.Mathematics.Vector3(0, MathF.Sin(pitch), MathF.Cos(pitch));
+            var origin = OpenTK.Mathematics.Vector3.Zero;
+            var distant = new OpenTK.Mathematics.Vector3(0, 0, 80);
+            Check(MphRead.Entities.BeamProjectileEntity.ModShadowFreezeWouldHit(
+                    origin, direction, 10, distant),
+                "downward cartridge geometry reaches a distant aligned target");
+            Check(!MphRead.Entities.BeamProjectileEntity.ModShadowFreezeWouldHit(
+                    origin, OpenTK.Mathematics.Vector3.UnitZ, 10, distant),
+                "the same distant target is outside the ordinary forward ice-wave reach");
         }
 
         private static float SimulateTracking(int hz, bool moving, bool head)

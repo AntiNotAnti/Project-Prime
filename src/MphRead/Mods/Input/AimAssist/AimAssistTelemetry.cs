@@ -52,6 +52,18 @@ namespace MphRead.Mods.Input.AimAssist
             public double CorrectionBeforeShotSum { get; set; }
             public double HeadDwellBeforeShotSum { get; set; }
             public double ScopeReacquireSecondsSum { get; set; }
+            public int ShadowFreezeAttempts { get; set; }
+            public int ShadowFreezeAngleEntries { get; set; }
+            public int ShadowFreezeTargetCues { get; set; }
+            public int ShadowFreezeOvershoots { get; set; }
+            public int ShadowFreezeConfirmedFreezes { get; set; }
+            public int ShadowFreezeReleases { get; set; }
+            public double ShadowFreezeReleaseErrorSum { get; set; }
+            public double ShadowFreezeAdaptiveStrengthSum { get; set; }
+            public double MeanShadowFreezeReleaseError => ShadowFreezeReleases == 0 ? 0
+                : ShadowFreezeReleaseErrorSum / ShadowFreezeReleases;
+            public double MeanShadowFreezeAdaptiveStrength => ShadowFreezeReleases == 0 ? 0
+                : ShadowFreezeAdaptiveStrengthSum / ShadowFreezeReleases;
             public double MeanPlayerContribution => Samples == 0 ? 0 : PlayerContributionSum / Samples;
             public double MeanAssistContribution => Samples == 0 ? 0 : AssistContributionSum / Samples;
             public double MeanAssistShare => PlayerContributionSum + AssistContributionSum <= 0 ? 0
@@ -144,6 +156,64 @@ namespace MphRead.Mods.Input.AimAssist
                 }
                 bucket.ObservedDamage += damage;
             }
+        }
+
+        private static Bucket? ShadowFreezeBucket()
+        {
+            if (_path == null)
+            {
+                return null;
+            }
+            int input = AimAssistDebug.UnassistedArm ? 1 : 2;
+            int beam = Math.Clamp((int)BeamType.Judicator, 0, 15);
+            const int range = 3;
+            return Buckets[input, beam, range] ??= new()
+            {
+                Input = input == 1 ? "controller-baseline" : "controller-assisted",
+                Weapon = BeamType.Judicator.ToString(),
+                Distance = "no-target"
+            };
+        }
+
+        public static void ShadowFreezeAttempt()
+        {
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeAttempts++;
+        }
+
+        public static void ShadowFreezeAngleReady()
+        {
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeAngleEntries++;
+        }
+
+        public static void ShadowFreezeTargetCue()
+        {
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeTargetCues++;
+        }
+
+        public static void ShadowFreezeOvershoot()
+        {
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeOvershoots++;
+        }
+
+        public static void ShadowFreezeConfirmed(PlayerEntity? attacker)
+        {
+            if (_path == null || attacker?.IsMainPlayer != true || attacker.IsBot
+                || SpectatorMode.IsSpectating
+                || AimInputSourceTracker.Current != AimInputSource.Gamepad
+                || !attacker.ModShadowFreezeAssistTelemetryActive)
+            {
+                return;
+            }
+            if (ShadowFreezeBucket() is { } bucket) bucket.ShadowFreezeConfirmedFreezes++;
+        }
+
+        public static void ShadowFreezeRelease(float angleError, float adaptiveStrength)
+        {
+            if (ShadowFreezeBucket() is not { } bucket) return;
+            bucket.ShadowFreezeReleases++;
+            bucket.ShadowFreezeReleaseErrorSum += float.IsFinite(angleError) ? angleError : 0;
+            bucket.ShadowFreezeAdaptiveStrengthSum += float.IsFinite(adaptiveStrength)
+                ? adaptiveStrength : 1;
         }
 
         public static void Configure(string? path)

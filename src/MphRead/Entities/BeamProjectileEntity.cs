@@ -2176,31 +2176,72 @@ namespace MphRead.Entities
             // happens to be within 60 degrees on the map. A rule rather than a
             // preference, and held by the server, because the machine
             // resolving the shot is the one that decides who it hit.
-            Vector3 full = position - Position;
-            Vector3 between = full;
-            float dot = Vector3.Dot(between, Up);
-            between += Up * -dot;
-            float mag = between.Length;
-            // With the rule off, both halves of the test are done in three
-            // dimensions -- the distance as well as the angle. Correcting only
-            // the angle would still leave the wave reaching twice its range at
-            // the edge of the cone, since what it was measuring is the
-            // distance with the height taken out of it.
-            float reach = _scene.GameState.ShadowFreeze ? mag : full.Length;
-            if (reach < MaxDistance && reach > 0)
+            if (ModIceWaveContains(Position, Direction, Up, MaxDistance, position, angleCos,
+                _scene.GameState.ShadowFreeze))
             {
-                Vector3 toward = _scene.GameState.ShadowFreeze ? between / mag : full / reach;
-                if (Vector3.Dot(toward, Direction) > angleCos)
+                Vector3 dir = GetDamageDirection(Position, player.Position);
+                DamageFlags flags = DamageFlags.NoDmgInvuln;
+                if (halfturret)
                 {
-                    Vector3 dir = GetDamageDirection(Position, player.Position);
-                    DamageFlags flags = DamageFlags.NoDmgInvuln;
-                    if (halfturret)
-                    {
-                        flags |= DamageFlags.Halfturret;
-                    }
-                    player.TakeDamage((int)Damage, flags, dir, this);
+                    flags |= DamageFlags.Halfturret;
                 }
+                player.TakeDamage((int)Damage, flags, dir, this);
             }
+        }
+
+        /// <summary>
+        /// The cartridge's charged affinity-Judicator ice-wave volume, exposed for
+        /// controller feedback and regression checks. It is intentionally the same
+        /// math used by <see cref="CheckIceWaveCollision(PlayerEntity, Vector3, float, bool)"/>.
+        /// </summary>
+        internal static bool ModShadowFreezeWouldHit(Vector3 origin, Vector3 direction,
+            float maxDistance, Vector3 target)
+        {
+            if (!Single.IsFinite(origin.X) || !Single.IsFinite(origin.Y) || !Single.IsFinite(origin.Z)
+                || !Single.IsFinite(direction.X) || !Single.IsFinite(direction.Y)
+                || !Single.IsFinite(direction.Z) || !Single.IsFinite(target.X)
+                || !Single.IsFinite(target.Y) || !Single.IsFinite(target.Z)
+                || !Single.IsFinite(maxDistance) || maxDistance <= 0
+                || direction.LengthSquared < .000001f)
+            {
+                return false;
+            }
+
+            direction = direction.Normalized();
+            Vector3 right;
+            if (direction.X != 0 || direction.Z != 0)
+            {
+                right = new Vector3(direction.Z, 0, -direction.X).Normalized();
+            }
+            else
+            {
+                right = Vector3.UnitX;
+            }
+            Vector3 up = Vector3.Cross(direction, right).Normalized();
+            float angleCos = MathF.Cos(MathHelper.DegreesToRadians(60));
+            return ModIceWaveContains(origin, direction, up, maxDistance, target,
+                angleCos, shadowFreeze: true);
+        }
+
+        private static bool ModIceWaveContains(Vector3 origin, Vector3 direction, Vector3 up,
+            float maxDistance, Vector3 target, float angleCos, bool shadowFreeze)
+        {
+            Vector3 full = target - origin;
+            Vector3 between = full;
+            float dot = Vector3.Dot(between, up);
+            between += up * -dot;
+            float mag = between.Length;
+
+            // With the compatibility rule off, both halves of the test are
+            // three-dimensional. With it on, the beam-local Up component is
+            // stripped from distance and angle, preserving the cartridge bug.
+            float reach = shadowFreeze ? mag : full.Length;
+            if (!(reach < maxDistance && reach > 0))
+            {
+                return false;
+            }
+            Vector3 toward = shadowFreeze ? between / mag : full / reach;
+            return Vector3.Dot(toward, direction) > angleCos;
         }
 
         private Vector3 GetDamageDirection(Vector3 beamPos, Vector3 targetPos)
