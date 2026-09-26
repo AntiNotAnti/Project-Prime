@@ -34,6 +34,13 @@ namespace MphRead.Mods
         FxaaHigh
     }
 
+    public enum TextureUpscaleMode
+    {
+        Off,
+        Scale2x,
+        Scale4x
+    }
+
     public enum AmbientOcclusionQuality
     {
         Off,
@@ -70,9 +77,10 @@ namespace MphRead.Mods
     public static class RenderOptions
     {
         /// <summary>
-        /// Percent of the window the 3D scene is rendered at, 25 to 300.
-        /// Halving it quarters the pixels; values above 100 supersample the
-        /// world before it is downsampled to the display.
+        /// Percent of the window the 3D scene is rendered at, 25 to 800.
+        /// Halving it quarters the pixels; 200/400/800 are true 2x/4x/8x
+        /// internal dimensions. The renderer additionally clamps to the active
+        /// GPU's maximum render-target dimension while preserving aspect ratio.
         /// </summary>
         public static int ResolutionScale
         {
@@ -83,8 +91,8 @@ namespace MphRead.Mods
         private static int _resolutionScale = 100;
 
         public const int MinScale = 25;
-        /// <summary>300% is 3x per axis / 9x the shaded pixels. This is intentionally an extreme ceiling.</summary>
-        public const int MaxScale = 300;
+        /// <summary>800% exposes an 8x-per-axis research/extreme mode; runtime GPU limits still win.</summary>
+        public const int MaxScale = 800;
 
         /// <summary>
         /// How wide the view is, in degrees, measured the way the game
@@ -260,6 +268,19 @@ namespace MphRead.Mods
         private static int _textureAnisotropy = 1;
 
         /// <summary>
+        /// Optional edge-aware source-texture enlargement before mip generation.
+        /// This is independent of render-scale supersampling and HD replacement packs.
+        /// </summary>
+        public static TextureUpscaleMode TextureUpscale { get; set; } = TextureUpscaleMode.Off;
+
+        public static int TextureUpscaleFactor => TextureUpscale switch
+        {
+            TextureUpscaleMode.Scale2x => 2,
+            TextureUpscaleMode.Scale4x => 4,
+            _ => 1
+        };
+
+        /// <summary>
         /// Named bundles for the modern presentation path. Individual values remain
         /// authoritative so a saved preset can be edited into a custom setup.
         /// </summary>
@@ -341,6 +362,7 @@ namespace MphRead.Mods
                 ResolutionScale = 100;
                 Lighting = true; Fog = true;
                 TextureFiltering = false; TextureMipmaps = false; TextureAnisotropy = 1;
+                TextureUpscale = TextureUpscaleMode.Off;
                 AntiAliasing = AntiAliasingMode.Off; SharpenStrength = 0;
                 Bloom = false; BloomIntensity = 60;
                 ColorGrade = ColorGradeProfile.Original; Gamma = Contrast = Saturation = 100;
@@ -352,6 +374,7 @@ namespace MphRead.Mods
                 ResolutionScale = 85;
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 4;
+                TextureUpscale = TextureUpscaleMode.Off;
                 AntiAliasing = AntiAliasingMode.Fxaa; SharpenStrength = 20;
                 Bloom = false; BloomIntensity = 45;
                 ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 104; Saturation = 106;
@@ -363,6 +386,7 @@ namespace MphRead.Mods
                 ResolutionScale = 100;
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale2x;
                 AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 25;
                 Bloom = true; BloomIntensity = 60;
                 ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 108; Saturation = 112;
@@ -371,9 +395,10 @@ namespace MphRead.Mods
                 InternalHdr = false; Reflections = false; DynamicGlow = true;
                 break;
             case GraphicsPreset.Ultra:
-                ResolutionScale = 150;
+                ResolutionScale = 200;
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale4x;
                 AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 18;
                 Bloom = true; BloomIntensity = 80;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
@@ -382,9 +407,10 @@ namespace MphRead.Mods
                 InternalHdr = true; Reflections = true; DynamicGlow = true;
                 break;
             case GraphicsPreset.Extreme:
-                ResolutionScale = MaxScale;
+                ResolutionScale = 400;
                 Lighting = true; Fog = true;
                 TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
+                TextureUpscale = TextureUpscaleMode.Scale4x;
                 AntiAliasing = AntiAliasingMode.FxaaHigh; SharpenStrength = 12;
                 Bloom = true; BloomIntensity = 95;
                 ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;

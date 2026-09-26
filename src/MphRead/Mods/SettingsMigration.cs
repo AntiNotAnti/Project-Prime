@@ -15,7 +15,7 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 2;
+        public const int CurrentSchema = 3;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
@@ -106,6 +106,8 @@ namespace MphRead.Mods
                 "dynamic glow", changed);
             settings.TextureReplacements = NormalizeToggle(settings.TextureReplacements, false,
                 "HD texture replacements", changed);
+            settings.TextureUpscale = NormalizeEnum(settings.TextureUpscale,
+                TextureUpscaleMode.Off, "texture upscaling", changed);
 
             settings.SfxVolume = NormalizeVolume(settings.SfxVolume, 0.35f, "sfx volume", changed);
             settings.MusicVolume = NormalizeVolume(settings.MusicVolume, 0.50f, "music volume", changed);
@@ -155,6 +157,7 @@ namespace MphRead.Mods
             settings.Reflections = "off";
             settings.DynamicGlow = "off";
             settings.TextureReplacements = "off";
+            settings.TextureUpscale = "off";
             settings.SettingsSchemaVersion = CurrentSchema;
         }
 

@@ -1482,9 +1482,15 @@ namespace MphRead
                 textureId, paletteId, recolorId, out _, out _);
             if (!replaced)
             {
+                uint[] uploadPixels = pixels.ToArray();
+                int uploadWidth = texture.Width;
+                int uploadHeight = texture.Height;
+                uploadPixels = Mods.Render.TextureUpscaler.Scale(uploadPixels,
+                    uploadWidth, uploadHeight, Mods.RenderOptions.TextureUpscaleFactor,
+                    out uploadWidth, out uploadHeight);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
-                    texture.Width, texture.Height, 0, PixelFormat.Rgba,
-                    PixelType.UnsignedByte, pixels.ToArray());
+                    uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
+                    PixelType.UnsignedByte, uploadPixels);
             }
             // Mipmaps are generated lazily if/when the player enables them.
             // The default DS/competitive path therefore pays no extra upload

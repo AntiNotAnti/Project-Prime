@@ -128,6 +128,8 @@ namespace MphRead.Mods
                 RenderOptions.DynamicGlow);
             RenderOptions.TextureReplacements = RenderOptions.ParseOnOff(settings.TextureReplacements,
                 RenderOptions.TextureReplacements);
+            if (Enum.TryParse(settings.TextureUpscale, true, out TextureUpscaleMode textureUpscale))
+                RenderOptions.TextureUpscale = textureUpscale;
             DebugLog.Line("performance", Maintenance.PerformanceSummary(settings));
         }
 
