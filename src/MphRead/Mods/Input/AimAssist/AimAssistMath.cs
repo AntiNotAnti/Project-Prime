@@ -162,7 +162,9 @@ namespace MphRead.Mods.Input.AimAssist
                 : target.BodyRegion is { } r && InsideRegion(r);
         public static bool InsideHead(in AimAssistTarget target)
             => target.HeadSurface is { } s ? s.Inside
-                : target.HeadRegion is { } r && InsideRegion(r);
+                : target.HeadRegion is { } r ? InsideRegion(r)
+                : Finite(HeadError(target)) && HeadError(target).Length()
+                    <= Math.Max(.05f, target.HeadRadiusDegrees);
         public static bool CanHeadshotAtDistance(BeamType weapon, float distance)
             => float.IsFinite(distance) && distance >= 0 && (weapon == BeamType.Imperialist
                 || (weapon is BeamType.PowerBeam or BeamType.VoltDriver && distance <= 15));
