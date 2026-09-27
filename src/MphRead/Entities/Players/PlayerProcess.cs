@@ -1959,6 +1959,8 @@ namespace MphRead.Entities
             _altCameraCollisionClearFrames = 0;
             _altRollPrevInputX = _altRollPrevInputY = 0;
             _altRollLockInputX = _altRollLockInputY = 0;
+            _spireClimbWallNormal = Vector3.Zero;
+            _spireLedgeCrestTimer = 0;
             _altRollFbX = _field70;
             _altRollFbZ = _field74;
             _altRollLrX = _gunVec2.X;
