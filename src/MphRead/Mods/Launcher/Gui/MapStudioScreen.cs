@@ -123,8 +123,18 @@ namespace MphRead.Mods.Launcher.Gui
                 box.SelectionChanged+=(_,_)=>{if(box.SelectedItem is string text)choose(text);};tools.Children.Add(box);
             }
             Choice(new[]{"Move","Rotate","Scale"},name=>{if(_viewport!=null)_viewport.Tool=name;});
+            Choice(new[]{"Object","Face","Edge","Vertex"},name=>{if(_viewport!=null){_viewport.ElementMode=name;_viewport.ClearSubSelection();ShowInspectorPage(_inspectorPage,false);}});
             Choice(new[]{"Free","X","Y","Z","XY","XZ","YZ"},name=>{if(_viewport!=null)_viewport.Axes=name;});
             Choice(new[]{"Perspective","Top","Front","Side"},name=>_viewport?.SetView(name));
+            Choice(new[]{"Place: Cursor","Place: Camera target","Place: Surface"},name=>
+            {
+                if(_viewport!=null)_viewport.PlacementMode=name switch
+                {
+                    "Place: Camera target"=>"Camera target",
+                    "Place: Surface"=>"Surface",
+                    _=>"Cursor"
+                };
+            });
             Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>{if(name!="Add object")AddObject(name);});
             Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
             {
@@ -141,6 +151,8 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(tools,"Copy",()=>_document?.CopySelection());AddButton(tools,"Paste",()=>_document?.PasteClipboard());
             AddButton(tools,"Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate));AddButton(tools,"Delete",()=>EditSelection("Delete",MapObjects.Delete));
             AddButton(tools,"Hide",()=>_document?.HideSelection());AddButton(tools,"Show all",()=>_document?.ShowAllGeometry());
+            AddButton(tools,"Measure",()=>{if(_viewport!=null){_viewport.MeasureMode=!_viewport.MeasureMode;_viewport.InvalidateVisual();}});
+            AddButton(tools,"Commands",ShowCommandPalette);
             AddButton(tools,"Capture preview",CapturePreview);
             center.Children.Add(tools);Grid.SetRow(_viewportHost,1);center.Children.Add(_viewportHost);Grid.SetColumn(center,1);body.Children.Add(center);
             var inspectorScroll=new ScrollViewer { Content=_inspector };Grid.SetColumn(inspectorScroll,2);body.Children.Add(inspectorScroll);
