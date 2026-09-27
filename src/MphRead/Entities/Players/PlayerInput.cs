@@ -1742,10 +1742,9 @@ namespace MphRead.Entities
                     }
 
                     // Dialanche flicks are mobility now, not the slam attack.
-                    // Add to current momentum in the swipe direction and raise
-                    // only the temporary horizontal cap to Spire's authored alt
-                    // boost cap. This preserves existing momentum/collision
-                    // physics while giving a clear directional shove.
+                    // Add only a small nudge in the swipe direction and permit
+                    // a short ~10% overspeed window. Existing momentum/collision
+                    // physics remain in charge; this is not a second boost.
                     if (Hunter == Hunter.Spire && SwipeBoostRequested)
                     {
                         float forward = -SwipeBoostY;
