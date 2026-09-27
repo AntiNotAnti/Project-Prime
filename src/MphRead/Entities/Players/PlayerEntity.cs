@@ -371,21 +371,18 @@ namespace MphRead.Entities
         private float _viewTiltAngleV = 0;
         private bool _field6D0 = false; //  todo: unused?
         public bool Field6D0 => _field6D0; //  todo: unused?
-        private float _altRollFbX = 0; // stable virtual control forward
+        private float _altRollFbX = 0; // camera-relative rolling movement basis
         private float _altRollFbZ = 0;
         private float _altRollLrX = 0;
         private float _altRollLrZ = 0;
-        // Transient local control state. Deliberately excluded from the replay
-        // checkpoint contract: _altRollFb/Lr are the authoritative restored
-        // control basis, and these fields self-initialize from it after a seek.
-        private float _altControlDesiredX = 0;
-        private float _altControlDesiredZ = -1;
-        private float _altControlPrevInputX = 0;
-        private float _altControlPrevInputY = 0;
-        private float _altControlLastOutputX = 0;
-        private float _altControlLastOutputZ = -1;
-        private byte _altControlCollisionFrames = 0;
-        private bool _altControlBasisInitialized = false;
+        // Local-only collision/input bookkeeping. These do not belong in replay
+        // checkpoints or on the wire; _altRollFb/Lr remain the restored basis.
+        private bool _altCameraCollisionBasisLock = false;
+        private byte _altCameraCollisionClearFrames = 0;
+        private float _altRollPrevInputX = 0;
+        private float _altRollPrevInputY = 0;
+        private float _altRollLockInputX = 0;
+        private float _altRollLockInputY = 0;
 
         private HalfturretEntity _halfturret = null!;
         public HalfturretEntity Halfturret => _halfturret;
@@ -1028,7 +1025,14 @@ namespace MphRead.Entities
             SwitchVisors(reset: true);
             CloseDialogs();
             // todo: update more UI fields
-            ModResetAltControlBasis(CameraInfo.Field48, CameraInfo.Field4C);
+            _altRollFbX = CameraInfo.Field48;
+            _altRollFbZ = CameraInfo.Field4C;
+            _altRollLrX = CameraInfo.Field50;
+            _altRollLrZ = CameraInfo.Field54;
+            _altCameraCollisionBasisLock = false;
+            _altCameraCollisionClearFrames = 0;
+            _altRollPrevInputX = _altRollPrevInputY = 0;
+            _altRollLockInputX = _altRollLockInputY = 0;
             _light1Vector = _scene.Light1Vector;
             _light1Color = _scene.Light1Color;
             _light2Vector = _scene.Light2Vector;
