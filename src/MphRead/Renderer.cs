@@ -970,6 +970,7 @@ namespace MphRead
             _shaderLocations.Diffuse = GL.GetUniformLocation(_shaderProgramId, "diffuse");
             _shaderLocations.Ambient = GL.GetUniformLocation(_shaderProgramId, "ambient");
             _shaderLocations.Specular = GL.GetUniformLocation(_shaderProgramId, "specular");
+            InitCosmeticUniforms();
             _shaderLocations.Emission = GL.GetUniformLocation(_shaderProgramId, "emission");
             _shaderLocations.UseFog = GL.GetUniformLocation(_shaderProgramId, "fog_enable");
             _shaderLocations.CelBands = GL.GetUniformLocation(_shaderProgramId, "cel_bands");
@@ -996,6 +997,7 @@ namespace MphRead
             _shaderLocations.ToonTable = GL.GetUniformLocation(_shaderProgramId, "toon_table");
 
             GL.UseProgram(_shaderProgramId);
+            ApplyCosmeticUniforms(default);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "tex"), 0);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "normal_tex"), 1);
             GL.Uniform1(GL.GetUniformLocation(_shaderProgramId, "specular_tex"), 2);
@@ -1051,6 +1053,7 @@ namespace MphRead
             GL.Uniform1(_shaderLocations.ShiftTable, 64, shifts);
 
             GL.UseProgram(_shaderProgramId);
+            ApplyCosmeticUniforms(default);
 
             var floats = new List<float>(Metadata.ToonTable.Count * 3);
             foreach (Vector3 vector in Metadata.ToonTable)
@@ -1592,7 +1595,7 @@ namespace MphRead
             _lastTextureId = AllocateTexture();
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                PixelFormat.Rgba, PixelType.UnsignedByte, data.ToArray());
+                PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
             _mipmappedTextures.Remove(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             _flatColors[_lastTextureId] = AverageOf(data);
@@ -1603,7 +1606,7 @@ namespace MphRead
         {
             GL.BindTexture(TextureTarget.Texture2D, bindingId);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                PixelFormat.Rgba, PixelType.UnsignedByte, data.ToArray());
+                PixelFormat.Rgba, PixelType.UnsignedByte, data as ColorRgba[] ?? data.ToArray());
             _mipmappedTextures.Remove(bindingId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             // this binding may already have had a different picture in it
@@ -2146,6 +2149,7 @@ namespace MphRead
             UpdateDepthAttachment(target);
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UseProgram(_shaderProgramId);
+            ApplyCosmeticUniforms(default);
             LoadAndUnload();
             _decalItems.Clear();
             _nonDecalItems.Clear();
@@ -4152,6 +4156,8 @@ namespace MphRead
         private RenderItem GetRenderItem()
         {
             RenderItem item = _freeRenderItems.Count > 0 ? _freeRenderItems.Dequeue() : new RenderItem();
+            item.Cosmetics = default;
+            item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
             return item;
@@ -4192,6 +4198,8 @@ namespace MphRead
             _scaleFactors[15] = 1;
             RenderItem item = GetRenderItem();
             item.Type = RenderItemType.Mesh;
+            item.Cosmetics = CosmeticSubmission;
+            item.CosmeticMaterial = CosmeticMaterialSubmission;
             item.PolygonId = polygonId;
             item.Alpha = material.CurrentAlpha * alphaScale;
             item.PolygonMode = material.PolygonMode;
@@ -4223,6 +4231,8 @@ namespace MphRead
                 item.HasTexture = material.TextureId != -1;
                 item.TextureBindingId = material.TextureBindingId;
             }
+            if (!bindingOverride.HasValue && item.CosmeticMaterial.AlbedoBinding != 0)
+            { item.TextureBindingId = item.CosmeticMaterial.AlbedoBinding; item.HasTexture = true; }
             item.TexcoordMatrix = texcoordMatrix;
             item.Transform = transform;
             item.ListId = listId;
@@ -4794,6 +4804,7 @@ namespace MphRead
             }
             _texPalMap.Clear();
             _mipmappedTextures?.Clear();
+            _cosmeticTextures.Clear();
             _materialMaps.Clear();
             if (_modelLeases != null)
             {
@@ -5369,6 +5380,7 @@ namespace MphRead
 
         private void DrawHudLayer(LayerInfo info)
         {
+            ApplyCosmeticUniforms(default);
             if (info.BindingId == -1)
             {
                 return;
@@ -5446,52 +5458,54 @@ namespace MphRead
         /// cross welded to the centre is not that game whatever the gun is
         /// doing. See PlayerHud.UpdateReticle.
         /// </param>
-        public void DrawCustomCrosshair(Vector3 color, float posX = 0.5f, float posY = 0.5f)
+        public void DrawCustomCrosshair(Vector3 color, float posX = 0.5f, float posY = 0.5f,
+            int weapon = -1, bool zoom = false)
         {
-            float halfW = Size.X / 2f;
-            float halfH = Size.Y / 2f;
-            // The offset is applied in the same normalised space the bars are
-            // laid out in, so nothing below has to know the crosshair moved.
-            float offX = posX * 2f - 1f;
-            float offY = 1f - posY * 2f;
-            Mods.Render.CrosshairStyle style = Mods.Render.Crosshair.Style;
-            float scale = Mods.Render.Crosshair.Scale;
-            GL.Uniform4(_shaderLocations.FadeColor, color.X, color.Y, color.Z, 1f);
-            IReadOnlyList<Mods.Render.CrosshairBar> bars =
-                Mods.Render.Crosshair.BarsOf(style, scale);
-            for (int i = 0; i < bars.Count; i++)
+            var runtime = Mods.Render.Hud.HudProfiles.Runtime;
+            var rootCrosshair = runtime.CrosshairFor(weapon, zoom);
+            if (!rootCrosshair.Enabled || !runtime[0].Enabled || Size.X <= 0 || Size.Y <= 0) return;
+            float halfW = Size.X / 2f, halfH = Size.Y / 2f;
+            float offX = posX * 2f - 1f, offY = 1f - posY * 2f;
+            float scale = runtime[0].Scale;
+            float alpha = rootCrosshair.Opacity * runtime[0].Opacity;
+            if (alpha <= 0) return;
+            try
             {
-                (float left, float right, float bottom, float top) =
-                    Mods.Render.Crosshair.EdgesOf(bars[i]);
-                GL.Begin(PrimitiveType.TriangleStrip);
-                GL.Vertex3(offX + right / halfW, offY + top / halfH, 0f);
-                GL.Vertex3(offX + left / halfW, offY + top / halfH, 0f);
-                GL.Vertex3(offX + right / halfW, offY + bottom / halfH, 0f);
-                GL.Vertex3(offX + left / halfW, offY + bottom / halfH, 0f);
-                GL.End();
-            }
-            (float radius, float thickness) = Mods.Render.Crosshair.RingOf(style, scale);
-            if (thickness > 0)
-            {
-                // An annulus as one triangle strip: outer point, inner point,
-                // round the circle and back to the start. Enough segments that
-                // the flats are under a pixel at the sizes this is drawn at,
-                // and it is four dozen vertices once a frame either way.
-                const int segments = 40;
-                float inner = radius - thickness / 2;
-                float outer = radius + thickness / 2;
-                GL.Begin(PrimitiveType.TriangleStrip);
-                for (int i = 0; i <= segments; i++)
+                for (int pass = 0; pass < 2; pass++)
+                foreach(var crosshair in rootCrosshair.Parts)
                 {
-                    float angle = MathHelper.TwoPi * i / segments;
-                    float cos = MathF.Cos(angle);
-                    float sin = MathF.Sin(angle);
-                    GL.Vertex3(offX + outer * cos / halfW, offY + outer * sin / halfH, 0f);
-                    GL.Vertex3(offX + inner * cos / halfW, offY + inner * sin / halfH, 0f);
+                    if(pass==0 && crosshair.Outline<=0) continue;
+                    float partAlpha=crosshair.Opacity*runtime[0].Opacity;
+                    var partColor=crosshair.HealthColor ? color : new Vector3(crosshair.Color.X,crosshair.Color.Y,crosshair.Color.Z);
+                    float outline = pass == 0 ? crosshair.Outline : 0;
+                    GL.Uniform4(_shaderLocations.FadeColor, pass == 0 ? new Vector4(crosshair.OutlineColor.X, crosshair.OutlineColor.Y, crosshair.OutlineColor.Z, partAlpha * crosshair.OutlineOpacity) : new Vector4(partColor, partAlpha));
+                    foreach (var bar in crosshair.Bars)
+                    {
+                        var (left, right, bottom, top) = Mods.Render.Crosshair.EdgesOf(bar);
+                        GL.Begin(PrimitiveType.TriangleStrip);
+                        GL.Vertex3(offX + (right + outline) * scale / halfW, offY + (top + outline) * scale / halfH, 0f);
+                        GL.Vertex3(offX + (left - outline) * scale / halfW, offY + (top + outline) * scale / halfH, 0f);
+                        GL.Vertex3(offX + (right + outline) * scale / halfW, offY + (bottom - outline) * scale / halfH, 0f);
+                        GL.Vertex3(offX + (left - outline) * scale / halfW, offY + (bottom - outline) * scale / halfH, 0f);
+                        GL.End();
+                    }
+                    var dot = pass == 0 ? crosshair.OutlineDot : crosshair.Dot;
+                    if (!dot.IsEmpty)
+                    {
+                        GL.Begin(PrimitiveType.Triangles);
+                        foreach (var vertex in dot) GL.Vertex3(offX + vertex.X * scale / halfW, offY + vertex.Y * scale / halfH, 0f);
+                        GL.End();
+                    }
+                    var ring = pass == 0 ? crosshair.OutlineRing : crosshair.Ring;
+                    if (!ring.IsEmpty)
+                    {
+                        GL.Begin(PrimitiveType.TriangleStrip);
+                        foreach (var vertex in ring) GL.Vertex3(offX + vertex.X * scale / halfW, offY + vertex.Y * scale / halfH, 0f);
+                        GL.End();
+                    }
                 }
-                GL.End();
             }
-            GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero);
+            finally { GL.Uniform4(_shaderLocations.FadeColor, Vector4.Zero); }
         }
 
         /// <summary>
@@ -5515,20 +5529,30 @@ namespace MphRead
         /// </param>
         public void DrawHitMarker(Vector4 color, float posX = 0.5f, float posY = 0.5f)
         {
+            var style = Mods.Render.Hud.HudProfiles.Runtime.HitMarker;
+            if (!style.Enabled || style.Opacity <= 0) return;
+            color = new Vector4(style.Color.X,style.Color.Y,style.Color.Z,color.W*style.Opacity*Mods.Render.Hud.HudProfiles.Runtime.GlobalOpacity);
+            if (color.W <= 0) return;
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f;
             float offY = 1f - posY * 2f;
-            float scale = Mods.Render.Crosshair.Scale;
-            const float gap = 4f;
-            const float length = 7f;
-            const float thickness = 2f;
+            float scale = Mods.Render.Crosshair.Scale * style.Scale * Mods.Render.Hud.HudProfiles.Runtime.GlobalScale;
+            float gap = style.Gap;
+            float length = style.Length;
+            float thickness = style.Thickness;
             float diagonal = MathF.Sqrt(0.5f);
+            if (style.Shape == Mods.Render.Hud.HudHitMarkerShape.Dot)
+            {
+                DrawFlatDisc(posX,posY,Vector2.Zero,thickness*scale,color); return;
+            }
             GL.Uniform4(_shaderLocations.FadeColor, color);
             for (int i = 0; i < 4; i++)
             {
                 float dx = ((i & 1) == 0 ? -1 : 1) * diagonal;
                 float dy = ((i & 2) == 0 ? -1 : 1) * diagonal;
+                if (style.Shape == Mods.Render.Hud.HudHitMarkerShape.Plus)
+                { dx = i == 0 ? -1 : i == 1 ? 1 : 0; dy = i == 2 ? -1 : i == 3 ? 1 : 0; }
                 // The bar runs outward along the diagonal from the gap; its
                 // width is measured across the perpendicular, so the four
                 // arms meet the crosshair at the same distance whatever the
@@ -5558,6 +5582,14 @@ namespace MphRead
         /// </summary>
         public void DrawHudFlatBox(float left, float top, float right, float bottom, Vector4 color)
         {
+            if (_profileHudAlpha <= 0) return;
+            left = left * _profileHudScale + _profileHudX;
+            right = right * _profileHudScale + _profileHudX;
+            top = top * _profileHudScale + _profileHudY;
+            bottom = bottom * _profileHudScale + _profileHudY;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+
             if (_hudDrawScale != 1f)
             {
                 left = 128f + (left - 128f) * _hudDrawScale;
@@ -5602,6 +5634,13 @@ namespace MphRead
         public void DrawHudTexture(float left, float top, float right, float bottom,
             int bindingId, float alpha = 1, bool smooth = true)
         {
+            if (_profileHudAlpha <= 0) return;
+            left = left * _profileHudScale + _profileHudX;
+            right = right * _profileHudScale + _profileHudX;
+            top = top * _profileHudScale + _profileHudY;
+            bottom = bottom * _profileHudScale + _profileHudY;
+            alpha = HudPresentationAlpha(alpha * _profileHudAlpha);
+
             if (bindingId <= 0)
             {
                 return;
@@ -5658,6 +5697,12 @@ namespace MphRead
         public void DrawFlatDisc(float posX, float posY, Vector2 localCenter, float radius,
             Vector4 color, int segments = 32)
         {
+            if (_profileHudAlpha <= 0) return;
+            posX = posX * _profileHudScale + _profileHudX / 256;
+            posY = posY * _profileHudScale + _profileHudY / 192;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+localCenter *= _profileHudScale; radius *= _profileHudScale;
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f + localCenter.X / halfW;
@@ -5679,6 +5724,12 @@ namespace MphRead
         public void DrawFlatRing(float posX, float posY, Vector2 localCenter, float radius,
             float thickness, Vector4 color, int segments = 48)
         {
+            if (_profileHudAlpha <= 0) return;
+            posX = posX * _profileHudScale + _profileHudX / 256;
+            posY = posY * _profileHudScale + _profileHudY / 192;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+localCenter *= _profileHudScale; radius *= _profileHudScale; thickness *= _profileHudScale;
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f + localCenter.X / halfW;
@@ -5706,6 +5757,12 @@ namespace MphRead
         public void DrawFlatLine(float posX, float posY, Vector2 from, Vector2 to,
             float thickness, Vector4 color)
         {
+            if (_profileHudAlpha <= 0) return;
+            posX = posX * _profileHudScale + _profileHudX / 256;
+            posY = posY * _profileHudScale + _profileHudY / 192;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+from *= _profileHudScale; to *= _profileHudScale; thickness *= _profileHudScale;
             Vector2 dir = to - from;
             float len = dir.Length;
             if (len < 0.0001f)
@@ -5734,6 +5791,12 @@ namespace MphRead
         public void DrawFlatSquare(float posX, float posY, Vector2 localCenter, float halfSize,
             Vector4 color)
         {
+            if (_profileHudAlpha <= 0) return;
+            posX = posX * _profileHudScale + _profileHudX / 256;
+            posY = posY * _profileHudScale + _profileHudY / 192;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+localCenter *= _profileHudScale; halfSize *= _profileHudScale;
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f;
@@ -5759,6 +5822,12 @@ namespace MphRead
         public void DrawFlatPolygon(float posX, float posY, Vector2 localCenter,
             ReadOnlySpan<Vector2> localPoints, Vector4 color)
         {
+            if (_profileHudAlpha <= 0) return;
+            posX = posX * _profileHudScale + _profileHudX / 256;
+            posY = posY * _profileHudScale + _profileHudY / 192;
+            color.W = HudPresentationAlpha(color.W * _profileHudAlpha);
+            HudTint(ref color);
+localCenter *= _profileHudScale;
             float halfW = Size.X / 2f;
             float halfH = Size.Y / 2f;
             float offX = posX * 2f - 1f;
@@ -5767,8 +5836,8 @@ namespace MphRead
             GL.Begin(PrimitiveType.TriangleFan);
             for (int i = 0; i < localPoints.Length; i++)
             {
-                float x = localCenter.X + localPoints[i].X;
-                float y = localCenter.Y + localPoints[i].Y;
+                float x = localCenter.X + localPoints[i].X * _profileHudScale;
+                float y = localCenter.Y + localPoints[i].Y * _profileHudScale;
                 GL.Vertex3(offX + x / halfW, offY + y / halfH, 0f);
             }
             GL.End();
@@ -5783,23 +5852,27 @@ namespace MphRead
         /// them re-cuts the font at the wrong size and draws confetti. This is
         /// the destination, and only the destination.
         /// </param>
-        public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1)
+        public void DrawHudObject(HudObjectInstance inst, int mode = 0, float scale = 1, bool isText = false)
         {
+            if (_profileHudAlpha <= 0) return;
+            scale *= _profileHudScale;
             if (!inst.Enabled)
             {
                 return;
             }
-            float x = inst.PositionX;
-            float y = inst.PositionY;
+            float x = inst.PositionX * _profileHudScale + _profileHudX / 256;
+            float y = inst.PositionY * _profileHudScale + _profileHudY / 192;
             if (_hudDrawScale != 1f)
             {
                 x = 0.5f + (x - 0.5f) * _hudDrawScale;
                 y = 0.5f + (y - 0.5f) * _hudDrawScale;
             }
+            if (!isText && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom)
+                scale *= Mods.Render.Hud.HudProfiles.Runtime.IconScale;
             float width = inst.Width;
             float height = inst.Height;
             bool center = inst.Center;
-            GL.Uniform1(_shaderLocations.LayerAlpha, inst.Alpha);
+            GL.Uniform1(_shaderLocations.LayerAlpha, HudPresentationAlpha(inst.Alpha * _profileHudAlpha));
             GL.Uniform1(_shaderLocations.UseMask, inst.UseMask && _hudMaskActive ? 1 : 0);
             GL.BindTexture(TextureTarget.Texture2D, inst.BindingId);
             // Nearest, which is what the DS did and what every sprite in this
@@ -6012,6 +6085,7 @@ namespace MphRead
 
         private void DoMaterial(RenderItem item)
         {
+            ApplyCosmeticUniforms(item.Cosmetics);
             GL.Uniform1(_shaderLocations.UseLight, LightingOn && item.Lighting ? 1 : 0);
             // MPH applies the material colors initially by calling DIF_AMB with bit 15 set,
             // so the diffuse color is always set as the vertex color to start
@@ -6066,6 +6140,11 @@ namespace MphRead
             Mods.Render.MaterialMapBindings materialMaps = default;
             bool advanced = Mods.RenderOptions.AdvancedMaterials && item.HasTexture
                 && _materialMaps.TryGetValue(item.TextureBindingId, out materialMaps);
+            if (Mods.RenderOptions.AdvancedMaterials && item.CosmeticMaterial != default)
+            {
+                materialMaps = new(item.CosmeticMaterial.NormalBinding, item.CosmeticMaterial.SpecularBinding, item.CosmeticMaterial.EmissiveBinding);
+                advanced = materialMaps.Any;
+            }
             GL.Uniform1(_shaderLocations.AdvancedMaterials, advanced ? 1 : 0);
             GL.Uniform1(_shaderLocations.UseNormalMap, advanced && materialMaps.Normal != 0 ? 1 : 0);
             GL.Uniform1(_shaderLocations.UseSpecularMap, advanced && materialMaps.Specular != 0 ? 1 : 0);

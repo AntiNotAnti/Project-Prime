@@ -444,6 +444,8 @@ namespace MphRead.Entities
             return new LightInfo(_scene.Light1Vector, _scene.Light1Color, _scene.Light2Vector, _scene.Light2Color);
         }
 
+        protected virtual Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index) => default;
+
         protected virtual int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {
             return null;
@@ -511,10 +513,13 @@ namespace MphRead.Entities
                         Vector4? color = GetRenderColor(inst, index, material);
                         SelectionType selectionType = Selection.CheckSelection(this, inst, node, mesh);
                         int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
+                        var previousCosmeticMaterial = _scene.CosmeticMaterialSubmission;
+                        _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(inst, material, mesh.MaterialId);
                         _scene.AddRenderItem(material, polygonId, Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix,
                             node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
                             PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,
                             UseTexturedPlayerSkin(inst), GetPlayerOutlineColor(inst));
+                        _scene.CosmeticMaterialSubmission = previousCosmeticMaterial;
                     }
                     if (node.ChildIndex != -1)
                     {

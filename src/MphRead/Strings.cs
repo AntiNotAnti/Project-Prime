@@ -114,12 +114,15 @@ namespace MphRead.Text
 
         public static StringTableEntry? GetEntry(char type, uint id, string table)
         {
-            string fullId = $"{type}{id:000}";
+            Span<char> idBuffer = stackalloc char[11];
+            idBuffer[0] = type;
+            if (!id.TryFormat(idBuffer[1..], out int written, "D3")) return null;
+            ReadOnlySpan<char> fullId = idBuffer[..(written + 1)];
             IReadOnlyList<StringTableEntry> list = ReadStringTable(table);
             for (int i = 0; i < list.Count; i++)
             {
                 StringTableEntry entry = list[i];
-                if (entry.Id == fullId)
+                if (entry.Id.AsSpan().SequenceEqual(fullId))
                 {
                     return entry;
                 }

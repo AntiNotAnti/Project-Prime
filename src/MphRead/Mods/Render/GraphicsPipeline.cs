@@ -473,7 +473,8 @@ namespace MphRead
 
         private void UploadDynamicLights()
         {
-            if (!RenderOptions.DynamicGlow)
+            if (!RenderOptions.DynamicGlow && (!RenderOptions.ShowCustomCosmetics
+                || RenderOptions.CosmeticQuality < Mods.Cosmetics.CosmeticEffectQuality.Medium))
             {
                 GL.Uniform1(_gfxDynamicLightCount, 0);
                 return;
@@ -482,7 +483,7 @@ namespace MphRead
             int count = 0;
             foreach (EntityBase entity in Entities)
             {
-                if (entity is not BeamProjectileEntity beam || beam.Lifespan <= 0
+                if (!RenderOptions.DynamicGlow || entity is not BeamProjectileEntity beam || beam.Lifespan <= 0
                     || beam.Flags.TestFlag(BeamFlags.Collided))
                 {
                     continue;
@@ -519,6 +520,7 @@ namespace MphRead
                 }
             }
 
+            CollectCosmeticLights(ref count);
             GL.Uniform1(_gfxDynamicLightCount, count);
             for (int i = 0; i < count; i++)
             {
@@ -787,7 +789,7 @@ vec2 project_view(vec3 p, out float clipW) {
 }
 
 vec3 projectile_lighting(vec3 worldPos) {
-    if (dynamic_glow == 0 || dynamic_light_count <= 0) return vec3(0.0);
+    if (dynamic_light_count <= 0) return vec3(0.0);
     vec3 result = vec3(0.0);
     for (int i = 0; i < 8; i++) {
         if (i >= dynamic_light_count) break;

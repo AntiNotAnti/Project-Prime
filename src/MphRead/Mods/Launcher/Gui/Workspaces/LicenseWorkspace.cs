@@ -20,11 +20,12 @@ namespace MphRead.Mods.Launcher.Gui
     /// supplied license-card reference while staying inside the FPS hub's flat
     /// tactical language and existing controller navigation.
     /// </summary>
-    internal sealed class LicenseWorkspace : UserControl
+    internal sealed partial class LicenseWorkspace : UserControl
     {
         private enum Face
         {
             Overview,
+            Customization,
             Stats,
             History,
             Achievements,
@@ -124,6 +125,7 @@ namespace MphRead.Mods.Launcher.Gui
             railPanel.Children.Add(identity);
 
             AddNav(railPanel, Face.Overview, "OVERVIEW", initial: true);
+            AddNav(railPanel, Face.Customization, "CUSTOMIZATION");
             AddNav(railPanel, Face.Stats, "STATS");
             AddNav(railPanel, Face.History, "MATCH HISTORY");
             AddNav(railPanel, Face.Achievements, "ACHIEVEMENTS");
@@ -253,14 +255,17 @@ namespace MphRead.Mods.Launcher.Gui
         private void Show(Face face)
         {
             _face = face;
+            if (face != Face.Customization)
+            { _stand.Cosmetics = null; _stand.ResetPreview(); _stand.Name2 = HunterName(_snapshot.Profile.FavoriteHunter); }
             foreach ((Face key, HubNavButton button) in _nav)
                 button.Selected = key == face;
 
-            if (face != Face.Account && _tabCache.TryGetValue(face, out var cached))
+            if (face != Face.Account && face != Face.Customization && _tabCache.TryGetValue(face, out var cached))
             { _page.Content = cached; return; }
             Control page = face switch
             {
                 Face.Overview => Overview(),
+                Face.Customization => Customization(),
                 Face.Stats => Stats(),
                 Face.History => History(),
                 Face.Achievements => Achievements(),
@@ -271,7 +276,7 @@ namespace MphRead.Mods.Launcher.Gui
                 Face.Comparison => Comparison(),
                 _ => Account()
             };
-            if (face != Face.Account) _tabCache[face] = page;
+            if (face != Face.Account && face != Face.Customization) _tabCache[face] = page;
             _page.Content = page;
         }
 

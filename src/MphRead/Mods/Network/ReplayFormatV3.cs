@@ -193,6 +193,8 @@ namespace MphRead.Mods.Network
                 PacketType.SessionState => payload.Length == SessionStatePacket.Size
                     && SessionStatePacket.TryRead(payload, out _),
                 PacketType.MatchState => payload.Length == MatchStatePacket.Size,
+                PacketType.CosmeticState => payload.Length > 0 && payload.Length % CosmeticStatePacket.Size == 0
+                    && payload.Length <= Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size,
                 PacketType.Roster => payload.Length == RosterPacket.Size,
                 PacketType.Snapshot => ValidSnapshotBootstrap(payload),
                 PacketType.SlotIntent => payload.Length == 1 + IntentPacket.FullSize && payload[0] < RosterPacket.MaxSlots,

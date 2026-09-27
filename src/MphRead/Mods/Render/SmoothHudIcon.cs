@@ -87,7 +87,7 @@ namespace MphRead.Mods.Render
             ColorRgba color, Scene scene)
         {
             if (inst.CharacterData == data && inst.CurrentFrame == frame
-                && inst.Color.HasValue && inst.Color.Value.Equals(color)
+                && inst.Color.HasValue && inst.Color.Value == color
                 && inst.BindingId != -1)
             {
                 return;

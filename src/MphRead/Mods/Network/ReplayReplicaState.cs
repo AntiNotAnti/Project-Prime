@@ -14,6 +14,7 @@ namespace MphRead.Mods.Network
     /// This decoder deliberately has no NetSession or NetPlayerLifecycle dependency.</summary>
     internal sealed partial class ReplayReplicaState
     {
+        public NetCosmetics Cosmetics { get; private set; } = new();
         private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
         private readonly PlayerState[] _players = new PlayerState[PlayerEntity.SlotCapacity];
         private readonly IntentPacket[] _intents = new IntentPacket[PlayerEntity.SlotCapacity];
@@ -62,6 +63,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            Cosmetics.Reset();
             Array.Clear(_players);
             Array.Clear(_intents);
             Array.Clear(_hasPlayer);
@@ -129,6 +131,15 @@ namespace MphRead.Mods.Network
                     }
                     for (int i = 0; i < present.Length; i++) if (!present[i]) SetOccupant(i, default);
                     accepted = true;
+                    break;
+                case PacketType.CosmeticState:
+                    if (payload.Length == 0 || payload.Length % CosmeticStatePacket.Size != 0
+                        || payload.Length > Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size) throw Malformed();
+                    for (int at = 0; at < payload.Length; at += CosmeticStatePacket.Size)
+                        if (CosmeticStatePacket.TryRead(payload.Slice(at, CosmeticStatePacket.Size), out var cosmetic)
+                            && Match is { } cosmeticMatch)
+                            accepted |= Cosmetics.Accept(cosmetic, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch,
+                                _roster[cosmetic.Slot].Generation);
                     break;
                 case PacketType.ReplayWorld:
                     if (Match is { } currentWorld && _authorityWire.Accept(payload, currentWorld.MatchId, currentWorld.AuthorityEpoch, strict: true) is { } world)

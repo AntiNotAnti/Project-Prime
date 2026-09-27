@@ -45,7 +45,10 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly bool _inGame;
         private readonly bool _shell;
         private SettingsDraft? _draft;
-        public bool IsDirty => _draft?.IsDirty == true;
+        private Mods.Render.Hud.HudProfile? _hudDraft;
+        private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
+        private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
+        public bool IsDirty => _draft?.IsDirty == true || _hudDraft != null;
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
@@ -55,6 +58,8 @@ namespace MphRead.Mods.Launcher.Gui
         public void DiscardDraft()
         {
             _draft?.Discard();
+            _hudDraft = null;
+            ShowCrosshairRows();
             RenderOptions.FieldOfView = RenderOptions.ParseFov(_settings.FieldOfView, RenderOptions.DefaultFov);
             _gamepadSettings.Reload();
             InvalidateVisual();
@@ -115,6 +120,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _enhancedLightingRow = null!;
         private ToggleRow _advancedMaterialsRow = null!;
         private ToggleRow _deferredPbrRow = null!;
+        private ToggleRow _showCosmeticsRow = null!;
+        private ChoiceRow _cosmeticQualityRow = null!;
         private ChoiceRow _shadowQualityRow = null!;
         private ChoiceRow _ambientOcclusionRow = null!;
         private ToggleRow _contactShadowsRow = null!;
@@ -1006,6 +1013,28 @@ namespace MphRead.Mods.Launcher.Gui
             // -nohelmet still sets two of them -- they simply are not asked
             // about here.
             Heading(page, "HUD");
+            var editHud = new HubNavButton("EDIT HUD", compact: true);
+            editHud.Click += (_, _) =>
+            {
+                object? previous = Content;
+                var initial = _hudDraft ?? Mods.Render.Hud.HudProfiles.CopyCurrent();
+                Content = new HudStudioView(initial, profile =>
+                {
+                    Content = previous;
+                    if (profile == null) return;
+                    _hudDraft = profile;
+                    _proHud.On = profile.Mode != Mods.Render.Hud.HudMode.Classic;
+                    _killFeed.On = profile.Elements["combat.killFeed"].Enabled;
+                    _radarRow.On = profile.Elements["core.radar"].Enabled;
+                    _radarBackgroundRow.On = profile.RadarBackground;
+                    _radarOutlinesRow.On = profile.RadarOutlines;
+                    _weaponStyleRow.Index = profile.FixedWeapon ? 0 : 1;
+                    ShowCrosshairRows();
+                });
+            };
+            page.Children.Add(editHud);
+            if (Mods.Render.Hud.HudProfiles.LoadWarning is string hudWarning) Explain(page, hudWarning);
+
             _proHud = Add(page, new ToggleRow("Pro mode HUD", Features.ProHud));
             _smoothNativeHud = Add(page, new ToggleRow("Smooth native HUD",
                 RenderOptions.SmoothNativeHud));
@@ -1094,7 +1123,7 @@ namespace MphRead.Mods.Launcher.Gui
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
                 (int)RenderOptions.Preset));
-            Explain(page, "Original preserves the existing renderer. Enhanced and above add presentation-only processing after the 3D world is rendered and before the full-resolution HUD.");
+            Explain(page, "Original preserves the cartridge look. Performance uses native resolution with light anti-aliasing. Enhanced adds subtle bloom and ambient occlusion while preserving the original colors, lighting and fog.");
 
             Heading(page, "Rendering");
             Explain(page, "100% is native. 200%, 400% and 800% are true 2x, 4x and 8x internal dimensions. If that exceeds the GPU's render-target limit, Project Prime automatically fits the largest aspect-correct target the driver supports.");
@@ -1174,7 +1203,7 @@ namespace MphRead.Mods.Launcher.Gui
                 v => $"{v}%", min: 0, max: 200, keyStep: 5));
 
             var maxQuality = new HubNavButton("APPLY EXTREME PRESET",
-                "4x internal resolution plus every enhanced rendering effect", primary: true)
+                "2x supersampling and detailed shadows with restrained bloom", primary: true)
             {
                 MinHeight = 50,
                 Margin = new Thickness(0, 10, 0, 4)
@@ -1186,8 +1215,12 @@ namespace MphRead.Mods.Launcher.Gui
                 ApplyGraphicsPresetDraft(GraphicsPreset.Extreme);
             };
             page.Children.Add(maxQuality);
-            Explain(page, "Ultra uses 2x internal resolution. Extreme uses 4x; the render-scale slider additionally exposes 8x for screenshots, testing and very high-end GPUs.");
+            Explain(page, "Ultra uses 150% resolution and directional shadows; Extreme uses 200% with finer shadows. Both keep the Enhanced color balance. PBR, reflections, extra fog, energy glow and texture upscaling are optional custom choices. Higher render scales remain available for screenshots.");
 
+            Heading(page, "Cosmetics");
+            _showCosmeticsRow = Add(page, new ToggleRow("Show custom cosmetics", RenderOptions.ShowCustomCosmetics));
+            _cosmeticQualityRow = Add(page, new ChoiceRow("Cosmetic effect quality", new[] { "Off", "Low", "Medium", "High" }, (int)RenderOptions.CosmeticQuality));
+            Explain(page, "Off keeps skins and uses classic deaths. Hide custom cosmetics for native player appearances without changing anyone’s equipped loadout.");
             Heading(page, "Cel shading");
             _celRow = Add(page, new ToggleRow("Cel shading", RenderOptions.CelShading));
             _celBandsRow = Add(page, new SliderRow("Shading bands", RenderOptions.CelBands,
@@ -1204,85 +1237,35 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ApplyGraphicsPresetDraft(GraphicsPreset preset)
         {
-            int scale;
-            AntiAliasingMode aa;
-            int sharpen, bloom;
-            bool bloomOn, enhancedLight, advancedMaterials, deferredPbr, contacts, enhancedFog, volumeFog, hdr, reflections, glow;
-            AmbientOcclusionQuality ao;
-            ShadowQuality shadow;
-            ColorGradeProfile grade;
-            int contrast, saturation, anisotropy;
-            TextureUpscaleMode upscale;
-            bool filtering, mipmaps;
-            switch (preset)
-            {
-            case GraphicsPreset.Performance:
-                scale = 85; aa = AntiAliasingMode.Fxaa; sharpen = 20; bloomOn = false; bloom = 45;
-                grade = ColorGradeProfile.Enhanced; contrast = 104; saturation = 106;
-                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
-                enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = false;
-                filtering = mipmaps = true; anisotropy = 4; upscale = TextureUpscaleMode.Off;
-                break;
-            case GraphicsPreset.Enhanced:
-                scale = 100; aa = AntiAliasingMode.Smaa; sharpen = 22; bloomOn = true; bloom = 60;
-                grade = ColorGradeProfile.Enhanced; contrast = 108; saturation = 112;
-                enhancedLight = true; advancedMaterials = true; deferredPbr = false; shadow = ShadowQuality.Low; ao = AmbientOcclusionQuality.Medium; contacts = true;
-                enhancedFog = true; volumeFog = false; hdr = false; reflections = false; glow = true;
-                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale2x;
-                break;
-            case GraphicsPreset.Ultra:
-                scale = 200; aa = AntiAliasingMode.Smaa; sharpen = 16; bloomOn = true; bloom = 80;
-                grade = ColorGradeProfile.Cinematic; contrast = 110; saturation = 115;
-                enhancedLight = true; advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.High; ao = AmbientOcclusionQuality.High; contacts = true;
-                enhancedFog = true; volumeFog = true; hdr = true; reflections = true; glow = true;
-                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
-                break;
-            case GraphicsPreset.Extreme:
-                scale = 400; aa = AntiAliasingMode.Smaa; sharpen = 12;
-                bloomOn = true; bloom = 95; grade = ColorGradeProfile.Cinematic;
-                contrast = 112; saturation = 118; enhancedLight = true;
-                advancedMaterials = true; deferredPbr = true; shadow = ShadowQuality.Ultra;
-                ao = AmbientOcclusionQuality.High; contacts = true; enhancedFog = true;
-                volumeFog = true; hdr = true; reflections = true; glow = true;
-                filtering = mipmaps = true; anisotropy = 16; upscale = TextureUpscaleMode.Scale4x;
-                break;
-            case GraphicsPreset.Original:
-                scale = 100; aa = AntiAliasingMode.Off; sharpen = 0; bloomOn = false; bloom = 60;
-                grade = ColorGradeProfile.Original; contrast = saturation = 100;
-                enhancedLight = false; advancedMaterials = false; deferredPbr = false; shadow = ShadowQuality.Off; ao = AmbientOcclusionQuality.Off; contacts = false;
-                enhancedFog = volumeFog = hdr = reflections = glow = false;
-                filtering = mipmaps = false; anisotropy = 1; upscale = TextureUpscaleMode.Off;
-                _textureReplacementsRow.On = false;
-                break;
-            default:
-                return;
-            }
-            _resolutionScale.Value = scale;
-            _antiAliasingRow.Index = (int)aa;
-            _sharpenRow.Value = sharpen;
-            _bloomRow.On = bloomOn;
-            _bloomIntensityRow.Value = bloom;
-            _colorGradeRow.Index = (int)grade;
-            _gammaRow.Value = 100;
-            _contrastRow.Value = contrast;
-            _saturationRow.Value = saturation;
-            _enhancedLightingRow.On = enhancedLight;
-            _advancedMaterialsRow.On = advancedMaterials;
-            _deferredPbrRow.On = deferredPbr;
-            _shadowQualityRow.Index = (int)shadow;
-            _ambientOcclusionRow.Index = (int)ao;
-            _contactShadowsRow.On = contacts;
-            _enhancedFogRow.On = enhancedFog;
-            _volumetricFogRow.On = volumeFog;
-            _internalHdrRow.On = hdr;
-            _reflectionsRow.On = reflections;
-            _dynamicGlowRow.On = glow;
-            _lightingRow.On = true;
-            _fogRow.On = true;
-            _filteringRow.On = filtering;
-            _mipmapRow.On = mipmaps;
-            _anisotropyRow.Index = AnisotropyIndex(anisotropy);
-            _textureUpscaleRow.Index = (int)upscale;
+            var profile = GraphicsPresetProfile.Get(preset);
+            if (profile == null) return;
+            _resolutionScale.Value = profile.ResolutionScale;
+            _antiAliasingRow.Index = (int)profile.AntiAliasing;
+            _sharpenRow.Value = profile.SharpenStrength;
+            _bloomRow.On = profile.Bloom;
+            _bloomIntensityRow.Value = profile.BloomIntensity;
+            _colorGradeRow.Index = (int)profile.ColorGrade;
+            _gammaRow.Value = profile.Gamma;
+            _contrastRow.Value = profile.Contrast;
+            _saturationRow.Value = profile.Saturation;
+            _enhancedLightingRow.On = profile.EnhancedLighting;
+            _advancedMaterialsRow.On = profile.AdvancedMaterials;
+            _deferredPbrRow.On = profile.DeferredPbr;
+            _shadowQualityRow.Index = (int)profile.Shadows;
+            _ambientOcclusionRow.Index = (int)profile.AmbientOcclusion;
+            _contactShadowsRow.On = profile.ContactShadows;
+            _enhancedFogRow.On = profile.EnhancedFog;
+            _volumetricFogRow.On = profile.VolumetricFog;
+            _internalHdrRow.On = profile.InternalHdr;
+            _reflectionsRow.On = profile.Reflections;
+            _dynamicGlowRow.On = profile.DynamicGlow;
+            _lightingRow.On = profile.Lighting;
+            _fogRow.On = profile.Fog;
+            _filteringRow.On = profile.TextureFiltering;
+            _mipmapRow.On = profile.TextureMipmaps;
+            _textureUpscaleRow.Index = (int)profile.TextureUpscale;
+            _anisotropyRow.Index = AnisotropyIndex(profile.TextureAnisotropy);
+            if (preset == GraphicsPreset.Original) _textureReplacementsRow.On = false;
             ShowTextureQualityRows();
             ShowModernGraphicsRows();
         }
@@ -1307,8 +1290,9 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void ShowCrosshairRows()
         {
-            _crosshairSizeRow.IsVisible = true;
-            _crosshairStyleRow.IsVisible = _proHud.On;
+            bool custom = (_hudDraft?.Mode ?? Mods.Render.Hud.HudProfiles.Runtime.Mode) == Mods.Render.Hud.HudMode.Custom;
+            _crosshairSizeRow.IsVisible = !custom || !_proHud.On;
+            _crosshairStyleRow.IsVisible = _proHud.On && !custom;
             _weaponStyleRow.IsVisible = _proHud.On;
         }
 
@@ -2314,6 +2298,8 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.InternalHdr = RenderOptions.OnOff(_internalHdrRow.On);
             _settings.Reflections = RenderOptions.OnOff(_reflectionsRow.On);
             _settings.DynamicGlow = RenderOptions.OnOff(_dynamicGlowRow.On);
+            _settings.ShowCustomCosmetics = RenderOptions.OnOff(_showCosmeticsRow.On);
+            _settings.CosmeticQuality = ((Cosmetics.CosmeticEffectQuality)Math.Clamp(_cosmeticQualityRow.Index, 0, 3)).ToString().ToLowerInvariant();
             _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);
             _settings.TextureUpscale = ((TextureUpscaleMode)Math.Clamp(_textureUpscaleRow.Index, 0, 2))
                 .ToString().ToLowerInvariant();
@@ -2456,6 +2442,15 @@ namespace MphRead.Mods.Launcher.Gui
             if (_killCameraRow != null) LauncherPrefs.KillCamCamera = _killCameraRow.Index;
             if (_finalKillCamRow != null)
                 LauncherPrefs.FinalKillCamEnabled = _finalKillCamRow.On;
+            var hud = _hudDraft?.DeepClone() ?? Mods.Render.Hud.HudProfiles.CopyCurrent();
+            hud.Mode = Features.ProHud ? (hud.Mode == Mods.Render.Hud.HudMode.Classic ? Mods.Render.Hud.HudMode.ProjectPrime : hud.Mode) : Mods.Render.Hud.HudMode.Classic;
+            hud.FixedWeapon = Features.ProHudFixedWeapon;
+            hud.NativeReticleOpacity = Features.ReticleOpacity;
+            hud.Elements["core.radar"].Enabled = Radar.Enabled;
+            hud.RadarBackground = Radar.ShowBackground; hud.RadarOutlines = Radar.ShowOutlines;
+            hud.Elements["combat.killFeed"].Enabled = Features.KillFeedEnabled;
+            if (_hudDraft == null && (Crosshair.Style != _initialCrosshairStyle || Crosshair.Size != _initialCrosshairSize))
+                hud.Crosshair = Mods.Render.Hud.CrosshairProfile.FromLegacy(Crosshair.Style, Crosshair.Size);
             GameState.CommitSettings(_settings);
             LauncherPrefs.Save();
             Mods.Sound.CombatFeedbackAudio.Reload();
@@ -2477,8 +2472,10 @@ namespace MphRead.Mods.Launcher.Gui
             // during a match as well as before one, since this same window
             // opens from the pause menu.
             Mods.GameSettings.Apply(_settings);
+            Mods.Render.Hud.HudProfiles.Save(hud);
             Saved = true;
             _draft?.Accept();
+            _hudDraft = null;
             if (!_shell) Close();
         }
     }

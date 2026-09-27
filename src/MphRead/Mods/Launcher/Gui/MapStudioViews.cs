@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.Interactivity;
 
 namespace MphRead.Mods.Launcher.Gui;
 
@@ -12,6 +13,18 @@ internal sealed partial class MapStudioScreen
     {
         foreach (var view in _views) view.DetachDocument();
         _views.Clear();
+    }
+    private void ActivateViewport(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not MapViewport view || _viewport == view) return;
+        if (_viewport is { } previous)
+        {
+            view.Tool=previous.Tool;view.ElementMode=previous.ElementMode;view.Axes=previous.Axes;
+            view.Snap=previous.Snap;view.AngleSnap=previous.AngleSnap;view.ScaleSnap=previous.ScaleSnap;
+            view.PivotMode=previous.PivotMode;view.LocalAxes=previous.LocalAxes;view.CursorPivot=previous.CursorPivot;
+            view.PlacementMode=previous.PlacementMode;
+        }
+        _viewport=view;ShowInspectorPage(_inspectorPage,false);
     }
     internal void ToggleFourViews()
     {
@@ -39,17 +52,8 @@ internal sealed partial class MapStudioScreen
                 view.MaterialPicked+=hit=>{_pickedMaterialHit=hit;_inspectorPage="Materials";MaterialInspector();};
             }
             view.SetView(names[i]);view.FrameAll();view.Wireframe=i>0;
-            view.GotFocus+=(_,_)=>
-            {
-                if(_viewport==view)return;
-                if(_viewport is {} previous)
-                {
-                    view.Tool=previous.Tool;view.ElementMode=previous.ElementMode;view.Axes=previous.Axes;
-                    view.Snap=previous.Snap;view.AngleSnap=previous.AngleSnap;view.ScaleSnap=previous.ScaleSnap;
-                    view.PivotMode=previous.PivotMode;view.LocalAxes=previous.LocalAxes;view.CursorPivot=previous.CursorPivot;
-                }
-                _viewport=view;ShowInspectorPage(_inspectorPage,false);
-            };
+            view.GotFocus -= ActivateViewport;
+            view.GotFocus += ActivateViewport;
             var pane=new DockPanel();
             var label=Text(names[i].ToUpperInvariant());label.Margin=new Thickness(6,3);
             DockPanel.SetDock(label,Dock.Top);pane.Children.Add(label);pane.Children.Add(view);

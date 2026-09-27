@@ -17,6 +17,7 @@ namespace MphRead
     /// </summary>
     public partial class Scene
     {
+        private Mods.Cosmetics.CosmeticUniforms? _pbrCosmetics;
         private int _pbrProgram;
         private int _pbrFramebuffer;
         private int _pbrAlbedoTexture;
@@ -173,6 +174,7 @@ namespace MphRead
                     _pbrNormalSampler = GL.GetUniformLocation(_pbrProgram, "normal_tex");
                     _pbrSpecularSampler = GL.GetUniformLocation(_pbrProgram, "specular_tex");
                     _pbrEmissiveSampler = GL.GetUniformLocation(_pbrProgram, "emissive_tex");
+                    _pbrCosmetics = new(_pbrProgram);
                     _pbrUseNormal = GL.GetUniformLocation(_pbrProgram, "use_normal_map");
                     _pbrUseSpecular = GL.GetUniformLocation(_pbrProgram, "use_specular_map");
                     _pbrUseEmissive = GL.GetUniformLocation(_pbrProgram, "use_emissive_map");
@@ -258,6 +260,7 @@ namespace MphRead
             else if (item.BillboardMode == BillboardMode.Cylinder) viewInv = _viewInvRotYMatrix;
             GL.UniformMatrix4(_pbrViewInv, false, ref viewInv);
 
+            _pbrCosmetics?.Apply(item.Cosmetics);
             GL.Color3(item.Diffuse);
             GL.Uniform3(_pbrMaterialSpecular, item.Specular);
             GL.Uniform3(_pbrMaterialEmission, item.Emission);
@@ -280,6 +283,8 @@ namespace MphRead
             MaterialMapBindings maps = default;
             bool advanced = RenderOptions.AdvancedMaterials && item.HasTexture
                 && _materialMaps.TryGetValue(item.TextureBindingId, out maps);
+            if (RenderOptions.AdvancedMaterials && item.CosmeticMaterial != default)
+            { maps = new(item.CosmeticMaterial.NormalBinding, item.CosmeticMaterial.SpecularBinding, item.CosmeticMaterial.EmissiveBinding); advanced = maps.Any; }
             GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Normal : 0);
             GL.Uniform1(_pbrUseNormal, advanced && maps.Normal != 0 ? 1 : 0);
@@ -445,6 +450,7 @@ uniform vec4 pal_override_color;
 uniform vec3 material_specular;
 uniform vec3 material_emission;
 
+" + Mods.Cosmetics.CosmeticShader.Source + @"
 vec3 mapped_normal() {
     vec3 n = normalize(surface_normal);
     if (!use_normal_map) return n;
@@ -464,6 +470,9 @@ void main() {
     vec3 albedo = base.rgb * vertex_color.rgb;
     if (use_pal_override) albedo = pal_override_color.rgb * vertex_color.rgb;
     if (use_override) albedo = override_color.rgb;
+    vec4 cosmetic = vec4(albedo, 1.0);
+    apply_cosmetics(cosmetic);
+    albedo = cosmetic.rgb;
 
     if (gbuffer_mode == 1) {
         OUTPUT = vec4(clamp(albedo, 0.0, 1.0), 1.0);

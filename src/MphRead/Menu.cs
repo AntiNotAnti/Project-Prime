@@ -69,6 +69,8 @@ namespace MphRead
         public string InternalHdr { get; set; } = "off";
         public string Reflections { get; set; } = "off";
         public string DynamicGlow { get; set; } = "off";
+        public string ShowCustomCosmetics { get; set; } = "on";
+        public string CosmeticQuality { get; set; } = "medium";
         public string TextureReplacements { get; set; } = "off";
         public string PointGoal { get; set; } = "7";
         public string TimeLimit { get; set; } = "7:00";

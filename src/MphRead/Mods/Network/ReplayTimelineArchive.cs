@@ -32,7 +32,7 @@ internal static class ReplayTimelineArchive
     {
         if (record.RecordingFrame < origin) return;
         uint frame = record.RecordingFrame - origin;
-        if (frame > 0 && record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld)
+        if (frame > 0 && record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot or ReplayFactKind.Intent or ReplayFactKind.AuthorityWorld or ReplayFactKind.Presentation)
             writer.WriteRecord(frame, record.Payload);
         if (record.Marker is { } marker)
         {

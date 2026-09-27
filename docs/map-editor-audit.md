@@ -33,3 +33,10 @@ dotnet /tmp/prime-editor-audit-artifacts/bin/MphRead/debug/ProjectPrime.dll -map
 ```
 
 The GPU command requires a desktop OpenGL context. Captures include the full editor, four views, preview output, and overlay ordering. This is not a full manual playtest, exhaustive import-format audit, community-service audit, or proof of performance on every map size. Existing missing-source warnings for the local `mk_blockfort.json` fixture are separate from the synthetic test maps.
+
+## Follow-up: dense maps and layout switching
+
+- Entity labels now reserve screen space and omit overlapping labels. Selected entities have first priority, followed by entities with warnings; entity markers remain visible for picking. Text layout caching remains in place.
+- The entity-helper toggle hides unselected spawn labels and jump-pad trajectories along with the existing item and trigger helpers. Selected spawn labels remain available for orientation.
+- Four-view switching reuses one named focus handler instead of accumulating anonymous handlers on the retained viewport. Placement mode now follows the active editing tool when changing panes.
+- Native GPU/UI verification passes 46 checks with `maps/dust2.ppmap`, including three new label checks. The imported-map capture was visually inspected. This is still an editor preview, not a gameplay playtest or a guarantee that every source-map mechanic is supported.

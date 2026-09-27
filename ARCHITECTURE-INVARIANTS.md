@@ -147,3 +147,21 @@ This file is the short, machine-oriented source of truth for architectural assum
   killcams use the confirmed ending cause and exact kill identity.
 
 - World capsules are explicitly versioned (current v2, v1 readable). V4 files may index bounded durable checkpoints; invalid optional entries fall back to valid reconstruction. New capture spools at most 4,096 checkpoints / 256 MiB compressed and never stores live references or native handles.
+
+## HUD profiles
+
+- HUD profiles are local presentation state, persisted separately from Features.
+  Do not put them in live packets or replay protocols, or read visual scales,
+  visibility, colors or layout offsets in aim assist, hit resolution, weapon
+  spread, movement or server logic.
+- Custom crosshair geometry is drawn around the existing reticle presentation
+  position; profiles cannot establish a new aim center.
+- Classic and Project Prime retain their legacy layout paths. Custom layouts use
+  scoped render transforms; scope disposal restores presentation state.
+- Runtime profiles own detached validated values and cached crosshair geometry.
+  Deserialization, dictionary resolution and geometry construction happen on
+  load/edit, never per match frame. Editor drafts are detached until Apply.
+- Radar/opponent/objective presentation must retain existing availability and
+  match-rule gates. A profile can style available information, not request more.
+- Full HUD Studio acceptance, including remaining preview parity and platform
+  coverage, is tracked in docs/architecture/hud-customization-status.md.

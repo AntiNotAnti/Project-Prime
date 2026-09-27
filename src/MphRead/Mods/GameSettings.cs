@@ -132,6 +132,9 @@ namespace MphRead.Mods
                 RenderOptions.Reflections);
             RenderOptions.DynamicGlow = RenderOptions.ParseOnOff(settings.DynamicGlow,
                 RenderOptions.DynamicGlow);
+            RenderOptions.ShowCustomCosmetics = RenderOptions.ParseOnOff(settings.ShowCustomCosmetics, true);
+            RenderOptions.CosmeticQuality = Enum.TryParse<Cosmetics.CosmeticEffectQuality>(settings.CosmeticQuality, true, out var cosmeticQuality)
+                && Enum.IsDefined(cosmeticQuality) ? cosmeticQuality : Cosmetics.CosmeticEffectQuality.Medium;
             RenderOptions.TextureReplacements = RenderOptions.ParseOnOff(settings.TextureReplacements,
                 RenderOptions.TextureReplacements);
             if (Enum.TryParse(settings.TextureUpscale, true, out TextureUpscaleMode textureUpscale))

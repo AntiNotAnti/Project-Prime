@@ -392,6 +392,7 @@ namespace MphRead.Mods.Network
             NetPlayerSetup.Reset();
             SpectatorMode.Reset();
             DemoRecorder.Stop();
+            NetCosmetics.Live.Reset();
             ReplayCapture.Reset();
             NetMatchSync.Reset();
             NetSlotManager.Reset();
@@ -480,6 +481,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            SendCosmetics();
             byte[] name = System.Text.Encoding.ASCII.GetBytes(PlayerName);
             int count = Math.Min(name.Length, RosterPacket.MaxNameBytes);
             _scratch[0] = (byte)LocalHunter;
@@ -499,6 +501,23 @@ namespace MphRead.Mods.Network
                     _scratch.AsSpan(0, bytes));
             }
 #endif
+        }
+
+        private static uint _cosmeticRevision;
+        private static void SendCosmetics()
+        {
+            if (_transport == null || _hostEndPoint == null || LocalSlot < 0 || ServerMatch is not { } match) return;
+            ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
+            if (generation == 0) return;
+            var appearance = Cosmetics.CosmeticRuntime.Local(LocalHunter);
+            // Identity retries provide loss recovery until the server echoes it.
+            if (NetCosmetics.Live.Get(LocalSlot, LocalHunter, generation).Loadout == appearance.Loadout) return;
+            uint echoedRevision = NetCosmetics.Live.Revision(LocalSlot);
+            if (NetLifecycleTracker.Newer(echoedRevision, _cosmeticRevision)) _cosmeticRevision = echoedRevision;
+            var packet = CosmeticStatePacket.Create(LocalSlot, LocalHunter, generation,
+                match.MatchId, match.AuthorityEpoch, ++_cosmeticRevision, appearance);
+            packet.Write(_scratch);
+            _transport.Send(_hostEndPoint, PacketType.CosmeticState, _scratch.AsSpan(0, CosmeticStatePacket.Size));
         }
 
         /// <summary>The hunter this machine plays, announced in Identify.</summary>
@@ -876,6 +895,18 @@ namespace MphRead.Mods.Network
                         // player out of a match they are already in.
                         RefusedReason = RefusedPacket.Read(packet.Payload);
                         Refused = true;
+                    }
+                    break;
+                case PacketType.CosmeticState when Role == NetRole.Client:
+                    if (ServerMatch is { } cosmeticMatch && packet.Payload.Length > 0
+                        && packet.Payload.Length <= PlayerEntity.SlotCapacity * CosmeticStatePacket.Size
+                        && packet.Payload.Length % CosmeticStatePacket.Size == 0)
+                    {
+                        for (int at = 0; at < packet.Payload.Length; at += CosmeticStatePacket.Size)
+                            if (CosmeticStatePacket.TryRead(packet.Payload.Slice(at, CosmeticStatePacket.Size), out var cosmetic)
+                                && NetCosmetics.Live.Accept(cosmetic, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch,
+                                    NetPlayerLifecycle.Generation(cosmetic.Slot)))
+                                ReplayCapture.AcceptedCosmetics();
                     }
                     break;
                 case PacketType.Roster when Role == NetRole.Client:

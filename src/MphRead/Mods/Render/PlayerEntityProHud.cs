@@ -2,6 +2,7 @@ using System;
 using MphRead.Formats;
 using MphRead.Hud;
 using MphRead.Mods.Render;
+using MphRead.Mods.Render.Hud;
 using MphRead.Text;
 using OpenTK.Mathematics;
 
@@ -60,23 +61,31 @@ namespace MphRead.Entities
             float aspect = HudAspectFix;
             if (ModHudHealthVisible)
             {
-                Vector4 health = ProHealthColor();
+                using var layout = UseHudLayout(1, 2 * aspect, 170);
+                var style = HudProfiles.Runtime.Health;
+                bool custom = HudProfiles.Runtime.Mode == HudMode.Custom;
+                Vector4 health = custom ? MeterColor(style, ProHealthFraction()) : ProHealthColor();
                 // The left foot of the screen, under the weapon list and the same
                 // width as it: score, weapons and energy then read as one column
                 // top to bottom, which is one place to look instead of three
                 // corners.
-                _scene.DrawHudFlatBox(2 * aspect, 170, 46 * aspect, 190, ProHudPanel);
+                if (!custom || style.Background) _scene.DrawHudFlatBox(2 * aspect, 170, 46 * aspect, 190, ProHudPanel);
                 Span<char> healthBuffer = stackalloc char[12];
                 scoped ReadOnlySpan<char> healthText = "?";
                 if (ModHudHealth.TryFormat(healthBuffer, out int healthLength))
                 {
                     healthText = healthBuffer[..healthLength];
                 }
-                ProNumber(6 * aspect, 172, Align.Left, healthText, ProInk(health), 1.5f);
-                ProBar(4 * aspect, 186, 40, 3, ProHealthFraction(), health);
+                if (!custom || style.Number) ProNumber(6 * aspect, 172, Align.Left, healthText, ProInk(health), 1.5f * (custom ? style.NumberScale : 1));
+                if (!custom || style.Gauge)
+                {
+                    using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 12 : -1,4*aspect,186);
+                    ProBar(4 * aspect, 186, 40 * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProHealthFraction(), health, custom && style.Vertical);
+                }
             }
             DrawProAmmo();
-            ProScore(4 * aspect, 12, Align.Left, 1.1f);
+            using (var layout = UseHudLayout(5, 4 * aspect, 12))
+                ProScore(4 * aspect, 12, Align.Left, 1.1f);
         }
 
         /// <summary>
@@ -125,13 +134,20 @@ namespace MphRead.Entities
             }
 
             float aspect = HudAspectFix;
-            Vector4 color = ProAmmoColor();
+            var style = HudProfiles.Runtime.Ammo;
+            bool custom = HudProfiles.Runtime.Mode == HudMode.Custom;
+            Vector4 color = custom ? MeterColor(style, ProAmmoFraction()) : ProAmmoColor();
             float right = 256 - 2 * aspect;
             float left = right - ProAmmoPanelWidth * aspect;
-            _scene.DrawHudFlatBox(left, 170, right, 190, ProHudPanel);
-            DrawProAmmoIcon(left + 2 * aspect, 172);
-            ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale);
-            ProBar(left + 2 * aspect, 186, ProAmmoPanelWidth - 4, 3, ProAmmoFraction(), color);
+            using var layout = UseHudLayout(2, left, 170);
+            if (!custom || style.Background) _scene.DrawHudFlatBox(left, 170, right, 190, ProHudPanel);
+            if (!custom || style.Icon) DrawProAmmoIcon(left + 2 * aspect, 172);
+            if (!custom || style.Number) ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale * (custom ? style.NumberScale : 1));
+            if (!custom || style.Gauge)
+            {
+                using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 13 : -1,left+2*aspect,186);
+                ProBar(left + 2 * aspect, 186, (ProAmmoPanelWidth - 4) * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProAmmoFraction(), color, custom && style.Vertical);
+            }
         }
 
         /// <summary>
@@ -296,17 +312,18 @@ namespace MphRead.Entities
         /// pale, the surround behind it is dark, and the pair of them read
         /// against both.
         /// </summary>
-        private void ProBar(float x, float y, float width, float height, float fill, Vector4 color)
+        private static Vector4 MeterColor(HudMeterRuntime style, float fraction)
         {
-            float aspect = HudAspectFix;
-            float pad = 1f;
-            _scene.DrawHudFlatBox(x - pad * aspect, y - pad,
-                x + (width + pad) * aspect, y + height + pad, ProHudShade);
-            _scene.DrawHudFlatBox(x, y, x + width * aspect, y + height, ProHudTrack);
-            if (fill > 0)
-            {
-                _scene.DrawHudFlatBox(x, y, x + width * fill * aspect, y + height, color);
-            }
+            var c = style.ColorFor(fraction); return new Vector4(c.X, c.Y, c.Z, 1);
+        }
+        private void ProBar(float x, float y, float width, float height, float fill, Vector4 color, bool vertical = false)
+        {
+            Span<HudRectPrimitive> primitives = stackalloc HudRectPrimitive[3];
+            int count = HudPrimitives.Meter(primitives, x / HudAspectFix, y, width, height, fill,
+                new System.Numerics.Vector4(color.X,color.Y,color.Z,color.W), vertical);
+            foreach (var rect in primitives[..count])
+                _scene.DrawHudFlatBox(rect.X*HudAspectFix,rect.Y,(rect.X+rect.Width)*HudAspectFix,rect.Y+rect.Height,
+                    new Vector4(rect.Color.X,rect.Color.Y,rect.Color.Z,rect.Color.W));
         }
 
         /// <summary>
@@ -334,7 +351,21 @@ namespace MphRead.Entities
         {
             string label = Strings.GetHudMessage(ProScoreMessageId());
             ProNumber(x, y, align, label, ProHudDim, 0.55f);
-            ProNumber(x, y + 8, align, FormatModeScore(_scene.Players.MainPlayerIndex), ProHudInk, scale);
+            Span<char> score=stackalloc char[96];
+            int slot=_scene.Players.MainPlayerIndex;
+            var mode=GameState.Mode;
+            int length;
+            if(mode is GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib or GameMode.Capture or GameMode.Nodes or GameMode.NodesTeams or GameMode.Bounty or GameMode.BountyTeams)
+            {
+                int points=_scene.GameState.Teams ? _scene.GameState.TeamPoints[_scene.Players.Items[slot].TeamIndex] : _scene.GameState.Points[slot];
+                if(score.TryWrite($"{points} / {_scene.GameState.PointGoal}",out length)) ProNumber(x,y+8,align,score[..length],ProHudInk,scale);
+            }
+            else if(mode is GameMode.Survival or GameMode.SurvivalTeams)
+            {
+                int lives=Math.Max(_scene.GameState.PointGoal-_scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex],0);
+                if(lives.TryFormat(score,out length)) ProNumber(x,y+8,align,score[..length],ProHudInk,scale);
+            }
+            else ProNumber(x, y + 8, align, FormatModeScore(slot), ProHudInk, scale);
         }
 
         /// <summary>

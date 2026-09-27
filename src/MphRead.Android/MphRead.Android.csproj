@@ -210,4 +210,9 @@
     <ProjectReference Include="..\NcsfPlay\NcsfPlay.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="../MphRead/Assets/Cosmetics/**/*.png">
+      <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

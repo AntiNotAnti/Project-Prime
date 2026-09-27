@@ -203,6 +203,25 @@ namespace MphRead.Mods.Launcher.Gui
         /// swapping a suit swaps the palette and not the modelling -- which
         /// is what a recolor is.
         /// </summary>
+        public Mods.Cosmetics.CosmeticLoadout? Cosmetics { get; set; }
+        private float _cosmeticZoom = 1;
+        private int _deathPreviewRequest;
+        public void PreviewDeath() { _deathPreviewRequest++; }
+        public void ResetPreview() { _deathPreviewRequest = 0; _cosmeticZoom = 1; _spin = 0; }
+        protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
+        {
+            _cosmeticZoom = Math.Clamp(_cosmeticZoom + (float)e.Delta.Y * 0.05f, 0.8f, 1.2f);
+            e.Handled = true;
+            base.OnPointerWheelChanged(e);
+        }
+        private void PublishCosmetics()
+        {
+            Mods.Cosmetics.CosmeticPreview.Loadout = Cosmetics;
+            Mods.Cosmetics.CosmeticPreview.Yaw = (float)_spin;
+            Mods.Cosmetics.CosmeticPreview.Zoom = _cosmeticZoom;
+            Mods.Cosmetics.CosmeticPreview.DeathRequest = _deathPreviewRequest;
+        }
+
         public int Suit
         {
             get => _suit;
@@ -389,7 +408,8 @@ namespace MphRead.Mods.Launcher.Gui
             double scale = Math.Min(1, ShotEdge / Math.Max(w, h));
             int width = Grain((int)Math.Round(w * scale));
             int height = Grain((int)Math.Round(h * scale));
-            string want = $"{_who}/{_suit}/{width}x{height}";
+            string want = $"{_who}/{_suit}/{width}x{height}/{Cosmetics}/{_spin:0.00}/{_cosmeticZoom:0.00}/{_deathPreviewRequest}";
+            if (Cosmetics != null) want += "/" + (Environment.TickCount64 / 100);
             if (want == _shotAsked)
             {
                 return;
@@ -453,6 +473,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private void Beat()
         {
+            if (IsEffectivelyVisible) PublishCosmetics();
             _swapping = Scene.PreviewDrawnHunter == Asked
                 && Scene.PreviewDrawnSuit == _suit ? 0 : _swapping + 1;
 #if MPHREAD_SHELL

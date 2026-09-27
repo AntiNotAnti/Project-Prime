@@ -54,6 +54,19 @@ namespace MphRead.Mods.Render
         private static readonly Matrix4 _facing =
             Matrix4.CreateRotationY(MathHelper.DegreesToRadians(180));
 
+        private Mods.Cosmetics.CosmeticAppearance _cosmetics = Mods.Cosmetics.CosmeticAppearance.Default;
+        private readonly Mods.Cosmetics.Death.DeathPresentationState _death = new();
+        private float _cosmeticTime;
+        private int _deathRequest;
+        public void SetCosmetics(Mods.Cosmetics.CosmeticLoadout loadout, int deathRequest)
+        {
+            if (_cosmetics.Loadout != loadout) { _cosmetics = new(_hunter, loadout); _death.Reset(); }
+            if (_deathRequest != deathRequest)
+            {
+                _deathRequest = deathRequest;
+                if (deathRequest == 0) _death.Reset(); else _death.Preview(_cosmetics, _cosmeticTime);
+            }
+        }
         private Hunter _hunter = Hunter.Random;
 
         /// <summary>The hunter whose model is not on this machine. See SetUp.</summary>
@@ -77,6 +90,8 @@ namespace MphRead.Mods.Render
         public Hunter Shown => _model == null ? Hunter.Random : _hunter;
 
         public int ShownSuit => _recolor;
+        public string ThumbnailKey => _death.Active && _death.Progress(_cosmeticTime, _cosmetics.Death) is > 0.35f and < 0.65f
+            ? _cosmetics.Death.Key : _cosmetics.Armor.WireId != 0 ? _cosmetics.Armor.Key : _cosmetics.Skin.Key;
 
         /// <summary>
         /// Point it at a hunter and a suit. Cheap to call every frame: only a
@@ -153,11 +168,15 @@ namespace MphRead.Mods.Render
         public void Step()
         {
             _model?.UpdateAnimFrames();
+            _cosmeticTime += 1f / 60;
         }
 
         public void Reset()
         {
         }
+
+        protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
+            => Mods.RenderOptions.ShowCustomCosmetics ? _scene.GetCosmeticMaterial(_cosmetics.Skin, inst.Model, index, Mods.Cosmetics.SkinContext.Biped) : default;
 
         protected override LightInfo GetLightInfo()
         {
@@ -191,8 +210,26 @@ namespace MphRead.Mods.Render
             // thing for a picker: the answer to "what does this suit look
             // like" should be the same every time you glance at it, not
             // whichever side happens to be towards you.
-            UpdateTransforms(_model, _facing, _recolor < 0 ? 0 : _recolor);
-            GetDrawItems(_model, 0, _light);
+            Matrix4 pose = Matrix4.CreateScale(Mods.Cosmetics.CosmeticPreview.Zoom)
+                * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw) * _facing;
+            var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false);
+            bool dying = Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_death, _cosmetics.Death, _cosmeticTime);
+            float progress = dying ? _death.Progress(_cosmeticTime, _cosmetics.Death) : 0;
+            if (dying)
+            {
+                pose = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(_cosmetics.Death, progress) * pose;
+                surface = surface with { Effect = (int)_cosmetics.Death.SurfaceEffect, Primary = _cosmetics.Death.LightEffect,
+                    Intensity = 0.4f, Dissolve = Math.Clamp((progress - _cosmetics.Death.FadeStart) / (1 - _cosmetics.Death.FadeStart), 0, 1) };
+            }
+            UpdateTransforms(_model, pose, _recolor < 0 ? 0 : _recolor);
+            var previous = _scene.CosmeticSubmission;
+            _scene.CosmeticSubmission = surface;
+            try { if (!dying || progress < _cosmetics.Death.HideBodyAt) GetDrawItems(_model, 0, _light); }
+            finally { _scene.CosmeticSubmission = previous; }
+            if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17);
+            else if (Mods.RenderOptions.ShowCustomCosmetics)
+                Mods.Cosmetics.Armor.ArmorEffectParticles.Draw(_scene, _model.Model, Vector3.Zero, _cosmetics.Armor,
+                    _cosmeticTime, 17, Mods.Cosmetics.CosmeticLod.Near, false);
         }
     }
 }

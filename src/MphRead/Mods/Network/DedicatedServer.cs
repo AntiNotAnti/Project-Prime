@@ -1051,6 +1051,9 @@ namespace MphRead.Mods.Network
                 case PacketType.Identify:
                     HandleIdentify(packet, now);
                     break;
+                case PacketType.CosmeticState:
+                    HandleCosmetics(packet);
+                    break;
                 case PacketType.CareerIdentity:
                     HandleCareerIdentity(packet, now);
                     break;
@@ -2183,6 +2186,7 @@ namespace MphRead.Mods.Network
                 _transport?.Send(_peers[i].EndPoint, PacketType.Roster,
                     _scratch.AsSpan(0, RosterPacket.Size));
             }
+            BroadcastCosmetics();
         }
 
         /// <summary>

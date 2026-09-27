@@ -21,41 +21,72 @@ namespace MphRead.Mods.Render
                     && !RenderOptions.PostProcessingEnabled,
                     "original preset remains the unprocessed compatibility path");
 
+                foreach (var preset in new[] { GraphicsPreset.Performance, GraphicsPreset.Enhanced,
+                    GraphicsPreset.Ultra, GraphicsPreset.Extreme })
+                {
+                    // Poison every optional effect first: a preset must clear
+                    // a previous custom/maximal look, not inherit its switches.
+                    RenderOptions.DeferredPbr = RenderOptions.Reflections = true;
+                    RenderOptions.EnhancedFog = RenderOptions.VolumetricFog = true;
+                    RenderOptions.InternalHdr = RenderOptions.DynamicGlow = true;
+                    RenderOptions.ContactShadows = RenderOptions.EnhancedLighting = true;
+                    RenderOptions.ColorGrade = ColorGradeProfile.Cinematic;
+                    RenderOptions.Contrast = 150; RenderOptions.Saturation = 200;
+                    RenderOptions.TextureUpscale = TextureUpscaleMode.Scale4x;
+                    RenderOptions.ApplyGraphicsPreset(preset);
+                    Check(!RenderOptions.DeferredPbr && !RenderOptions.Reflections
+                        && !RenderOptions.EnhancedFog && !RenderOptions.VolumetricFog
+                        && !RenderOptions.InternalHdr && !RenderOptions.DynamicGlow
+                        && !RenderOptions.ContactShadows && !RenderOptions.EnhancedLighting
+                        && RenderOptions.ColorGrade == ColorGradeProfile.Original
+                        && RenderOptions.Gamma == 100 && RenderOptions.Contrast == 100
+                        && RenderOptions.Saturation == 100
+                        && RenderOptions.TextureUpscale == TextureUpscaleMode.Off,
+                        $"{preset} clears stacked lighting, atmosphere and grading");
+                    // Every shared draft field must also reach the live renderer.
+                    var profile = GraphicsPresetProfile.Get(preset)!;
+                    foreach (var field in typeof(GraphicsPresetProfile).GetProperties())
+                    {
+                        Check(Equals(field.GetValue(profile),
+                            typeof(RenderOptions).GetProperty(field.Name)!.GetValue(null)),
+                            $"{preset} applies {field.Name} consistently");
+                    }
+                }
+
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Performance);
-                Check(RenderOptions.ResolutionScale == 85
+                Check(RenderOptions.ResolutionScale == 100
                     && RenderOptions.AntiAliasing == AntiAliasingMode.Fxaa
                     && RenderOptions.TextureAnisotropy == 4
-                    && RenderOptions.Shadows == ShadowQuality.Off,
-                    "performance preset keeps the cheap path");
+                    && !RenderOptions.NeedsReadableDepth && !RenderOptions.Bloom,
+                    "performance preserves native detail without depth effects");
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Enhanced);
-                Check(RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
-                    && RenderOptions.TextureUpscale == TextureUpscaleMode.Scale2x
-                    && RenderOptions.Shadows == ShadowQuality.Low
-                    && RenderOptions.AmbientOcclusion == AmbientOcclusionQuality.Medium
-                    && RenderOptions.AdvancedMaterials
-                    && RenderOptions.NeedsReadableDepth
-                    && RenderOptions.PostProcessingEnabled,
-                    "enhanced preset enables the modern depth/material pipeline");
+                Check(RenderOptions.ResolutionScale == 100
+                    && RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
+                    && RenderOptions.AmbientOcclusion == AmbientOcclusionQuality.Low
+                    && RenderOptions.Bloom && RenderOptions.BloomIntensity == 20
+                    && RenderOptions.Shadows == ShadowQuality.Off
+                    && RenderOptions.AdvancedMaterials && RenderOptions.NeedsReadableDepth,
+                    "enhanced uses subtle bloom and occlusion at native resolution");
 
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Ultra);
-                Check(RenderOptions.ResolutionScale == 200
-                    && RenderOptions.TextureUpscale == TextureUpscaleMode.Scale4x
-                    && RenderOptions.Shadows == ShadowQuality.High
-                    && RenderOptions.InternalHdr
-                    && RenderOptions.DeferredPbr
-                    && RenderOptions.Reflections
-                    && RenderOptions.VolumetricFog,
-                    "ultra preset enables high-end effects");
-
+                Check(RenderOptions.ResolutionScale == 150
+                    && RenderOptions.Shadows == ShadowQuality.High,
+                    "ultra spends quality on supersampling and shadows");
                 RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
-                Check(RenderOptions.ResolutionScale == 400
-                    && RenderOptions.AntiAliasing == AntiAliasingMode.Smaa
-                    && RenderOptions.DeferredPbr
+                Check(RenderOptions.ResolutionScale == 200
                     && RenderOptions.Shadows == ShadowQuality.Ultra
-                    && RenderOptions.InternalHdr
-                    && RenderOptions.DynamicGlow,
-                    "extreme preset remains bounded but maximal");
+                    && RenderOptions.SharpenStrength == 0,
+                    "extreme uses 2x supersampling without sharpening halos");
+
+                var before = RenderOptions.ResolutionScale;
+                Check(GraphicsPresetProfile.Get(GraphicsPreset.Original) != null
+                    && RenderOptions.ResolutionScale == before,
+                    "reading a launcher draft does not mutate live rendering");
+                RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Custom);
+                Check(RenderOptions.ResolutionScale == before
+                    && GraphicsPresetProfile.Get(GraphicsPreset.Custom) == null,
+                    "custom preserves manually tuned values");
 
                 RenderOptions.AntiAliasing = AntiAliasingMode.Taa;
                 Check(RenderOptions.PostProcessingEnabled,

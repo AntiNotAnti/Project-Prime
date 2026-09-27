@@ -371,74 +371,41 @@ namespace MphRead.Mods
             || ContactShadows || EnhancedFog || VolumetricFog || InternalHdr
             || Reflections || DynamicGlow;
 
+        public static bool ShowCustomCosmetics { get; set; } = true;
+        public static Cosmetics.CosmeticEffectQuality CosmeticQuality { get; set; } = Cosmetics.CosmeticEffectQuality.Medium;
+
         public static void ApplyGraphicsPreset(GraphicsPreset preset)
         {
             Preset = preset;
-            switch (preset)
-            {
-            case GraphicsPreset.Original:
-                ResolutionScale = 100;
-                Lighting = true; Fog = true;
-                TextureFiltering = false; TextureMipmaps = false; TextureAnisotropy = 1;
-                TextureUpscale = TextureUpscaleMode.Off;
-                AntiAliasing = AntiAliasingMode.Off; SharpenStrength = 0;
-                Bloom = false; BloomIntensity = 60;
-                ColorGrade = ColorGradeProfile.Original; Gamma = Contrast = Saturation = 100;
-                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
-                ContactShadows = false; EnhancedFog = false; VolumetricFog = false;
-                InternalHdr = false; Reflections = false; DynamicGlow = false;
-                break;
-            case GraphicsPreset.Performance:
-                ResolutionScale = 85;
-                Lighting = true; Fog = true;
-                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 4;
-                TextureUpscale = TextureUpscaleMode.Off;
-                AntiAliasing = AntiAliasingMode.Fxaa; SharpenStrength = 20;
-                Bloom = false; BloomIntensity = 45;
-                ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 104; Saturation = 106;
-                EnhancedLighting = false; AdvancedMaterials = false; DeferredPbr = false; Shadows = ShadowQuality.Off; AmbientOcclusion = AmbientOcclusionQuality.Off;
-                ContactShadows = false; EnhancedFog = true; VolumetricFog = false;
-                InternalHdr = false; Reflections = false; DynamicGlow = false;
-                break;
-            case GraphicsPreset.Enhanced:
-                ResolutionScale = 100;
-                Lighting = true; Fog = true;
-                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
-                TextureUpscale = TextureUpscaleMode.Scale2x;
-                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 22;
-                Bloom = true; BloomIntensity = 60;
-                ColorGrade = ColorGradeProfile.Enhanced; Gamma = 100; Contrast = 108; Saturation = 112;
-                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = false; Shadows = ShadowQuality.Low; AmbientOcclusion = AmbientOcclusionQuality.Medium;
-                ContactShadows = true; EnhancedFog = true; VolumetricFog = false;
-                InternalHdr = false; Reflections = false; DynamicGlow = true;
-                break;
-            case GraphicsPreset.Ultra:
-                ResolutionScale = 200;
-                Lighting = true; Fog = true;
-                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
-                TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 16;
-                Bloom = true; BloomIntensity = 80;
-                ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 110; Saturation = 115;
-                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.High; AmbientOcclusion = AmbientOcclusionQuality.High;
-                ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
-                InternalHdr = true; Reflections = true; DynamicGlow = true;
-                break;
-            case GraphicsPreset.Extreme:
-                ResolutionScale = 400;
-                Lighting = true; Fog = true;
-                TextureFiltering = true; TextureMipmaps = true; TextureAnisotropy = 16;
-                TextureUpscale = TextureUpscaleMode.Scale4x;
-                AntiAliasing = AntiAliasingMode.Smaa; SharpenStrength = 12;
-                Bloom = true; BloomIntensity = 95;
-                ColorGrade = ColorGradeProfile.Cinematic; Gamma = 100; Contrast = 112; Saturation = 118;
-                EnhancedLighting = true; AdvancedMaterials = true; DeferredPbr = true; Shadows = ShadowQuality.Ultra; AmbientOcclusion = AmbientOcclusionQuality.High;
-                ContactShadows = true; EnhancedFog = true; VolumetricFog = true;
-                InternalHdr = true; Reflections = true; DynamicGlow = true;
-                break;
-            case GraphicsPreset.Custom:
-                break;
-            }
+            var profile = GraphicsPresetProfile.Get(preset);
+            if (profile == null) return;
+            ResolutionScale = profile.ResolutionScale;
+            Lighting = profile.Lighting;
+            Fog = profile.Fog;
+            TextureFiltering = profile.TextureFiltering;
+            TextureMipmaps = profile.TextureMipmaps;
+            TextureAnisotropy = profile.TextureAnisotropy;
+            TextureUpscale = profile.TextureUpscale;
+            AntiAliasing = profile.AntiAliasing;
+            SharpenStrength = profile.SharpenStrength;
+            Bloom = profile.Bloom;
+            BloomIntensity = profile.BloomIntensity;
+            ColorGrade = profile.ColorGrade;
+            Gamma = profile.Gamma;
+            Contrast = profile.Contrast;
+            Saturation = profile.Saturation;
+            EnhancedLighting = profile.EnhancedLighting;
+            AdvancedMaterials = profile.AdvancedMaterials;
+            DeferredPbr = profile.DeferredPbr;
+            Shadows = profile.Shadows;
+            AmbientOcclusion = profile.AmbientOcclusion;
+            ContactShadows = profile.ContactShadows;
+            EnhancedFog = profile.EnhancedFog;
+            VolumetricFog = profile.VolumetricFog;
+            InternalHdr = profile.InternalHdr;
+            Reflections = profile.Reflections;
+            DynamicGlow = profile.DynamicGlow;
+            if (preset == GraphicsPreset.Original) TextureReplacements = false;
         }
 
         /// <summary>Apply a scale to one dimension, never below one pixel.</summary>

@@ -158,6 +158,7 @@ vec3 mapped_normal()
     return normalize(tangent * mapNormal.x + bitangent * mapNormal.y + n * mapNormal.z);
 }
 
+" + MphRead.Mods.Cosmetics.CosmeticShader.Source + @"
 void apply_material_lighting(inout vec4 col)
 {
     if (!advanced_materials || !use_light) return;
@@ -270,6 +271,7 @@ void main()
         col.a *= mat_alpha;
     }
     apply_material_lighting(col);
+    apply_cosmetics(col);
     if (player_outline_mask) {
         if (col.a <= 0.01) discard;
         col.rgb = player_outline_color;
