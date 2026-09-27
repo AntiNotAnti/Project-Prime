@@ -705,6 +705,47 @@ namespace MphRead.Mods.Input.AimAssist
             Check(normalizedMiss <= .0001f,
                 "flick landing miss is expressed in projected head radii");
 
+            // A fast same-direction sweep can cross the whole head band between
+            // 60 Hz samples. It should arm from camera speed and finish the
+            // predicted crossing without waiting for the braking half of a flick.
+            var passState = new AimAssistState
+            {
+                PreviousStick = new(.8f, 0),
+                StickHistory0 = new(.8f, 0), StickHistory1 = new(.8f, 0),
+                PreviousCameraVelocity = Vector2.Zero
+            };
+            var passTarget = new AimAssistTarget(1, 1, new(2f, 0), new(3.9f, 0), 12,
+                true, true,
+                BodyRegion: new(1.5f, 5.5f, -.6f, .6f),
+                HeadRegion: new(3.7f, 4.1f, -.2f, .2f),
+                BodySurface: new(new(2f, 0), false),
+                HeadSurface: new(new(3.7f, 0), false),
+                BodyVisibility: 1, HeadVisibility: 1);
+            var pass = AimAssist.Apply(passState, new[] { passTarget }, new Vector2(.8f, 0),
+                new Vector2(.8f, 0), 0, dt, true, profile);
+            Check(pass.FlickActive
+                && pass.TrackingState == AimAssistTrackingState.FlickCapturingHead
+                && pass.PositionCorrection.Length()
+                    > profile.MaxPositionSpeed * AimAssistTuning.FlickSnapSpeedScale * dt,
+                "high-speed pass-through flick captures a predicted head crossing with a dedicated snap cap");
+
+            var missState = new AimAssistState
+            {
+                PreviousStick = new(.8f, 0),
+                StickHistory0 = new(.8f, 0), StickHistory1 = new(.8f, 0),
+                PreviousCameraVelocity = Vector2.Zero
+            };
+            var missTarget = passTarget with
+            {
+                HeadError = new(3.9f, 2f),
+                HeadRegion = new(3.7f, 4.1f, 1.8f, 2.2f),
+                HeadSurface = new(new(3.7f, 1.8f), false)
+            };
+            var miss = AimAssist.Apply(missState, new[] { missTarget }, new Vector2(.8f, 0),
+                new Vector2(.8f, 0), 0, dt, true, profile);
+            Check(miss.TrackingState != AimAssistTrackingState.FlickCapturingHead,
+                "fast sweep still refuses a head whose predicted path does not intersect");
+
             var brakeState = new AimAssistState
             {
                 TargetSlot = 1, TargetLife = 1, RetainedSeconds = .3f,
