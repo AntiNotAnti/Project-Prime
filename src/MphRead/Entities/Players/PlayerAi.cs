@@ -1446,11 +1446,19 @@ namespace MphRead.Entities
             {
                 ExecuteFuncs1(context.Data1.Data3b);
                 ExecuteFuncs2(context);
-                if (context.Func24Id != 0 && _player.EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom)
+                bool visibleZoomTarget = Flags2.TestFlag(AiFlags2.TargetPlayer)
+                    && _targetPlayer != null && _targetPlayer.Health > 0
+                    && _targetPlayer.ModInPlay && IsPlayerVisible(_player, _targetPlayer);
+                bool wantsZoom = context.Func24Id != 0
+                    && Flags4.TestFlag(AiFlags4.Bit2) && visibleZoomTarget;
+                if (_player.EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom)
                     && _buttons.Select.FramesUp > 5 * 2 // todo: FPS stuff
-                    && (!_player.EquipInfo.Zoomed && Flags4.TestFlag(AiFlags4.Bit2)
-                    || _player.EquipInfo.Zoomed && !Flags4.TestFlag(AiFlags4.Bit2)))
+                    && _player.EquipInfo.Zoomed != wantsZoom)
                 {
+                    // Zoom is a combat presentation state, not target memory.
+                    // A retained aggro target behind a wall may still be useful
+                    // for navigation, but it must not keep the scope or the aim
+                    // servo locked through geometry.
                     _buttons.Select.IsDown = true;
                 }
                 if (_player.Hunter == Hunter.Spire && !_player.IsAltForm)
@@ -6816,11 +6824,17 @@ namespace MphRead.Entities
                 // aim paths. Use the engine's tracked player velocity for prediction,
                 // then deliberately scale prediction, error, turn speed, and refresh
                 // rate through the difficulty profile.
-                if (!Flags2.TestFlag(AiFlags2.TargetPlayer))
+                if (!Flags2.TestFlag(AiFlags2.TargetPlayer) || _targetPlayer == null
+                    || !IsPlayerVisible(_player, _targetPlayer))
                 {
+                    // Aggro memory may retain a player through brief cover so
+                    // pathing remains believable. Precision combat aim does
+                    // not get that privilege: once LOS is gone, stop steering
+                    // the reticle and force a fresh prediction when sight
+                    // returns.
+                    _field1020 = 0;
                     return;
                 }
-                Debug.Assert(_targetPlayer != null);
                 BotDifficultyTuning tuning = Difficulty;
                 Vector3 toTarget = _targetPlayer.Position - _player.Position;
                 float targetDist = toTarget.Length;
