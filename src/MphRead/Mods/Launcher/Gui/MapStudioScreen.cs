@@ -1484,13 +1484,108 @@ namespace MphRead.Mods.Launcher.Gui
             _=Validate();
         });
 
+        private sealed record MaterialTarget(string Label,int Index,bool Source)
+        {
+            public override string ToString()=>Label;
+        }
+
         private void MaterialInspector()
         {
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MATERIAL BROWSER"));
+            var definition=_document.Project.Definition;
+
+            _inspector.Children.Add(Text("EYEDROPPER & REPLACE ALL"));
+            if(_pickedMaterialHit is { } picked)
+            {
+                int sourceSlot=picked.SourceMaterial>=0?picked.SourceMaterial:picked.Material;
+                _inspector.Children.Add(Text(picked.ObjectId==Guid.Empty
+                    ?$"Picked source surface · source slot {sourceSlot} · runtime material {picked.Material}"
+                    :$"Picked authored surface · material {picked.Material}"));
+            }
+            else _inspector.Children.Add(Text("No surface material picked yet."));
+            AddButton(_inspector,"Eyedropper · click surface",()=>
+            {
+                if(_viewport==null)return;
+                _viewport.MaterialEyedropper=true;
+                _status.Text="Material eyedropper active · click any rendered surface.";
+            });
+
+            var targets=new List<MaterialTarget>();
+            if(definition.Import is {} imported)
+            {
+                try
+                {
+                    MapTexturePack? pack=imported.LoadTexturePack();
+                    if(pack!=null)
+                        targets.AddRange(pack.Entries.Select((entry,index)=>
+                            new MaterialTarget($"Source {index} · {entry.Name}",index,true)));
+                }
+                catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException)
+                { _inspector.Children.Add(Text("Source material list unavailable: "+ex.Message)); }
+            }
+            targets.AddRange(definition.Materials.Select((material,index)=>
+                new MaterialTarget($"Authored {index} · {material.Name}",index,false)));
+            var replacementTarget=new ComboBox{ItemsSource=targets,SelectedIndex=targets.Count>0?0:-1};
+            _inspector.Children.Add(Text("Replacement material"));_inspector.Children.Add(replacementTarget);
+            AddButton(_inspector,"Replace all uses",()=>
+            {
+                if(_pickedMaterialHit is not {} hit||replacementTarget.SelectedItem is not MaterialTarget target)
+                { _status.Text="Pick a source surface and replacement material first.";return; }
+                try
+                {
+                    _document.Edit("Replace all material uses",d=>
+                    {
+                        if(hit.ObjectId!=Guid.Empty)
+                        {
+                            if(target.Source)throw new InvalidOperationException("Authored geometry must target an authored material.");
+                            int source=hit.Material;
+                            foreach(MapGeometry geometry in d.Geometry)
+                            {
+                                if(geometry.Material==source)geometry.Material=target.Index;
+                                if(geometry is MapMesh mesh)
+                                    for(int i=0;i<mesh.FaceMaterials.Count;i++)
+                                        if(mesh.FaceMaterials[i]==source)mesh.FaceMaterials[i]=target.Index;
+                            }
+                            foreach(MapBrush brush in d.Brushes)
+                                if(brush.Material==source)brush.Material=target.Index;
+                        }
+                        else if(d.Import is {} import)
+                        {
+                            int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
+                            import.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                            import.MaterialReplacements.Add(new()
+                            {
+                                Source=source,Target=target.Index,TargetSource=target.Source
+                            });
+                        }
+                        else if(d.NativeRoom is {} native)
+                        {
+                            int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
+                            if(target.Source)throw new InvalidOperationException("Native remix replacements use Map Studio material slots.");
+                            native.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                            native.MaterialReplacements.Add(new(){Source=source,Target=target.Index});
+                        }
+                    },MapChangeDomain.Material|MapChangeDomain.Geometry|MapChangeDomain.Import);
+                    _status.Text="Material replacement applied across the map.";
+                    _=Validate();MaterialInspector();
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+            AddButton(_inspector,"Clear picked source override",()=>
+            {
+                if(_pickedMaterialHit is not {ObjectId:var id} hit||id!=Guid.Empty)return;
+                int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
+                _document.Edit("Clear material replacement",d=>
+                {
+                    d.Import?.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                    d.NativeRoom?.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                },MapChangeDomain.Material|MapChangeDomain.Import);
+                _status.Text=$"Cleared source material {source} replacement.";_=Validate();MaterialInspector();
+            });
+
             var filter=new TextBox{PlaceholderText="Search materials"};_inspector.Children.Add(filter);
             var panels=new List<(Control Panel,string Search)>();
-            var definition=_document.Project.Definition;
             var order=Enumerable.Range(0,definition.Materials.Count)
                 .OrderByDescending(i=>_studioState.FavoriteMaterials.Contains(MaterialKey(definition.Materials[i]),StringComparer.OrdinalIgnoreCase))
                 .ThenBy(i=>definition.Materials[i].Name,StringComparer.OrdinalIgnoreCase).ToArray();
