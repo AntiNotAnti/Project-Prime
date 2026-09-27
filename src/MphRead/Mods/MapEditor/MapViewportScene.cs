@@ -12,7 +12,8 @@ namespace MphRead.Mods.MapEditor
         void FrameAll();
         void FrameSelection();
     }
-    public sealed record MapViewportFace(Guid ObjectId, Vector3[] Points, float Shade, int Material, bool Solid);
+    public sealed record MapViewportFace(Guid ObjectId, Vector3[] Points, float Shade, int Material, bool Solid,
+        int SourceMaterial = -1);
     public sealed class MapViewportScene
     {
         public List<MapViewportFace> Faces { get; } = new();
