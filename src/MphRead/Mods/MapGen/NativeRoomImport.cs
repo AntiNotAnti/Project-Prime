@@ -44,7 +44,15 @@ public static class NativeRoomImport
                 {
                     if(meshId<0||meshId>=model.Meshes.Count)continue;
                     Mesh mesh=model.Meshes[meshId];
-                    foreach(BuiltFace face in Decode(model,mesh,cancellation))map.Faces.Add(face);
+                    int replacement=source.MaterialReplacements?
+                        .LastOrDefault(value=>value.Source==mesh.MaterialId)?.Target ?? mesh.MaterialId;
+                    if(replacement<0||replacement>=definition.Materials.Count)
+                        throw new MapAuthoringException("FP-MAP-001",
+                            $"Native source material {mesh.MaterialId} replacement targets missing material {replacement}.");
+                    foreach(BuiltFace face in Decode(model,mesh,cancellation))
+                    {
+                        face.Material=replacement;map.Faces.Add(face);
+                    }
                 }
             }
         }
