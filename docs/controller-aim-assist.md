@@ -85,14 +85,17 @@ velocity/acceleration estimate decays internally instead of being erased. Hidden
 are never used to update it. A target that reappears within grace therefore resumes from
 remembered motion rather than a dead stop.
 
-Flick detection recognizes both rapid magnitude rise and fast vector changes, and keeps
-short physical-stick and camera-velocity history. Landing prediction fits the four most
-recent camera-velocity samples instead of trusting one frame, then evaluates the miss in
-projected head radii. Capture is allowed only when that natural fitted trajectory already
-reaches or nearly reaches the mechanically valid head region. Flick speed changes the
-finishing envelope: fast intentional flicks get a modestly larger normalized radius and
-shorter landing horizon; slow micro-aim stays narrow; very fast misses shrink again. The
-selected head is locked for the short capture window.
+Flick detection recognizes rapid magnitude rise, fast vector changes and a rapid
+camera-speed rise, and keeps short physical-stick and camera-velocity history. Landing
+prediction fits the four most recent camera-velocity samples instead of trusting one
+frame, then evaluates the miss in projected head radii. A high-speed pass-through flick
+may finish immediately when that fitted path actually crosses the mechanically valid
+head region; it does not have to wait for a braking sample that may arrive after the
+60 Hz simulation has skipped across the band. Slower flicks still use the braking /
+settling phase. Fast intentional flicks get a modestly larger normalized envelope while
+fast misses shrink again. The selected head is locked for the short capture window.
+Validated captures use a dedicated short landing-speed allowance so the final snap is
+perceptible instead of being clipped by the ordinary positional-assist speed cap.
 
 The real headshot band remains the outer validity region. Inside it, a weak inset safe
 pocket shifts by at most 12% with target angular motion, always clamped back inside the
