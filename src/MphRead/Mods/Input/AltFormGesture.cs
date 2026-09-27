@@ -62,6 +62,34 @@ namespace MphRead.Mods.Input
                 fullScale: MouseDriveFullScale, sensitivity: sensitivity);
 
         /// <summary>
+        /// Stock-style rolling input from movement that happened in this
+        /// simulation step. Unlike <see cref="Drive"/>, the axes are scaled
+        /// independently and are never radially normalized: a diagonal swipe
+        /// can therefore request full forward and full lateral traction, just
+        /// like holding two native Roll directions. There is no dead zone or
+        /// temporal carry. When the pointer stops, this returns zero and the
+        /// morph ball's own inertia/damping remains in charge.
+        /// </summary>
+        public static (float X, float Y) StockRollDrive(float deltaX, float deltaY,
+            float fullScale, float sensitivity)
+        {
+            if (!Single.IsFinite(deltaX) || !Single.IsFinite(deltaY)
+                || !Single.IsFinite(fullScale) || fullScale <= 0)
+            {
+                return (0, 0);
+            }
+            sensitivity = Single.IsFinite(sensitivity)
+                ? Math.Clamp(sensitivity, 0.25f, 4f) : 1f;
+            float scale = sensitivity / MathF.Max(fullScale, 0.001f);
+            return (Math.Clamp(deltaX * scale, -1, 1),
+                Math.Clamp(deltaY * scale, -1, 1));
+        }
+
+        public static (float X, float Y) StockRollMouseDrive(float deltaX,
+            float deltaY, float sensitivity)
+            => StockRollDrive(deltaX, deltaY, MouseDriveFullScale, sensitivity);
+
+        /// <summary>
         /// Convert anchored screen-space displacement to an analogue virtual
         /// stick. The dead zone stays physically stable while sensitivity
         /// changes the travel required to reach full deflection.
