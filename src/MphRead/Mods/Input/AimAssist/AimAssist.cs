@@ -58,7 +58,12 @@ namespace MphRead.Mods.Input.AimAssist
             bool directionalFlick = stickIntent >= AimAssistTuning.FlickDirectionalMinMagnitude
                 && previousMagnitude >= .35f && directionalSpeed >= AimAssistTuning.FlickDirectionalSpeed
                 && directionDot < .92f;
-            if (!state.FlickActive && (magnitudeFlick || directionalFlick))
+            float cameraSpeed = fittedCameraVelocity.Length();
+            float previousCameraSpeed = state.PreviousCameraVelocity.Length();
+            bool fastTurnFlick = stickIntent >= .65f
+                && cameraSpeed >= AimAssistTuning.FlickCameraSpeed
+                && previousCameraSpeed < AimAssistTuning.FlickCameraSpeed * AimAssistTuning.FlickCameraRiseRatio;
+            if (!state.FlickActive && (magnitudeFlick || directionalFlick || fastTurnFlick))
             {
                 Vector2 flick = directionalFlick && stickDelta.LengthSquared() > .0001f
                     ? stickDelta : physicalStick;
@@ -659,18 +664,29 @@ namespace MphRead.Mods.Input.AimAssist
                 captureRadii *= .75f;
             bool naturalLanding = flickLandingError <= captureRadii;
             bool currentCapture = normalizedHead > 0 && normalizedHead <= captureRadii;
+            bool fastPassThrough = naturalLanding
+                && (state.FlickSpeed >= AimAssistTuning.FlickPassThroughStickSpeed
+                    || fittedVelocity.Length() >= AimAssistTuning.FlickCameraSpeed);
+            float requiredFlickAlignment = fastPassThrough
+                ? AimAssistTuning.FlickPredictedCaptureAlignment
+                : AimAssistTuning.FlickCaptureAlignment;
+            float requiredHeadAlignment = fastPassThrough ? .15f : .30f;
             bool capture = state.FlickActive && !state.FlickConsumed && visibleHead && !opposingHead
                 && state.FlickTarget == target.Slot
-                && (currentCapture || state.FlickBraking && naturalLanding)
-                && flickAlignment >= .75f && headAlignment >= .35f;
+                && (currentCapture || state.FlickBraking && naturalLanding || fastPassThrough)
+                && flickAlignment >= requiredFlickAlignment && headAlignment >= requiredHeadAlignment;
             if (capture)
             {
                 Vector2 safe = target.HeadRegion is { } r
                     ? AimAssistMath.MotionSafeRegionError(r, state.HeadAngularVelocity) : headError;
                 Vector2 flickCorrection = safe
                     * (1 - MathF.Exp(-AimAssistTuning.HeadFlickSnapGain * dt));
-                position = AimAssistMath.ClampLength(flickCorrection,
-                    profile.MaxPositionSpeed * AimAssistTuning.FlickSnapSpeedScale * dt);
+                float dedicatedSnapSpeed = AimAssistTuning.FlickSnapMaxSpeed
+                    + (AimAssistTuning.FlickSnapScopedMaxSpeed - AimAssistTuning.FlickSnapMaxSpeed)
+                        * profile.ScopeBlend;
+                float snapSpeed = Math.Max(profile.MaxPositionSpeed
+                    * AimAssistTuning.FlickSnapSpeedScale, dedicatedSnapSpeed);
+                position = AimAssistMath.ClampLength(flickCorrection, snapSpeed * dt);
                 tracking = Vector2.Zero;
                 state.ServoVelocity = Vector2.Zero;
                 error = safe; state.HeadBlend = 1;
