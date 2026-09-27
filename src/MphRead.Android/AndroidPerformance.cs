@@ -208,6 +208,17 @@ namespace MphRead.Droid
             }
         }
 
+        public static void PrepareForWindow(int width, int height)
+        {
+            if (!_matchActive)
+            {
+                return;
+            }
+            PollThermal(force: true);
+            ApplyThermalLimits(forceScale: true);
+            ApplyPixelBudget(width, height);
+        }
+
         /// <summary>
         /// Record one presented frame. All arrays are allocated once so this is
         /// safe to leave enabled in production builds.
