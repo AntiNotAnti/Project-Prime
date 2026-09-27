@@ -155,8 +155,9 @@ namespace MphRead.Entities
 
         /// <summary>
         /// Resolve the one-shot alt-form gesture before network press history is
-        /// captured. Samus leaves the event for the boost simulation; Spire
-        /// emits the existing AltAttack edge. Unsupported/invalid states clear it.
+        /// captured. Samus leaves it for the native boost simulation; Spire leaves
+        /// it for the rolling movement step, which turns the swipe into momentum.
+        /// Unsupported/invalid states clear it.
         /// </summary>
         private void ModPrepareAltFlick()
         {
@@ -172,21 +173,20 @@ namespace MphRead.Entities
             }
 
             // Android already recognized the swipe against real touch timing.
-            // Spire needs its edge before network press history is captured, so
-            // desktop mouse/pen detection runs here only for Spire. Samus keeps
-            // its existing simulation-time detector where controller-held boost
-            // is already visible and can suppress an accidental release.
-            if (action == Mods.Input.AltFlickAction.SpireAttack
+            // Desktop mouse/pen detection runs here for Spire so its momentum
+            // request exists before the movement simulation. Samus keeps its
+            // detector later, where held native boost can suppress a flick.
+            if (action == Mods.Input.AltFlickAction.SpireMomentum
                 && !global::System.OperatingSystem.IsAndroid())
             {
                 ModCheckMouseFlick(dedicatedBoostDown: false);
             }
 
-            if (action == Mods.Input.AltFlickAction.SpireAttack && SwipeBoostRequested)
+            if (action == Mods.Input.AltFlickAction.SpireMomentum && SwipeBoostRequested)
             {
-                Controls.AltAttack.IsPressed = true;
+                // Do not synthesize AltAttack. ProcessAlt consumes the same
+                // direction fields as a one-shot horizontal momentum impulse.
                 Input.HasInput = true;
-                ModClearAltFlick();
             }
         }
     }
