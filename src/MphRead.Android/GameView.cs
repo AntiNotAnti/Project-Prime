@@ -850,6 +850,7 @@ namespace MphRead.Droid
                 }
                 try
                 {
+                    AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
                     Scene = _build(_input, _size);
                     Scene.OnLoad();
                     // Compile/execute the real presentation path once while the
