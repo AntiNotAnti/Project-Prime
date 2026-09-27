@@ -1,5 +1,4 @@
 using System;
-using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Input
 {
@@ -169,78 +168,16 @@ namespace MphRead.Mods.Input
         }
     }
     /// <summary>
-    /// Stable 2D control frame for rolling alternate forms. The rendered
-    /// third-person camera may be pushed, shortened or orbited by collision,
-    /// but a held movement command follows this bounded virtual yaw instead of
-    /// inheriting those physical camera corrections in one simulation step.
+    /// True when a movement vector has changed enough to count as a deliberate
+    /// new direction. Controller sticks do not produce IsPressed edges, and a
+    /// keyboard diagonal can change just by releasing one key, so rolling alt
+    /// movement compares the vectors themselves.
     /// </summary>
-    public static class AltFormControlBasis
+    public static class AltFormInputDirection
     {
-        public const float NormalSlewDegrees = 12f;
-        public const float CollisionSlewDegrees = 4f;
-        private const float InputDirectionDot = 0.9063078f; // cos(25 degrees)
+        private const float DirectionDot = 0.9063078f; // cos(25 degrees)
 
-        public static bool TryNormalize(float x, float z, out float normalX, out float normalZ)
-        {
-            normalX = 0;
-            normalZ = -1;
-            if (!Single.IsFinite(x) || !Single.IsFinite(z))
-            {
-                return false;
-            }
-            float lengthSq = x * x + z * z;
-            if (!Single.IsFinite(lengthSq) || lengthSq < 0.000001f)
-            {
-                return false;
-            }
-            float inv = 1f / MathF.Sqrt(lengthSq);
-            normalX = x * inv;
-            normalZ = z * inv;
-            return true;
-        }
-
-        public static (float X, float Z) Step(float currentX, float currentZ,
-            float desiredX, float desiredZ, bool movementHeld, bool collisionTight)
-        {
-            if (!TryNormalize(desiredX, desiredZ, out desiredX, out desiredZ))
-            {
-                if (TryNormalize(currentX, currentZ, out currentX, out currentZ))
-                {
-                    return (currentX, currentZ);
-                }
-                return (0, -1);
-            }
-
-            // With no movement command there is nothing to destabilise. Snap
-            // silently so the next press starts from exactly what the player
-            // currently sees.
-            if (!movementHeld)
-            {
-                return (desiredX, desiredZ);
-            }
-
-            if (!TryNormalize(currentX, currentZ, out currentX, out currentZ))
-            {
-                return (desiredX, desiredZ);
-            }
-
-            float currentYaw = MathF.Atan2(currentX, currentZ);
-            float desiredYaw = MathF.Atan2(desiredX, desiredZ);
-            float delta = WrapRadians(desiredYaw - currentYaw);
-            float maxStep = MathHelper.DegreesToRadians(
-                collisionTight ? CollisionSlewDegrees : NormalSlewDegrees);
-            delta = Math.Clamp(delta, -maxStep, maxStep);
-            float yaw = currentYaw + delta;
-            return (MathF.Sin(yaw), MathF.Cos(yaw));
-        }
-
-        /// <summary>
-        /// A controller stick has no IsPressed edge. Detect deliberate direction
-        /// changes from the analogue vector itself so forward-to-side and
-        /// forward-to-back transitions receive the same treatment as new WASD
-        /// directions without reacting to tiny stick noise.
-        /// </summary>
-        public static bool SignificantInputDirectionChange(float previousX, float previousY,
+        public static bool SignificantChange(float previousX, float previousY,
             float currentX, float currentY)
         {
             float currentSq = currentX * currentX + currentY * currentY;
@@ -253,45 +190,32 @@ namespace MphRead.Mods.Input
             {
                 return true;
             }
-
             float dot = (previousX * currentX + previousY * currentY)
                 / MathF.Sqrt(previousSq * currentSq);
-            return !Single.IsFinite(dot) || dot < InputDirectionDot;
+            return !Single.IsFinite(dot) || dot < DirectionDot;
         }
 
         public static float YawDegrees(float x, float z)
         {
-            if (!TryNormalize(x, z, out x, out z))
+            float sq = x * x + z * z;
+            if (!Single.IsFinite(sq) || sq < 0.000001f)
             {
                 return 0;
             }
-            return MathHelper.RadiansToDegrees(MathF.Atan2(x, z));
-        }
-
-        private static float WrapRadians(float value)
-        {
-            while (value > MathF.PI)
-            {
-                value -= MathF.PI * 2;
-            }
-            while (value < -MathF.PI)
-            {
-                value += MathF.PI * 2;
-            }
-            return value;
+            return MathF.Atan2(x, z) * (180f / MathF.PI);
         }
     }
 
-    /// <summary>Opt-in live tracing for rolling alt-form control/camera divergence.</summary>
+    /// <summary>Opt-in live tracing for rolling alt-form camera/basis divergence.</summary>
     public static class AltFormMoveDebug
     {
         public static bool Enabled { get; set; }
         private static int _sample;
 
         public static void Log(int slot, float cameraX, float cameraZ,
-            float desiredX, float desiredZ, float controlX, float controlZ,
-            float inputX, float inputY, bool cameraCollision, bool playerCollision,
-            byte collisionFrames)
+            float basisX, float basisZ, float inputX, float inputY,
+            bool cameraCollision, bool playerCollision, bool locked,
+            byte clearFrames, bool directionChanged)
         {
             if (!Enabled || (++_sample % 6) != 0)
             {
@@ -299,13 +223,13 @@ namespace MphRead.Mods.Input
             }
             Console.WriteLine("[altmove] "
                 + $"slot={slot} "
-                + $"camYaw={AltFormControlBasis.YawDegrees(cameraX, cameraZ):0.0} "
-                + $"desiredYaw={AltFormControlBasis.YawDegrees(desiredX, desiredZ):0.0} "
-                + $"controlYaw={AltFormControlBasis.YawDegrees(controlX, controlZ):0.0} "
+                + $"camYaw={AltFormInputDirection.YawDegrees(cameraX, cameraZ):0.0} "
+                + $"basisYaw={AltFormInputDirection.YawDegrees(basisX, basisZ):0.0} "
                 + $"input=({inputX:0.00},{inputY:0.00}) "
                 + $"cameraCollision={(cameraCollision ? 1 : 0)} "
                 + $"playerCollision={(playerCollision ? 1 : 0)} "
-                + $"tightFrames={collisionFrames}");
+                + $"locked={(locked ? 1 : 0)} clear={clearFrames} "
+                + $"inputChanged={(directionChanged ? 1 : 0)}");
         }
     }
 
