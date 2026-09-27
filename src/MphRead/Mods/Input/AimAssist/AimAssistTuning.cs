@@ -8,8 +8,19 @@ namespace MphRead.Mods.Input.AimAssist
         // it may settle a little faster than ordinary positional magnetism.
         // Keep the envelope unchanged; this only strengthens the final landing.
         public const float FlickSnapSpeedScale = 1.20f;
+        // Ordinary aim correction is deliberately slow, but a flick that has
+        // already passed all trajectory/LOS/target gates needs enough velocity
+        // to be perceptible before the 90 ms capture window ends.
+        public const float FlickSnapMaxSpeed = 24f, FlickSnapScopedMaxSpeed = 18f;
         public const float FlickDirectionalSpeed = 14f, FlickDirectionalMinMagnitude = .45f;
+        // A fast same-direction turn may not change stick magnitude/direction
+        // enough to trip the ordinary flick detectors, so arm on camera-speed
+        // rise too. This is only an arm signal; capture still requires a real
+        // predicted head crossing.
+        public const float FlickCameraSpeed = 42f, FlickCameraRiseRatio = .70f;
+        public const float FlickPassThroughStickSpeed = 24f;
         public const float FlickTargetAlignment = .62f;
+        public const float FlickCaptureAlignment = .68f, FlickPredictedCaptureAlignment = .55f;
         public const float FlickLandingMinSeconds = .045f, FlickLandingMaxSeconds = .080f;
         public const float FlickRadiusMinScale = .80f, FlickRadiusMaxScale = 1.28f;
         public const float FlickBrakeRatio = .72f;
