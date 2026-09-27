@@ -56,6 +56,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<(Guid Id, Point[] Points, double Depth)> _pick = new();
         private Point _last, _start;
         private bool _orbit, _pan, _drag, _boxSelect, _boxAdditive;
+        private IPointer? _interactionPointer;
         private Point _boxCurrent;
         private int _axis = -1;
         public string Axes { get; set; } = "Free";
@@ -95,6 +96,12 @@ namespace MphRead.Mods.Launcher.Gui
             if ((change.Domains & (MapChangeDomain.Navigation | MapChangeDomain.Import)) != 0) Navigation = null;
             InvalidateVisual();
         }
+        internal void DetachDocument()
+        {
+            CancelInteraction();
+            Document.Invalidated -= InvalidateDocument;
+        }
+
         public void SetImported(BuiltMap map)
         {
             Cache.SetImported(map); InvalidateVisual();
@@ -106,17 +113,19 @@ namespace MphRead.Mods.Launcher.Gui
         }
         public void FrameAll()
         {
-            var points=Faces.SelectMany(f=>f.Points).ToArray();
+            var points=Faces.SelectMany(f=>f.Points)
+                .Concat(Cache.Entities.Select(o=>MapViewportScene.Vector(o.Position))).ToArray();
             if(points.Length==0) return;
             Vector min=points.Aggregate(new Vector(float.MaxValue),Vector.Min), max=points.Aggregate(new Vector(float.MinValue),Vector.Max);
-            CameraTarget=(min+max)/2; CameraPosition=CameraTarget+Vector.Normalize(new Vector(1,.8f,1))*Math.Max(8,(max-min).Length()); InvalidateVisual();
+            CameraTarget=(min+max)/2; CameraPosition=CameraTarget+Vector.Normalize(new Vector(1,.8f,1))*Math.Max(8,(max-min).Length()*(View=="Perspective"?1:1.7f)); SetView(View);
         }
         public void FrameSelection()
         {
             var selected=MapObjects.All(Document.Project.Definition).Where(o=>Document.Selection.Contains(o.Id)).ToArray();
             if(selected.Length==0){FrameAll();return;}
-            Vector target=selected.Select(o=>MapViewportScene.Vector(o.Position)).Aggregate(Vector.Zero,(a,b)=>a+b)/selected.Length;
-            CameraPosition+=target-CameraTarget; CameraTarget=target; InvalidateVisual();
+            var ids=selected.Select(o=>o.Id).ToHashSet();
+            FocusWorld(Cache.NativeFaces.Where(f=>ids.Contains(f.ObjectId)).SelectMany(f=>f.Points)
+                .Concat(selected.Select(o=>MapViewportScene.Vector(o.Position))));
         }
         public Vector GetPlacementPoint()
             => PlacementMode switch
@@ -280,7 +289,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_drag)
                 foreach (var item in MapObjects.All(Document.Project.Definition))
                     if (Document.Selection.Contains(item.Id)) transforms[item.Id] = PreviewTransform(item);
-            return new(layout, Camera, Cache.VisibleMeshes(Camera,layout), Document.Selection.ToHashSet(), transforms, Wireframe, Collision);
+            return new(layout, Camera, Cache.VisibleMeshes(Camera,layout), Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;
@@ -328,6 +337,8 @@ namespace MphRead.Mods.Launcher.Gui
                 new Rect(point - new Avalonia.Vector(3, 2), new Size(label.Width + 6, label.Height + 4)));
             context.DrawText(label, point);
         }
+        private float VisibleGridStep => Math.Max(Snap > 0 ? Snap : .25f, MathF.Pow(2,MathF.Floor(MathF.Log2(Math.Max(1,Vector.Distance(CameraPosition,CameraTarget))/32))));
+
         public override void Render(DrawingContext context)
         {
             base.Render(context);
@@ -338,7 +349,7 @@ namespace MphRead.Mods.Launcher.Gui
                 context.FillRectangle(new SolidColorBrush(Color.Parse("#141c25")),new Rect(Bounds.Size));
             var grid=new SolidColorBrush(Color.Parse("#293641"));
             if (!GpuActive)
-                for(int n=-64;n<=64;n+=4){Line(context,new(n,0,-64),new(n,0,64),grid);Line(context,new(-64,0,n),new(64,0,n),grid);}
+                foreach(var line in MapViewportGrid.Lines(View,VisibleGridStep))Line(context,line.A,line.B,grid);
             if(PartitionOverlay)
             {
                 float cell=Math.Clamp(PartitionCellSize,8,512);
@@ -385,7 +396,7 @@ namespace MphRead.Mods.Launcher.Gui
                 bool selected=Document.Selection.Contains(item.Face.ObjectId);
                 int shade=(int)Math.Clamp(100*item.Face.Shade,35,200);
                 var color=selected?Color.FromRgb(187,140,71):Collision?Color.FromRgb(50,(byte)(shade+30),100):Color.FromRgb((byte)(shade+item.Face.Material%3*15),(byte)(shade+15),(byte)(shade+30));
-                context.DrawGeometry(Wireframe?null:new SolidColorBrush(color),new Pen(selected?Brushes.Gold:grid,selected?2:1),Polygon(item.Points));
+                context.DrawGeometry(Wireframe?null:new SolidColorBrush(color),new Pen(selected?Brushes.Gold:Wireframe?new SolidColorBrush(Color.Parse("#7796AA")):grid,selected?2:1),Polygon(item.Points));
                 if(item.Face.ObjectId!=Guid.Empty)_pick.Add((item.Face.ObjectId,item.Points,item.Depth));
             }
             }
@@ -575,6 +586,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (_drag || _boxSelect || _orbit || _pan) { e.Handled=true; return; }
             base.OnPointerPressed(e);Focus();_last=_start=e.GetPosition(this);var props=e.GetCurrentPoint(this).Properties;
             _orbit=props.IsRightButtonPressed;_pan=props.IsMiddleButtonPressed;
             if(props.IsLeftButtonPressed)
@@ -606,7 +618,12 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         var v=GizmoAxis(selected,i);
                         var p=Project(MapViewportScene.Vector(selected.Position)+v*3);
-                        if(p!=null&&Math.Pow(p.Value.Point.X-_last.X,2)+Math.Pow(p.Value.Point.Y-_last.Y,2)<144){_axis=i;id=selected.Id;break;}
+                        var center=Project(MapViewportScene.Vector(selected.Position));
+                        // An axis pointing into the camera collapses onto the object center.
+                        // It must not steal ordinary object drags in orthographic views.
+                        if(p!=null&&center!=null&&Math.Pow(p.Value.Point.X-center.Value.Point.X,2)+Math.Pow(p.Value.Point.Y-center.Value.Point.Y,2)>324
+                            &&Math.Pow(p.Value.Point.X-_last.X,2)+Math.Pow(p.Value.Point.Y-_last.Y,2)<144)
+                        {_axis=i;id=selected.Id;break;}
                     }
                 if(id==Guid.Empty)
                 {
@@ -624,7 +641,7 @@ namespace MphRead.Mods.Launcher.Gui
                 else { _boxSelect=true; _boxCurrent=_start; }
                 _drag=id!=Guid.Empty;Document.SelectionChanged();SelectionChanged?.Invoke();InvalidateVisual();
             }
-            e.Pointer.Capture(this);e.Handled=true;
+            _interactionPointer=e.Pointer;e.Pointer.Capture(this);e.Handled=true;
         }
         protected override void OnPointerMoved(PointerEventArgs e)
         {
@@ -647,16 +664,35 @@ namespace MphRead.Mods.Launcher.Gui
                 { var r = activeGeometry.Transform.Rotation; _preview = Vector.Transform(_preview, Quaternion.Inverse(new Quaternion(r[0],r[1],r[2],r[3]))); }
                 if(_axis>=0){float value=_preview[_axis];_preview=Vector.Zero;_preview[_axis]=value;}
                 else if(Axes!="Free"){for(int i=0;i<3;i++)if(!Axes.Contains("XYZ"[i]))_preview[i]=0;}
-                else _preview.Y=0;
+                else if(View=="Perspective"||View=="Top")_preview.Y=0;
+                else if(View=="Front")_preview.Z=0;
+                else if(View=="Side")_preview.X=0;
                 if(Snap>0)for(int i=0;i<3;i++)_preview[i]=MathF.Round(_preview[i]/Snap)*Snap;
                 _rotation=MathF.Round((float)full.X/Math.Max(1,AngleSnap))*Math.Max(1,AngleSnap);
-                _scale=Math.Max(ScaleSnap,1+MathF.Round((float)full.X/100/ScaleSnap)*ScaleSnap);
+                float scaleStep=float.IsFinite(ScaleSnap)&&ScaleSnap>0?ScaleSnap:.01f;
+                _scale=Math.Max(scaleStep,1+MathF.Round((float)full.X/100/scaleStep)*scaleStep);
                 if(Tool!="Move")_preview=Vector.Zero;
             }
             InvalidateVisual();
         }
+        internal void CancelInteraction()
+        {
+            _drag=_orbit=_pan=_boxSelect=false;
+            _preview=Vector.Zero;_rotation=0;_scale=1;_axis=-1;
+            var pointer=_interactionPointer;_interactionPointer=null;
+            pointer?.Capture(null);
+            InvalidateVisual();
+        }
+        protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
+        {
+            base.OnPointerCaptureLost(e);
+            CancelInteraction();
+        }
         protected override void OnPointerReleased(PointerReleasedEventArgs e)
         {
+            var buttons=e.GetCurrentPoint(this).Properties;
+            if (((_drag||_boxSelect)&&buttons.IsLeftButtonPressed)
+                ||(_orbit&&buttons.IsRightButtonPressed)||(_pan&&buttons.IsMiddleButtonPressed))return;
             if (_boxSelect)
             {
                 Rect selection = SelectionRectangle(_start, _boxCurrent);
@@ -673,7 +709,7 @@ namespace MphRead.Mods.Launcher.Gui
                 var ids=Document.Selection.ToHashSet();Vector move=_preview;float angle=_rotation,scale=_scale;
                 Document.TransformSelection(ids, Tool, move, angle, scale, LocalAxes, rotationAxis:TurnAxis, scaleAxes:ScaleAxes, pivot:TransformPivot);
             }
-            _drag=_orbit=_pan=false;_preview=Vector.Zero;_rotation=0;_scale=1;e.Pointer.Capture(null);InvalidateVisual();e.Handled=true;
+            CancelInteraction();e.Handled=true;
         }
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
         {
@@ -683,10 +719,12 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            bool control=e.KeyModifiers.HasFlag(KeyModifiers.Control);
+            bool control=(e.KeyModifiers & (KeyModifiers.Control|KeyModifiers.Meta))!=0;
             bool shift=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             bool alt=e.KeyModifiers.HasFlag(KeyModifiers.Alt);
-            if(e.Key==Key.F)FrameSelection();
+            if(e.Key==Key.Escape&&(_drag||_boxSelect||_orbit||_pan)){CancelInteraction();}
+            else if(_drag||_boxSelect){e.Handled=true;return;}
+            else if(!control&&!alt&&e.Key==Key.F)FrameSelection();
             else if(e.Key==Key.Escape&&MeasureMode){MeasureMode=false;_measureA=_measureB=null;InvalidateVisual();}
             else if(e.Key==Key.Escape&&_boxSelect){_boxSelect=false;InvalidateVisual();}
             else if(!control&&!alt&&e.Key==Key.D1){ElementMode="Object";ClearSubSelection();SelectionChanged?.Invoke();}
@@ -699,16 +737,17 @@ namespace MphRead.Mods.Launcher.Gui
             else if(control&&e.Key==Key.C)Document.CopySelection();
             else if(control&&e.Key==Key.V)Document.PasteClipboard();
             else if(control&&e.Key==Key.D){var ids=Document.Selection.ToHashSet();Document.EditObjects("Duplicate selection",ids,d=>MapObjects.Duplicate(d,ids));}
-            else if(control&&e.Key==Key.Z)Document.History.Undo();
+            else if(control&&e.Key==Key.Z){if(shift)Document.History.Redo();else Document.History.Undo();}
             else if(control&&e.Key==Key.Y)Document.History.Redo();
             else if(alt&&e.Key==Key.H)Document.ShowAllGeometry();
             else if(shift&&e.Key==Key.H)Document.IsolateSelection();
             else if(e.Key==Key.H)Document.HideSelection();
-            else if(e.Key==Key.G){Tool="Move";}
-            else if(e.Key==Key.R){Tool="Rotate";}
-            else if(e.Key==Key.T){Tool="Scale";}
+            else if(!control&&!alt&&e.Key==Key.G){Tool="Move";}
+            else if(!control&&!alt&&e.Key==Key.R){Tool="Rotate";}
+            else if(!control&&!alt&&e.Key==Key.T){Tool="Scale";}
             else
             {
+                if(control||alt){base.OnKeyDown(e);return;}
                 var(right,up,forward)=Basis();Vector move=e.Key switch {Key.W=>forward,Key.S=>-forward,Key.A=>-right,Key.D=>right,Key.Q=>-up,Key.E=>up,_=>Vector.Zero};
                 if(move==Vector.Zero){base.OnKeyDown(e);return;}CameraPosition+=move;CameraTarget+=move;InvalidateVisual();
             }

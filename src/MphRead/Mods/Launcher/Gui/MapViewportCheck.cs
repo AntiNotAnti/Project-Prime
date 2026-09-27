@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.VisualTree;
@@ -50,6 +51,20 @@ internal static class MapViewportCheck
         panel.Children.Add(label);
         try
         {
+            var inputCamera = viewport.CameraPosition;
+            var saveKey = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S, KeyModifiers = KeyModifiers.Control };
+            viewport.RaiseEvent(saveKey);
+            Check(!saveKey.Handled && viewport.CameraPosition == inputCamera, "Ctrl+S bubbles without moving camera");
+            var commandSave = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.S, KeyModifiers = KeyModifiers.Meta };
+            viewport.RaiseEvent(commandSave);
+            Check(!commandSave.Handled && viewport.CameraPosition == inputCamera, "Command+S bubbles without moving camera");
+            document.TransformSelection(new[] { far.Id }, "Move", System.Numerics.Vector3.One, 0, 1, false);
+            var movedState = document.CurrentStateId;
+            viewport.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Z, KeyModifiers = KeyModifiers.Control });
+            Check(document.CurrentStateId != movedState, "Ctrl+Z undoes viewport edit");
+            viewport.RaiseEvent(new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Z, KeyModifiers = KeyModifiers.Control | KeyModifiers.Shift });
+            Check(document.CurrentStateId == movedState, "Ctrl+Shift+Z redoes viewport edit");
+            document.History.Undo();
             foreach (var size in new[] { new Vector2i(960, 600), new Vector2i(1440, 900), new Vector2i(2880, 1800) })
             {
                 window.ClientSize = size;
@@ -111,6 +126,37 @@ internal static class MapViewportCheck
             GL.ReadPixels(px, py, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba, PixelType.UnsignedByte, marker);
             Check(marker[0] > 240 && marker[1] < 40 && marker[2] > 100,
                 $"UI overlay remains above GPU geometry ({px},{py}; {string.Join(',', marker)})");
+            label.IsVisible = false;
+            foreach (string viewName in new[] { "Front", "Side" })
+            {
+                viewport.SetView(viewName); viewport.FrameSelection();
+                for (int i = 0; i < 3; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
+                var position = MapObjects.Find(document.Project.Definition, far.Id)!.Position;
+                var beforeDrag = (float[])position.Clone();
+                var dragLayout = new MapViewportLayout(viewport.Bounds.Width, viewport.Bounds.Height);
+                var projected = viewport.BuildRenderFrame(dragLayout).Camera.Project(dragLayout,
+                    new System.Numerics.Vector3(position[0], position[1], position[2]))!.Value;
+                var start = viewport.TranslatePoint(new Point(projected.X, projected.Y), surface.Root)!.Value;
+                double x = start.X / surface.WindowWidth * window.FramebufferSize.X;
+                double y = start.Y / surface.WindowHeight * window.FramebufferSize.Y;
+                surface.PointerMoved(x, y);
+                surface.PointerButton(MouseButton.Left, true);
+                surface.PointerMoved(x, y - 100);
+                surface.PointerButton(MouseButton.Left, false);
+                var afterDrag = MapObjects.Find(document.Project.Definition, far.Id)!.Position;
+                Check(afterDrag[1] > beforeDrag[1], viewName + " free drag moves vertically ("
+                    + string.Join(',',beforeDrag) + " -> " + string.Join(',',afterDrag) + ")");
+                document.History.Undo();
+                var beforeCancel = document.CurrentStateId;
+                surface.PointerMoved(x, y);
+                surface.PointerButton(MouseButton.Left, true);
+                surface.PointerMoved(x + 100, y - 100);
+                var escape = new KeyEventArgs { RoutedEvent = InputElement.KeyDownEvent, Key = Key.Escape };
+                viewport.RaiseEvent(escape);
+                surface.PointerButton(MouseButton.Left, false);
+                Check(escape.Handled && document.CurrentStateId == beforeCancel,
+                    viewName + " Escape cancels drag without changing history");
+            }
             surface.Hide(); surface.PrepareMapRenderer();
             Check(viewport.GpuMeshUploads == 0 && GL.GetError() == ErrorCode.NoError, "leaving editor releases renderer");
             window.ClientSize = new(1440, 900);
@@ -126,7 +172,7 @@ internal static class MapViewportCheck
             UiOverlay.Draw(window.FramebufferSize.X, window.FramebufferSize.Y);
             Check(ScreenCapture.SaveWindow(window.FramebufferSize.X, window.FramebufferSize.Y,
                 Path.Combine(directory, "map-studio-renderer.png")), "full editor composite capture");
-            var back = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "BACK");
+            var back = studio.GetVisualDescendants().OfType<PrimeButton>().First(b => b.Label == "SAVE");
             var backCenter = back.TranslatePoint(new Point(back.Bounds.Width / 2, back.Bounds.Height / 2), surface.Root)!.Value;
             GL.ReadPixels((int)(backCenter.X / surface.WindowWidth * window.FramebufferSize.X),
                 window.FramebufferSize.Y - (int)(backCenter.Y / surface.WindowHeight * window.FramebufferSize.Y),
@@ -135,6 +181,23 @@ internal static class MapViewportCheck
             Check(ReferenceEquals(foregroundPlayers, MphRead.Entities.PlayerEntity.LegacyRegistry)
                 && ReferenceEquals(foregroundState, GameState.Current) && ReferenceEquals(foregroundRandom, Rng.Current),
                 "editor renderer preserves foreground scene ownership");
+            Check(surface.ClickOn(c=>c is MenuItem { Header: "File" }),"File menu receives pointer input");
+            for(int i=0;i<3;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
+            var fileMenu=studio.GetVisualDescendants().OfType<MenuItem>().First(m=>m.Header?.ToString()=="File");
+            Check(fileMenu.IsSubMenuOpen,"File menu opens in embedded surface");
+            fileMenu.IsSubMenuOpen=false;
+            studio.ToggleFourViews();
+            surface.PrepareMapRenderer();
+            for (int i = 0; i < 5; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
+            var panes=studio.GetVisualDescendants().OfType<MapViewport>().ToArray();
+            Check(panes.Length==4 && panes.All(v=>ReferenceEquals(v.Document,panes[0].Document)), "four views share one document");
+            surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);UiOverlay.Draw(window.FramebufferSize.X,window.FramebufferSize.Y);
+            Check(panes.All(v=>v.GpuMeshUploads>0) && GL.GetError()==ErrorCode.NoError, "all four GPU viewports render");
+            Check(ScreenCapture.SaveWindow(window.FramebufferSize.X,window.FramebufferSize.Y,Path.Combine(directory,"map-studio-four-gpu.png")),"four-view GPU capture");
+            studio.ToggleFourViews();surface.PrepareMapRenderer();
+            Check(panes.Count(v=>v.GpuMeshUploads>0)==1,"single view releases other GPU resources");
+            studio.ToggleFourViews();studio.ToggleFourViews();
+            Check(studio.GetVisualDescendants().OfType<MapViewport>().Count()==1,"repeated layout toggles reparent safely");
             if (projectPath != null)
             {
                 var imported = MapDefinition.Load(Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, projectPath)));

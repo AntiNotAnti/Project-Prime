@@ -46,7 +46,7 @@ namespace MphRead.Mods.MapGen
         public Vector3[] Points { get; }
         public Vector2[] Texcoords { get; }
         public Vector3 Normal { get; }
-        public int Material { get; }
+        public int Material { get; internal set; }
         public float Shade { get; }
         public bool Damaging { get; set; }
         public Terrain Terrain { get; set; } = Terrain.Metal;

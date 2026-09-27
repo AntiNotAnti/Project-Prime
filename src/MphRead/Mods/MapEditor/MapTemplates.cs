@@ -212,11 +212,11 @@ namespace MphRead.Mods.MapEditor
         {
             Floor(d,34,34);Walls(d,34,34,16);RadialSpawns(d,8,11);
             d.Geometry.Add(new MapBox{Label="Upper platform",Layer="Vertical",Material=1,
-                Transform=new(){Position=new[]{0,8,0},Scale=new[]{10f,1f,10f}}});
+                Transform=new(){Position=new[]{0f,8f,0f},Scale=new[]{10f,1f,10f}}});
             d.Geometry.Add(new MapBox{Label="West platform",Layer="Vertical",
-                Transform=new(){Position=new[]{-10,4,-7},Scale=new[]{9f,1f,7f}}});
+                Transform=new(){Position=new[]{-10f,4f,-7f},Scale=new[]{9f,1f,7f}}});
             d.Geometry.Add(new MapBox{Label="East platform",Layer="Vertical",
-                Transform=new(){Position=new[]{10,4,7},Scale=new[]{9f,1f,7f}}});
+                Transform=new(){Position=new[]{10f,4f,7f},Scale=new[]{9f,1f,7f}}});
             d.JumpPads.Add(new(){Id=Guid.NewGuid(),Label="Lower to upper",Position=new[]{0f,.1f,-9f},Target=new[]{0f,8.7f,0}});
             d.JumpPads.Add(new(){Id=Guid.NewGuid(),Label="West lift",Position=new[]{-10f,.1f,6f},Target=new[]{-10f,4.7f,-7f}});
             d.JumpPads.Add(new(){Id=Guid.NewGuid(),Label="East lift",Position=new[]{10f,.1f,-6f},Target=new[]{10f,4.7f,7f}});

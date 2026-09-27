@@ -35,6 +35,8 @@ namespace MphRead.Mods.MapGen
         /// already do. Set it before anything reads <see cref="Definitions"/>:
         /// the list is loaded once and cached.
         /// </summary>
+        public static string UserMapDirectory { get; set; } = Path.Combine(Platform.AppPaths.UserDataDirectory, "user-maps");
+
         public static string MapDirectory { get; set; }
             = Platform.AppPaths.Maps;
 

@@ -21,7 +21,7 @@ public sealed partial class MapDocument
         Vector3 factors = Vector3.One + (scaleAxes ?? Vector3.One) * (scale - 1);
         if (factors.X <= 0 || factors.Y <= 0 || factors.Z <= 0 || !float.IsFinite(factors.LengthSquared())) throw new ArgumentOutOfRangeException(nameof(scaleAxes));
         var selected = ids.ToHashSet();
-        var objects = selected.Select(id => MapObjects.Find(Project.Definition, id)).OfType<MapObject>()
+        var objects = MapObjects.All(Project.Definition).Where(o => selected.Contains(o.Id))
             .Where(o => o.Value is not MapGeometry { Locked: true }).ToArray();
         var before = objects.Select(TransformValue.Capture).ToArray();
         var after = objects.Select(o =>
@@ -76,11 +76,14 @@ public sealed partial class MapDocument
             }
             return TransformValue.Capture(copy);
         }).ToArray();
+        if (after.Any(value => value.Values.Any(number => !float.IsFinite(number))))
+            throw new ArgumentOutOfRangeException(nameof(move), "Transform would produce non-finite coordinates.");
         var changed = Enumerable.Range(0, before.Length).Where(i => !before[i].Values.SequenceEqual(after[i].Values)).ToArray();
         if (changed.Length == 0) return;
         History.Execute(new TransformCommand(this, tool,
             changed.Select(i => before[i]).ToArray(), changed.Select(i => after[i]).ToArray(),
-            objects.Where(o => changed.Any(i => before[i].Id == o.Id)).Any(o => o.Value is MapGeometry or MapBrush)), transaction);
+            changed.Any(i => objects[i].Value is MapGeometry or MapBrush),
+            changed.Any(i => objects[i].Value is not MapGeometry and not MapBrush)), transaction);
     }
 
     private sealed record TransformValue(Guid Id, float[] Values)
@@ -114,18 +117,20 @@ public sealed partial class MapDocument
         public string Label { get; }
         public long ApproximateBytes => 128 + _before.Sum(v => 96L + 8L * v.Values.Length);
         public MapDocumentChange Change { get; }
-        public TransformCommand(MapDocument document, string tool, TransformValue[] before, TransformValue[] after, bool geometry)
+        public TransformCommand(MapDocument document, string tool, TransformValue[] before, TransformValue[] after, bool geometry, bool entity)
         {
             _document = document; Label = tool + " selection"; _before = before; _after = after;
             Change = new(MapChangeDomain.Transform | MapChangeDomain.Selection | MapChangeDomain.Navigation
-                | (geometry ? MapChangeDomain.Geometry : MapChangeDomain.Entity), Array.AsReadOnly(before.Select(v => v.Id).ToArray()));
+                | (geometry ? MapChangeDomain.Geometry : MapChangeDomain.None)
+                | (entity ? MapChangeDomain.Entity : MapChangeDomain.None), Array.AsReadOnly(before.Select(v => v.Id).ToArray()));
         }
         public void Execute() => Apply(_after);
         public void Undo() => Apply(_before);
         private void Apply(TransformValue[] values)
         {
+            var objects = MapObjects.All(_document.Project.Definition).ToDictionary(o => o.Id);
             foreach (var value in values)
-                value.Apply(MapObjects.Find(_document.Project.Definition, value.Id)
+                value.Apply(objects.GetValueOrDefault(value.Id)
                     ?? throw new InvalidOperationException("Transform target no longer exists."));
         }
         public bool TryMerge(IMapEditCommand next)

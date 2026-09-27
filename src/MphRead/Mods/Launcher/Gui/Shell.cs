@@ -112,6 +112,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// toolkit that will not start on this machine. The text launcher
         /// plays the same matches and is what the caller falls back to.
         /// </summary>
+        internal static string? StudioProjectPath { get; set; }
+        internal static bool StudioWindow { get; set; }
+
         public static bool Run()
         {
             if (UiSurface.Ensure() == null)
@@ -147,6 +150,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
                 window = new RenderWindow(shell: true);
+                if (StudioWindow) { window.Title = "Project Prime · Map Studio"; window.WindowState = OpenTK.Windowing.Common.WindowState.Maximized; }
                 window.FileDrop += OnFilesDropped;
                 PublishNativeHandle(window);
                 _window = window;
@@ -388,7 +392,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_window != null)
             {
-                _window.Title = Mods.Branding.Name;
+                _window.Title = StudioWindow ? "Project Prime · Map Studio" : Mods.Branding.Name;
             }
             if (_front == null)
             {
@@ -565,6 +569,8 @@ namespace MphRead.Mods.Launcher.Gui
         }
 
         /// <summary>Leave the program.</summary>
+        internal static bool PreserveForgeRecovery() => _front?.PreserveForgeRecovery() ?? true;
+
         public static void RequestQuit()
         {
             _quit = true;

@@ -86,18 +86,21 @@ public sealed partial class MapDocument
         var selected = ids.ToHashSet();
         var before = CaptureObjects(Project.Definition, selected);
         var scratch = new MapDefinition();
-        foreach (var item in before) item.Insert(scratch);
+        foreach (var item in before.OrderBy(item => item.Index)) item.Insert(scratch);
         edit(scratch);
         var after = CaptureObjects(scratch, null);
-        var changed = before.Select(x => x.Id).Union(after.Select(x => x.Id)).Where(id =>
-            before.FirstOrDefault(x => x.Id == id)?.Json != after.FirstOrDefault(x => x.Id == id)?.Json).ToArray();
+        var beforeById = before.ToDictionary(x => x.Id);
+        var afterById = after.ToDictionary(x => x.Id);
+        var changed = beforeById.Keys.Union(afterById.Keys).Where(id =>
+            beforeById.GetValueOrDefault(id)?.Json != afterById.GetValueOrDefault(id)?.Json).ToArray();
+        var changedIds = changed.ToHashSet();
         if (changed.Length == 0) return;
         // Preserve positions within each original typed collection. New objects append.
         after = after.Select(item => item with
-        { Index = before.FirstOrDefault(old => old.Id == item.Id)?.Index ?? int.MaxValue }).ToArray();
+        { Index = beforeById.GetValueOrDefault(item.Id)?.Index ?? int.MaxValue }).ToArray();
         History.Execute(new ObjectCommand(this, label,
-            before.Where(x => changed.Contains(x.Id)).ToArray(),
-            after.Where(x => changed.Contains(x.Id)).ToArray(), changed), transaction);
+            before.Where(x => changedIds.Contains(x.Id)).ToArray(),
+            after.Where(x => changedIds.Contains(x.Id)).ToArray(), changed), transaction);
     }
 
     public void EditMaterial(int index, Action<MapMaterial> edit)
@@ -129,9 +132,21 @@ public sealed partial class MapDocument
         throw new ArgumentException("Unsupported map object " + type.Name);
     }
     private static ObjectValue[] CaptureObjects(MapDefinition d, HashSet<Guid>? ids)
-        => (ids == null ? MapObjects.All(d) : ids.Select(id => MapObjects.Find(d, id)).OfType<MapObject>()).Select(o =>
-            new ObjectValue(o.Id, o.Value.GetType(), ObjectList(d, o.Value.GetType()).IndexOf(o.Value),
-                JsonSerializer.Serialize(o.Value, o.Value.GetType()))).ToArray();
+    {
+        // Traverse each typed collection once, retaining source order regardless of selection order.
+        var indices = new Dictionary<IList, int>();
+        var values = new List<ObjectValue>();
+        foreach (var item in MapObjects.All(d))
+        {
+            var list = ObjectList(d, item.Value.GetType());
+            int index = indices.GetValueOrDefault(list);
+            indices[list] = index + 1;
+            if (ids == null || ids.Contains(item.Id))
+                values.Add(new(item.Id, item.Value.GetType(), index,
+                    JsonSerializer.Serialize(item.Value, item.Value.GetType())));
+        }
+        return values.ToArray();
+    }
 
     private sealed class ObjectCommand : IMapEditCommand
     {
@@ -158,8 +173,13 @@ public sealed partial class MapDocument
         {
             var definition = _document.Project.Definition;
             // Remove by identity even for locked objects: undo must restore lock changes too.
-            foreach (var item in MapObjects.All(definition).Where(o => _ids.Contains(o.Id)).ToArray())
-                ObjectList(definition, item.Value.GetType()).Remove(item.Value);
+            var ids = _ids.ToHashSet();
+            definition.Geometry.RemoveAll(o => ids.Contains(o.Id));
+            definition.Brushes.RemoveAll(o => ids.Contains(o.Id));
+            definition.Spawns.RemoveAll(o => ids.Contains(o.Id));
+            definition.Items.RemoveAll(o => ids.Contains(o.Id));
+            definition.JumpPads.RemoveAll(o => ids.Contains(o.Id));
+            definition.NavigationLinks.RemoveAll(o => ids.Contains(o.Id));
             foreach (var item in values.OrderBy(o => o.Index)) item.Insert(definition);
         }
         public bool TryMerge(IMapEditCommand next)

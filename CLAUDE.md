@@ -924,10 +924,14 @@ split, why only the Windows server is renamed, and the CI runner layout: `.claud
 ## Deployment
 
 ```bash
-# server and directory (rebuilds ARM64, installs both units, restarts them)
-MPH_SERVER_HOST=51.161.113.128 MPH_SERVER_USER=livetek \
-  MPH_SERVER_PASS="$(read -rsp 'pi password: ' p; echo "$p")" ./deploy-server.sh
-# MPH_DEPLOY_MASTER=0 to leave the directory alone
+# Game and directory: detects VPS architecture; restarts both services.
+# Authenticate with an SSH key/agent or a locally supplied MPH_SERVER_PASS.
+MPH_SERVER_HOST=51.161.113.128 MPH_SERVER_USER=ubuntu ./deploy-server.sh
+# MPH_DEPLOY_MASTER=0 leaves the directory alone.
+
+# Map library only: separate binary/unit; no match or directory restarts.
+MPH_MAP_DOMAIN=maps.rebooty.xyz ./deploy-map-service.sh
+# Uses Caddy already installed on the current VPS. See docs/map-studio-community.md.
 ```
 
 The exe is often locked by a running game: write `MphRead.new.exe`, then `mv`.

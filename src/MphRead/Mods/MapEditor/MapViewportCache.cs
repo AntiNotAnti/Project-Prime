@@ -126,7 +126,8 @@ public sealed class MapViewportCache
     }
 
     public IReadOnlyList<MapViewportMesh> VisibleMeshes(MapViewportCamera camera, MapViewportLayout layout)
-        => Array.AsReadOnly(_meshes.Values.Concat(_importedChunks.Where(c => c.Visible(camera, layout)).Select(c => c.Mesh)).ToArray());
+        => _importedChunks.Count == 0 ? Meshes
+            : Array.AsReadOnly(_meshes.Values.Concat(_importedChunks.Where(c => c.Visible(camera, layout)).Select(c => c.Mesh)).ToArray());
 
     public IReadOnlyList<MapViewportFace> VisibleImportedFaces(MapViewportCamera camera, MapViewportLayout layout, bool collision)
         => Array.AsReadOnly(_importedChunks.Where(c => c.Visible(camera, layout))

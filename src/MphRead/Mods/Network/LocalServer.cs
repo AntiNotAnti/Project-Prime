@@ -318,6 +318,7 @@ namespace MphRead.Mods.Network
             {
                 MapRotation.WriteList(rotationPath, rotation, timeLimit, pointGoal);
                 CopyPaths(binary.WorkingDirectory);
+                StageCustomMaps(rotation);
             }
             catch (Exception ex)
             {
@@ -347,6 +348,10 @@ namespace MphRead.Mods.Network
                 start.ArgumentList.Add(argument);
             }
             start.ArgumentList.Add("-server");
+            start.ArgumentList.Add("-usermapdirectory");
+            start.ArgumentList.Add(MapGen.CustomRooms.UserMapDirectory);
+            start.ArgumentList.Add("-mapdirectory");
+            start.ArgumentList.Add(Path.GetFullPath(MapGen.CustomRooms.MapDirectory));
             if (lobby)
             {
                 start.ArgumentList.Add("-lobby");
@@ -476,6 +481,23 @@ namespace MphRead.Mods.Network
                 : "the server did not answer in thirty seconds";
             Stop();
             return -1;
+        }
+
+        private static void StageCustomMaps(IReadOnlyList<(string RoomKey, GameMode Mode)> rotation)
+        {
+            foreach (var entry in rotation)
+            {
+                var definition = System.Linq.Enumerable.FirstOrDefault(MapGen.CustomRooms.Definitions,
+                    d => d.Name.Equals(entry.RoomKey, StringComparison.OrdinalIgnoreCase));
+                if (definition == null) continue;
+                // An immutable package carries all custom assets to the server process.
+                string folder = MapGen.CustomRooms.UserMapDirectory;
+                System.IO.Directory.CreateDirectory(folder);
+                Guid id = definition.MapId == Guid.Empty ? MapGen.MapPackageBuilder.LegacyId(definition.Name) : definition.MapId;
+                string path = Path.Combine(folder, id.ToString("N") + ".ppmap");
+                if (definition.BundlePath == null || Path.GetFullPath(definition.BundlePath) != Path.GetFullPath(path))
+                    MapGen.MapPackageBuilder.Build(definition, path);
+            }
         }
 
         /// <summary>

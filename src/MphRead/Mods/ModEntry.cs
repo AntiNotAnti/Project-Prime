@@ -34,6 +34,13 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (ValueAfter(args, "usermapdirectory") is { } userMapDirectory) MapGen.CustomRooms.UserMapDirectory = System.IO.Path.GetFullPath(userMapDirectory);
+            if (ValueAfter(args, "mapdirectory") is { } mapDirectory) MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
+            if (ValueAfter(args, "maphub") is { } hubPrefix)
+            {
+                MapGen.MapCommunityServer.Run(hubPrefix, ValueAfter(args, "maphubstorage") ?? System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory, "community"));
+                return true;
+            }
             if (HasFlag(args, "replayformatcheck"))
             {
                 Environment.ExitCode = Network.ReplayFormatCheck.Run();
@@ -446,6 +453,9 @@ namespace MphRead.Mods
             {
 #if MPHREAD_SHELL
                 Launcher.Gui.Shell.OpenStudioOnStart = true;
+                Launcher.Gui.Shell.StudioWindow = true;
+                WindowMode.ForceStartup(WindowStartMode.Windowed);
+                Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
                 Launcher.Gui.Shell.Run();
 #else
                 Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");

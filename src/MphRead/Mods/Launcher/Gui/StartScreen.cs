@@ -159,6 +159,8 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_SHELL
                     var forge = new MapStudioScreen(_prime.Overlays);
                     forge.Closed += (_, _) => _prime.Back();
+                    forge.HostRequested += (_, definition) => { RefreshRooms(); OpenCreateServer(definition.Name); };
+                    if (Shell.StudioProjectPath is { } projectPath) { Shell.StudioProjectPath=null; forge.Open(projectPath); }
                     forge.PlayRequested += (_, definition) =>
                     {
                         if (!CanLaunchLocal()) return;
@@ -272,11 +274,12 @@ namespace MphRead.Mods.Launcher.Gui
             _prime.IsVisible = true; _prime.IsEnabled = true;
             _prime.Router.Navigate(PrimeRoute.Forge);
         }
-        private void OpenCreateServer()
+        private void OpenCreateServer(string? firstMap = null)
         {
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }
             if (!CanLaunchLocal()) return;
-            var view = new CreateServerScreen(_rooms, _settings.RoomKey);
+            var view = new CreateServerScreen(_rooms, firstMap ?? _settings.RoomKey);
+            if (firstMap != null && !Metadata.IsBuiltInRoom(firstMap)) view.ShowDedicated();
             view.Closed += (_, _) => Pop();
             view.Launched += (_, plan) => { Pop(); ConnectedOrFinished(plan); };
             _prime.Overlays.Show(view, cancel: view.RequestBack);
@@ -339,6 +342,8 @@ namespace MphRead.Mods.Launcher.Gui
                     new PrimeButton("DISCARD", () => { settings.DiscardDraft(); Pop(); continuation(); }),
                     new PrimeButton("CANCEL", Pop)))), PrimeModalSize.Medium);
         }
+        internal bool PreserveForgeRecovery() => (_prime.Workspaces.TryGet(PrimeRoute.Forge) as MapStudioScreen)?.SaveRecovery() ?? true;
+
         private void AskToQuit()
         {
             if (_prime.Workspaces.TryGet(PrimeRoute.Settings) is SettingsView { IsDirty: true } settings)

@@ -24,7 +24,7 @@ public static class MapStudioStateStore
         string id = definition.MapId == Guid.Empty
             ? Safe(definition.Name)
             : definition.MapId.ToString("N");
-        return Path.Combine(CustomRooms.MapDirectory,".studio",id+".json");
+        return Path.Combine(CustomRooms.UserMapDirectory,".studio",id+".json");
     }
 
     public static MapStudioState Load(MapDefinition definition)

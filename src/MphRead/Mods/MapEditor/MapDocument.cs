@@ -33,7 +33,9 @@ namespace MphRead.Mods.MapEditor
             if (path != null) History.MarkSaved();
             History.Changed += change =>
             {
-                Selection.RemoveWhere(id => MapObjects.Find(Project.Definition, id) == null);
+                var existing = MapObjects.All(Project.Definition).Select(o => o.Id).ToHashSet();
+                Selection.RemoveWhere(id => !existing.Contains(id));
+                if (!Selection.Contains(ActiveObjectId)) ActiveObjectId = Selection.FirstOrDefault();
                 LastEditUtc = DateTime.UtcNow;
                 Invalidated?.Invoke(change); Changed?.Invoke();
             };

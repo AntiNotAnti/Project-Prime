@@ -11,7 +11,29 @@ public sealed record MapViewportMesh(Guid ObjectId, IReadOnlyList<MapViewportFac
 /// <summary>Editor presentation data, independent of the UI toolkit and graphics API.</summary>
 public sealed record MapRenderFrame(MapViewportLayout Layout, MapViewportCamera Camera,
     IReadOnlyList<MapViewportMesh> Meshes, IReadOnlySet<Guid> Selection,
-    IReadOnlyDictionary<Guid, Matrix4x4> PreviewTransforms, bool Wireframe, bool Collision);
+    IReadOnlyDictionary<Guid, Matrix4x4> PreviewTransforms, bool Wireframe, bool Collision)
+{
+    public string GridView { get; init; } = "Perspective";
+    public float GridStep { get; init; } = 4;
+}
+
+public static class MapViewportGrid
+{
+    public static IEnumerable<(Vector3 A, Vector3 B)> Lines(string view, float step)
+    {
+        step = float.IsFinite(step) ? Math.Clamp(step, .125f, 1024) : 4;
+        Vector3 Point(float a, float b) => view switch
+        {
+            "Front" => new(a,b,0), "Side" => new(0,b,a), _ => new(a,0,b)
+        };
+        float extent=64*step;
+        for(int i=-64;i<=64;i++)
+        {
+            yield return (Point(i*step,-extent),Point(i*step,extent));
+            yield return (Point(-extent,i*step),Point(extent,i*step));
+        }
+    }
+}
 
 public readonly record struct MapViewportCamera(Vector3 Position, Vector3 Target, bool Perspective)
 {

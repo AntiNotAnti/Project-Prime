@@ -772,6 +772,11 @@ namespace MphRead.Mods.Launcher.Gui
                 await StartHere(name, player, hunter, maps, timeLimit, pointGoal);
                 return;
             }
+            if (_rotation.Any(room => !Metadata.IsBuiltInRoom(room)))
+            {
+                Say("Custom maps must be hosted on this computer. Share the package through Community so players can install it before joining.", GuiTheme.Warm);
+                return;
+            }
             await StartOnServer(name, player, hunter, mode, maps, timeLimit, pointGoal);
         }
 

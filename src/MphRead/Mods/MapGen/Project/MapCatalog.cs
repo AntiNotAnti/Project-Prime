@@ -17,14 +17,14 @@ namespace MphRead.Mods.MapGen
         public IReadOnlyList<MapCatalogEntry> Refresh(bool preferPackages = true)
         {
             var entries = new List<MapCatalogEntry>();
-            if (!Directory.Exists(DirectoryPath)) return Entries = entries;
+
             var names = new Dictionary<string, MapCatalogEntry>(StringComparer.OrdinalIgnoreCase);
             var ids = new Dictionary<Guid, MapCatalogEntry>();
             // Do not follow symlinks or consume autosave/build/asset JSON as maps.
             var options = new EnumerationOptions { RecurseSubdirectories = true,
                 AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true };
             string installed=Path.Combine(DirectoryPath,".installed");
-            var files = Directory.EnumerateFiles(DirectoryPath, "*", options)
+            var files = (Directory.Exists(DirectoryPath) ? Directory.EnumerateFiles(DirectoryPath, "*", options) : Array.Empty<string>())
                 .Where(p => MapBundle.Is(p) || Path.GetExtension(p).Equals(".json", StringComparison.OrdinalIgnoreCase))
                 .Where(p => !Path.GetRelativePath(DirectoryPath, p).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Any(part => part.StartsWith('.') || part.Equals("preview", StringComparison.OrdinalIgnoreCase)
@@ -32,7 +32,9 @@ namespace MphRead.Mods.MapGen
                 .Where(p => !Path.GetFileName(p).Equals("map.build.json", StringComparison.OrdinalIgnoreCase)
                     && !Path.GetFileName(p).Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
                 .Concat(Directory.Exists(installed)?Directory.EnumerateFiles(installed,"*"+MapBundle.Extension,SearchOption.TopDirectoryOnly):Array.Empty<string>())
-                .OrderBy(p => preferPackages&&Path.GetDirectoryName(p)==installed ? -1 : MapBundle.Is(p) == preferPackages ? 0 : 1)
+                .Concat(Path.GetFullPath(DirectoryPath)==Path.GetFullPath(CustomRooms.MapDirectory) && Directory.Exists(CustomRooms.UserMapDirectory) ? Directory.EnumerateFiles(CustomRooms.UserMapDirectory,"*",new EnumerationOptions { AttributesToSkip=FileAttributes.ReparsePoint,IgnoreInaccessible=true }).Where(p => MapBundle.Is(p) || Path.GetExtension(p).Equals(".json",StringComparison.OrdinalIgnoreCase)) : Array.Empty<string>())
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(p => preferPackages&&MapBundle.Is(p)&&(Path.GetDirectoryName(p)==installed || Path.GetDirectoryName(p)==CustomRooms.UserMapDirectory) ? -1 : MapBundle.Is(p) == preferPackages ? 0 : 1)
                 .ThenBy(p => p, StringComparer.Ordinal).ToList();
             foreach (string path in files)
             {
@@ -50,7 +52,7 @@ namespace MphRead.Mods.MapGen
                         Guid priorId=prior.Definition!.MapId==Guid.Empty?MapPackageBuilder.LegacyId(prior.Definition.Name):prior.Definition.MapId;
                         Guid currentId=definition.MapId==Guid.Empty?MapPackageBuilder.LegacyId(definition.Name):definition.MapId;
                         bool sameId = priorId==currentId;
-                        if (sameId && (MapBundle.Is(prior.Path) != MapBundle.Is(path)||Path.GetDirectoryName(prior.Path)==installed||Path.GetDirectoryName(path)==installed)) continue;
+                        if (sameId && (MapBundle.Is(prior.Path) != MapBundle.Is(path)||Path.GetDirectoryName(prior.Path)==installed||Path.GetDirectoryName(path)==installed||Path.GetDirectoryName(prior.Path)==CustomRooms.UserMapDirectory||Path.GetDirectoryName(path)==CustomRooms.UserMapDirectory)) continue;
                         validation.Error("FP-MAP-010", $"Duplicate runtime name: {definition.Name}.");
                         prior.Validation.Error("FP-MAP-010", $"Duplicate runtime name: {definition.Name}.");
                     }

@@ -99,19 +99,15 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private double _raster = 1;
         private Control? _view;
-        private MapViewport? _mapViewport;
+        private readonly List<MapViewport> _mapViewports = new();
         internal void PrepareMapRenderer()
         {
-            var viewport = _view?.GetVisualDescendants().OfType<MapViewport>().FirstOrDefault();
-            if (!ReferenceEquals(viewport, _mapViewport))
-            {
-                _mapViewport?.ReleaseRenderer();
-                _mapViewport = viewport;
-            }
-            _mapViewport?.PrepareRenderer();
+            var visible = _view?.GetVisualDescendants().OfType<MapViewport>().Where(v => v.IsEffectivelyVisible).ToArray() ?? Array.Empty<MapViewport>();
+            foreach (var old in _mapViewports.Where(v => !visible.Contains(v)).ToArray()) { old.ReleaseRenderer(); _mapViewports.Remove(old); }
+            foreach (var viewport in visible) { if (!_mapViewports.Contains(viewport)) _mapViewports.Add(viewport); viewport.PrepareRenderer(); }
         }
-        internal void DrawMapViewport(int width, int height) => _mapViewport?.DrawInWindow(this, width, height);
-        internal void ReleaseMapRenderer() { _mapViewport?.ReleaseRenderer(); _mapViewport = null; }
+        internal void DrawMapViewport(int width, int height) { foreach (var view in _mapViewports) view.DrawInWindow(this, width, height); }
+        internal void ReleaseMapRenderer() { foreach (var view in _mapViewports) view.ReleaseRenderer(); _mapViewports.Clear(); }
         private readonly GamepadNavigation _gamepad = new();
         private Point _pointer;
         private RawInputModifiers _modifiers;
@@ -301,7 +297,8 @@ namespace MphRead.Mods.Launcher.Gui
             // everything else: the layout box a screen is given has to be the
             // same box whether or not the raster was capped, or capping it
             // would relayout every screen as well as rasterising it smaller.
-            double factor = Factor(width, height) * raster;
+            bool editing = _view?.GetVisualDescendants().OfType<MapStudioScreen>().Any(v => v.IsEffectivelyVisible) == true;
+            double factor = (editing ? Math.Clamp(Math.Min(width / 960.0, height / 600.0), .6, 1) : Factor(width, height)) * raster;
             if (surfaceWidth == _pixelWidth && surfaceHeight == _pixelHeight
                 && factor == _factor)
             {

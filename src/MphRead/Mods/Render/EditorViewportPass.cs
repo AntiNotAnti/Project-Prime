@@ -15,6 +15,8 @@ public partial class Scene
 {
     private readonly Dictionary<Guid, EditorMesh> _editorMeshes = new();
     private RenderItem? _editorGrid;
+    private string _editorGridView = "";
+    private float _editorGridStep;
     private sealed record EditorPart(bool Solid, bool CollisionOnly, bool SurfaceOnly, RenderItem Fill, RenderItem Edges);
     private sealed record EditorMesh(MapViewportMesh Source, EditorPart[] Parts);
     public int EditorMeshUploads { get; private set; }
@@ -97,6 +99,8 @@ public partial class Scene
             GL.Disable(EnableCap.AlphaTest);
             GL.Disable(EnableCap.Blend);
             GL.ActiveTexture(TextureUnit.Texture0);
+            if (_editorGrid != null && (_editorGridView != frame.GridView || _editorGridStep != frame.GridStep))
+            { GL.DeleteLists(_editorGrid.ListId,1); _editorGrid=null; }
             if (_editorGrid == null)
             {
                 int grid = GL.GenLists(1);
@@ -104,11 +108,9 @@ public partial class Scene
                 GL.NewList(grid, ListMode.Compile);
                 GL.TexCoord3(0f, 0f, 0f);
                 GL.Begin(PrimitiveType.Lines);
-                for (int n = -64; n <= 64; n += 4)
-                {
-                    GL.Vertex3(n, 0, -64); GL.Vertex3(n, 0, 64);
-                    GL.Vertex3(-64, 0, n); GL.Vertex3(64, 0, n);
-                }
+                foreach (var line in MapViewportGrid.Lines(frame.GridView,frame.GridStep))
+                { GL.Vertex3(line.A.X,line.A.Y,line.A.Z); GL.Vertex3(line.B.X,line.B.Y,line.B.Z); }
+                _editorGridView=frame.GridView;_editorGridStep=frame.GridStep;
                 GL.End(); GL.EndList();
                 _editorGrid = EditorItem(grid);
                 _editorGrid.OverrideColor = new Vector4(41f / 255, 54f / 255, 65f / 255, 1);

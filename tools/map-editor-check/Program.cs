@@ -9,6 +9,10 @@ using MphRead.Mods.MapGen;
 
 int checks = 0;
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+Check(MapViewportGrid.Lines("Top",1).All(l=>l.A.Y==0&&l.B.Y==0),"top grid uses XZ plane");
+Check(MapViewportGrid.Lines("Front",1).All(l=>l.A.Z==0&&l.B.Z==0),"front grid uses XY plane");
+Check(MapViewportGrid.Lines("Side",1).All(l=>l.A.X==0&&l.B.X==0),"side grid uses YZ plane");
+Check(MapViewportGrid.Lines("Perspective",float.NaN).Count()==258,"invalid grid spacing is bounded");
 var definition = new MapDefinition { Name = "CHECK_ARENA", FormatVersion = 2, MapId = Guid.NewGuid() };
 var requiredTemplates=new[]{"basic-ffa","duel-1v1","team-symmetric","vertical-arena",
     "jump-pad-playground","large-outdoor","import-review","native-remix"};
@@ -152,9 +156,48 @@ try
     Check(cache.GeometryObjectsRebuilt == rebuilt + 1, "overlay leaves geometry cached");
     doc.Save(Path.Combine(root, "map.json"));
     Check(cache.GeometryObjectsRebuilt == rebuilt + 1, "save leaves geometry cached");
+    var finiteDoc = new MapDocument(new MapProject(new MapDefinition
+    { Geometry = { new MapBox { Transform = new() { Position = new[] { float.MaxValue, 0f, 0f } } } } }));
+    var finiteId = finiteDoc.Project.Definition.Geometry[0].Id;
+    var finiteState = finiteDoc.CurrentStateId;
+    bool rejectedOverflow = false;
+    try { finiteDoc.TransformSelection(new[] { finiteId }, "Move", new(float.MaxValue, 0, 0), 0, 1, false); }
+    catch (ArgumentOutOfRangeException) { rejectedOverflow = true; }
+    Check(rejectedOverflow && finiteDoc.CurrentStateId == finiteState
+        && float.IsFinite(finiteDoc.Project.Definition.Geometry[0].Transform.Position[0]),
+        "overflowing transform is rejected without mutation or history");
+    int mixedEntities = cache.EntityRebuildCount;
+    doc.TransformSelection(new[] { box.Id, spawn.Id }, "Move", Vector3.One, 0, 1, false);
+    Check(cache.EntityRebuildCount == mixedEntities + 1, "mixed transform refreshes entity handles");
+    doc.History.Undo();
+    Check(cache.EntityRebuildCount == mixedEntities + 2, "mixed transform undo refreshes entity handles");
+
+    var orderedDefinition = new MapDefinition();
+    for (int i = 0; i < 6; i++) orderedDefinition.Geometry.Add(new MapBox { Label = "Box " + i });
+    var ordered = new MapDocument(new MapProject(orderedDefinition));
+    var orderedIds = ordered.Project.Definition.Geometry.Select(g => g.Id).ToArray();
+    foreach (Guid id in orderedIds.Reverse()) ordered.Selection.Add(id);
+    ordered.CopySelection();
+    var pasteTarget = new MapDocument(new MapProject(new MapDefinition()));
+    Check(pasteTarget.PasteClipboard(), "reverse-selected clipboard pastes");
+    Check(pasteTarget.Project.Definition.Geometry.Select(g => g.Label)
+        .SequenceEqual(orderedDefinition.Geometry.Select(g => g.Label)), "clipboard retains original source order");
+    ordered.EditObjects("Bulk rename", orderedIds.Reverse(), d =>
+    { foreach (var g in d.Geometry) g.Label += " edited"; });
+    Check(ordered.Project.Definition.Geometry.Select(g => g.Id).SequenceEqual(orderedIds), "bulk edit preserves object order");
+    ordered.History.Undo();
+    Check(ordered.Project.Definition.Geometry.Select(g => g.Label)
+        .SequenceEqual(orderedDefinition.Geometry.Select(g => g.Label)), "bulk undo restores all objects");
+    ordered.ActiveObjectId = orderedIds[0];
+    ordered.EditObjects("Delete active", new[] { orderedIds[0] }, d => d.Geometry.Clear());
+    Check(ordered.Selection.Contains(ordered.ActiveObjectId) && ordered.ActiveObjectId != orderedIds[0],
+        "deleting active object chooses surviving selected object");
+
     var layout = new MapViewportLayout(800, 600, 1.5);
     Check(layout.PixelWidth == 1200 && layout.PixelHeight == 900 && layout.Normalize(400, 300) == (0d, 0d), "DPI layout contract");
     Check(new MapViewportLayout(0, 0).PixelWidth == 0, "empty viewport safe");
+    Check(ReferenceEquals(cache.VisibleMeshes(new MapViewportCamera(Vector3.One * 20, Vector3.Zero, true), layout), cache.Meshes),
+        "native-only rendering reuses mesh list without per-frame allocation");
     var meshIdentities = cache.Meshes.ToDictionary(m => m.ObjectId);
     doc.SelectionChanged();
     Check(cache.Meshes.All(m => ReferenceEquals(m,meshIdentities[m.ObjectId])), "selection preserves GPU mesh identities");
