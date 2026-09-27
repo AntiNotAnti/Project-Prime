@@ -29,6 +29,7 @@ namespace MphRead.Mods.MapGen
         public int ImportedPatchCollisionFaces { get; set; }
         public MapCollisionHealth? CollisionHealth { get; set; }
         public List<MapCollisionRepair> CollisionRepairs { get; } = new();
+        public List<MapDiagnostic> ImportDiagnostics { get; } = new();
 
         public BuiltMap(MapDefinition definition)
         {

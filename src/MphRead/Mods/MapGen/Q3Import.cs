@@ -62,7 +62,8 @@ namespace MphRead.Mods.MapGen
                     : $"{def.Name} has no textures: {import.Textures} is not beside its recipe, "
                         + "not in its bundle, and could not be baked from the level.");
             }
-            int unpainted = 0;
+            map.ImportDiagnostics.AddRange(Q3Gameplay.Inspect(bsp, unit));
+            var missingMaterials = new HashSet<int>();
 
             // How big the sky's own texture should be drawn. A sky surface's
             // texture coordinates are meaningless: Quake never reads them, it
@@ -108,22 +109,23 @@ namespace MphRead.Mods.MapGen
                 }
                 int material;
                 int sourceMaterial=-1;
+                bool fallbackMaterial=false;
                 if (pack == null)
                 {
                     material = MatchMaterial(import, texture.Name);
                 }
                 else if (!pack.BySourceIndex.TryGetValue(face.Texture, out material))
                 {
-                    // A shader with no image of its own -- a light or an
-                    // effect, defined in a .shader script rather than a file.
-                    // Dropping the surface is better than painting it with
-                    // somebody else's texture.
-                    unpainted++;
-                    continue;
+                    // Legacy packs omit image-less shaders. Retain the surface and its
+                    // collision using an existing texture until the author rebakes the pack.
+                    material=0;fallbackMaterial=true;
+                    if (missingMaterials.Add(face.Texture))
+                        map.ImportDiagnostics.Add(new("FP-MAP-006", MapDiagnosticSeverity.Warning,
+                            $"Texture pack has no entry for {texture.Name}; using {pack.Entries[0].Name} as a placeholder. Geometry is retained. Rebake imported textures to repair the appearance."));
                 }
                 if(pack!=null)
                 {
-                    sourceMaterial=material;
+                    sourceMaterial=fallbackMaterial?-1:material;
                     MapSourceMaterialReplacement? replacement=import.MaterialReplacements?
                         .LastOrDefault(value=>value.Source==sourceMaterial);
                     if(replacement!=null)
@@ -395,8 +397,7 @@ namespace MphRead.Mods.MapGen
             {
                 if (pack != null)
                 {
-                    Console.WriteLine($"  {pack.Entries.Count} baked textures"
-                        + (unpainted > 0 ? $", {unpainted} surfaces dropped for want of one" : ""));
+                    Console.WriteLine($"  {pack.Entries.Count} baked textures");
                 }
                 Console.WriteLine($"  imported {bsp.Faces.Count} surfaces -> {map.Faces.Count} triangles"
                     + $" ({patches} patches tessellated to {patchTriangles},"
@@ -787,6 +788,7 @@ namespace MphRead.Mods.MapGen
 
         private static IReadOnlyList<(int, int)> GetTextureSizes(MapDefinition def)
         {
+            if (def.Materials.Count == 0) return Array.Empty<(int, int)>();
             Model source = Read.GetRoomModelInstance(def.TextureSource).Model;
             Recolor recolor = source.Recolors[0];
             var results = new List<(int, int)>();
@@ -1098,11 +1100,16 @@ namespace MphRead.Mods.MapGen
             var targets = new Dictionary<string, Vector3>(StringComparer.OrdinalIgnoreCase);
             foreach (Dictionary<string, string> entity in bsp.Entities)
             {
-                if (entity.TryGetValue("targetname", out string? name) && entity.TryGetValue("origin", out string? origin))
+                if (entity.TryGetValue("targetname", out string? name)
+                    && Q3Gameplay.TryVector(entity.GetValueOrDefault("origin"), out var origin))
                 {
-                    targets[name] = ToWorld(ParseVector(origin), import.UnitsPerUnit);
+                    targets[name] = ToWorld(origin, import.UnitsPerUnit);
                 }
             }
+            if (import.KeepSpawns) def.Spawns.AddRange(Q3Gameplay.Spawns(bsp, import.UnitsPerUnit));
+            if (def.Spawns.Count == 0)
+                map.ImportDiagnostics.Add(new("FP-MAP-014", MapDiagnosticSeverity.Error,
+                    "Imported map has no usable player spawns. Add Prime spawns before building or playtesting."));
             int pads = 0;
             int items = 0;
             foreach (Dictionary<string, string> entity in bsp.Entities)
@@ -1111,27 +1118,7 @@ namespace MphRead.Mods.MapGen
                 {
                     continue;
                 }
-                if (classname.Equals("info_player_deathmatch", StringComparison.OrdinalIgnoreCase)
-                    || classname.Equals("info_player_start", StringComparison.OrdinalIgnoreCase))
-                {
-                    if (!import.KeepSpawns || !entity.TryGetValue("origin", out string? origin))
-                    {
-                        continue;
-                    }
-                    float angle = entity.TryGetValue("angle", out string? value)
-                        && Single.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
-                        ? parsed
-                        : 0;
-                    Vector3 position = ToWorld(ParseVector(origin), import.UnitsPerUnit);
-                    // Quake spawns are set at the player's feet plus a little;
-                    // dropping them slightly avoids starting inside the floor
-                    def.Spawns.Add(new MapSpawn()
-                    {
-                        Position = new[] { position.X, position.Y - 24 / import.UnitsPerUnit, position.Z },
-                        Yaw = 90 + angle
-                    });
-                }
-                else if (classname.Equals("trigger_push", StringComparison.OrdinalIgnoreCase))
+                if (classname.Equals("trigger_push", StringComparison.OrdinalIgnoreCase))
                 {
                     if (!entity.TryGetValue("model", out string? model) || !model.StartsWith("*")
                         || !entity.TryGetValue("target", out string? target)
@@ -1139,8 +1126,7 @@ namespace MphRead.Mods.MapGen
                     {
                         continue;
                     }
-                    if (!Int32.TryParse(model[1..], out int modelIndex)
-                        || modelIndex < 0 || modelIndex >= bsp.Models.Count)
+                    if (!Q3Gameplay.TryModel(model, bsp.Models.Count, out int modelIndex))
                     {
                         continue;
                     }

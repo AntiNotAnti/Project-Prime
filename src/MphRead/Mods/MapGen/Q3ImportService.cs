@@ -42,7 +42,10 @@ public static class Q3ImportService
         int PlayerClips,
         int Spawns,
         int Pickups,
-        MapTextureBake.Coverage Textures);
+        MapTextureBake.Coverage Textures)
+    {
+        public IReadOnlyList<MapDiagnostic> GameplayWarnings { get; init; } = Array.Empty<MapDiagnostic>();
+    }
 
     public sealed record ReimportDiff(
         Analysis? Current, Analysis Next,
@@ -73,6 +76,8 @@ public static class Q3ImportService
         CancellationToken cancellation = default)
     {
         cancellation.ThrowIfCancellationRequested();
+        if (scale.HasValue && (!float.IsFinite(scale.Value) || scale.Value <= 0))
+            throw new ArgumentOutOfRangeException(nameof(scale), "Import scale must be finite and positive.");
         if (!File.Exists(source)) throw new FileNotFoundException("Quake 3 source was not found.", source);
         var maps = Q3Bsp.ListMaps(source);
         if (maps.Count == 0) throw new ProgramException($"{Path.GetFileName(source)} contains no BSP levels.");
@@ -83,21 +88,23 @@ public static class Q3ImportService
         float auto = Q3Convert.AutoScale(Q3Convert.WidestExtent(bsp));
         float unit = scale ?? auto;
         Q3Convert.Bounds(bsp, out float[] min, out float[] max, sky: false);
+        if (min[0] > max[0]) throw new ProgramException("This BSP has no drawn architecture to import.");
+        if (min.Concat(max).Any(value => !float.IsFinite(value / unit) || Math.Abs(value / unit) >= 524288))
+            throw new ArgumentOutOfRangeException(nameof(scale), "Scaled map coordinates exceed Prime's runtime range. Increase Quake units per Prime unit.");
         var archives = MapTextureBake.DiscoverArchives(source, dependencies);
         var coverage = MapTextureBake.Analyze(bsp, archives);
         int clips = bsp.Brushes.Count(b =>
             (bsp.Textures[b.Texture].Contents & Q3Bsp.ContentsSolid) == 0
             && (bsp.Textures[b.Texture].Contents & Q3Bsp.ContentsPlayerClip) != 0);
-        int spawns = bsp.Entities.Count(e => e.TryGetValue("classname", out string? name)
-            && (name.Equals("info_player_start", StringComparison.OrdinalIgnoreCase)
-                || name.StartsWith("info_player_deathmatch", StringComparison.OrdinalIgnoreCase)));
+        int spawns = Q3Gameplay.Spawns(bsp, unit).Count;
         int patches = bsp.Faces.Count(f => f.Type == 2);
         int pickups = Q3Import.Pickups(bsp, unit).Count();
-        return new(source, selected, maps, auto,
+        return new Analysis(source, selected, maps, auto,
             (max[0] - min[0]) / unit,
             (max[2] - min[2]) / unit,
             (max[1] - min[1]) / unit,
-            bsp.Faces.Count, patches, bsp.Brushes.Count, clips, spawns, pickups, coverage);
+            bsp.Faces.Count, patches, bsp.Brushes.Count, clips, spawns, pickups, coverage)
+        { GameplayWarnings = Q3Gameplay.Inspect(bsp, unit) };
     }
 
     public static ReimportDiff PreviewReimport(MapDefinition existing,string source,string? mapName=null,
@@ -138,6 +145,8 @@ public static class Q3ImportService
             progress?.Invoke("Analyzing Quake 3 source…");
             Analysis analysis = Analyze(options.Source, options.MapName, options.Dependencies,
                 options.UnitsPerUnit, cancellation);
+            foreach (var warning in analysis.GameplayWarnings)
+                diagnostics.Add(new(Severity.Warning, warning.Message));
             foreach (string missing in analysis.Textures.Missing)
                 diagnostics.Add(new(Severity.Warning, $"Missing texture {missing}; a visible fallback will be used."));
 

@@ -35,6 +35,7 @@ string root = Path.Combine(Path.GetTempPath(), "prime-history-" + Guid.NewGuid()
 Directory.CreateDirectory(root);
 try
 {
+    Q3ImportChecks.Run(Check, root);
     doc.Save(Path.Combine(root, "map.json"));
     var saved = doc.CurrentStateId;
     Check(!doc.IsDirty, "save clean");

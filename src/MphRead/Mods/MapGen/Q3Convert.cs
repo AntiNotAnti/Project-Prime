@@ -1,10 +1,8 @@
 using System;
 using System.Threading;
 using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace MphRead.Mods.MapGen
 {
@@ -96,6 +94,9 @@ namespace MphRead.Mods.MapGen
             }
             float widest = Math.Max(max[0] - min[0], Math.Max(max[1] - min[1], max[2] - min[2]));
             float unit = forcedScale ?? AutoScale(widest);
+            if (!float.IsFinite(unit) || unit <= 0)
+            { Log("Import scale must be finite and positive."); return 1; }
+            foreach (var diagnostic in Q3Gameplay.Inspect(bsp, unit)) Log("  " + diagnostic.Message);
             // The sky shell sits outside the architecture, and with it drawn
             // its corners are the furthest vertices in the file. The size of
             // the map is decided by the part people walk on; what has to fit
@@ -295,85 +296,21 @@ namespace MphRead.Mods.MapGen
                 reach = Math.Max(reach, Math.Max(Math.Abs(min[axis]), Math.Abs(max[axis])) / unit);
             }
             int factor = 0;
-            while (8 * MathF.Pow(2, factor) < reach && factor < 10)
+            while (8 * MathF.Pow(2, factor) <= reach && factor < 16)
             {
                 factor++;
             }
             return factor;
         }
 
-        /// <summary>
-        /// Where players appear. The level's own starts if it has them; a race
-        /// map has one, on a ledge sealed off from the course, so its
-        /// checkpoints stand in -- they are strung along the route by
-        /// construction, which is exactly the spread a deathmatch wants.
-        /// </summary>
+        private static float Round(float value) => MathF.Round(value, 2);
+
+        /// <summary>Persist real starts as editable Prime spawns; never invent starts at script targets.</summary>
         private static void AddSpawns(MapDefinition definition, Q3Bsp bsp, float unit)
         {
-            var starts = new List<float[]>();
-            var fallbacks = new List<float[]>();
-            foreach (Dictionary<string, string> entity in bsp.Entities)
-            {
-                if (!entity.TryGetValue("classname", out string? classname)
-                    || !entity.TryGetValue("origin", out string? origin))
-                {
-                    continue;
-                }
-                float[] position = ParseVector(origin);
-                if (classname.StartsWith("info_player_deathmatch", StringComparison.OrdinalIgnoreCase)
-                    || classname.Equals("info_player_start", StringComparison.OrdinalIgnoreCase))
-                {
-                    starts.Add(position);
-                }
-                else if (classname.StartsWith("target_", StringComparison.OrdinalIgnoreCase)
-                    || classname.Equals("info_player_intermission", StringComparison.OrdinalIgnoreCase))
-                {
-                    fallbacks.Add(position);
-                }
-            }
-            List<float[]> chosen = starts.Count >= 4 ? starts : starts.Concat(fallbacks).ToList();
-            // The level's own starts come across through the importer, which
-            // reads the same entities; listing them here as well would double
-            // them up.
-            definition.Import!.KeepSpawns = starts.Count >= 4;
-            if (definition.Import.KeepSpawns)
-            {
-                return;
-            }
-            float[] centre = new[]
-            {
-                chosen.Count == 0 ? 0 : chosen.Average(p => p[0]),
-                chosen.Count == 0 ? 0 : chosen.Average(p => p[1])
-            };
-            foreach (float[] position in chosen)
-            {
-                // Quake sets a start at the player's feet plus a little
-                float x = position[0] / unit;
-                float y = position[2] / unit - 24 / unit;
-                float z = -position[1] / unit;
-                float toCentre = MathF.Atan2(centre[0] / unit - x, -centre[1] / unit - z);
-                definition.Spawns.Add(new MapSpawn()
-                {
-                    Position = new[] { Round(x), Round(y), Round(z) },
-                    Yaw = Round(toCentre * 180 / MathF.PI)
-                });
-            }
+            definition.Import!.KeepSpawns = false;
+            definition.Spawns.AddRange(Q3Gameplay.Spawns(bsp, unit));
         }
 
-        private static float Round(float value)
-        {
-            return MathF.Round(value, 2);
-        }
-
-        private static float[] ParseVector(string value)
-        {
-            string[] parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            var result = new float[3];
-            for (int i = 0; i < 3 && i < parts.Length; i++)
-            {
-                Single.TryParse(parts[i], NumberStyles.Float, CultureInfo.InvariantCulture, out result[i]);
-            }
-            return result;
-        }
     }
 }

@@ -10,6 +10,7 @@ namespace MphRead.Mods.MapGen
         public const long MaxGridCells = 2_000_000;
         public static void Analyze(BuiltMap map, MapValidationResult result)
         {
+            result.Diagnostics.AddRange(map.ImportDiagnostics);
             var solid = map.Solid.SelectMany(MapPacker.CollisionParts).ToArray();
             MapCollisionOptimizer.Result collision=MapCollisionOptimizer.Optimize(
                 MapCollisionOptimizer.FromFaces(map.Solid));

@@ -20,6 +20,7 @@ public sealed class Q3ImportManifest
     public float UnitsPerUnit { get; set; }
     public List<Archive> Archives { get; set; } = new();
     public List<MapTextureBake.Resolution> Textures { get; set; } = new();
+    public List<MapDiagnostic> GameplayWarnings { get; set; } = new();
 
     public sealed record Archive(string Path,long Length,long ModifiedUtcTicks);
 
@@ -32,7 +33,8 @@ public sealed class Q3ImportManifest
             Source=Path.GetFullPath(analysis.Source),
             MapName=analysis.MapName,
             UnitsPerUnit=unitsPerUnit,
-            Textures=analysis.Textures.Resolutions.ToList()
+            Textures=analysis.Textures.Resolutions.ToList(),
+            GameplayWarnings=analysis.GameplayWarnings.ToList()
         };
         foreach(string path in analysis.Textures.Archives.Distinct(StringComparer.OrdinalIgnoreCase))
         {

@@ -57,6 +57,7 @@ namespace MphRead.Mods.Launcher.Gui
         private DateTime _autosaveRetryAfter;
         private DocumentStateId? _validatedState;
         private string? _validationSignature;
+        private MapDiagnostic[] _importWarnings = Array.Empty<MapDiagnostic>();
         private MapDocument? _jobDocument;
         private DocumentStateId? _jobState;
         private long _jobGeneration;
@@ -218,6 +219,7 @@ namespace MphRead.Mods.Launcher.Gui
                         var result = await Task.Run(() => MapValidator.Validate(snapshot.CreateDefinition(), false));
                         if (!_detached && _document == document && document.CurrentStateId == state && generation == _editorGeneration)
                         {
+                            result.Diagnostics.AddRange(_importWarnings);
                             _validatedState = state; document.Diagnostics = result; _viewport?.InvalidateVisual();
                             string signature = string.Join("\n", result.Diagnostics.Select(d => d.ToString()));
                             if (signature != _validationSignature)
@@ -334,6 +336,9 @@ namespace MphRead.Mods.Launcher.Gui
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
             if(_document!=null)_document.Changed-=Changed;
             _document=new(project,path);_document.Changed+=Changed;
+            _importWarnings = project.Definition.Import != null && project.Definition.BaseDirectory is {} importRoot
+                ? Q3ImportManifest.Load(importRoot)?.GameplayWarnings?.ToArray() ?? Array.Empty<MapDiagnostic>()
+                : Array.Empty<MapDiagnostic>();
             _problems.ItemsSource=null;UpdateProblemsVisibility();
             _studioState=MapStudioStateStore.Load(project.Definition);MapStudioStateStore.Prune(project.Definition,_studioState);
             ReleaseViews();
@@ -1978,7 +1983,7 @@ namespace MphRead.Mods.Launcher.Gui
             _root.RowDefinitions[4].Height=new GridLength(visible?100:0);
         }
         private void Problems(MapValidationResult result)
-        {if(_document!=null)_document.Diagnostics=result;_viewport?.InvalidateVisual();_problems.ItemsSource=result.Diagnostics.Select(d=>new ProblemRow(d)).ToArray();UpdateProblemsVisibility();_status.Text=(result.IsValid?"Validation passed. ":"Build blocked. ")+string.Join(" · ",result.Budgets.Select(b=>$"{b.Name}: {b.Used:N0}"+(b.Limit!=null?$" / {b.Limit:N0}":"")));}
+        {_importWarnings=result.Diagnostics.Where(d=>d.Code=="FP-MAP-023").ToArray();if(_document!=null)_document.Diagnostics=result;_viewport?.InvalidateVisual();_problems.ItemsSource=result.Diagnostics.Select(d=>new ProblemRow(d)).ToArray();UpdateProblemsVisibility();_status.Text=(result.IsValid?"Validation passed. ":"Build blocked. ")+string.Join(" · ",result.Budgets.Select(b=>$"{b.Name}: {b.Used:N0}"+(b.Limit!=null?$" / {b.Limit:N0}":"")));}
         private async Task Work(string label,Func<MapProject,CancellationToken,Task> action)
         {
             if(_document==null||_work!=null)return;var snapshot=_document.CaptureBuildSnapshot();await Job(label,async token=>{var project=await Task.Run(()=>new MapProject(snapshot.CreateDefinition()),token);GuardJob(token);await action(project,token);});
@@ -2020,16 +2025,16 @@ namespace MphRead.Mods.Launcher.Gui
             int authoredDetail=p.Definition.Import?.PatchLevel??0;
             if(p.Definition.Import!=null)p.Definition.Import.PatchLevel=1;
             var result=await MapBuildScheduler.Shared.AnalyzeAsync(MapBuildSnapshot.Capture(p),cancellation:token);
-            GuardJob(token);
+            GuardJob(token);Problems(result.Validation());
             if(result.Faces.Length>0)
             {
                 foreach(var view in _views)view.SetImported(result);
                 string kind=p.Definition.NativeRoom!=null?"Native room":"Imported map";
                 _status.Text=result.Succeeded
                     ? $"{kind} preview ready"+(authoredDetail>0?$" · runtime patch detail {authoredDetail}":"")
-                    : $"{kind} preview ready · runtime limits need attention";
+                        +(_importWarnings.Length>0?$" · {_importWarnings.Length} gameplay warnings in Problems":"")
+                    : $"{kind} preview ready · validation problems need attention";
             }
-            else Problems(result.Validation());
         });
         private Task Validate()=>Work("Validating",async(p,token)=>
         {
@@ -2175,7 +2180,8 @@ namespace MphRead.Mods.Launcher.Gui
                     report.Text=$"{analysis.MapName}\n{analysis.Surfaces:N0} surfaces · {analysis.Patches:N0} patches · {analysis.Brushes:N0} brushes · {analysis.Spawns} starts · {analysis.Pickups} pickups\n"
                         +$"{analysis.Width:0.#} × {analysis.Height:0.#} × {analysis.Depth:0.#} MPH units · auto scale {analysis.AutoScale:0.#}\n"
                         +$"Textures {analysis.Textures.Resolved}/{analysis.Textures.Total} · {missing}\n"
-                        +$"Archives: {string.Join(", ",analysis.Textures.Archives.Select(Path.GetFileName))}";
+                        +$"Archives: {string.Join(", ",analysis.Textures.Archives.Select(Path.GetFileName))}"
+                        +(analysis.GameplayWarnings.Count==0?"":"\n\nPrime gameplay review:\n"+string.Join("\n",analysis.GameplayWarnings.Select(d=>"• "+d.Message)));
                 }
                 catch(Exception ex){report.Text="Preflight failed: "+ex.Message;}
             }
@@ -2227,7 +2233,7 @@ namespace MphRead.Mods.Launcher.Gui
                     string projectPath=result.ProjectPath;
                     Load(MapProjectMigrator.Upgrade(MapProjectSerializer.Load(projectPath)),projectPath);
                     if(result.Analysis is {} a)
-                        _status.Text=$"Imported {a.MapName} · {a.Textures.Resolved}/{a.Textures.Total} textures resolved · {a.Width:0.#} × {a.Depth:0.#} units";
+                        _status.Text=$"Imported {a.MapName} · {a.Textures.Resolved}/{a.Textures.Total} textures resolved · {a.GameplayWarnings.Count} gameplay review warnings · Validate and playtest before hosting";
                 }));
             });
             AddButton(view,"Cancel",Dismiss);
