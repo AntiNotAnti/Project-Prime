@@ -118,6 +118,7 @@ namespace MphRead.Mods.Input.AimAssist
             TrackingChecks();
             V3Checks();
             V4Checks();
+            StrengthPassChecks();
             ShadowFreezeChecks();
             AimAssistCameraChecks.Run();
 
@@ -759,6 +760,89 @@ namespace MphRead.Mods.Input.AimAssist
                 new Vector2(.05f, 0), new Vector2(.4f, 0), 0, dt, true, profile);
             Check(brake.TurnAccelerationBrake > .5f,
                 "precision braking tells outer-stick acceleration to unwind");
+        }
+
+        private static void StrengthPassChecks()
+        {
+            void Check(bool ok, string name)
+                => GamepadChecks.Check(ok, "aim strength: " + name);
+            const float dt = 1f / 60;
+            var profile = AimAssistWeaponProfile.For(BeamType.PowerBeam);
+
+            Check(profile.NormalizedAcquire > 2.9f
+                && profile.NormalizedRelease > 3.7f
+                && profile.TrackingGain > 1.20f
+                && profile.MaxTrackingSpeed > 30,
+                "production profile widens acquisition and strengthens retained tracking");
+            Check(AimAssistTuning.HeadDelay <= .08f
+                && AimAssistTuning.IntentionalHeadDelay <= .025f
+                && AimAssistTuning.HeadAcquireCone >= 1.9f
+                && AimAssistTuning.MaxHeadBlend >= .9f,
+                "head refinement begins sooner and may retain more strongly");
+
+            // This target sits outside the old Power Beam normalized acquisition
+            // envelope (2.6 target radii) but inside the stronger pass.
+            var acquireState = new AimAssistState();
+            var acquireTarget = new AimAssistTarget(1, 1, new(1.4f, 0), new(3, 3), 12,
+                true, false,
+                BodyRegion: new(-.5f, .5f, -.5f, .5f),
+                BodySurface: new(new(1.4f, 0), false),
+                BodyVisibility: .15f);
+            var acquired = AimAssist.Apply(acquireState, new[] { acquireTarget },
+                Vector2.Zero, new Vector2(.45f, 0), 0, dt, true, profile);
+            Check(acquired.TargetSlot == 1,
+                "target just beyond the previous normalized envelope now acquires");
+
+            AimAssistState Retained()
+                => new()
+                {
+                    TargetSlot = 1, TargetLife = 1, RetainedSeconds = .12f,
+                    BodyTrackingConfidence = 1, PreviousBodyVisible = true,
+                    PreviousError = new(.5f, 0), PreviousDeltaTime = dt,
+                    PreviousOutput = Vector2.Zero, SmoothedBodyVisibility = 1
+                };
+            var trackingTarget = new AimAssistTarget(1, 1, new(1f, 0), new(3, 3), 12,
+                true, false,
+                BodyRegion: new(.5f, 1.5f, -.5f, .5f),
+                BodySurface: new(new(1f, 0), false),
+                BodyVisibility: 1);
+            var strongState = Retained();
+            var strong = AimAssist.Apply(strongState, new[] { trackingTarget },
+                Vector2.Zero, new Vector2(.45f, 0), 0, dt, true, profile);
+            var weakState = Retained();
+            var weakerProfile = profile with
+            {
+                TrackingGain = profile.TrackingGain / 1.18f,
+                MaxTrackingSpeed = profile.MaxTrackingSpeed / 1.18f,
+                ServoFrequency = profile.ServoFrequency / 1.14f,
+                CorrectionBudgetDegrees = profile.CorrectionBudgetDegrees / 1.18f
+            };
+            var weak = AimAssist.Apply(weakState, new[] { trackingTarget },
+                Vector2.Zero, new Vector2(.45f, 0), 0, dt, true, weakerProfile);
+            Check(strong.AssistContribution > weak.AssistContribution,
+                "retained moving target receives measurably stronger corrective follow");
+
+            // Head is slightly farther in normalized target-space than torso,
+            // but still close enough that aligned upward intent should refine.
+            var headState = new AimAssistState();
+            var headTarget = new AimAssistTarget(1, 1, new(0, .5f), new(0, .27f), 10,
+                true, true,
+                BodyRegion: new(-.5f, .5f, 0, 1f),
+                HeadRegion: new(-.25f, .25f, .02f, .52f),
+                BodySurface: new(new(0, .5f), false),
+                HeadSurface: new(new(0, .27f), false),
+                BodyVisibility: 1, HeadVisibility: 1);
+            AimAssistResult headResult = default;
+            for (int i = 0; i < 3; i++)
+                headResult = AimAssist.Apply(headState, new[] { headTarget },
+                    Vector2.Zero, new Vector2(0, .4f), 0, dt, true, profile);
+            Check(headResult.HeadBlend > 0
+                && headState.HeadTrackingConfidence > 0,
+                "aligned near-head intent enters refinement within three simulation frames");
+
+            Check(AimAssistTuning.StrafeTrackingMinimum >= .24f
+                && AimAssistTuning.StrafeTrackingMaximum >= .46f,
+                "neutral-stick strafe retention keeps more target motion");
         }
 
         private static void ShadowFreezeChecks()

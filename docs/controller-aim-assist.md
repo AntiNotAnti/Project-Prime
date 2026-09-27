@@ -58,6 +58,13 @@ correction-budget behavior. These are curated constants, not player-facing optio
 Imperialist additionally blends hip and scoped profiles continuously from the actual
 animated camera FOV, so a quick scope does not abruptly replace the controller model.
 
+The stronger controller balance pass expands the normalized acquisition/release
+envelopes by roughly 10-16% per weapon, raises trajectory and stick-alignment weight,
+and lowers the minimum fresh visible surface needed for a legitimate acquisition.
+This is still constrained by the broad angular safety cone, target eligibility,
+mechanical range and LOS. A target does not become assistable merely because it is
+somewhere on screen.
+
 Position correction and motion tracking still have independent caps during acquisition.
 After a target has been deliberately retained for roughly 75 ms, the follower changes
 to a critically damped second-order servo in target-normalized coordinates. The
@@ -74,8 +81,10 @@ releases immediately.
 
 Retention is continuous rather than a timer switch. Body and head tracking have separate
 0..1 confidence values, so torso engagement cannot instantly grant full head retention.
-Neutral right stick never acquires. While the player strafes, blended body/head confidence
-scales retained motion tracking from 18% to 35%; positional attraction remains disabled.
+Neutral right stick never acquires. The stronger balance pass builds body/head confidence
+faster, decays it more slowly, engages the retained-target servo after about 50 ms instead
+of 75 ms, and raises neutral-stick strafe motion tracking to roughly 24-46%. Positional
+attraction is still disabled during neutral-stick strafe retention.
 
 Visibility coverage is temporally filtered: loss decays quickly while newly exposed
 surface rises more slowly. A fresh target must expose a meaningful surface slice before
@@ -96,6 +105,13 @@ settling phase. Fast intentional flicks get a modestly larger normalized envelop
 fast misses shrink again. The selected head is locked for the short capture window.
 Validated captures use a dedicated short landing-speed allowance so the final snap is
 perceptible instead of being clipped by the ordinary positional-assist speed cap.
+
+Headshot-oriented controller tuning is also intentionally more permissive now: head
+candidate dwell is shorter, the head acquire/release cone is wider, head confidence rises
+faster, and visible heads receive a modest target-selection preference when physical stick
+input is already aligned toward them. Flick capture alignment and normalized finishing
+radius are slightly more forgiving, but LOS, mechanical headshot range, target lock and
+opposing-input cancellation are unchanged.
 
 The real headshot band remains the outer validity region. Inside it, a weak inset safe
 pocket shifts by at most 12% with target angular motion, always clamped back inside the
