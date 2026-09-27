@@ -1337,57 +1337,26 @@ namespace MphRead.Entities
             EquipInfo.InfiniteAmmo = true;
         }
 
-        private void ModResetAltControlBasis(float forwardX, float forwardZ)
+        private void ModGetAltRollInput(out float x, out float y)
         {
-            if (!Mods.Input.AltFormControlBasis.TryNormalize(forwardX, forwardZ,
-                out forwardX, out forwardZ)
-                && !Mods.Input.AltFormControlBasis.TryNormalize(CameraInfo.Field48,
-                    CameraInfo.Field4C, out forwardX, out forwardZ)
-                && !Mods.Input.AltFormControlBasis.TryNormalize(_field70, _field74,
-                    out forwardX, out forwardZ))
+            bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
+                || Controls.RolltLeft.IsDown || Controls.RollRight.IsDown;
+            if (Controls.AnalogMoveActive)
             {
-                forwardX = 0;
-                forwardZ = -1;
+                x = Controls.AnalogMoveX;
+                y = Controls.AnalogMoveY;
             }
-
-            _altRollFbX = forwardX;
-            _altRollFbZ = forwardZ;
-            _altRollLrX = forwardZ;
-            _altRollLrZ = -forwardX;
-            _altControlDesiredX = forwardX;
-            _altControlDesiredZ = forwardZ;
-            _altControlPrevInputX = _altControlPrevInputY = 0;
-            _altControlLastOutputX = forwardX;
-            _altControlLastOutputZ = forwardZ;
-            _altControlCollisionFrames = 0;
-            _altControlBasisInitialized = true;
-        }
-
-        private void ModEnsureAltControlBasis()
-        {
-            bool outputMatches = MathF.Abs(_altRollFbX - _altControlLastOutputX) < 0.0001f
-                && MathF.Abs(_altRollFbZ - _altControlLastOutputZ) < 0.0001f;
-            if (_altControlBasisInitialized && outputMatches
-                && Mods.Input.AltFormControlBasis.TryNormalize(_altRollFbX, _altRollFbZ,
-                    out _, out _))
+            else if (Input.AltSwipeEngaged && !explicitRoll)
             {
-                return;
+                x = Input.AltSwipeX;
+                y = -Input.AltSwipeY;
             }
-
-            // Replay checkpoints restore the authoritative _altRoll basis but
-            // intentionally skip the transient virtual-yaw bookkeeping. Recover
-            // it from the restored basis instead of changing the replay schema
-            // fingerprint and invalidating old capsules.
-            ModResetAltControlBasis(_altRollFbX, _altRollFbZ);
-        }
-
-        private void ModSetAltControlDesired(float forwardX, float forwardZ)
-        {
-            if (Mods.Input.AltFormControlBasis.TryNormalize(forwardX, forwardZ,
-                out forwardX, out forwardZ))
+            else
             {
-                _altControlDesiredX = forwardX;
-                _altControlDesiredZ = forwardZ;
+                x = (Controls.RollRight.IsDown ? 1 : 0)
+                    - (Controls.RolltLeft.IsDown ? 1 : 0);
+                y = (Controls.RollUp.IsDown ? 1 : 0)
+                    - (Controls.RollDown.IsDown ? 1 : 0);
             }
         }
 
@@ -1399,66 +1368,60 @@ namespace MphRead.Entities
             Flags1 |= PlayerFlags1.UsedJump;
             if (_frozenTimer == 0 && _health > 0)
             {
-                ModEnsureAltControlBasis();
-
                 bool explicitRoll = Controls.RollUp.IsDown || Controls.RollDown.IsDown
                     || Controls.RolltLeft.IsDown || Controls.RollRight.IsDown;
                 bool rollPressed = Controls.RollUp.IsPressed || Controls.RollDown.IsPressed
                     || Controls.RolltLeft.IsPressed || Controls.RollRight.IsPressed;
 
-                // One input intent for every rolling control source. A controller
-                // stick is read directly instead of relying on Roll*.IsPressed:
-                // stick directions are deliberately state-only and never create
-                // button edges in GamepadInput.
-                float controlInputX;
-                float controlInputY;
-                if (Controls.AnalogMoveActive)
-                {
-                    controlInputX = Controls.AnalogMoveX;
-                    controlInputY = Controls.AnalogMoveY;
-                }
-                else if (Input.AltSwipeEngaged && !explicitRoll)
-                {
-                    controlInputX = Input.AltSwipeX;
-                    controlInputY = -Input.AltSwipeY;
-                }
-                else
-                {
-                    controlInputX = (Controls.RollRight.IsDown ? 1 : 0)
-                        - (Controls.RolltLeft.IsDown ? 1 : 0);
-                    controlInputY = (Controls.RollUp.IsDown ? 1 : 0)
-                        - (Controls.RollDown.IsDown ? 1 : 0);
-                }
-
+                ModGetAltRollInput(out float controlInputX, out float controlInputY);
                 float controlInputSq = controlInputX * controlInputX + controlInputY * controlInputY;
                 bool rollInputHeld = Single.IsFinite(controlInputSq) && controlInputSq >= 0.0001f;
-                bool directionChanged = rollPressed
-                    || Mods.Input.AltFormControlBasis.SignificantInputDirectionChange(
-                        _altControlPrevInputX, _altControlPrevInputY, controlInputX, controlInputY);
-                _altControlPrevInputX = controlInputX;
-                _altControlPrevInputY = controlInputY;
 
-                // Keep authored/external-camera behavior: neutral or a deliberate
-                // fresh direction gives control back immediately. Physical camera
-                // collision no longer sets AltDirOverride; it only tightens the
-                // virtual yaw's rate below.
+                // A controller stick has no press edge, and WASD can turn by
+                // releasing one half of a diagonal. Compare the actual movement
+                // vector both frame-to-frame and against the vector that existed
+                // when collision first locked the camera basis. The latter catches
+                // a fast analogue sweep made from several individually-small steps.
+                bool directionChanged = rollPressed
+                    || Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollPrevInputX, _altRollPrevInputY,
+                        controlInputX, controlInputY)
+                    || _altCameraCollisionBasisLock
+                    && Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollLockInputX, _altRollLockInputY,
+                        controlInputX, controlInputY);
+                _altRollPrevInputX = controlInputX;
+                _altRollPrevInputY = controlInputY;
+
+                bool releaseCollisionBasis = false;
                 if (!rollInputHeld || directionChanged)
                 {
+                    releaseCollisionBasis = _altCameraCollisionBasisLock;
                     Flags1 &= ~PlayerFlags1.AltDirOverride;
+                    _altCameraCollisionBasisLock = false;
+                    _altCameraCollisionClearFrames = 0;
+                }
+                else if (_altCameraCollisionBasisLock && _altCameraCollisionClearFrames >= 3)
+                {
+                    // Three clear simulation frames (~50 ms) are enough to avoid
+                    // camera-collision chatter without the old ~333 ms stale basis.
+                    releaseCollisionBasis = true;
+                    Flags1 &= ~PlayerFlags1.AltDirOverride;
+                    _altCameraCollisionBasisLock = false;
+                    _altCameraCollisionClearFrames = 0;
                 }
 
-                if (!Flags1.TestFlag(PlayerFlags1.AltDirOverride)
-                    && _timeSinceMorphCamera > 10 * 2)
+                if ((_timeSinceMorphCamera > 10 * 2 || releaseCollisionBasis)
+                    && !Flags1.TestFlag(PlayerFlags1.AltDirOverride)
+                    && (MathF.Abs(CameraInfo.Field48) >= 1 / 4096f
+                        || MathF.Abs(CameraInfo.Field4C) >= 1 / 4096f))
                 {
-                    bool collisionTight = _altControlCollisionFrames > 0 && !directionChanged;
-                    (_altRollFbX, _altRollFbZ) = Mods.Input.AltFormControlBasis.Step(
-                        _altRollFbX, _altRollFbZ,
-                        _altControlDesiredX, _altControlDesiredZ,
-                        rollInputHeld, collisionTight);
-                    _altRollLrX = _altRollFbZ;
-                    _altRollLrZ = -_altRollFbX;
-                    _altControlLastOutputX = _altRollFbX;
-                    _altControlLastOutputZ = _altRollFbZ;
+                    // No yaw interpolation here. Once a basis is trusted, input is
+                    // camera-relative immediately, so fast turns cannot outrun it.
+                    _altRollFbX = CameraInfo.Field48;
+                    _altRollFbZ = CameraInfo.Field4C;
+                    _altRollLrX = CameraInfo.Field50;
+                    _altRollLrZ = CameraInfo.Field54;
                 }
                 // todo?: field35C targeting(?) stuff
 
