@@ -448,8 +448,9 @@ namespace MphRead.Formats
                     {
                         int index = data.PointStartIndex + pIndex;
                         Vector3 dataPoint1 = info.Points[info.PointIndices[index]];
-                        // index + 1 may exceed the count, in which case we get the copy of the first index
-                        Vector3 dataPoint2 = info.Points[info.PointIndices[index + 1]];
+                        // Custom maps omit the legacy closing index; wrap within this face.
+                        int nextIndex = data.PointStartIndex + (pIndex + 1 == data.PointIndexCount ? 0 : pIndex + 1);
+                        Vector3 dataPoint2 = info.Points[info.PointIndices[nextIndex]];
                         Vector3 edgeDir = (dataPoint1 - dataPoint2).Normalized();
                         var cross = Vector3.Cross(edgeDir, plane.Xyz);
                         float crossDot1 = Vector3.Dot(cross, dataPoint2);
@@ -474,7 +475,8 @@ namespace MphRead.Formats
                                 // unimpl-collision: see note below
                                 int epIndex = data.PointStartIndex + p1;
                                 Vector3 edgePoint1 = info.Points[info.PointIndices[epIndex]];
-                                Vector3 edgePoint2 = info.Points[info.PointIndices[epIndex + 1]];
+                                int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
+                                Vector3 edgePoint2 = info.Points[info.PointIndices[nextIndex]];
                                 CollisionResult result = results[count];
                                 result.Field0 = 1;
                                 result.EntityCollision = candidate.EntityCollision;
@@ -651,8 +653,9 @@ namespace MphRead.Formats
                     {
                         int index = data.PointStartIndex + pIndex;
                         Vector3 point1 = info.Points[info.PointIndices[index]];
-                        // index + 1 may exceed the count, in which case we get the copy of the first index
-                        Vector3 point2 = info.Points[info.PointIndices[index + 1]];
+                        // Custom maps omit the legacy closing index; wrap within this face.
+                        int nextIndex = data.PointStartIndex + (pIndex + 1 == data.PointIndexCount ? 0 : pIndex + 1);
+                        Vector3 point2 = info.Points[info.PointIndices[nextIndex]];
                         Vector3 edgeDir = (point1 - point2).Normalized();
                         var cross = Vector3.Cross(edgeDir, plane.Xyz);
                         float dot1 = Vector3.Dot(cross, point2);
@@ -692,8 +695,9 @@ namespace MphRead.Formats
                             {
                                 int index = data.PointStartIndex + p2;
                                 Vector3 point1 = info.Points[info.PointIndices[index]];
-                                // index + 1 may exceed the count, in which case we get the copy of the first index
-                                Vector3 point2 = info.Points[info.PointIndices[index + 1]];
+                                // Custom maps omit the legacy closing index; wrap within this face.
+                                int nextIndex = data.PointStartIndex + (p2 + 1 == data.PointIndexCount ? 0 : p2 + 1);
+                                Vector3 point2 = info.Points[info.PointIndices[nextIndex]];
                                 Vector3 edge = point2 - point1;
                                 float dot1 = Vector3.Dot(edge, edge);
                                 float dot2 = Vector3.Dot(edge, transPoint - point1);

@@ -10,7 +10,7 @@ namespace MphRead.Mods.MapGen
         public static bool Is(string path) => Path.GetExtension(path).Equals(Extension, StringComparison.OrdinalIgnoreCase);
         public static string Cook(MapDefinition definition, string recipePath, string? outputPath, bool verbose = true)
         {
-            string path = MapPackageBuilder.Build(definition, outputPath ?? Path.Combine(CustomRooms.MapDirectory,
+            string path = MapPackageBuilder.Build(definition, outputPath ?? Path.Combine(CustomRooms.UserMapDirectory,
                 Path.GetFileNameWithoutExtension(recipePath) + Extension));
             if (verbose) Console.WriteLine($"[mappackage] {definition.Name} -> {path}");
             return path;

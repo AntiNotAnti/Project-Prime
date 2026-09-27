@@ -24,15 +24,18 @@ namespace MphRead.Mods.MapGen
             var options = new EnumerationOptions { RecurseSubdirectories = true,
                 AttributesToSkip = FileAttributes.ReparsePoint, IgnoreInaccessible = true };
             string installed=Path.Combine(DirectoryPath,".installed");
-            var files = (Directory.Exists(DirectoryPath) ? Directory.EnumerateFiles(DirectoryPath, "*", options) : Array.Empty<string>())
+            IEnumerable<string> MapFiles(string root) =>
+                (Directory.Exists(root) ? Directory.EnumerateFiles(root, "*", options) : Array.Empty<string>())
                 .Where(p => MapBundle.Is(p) || Path.GetExtension(p).Equals(".json", StringComparison.OrdinalIgnoreCase))
-                .Where(p => !Path.GetRelativePath(DirectoryPath, p).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                .Where(p => !Path.GetRelativePath(root, p).Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                     .Any(part => part.StartsWith('.') || part.Equals("preview", StringComparison.OrdinalIgnoreCase)
                         || part.Equals("textures", StringComparison.OrdinalIgnoreCase) || part.Equals("audio", StringComparison.OrdinalIgnoreCase)))
                 .Where(p => !Path.GetFileName(p).Equals("map.build.json", StringComparison.OrdinalIgnoreCase)
-                    && !Path.GetFileName(p).Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
+                    && !Path.GetFileName(p).Equals("manifest.json", StringComparison.OrdinalIgnoreCase));
+            var files = MapFiles(DirectoryPath)
                 .Concat(Directory.Exists(installed)?Directory.EnumerateFiles(installed,"*"+MapBundle.Extension,SearchOption.TopDirectoryOnly):Array.Empty<string>())
-                .Concat(Path.GetFullPath(DirectoryPath)==Path.GetFullPath(CustomRooms.MapDirectory) && Directory.Exists(CustomRooms.UserMapDirectory) ? Directory.EnumerateFiles(CustomRooms.UserMapDirectory,"*",new EnumerationOptions { AttributesToSkip=FileAttributes.ReparsePoint,IgnoreInaccessible=true }).Where(p => MapBundle.Is(p) || Path.GetExtension(p).Equals(".json",StringComparison.OrdinalIgnoreCase)) : Array.Empty<string>())
+                .Concat(Path.GetFullPath(DirectoryPath)==Path.GetFullPath(CustomRooms.MapDirectory)
+                    ? MapFiles(CustomRooms.UserMapDirectory) : Array.Empty<string>())
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(p => preferPackages&&MapBundle.Is(p)&&(Path.GetDirectoryName(p)==installed || Path.GetDirectoryName(p)==CustomRooms.UserMapDirectory) ? -1 : MapBundle.Is(p) == preferPackages ? 0 : 1)
                 .ThenBy(p => p, StringComparer.Ordinal).ToList();
