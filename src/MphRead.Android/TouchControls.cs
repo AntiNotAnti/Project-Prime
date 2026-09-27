@@ -232,11 +232,13 @@ namespace MphRead.Droid
         // GameView.CollectInput and PlayerInput's boost handling for the
         // other half of this. Tracked on both the free-look aim pointer and
         // the FIRE-drag pointer, since either thumb might do the flick.
-        // Rolling alternate forms also treat a drag as a temporary movement
-        // stick. The anchor is where the aim-side finger went down, so holding
-        // the drag keeps moving instead of requiring a stream of new deltas.
+        // Kanden/Spire/Noxus treat a drag as an anchored precision stick.
+        // Samus instead follows native Morph Ball semantics: only movement that
+        // happened since the last simulation step applies traction. 24 dp in a
+        // 60 Hz step reaches one full stock roll axis at 1x sensitivity.
         private const float AltMoveDeadzoneDp = 18f;
         private const float AltMoveFullScaleDp = 96f;
+        private const float SamusAltMoveFullScaleDp = 24f;
         private const float SwipeBoostDistanceDp = 50f;
         private const long SwipeBoostWindowMs = 120;
         private const long SwipeBoostCooldownMs = 350;
@@ -1104,6 +1106,33 @@ namespace MphRead.Droid
                     }
                     (float X, float Y) drive = AltFormGesture.Drive(
                         dx, dy, deadZone, fullScale,
+                        MphRead.Mods.InputSettings.AltSwipeSensitivity);
+                    return (true, drive.X, drive.Y);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Current simulation-step motion for Samus Morph Ball steering.
+        /// This deliberately peeks at the same raw accumulator TakeAimDelta()
+        /// consumes later in CollectInput, so movement and aim see the exact
+        /// same sample in the same frame, matching melonPrimeDS's input model.
+        /// Reading this does not consume or smooth the delta.
+        /// </summary>
+        public (bool Engaged, float X, float Y) SamusAltMoveDrive
+        {
+            get
+            {
+                lock (_lock)
+                {
+                    bool engaged = _aimPointer != -1 || _fireAimPointer != -1;
+                    if (!engaged)
+                    {
+                        return (false, 0, 0);
+                    }
+                    float fullScale = MathF.Max(1, SamusAltMoveFullScaleDp * Density);
+                    (float X, float Y) drive = AltFormGesture.StockRollDrive(
+                        _aimDeltaX, _aimDeltaY, fullScale,
                         MphRead.Mods.InputSettings.AltSwipeSensitivity);
                     return (true, drive.X, drive.Y);
                 }

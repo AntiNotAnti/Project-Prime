@@ -78,15 +78,16 @@ namespace MphRead.Entities
         /// <summary>
         /// Feed rolling alt forms from the active desktop pointer source.
         ///
-        /// Pen/tablet input keeps its anchored virtual stick. The opt-in mouse
-        /// mode uses each relative mouse sample as a temporary virtual stick:
-        /// move up to roll forward, down to reverse, and left/right to steer.
-        /// Trace, Sylux and Weavel retain their transformed pointer aim.
+        /// Samus consumes only motion from the current simulation step, like
+        /// native Morph Ball steering. Kanden/Spire/Noxus keep the anchored
+        /// precision virtual stick. The opt-in relative-mouse mode follows the
+        /// same hunter-specific split. Trace, Sylux and Weavel retain aim.
         /// </summary>
         private void ModApplyPointerAltMove()
         {
-            // Android queues its anchored multi-touch sample in GameView before
-            // the shared hardware-input pass.
+            // Android queues its hunter-specific touch sample in GameView before
+            // the shared hardware-input pass: current-frame motion for Samus,
+            // anchored precision drive for the other rolling forms.
             if (global::System.OperatingSystem.IsAndroid())
             {
                 return;
@@ -109,6 +110,50 @@ namespace MphRead.Entities
 
             bool absolutePointer = Mods.Input.PointerDevice.Active
                 && Mods.Input.PointerDevice.Current.Device != Mods.Input.PointerDeviceType.Mouse;
+
+            if (Hunter == Hunter.Samus)
+            {
+                // melonPrimeDS keeps Morph Ball steering tied to the movement
+                // produced in the current guest frame rather than the distance
+                // from a pointer-down anchor. Do the same here. UpdatePointer
+                // has already accumulated pen/tablet samples into MouseDeltaX/Y
+                // for this simulation step, so mouse and absolute pointer use
+                // one exact, no-latency source.
+                if (absolutePointer)
+                {
+                    Mods.Input.PointerSample sample = Mods.Input.PointerDevice.Current;
+                    bool stylusValid = sample.InContact
+                        && (!Mods.Input.StylusZone.Enabled || Mods.Input.StylusZone.Aiming);
+                    if (!stylusValid)
+                    {
+                        Input.StylusAltTracking = false;
+                        ModSetAltSwipeDrive(false, 0, 0);
+                        return;
+                    }
+                    Input.StylusAltTracking = true;
+                }
+                else
+                {
+                    Input.StylusAltTracking = false;
+                    if (!Mods.InputSettings.MouseAltFormMovement || !Controls.MouseAim)
+                    {
+                        ModSetAltSwipeDrive(false, 0, 0);
+                        return;
+                    }
+                }
+
+                (float X, float Y) stockDrive = Mods.Input.AltFormGesture.StockRollMouseDrive(
+                    Input.MouseDeltaX, Input.MouseDeltaY,
+                    Mods.InputSettings.AltSwipeSensitivity);
+                // Keep absolute contact engaged even on a zero-delta frame. It
+                // contributes no traction, but avoids manufacturing a release
+                // edge just because the pen paused for one simulation tick.
+                bool stockEngaged = absolutePointer
+                    || stockDrive.X != 0 || stockDrive.Y != 0;
+                ModSetAltSwipeDrive(stockEngaged, stockDrive.X, stockDrive.Y);
+                return;
+            }
+
             if (absolutePointer)
             {
                 Mods.Input.PointerSample sample = Mods.Input.PointerDevice.Current;

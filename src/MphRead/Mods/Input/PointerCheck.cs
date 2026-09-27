@@ -161,6 +161,23 @@ namespace MphRead.Mods.Input
             Require(mouseIdleDrive == (0f, 0f),
                 "stopping the mouse returns the virtual alt-form stick to centre");
 
+            var samusPartial = AltFormGesture.StockRollDrive(12, -6, 24, 1);
+            Require(Math.Abs(samusPartial.X - 0.5f) < 0.0001f
+                    && Math.Abs(samusPartial.Y + 0.25f) < 0.0001f,
+                "Samus stock swipe scales current-frame motion continuously");
+            var samusDiagonal = AltFormGesture.StockRollDrive(24, -24, 24, 1);
+            Require(Math.Abs(samusDiagonal.X - 1) < 0.0001f
+                    && Math.Abs(samusDiagonal.Y + 1) < 0.0001f,
+                "Samus diagonal swipe preserves full independent roll axes");
+            var samusTiny = AltFormGesture.StockRollDrive(1, 0, 24, 1);
+            Require(samusTiny.X > 0 && samusTiny.X < 0.05f && samusTiny.Y == 0,
+                "Samus stock swipe has no artificial steering dead zone");
+            Require(AltFormGesture.StockRollDrive(0, 0, 24, 4) == (0f, 0f),
+                "Samus idle pointer adds no autonomous traction");
+            var samusSensitive = AltFormGesture.StockRollDrive(12, 0, 24, 2);
+            Require(Math.Abs(samusSensitive.X - 1) < 0.0001f,
+                "Samus stock swipe sensitivity scales per-frame traction");
+
             Require(AltFormGesture.TryPrecisionVelocity(0.31f, 0, -1, 0, 0.32f,
                     out float reversedX, out float reversedZ)
                 && Math.Abs(reversedX + 0.32f) < 0.0001f && Math.Abs(reversedZ) < 0.0001f,

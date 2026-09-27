@@ -176,9 +176,15 @@ and a WASD diagonal changed by releasing one key do not wait for a synthetic
 button press. `-altmovecheck` forces a debug log and prints camera/basis yaw,
 input, collision state, lock state and clear-frame count at 10 Hz.
 
-For pointer movement, Samus keeps stock morph-ball inertia: a swipe contributes
-roll traction and releasing it does not zero horizontal speed. Kanden, Spire and
-Noxus retain precision pointer drive. Spire's fast Dialanche swipe is mobility,
+For pointer movement, Samus keeps stock morph-ball inertia and now mirrors the
+melonPrimeDS/native steering cadence: only motion accumulated in the current
+simulation step contributes traction. There is no anchored virtual stick, no
+steering dead zone, and no carried input after the pointer stops. The two screen
+axes are clamped independently, matching two simultaneous native Roll directions
+instead of weakening diagonals through radial normalization. On Android the
+Samus movement path peeks the exact raw touch accumulator that aim consumes later
+in the same frame, so it neither delays nor consumes that input. Kanden, Spire
+and Noxus retain precision pointer drive. Spire's fast Dialanche swipe is mobility,
 not an attack input: it adds a normalized horizontal impulse in the swipe
 direction, raises only the temporary cap to Spire's authored `BoostSpeedCap`, and
 leaves the normal AltAttack exclusively on the attack bind.
