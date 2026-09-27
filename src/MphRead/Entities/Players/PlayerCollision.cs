@@ -961,6 +961,19 @@ namespace MphRead.Entities
                             if (result.Plane.Y > Fixed.ToFloat(-357) && Speed.Y < 0.15f)
                             {
                                 v166 = true;
+                                // Keep the most recent wall-facing normal for a
+                                // short ledge crest once this vertical contact
+                                // drops away. Ignore floor-like planes.
+                                float wallMagSq = result.Plane.X * result.Plane.X
+                                    + result.Plane.Z * result.Plane.Z;
+                                if (wallMagSq > 0.25f)
+                                {
+                                    float invWallMag = 1f / MathF.Sqrt(wallMagSq);
+                                    _spireClimbWallNormal = new Vector3(
+                                        result.Plane.X * invWallMag, 0,
+                                        result.Plane.Z * invWallMag);
+                                }
+                                _spireLedgeCrestTimer = 0;
                                 float yFactor = _hSpeedMag / 2;
                                 if (Speed.Y < 0.01f)
                                 {
