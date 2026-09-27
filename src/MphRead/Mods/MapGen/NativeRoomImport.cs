@@ -51,6 +51,7 @@ public static class NativeRoomImport
                             $"Native source material {mesh.MaterialId} replacement targets missing material {replacement}.");
                     foreach(BuiltFace face in Decode(model,mesh,cancellation))
                     {
+                        face.SourceMaterial=mesh.MaterialId;
                         face.Material=replacement;map.Faces.Add(face);
                     }
                 }
