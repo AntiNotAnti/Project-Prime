@@ -146,7 +146,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _viewport.CollisionRepairsOverlay=name=="Collision repairs";
                 _viewport.PartitionOverlay=name=="Partitions";_viewport.KillPlane=name=="Kill plane";_viewport.InvalidateVisual();
             });
-            Choice(new[]{"Inspector","Modeling","Partitioning","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
+            Choice(new[]{"Inspector","Modeling","Partitioning","Collision repairs","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
             AddButton(tools,"Frame all",()=>_viewport?.FrameAll());AddButton(tools,"Focus",()=>_viewport?.FrameSelection());
             AddButton(tools,"Copy",()=>_document?.CopySelection());AddButton(tools,"Paste",()=>_document?.PasteClipboard());
             AddButton(tools,"Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate));AddButton(tools,"Delete",()=>EditSelection("Delete",MapObjects.Delete));
@@ -672,6 +672,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 case "Modeling": ModelingInspector(); break;
                 case "Partitioning": PartitionInspector(); break;
+                case "Collision repairs": CollisionRepairInspector(); break;
                 case "Environment": EnvironmentInspector(); break;
                 case "Materials": MaterialInspector(); break;
                 case "Assets & music": AssetInspector(); break;
@@ -683,6 +684,113 @@ namespace MphRead.Mods.Launcher.Gui
                 case "Navigation path": NavigationInspector(); break;
                 default: Inspect(); break;
             }
+        }
+
+        private sealed record RepairReviewRow(string Key,MapViewportRepair Repair,bool Reviewed)
+        {
+            public override string ToString()
+            {
+                string state=Reviewed?"✓ reviewed":"• review";
+                return $"{state} · {Repair.Kind} · {Repair.Confidence*100:0}% · {Repair.Detail}";
+            }
+        }
+
+        private static string RepairKey(MapViewportRepair repair)
+        {
+            System.Numerics.Vector3 center=repair.Points.Length==0?System.Numerics.Vector3.Zero
+                :repair.Points.Aggregate(System.Numerics.Vector3.Zero,(a,b)=>a+b)/repair.Points.Length;
+            return $"{repair.Kind}|{MathF.Round(center.X*4)/4:0.##},{MathF.Round(center.Y*4)/4:0.##},{MathF.Round(center.Z*4)/4:0.##}|{repair.Detail}";
+        }
+
+        private void CollisionRepairInspector()
+        {
+            _inspector.Children.Clear();if(_document==null||_viewport==null)return;
+            _viewport.Collision=true;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();
+            _inspector.Children.Add(Text("COLLISION AUTO-HEAL REVIEW"));
+            if(_document.Project.Definition.Import==null)
+            {
+                _inspector.Children.Add(Text("Collision repair review is available for BSP/PK3 imports."));
+                return;
+            }
+            MapViewportRepair[] repairs=_viewport.Cache.CollisionRepairs.ToArray();
+            var filter=new ComboBox
+            {
+                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence","Probe failures","Reviewed"},
+                SelectedIndex=0
+            };
+            var list=new ListBox{MaxHeight=360};var radius=new TextBox{Text="2"};
+            _inspector.Children.Add(filter);_inspector.Children.Add(list);
+            _inspector.Children.Add(Text("Disable-region radius"));_inspector.Children.Add(radius);
+
+            bool Match(MapViewportRepair repair,string value,bool reviewed)
+                => value switch
+                {
+                    "Unreviewed"=>!reviewed,
+                    "Reviewed"=>reviewed,
+                    "Added"=>repair.Kind==MapCollisionRepairKind.FloorProxyAdded,
+                    "Restored"=>repair.Kind==MapCollisionRepairKind.BuriedRestored,
+                    "Removed"=>repair.Kind==MapCollisionRepairKind.PhantomRemoved&&repair.Confidence>=.9f,
+                    "Low confidence"=>repair.Confidence<.9f,
+                    "Probe failures"=>repair.Kind is MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    _=>true
+                };
+            void Refresh()
+            {
+                string value=filter.SelectedItem as string??"Unreviewed";
+                list.ItemsSource=repairs.Select(repair=>
+                {
+                    string key=RepairKey(repair);
+                    bool reviewed=_studioState.AcceptedCollisionRepairs.Contains(key,StringComparer.Ordinal);
+                    return new RepairReviewRow(key,repair,reviewed);
+                }).Where(row=>Match(row.Repair,value,row.Reviewed)).ToArray();
+            }
+            filter.SelectionChanged+=(_,_)=>Refresh();Refresh();
+
+            AddButton(_inspector,"Focus",()=>
+            {
+                if(list.SelectedItem is RepairReviewRow row)_viewport.FocusWorld(row.Repair.Points);
+            });
+            AddButton(_inspector,"Accept reviewed",()=>
+            {
+                if(list.SelectedItem is not RepairReviewRow row)return;
+                if(!_studioState.AcceptedCollisionRepairs.Contains(row.Key,StringComparer.Ordinal))
+                    _studioState.AcceptedCollisionRepairs.Add(row.Key);
+                MapStudioStateStore.Save(_document.Project.Definition,_studioState);Refresh();
+            });
+            AddButton(_inspector,"Accept all visible",()=>
+            {
+                foreach(RepairReviewRow row in list.ItemsSource?.OfType<RepairReviewRow>()??Enumerable.Empty<RepairReviewRow>())
+                    if(!_studioState.AcceptedCollisionRepairs.Contains(row.Key,StringComparer.Ordinal))
+                        _studioState.AcceptedCollisionRepairs.Add(row.Key);
+                MapStudioStateStore.Save(_document.Project.Definition,_studioState);Refresh();
+            });
+            AddButton(_inspector,"Disable heal in region",()=>
+            {
+                if(list.SelectedItem is not RepairReviewRow row||row.Repair.Points.Length==0)return;
+                try
+                {
+                    float r=Math.Clamp(Number(radius.Text??"2"),.25f,64f);
+                    var center=row.Repair.Points.Aggregate(System.Numerics.Vector3.Zero,(a,b)=>a+b)/row.Repair.Points.Length;
+                    _document.Edit("Disable collision heal region",d=>d.Import!.CollisionHealExclusions.Add(new()
+                    {
+                        Center=new[]{center.X,center.Y,center.Z},Radius=r,Note=row.Repair.Kind+" · "+row.Repair.Detail
+                    }),MapChangeDomain.Import);
+                    _status.Text=$"Auto-Heal disabled within {r:0.##} units of the selected repair.";
+                    _=Validate();
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+            AddButton(_inspector,"Clear disabled regions",()=>
+            {
+                _document.Edit("Clear collision heal exclusions",d=>d.Import!.CollisionHealExclusions.Clear(),MapChangeDomain.Import);
+                _=Validate();
+            });
+            int excluded=_document.Project.Definition.Import.CollisionHealExclusions.Count;
+            var health=_viewport.Cache.CollisionHealth;
+            _inspector.Children.Add(Text(
+                $"Repairs: {repairs.Length:N0} · disabled regions: {excluded}\n"
+                +(health==null?"Analyze/validate to populate health."
+                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · {health.SweepFailures}/{health.SweepCount} sweep failures")));
         }
 
         private void LayerInspector()
