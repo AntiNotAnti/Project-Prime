@@ -919,6 +919,12 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MODELING"));
+            if(_viewport!=null)
+            {
+                var elementMode=new ComboBox{ItemsSource=new[]{"Object","Face","Edge","Vertex"},SelectedItem=_viewport.ElementMode};
+                _inspector.Children.Add(Text("Viewport selection mode · 1/2/3/4"));_inspector.Children.Add(elementMode);
+                elementMode.SelectionChanged+=(_,_)=>{if(elementMode.SelectedItem is string mode){_viewport.ElementMode=mode;_viewport.ClearSubSelection();}};
+            }
             var selected=MapObjects.All(_document.Project.Definition).Where(o=>_document.Selection.Contains(o.Id)).ToArray();
             var geometry=selected.Where(o=>o.Value is MapGeometry).ToArray();
             _inspector.Children.Add(Text($"{geometry.Length} geometry objects selected"));
@@ -940,7 +946,12 @@ namespace MphRead.Mods.Launcher.Gui
             if(selected.FirstOrDefault(o=>o.Value is MapMesh) is {Value:MapMesh mesh} active)
             {
                 _inspector.Children.Add(Text($"MESH · {mesh.Vertices.Count} vertices · {mesh.Faces.Count} faces"));
-                var face=new TextBox{Text="0"};var amount=new TextBox{Text=".25"};
+                int pickedFace=_viewport?.SelectedFaceIndex??-1;
+                int pickedVertex=_viewport?.SelectedVertexIndex??-1;
+                var face=new TextBox{Text=(pickedFace>=0?pickedFace:0).ToString(CultureInfo.InvariantCulture)};
+                var amount=new TextBox{Text=".25"};
+                if(_viewport?.SelectedEdge is {} edge)
+                    _inspector.Children.Add(Text($"Selected edge · vertex {edge.A} ↔ {edge.B}"));
                 _inspector.Children.Add(Text("Face index"));_inspector.Children.Add(face);
                 _inspector.Children.Add(Text("Amount / ratio"));_inspector.Children.Add(amount);
                 void FaceEdit(string label,Action<MapMesh,int,float> edit)
@@ -963,7 +974,8 @@ namespace MphRead.Mods.Launcher.Gui
                 AddButton(_inspector,"Flip face",()=>FaceEdit("Flip face",(m,i,_)=>{MapMeshEditing.FlipFace(m,i);}));
                 AddButton(_inspector,"Delete face",()=>FaceEdit("Delete face",(m,i,_)=>{MapMeshEditing.DeleteFace(m,i);}));
 
-                var vertex=new TextBox{Text="0"};var delta=new TextBox{Text="0,0.25,0"};
+                var vertex=new TextBox{Text=(pickedVertex>=0?pickedVertex:0).ToString(CultureInfo.InvariantCulture)};
+                var delta=new TextBox{Text="0,0.25,0"};
                 _inspector.Children.Add(Text("Vertex index"));_inspector.Children.Add(vertex);
                 _inspector.Children.Add(Text("Vertex delta X,Y,Z"));_inspector.Children.Add(delta);
                 AddButton(_inspector,"Move vertex",()=>
@@ -972,6 +984,23 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         int index=int.Parse(vertex.Text??"",CultureInfo.InvariantCulture);float[] v=ParseVector(delta.Text??"",3);var id=active.Id;
                         _document.EditObjects("Move mesh vertex",new[]{id},d=>MapMeshEditing.MoveVertex((MapMesh)MapObjects.Find(d,id)!.Value,index,new(v[0],v[1],v[2])));
+                        ModelingInspector();
+                    }
+                    catch(Exception ex){Failure(ex);}
+                });
+                AddButton(_inspector,"Snap vertex to nearest surface",()=>
+                {
+                    try
+                    {
+                        if(_viewport==null)throw new InvalidOperationException("Viewport is unavailable.");
+                        int index=int.Parse(vertex.Text??"",CultureInfo.InvariantCulture);
+                        System.Numerics.Vector3 world=MapMeshEditing.VertexWorld(mesh,index);
+                        var contact=MapLayoutCommands.NearestSurface(world,_viewport.Cache.SurfaceNear(world),new HashSet<Guid>{active.Id});
+                        if(contact==null)throw new InvalidOperationException("No nearby collision/render surface was found.");
+                        Guid id=active.Id;
+                        _document.EditObjects("Snap mesh vertex to surface",new[]{id},d=>
+                            MapMeshEditing.SetVertexWorld((MapMesh)MapObjects.Find(d,id)!.Value,index,contact.Value.Point));
+                        _status.Text=$"Vertex {index} snapped {contact.Value.Distance:0.###} units to surface.";
                         ModelingInspector();
                     }
                     catch(Exception ex){Failure(ex);}
@@ -1031,6 +1060,18 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_viewport == null) return;
                 EditSelection("Snap to floor", (d, ids) => MapLayoutCommands.SnapToFloor(d, ids,
                     point => _viewport.Cache.CollisionNear(point)));
+            });
+            AddButton(_inspector,"Snap base to nearest surface",()=>
+            {
+                if(_viewport==null)return;
+                EditSelection("Snap to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,
+                    point=>_viewport.Cache.SurfaceNear(point),align:false));
+            });
+            AddButton(_inspector,"Snap + align to surface",()=>
+            {
+                if(_viewport==null)return;
+                EditSelection("Align to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,
+                    point=>_viewport.Cache.SurfaceNear(point),align:true));
             });
             var count = new TextBox { Text = "4" }; var spacing = new TextBox { Text = "4" };
             _inspector.Children.Add(Text("Copies (1–256)")); _inspector.Children.Add(count);
