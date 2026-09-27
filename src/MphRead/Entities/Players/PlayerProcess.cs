@@ -1955,7 +1955,14 @@ namespace MphRead.Entities
 
         private void EnterAltForm()
         {
-            ModResetAltControlBasis(_field70, _field74);
+            _altCameraCollisionBasisLock = false;
+            _altCameraCollisionClearFrames = 0;
+            _altRollPrevInputX = _altRollPrevInputY = 0;
+            _altRollLockInputX = _altRollLockInputY = 0;
+            _altRollFbX = _field70;
+            _altRollFbZ = _field74;
+            _altRollLrX = _gunVec2.X;
+            _altRollLrZ = _gunVec2.Z;
             Flags1 |= PlayerFlags1.Morphing;
             var camFacing = new Vector3(_field70, 0, _field74);
             SwitchCamera(Values.AltFormStrafe != 0 ? CameraType.Third2 : CameraType.Third1, camFacing);
