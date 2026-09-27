@@ -852,6 +852,19 @@ namespace MphRead.Droid
                 {
                     Scene = _build(_input, _size);
                     Scene.OnLoad();
+                    // Compile/execute the real presentation path once while the
+                    // loading notice still covers the surface. OnLoad has loaded
+                    // the scene resources; this hidden draw warms driver state,
+                    // render-item paths and texture residency before the first
+                    // frame the player can see.
+                    long warmStart = Stopwatch.GetTimestamp();
+                    Scene.OnDrawFrame();
+                    if (Scene.OnRenderFrame())
+                    {
+                        Scene.AfterRenderFrame();
+                    }
+                    MphRead.Mods.DebugLog.Line("androidperf",
+                        $"presentation prewarm {Milliseconds(warmStart, Stopwatch.GetTimestamp()):0.00} ms");
                     MphRead.Mods.Network.NetSession.ReportMatchLoadProgress(
                         MphRead.Mods.Network.MatchLoadStage.SceneReady);
                     MphRead.Mods.Network.NetSession.MarkMatchLoaded();
