@@ -100,6 +100,7 @@ namespace MphRead.Droid
             // the desktop's.
             Mods.DebugLog.Attach();
             MenuSettings settings = GameState.LoadSettings();
+            AndroidPerformance.ApplyStartupDefaults(settings);
             GameSettings.Apply(settings);
             IReadOnlyList<string> rooms = Array.Empty<string>();
             if (GameFiles.Ready)
