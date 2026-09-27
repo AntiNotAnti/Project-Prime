@@ -149,7 +149,7 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(_problems,3);_root.Children.Add(_problems);Grid.SetRow(_status,4);_root.Children.Add(_status);
             var layer=new Panel();layer.Children.Add(_root);layer.Children.Add(_modal);Content=layer;
             _search.TextChanged+=(_,_)=>RefreshHierarchy(true);
-            _hierarchyFilter.SelectionChanged+=(_,_)=>RefreshHierarchy(true);
+            _hierarchyFilter.SelectionChanged+=(_,_)=>{if(!_refreshing)RefreshHierarchy(true);};
             _hierarchy.SelectionChanged+=(_,selection)=>
             {
                 if(_refreshing||_document==null)return;
@@ -309,6 +309,11 @@ namespace MphRead.Mods.Launcher.Gui
         private void Save(){if(_document!=null)SaveTo(_path.Text??"");}
         private void SaveTo(string path)
         {try{_document?.Save(path);_document?.DiscardRecovery(CustomRooms.MapDirectory);_path.Text=path;_status.Text="Saved "+path;}catch(Exception ex){Failure(ex);}}
+        private sealed record HierarchyRow(string Group,MapObject? Object,bool Header)
+        {
+            public override string ToString()=>Header?Group:Object?.ToString()??Group;
+        }
+
         private void Changed()
         {
             RefreshHierarchy();
@@ -321,16 +326,68 @@ namespace MphRead.Mods.Launcher.Gui
             if(_document==null)return;_refreshing=true;
             try
             {
-                var objects=MapObjects.All(_document.Project.Definition)
-                    .Where(o=>o.ToString().Contains(_search.Text??"",StringComparison.OrdinalIgnoreCase)).ToArray();
-                string signature=string.Join("|",objects.Select(o=>o.Id+":"+o.ToString()));
+                var definition=_document.Project.Definition;
+                string? previousFilter=_hierarchyFilter.SelectedItem as string;
+                string[] layers=definition.Geometry.Select(g=>String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase).ToArray();
+                string[] filters=new[]{"All","Geometry","Spawns","Pickups","Jump Pads","Navigation"}
+                    .Concat(layers.Select(layer=>"Layer: "+layer)).ToArray();
+                if(_hierarchyFilter.ItemsSource is not string[] current||!current.SequenceEqual(filters))
+                {
+                    _hierarchyFilter.ItemsSource=filters;
+                    _hierarchyFilter.SelectedItem=filters.Contains(previousFilter??"",StringComparer.OrdinalIgnoreCase)
+                        ?previousFilter:"All";
+                }
+                string filter=_hierarchyFilter.SelectedItem as string??"All";
+                string search=_search.Text??"";
+
+                string Group(MapObject o)=>o.Value switch
+                {
+                    MapGeometry g=>$"Geometry · {(String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)}",
+                    MapBrush=>"Geometry · Legacy",
+                    MapSpawn=>"Spawns",
+                    MapItem=>"Pickups",
+                    MapJumpPad=>"Jump Pads",
+                    MapNavigationLink=>"Navigation",
+                    _=>"Other"
+                };
+                bool Match(MapObject o)
+                {
+                    if(!o.ToString().Contains(search,StringComparison.OrdinalIgnoreCase))return false;
+                    if(filter=="All")return true;
+                    if(filter=="Geometry")return o.Value is MapGeometry or MapBrush;
+                    if(filter=="Spawns")return o.Value is MapSpawn;
+                    if(filter=="Pickups")return o.Value is MapItem;
+                    if(filter=="Jump Pads")return o.Value is MapJumpPad;
+                    if(filter=="Navigation")return o.Value is MapNavigationLink;
+                    if(filter.StartsWith("Layer: ",StringComparison.Ordinal))
+                    {
+                        string layer=filter[7..];
+                        return o.Value is MapGeometry g
+                            && (String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)
+                                .Equals(layer,StringComparison.OrdinalIgnoreCase);
+                    }
+                    return true;
+                }
+
+                MapObject[] objects=MapObjects.All(definition).Where(Match).ToArray();
+                var rows=new List<HierarchyRow>();
+                foreach(var group in objects.GroupBy(Group).OrderBy(g=>g.Key,StringComparer.OrdinalIgnoreCase))
+                {
+                    rows.Add(new(group.Key,null,true));
+                    rows.AddRange(group.OrderBy(o=>o.ToString(),StringComparer.OrdinalIgnoreCase)
+                        .Select(o=>new HierarchyRow(group.Key,o,false)));
+                }
+
+                string signature=filter+"|"+search+"|"+string.Join("|",objects.Select(o=>o.Id+":"+o.ToString()+":"+Group(o)));
                 if(force||signature!=_hierarchySignature)
                 {
                     _hierarchySignature=signature;
-                    _hierarchy.ItemsSource=objects;
+                    _hierarchy.ItemsSource=rows;
                 }
                 _hierarchy.SelectedItems?.Clear();
-                foreach(var o in objects.Where(o=>_document.Selection.Contains(o.Id)))_hierarchy.SelectedItems?.Add(o);
+                foreach(var row in rows.Where(row=>row.Object!=null&&_document.Selection.Contains(row.Object.Id)))
+                    _hierarchy.SelectedItems?.Add(row);
             }
             finally{_refreshing=false;}
         }
