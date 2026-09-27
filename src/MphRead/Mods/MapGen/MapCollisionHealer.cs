@@ -807,7 +807,8 @@ public static class MapCollisionHealer
             CollisionSourceId = source.CollisionSourceId,
             CollisionShader = source.CollisionShader,
             PlayerClip = source.PlayerClip,
-            CollisionConfidence = source.CollisionConfidence
+            CollisionConfidence = source.CollisionConfidence,
+            SourceMaterial = source.SourceMaterial
         };
         return result;
     }
