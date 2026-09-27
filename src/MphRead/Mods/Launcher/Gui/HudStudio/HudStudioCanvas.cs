@@ -39,6 +39,7 @@ internal sealed class HudStudioCanvas : Control
     public float PreviewHeight { get; set; } = 1080;
     public int Weapon { get; set; } = -1;
     public bool Zoom { get; set; }
+    internal bool RadarOnly { get; set; }
     public HudPreviewScenario Scenario { get; set; }
     private HudPreviewState Preview => HudPreviewState.For(Scenario);
     public event Action? Changed;
@@ -56,7 +57,7 @@ internal sealed class HudStudioCanvas : Control
         return 0;
     }
     private static readonly string[] Labels = { "+", "74", "39 / 80", "POWER BEAM\nVOLT DRIVER\nMISSILE\nIMPERIALIST", "RADAR", "SCORE 5 / 7", "03:42", "Hunter  >  Rival\nRival  >  Player", "DOUBLE KILL", "RIVAL / HEALTH", "OBJECTIVE", "144 FPS", "HEALTH GAUGE", "AMMO GAUGE" };
-    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),new(227.448f,227.448f),new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17) };
+    private static readonly Vector2[] Sizes = { new(60,60),new(248,112),new(326,112),new(248,620),Vector2.Zero,new(180,120),new(200,60),new(520,160),new(340,80),new(520,200),new(300,100),new(120,40),new(225,17),new(304,17) };
     public HudStudioCanvas(HudStudioHistory history)
     {
         History = history; Focusable = true; MinHeight = 260;
@@ -84,8 +85,8 @@ internal sealed class HudStudioCanvas : Control
         var p = History.Draft; var e = p.Elements[HudProfileDefaults.ElementIds[index]];
         var t = Transform;
         var point = t.Resolve(e.Anchor, new Vector2(e.OffsetX, e.OffsetY));
-        var size = Sizes[index] * t.UnitScale * e.Scale * p.GlobalScale;
-        if (index == 4) point -= size / 2;
+        var size = (index==4 ? HudRadarGeometry.GetBounds(new(p.Radar),p.TextScale) : Sizes[index]) * t.UnitScale * e.Scale * p.GlobalScale;
+        if (index == 4) { size=Vector2.Max(size,new Vector2(16)); point -= size / 2; }
         if (index == 11) point.X -= size.X;
         if (index is 6 or 8) point.X -= size.X / 2;
         if (index == 0) point = new Vector2((float)Surface.Width / 2, (float)Surface.Height / 2) - size / 2;
@@ -110,6 +111,7 @@ internal sealed class HudStudioCanvas : Control
             }
             for (int i = 0; i < Labels.Length; i++)
             {
+                if(RadarOnly && i!=4) continue;
                 var element = History.Draft.Elements[HudProfileDefaults.ElementIds[i]];
                 Rect rect = ElementBounds(i);
                 var preview = Preview;
@@ -143,26 +145,71 @@ internal sealed class HudStudioCanvas : Control
         float radius=113.724f*style.RadiusScale;
         var pal=Radar.PaletteOf;
         System.Numerics.Vector4 Color(OpenTK.Mathematics.Vector4 c)=>new(c.X,c.Y,c.Z,c.W);
-        Span<HudShapePrimitive> primitives=stackalloc HudShapePrimitive[8];
-        int count=HudRadarGeometry.Build(primitives,style,radius,p.RadarBackground,p.RadarOutlines,Color(pal.Background),Color(pal.Ring),Color(pal.Cone),5.85f);
-        Point center=bounds.Center;
-        foreach(var primitive in primitives[..count])
+        Span<HudShapePrimitive> primitives=stackalloc HudShapePrimitive[HudRadarGeometry.FrameCapacity];
+        const float time=1.125f;
+        int count=HudRadarGeometry.Build(primitives,style,radius,p.RadarBackground,p.RadarOutlines,Color(pal.Background),Color(pal.Ring),Color(pal.Cone),5.85f,time,p.ReduceMotion,p.ReduceTransparency);
+        DrawRadarShapes(context,bounds.Center,scale,primitives[..count]);
+        var facing=new System.Numerics.Vector3(.5f,0,.8660254f);
+        var basis=HudRadarProjection.BuildBasis(facing,style.Orientation);
+        if(!p.ReduceMotion && style.Hunters) foreach(var contact in HudRadarPreview.Contacts)
         {
-            var c=primitive.Color;
-            var brush=new SolidColorBrush(Avalonia.Media.Color.FromArgb((byte)(c.W*255),(byte)(c.X*255),(byte)(c.Y*255),(byte)(c.Z*255)));
-            var pen=new Pen(brush,primitive.Thickness*scale);
-            double r=primitive.Radius*scale;
-            switch(primitive.Kind)
+            if(contact.Kind!=RadarContactKind.Hunter || !HudRadarProjection.Project(contact,default,basis,style,radius,out _)) continue;
+            for(int i=style.TrailSamples;i>0;i--)
             {
-                case HudShapeKind.Disc: context.DrawEllipse(brush,null,center,r,r); break;
-                case HudShapeKind.Ring: context.DrawEllipse(null,pen,center,r,r); break;
-                case HudShapeKind.Square: context.FillRectangle(brush,new Rect(center.X-r,center.Y-r,r*2,r*2)); break;
-                case HudShapeKind.Line: context.DrawLine(pen,new(center.X+primitive.A.X*scale,center.Y-primitive.A.Y*scale),new(center.X+primitive.B.X*scale,center.Y-primitive.B.Y*scale)); break;
+                var trail=contact with { Position=contact.Position-new System.Numerics.Vector3(i*.7f,0,i*.4f),Alpha=.35f*(1-(i-1)/4f) };
+                if(!HudRadarProjection.Project(trail,default,basis,style,radius,out var projectedTrail)) continue;
+                count=HudRadarGeometry.BuildContact(primitives,trail,projectedTrail,basis,style,5.625f,time,p.ReduceMotion);
+                DrawRadarShapes(context,bounds.Center,scale,primitives[..count]);
             }
         }
-        if(style.Hunters) context.DrawEllipse(Brushes.Magenta,null,center+new Vector(radius*.3*scale,-radius*.5*scale),3*scale*style.BlipScale,3*scale*style.BlipScale);
-        if(style.Weapons) context.DrawEllipse(Brushes.Orange,null,center+new Vector(-radius*.6*scale,radius*.2*scale),3*scale*style.BlipScale,3*scale*style.BlipScale);
-        if(style.Powerups) context.DrawEllipse(Brushes.Lime,null,center+new Vector(radius*.5*scale,radius*.4*scale),3*scale*style.BlipScale,3*scale*style.BlipScale);
+        for(int pass=0;pass<3;pass++) foreach(var contact in HudRadarPreview.Contacts)
+        {
+            if(HudRadarGeometry.ContactLayer(contact.Kind,style.Style)!=pass || !HudRadarProjection.Visible(contact.Kind,style)
+                || !HudRadarProjection.Project(contact,default,basis,style,radius,out var projected)) continue;
+            count=HudRadarGeometry.BuildContact(primitives,contact,projected,basis,style,5.625f,time,p.ReduceMotion);
+            DrawRadarShapes(context,bounds.Center,scale,primitives[..count]);
+        }
+        count=HudRadarGeometry.BuildSelfMarker(primitives,style,MathF.PI/6,basis,5.625f,Color(pal.Player));
+        DrawRadarShapes(context,bounds.Center,scale,primitives[..count]);
+        if(style.Cardinals) for(int i=0;i<4;i++)
+        {
+            var direction=basis.Project(new(i==1 ? 1 : i==3 ? -1 : 0,0,i==0 ? 1 : i==2 ? -1 : 0))*radius*.83f;
+            var text=new FormattedText("NESW"[i].ToString(),System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight,
+                new Typeface("monospace"),Math.Max(1,18*scale),Brushes.White);
+            context.DrawText(text,new(bounds.Center.X+direction.X*scale-text.Width/2,bounds.Center.Y-direction.Y*scale-text.Height/2));
+        }
+    }
+    private void DrawRadarShapes(DrawingContext context,Point center,double scale,ReadOnlySpan<HudShapePrimitive> primitives)
+    {
+        Span<Vector2> vertices=stackalloc Vector2[6];
+        var tint=HudColor.Parse(History.Draft.Elements["core.radar"].Color);
+        foreach(var primitive in primitives)
+        {
+            var c=primitive.Color;
+            if(History.Draft.ReduceTransparency && c.W>0) c.W=MathF.Max(.85f,c.W);
+            var brush=new SolidColorBrush(Avalonia.Media.Color.FromArgb((byte)(Math.Clamp(c.W,0,1)*255),
+                (byte)(Math.Clamp(c.X*tint.X,0,1)*255),(byte)(Math.Clamp(c.Y*tint.Y,0,1)*255),(byte)(Math.Clamp(c.Z*tint.Z,0,1)*255)));
+            var pen=new Pen(brush,primitive.Thickness*scale);
+            double r=primitive.Radius*scale;
+            Point position=new(center.X+primitive.A.X*scale,center.Y-primitive.A.Y*scale);
+            switch(primitive.Kind)
+            {
+                case HudShapeKind.Disc: context.DrawEllipse(brush,null,position,r,r); break;
+                case HudShapeKind.Ring: context.DrawEllipse(null,pen,position,r,r); break;
+                case HudShapeKind.Square: context.FillRectangle(brush,new Rect(position.X-r,position.Y-r,r*2,r*2)); break;
+                case HudShapeKind.Line: context.DrawLine(pen,position,new(center.X+primitive.B.X*scale,center.Y-primitive.B.Y*scale)); break;
+                default:
+                    int count=HudRadarGeometry.Polygon(primitive,vertices);
+                    var geometry=new StreamGeometry();
+                    using(var path=geometry.Open())
+                    {
+                        path.BeginFigure(new(position.X+vertices[0].X*scale,position.Y-vertices[0].Y*scale),true);
+                        for(int i=1;i<count;i++) path.LineTo(new(position.X+vertices[i].X*scale,position.Y-vertices[i].Y*scale));
+                        path.EndFigure(true);
+                    }
+                    context.DrawGeometry(brush,null,geometry); break;
+            }
+        }
     }
     private void DrawMeter(DrawingContext context, Rect bounds, bool health, bool gaugeOnly)
     {
@@ -260,6 +307,7 @@ internal sealed class HudStudioCanvas : Control
                 if(e.KeyModifiers.HasFlag(KeyModifiers.Shift)) { if(!Selection.Add(i)) Selection.Remove(i); }
                 else if(!Selection.Contains(i)) { Selection.Clear(); Selection.Add(i); }
                 Selected = i; Changed?.Invoke(); InvalidateVisual();
+                if(RadarOnly && i!=4) continue;
                 var element = History.Draft.Elements[HudProfileDefaults.ElementIds[i]];
                 if (i == 0 || element.Locked) break;
                 _before = History.Capture(); _start = point; _offset = new(element.OffsetX, element.OffsetY);

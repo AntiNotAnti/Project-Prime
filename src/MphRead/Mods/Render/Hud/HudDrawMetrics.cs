@@ -7,6 +7,20 @@ public static class HudDrawMetrics
 {
     public static bool Enabled { get; private set; }
     private static long _frames,_bytes,_peakBytes,_ticks;
+    private static long _radarFrames,_radarBytes,_radarPeak,_radarTicks;
+    private static readonly long[] _radarStages=new long[6];
+    public static void RadarCheckpoint(int stage,ref long previous)
+    {
+        long current=GC.GetAllocatedBytesForCurrentThread();
+        if(_radarFrames>=16) _radarStages[stage]+=current-previous;
+        previous=current;
+    }
+    public static void EndRadar(long before,long started)
+    {
+        long bytes=GC.GetAllocatedBytesForCurrentThread()-before;
+        if(++_radarFrames<=16) return; // Exclude first-use GL/JIT initialization.
+        _radarBytes+=bytes; _radarPeak=Math.Max(_radarPeak,bytes); _radarTicks+=Stopwatch.GetTimestamp()-started;
+    }
     public static void Enable()
     {
         if(Enabled) return;
@@ -20,5 +34,6 @@ public static class HudDrawMetrics
         long bytes=GC.GetAllocatedBytesForCurrentThread()-before;
         _frames++; _bytes+=bytes; _peakBytes=Math.Max(_peakBytes,bytes); _ticks+=Stopwatch.GetTimestamp()-started;
     }
-    public static string Report() => $"HUDMETRICS frames={_frames} bytes={_bytes} peakBytes={_peakBytes} meanBytes={(_frames==0 ? 0 : (double)_bytes/_frames):F2} meanMs={(_frames==0 ? 0 : _ticks*1000.0/Stopwatch.Frequency/_frames):F4}";
+    public static string Report() => $"HUDMETRICS frames={_frames} bytes={_bytes} peakBytes={_peakBytes} meanBytes={(_frames==0 ? 0 : (double)_bytes/_frames):F2} meanMs={(_frames==0 ? 0 : _ticks*1000.0/Stopwatch.Frequency/_frames):F4}"
+        + $" RADARMETRICS frames={Math.Max(0,_radarFrames-16)} bytes={_radarBytes} peakBytes={_radarPeak} meanMs={(_radarFrames<=16 ? 0 : _radarTicks*1000.0/Stopwatch.Frequency/(_radarFrames-16)):F4} stages={string.Join(",",_radarStages)}";
 }

@@ -161,11 +161,11 @@ internal sealed class HudStudioView : UserControl
     {
         _history.Edit(p => { edit(p); p.Mode = HudMode.Custom; }); _canvas.Refresh();
     }
-    private void Number(string name, float value, float min, float max, Action<HudProfile, float> set)
+    private void Number(string name, float value, float min, float max, Action<HudProfile, float> set, bool integer=false)
     {
         var row = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
         row.Children.Add(new TextBlock { Text = name, Width = 125, VerticalAlignment = VerticalAlignment.Center });
-        var field = new NumericUpDown { Value = (decimal)value, Minimum = (decimal)min, Maximum = (decimal)max, Increment = max <= 8 ? .1m : 1m, Width = 115 };
+        var field = new NumericUpDown { Value = (decimal)value, Minimum = (decimal)min, Maximum = (decimal)max, Increment = integer ? 1m : max <= 8 ? .1m : 1m, Width = 115 };
         field.ValueChanged += (_, _) => { if (field.Value is decimal v) Edit(p => set(p, (float)v)); };
         row.Children.Add(field); _inspector.Children.Add(row);
     }
@@ -252,18 +252,49 @@ internal sealed class HudStudioView : UserControl
         }
         if (_canvas.Selected == 4)
         {
-            Toggle("Radar background", p.RadarBackground,(p,v)=>p.RadarBackground=v); Toggle("Radar outlines",p.RadarOutlines,(p,v)=>p.RadarOutlines=v);
-            var radarStyle=new ComboBox { ItemsSource=Enum.GetNames<HudRadarStyle>(),SelectedIndex=(int)p.Radar.Style };
-            radarStyle.SelectionChanged += (_,_)=>Edit(p=>p.Radar.Style=(HudRadarStyle)radarStyle.SelectedIndex); _inspector.Children.Add(radarStyle);
+            void Group(string title) => _inspector.Children.Add(new TextBlock { Text=title,FontSize=16,Margin=new Thickness(0,12,0,4) });
+            void Choice<T>(string title,T selected,Action<HudProfile,T> set) where T : struct,Enum
+            {
+                _inspector.Children.Add(new TextBlock { Text=title });
+                var choices=Enum.GetValues<T>();
+                var combo=new ComboBox { ItemsSource=Enum.GetNames<T>(),SelectedIndex=Array.IndexOf(choices,selected) };
+                combo.SelectionChanged+=(_,_)=> { if(combo.SelectedIndex>=0) { Edit(p=>set(p,choices[combo.SelectedIndex])); Refresh(); } };
+                _inspector.Children.Add(combo);
+            }
+            Group("Radar presets");
+            var preset=new ComboBox { ItemsSource=Enum.GetNames<HudRadarStyle>(),PlaceholderText="Apply radar preset" };
+            preset.SelectionChanged+=(_,_)=> { if(preset.SelectedIndex>=0) { Edit(p=>HudRadarStyles.Apply(p,(HudRadarStyle)preset.SelectedIndex)); Refresh(); } };
+            _inspector.Children.Add(preset);
+            Group("Appearance");
+            Choice("Style",p.Radar.Style,(p,v)=>p.Radar.Style=v);
+            Toggle("Radar background",p.RadarBackground,(p,v)=>p.RadarBackground=v);
+            Toggle("Radar outlines",p.RadarOutlines,(p,v)=>p.RadarOutlines=v);
             Number("Radius scale",p.Radar.RadiusScale,.1f,4,(p,v)=>p.Radar.RadiusScale=v);
             Number("Background alpha",p.Radar.BackgroundOpacity,0,1,(p,v)=>p.Radar.BackgroundOpacity=v);
             Number("Outline width",p.Radar.OutlineThickness,.1f,8,(p,v)=>p.Radar.OutlineThickness=v);
+            Toggle("Range rings",p.Radar.RangeRings,(p,v)=>p.Radar.RangeRings=v);
             Number("Blip size",p.Radar.BlipScale,.1f,8,(p,v)=>p.Radar.BlipScale=v);
             Number("Blip opacity",p.Radar.BlipOpacity,0,1,(p,v)=>p.Radar.BlipOpacity=v);
+            Group("Orientation");
+            Choice("Orientation",p.Radar.Orientation,(p,v)=>p.Radar.Orientation=v);
+            Toggle("Cardinal labels",p.Radar.Cardinals,(p,v)=>p.Radar.Cardinals=v);
+            Toggle("Hunter facing",p.Radar.HunterFacing,(p,v)=>p.Radar.HunterFacing=v);
+            Choice("Elevation",p.Radar.Elevation,(p,v)=>p.Radar.Elevation=v);
+            if(p.Radar.Elevation!=HudRadarElevationMode.Off) Number("Elevation threshold",p.Radar.ElevationThreshold,.1f,20,(p,v)=>p.Radar.ElevationThreshold=v);
+            Group("Contacts");
             Toggle("Hunter contacts",p.Radar.Hunters,(p,v)=>p.Radar.Hunters=v);
             Toggle("Weapon contacts",p.Radar.Weapons,(p,v)=>p.Radar.Weapons=v);
             Toggle("Powerup contacts",p.Radar.Powerups,(p,v)=>p.Radar.Powerups=v);
-            Toggle("Cardinal labels",p.Radar.Cardinals,(p,v)=>p.Radar.Cardinals=v);
+            Toggle("Objective contacts",p.Radar.Objectives,(p,v)=>p.Radar.Objectives=v);
+            Choice("Out of range",p.Radar.OutOfRange,(p,v)=>p.Radar.OutOfRange=v);
+            Number("Radar range",p.Radar.RangeScale,.5f,1,(p,v)=>p.Radar.RangeScale=v);
+            Group("Motion");
+            Number("Trail samples",p.Radar.TrailSamples,0,4,(p,v)=>p.Radar.TrailSamples=(int)v,integer:true);
+            if(p.Radar.Style==HudRadarStyle.Scanner)
+            {
+                Number("Sweep speed",p.Radar.SweepSpeed,.1f,2,(p,v)=>p.Radar.SweepSpeed=v);
+                Number("Sweep opacity",p.Radar.SweepOpacity,0,1,(p,v)=>p.Radar.SweepOpacity=v);
+            }
         }
         _inspector.Children.Add(new Separator());
         var palette=new ComboBox { ItemsSource=HudPalettes.Names,PlaceholderText="Palette" };

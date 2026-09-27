@@ -169,6 +169,11 @@ namespace MphRead.Mods
             // Graphics presets, settings migration and source-texture enhancement
             // are deterministic and need neither a display nor extracted game data.
 #if MPHREAD_SHELL
+            if (ValueAfter(args, "hudradarpreview") is string radarOutput)
+            {
+                Environment.ExitCode = Launcher.Gui.HudStudioPreview.ExportRadar(radarOutput);
+                return true;
+            }
             if (ValueAfter(args, "hudpreview") is string hudOutput)
             {
                 Environment.ExitCode = Launcher.Gui.HudStudioPreview.Export(hudOutput);
@@ -1945,6 +1950,11 @@ namespace MphRead.Mods
             if (ValueAfter(args, "replayworldcheck") is string worldSource)
             {
                 Environment.ExitCode = Network.ReplayWorldCoverageCheck.Run(worldSource, ValueAfter(args, "output"));
+                return true;
+            }
+            if (ValueAfter(args, "radarcheck") is string radarFixtures)
+            {
+                Environment.ExitCode = Render.HudRadarRuntimeCheck.Run(radarFixtures);
                 return true;
             }
             if (ValueAfter(args, "replayreplicacheck") is string replicaPath)

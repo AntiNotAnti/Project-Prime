@@ -87,31 +87,6 @@ public readonly record struct HudHitMarkerRuntime(bool Enabled, HudHitMarkerShap
 {
     public HudHitMarkerRuntime(HudHitMarkerProfile p) : this(p.Enabled,p.Shape,HudColor.Parse(p.Color),p.Scale,p.Opacity,p.Gap,p.Length,p.Thickness) { }
 }
-public enum HudRadarStyle { Basic, Minimal, Ring, Square }
-public sealed class HudRadarProfile
-{
-    public HudRadarStyle Style { get; set; }
-    public bool Hunters { get; set; } = true;
-    public bool Weapons { get; set; } = true;
-    public bool Powerups { get; set; } = true;
-    public bool Cardinals { get; set; }
-    public float RadiusScale { get; set; } = 1;
-    public float BackgroundOpacity { get; set; } = 1;
-    public float OutlineThickness { get; set; } = 1;
-    public float BlipScale { get; set; } = 1;
-    public float BlipOpacity { get; set; } = 1;
-    internal void Validate()
-    {
-        if(!Enum.IsDefined(Style)) Style=HudRadarStyle.Basic;
-        RadiusScale=HudProfile.Clamp(RadiusScale,.1f,4,1); BackgroundOpacity=HudProfile.Clamp(BackgroundOpacity,0,1,1);
-        OutlineThickness=HudProfile.Clamp(OutlineThickness,.1f,8,1); BlipScale=HudProfile.Clamp(BlipScale,.1f,8,1); BlipOpacity=HudProfile.Clamp(BlipOpacity,0,1,1);
-    }
-}
-public readonly record struct HudRadarRuntime(HudRadarStyle Style,float RadiusScale,float BackgroundOpacity,float OutlineThickness,float BlipScale,float BlipOpacity,bool Hunters,bool Weapons,bool Powerups,bool Cardinals)
-{
-    public HudRadarRuntime(HudRadarProfile p) : this(p.Style,p.RadiusScale,p.BackgroundOpacity,p.OutlineThickness,p.BlipScale,p.BlipOpacity,p.Hunters,p.Weapons,p.Powerups,p.Cardinals) { }
-}
-
 public enum HudNotificationQueue { Stack, Latest }
 public sealed class HudNotificationProfile
 {

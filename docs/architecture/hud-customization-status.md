@@ -31,9 +31,10 @@ not counted as an implemented editor or renderer feature.
   do not mutate HUD sprite coordinates, world state or camera projection.
 - Health/ammo number and gauge visibility, sizing, orientation, thresholds and
   colors. Inventory orientation, icon scale, spacing, ammo/unowned visibility,
-  unowned icon opacity and selected outline. Radar basic/minimal/ring/square
-  styles, radius, backing opacity, outlines and blip size/opacity. Radar range,
-  contacts and filtering retain the existing gameplay inputs.
+  unowned icon opacity and selected outline. Radar now has eight styles, shared
+  contact/frame geometry, dynamic editor bounds, orientation, reduced range,
+  elevation, facing, objectives, trails and presentation-only scanner effects.
+  See [enhanced radar](enhanced-radar.md) for architecture and diagnostics.
 - Kill-feed row count (1–10), lifetime (1–10 seconds), spacing and weapon/HS/TK
   indicators. Hit-marker X/plus/dot geometry, size, gap, thickness, color, opacity
   and visibility consume the existing marker signal; event validity is unchanged.
@@ -155,3 +156,61 @@ than claiming a successful build of a concurrently broken combined workspace.
 - Golden comparator smoke checks accept identical images and reject a deliberately
   changed image. No screenshots were silently promoted to approved goldens.
 - All rendered checks use isolated settings; the installed application is untouched.
+
+
+## Enhanced radar implementation — 2026-09-27
+
+- All eight styles, additive profile fields, grouped inspector, radar-only presets,
+  shared preview contacts and dynamic bounds are implemented. Classic and Project
+  Prime retain Basic defaults. Existing migration, profile history, contexts and
+  custom layout remain the integration boundary.
+- Native objective locator semantics cover Bounty, Bounty Teams, Capture, Defender,
+  Defender Teams, Nodes, Nodes Teams and Prime Hunter. Replay uses the same
+  locator-only helpers and a separate scratch list, without advancing native HUD
+  timers/messages or changing the native locator draw list.
+- Trail history is fixed-size, sampled at simulation frequency and reset by life,
+  occupant, match, teleport and seek discontinuities. Replay pose lookahead is
+  prepared in presentation capture, outside radar drawing. No new network packet,
+  gameplay setting or simulation-state dependency was added.
+- Pure HUD suite: 972 assertions, including zero warmed geometry allocations and
+  allocation-free layout after forced collections. Actual Avalonia suite: 91
+  checks, including all radar presets, resizing, dragging, undo/redo/reset and
+  narrow/portrait layout. The existing replay timeline input checks also pass.
+- Real contact integration: 600 frames in each of eight objective modes; eligible
+  hunters, pickup filters and authorized objectives; zero warmed collection bytes;
+  unchanged gameplay hashes before/after collection. Synthetic fixtures select
+  installed rooms with the appropriate native objective entities; the generic
+  Prime fixture seeds a winner before the read-only collection checks.
+- OpenGL measurements: Scanner with trails produced zero radar bytes across 802
+  warmed draws; Tactical/Capture in a 450×800 portrait window produced zero radar
+  bytes across 796 warmed draws. Setup/frame/collection/trails/contacts/labels were
+  measured separately. This does not claim zero allocations in the entire HUD.
+  The tests caught and removed player-list iterator boxing and reflection-backed
+  anchor validation from the radar hot path.
+- Basic screenshot comparison: seven consecutive 1280×720 radar-region captures
+  exactly match the prior renderer. These are region comparisons, not a claim of
+  whole-frame or all-platform pixel equality. Later world images diverge outside
+  the scope of this radar comparison. All eight editor style captures were rendered
+  and representative Basic, Tactical, Holographic and Competitive images inspected.
+- A Scanner match at three draws per simulation step completed 930 steps with no
+  draw advancing gameplay and no draw-time RNG changes. Replay restore validation
+  passed 1,801 gameplay/presentation hashes, 61 file/clip seek comparisons and
+  frozen EOF, with foreground state preserved. The real GL replay cadence suite
+  also passed 60/120/144/240/360/540 Hz: 600 identical gameplay frames per cadence,
+  with no draw-time state changes, dropped simulation steps or stalls.
+- Desktop and Windows/Linux/server cross-builds pass. Tests use isolated user data;
+  native captures run on macOS. An isolated source snapshot was also used while
+  unrelated audio edits were temporarily between compilable states; the combined
+  checkout subsequently built successfully. No unrelated edits were reverted.
+- Android builds successfully after installing the Android workload and SDK
+  dependencies using the repository's CI dependency target. The local JDK 27
+  produces a version-detection warning; the build finishes with no errors.
+  Native Windows/Linux/Android execution, Android orientation and
+  suspend/resume, physical touch/pinch and the full requested real-match golden
+  matrix remain device-dependent acceptance work. Cross-builds do not establish
+  those results.
+
+Local validation artifacts are under `/tmp/prime-enhanced-radar-validation`:
+`editor/`, `baseline/`, `basic/`, `basic-parity/comparison.json`, `scanner/` and
+`tactical-capture-portrait/`. They are diagnostic captures, not automatically
+approved repository goldens.

@@ -101,4 +101,32 @@ var normal=Sample(); var huge=HudProfiles.CopyCurrent(); huge.Crosshair.Scale=8;
 Check(Sample()==normal,"800 percent crosshair does not change aim assist");
 huge.Crosshair.Enabled=false; huge.Elements["core.crosshair"].Enabled=false; HudProfiles.Publish(huge);
 Check(Sample()==normal,"hidden crosshair does not disable aim assist");
+checks += RadarUiChecks.Run();
 Console.WriteLine($"HUD UI checks passed: {checks}. Screenshots: {shots}");
+
+// Replay timeline input must remain precise even over dense event markers and trim handles.
+var timeline = new ReplayTimeline();
+uint requestedFrame = uint.MaxValue;
+int seekRequests = 0, trimRequests = 0;
+timeline.FrameRequested = frame => { requestedFrame = frame; seekRequests++; };
+timeline.MarkInRequested = _ => trimRequests++;
+timeline.Update(600, 0, 300, 500,
+    new[] { new MphRead.Mods.Network.ReplayEvent(447, MphRead.Mods.Network.ReplayEventType.Kill) },
+    Array.Empty<MphRead.Mods.Replay.ReplayHighlight>());
+var timelineWindow = new Window { Width = 600, Height = 160, Content = timeline };
+timelineWindow.Show(); timelineWindow.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+Point TimelinePoint(double fraction, double y) => timeline.TranslatePoint(
+    new Point(timeline.Bounds.Width * fraction, y), timelineWindow)!.Value;
+window = timelineWindow;
+window.MouseDown(TimelinePoint(.5, 30), MouseButton.Left);
+window.MouseMove(TimelinePoint(.75, 30));
+window.MouseUp(TimelinePoint(.75, 30), MouseButton.Left);
+Check(requestedFrame == 450 && trimRequests == 0, "timeline lanes scrub without grabbing trim handles");
+Check(seekRequests == 2, "pointer release does not restart the same seek");
+window.MouseDown(TimelinePoint(.25, 30), MouseButton.Right);
+window.MouseUp(TimelinePoint(.25, 30), MouseButton.Right);
+Check(seekRequests == 2, "right click does not seek");
+window.MouseWheel(TimelinePoint(.5, 30), new Avalonia.Vector(0, 1));
+Check(requestedFrame == 510 && timeline.Zoom == 1, "wheel scrubs one second without zooming");
+timelineWindow.Close();
+Console.WriteLine("Replay timeline input checks passed.");

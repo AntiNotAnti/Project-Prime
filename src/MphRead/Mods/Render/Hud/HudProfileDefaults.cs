@@ -27,10 +27,11 @@ public static class HudProfileDefaults
         var p = new HudProfile { Name = name, BasePreset = name, Mode = name == "Classic" ? HudMode.Classic : name == "Project Prime" ? HudMode.ProjectPrime : HudMode.Custom };
         switch (name)
         {
-            case "Competitive": p.Crosshair = CrosshairProfile.FromLegacy(CrosshairStyle.Dot, CrosshairSize.Small); break;
-            case "Minimal": p.Elements["core.weapons"].Enabled = false; p.Elements["combat.notifications"].Enabled = false; break;
+            case "Competitive": HudRadarStyles.Apply(p,HudRadarStyle.Competitive); p.Crosshair = CrosshairProfile.FromLegacy(CrosshairStyle.Dot, CrosshairSize.Small); break;
+            case "Minimal": HudRadarStyles.Apply(p,HudRadarStyle.Minimal); p.Elements["core.weapons"].Enabled = false; p.Elements["combat.notifications"].Enabled = false; break;
             case "Duel": p.Elements["core.radar"].Enabled = false; break;
             case "Accessibility":
+                HudRadarStyles.Apply(p,HudRadarStyle.Tactical); p.Radar.BlipScale=1.3f; p.Radar.BackgroundOpacity=.85f;
                 p.GlobalScale = 1.5f; p.Crosshair.Outline = 2;
                 foreach (var e in p.Elements.Values) { e.OffsetX *= 1.5f; e.OffsetY *= 1.5f; }
                 p.Elements["core.weapons"].Scale = 2 / 3f;
@@ -39,7 +40,7 @@ public static class HudProfileDefaults
                 p.Elements["match.score"].OffsetX = -180;
                 p.Elements["match.score"].OffsetY = 40;
                 break;
-            case "Broadcast": p.Elements["match.score"].Scale = 1.5f; break;
+            case "Broadcast": HudRadarStyles.Apply(p,HudRadarStyle.Tactical); p.Elements["match.score"].Scale = 1.5f; break;
         }
         return p;
     }

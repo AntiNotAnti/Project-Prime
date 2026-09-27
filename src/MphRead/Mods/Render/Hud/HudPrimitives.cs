@@ -21,36 +21,5 @@ public static class HudPrimitives
     }
 }
 
-public enum HudShapeKind { Disc, Ring, Line, Square }
+public enum HudShapeKind { Disc, Ring, Line, Square, Triangle, Diamond, Hexagon }
 public readonly record struct HudShapePrimitive(HudShapeKind Kind,Vector2 A,Vector2 B,float Radius,float Thickness,Vector4 Color);
-public static class HudRadarGeometry
-{
-    public static int Build(Span<HudShapePrimitive> output,HudRadarRuntime style,float radius,bool background,bool outlines,
-        Vector4 backing,Vector4 ring,Vector4 cone,float unit)
-    {
-        if(output.Length<8) throw new ArgumentException("Radar requires eight primitive slots.");
-        int count=0;
-        if(style.Style==HudRadarStyle.Minimal) return 0;
-        if(background && backing.W>0)
-            output[count++]=new(style.Style==HudRadarStyle.Square ? HudShapeKind.Square : HudShapeKind.Disc,default,default,radius,0,backing with { W=backing.W*style.BackgroundOpacity });
-        if(!outlines) return count;
-        float width=.35f*unit*style.OutlineThickness;
-        if(style.Style==HudRadarStyle.Square)
-        {
-            output[count++]=new(HudShapeKind.Line,new(-radius,-radius),new(radius,-radius),0,width,ring);
-            output[count++]=new(HudShapeKind.Line,new(radius,-radius),new(radius,radius),0,width,ring);
-            output[count++]=new(HudShapeKind.Line,new(radius,radius),new(-radius,radius),0,width,ring);
-            output[count++]=new(HudShapeKind.Line,new(-radius,radius),new(-radius,-radius),0,width,ring);
-        }
-        else output[count++]=new(HudShapeKind.Ring,default,default,radius,width,ring);
-        if(style.Style==HudRadarStyle.Basic)
-        {
-            float innerWidth=.25f*unit*style.OutlineThickness;
-            output[count++]=new(HudShapeKind.Ring,default,default,radius*.55f,innerWidth,ring);
-            float angle=55*MathF.PI/180;
-            output[count++]=new(HudShapeKind.Line,default,new(-radius*MathF.Sin(angle),radius*MathF.Cos(angle)),0,innerWidth,cone);
-            output[count++]=new(HudShapeKind.Line,default,new(radius*MathF.Sin(angle),radius*MathF.Cos(angle)),0,innerWidth,cone);
-        }
-        return count;
-    }
-}

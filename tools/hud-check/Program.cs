@@ -136,4 +136,5 @@ try
     Check(delta==0,"runtime allocates: "+delta); GC.KeepAlive(sum);
 }
 finally { if(Directory.Exists(directory)) Directory.Delete(directory,true); }
+assertions += RadarChecks.Run();
 Console.WriteLine($"HUD checks passed: {assertions} assertions; runtime traversal allocated 0 bytes.");

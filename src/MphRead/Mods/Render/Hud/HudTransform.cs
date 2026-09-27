@@ -18,7 +18,8 @@ public readonly struct HudTransform
     }
     public Vector2 Resolve(HudAnchor anchor, Vector2 offset)
     {
-        int a = Enum.IsDefined(anchor) ? (int)anchor : 0;
+        // Anchors are contiguous. Avoid reflection-backed enum metadata in the draw path.
+        int a = (uint)anchor <= (uint)HudAnchor.BottomRight ? (int)anchor : 0;
         Vector2 low = OutputSize * Margin;
         Vector2 span = OutputSize - 2 * low;
         return low + new Vector2(span.X * (a % 3) / 2, span.Y * (a / 3) / 2) + offset * UnitScale;
