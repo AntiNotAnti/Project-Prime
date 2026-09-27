@@ -141,7 +141,8 @@ namespace MphRead.Mods.Input.AimAssist
                         ? hr : t.BodyRegion;
                 float trajectoryScore = trajectoryRegion is { } path
                     ? AimAssistMath.TrajectoryRegionScore(path, trajectoryTravel) : 0;
-                bool trajectoryAcquire = !keep && trajectoryScore >= .99f;
+                bool trajectoryAcquire = !keep
+                    && trajectoryScore >= AimAssistTuning.TrajectoryAcquireThreshold;
                 if (!t.Eligible || !AimAssistMath.Finite(selectionError) || !AimAssistMath.Finite(t.BodyError)
                     || !float.IsFinite(t.Distance) || t.Distance < .2f || t.Distance > 60
                     || angle > cone * 1.5f
@@ -156,7 +157,8 @@ namespace MphRead.Mods.Input.AimAssist
                     if (keep) occludedRetained = i;
                     continue;
                 }
-                if (!keep && Math.Max(t.BodyVisibility, t.HeadVisibility) < .20f)
+                if (!keep && Math.Max(t.BodyVisibility, t.HeadVisibility)
+                    < AimAssistTuning.FreshTargetVisibility)
                     continue;
 
                 float alignment = AimAssistMath.Alignment(physicalStick, selectionError);
@@ -172,6 +174,25 @@ namespace MphRead.Mods.Input.AimAssist
                 if (trajectoryRegion.HasValue)
                 {
                     score += AimAssistTuning.TrajectoryScoreWeight * trajectoryScore;
+                }
+
+                // When the player's stick is already moving toward a visible
+                // mechanically valid head, give that target a modest scoring
+                // preference. This never creates a head target on its own and
+                // cannot bypass LOS/range/eligibility.
+                if (candidateHeadVisible)
+                {
+                    Vector2 candidateHeadError = AimAssistMath.HeadError(t);
+                    float headAlignmentScore = AimAssistMath.Alignment(physicalStick,
+                        candidateHeadError);
+                    float normalizedHeadDistance = t.HeadRegion is { } candidateHeadRegion
+                        ? AimAssistMath.NormalizeToRegion(candidateHeadError,
+                            candidateHeadRegion).Length()
+                        : candidateHeadError.Length();
+                    float headCloseness = 1 - AimAssistMath.Smooth(.25f,
+                        Math.Max(.5f, profile.NormalizedAcquire), normalizedHeadDistance);
+                    score += AimAssistTuning.HeadSelectionBias
+                        * headCloseness * (.45f + .55f * headAlignmentScore);
                 }
 
                 if (flickSelecting)
@@ -431,7 +452,8 @@ namespace MphRead.Mods.Input.AimAssist
             float bodyAngle = bodyError.Length();
             float headAngle = visibleHead ? headError.Length() : float.MaxValue;
             float headAlignment = AimAssistMath.Alignment(physicalStick, headError);
-            bool intentionalHead = stickIntent > .18f && headAlignment > .45f;
+            bool intentionalHead = stickIntent > AimAssistTuning.HeadIntentStick
+                && headAlignment > AimAssistTuning.HeadIntentAlignment;
             // Tiny counter-steering is part of tracking. Only a meaningful turn away
             // cancels head refinement; a sign change at the crosshair must not chatter.
             bool opposingHead = stickIntent > .20f && visibleHead
@@ -456,14 +478,16 @@ namespace MphRead.Mods.Input.AimAssist
                 ? profile.NormalizedRelease : profile.NormalizedAcquire;
             bool headCandidate = visibleHead && headAngle < headCone
                 && normalizedHead <= normalizedHeadLimit && !opposingHead
-                && (normalizedHead < AimAssistMath.NormalizedBodyError(target).Length() * .95f
-                    || intentionalHead || headOnly || (strafe && state.HeadBlend > .5f));
+                && (normalizedHead < AimAssistMath.NormalizedBodyError(target).Length()
+                        * AimAssistTuning.HeadCandidateBodyRatio
+                    || intentionalHead || headOnly || (strafe && state.HeadBlend > .45f));
             state.HeadCandidateSeconds = headCandidate ? state.HeadCandidateSeconds + dt : 0;
             bool head = headCandidate && same && state.HeadCandidateSeconds >= delay;
 
             float headCoverage = state.SmoothedHeadVisibility;
             float headConfidenceGoal = headCandidate
-                ? (headInside ? 1f : intentionalHead ? .9f : .65f) * (.65f + .35f * headCoverage)
+                ? (headInside ? 1f : intentionalHead ? .95f : .78f)
+                    * (.65f + .35f * headCoverage)
                 : 0;
             float headConfidenceRate = headConfidenceGoal > state.HeadTrackingConfidence
                 ? AimAssistTuning.HeadConfidenceRiseRate : AimAssistTuning.HeadConfidenceDecayRate;
@@ -480,8 +504,8 @@ namespace MphRead.Mods.Input.AimAssist
                 Math.Max(.5f, normalizedHeadLimit), normalizedHead);
             float maxHead = intentionalHead ? AimAssistTuning.IntentionalMaxHeadBlend : AimAssistTuning.MaxHeadBlend;
             if (headInside) maxHead = 1;
-            float desiredHead = head ? maxHead * (.35f + .65f * proximity)
-                * (.45f + .55f * state.HeadTrackingConfidence) : 0;
+            float desiredHead = head ? maxHead * (.48f + .52f * proximity)
+                * (.52f + .48f * state.HeadTrackingConfidence) : 0;
             if (!visibleHead) state.HeadBlend = 0;
             else if (headOnly)
             {
@@ -647,8 +671,9 @@ namespace MphRead.Mods.Input.AimAssist
 
             // Once the target is genuinely retained, replace the loosely coupled
             // position+velocity terms with a normalized critically damped follower.
-            bool servoActive = same && state.RetainedSeconds >= .075f && intent > 0
-                && !strafe && phase != AimAssistMotionPhase.Escaping;
+            bool servoActive = same
+                && state.RetainedSeconds >= AimAssistTuning.RetainedServoDelay
+                && intent > 0 && !strafe && phase != AimAssistMotionPhase.Escaping;
             if (servoActive)
             {
                 Vector2 servoError = new(error.X * (1 + state.HeadBlend * (positionHeadGain.X - 1)),
@@ -658,7 +683,7 @@ namespace MphRead.Mods.Input.AimAssist
                     servoError, relativeTrackingVelocity, activeRegion, frequency, dt,
                     profile.MaxTrackingSpeed);
                 float servoScale = Math.Clamp(profile.TrackingGain * bubble * coverageScale
-                    * (.70f + .30f * intent), 0, 1.2f);
+                    * (.72f + .28f * intent), 0, AimAssistTuning.ServoScaleMax);
                 Vector2 servoCorrection = servoStep * servoScale;
 
                 // The critically damped follower produces one total correction,
