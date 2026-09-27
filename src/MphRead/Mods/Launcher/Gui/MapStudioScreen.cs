@@ -358,9 +358,56 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void NewMap()
         {
-            var view=new StackPanel {Spacing=10};view.Children.Add(Text("NEW MAP"));var name=new TextBox {Text="My Arena"};view.Children.Add(name);
-            var template=new ComboBox {ItemsSource=new[]{"Blank Arena","Simple Box Arena","Team Arena"},SelectedIndex=0};view.Children.Add(template);
-            AddButton(view,"Create",()=>WithUnsaved(()=>{try{Load(MapTemplates.Create(name.Text??"",template.SelectedIndex!=0,template.SelectedIndex==2));}catch(Exception ex){Failure(ex);}}));AddButton(view,"Cancel",Dismiss);Modal(view);
+            var view=new Grid{RowDefinitions=new("Auto,Auto,*,Auto"),MinWidth=760,Height=610};
+            view.Children.Add(Text("NEW MAP · TEMPLATE GALLERY"));
+            var name=new TextBox{Text="My Arena",Margin=new Thickness(0,8,0,8)};
+            Grid.SetRow(name,1);view.Children.Add(name);
+            var list=new ListBox{SelectionMode=SelectionMode.Single};Grid.SetRow(list,2);view.Children.Add(list);
+            list.ItemsSource=MapTemplates.Catalog;
+            list.SelectedIndex=0;
+            list.ItemTemplate=new FuncDataTemplate<MapTemplateInfo>((info,_)=>
+            {
+                if(info==null)return new TextBlock();
+                var card=new Grid
+                {
+                    ColumnDefinitions=new("190,*"),
+                    Margin=new Thickness(4,6),
+                    MinHeight=116
+                };
+                card.Children.Add(new MapTemplatePreview(info));
+                var copy=new StackPanel{Spacing=3,Margin=new Thickness(12,0,0,0)};
+                copy.Children.Add(new TextBlock{Text=info.Name,Foreground=GuiTheme.TextBrush,
+                    FontWeight=FontWeight.SemiBold,FontSize=16});
+                copy.Children.Add(new TextBlock{Text=info.Description,Foreground=GuiTheme.MutedTextBrush,
+                    TextWrapping=TextWrapping.Wrap,MaxWidth=500});
+                copy.Children.Add(new TextBlock
+                {
+                    Text=$"PLAYERS  {info.RecommendedPlayers}    ·    MODES  {String.Join(", ",info.SupportedModes)}",
+                    Foreground=PrimeTheme.AccentBrush,FontSize=11
+                });
+                Grid.SetColumn(copy,1);card.Children.Add(copy);return card;
+            });
+            var buttons=new WrapPanel();Grid.SetRow(buttons,3);view.Children.Add(buttons);
+            AddButton(buttons,"Create / Continue",()=>WithUnsaved(()=>
+            {
+                if(list.SelectedItem is not MapTemplateInfo info)return;
+                try
+                {
+                    Dismiss();
+                    switch(info.Action)
+                    {
+                        case MapTemplateAction.Create:
+                            Load(MapTemplates.Create(name.Text??"",info.Id));break;
+                        case MapTemplateAction.ImportQ3:
+                            Import();break;
+                        case MapTemplateAction.CloneNative:
+                            CloneBuiltIn();break;
+                    }
+                }
+                catch(Exception ex){Failure(ex);}
+            }));
+            AddButton(buttons,"Cancel",Dismiss);
+            Modal(view);
         }
         private void ShowLibrary()
         {
