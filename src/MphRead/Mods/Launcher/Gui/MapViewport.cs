@@ -257,7 +257,6 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Vector World(int index)
                 {
-                    var clone=new MapMesh{Vertices=new(){mesh.Vertices[index]},Faces=new(),Transform=mesh.Transform};
                     // Apply the same geometry transform directly.
                     var p=new Vector(mesh.Vertices[index][0],mesh.Vertices[index][1],mesh.Vertices[index][2]);
                     var t=mesh.Transform;var q=new Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
@@ -288,6 +287,28 @@ namespace MphRead.Mods.Launcher.Gui
 #endif
         private void Line(DrawingContext context,Vector a,Vector b,IBrush color,double width=1)
         { var x=Project(a);var y=Project(b);if(x!=null&&y!=null)context.DrawLine(new Pen(color,width),x.Value.Point,y.Value.Point); }
+
+        private void Ring(DrawingContext context,Vector center,float radius,IBrush color,double width=1)
+        {
+            Vector previous=center+Vector.UnitX*radius;
+            for(int i=1;i<=20;i++)
+            {
+                float angle=i*MathF.Tau/20;
+                Vector point=center+new Vector(MathF.Cos(angle)*radius,0,MathF.Sin(angle)*radius);
+                Line(context,previous,point,color,width);previous=point;
+            }
+        }
+
+        private void WireBox(DrawingContext context,Vector center,Vector half,IBrush color,double width=1)
+        {
+            Vector[] p={
+                center+new Vector(-half.X,-half.Y,-half.Z),center+new Vector(half.X,-half.Y,-half.Z),
+                center+new Vector(half.X,-half.Y,half.Z),center+new Vector(-half.X,-half.Y,half.Z),
+                center+new Vector(-half.X,half.Y,-half.Z),center+new Vector(half.X,half.Y,-half.Z),
+                center+new Vector(half.X,half.Y,half.Z),center+new Vector(-half.X,half.Y,half.Z)};
+            int[] edges={0,1,1,2,2,3,3,0,4,5,5,6,6,7,7,4,0,4,1,5,2,6,3,7};
+            for(int i=0;i<edges.Length;i+=2)Line(context,p[edges[i]],p[edges[i+1]],color,width);
+        }
         private static StreamGeometry Polygon(Point[] points)
         {
             var geometry=new StreamGeometry(); using var path=geometry.Open(); path.BeginFigure(points[0],true);
@@ -445,8 +466,22 @@ namespace MphRead.Mods.Launcher.Gui
                     float angle=spawn.Yaw*MathF.PI/180;
                     Line(context,position,position+new Vector(MathF.Sin(angle),0,MathF.Cos(angle))*2,color,2);
                     Line(context,position,position+Vector.UnitY*1.9f,color);
+                    if(EntityVisualization)
+                    {
+                        Ring(context,position,.45f,color,1.5);
+                        Ring(context,position+Vector.UnitY*1.9f,.45f,color,1.5);
+                        for(int i=0;i<4;i++)
+                        {
+                            float a=i*MathF.PI/2;Vector offset=new(MathF.Cos(a)*.45f,0,MathF.Sin(a)*.45f);
+                            Line(context,position+offset,position+offset+Vector.UnitY*1.9f,color,1);
+                        }
+                    }
                 }
+                if(o.Value is MapItem item&&EntityVisualization)
+                    Label(context,o.Id,$"{item.Type} · respawn {item.SpawnInterval/30f:0.0}s",position+Vector.UnitY*.8f);
                 if(o.Value is MapNavigationLink link)Line(context,position,MapViewportScene.Vector(link.To),Brushes.Orange,3);
+                if(o.Value is MapJumpPad triggerPad&&EntityVisualization&&triggerPad.Size?.Length==3)
+                    WireBox(context,position,new Vector(triggerPad.Size[0],triggerPad.Size[1],triggerPad.Size[2])*.5f,Brushes.Magenta,1.5);
                 if(o.Value is MapJumpPad pad && MapValidator.Vector(pad.Position) && ((pad.Target!=null)!=(pad.Vector!=null)))
                 {
                     try
@@ -499,8 +534,21 @@ namespace MphRead.Mods.Launcher.Gui
                 context.FillRectangle(new SolidColorBrush(Color.FromArgb(32, 64, 190, 255)), box);
                 context.DrawRectangle(new Pen(Brushes.DeepSkyBlue, 1), box);
             }
+            DrawSubSelection(context);
+            if(_measureA is { } measureA)
+            {
+                var screen=Project(measureA);
+                if(screen!=null)context.DrawEllipse(Brushes.Gold,new Pen(Brushes.White,1),screen.Value.Point,5,5);
+                if(_measureB is { } measureB)
+                {
+                    Line(context,measureA,measureB,Brushes.Gold,3);
+                    Vector midpoint=(measureA+measureB)/2;
+                    Label(context,Guid.Empty,$"{Vector.Distance(measureA,measureB):0.###} units",midpoint);
+                }
+                else Label(context,Guid.Empty,"Measurement start",measureA);
+            }
             var selectedObject=ActiveSelection;
-            if(selectedObject!=null)
+            if(selectedObject!=null&&ElementMode=="Object")
             {
                 Vector center=MapViewportScene.Vector(selectedObject.Position)+_preview;
                 Line(context,center,center+GizmoAxis(selectedObject,0)*3,Brushes.Red,3);Line(context,center,center+GizmoAxis(selectedObject,1)*3,Brushes.Lime,3);Line(context,center,center+GizmoAxis(selectedObject,2)*3,Brushes.DeepSkyBlue,3);
@@ -531,6 +579,26 @@ namespace MphRead.Mods.Launcher.Gui
             _orbit=props.IsRightButtonPressed;_pan=props.IsMiddleButtonPressed;
             if(props.IsLeftButtonPressed)
             {
+                MapPickHit? surface=MapViewportPicking.PickHit(BuildRenderFrame(Layout),_last.X,_last.Y,true);
+                if(surface!=null)LastSurfaceHit=surface;
+
+                if(MaterialEyedropper)
+                {
+                    if(surface is { } materialHit){MaterialEyedropper=false;MaterialPicked?.Invoke(materialHit.Material);}
+                    e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
+                }
+                if(MeasureMode)
+                {
+                    Vector point=surface?.Point??CameraTarget;
+                    if(_measureA==null||_measureB!=null){_measureA=point;_measureB=null;}
+                    else _measureB=point;
+                    e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
+                }
+                if(ElementMode!="Object"&&PickSubElement(_last))
+                {
+                    SelectionChanged?.Invoke();e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
+                }
+
                 Guid id=Guid.Empty;_axis=-1;
                 var selected=ActiveSelection;
                 if(selected!=null)
@@ -548,7 +616,11 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 _boxAdditive=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
                 if(!_boxAdditive&&!Document.Selection.Contains(id))Document.Selection.Clear();
-                if(id!=Guid.Empty){Document.Selection.Add(id);Document.ActiveObjectId=id;}
+                if(id!=Guid.Empty)
+                {
+                    if(Document.ActiveObjectId!=id)ClearSubSelection();
+                    Document.Selection.Add(id);Document.ActiveObjectId=id;
+                }
                 else { _boxSelect=true; _boxCurrent=_start; }
                 _drag=id!=Guid.Empty;Document.SelectionChanged();SelectionChanged?.Invoke();InvalidateVisual();
             }
@@ -615,7 +687,13 @@ namespace MphRead.Mods.Launcher.Gui
             bool shift=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             bool alt=e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             if(e.Key==Key.F)FrameSelection();
+            else if(e.Key==Key.Escape&&MeasureMode){MeasureMode=false;_measureA=_measureB=null;InvalidateVisual();}
             else if(e.Key==Key.Escape&&_boxSelect){_boxSelect=false;InvalidateVisual();}
+            else if(!control&&!alt&&e.Key==Key.D1){ElementMode="Object";ClearSubSelection();SelectionChanged?.Invoke();}
+            else if(!control&&!alt&&e.Key==Key.D2){ElementMode="Face";ClearSubSelection();SelectionChanged?.Invoke();}
+            else if(!control&&!alt&&e.Key==Key.D3){ElementMode="Edge";ClearSubSelection();SelectionChanged?.Invoke();}
+            else if(!control&&!alt&&e.Key==Key.D4){ElementMode="Vertex";ClearSubSelection();SelectionChanged?.Invoke();}
+            else if(!control&&!alt&&e.Key==Key.M){MeasureMode=!MeasureMode;if(!MeasureMode)_measureA=_measureB=null;InvalidateVisual();}
             else if(e.Key==Key.Delete){var ids=Document.Selection.ToHashSet();Document.EditObjects("Delete selection",ids,d=>MapObjects.Delete(d,ids));}
             else if(control&&e.Key==Key.A)Document.SelectAllObjects();
             else if(control&&e.Key==Key.C)Document.CopySelection();
