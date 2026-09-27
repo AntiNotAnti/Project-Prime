@@ -924,31 +924,69 @@ float directional_shadow(vec3 worldPos, vec3 viewNormal) {
     return mix(0.58, 1.0, lit);
 }
 
-vec3 screen_reflection(vec2 uv, float d, vec3 n) {
-    if (reflections == 0 || depth_available == 0) return vec3(0.0);
+float reflection_depth_continuity(vec2 uv, float d) {
+    if (d >= 0.999999) return 0.0;
+    float c = view_depth(d);
+    float tolerance = max(0.10, abs(c) * 0.012);
+    float d0 = raw_depth(uv + vec2(texel.x, 0.0));
+    float d1 = raw_depth(uv - vec2(texel.x, 0.0));
+    float d2 = raw_depth(uv + vec2(0.0, texel.y));
+    float d3 = raw_depth(uv - vec2(0.0, texel.y));
+    if (d0 >= 0.999999 || d1 >= 0.999999 || d2 >= 0.999999 || d3 >= 0.999999) {
+        return 0.0;
+    }
+    float worst = max(
+        max(abs(view_depth(d0) - c), abs(view_depth(d1) - c)),
+        max(abs(view_depth(d2) - c), abs(view_depth(d3) - c)));
+    return 1.0 - smoothstep(tolerance, tolerance * 3.0, worst);
+}
+
+vec4 screen_reflection(vec2 uv, float d, vec3 n) {
+    if (reflections == 0 || depth_available == 0) return vec4(0.0);
+    float sourceContinuity = reflection_depth_continuity(uv, d);
+    if (sourceContinuity < 0.20) return vec4(0.0);
+
     vec3 origin = view_position(uv, d);
     vec3 incident = normalize(origin);
     vec3 rayDir = normalize(reflect(incident, n));
-    if (rayDir.z >= -0.02) return vec3(0.0);
-    float stepLength = max(0.25, abs(origin.z) * 0.025);
+    // Rays pointing back toward or nearly parallel with the camera plane are
+    // unstable in screen space and were the source of long diagonal wedges.
+    if (rayDir.z >= -0.08) return vec4(0.0);
+
+    float stepLength = max(0.12, abs(origin.z) * 0.012);
     vec3 ray = origin;
-    for (int i = 0; i < 10; i++) {
-        ray += rayDir * stepLength * (1.0 + float(i) * 0.16);
+    for (int i = 0; i < 14; i++) {
+        float fi = float(i);
+        ray += rayDir * stepLength * (1.0 + fi * 0.10);
         float clipW = 1.0;
         vec2 hitUv = project_view(ray, clipW);
-        if (clipW <= 0.0 || hitUv.x <= 0.01 || hitUv.x >= 0.99
-            || hitUv.y <= 0.01 || hitUv.y >= 0.99) break;
+        if (clipW <= 0.0 || hitUv.x <= 0.015 || hitUv.x >= 0.985
+            || hitUv.y <= 0.015 || hitUv.y >= 0.985) break;
+
         float sd = raw_depth(hitUv);
         if (sd >= 0.999999) continue;
+        float hitContinuity = reflection_depth_continuity(hitUv, sd);
+        if (hitContinuity < 0.25) continue;
+
         vec3 surface = view_position(hitUv, sd);
-        float thickness = max(0.12, abs(surface.z) * 0.012);
-        if (abs(ray.z - surface.z) <= thickness) {
-            float edge = min(min(hitUv.x, 1.0 - hitUv.x), min(hitUv.y, 1.0 - hitUv.y));
-            float fade = smoothstep(0.01, 0.12, edge);
-            return scene(hitUv) * fade;
+        // Keep the hit slab deliberately thin. A thick slab accepts an
+        // unrelated wall behind the reflected ray and paints huge polygons.
+        float thickness = max(0.045, abs(surface.z) * 0.0045);
+        float separation = abs(ray.z - surface.z);
+        if (separation <= thickness) {
+            float edge = min(min(hitUv.x, 1.0 - hitUv.x),
+                min(hitUv.y, 1.0 - hitUv.y));
+            float edgeFade = smoothstep(0.015, 0.12, edge);
+            float travel = length(ray - origin);
+            float maxTravel = max(3.0, abs(origin.z) * 0.70);
+            float travelFade = 1.0 - smoothstep(maxTravel * 0.45, maxTravel, travel);
+            float slabConfidence = 1.0 - smoothstep(0.0, thickness, separation);
+            float confidence = sourceContinuity * hitContinuity
+                * edgeFade * travelFade * slabConfidence;
+            return vec4(scene(hitUv), clamp(confidence, 0.0, 1.0));
         }
     }
-    return vec3(0.0);
+    return vec4(0.0);
 }
 
 vec3 volumetric_scattering(vec3 worldPos) {
@@ -1074,9 +1112,24 @@ void main() {
     float d = raw_depth(uv);
     vec3 worldP = d < 0.999999 ? world_position(uv, d) : vec3(0.0);
     vec3 deferred = d < 0.999999 ? deferred_pbr(uv, worldP) : vec3(-1.0);
-    vec3 color = deferred.r >= 0.0 ? deferred
-        : aa_mode == 4 ? temporal_resolve(uv, center, d)
-        : fxaa(uv, center);
+    vec3 color;
+    if (deferred.r >= 0.0) {
+        // The forward frame contains MPH's authored vertex/material lighting,
+        // which varies per surface. The deferred pass only has a small global
+        // light set, so replacing the forward frame outright turns whole rooms
+        // black or chalk-white depending on which light was submitted last.
+        // Luminance-match the PBR response, then blend it as material detail
+        // over the authored picture instead of replacing that picture.
+        float authoredY = max(luma(center), 0.025);
+        float pbrY = max(luma(deferred), 0.025);
+        float exposure = clamp(authoredY / pbrY, 0.65, 1.55);
+        vec3 balancedPbr = deferred * exposure;
+        color = mix(center, balancedPbr, 0.48);
+    }
+    else {
+        color = aa_mode == 4 ? temporal_resolve(uv, center, d)
+            : fxaa(uv, center);
+    }
 
     if (sharpen_strength > 0.0001 && deferred.r < 0.0) {
         vec3 blur = (scene(uv + vec2(texel.x, 0.0))
@@ -1108,8 +1161,9 @@ void main() {
         if (deferred.r < 0.0) color += projectile_lighting(worldPos);
         if (reflections != 0) {
             float fresnel = pow(clamp(1.0 - n.z, 0.0, 1.0), 3.0);
-            vec3 reflected = screen_reflection(uv, d, n);
-            color = mix(color, reflected, fresnel * 0.22);
+            vec4 reflected = screen_reflection(uv, d, n);
+            float reflectionWeight = fresnel * 0.18 * reflected.a;
+            color = mix(color, reflected.rgb, reflectionWeight);
         }
 
         if (enhanced_fog != 0 || volumetric_fog != 0) {
