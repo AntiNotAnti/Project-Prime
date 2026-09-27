@@ -8,7 +8,15 @@ using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 
 int checks = 0;
+MapStorageChecks.Run();
+if (args.Contains("--map-storage-only")) return;
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+if (args.Contains("--collision-only"))
+{
+    CustomCollisionChecks.Run(Check);
+    Console.WriteLine($"Custom collision: {checks} checks passed.");
+    return;
+}
 Check(MapViewportGrid.Lines("Top",1).All(l=>l.A.Y==0&&l.B.Y==0),"top grid uses XZ plane");
 Check(MapViewportGrid.Lines("Front",1).All(l=>l.A.Z==0&&l.B.Z==0),"front grid uses XY plane");
 Check(MapViewportGrid.Lines("Side",1).All(l=>l.A.X==0&&l.B.X==0),"side grid uses YZ plane");
@@ -35,6 +43,50 @@ string root = Path.Combine(Path.GetTempPath(), "prime-history-" + Guid.NewGuid()
 Directory.CreateDirectory(root);
 try
 {
+    // Exercise the launcher/runtime entry point, including its generation lease
+    // and the installer's publication lease. Direct scheduler tests miss a
+    // nested acquisition of the same lock, which leaves maps unplayable.
+    string previousMaps = CustomRooms.MapDirectory;
+    string previousUserMaps = CustomRooms.UserMapDirectory;
+    string previousFiles = MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+    try
+    {
+        string runtimeMaps = Path.Combine(root, "runtime-maps");
+        Directory.CreateDirectory(runtimeMaps);
+        using (var texture = new BinaryWriter(File.Create(Path.Combine(runtimeMaps, "lease.tex"))))
+        {
+            texture.Write(System.Text.Encoding.ASCII.GetBytes("FPTX")); texture.Write((ushort)1); texture.Write((ushort)1);
+            texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
+            texture.Write((ushort)32767); texture.Write(new byte[64]);
+        }
+        var runtimeProject = MapTemplates.Create("RUNTIME LEASE CHECK", "basic-ffa");
+        runtimeProject.Definition.Assets.Add(new() { Path = "lease.tex" });
+        foreach (var material in runtimeProject.Definition.Materials) material.Texture = "lease.tex";
+        MapProjectSerializer.Save(runtimeProject, Path.Combine(runtimeMaps, "lease.json"));
+        CustomRooms.MapDirectory = runtimeMaps;
+        CustomRooms.UserMapDirectory = Path.Combine(root, "user-maps");
+        CustomRooms.Reload();
+        MphRead.Paths.SetPath(MphRead.Paths.MphKey, Path.Combine(root, "runtime-files"));
+        var runtimeDefinition = CustomRooms.Definitions.Single(d => d.Name == "RUNTIME LEASE CHECK");
+        Check(CustomRooms.NeedsGenerating(runtimeDefinition), "runtime map starts without outputs");
+        await Task.WhenAll(Enumerable.Range(0, 2).Select(_ => Task.Run(() =>
+            CustomRooms.GenerateMissing(runtimeDefinition.Name)))).WaitAsync(TimeSpan.FromSeconds(15));
+        Check(!CustomRooms.NeedsGenerating(runtimeDefinition)
+            && CustomRooms.WhyUnplayable(runtimeDefinition.Name) == null,
+            "concurrent runtime generation publishes playable outputs without a nested lease timeout");
+        File.Delete(CustomRooms.OutputsFor(runtimeDefinition).Model);
+        await Task.Run(() => CustomRooms.GenerateMissing(runtimeDefinition.Name))
+            .WaitAsync(TimeSpan.FromSeconds(15));
+        Check(!CustomRooms.NeedsGenerating(runtimeDefinition), "runtime repairs missing output from cache");
+    }
+    finally
+    {
+        MphRead.Paths.SetPath(MphRead.Paths.MphKey, previousFiles);
+        CustomRooms.MapDirectory = previousMaps;
+        CustomRooms.UserMapDirectory = previousUserMaps;
+        CustomRooms.Reload();
+    }
+    CustomCollisionChecks.Run(Check);
     Q3ImportChecks.Run(Check, root);
     doc.Save(Path.Combine(root, "map.json"));
     var saved = doc.CurrentStateId;

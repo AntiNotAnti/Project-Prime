@@ -3,6 +3,7 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.IO;
 using MphRead.Mods.Multiplayer;
+using MphRead.Entities;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -49,7 +50,7 @@ internal static class ReplayWorldCoverageCheck
         finally { if (output == null) Directory.Delete(directory, recursive: true); }
     }
 
-    private static void Write(string path, string room, GameMode mode, Vector3 origin)
+    internal static void Write(string path, string room, GameMode mode, Vector3 origin)
     {
         const ushort matchId = 17;
         const ulong epoch = 19;
@@ -79,10 +80,20 @@ internal static class ReplayWorldCoverageCheck
         { byte[] p = new byte[1 + Network.RosterPacket.Size]; p[0] = (byte)PacketType.Roster; roster.Write(p.AsSpan(1)); return p; }
         byte[] configuration = new byte[1 + SessionStatePacket.Size]; configuration[0] = (byte)PacketType.SessionState;
         config.Write(configuration.AsSpan(1));
+        byte[] cosmetics = new byte[1 + PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
+        cosmetics[0] = (byte)PacketType.CosmeticState;
+        for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+        {
+            var hunter = (Hunter)(slot % 7);
+            var appearance = new Cosmetics.CosmeticAppearance(hunter, new(
+                "skin." + hunter.ToString().ToLowerInvariant() + ".obsidian", "armor.inferno", "death.quantum"));
+            CosmeticStatePacket.Create(slot, hunter, 1, matchId, epoch, 1, appearance)
+                .Write(cosmetics.AsSpan(1 + slot * CosmeticStatePacket.Size));
+        }
         using var writer = new ReplayWriterV3(path, new ReplayMetadata
         {
             RoomKey = room, Mode = mode, MapHash = ReplayMapIdentity.Compute(room),
-            Bootstrap = new ReplayBootstrap { Packets = new List<byte[]> { MatchPacket(), configuration, RosterPacket() } }
+            Bootstrap = new ReplayBootstrap { Packets = new List<byte[]> { MatchPacket(), configuration, RosterPacket(), cosmetics } }
         });
         for (uint frame = 0; frame <= 1800; frame++)
         {

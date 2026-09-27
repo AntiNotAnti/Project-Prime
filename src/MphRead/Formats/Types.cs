@@ -41,6 +41,8 @@ namespace MphRead
 
     public class RenderItem
     {
+        public Mods.Cosmetics.Skins.RenderMaterialOverride CosmeticMaterial { get; set; }
+        public Mods.Cosmetics.CosmeticSurface Cosmetics { get; set; }
         public RenderItemType Type { get; set; }
         public int PolygonId { get; set; }
         public float Alpha { get; set; }

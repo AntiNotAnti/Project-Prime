@@ -54,6 +54,9 @@ namespace MphRead.Mods.Launcher.Gui
         private HashSet<Guid> _warningObjects = new();
         private readonly Dictionary<(Guid Id, string Text), FormattedText> _labels = new();
         private readonly List<(Guid Id, Point[] Points, double Depth)> _pick = new();
+        private readonly List<(Guid Id, string Text, Vector Position)> _entityLabels = new();
+        private readonly List<Rect> _labelBounds = new();
+        internal IReadOnlyList<Rect> VisibleEntityLabelBounds => _labelBounds;
         private Point _last, _start;
         private bool _orbit, _pan, _drag, _boxSelect, _boxAdditive;
         private IPointer? _interactionPointer;
@@ -325,6 +328,15 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void Label(DrawingContext context, Guid id, string text, Vector position)
         {
+            if (id != Guid.Empty)
+            {
+                _entityLabels.Add((id, text, position));
+                return;
+            }
+            DrawLabel(context, id, text, position, false);
+        }
+        private void DrawLabel(DrawingContext context, Guid id, string text, Vector position, bool avoidOverlap)
+        {
             var projected = Project(position); if (projected == null) return;
             if (!_labels.TryGetValue((id, text), out var label))
             {
@@ -333,8 +345,13 @@ namespace MphRead.Mods.Launcher.Gui
                     FlowDirection.LeftToRight, GuiTheme.Face(bold: false), 11, Brushes.White);
             }
             var point = projected.Value.Point + new Avalonia.Vector(9, -8);
-            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(180, 18, 30, 42)), null,
-                new Rect(point - new Avalonia.Vector(3, 2), new Size(label.Width + 6, label.Height + 4)));
+            var bounds = new Rect(point - new Avalonia.Vector(3, 2), new Size(label.Width + 6, label.Height + 4));
+            if (avoidOverlap)
+            {
+                if (!new Rect(Bounds.Size).Intersects(bounds) || _labelBounds.Any(other => other.Intersects(bounds))) return;
+                _labelBounds.Add(bounds);
+            }
+            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(180, 18, 30, 42)), null, bounds);
             context.DrawText(label, point);
         }
         private float VisibleGridStep => Math.Max(Snap > 0 ? Snap : .25f, MathF.Pow(2,MathF.Floor(MathF.Log2(Math.Max(1,Vector.Distance(CameraPosition,CameraTarget))/32))));
@@ -379,6 +396,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
             _pick.Clear();
+            _entityLabels.Clear();
+            _labelBounds.Clear();
             if (!GpuActive)
             {
             var projected=new List<(MapViewportFace Face,Point[] Points,double Depth)>();
@@ -473,7 +492,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _pick.Add((o.Id,new[]{p.Value.Point-new Avalonia.Vector(8,8),p.Value.Point+new Avalonia.Vector(8,-8),p.Value.Point+new Avalonia.Vector(8,8),p.Value.Point+new Avalonia.Vector(-8,8)},0));
                 if(o.Value is MapSpawn spawn)
                 {
-                    Label(context, o.Id, $"Spawn {spawnIndex} · {(spawn.Team < 0 ? "Neutral" : "Team " + (char)('A' + spawn.Team))}{(warning ? " · Check" : "")}", position + Vector.UnitY * 2.2f);
+                    if (EntityVisualization || Document.Selection.Contains(o.Id)) Label(context, o.Id, $"Spawn {spawnIndex} · {(spawn.Team < 0 ? "Neutral" : "Team " + (char)('A' + spawn.Team))}{(warning ? " · Check" : "")}", position + Vector.UnitY * 2.2f);
                     float angle=spawn.Yaw*MathF.PI/180;
                     Line(context,position,position+new Vector(MathF.Sin(angle),0,MathF.Cos(angle))*2,color,2);
                     Line(context,position,position+Vector.UnitY*1.9f,color);
@@ -493,7 +512,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if(o.Value is MapNavigationLink link)Line(context,position,MapViewportScene.Vector(link.To),Brushes.Orange,3);
                 if(o.Value is MapJumpPad triggerPad&&EntityVisualization&&triggerPad.Size?.Length==3)
                     WireBox(context,position,new Vector(triggerPad.Size[0],triggerPad.Size[1],triggerPad.Size[2])*.5f,Brushes.Magenta,1.5);
-                if(o.Value is MapJumpPad pad && MapValidator.Vector(pad.Position) && ((pad.Target!=null)!=(pad.Vector!=null)))
+                if(o.Value is MapJumpPad pad && EntityVisualization && MapValidator.Vector(pad.Position) && ((pad.Target!=null)!=(pad.Vector!=null)))
                 {
                     try
                     {
@@ -518,6 +537,10 @@ namespace MphRead.Mods.Launcher.Gui
                     catch(ProgramException){ }
                 }
             }
+            // Keep selected objects and diagnostics readable before filling remaining space.
+            foreach (var label in _entityLabels.OrderByDescending(label => Document.Selection.Contains(label.Id))
+                .ThenByDescending(label => _warningObjects.Contains(label.Id)))
+                DrawLabel(context, label.Id, label.Text, label.Position, true);
             if(KillPlane)
             {
                 float y=Document.Project.Definition.KillHeight;

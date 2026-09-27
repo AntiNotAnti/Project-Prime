@@ -118,6 +118,8 @@ namespace MphRead
             _preview ??= new Mods.Render.HunterPreviewEntity(this);
             Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
             _preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit);
+            _preview.SetCosmetics(Mods.Cosmetics.CosmeticPreview.Loadout ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
+                Mods.Cosmetics.CosmeticPreview.DeathRequest);
             // Textures and display lists, which nobody else is going to make.
             //
             // In a match this is free and invisible: the player standing in
@@ -188,9 +190,11 @@ namespace MphRead
                 return;
             }
             _collectingPreview = true;
+            int priorParticleCount = _singleParticleCount;
             try
             {
                 _preview.GetDrawInfo();
+                for (int i = priorParticleCount; i < _singleParticleCount; i++) _singleParticles[i].AddRenderItem(this);
             }
             catch (Exception ex)
             {
@@ -199,6 +203,7 @@ namespace MphRead
             }
             finally
             {
+                _singleParticleCount = priorParticleCount;
                 _collectingPreview = false;
             }
         }
@@ -273,6 +278,7 @@ namespace MphRead
             _targetSize = windowSize;
             try
             {
+                RefreshTextureQuality();
                 ModStepLauncherPreview();
                 ModCollectPreview();
                 if (!ModPreviewDrawn)
@@ -364,6 +370,9 @@ namespace MphRead
             {
                 RenderItem(_previewItems[i]);
             }
+            if (_preview != null && Mods.Cosmetics.CosmeticPreview.Loadout != null)
+                Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,
+                    Mods.Cosmetics.CosmeticThumbnail.PathFor(_preview.Shown, _preview.ThumbnailKey));
             // Everything back the way the HUD expects to find it.
             GL.Disable(EnableCap.ScissorTest);
             GL.Viewport(0, 0, target.X, target.Y);

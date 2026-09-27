@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 2;
+    private const ushort CheckpointVersion = 3;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -75,6 +75,9 @@ internal sealed partial class ReplayReplicaState
         AuthorityWorld?.Encode(writer);
         Replay.ReplayCheckpointWriter.EndComponent(writer, authorityAt);
         writer.Write(AuthorityAppliedTick.HasValue); if (AuthorityAppliedTick is uint applied) writer.Write(applied);
+        Span<byte> cosmetics = stackalloc byte[Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
+        int cosmeticBytes = Match is { } cosmeticMatch ? Cosmetics.Write(cosmetics, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch) : 0;
+        writer.Write(cosmeticBytes); writer.Write(cosmetics[..cosmeticBytes]);
 
     }
 
@@ -159,10 +162,21 @@ internal sealed partial class ReplayReplicaState
                 restored.AuthorityAppliedTick = reader.ReadBoolean() ? reader.ReadUInt32() : null;
                 if (restored.AuthorityAppliedTick.HasValue && (restored.AuthorityWorld == null || restored.AuthorityAppliedTick > restored.AuthorityWorld.Tick)) throw Malformed();
             }
+            if (version >= 3)
+            {
+                byte[] cosmetics = Read(reader.ReadInt32());
+                if (cosmetics.Length % CosmeticStatePacket.Size != 0
+                    || cosmetics.Length > Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size) throw Malformed();
+                for (int at = 0; at < cosmetics.Length; at += CosmeticStatePacket.Size)
+                    if (CosmeticStatePacket.TryRead(cosmetics.AsSpan(at, CosmeticStatePacket.Size), out var cosmetic)
+                        && restored.Match is { } match)
+                        restored.Cosmetics.Accept(cosmetic, match.MatchId, match.AuthorityEpoch, restored._roster[cosmetic.Slot].Generation);
+            }
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
         catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated replica checkpoint.", ex); }
+        Cosmetics = restored.Cosmetics;
         Match = restored.Match; Configuration = restored.Configuration;
         RecordingFrame = restored.RecordingFrame; MatchRecordingFrame = restored.MatchRecordingFrame;
         ServerTick = restored.ServerTick; Rng1 = restored.Rng1; Rng2 = restored.Rng2;

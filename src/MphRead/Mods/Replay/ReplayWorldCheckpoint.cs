@@ -22,7 +22,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 2;
+    private const ushort Version = 3;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
@@ -178,6 +178,11 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long assets = ReplayCheckpointWriter.BeginComponent(writer);
             ReplayAssetCheckpoint.Write(writer, replay.Scene, replay.CheckpointBindings.Models, boundAccessors);
             ReplayCheckpointWriter.EndComponent(writer, assets);
+            // Optional presentation appendix keeps the gameplay graph/type IDs and
+            // fingerprint unchanged, so pre-cosmetics world capsules still load.
+            long cosmetics = ReplayCheckpointWriter.BeginComponent(writer);
+            foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Write(writer);
+            ReplayCheckpointWriter.EndComponent(writer, cosmetics);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame);
         }
@@ -298,6 +303,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             nodes[i] = new(typeId, anchor, ReadBytes(reader, MaximumBytes)); types[i] = ObjectTypes[typeId];
         }
         byte[]? assets = version >= 2 ? ReadBytes(reader, MaximumBytes) : null;
+        byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
         // Allocate and bind every object before following any link. Only this new
         // replica is modified; its caller disposes it if any validation fails.
@@ -371,6 +377,13 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
             throw new InvalidDataException(replay.Session.LastError);
         replay.State.RestoreCheckpoint(decoder);
+        if (cosmetics != null)
+        {
+            using var cosmeticStream = new MemoryStream(cosmetics, writable: false);
+            using var cosmeticReader = new BinaryReader(cosmeticStream);
+            foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Read(cosmeticReader);
+            if (cosmeticStream.Position != cosmeticStream.Length) throw new InvalidDataException("Invalid cosmetics appendix.");
+        }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }
 

@@ -1,6 +1,7 @@
 using System;
 using MphRead.Mods.Multiplayer;
 using MphRead.Mods.Render;
+using MphRead.Mods.Render.Hud;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.Diagnostics;
@@ -1474,6 +1475,13 @@ namespace MphRead.Entities
 
         public void DrawHudObjects()
         {
+            if(!HudDrawMetrics.Enabled) { DrawHudObjectsCore(); return; }
+            long before=HudDrawMetrics.Begin(out long started);
+            try { DrawHudObjectsCore(); }
+            finally { HudDrawMetrics.End(before,started); }
+        }
+        private void DrawHudObjectsCore()
+        {
             if (Mods.ThumbnailMode.Active)
             {
                 return;
@@ -1626,7 +1634,7 @@ namespace MphRead.Entities
                                     _targetCircleInst.PositionY = reticleY;
                                     if (Features.CustomCrosshair)
                                     {
-                                        _scene.DrawCustomCrosshair(GetCrosshairColor(), reticleX, reticleY);
+                                        if (HudElementVisible(0)) _scene.DrawCustomCrosshair(GetCrosshairColor(), reticleX, reticleY, (int)CurrentWeapon, _hudZoom);
                                     }
                                     else
                                     {
@@ -1735,21 +1743,25 @@ namespace MphRead.Entities
             public ModelInstance Model;
             public ColorRgb Color;
             public float Alpha;
+            public RadarContactKind RadarKind;
+            public int StableId;
 
-            public LocatorInfo(Vector3 position, ModelInstance model, ColorRgb color, float alpha)
+            public LocatorInfo(Vector3 position, ModelInstance model, ColorRgb color, float alpha, RadarContactKind radarKind, int stableId)
             {
                 Position = position;
                 Model = model;
                 Color = color;
                 Alpha = alpha;
+                RadarKind = radarKind;
+                StableId = stableId;
             }
         }
 
         private readonly List<LocatorInfo> _locatorInfo = new List<LocatorInfo>(15);
 
-        private void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1)
+        private void AddLocatorInfo(Vector3 position, ModelInstance inst, ColorRgb color, float alpha = 1, RadarContactKind radarKind = RadarContactKind.Hunter, int stableId = 0)
         {
-            _locatorInfo.Add(new LocatorInfo(position, inst, color, alpha));
+            (_collectingRadarLocators ? _radarLocatorInfo : _locatorInfo).Add(new LocatorInfo(position, inst, color, alpha, radarKind, stableId));
         }
 
         private void DrawLocatorIcons()
@@ -1875,6 +1887,7 @@ namespace MphRead.Entities
 
         private void DrawMatchTime()
         {
+            using var layout = UseHudLayout(6, 128, 10);
             if (_scene.GameState.MatchTime < 0)
             {
                 return;
@@ -2226,6 +2239,7 @@ namespace MphRead.Entities
 
         private void DrawWeaponList()
         {
+            using var layout = UseHudLayout(3, 2 * HudAspectFix, 46);
             // Below the score block in the top-left corner, and short enough
             // that all nine weapons still fit above the bottom edge.
             // Quake's weapon bar, at Quake's size and in Quake's place.
@@ -2243,6 +2257,8 @@ namespace MphRead.Entities
             // size are not design decisions -- and every measurement below is
             // multiplied, so the panel keeps its proportions. Only the corner
             // it starts from stays put.
+            var style = Mods.Render.Hud.HudProfiles.Runtime.Inventory;
+            bool custom = Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom;
             float scale = Math.Clamp(Features.WeaponListScale, 0.6f, 2f);
             // Every width below is measured off the screen's *height*: left
             // uncorrected the panel was a different shape on every window --
@@ -2285,10 +2301,12 @@ namespace MphRead.Entities
             {
                 BeamType beam = _weaponOrder[row];
                 int i = (int)beam;
-                if (!AvailableWeapons[beam])
+                bool owned = AvailableWeapons[beam];
+                if (!owned && (!custom || !style.ShowUnowned))
                 {
                     continue;
                 }
+                ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
                 bool equipped = beam == CurrentWeapon;
                 WeaponInfo info = _scene.WeaponRules[i];
                 // The colour this weapon is known by. See _weaponListColors:
@@ -2306,6 +2324,15 @@ namespace MphRead.Entities
                     equipped
                         ? new Vector4(0.45f, 0.4f, 0.2f, 0.72f * Features.HudOpacity)
                         : new Vector4(0, 0, 0, 0.42f * Features.HudOpacity));
+                if (custom && equipped && style.SelectedOutline)
+                {
+                    var c=style.SelectedColor; var outline=new Vector4(c.X,c.Y,c.Z,Features.HudOpacity);
+                    float t=.5f * scale;
+                    _scene.DrawHudFlatBox(panelX,y,panelX+panelWidth,y+t,outline);
+                    _scene.DrawHudFlatBox(panelX,rowBottom-t,panelX+panelWidth,rowBottom,outline);
+                    _scene.DrawHudFlatBox(panelX,y,panelX+t*aspectFix,rowBottom,outline);
+                    _scene.DrawHudFlatBox(panelX+panelWidth-t*aspectFix,y,panelX+panelWidth,rowBottom,outline);
+                }
                 HudObjectInstance icon = _weaponListIcons[i];
                 // The glyph itself in the weapon's colour, on nothing.
                 //
@@ -2343,12 +2370,12 @@ namespace MphRead.Entities
                 // above and below; and the box's own centre, not the row
                 // pitch's, since the row is drawn one unit shorter than it.
                 float iconFit = iconBox - 1f * scale;
-                float iconScale = iconFit / Math.Max(bounds.Width, bounds.Height);
+                float iconScale = iconFit / Math.Max(bounds.Width, bounds.Height) * (custom ? style.IconScale : 1);
                 icon.PositionX = (panelX + iconBoxX / 2
                     - bounds.CentreX * iconScale * aspectFix) / 256f;
                 icon.PositionY = (y + iconBox / 2 - bounds.CentreY * iconScale) / 192f;
                 // Never faded. A dimmed icon at this size is an empty box.
-                icon.Alpha = Features.HudOpacity;
+                icon.Alpha = Features.HudOpacity * (owned ? 1 : style.UnownedOpacity);
                 _scene.DrawHudObject(icon, mode: 1, scale: iconScale);
                 // Shots, not the internal ammo pool.
                 //
@@ -2383,10 +2410,11 @@ namespace MphRead.Entities
                 // the icon. Spacing is left to the font: fontSpacing is in HUD
                 // units and does not follow `scale`, so setting it spread the
                 // digits back out and undid the shrink.
-                DrawText2D(ammoRightX, y + 1.6f * scale, Align.Right, palette: 0, ammo,
+                if (!custom || style.ShowAmmo) DrawText2D(ammoRightX, y + 1.6f * scale, Align.Right, palette: 0, ammo,
                     color: new ColorRgba(230, 234, 242, 255),
                     alpha: Features.HudOpacity, scale: 0.42f * scale);
-                y += rowHeight;
+                if (custom && style.Horizontal) panelX += panelWidth + style.Spacing * aspectFix;
+                else y += rowHeight + (custom ? style.Spacing : 0);
             }
         }
 
@@ -2623,7 +2651,7 @@ namespace MphRead.Entities
             {
                 foreach (FlagBaseEntity flagBase in _scene.GetFlagBaseEntities())
                 {
-                    AddLocatorInfo(flagBase.Position, _nodeLocator, goodColor);
+                    AddLocatorInfo(flagBase.Position, _nodeLocator, goodColor, radarKind: RadarContactKind.ObjectiveBase, stableId: flagBase.Id);
                 }
             }
             else
@@ -2636,7 +2664,7 @@ namespace MphRead.Entities
                         color = _scene.GameState.Teams ? TeamVisuals.Get(flag.Carrier.TeamIndex).ObjectiveColor
                             : flag.Carrier == this ? goodColor : new ColorRgb(31, 0, 0);
                     }
-                    AddLocatorInfo(flag.Position, _octolithLocator, color);
+                    AddLocatorInfo(flag.Position, _octolithLocator, color, radarKind: RadarContactKind.Objective, stableId: flag.Id);
                 }
             }
         }
@@ -2654,10 +2682,10 @@ namespace MphRead.Entities
                         color = _scene.GameState.Teams ? TeamVisuals.Get(flag.Carrier.TeamIndex).ObjectiveColor
                             : flag.Carrier == this ? goodColor : new ColorRgb(31, 0, 0);
                     }
-                    AddLocatorInfo(flag.Position, _octolithLocator, color);
+                    AddLocatorInfo(flag.Position, _octolithLocator, color, radarKind: RadarContactKind.Objective, stableId: flag.Id);
                     if (OctolithFlag != null && flag.Data.TeamId == TeamIndex)
                     {
-                        AddLocatorInfo(flag.BasePosition, _nodeLocator, goodColor);
+                        AddLocatorInfo(flag.BasePosition, _nodeLocator, goodColor, radarKind: RadarContactKind.ObjectiveBase, stableId: flag.Id);
                     }
                 }
             }
@@ -2685,7 +2713,7 @@ namespace MphRead.Entities
                 {
                     color = new ColorRgb(31, 0, 0);
                 }
-                AddLocatorInfo(defense.Position, _nodeLocator, color);
+                AddLocatorInfo(defense.Position, _nodeLocator, color, radarKind: RadarContactKind.Node, stableId: defense.Id);
             }
         }
 
@@ -2706,57 +2734,7 @@ namespace MphRead.Entities
             bool showBar = false;
             foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())
             {
-                ColorRgb color;
-                if (defense.CurrentTeam == NodeDefenseEntity.NoTeam)
-                {
-                    if (defense.Blinking)
-                    {
-                        if (_scene.GameState.Teams)
-                        {
-                            Debug.Assert((uint)defense.OccupyingTeam < (uint)_scene.GameState.TeamCount);
-                            color = Metadata.TeamColors[defense.OccupyingTeam];
-                        }
-                        else if (defense.OccupyingTeam == TeamIndex)
-                        {
-                            color = new ColorRgb(15, 15, 31);
-                        }
-                        else
-                        {
-                            color = new ColorRgb(31, 0, 0);
-                        }
-                    }
-                    else
-                    {
-                        color = new ColorRgb(31, 31, 31);
-                    }
-                }
-                else if (_scene.GameState.Teams)
-                {
-                    color = Metadata.TeamColors[defense.Blinking ? defense.OccupyingTeam : defense.CurrentTeam];
-                }
-                else
-                {
-                    if (defense.CurrentTeam == TeamIndex)
-                    {
-                        if (!defense.Blinking || defense.OccupyingTeam == TeamIndex)
-                        {
-                            color = new ColorRgb(15, 15, 31);
-                        }
-                        else
-                        {
-                            color = new ColorRgb(31, 0, 0);
-                        }
-                    }
-                    else if (defense.Blinking && defense.OccupyingTeam == TeamIndex)
-                    {
-                        color = new ColorRgb(15, 15, 31);
-                    }
-                    else
-                    {
-                        color = new ColorRgb(31, 0, 0);
-                    }
-                }
-                AddLocatorInfo(defense.Position, _nodeLocator, color);
+                AddHudNodeLocator(defense);
                 if (defense.CurrentTeam != NodeDefenseEntity.NoTeam && defense.OccupyingTeam == NodeDefenseEntity.NoTeam)
                 {
                     int count = _teamNodeCounts[defense.CurrentTeam] + 1;
@@ -2819,22 +2797,104 @@ namespace MphRead.Entities
                 {
                     _hudIsPrimeHunter = false;
                 }
-                if (_scene.GameState.PrimeHunter != -1)
-                {
-                    PlayerEntity primeHunter = _scene.Players.Items[_scene.GameState.PrimeHunter];
-                    Vector3 pos = primeHunter.Position;
-                    if (!primeHunter.IsAltForm)
-                    {
-                        pos.Y += 0.75f;
-                    }
-                    AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0));
-                }
+                AddHudPrimeLocator();
             }
             _primeHunterInst.ProcessAnimation(_scene);
         }
 
+        // Presentation-only portions of the native locator pipeline. Replays do
+        // not run ProcessModeHud, so radar reuses these without HUD timers/messages.
+        private void RebuildRadarObjectiveLocators()
+        {
+            // Keep replay radar scratch separate from the native locator draw list.
+            _radarLocatorInfo.Clear();
+            _collectingRadarLocators=true;
+            try
+            {
+                switch(_scene.GameState.Mode)
+                {
+                    case GameMode.Bounty:
+                    case GameMode.BountyTeams: ProcessHudBounty(); break;
+                    case GameMode.Capture: ProcessHudCapture(); break;
+                    case GameMode.Defender:
+                    case GameMode.DefenderTeams: ProcessHudDefender(); break;
+                    case GameMode.Nodes:
+                    case GameMode.NodesTeams:
+                        foreach(var defense in _scene.GetNodeDefenseEntities()) AddHudNodeLocator(defense);
+                        break;
+                    case GameMode.PrimeHunter: AddHudPrimeLocator(); break;
+                }
+            }
+            finally { _collectingRadarLocators=false; }
+        }
+
+        private void AddHudNodeLocator(NodeDefenseEntity defense)
+        {
+            ColorRgb color;
+            if (defense.CurrentTeam == NodeDefenseEntity.NoTeam)
+            {
+                if (defense.Blinking)
+                {
+                    if (_scene.GameState.Teams)
+                    {
+                        Debug.Assert((uint)defense.OccupyingTeam < (uint)_scene.GameState.TeamCount);
+                        color = Metadata.TeamColors[defense.OccupyingTeam];
+                    }
+                    else if (defense.OccupyingTeam == TeamIndex)
+                    {
+                        color = new ColorRgb(15, 15, 31);
+                    }
+                    else
+                    {
+                        color = new ColorRgb(31, 0, 0);
+                    }
+                }
+                else
+                {
+                    color = new ColorRgb(31, 31, 31);
+                }
+            }
+            else if (_scene.GameState.Teams)
+            {
+                color = Metadata.TeamColors[defense.Blinking ? defense.OccupyingTeam : defense.CurrentTeam];
+            }
+            else
+            {
+                if (defense.CurrentTeam == TeamIndex)
+                {
+                    if (!defense.Blinking || defense.OccupyingTeam == TeamIndex)
+                    {
+                        color = new ColorRgb(15, 15, 31);
+                    }
+                    else
+                    {
+                        color = new ColorRgb(31, 0, 0);
+                    }
+                }
+                else if (defense.Blinking && defense.OccupyingTeam == TeamIndex)
+                {
+                    color = new ColorRgb(15, 15, 31);
+                }
+                else
+                {
+                    color = new ColorRgb(31, 0, 0);
+                }
+            }
+            AddLocatorInfo(defense.Position, _nodeLocator, color, radarKind: RadarContactKind.Node, stableId: defense.Id);
+        }
+
+        private void AddHudPrimeLocator()
+        {
+            if(_scene.GameState.PrimeHunter == SlotIndex || _scene.GameState.PrimeHunter == -1) return;
+            PlayerEntity primeHunter = _scene.Players.Items[_scene.GameState.PrimeHunter];
+            Vector3 pos = primeHunter.Position;
+            if (!primeHunter.IsAltForm) pos.Y += 0.75f;
+            AddLocatorInfo(pos, _playerLocator, new ColorRgb(31, 0, 0), radarKind: RadarContactKind.PrimeHunter, stableId: primeHunter.SlotIndex);
+        }
+
         private void DrawModeHud()
         {
+            using var layout = UseHudLayout(10,0,0);
             GameMode mode = _scene.GameState.Mode;
             if (mode == GameMode.SinglePlayer)
             {
@@ -3422,6 +3482,7 @@ namespace MphRead.Entities
             {
                 return;
             }
+            using var layout = UseHudLayout(9,93,149);
             PlayerEntity opponent = _scene.Players.Items[_opponentIndex];
             float posX = 93;
             float posY = 182;
@@ -3586,6 +3647,7 @@ namespace MphRead.Entities
 
         private void DrawFps()
         {
+            using var layout = UseHudLayout(11,256 - NumberMargin * HudAspectFix,NumberY);
             Span<char> buffer = stackalloc char[12];
             if (!_scene.FramesPerSecond.TryFormat(buffer, out int written, "0"))
             {
@@ -3613,186 +3675,12 @@ namespace MphRead.Entities
                 buffer[..written], color, fontSpacing: 8, scale: NumberScale);
         }
 
-        /// <summary>
-        /// The round motion-tracker overlay, top-right under the FPS counter.
-        /// See <see cref="Mods.Render.Radar"/> for why nothing here is cut
-        /// from a DS sprite.
-        ///
-        /// Heading-up: this player's facing is always straight up on the
-        /// dial and the world rotates around it, which is why every other
-        /// position is measured against <see cref="FacingVector"/> rather
-        /// than against a fixed compass direction.
-        /// </summary>
         private void DrawRadar()
         {
-            if (!Mods.Render.Radar.Enabled || _scene.GameState.Teams && ShowScoreboard)
-            {
-                return;
-            }
-            // Not during the match's own intro fly-through -- the player has
-            // no body yet and the camera is not looking through anyone's
-            // eyes, so a reading centred on "this player" means nothing.
-            // Spectating is different: SpectatorMode.FreeCamera still has a
-            // real followed player underneath it, so that one stays on.
-            if (_scene.CameraSequences.Current?.IsIntro == true)
-            {
-                return;
-            }
-            // Nor once the match is over. There is nothing left to navigate
-            // towards -- the players are standing in an orbit shot of the
-            // winner -- and the top right corner it lives in is the corner the
-            // results screen's pickers are drawn in, so it was a dial sitting
-            // on top of the hunter portrait.
-            if (_scene.GameState.Multiplayer && _scene.GameState.MatchState != MatchState.InProgress)
-            {
-                return;
-            }
-            float u = _scene.Size.Y / 192f;
-            // The dial itself (background, rings, cone) and what sits on it
-            // (the hunter/weapon/power-up blips) now scale apart on request:
-            // the dial was +30%, then asked 20% smaller again (1.3 * 0.8);
-            // the blips were the same +30%, then asked another 20% bigger on
-            // top of that (1.3 * 1.2). The centre triangle standing in for
-            // this player is neither -- it keeps its own size, unscaled.
-            const float dialGrow = 1.3f * 0.8f;
-            const float blipGrow = 1.3f * 1.2f;
-            float radius = 19.44f * dialGrow * u; // 30 -> 22.5 -> 18 -> 9 -> 13.5 -> 16.2 -> 19.44 on request
-            // Margins are to the dial's edge, not its centre, so tightening
-            // them tucks the whole thing into the corner regardless of
-            // radius: right edge sits rightGap from the window's right edge,
-            // top edge sits topGap below the FPS row (which ends around HUD
-            // unit 7) with a few units of clearance.
-            float rightGap = 5f * u;
-            float topGap = 10f * u;
-            float posX = (_scene.Size.X - rightGap - radius) / _scene.Size.X;
-            float posY = (topGap + radius) / _scene.Size.Y;
-
-            // The camera's own view direction, not FacingVector -- that one
-            // is the aim/gun vector (see PlayerInput's _gunVec1 assignments)
-            // and can drift from where the camera is actually pointed, most
-            // visibly with a dynamic (Metroid-style) weapon, where the gun
-            // settles behind the aim point after the camera has already
-            // moved. A heading-up dial has to agree with what is on screen,
-            // which is the camera, whatever the gun is doing.
-            Vector3 facing = CameraInfo.Facing;
-            float fx = facing.X;
-            float fz = facing.Z;
-            float faceLen = MathF.Sqrt(fx * fx + fz * fz);
-            if (faceLen < 0.0001f)
-            {
-                fx = 0f;
-                fz = 1f;
-            }
-            else
-            {
-                fx /= faceLen;
-                fz /= faceLen;
-            }
-            // "Right" on the dial, rotated 90 degrees from facing in the
-            // world's XZ plane. The other rotation (fz, -fx) mirrors the
-            // dial left-right against what the player actually sees, because
-            // screen-right for a forward vector (Fx, Fz) is (-Fz, Fx) in
-            // this engine's XZ handedness, not (Fz, -Fx).
-            float rx = -fz;
-            float rz = fx;
-
-            Mods.Render.Radar.Palette pal = Mods.Render.Radar.PaletteOf;
-
-            if (Mods.Render.Radar.ShowBackground)
-            {
-                _scene.DrawFlatDisc(posX, posY, Vector2.Zero, radius, pal.Background);
-            }
-            if (Mods.Render.Radar.ShowOutlines)
-            {
-                _scene.DrawFlatRing(posX, posY, Vector2.Zero, radius, 0.35f * dialGrow * u, pal.Ring);
-                _scene.DrawFlatRing(posX, posY, Vector2.Zero, radius * 0.55f, 0.25f * dialGrow * u, pal.Ring);
-                float coneAngle = MathHelper.DegreesToRadians(55f);
-                var left = new Vector2(-radius * MathF.Sin(coneAngle), radius * MathF.Cos(coneAngle));
-                var right = new Vector2(radius * MathF.Sin(coneAngle), radius * MathF.Cos(coneAngle));
-                _scene.DrawFlatLine(posX, posY, Vector2.Zero, left, 0.25f * dialGrow * u, pal.Cone);
-                _scene.DrawFlatLine(posX, posY, Vector2.Zero, right, 0.25f * dialGrow * u, pal.Cone);
-            }
-
-            float worldToPixel = radius / Mods.Render.Radar.Range;
-
-            void PlaceBlip(Vector3 worldPos, bool isHunter, bool isWeapon, int teamIndex = -1)
-            {
-                float dx = worldPos.X - Position.X;
-                float dz = worldPos.Z - Position.Z;
-                float sx = dx * rx + dz * rz;
-                float sy = dx * fx + dz * fz;
-                if (sx * sx + sy * sy < 0.0004f)
-                {
-                    // On top of the player -- nothing useful to point at.
-                    return;
-                }
-                float px = sx * worldToPixel;
-                float py = sy * worldToPixel;
-                float pixelLen = MathF.Sqrt(px * px + py * py);
-                if (pixelLen > radius)
-                {
-                    // Beyond range: clamp to the rim rather than drop it, the
-                    // same directional-indicator shape DrawLocatorIcon uses.
-                    px *= radius / pixelLen;
-                    py *= radius / pixelLen;
-                }
-                var local = new Vector2(px, py);
-                if (isHunter)
-                {
-                    // hud_icon_player -- the real locator-icon asset -- would
-                    // belong here, but it is a 3D model meant to be drawn
-                    // from DrawHudModels, in the pass that still has the
-                    // perspective camera live; called from here, in the flat
-                    // 2D HUD pass, it picks up the wrong projection and blows
-                    // up to fill the screen. Left as a ring.
-                    _scene.DrawFlatRing(posX, posY, local, 0.59f * blipGrow * u, 0.2f * blipGrow * u, _scene.GameState.Teams
-                        ? TeamVisuals.Get(teamIndex).RadarColor.AsVector4() * new Vector4(255f / 31, 255f / 31, 255f / 31, 1) : pal.Hunter);
-                }
-                else if (isWeapon)
-                {
-                    float d = 0.49f * blipGrow * u;
-                    Span<Vector2> diamond = stackalloc Vector2[]
-                    {
-                        new Vector2(0, d), new Vector2(d, 0), new Vector2(0, -d), new Vector2(-d, 0)
-                    };
-                    _scene.DrawFlatPolygon(posX, posY, local, diamond, pal.Weapon);
-                }
-                else
-                {
-                    _scene.DrawFlatDisc(posX, posY, local, 0.39f * blipGrow * u, pal.Powerup);
-                }
-            }
-
-            for (int i = 0; i < _scene.Players.Items.Count; i++)
-            {
-                PlayerEntity other = _scene.Players.Items[i];
-                if (other == this || other.Health <= 0
-                    || !other.LoadFlags.TestFlag(LoadFlags.Spawned))
-                {
-                    continue;
-                }
-                PlaceBlip(other.Position, isHunter: true, isWeapon: false, teamIndex: other.TeamIndex);
-            }
-            foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
-            {
-                if (item.Hidden || item.DespawnTimer == 0)
-                {
-                    continue;
-                }
-                PlaceBlip(item.Position, isHunter: false, Mods.Render.Radar.IsWeaponItem(item.ItemType));
-            }
-
-            // The player's own marker, always last so it sits above every
-            // blip, and always drawn regardless of ShowOutlines -- a reading
-            // with no "you are here" at all is not a reading, so this one
-            // does not go away with the rings and cone.
-            float triSize = 1.25f * u; // half of 5, then half again, on request
-            Span<Vector2> tri = stackalloc Vector2[]
-            {
-                new Vector2(0, triSize), new Vector2(-triSize * 0.75f, -triSize * 0.7f),
-                new Vector2(triSize * 0.75f, -triSize * 0.7f)
-            };
-            _scene.DrawFlatPolygon(posX, posY, Vector2.Zero, tri, pal.Player);
+            if(!HudDrawMetrics.Enabled) { DrawEnhancedRadar(); return; }
+            long before=HudDrawMetrics.Begin(out long started);
+            DrawEnhancedRadar();
+            HudDrawMetrics.EndRadar(before,started);
         }
 
         private float _textSpacingY = 0;
@@ -3807,6 +3695,8 @@ namespace MphRead.Entities
             ColorRgba? color = null, float alpha = 1, float fontSpacing = -1, int maxLength = -1,
             float scale = 1)
         {
+            color = _scene.HudTextColor(color);
+            if (HudProfiles.Runtime.Mode == HudMode.Custom) scale *= HudProfiles.Runtime.TextScale;
             int padAfter = maxLength;
             if (type == Align.PadCenter)
             {
@@ -3903,7 +3793,7 @@ namespace MphRead.Entities
                             {
                                 _textInst.SetData(index, palette, _scene);
                             }
-                            _scene.DrawHudObject(_textInst, mode: 1, scale: scale);
+                            _scene.DrawHudObject(_textInst, mode: 1, scale: scale, isText: true);
                         }
                         x += font.Widths[index] * scale * aspectFix;
                     }
@@ -3949,7 +3839,7 @@ namespace MphRead.Entities
                             {
                                 _textInst.SetData(index, palette, _scene);
                             }
-                            _scene.DrawHudObject(_textInst, mode: 1, scale: scale);
+                            _scene.DrawHudObject(_textInst, mode: 1, scale: scale, isText: true);
                         }
                     }
                     if (end != length)
@@ -4020,7 +3910,7 @@ namespace MphRead.Entities
                                 {
                                     _textInst.SetData(index, palette, _scene);
                                 }
-                                _scene.DrawHudObject(_textInst, mode: 1, scale: scale);
+                                _scene.DrawHudObject(_textInst, mode: 1, scale: scale, isText: true);
                             }
                         }
                         x += font.Widths[index] * scale * aspectFix;
@@ -4131,18 +4021,31 @@ namespace MphRead.Entities
         /// </summary>
         private void ReflowCombatNotifications()
         {
-            List<HudMessage> lane = _hudMessageQueue
-                .Where(message => message.IsCombatNotification && message.Lifetime > 0)
-                .OrderBy(message => message.CombatSerial)
-                .ToList();
-            if (lane.Count == 0)
+            Span<int> laneBuffer = stackalloc int[20];
+            int laneCount = 0;
+            for (int i=0; i<_hudMessageQueue.Count && laneCount<laneBuffer.Length; i++)
             {
-                return;
+                var message = _hudMessageQueue[i];
+                if (!message.IsCombatNotification || message.Lifetime<=0) continue;
+                int insert=laneCount;
+                while (insert>0 && _hudMessageQueue[laneBuffer[insert-1]].CombatSerial>message.CombatSerial)
+                { laneBuffer[insert]=laneBuffer[insert-1]; insert--; }
+                laneBuffer[insert]=i; laneCount++;
             }
-
-            List<(float Top, float Bottom)> occupied = new();
-            foreach (HudMessage native in _hudMessageQueue)
+            if (laneCount==0) return;
+            Span<int> lane = laneBuffer[..laneCount];
+            var profile = HudProfiles.Runtime;
+            if (profile.Mode == HudMode.Custom)
             {
+                int limit=profile.Notifications.Queue==HudNotificationQueue.Latest ? 1 : profile.Notifications.MaxVisible;
+                for (int i=0; i<Math.Max(0,lane.Length-limit); i++) _hudMessageQueue[lane[i]].CombatDeferred=true;
+                lane=lane[Math.Max(0,lane.Length-limit)..];
+            }
+            Span<(float Top,float Bottom)> occupiedBuffer = stackalloc (float,float)[20];
+            int occupiedCount=0;
+            for (int nativeIndex=0; nativeIndex<_hudMessageQueue.Count; nativeIndex++)
+            {
+                HudMessage native=_hudMessageQueue[nativeIndex];
                 if (native.Lifetime <= 0 || native.IsCombatNotification)
                 {
                     continue;
@@ -4163,22 +4066,23 @@ namespace MphRead.Entities
                     + (lines - 1) * spacing
                     + CombatNotificationGlyphHeight * scale
                     + CombatNotificationCollisionPad;
-                occupied.Add((nativeTop, bottom));
+                if (occupiedCount<occupiedBuffer.Length) occupiedBuffer[occupiedCount++]=(nativeTop,bottom);
             }
 
+            var occupied = occupiedBuffer[..occupiedCount];
             float totalHeight = CombatLaneHeight(lane);
             if (!TryFindCombatLaneTop(totalHeight, occupied, out float top))
             {
                 // History is expendable; the newest award is not. If two
                 // single-line medals do not fit around native text, drop the
                 // older breadcrumb and try again with just the current award.
-                while (lane.Count > 1)
+                while (lane.Length > 1)
                 {
-                    HudMessage stale = lane[0];
+                    HudMessage stale = _hudMessageQueue[lane[0]];
                     stale.Lifetime = 0;
                     stale.IsCombatNotification = false;
                     stale.CombatDeferred = false;
-                    lane.RemoveAt(0);
+                    lane=lane[1..];
                 }
                 totalHeight = CombatLaneHeight(lane);
             }
@@ -4188,22 +4092,22 @@ namespace MphRead.Entities
                 // Both safe bands are occupied. Do not draw through the native
                 // message. Freeze this medal's presentation lifetime until a
                 // band opens, then give it the full readable duration.
-                foreach (HudMessage message in lane)
+                foreach (int index in lane)
                 {
-                    message.CombatDeferred = true;
+                    _hudMessageQueue[index].CombatDeferred = true;
                 }
                 return;
             }
 
             float y = top;
-            for (int i = 0; i < lane.Count; i++)
+            for (int i = 0; i < lane.Length; i++)
             {
-                HudMessage message = lane[i];
+                HudMessage message = _hudMessageQueue[lane[i]];
                 message.CombatDeferred = false;
                 message.Scale = CombatNotificationScale;
                 message.Position = new Vector2(128, y);
-                message.Alpha = i == lane.Count - 1 ? 1f : 0.62f;
-                y += CombatNotificationHeight(message) + CombatNotificationGap;
+                message.Alpha = i == lane.Length - 1 ? 1f : 0.62f;
+                y += CombatNotificationHeight(message) + HudNotificationGap;
             }
         }
 
@@ -4228,22 +4132,23 @@ namespace MphRead.Entities
                     * CombatNotificationLineSpacing * scale;
         }
 
-        private static float CombatLaneHeight(IReadOnlyList<HudMessage> lane)
+        private static float HudNotificationGap => HudProfiles.Runtime.Mode==HudMode.Custom ? HudProfiles.Runtime.Notifications.Spacing : CombatNotificationGap;
+        private float CombatLaneHeight(ReadOnlySpan<int> lane)
         {
             float height = 0;
-            for (int i = 0; i < lane.Count; i++)
+            for (int i = 0; i < lane.Length; i++)
             {
                 if (i > 0)
                 {
-                    height += CombatNotificationGap;
+                    height += HudNotificationGap;
                 }
-                height += CombatNotificationHeight(lane[i]);
+                height += CombatNotificationHeight(_hudMessageQueue[lane[i]]);
             }
             return height;
         }
 
         private static bool TryFindCombatLaneTop(float height,
-            IReadOnlyList<(float Top, float Bottom)> occupied, out float top)
+            ReadOnlySpan<(float Top, float Bottom)> occupied, out float top)
         {
             // Prefer the upper region and bottom-align there so medals remain
             // close to their old location without touching the reticle.
@@ -4272,9 +4177,9 @@ namespace MphRead.Entities
         }
 
         private static bool CombatLaneClear(float top, float bottom,
-            IReadOnlyList<(float Top, float Bottom)> occupied)
+            ReadOnlySpan<(float Top, float Bottom)> occupied)
         {
-            for (int i = 0; i < occupied.Count; i++)
+            for (int i = 0; i < occupied.Length; i++)
             {
                 (float otherTop, float otherBottom) = occupied[i];
                 if (bottom > otherTop && top < otherBottom)
@@ -4525,11 +4430,13 @@ namespace MphRead.Entities
                     {
                         float alpha = message.Alpha;
                         if (message.IsCombatNotification
+                            && (HudProfiles.Runtime.Mode!=HudMode.Custom || HudProfiles.Runtime.Notifications.Fade && !HudProfiles.Runtime.ReduceMotion)
                             && message.Lifetime < CombatNotificationFadeSeconds)
                         {
                             alpha *= Math.Clamp(
                                 message.Lifetime / CombatNotificationFadeSeconds, 0, 1);
                         }
+                        using var layout = UseHudLayout(message.IsCombatNotification ? 8 : -1, 128, 32);
                         DrawText2D(message.Position.X, message.Position.Y, message.Align, palette: 0,
                             message.Text, message.Color, alpha, fontSpacing: message.FontSize,
                             scale: message.Scale <= 0 ? 1 : message.Scale);

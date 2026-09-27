@@ -218,6 +218,15 @@ internal static class MapViewportCheck
                 int importedUploads = importedViewport.GpuMeshUploads;
                 UiOverlay.Draw(target.X, target.Y);
                 Check(ScreenCapture.SaveWindow(target.X, target.Y, Path.Combine(directory, "imported.png")), "imported map renderer capture");
+                Check(importedViewport.VisibleEntityLabelBounds.Count > 0, "imported entity labels remain visible");
+                var labelBounds = importedViewport.VisibleEntityLabelBounds;
+                Check(!labelBounds.Where((bounds, index) => labelBounds.Skip(index + 1).Any(bounds.Intersects)).Any(),
+                    "dense imported entity labels do not overlap");
+                importedViewport.EntityVisualization = false;
+                importedViewport.InvalidateVisual();
+                for (int i = 0; i < 5; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
+                Check(importedViewport.VisibleEntityLabelBounds.Count == 0, "entity helper toggle hides imported labels");
+                importedViewport.EntityVisualization = true;
                 importedViewport.Collision = true;
                 surface.DrawMapViewport(target.X, target.Y);
                 Check(importedViewport.GpuMeshUploads == importedUploads, "imported collision switch reuses GPU geometry");

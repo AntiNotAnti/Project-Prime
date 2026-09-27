@@ -55,7 +55,9 @@ namespace MphRead.Entities
             // view; this lane is intentionally closer to a scoreboard ticker:
             // compact text, weapon glyph and a hairline separator.
             float top = MphRead.Mods.Render.Radar.Enabled ? 62.5f : 9.5f;
-            const float rowHeight = 8.8f;
+            using var layout = UseHudLayout(7, left, top);
+            var style = MphRead.Mods.Render.Hud.HudProfiles.Runtime.KillFeed;
+            float rowHeight = style.Spacing;
             const float rowContentHeight = 7.3f;
 
             int shown = 0;
@@ -112,20 +114,20 @@ namespace MphRead.Entities
                     KillFeedName(entry.VictimName), victimColor, alpha: alpha, scale: textScale);
 
                 float center = left + width * aspect / 2;
-                bool drewIcon = entry.Kind == KillFeedKind.Weapon
+                bool drewIcon = style.Weapon && entry.Kind == KillFeedKind.Weapon
                     && DrawKillFeedWeaponIcon(entry.Beam, center, y + 0.5f, alpha);
-                if (!drewIcon)
+                if (!drewIcon && style.Weapon)
                 {
                     DrawText2D(center, y + 1.05f, Align.Center, 0,
                         KillFeedLabel(entry.Kind), _killFeedSpecial, alpha: alpha, scale: 0.36f);
                 }
 
-                if (entry.FriendlyFire)
+                if (entry.FriendlyFire && style.TeamKill)
                 {
                     DrawText2D(center - 7.5f * aspect, y + 1.15f, Align.Right, 0,
                         "TK", _killFeedTeamkill, alpha: alpha, scale: 0.31f);
                 }
-                if (entry.Headshot)
+                if (entry.Headshot && style.Headshot)
                 {
                     DrawText2D(center + 7.5f * aspect, y + 1.15f, Align.Left, 0,
                         "HS", _killFeedHeadshot, alpha: alpha, scale: 0.31f);

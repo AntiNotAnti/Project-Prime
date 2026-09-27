@@ -60,6 +60,7 @@ namespace MphRead
             _graphicsOutputReady = false;
             if (!RenderOptions.PostProcessingEnabled || _graphicsPipelineRefused)
             {
+                _graphicsHistoryValid = false;
                 return;
             }
             try
@@ -140,7 +141,7 @@ namespace MphRead
                 GL.Uniform1(_gfxFar, _useClip ? Math.Max(_farClip, _nearClip + 1f) : 10000f);
                 GL.Uniform1(_gfxAa, (int)RenderOptions.AntiAliasing);
                 GL.Uniform1(_gfxSharpen, RenderOptions.SharpenStrength / 100f);
-                GL.Uniform1(_gfxBloom, RenderOptions.Bloom ? 1 : 0);
+                GL.Uniform1(_gfxBloom, RenderOptions.Bloom && RenderOptions.BloomIntensity > 0 ? 1 : 0);
                 GL.Uniform1(_gfxBloomIntensity, RenderOptions.BloomIntensity / 100f);
                 GL.Uniform1(_gfxGrade, (int)RenderOptions.ColorGrade);
                 GL.Uniform1(_gfxGamma, RenderOptions.Gamma / 100f);
@@ -473,7 +474,8 @@ namespace MphRead
 
         private void UploadDynamicLights()
         {
-            if (!RenderOptions.DynamicGlow)
+            if (!RenderOptions.DynamicGlow && (!RenderOptions.ShowCustomCosmetics
+                || RenderOptions.CosmeticQuality < Mods.Cosmetics.CosmeticEffectQuality.Medium))
             {
                 GL.Uniform1(_gfxDynamicLightCount, 0);
                 return;
@@ -482,7 +484,7 @@ namespace MphRead
             int count = 0;
             foreach (EntityBase entity in Entities)
             {
-                if (entity is not BeamProjectileEntity beam || beam.Lifespan <= 0
+                if (!RenderOptions.DynamicGlow || entity is not BeamProjectileEntity beam || beam.Lifespan <= 0
                     || beam.Flags.TestFlag(BeamFlags.Collided))
                 {
                     continue;
@@ -519,6 +521,7 @@ namespace MphRead
                 }
             }
 
+            CollectCosmeticLights(ref count);
             GL.Uniform1(_gfxDynamicLightCount, count);
             for (int i = 0; i < count; i++)
             {
@@ -787,7 +790,7 @@ vec2 project_view(vec3 p, out float clipW) {
 }
 
 vec3 projectile_lighting(vec3 worldPos) {
-    if (dynamic_glow == 0 || dynamic_light_count <= 0) return vec3(0.0);
+    if (dynamic_light_count <= 0) return vec3(0.0);
     vec3 result = vec3(0.0);
     for (int i = 0; i < 8; i++) {
         if (i >= dynamic_light_count) break;
@@ -1110,8 +1113,9 @@ void main() {
     vec2 uv = texcoord;
     vec3 center = scene(uv);
     float d = raw_depth(uv);
-    vec3 worldP = d < 0.999999 ? world_position(uv, d) : vec3(0.0);
-    vec3 deferred = d < 0.999999 ? deferred_pbr(uv, worldP) : vec3(-1.0);
+    bool needWorld = pbr_enabled != 0 || shadow_enabled != 0 || dynamic_light_count > 0;
+    vec3 worldP = needWorld && d < 0.999999 ? world_position(uv, d) : vec3(0.0);
+    vec3 deferred = pbr_enabled != 0 && d < 0.999999 ? deferred_pbr(uv, worldP) : vec3(-1.0);
     vec3 color;
     if (deferred.r >= 0.0) {
         // The forward frame contains MPH's authored vertex/material lighting,
@@ -1142,11 +1146,15 @@ void main() {
     }
 
     if (depth_available != 0 && d < 0.999999) {
-        bool pbrPixel = pbr_enabled != 0 && SAMPLE(pbr_normal, uv).a > 0.5;
-        vec3 n = pbrPixel
-            ? normalize(mat3(view_matrix)
-                * (SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0))
-            : depth_normal(uv, d);
+        vec3 n = vec3(0.0, 0.0, 1.0);
+        // AO and basic fog do not use a surface normal. Avoid four extra
+        // depth samples and reconstruction when the normal-based effects are off.
+        if (enhanced_lighting != 0 || shadow_enabled != 0 || reflections != 0 || volumetric_fog != 0) {
+            bool pbrPixel = pbr_enabled != 0 && SAMPLE(pbr_normal, uv).a > 0.5;
+            n = pbrPixel
+                ? normalize(mat3(view_matrix) * (SAMPLE(pbr_normal, uv).xyz * 2.0 - 1.0))
+                : depth_normal(uv, d);
+        }
         if (enhanced_lighting != 0 && deferred.r < 0.0) {
             vec3 ld = normalize(vec3(-0.45, 0.58, 0.68));
             float diffuse = dot(n, ld) * 0.5 + 0.5;

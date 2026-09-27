@@ -83,7 +83,9 @@ namespace MphRead.Mods.MapGen
             mapName ??= Q3Bsp.ListMaps(source).FirstOrDefault();
             string room = (roomName ?? mapName ?? "CUSTOM").ToUpperInvariant();
             string prefix = room.ToLowerInvariant();
-            string directory = outputDir ?? Path.Combine(CustomRooms.MapDirectory, prefix);
+            // Installed maps are signed resources in a macOS app bundle.
+            // Imports must never change that bundle (or require install-folder write access).
+            string directory = outputDir ?? Path.Combine(CustomRooms.UserMapDirectory, prefix);
             Directory.CreateDirectory(directory);
 
             Bounds(bsp, out float[] min, out float[] max, sky: false);

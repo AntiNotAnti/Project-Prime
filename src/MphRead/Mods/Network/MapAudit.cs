@@ -231,31 +231,16 @@ namespace MphRead.Mods.Network
 
         private static GameWindowSettings GameSettings() => new() { UpdateFrequency = 60 };
 
-        private static NativeWindowSettings WindowSettings() => new()
+        private static NativeWindowSettings WindowSettings()
         {
-            // Bigger for -hudshots: the HUD is authored for a 256x192 screen
-            // and scaled to the window, so at 320x180 a weapon icon is a few
-            // pixels and a capture of it says nothing.
-            ClientSize = WindowSize ?? (ShowWindow ? new Vector2i(1024, 576) : new Vector2i(320, 180)),
-            Title = "MphRead map audit",
-            Profile = ContextProfile.Compatability,
-            // Explicitly, exactly as the game's own window does. Left
-            // unset, OpenTK's default gave this window a *forward-compatible*
-            // context, which removes every deprecated entry point -- and this
-            // engine draws in immediate mode, so that is all of them. The
-            // profile mask still answers "compatibility", so nothing looked
-            // wrong; the driver only admitted it in a shader warning that
-            // mentioned "OGL 3.0 forward-compatible context". Every frame came
-            // out black with GL_INVALID_OPERATION on an Intel Iris Xe, while
-            // the game rendered perfectly on the same machine, because the
-            // game sets this and these windows did not.
-            Flags = ContextFlags.Default,
-            APIVersion = new Version(3, 2),
-            // Visible only for -hudshots, which reads the window's own buffer
-            // because that is the one the HUD is drawn into. Everything else
-            // reads the offscreen target and wants no window on screen.
-            StartVisible = ShowWindow
-        };
+            // Use the same legacy-compatible context as the game, including
+            // macOS's 2.1 requirement and safe GLFW startup error handling.
+            var settings = Mods.Render.DesktopGlContext.Settings(background: !ShowWindow);
+            settings.ClientSize = WindowSize ?? (ShowWindow ? new Vector2i(1024, 576) : new Vector2i(320, 180));
+            settings.Title = "MphRead map audit";
+            settings.StartVisible = ShowWindow;
+            return settings;
+        }
 
         /// <summary>Set by -hudshots before the window is built.</summary>
         public static bool ShowWindow { get; set; }

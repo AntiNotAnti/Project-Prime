@@ -265,9 +265,12 @@ namespace MphRead.Mods.MapGen
 
         private static FileStream AcquireGenerationLease(MapDefinition def)
         {
-            // Share the editor/runtime publication lease as well as the
-            // runtime callers' lease; both write the same five destination files.
-            string path = OutputsFor(def).Manifest + ".lock";
+            // Serialize runtime generation separately from publication. Generate
+            // calls MapBuildScheduler.Install, which acquires the manifest's
+            // .lock itself; holding that same non-reentrant lease here makes
+            // every missing/stale map time out while trying to install itself.
+            // The install lease still fences editor and runtime publication.
+            string path = OutputsFor(def).Manifest + ".generation.lock";
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var timeout = Stopwatch.StartNew();
             while (true)

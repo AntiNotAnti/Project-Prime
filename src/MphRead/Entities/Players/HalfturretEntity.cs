@@ -413,7 +413,10 @@ namespace MphRead.Entities
             UpdateMaterials(inst, Recolor);
             _brightSkin = _health > 0 && PaletteOverride == null ? BrightSkins.GetColor(Owner) : null;
             _outlineColor = _health > 0 && _freezeTimer == 0 && PaletteOverride == null ? BrightSkins.GetOutlineColor(Owner) : null;
-            GetDrawItems(inst, 0);
+            var previousCosmetic = _scene.CosmeticSubmission;
+            _scene.CosmeticSubmission = _freezeTimer == 0 && PaletteOverride == null ? Owner.CosmeticMaterial(false) : default;
+            try { GetDrawItems(inst, 0); }
+            finally { _scene.CosmeticSubmission = previousCosmetic; }
             _brightSkin = null;
             _outlineColor = null;
             PaletteOverride = null;
@@ -445,6 +448,12 @@ namespace MphRead.Entities
         protected override bool UseTexturedPlayerSkin(ModelInstance inst)
             => inst == _models[0] && _brightSkin.HasValue && Mods.RenderOptions.BrightSkins
                 && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid;
+
+        protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
+            => Mods.RenderOptions.ShowCustomCosmetics && !_scene.GameState.Teams && _freezeTimer == 0 && PaletteOverride == null
+                && !Owner.BrightSkinStatusOverride && !Owner.ModMatchSpawnProtectionActive
+                ? _scene.GetCosmeticMaterial(Mods.Cosmetics.CosmeticRuntime.Get(_scene, Owner.SlotIndex, Owner.Hunter, Owner.IsMainPlayer).Skin,
+                    inst.Model, index, Mods.Cosmetics.SkinContext.Halfturret) : default;
 
         protected override int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {

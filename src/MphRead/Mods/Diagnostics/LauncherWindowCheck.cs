@@ -12,17 +12,40 @@ namespace MphRead.Mods.Diagnostics
         private static bool _active;
         private static bool _passed;
         private static int _frames;
+        private static bool _audio;
+        private static bool _match;
+        private static Scene? _closingScene;
 
         public static int Run()
         {
             _active = true;
             _passed = false;
             _frames = 0;
+            _closingScene = null;
+            _audio = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-audiocheck");
+            _match = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-matchclosecheck");
+            if (_match && !Launcher.GameFiles.Ready)
+            {
+                Console.Error.WriteLine("Match close check requires extracted game files.");
+                _active = false;
+                return 1;
+            }
             bool geometry = WindowGeometry.Enabled;
             WindowGeometry.Enabled = false;
             try
             {
                 bool ran = GuiLauncher.TryRun();
+                if (_match && (_closingScene?.Exiting != true
+                    || !MphRead.Sound.Sfx.ShutdownCompletion.IsCompletedSuccessfully))
+                {
+                    Console.Error.WriteLine("Match or OpenAL cleanup did not finish before window disposal.");
+                    _passed = false;
+                }
+                if ((_match || _audio) && MusicPlayer.Available)
+                {
+                    Console.Error.WriteLine("Music engine remained open after the window closed.");
+                    _passed = false;
+                }
                 Console.WriteLine(ran && _passed ? "Launcher window check passed." : "Launcher window check failed.");
                 return ran && _passed ? 0 : 1;
             }
@@ -41,6 +64,15 @@ namespace MphRead.Mods.Diagnostics
             {
                 if (_frames == 20)
                 {
+                    // No cartridge data required: exercise the process-wide
+                    // device also used by settings previews and match music.
+                    if (_audio)
+                    {
+                        if (!MphRead.MusicPlayer.Available)
+                            throw new InvalidOperationException("Audio device unavailable; audio close check cannot run.");
+                        MphRead.MusicPlayer.PlaybackDevice!.Start();
+                        Console.WriteLine("[windowcheck] audio device started");
+                    }
                     Console.WriteLine($"[windowcheck] {GL.GetString(StringName.Renderer)}; GL {GL.GetString(StringName.Version)}");
                     Link(Shaders.VertexShader, Shaders.FragmentShader);
                     Link(Shaders.RttVertexShader, Shaders.RttFragmentShader);
@@ -63,8 +95,27 @@ namespace MphRead.Mods.Diagnostics
                 var error = GL.GetError();
                 if (error != ErrorCode.NoError) throw new InvalidOperationException($"OpenGL error: {error}");
                 Console.WriteLine($"[windowcheck] rendered {width}x{height}, {lit} lit pixels");
-                if (_frames == 20) window.ClientSize = new Vector2i(1100, 740);
-                else { _passed = true; window.Close(); }
+                if (_frames == 20)
+                {
+                    window.ClientSize = new Vector2i(1100, 740);
+                    if (_match)
+                    {
+                        if (!Launcher.MatchStart.Begin(window, GameState.LoadSettings(), new Launcher.LaunchPlan
+                        {
+                            Kind = Launcher.LaunchKind.Offline, RoomKey = "MP3 PROVING GROUND",
+                            Mode = GameMode.Battle, Hunter = Hunter.Samus, PlayerName = "Close check"
+                        })) throw new InvalidOperationException("Match close check could not load its room.");
+                        UiSurface.Current?.Hide();
+                        Console.WriteLine("[windowcheck] match loaded");
+                    }
+                }
+                else
+                {
+                    if (_match && !window.HasScene) throw new InvalidOperationException("Match ended before close check.");
+                    if (_match) _closingScene = window.Scene;
+                    _passed = true;
+                    window.Close();
+                }
             }
             catch (Exception ex)
             {

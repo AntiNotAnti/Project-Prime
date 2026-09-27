@@ -33,6 +33,8 @@ namespace MphRead.Entities
 
         public void Draw()
         {
+            if (!_scene.Services.IsReplica && !Mods.Network.NetSession.Active)
+                ModCosmeticObserveAuthority(_health, 1, 1);
             Vector3 presentedPosition = default;
             bool presentedAlt = false;
             bool networkPresented = !_scene.Services.IsReplica && Mods.Network.NetSession.Active
@@ -41,7 +43,8 @@ namespace MphRead.Entities
                     SlotIndex, out presentedPosition, out presentedAlt);
             Vector3 drawPosition = networkPresented
                 ? Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt)
-                : _scene.Services.IsReplica ? ReplayDrawTransform.Row3.Xyz : Position;
+                : _scene.Services.IsReplica || (!Mods.Network.NetSession.Active && Mods.SpectatorMode.IsSpectating)
+                    ? ReplayDrawTransform.Row3.Xyz : Position;
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;
             Vector3 drawFacing = _scene.Services.IsReplica
@@ -126,7 +129,17 @@ namespace MphRead.Entities
                 drawBiped = !IsMainPlayer || CameraType != CameraType.First
                     || _scene.CameraSequences.Current != null
                     || _camSwitchTimer < Values.CamSwitchTime * 2; // todo: FPS stuff
-                if (drawAltForm)
+                if (drawAltForm && !drawAlive && _cosmeticDeath.Active
+                    && CosmeticDeathDefinition.WireId != 0 && Mods.RenderOptions.ShowCustomCosmetics
+                    && Mods.RenderOptions.CosmeticQuality != Mods.Cosmetics.CosmeticEffectQuality.Off)
+                {
+                    var deathTransform = _modelTransform;
+                    deathTransform.Row3.Xyz = drawPosition;
+                    UpdateTransforms(_altModel, deathTransform, Recolor);
+                    DrawCosmeticDeath(_altModel);
+                    Flags2 |= PlayerFlags2.DrawnThirdPerson;
+                }
+                else if (drawAltForm)
                 {
                     _modelTransform.Row3.Xyz = drawPosition;
                     if (_timeSinceDamage < Values.DamageFlashTime * 2) // todo: FPS stuff
@@ -160,6 +173,7 @@ namespace MphRead.Entities
                     {
                         DrawMorphBallTrail();
                     }
+                    DrawCosmeticArmor(_altModel.Model, true);
                     _modelTransform.Row3.Xyz = Vector3.Zero;
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
                 }
@@ -208,6 +222,9 @@ namespace MphRead.Entities
                     transform.Row0.Xyz *= scale;
                     transform.Row1.Xyz *= scale;
                     transform.Row2.Xyz *= scale;
+                    if (!drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime))
+                        transform = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(CosmeticDeathDefinition,
+                            _cosmeticDeath.Progress(_scene.ElapsedTime, CosmeticDeathDefinition)) * transform;
                     for (int i = 0; i < model.Nodes.Count; i++)
                     {
                         Node node = model.Nodes[i];
@@ -257,10 +274,11 @@ namespace MphRead.Entities
                             GetDrawItems(_bipedIceModel, _bipedIceModel.Model.Nodes[0], alpha: 1, recolor: 0);
                         }
                     }
+                    DrawCosmeticArmor(_bipedModel1.Model, false);
                     _modelTransform = transform;
                     if (_health == 0)
                     {
-                        DrawDeathParticles();
+                        if (!DrawCosmeticDeath()) DrawDeathParticles();
                     }
                     Flags2 |= PlayerFlags2.DrawnThirdPerson;
                 }
@@ -378,7 +396,7 @@ namespace MphRead.Entities
         }
 
         private void GetDrawItems(ModelInstance inst, Node node, float alpha, int polygonId = -1, int recolor = -1,
-            Vector4? overrideColor = null, Vector4? outlineColor = null)
+            Vector4? overrideColor = null, Vector4? outlineColor = null, bool cosmeticDeath = false)
         {
             if (alpha <= 0)
             {
@@ -407,21 +425,31 @@ namespace MphRead.Entities
                             material.CurrentAlpha * alpha, _scene.ShowTextures) : null;
                     SelectionType selectionType = SelectionType.None;
                     int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
+                    var previousCosmetic = _scene.CosmeticSubmission;
+                    var previousMaterial = _scene.CosmeticMaterialSubmission;
+                    if (Mods.RenderOptions.ShowCustomCosmetics && !BrightSkinStatusOverride && !BrightSkinFrozenOverlay
+                        && !ModMatchSpawnProtectionActive && _timeSinceDamage >= Values.DamageFlashTime * 2
+                        && !Mods.RenderOptions.BrightSkins && !_scene.GameState.Teams)
+                        _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(CosmeticAppearance.Skin, model, mesh.MaterialId,
+                            inst == _gunModel ? Mods.Cosmetics.SkinContext.ViewModel : IsAltForm ? Mods.Cosmetics.SkinContext.AltForm : Mods.Cosmetics.SkinContext.Biped);
+                    if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(inst == _gunModel);
                     _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix,
                         node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
                         PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,
                         color.HasValue && Mods.RenderOptions.BrightSkins
                             && Mods.RenderOptions.BrightSkinStyle != Mods.PlayerSkinStyle.Solid,
                         PaletteOverride == null ? outlineColor : null);
+                    _scene.CosmeticSubmission = previousCosmetic;
+                    _scene.CosmeticMaterialSubmission = previousMaterial;
                 }
                 if (node.ChildIndex != -1)
                 {
-                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor);
+                    GetDrawItems(inst, model.Nodes[node.ChildIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
                 }
             }
             if (node.NextIndex != -1)
             {
-                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor);
+                GetDrawItems(inst, model.Nodes[node.NextIndex], alpha, polygonId, recolor, overrideColor, outlineColor, cosmeticDeath);
             }
         }
 

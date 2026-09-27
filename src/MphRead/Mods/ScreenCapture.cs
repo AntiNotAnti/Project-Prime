@@ -114,6 +114,38 @@ namespace MphRead.Mods
             catch { ThumbnailSlots.Release(); throw; }
         }
 
+        internal static void QueueCosmeticThumbnail(int x, int y, int width, int height, string path)
+        {
+            if (File.Exists(path) || width <= 0 || height <= 0 || width > 2048 || height > 2048 || !ThumbnailSlots.Wait(0)) return;
+            try
+            {
+                byte[] pixels = new byte[width * height * 3];
+                GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
+                GL.ReadPixels(x, y, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
+                var writer = PngWriter;
+                _ = System.Threading.Tasks.Task.Run(() =>
+                {
+                    try
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                        lock (PngGate)
+                        {
+                            if (writer != null) writer(pixels, width, height, path);
+                            else
+                            {
+                                using var stream = File.Create(path);
+                                StbImage.FlipVerticallyOnSave = true;
+                                StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, stream);
+                            }
+                        }
+                    }
+                    catch (Exception ex) { Console.WriteLine("[cosmetic-thumbnail] " + ex.Message); }
+                    finally { ThumbnailSlots.Release(); }
+                });
+            }
+            catch { ThumbnailSlots.Release(); throw; }
+        }
+
         private delegate byte[]? ReadPixels(out int width, out int height);
 
         private static bool Save(Scene? scene, string path, ReadPixels read)

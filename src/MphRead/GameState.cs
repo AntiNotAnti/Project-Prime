@@ -1698,6 +1698,7 @@ namespace MphRead
                     {
                         Features.Load(settings.Features);
                     }
+                    Mods.Render.Hud.HudProfiles.Load(Path.Combine(_saveFolder, "hud-profiles"));
                     if (settings.MenuSettings != null)
                     {
                         MenuSettings menu = settings.MenuSettings;
@@ -1714,6 +1715,7 @@ namespace MphRead
                     }
                 }
             }
+            Mods.Render.Hud.HudProfiles.Load(Path.Combine(_saveFolder, "hud-profiles"));
             var defaults = new MenuSettings
             {
                 SettingsSchemaVersion = SettingsMigration.CurrentSchema

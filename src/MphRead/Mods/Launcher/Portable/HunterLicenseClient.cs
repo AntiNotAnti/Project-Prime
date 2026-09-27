@@ -206,6 +206,26 @@ namespace MphRead.Mods.Launcher
                     },
                     cancellationToken).ConfigureAwait(false);
 
+                foreach (var cosmetic in snapshot.Cosmetics)
+                    if (cosmetic.Hunter >= 0 && cosmetic.Hunter < 7)
+                        Cosmetics.CosmeticPersistence.MergeRemote((Hunter)cosmetic.Hunter,
+                            new(cosmetic.SkinKey, cosmetic.ArmorEffectKey, cosmetic.DeathEffectKey));
+                // Retry pending local equips during an explicit license sync.
+                for (int h = 0; h < 7; h++)
+                {
+                    if (!Cosmetics.CosmeticPersistence.IsPending((Hunter)h)) continue;
+                    var pending = Cosmetics.CosmeticPersistence.Get((Hunter)h);
+                    try
+                    {
+                        var saved = await FunctionAsync<HunterLicenseCosmetic>(session.AccessToken, "hunter-cosmetics",
+                            new Dictionary<string, object?> { ["hunter"] = h, ["skin_key"] = pending.SkinKey,
+                                ["armor_effect_key"] = pending.ArmorEffectKey, ["death_effect_key"] = pending.DeathEffectKey }, cancellationToken).ConfigureAwait(false);
+                        if (saved.Hunter == h && saved.SkinKey == pending.SkinKey && saved.ArmorEffectKey == pending.ArmorEffectKey && saved.DeathEffectKey == pending.DeathEffectKey)
+                            Cosmetics.CosmeticPersistence.MarkSynced((Hunter)h, pending);
+                    }
+                    catch (Exception ex) when (ex is not OperationCanceledException)
+                    { Console.WriteLine("[cosmetics] pending loadout remains local: " + FriendlyAction(ex)); }
+                }
                 snapshot.Connected = true;
                 snapshot.Account = AccountOf(user);
                 snapshot.Status = snapshot.Account.IsSecure
@@ -224,6 +244,30 @@ namespace MphRead.Mods.Launcher
             {
                 Gate.Release();
             }
+        }
+
+        public static async Task<HunterLicenseActionResult> UpdateCosmeticAsync(Hunter hunter,
+            Cosmetics.CosmeticLoadout loadout, CancellationToken cancellationToken = default)
+        {
+            loadout = Cosmetics.CosmeticCatalog.Resolve(hunter, loadout);
+            // Local equip is durable before HTTPS; failure never unequips it.
+            Cosmetics.CosmeticPersistence.Equip(hunter, loadout);
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                AuthSession session = await AuthenticateAsync(cancellationToken).ConfigureAwait(false);
+                var result = await FunctionAsync<HunterLicenseCosmetic>(session.AccessToken, "hunter-cosmetics",
+                    new Dictionary<string, object?> { ["hunter"] = (int)hunter,
+                        ["skin_key"] = loadout.SkinKey, ["armor_effect_key"] = loadout.ArmorEffectKey,
+                        ["death_effect_key"] = loadout.DeathEffectKey }, cancellationToken).ConfigureAwait(false);
+                if (result.Hunter != (int)hunter || result.SkinKey != loadout.SkinKey
+                    || result.ArmorEffectKey != loadout.ArmorEffectKey || result.DeathEffectKey != loadout.DeathEffectKey)
+                    return HunterLicenseActionResult.Fail("LOCAL / NOT SYNCED — server returned a different loadout");
+                Cosmetics.CosmeticPersistence.MarkSynced(hunter, loadout);
+                return HunterLicenseActionResult.Ok("EQUIPPED / SYNCED");
+            }
+            catch (Exception ex) { return HunterLicenseActionResult.Fail("LOCAL / NOT SYNCED — " + FriendlyAction(ex)); }
+            finally { Gate.Release(); }
         }
 
         /// <summary>

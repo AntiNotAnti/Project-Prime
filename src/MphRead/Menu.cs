@@ -31,6 +31,10 @@ namespace MphRead
         public string FhVersion { get; set; } = "AMFE0";
         public string Language { get; set; } = "English";
         public string SfxVolume { get; set; } = "0.35";
+        public string PlayerVolume { get; set; } = "1";
+        public string WeaponVolume { get; set; } = "1";
+        public string NotificationVolume { get; set; } = "1";
+        public string EffectsVolume { get; set; } = "1";
         public string MusicVolume { get; set; } = "0.50";
         public string ResolutionScale { get; set; } = "100";
         public string FieldOfView { get; set; } = "78";
@@ -69,6 +73,8 @@ namespace MphRead
         public string InternalHdr { get; set; } = "off";
         public string Reflections { get; set; } = "off";
         public string DynamicGlow { get; set; } = "off";
+        public string ShowCustomCosmetics { get; set; } = "on";
+        public string CosmeticQuality { get; set; } = "medium";
         public string TextureReplacements { get; set; } = "off";
         public string PointGoal { get; set; } = "7";
         public string TimeLimit { get; set; } = "7:00";
@@ -257,6 +263,7 @@ namespace MphRead
                 {
                     _language = result;
                 }
+                Mods.GameSettings.ApplyAudioChannels(settings);
                 if (Decimal.TryParse(settings.SfxVolume, out decimal sfxVolume))
                 {
                     _sfxVolume = sfxVolume;
@@ -589,6 +596,10 @@ namespace MphRead
                     Language = _language.ToString(),
                     SfxVolume = _sfxVolume.ToString(),
                     MusicVolume = _musicVolume.ToString(),
+                    PlayerVolume = AudioMixer.GetVolume(AudioBus.Player).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    WeaponVolume = AudioMixer.GetVolume(AudioBus.Weapons).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    NotificationVolume = AudioMixer.GetVolume(AudioBus.Notifications).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                    EffectsVolume = AudioMixer.GetVolume(AudioBus.SoundEffects).ToString(System.Globalization.CultureInfo.InvariantCulture),
                     PointGoal = _pointGoal.ToString(),
                     TimeLimit = FormatTime(_timeLimit),
                     TimeGoal = FormatTime(_timeGoal),

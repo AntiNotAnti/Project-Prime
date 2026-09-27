@@ -285,6 +285,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModResetDrawState()
         {
+            if (this is PlayerEntity radarPlayer) radarPlayer.ModResetRadarHistory();
             _drawPrevious = _drawCurrent = _transform;
             _drawStateValid = true;
         }
@@ -296,6 +297,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModCaptureDrawState()
         {
+            if (this is PlayerEntity radarPlayer) radarPlayer.ModCaptureRadarHistory();
             Matrix4 current = _transform;
             if (!_drawStateValid
                 || (current.Row3.Xyz - _drawCurrent.Row3.Xyz).LengthSquared > 16f)
@@ -315,7 +317,8 @@ namespace MphRead.Entities
         /// </summary>
         internal Matrix4 ReplayDrawTransform => ModDrawTransform();
         internal Vector3 SimulationDrawPosition => !_drawStateValid ? Position
-            : Vector3.Lerp(_drawPrevious.Row3.Xyz, _drawCurrent.Row3.Xyz, _scene.ReplayRenderAlpha);
+            : Vector3.Lerp(_drawPrevious.Row3.Xyz, _drawCurrent.Row3.Xyz,
+                _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : (float)Mods.Render.FrameTiming.PresentationAlpha);
         protected Matrix4 ModDrawTransform()
         {
             Matrix4 transform = SimulationDrawTransform();
@@ -444,6 +447,8 @@ namespace MphRead.Entities
             return new LightInfo(_scene.Light1Vector, _scene.Light1Color, _scene.Light2Vector, _scene.Light2Color);
         }
 
+        protected virtual Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index) => default;
+
         protected virtual int? GetBindingOverride(ModelInstance inst, Material material, int index)
         {
             return null;
@@ -511,10 +516,13 @@ namespace MphRead.Entities
                         Vector4? color = GetRenderColor(inst, index, material);
                         SelectionType selectionType = Selection.CheckSelection(this, inst, node, mesh);
                         int? bindingOverride = GetBindingOverride(inst, material, mesh.MaterialId);
+                        var previousCosmeticMaterial = _scene.CosmeticMaterialSubmission;
+                        _scene.CosmeticMaterialSubmission = GetCosmeticMaterialOverride(inst, material, mesh.MaterialId);
                         _scene.AddRenderItem(material, polygonId, Alpha, emission, lightInfo ?? GetLightInfo(), texcoordMatrix,
                             node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
                             PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,
                             UseTexturedPlayerSkin(inst), GetPlayerOutlineColor(inst));
+                        _scene.CosmeticMaterialSubmission = previousCosmeticMaterial;
                     }
                     if (node.ChildIndex != -1)
                     {

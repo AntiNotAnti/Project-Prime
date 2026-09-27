@@ -12,7 +12,7 @@ internal sealed class ReplayRecorder
     internal event Action? Resetting;
     internal event Action<ReplayTimelineRecord>? CheckpointCaptured;
     private readonly ReplayAuthorityWire _worldWire = new();
-    private ReplayTimelineRecord? _match, _roster, _snapshot, _configuration;
+    private ReplayTimelineRecord? _match, _roster, _snapshot, _configuration, _cosmetics;
     private readonly ReplayTimelineRecord?[] _intents = new ReplayTimelineRecord?[RosterPacket.MaxSlots];
     private ushort _matchId;
     private ulong _epoch;
@@ -23,6 +23,7 @@ internal sealed class ReplayRecorder
         Resetting?.Invoke();
         _worldWire.Reset();
         Timeline.Reset();
+        _cosmetics?.Release(); _cosmetics = null;
         _match?.Release(); _roster?.Release(); _snapshot?.Release(); _configuration?.Release();
         foreach (var intent in _intents) intent?.Release();
         _match = _roster = _snapshot = _configuration = null;
@@ -47,6 +48,12 @@ internal sealed class ReplayRecorder
         _roster?.Release();
         _roster = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Roster, bytes);
         Publish(_roster.Value);
+    }
+    public void AcceptCosmetics(ReadOnlySpan<byte> packet, uint frame)
+    {
+        _cosmetics?.Release();
+        _cosmetics = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Presentation, packet);
+        Publish(_cosmetics.Value);
     }
     public void AcceptConfiguration(in SessionStatePacket configuration, uint frame)
     {
@@ -92,6 +99,7 @@ internal sealed class ReplayRecorder
             {
                 var records = new List<ReplayTimelineRecord> { _match.Value, _roster.Value, _snapshot.Value };
                 if (_configuration != null) records.Insert(0, _configuration.Value);
+                if (_cosmetics != null) records.Add(_cosmetics.Value);
                 // Preserve held input only for an occupant/life actually present
                 // in this baseline. Old firing state must not cross a respawn.
                 for (int i = 0; i < header.PlayerCount; i++)
@@ -139,6 +147,7 @@ internal sealed class ReplayRecorder
         if (_configuration is { } configuration) accept(configuration);
         if (_roster is { } roster) accept(roster);
         if (_snapshot is { } snapshot) accept(snapshot);
+        if (_cosmetics is { } cosmetics) accept(cosmetics);
         foreach (var intent in _intents) if (intent is { } record) accept(record);
     }
 
@@ -167,6 +176,7 @@ internal sealed class ReplayRecorder
         // the World record is allowed to restore a replica scene.
         var records = new List<ReplayTimelineRecord> { _match.Value, _roster.Value, _snapshot.Value };
         if (_configuration != null) records.Insert(0, _configuration.Value);
+        if (_cosmetics != null) records.Add(_cosmetics.Value);
         records.Add(world);
         try
         {

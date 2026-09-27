@@ -121,6 +121,31 @@ internal static class HitReactionPresentationCheck
             player.ModResetFirstPersonDrawState();
             Pose(forward, shaken);
             Check(Near(Render(0).Cannon, Render(1).Cannon), "60 Hz keeps the current pose");
+            Vector3 ObservedCannon(double alpha)
+            {
+                player.ModPrepareObservedFirstPersonViewmodel(alpha,
+                    Vector3.Zero, forward, Vector3.UnitY, 78,
+                    Matrix4.LookAt(Vector3.Zero, forward, Vector3.UnitY));
+                player.ModGetFirstPersonGunTransform(out var gun);
+                return gun.Row2.Xyz.Normalized();
+            }
+            Vector3 observedStart = ObservedCannon(0), observedEnd = ObservedCannon(1);
+            Check(!Near(observedStart, observedEnd)
+                && !Near(ObservedCannon(.5), observedStart)
+                && !Near(ObservedCannon(.5), observedEnd),
+                "60 Hz observed slow motion interpolates cannon between recorded poses");
+            // Network aim may correct the camera position after Update cached
+            // Facing. Capturing the cannon must use the final camera endpoints.
+            Pose(forward, forward);
+            player.CameraInfo.Position = new Vector3(.2f, .1f, 0);
+            player.ModResetFirstPersonDrawState();
+            var correctedView = Matrix4.LookAt(player.CameraInfo.Position,
+                player.CameraInfo.Target, Vector3.UnitY);
+            player.ModPrepareObservedFirstPersonViewmodel(1, player.CameraInfo.Position,
+                player.CameraInfo.Target, Vector3.UnitY, 78, correctedView);
+            player.ModGetFirstPersonGunTransform(out var correctedGun);
+            Check(Near(correctedGun.Row2.Xyz.Normalized(), forward),
+                "observed cannon uses corrected camera endpoints instead of stale facing");
             Vector3 savedTarget = player.CameraInfo.Target;
             Vector3 savedAim = player.ModGunVector;
             uint savedRng = scene.Random.Rng2;

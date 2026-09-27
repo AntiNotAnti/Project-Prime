@@ -407,7 +407,7 @@ namespace MphRead.Mods.Sound
                     }
                 }
                 player.Play(Math.Clamp(
-                    Sfx.Volume * LauncherPrefs.CombatFeedbackVolume, 0, 1.5f));
+                    Sfx.Volume * AudioMixer.GetVolume(AudioBus.Notifications) * LauncherPrefs.CombatFeedbackVolume, 0, 1.5f));
             }
         }
 

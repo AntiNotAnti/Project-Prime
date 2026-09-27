@@ -731,6 +731,7 @@ namespace MphRead.Mods.Network
                 RejectedUpdates++;
                 return;
             }
+            player.ModCosmeticObserveAuthority(state.Health, state.LifeId, state.SlotGeneration);
             bool fresh = !_lifeApplied[slot] || _appliedLifeId[slot] != state.LifeId;
             if (fresh) BeginRemoteLife(player, state);
             // Spawn() necessarily starts a local timer when a new life is

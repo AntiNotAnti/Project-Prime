@@ -64,6 +64,7 @@ namespace MphRead.Mods.Launcher.Gui
         private DragTarget _dragTarget;
         private uint _duration;
         private uint _current;
+        private uint? _scrubFrame;
         private uint? _markIn;
         private uint? _markOut;
         private IReadOnlyList<ReplayEvent> _events = Array.Empty<ReplayEvent>();
@@ -105,7 +106,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if (marker.Frame <= duration && EventVisible(marker)) _density[marker.Frame / _bucketFrames]++;
             }
             _duration = duration;
-            _current = Math.Min(current, duration);
+            _current = Math.Min(_scrubFrame ?? current, duration);
             _markIn = markIn;
             _markOut = markOut;
             _events = events;
@@ -123,6 +124,8 @@ namespace MphRead.Mods.Launcher.Gui
             base.Render(context);
             double width = Math.Max(1, Bounds.Width);
             double height = Math.Max(1, Bounds.Height);
+            // Make gaps between lanes and the scrub track pointer targets too.
+            context.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, width, height));
             (uint first, uint last) = Window();
             uint span = Math.Max(1, last - first);
 
@@ -254,6 +257,7 @@ namespace MphRead.Mods.Launcher.Gui
                 context.DrawLine(PlayheadPen, new Point(x, 3),
                     new Point(x, height - 3));
                 context.DrawEllipse(PlayheadBrush, null, new Point(x, 5), 3, 3);
+                context.DrawEllipse(PlayheadBrush, null, new Point(x, trackY), 5, 5);
             }
         }
 
@@ -307,11 +311,13 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             Focus();
             double x = e.GetPosition(this).X;
             _dragWindow = Window(); _dragAnchor = FrameAt(x);
             _rangeIn = _markIn ?? 0; _rangeOut = _markOut ?? 0;
-            _dragTarget = PickDragTarget(x);
+            _dragTarget = e.GetPosition(this).Y >= Bounds.Height - 22
+                ? PickDragTarget(x) : DragTarget.Playhead;
             if (e.GetPosition(this).Y < 14)
             {
                 uint? key = _cameraKeys.Cast<uint?>().OrderBy(k => DistanceTo(k, x)).FirstOrDefault();
@@ -346,21 +352,32 @@ namespace MphRead.Mods.Launcher.Gui
             Request(_dragTarget, e.GetPosition(this).X);
             if (_dragTarget == DragTarget.Camera && _cameraFrame != _cameraDestination)
                 CameraMoved?.Invoke(_cameraFrame, _cameraDestination);
-            _dragTarget = DragTarget.None; _dragWindow = null;
+            _dragTarget = DragTarget.None; _dragWindow = null; _scrubFrame = null;
             e.Pointer.Capture(null);
             e.Handled = true;
         }
 
         protected override void OnPointerCaptureLost(PointerCaptureLostEventArgs e)
         {
-            _dragTarget = DragTarget.None; _dragWindow = null;
+            _dragTarget = DragTarget.None; _dragWindow = null; _scrubFrame = null;
             base.OnPointerCaptureLost(e);
         }
 
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
         {
             base.OnPointerWheelChanged(e);
-            Zoom = Math.Clamp(Zoom * (e.Delta.Y > 0 ? 1.35 : 1 / 1.35), 1, 16);
+            if (_dragTarget != DragTarget.None) { e.Handled = true; return; }
+            if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+            {
+                if (e.Delta.Y != 0)
+                    Zoom = Math.Clamp(Zoom * (e.Delta.Y > 0 ? 1.35 : 1 / 1.35), 1, 16);
+            }
+            else
+            {
+                double delta = e.Delta.X != 0 ? e.Delta.X : e.Delta.Y;
+                _current = (uint)Math.Clamp(_current + delta * 60, 0, _duration);
+                FrameRequested?.Invoke(_current);
+            }
             InvalidateVisual();
             e.Handled = true;
         }
@@ -415,9 +432,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             uint frame = FrameAt(x);
             ShowHover(frame);
-            // Snap to confirmed events within six pixels; otherwise retain exact frame precision.
-            foreach (var marker in _events)
-                if (EventVisible(marker) && DistanceTo(marker.Frame, x) <= 6) { frame = marker.Frame; break; }
+            // Editing handles snap to events; the playhead always keeps exact frame precision.
+            if (target != DragTarget.Playhead)
+                foreach (var marker in _events)
+                    if (EventVisible(marker) && DistanceTo(marker.Frame, x) <= 6) { frame = marker.Frame; break; }
             switch (target)
             {
                 case DragTarget.Range:
@@ -434,6 +452,8 @@ namespace MphRead.Mods.Launcher.Gui
                     MarkOutRequested?.Invoke(frame);
                     break;
                 case DragTarget.Playhead:
+                    if (_scrubFrame == frame) break;
+                    _scrubFrame = _current = frame;
                     FrameRequested?.Invoke(frame);
                     break;
             }

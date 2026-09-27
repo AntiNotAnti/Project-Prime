@@ -72,6 +72,7 @@ namespace MphRead.Mods.Network
         PeerTiming = 43,     // client -> authority, bounded presentation-delay diagnostic
         WorldBootstrap = 46, WorldReady = 47, SnapshotFast = 48, PlayerSlowState = 49, WorldState = 50,
         ReplayWorld = 42,    // optional authority -> recorder facts; no live gameplay effects
+        CosmeticState = 53, // optional, catalog IDs only; fixed legacy packets unchanged
         CareerIdentity = 41, // client -> server, short-lived career attribution ticket
         MapDone = 35,        // client -> server, "I have it and it hashes right"
     }

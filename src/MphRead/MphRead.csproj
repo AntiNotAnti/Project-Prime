@@ -250,6 +250,7 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="hud-ui-check" />
   </ItemGroup>
 
   <ItemGroup>
@@ -315,4 +316,9 @@
     </None>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Assets/Cosmetics/**/*.png">
+      <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
+    </EmbeddedResource>
+  </ItemGroup>
 </Project>

@@ -25,7 +25,8 @@ namespace MphRead.Entities
         // the generic draw interpolation; the local view uses render-time
         // late latching below.
         protected override bool InterpolateDrawTransform
-            => _scene.Services.IsReplica || (!IsMainPlayer && !NetSession.Active);
+            => _scene.Services.IsReplica
+                || (!NetSession.Active && (!IsMainPlayer || Mods.SpectatorMode.IsSpectating));
 
         internal bool ModReplayPresentationCamera(double alpha, out Matrix4 view,
             out Vector3 position, out float fov)
@@ -78,6 +79,18 @@ namespace MphRead.Entities
                 replicaTarget += translation;
             }
 
+            else if (!_scene.Services.IsReplica && NetSession.Active
+                && SlotIndex != NetHooks.LocalSlot
+                && NetSmoothing.SamplePresentation(SlotIndex, out Vector3 presented, out bool alt))
+            {
+                // The body uses the network playout clock. Keep the watched
+                // camera on that same position, including third-person alt form.
+                Vector3 translation = _scene.PlayerReplication.InFormFor(this, presented, alt)
+                    - SimulationDrawPosition;
+                replicaPosition += translation;
+                replicaTarget += translation;
+            }
+
             position = replicaPosition;
             fov = replicaFov;
             view = Matrix4.LookAt(replicaPosition, replicaTarget, replicaUp);
@@ -104,7 +117,7 @@ namespace MphRead.Entities
                 || !ModInterpolatedFirstPersonLocalPose(
                     presentationAlpha,
                     out Vector3 gunLocalPosition, out Vector3 gunLocalFacing,
-                    out Vector3 gunLocalUp))
+                    out Vector3 gunLocalUp, interpolate: true))
             {
                 return false;
             }
@@ -321,7 +334,9 @@ namespace MphRead.Entities
             position = Vector3.Zero;
             facing = Vector3.UnitZ;
             up = Vector3.UnitY;
-            if (!ModPresentationBasis(CameraInfo.Facing, ModCameraUpHint(),
+            // Replicated aim can move Position after CameraInfo.Update. Use
+            // the endpoints captured by camera interpolation, not cached Facing.
+            if (!ModPresentationBasis(CameraInfo.Target - CameraInfo.Position, ModCameraUpHint(),
                     out Vector3 right, out Vector3 cameraUp, out Vector3 cameraForward))
             {
                 return false;
@@ -390,14 +405,14 @@ namespace MphRead.Entities
         }
 
         private bool ModInterpolatedFirstPersonLocalPose(double presentationAlpha,
-            out Vector3 position, out Vector3 facing, out Vector3 up)
+            out Vector3 position, out Vector3 facing, out Vector3 up, bool interpolate = false)
         {
             if (!_fpDrawStateValid)
             {
                 return ModCurrentFirstPersonLocalPose(out position, out facing, out up);
             }
 
-            float t = Mods.Render.FrameTiming.HighRefreshPresentation
+            float t = interpolate || Mods.Render.FrameTiming.HighRefreshPresentation
                 ? (float)Math.Clamp(presentationAlpha, 0.0, 1.0)
                 : 1f;
             // These are camera-local visual offsets, not world-space aim.

@@ -130,12 +130,28 @@ namespace MphRead.Mods.Network
             byte[] rosterBytes = new byte[1 + RosterPacket.Size];
             rosterBytes[0] = (byte)PacketType.Roster; roster.Write(rosterBytes.AsSpan(1));
             packets.Add(rosterBytes);
+            if (match is { } cosmeticMatch)
+            {
+                byte[] cosmetics = new byte[1 + Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
+                cosmetics[0] = (byte)PacketType.CosmeticState;
+                int size = NetCosmetics.Live.Write(cosmetics.AsSpan(1), cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch);
+                if (size > 0) packets.Add(cosmetics.AsSpan(0, size + 1).ToArray());
+            }
             if (_snapshotLength > 0) packets.Add(Snapshot.AsSpan(0, _snapshotLength).ToArray());
             return new ReplayMetadata
             {
                 Type = type, RoomKey = room, Mode = (GameMode)(match?.Mode ?? 0), MapHash = _mapHash,
                 Players = players, Bootstrap = new ReplayBootstrap { Packets = packets }
             };
+        }
+
+        internal static void AcceptedCosmetics()
+        {
+            if (DemoPlayback.IsActive || NetSession.ServerMatch is not { } match) return;
+            Span<byte> bytes = stackalloc byte[1 + Entities.PlayerEntity.SlotCapacity * CosmeticStatePacket.Size];
+            bytes[0] = (byte)PacketType.CosmeticState;
+            int length = NetCosmetics.Live.Write(bytes[1..], match.MatchId, match.AuthorityEpoch);
+            if (length > 0) Recorder.AcceptCosmetics(bytes[..(length + 1)], NetSession.NetFrame);
         }
 
         internal static void AcceptedMatch(in MatchStatePacket state)

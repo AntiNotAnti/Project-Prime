@@ -179,8 +179,10 @@ namespace MphRead.Mods.Launcher.Gui
                 OpenStudioOnStart = false;
                 // Both own a worker thread and a bound socket; leaving the
                 // program must not leave either behind.
+                Mods.DebugLog.Line("shutdown", "stopping network session");
                 NetSession.Stop();
                 NetHostSession.Stop();
+                Mods.DebugLog.Line("shutdown", "network session stopped");
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
@@ -189,7 +191,9 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 _front?.Dispose();
                 _front = null;
+                Mods.DebugLog.Line("shutdown", "disposing native window");
                 window?.Dispose();
+                Mods.DebugLog.Line("shutdown", "native window disposed");
             }
         }
 

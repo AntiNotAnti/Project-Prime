@@ -39,6 +39,17 @@ namespace MphRead.Mods.Launcher.Gui
                     _router.Reset(); Changed?.Invoke(); return;
                 }
             }
+            if (_keyboard == null && !GamepadContexts.Capturing)
+            {
+                var hudStudio=root as HudStudioView ?? root.GetVisualDescendants().OfType<HudStudioView>().FirstOrDefault(s=>s.IsEffectivelyVisible);
+                if(hudStudio!=null)
+                {
+                    hudStudio.HandleControllerAxes(snapshot,Environment.TickCount64);
+                    // HUD Studio owns sticks; D-pad continues to navigate controls.
+                    var menuState=snapshot.State; menuState.LeftX=menuState.LeftY=0;
+                    snapshot=snapshot with { State=menuState };
+                }
+            }
             _router.Update(snapshot, GamepadContexts.Capturing
                 ? GamepadContext.BindingCapture : GamepadContext.Menu, Environment.TickCount64);
         }
@@ -54,6 +65,11 @@ namespace MphRead.Mods.Launcher.Gui
                 if (action == UiAction.Accept || (action == UiAction.Back
                     && GamepadManager.Snapshot.State.Down(GamepadButtons.Start))) startup.Continue();
                 return;
+            }
+            if (_keyboard == null)
+            {
+                var hudStudio = root as HudStudioView ?? root.GetVisualDescendants().OfType<HudStudioView>().FirstOrDefault(s => s.IsEffectivelyVisible);
+                if (hudStudio?.HandleController(action) == true) return;
             }
             var focused = FocusNavigator.Ensure(root);
             if (focused == null) return;

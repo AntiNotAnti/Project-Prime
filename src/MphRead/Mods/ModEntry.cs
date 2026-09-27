@@ -168,6 +168,29 @@ namespace MphRead.Mods
 
             // Graphics presets, settings migration and source-texture enhancement
             // are deterministic and need neither a display nor extracted game data.
+#if MPHREAD_SHELL
+            if (ValueAfter(args, "hudradarpreview") is string radarOutput)
+            {
+                Environment.ExitCode = Launcher.Gui.HudStudioPreview.ExportRadar(radarOutput);
+                return true;
+            }
+            if (ValueAfter(args, "hudpreview") is string hudOutput)
+            {
+                Environment.ExitCode = Launcher.Gui.HudStudioPreview.Export(hudOutput);
+                return true;
+            }
+            if (ValueAfter(args, "cosmeticpreviewcheck") is string cosmeticOutput)
+            {
+                Environment.ExitCode = Cosmetics.CosmeticPreviewCheck.Run(cosmeticOutput);
+                return true;
+            }
+#endif
+            if (HasFlag(args, "cosmeticscheck"))
+            {
+                Environment.ExitCode = Cosmetics.CosmeticsCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "hudmetrics")) Render.Hud.HudDrawMetrics.Enable();
             if (HasFlag(args, "graphicscheck"))
             {
                 Environment.ExitCode = Render.GraphicsOptionsCheck.Run();
@@ -1929,6 +1952,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Network.ReplayWorldCoverageCheck.Run(worldSource, ValueAfter(args, "output"));
                 return true;
             }
+            if (ValueAfter(args, "radarcheck") is string radarFixtures)
+            {
+                Environment.ExitCode = Render.HudRadarRuntimeCheck.Run(radarFixtures);
+                return true;
+            }
             if (ValueAfter(args, "replayreplicacheck") is string replicaPath)
             {
                 Environment.ExitCode = Network.ReplayReplicaCheck.Run(replicaPath, ValueAfter(args, "shots"));
@@ -2064,6 +2092,14 @@ namespace MphRead.Mods
         /// </summary>
         private static void ApplyRenderOverrides(string[] args)
         {
+            Cosmetics.CosmeticDebug.Apply(args);
+            // Reproducible preset previews without rewriting saved settings.
+            string? graphicsPreset = ValueAfter(args, "graphicspreset");
+            if (Enum.TryParse(graphicsPreset, ignoreCase: true, out GraphicsPreset preset)
+                && Enum.IsDefined(preset))
+            {
+                RenderOptions.ApplyGraphicsPreset(preset);
+            }
             string? cel = ValueAfter(args, "cel");
             if (cel != null && !cel.StartsWith('-'))
             {
@@ -2166,6 +2202,35 @@ namespace MphRead.Mods
             {
                 Render.Crosshair.Size = Render.Crosshair.ParseSize(crosshairSize,
                     Render.Crosshair.Size);
+            }
+            if (crosshair != null || crosshairSize != null)
+            {
+                var profile = Render.Hud.HudProfiles.CopyCurrent();
+                profile.Crosshair = Render.Hud.CrosshairProfile.FromLegacy(Render.Crosshair.Style, Render.Crosshair.Size);
+                profile.Mode = Features.ProHud ? Render.Hud.HudMode.ProjectPrime : Render.Hud.HudMode.Classic;
+                profile.FixedWeapon = Features.ProHudFixedWeapon;
+                Render.Hud.HudProfiles.Publish(profile);
+            }
+            string? hudProfileName = ValueAfter(args, "hudprofile");
+            if (hudProfileName != null && !hudProfileName.StartsWith('-'))
+            {
+                try
+                {
+                    var profile = Array.Exists(Render.Hud.HudProfileDefaults.Presets, p => p == hudProfileName)
+                        ? Render.Hud.HudProfileDefaults.Create(hudProfileName)
+                        : Render.Hud.HudProfiles.LoadNamed(hudProfileName, System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory,"Savedata","hud-profiles"));
+                    Render.Hud.HudProfiles.Publish(profile);
+                }
+                catch (Exception ex) when (Render.Hud.HudProfileStore.Recoverable(ex) || ex is InvalidOperationException)
+                { DebugLog.Line("hud", "Could not load requested HUD profile: " + ex.Message); }
+            }
+            string? crosshairProfileName = ValueAfter(args, "crosshairprofile");
+            int crosshairPresetIndex = Array.FindIndex(Render.Hud.CrosshairPresets.Names, p => string.Equals(p, crosshairProfileName, StringComparison.OrdinalIgnoreCase));
+            if (crosshairPresetIndex >= 0)
+            {
+                var profile = Render.Hud.HudProfiles.CopyCurrent();
+                profile.Crosshair = Render.Hud.CrosshairPresets.Create(crosshairPresetIndex);
+                Render.Hud.HudProfiles.Publish(profile);
             }
             // The round radar overlay. On by default and reachable from
             // Settings -> Game -> HUD; these are for the screenshot

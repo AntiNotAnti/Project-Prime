@@ -20,8 +20,9 @@ namespace MphRead.Mods.Render
     /// tracker" until asked otherwise; it sat on the same page as the
     /// "Hunter radar" match rule for that reason, and now does not). Also
     /// reachable from the command line (<c>-radar on</c>) for screenshot
-    /// commands that open no launcher. Used to offer a choice of four
-    /// looks; cut down to the one that stuck, on request.
+    /// commands that open no launcher. Enhanced presentation is owned by
+    /// HudRadarProfile; this class remains the legacy settings and palette
+    /// compatibility boundary.
     /// </summary>
     public static class Radar
     {

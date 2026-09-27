@@ -32,6 +32,10 @@ namespace MphRead
                 Mods.CrashReport.Report(ex, "startup");
                 Environment.ExitCode = 1;
             }
+            finally
+            {
+                Sound.AudioLifetime.Shutdown();
+            }
         }
 
         private static void Run(string[] args)

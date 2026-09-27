@@ -121,6 +121,7 @@ namespace MphRead.Mods
             if (!IsSpectating || slot < 0 || slot >= Registry.Items.Count) return;
             var player = Registry.Items[slot];
             if (!player.LoadFlags.TestFlag(LoadFlags.Active) || !player.LoadFlags.TestFlag(LoadFlags.Spawned)) return;
+            _cameraRequest = false;
             Switch(slot);
             Network.ReplayController.NoteInput();
         }

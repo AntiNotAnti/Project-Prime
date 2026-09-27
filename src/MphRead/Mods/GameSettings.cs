@@ -34,9 +34,21 @@ namespace MphRead.Mods
         /// </summary>
         public static MenuSettings? Current { get; private set; }
 
+        public static void ApplyAudioChannels(MenuSettings settings)
+        {
+            if (TryVolume(settings.EffectsVolume, out float effectsGain))
+                AudioMixer.SetVolume(AudioBus.SoundEffects, effectsGain);
+            if (TryVolume(settings.NotificationVolume, out float notificationGain))
+                AudioMixer.SetVolume(AudioBus.Notifications, notificationGain);
+            if (TryVolume(settings.WeaponVolume, out float weaponGain))
+                AudioMixer.SetVolume(AudioBus.Weapons, weaponGain);
+            if (TryVolume(settings.PlayerVolume, out float playerGain))
+                AudioMixer.SetVolume(AudioBus.Player, playerGain);
+        }
+
         /// <summary>
         /// Apply everything that can be applied the moment it changes: the
-        /// two volumes and the text language.
+        /// audio mixer and the text language.
         ///
         /// Called when the launcher loads the file and again whenever the
         /// settings window commits, which is what makes the music slider take
@@ -45,6 +57,7 @@ namespace MphRead.Mods
         public static void Apply(MenuSettings settings)
         {
             Current = settings;
+            ApplyAudioChannels(settings);
             if (TryVolume(settings.SfxVolume, out float sfx))
             {
                 Sfx.Volume = sfx;
@@ -132,6 +145,9 @@ namespace MphRead.Mods
                 RenderOptions.Reflections);
             RenderOptions.DynamicGlow = RenderOptions.ParseOnOff(settings.DynamicGlow,
                 RenderOptions.DynamicGlow);
+            RenderOptions.ShowCustomCosmetics = RenderOptions.ParseOnOff(settings.ShowCustomCosmetics, true);
+            RenderOptions.CosmeticQuality = Enum.TryParse<Cosmetics.CosmeticEffectQuality>(settings.CosmeticQuality, true, out var cosmeticQuality)
+                && Enum.IsDefined(cosmeticQuality) ? cosmeticQuality : Cosmetics.CosmeticEffectQuality.Medium;
             RenderOptions.TextureReplacements = RenderOptions.ParseOnOff(settings.TextureReplacements,
                 RenderOptions.TextureReplacements);
             if (Enum.TryParse(settings.TextureUpscale, true, out TextureUpscaleMode textureUpscale))

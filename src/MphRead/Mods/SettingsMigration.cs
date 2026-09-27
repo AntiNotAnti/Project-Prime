@@ -116,6 +116,10 @@ namespace MphRead.Mods
                 TextureUpscaleMode.Off, "texture upscaling", changed);
 
             settings.SfxVolume = NormalizeVolume(settings.SfxVolume, 0.35f, "sfx volume", changed);
+            settings.PlayerVolume = NormalizeVolume(settings.PlayerVolume, 1f, "player volume", changed);
+            settings.WeaponVolume = NormalizeVolume(settings.WeaponVolume, 1f, "weapon volume", changed);
+            settings.NotificationVolume = NormalizeVolume(settings.NotificationVolume, 1f, "notification volume", changed);
+            settings.EffectsVolume = NormalizeVolume(settings.EffectsVolume, 1f, "effects volume", changed);
             settings.MusicVolume = NormalizeVolume(settings.MusicVolume, 0.50f, "music volume", changed);
 
             if (settings.SettingsSchemaVersion != CurrentSchema)
