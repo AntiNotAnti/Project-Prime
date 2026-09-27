@@ -173,28 +173,22 @@ namespace MphRead.Mods.Input
                     out _, out _),
                 "precision swipe preserves high-speed boost or impact momentum");
 
-            // Rolling movement owns a virtual camera-relative yaw. A physical
-            // camera correction can ask it to turn, never teleport it.
-            var yawStep = AltFormControlBasis.Step(0, -1, 1, 0,
-                movementHeld: true, collisionTight: false);
-            Require(Math.Abs(AltFormControlBasis.YawDegrees(yawStep.X, yawStep.Z) - 168f) < 0.01f,
-                "held alt movement caps a 90 degree camera jump to 12 degrees");
-            var tightYawStep = AltFormControlBasis.Step(0, -1, 1, 0,
-                movementHeld: true, collisionTight: true);
-            Require(Math.Abs(AltFormControlBasis.YawDegrees(tightYawStep.X, tightYawStep.Z) - 176f) < 0.01f,
-                "collision tightens held alt yaw to four degrees");
-            var reverseYawStep = AltFormControlBasis.Step(0, -1, 0, 1,
-                movementHeld: true, collisionTight: false);
-            Require(Math.Abs(AltFormControlBasis.YawDegrees(reverseYawStep.X, reverseYawStep.Z) - 168f) < 0.01f,
-                "180 degree camera reversal cannot invert held movement in one step");
-            var neutralYaw = AltFormControlBasis.Step(0, -1, 1, 0,
-                movementHeld: false, collisionTight: true);
-            Require(Math.Abs(neutralYaw.X - 1) < 0.0001f && Math.Abs(neutralYaw.Z) < 0.0001f,
-                "neutral alt input silently reanchors to current camera");
-            Require(AltFormControlBasis.SignificantInputDirectionChange(0, 1, 0.7071f, 0.7071f),
+            Require(AltFormInputDirection.SignificantChange(0, 1, 0.7071f, 0.7071f),
                 "analogue forward-to-diagonal turn is a fresh direction without IsPressed");
-            Require(!AltFormControlBasis.SignificantInputDirectionChange(0, 1, 0.1f, 0.995f),
+            Require(AltFormInputDirection.SignificantChange(0.7071f, 0.7071f, 1, 0),
+                "dropping one key from a WASD diagonal is a fresh direction");
+            Require(!AltFormInputDirection.SignificantChange(0, 1, 0.1f, 0.995f),
                 "small analogue steering noise does not create a fresh direction");
+            // A fast stick turn can be composed of individually-small samples.
+            // Frame-to-frame they stay below the threshold, but comparing the
+            // current stick against the vector captured when collision locked
+            // the basis still breaks out once the cumulative turn is deliberate.
+            Require(!AltFormInputDirection.SignificantChange(0, 1, 0.2588f, 0.9659f),
+                "fifteen degree analogue step stays inside collision lock");
+            Require(!AltFormInputDirection.SignificantChange(0.2588f, 0.9659f, 0.5f, 0.8660f),
+                "second fifteen degree analogue step is individually small");
+            Require(AltFormInputDirection.SignificantChange(0, 1, 0.5f, 0.8660f),
+                "thirty degree cumulative turn breaks the collision lock");
             Require(AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Samus)
                 && AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Kanden)
                 && AltFormGesture.UsesRollMovement(global::MphRead.Hunter.Spire)
