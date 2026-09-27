@@ -364,6 +364,7 @@ namespace MphRead.Droid
             // held touch button into the resumed match.
             _controls.ReleaseEverything();
             _overlay?.Invalidate();
+            AndroidPerformance.SetForeground(false);
             GamepadBridge.Clear();
             _gameView?.OnPause();
             base.OnPause();
@@ -380,6 +381,7 @@ namespace MphRead.Droid
             // rotation or a swipe from the edge, so this is asked for again on
             // every resume rather than once at startup.
             GoImmersive(true);
+            AndroidPerformance.SetForeground(true);
             AndroidPerformance.RefreshDisplayRate();
             _lastRotation = CurrentRotation();
             if (_displays == null
