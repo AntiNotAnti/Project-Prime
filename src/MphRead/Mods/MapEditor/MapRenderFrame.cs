@@ -58,7 +58,7 @@ public readonly record struct MapViewportCamera(Vector3 Position, Vector3 Target
     }
 }
 
-public readonly record struct MapPickHit(Guid ObjectId,int FaceIndex,int Material,
+public readonly record struct MapPickHit(Guid ObjectId,int FaceIndex,int Material,int SourceMaterial,
     Vector3 Point,Vector3 Normal,float Distance);
 
 public static class MapViewportPicking
@@ -101,7 +101,7 @@ public static class MapViewportPicking
                     if(normal.LengthSquared()>1e-10f)normal=Vector3.Normalize(normal);
                     else normal=Vector3.UnitY;
                     nearest=distance;
-                    picked=new(mesh.ObjectId,faceIndex,face.Material,
+                    picked=new(mesh.ObjectId,faceIndex,face.Material,face.SourceMaterial,
                         origin+direction*distance,normal,distance);
                 }
             }
