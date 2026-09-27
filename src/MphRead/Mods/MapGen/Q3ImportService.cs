@@ -231,6 +231,16 @@ public static class Q3ImportService
                 merged.Import.CollisionPatchLevel = previousImport.CollisionPatchLevel;
                 merged.Import.AutoHealCollision = previousImport.AutoHealCollision;
                 merged.Import.CollisionHealTolerance = previousImport.CollisionHealTolerance;
+                merged.Import.CollisionHealExclusions = previousImport.CollisionHealExclusions
+                    .Select(region => new MapCollisionHealRegion
+                    {
+                        Center=(float[])region.Center.Clone(),Radius=region.Radius,Note=region.Note
+                    }).ToList();
+                merged.Import.MaterialReplacements = previousImport.MaterialReplacements
+                    .Select(value=>new MapSourceMaterialReplacement
+                    {
+                        Source=value.Source,Target=value.Target,TargetSource=value.TargetSource
+                    }).ToList();
                 merged.Import.TexScale = previousImport.TexScale;
                 merged.Import.DefaultMaterial = previousImport.DefaultMaterial;
                 merged.Import.ShaderMaterials = new Dictionary<string, int>(previousImport.ShaderMaterials,
