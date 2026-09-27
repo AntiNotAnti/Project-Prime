@@ -3,6 +3,7 @@ using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
 using Android.App;
+using Activity = Android.App.Activity;
 using Android.Content;
 using Android.OS;
 using MphRead.Mods;
