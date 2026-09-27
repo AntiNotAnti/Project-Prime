@@ -128,10 +128,20 @@ namespace MphRead.Mods.MapGen
                         .LastOrDefault(value=>value.Source==sourceMaterial);
                     if(replacement!=null)
                     {
-                        if(replacement.Target<0||replacement.Target>=def.Materials.Count)
-                            throw new MapAuthoringException("FP-MAP-001",
-                                $"Imported material {sourceMaterial} replacement targets missing authored material {replacement.Target}.");
-                        material=pack.Entries.Count+replacement.Target;
+                        if(replacement.TargetSource)
+                        {
+                            if(replacement.Target<0||replacement.Target>=pack.Entries.Count)
+                                throw new MapAuthoringException("FP-MAP-001",
+                                    $"Imported material {sourceMaterial} replacement targets missing source material {replacement.Target}.");
+                            material=replacement.Target;
+                        }
+                        else
+                        {
+                            if(replacement.Target<0||replacement.Target>=def.Materials.Count)
+                                throw new MapAuthoringException("FP-MAP-001",
+                                    $"Imported material {sourceMaterial} replacement targets missing authored material {replacement.Target}.");
+                            material=pack.Entries.Count+replacement.Target;
+                        }
                     }
                 }
                 int textureSizeIndex=sourceMaterial>=0?sourceMaterial:material;
