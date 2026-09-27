@@ -54,6 +54,8 @@ namespace MphRead.Droid
         private static bool _matchActive;
         private static bool _adaptive;
         private static bool _pixelBudgetApplied;
+        private static int _budgetWidth;
+        private static int _budgetHeight;
 
         /// <summary>Highest refresh mode reported by the current Android display.</summary>
         public static float DisplayRefreshRate { get; private set; } = 60f;
@@ -111,6 +113,8 @@ namespace MphRead.Droid
                 BalancedProfile, StringComparison.OrdinalIgnoreCase);
             _currentScale = _requestedScale;
             _pixelBudgetApplied = false;
+            _budgetWidth = 0;
+            _budgetHeight = 0;
             _badFrames = 0;
             _goodFrames = 0;
 
@@ -188,6 +192,8 @@ namespace MphRead.Droid
             _badFrames = 0;
             _goodFrames = 0;
             _pixelBudgetApplied = false;
+            _budgetWidth = 0;
+            _budgetHeight = 0;
             _lastReport = Environment.TickCount64;
             _lastThermalPoll = 0;
             _lastScaleChange = 0;
@@ -257,7 +263,17 @@ namespace MphRead.Droid
 
         private static void ApplyPixelBudget(int width, int height)
         {
-            if (_pixelBudgetApplied || !_adaptive || width <= 0 || height <= 0)
+            if (!_adaptive || width <= 0 || height <= 0)
+            {
+                return;
+            }
+            if (width != _budgetWidth || height != _budgetHeight)
+            {
+                _pixelBudgetApplied = false;
+                _budgetWidth = width;
+                _budgetHeight = height;
+            }
+            if (_pixelBudgetApplied)
             {
                 return;
             }
@@ -378,9 +394,11 @@ namespace MphRead.Droid
             }
 
             int ceiling = ThermalScaleCeiling();
-            if (forceScale && _currentScale > ceiling)
+            if (forceScale && (_currentScale > ceiling
+                || (!_adaptive && _currentScale != ceiling)))
             {
-                ApplyScale(ceiling, "thermal pressure");
+                ApplyScale(ceiling, _currentScale > ceiling
+                    ? "thermal pressure" : "thermal recovery");
             }
         }
 
