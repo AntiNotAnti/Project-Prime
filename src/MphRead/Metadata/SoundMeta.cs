@@ -16,11 +16,13 @@ namespace MphRead
         public static void SetHunterSfxData(byte[] data)
         {
             HunterSfx = ParseSfxData2(data, rows: 8, columns: 17);
+            Sound.AudioMixer.RegisterHunterSounds(HunterSfx);
         }
 
         public static void SetBeamSfxData(byte[] data)
         {
             BeamSfx = ParseSfxData2(data, rows: 9, columns: 10);
+            Sound.AudioMixer.RegisterWeaponSounds(BeamSfx);
         }
 
         public static void SetTerrainSfxData(byte[] data)

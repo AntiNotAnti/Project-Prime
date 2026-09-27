@@ -224,6 +224,10 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _radarRow = null!;
         private ToggleRow _radarBackgroundRow = null!;
         private ToggleRow _radarOutlinesRow = null!;
+        private SliderRow _playerVolume = null!;
+        private SliderRow _weaponVolume = null!;
+        private SliderRow _notificationVolume = null!;
+        private SliderRow _effectsVolume = null!;
         private SliderRow _sfxVolume = null!;
         private SliderRow _musicVolume = null!;
         private SliderRow _combatFeedbackVolume = null!;
@@ -1368,9 +1372,17 @@ namespace MphRead.Mods.Launcher.Gui
         private void BuildAudioGeneral(StackPanel page)
         {
             Heading(page, "Volume");
-            _sfxVolume = Add(page, new SliderRow("Sound effects",
+            _sfxVolume = Add(page, new SliderRow("Game audio",
                 Percent(_settings.SfxVolume, 35)));
             _musicVolume = Add(page, new SliderRow("Music", Percent(_settings.MusicVolume, 50)));
+
+            _playerVolume = Add(page, new SliderRow("Player", Percent(_settings.PlayerVolume, 100)));
+
+            _weaponVolume = Add(page, new SliderRow("Weapons", Percent(_settings.WeaponVolume, 100)));
+
+            _notificationVolume = Add(page, new SliderRow("Notifications", Percent(_settings.NotificationVolume, 100)));
+
+            _effectsVolume = Add(page, new SliderRow("Sound effects", Percent(_settings.EffectsVolume, 100)));
 
             Heading(page, "Language");
             string[] languages = Enum.GetNames<Language>();
@@ -2325,6 +2337,10 @@ namespace MphRead.Mods.Launcher.Gui
             Radar.ShowOutlines = _radarOutlinesRow.On;
             // Audio
             _settings.SfxVolume = (_sfxVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
+            _settings.PlayerVolume = (_playerVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
+            _settings.WeaponVolume = (_weaponVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
+            _settings.NotificationVolume = (_notificationVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
+            _settings.EffectsVolume = (_effectsVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
             _settings.MusicVolume = (_musicVolume.Value / 100f).ToString(CultureInfo.InvariantCulture);
             _settings.Language = _languageRow.Value;
             LauncherPrefs.CombatNotificationsVisible = _combatNotificationsVisible.On;

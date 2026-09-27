@@ -510,6 +510,8 @@ namespace MphRead.Entities
 
         internal PlayerEntity(int slotIndex, Scene scene) : base(EntityType.Player, scene)
         {
+            _soundSource.Bus = Sound.AudioBus.Player;
+            _timedSfxSource.Bus = Sound.AudioBus.Player;
             SlotIndex = slotIndex;
             CameraInfo.Random = scene.Random;
             _timedSfxSource.Owner = scene;

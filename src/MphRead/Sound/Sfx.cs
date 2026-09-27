@@ -20,6 +20,7 @@ namespace MphRead.Sound
         public float RolloffFactor { get; set; } = 1;
         public float Volume { get; set; } = 1;
         public bool Self { get; set; }
+        public AudioBus Bus { get; set; } = AudioBus.SoundEffects;
 
         public void Update(Vector3 position, int rangeIndex)
         {
@@ -408,6 +409,7 @@ namespace MphRead.Sound
 
         public class SoundInstance
         {
+            public AudioBus Bus { get; set; }
             public int Count { get; set; }
             public SoundSample[] Samples { get; } = new SoundSample[_maxPerInst];
             public SoundChannel[] Channels { get; } = new SoundChannel[_maxPerInst];
@@ -494,7 +496,7 @@ namespace MphRead.Sound
                 }
             }
 
-            public void UpdateParameters()
+            public void UpdateParameters(bool gainOnly = false)
             {
                 for (int i = 0; i < _maxPerInst; i++)
                 {
@@ -506,7 +508,9 @@ namespace MphRead.Sound
                     int channelId = channel.Id;
                     float mute = Sfx.SfxMute && Source != null ? 0 : 1;
                     float sourceMute = Source?.Volume ?? 1;
-                    AL.Source(channelId, ALSourcef.Gain, Sfx.Volume * Volume[i] * Samples[i].Volume * mute * sourceMute);
+                    AL.Source(channelId, ALSourcef.Gain, Sfx.Volume * AudioMixer.GetVolume(Bus) * Volume[i] * Samples[i].Volume * mute * sourceMute);
+                    if (gainOnly)
+                        continue;
                     AL.Source(channelId, ALSourcef.Pitch, Pitch[i]);
                     AL.Source(channelId, ALSourceb.SourceRelative, false);
                     AL.Source(channelId, ALSourcef.RolloffFactor, 1);
@@ -678,6 +682,7 @@ namespace MphRead.Sound
             }
             if (!SetUpSample(id, inst, index: 0))
             {
+                inst.Stop();
                 return null;
             }
             inst.Loop[0] = loop ?? inst.Samples[0].Loop;
@@ -761,6 +766,9 @@ namespace MphRead.Sound
                 }
             }
             inst = FindInstance(source);
+            // A saturated pool returns a live victim: release all of its ownership first.
+            inst.Stop();
+            inst.Bus = AudioMixer.Classify(id, source?.Bus ?? AudioBus.SoundEffects);
             inst.Source = source;
             inst.Paused = false;
             inst.PlayTime = 0;
@@ -798,7 +806,10 @@ namespace MphRead.Sound
             channel.InUse = true;
             if (sample.BufferId == 0)
             {
-                BufferData(sample);
+                if (!BufferData(sample))
+                {
+                    return false;
+                }
             }
             else
             {
@@ -1094,12 +1105,11 @@ namespace MphRead.Sound
                     return channel;
                 }
             }
-            // not expected to happen
-            Debugger.Break();
+            // Temporary saturation drops this request; its caller releases partial ownership.
             return null;
         }
 
-        private void BufferData(SoundSample sample)
+        private bool BufferData(SoundSample sample)
         {
             SoundBuffer? dest = null;
 
@@ -1132,7 +1142,7 @@ namespace MphRead.Sound
             if (dest != null)
             {
                 DoBuffer();
-                return;
+                return true;
             }
 
             for (int i = 0; i < _buffers.Length; i++)
@@ -1148,26 +1158,11 @@ namespace MphRead.Sound
             if (dest != null)
             {
                 DoBuffer();
-                return;
+                return true;
             }
 
-            // not expected to happen
-            Debugger.Break();
-            dest = _buffers[0];
-            Debug.Assert(dest.Sample != null);
-            for (int i = 0; i < _instances.Length; i++)
-            {
-                SoundInstance inst = _instances[i];
-                for (int j = 0; j < _maxPerInst; j++)
-                {
-                    if (inst.Samples[j] == dest.Sample)
-                    {
-                        inst.Stop();
-                        break;
-                    }
-                }
-            }
-            DoBuffer();
+            // Never evict a referenced buffer (possibly owned by this pending request).
+            return false;
         }
 
         private void UpdateScript(SoundInstance inst, float time)
@@ -1201,6 +1196,7 @@ namespace MphRead.Sound
                     {
                         channel.Stop();
                         inst.Channels[i] = null!;
+                        inst.Count--;
                         SoundSample sample = inst.Samples[i];
                         sample.References--;
                         inst.Samples[i] = null!;
@@ -1302,6 +1298,7 @@ namespace MphRead.Sound
                         if (inst.Source == null || !Sfx.SfxMute)
                         {
                             UpdateScript(inst, time);
+                            inst.UpdateParameters(gainOnly: true);
                         }
                         continue;
                     }
@@ -1523,6 +1520,7 @@ namespace MphRead.Sound
                 Debug.Assert(item.Stream != null);
                 if (index == 0 && item.Playing)
                 {
+                    AL.Source(_streamInstance, ALSourcef.Gain, Sfx.Volume * AudioMixer.GetVolume(AudioBus.Notifications) * item.Stream.Volume);
                     AL.GetSource(_streamInstance, ALGetSourcei.SourceState, out int value);
                     var state = (ALSourceState)value;
                     if (state != ALSourceState.Initial && state != ALSourceState.Playing)
@@ -1561,7 +1559,7 @@ namespace MphRead.Sound
                     AL.BufferData(_streamBuffer, format, item.Stream.BufferData.Value, item.Stream.SampleRate);
                     AL.Source(_streamInstance, ALSourcei.Buffer, _streamBuffer);
                     AL.Source(_streamInstance, ALSourceb.Looping, item.Stream.Loop);
-                    AL.Source(_streamInstance, ALSourcef.Gain, Sfx.Volume * item.Stream.Volume);
+                    AL.Source(_streamInstance, ALSourcef.Gain, Sfx.Volume * AudioMixer.GetVolume(AudioBus.Notifications) * item.Stream.Volume);
                     AL.SourcePlay(_streamInstance);
                     item.Playing = true;
                     node = next;

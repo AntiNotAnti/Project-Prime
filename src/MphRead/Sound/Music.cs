@@ -793,6 +793,7 @@ namespace MphRead
                 _audioEngine = new MiniAudioEngine();
                 _playbackDevice = _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format);
                 Available = true;
+                Sound.AudioLifetime.StopMusic = Shutdown;
             }
             catch (Exception ex)
             {
@@ -806,10 +807,40 @@ namespace MphRead
 
         public static bool Loading { get; private set; }
         public static bool StopLoading { get; set; }
+        private static Task _loadTask = Task.CompletedTask;
+        private static volatile bool _shutdownRequested;
+
+        private static void Shutdown()
+        {
+            _shutdownRequested = true;
+            // A load can still be creating a player on the worker. Do not
+            // dispose its native engine underneath that work.
+            try
+            {
+                if (!_loadTask.Wait(TimeSpan.FromSeconds(5)))
+                    throw new TimeoutException("Music loader did not stop within 5 seconds.");
+            }
+            catch (AggregateException ex)
+            {
+                // A failed loader is finished too; its device still needs cleanup.
+                Console.Error.WriteLine($"[shutdown] music load failed: {ex.GetBaseException().Message}");
+            }
+            try
+            {
+                Mods.MapGen.CustomMapMusic.Stop();
+                Remove(shutdown: true);
+                _playbackDevice.Stop();
+            }
+            finally
+            {
+                _audioEngine.Dispose();
+                Available = false;
+            }
+        }
 
         public static void Load(SeqId seqId, ushort tracks = UInt16.MaxValue, float volume = 1)
         {
-            if (!Available)
+            if (!Available || _shutdownRequested)
             {
                 return;
             }
@@ -820,14 +851,16 @@ namespace MphRead
                 Loading = false;
                 return;
             }
-            Task.Run(() =>
+            _loadTask = Task.Run(() =>
             {
                 try
                 {
                     while (StopLoading)
                     {
+                        if (_shutdownRequested) return;
                         Thread.Sleep(1);
                     }
+                    if (_shutdownRequested) return;
                     Remove();
                     if (StopLoading)
                     {
