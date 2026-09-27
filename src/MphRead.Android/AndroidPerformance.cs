@@ -162,6 +162,19 @@ namespace MphRead.Droid
             }
         }
 
+        public static void SetForeground(bool foreground)
+        {
+            if (_matchActive)
+            {
+                SetSustainedPerformanceMode(foreground);
+                if (foreground)
+                {
+                    RefreshDisplayRate();
+                    PollThermal(force: true);
+                }
+            }
+        }
+
         public static void SetMatchActive(bool active)
         {
             if (_matchActive == active)
