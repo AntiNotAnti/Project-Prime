@@ -166,15 +166,15 @@ mode-specific Zoom behavior as an additional route: the normal Zoom action
 releases morph-ball boost while transformed. The existing Jump/Boost action
 remains available, so established layouts do not lose a control.
 
-Rolling movement now owns a **virtual camera-relative control yaw**. The camera's
-pre-collision heading is the target; wall/door/player collision may move the
-rendered camera and redirect physical velocity without rewriting the movement
-basis in one frame. Held input follows that target at 12 degrees per simulation
-step, tightened to 4 degrees briefly around collision. Neutral input snaps the
-control yaw to the current intended camera heading. Controller direction changes
-are detected from the actual analogue MoveX/MoveY vector, not synthetic button
-presses. `-altmovecheck` forces a debug log and prints camera, desired and control
-yaw plus input and collision state at 10 Hz.
+Rolling movement uses the camera-relative roll basis directly; there is no yaw
+interpolator between the controls and the camera. While camera or lateral player
+collision is actively displacing that basis, the last trustworthy basis is held.
+The lock releases after three clear simulation frames (about 50 ms), or
+immediately when the actual movement vector changes direction. That vector comes
+from analogue MoveX/MoveY, pointer drive, or WASD itself, so a fast stick sweep
+and a WASD diagonal changed by releasing one key do not wait for a synthetic
+button press. `-altmovecheck` forces a debug log and prints camera/basis yaw,
+input, collision state, lock state and clear-frame count at 10 Hz.
 
 ## Both at once, on a phone
 
