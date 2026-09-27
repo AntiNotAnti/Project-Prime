@@ -144,7 +144,9 @@ namespace MphRead.Mods.MapGen
                         }
                     }
                 }
-                int textureSizeIndex=sourceMaterial>=0?sourceMaterial:material;
+                int textureSizeIndex=sourceMaterial>=0
+                    ? (material>=0&&material<pack!.Entries.Count?material:sourceMaterial)
+                    : material;
                 (int width, int height) = textureSizes[textureSizeIndex];
                 bool patch = face.Type == 2;
                 bool solidPatch = patch && (texture.Contents & Q3Bsp.ContentsSolid) != 0;
