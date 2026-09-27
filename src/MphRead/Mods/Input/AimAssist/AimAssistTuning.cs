@@ -19,31 +19,38 @@ namespace MphRead.Mods.Input.AimAssist
         // predicted head crossing.
         public const float FlickCameraSpeed = 42f, FlickCameraRiseRatio = .70f;
         public const float FlickPassThroughStickSpeed = 24f;
-        public const float FlickTargetAlignment = .62f;
-        public const float FlickCaptureAlignment = .68f, FlickPredictedCaptureAlignment = .55f;
+        public const float FlickTargetAlignment = .55f;
+        public const float FlickCaptureAlignment = .60f, FlickPredictedCaptureAlignment = .48f;
         public const float FlickLandingMinSeconds = .045f, FlickLandingMaxSeconds = .080f;
-        public const float FlickRadiusMinScale = .80f, FlickRadiusMaxScale = 1.28f;
+        public const float FlickRadiusMinScale = .90f, FlickRadiusMaxScale = 1.45f;
         public const float FlickBrakeRatio = .72f;
-        public const float HeadSafeInset = .18f, HeadSafePositionScale = .28f;
-        public const float HeadSafeMotionBias = .12f, HeadSafeMotionSpeed = 45f;
-        public const float HeadHorizontalPositionGain = 1f, HeadVerticalPositionGain = 1.7f;
-        public const float HeadHorizontalTrackingGain = 1f, HeadVerticalTrackingGain = 1.2f;
-        public const float AcquireCone = 7, ReleaseCone = 9, InnerCone = 2.4f;
-        public const float MinimumFriction = .62f;
-        public const float RotationAssistMultiplier = 4f;
-        public const float ChallengerRatio = 1.30f, InputAlignmentWeight = .12f;
-        public const float HeadDelay = .120f, IntentionalHeadDelay = .050f;
-        public const float MaxHeadBlend = .80f, IntentionalMaxHeadBlend = 1f;
-        public const float HeadAcquireCone = 1.5f, HeadReleaseCone = 2.25f;
+        public const float HeadSafeInset = .20f, HeadSafePositionScale = .40f;
+        public const float HeadSafeMotionBias = .14f, HeadSafeMotionSpeed = 45f;
+        public const float HeadHorizontalPositionGain = 1.08f, HeadVerticalPositionGain = 1.95f;
+        public const float HeadHorizontalTrackingGain = 1.08f, HeadVerticalTrackingGain = 1.38f;
+        public const float AcquireCone = 8.25f, ReleaseCone = 10.5f, InnerCone = 2.6f;
+        public const float MinimumFriction = .60f;
+        public const float RotationAssistMultiplier = 4.25f;
+        public const float ChallengerRatio = 1.28f, InputAlignmentWeight = .16f;
+        public const float HeadDelay = .080f, IntentionalHeadDelay = .025f;
+        public const float MaxHeadBlend = .90f, IntentionalMaxHeadBlend = 1f;
+        public const float HeadAcquireCone = 1.90f, HeadReleaseCone = 2.90f;
+        public const float HeadIntentStick = .12f, HeadIntentAlignment = .30f;
+        public const float HeadCandidateBodyRatio = 1.15f;
+        public const float HeadSelectionBias = .18f;
         public const float HeadPredictionSeconds = 0f, MaxHeadPrediction = .60f;
         public const float OcclusionGrace = .060f;
-        public const float TrackingConfidenceMin = .30f, TrackingConfidenceRiseRate = 8f;
-        public const float TrackingConfidenceDecayRate = 2.5f, TrackingConfidenceStrafeDecayRate = .7f;
-        public const float HeadConfidenceRiseRate = 10f, HeadConfidenceDecayRate = 4f;
-        public const float StrafeTrackingMinimum = .18f, StrafeTrackingMaximum = .35f;
-        public const float OccludedMotionDecayRate = 8f;
-        public const float ShotCommitSeconds = .050f, ShotCommitFrictionScale = 1.15f;
-        public const float TrajectoryHorizon = .080f, TrajectoryScoreWeight = .16f;
+        public const float TrackingConfidenceMin = .26f, TrackingConfidenceRiseRate = 10f;
+        public const float TrackingConfidenceDecayRate = 1.8f, TrackingConfidenceStrafeDecayRate = .50f;
+        public const float HeadConfidenceRiseRate = 14f, HeadConfidenceDecayRate = 3f;
+        public const float StrafeTrackingMinimum = .24f, StrafeTrackingMaximum = .46f;
+        public const float OccludedMotionDecayRate = 7f;
+        public const float ShotCommitSeconds = .060f, ShotCommitFrictionScale = 1.24f;
+        public const float TrajectoryHorizon = .085f, TrajectoryScoreWeight = .22f;
+        public const float TrajectoryAcquireThreshold = .92f;
+        public const float FreshTargetVisibility = .12f;
+        public const float RetainedServoDelay = .050f;
+        public const float ServoScaleMax = 1.35f;
         public const float PrecisionFilterReleaseRate = 2.5f;
         public const float VelocityFilterRate = 12f, HeadVelocityFilterRate = 16f;
         public const float MotionAccelerationRate = 18f, MaxTrackedAcceleration = 900f;
@@ -51,8 +58,8 @@ namespace MphRead.Mods.Input.AimAssist
         public const float MotionPhaseSpeed = 5f, MotionMatchedSpeed = 2f;
         public const float MotionTransitionVelocityDelta = 22f;
         public const float MotionTransitionSeconds = .080f;
-        public const float VisibilityRiseRate = 9f, VisibilityDecayRate = 22f;
-        public const float HeadBlendRate = 10f, HeadFallbackRate = 18f;
+        public const float VisibilityRiseRate = 12f, VisibilityDecayRate = 20f;
+        public const float HeadBlendRate = 14f, HeadFallbackRate = 14f;
         public const float IntentStart = .04f, IntentFull = .20f;
         public const float MaxTrackedSpeed = 120f, MotionDiscontinuity = 12f;
         public const float ScopeTransitionEpsilon = .015f;
@@ -90,7 +97,8 @@ namespace MphRead.Mods.Input.AimAssist
             scopeBlend = System.Math.Clamp(scopeBlend, 0, 1);
             AimAssistWeaponProfile hip = Hip(weapon);
             AimAssistWeaponProfile scoped = ScopedProfile(weapon, hip);
-            return Blend(hip, scoped, scopeBlend) with
+            AimAssistWeaponProfile profile = Blend(hip, scoped, scopeBlend);
+            return Strengthen(profile) with
             {
                 Weapon = weapon,
                 ScopeBlend = scopeBlend,
@@ -209,6 +217,24 @@ namespace MphRead.Mods.Input.AimAssist
                 Scoped = true
             };
         }
+
+        private static AimAssistWeaponProfile Strengthen(AimAssistWeaponProfile p)
+            => p with
+            {
+                Cone = p.Cone * 1.08f,
+                ReleaseCone = p.ReleaseCone * 1.10f,
+                FrictionStrength = System.Math.Min(.52f, p.FrictionStrength * 1.08f),
+                PositionGain = p.PositionGain * 1.08f,
+                TrackingGain = p.TrackingGain * 1.18f,
+                MaxPositionSpeed = p.MaxPositionSpeed * 1.10f,
+                MaxTrackingSpeed = p.MaxTrackingSpeed * 1.18f,
+                NormalizedAcquire = p.NormalizedAcquire * 1.16f,
+                NormalizedRelease = p.NormalizedRelease * 1.14f,
+                NormalizedInner = p.NormalizedInner * 1.06f,
+                ServoFrequency = p.ServoFrequency * 1.14f,
+                CorrectionBudgetDegrees = p.CorrectionBudgetDegrees * 1.18f,
+                CorrectionBudgetRecovery = p.CorrectionBudgetRecovery * 1.08f
+            };
 
         private static AimAssistWeaponProfile Blend(AimAssistWeaponProfile a,
             AimAssistWeaponProfile b, float t)
