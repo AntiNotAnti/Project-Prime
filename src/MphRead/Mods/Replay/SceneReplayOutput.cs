@@ -11,10 +11,11 @@ public partial class Scene
     private int _replayOutputFramebuffer, _replayOutputTexture;
     private Vector2i _replayOutputSize;
     internal Vector2i ReplayPreviewSize { get; set; }
+    internal Vector4i? ReplayPreviewBounds { get; set; }
     private bool ExportingReplay => Mods.Network.DemoPlayback.Owns(this) && Mods.Replay.ReplayVideoExporter.Rendering;
     private int ReplayOutputFramebuffer()
     {
-        if (!ExportingReplay) { ReleaseReplayOutput(); return 0; }
+        if (!ExportingReplay && !ReplayPreviewBounds.HasValue) { ReleaseReplayOutput(); return 0; }
         if (_replayOutputFramebuffer != 0 && _replayOutputSize == Size) return _replayOutputFramebuffer;
         ReleaseReplayOutput();
         _replayOutputSize = Size;
@@ -34,10 +35,14 @@ public partial class Scene
     }
     private void PreviewReplayOutput()
     {
-        if (!ExportingReplay || _replayOutputFramebuffer == 0) return;
+        if ((!ExportingReplay && !ReplayPreviewBounds.HasValue) || _replayOutputFramebuffer == 0) return;
         GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, _replayOutputFramebuffer);
         GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
-        GL.BlitFramebuffer(0, 0, Size.X, Size.Y, 0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y,
+        var bounds = ReplayPreviewBounds ?? new Vector4i(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);
+        GL.ClearColor(0, 0, 0, 1);
+        GL.Clear(ClearBufferMask.ColorBufferBit);
+        int bottom = ReplayPreviewSize.Y - bounds.Y - bounds.W;
+        GL.BlitFramebuffer(0, 0, Size.X, Size.Y, bounds.X, bottom, bounds.X + bounds.Z, bottom + bounds.W,
             ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Linear);
         GL.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
         GL.Viewport(0, 0, ReplayPreviewSize.X, ReplayPreviewSize.Y);

@@ -27,21 +27,28 @@ namespace MphRead.Mods.Cosmetics.Armor
                 // and feet. Alt forms use an orbit instead of humanoid nodes.
                 Vector3 anchor = !alt && attachments.Length > 0
                     ? model.Nodes[attachments[i % attachments.Length].NodeIndex].Animation.Row3.Xyz : origin;
-                Vector3 offset = new(MathF.Cos(angle) * 0.13f, phase * 0.35f, MathF.Sin(angle) * 0.13f);
-                float size = 0.025f;
+                Vector3 offset = new(MathF.Cos(angle) * 0.24f, phase * 0.45f, MathF.Sin(angle) * 0.24f);
+                // Keep half the motes just outside the silhouette; skeletal
+                // joint centers alone bury small sprites inside opaque armor.
+                if (!alt && (i & 1) == 0)
+                {
+                    anchor = origin + new Vector3(MathF.Cos(angle) * 0.62f,
+                        0.35f + Unit(seed + (uint)i * 53) * 1.4f, MathF.Sin(angle) * 0.62f);
+                }
+                float size = 0.065f;
                 switch (effect.ParticleStyle)
                 {
                     case ParticleStyle.Sparks: offset *= 0.5f + phase; break;
                     case ParticleStyle.Embers: offset.Y = phase * 0.65f; break;
-                    case ParticleStyle.Vapor: offset *= 1.5f; size = 0.04f; break;
-                    case ParticleStyle.Ice: offset.Y *= 0.1f; size = 0.018f; break;
+                    case ParticleStyle.Vapor: offset *= 1.5f; size = 0.11f; break;
+                    case ParticleStyle.Ice: offset.Y *= 0.1f; size = 0.05f; break;
                     case ParticleStyle.Wisps: offset.X *= 2; offset.Z *= 2; break;
                     case ParticleStyle.Motes: offset.Y = MathF.Sin(angle) * 0.2f; break;
                     case ParticleStyle.Pixels: offset.X = MathF.Round(offset.X * 12) / 12; offset.Y = MathF.Round(offset.Y * 12) / 12; break;
-                    case ParticleStyle.Shards: offset *= 1.8f; size = 0.045f; break;
+                    case ParticleStyle.Shards: offset *= 1.8f; size = 0.075f; break;
                 }
                 scene.AddSingleParticle(effect.ParticleStyle == ParticleStyle.Vapor ? SingleType.Fuzzball : SingleType.Death, anchor + offset,
-                    Vector3.Lerp(effect.PrimaryColor, effect.SecondaryColor, phase), (1 - phase) * 0.5f, size);
+                    Vector3.Lerp(effect.PrimaryColor, effect.SecondaryColor, phase), (0.25f + 0.75f * MathF.Sin(phase * MathF.PI)) * 0.85f, size, cosmeticTint: true);
             }
         }
         public static void DrawDeath(Scene scene, Vector3 position, DeathPresentationDefinition effect, float progress, uint seed)
@@ -50,11 +57,17 @@ namespace MphRead.Mods.Cosmetics.Armor
             for (int i = 0; i < count; i++)
             {
                 float angle = Unit(seed + (uint)i * 29) * MathF.Tau;
-                float radius = effect.PoseStyle == DeathPoseStyle.KneelCollapse ? 1 - progress : progress;
+                float radius = effect.PoseStyle == DeathPoseStyle.KneelCollapse ? (1 - progress) * 1.3f : progress * 1.8f;
                 float height = Unit(seed + (uint)i * 43);
-                var offset = new Vector3(MathF.Cos(angle) * radius, height + progress * 0.5f, MathF.Sin(angle) * radius);
-                scene.AddSingleParticle(SingleType.Death, position + offset, effect.LightEffect,
-                    1 - progress, effect.ParticleEffect == ParticleStyle.Ice ? 0.09f : 0.045f);
+                float y = effect.PoseStyle == DeathPoseStyle.Float ? height + progress * 2.2f
+                    : effect.ParticleEffect == ParticleStyle.Ice ? height + progress * 0.6f - progress * progress * 1.2f
+                    : height + progress * 0.8f;
+                var offset = new Vector3(MathF.Cos(angle) * radius, y, MathF.Sin(angle) * radius);
+                if (effect.ParticleEffect == ParticleStyle.Pixels)
+                    offset = new(MathF.Round(offset.X * 8) / 8, MathF.Round(offset.Y * 8) / 8, MathF.Round(offset.Z * 8) / 8);
+                scene.AddSingleParticle(SingleType.Death, position + offset,
+                    effect.WireId == 0 ? new Vector3(0.7f, 0.9f, 1) : effect.LightEffect,
+                    1 - progress * progress, effect.ParticleEffect == ParticleStyle.Ice ? 0.12f : 0.09f, cosmeticTint: effect.WireId != 0);
             }
         }
     }

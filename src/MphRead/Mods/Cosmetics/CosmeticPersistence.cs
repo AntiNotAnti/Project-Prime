@@ -28,12 +28,12 @@ namespace MphRead.Mods.Cosmetics
             return data;
         }
         public static CosmeticLoadout Get(Hunter hunter)
-        { lock (Gate) return (int)hunter < 7 ? Data.Loadouts[(int)hunter] : CosmeticLoadout.Default; }
+        { lock (Gate) return (uint)hunter < 7 ? Data.Loadouts[(int)hunter] : CosmeticLoadout.Default; }
         public static bool IsPending(Hunter hunter)
-        { lock (Gate) return (int)hunter < 7 && Data.Pending[(int)hunter]; }
+        { lock (Gate) return (uint)hunter < 7 && Data.Pending[(int)hunter]; }
         public static void Equip(Hunter hunter, CosmeticLoadout value)
         {
-            if ((int)hunter >= 7) throw new ArgumentOutOfRangeException(nameof(hunter));
+            if ((uint)hunter >= 7) throw new ArgumentOutOfRangeException(nameof(hunter));
             lock (Gate)
             {
                 Data.Loadouts[(int)hunter] = CosmeticCatalog.Resolve(hunter, value);
@@ -46,7 +46,7 @@ namespace MphRead.Mods.Cosmetics
         {
             lock (Gate)
             {
-                if ((int)hunter >= 7 || Data.Loadouts[(int)hunter] != submitted) return;
+                if ((uint)hunter >= 7 || Data.Loadouts[(int)hunter] != submitted) return;
                 Data.Pending[(int)hunter] = false; Save();
             }
         }
@@ -54,7 +54,7 @@ namespace MphRead.Mods.Cosmetics
         {
             lock (Gate)
             {
-                if ((int)hunter >= 7 || Data.Pending[(int)hunter]) return;
+                if ((uint)hunter >= 7 || Data.Pending[(int)hunter]) return;
                 Data.Loadouts[(int)hunter] = CosmeticCatalog.Resolve(hunter, remote); Save();
             }
             Changed?.Invoke();

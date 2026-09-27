@@ -80,7 +80,15 @@ namespace MphRead.Mods.Cosmetics
                 Check(restored.Cosmetics.Get(2, Hunter.Samus, 7).Loadout == CosmeticLoadout.Default, "map transition clears cosmetics");
                 RenderOptions.ShowCustomCosmetics = true; RenderOptions.CosmeticQuality = CosmeticEffectQuality.High;
                 Check(CosmeticRuntime.Surface(appearance, 1, true) == default, "critical status suppresses cosmetics");
-                Check(CosmeticRuntime.Surface(appearance, 1, false, team: true).Skin == 0, "native team palette retained");
+                var teamSurface = CosmeticRuntime.Surface(appearance, 1, false, team: true);
+                Check(teamSurface.Skin != 0 && teamSurface.PreservePalette, "team panels retained without removing selected skin");
+                Check(CosmeticRuntime.Surface(CosmeticAppearance.Default, 1, false, distance: 25).Effect == 0,
+                    "armor none stays none at far LOD");
+                Check(CosmeticRuntime.Surface(appearance, 1, false, distance: 40).Effect == 0, "hidden LOD has no armor shader");
+                Check(CosmeticPersistence.Get((Hunter)255) == CosmeticLoadout.Default
+                    && CosmeticRuntime.Local((Hunter)255) == CosmeticAppearance.Default, "invalid hunter falls back safely");
+                Check(DeathPresentationRuntime.Surface(appearance, appearance.Death, 1, appearance.Death.HideBodyAt).Dissolve == 1,
+                    "death dissolves completely before hiding its body");
                 Check(CosmeticRuntime.Surface(appearance, 1, false, firstPerson: true).Intensity
                     < CosmeticRuntime.Surface(appearance, 1, false).Intensity, "restrained first person");
                 RenderOptions.CosmeticQuality = CosmeticEffectQuality.Off;

@@ -130,3 +130,25 @@ window.MouseWheel(TimelinePoint(.5, 30), new Avalonia.Vector(0, 1));
 Check(requestedFrame == 510 && timeline.Zoom == 1, "wheel scrubs one second without zooming");
 timelineWindow.Close();
 Console.WriteLine("Replay timeline input checks passed.");
+
+Check(MphRead.Mods.Replay.ReplayInput.OverTimeline(128f / 256, 174f / 192), "replay HUD bar hit test");
+Check(!MphRead.Mods.Replay.ReplayInput.OverTimeline(.5f, .5f), "world clicks are outside replay scrub bar");
+Check(MphRead.Mods.Replay.ReplayInput.FrameAt(51f / 256, 600) == 0
+    && MphRead.Mods.Replay.ReplayInput.FrameAt(128f / 256, 600) == 300
+    && MphRead.Mods.Replay.ReplayInput.FrameAt(205f / 256, 600) == 600,
+    "replay HUD scrub endpoints and midpoint");
+Check(MphRead.Mods.Replay.ReplayInput.FrameAt(-1, 600) == 0
+    && MphRead.Mods.Replay.ReplayInput.FrameAt(2, 600) == 600,
+    "replay HUD drag clamps outside the window");
+var theatre = new TheatreWorkspace(manageStorage: false);
+theatre.ShowEditor(() => {}, () => {});
+var theatreWindow = new Window { Width = 1200, Height = 800, Content = theatre };
+theatreWindow.Show(); theatreWindow.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+var picture = theatre.GetVisualDescendants().OfType<ReplayViewport>().Single();
+Check(picture.Bounds.Width > 0 && picture.Bounds.Height > 0, "studio reserves a real replay viewport");
+var pictureOrigin = picture.TranslatePoint(default, theatreWindow)!.Value;
+Check(pictureOrigin.Y > 0 && picture.Bounds.Width < theatreWindow.ClientSize.Width
+    && pictureOrigin.Y + picture.Bounds.Height < theatreWindow.ClientSize.Height,
+    "replay viewport excludes header, sidebar and footer controls");
+theatreWindow.Close(); theatre.Dispose();
+Console.WriteLine("Replay HUD scrubbing and viewport checks passed.");

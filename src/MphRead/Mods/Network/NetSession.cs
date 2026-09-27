@@ -481,13 +481,13 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            SendCosmetics();
             byte[] name = System.Text.Encoding.ASCII.GetBytes(PlayerName);
             int count = Math.Min(name.Length, RosterPacket.MaxNameBytes);
             _scratch[0] = (byte)LocalHunter;
             _scratch[1] = (byte)PlayerColors.Clamp(LocalColor);
             name.AsSpan(0, count).CopyTo(_scratch.AsSpan(2));
             _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 2));
+            SendCosmetics();
 #if MPHREAD_AVALONIA
             // A separate additive packet keeps old Identify/name parsing intact.
             // Acquisition is asynchronous: the existing identity retry starts

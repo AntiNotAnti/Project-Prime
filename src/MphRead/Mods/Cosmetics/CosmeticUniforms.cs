@@ -3,7 +3,7 @@ namespace MphRead.Mods.Cosmetics
 {
     internal sealed class CosmeticUniforms
     {
-        private readonly int _skin, _effect, _time, _primary, _secondary, _intensity, _pulse, _scroll, _dissolve;
+        private readonly int _skin, _effect, _time, _primary, _secondary, _intensity, _pulse, _scroll, _dissolve, _preservePalette;
         public CosmeticUniforms(int program)
         {
             _skin = GL.GetUniformLocation(program, "cosmetic_skin"); _effect = GL.GetUniformLocation(program, "cosmetic_effect");
@@ -11,6 +11,7 @@ namespace MphRead.Mods.Cosmetics
             _secondary = GL.GetUniformLocation(program, "cosmetic_secondary"); _intensity = GL.GetUniformLocation(program, "cosmetic_intensity");
             _pulse = GL.GetUniformLocation(program, "cosmetic_pulse"); _scroll = GL.GetUniformLocation(program, "cosmetic_scroll");
             _dissolve = GL.GetUniformLocation(program, "cosmetic_dissolve");
+            _preservePalette = GL.GetUniformLocation(program, "cosmetic_preserve_palette");
         }
         private CosmeticSurface _last;
         private bool _hasLast;
@@ -26,6 +27,7 @@ namespace MphRead.Mods.Cosmetics
             GL.Uniform3(_primary, surface.Primary); GL.Uniform3(_secondary, surface.Secondary);
             GL.Uniform1(_intensity, surface.Intensity); GL.Uniform1(_pulse, surface.Pulse); GL.Uniform1(_scroll, surface.Scroll);
             GL.Uniform1(_dissolve, surface.Dissolve);
+            GL.Uniform1(_preservePalette, surface.PreservePalette ? 1 : 0);
         }
     }
 }

@@ -11,6 +11,27 @@ namespace MphRead.Mods.Launcher.Gui
         private Hunter _cosmeticHunter = Hunter.Samus;
         private CosmeticLoadout? _cosmeticDraft;
         private bool _cosmeticSaving;
+        internal static Image CreateCosmeticThumbnail(string path)
+        {
+            var image = new Image { Height = 118, Stretch = Avalonia.Media.Stretch.Uniform };
+            image.AttachedToVisualTree += (_, _) =>
+            {
+                try
+                {
+                    using var stream = System.IO.File.OpenRead(path);
+                    image.Source = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(stream, 144);
+                }
+                catch (Exception ex) { Mods.DebugLog.Line("ui", $"Cosmetic thumbnail unavailable: {ex.Message}"); }
+            };
+            image.DetachedFromVisualTree += (_, _) =>
+            {
+                var bitmap = image.Source as Avalonia.Media.Imaging.Bitmap;
+                image.Source = null;
+                bitmap?.Dispose();
+            };
+            return image;
+        }
+
         private Control Customization()
         {
             _cosmeticDraft ??= CosmeticPersistence.Get(_cosmeticHunter);
@@ -23,6 +44,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _cosmeticHunter = (Hunter)hunter.Index;
                 _cosmeticDraft = CosmeticPersistence.Get(_cosmeticHunter);
+                _stand.ResetPreview();
                 Show(Face.Customization);
             };
             panel.Children.Add(hunter);
@@ -40,14 +62,7 @@ namespace MphRead.Mods.Launcher.Gui
                     string thumbnail = CosmeticThumbnail.PathFor(_cosmeticHunter, definition.Key);
                     if (System.IO.File.Exists(thumbnail))
                     {
-                        try
-                        {
-                            using var stream = System.IO.File.OpenRead(thumbnail);
-                            var bitmap = Avalonia.Media.Imaging.Bitmap.DecodeToWidth(stream, 144);
-                            tile.Children.Add(new Image { Source = bitmap, Height = 118, Stretch = Avalonia.Media.Stretch.Uniform });
-                            tile.DetachedFromVisualTree += (_, _) => bitmap.Dispose();
-                        }
-                        catch (Exception) { }
+                        tile.Children.Add(CreateCosmeticThumbnail(thumbnail));
                     }
                     else
                     {
@@ -68,10 +83,19 @@ namespace MphRead.Mods.Launcher.Gui
             Cards("ARMOR EFFECT", CosmeticCatalog.ArmorEffects.ToArray(), _cosmeticDraft.ArmorEffectKey,
                 key => _cosmeticDraft = _cosmeticDraft with { ArmorEffectKey = key });
             Cards("DEATH PRESENTATION", CosmeticCatalog.DeathPresentations.ToArray(), _cosmeticDraft.DeathEffectKey,
-                key => _cosmeticDraft = _cosmeticDraft with { DeathEffectKey = key });
+                key => { _cosmeticDraft = _cosmeticDraft with { DeathEffectKey = key }; _stand.PreviewDeath(); });
             var actions = new WrapPanel();
             actions.Children.Add(new PrimeButton("PREVIEW DEATH", () => _stand.PreviewDeath()));
             actions.Children.Add(new PrimeButton("RESET PREVIEW", () => _stand.ResetPreview()));
+            actions.Children.Add(new PrimeButton("COMPARE NATIVE", () =>
+            {
+                _stand.ResetPreview();
+                _stand.Cosmetics = _stand.Cosmetics == CosmeticLoadout.Default ? _cosmeticDraft : CosmeticLoadout.Default;
+            }));
+            actions.Children.Add(new PrimeButton("RESET LOADOUT", () =>
+            {
+                _cosmeticDraft = CosmeticLoadout.Default; _stand.ResetPreview(); Show(Face.Customization);
+            }));
             var status = new TextBlock { Text = CosmeticPersistence.IsPending(_cosmeticHunter) ? "LOCAL / NOT SYNCED" : "READY", Foreground = HubTheme.TextBrush };
             var equip = new PrimeButton("EQUIP", async () =>
             {
@@ -91,7 +115,17 @@ namespace MphRead.Mods.Launcher.Gui
                 catch (Exception ex) { status.Text = "SAVE FAILED: " + ex.Message; }
                 finally { _cosmeticSaving = false; }
             });
-            actions.Children.Add(equip); panel.Children.Add(actions); panel.Children.Add(status);
+            actions.Children.Add(equip);
+            panel.Children.Insert(2, actions); panel.Children.Insert(3, status);
+            string visibility = !RenderOptions.ShowCustomCosmetics
+                ? "Cosmetics are hidden by Show custom cosmetics in Graphics settings. Your selection still saves."
+                : RenderOptions.CosmeticQuality == CosmeticEffectQuality.Off
+                    ? "Cosmetic effect quality is Off: skins display, but armor and death effects are hidden."
+                    : RenderOptions.BrightSkins
+                        ? "Bright Skins overrides other players' cosmetics in matches. Your own weapon and this preview retain cosmetics."
+                        : "Team-colored panels stay visible in team matches. First-person effects are reduced to keep your aim clear.";
+            panel.Children.Insert(4, new TextBlock { Text = visibility, TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                Foreground = HubTheme.TextBrush });
             return new ScrollViewer { Content = panel };
         }
     }

@@ -58,6 +58,32 @@ namespace MphRead.Mods.Launcher.Gui
             }
             return lobby;
         }
+        private static void CheckCosmeticThumbnailReentry()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "prime-thumbnail-" + Guid.NewGuid() + ".png");
+            var window = new Window { Width = 200, Height = 200, ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000), WindowStartupLocation = WindowStartupLocation.Manual };
+            try
+            {
+                using (var bitmap = new Avalonia.Media.Imaging.WriteableBitmap(new PixelSize(8, 8),
+                    new Vector(96, 96), Avalonia.Platform.PixelFormat.Bgra8888, Avalonia.Platform.AlphaFormat.Opaque))
+                    bitmap.Save(path);
+                var image = LicenseWorkspace.CreateCosmeticThumbnail(path);
+                window.Show();
+                Avalonia.Media.IImage? previous = null;
+                for (int visit = 0; visit < 4; visit++)
+                {
+                    window.Content = image; Drain(window);
+                    Check(image.Source != null && !ReferenceEquals(previous, image.Source),
+                        "cosmetic thumbnail reloads on license visit " + visit);
+                    previous = image.Source;
+                    window.Content = null; Drain(window);
+                    Check(image.Source == null, "detached cosmetic thumbnail releases its source " + visit);
+                }
+            }
+            finally { window.Close(); File.Delete(path); }
+        }
+
         private static void CheckSavedLobbyLimits()
         {
             GameMode previousMode = LauncherPrefs.LastLobbyMode;
@@ -149,6 +175,7 @@ namespace MphRead.Mods.Launcher.Gui
                     Check(WindowMode.Parse("borderless", WindowStartMode.Windowed) == WindowStartMode.BorderlessFullscreen
                         && WindowMode.Parse("1", WindowStartMode.Windowed) == WindowStartMode.BorderlessFullscreen,
                         "legacy borderless preferences remain valid");
+                    CheckCosmeticThumbnailReentry();
                     CheckSavedLobbyLimits();
                     CheckInProgressAdmission();
                     var shell = Create();

@@ -173,6 +173,8 @@ namespace MphRead.Mods.Render
 
         public void Reset()
         {
+            _death.Reset();
+            _deathRequest = 0;
         }
 
         protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
@@ -213,21 +215,23 @@ namespace MphRead.Mods.Render
             Matrix4 pose = Matrix4.CreateScale(Mods.Cosmetics.CosmeticPreview.Zoom)
                 * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw) * _facing;
             var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false);
-            bool dying = Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(_death, _cosmetics.Death, _cosmeticTime);
+            bool presentingDeath = _death.Active && Mods.RenderOptions.ShowCustomCosmetics
+                && Mods.RenderOptions.CosmeticQuality != Mods.Cosmetics.CosmeticEffectQuality.Off
+                && _cosmeticTime - _death.StartTime < _cosmetics.Death.Duration;
+            bool dying = presentingDeath;
             float progress = dying ? _death.Progress(_cosmeticTime, _cosmetics.Death) : 0;
             if (dying)
             {
                 pose = Mods.Cosmetics.Death.DeathPresentationRuntime.Pose(_cosmetics.Death, progress) * pose;
-                surface = surface with { Effect = (int)_cosmetics.Death.SurfaceEffect, Primary = _cosmetics.Death.LightEffect,
-                    Intensity = 0.4f, Dissolve = Math.Clamp((progress - _cosmetics.Death.FadeStart) / (1 - _cosmetics.Death.FadeStart), 0, 1) };
+                surface = Mods.Cosmetics.Death.DeathPresentationRuntime.Surface(_cosmetics, _cosmetics.Death, _cosmeticTime, progress);
             }
             UpdateTransforms(_model, pose, _recolor < 0 ? 0 : _recolor);
             var previous = _scene.CosmeticSubmission;
             _scene.CosmeticSubmission = surface;
-            try { if (!dying || progress < _cosmetics.Death.HideBodyAt) GetDrawItems(_model, 0, _light); }
+            try { if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0 && progress < _cosmetics.Death.HideBodyAt)) GetDrawItems(_model, 0, _light); }
             finally { _scene.CosmeticSubmission = previous; }
             if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17);
-            else if (Mods.RenderOptions.ShowCustomCosmetics)
+            else if (!presentingDeath && Mods.RenderOptions.ShowCustomCosmetics)
                 Mods.Cosmetics.Armor.ArmorEffectParticles.Draw(_scene, _model.Model, Vector3.Zero, _cosmetics.Armor,
                     _cosmeticTime, 17, Mods.Cosmetics.CosmeticLod.Near, false);
         }

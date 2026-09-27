@@ -34,6 +34,8 @@ namespace MphRead.Effects
         public Vector3 Color { get; set; }
         public float Alpha { get; set; }
         public float Scale { get; set; }
+        // Presentation-only: rebuilt each draw, not part of the gameplay checkpoint.
+        public bool CosmeticTint { get; set; }
 
         public bool ShouldDraw { get; private set; }
         public Vector2 Texcoord0 { get; private set; }
@@ -95,7 +97,8 @@ namespace MphRead.Effects
             }
             var transform = Matrix4.CreateTranslation(Position);
             scene.AddRenderItem(RenderItemType.Particle, Alpha, scene.GetNextPolygonId(), Color, xRepeat, yRepeat,
-                scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode.Sphere);
+                scaleS, scaleT, transform, uvsAndVerts, bindingId, BillboardMode.Sphere,
+                overrideColor: CosmeticTint ? new Vector4(Color, 1) : null);
         }
     }
 

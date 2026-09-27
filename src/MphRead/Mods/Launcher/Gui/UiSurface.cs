@@ -106,6 +106,20 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (var old in _mapViewports.Where(v => !visible.Contains(v)).ToArray()) { old.ReleaseRenderer(); _mapViewports.Remove(old); }
             foreach (var viewport in visible) { if (!_mapViewports.Contains(viewport)) _mapViewports.Add(viewport); viewport.PrepareRenderer(); }
         }
+        internal OpenTK.Mathematics.Vector4i? ReplayViewportBounds(int width, int height)
+        {
+            var view = _view?.GetVisualDescendants().OfType<ReplayViewport>()
+                .FirstOrDefault(v => v.IsEffectivelyVisible);
+            if (view == null || view.Bounds.Width <= 0 || view.Bounds.Height <= 0) return null;
+            var origin = view.TranslatePoint(new Point(0, 0), Root);
+            var far = view.TranslatePoint(new Point(view.Bounds.Width, view.Bounds.Height), Root);
+            if (origin == null || far == null) return null;
+            int left = Math.Clamp((int)Math.Round(origin.Value.X / WindowWidth * width), 0, width);
+            int top = Math.Clamp((int)Math.Round(origin.Value.Y / WindowHeight * height), 0, height);
+            int right = Math.Clamp((int)Math.Round(far.Value.X / WindowWidth * width), left, width);
+            int bottom = Math.Clamp((int)Math.Round(far.Value.Y / WindowHeight * height), top, height);
+            return right > left && bottom > top ? new(left, top, right - left, bottom - top) : null;
+        }
         internal void DrawMapViewport(int width, int height) { foreach (var view in _mapViewports) view.DrawInWindow(this, width, height); }
         internal void ReleaseMapRenderer() { foreach (var view in _mapViewports) view.ReleaseRenderer(); _mapViewports.Clear(); }
         private readonly GamepadNavigation _gamepad = new();

@@ -54,6 +54,35 @@ namespace MphRead.Mods.Network
             finally { NetSession.Stop(); NetLag.Configure("0"); NetLag.ConfigureLoss("0"); }
         }
 
+        // Real authoritative scene and lobby prewarm; peers exercise the UDP
+        // barrier with synthetic loaded/world-ready acknowledgements.
+        public static int RunMapStart(string room)
+        {
+            try
+            {
+                using var rig = new Rig(simulate: true);
+                Client owner = rig.Add(230);
+                rig.Add(231); rig.Add(232);
+                var config = owner.State!.Value;
+                config.Match = config.Match with { RoomKey = room };
+                rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
+                rig.ReadyAll();
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+                Check(rig.Server.Simulating, "real authority loaded custom room");
+                foreach (Client client in rig.Clients) client.Loaded();
+                rig.Wait(() => rig.Clients.All(c => c.State?.Phase == SessionPhase.InMatch),
+                    "all three peers released into match", 15000);
+                Console.WriteLine($"[netlobbytest] PASS: {room} real server, lobby prewarm, three UDP peers and start barrier.");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"[netlobbytest] FAIL: {ex}");
+                return 1;
+            }
+            finally { NetSession.Stop(); }
+        }
+
         private static void ProtocolChecks()
         {
             Check(new MatchDefinition().SpawnProtection
@@ -486,13 +515,16 @@ namespace MphRead.Mods.Network
             public readonly List<Client> Clients = new();
             private readonly Thread _thread;
             private Exception? _error;
-            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default)
+            private readonly bool _simulate;
+            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false)
             {
+                _simulate = simulate;
                 Server = new DedicatedServer(0, 8, MapRotation.SingleMatch(Rooms()[0], GameMode.Battle, 0, 0))
                     { SessionPolicy = policy, OwnerToken = token };
+                if (simulate) Server.ReplayPolicy = new ServerReplayPolicy(Enabled: false);
                 typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
-                    .SetValue(Server, true);
+                    .SetValue(Server, !simulate);
                 Server.SetSessionOptions(requireReady: true, allowJoinInProgress: true);
                 _thread = new Thread(() => { try { Server.Run(); } catch (Exception ex) { _error = ex; } }) { IsBackground = true };
                 _thread.Start(); Wait(() => Server.Listening, "server listening");
@@ -530,6 +562,7 @@ namespace MphRead.Mods.Network
             }
             private void SeedAuthorityFixture()
             {
+                if (_simulate) return;
                 // This rig deliberately has no engine. Publish an explicit empty
                 // authority fixture; never add a production no-bootstrap bypass.
                 var type = typeof(DedicatedServer);

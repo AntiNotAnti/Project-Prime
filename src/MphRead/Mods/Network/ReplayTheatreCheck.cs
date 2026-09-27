@@ -75,6 +75,20 @@ internal static class ReplayTheatreCheck
                     != ReplayStateHash.Compute(reference.Current.Scene, DemoPlayback.CurrentFrame))
                     throw new InvalidDataException("Theatre checkpoint seek differs.");
             }
+            int watchedBeforeScrub = DemoPlayback.PresentationScene!.Players.MainPlayerIndex;
+            if (!ReplayInput.PointerDown(51f / 256, 174f / 192))
+                throw new InvalidDataException("HUD scrub did not capture a timeline click.");
+            while (ReplayController.IsSeeking) shell.OnSimulationFrame();
+            if (!ReplayInput.Scrubbing || DemoPlayback.CurrentFrame != 0)
+                throw new InvalidDataException("Backward seek lost the HUD drag during replica replacement.");
+            ReplayInput.PointerMove(128f / 256);
+            ReplayInput.PointerUp(128f / 256);
+            while (ReplayController.IsSeeking) shell.OnSimulationFrame();
+            if (ReplayInput.Scrubbing || !ReplayController.IsPaused
+                || DemoPlayback.CurrentFrame != ReplayInput.FrameAt(128f / 256, ReplayController.DurationFrames)
+                || DemoPlayback.PresentationScene!.Players.MainPlayerIndex != watchedBeforeScrub)
+                throw new InvalidDataException("HUD scrub did not settle paused at the requested frame and player.");
+            Console.WriteLine("[replaytheatre] HUD scrub survives backward restore and settles at the requested frame.");
             ReplayController.Pause();
             uint paused = DemoPlayback.CurrentFrame;
             for (int i = 0; i < 5; i++) shell.OnSimulationFrame();

@@ -182,9 +182,23 @@ namespace MphRead
         /// Build the preview's render items, after every entity has built
         /// theirs. Nothing else may add items while this runs.
         /// </summary>
+        private void ReleasePreviewItems()
+        {
+            foreach (var item in _previewItems)
+            {
+                if (item.Type != RenderItemType.Mesh && item.Points.Length > 0)
+                {
+                    System.Buffers.ArrayPool<Vector3>.Shared.Return(item.Points);
+                    item.Points = Array.Empty<Vector3>();
+                }
+                _freeRenderItems.Enqueue(item);
+            }
+            _previewItems.Clear();
+        }
+
         private void ModCollectPreview()
         {
-            _previewItems.Clear();
+            ReleasePreviewItems();
             if (!PreviewAsked || _preview == null || !_preview.Ready)
             {
                 return;
@@ -194,12 +208,16 @@ namespace MphRead
             try
             {
                 _preview.GetDrawInfo();
-                for (int i = priorParticleCount; i < _singleParticleCount; i++) _singleParticles[i].AddRenderItem(this);
+                for (int i = priorParticleCount; i < _singleParticleCount; i++)
+                {
+                    _singleParticles[i].Process();
+                    if (_singleParticles[i].ShouldDraw) _singleParticles[i].AddRenderItem(this);
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[endscreen] preview draw failed: {ex.Message}");
-                _previewItems.Clear();
+                ReleasePreviewItems();
             }
             finally
             {
@@ -229,8 +247,8 @@ namespace MphRead
         /// wide enough to read the shape, narrow enough not to distort it the
         /// way a wide angle at this distance would.
         /// </summary>
-        private static readonly Vector3 _previewEye = new Vector3(0, 1.05f, 3.15f);
-        private static readonly Vector3 _previewTarget = new Vector3(0, 0.95f, 0);
+        private static readonly Vector3 _previewEye = new Vector3(0, 1.15f, 3.8f);
+        private static readonly Vector3 _previewTarget = new Vector3(0, 1.05f, 0);
         private const float PreviewFov = 40;
 
         /// <summary>The window's own background, behind the model.</summary>
@@ -359,6 +377,9 @@ namespace MphRead
             // in the room, and the far end of a foggy level would have the
             // hunter fade into the panel.
             GL.Uniform1(_shaderLocations.UseFog, 0);
+            GL.Uniform1(_shaderLocations.ShowColors, 1);
+            var previousBillboard = _viewInvRotMatrix;
+            _viewInvRotMatrix = Matrix4.CreateFromQuaternion(view.ExtractRotation().Inverted());
             GL.Enable(EnableCap.DepthTest);
             GL.DepthFunc(DepthFunction.Less);
             GL.DepthMask(true);
@@ -380,6 +401,8 @@ namespace MphRead
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref _viewMatrix);
             GL.Uniform1(_shaderLocations.UseFog, _hasFog && FogOn ? 1 : 0);
             GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+            _viewInvRotMatrix = previousBillboard;
+            GL.Uniform1(_shaderLocations.ShowColors, _showColors ? 1 : 0);
             PreviewDrawnLastFrame = true;
             PreviewDrawnHunter = _preview?.Shown ?? Hunter.Random;
             PreviewDrawnSuit = _preview?.ShownSuit ?? -1;

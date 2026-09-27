@@ -9,7 +9,7 @@ The real hunter preview rotates, zooms, and can play/reset the selected death.
 - Stable string catalog and per-hunter local loadouts. Default, Obsidian, and Alimbic for all seven hunters; 16 armor effects plus None; eight death choices including Classic. Built-in skins are procedural material treatments, with optional authored texture channels supported separately.
 - Local-first atomic persistence, pending synchronization, stale-response protection, and authenticated Hunter License writes. The `hunter-cosmetics` Supabase function is deployed; its server-owned catalog rejects unknown and wrong-hunter selections. All initial items are unlocked.
 - Shared forward, GLES, and deferred shader source, separate skin/material overrides, first-person reduction, alt forms, Weavel turret, live model previews, and normal player paths used by spectator/replay/killcam.
-- Gameplay status and team visibility take priority. Team games retain native skin palettes. Show Custom Cosmetics hides presentation without changing replicated selections; quality Off retains skins and uses native deaths.
+- Gameplay status and team visibility take priority. Team games preserve saturated native team panels while allowing the cosmetic treatment on neutral armor. Show Custom Cosmetics hides presentation without changing replicated selections; quality Off retains skins and uses native deaths.
 - Scene-owned texture cache and embedded-resource loader. Optional missing maps fall back safely. Existing scene GPU ownership handles shutdown/context teardown.
 - Pooled analytic particles, cached animated attachment points, distance LOD, match/slot/generation seeds, and bounded nearest lights. Desktop light cap 4 on High / 2 on Medium; Android cap 2. No first-person particle emitters.
 - Authority-triggered procedural death presentation, stable effect selection during a death, respawn cancellation, custom alt-form death rendering, and bounded particles/lights. No collision, health, respawn, or camera rules change.
@@ -22,7 +22,7 @@ The real hunter preview rotates, zooms, and can play/reset the selected death.
 
 - Desktop build: passed.
 - Dedicated-server build: passed (isolated artifact directory).
-- Cosmetics checks: 64 passed, including persistence, stale synchronization, compact IDs, occupant fencing, late-join state, replay decoder restoration, status priority, quality fallback, death appendix round-trip, and respawn cancellation.
+- Cosmetics checks: 68 passed, including persistence, stale synchronization, compact IDs, occupant fencing, late-join state, replay decoder restoration, status priority, quality fallback, death appendix round-trip, and respawn cancellation.
 - Replay format checks: 2,710 passed.
 - Launcher UI suite: 17,959 passed; general launcher checks do not substitute for every customization interaction on a device.
 - Network architecture suite: passed, including existing byte fixtures.
@@ -58,3 +58,41 @@ Visual diagnostic overrides: `-cosmetic skin skin.samus.obsidian`,
 `-cosmetic clear`, and `-cosmetictime 0.5`. These do not change saved loadouts.
 
 Texture layout and fallback rules: `src/MphRead/Assets/Cosmetics/README.md`.
+
+
+## Visibility audit (September 27)
+
+Fixed preview particles with zero-sized/uninitialized vertices; preview-only render
+items and their rented particle buffers are now recycled separately from world
+items. Cosmetic sprites explicitly tint the native sprite alpha shape instead of
+inheriting its blue RGB. The preview sets vertex colors and its own billboard
+orientation, and its camera leaves room for tall hunters and bursts.
+
+Local appearance now follows slot ownership rather than camera mode, and uses
+the equipped local loadout immediately while remote
+players and replay replicas keep their network/recorded state. Identify precedes
+the cosmetic announcement when switching hunters. Bright Skins only suppresses
+cosmetics where the actual competitive override applies, so it no longer hides
+the local arm cannon. Passive cloak/fades suppress cosmetic emission and optional
+maps. Native ice/smoke/auxiliary player meshes are excluded from cosmetic shading.
+None remains None at far LOD.
+
+Custom death bodies can render through first-person/native HideModel paths while
+an accepted death presentation is active. Body and particles use the captured
+death position. Offline deaths are observed during simulation, independent of
+whether a player was drawn. Dissolve reaches completion by HideBodyAt; preview
+and world share surface parameters. Death durations and motion differ by effect;
+respawn timing remains unchanged. Classic now has a visible preview burst.
+
+Effects have stronger colored surface blending (avoiding additive clipping on
+saturated armor), larger sprites without increasing particle-count budgets, and
+distinct animation speeds. Rim shading uses the actual view direction rather than
+a fixed world axis. Team-colored panels survive procedural skins. The
+customization controls appear before the catalog, death choices auto-preview,
+and Compare Native / Reset Loadout controls are available. Settings that hide
+effects are explained on the page. Thumbnail cache v2 replaces stale visuals.
+
+The real-model visual diagnostic asserts nondegenerate particle geometry and no
+world-queue growth, in addition to capturing every catalog choice. It also
+exercises the actual player material/death path with Bright Skins, cloak,
+first-person/native-hidden death bodies, and respawn lifecycle checks.

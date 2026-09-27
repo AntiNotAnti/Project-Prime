@@ -28,6 +28,13 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length == 4 && args[0] == "--lobby-map")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Mods.MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(args[2]);
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetLobbyTest.RunMapStart(args[3]);
+            }
             if (args.Length > 1 && args[0] == "--protocol19-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

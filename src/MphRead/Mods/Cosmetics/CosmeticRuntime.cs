@@ -21,14 +21,20 @@ namespace MphRead.Mods.Cosmetics
         public static readonly CosmeticAppearance Default = new(Hunter.Samus, CosmeticLoadout.Default);
     }
     public readonly record struct CosmeticSurface(int Skin, int Effect, float Time, Vector3 Primary,
-        Vector3 Secondary, float Intensity, float Pulse, float Scroll, float Dissolve = 0);
+        Vector3 Secondary, float Intensity, float Pulse, float Scroll, float Dissolve = 0, bool PreservePalette = false);
     public static class CosmeticRuntime
     {
         public static CosmeticAppearance Get(Scene scene, int slot, Hunter hunter, bool local)
         {
-            if (!RenderOptions.ShowCustomCosmetics || (int)hunter >= 7) return CosmeticAppearance.Default;
+            if (!RenderOptions.ShowCustomCosmetics || (uint)hunter >= 7) return CosmeticAppearance.Default;
             if (scene.Services is Network.ReplaySceneServices replica)
                 return replica.State.Cosmetics.Get(slot, hunter, replica.State.Occupant(slot).Generation);
+            // Camera mode is not player ownership: IsMainPlayer becomes false
+            // in free/third-person cameras. The slot still owns its saved outfit.
+            local = Network.NetSession.Active ? slot == Network.NetSession.LocalSlot : slot == scene.Players.MainPlayerIndex;
+            // Own equipment is usable immediately, including with older servers
+            // that ignore the optional appearance packet. Replicas remain recorded.
+            if (local) return Local(hunter);
             if (Network.NetSession.Active)
                 return Network.NetCosmetics.Live.Get(slot, hunter, Network.NetPlayerLifecycle.Generation(slot));
             return local ? Local(hunter) : CosmeticAppearance.Default;
@@ -36,7 +42,7 @@ namespace MphRead.Mods.Cosmetics
         private static readonly CosmeticAppearance?[] LocalCache = new CosmeticAppearance?[7];
         public static CosmeticAppearance Local(Hunter hunter)
         {
-            if ((int)hunter >= 7) return CosmeticAppearance.Default;
+            if ((uint)hunter >= 7) return CosmeticAppearance.Default;
             var value = CosmeticDebug.Override ?? CosmeticPersistence.Get(hunter);
             var cached = LocalCache[(int)hunter];
             if (cached == null || cached.Loadout != value) LocalCache[(int)hunter] = cached = new(hunter, value);
@@ -53,13 +59,13 @@ namespace MphRead.Mods.Cosmetics
             time = CosmeticDebug.FixedTime ?? time;
             var armor = appearance.Armor;
             var lod = Lod(distance);
-            bool effect = RenderOptions.CosmeticQuality != CosmeticEffectQuality.Off && lod != CosmeticLod.Hidden
+            bool effect = armor.ShaderStyle != SurfaceStyle.None && RenderOptions.CosmeticQuality != CosmeticEffectQuality.Off && lod != CosmeticLod.Hidden
                 && (!alt || armor.SupportsAltForm);
-            return new(team ? 0 : appearance.Skin.SurfaceTreatment,
+            return new(appearance.Skin.SurfaceTreatment,
                 effect ? (int)(lod == CosmeticLod.Far ? SurfaceStyle.Fresnel : armor.ShaderStyle) : 0,
                 time, armor.PrimaryColor, armor.SecondaryColor,
                 effect ? armor.Intensity * (firstPerson ? armor.FirstPersonIntensity : alt ? armor.AltFormIntensity : 1) : 0,
-                armor.PulseSpeed, armor.ScrollSpeed);
+                armor.PulseSpeed, armor.ScrollSpeed, PreservePalette: team);
         }
     }
 }

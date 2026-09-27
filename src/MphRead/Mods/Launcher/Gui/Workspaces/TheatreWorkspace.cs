@@ -25,6 +25,8 @@ namespace MphRead.Mods.Launcher.Gui
     /// Playback/editor state remains in DemoPlayback/ReplayStudio. This view
     /// only owns library presentation and file-management actions.
     /// </summary>
+    internal sealed class ReplayViewport : Control { }
+
     internal sealed class TheatreWorkspace : UserControl, IDisposable
     {
         private readonly ListBox _list = new() { Background = Brushes.Transparent, BorderThickness = new Thickness(0),
@@ -94,6 +96,8 @@ namespace MphRead.Mods.Launcher.Gui
             editor.ResumeRequested += (_, _) => fullscreen();
             var viewport = new Grid { RowDefinitions = new("Auto,*,Auto") };
             viewport.Children.Add(new PrimeBadge("REPLAY VIEWPORT // CINEMATIC EDITOR"));
+            var picture = new ReplayViewport();
+            Grid.SetRow(picture, 1); viewport.Children.Add(picture);
             var actions = PrimeChrome.Columns("*,*", new PrimeButton("BACK TO ARCHIVE", close),
                 new PrimeButton("FULLSCREEN PLAYBACK", fullscreen));
             Grid.SetRow(actions, 2); viewport.Children.Add(actions);

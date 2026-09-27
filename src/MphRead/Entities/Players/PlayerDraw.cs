@@ -33,8 +33,6 @@ namespace MphRead.Entities
 
         public void Draw()
         {
-            if (!_scene.Services.IsReplica && !Mods.Network.NetSession.Active)
-                ModCosmeticObserveAuthority(_health, 1, 1);
             Vector3 presentedPosition = default;
             bool presentedAlt = false;
             bool networkPresented = !_scene.Services.IsReplica && Mods.Network.NetSession.Active
@@ -86,7 +84,15 @@ namespace MphRead.Entities
             {
                 DrawScanModels();
             }
-            if (Flags2.TestFlag(PlayerFlags2.HideModel) && !forceNetworkVisibility)
+            bool customDeathVisible = !drawAlive && Mods.Cosmetics.Death.DeathPresentationRuntime.Visible(
+                _cosmeticDeath, CosmeticDeathDefinition, _scene.ElapsedTime);
+            if (customDeathVisible)
+            {
+                drawPosition = _cosmeticDeath.Position;
+                drawFacing = _cosmeticDeath.Facing;
+                drawAltForm = _cosmeticDeath.WasAltForm;
+            }
+            if (Flags2.TestFlag(PlayerFlags2.HideModel) && !forceNetworkVisibility && !customDeathVisible)
             {
                 return;
             }
@@ -126,7 +132,7 @@ namespace MphRead.Entities
             // opponent. World geometry/depth still occludes the model normally.
             if (IsMainPlayer || forceNetworkVisibility || ModNodeUnresolved || IsVisible(NodeRef))
             {
-                drawBiped = !IsMainPlayer || CameraType != CameraType.First
+                drawBiped = customDeathVisible || !IsMainPlayer || CameraType != CameraType.First
                     || _scene.CameraSequences.Current != null
                     || _camSwitchTimer < Values.CamSwitchTime * 2; // todo: FPS stuff
                 if (drawAltForm && !drawAlive && _cosmeticDeath.Active
@@ -429,10 +435,13 @@ namespace MphRead.Entities
                     var previousMaterial = _scene.CosmeticMaterialSubmission;
                     if (Mods.RenderOptions.ShowCustomCosmetics && !BrightSkinStatusOverride && !BrightSkinFrozenOverlay
                         && !ModMatchSpawnProtectionActive && _timeSinceDamage >= Values.DamageFlashTime * 2
-                        && !Mods.RenderOptions.BrightSkins && !_scene.GameState.Teams)
+                        && !BrightSkins.ShouldApply(this) && !Flags2.TestFlag(PlayerFlags2.Cloaking)
+                        && _curAlpha >= 1 && !_scene.GameState.Teams)
                         _scene.CosmeticMaterialSubmission = _scene.GetCosmeticMaterial(CosmeticAppearance.Skin, model, mesh.MaterialId,
                             inst == _gunModel ? Mods.Cosmetics.SkinContext.ViewModel : IsAltForm ? Mods.Cosmetics.SkinContext.AltForm : Mods.Cosmetics.SkinContext.Biped);
-                    if (!cosmeticDeath) _scene.CosmeticSubmission = CosmeticMaterial(inst == _gunModel);
+                    bool cosmeticBody = inst == _gunModel || inst == _altModel || inst == _bipedModel1 || inst == _bipedModel2;
+                    if (!cosmeticDeath) _scene.CosmeticSubmission = cosmeticBody ? CosmeticMaterial(inst == _gunModel) : default;
+                    if (!cosmeticBody) _scene.CosmeticMaterialSubmission = default;
                     _scene.AddRenderItem(material, polygonId, alpha, emission, GetLightInfo(), texcoordMatrix,
                         node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues, color,
                         PaletteOverride, selectionType, node.BillboardMode, _drawScale, bindingOverride,

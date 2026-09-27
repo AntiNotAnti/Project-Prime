@@ -375,6 +375,7 @@ namespace MphRead.Mods.Launcher.Gui
         private Avalonia.Media.Imaging.Bitmap? _shot;
         private string _shotIs = "";
         private string _shotAsked = "";
+        private int _shotGeneration;
 
         /// <summary>
         /// The longest edge a shot is cut at.
@@ -419,10 +420,21 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
-            Task<byte[]?> work = host.RenderAsync(which, _suit, width, height);
+            int generation = _shotGeneration;
+            Task<byte[]?> work;
+            try { work = host.RenderAsync(which, _suit, width, height); }
+            catch (Exception ex)
+            {
+                Mods.DebugLog.Line("ui", $"Hunter preview failed: {ex.Message}");
+                return;
+            }
             work.ContinueWith(done => Dispatcher.UIThread.Post(() =>
             {
-                if (done.Result is not byte[] pixels || want != _shotAsked)
+                // Observe faults without throwing on the UI thread; old visits cannot
+                // publish into a newly attached stand even if their request keys match.
+                if (done.IsFaulted) { _ = done.Exception; return; }
+                if (done.IsCanceled || generation != _shotGeneration
+                    || done.Result is not byte[] pixels || want != _shotAsked)
                 {
                     return;
                 }
@@ -631,6 +643,7 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
         {
             _turn.Stop();
+            _shotGeneration++;
 #if MPHREAD_SHELL
             // The stand has gone; nothing should be drawn under where it was.
             Mods.Render.LauncherHunter.Reset();

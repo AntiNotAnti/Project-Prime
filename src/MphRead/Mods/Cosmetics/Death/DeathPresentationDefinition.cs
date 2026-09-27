@@ -10,9 +10,9 @@ namespace MphRead.Mods.Cosmetics.Death
         public ParticleStyle ParticleEffect { get; init; }
         public Vector3 LightEffect { get; init; }
         public string? SoundEffect { get; init; }
-        public float Duration { get; init; } = 1.2f;
+        public float Duration { get; init; } = 1.8f;
         public float FadeStart { get; init; } = 0.25f;
-        public float HideBodyAt { get; init; } = 0.85f;
+        public float HideBodyAt { get; init; } = 0.95f;
         public float CameraShake { get; init; }
     }
 }

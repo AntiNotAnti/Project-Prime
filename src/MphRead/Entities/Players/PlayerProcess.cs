@@ -59,6 +59,10 @@ namespace MphRead.Entities
 
         public bool ProcessPlayer()
         {
+            // Offline death presentation follows simulation even when the player
+            // is off camera. Online clients observe only accepted authority state.
+            if (!_scene.Services.IsReplica && !Mods.Network.NetSession.Active)
+                ModCosmeticObserveAuthority(_health, 1, 1);
             if (_scene.GameState.Multiplayer && !LoadFlags.TestFlag(LoadFlags.Connected) && LoadFlags.TestFlag(LoadFlags.WasConnected))
             {
                 LoadFlags |= LoadFlags.Disconnected;

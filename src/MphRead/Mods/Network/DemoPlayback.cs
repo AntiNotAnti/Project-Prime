@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using MphRead.Entities;
+using OpenTK.Mathematics;
 using MphRead.Mods.Replay;
 
 namespace MphRead.Mods.Network;
@@ -37,7 +38,7 @@ public static class DemoPlayback
         Stop();
         _prepared = new(new PassiveReplaySessionHost());
         bool opened = _prepared.Join(path, timeoutMs);
-        if (opened) { ReplayCamera.ClearBookmarks(); ReplayCamera.Reset(); ReplayHud.Reset(); ReplayStudio.ResetCache(); }
+        if (opened) { ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset(); ReplayHud.Reset(); ReplayStudio.ResetCache(); }
         return opened;
     }
     internal static int CheckpointCount => _player?.CheckpointCount ?? 0;
@@ -50,6 +51,7 @@ public static class DemoPlayback
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
             _failed = true;
+            ReplayInput.CancelScrub();
             ReplayAudioOwner.Release(_audio); _audio = 0;
             Session.FailVerification("Replay playback stopped: " + ex.Message);
             Session.Transport.AfterFrame();
@@ -101,7 +103,13 @@ public static class DemoPlayback
         Scene? scene = PresentationScene;
         if (scene == null) return null;
         scene.ReplayPreviewSize = _shell!.Size;
-        var size = ReplayVideoExporter.OutputSize ?? _shell.Size;
+        scene.ReplayPreviewBounds = null;
+#if MPHREAD_SHELL
+        scene.ReplayPreviewBounds = Launcher.Gui.UiSurface.Current?.ReplayViewportBounds(_shell.Size.X, _shell.Size.Y);
+#endif
+        var viewportSize = scene.ReplayPreviewBounds is { } bounds
+            ? new Vector2i(bounds.Z, bounds.W) : _shell.Size;
+        var size = ReplayVideoExporter.OutputSize ?? viewportSize;
         if (scene.Size != size) { scene.Size = size; scene.OnResize(); }
         scene.ReplayRenderAlpha = ReplayVideoExporter.Rendering ? ReplayVideoExporter.PresentationAlpha
             : Render.FrameTiming.Active ? Session.Transport.PresentationAlpha(Render.FrameTiming.PresentationAlpha) : 1;
@@ -112,6 +120,7 @@ public static class DemoPlayback
     public static void PumpFrame() => Session.PumpFrame();
     public static void Stop()
     {
+        ReplayInput.CancelScrub();
         ReplayAudioOwner.Release(_audio); _audio = 0;
         _player?.Dispose(); _player = null;
         Scene? lab = _lab; _lab = null;
@@ -128,6 +137,7 @@ public static class DemoPlayback
         {
             branchPath = ReplayLab.WriteBranch(CurrentPath!, CurrentFrame, slot);
             _lab = _player.Current.DetachScene();
+            ReplayInput.CancelScrub();
             ReplayAudioOwner.Release(_audio); _audio = 0;
             _player.Dispose(); _player = null;
             _lab.BeginReplayLab(slot);

@@ -6,6 +6,47 @@ namespace MphRead.Mods.Replay
 {
     public static class ReplayInput
     {
+        internal static bool Scrubbing { get; private set; }
+        internal static void CancelScrub() => Scrubbing = false;
+        internal static bool OverTimeline(float x, float y)
+            => x >= 51f / 256 && x <= 205f / 256 && y >= 169f / 192 && y <= 179f / 192;
+        internal static uint FrameAt(float x, uint duration)
+            => (uint)System.Math.Round(System.Math.Clamp((x * 256d - 51) / 154, 0, 1) * duration);
+        private static void Scrub(float x)
+        {
+            uint frame = FrameAt(x, ReplayController.DurationFrames);
+            if (frame != ReplayController.TimelineFrame || (!ReplayController.IsPaused && !ReplayController.IsSeeking))
+                ReplayController.Seek(frame, resume: false);
+        }
+        internal static bool PointerDown(float x, float y)
+        {
+            if (!DemoPlayback.IsActive || PauseMenu.Open || ReplayVideoExporter.Rendering || !OverTimeline(x, y)) return false;
+            Scrubbing = true;
+            Scrub(x);
+            return true;
+        }
+        internal static bool PointerMove(float x)
+        {
+            if (!Scrubbing) return false;
+            if (!DemoPlayback.IsActive || PauseMenu.Open) { CancelScrub(); return false; }
+            Scrub(x);
+            return true;
+        }
+        internal static bool PointerUp(float x)
+        {
+            if (!Scrubbing) return false;
+            PointerMove(x);
+            CancelScrub();
+            return true;
+        }
+        internal static bool PointerWheel(float x, float y, float delta)
+        {
+            if (!DemoPlayback.IsActive || PauseMenu.Open || ReplayVideoExporter.Rendering || !OverTimeline(x, y)) return false;
+            ReplayController.Seek((uint)System.Math.Clamp(ReplayController.TimelineFrame + delta * 60d,
+                0, ReplayController.DurationFrames), resume: false);
+            return true;
+        }
+
         public static bool HandleKey(Keys key)
         {
             if (!DemoPlayback.IsActive || PauseMenu.Open) return false;

@@ -3453,12 +3453,13 @@ namespace MphRead
             _inactiveBombs.Enqueue(entry);
         }
 
-        public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale)
+        public void AddSingleParticle(SingleType type, Vector3 position, Vector3 color, float alpha, float scale, bool cosmeticTint = false)
         {
             // note: skipping the room size limit check; singles get cleared every frame anyway
             if (_singleParticleCount < _singleParticleMax)
             {
                 SingleParticle entry = _singleParticles[_singleParticleCount++];
+                entry.CosmeticTint = cosmeticTint;
                 entry.ParticleDefinition = Read.GetSingleParticle(type);
                 entry.Position = position;
                 entry.Color = color;
@@ -4331,7 +4332,7 @@ namespace MphRead
         // for effects/trails
         public void AddRenderItem(RenderItemType type, float alpha, int polygonId, Vector3 color,
             RepeatMode xRepeat, RepeatMode yRepeat, float scaleS, float scaleT, Matrix4 transform, Vector3[] uvsAndVerts,
-            int bindingId, BillboardMode billboardMode = BillboardMode.None, int trailCount = 8)
+            int bindingId, BillboardMode billboardMode = BillboardMode.None, int trailCount = 8, Vector4? overrideColor = null)
         {
             RenderItem item = GetRenderItem();
             item.Type = type;
@@ -4358,7 +4359,7 @@ namespace MphRead
             item.Transform = transform;
             item.ListId = 0;
             item.MatrixStackCount = 0;
-            item.OverrideColor = null;
+            item.OverrideColor = overrideColor;
             item.PaletteOverride = null;
             item.Points = uvsAndVerts;
             item.ScaleS = scaleS;
@@ -4422,7 +4423,6 @@ namespace MphRead
             if (_collectingPreview)
             {
                 _previewItems.Add(item);
-                _usedRenderItems.Enqueue(item);
                 return;
             }
             if (item.RenderMode == RenderMode.Decal)
@@ -4833,6 +4833,7 @@ namespace MphRead
             _textureSources.Clear();
             _mipmappedTextures?.Clear();
             _cosmeticTextures.Clear();
+            ReleasePreviewItems();
             _materialMaps.Clear();
             if (_modelLeases != null)
             {
@@ -8431,6 +8432,7 @@ localCenter *= _profileHudScale;
             Mods.Input.GamepadContexts.Focused = e.IsFocused;
             if (!e.IsFocused)
             {
+                Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Input.GamepadManager.ClearAll();
                 Mods.Input.GamepadHaptics.Stop();
             }
@@ -8440,13 +8442,6 @@ localCenter *= _profileHudScale;
         protected override void OnMouseDown(MouseButtonEventArgs e)
         {
             Mods.Input.InputSourceTracker.Note(Mods.Input.InputSource.KeyboardMouse);
-            if (Mods.Network.DemoPlayback.IsActive && !Mods.PauseMenu.Open
-                && e.Button == MouseButton.Right)
-            {
-                Mods.SpectatorMode.CyclePrevious();
-                Mods.Network.ReplayController.NoteInput();
-                return;
-            }
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
             // the settings. It gets the whole of the input while it is, the
@@ -8455,11 +8450,22 @@ localCenter *= _profileHudScale;
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
                 (double px, double py) = PointerPixels(MouseState.X, MouseState.Y);
+                Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Launcher.Gui.Shell.PointerButton(e.Button, px, py, down: true);
                 base.OnMouseDown(e);
                 return;
             }
 #endif
+            if (Mods.Network.DemoPlayback.IsActive && !Mods.PauseMenu.Open
+                && e.Button == MouseButton.Right)
+            {
+                Mods.SpectatorMode.CyclePrevious();
+                Mods.Network.ReplayController.NoteInput();
+                return;
+            }
+            if (e.Button == MouseButton.Button1
+                && Mods.Replay.ReplayInput.PointerDown(MouseState.X / Math.Max(ClientSize.X, 1),
+                    MouseState.Y / Math.Max(ClientSize.Y, 1))) return;
             if (e.Button == MouseButton.Button1)
             {
                 // Drawing the pen zone takes the pointer outright: the
@@ -8503,6 +8509,8 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseUp(MouseButtonEventArgs e)
         {
+            if (e.Button == MouseButton.Button1
+                && Mods.Replay.ReplayInput.PointerUp(MouseState.X / Math.Max(ClientSize.X, 1))) return;
 #if MPHREAD_SHELL
             // A screen is up in this window -- the launcher, the pause menu,
             // the settings. It gets the whole of the input while it is, the
@@ -8544,11 +8552,13 @@ localCenter *= _profileHudScale;
             if (Mods.Launcher.Gui.Shell.UiVisible)
             {
                 (double px, double py) = PointerPixels(e.X, e.Y);
+                Mods.Replay.ReplayInput.CancelScrub();
                 Mods.Launcher.Gui.Shell.PointerMoved(px, py);
                 base.OnMouseMove(e);
                 return;
             }
 #endif
+            if (Mods.Replay.ReplayInput.PointerMove(e.X / Math.Max(ClientSize.X, 1))) return;
             // First-person gameplay keeps a copy of unsimulated mouse
             // movement for the draw pass. The simulation still consumes the
             // ordinary MouseState delta at 60 Hz, so this cannot alter shots,
@@ -8591,6 +8601,8 @@ localCenter *= _profileHudScale;
                 return;
             }
 #endif
+            if (Mods.Replay.ReplayInput.PointerWheel(MouseState.X / Math.Max(ClientSize.X, 1),
+                MouseState.Y / Math.Max(ClientSize.Y, 1), e.OffsetY)) return;
             Scene.OnMouseWheel(e.OffsetY);
             base.OnMouseWheel(e);
         }

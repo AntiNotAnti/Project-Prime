@@ -42,7 +42,7 @@ namespace MphRead.Mods.Replay
 
         public static void Draw(Scene scene)
         {
-            if (!DemoPlayback.IsActive || ReplayVideoExporter.Rendering) return;
+            if (!DemoPlayback.IsActive || ReplayVideoExporter.Rendering || scene.ReplayPreviewBounds.HasValue) return;
             if (_scene != scene)
             {
                 _scene = scene;
@@ -94,7 +94,7 @@ namespace MphRead.Mods.Replay
 
             Text(scene, 49, 163, _status, alpha, 207);
             float progress = ReplayController.DurationFrames == 0 ? 0
-                : ReplayController.CurrentFrame / (float)ReplayController.DurationFrames;
+                : ReplayController.TimelineFrame / (float)ReplayController.DurationFrames;
             scene.DrawHudFlatBox(51, 173, 205, 175,
                 new Vector4(0.4f, 0.4f, 0.4f, alpha));
             scene.DrawHudFlatBox(51, 173, 51 + 154 * progress, 175,
@@ -107,7 +107,9 @@ namespace MphRead.Mods.Replay
                         new Vector4(1, 0.65f, 0.3f, alpha));
                 }
             }
-            Text(scene, 49, 178, _watching, alpha, 207);
+            float thumb = 51 + 154 * progress;
+            scene.DrawHudFlatBox(thumb - 0.6f, 171, thumb + 0.6f, 177, Vector4.One);
+            Text(scene, 49, 178, _watching + "   Drag bar to seek", alpha, 207);
 
             // The essential transport stays discoverable while watching. The
             // full Replay Studio remains in the pause menu for editing, camera

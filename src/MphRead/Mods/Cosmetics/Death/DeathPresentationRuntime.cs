@@ -55,6 +55,13 @@ namespace MphRead.Mods.Cosmetics.Death
         public static bool Visible(DeathPresentationState state, DeathPresentationDefinition definition, float time) =>
             state.Active && definition.WireId != 0 && RenderOptions.ShowCustomCosmetics
             && RenderOptions.CosmeticQuality != CosmeticEffectQuality.Off && time - state.StartTime < definition.Duration;
+        public static CosmeticSurface Surface(CosmeticAppearance appearance, DeathPresentationDefinition definition, float time, float progress, bool team = false)
+        {
+            float dissolve = Math.Clamp((progress - definition.FadeStart)
+                / Math.Max(0.01f, definition.HideBodyAt - definition.FadeStart), 0, 1);
+            return new(appearance.Skin.SurfaceTreatment, (int)definition.SurfaceEffect,
+                time, definition.LightEffect, Vector3.One, 0.95f, 5, 1.6f, dissolve, team);
+        }
         public static Matrix4 Pose(DeathPresentationDefinition definition, float progress)
         {
             var transform = definition.PoseStyle switch

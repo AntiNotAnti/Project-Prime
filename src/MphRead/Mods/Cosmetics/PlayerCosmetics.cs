@@ -41,8 +41,8 @@ namespace MphRead.Entities
         }
         internal CosmeticSurface CosmeticMaterial(bool firstPerson)
         {
-            bool suppressed = (RenderOptions.BrightSkins && _scene.GameState.Multiplayer) || BrightSkinStatusOverride || BrightSkinFrozenOverlay || ModMatchSpawnProtectionActive
-                || Flags2.TestFlag(PlayerFlags2.Cloaking) || _timeSinceDamage < Values.DamageFlashTime * 2;
+            bool suppressed = Mods.Render.BrightSkins.ShouldApply(this) || BrightSkinStatusOverride || BrightSkinFrozenOverlay || ModMatchSpawnProtectionActive
+                || (Flags2.TestFlag(PlayerFlags2.Cloaking) || _curAlpha < 1) || _timeSinceDamage < Values.DamageFlashTime * 2;
             float distance = IsMainPlayer ? 0 : (Position - _scene.Players.Main.CameraInfo.Position).Length;
             return CosmeticRuntime.Surface(CosmeticAppearance, _scene.ElapsedTime, suppressed, firstPerson,
                 IsAltForm, distance, _scene.GameState.Teams);
@@ -67,13 +67,12 @@ namespace MphRead.Entities
                 body ??= _bipedModel2;
                 UpdateMaterials(body, Recolor);
                 var previous = _scene.CosmeticSubmission;
-                _scene.CosmeticSubmission = new(appearance.Skin.SurfaceTreatment, (int)definition.SurfaceEffect,
-                    _scene.ElapsedTime, definition.LightEffect, Vector3.One, 0.4f, 3, 1,
-                    Math.Clamp((progress - definition.FadeStart) / (1 - definition.FadeStart), 0, 1));
+                _scene.CosmeticSubmission = DeathPresentationRuntime.Surface(appearance, definition,
+                    _scene.ElapsedTime, progress, _scene.GameState.Teams);
                 try { GetDrawItems(body, body.Model.Nodes[0], 1, cosmeticDeath: true); }
                 finally { _scene.CosmeticSubmission = previous; }
             }
-            Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Position, definition, progress, _cosmeticDeath.Seed);
+            Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, _cosmeticDeath.Position, definition, progress, _cosmeticDeath.Seed);
             return true;
         }
     }
