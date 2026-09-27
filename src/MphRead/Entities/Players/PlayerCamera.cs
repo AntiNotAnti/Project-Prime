@@ -152,7 +152,8 @@ namespace MphRead.Entities
             if (MorphCamera != null)
             {
                 CameraInfo.Position = MorphCamera.Position;
-                _altControlCollisionFrames = 0;
+                _altCameraCollisionBasisLock = false;
+                _altCameraCollisionClearFrames = 0;
                 return;
             }
             Vector3 posVec;
@@ -206,13 +207,6 @@ namespace MphRead.Entities
                 float factor = Fixed.ToFloat(Values.Field84);
                 CameraInfo.Position += (posVec - CameraInfo.Position) * factor; // sktodo: FPS stuff?
             }
-            // Capture the heading the camera was trying to have before this
-            // frame's collision correction. Do not publish it to the movement
-            // basis yet: the starting camera position can still carry the
-            // previous frame's collision displacement. It becomes trustworthy
-            // only after the collision recovery tail below reaches zero.
-            Vector3 intendedControlFacing = CameraInfo.Target - CameraInfo.Position;
-
             if (_field553 > 0)
             {
                 _field553--;
@@ -524,38 +518,47 @@ namespace MphRead.Entities
             cameraObstructed |= (CameraInfo.Position - cameraCollisionStart).LengthSquared > 0.000001f;
 
             bool playerCollision = Flags1.TestFlag(PlayerFlags1.CollidingLateral);
-            if (cameraObstructed || playerCollision)
-            {
-                // Collision does not freeze the control frame anymore. It only
-                // asks ProcessAlt to use the tighter yaw slew for a short tail,
-                // which covers both camera collision and the harder-to-see case
-                // where player collision jerks the camera target itself.
-                _altControlCollisionFrames = 8;
-            }
-            else if (_altControlCollisionFrames > 0)
-            {
-                _altControlCollisionFrames--;
-            }
+            bool collisionNow = cameraObstructed || playerCollision;
+            ModGetAltRollInput(out float rollInputX, out float rollInputY);
+            float rollInputSq = rollInputX * rollInputX + rollInputY * rollInputY;
+            bool rollInputHeld = Single.IsFinite(rollInputSq) && rollInputSq >= 0.0001f;
 
-            // Keep the desired yaw itself clean as well as the output yaw. A
-            // camera that was pushed around a corner last frame can look clear
-            // before its smoothed position has recovered; waiting through the
-            // short clear tail prevents that stale displacement from becoming
-            // a new long-lived definition of "forward".
-            if (!cameraObstructed && !playerCollision && _altControlCollisionFrames == 0)
+            if (collisionNow && IsMainPlayer && rollInputHeld)
             {
-                ModSetAltControlDesired(intendedControlFacing.X, intendedControlFacing.Z);
+                if (!_altCameraCollisionBasisLock)
+                {
+                    _altRollLockInputX = rollInputX;
+                    _altRollLockInputY = rollInputY;
+                }
+                _altCameraCollisionBasisLock = true;
+                _altCameraCollisionClearFrames = 0;
+                Flags1 |= PlayerFlags1.AltDirOverride;
+            }
+            else if (_altCameraCollisionBasisLock)
+            {
+                if (collisionNow)
+                {
+                    _altCameraCollisionClearFrames = 0;
+                }
+                else if (_altCameraCollisionClearFrames < Byte.MaxValue)
+                {
+                    _altCameraCollisionClearFrames++;
+                }
             }
 
             if (IsMainPlayer && Mods.Input.AltFormMoveDebug.Enabled)
             {
                 Vector3 physicalFacing = CameraInfo.Target - CameraInfo.Position;
+                bool directionChanged = _altCameraCollisionBasisLock
+                    && Mods.Input.AltFormInputDirection.SignificantChange(
+                        _altRollLockInputX, _altRollLockInputY, rollInputX, rollInputY);
                 Mods.Input.AltFormMoveDebug.Log(SlotIndex,
                     physicalFacing.X, physicalFacing.Z,
-                    _altControlDesiredX, _altControlDesiredZ,
                     _altRollFbX, _altRollFbZ,
-                    _altControlPrevInputX, _altControlPrevInputY,
-                    cameraObstructed, playerCollision, _altControlCollisionFrames);
+                    rollInputX, rollInputY,
+                    cameraObstructed, playerCollision,
+                    _altCameraCollisionBasisLock, _altCameraCollisionClearFrames,
+                    directionChanged);
             }
         }
 
