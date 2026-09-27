@@ -522,10 +522,11 @@ namespace MphRead.Mods.Launcher.Gui
             void Refresh()
             {
                 string query=(search.Text??"").Trim();
-                list.ItemsSource=commands.Where(command=>query.Length==0
+                StudioCommand[] matches=commands.Where(command=>query.Length==0
                     ||command.Name.Contains(query,StringComparison.OrdinalIgnoreCase)
                     ||command.Keywords.Contains(query,StringComparison.OrdinalIgnoreCase)).ToArray();
-                if(list.ItemCount>0&&list.SelectedIndex<0)list.SelectedIndex=0;
+                list.ItemsSource=matches;
+                if(matches.Length>0&&list.SelectedIndex<0)list.SelectedIndex=0;
             }
             void Run()
             {
@@ -1636,12 +1637,23 @@ namespace MphRead.Mods.Launcher.Gui
                         }
                         else if(d.Import is {} import)
                         {
-                            int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
-                            import.MaterialReplacements.RemoveAll(value=>value.Source==source);
-                            import.MaterialReplacements.Add(new()
+                            if(hit.SourceMaterial>=0)
                             {
-                                Source=source,Target=target.Index,TargetSource=target.Source
-                            });
+                                int source=hit.SourceMaterial;
+                                import.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                                import.MaterialReplacements.Add(new()
+                                {
+                                    Source=source,Target=target.Index,TargetSource=target.Source
+                                });
+                            }
+                            else
+                            {
+                                if(target.Source)throw new InvalidOperationException("Borrowed-material imports must target an authored material.");
+                                int source=hit.Material;
+                                if(import.DefaultMaterial==source)import.DefaultMaterial=target.Index;
+                                foreach(string shader in import.ShaderMaterials.Keys.ToArray())
+                                    if(import.ShaderMaterials[shader]==source)import.ShaderMaterials[shader]=target.Index;
+                            }
                         }
                         else if(d.NativeRoom is {} native)
                         {
