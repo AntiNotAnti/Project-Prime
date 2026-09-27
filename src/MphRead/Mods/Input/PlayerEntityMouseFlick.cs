@@ -85,8 +85,9 @@ namespace MphRead.Entities
         /// </summary>
         private void ModApplyPointerAltMove()
         {
-            // Android queues its anchored multi-touch sample in GameView before
-            // the shared hardware-input pass.
+            // Android queues its hunter-specific touch sample in GameView before
+            // the shared hardware-input pass: current-frame motion for Samus,
+            // anchored precision drive for the other rolling forms.
             if (global::System.OperatingSystem.IsAndroid())
             {
                 return;
