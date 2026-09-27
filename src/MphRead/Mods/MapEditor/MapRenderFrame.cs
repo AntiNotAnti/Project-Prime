@@ -58,21 +58,28 @@ public readonly record struct MapViewportCamera(Vector3 Position, Vector3 Target
     }
 }
 
+public readonly record struct MapPickHit(Guid ObjectId,int FaceIndex,int Material,
+    Vector3 Point,Vector3 Normal,float Distance);
+
 public static class MapViewportPicking
 {
     /// <summary>Pick actual triangles in world distance, including near-plane intersections.</summary>
     public static Guid Pick(MapRenderFrame frame, double x, double y)
+        => PickHit(frame,x,y)?.ObjectId ?? Guid.Empty;
+
+    public static MapPickHit? PickHit(MapRenderFrame frame,double x,double y,bool includeImported=true)
     {
-        if (!frame.Layout.IsValid) return Guid.Empty;
+        if (!frame.Layout.IsValid) return null;
         var (origin, direction) = frame.Camera.Ray(frame.Layout, x, y);
         float nearest = float.PositiveInfinity;
-        Guid picked = Guid.Empty;
+        MapPickHit? picked = null;
         foreach (var mesh in frame.Meshes)
         {
-            if (mesh.ObjectId == Guid.Empty) continue;
+            if (!includeImported && mesh.ObjectId == Guid.Empty) continue;
             var transform = frame.PreviewTransforms.GetValueOrDefault(mesh.ObjectId, Matrix4x4.Identity);
-            foreach (var face in mesh.Faces)
+            for(int faceIndex=0;faceIndex<mesh.Faces.Count;faceIndex++)
             {
+                var face=mesh.Faces[faceIndex];
                 if (frame.Collision && !face.Solid || face.Points.Length < 3) continue;
                 var a = Vector3.Transform(face.Points[0], transform);
                 for (int i = 1; i < face.Points.Length - 1; i++)
@@ -89,10 +96,18 @@ public static class MapViewportPicking
                     float v = Vector3.Dot(direction, q) / determinant;
                     if (v < 0 || u + v > 1) continue;
                     float distance = Vector3.Dot(other, q) / determinant;
-                    if (distance >= .05f && distance < nearest) { nearest = distance; picked = mesh.ObjectId; }
+                    if (distance < .05f || distance >= nearest) continue;
+                    Vector3 normal=Vector3.Cross(edge,other);
+                    if(normal.LengthSquared()>1e-10f)normal=Vector3.Normalize(normal);
+                    else normal=Vector3.UnitY;
+                    nearest=distance;
+                    picked=new(mesh.ObjectId,faceIndex,face.Material,
+                        origin+direction*distance,normal,distance);
                 }
             }
         }
         return picked;
     }
+
+}
 }
