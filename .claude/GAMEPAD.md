@@ -176,6 +176,13 @@ and a WASD diagonal changed by releasing one key do not wait for a synthetic
 button press. `-altmovecheck` forces a debug log and prints camera/basis yaw,
 input, collision state, lock state and clear-frame count at 10 Hz.
 
+For pointer movement, Samus keeps stock morph-ball inertia: a swipe contributes
+roll traction and releasing it does not zero horizontal speed. Kanden, Spire and
+Noxus retain precision pointer drive. Spire's fast Dialanche swipe is mobility,
+not an attack input: it adds a normalized horizontal impulse in the swipe
+direction, raises only the temporary cap to Spire's authored `BoostSpeedCap`, and
+leaves the normal AltAttack exclusively on the attack bind.
+
 ## Both at once, on a phone
 
 Using the pad hides the touch layout (`TouchControls.NotePadActivity`) and

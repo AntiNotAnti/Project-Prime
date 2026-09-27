@@ -267,9 +267,9 @@ namespace MphRead.Entities
         private ushort _boostCharge = 0;
         private ushort _boostDamage = 0;
         // Legacy names are retained because replay/checkpoint schemas include
-        // these backing fields. Semantically this is now the shared one-shot
-        // alt-form flick: Samus consumes it as an aimed boost and Spire turns it
-        // into the canonical AltAttack press before network press history is read.
+        // these backing fields. Semantically this is the shared one-shot
+        // alt-form flick: Samus consumes it as an aimed native boost and Spire
+        // consumes it as a directional momentum impulse.
         public bool SwipeBoostRequested { get; set; }
         /// <summary>
         /// Screen-space direction of the pending alt-form flick: X right, Y

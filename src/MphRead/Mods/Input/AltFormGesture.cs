@@ -16,7 +16,7 @@ namespace MphRead.Mods.Input
     {
         None,
         SamusBoost,
-        SpireAttack
+        SpireMomentum
     }
 
     /// <summary>
@@ -31,10 +31,16 @@ namespace MphRead.Mods.Input
         public static bool UsesRollMovement(Hunter hunter)
             => hunter is Hunter.Samus or Hunter.Kanden or Hunter.Spire or Hunter.Noxus;
 
+        // Samus deliberately keeps cartridge-style morph-ball inertia. The
+        // precision velocity owner remains available for the other rolling
+        // forms, where it is useful for direct pointer positioning.
+        public static bool UsesPrecisionSwipe(Hunter hunter)
+            => hunter is Hunter.Kanden or Hunter.Spire or Hunter.Noxus;
+
         public static AltFlickAction FlickAction(Hunter hunter) => hunter switch
         {
             Hunter.Samus => AltFlickAction.SamusBoost,
-            Hunter.Spire => AltFlickAction.SpireAttack,
+            Hunter.Spire => AltFlickAction.SpireMomentum,
             _ => AltFlickAction.None
         };
 
@@ -47,8 +53,8 @@ namespace MphRead.Mods.Input
         /// <summary>
         /// Relative mouse movement has no anchor to hold away from centre, so
         /// each simulation step is its own virtual-stick sample. Zero movement
-        /// means centre; stopping the mouse therefore stops normal rolling on
-        /// the next simulation step, matching the precision touch/pen path.
+        /// means centre. Precision-drive hunters stop controlled rolling there;
+        /// Samus instead stops applying traction and keeps stock morph-ball inertia.
         /// </summary>
         public static (float X, float Y) MouseDrive(float deltaX, float deltaY,
             float sensitivity)

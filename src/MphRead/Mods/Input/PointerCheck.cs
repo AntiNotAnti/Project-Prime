@@ -200,10 +200,15 @@ namespace MphRead.Mods.Input
             Require(AltFormGesture.FlickAction(global::MphRead.Hunter.Samus)
                     == AltFlickAction.SamusBoost
                 && AltFormGesture.FlickAction(global::MphRead.Hunter.Spire)
-                    == AltFlickAction.SpireAttack
+                    == AltFlickAction.SpireMomentum
                 && AltFormGesture.FlickAction(global::MphRead.Hunter.Kanden)
                     == AltFlickAction.None,
                 "flick routing is ability-specific");
+            Require(!AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Samus)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Kanden)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Spire)
+                && AltFormGesture.UsesPrecisionSwipe(global::MphRead.Hunter.Noxus),
+                "Samus swipe keeps stock morph-ball inertia while other rolling forms retain precision drive");
 
             float oldMouseSensitivity = InputSettings.MouseSensitivity;
             float oldAltSwipeSensitivity = InputSettings.AltSwipeSensitivity;

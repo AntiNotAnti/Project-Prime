@@ -1615,11 +1615,16 @@ namespace MphRead.Entities
                     }
 
                     bool swipeRequested = Input.AltSwipeEngaged || Input.AltSwipeStopRequested;
-                    bool preciseSwipe = swipeRequested && !explicitRoll
+                    bool swipeCanDrive = !explicitRoll
                         && IsAltForm && !IsMorphing && !IsUnmorphing
                         && _boostAimLock == 0
                         && _jumpPadControlLockMin == 0 && AttachedEnemy == null;
-                    if (preciseSwipe)
+                    bool stockSamusSwipe = swipeCanDrive && Hunter == Hunter.Samus
+                        && Input.AltSwipeEngaged;
+                    bool preciseSwipe = swipeCanDrive && swipeRequested
+                        && Mods.Input.AltFormGesture.UsesPrecisionSwipe(Hunter);
+
+                    if (stockSamusSwipe || preciseSwipe)
                     {
                         float screenX = Input.AltSwipeEngaged ? Input.AltSwipeX : 0;
                         float screenY = Input.AltSwipeEngaged ? Input.AltSwipeY : 0;
@@ -1627,30 +1632,66 @@ namespace MphRead.Entities
                         float left = -screenX;
                         float driveX = _altRollFbX * forward + _altRollLrX * left;
                         float driveZ = _altRollFbZ * forward + _altRollLrZ * left;
-                        float normalSpeed = Fixed.ToFloat(Values.AltMinHSpeed);
-                        if (Mods.Input.AltFormGesture.TryPrecisionVelocity(
-                            Speed.X, Speed.Z, driveX, driveZ, normalSpeed,
-                            out float preciseX, out float preciseZ))
+
+                        if (stockSamusSwipe)
                         {
-                            // Normal rolling velocity belongs directly to the
-                            // finger while this source owns movement: returning
-                            // to centre stops now, and crossing the anchor flips
-                            // direction in the same simulation step.
-                            Speed = Speed.WithX(preciseX).WithZ(preciseZ);
-                        }
-                        else if (Input.AltSwipeEngaged)
-                        {
-                            // High-speed external motion (boost/knockback) is
-                            // not disposable input velocity. Above the normal
-                            // envelope, fall back to cartridge-style traction
-                            // so the player can steer it without deleting it.
+                            // Samus is a morph ball, not a virtual stick. Swiping
+                            // applies the same traction as Roll input and releasing
+                            // the swipe simply stops accelerating; inertia and the
+                            // stock ground/air damping decide how she slows down.
                             speedDelta.X += driveX * traction;
                             speedDelta.Z += driveZ * traction;
                         }
+                        else
+                        {
+                            float normalSpeed = Fixed.ToFloat(Values.AltMinHSpeed);
+                            if (Mods.Input.AltFormGesture.TryPrecisionVelocity(
+                                Speed.X, Speed.Z, driveX, driveZ, normalSpeed,
+                                out float preciseX, out float preciseZ))
+                            {
+                                Speed = Speed.WithX(preciseX).WithZ(preciseZ);
+                            }
+                            else if (Input.AltSwipeEngaged)
+                            {
+                                speedDelta.X += driveX * traction;
+                                speedDelta.Z += driveZ * traction;
+                            }
+                        }
                     }
+
+                    // Dialanche flicks are mobility now, not the slam attack.
+                    // Add to current momentum in the swipe direction and raise
+                    // only the temporary horizontal cap to Spire's authored alt
+                    // boost cap. This preserves existing momentum/collision
+                    // physics while giving a clear directional shove.
+                    if (Hunter == Hunter.Spire && SwipeBoostRequested)
+                    {
+                        float forward = -SwipeBoostY;
+                        float left = -SwipeBoostX;
+                        float dirX = _altRollFbX * forward + _altRollLrX * left;
+                        float dirZ = _altRollFbZ * forward + _altRollLrZ * left;
+                        float dirMag = MathF.Sqrt(dirX * dirX + dirZ * dirZ);
+                        if (dirMag > 1 / 4096f)
+                        {
+                            dirX /= dirMag;
+                            dirZ /= dirMag;
+                            float boostCap = Fixed.ToFloat(Values.BoostSpeedCap);
+                            if (_hSpeedCap < boostCap)
+                            {
+                                _hSpeedCap = boostCap;
+                            }
+                            float impulse = Fixed.ToFloat(Values.AltMinHSpeed);
+                            speedDelta.X += dirX * impulse;
+                            speedDelta.Z += dirZ * impulse;
+                        }
+                        SwipeBoostRequested = false;
+                        SwipeBoostX = 0;
+                        SwipeBoostY = 0;
+                    }
+
                     Input.AltSwipeStopRequested = false;
 
-                    if (!preciseSwipe)
+                    if (!preciseSwipe && !stockSamusSwipe)
                     {
                         if (Controls.RollUp.IsDown)
                         {
