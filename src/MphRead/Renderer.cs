@@ -6371,6 +6371,12 @@ localCenter *= _profileHudScale;
             _cameraFacing = _cameraFacing.Normalized();
             _cameraRight = Vector3.Cross(_cameraFacing, Vector3.UnitY);
             _cameraUp = Vector3.Cross(_cameraRight, _cameraFacing);
+            // Free cam owns its own projection. Do not carry the watched
+            // player's scoped FOV into it, or leaving a zoomed spectator POV
+            // permanently turns the roam camera into a sniper scope.
+            _cameraFov = MathHelper.DegreesToRadians(
+                Mods.RenderOptions.ScaleCameraFov(Mods.RenderOptions.DefaultFov));
+            _viewModelFov = MathHelper.DegreesToRadians(Mods.RenderOptions.DefaultFov);
             _cameraMode = CameraMode.Roam;
             _inputMode = InputMode.CameraOnly;
             _freeCam = true;

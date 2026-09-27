@@ -75,7 +75,13 @@ namespace MphRead
                 GL.Disable(EnableCap.StencilTest);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.Enable(EnableCap.DepthTest);
-                GL.DepthFunc(DepthFunction.Lequal);
+                // Replayed G-buffer geometry must match the depth that the
+                // forward renderer actually accepted. LEQUAL lets a nearer
+                // alpha-tested/discarded triangle paint PBR data over the
+                // visible surface behind it, which shows up as giant pale
+                // polygons. Exact depth equality turns the forward pass into
+                // the G-buffer's visibility mask.
+                GL.DepthFunc(DepthFunction.Equal);
                 GL.DepthMask(false);
                 GL.ColorMask(true, true, true, true);
                 GL.PolygonMode(TriangleFace.FrontAndBack,
