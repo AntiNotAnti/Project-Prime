@@ -1360,6 +1360,88 @@ namespace MphRead.Entities
             }
         }
 
+        private void ModUpdateSpireLedgeCrest(bool wasClimbing)
+        {
+            if (Hunter != Hunter.Spire || !IsAltForm || IsMorphing || IsUnmorphing)
+            {
+                _spireLedgeCrestTimer = 0;
+                _spireClimbWallNormal = Vector3.Zero;
+                return;
+            }
+
+            if (Flags2.TestFlag(PlayerFlags2.SpireClimbing))
+            {
+                // Live wall contact owns the climb. The collision path refreshes
+                // the wall normal and vertical assist directly.
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+            if (Flags1.TestFlag(PlayerFlags1.Standing))
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            float wallSq = _spireClimbWallNormal.X * _spireClimbWallNormal.X
+                + _spireClimbWallNormal.Z * _spireClimbWallNormal.Z;
+            if (wallSq < 0.25f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            ModGetAltRollInput(out float inputX, out float inputY);
+            float driveX = _altRollFbX * inputY - _altRollLrX * inputX;
+            float driveZ = _altRollFbZ * inputY - _altRollLrZ * inputX;
+            float driveSq = driveX * driveX + driveZ * driveZ;
+            if (driveSq < 0.01f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+            float invDrive = 1f / MathF.Sqrt(driveSq);
+            driveX *= invDrive;
+            driveZ *= invDrive;
+
+            // Collision planes point out of the wall. A crest is only valid
+            // while the player continues steering into/over that wall.
+            float inwardX = -_spireClimbWallNormal.X;
+            float inwardZ = -_spireClimbWallNormal.Z;
+            float intoWall = driveX * inwardX + driveZ * inwardZ;
+            if (intoWall <= 0.1f)
+            {
+                _spireLedgeCrestTimer = 0;
+                return;
+            }
+
+            // Losing wall contact while still rising and steering through it is
+            // the lip of a ledge. Give Dialanche a very short continuation of
+            // the climb so its centre can pass the edge instead of being pulled
+            // back down by gravity. This changes velocity only, never position.
+            if (wasClimbing && _spireLedgeCrestTimer == 0 && Speed.Y > -0.08f)
+            {
+                _spireLedgeCrestTimer = 8; // ~133 ms at the 60 Hz simulation
+            }
+            if (_spireLedgeCrestTimer == 0)
+            {
+                return;
+            }
+
+            const float crestInwardSpeed = 0.10f;
+            const float crestUpSpeed = 0.11f;
+            float inwardSpeed = Speed.X * inwardX + Speed.Z * inwardZ;
+            if (inwardSpeed < crestInwardSpeed)
+            {
+                float add = crestInwardSpeed - inwardSpeed;
+                Speed = Speed.AddX(inwardX * add).AddZ(inwardZ * add);
+            }
+            if (Speed.Y < crestUpSpeed)
+            {
+                Speed = Speed.WithY(crestUpSpeed);
+            }
+            _spireLedgeCrestTimer--;
+        }
+
         private void ProcessAlt()
         {
             Vector3 speedDelta = Vector3.Zero;
@@ -1675,12 +1757,17 @@ namespace MphRead.Entities
                         {
                             dirX /= dirMag;
                             dirZ /= dirMag;
-                            float boostCap = Fixed.ToFloat(Values.BoostSpeedCap);
-                            if (_hSpeedCap < boostCap)
+                            // A flick is only a mobility nudge, not a
+                            // second boost ability. One normal Spire traction
+                            // tick is ~0.045; use 1.25x that and allow at most
+                            // ~10% above normal rolling speed.
+                            float normalCap = Fixed.ToFloat(Values.AltMinHSpeed);
+                            float slightCap = normalCap * 1.10f;
+                            if (_hSpeedCap < slightCap)
                             {
-                                _hSpeedCap = boostCap;
+                                _hSpeedCap = slightCap;
                             }
-                            float impulse = Fixed.ToFloat(Values.AltMinHSpeed);
+                            float impulse = Fixed.ToFloat(Values.RollAltTraction) * 1.25f;
                             speedDelta.X += dirX * impulse;
                             speedDelta.Z += dirZ * impulse;
                         }
@@ -2490,6 +2577,7 @@ namespace MphRead.Entities
             }
             Terrain prevTerrain = _standTerrain;
             bool standingPrev = Flags1.TestFlag(PlayerFlags1.Standing);
+            bool spireClimbingPrev = Flags2.TestFlag(PlayerFlags2.SpireClimbing);
             bool noUnmorphPev = Flags1.TestFlag(PlayerFlags1.NoUnmorph);
             Flags1 &= ~PlayerFlags1.Standing;
             Flags1 &= ~PlayerFlags1.StandingPrevious;
@@ -2513,6 +2601,7 @@ namespace MphRead.Entities
             Vector3 prevC0 = _fieldC0;
             _fieldC0 = Vector3.Zero;
             CheckCollision();
+            ModUpdateSpireLedgeCrest(spireClimbingPrev);
             if (_field449 > 0 && _field449 < 30 * 2) // todo: FPS stuff
             {
                 _fieldC0 = prevC0;
