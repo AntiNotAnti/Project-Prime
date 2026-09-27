@@ -11,6 +11,7 @@ namespace MphRead.Mods.Network
         public static bool IsPaused => Current.IsPaused;
         public static bool AtEnd => Current.AtEnd;
         public static uint CurrentFrame => Current.CurrentFrame;
+        internal static uint TimelineFrame => Current.RequestedSeekTarget ?? Current.CurrentFrame;
         public static uint DurationFrames => Current.DurationFrames;
         public static float PlaybackRate => Current.PlaybackRate;
         public static double CurrentSeconds => Current.CurrentSeconds;

@@ -131,7 +131,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             };
             body.Children.Add(_timeline);
-            body.Children.Add(new Note("Drag to scrub · drag the gold In/Out handles to trim · wheel zooms · "
+            body.Children.Add(new Note("Drag to scrub · drag the gold In/Out handles to trim · wheel scrubs · Ctrl+wheel zooms · "
                 + "←/→ nudge one second. Lanes: kills · deaths · damage · objectives · annotations."));
 
             body.Children.Add(new Caption("Highlights"));
@@ -1138,7 +1138,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _timelineSlots.Length - 1)];
             ReplayTimelineFilter timelineFilter = (ReplayTimelineFilter)Math.Clamp(
                 _timelineEvents.Index, 0, Enum.GetValues<ReplayTimelineFilter>().Length - 1);
-            _timeline.Update(ReplayController.DurationFrames, ReplayController.CurrentFrame,
+            _timeline.Update(ReplayController.DurationFrames, ReplayController.TimelineFrame,
                 ReplayController.ClipIn, ReplayController.ClipOut, DemoPlayback.Events, _highlights,
                 ReplayCamera.Track.Keys.Select(key => key.Frame).ToArray(),
                 _bookmarks.Select(bookmark => bookmark.Frame).ToArray(), _namedHighlights,

@@ -30,13 +30,19 @@ internal sealed class ReplayPoseStream : IDisposable
         _world = world;
         for (int i = 0; i < 8; i++) _poses[i] = new(24);
     }
+    // Presentation capture can prepare the cursor once per simulation frame so
+    // HUD sampling does not perform file decoding or allocate during drawing.
+    internal bool Prepare()
+    {
+        if(_failed) return false;
+        try { Advance(); return true; }
+        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException)
+        { LastError=ex.Message; _failed=true; return false; }
+    }
     internal bool Sample(int slot, float alpha, out Vector3 position, out Vector3 facing)
     {
         position = facing = default;
-        if (_failed || (uint)slot >= 8) return false;
-        try { Advance(); }
-        catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException)
-        { LastError = ex.Message; _failed = true; return false; }
+        if ((uint)slot >= 8 || !Prepare()) return false;
         double frame = Math.Max(0, _world.Session.RecordingFrame - 1d + alpha);
         var samples = _poses[slot];
         if (samples.Count == 0) return false;

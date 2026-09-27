@@ -50,7 +50,7 @@ internal static class ReplayWorldCoverageCheck
         finally { if (output == null) Directory.Delete(directory, recursive: true); }
     }
 
-    private static void Write(string path, string room, GameMode mode, Vector3 origin)
+    internal static void Write(string path, string room, GameMode mode, Vector3 origin)
     {
         const ushort matchId = 17;
         const ulong epoch = 19;
