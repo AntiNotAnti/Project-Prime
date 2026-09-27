@@ -189,6 +189,13 @@ namespace MphRead.Mods.MapGen
         public float PortalVerticalMargin { get; set; } = 6f;
     }
 
+    public sealed class MapCollisionHealRegion
+    {
+        public float[] Center { get; set; } = new float[3];
+        public float Radius { get; set; } = 2f;
+        public string? Note { get; set; }
+    }
+
     public sealed class MapNativeRoomSource
     {
         public string Room { get; set; } = "";
@@ -519,6 +526,13 @@ namespace MphRead.Mods.MapGen
         /// Kept small relative to the player radius and clamped by validation.
         /// </summary>
         public float CollisionHealTolerance { get; set; } = 0.0625f;
+
+        /// <summary>
+        /// Author-reviewed regions where optional Auto-Heal topology/coverage
+        /// edits are suppressed. Runtime-precision canonicalization still
+        /// applies because wc01 cannot represent arbitrary floats.
+        /// </summary>
+        public List<MapCollisionHealRegion> CollisionHealExclusions { get; set; } = new();
 
         /// <summary>
         /// Take the level's own player starts as spawn points. True is right
