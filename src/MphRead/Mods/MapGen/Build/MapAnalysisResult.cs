@@ -7,7 +7,8 @@ using OpenTK.Mathematics;
 
 namespace MphRead.Mods.MapGen;
 
-public sealed record MapPreviewFace(ImmutableArray<Vector3> Points, float Shade, int Material);
+public sealed record MapPreviewFace(ImmutableArray<Vector3> Points, float Shade, int Material,
+    int SourceMaterial = -1);
 public sealed record MapCollisionRepairPreview(MapCollisionRepairKind Kind, float Confidence,
     string Detail, ImmutableArray<Vector3> Points);
 public sealed record MapCollisionHealthSnapshot(int InputFaces,int OutputFaces,int CanonicalizedFaces,
@@ -36,9 +37,9 @@ public sealed class MapAnalysisResult
         var validation = new MapValidationResult();
         validation.Diagnostics.AddRange(compilation.Validation.Diagnostics);
         validation.Budgets.AddRange(compilation.Validation.Budgets);
-        Faces = compilation.Map?.Faces.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material))
+        Faces = compilation.Map?.Faces.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial))
             .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
-        CollisionFaces = compilation.Map?.Solid.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material))
+        CollisionFaces = compilation.Map?.Solid.Select(f => new MapPreviewFace(f.Points.ToImmutableArray(), f.Shade, f.Material, f.SourceMaterial))
             .ToImmutableArray() ?? ImmutableArray<MapPreviewFace>.Empty;
         ImportedFaceCount = compilation.Map?.ImportedFaceCount ?? 0;
         ImportedCollisionFaceCount = compilation.Map?.ImportedCollisionFaceCount ?? 0;
