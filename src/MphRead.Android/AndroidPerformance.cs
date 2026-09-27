@@ -457,15 +457,18 @@ namespace MphRead.Droid
 
             try
             {
-                object? manager = activity.GetSystemService(Context.PowerService);
-                PropertyInfo? property = manager?.GetType().GetProperty("CurrentThermalStatus");
-                object? value = property?.GetValue(manager);
-                return value == null ? 0 : Convert.ToInt32(value);
+                if (activity.GetSystemService(Context.PowerService) is PowerManager manager)
+                {
+                    return (int)manager.CurrentThermalStatus;
+                }
             }
             catch
             {
-                return 0;
+                // Vendor power services have occasionally thrown while the
+                // activity is changing state. Treat that sample as cool and
+                // try again on the next poll.
             }
+            return 0;
         }
 
         private static void SetSustainedPerformanceMode(bool enabled)
@@ -479,9 +482,12 @@ namespace MphRead.Droid
 
             try
             {
-                MethodInfo? method = activity.Window.GetType().GetMethod(
-                    "SetSustainedPerformanceMode", new[] { typeof(bool) });
-                method?.Invoke(activity.Window, new object[] { enabled });
+                if (activity.GetSystemService(Context.PowerService) is not PowerManager manager
+                    || !manager.IsSustainedPerformanceModeSupported)
+                {
+                    return;
+                }
+                activity.Window.SetSustainedPerformanceMode(enabled);
                 DebugLog.Line("androidperf",
                     $"sustained performance mode {(enabled ? "enabled" : "disabled")}");
             }
