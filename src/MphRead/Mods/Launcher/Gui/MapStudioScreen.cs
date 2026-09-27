@@ -166,6 +166,8 @@ namespace MphRead.Mods.Launcher.Gui
             _hierarchy.SelectionChanged+=(_,selection)=>
             {
                 if(_refreshing||_document==null)return;
+                if(selection.AddedItems.OfType<HierarchyRow>().Any(row=>row.Header))
+                {RefreshHierarchy();return;}
                 _document.Selection.Clear();
                 foreach(var row in _hierarchy.SelectedItems?.OfType<HierarchyRow>()??Enumerable.Empty<HierarchyRow>())
                     if(row.Object is {} item)_document.Selection.Add(item.Id);
@@ -291,7 +293,7 @@ namespace MphRead.Mods.Launcher.Gui
         internal void Load(MapProject project,string? path=null)
         {
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
-            _lastBuild = null; _hierarchySignature = "";
+            _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
             if(_document!=null)_document.Changed-=Changed;
             _document=new(project,path);_document.Changed+=Changed;
@@ -989,7 +991,12 @@ namespace MphRead.Mods.Launcher.Gui
                         {
                             if(item.Value is MapGeometry g)
                             {
-                                if(material is {SelectedIndex:>0})g.Material=material.SelectedIndex-1;
+                                if(material is {SelectedIndex:>0})
+                                {
+                                    int target=material.SelectedIndex-1;g.Material=target;
+                                    if(g is MapMesh mesh)
+                                        for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=target;
+                                }
                                 if(applyLayer?.IsChecked==true)g.Layer=String.IsNullOrWhiteSpace(layer?.Text)?"Architecture":layer!.Text!.Trim();
                                 if(applyTerrain?.IsChecked==true&&!String.IsNullOrWhiteSpace(terrain?.Text))g.Terrain=terrain!.Text!.Trim();
                                 if(solid?.IsChecked is bool s)g.Solid=s;
@@ -1714,7 +1721,12 @@ namespace MphRead.Mods.Launcher.Gui
                     var ids=_document.Selection.ToHashSet();
                     _document.EditObjects("Assign material",ids,d=>
                     {
-                        foreach(var g in d.Geometry)g.Material=index;
+                        foreach(var g in d.Geometry)
+                        {
+                            g.Material=index;
+                            if(g is MapMesh mesh)
+                                for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=index;
+                        }
                         foreach(var b in d.Brushes)b.Material=index;
                     });
                 });
