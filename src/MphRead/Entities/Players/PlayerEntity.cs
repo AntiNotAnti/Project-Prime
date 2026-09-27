@@ -384,6 +384,13 @@ namespace MphRead.Entities
         private float _altRollLockInputX = 0;
         private float _altRollLockInputY = 0;
 
+        // Spire's wall climb is collision-driven. Remember the last wall normal
+        // so a short crest assist can carry Dialanche over the lip after the
+        // vertical wall contact disappears. These are transient simulation
+        // helpers and are intentionally not part of replay/network schemas.
+        private Vector3 _spireClimbWallNormal = Vector3.Zero;
+        private byte _spireLedgeCrestTimer = 0;
+
         private HalfturretEntity _halfturret = null!;
         public HalfturretEntity Halfturret => _halfturret;
         public EnemySpawnEntity? EnemySpawner { get; set; }
