@@ -74,7 +74,17 @@ namespace MphRead.Droid
 
             bool untouched = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate)
                     == FrameTiming.DisplayRate
-                && RenderOptions.ParseScale(settings.ResolutionScale, 100) == 100;
+                && RenderOptions.ParseScale(settings.ResolutionScale, 100) == 100
+                && String.Equals(settings.GraphicsPreset, "original", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.AntiAliasing, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.ShadowQuality, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.AmbientOcclusion, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.Bloom, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.EnhancedLighting, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.DeferredPbr, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.Reflections, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.VolumetricFog, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.TextureUpscale, "off", StringComparison.OrdinalIgnoreCase);
 
             settings.AndroidPerformanceProfile = untouched ? BalancedProfile : CustomProfile;
             if (untouched)
