@@ -136,6 +136,14 @@ public sealed class MapViewportCache
         => Array.AsReadOnly(NativeFaces.Where(f => f.Solid)
             .Concat(ImportedCollisionSpatial.Column(point)).ToArray());
 
+    public IReadOnlyList<MapViewportFace> SurfaceNear(System.Numerics.Vector3 point,float radius=12)
+    {
+        var bounds=new MapFaceSpatialIndex.Bounds3(point-new System.Numerics.Vector3(radius),
+            point+new System.Numerics.Vector3(radius));
+        return Array.AsReadOnly(NativeFaces.Where(f=>f.Solid)
+            .Concat(ImportedCollisionSpatial.Query(bounds)).ToArray());
+    }
+
     private void UpdateMeshes() => Meshes = Array.AsReadOnly(_meshes.Values
         .Concat(_importedChunks.Select(c => c.Mesh)).ToArray());
 }
