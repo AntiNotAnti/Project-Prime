@@ -152,6 +152,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(tools,"Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate));AddButton(tools,"Delete",()=>EditSelection("Delete",MapObjects.Delete));
             AddButton(tools,"Hide",()=>_document?.HideSelection());AddButton(tools,"Show all",()=>_document?.ShowAllGeometry());
             AddButton(tools,"Measure",()=>{if(_viewport!=null){_viewport.MeasureMode=!_viewport.MeasureMode;_viewport.InvalidateVisual();}});
+            AddButton(tools,"Entity helpers",()=>{if(_viewport!=null){_viewport.EntityVisualization=!_viewport.EntityVisualization;_viewport.InvalidateVisual();}});
             AddButton(tools,"Commands",ShowCommandPalette);
             AddButton(tools,"Capture preview",CapturePreview);
             center.Children.Add(tools);Grid.SetRow(_viewportHost,1);center.Children.Add(_viewportHost);Grid.SetColumn(center,1);body.Children.Add(center);
@@ -340,7 +341,7 @@ namespace MphRead.Mods.Launcher.Gui
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
-                +"RMB orbit · MMB pan · WASD fly · F focus · box-select empty space · G/R/T tools · Ctrl+C/V/A";
+                +"RMB orbit · MMB pan · WASD/QE fly · F focus · 1–4 element modes · G/R/T tools · M measure · Ctrl+Shift+P commands";
         }
         private void RefreshHierarchy(bool force=false)
         {
@@ -580,9 +581,9 @@ namespace MphRead.Mods.Launcher.Gui
                         case MapTemplateAction.Create:
                             Load(MapTemplates.Create(name.Text??"",info.Id));break;
                         case MapTemplateAction.ImportQ3:
-                            Import();break;
+                            _inspectorPage="Collision repairs";Import();break;
                         case MapTemplateAction.CloneNative:
-                            CloneBuiltIn();break;
+                            _inspectorPage="Environment";CloneBuiltIn();break;
                     }
                 }
                 catch(Exception ex){Failure(ex);}
@@ -1657,7 +1658,7 @@ namespace MphRead.Mods.Launcher.Gui
             });
             AddButton(_inspector,"Clear picked source override",()=>
             {
-                if(_pickedMaterialHit is not {ObjectId:var id} hit||id!=Guid.Empty)return;
+                if(_pickedMaterialHit is not MapPickHit hit||hit.ObjectId!=Guid.Empty)return;
                 int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
                 _document.Edit("Clear material replacement",d=>
                 {
