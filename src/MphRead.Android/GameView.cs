@@ -1539,11 +1539,14 @@ namespace MphRead.Droid
                 _input.Apply(controls.RolltLeft, left);
                 _input.Apply(controls.RollRight, right);
 
-                // Samus/Kanden/Spire/Noxus use the aim-side drag as an
-                // analogue virtual stick while transformed. Keep it separate
-                // from Roll keybinds so a real stick/keyboard/controller can
-                // take priority later in the shared input pass.
-                (bool Engaged, float X, float Y) altDrive = _controls.AltMoveDrive;
+                // Samus uses current-frame aim-side motion, just like
+                // native Morph Ball steering. The other rolling hunters keep
+                // the anchored precision stick. Neither path consumes the aim
+                // delta here, so the normal aim collector sees the same sample
+                // later in this frame.
+                (bool Engaged, float X, float Y) altDrive = main.Hunter == MphRead.Hunter.Samus
+                    ? _controls.SamusAltMoveDrive
+                    : _controls.AltMoveDrive;
                 bool swipeOwnsMovement = main.IsAltForm
                     && !main.IsMorphing && !main.IsUnmorphing
                     && Mods.Input.AltFormGesture.UsesRollMovement(main.Hunter)
