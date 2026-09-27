@@ -1224,10 +1224,25 @@ namespace MphRead.Droid
                     ? Math.Max(MinFrameSeconds, 1.0 / AndroidPerformance.DisplayRefreshRate)
                     : Math.Max(MinFrameSeconds, 1.0 / cap);
                 double wait = _nextFrame - now;
-                if (wait > 0.001)
+                if (wait > 0)
                 {
-                    Thread.Sleep((int)(wait * 1000));
-                    now = _clock.Elapsed.TotalSeconds;
+                    // Sleep for the coarse part, then use only a very short
+                    // spin for the sub-millisecond remainder. Sleeping the
+                    // entire truncated millisecond deadline caused visible
+                    // 15/17/16 ms cadence on some Android schedulers.
+                    const double spinWindow = 0.0005;
+                    if (wait > spinWindow + 0.001)
+                    {
+                        int sleepMs = Math.Max(1,
+                            (int)((wait - spinWindow) * 1000));
+                        Thread.Sleep(sleepMs);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
+                    while (now < _nextFrame)
+                    {
+                        Thread.SpinWait(16);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
                 }
                 _nextFrame += interval;
                 if (_nextFrame < now)
