@@ -147,6 +147,7 @@ namespace MphRead.Mods.MapGen
                     ? Tessellate(bsp, face, unit, width, height, material, sky, import.PatchLevel, cancellation)
                     : Triangles(bsp, face, unit, width, height, material, sky))
                 {
+                    built.SourceMaterial=sourceMaterial;
                     if (sky)
                     {
                         ProjectSky(built, width * SkyTiles / Math.Max(1f, skySpan));
