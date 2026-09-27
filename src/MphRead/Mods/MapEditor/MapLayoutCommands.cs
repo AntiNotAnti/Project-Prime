@@ -64,6 +64,86 @@ public static class MapLayoutCommands
             if (floor.HasValue) item.Move(new[] { 0f, floor.Value - bottom, 0f });
         }
     }
+    public readonly record struct SurfaceContact(Vector3 Point,Vector3 Normal,Guid ObjectId,float Distance);
+
+    public static SurfaceContact? NearestSurface(Vector3 point,IReadOnlyList<MapViewportFace> faces,
+        ISet<Guid>? excluded=null)
+    {
+        SurfaceContact? best=null;
+        foreach(var face in faces)
+        {
+            if(!face.Solid||excluded?.Contains(face.ObjectId)==true||face.Points.Length<3)continue;
+            Vector3 a=face.Points[0];
+            for(int i=1;i<face.Points.Length-1;i++)
+            {
+                Vector3 b=face.Points[i],cc=face.Points[i+1];
+                Vector3 nearest=ClosestPointOnTriangle(point,a,b,cc);
+                float distance=Vector3.DistanceSquared(point,nearest);
+                if(best!=null&&distance>=best.Value.Distance*best.Value.Distance)continue;
+                Vector3 normal=Vector3.Cross(b-a,cc-a);
+                if(normal.LengthSquared()<1e-8f)continue;
+                normal=Vector3.Normalize(normal);
+                best=new(nearest,normal,face.ObjectId,MathF.Sqrt(distance));
+            }
+        }
+        return best;
+    }
+
+    public static void SnapToSurface(MapDefinition definition,ISet<Guid> ids,
+        Func<Vector3,IReadOnlyList<MapViewportFace>> candidates,bool align=false)
+    {
+        foreach(var item in Selected(definition,ids))
+        {
+            float bottom=Bounds(item,1).Min;
+            Vector3 anchor=new(item.Position[0],bottom,item.Position[2]);
+            SurfaceContact? contact=NearestSurface(anchor,candidates(anchor),ids);
+            if(contact==null)continue;
+            Vector3 delta=contact.Value.Point-anchor;
+            item.Move(new[]{delta.X,delta.Y,delta.Z});
+            if(align&&item.Value is MapGeometry geometry)
+            {
+                Vector3 normal=contact.Value.Normal;
+                if(normal.Y<0)normal=-normal;
+                geometry.Transform.Rotation=QuaternionBetween(Vector3.UnitY,normal);
+            }
+        }
+    }
+
+    private static float[] QuaternionBetween(Vector3 from,Vector3 to)
+    {
+        from=Vector3.Normalize(from);to=Vector3.Normalize(to);
+        float dot=Math.Clamp(Vector3.Dot(from,to),-1,1);
+        Quaternion q;
+        if(dot>0.9999f)q=Quaternion.Identity;
+        else if(dot<-0.9999f)q=Quaternion.CreateFromAxisAngle(Vector3.UnitX,MathF.PI);
+        else
+        {
+            Vector3 axis=Vector3.Normalize(Vector3.Cross(from,to));
+            q=Quaternion.CreateFromAxisAngle(axis,MathF.Acos(dot));
+        }
+        return new[]{q.X,q.Y,q.Z,q.W};
+    }
+
+    private static Vector3 ClosestPointOnTriangle(Vector3 p,Vector3 a,Vector3 b,Vector3 c)
+    {
+        Vector3 ab=b-a,ac=c-a,ap=p-a;
+        float d1=Vector3.Dot(ab,ap),d2=Vector3.Dot(ac,ap);
+        if(d1<=0&&d2<=0)return a;
+        Vector3 bp=p-b;float d3=Vector3.Dot(ab,bp),d4=Vector3.Dot(ac,bp);
+        if(d3>=0&&d4<=d3)return b;
+        float vc=d1*d4-d3*d2;
+        if(vc<=0&&d1>=0&&d3<=0){float v=d1/(d1-d3);return a+v*ab;}
+        Vector3 cp=p-c;float d5=Vector3.Dot(ab,cp),d6=Vector3.Dot(ac,cp);
+        if(d6>=0&&d5<=d6)return c;
+        float vb=d5*d2-d1*d6;
+        if(vb<=0&&d2>=0&&d6<=0){float w=d2/(d2-d6);return a+w*ac;}
+        float va=d3*d6-d5*d4;
+        if(va<=0&&(d4-d3)>=0&&(d5-d6)>=0)
+        {float w=(d4-d3)/((d4-d3)+(d5-d6));return b+w*(c-b);}
+        float denom=1/(va+vb+vc),v2=vb*denom,w2=vc*denom;
+        return a+ab*v2+ac*w2;
+    }
+
     public static float? FloorBelow(Vector3 point, IReadOnlyList<MapViewportFace> faces, ISet<Guid>? excluded = null)
     {
         float? height = null;
