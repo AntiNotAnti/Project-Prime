@@ -45,7 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
         public bool MeasureMode { get; set; }
         public bool EntityVisualization { get; set; } = true;
         public event Action? SelectionChanged;
-        public event Action<int>? MaterialPicked;
+        public event Action<MapPickHit>? MaterialPicked;
         internal MapViewportCache Cache { get; } = new();
         private IEnumerable<MapViewportFace> Faces => Cache.NativeFaces.Concat(Collision ? Cache.ImportedCollisionFaces : Cache.ImportedFaces);
         private IEnumerable<MapViewportFace> VisibleFaces => Cache.NativeFaces.Concat(
@@ -584,7 +584,7 @@ namespace MphRead.Mods.Launcher.Gui
 
                 if(MaterialEyedropper)
                 {
-                    if(surface is { } materialHit){MaterialEyedropper=false;MaterialPicked?.Invoke(materialHit.Material);}
+                    if(surface is { } materialHit){MaterialEyedropper=false;MaterialPicked?.Invoke(materialHit);}
                     e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
                 }
                 if(MeasureMode)
