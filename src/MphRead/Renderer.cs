@@ -1475,6 +1475,7 @@ namespace MphRead
 
         private void ReleaseTexture(int texture)
         {
+            _textureSources.Remove(texture);
             if (_materialMaps.Remove(texture, out Mods.Render.MaterialMapBindings maps))
             {
                 if (maps.Normal != 0) ReleaseTexture(maps.Normal);
@@ -1484,9 +1485,34 @@ namespace MphRead
             if (_ownedTextures.Remove(texture)) GL.DeleteTexture(texture);
         }
 
-        private bool BindTexture(Model model, int textureId, int paletteId, int recolorId)
+        private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor)> _textureSources = new();
+        private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
+        private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+
+        private void RefreshTextureQuality()
         {
-            _lastTextureId = AllocateTexture();
+            if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
+                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements)) return;
+            GL.ActiveTexture(TextureUnit.Texture0);
+            // Keep binding IDs: existing materials, animations and render items
+            // may refer to them. Reupload only when a source-quality option changes.
+            foreach (var source in _textureSources)
+                BindTexture(source.Value.Model, source.Value.Texture, source.Value.Palette,
+                    source.Value.Recolor, source.Key);
+            _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
+            _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+        }
+
+        private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0)
+        {
+            _lastTextureId = existingBinding != 0 ? existingBinding : AllocateTexture();
+            if (existingBinding == 0) _textureSources[_lastTextureId] = (model, textureId, paletteId, recolorId);
+            if (_materialMaps.Remove(_lastTextureId, out var previousMaps))
+            {
+                if (previousMaps.Normal != 0) ReleaseTexture(previousMaps.Normal);
+                if (previousMaps.Specular != 0) ReleaseTexture(previousMaps.Specular);
+                if (previousMaps.Emissive != 0) ReleaseTexture(previousMaps.Emissive);
+            }
             bool onlyOpaque = true;
             var pixels = new List<uint>();
             var average = new FlatColor();
@@ -2105,6 +2131,7 @@ namespace MphRead
             {
                 return;
             }
+            RefreshTextureQuality();
             BeginRenderDiagnostics();
             // A first-person pose belongs to exactly one picture. If this draw
             // skips TransformCamera for any reason, the viewmodel must fall
@@ -4803,6 +4830,7 @@ namespace MphRead
                 _ownedTextures.Clear();
             }
             _texPalMap.Clear();
+            _textureSources.Clear();
             _mipmappedTextures?.Clear();
             _cosmeticTextures.Clear();
             _materialMaps.Clear();
@@ -6146,15 +6174,20 @@ localCenter *= _profileHudScale;
                 advanced = materialMaps.Any;
             }
             GL.Uniform1(_shaderLocations.AdvancedMaterials, advanced ? 1 : 0);
-            GL.Uniform1(_shaderLocations.UseNormalMap, advanced && materialMaps.Normal != 0 ? 1 : 0);
-            GL.Uniform1(_shaderLocations.UseSpecularMap, advanced && materialMaps.Specular != 0 ? 1 : 0);
-            GL.Uniform1(_shaderLocations.UseEmissiveMap, advanced && materialMaps.Emissive != 0 ? 1 : 0);
-            GL.ActiveTexture(TextureUnit.Texture1);
-            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Normal : 0);
-            GL.ActiveTexture(TextureUnit.Texture2);
-            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Specular : 0);
-            GL.ActiveTexture(TextureUnit.Texture3);
-            GL.BindTexture(TextureTarget.Texture2D, advanced ? materialMaps.Emissive : 0);
+            // The shader returns before reading companion maps when disabled.
+            // Avoid their texture-unit churn on every ordinary world mesh.
+            if (advanced)
+            {
+                GL.Uniform1(_shaderLocations.UseNormalMap, materialMaps.Normal != 0 ? 1 : 0);
+                GL.Uniform1(_shaderLocations.UseSpecularMap, materialMaps.Specular != 0 ? 1 : 0);
+                GL.Uniform1(_shaderLocations.UseEmissiveMap, materialMaps.Emissive != 0 ? 1 : 0);
+                GL.ActiveTexture(TextureUnit.Texture1);
+                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Normal);
+                GL.ActiveTexture(TextureUnit.Texture2);
+                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Specular);
+                GL.ActiveTexture(TextureUnit.Texture3);
+                GL.BindTexture(TextureTarget.Texture2D, materialMaps.Emissive);
+            }
             GL.ActiveTexture(TextureUnit.Texture0);
 
             if (item.HasTexture)
@@ -7962,10 +7995,26 @@ localCenter *= _profileHudScale;
                 Mods.WindowGeometry.Remember(this);
                 Mods.Launcher.LauncherPrefs.Save();
             }
-            // Only if there is a match to clean up. In the shell this window
-            // is closed from the front screen, where there is none.
-            _scene?.DoCleanup();
             base.OnClosing(e);
+        }
+
+        protected override void OnUnload()
+        {
+            // GLFW invokes OnClosing inside its native event callback. Native
+            // audio teardown can wait for callbacks of its own, so perform it
+            // after the event loop returns, before the window is destroyed.
+            // A cancelled close must not tear down a still-running match.
+            try
+            {
+                Mods.DebugLog.Line("shutdown", "game loop stopped; cleaning up scene");
+                _scene?.DoCleanup();
+                Mods.DebugLog.Line("shutdown", "scene cleanup complete");
+            }
+            finally
+            {
+                if (_shell) Sound.AudioLifetime.Shutdown();
+                base.OnUnload();
+            }
         }
 
         public void AddRoom(int id, GameMode mode = GameMode.None, int playerCount = 0,

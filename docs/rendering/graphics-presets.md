@@ -36,3 +36,31 @@ For reproducible captures without modifying saved settings, pass
 `-graphicspreset Enhanced` (or another preset name) with a thumbnail command.
 Run `-graphicscheck` to verify recipe application, clearing prior custom effects,
 draft isolation, migration and texture upscaling.
+
+## Runtime changes and cost
+
+Press Apply Changes to update the current renderer. Source texture upscale and
+HD replacement changes now reupload loaded model textures in place, retaining
+binding IDs; turning them off restores cartridge pixels and releases replacement
+companion maps. This can cause a one-time upload hitch. Filtering/mipmaps/anisotropy
+and post-process settings apply on subsequent draws without a restart.
+
+At 500 FPS the frame budget is 2 ms; at 250 FPS it is 4 ms. An extra 2 ms pass can
+therefore halve the FPS counter. Render scale is per dimension: 150% costs 2.25x
+pixels, 200% costs 4x, and 400% costs 16x. Deferred PBR replays opaque geometry;
+directional shadows render another geometry pass, and reflections/occlusion add
+per-pixel samples. Actual impact depends on the scene and GPU/CPU bottleneck.
+
+Off-state paths skip shadow/PBR passes, post-processing when no effect needs it,
+and depth-normal reconstruction when no enabled effect consumes normals. Zero
+bloom intensity skips its work. Disabling post-processing invalidates temporal
+history. TAA and dynamic lighting request readable depth explicitly. Inactive
+cosmetic uniforms are cached per shader program; disabled material maps avoid
+companion texture-unit work. Cached framebuffer allocations can remain for reuse;
+retaining an allocation does not execute its rendering pass.
+
+`-graphicscheck` exercises individual off transitions. `-thumbnailwindowcheck`
+compiles/links the shaders in an actual desktop GL context.
+`-cosmeticpreviewcheck <directory>` also tests live 2x/4x texture uploads back to
+native GPU dimensions, replacement companion cleanup, stable texture handles,
+and cosmetic shader enable/off/re-enable transitions on the real hunter preview.

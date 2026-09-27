@@ -92,6 +92,22 @@ namespace MphRead.Mods.Render
                 Check(RenderOptions.PostProcessingEnabled,
                     "TAA remains available as an explicit temporal reprojection mode");
 
+                // Exercise individual on -> off transitions independently of presets.
+                foreach (string toggle in new[] { "Bloom", "EnhancedLighting", "DeferredPbr", "ContactShadows",
+                    "EnhancedFog", "VolumetricFog", "InternalHdr", "Reflections", "DynamicGlow" })
+                {
+                    RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+                    var property = typeof(RenderOptions).GetProperty(toggle)!;
+                    property.SetValue(null, true);
+                    Check(RenderOptions.PostProcessingEnabled, toggle + " enables processing");
+                    property.SetValue(null, false);
+                    Check(!RenderOptions.PostProcessingEnabled && !RenderOptions.NeedsReadableDepth,
+                        toggle + " releases processing and readable depth when off");
+                }
+                RenderOptions.Bloom = true; RenderOptions.BloomIntensity = 0;
+                Check(!RenderOptions.PostProcessingEnabled, "zero-intensity bloom does not run a pass");
+                RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
+
                 uint pixel = 0x7F3366CCu;
                 uint[] scaled = TextureUpscaler.Scale(new[] { pixel }, 1, 1, 4,
                     out int scaledWidth, out int scaledHeight);

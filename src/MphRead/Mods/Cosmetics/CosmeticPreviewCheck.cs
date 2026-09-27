@@ -47,6 +47,7 @@ namespace MphRead.Mods.Cosmetics
                             }
                             GL.ClearColor(0.04f, 0.06f, 0.09f, 1); GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
                             if (!scene.ModDrawPreviewAlone(new Vector2i(640, 640))) throw new InvalidOperationException("Hunter preview did not render");
+                            if (captures == 0) scene.CheckLiveTextureQuality();
                             GL.Finish();
                             string folder = Path.Combine(output, ((Hunter)hunter).ToString()); Directory.CreateDirectory(folder);
                             string file = Path.Combine(folder, definition.Key + ".png");

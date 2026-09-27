@@ -358,13 +358,14 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TextureReplacements { get; set; }
 
-        public static bool NeedsReadableDepth => Shadows != ShadowQuality.Off
+        public static bool NeedsReadableDepth => AntiAliasing == AntiAliasingMode.Taa || DynamicGlow
+            || Shadows != ShadowQuality.Off
             || AmbientOcclusion != AmbientOcclusionQuality.Off
             || ContactShadows || EnhancedLighting || DeferredPbr
             || EnhancedFog || VolumetricFog || Reflections;
 
         public static bool PostProcessingEnabled => AntiAliasing != AntiAliasingMode.Off
-            || SharpenStrength > 0 || Bloom || ColorGrade != ColorGradeProfile.Original
+            || SharpenStrength > 0 || (Bloom && BloomIntensity > 0) || ColorGrade != ColorGradeProfile.Original
             || Gamma != 100 || Contrast != 100 || Saturation != 100
             || EnhancedLighting || DeferredPbr || Shadows != ShadowQuality.Off
             || AmbientOcclusion != AmbientOcclusionQuality.Off

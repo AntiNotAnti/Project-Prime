@@ -278,6 +278,7 @@ namespace MphRead
             _targetSize = windowSize;
             try
             {
+                RefreshTextureQuality();
                 ModStepLauncherPreview();
                 ModCollectPreview();
                 if (!ModPreviewDrawn)
