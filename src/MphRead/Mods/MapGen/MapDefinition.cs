@@ -193,6 +193,8 @@ namespace MphRead.Mods.MapGen
     {
         public int Source { get; set; }
         public int Target { get; set; }
+        /// <summary>True when Target is another source material slot; false when Target indexes MapDefinition.Materials.</summary>
+        public bool TargetSource { get; set; }
     }
 
     public sealed class MapCollisionHealRegion
