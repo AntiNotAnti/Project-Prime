@@ -1511,10 +1511,10 @@ namespace MphRead.Droid
                 // One button on the DS, and the same key here by default:
                 // jumping on foot is boosting in the ball.
                 _input.Apply(controls.Boost, jump);
-                // Fast gestures layer a one-shot ability on top of the drag:
-                // Samus gets the aimed boost and Spire gets the canonical
-                // AltAttack press. Other transformed hunters keep the drag for
-                // movement/aim without having it swallowed as a flick.
+                // Fast gestures layer a one-shot movement effect on top of the
+                // drag: Samus gets the aimed native boost and Spire gets a
+                // directional momentum shove. No swipe synthesizes Spire's
+                // AltAttack press. Other transformed hunters keep the drag.
                 _controls.SwipeBoostEnabled = main.IsAltForm
                     && Mods.Input.AltFormGesture.FlickAction(main.Hunter)
                         != Mods.Input.AltFlickAction.None;
