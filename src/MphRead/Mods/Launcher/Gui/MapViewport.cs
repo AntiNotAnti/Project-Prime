@@ -35,7 +35,17 @@ namespace MphRead.Mods.Launcher.Gui
         public bool KillPlane { get; set; }
         public int[] NavigationPath { get; set; } = Array.Empty<int>();
         public MapNodePacker.NavigationGraph? Navigation { get; set; }
+        public string ElementMode { get; set; } = "Object";
+        public int SelectedFaceIndex { get; private set; } = -1;
+        public int SelectedVertexIndex { get; private set; } = -1;
+        public (int A,int B)? SelectedEdge { get; private set; }
+        public string PlacementMode { get; set; } = "Cursor";
+        public MapPickHit? LastSurfaceHit { get; private set; }
+        public bool MaterialEyedropper { get; set; }
+        public bool MeasureMode { get; set; }
+        public bool EntityVisualization { get; set; } = true;
         public event Action? SelectionChanged;
+        public event Action<int>? MaterialPicked;
         internal MapViewportCache Cache { get; } = new();
         private IEnumerable<MapViewportFace> Faces => Cache.NativeFaces.Concat(Collision ? Cache.ImportedCollisionFaces : Cache.ImportedFaces);
         private IEnumerable<MapViewportFace> VisibleFaces => Cache.NativeFaces.Concat(
@@ -69,6 +79,8 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private Vector _preview;
         private float _rotation, _scale = 1;
+        private Vector? _measureA,_measureB;
+        private Guid _subObjectId=Guid.Empty;
 
         public MapViewport(MapDocument document)
         {
@@ -106,6 +118,33 @@ namespace MphRead.Mods.Launcher.Gui
             Vector target=selected.Select(o=>MapViewportScene.Vector(o.Position)).Aggregate(Vector.Zero,(a,b)=>a+b)/selected.Length;
             CameraPosition+=target-CameraTarget; CameraTarget=target; InvalidateVisual();
         }
+        public Vector GetPlacementPoint()
+            => PlacementMode switch
+            {
+                "Camera target" => CameraTarget,
+                "Surface" when LastSurfaceHit is { } hit => hit.Point,
+                "Surface" => CameraTarget,
+                _ => CursorPivot
+            };
+
+        public MapPickHit? PickSurface(double x,double y)
+            => MapViewportPicking.PickHit(BuildRenderFrame(Layout),x,y,true);
+
+        public void FocusWorld(IEnumerable<Vector> points)
+        {
+            Vector[] all=points.ToArray();if(all.Length==0)return;
+            Vector target=all.Aggregate(Vector.Zero,(a,b)=>a+b)/all.Length;
+            float radius=Math.Max(3,all.Max(p=>Vector.Distance(p,target))*2.4f);
+            var direction=CameraPosition-CameraTarget;
+            if(direction.LengthSquared()<1e-6f)direction=new Vector(1,.8f,1);
+            CameraTarget=target;CameraPosition=target+Vector.Normalize(direction)*radius;InvalidateVisual();
+        }
+
+        public void ClearSubSelection()
+        {
+            SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;_subObjectId=Guid.Empty;InvalidateVisual();
+        }
+
         private MapViewportCamera Camera => new(CameraPosition, CameraTarget, View == "Perspective");
         private MapViewportLayout Layout => new(Bounds.Width, Bounds.Height, TopLevel.GetTopLevel(this)?.RenderScaling ?? 1);
         private (Vector Right,Vector Up,Vector Forward) Basis() => Camera.Basis();
@@ -125,6 +164,117 @@ namespace MphRead.Mods.Launcher.Gui
             { var r = geometry.Transform.Rotation; direction = Vector.Transform(direction, new Quaternion(r[0],r[1],r[2],r[3])); }
             return direction;
         }
+        private BuiltFace[] ActiveMeshFaces(out MapMesh? mesh)
+        {
+            mesh=ActiveSelection?.Value as MapMesh;
+            if(mesh==null)return Array.Empty<BuiltFace>();
+            int material=mesh.Material;
+            float texScale=material>=0&&material<Document.Project.Definition.Materials.Count
+                ?Document.Project.Definition.Materials[material].TexScale:16;
+            try{return GeometryCompiler.Compile(mesh,texScale).ToArray();}
+            catch(MapAuthoringException){return Array.Empty<BuiltFace>();}
+        }
+
+        private bool PickSubElement(Point point)
+        {
+            if(ElementMode=="Object")return false;
+            BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);
+            if(mesh==null||faces.Length==0||ActiveSelection is not { } active)return false;
+            _subObjectId=active.Id;
+            SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;
+
+            if(ElementMode=="Face")
+            {
+                MapPickHit? hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
+                if(hit is not { } picked||picked.ObjectId!=active.Id)return false;
+                SelectedFaceIndex=Math.Clamp(picked.FaceIndex,0,faces.Length-1);
+                return true;
+            }
+
+            double best=ElementMode=="Vertex"?144:100;
+            int bestFace=-1,bestCorner=-1;
+            for(int fi=0;fi<faces.Length&&fi<mesh.Faces.Count;fi++)
+            {
+                BuiltFace face=faces[fi];
+                for(int i=0;i<face.Points.Length;i++)
+                {
+                    var p=Project(new Vector(face.Points[i].X,face.Points[i].Y,face.Points[i].Z));
+                    if(p==null)continue;
+                    if(ElementMode=="Vertex")
+                    {
+                        double sq=Math.Pow(p.Value.Point.X-point.X,2)+Math.Pow(p.Value.Point.Y-point.Y,2);
+                        if(sq<best){best=sq;bestFace=fi;bestCorner=i;}
+                    }
+                    else
+                    {
+                        var q=Project(new Vector(face.Points[(i+1)%face.Points.Length].X,
+                            face.Points[(i+1)%face.Points.Length].Y,face.Points[(i+1)%face.Points.Length].Z));
+                        if(q==null)continue;
+                        double distance=PointSegmentDistance(point,p.Value.Point,q.Value.Point);
+                        if(distance*distance<best){best=distance*distance;bestFace=fi;bestCorner=i;}
+                    }
+                }
+            }
+            if(bestFace<0)return false;
+            if(ElementMode=="Vertex")
+            {
+                int[] source=mesh.Faces[Math.Min(bestFace,mesh.Faces.Count-1)];
+                SelectedVertexIndex=source[Math.Min(bestCorner,source.Length-1)];
+            }
+            else
+            {
+                int[] source=mesh.Faces[Math.Min(bestFace,mesh.Faces.Count-1)];
+                int a=source[Math.Min(bestCorner,source.Length-1)];
+                int b=source[(bestCorner+1)%source.Length];SelectedEdge=(a,b);
+            }
+            return true;
+        }
+
+        private static double PointSegmentDistance(Point p,Point a,Point b)
+        {
+            double dx=b.X-a.X,dy=b.Y-a.Y,length=dx*dx+dy*dy;
+            if(length<=1e-9)return Math.Sqrt(Math.Pow(p.X-a.X,2)+Math.Pow(p.Y-a.Y,2));
+            double t=Math.Clamp(((p.X-a.X)*dx+(p.Y-a.Y)*dy)/length,0,1);
+            double x=a.X+t*dx,y=a.Y+t*dy;
+            return Math.Sqrt(Math.Pow(p.X-x,2)+Math.Pow(p.Y-y,2));
+        }
+
+        private void DrawSubSelection(DrawingContext context)
+        {
+            if(_subObjectId==Guid.Empty||ActiveSelection?.Id!=_subObjectId)return;
+            BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);if(mesh==null)return;
+            if(SelectedFaceIndex>=0&&SelectedFaceIndex<faces.Length)
+            {
+                var projected=faces[SelectedFaceIndex].Points.Select(p=>Project(new Vector(p.X,p.Y,p.Z))).ToArray();
+                if(projected.All(p=>p!=null))
+                {
+                    Point[] points=projected.Select(p=>p!.Value.Point).ToArray();
+                    context.DrawGeometry(new SolidColorBrush(Color.FromArgb(55,255,196,64)),
+                        new Pen(Brushes.Gold,3),Polygon(points));
+                }
+            }
+            if(SelectedEdge is { } edge&&edge.A>=0&&edge.B>=0&&edge.A<mesh.Vertices.Count&&edge.B<mesh.Vertices.Count)
+            {
+                Vector World(int index)
+                {
+                    var clone=new MapMesh{Vertices=new(){mesh.Vertices[index]},Faces=new(),Transform=mesh.Transform};
+                    // Apply the same geometry transform directly.
+                    var p=new Vector(mesh.Vertices[index][0],mesh.Vertices[index][1],mesh.Vertices[index][2]);
+                    var t=mesh.Transform;var q=new Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
+                    p*=new Vector(t.Scale[0],t.Scale[1],t.Scale[2]);p=Vector.Transform(p,q);
+                    return p+new Vector(t.Position[0],t.Position[1],t.Position[2]);
+                }
+                Line(context,World(edge.A),World(edge.B),Brushes.Gold,5);
+            }
+            if(SelectedVertexIndex>=0&&SelectedVertexIndex<mesh.Vertices.Count)
+            {
+                var t=mesh.Transform;Vector p=new(mesh.Vertices[SelectedVertexIndex][0],mesh.Vertices[SelectedVertexIndex][1],mesh.Vertices[SelectedVertexIndex][2]);
+                p*=new Vector(t.Scale[0],t.Scale[1],t.Scale[2]);p=Vector.Transform(p,new Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]));
+                p+=new Vector(t.Position[0],t.Position[1],t.Position[2]);
+                var screen=Project(p);if(screen!=null)context.DrawEllipse(Brushes.Gold,new Pen(Brushes.White,1),screen.Value.Point,6,6);
+            }
+        }
+
         internal MapRenderFrame BuildRenderFrame(MapViewportLayout layout)
         {
             var transforms = new Dictionary<Guid, Matrix4x4>();
