@@ -53,8 +53,8 @@ namespace MphRead.Mods.Input
         /// <summary>
         /// Relative mouse movement has no anchor to hold away from centre, so
         /// each simulation step is its own virtual-stick sample. Zero movement
-        /// means centre; stopping the mouse therefore stops normal rolling on
-        /// the next simulation step, matching the precision touch/pen path.
+        /// means centre. Precision-drive hunters stop controlled rolling there;
+        /// Samus instead stops applying traction and keeps stock morph-ball inertia.
         /// </summary>
         public static (float X, float Y) MouseDrive(float deltaX, float deltaY,
             float sensitivity)
