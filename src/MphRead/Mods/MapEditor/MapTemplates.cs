@@ -25,6 +25,12 @@ namespace MphRead.Mods.MapEditor
     {
         public static IReadOnlyList<MapTemplateInfo> Catalog { get; } = new[]
         {
+            new MapTemplateInfo("blank-arena","Blank Arena",
+                "Minimal flat floor with one spawn for scratch-built geometry and tooling experiments.",
+                "1+",new[]{"Battle","Survival"}),
+            new MapTemplateInfo("simple-box","Simple Box Arena",
+                "Enclosed neutral room with eight radial spawns and one center health pickup.",
+                "2–8",new[]{"Battle","Survival"}),
             new MapTemplateInfo("basic-ffa","Basic FFA",
                 "Playable free-for-all shell with eight radial spawns, perimeter cover and a simple central pickup loop.",
                 "4–8",new[]{"Battle","Survival"}),
@@ -57,7 +63,7 @@ namespace MphRead.Mods.MapEditor
 
         // Compatibility for older tests/callers.
         public static MapProject Create(string name, bool enclosed = false, bool teams = false)
-            => Create(name, teams ? "team-symmetric" : enclosed ? "basic-ffa" : "basic-ffa");
+            => Create(name, teams ? "team-symmetric" : enclosed ? "simple-box" : "blank-arena");
 
         public static MapProject Create(string name, string templateId)
         {
@@ -69,6 +75,8 @@ namespace MphRead.Mods.MapEditor
             var d=Base(name,info);
             switch(info.Id)
             {
+                case "blank-arena": BlankArena(d); break;
+                case "simple-box": SimpleBox(d); break;
                 case "basic-ffa": BasicFfa(d); break;
                 case "duel-1v1": Duel(d); break;
                 case "team-symmetric": TeamSymmetric(d); break;
@@ -132,6 +140,18 @@ namespace MphRead.Mods.MapEditor
                     Position=new[]{MathF.Sin(angle)*radius,y,MathF.Cos(angle)*radius},
                     Yaw=angle*180/MathF.PI+180,Team=teams?i%2:-1});
             }
+        }
+
+        private static void BlankArena(MapDefinition d)
+        {
+            Floor(d,32,32);
+            d.Spawns.Add(new(){Id=Guid.NewGuid(),Label="Player spawn",Position=new[]{0f,.1f,0}});
+        }
+
+        private static void SimpleBox(MapDefinition d)
+        {
+            Floor(d,32,32);Walls(d,32,32,10);RadialSpawns(d,8,9);
+            d.Items.Add(new(){Id=Guid.NewGuid(),Type="HealthMedium",Position=new[]{0f,.1f,0}});
         }
 
         private static void BasicFfa(MapDefinition d)
