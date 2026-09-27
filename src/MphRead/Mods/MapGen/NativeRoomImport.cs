@@ -44,7 +44,16 @@ public static class NativeRoomImport
                 {
                     if(meshId<0||meshId>=model.Meshes.Count)continue;
                     Mesh mesh=model.Meshes[meshId];
-                    foreach(BuiltFace face in Decode(model,mesh,cancellation))map.Faces.Add(face);
+                    int replacement=source.MaterialReplacements?
+                        .LastOrDefault(value=>value.Source==mesh.MaterialId)?.Target ?? mesh.MaterialId;
+                    if(replacement<0||replacement>=definition.Materials.Count)
+                        throw new MapAuthoringException("FP-MAP-001",
+                            $"Native source material {mesh.MaterialId} replacement targets missing material {replacement}.");
+                    foreach(BuiltFace face in Decode(model,mesh,cancellation))
+                    {
+                        face.SourceMaterial=mesh.MaterialId;
+                        face.Material=replacement;map.Faces.Add(face);
+                    }
                 }
             }
         }
@@ -111,11 +120,15 @@ public static class NativeRoomImport
 
                 string materialName=sourceMesh.MaterialId>=0&&sourceMesh.MaterialId<model.Materials.Count
                     ?model.Materials[sourceMesh.MaterialId].Name:$"material {sourceMesh.MaterialId}";
+                int detachedMaterial=source.MaterialReplacements?
+                    .LastOrDefault(value=>value.Source==sourceMesh.MaterialId)?.Target ?? sourceMesh.MaterialId;
+                if(detachedMaterial<0||detachedMaterial>=definition.Materials.Count)
+                    detachedMaterial=Math.Max(0,sourceMesh.MaterialId);
                 var mesh=new MapMesh
                 {
                     Id=Guid.NewGuid(),
                     Label=$"{node.Name} · {materialName}",
-                    Material=Math.Max(0,sourceMesh.MaterialId),
+                    Material=detachedMaterial,
                     Solid=false,
                     Layer="Native Detached",
                     Transform=new()
@@ -123,7 +136,7 @@ public static class NativeRoomImport
                 foreach(BuiltFace face in faces)
                 {
                     mesh.Faces.Add(face.Points.Select(Vertex).ToArray());
-                    mesh.FaceMaterials.Add(face.Material);
+                    mesh.FaceMaterials.Add(detachedMaterial);
                     mesh.FaceTexcoords.Add(face.Texcoords.Select(uv=>new[]{uv.X,uv.Y}).ToArray());
                 }
                 mesh.Vertices=vertices;

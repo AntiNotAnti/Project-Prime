@@ -189,9 +189,25 @@ namespace MphRead.Mods.MapGen
         public float PortalVerticalMargin { get; set; } = 6f;
     }
 
+    public sealed class MapSourceMaterialReplacement
+    {
+        public int Source { get; set; }
+        public int Target { get; set; }
+        /// <summary>True when Target is another source material slot; false when Target indexes MapDefinition.Materials.</summary>
+        public bool TargetSource { get; set; }
+    }
+
+    public sealed class MapCollisionHealRegion
+    {
+        public float[] Center { get; set; } = new float[3];
+        public float Radius { get; set; } = 2f;
+        public string? Note { get; set; }
+    }
+
     public sealed class MapNativeRoomSource
     {
         public string Room { get; set; } = "";
+        public List<MapSourceMaterialReplacement> MaterialReplacements { get; set; } = new();
         public bool UseNativeArchitecture { get; set; } = true;
         public bool PreserveEntities { get; set; } = true;
         public bool EditableSpawns { get; set; } = true;
@@ -465,6 +481,12 @@ namespace MphRead.Mods.MapGen
         /// <summary>Shader name (or any prefix of it) to material index.</summary>
         public Dictionary<string, int> ShaderMaterials { get; set; } = new Dictionary<string, int>();
         public int DefaultMaterial { get; set; }
+        /// <summary>
+        /// Replace a source Q3 material slot with one authored Map Studio
+        /// material. Source is the baked/source material index; Target is an
+        /// index in MapDefinition.Materials.
+        /// </summary>
+        public List<MapSourceMaterialReplacement> MaterialReplacements { get; set; } = new();
 
         /// <summary>Texels per world unit applied to the imported UVs.</summary>
         public float TexScale { get; set; } = 24f;
@@ -519,6 +541,13 @@ namespace MphRead.Mods.MapGen
         /// Kept small relative to the player radius and clamped by validation.
         /// </summary>
         public float CollisionHealTolerance { get; set; } = 0.0625f;
+
+        /// <summary>
+        /// Author-reviewed regions where optional Auto-Heal topology/coverage
+        /// edits are suppressed. Runtime-precision canonicalization still
+        /// applies because wc01 cannot represent arbitrary floats.
+        /// </summary>
+        public List<MapCollisionHealRegion> CollisionHealExclusions { get; set; } = new();
 
         /// <summary>
         /// Take the level's own player starts as spawn points. True is right

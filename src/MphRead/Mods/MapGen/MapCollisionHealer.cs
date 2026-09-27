@@ -98,13 +98,13 @@ public static class MapCollisionHealer
                 normalized.Add(result);
         }
 
-        normalized = StitchVertices(normalized, tolerance, map, health, cancellation);
-        StitchTJunctions(normalized, tolerance, map, health, cancellation);
+        normalized = StitchVertices(normalized, tolerance, import, map, health, cancellation);
+        StitchTJunctions(normalized, tolerance, import, map, health, cancellation);
 
         var candidateBuried = (buriedCandidates ?? Array.Empty<BuiltFace>())
             .SelectMany(face => Normalize(face, map: null, health: null)).ToList();
-        RepairFloorCoverage(map.Faces, normalized, candidateBuried, map, health, cancellation);
-        RemoveHighConfidencePhantoms(map.Faces, normalized, map, health, cancellation);
+        RepairFloorCoverage(map.Faces, normalized, candidateBuried, import, map, health, cancellation);
+        RemoveHighConfidencePhantoms(map.Faces, normalized, import, map, health, cancellation);
 
         // A repair can introduce vertices that are representable as floats but
         // not as the exact wc01 world that will run. Normalize once more after
@@ -130,6 +130,7 @@ public static class MapCollisionHealer
         {
             cancellation.ThrowIfCancellationRequested();
             Vector3 original = V(spawn.Position);
+            if(definition.Import is {} spawnImport && Disabled(spawnImport,new[]{original}))continue;
             if (FindSafeStandingPoint(original, index, out Vector3 repaired)
                 && Vector3.DistanceSquared(original, repaired) > .0001f)
             {
@@ -145,6 +146,7 @@ public static class MapCollisionHealer
         {
             cancellation.ThrowIfCancellationRequested();
             Vector3 original = V(item.Position);
+            if(definition.Import is {} itemImport && Disabled(itemImport,new[]{original}))continue;
             if (TryFloor(index, original, 2.5f, .5f, out float floor))
             {
                 Vector3 repaired = new(original.X, floor + .08f, original.Z);
@@ -243,7 +245,7 @@ public static class MapCollisionHealer
     }
 
     private static List<BuiltFace> StitchVertices(List<BuiltFace> faces, float tolerance,
-        BuiltMap map, MapCollisionHealth health, CancellationToken cancellation)
+        MapImport import, BuiltMap map, MapCollisionHealth health, CancellationToken cancellation)
     {
         var anchors = new Dictionary<(int X, int Y, int Z), List<Vector3>>();
         var result = new List<BuiltFace>(faces.Count);
@@ -251,6 +253,7 @@ public static class MapCollisionHealer
         foreach (BuiltFace face in faces)
         {
             cancellation.ThrowIfCancellationRequested();
+            if(Disabled(import,face.Points)){result.Add(face);continue;}
             Vector3[] points = new Vector3[face.Points.Length];
             bool changed = false;
             for (int i = 0; i < face.Points.Length; i++)
@@ -296,7 +299,7 @@ public static class MapCollisionHealer
     }
 
     private static void StitchTJunctions(List<BuiltFace> faces, float tolerance,
-        BuiltMap map, MapCollisionHealth health, CancellationToken cancellation)
+        MapImport import, BuiltMap map, MapCollisionHealth health, CancellationToken cancellation)
     {
         float cellSize = Math.Max(.25f, tolerance * 4);
         var points = new Dictionary<(int X, int Y, int Z), List<Vector3>>();
@@ -312,6 +315,7 @@ public static class MapCollisionHealer
         {
             cancellation.ThrowIfCancellationRequested();
             BuiltFace face = faces[faceIndex];
+            if(Disabled(import,face.Points))continue;
             var rebuilt = new List<Vector3>();
             bool changed = false;
             for (int edge = 0; edge < face.Points.Length; edge++)
@@ -365,7 +369,7 @@ public static class MapCollisionHealer
     }
 
     private static void RepairFloorCoverage(IReadOnlyList<BuiltFace> render,
-        List<BuiltFace> solid, List<BuiltFace> buried, BuiltMap map,
+        List<BuiltFace> solid, List<BuiltFace> buried, MapImport import, BuiltMap map,
         MapCollisionHealth health, CancellationToken cancellation)
     {
         var collision = new FaceIndex(solid, 4f);
@@ -376,7 +380,7 @@ public static class MapCollisionHealer
         foreach (BuiltFace visible in render)
         {
             cancellation.ThrowIfCancellationRequested();
-            if (visible.Sky || visible.Normal.Y < WalkableY) continue;
+            if (visible.Sky || visible.Normal.Y < WalkableY || Disabled(import,visible.Points)) continue;
             Vector3[] samples = Samples(visible).ToArray();
             if (samples.All(sample => HasSupport(collision, sample, CoverBehind, CoverFront))) continue;
 
@@ -385,7 +389,7 @@ public static class MapCollisionHealer
             {
                 if (HasSupport(collision, sample, CoverBehind, CoverFront)) continue;
                 BuiltFace? candidate = FindSupportingFace(buriedIndex, sample, CoverBehind, CoverFront);
-                if (candidate == null) continue;
+                if (candidate == null || Disabled(import,candidate.Points)) continue;
                 string key = FaceKey(candidate);
                 if (restored.Add(key))
                 {
@@ -423,7 +427,7 @@ public static class MapCollisionHealer
     }
 
     private static void RemoveHighConfidencePhantoms(IReadOnlyList<BuiltFace> render,
-        List<BuiltFace> solid, BuiltMap map, MapCollisionHealth health,
+        List<BuiltFace> solid, MapImport import, BuiltMap map, MapCollisionHealth health,
         CancellationToken cancellation)
     {
         var renderIndex = new FaceIndex(render.Where(f => !f.Sky).ToArray(), 4f);
@@ -431,6 +435,7 @@ public static class MapCollisionHealer
         {
             cancellation.ThrowIfCancellationRequested();
             BuiltFace face = solid[i];
+            if(Disabled(import,face.Points))continue;
             if (face.PlayerClip || face.CollisionSource is "Patch" or "AutoFloor" or "BuriedRestored")
                 continue;
             if (!face.CollisionSource.Equals("Brush", StringComparison.OrdinalIgnoreCase))
@@ -537,6 +542,19 @@ public static class MapCollisionHealer
                 }
             }
         }
+    }
+
+    private static bool Disabled(MapImport import,IReadOnlyList<Vector3> points)
+    {
+        if(import.CollisionHealExclusions==null||import.CollisionHealExclusions.Count==0||points.Count==0)return false;
+        Vector3 center=Vector3.Zero;foreach(Vector3 p in points)center+=p;center/=points.Count;
+        foreach(MapCollisionHealRegion region in import.CollisionHealExclusions)
+        {
+            if(region.Center==null||region.Center.Length!=3||region.Radius<=0)continue;
+            Vector3 target=new(region.Center[0],region.Center[1],region.Center[2]);
+            if(Vector3.DistanceSquared(center,target)<=region.Radius*region.Radius)return true;
+        }
+        return false;
     }
 
     private static void Record(BuiltMap? map, MapCollisionRepair repair)
@@ -789,7 +807,8 @@ public static class MapCollisionHealer
             CollisionSourceId = source.CollisionSourceId,
             CollisionShader = source.CollisionShader,
             PlayerClip = source.PlayerClip,
-            CollisionConfidence = source.CollisionConfidence
+            CollisionConfidence = source.CollisionConfidence,
+            SourceMaterial = source.SourceMaterial
         };
         return result;
     }

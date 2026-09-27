@@ -12,6 +12,7 @@ public sealed class MapStudioState
     public Dictionary<string,Guid[]> SelectionSets { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> FavoriteMaterials { get; set; } = new();
     public List<string> RecentPrefabs { get; set; } = new();
+    public List<string> AcceptedCollisionRepairs { get; set; } = new();
 }
 
 public static class MapStudioStateStore

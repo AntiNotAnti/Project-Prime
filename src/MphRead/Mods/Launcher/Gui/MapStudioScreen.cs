@@ -33,6 +33,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBox _path = new() { PlaceholderText="Project filename (.json)" };
         private readonly TextBlock _status = new() { Foreground=GuiTheme.TextDimBrush, TextWrapping=TextWrapping.Wrap };
         private readonly TextBox _search = new() { PlaceholderText="Search objects" };
+        private readonly ComboBox _hierarchyFilter = new(){MinWidth=185,SelectedIndex=0};
         private readonly PrimeOverlayHost? _overlays;
         private Control? _sheet;
         private readonly Border _modal = new() { Background=GuiTheme.ScrimBrush, IsVisible=false };
@@ -45,6 +46,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string _hierarchySignature = "";
         private string _inspectorPage = "Inspector";
         private MapStudioState _studioState = new();
+        private MapPickHit? _pickedMaterialHit;
         private long _editorGeneration;
         private bool _detached;
         private MapAutosaveService _autosave = new();
@@ -97,8 +99,22 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(toolbar,"Cancel job",()=>_work?.Cancel());
             _root.Children.Add(toolbar);
             Grid.SetRow(_path,1);_root.Children.Add(_path);
-            var body=new Grid { ColumnDefinitions=new("200,*,245"), Margin=new Thickness(0,8) };
-            var tree=new DockPanel();DockPanel.SetDock(_search,Dock.Top);tree.Children.Add(_search);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+            var body=new Grid { ColumnDefinitions=new("220,*,265"), Margin=new Thickness(0,8) };
+            var tree=new DockPanel();
+            var treeTools=new StackPanel{Spacing=4};
+            treeTools.Children.Add(_search);treeTools.Children.Add(_hierarchyFilter);
+            DockPanel.SetDock(treeTools,Dock.Top);tree.Children.Add(treeTools);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+            _hierarchy.ItemTemplate=new FuncDataTemplate<HierarchyRow>((row,_)=>
+            {
+                if(row==null)return new TextBlock();
+                return new TextBlock
+                {
+                    Text=row.ToString(),
+                    Foreground=row.Header?PrimeTheme.AccentBrush:GuiTheme.TextBrush,
+                    FontWeight=row.Header?FontWeight.SemiBold:FontWeight.Normal,
+                    Margin=row.Header?new Thickness(2,6,2,2):new Thickness(12,2,2,2)
+                };
+            });
             var center=new Grid { RowDefinitions=new("Auto,*") };
             var tools=new WrapPanel();
             void Choice(string[] choices,Action<string> choose)
@@ -107,8 +123,18 @@ namespace MphRead.Mods.Launcher.Gui
                 box.SelectionChanged+=(_,_)=>{if(box.SelectedItem is string text)choose(text);};tools.Children.Add(box);
             }
             Choice(new[]{"Move","Rotate","Scale"},name=>{if(_viewport!=null)_viewport.Tool=name;});
+            Choice(new[]{"Object","Face","Edge","Vertex"},name=>{if(_viewport!=null){_viewport.ElementMode=name;_viewport.ClearSubSelection();ShowInspectorPage(_inspectorPage,false);}});
             Choice(new[]{"Free","X","Y","Z","XY","XZ","YZ"},name=>{if(_viewport!=null)_viewport.Axes=name;});
             Choice(new[]{"Perspective","Top","Front","Side"},name=>_viewport?.SetView(name));
+            Choice(new[]{"Place: Cursor","Place: Camera target","Place: Surface"},name=>
+            {
+                if(_viewport!=null)_viewport.PlacementMode=name switch
+                {
+                    "Place: Camera target"=>"Camera target",
+                    "Place: Surface"=>"Surface",
+                    _=>"Cursor"
+                };
+            });
             Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>{if(name!="Add object")AddObject(name);});
             Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
             {
@@ -120,11 +146,14 @@ namespace MphRead.Mods.Launcher.Gui
                 _viewport.CollisionRepairsOverlay=name=="Collision repairs";
                 _viewport.PartitionOverlay=name=="Partitions";_viewport.KillPlane=name=="Kill plane";_viewport.InvalidateVisual();
             });
-            Choice(new[]{"Inspector","Modeling","Partitioning","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
+            Choice(new[]{"Inspector","Modeling","Partitioning","Collision repairs","Environment","Materials","Assets & music","Snapping","Arrange","Layers","Map health","Navigation path","Statistics"},name=>ShowInspectorPage(name));
             AddButton(tools,"Frame all",()=>_viewport?.FrameAll());AddButton(tools,"Focus",()=>_viewport?.FrameSelection());
             AddButton(tools,"Copy",()=>_document?.CopySelection());AddButton(tools,"Paste",()=>_document?.PasteClipboard());
             AddButton(tools,"Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate));AddButton(tools,"Delete",()=>EditSelection("Delete",MapObjects.Delete));
             AddButton(tools,"Hide",()=>_document?.HideSelection());AddButton(tools,"Show all",()=>_document?.ShowAllGeometry());
+            AddButton(tools,"Measure",()=>{if(_viewport!=null){_viewport.MeasureMode=!_viewport.MeasureMode;_viewport.InvalidateVisual();}});
+            AddButton(tools,"Entity helpers",()=>{if(_viewport!=null){_viewport.EntityVisualization=!_viewport.EntityVisualization;_viewport.InvalidateVisual();}});
+            AddButton(tools,"Commands",ShowCommandPalette);
             AddButton(tools,"Capture preview",CapturePreview);
             center.Children.Add(tools);Grid.SetRow(_viewportHost,1);center.Children.Add(_viewportHost);Grid.SetColumn(center,1);body.Children.Add(center);
             var inspectorScroll=new ScrollViewer { Content=_inspector };Grid.SetColumn(inspectorScroll,2);body.Children.Add(inspectorScroll);
@@ -133,11 +162,17 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(_problems,3);_root.Children.Add(_problems);Grid.SetRow(_status,4);_root.Children.Add(_status);
             var layer=new Panel();layer.Children.Add(_root);layer.Children.Add(_modal);Content=layer;
             _search.TextChanged+=(_,_)=>RefreshHierarchy(true);
+            _hierarchyFilter.SelectionChanged+=(_,_)=>{if(!_refreshing)RefreshHierarchy(true);};
             _hierarchy.SelectionChanged+=(_,selection)=>
             {
                 if(_refreshing||_document==null)return;
-                _document.Selection.Clear();foreach(var item in _hierarchy.SelectedItems?.OfType<MapObject>()??Enumerable.Empty<MapObject>())_document.Selection.Add(item.Id);
-                if(selection.AddedItems.OfType<MapObject>().LastOrDefault() is { } active)_document.ActiveObjectId=active.Id;
+                if(selection.AddedItems.OfType<HierarchyRow>().Any(row=>row.Header))
+                {RefreshHierarchy();return;}
+                _document.Selection.Clear();
+                foreach(var row in _hierarchy.SelectedItems?.OfType<HierarchyRow>()??Enumerable.Empty<HierarchyRow>())
+                    if(row.Object is {} item)_document.Selection.Add(item.Id);
+                if(selection.AddedItems.OfType<HierarchyRow>().Select(r=>r.Object).OfType<MapObject>().LastOrDefault() is { } active)
+                    _document.ActiveObjectId=active.Id;
                 _document.SelectionChanged();ShowInspectorPage(_inspectorPage,false);_viewport?.InvalidateVisual();
             };
             _problems.SelectionChanged+=(_,_)=>
@@ -258,12 +293,21 @@ namespace MphRead.Mods.Launcher.Gui
         internal void Load(MapProject project,string? path=null)
         {
             _editorGeneration++; _work?.Cancel(); _autosave.Dispose(); _autosave=new(); _validatedState=null; _validationSignature=null; _autosaved=DateTime.MinValue;
-            _lastBuild = null; _hierarchySignature = "";
+            _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
             if(_document!=null)_document.Changed-=Changed;
             _document=new(project,path);_document.Changed+=Changed;
             _studioState=MapStudioStateStore.Load(project.Definition);MapStudioStateStore.Prune(project.Definition,_studioState);
-            _viewport=new(_document);_viewport.SelectionChanged+=()=>{RefreshHierarchy();ShowInspectorPage(_inspectorPage,false);};
+            _viewport=new(_document);
+            _viewport.SelectionChanged+=()=>{RefreshHierarchy();ShowInspectorPage(_inspectorPage,false);};
+            _viewport.MaterialPicked+=hit=>
+            {
+                _pickedMaterialHit=hit;_inspectorPage="Materials";
+                _status.Text=hit.ObjectId==Guid.Empty
+                    ?$"Picked source material {(hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material)}."
+                    :$"Picked authored material {hit.Material}.";
+                MaterialInspector();
+            };
             _viewportHost.Children.Clear();_viewportHost.Children.Add(_viewport);_path.Text=path??Path.Combine(CustomRooms.MapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
             Dismiss();Changed();_viewport.FrameAll();
             if(_document.HasRecovery(CustomRooms.MapDirectory))Recovery();
@@ -289,28 +333,85 @@ namespace MphRead.Mods.Launcher.Gui
         private void Save(){if(_document!=null)SaveTo(_path.Text??"");}
         private void SaveTo(string path)
         {try{_document?.Save(path);_document?.DiscardRecovery(CustomRooms.MapDirectory);_path.Text=path;_status.Text="Saved "+path;}catch(Exception ex){Failure(ex);}}
+        private sealed record HierarchyRow(string Group,MapObject? Object,bool Header)
+        {
+            public override string ToString()=>Header?Group:Object?.ToString()??Group;
+        }
+
         private void Changed()
         {
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
-                +"RMB orbit · MMB pan · WASD fly · F focus · box-select empty space · G/R/T tools · Ctrl+C/V/A";
+                +"RMB orbit · MMB pan · WASD/QE fly · F focus · 1–4 element modes · G/R/T tools · M measure · Ctrl+Shift+P commands";
         }
         private void RefreshHierarchy(bool force=false)
         {
             if(_document==null)return;_refreshing=true;
             try
             {
-                var objects=MapObjects.All(_document.Project.Definition)
-                    .Where(o=>o.ToString().Contains(_search.Text??"",StringComparison.OrdinalIgnoreCase)).ToArray();
-                string signature=string.Join("|",objects.Select(o=>o.Id+":"+o.ToString()));
+                var definition=_document.Project.Definition;
+                string? previousFilter=_hierarchyFilter.SelectedItem as string;
+                string[] layers=definition.Geometry.Select(g=>String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)
+                    .Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(x=>x,StringComparer.OrdinalIgnoreCase).ToArray();
+                string[] filters=new[]{"All","Geometry","Spawns","Pickups","Jump Pads","Navigation"}
+                    .Concat(layers.Select(layer=>"Layer: "+layer)).ToArray();
+                if(_hierarchyFilter.ItemsSource is not string[] current||!current.SequenceEqual(filters))
+                {
+                    _hierarchyFilter.ItemsSource=filters;
+                    _hierarchyFilter.SelectedItem=filters.Contains(previousFilter??"",StringComparer.OrdinalIgnoreCase)
+                        ?previousFilter:"All";
+                }
+                string filter=_hierarchyFilter.SelectedItem as string??"All";
+                string search=_search.Text??"";
+
+                string Group(MapObject o)=>o.Value switch
+                {
+                    MapGeometry g=>$"Geometry · {(String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)}",
+                    MapBrush=>"Geometry · Legacy",
+                    MapSpawn=>"Spawns",
+                    MapItem=>"Pickups",
+                    MapJumpPad=>"Jump Pads",
+                    MapNavigationLink=>"Navigation",
+                    _=>"Other"
+                };
+                bool Match(MapObject o)
+                {
+                    if(!o.ToString().Contains(search,StringComparison.OrdinalIgnoreCase))return false;
+                    if(filter=="All")return true;
+                    if(filter=="Geometry")return o.Value is MapGeometry or MapBrush;
+                    if(filter=="Spawns")return o.Value is MapSpawn;
+                    if(filter=="Pickups")return o.Value is MapItem;
+                    if(filter=="Jump Pads")return o.Value is MapJumpPad;
+                    if(filter=="Navigation")return o.Value is MapNavigationLink;
+                    if(filter.StartsWith("Layer: ",StringComparison.Ordinal))
+                    {
+                        string layer=filter[7..];
+                        return o.Value is MapGeometry g
+                            && (String.IsNullOrWhiteSpace(g.Layer)?"Architecture":g.Layer)
+                                .Equals(layer,StringComparison.OrdinalIgnoreCase);
+                    }
+                    return true;
+                }
+
+                MapObject[] objects=MapObjects.All(definition).Where(Match).ToArray();
+                var rows=new List<HierarchyRow>();
+                foreach(var group in objects.GroupBy(Group).OrderBy(g=>g.Key,StringComparer.OrdinalIgnoreCase))
+                {
+                    rows.Add(new(group.Key,null,true));
+                    rows.AddRange(group.OrderBy(o=>o.ToString(),StringComparer.OrdinalIgnoreCase)
+                        .Select(o=>new HierarchyRow(group.Key,o,false)));
+                }
+
+                string signature=filter+"|"+search+"|"+string.Join("|",objects.Select(o=>o.Id+":"+o.ToString()+":"+Group(o)));
                 if(force||signature!=_hierarchySignature)
                 {
                     _hierarchySignature=signature;
-                    _hierarchy.ItemsSource=objects;
+                    _hierarchy.ItemsSource=rows;
                 }
                 _hierarchy.SelectedItems?.Clear();
-                foreach(var o in objects.Where(o=>_document.Selection.Contains(o.Id)))_hierarchy.SelectedItems?.Add(o);
+                foreach(var row in rows.Where(row=>row.Object!=null&&_document.Selection.Contains(row.Object.Id)))
+                    _hierarchy.SelectedItems?.Add(row);
             }
             finally{_refreshing=false;}
         }
@@ -356,11 +457,142 @@ namespace MphRead.Mods.Launcher.Gui
             public override string ToString()=>$"{Room.InGameName??Room.Name} · {Room.Name} · {(Room.Multiplayer?"Multiplayer":"Adventure")}";
         }
 
+        private sealed record StudioCommand(string Name,string Keywords,Action Run)
+        {
+            public override string ToString()=>Name;
+        }
+
+        private void ShowCommandPalette()
+        {
+            var panel=new StackPanel{Spacing=6,MinWidth=620};
+            panel.Children.Add(Text("COMMAND PALETTE · CTRL+SHIFT+P"));
+            var search=new TextBox{PlaceholderText="Type a command…"};panel.Children.Add(search);
+            var list=new ListBox{MaxHeight=390};panel.Children.Add(list);
+            StudioCommand[] commands=
+            {
+                new("Save project","file save ctrl s",Save),
+                new("Validate map","check validation diagnostics",()=>_=Validate()),
+                new("Build runtime map","compile build",()=>_=Build(false)),
+                new("Build .ppmap package","package bundle",()=>_=Build(true)),
+                new("Playtest from camera","play launch ctrl enter",()=>_=Play()),
+                new("Run map audit","audit test",()=>_=Audit()),
+                new("Undo","history ctrl z",()=>_document?.History.Undo()),
+                new("Redo","history ctrl y",()=>_document?.History.Redo()),
+                new("Frame all","camera view",()=>_viewport?.FrameAll()),
+                new("Frame selection","camera focus f",()=>_viewport?.FrameSelection()),
+                new("Tool: Move","transform g",()=>{if(_viewport!=null)_viewport.Tool="Move";}),
+                new("Tool: Rotate","transform r",()=>{if(_viewport!=null)_viewport.Tool="Rotate";}),
+                new("Tool: Scale","transform t",()=>{if(_viewport!=null)_viewport.Tool="Scale";}),
+                new("Selection mode: Object","object mode 1",()=>{if(_viewport!=null){_viewport.ElementMode="Object";_viewport.ClearSubSelection();}}),
+                new("Selection mode: Face","face polygon mode 2",()=>{if(_viewport!=null){_viewport.ElementMode="Face";_viewport.ClearSubSelection();}}),
+                new("Selection mode: Edge","edge mode 3",()=>{if(_viewport!=null){_viewport.ElementMode="Edge";_viewport.ClearSubSelection();}}),
+                new("Selection mode: Vertex","vertex point mode 4",()=>{if(_viewport!=null){_viewport.ElementMode="Vertex";_viewport.ClearSubSelection();}}),
+                new("Placement: Cursor","place add cursor",()=>{if(_viewport!=null)_viewport.PlacementMode="Cursor";}),
+                new("Placement: Camera target","place add target",()=>{if(_viewport!=null)_viewport.PlacementMode="Camera target";}),
+                new("Placement: Surface","place add surface hit",()=>{if(_viewport!=null)_viewport.PlacementMode="Surface";}),
+                new("Add Box","create geometry box",()=>AddObject("Box")),
+                new("Add Wedge","create geometry ramp",()=>AddObject("Wedge")),
+                new("Add Prism","create geometry prism",()=>AddObject("Prism")),
+                new("Add Editable Mesh","create geometry mesh",()=>AddObject("Mesh")),
+                new("Add Spawn","create gameplay spawn",()=>AddObject("Spawn")),
+                new("Add Pickup","create gameplay item",()=>AddObject("Pickup")),
+                new("Add Jump Pad","create gameplay jump",()=>AddObject("Jump pad")),
+                new("Add Navigation Link","create navigation link",()=>AddObject("Navigation link")),
+                new("Snap selection to grid","arrange snap grid",()=>{if(_document!=null)EditSelection("Snap to grid",(d,ids)=>MapLayoutCommands.Snap(d,ids,Math.Max(.01f,_viewport?.Snap??1)));}),
+                new("Snap selection to floor","arrange floor",()=>{if(_viewport!=null)EditSelection("Snap to floor",(d,ids)=>MapLayoutCommands.SnapToFloor(d,ids,p=>_viewport.Cache.CollisionNear(p)));}),
+                new("Snap selection to nearest surface","arrange surface",()=>{if(_viewport!=null)EditSelection("Snap to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,p=>_viewport.Cache.SurfaceNear(p),false));}),
+                new("Snap + align selection to surface","arrange surface normal align",()=>{if(_viewport!=null)EditSelection("Align to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,p=>_viewport.Cache.SurfaceNear(p),true));}),
+                new("Material eyedropper","material pick sample",()=>{if(_viewport!=null){_viewport.MaterialEyedropper=true;_status.Text="Material eyedropper active · click a surface.";}}),
+                new("Toggle measurement tool","measure distance m",()=>{if(_viewport!=null){_viewport.MeasureMode=!_viewport.MeasureMode;_viewport.InvalidateVisual();}}),
+                new("Toggle entity visualization","spawn capsule item jump trigger",()=>{if(_viewport!=null){_viewport.EntityVisualization=!_viewport.EntityVisualization;_viewport.InvalidateVisual();}}),
+                new("Show Inspector","panel properties",()=>ShowInspectorPage("Inspector")),
+                new("Show Modeling","panel mesh modeling",()=>ShowInspectorPage("Modeling")),
+                new("Show Materials","panel material browser",()=>ShowInspectorPage("Materials")),
+                new("Show Collision Auto-Heal review","panel collision repairs",()=>ShowInspectorPage("Collision repairs")),
+                new("Show Layers","panel layers",()=>ShowInspectorPage("Layers")),
+                new("Show Map Health","panel statistics budgets",()=>ShowInspectorPage("Map health")),
+                new("Show Navigation Path","panel navigation",()=>ShowInspectorPage("Navigation path")),
+                new("Overlay: Rendered","view render",()=>{if(_viewport!=null){_viewport.Wireframe=false;_viewport.Collision=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Wireframe","view wire",()=>{if(_viewport!=null){_viewport.Wireframe=true;_viewport.Collision=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision","view collision",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision Heat","view collision heat budget",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionHeatmap=true;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision Repairs","view collision repairs heal",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();}}),
+                new("New map / template gallery","new template",NewMap),
+                new("Import Q3 BSP / PK3","import bsp pk3",Import),
+                new("Clone built-in map","native remix clone",CloneBuiltIn)
+            };
+            void Refresh()
+            {
+                string query=(search.Text??"").Trim();
+                StudioCommand[] matches=commands.Where(command=>query.Length==0
+                    ||command.Name.Contains(query,StringComparison.OrdinalIgnoreCase)
+                    ||command.Keywords.Contains(query,StringComparison.OrdinalIgnoreCase)).ToArray();
+                list.ItemsSource=matches;
+                if(matches.Length>0&&list.SelectedIndex<0)list.SelectedIndex=0;
+            }
+            void Run()
+            {
+                if(list.SelectedItem is not StudioCommand command)return;
+                Dismiss();command.Run();
+            }
+            search.TextChanged+=(_,_)=>Refresh();
+            list.DoubleTapped+=(_,_)=>Run();
+            var buttons=new WrapPanel();AddButton(buttons,"Run",Run);AddButton(buttons,"Cancel",Dismiss);panel.Children.Add(buttons);
+            Refresh();Modal(panel);search.Focus();
+        }
+
         private void NewMap()
         {
-            var view=new StackPanel {Spacing=10};view.Children.Add(Text("NEW MAP"));var name=new TextBox {Text="My Arena"};view.Children.Add(name);
-            var template=new ComboBox {ItemsSource=new[]{"Blank Arena","Simple Box Arena","Team Arena"},SelectedIndex=0};view.Children.Add(template);
-            AddButton(view,"Create",()=>WithUnsaved(()=>{try{Load(MapTemplates.Create(name.Text??"",template.SelectedIndex!=0,template.SelectedIndex==2));}catch(Exception ex){Failure(ex);}}));AddButton(view,"Cancel",Dismiss);Modal(view);
+            var view=new Grid{RowDefinitions=new("Auto,Auto,*,Auto"),MinWidth=760,Height=610};
+            view.Children.Add(Text("NEW MAP · TEMPLATE GALLERY"));
+            var name=new TextBox{Text="My Arena",Margin=new Thickness(0,8,0,8)};
+            Grid.SetRow(name,1);view.Children.Add(name);
+            var list=new ListBox{SelectionMode=SelectionMode.Single};Grid.SetRow(list,2);view.Children.Add(list);
+            list.ItemsSource=MapTemplates.Catalog;
+            list.SelectedIndex=0;
+            list.ItemTemplate=new FuncDataTemplate<MapTemplateInfo>((info,_)=>
+            {
+                if(info==null)return new TextBlock();
+                var card=new Grid
+                {
+                    ColumnDefinitions=new("190,*"),
+                    Margin=new Thickness(4,6),
+                    MinHeight=116
+                };
+                card.Children.Add(new MapTemplatePreview(info));
+                var copy=new StackPanel{Spacing=3,Margin=new Thickness(12,0,0,0)};
+                copy.Children.Add(new TextBlock{Text=info.Name,Foreground=GuiTheme.TextBrush,
+                    FontWeight=FontWeight.SemiBold,FontSize=16});
+                copy.Children.Add(new TextBlock{Text=info.Description,Foreground=GuiTheme.TextDimBrush,
+                    TextWrapping=TextWrapping.Wrap,MaxWidth=500});
+                copy.Children.Add(new TextBlock
+                {
+                    Text=$"PLAYERS  {info.RecommendedPlayers}    ·    MODES  {String.Join(", ",info.SupportedModes)}",
+                    Foreground=PrimeTheme.AccentBrush,FontSize=11
+                });
+                Grid.SetColumn(copy,1);card.Children.Add(copy);return card;
+            });
+            var buttons=new WrapPanel();Grid.SetRow(buttons,3);view.Children.Add(buttons);
+            AddButton(buttons,"Create / Continue",()=>WithUnsaved(()=>
+            {
+                if(list.SelectedItem is not MapTemplateInfo info)return;
+                try
+                {
+                    Dismiss();
+                    switch(info.Action)
+                    {
+                        case MapTemplateAction.Create:
+                            Load(MapTemplates.Create(name.Text??"",info.Id));break;
+                        case MapTemplateAction.ImportQ3:
+                            _inspectorPage="Collision repairs";Import();break;
+                        case MapTemplateAction.CloneNative:
+                            _inspectorPage="Environment";CloneBuiltIn();break;
+                    }
+                }
+                catch(Exception ex){Failure(ex);}
+            }));
+            AddButton(buttons,"Cancel",Dismiss);
+            Modal(view);
         }
         private void ShowLibrary()
         {
@@ -464,21 +696,70 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void AddObject(string kind)
         {
-            _document?.EditObjects("Create "+kind,Array.Empty<Guid>(),d=>
+            if(_document==null)return;
+            System.Numerics.Vector3 place=_viewport?.GetPlacementPoint()??System.Numerics.Vector3.Zero;
+            Guid created=Guid.Empty;
+            _document.EditObjects("Create "+kind,Array.Empty<Guid>(),d=>
             {
                 switch(kind)
                 {
-                    case "Box":d.Geometry.Add(new MapBox {Label="Box",Transform=new(){Position=new[]{0f,1,0},Scale=new[]{4f,2,4}}});break;
-                    case "Wedge":d.Geometry.Add(new MapWedge {Label="Ramp",Transform=new(){Position=new[]{0f,1,0},Scale=new[]{4f,2,6}}});break;
-                    case "Prism":d.Geometry.Add(new MapPrism {Label="Prism",Transform=new(){Position=new[]{0f,1,0},Scale=new[]{3f,2,3}}});break;
-                    case "Convex":d.Geometry.Add(new MapConvexBrush {Label="Convex brush",Vertices=new(){new[]{-1f,0,-1},new[]{1f,0,-1},new[]{0f,2,0},new[]{0f,0,1}},Faces=new(){new[]{0,1,2},new[]{0,1,3},new[]{0,2,3},new[]{1,2,3}}});break;
-                    case "Mesh":d.Geometry.Add(new MapMesh {Label="Editable mesh",Vertices=new(){new[]{-2f,0,-2},new[]{2f,0,-2},new[]{2f,0,2},new[]{-2f,0,2}},Faces=new(){new[]{0,1,2,3}},FaceMaterials=new(){0},Solid=false});break;
-                    case "Spawn":d.Spawns.Add(new(){Id=Guid.NewGuid(),Position=new[]{0f,.1f,0}});break;
-                    case "Pickup":d.Items.Add(new(){Id=Guid.NewGuid(),Type="HealthMedium",Position=new[]{0f,.1f,0}});break;
-                    case "Jump pad":d.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{0f,.1f,0},Target=new[]{8f,2,0}});break;
-                    case "Navigation link":d.NavigationLinks.Add(new(){From=new[]{0f,.1f,0},To=new[]{6f,.1f,0}});break;
+                    case "Box":
+                    {
+                        var value=new MapBox{Label="Box",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{4f,2,4}}};
+                        created=value.Id;d.Geometry.Add(value);break;
+                    }
+                    case "Wedge":
+                    {
+                        var value=new MapWedge{Label="Ramp",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{4f,2,6}}};
+                        created=value.Id;d.Geometry.Add(value);break;
+                    }
+                    case "Prism":
+                    {
+                        var value=new MapPrism{Label="Prism",Transform=new(){Position=new[]{place.X,place.Y+1,place.Z},Scale=new[]{3f,2,3}}};
+                        created=value.Id;d.Geometry.Add(value);break;
+                    }
+                    case "Convex":
+                    {
+                        var value=new MapConvexBrush{Label="Convex brush",Transform=new(){Position=new[]{place.X,place.Y,place.Z}},
+                            Vertices=new(){new[]{-1f,0,-1},new[]{1f,0,-1},new[]{0f,2,0},new[]{0f,0,1}},
+                            Faces=new(){new[]{0,1,2},new[]{0,1,3},new[]{0,2,3},new[]{1,2,3}}};
+                        created=value.Id;d.Geometry.Add(value);break;
+                    }
+                    case "Mesh":
+                    {
+                        var value=new MapMesh{Label="Editable mesh",Transform=new(){Position=new[]{place.X,place.Y,place.Z}},
+                            Vertices=new(){new[]{-2f,0,-2},new[]{2f,0,-2},new[]{2f,0,2},new[]{-2f,0,2}},
+                            Faces=new(){new[]{0,1,2,3}},FaceMaterials=new(){0},Solid=false};
+                        created=value.Id;d.Geometry.Add(value);break;
+                    }
+                    case "Spawn":
+                    {
+                        var value=new MapSpawn{Id=Guid.NewGuid(),Position=new[]{place.X,place.Y+.1f,place.Z}};
+                        created=value.Id;d.Spawns.Add(value);break;
+                    }
+                    case "Pickup":
+                    {
+                        var value=new MapItem{Id=Guid.NewGuid(),Type="HealthMedium",Position=new[]{place.X,place.Y+.1f,place.Z}};
+                        created=value.Id;d.Items.Add(value);break;
+                    }
+                    case "Jump pad":
+                    {
+                        var value=new MapJumpPad{Id=Guid.NewGuid(),Position=new[]{place.X,place.Y+.1f,place.Z},
+                            Target=new[]{place.X+8,place.Y+2,place.Z}};
+                        created=value.Id;d.JumpPads.Add(value);break;
+                    }
+                    case "Navigation link":
+                    {
+                        var value=new MapNavigationLink{From=new[]{place.X,place.Y+.1f,place.Z},To=new[]{place.X+6,place.Y+.1f,place.Z}};
+                        created=value.Id;d.NavigationLinks.Add(value);break;
+                    }
                 }
             });
+            if(created!=Guid.Empty)
+            {
+                _document.Selection.Clear();_document.Selection.Add(created);_document.ActiveObjectId=created;
+                _document.SelectionChanged();_viewport?.FrameSelection();
+            }
         }
         private void ShowInspectorPage(string name, bool remember=true)
         {
@@ -487,6 +768,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 case "Modeling": ModelingInspector(); break;
                 case "Partitioning": PartitionInspector(); break;
+                case "Collision repairs": CollisionRepairInspector(); break;
                 case "Environment": EnvironmentInspector(); break;
                 case "Materials": MaterialInspector(); break;
                 case "Assets & music": AssetInspector(); break;
@@ -498,6 +780,113 @@ namespace MphRead.Mods.Launcher.Gui
                 case "Navigation path": NavigationInspector(); break;
                 default: Inspect(); break;
             }
+        }
+
+        private sealed record RepairReviewRow(string Key,MapViewportRepair Repair,bool Reviewed)
+        {
+            public override string ToString()
+            {
+                string state=Reviewed?"✓ reviewed":"• review";
+                return $"{state} · {Repair.Kind} · {Repair.Confidence*100:0}% · {Repair.Detail}";
+            }
+        }
+
+        private static string RepairKey(MapViewportRepair repair)
+        {
+            System.Numerics.Vector3 center=repair.Points.Length==0?System.Numerics.Vector3.Zero
+                :repair.Points.Aggregate(System.Numerics.Vector3.Zero,(a,b)=>a+b)/repair.Points.Length;
+            return $"{repair.Kind}|{MathF.Round(center.X*4)/4:0.##},{MathF.Round(center.Y*4)/4:0.##},{MathF.Round(center.Z*4)/4:0.##}|{repair.Detail}";
+        }
+
+        private void CollisionRepairInspector()
+        {
+            _inspector.Children.Clear();if(_document==null||_viewport==null)return;
+            _viewport.Collision=true;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();
+            _inspector.Children.Add(Text("COLLISION AUTO-HEAL REVIEW"));
+            if(_document.Project.Definition.Import==null)
+            {
+                _inspector.Children.Add(Text("Collision repair review is available for BSP/PK3 imports."));
+                return;
+            }
+            MapViewportRepair[] repairs=_viewport.Cache.CollisionRepairs.ToArray();
+            var filter=new ComboBox
+            {
+                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence","Probe failures","Reviewed"},
+                SelectedIndex=0
+            };
+            var list=new ListBox{MaxHeight=360};var radius=new TextBox{Text="2"};
+            _inspector.Children.Add(filter);_inspector.Children.Add(list);
+            _inspector.Children.Add(Text("Disable-region radius"));_inspector.Children.Add(radius);
+
+            bool Match(MapViewportRepair repair,string value,bool reviewed)
+                => value switch
+                {
+                    "Unreviewed"=>!reviewed,
+                    "Reviewed"=>reviewed,
+                    "Added"=>repair.Kind==MapCollisionRepairKind.FloorProxyAdded,
+                    "Restored"=>repair.Kind==MapCollisionRepairKind.BuriedRestored,
+                    "Removed"=>repair.Kind==MapCollisionRepairKind.PhantomRemoved&&repair.Confidence>=.9f,
+                    "Low confidence"=>repair.Confidence<.9f,
+                    "Probe failures"=>repair.Kind is MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    _=>true
+                };
+            void Refresh()
+            {
+                string value=filter.SelectedItem as string??"Unreviewed";
+                list.ItemsSource=repairs.Select(repair=>
+                {
+                    string key=RepairKey(repair);
+                    bool reviewed=_studioState.AcceptedCollisionRepairs.Contains(key,StringComparer.Ordinal);
+                    return new RepairReviewRow(key,repair,reviewed);
+                }).Where(row=>Match(row.Repair,value,row.Reviewed)).ToArray();
+            }
+            filter.SelectionChanged+=(_,_)=>Refresh();Refresh();
+
+            AddButton(_inspector,"Focus",()=>
+            {
+                if(list.SelectedItem is RepairReviewRow row)_viewport.FocusWorld(row.Repair.Points);
+            });
+            AddButton(_inspector,"Accept reviewed",()=>
+            {
+                if(list.SelectedItem is not RepairReviewRow row)return;
+                if(!_studioState.AcceptedCollisionRepairs.Contains(row.Key,StringComparer.Ordinal))
+                    _studioState.AcceptedCollisionRepairs.Add(row.Key);
+                MapStudioStateStore.Save(_document.Project.Definition,_studioState);Refresh();
+            });
+            AddButton(_inspector,"Accept all visible",()=>
+            {
+                foreach(RepairReviewRow row in list.ItemsSource?.OfType<RepairReviewRow>()??Enumerable.Empty<RepairReviewRow>())
+                    if(!_studioState.AcceptedCollisionRepairs.Contains(row.Key,StringComparer.Ordinal))
+                        _studioState.AcceptedCollisionRepairs.Add(row.Key);
+                MapStudioStateStore.Save(_document.Project.Definition,_studioState);Refresh();
+            });
+            AddButton(_inspector,"Disable heal in region",()=>
+            {
+                if(list.SelectedItem is not RepairReviewRow row||row.Repair.Points.Length==0)return;
+                try
+                {
+                    float r=Math.Clamp(Number(radius.Text??"2"),.25f,64f);
+                    var center=row.Repair.Points.Aggregate(System.Numerics.Vector3.Zero,(a,b)=>a+b)/row.Repair.Points.Length;
+                    _document.Edit("Disable collision heal region",d=>d.Import!.CollisionHealExclusions.Add(new()
+                    {
+                        Center=new[]{center.X,center.Y,center.Z},Radius=r,Note=row.Repair.Kind+" · "+row.Repair.Detail
+                    }),MapChangeDomain.Import);
+                    _status.Text=$"Auto-Heal disabled within {r:0.##} units of the selected repair.";
+                    _=Validate();
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+            AddButton(_inspector,"Clear disabled regions",()=>
+            {
+                _document.Edit("Clear collision heal exclusions",d=>d.Import!.CollisionHealExclusions.Clear(),MapChangeDomain.Import);
+                _=Validate();
+            });
+            int excluded=_document.Project.Definition.Import.CollisionHealExclusions.Count;
+            var health=_viewport.Cache.CollisionHealth;
+            _inspector.Children.Add(Text(
+                $"Repairs: {repairs.Length:N0} · disabled regions: {excluded}\n"
+                +(health==null?"Analyze/validate to populate health."
+                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · {health.SweepFailures}/{health.SweepCount} sweep failures")));
         }
 
         private void LayerInspector()
@@ -528,10 +917,109 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(_inspector,"Show all geometry",()=>{_document.ShowAllGeometry();LayerInspector();});
         }
 
+        private static bool? CommonBool<T>(IReadOnlyList<T> values,Func<T,bool> read)
+        {
+            if(values.Count==0)return null;bool first=read(values[0]);
+            return values.All(value=>read(value)==first)?first:null;
+        }
+
+        private void MultiInspect(MapObject[] selection)
+        {
+            _inspector.Children.Clear();if(_document==null)return;
+            _inspector.Children.Add(Text($"MULTI-OBJECT INSPECTOR · {selection.Length} selected"));
+            string types=String.Join(" · ",selection.GroupBy(o=>o.Kind).Select(g=>$"{g.Key} {g.Count()}"));
+            _inspector.Children.Add(Text(types));
+            Guid[] ids=selection.Select(o=>o.Id).ToArray();
+
+            MapGeometry[] geometry=selection.Select(o=>o.Value).OfType<MapGeometry>().ToArray();
+            ComboBox? material=null,team=null;
+            TextBox? layer=null,terrain=null;
+            CheckBox? applyLayer=null,applyTerrain=null,solid=null,damaging=null,hidden=null,locked=null;
+
+            if(geometry.Length>0)
+            {
+                _inspector.Children.Add(Text($"GEOMETRY · {geometry.Length}"));
+                string[] materials=new[]{"No change"}.Concat(_document.Project.Definition.Materials
+                    .Select((m,i)=>$"{i} · {m.Name}")).ToArray();
+                int commonMaterial=geometry.Select(g=>g.Material).Distinct().Count()==1?geometry[0].Material+1:0;
+                material=new ComboBox{ItemsSource=materials,SelectedIndex=Math.Clamp(commonMaterial,0,materials.Length-1)};
+                _inspector.Children.Add(Text("Material"));_inspector.Children.Add(material);
+
+                string commonLayer=geometry.Select(g=>g.Layer).Distinct(StringComparer.OrdinalIgnoreCase).Count()==1
+                    ?geometry[0].Layer:"";
+                applyLayer=new CheckBox{Content="Apply layer",IsChecked=false};
+                layer=new TextBox{Text=commonLayer,PlaceholderText="Layer name"};
+                _inspector.Children.Add(applyLayer);_inspector.Children.Add(layer);
+
+                string commonTerrain=geometry.Select(g=>g.Terrain).Distinct(StringComparer.OrdinalIgnoreCase).Count()==1
+                    ?geometry[0].Terrain:"";
+                applyTerrain=new CheckBox{Content="Apply terrain",IsChecked=false};
+                terrain=new TextBox{Text=commonTerrain,PlaceholderText="Metal"};
+                _inspector.Children.Add(applyTerrain);_inspector.Children.Add(terrain);
+
+                CheckBox Tri(string label,Func<MapGeometry,bool> read)
+                {
+                    var check=new CheckBox{Content=label,IsThreeState=true,IsChecked=CommonBool(geometry,read)};
+                    _inspector.Children.Add(check);return check;
+                }
+                solid=Tri("Collision",g=>g.Solid);
+                damaging=Tri("Damaging",g=>g.Damaging);
+                hidden=Tri("Hidden",g=>g.Hidden);
+                locked=Tri("Locked",g=>g.Locked);
+            }
+
+            MapSpawn[] spawns=selection.Select(o=>o.Value).OfType<MapSpawn>().ToArray();
+            if(spawns.Length>0)
+            {
+                _inspector.Children.Add(Text($"SPAWNS · {spawns.Length}"));
+                int? common=spawns.Select(s=>s.Team).Distinct().Count()==1?spawns[0].Team:null;
+                team=new ComboBox
+                {
+                    ItemsSource=new[]{"No change","Neutral (-1)","Team A (0)","Team B (1)","Team C (2)","Team D (3)"},
+                    SelectedIndex=common.HasValue?Math.Clamp(common.Value+2,1,5):0
+                };
+                _inspector.Children.Add(team);
+            }
+
+            AddButton(_inspector,"Apply to selection",()=>
+            {
+                try
+                {
+                    _document.EditObjects("Edit multiple objects",ids,d=>
+                    {
+                        foreach(MapObject item in MapObjects.All(d).Where(o=>ids.Contains(o.Id)))
+                        {
+                            if(item.Value is MapGeometry g)
+                            {
+                                if(material is {SelectedIndex:>0})
+                                {
+                                    int target=material.SelectedIndex-1;g.Material=target;
+                                    if(g is MapMesh mesh)
+                                        for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=target;
+                                }
+                                if(applyLayer?.IsChecked==true)g.Layer=String.IsNullOrWhiteSpace(layer?.Text)?"Architecture":layer!.Text!.Trim();
+                                if(applyTerrain?.IsChecked==true&&!String.IsNullOrWhiteSpace(terrain?.Text))g.Terrain=terrain!.Text!.Trim();
+                                if(solid?.IsChecked is bool s)g.Solid=s;
+                                if(damaging?.IsChecked is bool damage)g.Damaging=damage;
+                                if(hidden?.IsChecked is bool hide)g.Hidden=hide;
+                                if(locked?.IsChecked is bool l)g.Locked=l;
+                            }
+                            if(item.Value is MapSpawn spawn&&team is {SelectedIndex:>0})
+                                spawn.Team=team.SelectedIndex-2;
+                        }
+                    });
+                    MultiInspect(MapObjects.All(_document.Project.Definition).Where(o=>ids.Contains(o.Id)).ToArray());
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+        }
+
         private void Inspect()
         {
             _inspector.Children.Clear();if(_document==null)return;
-            var selected=MapObjects.All(_document.Project.Definition).FirstOrDefault(o=>_document.Selection.Contains(o.Id));
+            var selectedObjects=MapObjects.All(_document.Project.Definition).Where(o=>_document.Selection.Contains(o.Id)).ToArray();
+            if(selectedObjects.Length>1){MultiInspect(selectedObjects);return;}
+            var selected=selectedObjects.FirstOrDefault();
             if(selected==null){EnvironmentInspector();return;}
             _inspector.Children.Add(Text(selected.Kind));Guid id=selected.Id;
             var edits=new List<Action<object>>();
@@ -640,6 +1128,12 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MODELING"));
+            if(_viewport!=null)
+            {
+                var elementMode=new ComboBox{ItemsSource=new[]{"Object","Face","Edge","Vertex"},SelectedItem=_viewport.ElementMode};
+                _inspector.Children.Add(Text("Viewport selection mode · 1/2/3/4"));_inspector.Children.Add(elementMode);
+                elementMode.SelectionChanged+=(_,_)=>{if(elementMode.SelectedItem is string mode){_viewport.ElementMode=mode;_viewport.ClearSubSelection();}};
+            }
             var selected=MapObjects.All(_document.Project.Definition).Where(o=>_document.Selection.Contains(o.Id)).ToArray();
             var geometry=selected.Where(o=>o.Value is MapGeometry).ToArray();
             _inspector.Children.Add(Text($"{geometry.Length} geometry objects selected"));
@@ -661,7 +1155,12 @@ namespace MphRead.Mods.Launcher.Gui
             if(selected.FirstOrDefault(o=>o.Value is MapMesh) is {Value:MapMesh mesh} active)
             {
                 _inspector.Children.Add(Text($"MESH · {mesh.Vertices.Count} vertices · {mesh.Faces.Count} faces"));
-                var face=new TextBox{Text="0"};var amount=new TextBox{Text=".25"};
+                int pickedFace=_viewport?.SelectedFaceIndex??-1;
+                int pickedVertex=_viewport?.SelectedVertexIndex??-1;
+                var face=new TextBox{Text=(pickedFace>=0?pickedFace:0).ToString(CultureInfo.InvariantCulture)};
+                var amount=new TextBox{Text=".25"};
+                if(_viewport?.SelectedEdge is {} edge)
+                    _inspector.Children.Add(Text($"Selected edge · vertex {edge.A} ↔ {edge.B}"));
                 _inspector.Children.Add(Text("Face index"));_inspector.Children.Add(face);
                 _inspector.Children.Add(Text("Amount / ratio"));_inspector.Children.Add(amount);
                 void FaceEdit(string label,Action<MapMesh,int,float> edit)
@@ -684,7 +1183,8 @@ namespace MphRead.Mods.Launcher.Gui
                 AddButton(_inspector,"Flip face",()=>FaceEdit("Flip face",(m,i,_)=>{MapMeshEditing.FlipFace(m,i);}));
                 AddButton(_inspector,"Delete face",()=>FaceEdit("Delete face",(m,i,_)=>{MapMeshEditing.DeleteFace(m,i);}));
 
-                var vertex=new TextBox{Text="0"};var delta=new TextBox{Text="0,0.25,0"};
+                var vertex=new TextBox{Text=(pickedVertex>=0?pickedVertex:0).ToString(CultureInfo.InvariantCulture)};
+                var delta=new TextBox{Text="0,0.25,0"};
                 _inspector.Children.Add(Text("Vertex index"));_inspector.Children.Add(vertex);
                 _inspector.Children.Add(Text("Vertex delta X,Y,Z"));_inspector.Children.Add(delta);
                 AddButton(_inspector,"Move vertex",()=>
@@ -693,6 +1193,23 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         int index=int.Parse(vertex.Text??"",CultureInfo.InvariantCulture);float[] v=ParseVector(delta.Text??"",3);var id=active.Id;
                         _document.EditObjects("Move mesh vertex",new[]{id},d=>MapMeshEditing.MoveVertex((MapMesh)MapObjects.Find(d,id)!.Value,index,new(v[0],v[1],v[2])));
+                        ModelingInspector();
+                    }
+                    catch(Exception ex){Failure(ex);}
+                });
+                AddButton(_inspector,"Snap vertex to nearest surface",()=>
+                {
+                    try
+                    {
+                        if(_viewport==null)throw new InvalidOperationException("Viewport is unavailable.");
+                        int index=int.Parse(vertex.Text??"",CultureInfo.InvariantCulture);
+                        System.Numerics.Vector3 world=MapMeshEditing.VertexWorld(mesh,index);
+                        var contact=MapLayoutCommands.NearestSurface(world,_viewport.Cache.SurfaceNear(world),new HashSet<Guid>{active.Id});
+                        if(contact==null)throw new InvalidOperationException("No nearby collision/render surface was found.");
+                        Guid id=active.Id;
+                        _document.EditObjects("Snap mesh vertex to surface",new[]{id},d=>
+                            MapMeshEditing.SetVertexWorld((MapMesh)MapObjects.Find(d,id)!.Value,index,contact.Value.Point));
+                        _status.Text=$"Vertex {index} snapped {contact.Value.Distance:0.###} units to surface.";
                         ModelingInspector();
                     }
                     catch(Exception ex){Failure(ex);}
@@ -752,6 +1269,18 @@ namespace MphRead.Mods.Launcher.Gui
                 if (_viewport == null) return;
                 EditSelection("Snap to floor", (d, ids) => MapLayoutCommands.SnapToFloor(d, ids,
                     point => _viewport.Cache.CollisionNear(point)));
+            });
+            AddButton(_inspector,"Snap base to nearest surface",()=>
+            {
+                if(_viewport==null)return;
+                EditSelection("Snap to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,
+                    point=>_viewport.Cache.SurfaceNear(point),align:false));
+            });
+            AddButton(_inspector,"Snap + align to surface",()=>
+            {
+                if(_viewport==null)return;
+                EditSelection("Align to surface",(d,ids)=>MapLayoutCommands.SnapToSurface(d,ids,
+                    point=>_viewport.Cache.SurfaceNear(point),align:true));
             });
             var count = new TextBox { Text = "4" }; var spacing = new TextBox { Text = "4" };
             _inspector.Children.Add(Text("Copies (1–256)")); _inspector.Children.Add(count);
@@ -1047,13 +1576,119 @@ namespace MphRead.Mods.Launcher.Gui
             _=Validate();
         });
 
+        private sealed record MaterialTarget(string Label,int Index,bool Source)
+        {
+            public override string ToString()=>Label;
+        }
+
         private void MaterialInspector()
         {
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MATERIAL BROWSER"));
+            var definition=_document.Project.Definition;
+
+            _inspector.Children.Add(Text("EYEDROPPER & REPLACE ALL"));
+            if(_pickedMaterialHit is { } picked)
+            {
+                int sourceSlot=picked.SourceMaterial>=0?picked.SourceMaterial:picked.Material;
+                _inspector.Children.Add(Text(picked.ObjectId==Guid.Empty
+                    ?$"Picked source surface · source slot {sourceSlot} · runtime material {picked.Material}"
+                    :$"Picked authored surface · material {picked.Material}"));
+            }
+            else _inspector.Children.Add(Text("No surface material picked yet."));
+            AddButton(_inspector,"Eyedropper · click surface",()=>
+            {
+                if(_viewport==null)return;
+                _viewport.MaterialEyedropper=true;
+                _status.Text="Material eyedropper active · click any rendered surface.";
+            });
+
+            var targets=new List<MaterialTarget>();
+            if(definition.Import is {} imported)
+            {
+                try
+                {
+                    MapTexturePack? pack=imported.LoadTexturePack();
+                    if(pack!=null)
+                        targets.AddRange(pack.Entries.Select((entry,index)=>
+                            new MaterialTarget($"Source {index} · {entry.Name}",index,true)));
+                }
+                catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException)
+                { _inspector.Children.Add(Text("Source material list unavailable: "+ex.Message)); }
+            }
+            targets.AddRange(definition.Materials.Select((material,index)=>
+                new MaterialTarget($"Authored {index} · {material.Name}",index,false)));
+            var replacementTarget=new ComboBox{ItemsSource=targets,SelectedIndex=targets.Count>0?0:-1};
+            _inspector.Children.Add(Text("Replacement material"));_inspector.Children.Add(replacementTarget);
+            AddButton(_inspector,"Replace all uses",()=>
+            {
+                if(_pickedMaterialHit is not {} hit||replacementTarget.SelectedItem is not MaterialTarget target)
+                { _status.Text="Pick a source surface and replacement material first.";return; }
+                try
+                {
+                    _document.Edit("Replace all material uses",d=>
+                    {
+                        if(hit.ObjectId!=Guid.Empty)
+                        {
+                            if(target.Source)throw new InvalidOperationException("Authored geometry must target an authored material.");
+                            int source=hit.Material;
+                            foreach(MapGeometry geometry in d.Geometry)
+                            {
+                                if(geometry.Material==source)geometry.Material=target.Index;
+                                if(geometry is MapMesh mesh)
+                                    for(int i=0;i<mesh.FaceMaterials.Count;i++)
+                                        if(mesh.FaceMaterials[i]==source)mesh.FaceMaterials[i]=target.Index;
+                            }
+                            foreach(MapBrush brush in d.Brushes)
+                                if(brush.Material==source)brush.Material=target.Index;
+                        }
+                        else if(d.Import is {} import)
+                        {
+                            if(hit.SourceMaterial>=0)
+                            {
+                                int source=hit.SourceMaterial;
+                                import.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                                import.MaterialReplacements.Add(new()
+                                {
+                                    Source=source,Target=target.Index,TargetSource=target.Source
+                                });
+                            }
+                            else
+                            {
+                                if(target.Source)throw new InvalidOperationException("Borrowed-material imports must target an authored material.");
+                                int source=hit.Material;
+                                if(import.DefaultMaterial==source)import.DefaultMaterial=target.Index;
+                                foreach(string shader in import.ShaderMaterials.Keys.ToArray())
+                                    if(import.ShaderMaterials[shader]==source)import.ShaderMaterials[shader]=target.Index;
+                            }
+                        }
+                        else if(d.NativeRoom is {} native)
+                        {
+                            int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
+                            if(target.Source)throw new InvalidOperationException("Native remix replacements use Map Studio material slots.");
+                            native.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                            native.MaterialReplacements.Add(new(){Source=source,Target=target.Index});
+                        }
+                    },MapChangeDomain.Material|MapChangeDomain.Geometry|MapChangeDomain.Import);
+                    _status.Text="Material replacement applied across the map.";
+                    _=Validate();MaterialInspector();
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+            AddButton(_inspector,"Clear picked source override",()=>
+            {
+                if(_pickedMaterialHit is not MapPickHit hit||hit.ObjectId!=Guid.Empty)return;
+                int source=hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material;
+                _document.Edit("Clear material replacement",d=>
+                {
+                    d.Import?.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                    d.NativeRoom?.MaterialReplacements.RemoveAll(value=>value.Source==source);
+                },MapChangeDomain.Material|MapChangeDomain.Import);
+                _status.Text=$"Cleared source material {source} replacement.";_=Validate();MaterialInspector();
+            });
+
             var filter=new TextBox{PlaceholderText="Search materials"};_inspector.Children.Add(filter);
             var panels=new List<(Control Panel,string Search)>();
-            var definition=_document.Project.Definition;
             var order=Enumerable.Range(0,definition.Materials.Count)
                 .OrderByDescending(i=>_studioState.FavoriteMaterials.Contains(MaterialKey(definition.Materials[i]),StringComparer.OrdinalIgnoreCase))
                 .ThenBy(i=>definition.Materials[i].Name,StringComparer.OrdinalIgnoreCase).ToArray();
@@ -1086,7 +1721,12 @@ namespace MphRead.Mods.Launcher.Gui
                     var ids=_document.Selection.ToHashSet();
                     _document.EditObjects("Assign material",ids,d=>
                     {
-                        foreach(var g in d.Geometry)g.Material=index;
+                        foreach(var g in d.Geometry)
+                        {
+                            g.Material=index;
+                            if(g is MapMesh mesh)
+                                for(int i=0;i<mesh.FaceMaterials.Count;i++)mesh.FaceMaterials[i]=index;
+                        }
                         foreach(var b in d.Brushes)b.Material=index;
                     });
                 });
@@ -1618,6 +2258,8 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_work!=null){if(e.Key==Key.Escape)_work.Cancel();e.Handled=true;return;}
             if(e.Key==Key.Escape){if(_modal.IsVisible)Dismiss();else Close();e.Handled=true;}
+            else if(e.KeyModifiers.HasFlag(KeyModifiers.Control)&&e.KeyModifiers.HasFlag(KeyModifiers.Shift)&&e.Key==Key.P)
+            {ShowCommandPalette();e.Handled=true;}
             else if(e.KeyModifiers.HasFlag(KeyModifiers.Control)&&e.Key==Key.S){Save();e.Handled=true;}
             else if(e.KeyModifiers.HasFlag(KeyModifiers.Control)&&e.Key==Key.Enter){_=Play();e.Handled=true;}
             else base.OnKeyDown(e);

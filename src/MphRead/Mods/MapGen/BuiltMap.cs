@@ -76,6 +76,9 @@ namespace MphRead.Mods.MapGen
         public string? CollisionShader { get; set; }
         public bool PlayerClip { get; set; }
         public float CollisionConfidence { get; set; } = 1f;
+        // Original Q3/native source material slot, for editor eyedropper and
+        // replace-all workflows. -1 means ordinary authored geometry.
+        public int SourceMaterial { get; set; } = -1;
 
         public BuiltFace(Vector3[] points, Vector2[] texcoords, Vector3 normal, int material, float shade)
         {

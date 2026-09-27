@@ -37,6 +37,31 @@ public static class MapMeshEditing
         return mesh;
     }
 
+    public static NVector3 VertexWorld(MapMesh mesh,int vertex)
+    {
+        RequireVertex(mesh,vertex);
+        NVector3 p=V(mesh.Vertices[vertex]);
+        var t=mesh.Transform;
+        p*=new NVector3(t.Scale[0],t.Scale[1],t.Scale[2]);
+        var q=new System.Numerics.Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
+        p=NVector3.Transform(p,q);
+        return p+new NVector3(t.Position[0],t.Position[1],t.Position[2]);
+    }
+
+    public static void SetVertexWorld(MapMesh mesh,int vertex,NVector3 world)
+    {
+        RequireVertex(mesh,vertex);
+        var t=mesh.Transform;
+        NVector3 local=world-new NVector3(t.Position[0],t.Position[1],t.Position[2]);
+        var q=new System.Numerics.Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
+        local=NVector3.Transform(local,System.Numerics.Quaternion.Inverse(q));
+        var scale=new NVector3(t.Scale[0],t.Scale[1],t.Scale[2]);
+        if(MathF.Abs(scale.X)<1e-6f||MathF.Abs(scale.Y)<1e-6f||MathF.Abs(scale.Z)<1e-6f)
+            throw new InvalidOperationException("Cannot snap a vertex on a zero-scale mesh.");
+        local/=scale;
+        mesh.Vertices[vertex]=A(local);
+    }
+
     public static void MoveVertex(MapMesh mesh,int vertex,NVector3 delta)
     {
         RequireVertex(mesh,vertex);

@@ -10,6 +10,19 @@ using MphRead.Mods.MapGen;
 int checks = 0;
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
 var definition = new MapDefinition { Name = "CHECK_ARENA", FormatVersion = 2, MapId = Guid.NewGuid() };
+var requiredTemplates=new[]{"basic-ffa","duel-1v1","team-symmetric","vertical-arena",
+    "jump-pad-playground","large-outdoor","import-review","native-remix"};
+Check(requiredTemplates.All(id=>MapTemplates.Catalog.Any(t=>t.Id==id)),
+    "template gallery contains all requested starter workflows");
+foreach(string id in requiredTemplates.Take(6))
+{
+    MapProject template=MapTemplates.Create("TEMPLATE "+id,id);
+    Check(template.Definition.Geometry.Count>0&&template.Definition.Spawns.Count>=2,
+        $"playable template {id} has geometry and multiplayer spawns");
+}
+Check(MapTemplates.Get("import-review").Action==MapTemplateAction.ImportQ3
+    &&MapTemplates.Get("native-remix").Action==MapTemplateAction.CloneNative,
+    "source-review templates launch their intended workflows");
 var box = new MapBox(); var spawn = new MapSpawn { Id = Guid.NewGuid() };
 definition.Geometry.Add(box); definition.Spawns.Add(spawn); definition.Materials.Add(new());
 var doc = new MapDocument(new MapProject(definition));
@@ -158,6 +171,9 @@ try
         var frame = new MapRenderFrame(pickLayout,camera,pickCache.Meshes,new System.Collections.Generic.HashSet<Guid>(),
             new System.Collections.Generic.Dictionary<Guid,Matrix4x4>(),false,false);
         Check(MapViewportPicking.Pick(frame,400,225)==nearBrush.Id,"nearest world-space picking at DPI "+dpi+" perspective "+perspective);
+        MapPickHit? richHit=MapViewportPicking.PickHit(frame,400,225);
+        Check(richHit?.ObjectId==nearBrush.Id&&richHit.Value.Distance>0,
+            "rich viewport picking returns surface point/normal/distance");
         var point = new Vector3(1, .5f, 0);
         var screen = camera.Project(pickLayout,point)!.Value;
         var ray = camera.Ray(pickLayout,screen.X,screen.Y);
@@ -198,6 +214,16 @@ try
     var floorId = Guid.NewGuid();
     var floorFaces = new[] { new MapViewportFace(floorId, new[] { new Vector3(-20,0,-20), new Vector3(-20,0,20), new Vector3(20,0,20), new Vector3(20,0,-20) }, 1, 0, true) };
     Check(MapLayoutCommands.FloorBelow(new(0,5,0), floorFaces) == 0 && MapLayoutCommands.FloorBelow(new(40,5,0), floorFaces) == null, "floor snap intersects the actual surface");
+    var surfaceContact=MapLayoutCommands.NearestSurface(new Vector3(0,2,0),floorFaces);
+    Check(surfaceContact.HasValue&&Math.Abs(surfaceContact.Value.Point.Y)<.001&&surfaceContact.Value.Normal.Y>0,
+        "nearest-surface query returns contact point and normal");
+    var surfaceDefinition=new MapDefinition();
+    var surfaceBox=new MapBox{Transform=new(){Position=new[]{0f,3f,0},Scale=new[]{2f,2f,2f}}};
+    surfaceDefinition.Geometry.Add(surfaceBox);
+    var surfaceIds=new System.Collections.Generic.HashSet<Guid>{surfaceBox.Id};
+    MapLayoutCommands.SnapToSurface(surfaceDefinition,surfaceIds,_=>floorFaces,align:true);
+    Check(Math.Abs(surfaceBox.Transform.Position[1]-1)<.001,
+        "surface snap lands object base on nearest surface");
     var floorIndex=new MapFaceSpatialIndex(floorFaces);
     Check(floorIndex.Column(new(0,5,0)).Count==1&&floorIndex.Column(new(40,5,0)).Count==0,
         "spatial floor query prunes distant imported faces");
@@ -316,6 +342,19 @@ try
         "native room remix source and detached-architecture policy survive project serialization");
     Check(MapValidator.Validate(nativeRoundtrip,checkSources:false).Diagnostics.All(d=>d.Code!="FP-MAP-005"),
         "native room remix source validates without reading cartridge bytes");
+    nativeDefinition.NativeRoom!.MaterialReplacements.Add(new(){Source=2,Target=0});
+    var nativeMaterialRoundtrip=MapProjectSerializer.Clone(nativeDefinition);
+    Check(nativeMaterialRoundtrip.NativeRoom!.MaterialReplacements.Single().Source==2,
+        "native source material replace-all recipe survives serialization");
+    var q3MaterialDefinition=new MapDefinition{Name="Q3_MATERIAL_REPLACE",FormatVersion=2,MapId=Guid.NewGuid(),
+        Import=new(){Source="fixture.bsp"}};
+    q3MaterialDefinition.Materials.Add(new(){Id=Guid.NewGuid(),Name="Replacement"});
+    q3MaterialDefinition.Import!.MaterialReplacements.Add(new(){Source=7,Target=0,TargetSource=false});
+    q3MaterialDefinition.Import.MaterialReplacements.Add(new(){Source=8,Target=3,TargetSource=true});
+    var q3MaterialRoundtrip=MapProjectSerializer.Clone(q3MaterialDefinition);
+    Check(q3MaterialRoundtrip.Import!.MaterialReplacements.Count==2
+        &&q3MaterialRoundtrip.Import.MaterialReplacements.Any(r=>r.TargetSource&&r.Target==3),
+        "Q3 source/authored material replacement recipe survives serialization");
 
     // Imported collision auto-heal: runtime precision, invalid polygons, seams,
     // T-junctions, coverage repair, phantom pruning, spawn repair and probes.
@@ -361,6 +400,20 @@ try
     var seamHealth=MapCollisionHealer.Heal(seamMap,healImport);
     Check(seamHealth.StitchedVertices>0,
         "collision healer welds sub-player-radius imported seams");
+    var excludedImport=new MapImport{AutoHealCollision=true,CollisionHealTolerance=.0625f,
+        CollisionHealExclusions=new(){new(){Center=new[]{2f,0f,1f},Radius=4f,Note="author review"}}};
+    var excludedMap=new BuiltMap(new MapDefinition{Name="HEAL_EXCLUDED",Import=excludedImport});
+    excludedMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(0,0,2),
+        new OpenTK.Mathematics.Vector3(2,0,2),new OpenTK.Mathematics.Vector3(2,0,0)},
+        new OpenTK.Mathematics.Vector2[4],OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    excludedMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(2.03f,0,0),new OpenTK.Mathematics.Vector3(2.03f,0,2),
+        new OpenTK.Mathematics.Vector3(4,0,2),new OpenTK.Mathematics.Vector3(4,0,0)},
+        new OpenTK.Mathematics.Vector2[4],OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    var excludedHealth=MapCollisionHealer.Heal(excludedMap,excludedImport);
+    Check(excludedHealth.StitchedVertices==0,
+        "author-disabled Auto-Heal region suppresses optional seam repair");
 
     var tjMap=new BuiltMap(new MapDefinition{Name="HEAL_TJ",Import=healImport});
     tjMap.Solid.Add(HealFloor(0,2));

@@ -186,6 +186,9 @@ namespace MphRead.Mods.MapGen
                     r.Error("FP-MAP-010","A remix must use a new runtime name rather than replacing the built-in room key.");
                 if(checkSources && !Mods.Launcher.GameFiles.Ready)
                     r.Warning("FP-MAP-005","Game files are required to compile this native-room remix.");
+                if(native.MaterialReplacements==null
+                    ||native.MaterialReplacements.Any(value=>value.Source<0||value.Target<0||value.Target>=d.Materials.Count))
+                    r.Error("FP-MAP-001","Native material replacements must reference valid source/target material slots.");
             }
             if (d.Import is { } import)
             {
@@ -196,6 +199,15 @@ namespace MphRead.Mods.MapGen
                     || import.PatchLevel is < 1 or > 8 || import.CollisionPatchLevel is < -1 or > 8
                     || !float.IsFinite(import.CollisionHealTolerance) || import.CollisionHealTolerance is < 0.0005f or > 0.25f)
                     r.Error("FP-MAP-017", "Import scale/UV scale must be positive; render patch level must be 1–8, collision patch level -1 (auto), 0 (off), or 1–8, and heal tolerance 0.0005–0.25.");
+                if(import.CollisionHealExclusions==null
+                    || import.CollisionHealExclusions.Any(region=>region.Center==null||region.Center.Length!=3
+                        || region.Center.Any(value=>!float.IsFinite(value))
+                        || !float.IsFinite(region.Radius)||region.Radius is < .25f or > 64f))
+                    r.Error("FP-MAP-017","Collision heal exclusions require a finite XYZ center and radius 0.25–64.");
+                if(import.MaterialReplacements==null
+                    ||import.MaterialReplacements.Any(value=>value.Source<0||value.Target<0
+                        ||(!value.TargetSource&&value.Target>=d.Materials.Count)))
+                    r.Error("FP-MAP-001","Imported material replacements must use a nonnegative source slot and a valid authored target; source targets are verified when the texture pack loads.");
                 if (checkSources)
                 {
                     string? source = import.Resolve();
