@@ -107,6 +107,7 @@ namespace MphRead.Mods.MapGen
                     continue;
                 }
                 int material;
+                int sourceMaterial=-1;
                 if (pack == null)
                 {
                     material = MatchMaterial(import, texture.Name);
@@ -120,7 +121,21 @@ namespace MphRead.Mods.MapGen
                     unpainted++;
                     continue;
                 }
-                (int width, int height) = textureSizes[material];
+                if(pack!=null)
+                {
+                    sourceMaterial=material;
+                    MapSourceMaterialReplacement? replacement=import.MaterialReplacements?
+                        .LastOrDefault(value=>value.Source==sourceMaterial);
+                    if(replacement!=null)
+                    {
+                        if(replacement.Target<0||replacement.Target>=def.Materials.Count)
+                            throw new MapAuthoringException("FP-MAP-001",
+                                $"Imported material {sourceMaterial} replacement targets missing authored material {replacement.Target}.");
+                        material=pack.Entries.Count+replacement.Target;
+                    }
+                }
+                int textureSizeIndex=sourceMaterial>=0?sourceMaterial:material;
+                (int width, int height) = textureSizes[textureSizeIndex];
                 bool patch = face.Type == 2;
                 bool solidPatch = patch && (texture.Contents & Q3Bsp.ContentsSolid) != 0;
                 if (patch)
