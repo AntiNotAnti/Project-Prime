@@ -720,10 +720,22 @@ namespace MphRead.Mods.Input.AimAssist
                 && (normalizedHead <= captureRadii || headAngle <= .30f);
 
             // At high turn speeds a 60 Hz simulation sample can leap completely
-            // across the head band. Do not require a later braking sample in that
-            // case: if the fitted path itself intersects the real head region,
-            // allow the finishing snap before the overshoot happens.
-            bool fastPassThrough = naturalLanding
+            // across the head band. The ordinary landing horizon deliberately
+            // gets shorter as a flick gets faster, which is useful for settling
+            // but can end *before* a later point on the same trajectory crosses
+            // a very small head region. Pass-through capture therefore tests the
+            // complete landing window as a path, in target-relative space, rather
+            // than requiring the shortened endpoint itself to land in the head.
+            float passThroughHorizon = AimAssistTuning.FlickLandingMaxSeconds;
+            Vector2 passThroughTurn = fittedVelocity * passThroughHorizon
+                + cameraAcceleration * (.5f * passThroughHorizon * passThroughHorizon);
+            Vector2 passThroughTargetMotion = state.HeadAngularVelocity * passThroughHorizon
+                + state.HeadAngularAcceleration * (.5f * passThroughHorizon * passThroughHorizon);
+            bool predictedHeadCrossing = target.HeadRegion is { } passThroughRegion
+                ? AimAssistMath.TrajectoryRegionScore(passThroughRegion,
+                    passThroughTurn - passThroughTargetMotion) >= .99f
+                : naturalLanding;
+            bool fastPassThrough = predictedHeadCrossing
                 && (state.FlickSpeed >= AimAssistTuning.FlickPassThroughStickSpeed
                     || fittedVelocity.Length() >= AimAssistTuning.FlickCameraSpeed);
             float requiredFlickAlignment = fastPassThrough

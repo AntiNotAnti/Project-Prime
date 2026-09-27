@@ -93,6 +93,7 @@ namespace MphRead.Droid
         {
             Instance = this;
             base.OnCreate(savedInstanceState);
+            AndroidPerformance.Attach(this);
             GamepadBridge.Start(this);
             MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
             // Build custom-map binaries only when the selected match or a
@@ -363,6 +364,7 @@ namespace MphRead.Droid
             // held touch button into the resumed match.
             _controls.ReleaseEverything();
             _overlay?.Invalidate();
+            AndroidPerformance.SetForeground(false);
             GamepadBridge.Clear();
             _gameView?.OnPause();
             base.OnPause();
@@ -379,6 +381,8 @@ namespace MphRead.Droid
             // rotation or a swipe from the edge, so this is asked for again on
             // every resume rather than once at startup.
             GoImmersive(true);
+            AndroidPerformance.SetForeground(true);
+            AndroidPerformance.RefreshDisplayRate();
             _lastRotation = CurrentRotation();
             if (_displays == null
                 && GetSystemService(DisplayService) is Android.Hardware.Display.DisplayManager manager)
@@ -840,6 +844,7 @@ namespace MphRead.Droid
             {
                 return;
             }
+            AndroidPerformance.SetMatchActive(true);
             OfflineRematch.StartNext = selected =>
             {
                 if (NetSession.Active || !OfflineRematch.TryPlan(plan, selected, out var next)) return false;
@@ -1249,6 +1254,7 @@ namespace MphRead.Droid
                 _content.RemoveView(_gameView);
                 _gameView = null;
             }
+            AndroidPerformance.SetMatchActive(false);
             _controls.ReleaseEverything();
             _controls.SetSpectator(spectating: false, freeCamera: false);
             if (_launcherView != null)

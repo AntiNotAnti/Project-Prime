@@ -396,6 +396,7 @@ namespace MphRead.Droid
             private double _nextFrame;
             private double _lastFrameStart;
             private int _requestedFrameRate = -1;
+            private int _appliedSwapInterval = -1;
 
             public Scene? Scene { get; private set; }
             private Scene? PresentedScene => Scene is { } shell ? Mods.Network.DemoPlayback.Presentation(shell) ?? shell : null;
@@ -742,6 +743,11 @@ namespace MphRead.Droid
                     _boundTo = holder;
                     _holdingSurface = true;
                 }
+                // A replacement native surface inherits no pacing promise from
+                // the previous one. Re-apply the policy before its first real
+                // game frame.
+                _appliedSwapInterval = -1;
+                ApplySwapInterval();
                 // Function pointers are per-process; everything GlEs holds --
                 // buffers, textures, uniform locations -- belongs to a context.
                 // This one outlives the surface, so the reset only belongs with
@@ -773,6 +779,7 @@ namespace MphRead.Droid
                     // the long-lived EGL context. A replacement surface must be
                     // told again even when the requested cap did not change.
                     _requestedFrameRate = -1;
+                    _appliedSwapInterval = -1;
                     Monitor.PulseAll(_lock);
                 }
                 if (_display == null || surface == null)
@@ -843,8 +850,22 @@ namespace MphRead.Droid
                 }
                 try
                 {
+                    AndroidPerformance.PrepareForWindow(_size.X, _size.Y);
                     Scene = _build(_input, _size);
                     Scene.OnLoad();
+                    // Compile/execute the real presentation path once while the
+                    // loading notice still covers the surface. OnLoad has loaded
+                    // the scene resources; this hidden draw warms driver state,
+                    // render-item paths and texture residency before the first
+                    // frame the player can see.
+                    long warmStart = Stopwatch.GetTimestamp();
+                    Scene.OnDrawFrame();
+                    if (Scene.OnRenderFrame())
+                    {
+                        Scene.AfterRenderFrame();
+                    }
+                    MphRead.Mods.DebugLog.Line("androidperf",
+                        $"presentation prewarm {Milliseconds(warmStart, Stopwatch.GetTimestamp()):0.00} ms");
                     MphRead.Mods.Network.NetSession.ReportMatchLoadProgress(
                         MphRead.Mods.Network.MatchLoadStage.SceneReady);
                     MphRead.Mods.Network.NetSession.MarkMatchLoaded();
@@ -914,7 +935,11 @@ namespace MphRead.Droid
             private bool DrawFrame()
             {
                 Scene scene = Scene!;
+                RequestFrameRate();
+                ApplySwapInterval();
                 double elapsed = WaitForTick();
+                long workStart = Stopwatch.GetTimestamp();
+                long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
                 ApplySpectatorRequest();
                 GameState.ApplyPause();
                 int steps = MphRead.Mods.Network.NetSession.HoldLoadingFrame()
@@ -940,8 +965,8 @@ namespace MphRead.Droid
                     End(scene, keepSession: true);
                     return false;
                 }
-                RequestFrameRate();
                 if (Mods.Network.ReplayController.IsSeeking) return true;
+                long simulationEnd = Stopwatch.GetTimestamp();
 
                 // Android pad motion events may arrive between 60 Hz simulation
                 // steps. Capture the newest aim axes for the same render-only
@@ -975,7 +1000,10 @@ namespace MphRead.Droid
                 }
                 Mods.Replay.ReplayVideoExporter.AfterSceneDraw(scene);
                 scene.AfterRenderFrame();
+                long renderEnd = Stopwatch.GetTimestamp();
                 DrawUi();
+                long uiEnd = Stopwatch.GetTimestamp();
+                long swapStart = uiEnd;
                 if (_display != null && _eglSurface != null
                     && !EGL14.EglSwapBuffers(_display, _eglSurface))
                 {
@@ -985,6 +1013,14 @@ namespace MphRead.Droid
                         + $"waiting for another (0x{EGL14.EglGetError():X})");
                     ReleaseSurface();
                 }
+                long swapEnd = Stopwatch.GetTimestamp();
+                AndroidPerformance.RecordFrame(elapsed,
+                    Milliseconds(workStart, simulationEnd),
+                    Milliseconds(simulationEnd, renderEnd),
+                    Milliseconds(renderEnd, uiEnd),
+                    Milliseconds(swapStart, swapEnd),
+                    GC.GetAllocatedBytesForCurrentThread() - allocatedStart,
+                    _size.X, _size.Y);
                 return true;
             }
 
@@ -1085,20 +1121,9 @@ namespace MphRead.Droid
             }
 
             /// <summary>
-            /// Tell the system what rate this surface intends to draw at, so a
-            /// 120 Hz panel actually runs at 120.
-            ///
-            /// Drawing faster than the display is otherwise wasted work: a
-            /// phone that can do 120 often sits at 60 until something asks,
-            /// and SurfaceFlinger picks the mode from what its surfaces
-            /// declare. Zero means "no preference", which is what the display
-            /// setting wants -- let the system keep whatever it chose.
-            ///
-            /// API 30. Below that there is no way to ask from a surface, and
-            /// the panel runs at whatever the framework decided; the FPS limit
-            /// still caps the loop, it just cannot raise the display.
-            /// Best-effort throughout: a device that refuses is not a reason
-            /// to end a match, and this is only ever an optimisation.
+            /// Tell SurfaceFlinger what this surface actually intends to draw.
+            /// Display mode requests the fastest mode the device reports rather
+            /// than clearing the preference; an explicit cap requests that rate.
             /// </summary>
             private void RequestFrameRate()
             {
@@ -1119,16 +1144,47 @@ namespace MphRead.Droid
                     _requestedFrameRate = -1;
                     return;
                 }
+                float requested = cap == FrameTiming.DisplayRate
+                    ? AndroidPerformance.DisplayRefreshRate : cap;
                 try
                 {
-                    window.SetFrameRate(
-                        cap == FrameTiming.DisplayRate ? 0f : cap,
+                    window.SetFrameRate(requested,
                         (int)SurfaceFrameRateCompatibility.Default);
                 }
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[android] the display would not be asked for "
-                        + $"{cap} fps: {ex.Message}");
+                        + $"{requested:0.#} fps: {ex.Message}");
+                }
+            }
+
+            /// <summary>
+            /// EGL and the managed limiter must never pace the same explicit
+            /// cap. Display mode is vsync-driven (interval 1); numeric caps use
+            /// interval 0 and WaitForTick owns the deadline.
+            /// </summary>
+            private void ApplySwapInterval()
+            {
+                int wanted = FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? 1 : 0;
+                if (_appliedSwapInterval == wanted || _display == null)
+                {
+                    return;
+                }
+                try
+                {
+                    if (EGL14.EglSwapInterval(_display, wanted))
+                    {
+                        _appliedSwapInterval = wanted;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"[android] eglSwapInterval({wanted}) failed "
+                            + $"(0x{EGL14.EglGetError():X})");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[android] eglSwapInterval({wanted}) failed: {ex.Message}");
                 }
             }
 
@@ -1166,13 +1222,28 @@ namespace MphRead.Droid
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
                 double interval = cap == FrameTiming.DisplayRate
-                    ? MinFrameSeconds
+                    ? Math.Max(MinFrameSeconds, 1.0 / AndroidPerformance.DisplayRefreshRate)
                     : Math.Max(MinFrameSeconds, 1.0 / cap);
                 double wait = _nextFrame - now;
-                if (wait > 0.001)
+                if (wait > 0)
                 {
-                    Thread.Sleep((int)(wait * 1000));
-                    now = _clock.Elapsed.TotalSeconds;
+                    // Sleep for the coarse part, then use only a very short
+                    // spin for the sub-millisecond remainder. Sleeping the
+                    // entire truncated millisecond deadline caused visible
+                    // 15/17/16 ms cadence on some Android schedulers.
+                    const double spinWindow = 0.0005;
+                    if (wait > spinWindow + 0.001)
+                    {
+                        int sleepMs = Math.Max(1,
+                            (int)((wait - spinWindow) * 1000));
+                        Thread.Sleep(sleepMs);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
+                    while (now < _nextFrame)
+                    {
+                        Thread.SpinWait(16);
+                        now = _clock.Elapsed.TotalSeconds;
+                    }
                 }
                 _nextFrame += interval;
                 if (_nextFrame < now)
@@ -1186,6 +1257,11 @@ namespace MphRead.Droid
                 double elapsed = now - _lastFrameStart;
                 _lastFrameStart = now;
                 return elapsed;
+            }
+
+            private static double Milliseconds(long start, long end)
+            {
+                return Math.Max(0, end - start) * 1000.0 / Stopwatch.Frequency;
             }
 
             /// <summary>

@@ -43,6 +43,9 @@ namespace MphRead
         public string ShowFps { get; set; } = "off";
         public string SmoothNativeHud { get; set; } = "on";
         public string FrameRateCap { get; set; } = "display";
+        // Android writes this once so its sustainable mobile defaults are not
+        // re-applied over a user's later graphics choices. Desktop ignores it.
+        public string AndroidPerformanceProfile { get; set; } = "";
         public string CelShading { get; set; } = "off";
         public string CelBands { get; set; } = "8";
         public string CelEdge { get; set; } = "50";
