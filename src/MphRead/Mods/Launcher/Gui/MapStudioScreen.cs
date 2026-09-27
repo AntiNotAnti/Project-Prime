@@ -467,7 +467,7 @@ namespace MphRead.Mods.Launcher.Gui
                 var copy=new StackPanel{Spacing=3,Margin=new Thickness(12,0,0,0)};
                 copy.Children.Add(new TextBlock{Text=info.Name,Foreground=GuiTheme.TextBrush,
                     FontWeight=FontWeight.SemiBold,FontSize=16});
-                copy.Children.Add(new TextBlock{Text=info.Description,Foreground=GuiTheme.MutedTextBrush,
+                copy.Children.Add(new TextBlock{Text=info.Description,Foreground=GuiTheme.TextDimBrush,
                     TextWrapping=TextWrapping.Wrap,MaxWidth=500});
                 copy.Children.Add(new TextBlock
                 {
