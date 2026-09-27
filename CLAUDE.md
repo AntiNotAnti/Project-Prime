@@ -646,13 +646,19 @@ just closed, the player was frozen or paused) throws the history away.
 **Mouse movement for rolling alt forms is separately opt-in.** The Controls page
 setting `Mouse movement controls rolling alt forms` feeds relative mouse deltas
 through the same camera-relative roll basis used by touch/pen. Kanden, Spire and
-Noxus retain the precision-drive path. **Samus does not**: her swipe applies stock
-morph-ball traction, so releasing/centering the swipe stops acceleration rather
-than zeroing horizontal velocity; normal morph-ball damping and inertia take over.
-At 1.00x Alt swipe sensitivity, 24 filtered mouse counts in one 60 Hz simulation
-step is full deflection; the 0.25x-4.00x slider changes that travel without
-changing ordinary mouse aim sensitivity. Keyboard/controller Roll input still
-wins when held. Fast flicks remain one-shot abilities: Samus gets her aimed native
+Noxus retain the precision-drive path. **Samus does not**: she follows the native
+Morph Ball steering model used as the melonPrimeDS reference. Only pointer motion
+accumulated in the current 60 Hz simulation step contributes stock roll traction;
+there is no pointer-down anchor, steering dead zone, or leftover motion on an idle
+frame. X/Y are scaled independently instead of radially normalized, so a diagonal
+swipe can request the same two-axis traction as native Roll input. Releasing or
+pausing the swipe stops acceleration rather than zeroing horizontal velocity;
+normal morph-ball damping and inertia take over. Android peeks the same raw touch
+delta that its aim path consumes later in that frame, so steering adds no input
+frame and does not steal the sample. At 1.00x Alt swipe sensitivity, 24 filtered
+mouse counts in one simulation step is full per-axis deflection; the 0.25x-4.00x
+slider changes that travel without changing ordinary mouse aim sensitivity.
+Keyboard/controller Roll input still wins when held. Fast flicks remain one-shot abilities: Samus gets her aimed native
 boost, while Spire gets an additive directional momentum shove capped by the
 authored alt boost speed and **never** a synthesized Dialanche AltAttack press.
 
