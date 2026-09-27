@@ -33,6 +33,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBox _path = new() { PlaceholderText="Project filename (.json)" };
         private readonly TextBlock _status = new() { Foreground=GuiTheme.TextDimBrush, TextWrapping=TextWrapping.Wrap };
         private readonly TextBox _search = new() { PlaceholderText="Search objects" };
+        private readonly ComboBox _hierarchyFilter = new(){MinWidth=185,SelectedIndex=0};
         private readonly PrimeOverlayHost? _overlays;
         private Control? _sheet;
         private readonly Border _modal = new() { Background=GuiTheme.ScrimBrush, IsVisible=false };
@@ -45,6 +46,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string _hierarchySignature = "";
         private string _inspectorPage = "Inspector";
         private MapStudioState _studioState = new();
+        private int _pickedMaterial=-1;
         private long _editorGeneration;
         private bool _detached;
         private MapAutosaveService _autosave = new();
@@ -97,8 +99,22 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(toolbar,"Cancel job",()=>_work?.Cancel());
             _root.Children.Add(toolbar);
             Grid.SetRow(_path,1);_root.Children.Add(_path);
-            var body=new Grid { ColumnDefinitions=new("200,*,245"), Margin=new Thickness(0,8) };
-            var tree=new DockPanel();DockPanel.SetDock(_search,Dock.Top);tree.Children.Add(_search);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+            var body=new Grid { ColumnDefinitions=new("220,*,265"), Margin=new Thickness(0,8) };
+            var tree=new DockPanel();
+            var treeTools=new StackPanel{Spacing=4};
+            treeTools.Children.Add(_search);treeTools.Children.Add(_hierarchyFilter);
+            DockPanel.SetDock(treeTools,Dock.Top);tree.Children.Add(treeTools);tree.Children.Add(_hierarchy);body.Children.Add(tree);
+            _hierarchy.ItemTemplate=new FuncDataTemplate<HierarchyRow>((row,_)=>
+            {
+                if(row==null)return new TextBlock();
+                return new TextBlock
+                {
+                    Text=row.ToString(),
+                    Foreground=row.Header?PrimeTheme.AccentBrush:GuiTheme.TextBrush,
+                    FontWeight=row.Header?FontWeight.SemiBold:FontWeight.Normal,
+                    Margin=row.Header?new Thickness(2,6,2,2):new Thickness(12,2,2,2)
+                };
+            });
             var center=new Grid { RowDefinitions=new("Auto,*") };
             var tools=new WrapPanel();
             void Choice(string[] choices,Action<string> choose)
@@ -133,11 +149,15 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(_problems,3);_root.Children.Add(_problems);Grid.SetRow(_status,4);_root.Children.Add(_status);
             var layer=new Panel();layer.Children.Add(_root);layer.Children.Add(_modal);Content=layer;
             _search.TextChanged+=(_,_)=>RefreshHierarchy(true);
+            _hierarchyFilter.SelectionChanged+=(_,_)=>RefreshHierarchy(true);
             _hierarchy.SelectionChanged+=(_,selection)=>
             {
                 if(_refreshing||_document==null)return;
-                _document.Selection.Clear();foreach(var item in _hierarchy.SelectedItems?.OfType<MapObject>()??Enumerable.Empty<MapObject>())_document.Selection.Add(item.Id);
-                if(selection.AddedItems.OfType<MapObject>().LastOrDefault() is { } active)_document.ActiveObjectId=active.Id;
+                _document.Selection.Clear();
+                foreach(var row in _hierarchy.SelectedItems?.OfType<HierarchyRow>()??Enumerable.Empty<HierarchyRow>())
+                    if(row.Object is {} item)_document.Selection.Add(item.Id);
+                if(selection.AddedItems.OfType<HierarchyRow>().Select(r=>r.Object).OfType<MapObject>().LastOrDefault() is { } active)
+                    _document.ActiveObjectId=active.Id;
                 _document.SelectionChanged();ShowInspectorPage(_inspectorPage,false);_viewport?.InvalidateVisual();
             };
             _problems.SelectionChanged+=(_,_)=>
