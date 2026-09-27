@@ -46,7 +46,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string _hierarchySignature = "";
         private string _inspectorPage = "Inspector";
         private MapStudioState _studioState = new();
-        private int _pickedMaterial=-1;
+        private MapPickHit? _pickedMaterialHit;
         private long _editorGeneration;
         private bool _detached;
         private MapAutosaveService _autosave = new();
@@ -295,7 +295,16 @@ namespace MphRead.Mods.Launcher.Gui
             if(_document!=null)_document.Changed-=Changed;
             _document=new(project,path);_document.Changed+=Changed;
             _studioState=MapStudioStateStore.Load(project.Definition);MapStudioStateStore.Prune(project.Definition,_studioState);
-            _viewport=new(_document);_viewport.SelectionChanged+=()=>{RefreshHierarchy();ShowInspectorPage(_inspectorPage,false);};
+            _viewport=new(_document);
+            _viewport.SelectionChanged+=()=>{RefreshHierarchy();ShowInspectorPage(_inspectorPage,false);};
+            _viewport.MaterialPicked+=hit=>
+            {
+                _pickedMaterialHit=hit;_inspectorPage="Materials";
+                _status.Text=hit.ObjectId==Guid.Empty
+                    ?$"Picked source material {(hit.SourceMaterial>=0?hit.SourceMaterial:hit.Material)}."
+                    :$"Picked authored material {hit.Material}.";
+                MaterialInspector();
+            };
             _viewportHost.Children.Clear();_viewportHost.Children.Add(_viewport);_path.Text=path??Path.Combine(CustomRooms.MapDirectory,project.Definition.Name.ToLowerInvariant()+".json");
             Dismiss();Changed();_viewport.FrameAll();
             if(_document.HasRecovery(CustomRooms.MapDirectory))Recovery();
