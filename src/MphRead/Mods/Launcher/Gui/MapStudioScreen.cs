@@ -713,10 +713,104 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(_inspector,"Show all geometry",()=>{_document.ShowAllGeometry();LayerInspector();});
         }
 
+        private static bool? CommonBool<T>(IReadOnlyList<T> values,Func<T,bool> read)
+        {
+            if(values.Count==0)return null;bool first=read(values[0]);
+            return values.All(value=>read(value)==first)?first:null;
+        }
+
+        private void MultiInspect(MapObject[] selection)
+        {
+            _inspector.Children.Clear();if(_document==null)return;
+            _inspector.Children.Add(Text($"MULTI-OBJECT INSPECTOR · {selection.Length} selected"));
+            string types=String.Join(" · ",selection.GroupBy(o=>o.Kind).Select(g=>$"{g.Key} {g.Count()}"));
+            _inspector.Children.Add(Text(types));
+            Guid[] ids=selection.Select(o=>o.Id).ToArray();
+
+            MapGeometry[] geometry=selection.Select(o=>o.Value).OfType<MapGeometry>().ToArray();
+            ComboBox? material=null,team=null;
+            TextBox? layer=null,terrain=null;
+            CheckBox? applyLayer=null,applyTerrain=null,solid=null,damaging=null,hidden=null,locked=null;
+
+            if(geometry.Length>0)
+            {
+                _inspector.Children.Add(Text($"GEOMETRY · {geometry.Length}"));
+                string[] materials=new[]{"No change"}.Concat(_document.Project.Definition.Materials
+                    .Select((m,i)=>$"{i} · {m.Name}")).ToArray();
+                int commonMaterial=geometry.Select(g=>g.Material).Distinct().Count()==1?geometry[0].Material+1:0;
+                material=new ComboBox{ItemsSource=materials,SelectedIndex=Math.Clamp(commonMaterial,0,materials.Length-1)};
+                _inspector.Children.Add(Text("Material"));_inspector.Children.Add(material);
+
+                string commonLayer=geometry.Select(g=>g.Layer).Distinct(StringComparer.OrdinalIgnoreCase).Count()==1
+                    ?geometry[0].Layer:"";
+                applyLayer=new CheckBox{Content="Apply layer",IsChecked=false};
+                layer=new TextBox{Text=commonLayer,PlaceholderText="Layer name"};
+                _inspector.Children.Add(applyLayer);_inspector.Children.Add(layer);
+
+                string commonTerrain=geometry.Select(g=>g.Terrain).Distinct(StringComparer.OrdinalIgnoreCase).Count()==1
+                    ?geometry[0].Terrain:"";
+                applyTerrain=new CheckBox{Content="Apply terrain",IsChecked=false};
+                terrain=new TextBox{Text=commonTerrain,PlaceholderText="Metal"};
+                _inspector.Children.Add(applyTerrain);_inspector.Children.Add(terrain);
+
+                CheckBox Tri(string label,Func<MapGeometry,bool> read)
+                {
+                    var check=new CheckBox{Content=label,IsThreeState=true,IsChecked=CommonBool(geometry,read)};
+                    _inspector.Children.Add(check);return check;
+                }
+                solid=Tri("Collision",g=>g.Solid);
+                damaging=Tri("Damaging",g=>g.Damaging);
+                hidden=Tri("Hidden",g=>g.Hidden);
+                locked=Tri("Locked",g=>g.Locked);
+            }
+
+            MapSpawn[] spawns=selection.Select(o=>o.Value).OfType<MapSpawn>().ToArray();
+            if(spawns.Length>0)
+            {
+                _inspector.Children.Add(Text($"SPAWNS · {spawns.Length}"));
+                int? common=spawns.Select(s=>s.Team).Distinct().Count()==1?spawns[0].Team:null;
+                team=new ComboBox
+                {
+                    ItemsSource=new[]{"No change","Neutral (-1)","Team A (0)","Team B (1)","Team C (2)","Team D (3)"},
+                    SelectedIndex=common.HasValue?Math.Clamp(common.Value+2,1,5):0
+                };
+                _inspector.Children.Add(team);
+            }
+
+            AddButton(_inspector,"Apply to selection",()=>
+            {
+                try
+                {
+                    _document.EditObjects("Edit multiple objects",ids,d=>
+                    {
+                        foreach(MapObject item in MapObjects.All(d).Where(o=>ids.Contains(o.Id)))
+                        {
+                            if(item.Value is MapGeometry g)
+                            {
+                                if(material is {SelectedIndex:>0})g.Material=material.SelectedIndex-1;
+                                if(applyLayer?.IsChecked==true)g.Layer=String.IsNullOrWhiteSpace(layer?.Text)?"Architecture":layer!.Text!.Trim();
+                                if(applyTerrain?.IsChecked==true&&!String.IsNullOrWhiteSpace(terrain?.Text))g.Terrain=terrain!.Text!.Trim();
+                                if(solid?.IsChecked is bool s)g.Solid=s;
+                                if(damaging?.IsChecked is bool damage)g.Damaging=damage;
+                                if(hidden?.IsChecked is bool hide)g.Hidden=hide;
+                                if(locked?.IsChecked is bool l)g.Locked=l;
+                            }
+                            if(item.Value is MapSpawn spawn&&team is {SelectedIndex:>0})
+                                spawn.Team=team.SelectedIndex-2;
+                        }
+                    });
+                    MultiInspect(MapObjects.All(_document.Project.Definition).Where(o=>ids.Contains(o.Id)).ToArray());
+                }
+                catch(Exception ex){Failure(ex);}
+            });
+        }
+
         private void Inspect()
         {
             _inspector.Children.Clear();if(_document==null)return;
-            var selected=MapObjects.All(_document.Project.Definition).FirstOrDefault(o=>_document.Selection.Contains(o.Id));
+            var selectedObjects=MapObjects.All(_document.Project.Definition).Where(o=>_document.Selection.Contains(o.Id)).ToArray();
+            if(selectedObjects.Length>1){MultiInspect(selectedObjects);return;}
+            var selected=selectedObjects.FirstOrDefault();
             if(selected==null){EnvironmentInspector();return;}
             _inspector.Children.Add(Text(selected.Kind));Guid id=selected.Id;
             var edits=new List<Action<object>>();
