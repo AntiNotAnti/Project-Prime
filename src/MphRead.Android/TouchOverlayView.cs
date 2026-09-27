@@ -40,7 +40,7 @@ namespace MphRead.Droid
             // FIRE becoming SCAN is decided by the game thread, not by a
             // touch, so it has to ask for the repaint. PostInvalidate is the
             // one that may be called from off the UI thread.
-            controls.Invalidated = PostInvalidate;
+            controls.Invalidated = InvalidateNextFrame;
             SetWillNotDraw(false);
             _stroke.SetStyle(Paint.Style.Stroke);
             _fill.SetStyle(Paint.Style.Fill);
@@ -48,11 +48,19 @@ namespace MphRead.Droid
             _text.TextAlign = Paint.Align.Center;
         }
 
+        private void InvalidateNextFrame()
+        {
+            // MotionEvent can arrive much faster than the display. Ask Android
+            // for at most one redraw on the next display pulse instead of
+            // invalidating the Canvas once per digitizer sample.
+            PostInvalidateOnAnimation();
+        }
+
         protected override void OnSizeChanged(int w, int h, int oldw, int oldh)
         {
             base.OnSizeChanged(w, h, oldw, oldh);
             _controls.Layout(w, h, Resources?.DisplayMetrics?.Density ?? 1f);
-            Invalidate();
+            InvalidateNextFrame();
         }
 
         /// <summary>
@@ -71,7 +79,7 @@ namespace MphRead.Droid
                 _controls.Layout(Width, Height, Resources?.DisplayMetrics?.Density ?? 1f);
             }
             RequestLayout();
-            Invalidate();
+            InvalidateNextFrame();
         }
 
         protected override void OnDraw(Canvas canvas)
@@ -170,7 +178,7 @@ namespace MphRead.Droid
             }
             if (redraw)
             {
-                Invalidate();
+                InvalidateNextFrame();
             }
             return true;
         }
