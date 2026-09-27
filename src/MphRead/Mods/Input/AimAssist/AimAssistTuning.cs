@@ -8,8 +8,12 @@ namespace MphRead.Mods.Input.AimAssist
         // it may settle a little faster than ordinary positional magnetism.
         // Keep the envelope unchanged; this only strengthens the final landing.
         public const float FlickSnapSpeedScale = 1.20f;
+        public const float FlickSnapMaxSpeed = 24f, FlickSnapScopedMaxSpeed = 18f;
         public const float FlickDirectionalSpeed = 14f, FlickDirectionalMinMagnitude = .45f;
+        public const float FlickCameraSpeed = 42f, FlickCameraRiseRatio = .70f;
+        public const float FlickPassThroughStickSpeed = 24f;
         public const float FlickTargetAlignment = .62f;
+        public const float FlickCaptureAlignment = .68f, FlickPredictedCaptureAlignment = .55f;
         public const float FlickLandingMinSeconds = .045f, FlickLandingMaxSeconds = .080f;
         public const float FlickRadiusMinScale = .80f, FlickRadiusMaxScale = 1.28f;
         public const float FlickBrakeRatio = .72f;
