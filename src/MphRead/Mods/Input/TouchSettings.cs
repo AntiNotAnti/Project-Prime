@@ -246,9 +246,9 @@ namespace MphRead.Mods.Input
         public static void ReplaceLayout(IReadOnlyDictionary<TouchControl, TouchButtonLayout> layout)
         {
             _layout.Clear();
-            foreach ((TouchControl control, TouchButtonLayout value) in layout)
+            foreach (KeyValuePair<TouchControl, TouchButtonLayout> pair in layout)
             {
-                SetLayout(control, value.X, value.Y, value.Scale);
+                SetLayout(pair.Key, pair.Value.X, pair.Value.Y, pair.Value.Scale);
             }
         }
 
