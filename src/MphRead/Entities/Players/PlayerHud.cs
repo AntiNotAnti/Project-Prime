@@ -624,7 +624,7 @@ namespace MphRead.Entities
                 _rulesLengths[i] = (0, 0);
             }
             GameMode mode = _scene.GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib)
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
             {
                 _rulesInfo = HudElements.RulesInfo[0];
             }
@@ -1632,7 +1632,9 @@ namespace MphRead.Entities
                                     float reticleY = reticlePosition.Y;
                                     _targetCircleInst.PositionX = reticleX;
                                     _targetCircleInst.PositionY = reticleY;
-                                    if (Features.CustomCrosshair)
+                                    var crosshairRuntime=HudProfiles.Runtime.CrosshairFor((int)CurrentWeapon,_hudZoom);
+                                    bool nativeProfile=HudProfiles.Runtime.Mode==HudMode.Custom && crosshairRuntime.Native;
+                                    if (Features.CustomCrosshair && !nativeProfile)
                                     {
                                         if (HudElementVisible(0)) _scene.DrawCustomCrosshair(GetCrosshairColor(), reticleX, reticleY, (int)CurrentWeapon, _hudZoom);
                                     }
@@ -1645,8 +1647,15 @@ namespace MphRead.Entities
                                             float wave = .5f + .5f * MathF.Sin(_scene.GlobalElapsedTime * speed);
                                             reticleAlpha *= .82f + .18f * wave;
                                         }
+                                        float nativeScale=Mods.Render.Crosshair.Scale;
+                                        if(nativeProfile)
+                                        {
+                                            reticleAlpha*=crosshairRuntime.Opacity*HudProfiles.Runtime[0].Opacity;
+                                            if(!crosshairRuntime.Enabled || !HudProfiles.Runtime[0].Enabled || !HudElementVisible(0)) reticleAlpha=0;
+                                            nativeScale=crosshairRuntime.NativeScale*HudProfiles.Runtime[0].Scale;
+                                        }
                                         _targetCircleInst.Alpha = reticleAlpha;
-                                        _scene.DrawHudObject(_targetCircleInst, scale: Mods.Render.Crosshair.Scale);
+                                        _scene.DrawHudObject(_targetCircleInst, scale: nativeScale);
                                     }
                                     float hitMarker = Mods.Network.NetHitPrediction.MarkerAlpha;
                                     if (hitMarker > 0)
@@ -1989,7 +1998,7 @@ namespace MphRead.Entities
             }
             string header1 = "";
             string header2 = "";
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
                 || mode == GameMode.Nodes || mode == GameMode.NodesTeams)
             {
                 header1 = Strings.GetHudMessage(225); // points
@@ -2002,7 +2011,7 @@ namespace MphRead.Entities
             {
                 header1 = Strings.GetHudMessage(224); // time
             }
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
                 || mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
             {
                 header2 = Strings.GetHudMessage(223); // deaths
@@ -2032,7 +2041,7 @@ namespace MphRead.Entities
             string ChooseValue2(int deaths, int kills)
             {
                 if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams
-                    || mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib)
+                    || mode == GameMode.Battle || mode == GameMode.BattleTeams)
                 {
                     return deaths.ToString();
                 }
@@ -2107,7 +2116,7 @@ namespace MphRead.Entities
             _starsInst.SetIndex(stars * 2 + 1, _scene);
             _scene.DrawHudObject(_starsInst, mode: 2);
             string nickname = _scene.GameState.Nicknames[slot];
-            DrawText2D(posX + 32, posY - 9, Align.Center, 0, nickname, color, fontSpacing: 8);
+            DrawPlayerName(posX + 32, posY - 9, Align.Center, 0, nickname, color, fontSpacing: 8, maxWidth: 64);
         }
 
         private void DrawHealthbars()
@@ -2240,6 +2249,13 @@ namespace MphRead.Entities
         private void DrawWeaponList()
         {
             using var layout = UseHudLayout(3, 2 * HudAspectFix, 46);
+            if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Inventory.Native)
+            {
+                _weaponIconInst.PositionX=2*HudAspectFix/256;
+                _weaponIconInst.PositionY=46/192f;
+                _weaponIconInst.Alpha=Features.HudOpacity;
+                _scene.DrawHudObject(_weaponIconInst,mode:1); return;
+            }
             // Below the score block in the top-left corner, and short enough
             // that all nine weapons still fit above the bottom edge.
             // Quake's weapon bar, at Quake's size and in Quake's place.
@@ -2902,7 +2918,7 @@ namespace MphRead.Entities
             }
             else
             {
-                if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib)
+                if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
                 {
                     DrawHudBattle();
                 }
@@ -2977,7 +2993,7 @@ namespace MphRead.Entities
         private string FormatModeScore(int slot)
         {
             GameMode mode = _scene.GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.InstaGib || mode == GameMode.Capture || mode == GameMode.Nodes
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.Capture || mode == GameMode.Nodes
                 || mode == GameMode.NodesTeams || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
             {
                 if (_scene.GameState.Teams)
@@ -3493,7 +3509,7 @@ namespace MphRead.Entities
             }
             string nickname = _scene.GameState.Nicknames[_opponentIndex];
             if (_scene.GameState.Teams) nickname = $"{TeamVisuals.Get(opponent.TeamIndex).Label}: {nickname}";
-            DrawText2D(posX, posY, Align.Center, 0, nickname,
+            DrawPlayerName(posX, posY, Align.Center, 0, nickname,
                 _scene.GameState.Teams ? TeamVisuals.Get(opponent.TeamIndex).Color : null);
             HudObjectInstance portrait = _hunterInsts[(int)opponent.Hunter];
             // Mode 1, and the offset corrected across, so the portrait is 32

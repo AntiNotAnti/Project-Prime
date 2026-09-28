@@ -89,17 +89,13 @@ namespace MphRead.Entities
                 {
                     name = $"P{slot + 1}";
                 }
-                if (name.Length > 20)
-                {
-                    name = name[..20];
-                }
 
                 float x = projected.X * 256f;
                 float y = projected.Y * 192f - 5f;
                 const float scale = 0.65f;
-                DrawText2D(x + 0.65f, y + 0.65f, Align.Center, 0, name,
+                DrawPlayerName(x + 0.65f, y + 0.65f, Align.Center, 0, name,
                     SpectatorNameShadow, alpha: alpha * 0.8f, fontSpacing: 8, scale: scale);
-                DrawText2D(x, y, Align.Center, 0, name,
+                DrawPlayerName(x, y, Align.Center, 0, name,
                     SpectatorNameInk, alpha: alpha, fontSpacing: 8, scale: scale);
             }
         }

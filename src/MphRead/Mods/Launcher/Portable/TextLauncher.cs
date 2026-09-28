@@ -482,16 +482,7 @@ namespace MphRead.Mods.Launcher
             LauncherPrefs.BotLevel = level;
             LauncherPrefs.LastKind = (int)LaunchKind.Offline;
             LauncherPrefs.Save();
-            plan = new LaunchPlan
-            {
-                Kind = LaunchKind.Offline,
-                Hunter = hunter,
-                PlayerName = LauncherPrefs.PlayerName,
-                RoomKey = roomKey,
-                Mode = mode,
-                Bots = bots,
-                BotLevel = level
-            };
+            plan = OfflineLaunch.Create(settings, roomKey, mode, hunter, LauncherPrefs.LastColor, bots, level);
             return true;
         }
 
@@ -712,7 +703,7 @@ namespace MphRead.Mods.Launcher
             // too -- so this is the list rather than the enum.
             GameMode[] modes =
             {
-                GameMode.Battle, GameMode.InstaGib, GameMode.BattleTeams, GameMode.Survival,
+                GameMode.Battle, GameMode.BattleTeams, GameMode.Survival,
                 GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty,
                 GameMode.BountyTeams, GameMode.Defender, GameMode.DefenderTeams,
                 GameMode.Nodes, GameMode.NodesTeams, GameMode.PrimeHunter

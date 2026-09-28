@@ -28,6 +28,14 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 1 && args[0] == "--advanced-rules-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetLobbyTest.RunAdvancedRulesScene();
+            }
+            if (args.Length > 0 && args[0] == "--advanced-rules") return NetLobbyTest.RunAdvancedRules();
+            if (args.Length > 0 && args[0] == "--player-names-chat") return PlayerNameChatTests.Run();
             if (args.Length == 4 && args[0] == "--lobby-map")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
@@ -62,6 +70,22 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();
+            if (args.Length > 0 && args[0] == "--custom-map-download") { NetLobbyTest.CustomMapDownloadScenario(); return 0; }
+            if (args.Length > 0 && args[0] == "--custom-map") { NetLobbyTest.CustomMapReadinessScenario(); Console.WriteLine("Custom map readiness passed."); return 0; }
+            if (args.Length > 1 && args[0] == "--bots-online")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetLobbyTest.RunBotReplication(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+            }
+            if (args.Length > 1 && args[0] == "--bots-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return NetBotCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS", args.Length > 3 ? int.Parse(args[3]) : 3);
+            }
+            if (args.Length > 0 && args[0] == "--bots") return NetLobbyTest.RunBots();
+            if (args.Length > 0 && args[0] == "--lobby") return NetLobbyTest.Run();
             if (args.Length > 0 && args[0] == "--architecture") return NetArchitectureTests.Run();
             if (Array.IndexOf(args, "--network-benchmark") >= 0 || Array.IndexOf(args, "--network-benchmark-json") >= 0)
                 return NetworkBenchmark.Run(args);
@@ -171,9 +195,10 @@ namespace MphRead.NetTest
             /// <summary>Announce a display name, the way a real client does.</summary>
             public void SendIdentify(string displayName)
             {
-                byte[] bytes = System.Text.Encoding.ASCII.GetBytes(displayName);
-                Send(PacketType.Identify, bytes.AsSpan(0,
-                    Math.Min(bytes.Length, RosterPacket.MaxNameBytes)));
+                byte[] bytes = new byte[2 + PlayerNameCodec.MaxWireBytes];
+                if (!PlayerNameCodec.TryEncode(displayName, bytes.AsSpan(2), out int count))
+                    throw new ArgumentException("Invalid test player name", nameof(displayName));
+                Send(PacketType.Identify, bytes.AsSpan(0, count + 2));
             }
 
             /// <summary>True if a server ever emits the reserved legacy authority packet.</summary>

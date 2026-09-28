@@ -71,6 +71,7 @@ namespace MphRead.Mods.Network
 
         public static void OnSlotChanged(int slot)
         {
+            NetBotInput.ForgetSlot(slot);
             NetTelemetry.ForgetSlot(slot);
             NetPlayerBridge.ForgetSlot(slot);
             NetDamage.ForgetSlot(slot);
@@ -89,6 +90,7 @@ namespace MphRead.Mods.Network
             int slot = player.SlotIndex;
             if (Generation(slot) == 0) SetOccupant(slot, 1);
             _slots[slot].BeginLife();
+            NetBotInput.ForgetSlot(slot);
             NetPlayerBridge.ForgetSlot(slot);
             NetDamage.ForgetSlot(slot);
             NetHitPrediction.NoteRespawn(slot);

@@ -143,7 +143,7 @@ namespace MphRead.Mods.Network
         {
             try { return OpenFile(path, timeoutMs); }
             catch (Exception ex) when (ex is InvalidDataException or IOException
-                or UnauthorizedAccessException or ArgumentException)
+                or UnauthorizedAccessException or ArgumentException or System.Net.Http.HttpRequestException or System.Threading.Tasks.TaskCanceledException)
             {
                 LastResult = ReplayOpenResult.Corrupt;
                 LastError = "Cannot open replay: " + ex.Message;
@@ -165,7 +165,7 @@ namespace MphRead.Mods.Network
                 Console.WriteLine($"[demo] \"{path}\": {LastError}");
                 return false;
             }
-            if (_reader.ProtocolVersion != NetConfig.ProtocolVersion)
+            if (!ReplayIdentityCompatibility.Supports(_reader.ProtocolVersion))
             {
                 LastResult = ReplayOpenResult.ProtocolMismatch;
                 LastError = $"This replay uses network protocol {_reader.ProtocolVersion}. "
@@ -175,6 +175,7 @@ namespace MphRead.Mods.Network
                 _reader = null;
                 return false;
             }
+            if (_reader.Metadata is { } packageMetadata) ReplayMapIdentity.PrepareExactPackage(packageMetadata);
             bool pathChanged = CurrentPath != path;
             if (pathChanged) Transport.ClearSelection();
             CurrentPath = path;
@@ -212,7 +213,7 @@ namespace MphRead.Mods.Network
                 if (metadata.Bootstrap.Packets.Count > 0)
                 {
                 foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    _host.Inject(packet, 0);
+                    _host.Inject(ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion), 0);
                 _host.Advance(0);
                 if (_host.Match?.RoomKey.Length is not > 0)
                 {
@@ -223,7 +224,7 @@ namespace MphRead.Mods.Network
                 }
                 _host.Rewind();
                 foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    _host.Inject(packet, 0);
+                    _host.Inject(ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion), 0);
                 _pending = _reader.ReadNext();
                 if (_pending == null)
                 {
@@ -324,7 +325,7 @@ namespace MphRead.Mods.Network
             }
             if (!IsActive || CurrentPath == null) return false;
             DemoReader? next = DemoReader.Open(CurrentPath, out ReplayOpenResult result);
-            if (next == null || next.ProtocolVersion != NetConfig.ProtocolVersion)
+            if (next == null || !ReplayIdentityCompatibility.Supports(next.ProtocolVersion))
             {
                 next?.Dispose();
                 LastResult = next == null ? result : ReplayOpenResult.ProtocolMismatch;
@@ -388,7 +389,7 @@ namespace MphRead.Mods.Network
             {
                 while (_pending is DemoRecord record && record.Frame <= _frame)
                 {
-                    _host.Inject(record.Data, checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
+                    _host.Inject(ReplayIdentityCompatibility.Convert(record.Data, _reader!.ProtocolVersion), checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
                     FactRead?.Invoke(record.Frame >= LeadInFrames ? record.Frame - LeadInFrames : 0, record.Data);
                     _pending = _reader.ReadNext();
                 }

@@ -108,10 +108,10 @@ namespace MphRead.Entities
                 const float textScale = 0.43f;
                 ColorRgba killerColor = KillFeedNameColor(entry.KillerSlot, entry.KillerTeam);
                 ColorRgba victimColor = KillFeedNameColor(entry.VictimSlot, entry.VictimTeam);
-                DrawText2D(left + 2.6f * aspect, y + 0.85f, Align.Left, 0,
-                    KillFeedName(entry.KillerName), killerColor, alpha: alpha, scale: textScale);
-                DrawText2D(right - 1.6f * aspect, y + 0.85f, Align.Right, 0,
-                    KillFeedName(entry.VictimName), victimColor, alpha: alpha, scale: textScale);
+                DrawPlayerName(left + 2.6f * aspect, y + 0.85f, Align.Left, 0,
+                    entry.KillerName, killerColor, alpha: alpha, scale: textScale, maxWidth: width / 2 - 13);
+                DrawPlayerName(right - 1.6f * aspect, y + 0.85f, Align.Right, 0,
+                    entry.VictimName, victimColor, alpha: alpha, scale: textScale, maxWidth: width / 2 - 13);
 
                 float center = left + width * aspect / 2;
                 bool drewIcon = style.Weapon && entry.Kind == KillFeedKind.Weapon
@@ -150,18 +150,7 @@ namespace MphRead.Entities
             return _killFeedInk;
         }
 
-        private static string KillFeedName(string name)
-        {
-            if (String.IsNullOrWhiteSpace(name))
-            {
-                return "PLAYER";
-            }
-            if (name.Length <= 9)
-            {
-                return name;
-            }
-            return name[..6] + "...";
-        }
+
 
         private static string KillFeedLabel(KillFeedKind kind) => kind switch
         {

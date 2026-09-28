@@ -65,6 +65,12 @@ namespace MphRead.Mods.Launcher
         public static bool Begin(RenderWindow window, MenuSettings settings, LaunchPlan plan)
         {
             LastError = null;
+            Chat.ChatBox.Clear();
+            if (plan.Kind == LaunchKind.Online)
+            {
+                try { NetSession.RequireExactMapForLoad(); }
+                catch (Exception ex) { LastError = ex.Message; return false; }
+            }
             if (!GameFiles.Ready)
             {
                 LastError = "Game files are not ready.";
@@ -164,6 +170,7 @@ namespace MphRead.Mods.Launcher
             }
             else
             {
+                plan.MatchRules.ApplyModifiers(window.Scene.GameState);
                 AddLocalPlayers(window, plan, teamPlay);
             }
             window.AddRoom(roomKey, mode, playerCount: NetSession.Active
@@ -174,7 +181,10 @@ namespace MphRead.Mods.Launcher
             // must be layered on after that setup or those defaults silently win.
             // Network matches deliberately skip this: the server is their rule source.
             if (!NetSession.Active)
+            {
                 Mods.GameSettings.ApplyMatchRules(window.Scene.GameState);
+                plan.MatchRules.ApplyModifiers(window.Scene.GameState);
+            }
             NetSession.ReportMatchLoadProgress(MatchLoadStage.PresentationLoad);
             window.LoadScene();
             NetSession.ReportMatchLoadProgress(MatchLoadStage.SceneReady);
@@ -212,6 +222,7 @@ namespace MphRead.Mods.Launcher
         /// </summary>
         public static void AfterMatch()
         {
+            Chat.ChatBox.Clear();
             if (Mods.Network.DemoPlayback.IsActive)
             {
                 DemoPlayback.Stop();
@@ -258,7 +269,7 @@ namespace MphRead.Mods.Launcher
             }
 
             window.Scene.GameState.Mode = GameMode.SinglePlayer;
-            window.AddPlayer(plan.Hunter, recolor: LauncherPrefs.LastColor, team: -1);
+            window.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor, team: -1);
             window.AddRoom(roomKey, GameMode.SinglePlayer);
             window.LoadScene();
             return true;
@@ -363,11 +374,11 @@ namespace MphRead.Mods.Launcher
             // The player's own suit, and the first one for each bot: they are
             // each a different hunter (see below), so nobody collides and
             // there is nothing for PlayerColors to resolve offline.
-            renderer.AddPlayer(plan.Hunter, recolor: LauncherPrefs.LastColor,
+            renderer.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: LauncherPrefs.LastColor,
                 team: teamPlay ? 0 : -1);
             for (int i = 1; i <= bots; i++)
             {
-                var hunter = (Hunter)(((int)plan.Hunter + i) % 7);
+                var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);
                 renderer.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
             }
             int level = Math.Clamp(plan.BotLevel, 0, 3);

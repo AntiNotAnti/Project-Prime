@@ -1,4 +1,8 @@
 using System;
+using MphRead.Mods.MapGen;
+using System.IO.Compression;
+using System.Text;
+using System.Text.Json;
 using MphRead.Mods.Multiplayer;
 using System.Buffers.Binary;
 using System.Collections.Generic;
@@ -12,8 +16,131 @@ using System.Threading;
 namespace MphRead.Mods.Network
 {
     /// <summary>Asset-free, real UDP control-plane regression. It does not substitute for rendered match acceptance.</summary>
-    public static class NetLobbyTest
+    public static partial class NetLobbyTest
     {
+                public static int RunBotReplication(string room)
+        {
+            try
+            {
+                using var rig = new Rig(simulate: true, room: room);
+                Client owner = rig.Add(820), observer = rig.Add(821);
+                rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, hunter: (byte)Hunter.Sylux, level: 3), LobbyResultCode.Ok);
+                rig.ReadyAll(); rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+                owner.Loaded(); observer.Loaded();
+                rig.Wait(() => owner.State!.Value.Phase == SessionPhase.InMatch, "real bot match starts", 20000);
+                rig.Wait(() => owner.BotIntents > 30 && observer.BotIntents > 30, "both clients receive bot intents", 10000);
+                Check(owner.LastBotIntent.SlotGeneration == observer.LastBotIntent.SlotGeneration
+                    && owner.LastBotIntent.MatchId == observer.LastBotIntent.MatchId
+                    && owner.LastBotIntent.AuthorityEpoch == observer.LastBotIntent.AuthorityEpoch,
+                    "observers receive same authoritative bot identity");
+                rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, hunter: (byte)Hunter.Trace, level: 2), LobbyResultCode.Ok);
+                rig.Wait(() => owner.BotIntentSlots.Contains(3) && observer.BotIntentSlots.Contains(3), "mid-match bot replicated to both clients", 10000);
+                rig.Wait(() => owner.SnapshotPlayers == 4 && observer.SnapshotPlayers == 4, "both snapshots include dynamic bot occupancy");
+                rig.Expect(owner, owner.Command(LobbyCommandType.RemoveBot, target: 2), LobbyResultCode.Ok);
+                Check(!Enumerable.Range(0, owner.Roster.Count).Any(i => owner.Roster.Slots[i] == 2), "removed bot absent from wire roster");
+                Client joiner = rig.Add(822);
+                Check(joiner.Slot == 2 && joiner.Roster.ContainsBots, "real match admits human into vacated bot slot");
+                rig.Wait(() => joiner.BotIntentSlots.Contains(3), "late joiner receives remaining bot input", 10000);
+                Check(rig.Server.PeerCount == 3, "real bot registry contains no fake peers");
+                Console.WriteLine($"[botreplication] PASS {_checks} checks");
+                return 0;
+            }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+            finally { NetSession.Stop(); }
+        }
+
+        public static int RunBots()
+        {
+            try { BotProtocolChecks(); BotScenario(); BotTeamScenario(); Console.WriteLine($"[bots] PASS {_checks} checks"); return 0; }
+            catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+            finally { NetSession.Stop(); }
+        }
+
+        private static void BotProtocolChecks()
+        {
+            var roster = RosterPacket.Create();
+            roster.Count = 1; roster.Slots[0] = 3; roster.Hunters[0] = (byte)Hunter.Trace;
+            roster.Generations[0] = 1; roster.Teams[0] = -1; roster.Names[0] = "BOT TRACE";
+            roster.Flags[0] = 1; roster.BotLevels[0] = 3; roster.ContainsBots = true;
+            byte[] data = new byte[RosterPacket.Size]; roster.Write(data);
+            Check(RosterPacket.TryRead(data, out var read) && read.IsBot(0) && read.BotLevels[0] == 3
+                && read.ContainsBots && read.Slots[0] == 3, "bot roster round trip");
+            data[RosterPacket.HeaderSize + 10 + RosterPacket.MaxNameBytes] = 4;
+            Check(!RosterPacket.TryRead(data, out _), "invalid bot level rejected");
+            roster.Flags[0] = 0; roster.Write(data);
+            Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
+            roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
+            Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
+            Check(NetConfig.ProtocolVersion == 28, "bot wire contract supersedes custom map protocol 25");
+            var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
+            var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
+            Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
+            roster.Count = 1; roster.MatchId = 1; roster.AuthorityEpoch = 1; roster.Revision = 1;
+            var match = new MatchStatePacket { MatchId = 1, AuthorityEpoch = 1, RoomKey = "MP1 SANCTORUS", Mode = (byte)GameMode.Battle };
+            byte[] matchBytes = new byte[1 + MatchStatePacket.Size]; matchBytes[0] = (byte)PacketType.MatchState; match.Write(matchBytes.AsSpan(1));
+            byte[] rosterBytes = new byte[1 + RosterPacket.Size]; rosterBytes[0] = (byte)PacketType.Roster; roster.Write(rosterBytes.AsSpan(1));
+            var replica = new ReplayReplicaState(); replica.Accept(matchBytes, 0); replica.Accept(rosterBytes, 1);
+            var restored = new ReplayReplicaState(); restored.RestoreCheckpoint(replica.CaptureCheckpoint());
+            Check(restored.Occupant(3).IsBot && restored.Occupant(3).BotLevel == 3 && restored.ContainsBots,
+                "replay checkpoint retains bot identity and practice latch");
+        }
+
+        private static void BotScenario()
+        {
+            using var rig = new Rig();
+            Client owner = rig.Add(800), other = rig.Add(801);
+            rig.Expect(other, other.Command(LobbyCommandType.AddBot), LobbyResultCode.NotOwner);
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, hunter: (byte)Hunter.Trace, level: 2), LobbyResultCode.Ok);
+            int at = Enumerable.Range(0, owner.Roster.Count).Single(i => owner.Roster.IsBot(i));
+            byte slot = owner.Roster.Slots[at]; ushort generation = owner.Roster.Generations[at];
+            Check(owner.Roster.Count == 3 && rig.Server.PeerCount == 2 && owner.Roster.LobbyReady[at], "bot is a ready occupant, never a peer");
+            rig.Expect(other, other.Command(LobbyCommandType.RemoveBot, target: slot), LobbyResultCode.NotOwner);
+            rig.Expect(owner, owner.Command(LobbyCommandType.TransferOwner, target: slot), LobbyResultCode.TargetNotFound);
+            rig.Expect(owner, owner.Command(LobbyCommandType.UpdateBot, target: slot, hunter: (byte)Hunter.Random, level: 3), LobbyResultCode.Ok);
+            at = Array.IndexOf(owner.Roster.Slots, slot, 0, owner.Roster.Count);
+            Check(owner.Roster.Hunters[at] < 7 && owner.Roster.BotLevels[at] == 3
+                && owner.Roster.Generations[at] != generation, "bot update resolves random and advances generation");
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, level: 4), LobbyResultCode.InvalidConfiguration);
+            rig.ReadyAll();
+            rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+            Check(owner.State!.Value.ExpectedParticipants == ((1 << owner.Slot) | (1 << other.Slot)), "bots never join load barrier");
+            owner.Loaded(); other.Loaded();
+            rig.Wait(() => owner.State!.Value.Phase == SessionPhase.InMatch, "bot match starts");
+            Check(owner.Roster.ContainsBots, "round starts practice");
+            rig.Expect(owner, owner.Command(LobbyCommandType.RemoveBot, target: slot), LobbyResultCode.Ok);
+            Check(owner.Roster.ContainsBots && owner.Roster.Count == 2, "removing last bot retains practice latch");
+            Client joiner = rig.Add(802);
+            Check(joiner.Slot == slot && joiner.Roster.ContainsBots, "human reuses bot slot and receives sticky practice flag");
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot), LobbyResultCode.Ok);
+            Check(owner.Roster.Count == 4, "owner adds bot during match");
+            for (int i = 0; i < 4; i++) rig.Expect(owner, owner.Command(LobbyCommandType.AddBot), LobbyResultCode.Ok);
+            Check(owner.Roster.Count == 8 && rig.Server.PeerCount == 3, "bots consume ordinary eight-slot capacity");
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot), LobbyResultCode.ServerBusy);
+            foreach (byte botSlot in Enumerable.Range(0, owner.Roster.Count).Where(owner.Roster.IsBot).Select(i => owner.Roster.Slots[i]).ToArray())
+                rig.Expect(owner, owner.Command(LobbyCommandType.RemoveBot, target: botSlot), LobbyResultCode.Ok);
+            rig.EndMatchForTest();
+            rig.Wait(() => owner.State!.Value.Phase == SessionPhase.PostMatch, "practice match ends");
+            rig.Wait(() => owner.State!.Value.Phase == SessionPhase.Lobby, "practice match returns to lobby", PostMatchWaitMilliseconds);
+            rig.ReadyAll(); rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+            Check(!owner.Roster.ContainsBots, "new human-only round clears practice latch");
+        }
+
+        private static void BotTeamScenario()
+        {
+            using var rig = new Rig();
+            Client owner = rig.Add(810);
+            var config = owner.State!.Value;
+            config.Match = config.Match with { Mode = GameMode.BattleTeams, Format = MatchFormat.OneVsOne };
+            rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, team: 0), LobbyResultCode.TeamFull);
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, team: 1), LobbyResultCode.Ok);
+            rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, team: 1), LobbyResultCode.TeamFull);
+            rig.ReadyAll();
+            rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+            owner.Loaded();
+            rig.Wait(() => owner.State!.Value.Phase == SessionPhase.InMatch, "one human plus bot starts team match");
+        }
+
         private static int _checks;
         private static int PostMatchWaitMilliseconds => (int)(DedicatedServer.EndSequenceSeconds * 1000) + 2000;
         private static void Check(bool condition, string message)
@@ -28,6 +155,8 @@ namespace MphRead.Mods.Network
             {
                 NetHealthSyncTest.Run();
                 ProtocolChecks();
+                AdvancedRulesChecks();
+                AdvancedRulesScenario();
                 MasterFarewellScenario();
                 DemoProtocolCheck();
                 LayoutChecks();
@@ -43,6 +172,7 @@ namespace MphRead.Mods.Network
                 ContinuousScenario();
                 ClientSessionScenario();
                 TeamGameplayTest.Run(Check);
+                CustomMapReadinessScenario();
                 Console.WriteLine($"[netlobbytest] PASS: {_checks} assertions; protocol, UDP lifecycle/farewell, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation.");
                 return 0;
             }
@@ -83,17 +213,193 @@ namespace MphRead.Mods.Network
             finally { NetSession.Stop(); }
         }
 
+        public static void CustomMapDownloadScenario()
+        {
+            string root = Path.Combine(Path.GetTempPath(),"prime-map-download-"+Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(root);
+            string oldRuntime = Paths.AllPaths[Paths.MphKey], oldLibrary = CustomRooms.UserMapDirectory;
+            using var stop = new CancellationTokenSource();
+            System.Threading.Tasks.Task? service = null;
+            try
+            {
+                Headless.Enter();
+                Paths.SetPath(Paths.MphKey,Path.Combine(root,"runtime")); Directory.CreateDirectory(Paths.FileSystem);
+                CustomRooms.UserMapDirectory = Path.Combine(root,"installed");
+                using(var texture = new BinaryWriter(File.Create(Path.Combine(root,"tile.tex"))))
+                {
+                    texture.Write(Encoding.ASCII.GetBytes("FPTX")); texture.Write((ushort)1); texture.Write((ushort)1);
+                    texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
+                    texture.Write((ushort)32767); texture.Write(new byte[64]);
+                }
+                var definition = new MapDefinition { FormatVersion=2, MapId=Guid.NewGuid(), Name="SYNC_DOWNLOAD", Version="1", BaseDirectory=root };
+                definition.Materials.Add(new(){Texture="tile.tex"}); definition.Assets.Add(new(){Path="tile.tex"});
+                definition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,-1,0},Scale=new[]{8f,1,8}}});
+                definition.Spawns.Add(new(){Position=new[]{0f,2,0}}); definition.Spawns.Add(new(){Position=new[]{2f,2,0}});
+                string package = MapPackageBuilder.Build(definition,Path.Combine(root,"source.ppmap"));
+                var identity = MapContentIdentity.FromPackage(package);
+                Metadata.RegisterDownloadedMap(MapDefinition.Load(package));
+                using var probe = new TcpListener(IPAddress.Loopback,0); probe.Start();
+                string address = "http://127.0.0.1:"+((IPEndPoint)probe.LocalEndpoint).Port+"/"; probe.Stop();
+                const string secret="local-download-integration-test-token";
+                service = MapCommunityServer.ServeAsync(address,Path.Combine(root,"community"),secret,stop.Token);
+                using(var community = new MapCommunityClient(address,secret)) community.UploadAsync(package,default).GetAwaiter().GetResult();
+                Check(CustomRooms.Installed.HasExact(identity),"host indexed immutable package before client removal");
+                using var rig = new Rig(room:definition.Name); rig.Server.MapDownloadSource=address;
+                File.Delete(package); // Only the Community now has the exact archive.
+                Check(!CustomRooms.Installed.HasExact(identity),"clean client lacks required archive");
+                var hostRequest = new HostRequestPacket { Protocol=NetConfig.ProtocolVersion, RoomKey=definition.Name,
+                    MapIdentity=new(identity.MapId,identity.ContentHash,identity.PackageHash,NetworkMapFlags.Custom), Policy=ServerSessionPolicy.Lobby };
+                using (var requests = new HostedMapRequests(Path.Combine(root,"host-cache"),address))
+                {
+                    int starts=0, replies=0; HostReplyPacket answer=default;
+                    var sender=new IPEndPoint(IPAddress.Loopback,31234);
+                    void Send(IPEndPoint _, HostReplyPacket reply) { answer=reply; replies++; }
+                    HostReplyPacket Start(HostRequestPacket request,IPEndPoint _,double now,string archive)
+                    {
+                        starts++;
+                        Check(MapContentIdentity.FromPackage(archive).Matches(identity),"remote host fetched exact published archive");
+                        Check(!CustomRooms.Installed.HasExact(identity),"host download does not publish into parent's active map library");
+                        return new() { Started=true,Port=31235 };
+                    }
+                    requests.Enqueue(hostRequest,sender,0,Send);
+                    requests.Enqueue(hostRequest,sender,0,Send);
+                    rig.Wait(()=>{ requests.Pump(1,Start,Send); return replies>0; },"remote host background package preparation",20000);
+                    Check(answer.Started && starts==1,"duplicate pending requests start only one lobby");
+                    requests.Enqueue(hostRequest,sender,2,Send);
+                    Check(replies==2 && starts==1,"retry returns cached host reply without duplicate lobby");
+                    var corrupt=hostRequest; corrupt.MapIdentity=corrupt.MapIdentity with { ContentHash=MapHash256.Parse(new string('f',64)) };
+                    requests.Enqueue(corrupt,new IPEndPoint(IPAddress.Loopback,31236),3,Send);
+                    rig.Wait(()=>{requests.Pump(4,Start,Send);return replies>2;},"remote host mismatch rejection",20000);
+                    Check(!answer.Started && starts==1,"wrong content identity cannot launch a server");
+                }
+                string cached=Path.Combine(root,"host-cache",identity.PackageHash+".ppmap");
+                string reused=HostedMapRequests.PrepareArchiveAsync(hostRequest,"https://unused.invalid/",Path.Combine(root,"host-cache"),null,default).GetAwaiter().GetResult();
+                Check(reused==cached,"verified host cache works without network");
+                using (var cancelled = new CancellationTokenSource())
+                {
+                    cancelled.Cancel(); bool stopped=false;
+                    try { HostedMapRequests.PrepareArchiveAsync(hostRequest,address,Path.Combine(root,"cancelled-host"),null,cancelled.Token).GetAwaiter().GetResult(); }
+                    catch (OperationCanceledException) { stopped=true; }
+                    Check(stopped && !Directory.Exists(Path.Combine(root,"cancelled-host")),"cancelled host preparation cannot publish an archive");
+                }
+                Check(!Directory.EnumerateFiles(Path.Combine(root,"host-cache"),"*.download").Any(),"failed host preparation cleans partial downloads");
+                File.WriteAllText(cached,"damaged cache");
+                HostedMapRequests.PrepareArchiveAsync(hostRequest,address,Path.Combine(root,"host-cache"),null,default).GetAwaiter().GetResult();
+                Check(MapContentIdentity.FromPackage(cached).Matches(identity),"corrupt host cache is repaired from Community");
+                string oldNamespace=CustomRooms.RuntimeNamespace;
+                try
+                {
+                    CustomRooms.RuntimeNamespace=Guid.NewGuid().ToString("N");
+                    var outputs=CustomRooms.OutputsFor(definition); var metadata=CustomRooms.MakeMetadata(definition,9999);
+                    Check(outputs.Model==Paths.Combine(Paths.FileSystem,metadata.ModelPath)
+                        && outputs.Entities==Paths.Combine(Paths.FileSystem,metadata.EntityPath!)
+                        && outputs.Nodes==Paths.Combine(Paths.FileSystem,metadata.NodePath!),"private hosted runtime paths agree with metadata");
+                    Check(outputs.Files.All(p=>p.Contains(CustomRooms.RuntimeNamespace)),"all custom runtime files isolated per hosted lobby");
+                }
+                finally { CustomRooms.RuntimeNamespace=oldNamespace; }
+
+                Console.WriteLine("Remote host package checks passed: exact download, deduplication, mismatch rejection, cache repair, cancellation, and runtime isolation.");
+                Check(NetLaunch.Connect("127.0.0.1",rig.Server.BoundPort,"Downloader",Hunter.Samus),"real client joins custom lobby");
+                rig.Wait(()=>{NetSession.Pump();return NetSession.RequiredMapReady || NetSession.MapPreparation?.State==MapAvailabilityState.Failed;},
+                    "automatic download/build/prewarm",20000);
+                Check(NetSession.MapPreparation?.State==MapAvailabilityState.Ready,"automatic preparation reaches Ready: "+NetSession.MapPreparationMessage);
+                Check(CustomRooms.Installed.HasExact(identity),"automatic synchronization installs exact Community archive");
+                Check(!CustomRooms.NeedsGenerating(CustomRooms.Definitions.Single(d=>d.Name==definition.Name)),"automatic synchronization publishes runtime outputs");
+                NetSession.RequireExactMapForLoad();
+                Check(Read.GetRoomModelInstance(definition.Name).Model.Meshes.Count>0,"downloaded runtime model decodes successfully");
+                int slot=NetSession.LocalSlot;
+                rig.Wait(()=>{NetSession.Pump();return NetSession.ServerSession?.MapAvailability?[slot]==MapAvailabilityState.Ready;},"server confirms downloader readiness");
+                Check(NetSession.SendLobbyCommand(LobbyCommandType.SetReady,ready:true),"downloaded client can ready");
+                rig.Wait(()=>{NetSession.Pump();return !NetSession.LobbyCommandPending && NetSession.SlotLobbyReady[slot];},"player ready converges");
+                Check(NetSession.SendLobbyCommand(LobbyCommandType.StartMatch),"downloaded client requests start");
+                rig.Wait(()=>{NetSession.Pump();return NetSession.IsStarting;},"downloaded exact map enters start barrier");
+                Check(NetSession.ShouldLoadMatch,"downloaded client is allowed to load exact map");
+                NetSession.Stop();
+                rig.Wait(()=>!MapRuntimeUsage.IsInUse(definition.Name),"prewarm worker releases map",10000);
+                Console.WriteLine("Custom map automatic HTTP download, build, prewarm and readiness passed.");
+            }
+            finally
+            {
+                NetSession.Stop(); stop.Cancel();
+                if(service!=null)try{service.GetAwaiter().GetResult();}catch(OperationCanceledException){}
+                Paths.SetPath(Paths.MphKey,oldRuntime); CustomRooms.UserMapDirectory=oldLibrary;
+                Directory.Delete(root,true);
+            }
+        }
+
+        public static void CustomMapReadinessScenario()
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "prime-map-lobby-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "fixture.ppmap");
+            var definition = new MapDefinition { FormatVersion = 2, MapId = Guid.NewGuid(), Name = "SYNC_TEST_MAP", Version = "1" };
+            byte[] project = Encoding.UTF8.GetBytes(definition.Serialize());
+            var manifest = new MapPackageManifest { MapId = definition.MapId, Name = definition.Name, MapVersion = definition.Version,
+                ContentHash = MapPackageReader.ContentHash(new[] { "project.json" }, _ => project) };
+            using (var zip = ZipFile.Open(path, ZipArchiveMode.Create))
+            {
+                using (var stream = zip.CreateEntry("project.json").Open()) stream.Write(project);
+                using (var stream = zip.CreateEntry("manifest.json").Open())
+                    stream.Write(JsonSerializer.SerializeToUtf8Bytes(manifest, MapPackageReader.JsonOptions));
+            }
+            Metadata.RegisterDownloadedMap(MapDefinition.Load(path));
+            try
+            {
+                using var rig = new Rig(room: definition.Name);
+                Client owner = rig.Add(310), other = rig.Add(311);
+                NetworkMapIdentity identity = owner.State!.Value.Match.MapIdentity;
+                Check(identity.IsCustom && identity.Content(definition.Name).Matches(MapContentIdentity.FromPackage(path)), "server announces exact custom package");
+                var wire = new byte[NetworkMapIdentity.Size]; identity.Write(wire);
+                Check(NetworkMapIdentity.TryRead(wire, out var restored) && restored == identity, "custom identity binary round trip");
+                wire[80] = 255; Check(!NetworkMapIdentity.TryRead(wire, out _), "unknown identity flags rejected");
+                rig.ReadyAll();
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.MapUnavailable);
+                uint reportSequence=0;
+                void Report(Client client, NetworkMapIdentity map, MapAvailabilityState state)
+                {
+                    var config = client.State!.Value;
+                    byte[] bytes = new byte[MapAvailabilityPacket.Size];
+                    new MapAvailabilityPacket(config.MatchId, config.AuthorityEpoch, map, state,config.MapGeneration,++reportSequence).Write(bytes);
+                    Check(MapAvailabilityPacket.TryRead(bytes, out var decoded) && decoded.Map == map && decoded.State == state,
+                        "availability binary round trip");
+                    client.Send(PacketType.MapAvailability, bytes);
+                }
+                Report(owner, identity, MapAvailabilityState.Ready);
+                rig.Wait(() => owner.State?.MapAvailability?[owner.Slot] == MapAvailabilityState.Ready, "owner map ready");
+                Report(other, identity with { PackageHash = identity.ContentHash }, MapAvailabilityState.Ready);
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.MapUnavailable);
+                Report(other, identity, MapAvailabilityState.Failed);
+                rig.Wait(() => owner.State?.MapAvailability?[other.Slot] == MapAvailabilityState.Failed, "failed map visible to peers");
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.MapUnavailable);
+                var delay = Stopwatch.StartNew(); rig.Wait(() => delay.ElapsedMilliseconds > 150, "availability throttle interval");
+                Report(other, identity, MapAvailabilityState.Ready);
+                rig.Wait(() => owner.State?.MapAvailability?[other.Slot] == MapAvailabilityState.Ready, "both exact packages ready");
+                delay.Restart(); rig.Wait(() => delay.ElapsedMilliseconds > 150, "stale report throttle interval");
+                var stale = new byte[MapAvailabilityPacket.Size];
+                var current = other.State!.Value;
+                new MapAvailabilityPacket(current.MatchId, current.AuthorityEpoch, identity, MapAvailabilityState.Failed,current.MapGeneration,1).Write(stale);
+                other.Send(PacketType.MapAvailability, stale);
+                new MapAvailabilityPacket(current.MatchId, current.AuthorityEpoch, identity, MapAvailabilityState.Failed,NetLifecycleTracker.Next(current.MapGeneration),++reportSequence).Write(stale);
+                other.Send(PacketType.MapAvailability, stale);
+                delay.Restart(); rig.Wait(() => delay.ElapsedMilliseconds > 200, "stale report delivery");
+                Check(owner.State?.MapAvailability?[other.Slot] == MapAvailabilityState.Ready, "stale sequence and wrong generation cannot regress readiness");
+                rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+                Check(owner.State?.Phase == SessionPhase.Starting, "exact readiness releases custom start barrier");
+            }
+            finally { Directory.Delete(directory, true); }
+        }
+
         private static void ProtocolChecks()
         {
-            Check(new MatchDefinition().SpawnProtection
-                && !(new MatchDefinition { SpawnProtection = false }).SpawnProtection,
-                "spawn protection defaults on and can be disabled");
+            Check(!new MatchDefinition().SpawnProtection
+                && (new MatchDefinition { SpawnProtection = true }).SpawnProtection,
+                "spawn protection defaults off and can be enabled");
             var defaultMatchState = new MatchStatePacket();
             var disabledMatchState = new MatchStatePacket
-                { Flags = MatchStatePacket.FlagNoSpawnProtection };
-            Check(defaultMatchState.SpawnProtection && !disabledMatchState.SpawnProtection,
-                "match state carries default-on spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 24 && (byte)PacketType.SessionState == 36
+                { Flags = MatchStatePacket.FlagSpawnProtection };
+            Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
+                "match state carries default-off spawn protection without ambiguity");
+            Check(NetConfig.ProtocolVersion == 28 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
@@ -227,7 +533,7 @@ namespace MphRead.Mods.Network
                 // A valid demo container with an incompatible packet protocol.
                 using (var writer = new DemoWriter(path)) { }
                 byte[] bytes = File.ReadAllBytes(path);
-                bytes[5] = (byte)(NetConfig.ProtocolVersion - 1);
+                bytes[5] = (byte)(NetConfig.ProtocolVersion + 1);
                 File.WriteAllBytes(path, bytes);
                 Check(!DemoPlayback.Join(path) && !DemoPlayback.IsActive
                     && DemoPlayback.LastResult == ReplayOpenResult.ProtocolMismatch,
@@ -275,9 +581,9 @@ namespace MphRead.Mods.Network
                 Check(LobbyRules.ValidateDefinition(match with { Format = MatchFormat.Custom, CustomTeams = invalid }, out _) == LobbyResultCode.InvalidConfiguration, "reject invalid layout");
             Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.Capture, Format = MatchFormat.TwoVsTwoVsTwoVsTwo }, out _) == LobbyResultCode.InvalidConfiguration, "capture rejects four teams");
             Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.PrimeHunter, Format = MatchFormat.OneVsOne }, out _) == LobbyResultCode.InvalidConfiguration, "prime hunter stays FFA");
-            Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.InstaGib, Format = MatchFormat.FreeForAll }, out _) == LobbyResultCode.Ok, "insta-gib accepts FFA");
-            Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.InstaGib, Format = MatchFormat.OneVsOne }, out _) == LobbyResultCode.InvalidConfiguration, "insta-gib stays FFA");
-            Check(MatchGoalRules.DefaultValue(GameMode.InstaGib) == 7, "insta-gib uses battle score goal");
+            Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.Battle, InstaGib = true, Format = MatchFormat.FreeForAll }, out _) == LobbyResultCode.Ok, "insta-gib accepts FFA");
+            Check(LobbyRules.ValidateDefinition(match with { Mode = GameMode.BattleTeams, InstaGib = true, Format = MatchFormat.OneVsOne }, out _) == LobbyResultCode.Ok, "insta-gib supports teams");
+            Check(MatchGoalRules.DefaultValue(GameMode.Battle) == 7, "insta-gib uses battle score goal");
             MatchDefinition vanillaDuel = match with
             {
                 Format = MatchFormat.OneVsOne,
@@ -454,6 +760,9 @@ namespace MphRead.Mods.Network
             public MatchStatePacket Match;
             public int OpenMapChoices;
             public bool Refused;
+            public int BotIntents, SnapshotPlayers;
+            public IntentPacket LastBotIntent;
+            public readonly HashSet<int> BotIntentSlots = new();
             public readonly List<ChatPacket> Chats = new();
             public readonly Dictionary<uint, LobbyCommandResultPacket> Results = new();
             private uint _command;
@@ -469,13 +778,13 @@ namespace MphRead.Mods.Network
                 Send(PacketType.Hello, bytes);
             }
             public void Identify(byte hunter = 0)
-            { byte[] bytes = new byte[2 + RosterPacket.MaxNameBytes]; bytes[0] = hunter; NetText.Write(bytes.AsSpan(2), $"Test{Id}"); Send(PacketType.Identify, bytes); }
+            { byte[] bytes = new byte[2 + RosterPacket.MaxNameBytes]; bytes[0] = hunter; PlayerNameCodec.TryEncode($"Test{Id}", bytes.AsSpan(2), out int length); Send(PacketType.Identify, bytes.AsSpan(0, 2 + length).ToArray()); }
             public void Send(PacketType type, byte[] bytes) => Transport.Send(Server, type, bytes);
             public LobbyCommandPacket Command(LobbyCommandType type, bool ready = false, SessionStatePacket? config = null,
-                byte target = 255, sbyte team = -1, ushort? revision = null)
+                byte target = 255, sbyte team = -1, ushort? revision = null, byte hunter = 0, byte level = 1)
             {
                 var packet = new LobbyCommandPacket { CommandId = ++_command, ExpectedRevision = revision ?? State!.Value.Revision,
-                    Type = type, Ready = ready, Configuration = config ?? State!.Value, TargetSlot = target, TeamIndex = team };
+                    Type = type, Ready = ready, Configuration = config ?? State!.Value, TargetSlot = target, TeamIndex = team, Hunter = hunter, BotLevel = level };
                 Resend(packet); return packet;
             }
             public void Resend(LobbyCommandPacket command)
@@ -492,6 +801,15 @@ namespace MphRead.Mods.Network
                 {
                     if (packet.Type == PacketType.WorldBootstrap && WorldBootstrapIdentity.TryRead(packet.Payload, out var bootstrap))
                     { byte[] ready = new byte[WorldBootstrapIdentity.Size]; bootstrap.Write(ready); Send(PacketType.WorldReady, ready); }
+                    if (packet.Type is PacketType.Snapshot or PacketType.SnapshotFast && packet.Payload.Length >= SnapshotHeader.Size)
+                        SnapshotPlayers = SnapshotHeader.Read(packet.Payload).PlayerCount;
+                    if (packet.Type == PacketType.SlotIntent && packet.Payload.Length == 1 + IntentPacket.FullSize)
+                    {
+                        int slot = packet.Payload[0];
+                        int index = Array.IndexOf(Roster.Slots, (byte)slot, 0, Roster.Count);
+                        if (index >= 0 && Roster.IsBot(index))
+                        { BotIntents++; BotIntentSlots.Add(slot); LastBotIntent = IntentPacket.Read(packet.Payload[1..]); }
+                    }
                     if (packet.Type == PacketType.Welcome) Slot = packet.Payload[0];
                     if (packet.Type == PacketType.Refused) Refused = true;
                     if (packet.Type == PacketType.Chat && packet.Payload.Length == ChatPacket.Size) Chats.Add(ChatPacket.Read(packet.Payload));
@@ -516,10 +834,10 @@ namespace MphRead.Mods.Network
             private readonly Thread _thread;
             private Exception? _error;
             private readonly bool _simulate;
-            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false)
+            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null)
             {
                 _simulate = simulate;
-                Server = new DedicatedServer(0, 8, MapRotation.SingleMatch(Rooms()[0], GameMode.Battle, 0, 0))
+                Server = new DedicatedServer(0, 8, MapRotation.SingleMatch(room ?? Rooms()[0], GameMode.Battle, 0, 0))
                     { SessionPolicy = policy, OwnerToken = token };
                 if (simulate) Server.ReplayPolicy = new ServerReplayPolicy(Enabled: false);
                 typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests",
@@ -545,8 +863,8 @@ namespace MphRead.Mods.Network
                     .Invoke(Server, new object[] { now, "test" });
             }
             public void Stable() => Wait(() => Clients.Count > 0 && Clients.All(c => c.State?.Revision == Clients[0].State?.Revision
-                && c.Roster.SessionRevision == c.State?.Revision && c.Roster.Count == Clients.Count
-                && Enumerable.Range(0, c.Roster.Count).All(i => c.Roster.Names[i] == $"Test{Clients.Single(p => p.Slot == c.Roster.Slots[i]).Id}")), "roster and state converge");
+                && c.Roster.SessionRevision == c.State?.Revision && Enumerable.Range(0, c.Roster.Count).Count(i => !c.Roster.IsBot(i)) == Clients.Count
+                && Enumerable.Range(0, c.Roster.Count).All(i => c.Roster.IsBot(i) || c.Roster.Names[i] == $"Test{Clients.Single(p => p.Slot == c.Roster.Slots[i]).Id}")), "roster and state converge");
             public void Wait(Func<bool> condition, string label, int ms = 4000)
             {
                 var clock = Stopwatch.StartNew();

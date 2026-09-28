@@ -75,7 +75,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Sync(Scene scene)
         {
-            if (!NetSession.Active || scene.Room == null || scene.GameState.InRoomTransition)
+            if (!NetSession.Active || !NetSession.ShouldLoadMatch || scene.Room == null || scene.GameState.InRoomTransition)
             {
                 return;
             }
@@ -86,6 +86,10 @@ namespace MphRead.Mods.Network
                 return;
             }
             ushort match = state!.Value.MatchId;
+            // Session configuration and match state can arrive in either order.
+            // Never load a room against the preceding match's package identity.
+            if (NetSession.ServerSession is not { } session || session.MatchId != match
+                || !session.Match.RoomKey.Equals(wanted, StringComparison.OrdinalIgnoreCase)) return;
             if (_loadPending) return;
             string current = Metadata.GetRoomById(scene.RoomId, noThrow: true)?.Name ?? "";
             // A joiner arrives already on the server's map and must not
@@ -106,6 +110,8 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            try { NetSession.RequireExactMapForLoad(); }
+            catch (Exception ex) { NetSession.ReportMatchLoadFailed(ex.Message); return; }
             (RoomMetadata? meta, _) = Metadata.GetRoomByName(wanted);
             if (meta == null)
             {

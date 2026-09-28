@@ -34,6 +34,11 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (ValueAfter(args, "customruntimenamespace") is { } runtimeNamespace)
+            {
+                if (!Guid.TryParseExact(runtimeNamespace, "N", out _)) throw new ArgumentException("Invalid custom runtime namespace.");
+                MapGen.CustomRooms.RuntimeNamespace = runtimeNamespace;
+            }
             if (ValueAfter(args, "usermapdirectory") is { } userMapDirectory) MapGen.CustomRooms.UserMapDirectory = System.IO.Path.GetFullPath(userMapDirectory);
             if (ValueAfter(args, "mapdirectory") is { } mapDirectory) MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
             if (ValueAfter(args, "maphub") is { } hubPrefix)
@@ -949,7 +954,7 @@ namespace MphRead.Mods
                 // The one rule here that is a fix rather than a preference:
                 // -noshadowfreeze makes the Judicator's ice wave a cone
                 // instead of a column, for everybody in the room.
-                ShadowFreeze = !HasFlag(args, "noshadowfreeze"),
+                ShadowFreeze = HasFlag(args, "shadowfreeze") && !HasFlag(args, "noshadowfreeze"),
                 // Whether weapon pickups are the picking hunter's affinity
                 // variant -- a different row of the damage table, so it is
                 // broadcast rather than left to each machine's own settings
@@ -958,7 +963,10 @@ namespace MphRead.Mods
                 AffinityWeapons = HasFlag(args, "affinityweapons"),
                 // Spawn protection is the default match rule; the negative
                 // flag is useful for fixed competitive servers that opt out.
-                SpawnProtection = !HasFlag(args, "nospawnprotection"),
+                InstaGib = HasFlag(args, "instagib"),
+                LowTier = HasFlag(args, "lowtier"),
+                NoImperialist = HasFlag(args, "noimp"),
+                SpawnProtection = HasFlag(args, "spawnprotection") && !HasFlag(args, "nospawnprotection"),
                 // Players may change the map by voting unless the admin says
                 // otherwise. See DedicatedServer.AllowMapVotes.
                 AllowMapVotes = !HasFlag(args, "novote"),

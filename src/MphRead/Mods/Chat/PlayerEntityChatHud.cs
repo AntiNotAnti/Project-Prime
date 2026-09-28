@@ -144,7 +144,8 @@ namespace MphRead.Entities
 
         internal void ModDrawChat()
         {
-            if (!ChatBox.Visible)
+            var replay = _scene.Services as ReplaySceneServices;
+            if (replay == null && !ChatBox.Visible)
             {
                 return;
             }
@@ -160,7 +161,23 @@ namespace MphRead.Entities
                 _chatInst.SetCharacterData(ChatFont.Pixels, _scene);
                 _chatInst.Enabled = true;
             }
-            ChatBox.CollectVisible(_chatVisible);
+            if (replay != null)
+            {
+                _chatVisible.Clear();
+                var lines = replay.State.ChatLines;
+                for (int i = lines.Count - 1; i >= 0 && _chatVisible.Count < ChatBox.CompactVisibleLines; i--)
+                {
+                    long age = (long)replay.State.RecordingFrame - lines[i].Frame;
+                    if (age >= 600) break;
+                    var packet = lines[i].Packet;
+                    _chatVisible.Add((new ChatLine(packet.Name, packet.Text, packet.Kind, 0),
+                        age > 540 ? (600 - age) / 60f : 1));
+                }
+                _chatVisible.Reverse();
+                if (_chatVisible.Count == 0) return;
+            }
+            else if (ChatBox.HistoryOpen) ChatBox.CollectHistory(_chatVisible);
+            else ChatBox.CollectCompact(_chatVisible);
             float aspect = HudAspectFix;
             float x = ChatLeft(aspect);
             // Up from the prompt by however many lines there actually are, so
@@ -169,6 +186,16 @@ namespace MphRead.Entities
             // first and each one after it a row lower, which is the order
             // CollectVisible hands them over in.
             float y = ChatPromptY - _chatVisible.Count * ChatLineHeight;
+            if (ChatBox.HistoryOpen)
+            {
+                float top = ChatPromptY - (ChatBox.ExpandedVisibleLines + 1) * ChatLineHeight;
+                _scene.DrawHudFlatBox(x - aspect, top - 2, Math.Min(256 - ChatMargin * aspect, x + 138 * aspect),
+                    ChatBottom + 1, new OpenTK.Mathematics.Vector4(5 / 255f, 15 / 255f, 12 / 255f, 105 / 255f));
+                _scene.DrawHudFlatBox(x - aspect, top - 2,
+                    Math.Min(256 - ChatMargin * aspect, x + 138 * aspect), top - 1.6f,
+                    new OpenTK.Mathematics.Vector4(0.2f, 0.6f, 0.35f, 0.5f));
+                ChatDraw(x, top, aspect, 1, "CHAT", ChatName);
+            }
             for (int i = 0; i < _chatVisible.Count; i++)
             {
                 (ChatLine line, float alpha) = _chatVisible[i];
@@ -176,15 +203,28 @@ namespace MphRead.Entities
                 // The trailing space is part of the prefix rather than the
                 // message: it is measured with the name, and it survives a
                 // message the sender began with one of their own.
-                string name = system || line.Name.Length == 0 ? "" : line.Name + ": ";
-                float at = ChatDraw(x, y, aspect, alpha, name,
-                    system ? ChatSystemInk : ChatName);
+                float at = x;
+                if (line.Name.Length > 0)
+                {
+                    at = DrawPlayerName(x, y, Align.Left, 0, line.Name, ChatName,
+                        alpha: alpha, scale: ChatScale, maxWidth: 62, useHudTextScale: false).X;
+                    at = ChatDraw(at, y, aspect, alpha, system ? " " : ": ", ChatName);
+                }
                 ChatDraw(at, y, aspect, alpha,
                     ChatFit(line.Text, aspect, at - x), system ? ChatSystemInk : ChatInk);
                 y += ChatLineHeight;
             }
             if (ChatBox.Composing)
             {
+                string hint = ChatBox.HistoryOpen
+                    ? "TAB CLOSE  UP/DOWN SCROLL  END NEWEST" : "TAB: HISTORY";
+                if (ChatBox.UnreadWhileScrolled > 0)
+                    hint += $"  {ChatBox.UnreadWhileScrolled} NEW";
+                float hintY = ChatPromptY - ((ChatBox.HistoryOpen
+                    ? ChatBox.ExpandedVisibleLines : ChatBox.CompactVisibleLines) + 1) * ChatLineHeight;
+                float hintIndent = ChatBox.HistoryOpen ? 15 * aspect : 0;
+                ChatDraw(x + hintIndent, hintY, aspect, 1,
+                    ChatFit(hint, aspect, hintIndent), ChatSystemInk);
                 y = ChatPromptY;
                 float at = ChatDraw(x, y, aspect, alpha: 1, ChatPrompt, ChatPromptInk);
                 // The tail rather than the head once the line is long: what
@@ -247,7 +287,8 @@ namespace MphRead.Entities
         /// </summary>
         private static float ChatRoom(float aspect, float used)
         {
-            return 256 - ChatLeft(aspect) - ChatMargin * aspect - used;
+            return Math.Min(256 - ChatLeft(aspect) - ChatMargin * aspect,
+                ChatBox.HistoryOpen ? 138 * aspect : float.MaxValue) - used;
         }
 
         /// <summary>As much of a received line as fits, from the start.</summary>

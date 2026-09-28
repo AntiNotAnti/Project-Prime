@@ -48,6 +48,15 @@ namespace MphRead.Mods.Launcher.Gui
                 Show(Face.Customization);
             };
             panel.Children.Add(hunter);
+            var view = new ChoiceRow("Preview", new[] { "Hunter", "Weapon", "Alternate form" }, (int)_stand.PreviewMode);
+            ControllerNav.Identify(view, "cosmetics.preview-mode");
+            view.Changed += (_, _) =>
+            {
+                _stand.ResetPreview();
+                _stand.PreviewMode = (SkinContext)view.Index;
+                Show(Face.Customization);
+            };
+            panel.Children.Add(view);
             void Cards(string title, CosmeticDefinition[] definitions, string selected, Action<string> select)
             {
                 panel.Children.Add(SectionTitle(title, ""));
@@ -85,7 +94,15 @@ namespace MphRead.Mods.Launcher.Gui
             Cards("DEATH PRESENTATION", CosmeticCatalog.DeathPresentations.ToArray(), _cosmeticDraft.DeathEffectKey,
                 key => { _cosmeticDraft = _cosmeticDraft with { DeathEffectKey = key }; _stand.PreviewDeath(); });
             var actions = new WrapPanel();
-            actions.Children.Add(new PrimeButton("PREVIEW DEATH", () => _stand.PreviewDeath()));
+            actions.Children.Add(new PrimeButton("PREVIEW DEATH", () => { _stand.PreviewDeath(); Show(Face.Customization); }));
+            var loopDeath = new CheckBox { Content = "LOOP DEATH", IsChecked = _stand.LoopDeath,
+                VerticalAlignment = VerticalAlignment.Center, Margin = new Avalonia.Thickness(8, 0) };
+            loopDeath.IsCheckedChanged += (_, _) =>
+            {
+                _stand.LoopDeath = loopDeath.IsChecked == true;
+                if (_stand.LoopDeath) { _stand.PreviewDeath(); Show(Face.Customization); }
+            };
+            actions.Children.Add(loopDeath);
             actions.Children.Add(new PrimeButton("RESET PREVIEW", () => _stand.ResetPreview()));
             actions.Children.Add(new PrimeButton("COMPARE NATIVE", () =>
             {
@@ -96,7 +113,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _cosmeticDraft = CosmeticLoadout.Default; _stand.ResetPreview(); Show(Face.Customization);
             }));
-            var status = new TextBlock { Text = CosmeticPersistence.IsPending(_cosmeticHunter) ? "LOCAL / NOT SYNCED" : "READY", Foreground = HubTheme.TextBrush };
+            var status = new TextBlock { Text = _cosmeticDraft != CosmeticPersistence.Get(_cosmeticHunter) ? "PREVIEW / NOT EQUIPPED"
+                : CosmeticPersistence.IsPending(_cosmeticHunter) ? "EQUIPPED LOCALLY / NOT SYNCED" : "EQUIPPED", Foreground = HubTheme.TextBrush };
             var equip = new PrimeButton("EQUIP", async () =>
             {
                 if (_cosmeticSaving) return;

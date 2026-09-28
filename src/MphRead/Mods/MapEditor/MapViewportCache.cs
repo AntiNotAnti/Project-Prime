@@ -48,7 +48,9 @@ public sealed class MapViewportCache
             {
                 var faces = group.ToArray();
                 _native[group.Key] = faces;
-                _meshes[group.Key] = new(group.Key, Array.AsReadOnly(faces));
+                _meshes[group.Key] = faces[0].CollisionOnly
+                    ? new(group.Key, Array.Empty<MapViewportFace>(), Array.AsReadOnly(faces))
+                    : new(group.Key, Array.AsReadOnly(faces));
             }
             NativeFaces = Array.AsReadOnly(_native.Values.SelectMany(f => f).ToArray());
             GeometryRebuildCount++;
@@ -85,10 +87,10 @@ public sealed class MapViewportCache
     {
         ImportedFaces = Array.AsReadOnly(map.Faces.Take(map.ImportedFaceCount).Select(face => new MapViewportFace(Guid.Empty,
             face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(),
-            face.Shade, face.Material, true, face.SourceMaterial)).ToArray());
+            face.Shade, face.Material, true, face.SourceMaterial, face.Texcoords.Select(uv => new System.Numerics.Vector2(uv.X,uv.Y)).ToArray())).ToArray());
         ImportedRebuildCount++;
         ImportedCollisionFaces = Array.AsReadOnly(map.Solid.Take(map.ImportedCollisionFaceCount).Select(face => new MapViewportFace(Guid.Empty,
-            face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(), face.Shade, face.Material, true, face.SourceMaterial)).ToArray());
+            face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(), face.Shade, face.Material, true, face.SourceMaterial, face.Texcoords.Select(uv => new System.Numerics.Vector2(uv.X,uv.Y)).ToArray())).ToArray());
         CollisionRebuildCount++;
         CollisionRepairs = Array.AsReadOnly(map.CollisionRepairs.Select(r => new MapViewportRepair(
             r.Kind,r.Confidence,r.Detail,r.Points.Select(p=>new System.Numerics.Vector3(p.X,p.Y,p.Z)).ToArray())).ToArray());
@@ -105,10 +107,10 @@ public sealed class MapViewportCache
     {
         ImportedFaces = Array.AsReadOnly(analysis.Faces.Take(analysis.ImportedFaceCount).Select(face => new MapViewportFace(Guid.Empty,
             face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(),
-            face.Shade, face.Material, true, face.SourceMaterial)).ToArray());
+            face.Shade, face.Material, true, face.SourceMaterial, face.Texcoords.Select(uv => new System.Numerics.Vector2(uv.X,uv.Y)).ToArray())).ToArray());
         ImportedRebuildCount++;
         ImportedCollisionFaces = Array.AsReadOnly(analysis.CollisionFaces.Take(analysis.ImportedCollisionFaceCount).Select(face => new MapViewportFace(Guid.Empty,
-            face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(), face.Shade, face.Material, true, face.SourceMaterial)).ToArray());
+            face.Points.Select(p => new System.Numerics.Vector3(p.X, p.Y, p.Z)).ToArray(), face.Shade, face.Material, true, face.SourceMaterial, face.Texcoords.Select(uv => new System.Numerics.Vector2(uv.X,uv.Y)).ToArray())).ToArray());
         CollisionRebuildCount++;
         CollisionRepairs = Array.AsReadOnly(analysis.CollisionRepairs.Select(r => new MapViewportRepair(
             r.Kind,r.Confidence,r.Detail,r.Points.Select(p=>new System.Numerics.Vector3(p.X,p.Y,p.Z)).ToArray())).ToArray());

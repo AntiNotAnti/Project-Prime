@@ -18,6 +18,7 @@ namespace MphRead.Mods.Network
     {
         private readonly Process _process;
         private int _players;
+        private readonly string? _library;
         private double _nextProbe;
 
         public int Port { get; }
@@ -34,13 +35,26 @@ namespace MphRead.Mods.Network
         private HostedServerProcess(Process process, int port)
         {
             _process = process;
+            _library = LocalServer.HostedLibrary;
             Port = port;
         }
 
         public static HostedServerProcess? Start(int port, in HostRequestPacket request,
             string name, string masterHost, int masterPort, bool listed,
-            Guid ownerToken, out string reason)
+            Guid ownerToken, out string reason, string? hostedPackage = null)
         {
+            try
+            {
+                if (hostedPackage != null)
+                {
+                    if (!MapGen.MapContentIdentity.FromPackage(hostedPackage).Matches(request.MapIdentity.Content(request.RoomKey)))
+                        throw new System.IO.InvalidDataException("Hosted package does not match the request.");
+                }
+                else if (request.MapIdentity != NetworkMapIdentity.ForRoom(request.RoomKey)
+                    || request.MapIdentity.IsCustom && !MapGen.CustomRooms.Installed.HasExact(request.MapIdentity.Content(request.RoomKey)))
+                { reason = "This host does not have the exact requested map package."; return null; }
+            }
+            catch (Exception ex) { reason = ex.Message; return null; }
             GameMode mode = Enum.IsDefined(typeof(GameMode), request.Mode)
                 ? (GameMode)request.Mode
                 : GameMode.Battle;
@@ -65,9 +79,10 @@ namespace MphRead.Mods.Network
                 format: request.Format,
                 requireReady: request.RequireReady,
                 allowJoinInProgress: request.AllowJoinInProgress,
-                waitUntilReady: false);
+                waitUntilReady: false, requiredMap: request.MapIdentity, hostedPackage: hostedPackage);
             if (started < 0 || LocalServer.Running == null)
             {
+                LocalServer.CleanupHostedLibrary(LocalServer.HostedLibrary);
                 reason = LocalServer.LastError ?? $"could not start server on port {port}";
                 return null;
             }
@@ -108,6 +123,7 @@ namespace MphRead.Mods.Network
 
         public void Dispose()
         {
+            bool stopped = false;
             try
             {
                 if (!_process.HasExited)
@@ -115,6 +131,7 @@ namespace MphRead.Mods.Network
                     _process.Kill(entireProcessTree: true);
                     _process.WaitForExit(2000);
                 }
+                stopped = _process.HasExited;
             }
             catch (Exception)
             {
@@ -123,6 +140,7 @@ namespace MphRead.Mods.Network
             finally
             {
                 _process.Dispose();
+                if (stopped) LocalServer.CleanupHostedLibrary(_library);
             }
         }
     }

@@ -26,6 +26,7 @@ namespace MphRead.Mods.Network
         public static void Reset()
         {
             Array.Clear(_activated);
+            NetBotInput.Reset();
             NetSession.ContinuousPhase.Reset();
         }
 
@@ -104,8 +105,8 @@ namespace MphRead.Mods.Network
             player.LoadFlags |= LoadFlags.SlotActive;
             player.LoadFlags |= LoadFlags.Active;
             player.LoadFlags |= LoadFlags.Initial;
-            player.IsBot = false;
-            player.BotLevel = 0;
+            player.IsBot = NetSession.IsAuthority && !player.SceneServices.IsReplica && NetSession.SlotIsBot[slot];
+            player.BotLevel = player.IsBot ? NetSession.SlotBotLevel[slot] : 0;
             // TeamIndex defaults to -1 and Scene.AddPlayer only assigns it in
             // team modes, but GameState indexes TeamPoints/TeamKills by it
             // unconditionally -- EndIfPointGoalReached does TeamPoints[-1] and
@@ -144,6 +145,11 @@ namespace MphRead.Mods.Network
             // rebuilds the models and equipment while preserving position,
             // facing and health.
             player.Initialize();
+            if (player.IsBot)
+            {
+                Formats.AiPersonality.Load(player, player.OwningScene.GameState.Mode);
+                player.AiData.InitializeAtLoad();
+            }
             player.OwningScene.Players.PlayerCount = CountActive();
             Console.WriteLine($"[net] slot {slot} activated "
                 + $"({player.OwningScene.GameState.Nicknames[slot]}) -- {player.OwningScene.Players.PlayerCount} player(s) in scene");
@@ -240,6 +246,9 @@ namespace MphRead.Mods.Network
             // which is recoverable only by loading the room again.
             player.LoadFlags &= ~LoadFlags.Spawned;
             player.Health = 0;
+            player.IsBot = false;
+            player.BotLevel = 0;
+            player.Controls.ClearAll();
             player.OwningScene.Players.PlayerCount = Math.Max(CountActive(), 1);
             Console.WriteLine($"[net] slot {slot} deactivated -- player left");
             NetLog.Event($"slot {slot} deactivated");

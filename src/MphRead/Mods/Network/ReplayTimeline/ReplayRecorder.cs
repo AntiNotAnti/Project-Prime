@@ -6,6 +6,7 @@ namespace MphRead.Mods.Network;
 /// <summary>Single simulation-thread owner for accepted authoritative facts.</summary>
 internal sealed class ReplayRecorder
 {
+    internal bool HasMatch => _match.HasValue;
     public RollingReplayTimeline Timeline { get; } = new();
     internal bool ProducesWorldCheckpoints { get; set; }
     internal event Action<ReplayTimelineRecord>? Accepted;
@@ -49,6 +50,9 @@ internal sealed class ReplayRecorder
         _roster = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Roster, bytes);
         Publish(_roster.Value);
     }
+    public void AcceptChat(ReadOnlySpan<byte> packet, uint frame)
+        => PublishTransient(new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Presentation, packet));
+
     public void AcceptCosmetics(ReadOnlySpan<byte> packet, uint frame)
     {
         _cosmetics?.Release();

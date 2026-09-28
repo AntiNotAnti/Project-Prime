@@ -479,7 +479,6 @@ namespace MphRead.Mods
             try
             {
                 bool? stylusMode = null;
-                bool? legacyGuard = null;
                 float? legacyStylusOpacity = null;
                 float? stylusOutlineOpacity = null;
                 float? stylusButtonOpacity = null;
@@ -559,7 +558,6 @@ namespace MphRead.Mods
                     }
                     if (key == "pointer_jump_guard" && Boolean.TryParse(value, out bool guardJumps))
                     {
-                        legacyGuard = guardJumps;
                         Input.PointerInput.GuardJumps = guardJumps;
                     }
                     if (key == "stylus_mode" && Boolean.TryParse(value, out bool mode))
@@ -717,10 +715,10 @@ namespace MphRead.Mods
                         ParseBind(property, value);
                     }
                 }
-                // Old files used pointer_jump_guard as the stylus master. Explicit
-                // new settings win regardless of line order.
+                // pointer_jump_guard is an independent legacy behavior. Only
+                // an explicit stylus_mode setting may enable Stylus Mode.
                 Input.PointerInput.StylusMode = !OperatingSystem.IsAndroid()
-                    && (stylusMode ?? legacyGuard ?? false);
+                    && (stylusMode ?? false);
 
                 // Split the old one-slider overlay without changing how an
                 // existing controls.txt looks: outline = old value, buttons =

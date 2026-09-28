@@ -64,6 +64,21 @@ namespace MphRead.Mods.Network
                 var metadata = new ReplayMetadata { RoomKey = match.RoomKey, Mode = GameMode.Battle,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { sessionBytes, matchBytes } } };
 
+                var customSession = session;
+                var customIdentity = new NetworkMapIdentity(Guid.NewGuid(),
+                    MapGen.MapHash256.Parse(new string('1',64)), MapGen.MapHash256.Parse(new string('2',64)), NetworkMapFlags.Custom);
+                customSession.Match = session.Match with { MapIdentity = customIdentity };
+                customSession.MapGeneration = 7;
+                customSession.MapDownloadSource = "https://maps.example.test/library/";
+                var customBytes = new byte[1 + SessionStatePacket.Size];
+                customBytes[0] = (byte)PacketType.SessionState; customSession.Write(customBytes.AsSpan(1));
+                var customMetadata = new ReplayMetadata { RoomKey = match.RoomKey,
+                    Bootstrap = new ReplayBootstrap { Packets = new[] { customBytes } } };
+                var restoredCustom = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(customMetadata));
+                Require(restoredCustom.CustomMapIdentity == customIdentity.Content(match.RoomKey), "replay retains immutable custom package identity");
+                Require(ReplayMapIdentity.CustomSession(restoredCustom)?.MapDownloadSource == customSession.MapDownloadSource,
+                    "replay retains historical package download source");
+
                 ReplayPerformanceChecks.Run(Require, metadata);
 
                 // Current snapshots append match-time and health-sync state after

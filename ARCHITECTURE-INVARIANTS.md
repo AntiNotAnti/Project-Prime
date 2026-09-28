@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **24** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **28** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -61,9 +61,17 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 - Persistent lobbies keep their socket/session across matches.
 - Lobby match configuration is preserved across rematches unless the owner changes it.
-- Post-match map selection can continue directly into the next match without requiring another Ready cycle.
+- Native post-match map selection can continue directly into the next match without requiring another Ready cycle. Custom-map transitions return to the lobby to prepare the exact package.
 - Map/rematch transitions must rebuild the room and send `MatchLoaded`; the server's Starting barrier releases when expected participants load or the bounded timeout expires.
 - Only a launcher-authenticated owner token may terminate a locally spawned lobby server process. Ordinary ownership of a persistent dedicated lobby cannot kill the daemon.
+
+## Custom map identity and installation
+
+- Protocol 25 binds custom rooms to MapId, ContentHash, and PackageHash. A matching room name or logical map ID alone never establishes readiness.
+- Custom match starts require every participant to report the exact package ready. Availability reports carry the authority, match, map generation, and monotonic sequence; stale reports cannot satisfy the barrier.
+- HTTP downloads and detached builds use private staging. Publication runs on the session owner after live scenes and prewarm workers release their room leases. Cancellation cannot publish partial packages.
+- Published package bytes and versions are immutable. Runtime packages contain normalized geometry and assets, never local model source paths or a requirement to parse external models.
+- Replay bootstrap preserves the exact custom package identity and historical download source. Remote hosts fetch missing exact packages from the operator-configured Community service on bounded background workers. Retries are deduplicated, and each custom hosted child owns a private package library and generated-runtime namespace. Downloads never install into the parent process's active map library.
 
 ## Timing and rendering
 
@@ -165,3 +173,19 @@ This file is the short, machine-oriented source of truth for architectural assum
   match-rule gates. A profile can style available information, not request more.
 - Full HUD Studio acceptance, including remaining preview parity and platform
   coverage, is tracked in docs/architecture/hud-customization-status.md.
+
+## Online bots
+
+- Bots are dedicated-server-owned slots, never network peers. Clients and replay replicas never run bot AI.
+- Protocol 27 carries bot identity, difficulty, and the sticky round practice flag in rosters.
+- Human plus bot occupancy cannot exceed eight; only humans own, vote, and load-ack.
+- A bot used at any point suppresses all Hunter License reporting for that round, even after removal.
+
+## Advanced match rules
+
+- Protocol 28 keeps SessionState and MatchState sizes; session rule bits 1024,
+  2048 and 4096 carry Insta-Gib, Low Tier and No Imp. MatchState bits 3 and 7
+  now positively enable Shadow Freeze and Spawn Protection. Status replies append
+  two bytes of rule bits. SessionState is required before playable world load.
+- Weapon replacements use fixed FNV-1a room/spawn hashing, never simulation RNG.
+- Legacy replay packets invert the old flags at the replay adapter boundary.

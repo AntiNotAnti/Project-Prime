@@ -105,7 +105,7 @@ namespace MphRead.Mods.Launcher.Gui
                 menus.Items.Add(group);
             }
             MenuGroup("File",("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
-                ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),
+                ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
                 ("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
             MenuGroup("Edit",("Undo",()=>_document?.History.Undo()),("Redo",()=>_document?.History.Redo()),
                 ("Copy",()=>_document?.CopySelection()),("Paste",()=>_document?.PasteClipboard()),
@@ -284,13 +284,13 @@ namespace MphRead.Mods.Launcher.Gui
         private static TextBlock Text(string text)=>new(){Text=text,Foreground=GuiTheme.TextBrush,TextWrapping=TextWrapping.Wrap};
         private static void AddButton(Panel panel,string title,Action action)
         {var button=new PrimeButton(title.ToUpperInvariant(), action) {Margin=new Thickness(2),MinHeight=28,Height=28,MinWidth=60};panel.Children.Add(button);}
-        private void Modal(Control control)
+        private void Modal(Control control, bool fitContent = false)
         {
             if (_overlays != null)
             {
                 if (_sheet != null) _overlays.Close(_sheet);
                 _sheet = control;
-                _overlays.Show(control, PrimeModalSize.Large, Dismiss);
+                _overlays.Show(control, PrimeModalSize.Large, Dismiss, fitContent);
                 return;
             }
             _modal.Child=new Border {Background=GuiTheme.PanelBrush,Padding=new Thickness(20),MaxWidth=800,MaxHeight=620,HorizontalAlignment=HorizontalAlignment.Center,VerticalAlignment=VerticalAlignment.Center,Child=control};_modal.IsVisible=true;}
@@ -691,7 +691,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddButton(buttons,"Duplicate",()=>{if(list.SelectedItem is LibraryRow {Entry.Definition:not null} row){var p=MapProjectMigrator.Upgrade(new(row.Entry.Definition));p.Definition.MapId=Guid.NewGuid();p.Definition.Name=NextCopyName(p.Definition.Name);WithUnsaved(()=>Load(p));}});
             AddButton(buttons,"Delete",()=>{if(list.SelectedItem is LibraryRow row)Confirm("Delete "+Path.GetFileName(row.Entry.Path)+"?",()=>{try{File.Delete(row.Entry.Path);ShowLibrary();}catch(Exception ex){Failure(ex);}});});
             AddButton(buttons,"Reveal folder",()=>{try{System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(CustomRooms.MapDirectory){UseShellExecute=true});}catch(Exception ex){Failure(ex);}});
-            AddButton(buttons,"Refresh",ShowLibrary);AddButton(buttons,"New",NewMap);AddButton(buttons,"Close",Dismiss);Modal(view);
+            AddButton(buttons,"Refresh",ShowLibrary);AddButton(buttons,"New",NewMap);AddButton(buttons,"Close",Dismiss);Modal(view, fitContent: true);
             AddButton(buttons,"Recover unsaved",RecoverUnsaved);
         }
         private void RecoverUnsaved()
@@ -1645,6 +1645,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _inspector.Children.Clear();if(_document==null)return;
             _inspector.Children.Add(Text("MATERIAL BROWSER"));
+            FaceUvControls(_inspector);
+            var checker = new CheckBox { Content = "UV checker (preview only)", IsChecked = _viewport?.UvChecker == true };
+            checker.IsCheckedChanged += (_, _) => { if (_viewport != null) { _viewport.UvChecker = checker.IsChecked == true; _viewport.InvalidateVisual(); } };
+            _inspector.Children.Add(checker);
             var definition=_document.Project.Definition;
 
             _inspector.Children.Add(Text("EYEDROPPER & REPLACE ALL"));
@@ -1755,10 +1759,11 @@ namespace MphRead.Mods.Launcher.Gui
             foreach(int i in order)
             {
                 int index=i;var m=definition.Materials[i];
-                int uses=definition.Geometry.Count(g=>g.Material==index)+definition.Brushes.Count(b=>b.Material==index);
+                int uses=definition.Geometry.Count(g=>g.Material==index || g is MapMesh mesh && mesh.FaceMaterials.Contains(index))+definition.Brushes.Count(b=>b.Material==index);
+                int faceUses=definition.Geometry.OfType<MapMesh>().Sum(mesh=>Enumerable.Range(0,mesh.Faces.Count).Count(f=>(f<mesh.FaceMaterials.Count?mesh.FaceMaterials[f]:mesh.Material)==index));
                 bool favorite=_studioState.FavoriteMaterials.Contains(MaterialKey(m),StringComparer.OrdinalIgnoreCase);
                 var panel=new StackPanel{Spacing=4,Margin=new Thickness(0,4,0,8)};
-                panel.Children.Add(Text($"{(favorite?"★ ":"")}{index} · {m.Name} · {uses} uses"));
+                panel.Children.Add(Text($"{(favorite?"★ ":"")}{index} · {m.Name} · {uses} objects · {faceUses} mesh faces"));
                 try
                 {
                     if(m.Texture!=null||GameFiles.Ready)
@@ -1775,10 +1780,50 @@ namespace MphRead.Mods.Launcher.Gui
                 var source=new TextBox{Text=m.SourceMaterial.ToString(CultureInfo.InvariantCulture)};
                 var scale=new TextBox{Text=m.TexScale.ToString(CultureInfo.InvariantCulture)};
                 panel.Children.Add(Text("Source material / texels per unit"));panel.Children.Add(source);panel.Children.Add(scale);
+                AddButton(panel,"Select usages",()=>
+                {
+                    _document.Selection.Clear();
+                    foreach (Guid id in MapMaterialEditing.Usages(_document.Project.Definition,index)) _document.Selection.Add(id);
+                    _document.SelectionChanged(); RefreshHierarchy(); _viewport?.FrameSelection();
+                });
+                AddButton(panel,"Isolate usages",()=>
+                {
+                    _document.Selection.Clear();
+                    foreach (Guid id in MapMaterialEditing.Usages(_document.Project.Definition,index)) _document.Selection.Add(id);
+                    _document.SelectionChanged(); _document.IsolateSelection(); _viewport?.FrameSelection();
+                });
+                AddButton(panel,"Replace usages with selected replacement",()=>
+                {
+                    if(replacementTarget.SelectedItem is not MaterialTarget target || target.Source)
+                    { _status.Text="Choose an authored replacement material above."; return; }
+                    _document.Edit("Replace material usages",d=>MapMaterialEditing.Replace(d,index,target.Index),MapChangeDomain.Geometry|MapChangeDomain.Material|MapChangeDomain.Import);
+                    MaterialInspector();
+                });
+                AddButton(panel,"Delete if unused",()=>
+                {
+                    try { _document.Edit("Delete unused material",d=>MapMaterialEditing.DeleteUnused(d,index),MapChangeDomain.Geometry|MapChangeDomain.Material|MapChangeDomain.Import); MaterialInspector(); }
+                    catch(Exception ex) { Failure(ex); }
+                });
+                AddButton(panel,"Paint this material · P",()=>
+                {
+                    if (_viewport != null) { _viewport.ActivePaintMaterial = index; _viewport.MaterialPaint = true; }
+                    _status.Text = "Click a mesh face to paint · Shift: connected faces · Ctrl: sample · Alt: base material · P: exit.";
+                });
                 AddButton(panel,"Assign to selection",()=>
                 {
                     if(_document.Selection.Count==0){_status.Text="Select authored geometry first.";return;}
                     var ids=_document.Selection.ToHashSet();
+                    if (_viewport is { ElementMode: "Face" } viewport && viewport.SelectedFaceIndices.Count > 0)
+                    {
+                        int[] faces = viewport.SelectedFaceIndices.ToArray();
+                        Guid objectId = viewport.SelectedFaceObjectId;
+                        _document.EditObjects("Assign face material", new[] { objectId }, d =>
+                        {
+                            if (MapObjects.Find(d, objectId)?.Value is MapMesh target)
+                                MapMeshEditing.AssignMaterial(target, faces, index);
+                        });
+                        return;
+                    }
                     _document.EditObjects("Assign material",ids,d=>
                     {
                         foreach(var g in d.Geometry)
@@ -1880,6 +1925,28 @@ namespace MphRead.Mods.Launcher.Gui
                     + (entry.Kind == "preview" ? 1 : 0);
                 string size = File.Exists(file) ? $"{new FileInfo(file).Length / 1024d:0.0} KiB" : "MISSING";
                 _inspector.Children.Add(Text($"{entry.Kind} · {entry.Name ?? Path.GetFileName(entry.Path)} · {size} · {uses} uses"));
+                if(entry.SourcePath is { } sourcePath)
+                {
+                    _inspector.Children.Add(Text("Source: "+sourcePath));
+                    if(Path.GetExtension(sourcePath).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg")
+                        AddButton(_inspector,"Reload source texture",()=>_=ReplaceAsset(entry.Path,sourcePath));
+                }
+                if(entry.Kind=="texture")
+                {
+                    try
+                    {
+                        var material = new MapMaterial {Texture=entry.Path}; string key = PreviewCacheKey(_document.Project.Definition,material);
+                        if(!_materialPreviewCache.TryGetValue(key,out var preview))
+                        { preview=MapMaterialPreview.Create(_document.Project.Definition,material); _materialPreviewCache[key]=preview; }
+                        _inspector.Children.Add(new Image {Source=preview.Bitmap,Width=72,Height=72,HorizontalAlignment=HorizontalAlignment.Left});
+                        _inspector.Children.Add(Text(preview.Details));
+                    }
+                    catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException or ArgumentException) { _inspector.Children.Add(Text("Preview unavailable: "+ex.Message)); }
+                }
+                AddButton(_inspector,"Export asset…",()=>Browse("Export asset",true,path=>
+                {
+                    try {AtomicFile.Write(path,MapAssets.Read(_document.Project.Definition,entry.Path));_status.Text="Asset exported.";}catch(Exception ex){Failure(ex);}
+                },Path.GetExtension(entry.Path)));
                 AddButton(_inspector, "Find usages", () => _status.Text = string.Join(" · ", _document.Project.Definition.Materials.Where(m => m.Texture == entry.Path).Select(m => m.Name))
                     + (_document.Project.Definition.Audio?.Music == entry.Path ? " · Map music" : ""));
                 var logicalName = new TextBox { Text = entry.Name ?? Path.GetFileNameWithoutExtension(entry.Path) };
@@ -1955,7 +2022,7 @@ namespace MphRead.Mods.Launcher.Gui
             document.Edit("Replace asset", d =>
             {
                 var asset = d.Assets.Find(a => a.Path == previous); if (asset == null) return;
-                asset.Path = replacement; d.BaseDirectory = root;
+                asset.Path = replacement; asset.SourcePath = source; d.BaseDirectory = root;
                 foreach (var material in d.Materials) if (material.Texture == previous) material.Texture = replacement;
                 if (d.Audio?.Music == previous) d.Audio.Music = replacement;
             });

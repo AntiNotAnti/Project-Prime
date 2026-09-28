@@ -265,6 +265,7 @@ namespace MphRead.Mods.Network
         private readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
         private NetTransport? _transport;
         private volatile bool _running;
+        private readonly HostedMapRequests _mapRequests = new();
         private readonly System.Diagnostics.Stopwatch _clock = new();
         private uint _publicAddress;
         private string _publicName = "";
@@ -418,12 +419,13 @@ namespace MphRead.Mods.Network
                 }
                 Expire(now);
                 ReapHosted(now);
+                _mapRequests.Pump(now, (request, sender, time, package) => StartHosted(request, sender, time, package), SendHostReply);
                 // The directory keeps itself current too, and waits on the
                 // matches it is running rather than on the servers it lists:
                 // a listed server re-announces every fifteen seconds, so the
                 // list rebuilds itself within a restart, but a hosted match
                 // lives in this process and a restart ends it.
-                if (Update.ServerUpdate.ShouldRestart(_hosted.Count))
+                if (Update.ServerUpdate.ShouldRestart(_hosted.Count + _mapRequests.ActiveCount))
                 {
                     Log("shutting down to come back on the new build");
                     _running = false;
@@ -440,6 +442,7 @@ namespace MphRead.Mods.Network
                 Thread.Sleep(20);
             }
             Log("shutting down");
+            _mapRequests.Dispose();
             for (int i = _hosted.Count - 1; i >= 0; i--)
             {
                 StopHosted(_hosted[i], "the directory is shutting down");
@@ -518,7 +521,16 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
-                    reply = StartHosted(request, packet.Sender, now);
+                    try
+                    {
+                        if (request.MapIdentity.IsCustom)
+                        {
+                            _mapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
+                            return;
+                        }
+                        reply = StartHosted(request, packet.Sender, now);
+                    }
+                    catch (Exception ex) { reply.Reason = ex.Message; }
                 }
             }
             reply.Write(_scratch);
@@ -530,7 +542,13 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now)
+        private void SendHostReply(IPEndPoint sender, HostReplyPacket reply)
+        {
+            reply.Write(_scratch);
+            _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
+        }
+
+        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now, string? hostedPackage = null)
         {
             // A child can exit between the periodic reap and this packet. Free
             // that reservation before looking for a game port so one stale
@@ -560,7 +578,7 @@ namespace MphRead.Mods.Network
             // not simulate more than one static session, so it promoted the
             // first joining player to authority.
             HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
-                "127.0.0.1", _port, listed: true, ownerToken, out string reason);
+                "127.0.0.1", _port, listed: true, ownerToken, out string reason, hostedPackage);
             if (process == null)
             {
                 return new HostReplyPacket { Reason = reason };
@@ -1221,7 +1239,6 @@ namespace MphRead.Mods.Network
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
-                socket.Client.ReceiveTimeout = timeoutMs;
                 var request = new HostRequestPacket
                 {
                     Protocol = NetConfig.ProtocolVersion,
@@ -1230,7 +1247,7 @@ namespace MphRead.Mods.Network
                     Mode = (byte)mode,
                     TimeLimit = (ushort)Math.Clamp((int)timeLimit, 0, UInt16.MaxValue),
                     PointGoal = (ushort)Math.Clamp(pointGoal, 0, UInt16.MaxValue),
-                    RoomKey = roomKey,
+                    RoomKey = roomKey, MapIdentity = NetworkMapIdentity.ForRoom(roomKey),
                     ServerName = serverName,
                     Policy = policy, AllowJoinInProgress = true, RequireReady = false,
                     Rotation = rotation
@@ -1240,10 +1257,15 @@ namespace MphRead.Mods.Network
                 request.Write(datagram.AsSpan(1));
                 socket.Send(datagram, datagram.Length, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+                int requestTimeout = request.MapIdentity.IsCustom ? Math.Max(timeoutMs, 150_000) : timeoutMs;
+                socket.Client.ReceiveTimeout = request.MapIdentity.IsCustom ? 1000 : timeoutMs;
+                DateTime deadline = DateTime.UtcNow.AddMilliseconds(requestTimeout);
                 while (DateTime.UtcNow < deadline)
                 {
-                    byte[] reply = socket.Receive(ref from);
+                    byte[] reply;
+                    try { reply = socket.Receive(ref from); }
+                    catch (SocketException ex) when (request.MapIdentity.IsCustom && ex.SocketErrorCode == SocketError.TimedOut)
+                    { socket.Send(datagram, datagram.Length, endPoint); continue; }
                     if (reply.Length < 1 + HostReplyPacket.Size
                         || reply[0] != (byte)PacketType.HostReply || !from.Equals(endPoint))
                     {
@@ -1268,7 +1290,7 @@ namespace MphRead.Mods.Network
                     // learned the truth from an eight-second join timeout.
                     // StatusQuery proves the actual game endpoint is answering.
                     var readyClock = System.Diagnostics.Stopwatch.StartNew();
-                    const int readyTimeoutMs = 8_000;
+                    int readyTimeoutMs = request.MapIdentity.IsCustom ? 120_000 : 8_000;
                     while (readyClock.ElapsedMilliseconds < readyTimeoutMs)
                     {
                         int remaining = readyTimeoutMs - (int)readyClock.ElapsedMilliseconds;

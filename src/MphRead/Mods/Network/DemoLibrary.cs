@@ -127,7 +127,7 @@ namespace MphRead.Mods.Network
                     using var reader = DemoReader.Open(path, out ReplayOpenResult result,
                         metadataOnly: true);
                     ReplayMetadata? metadata = reader?.Metadata;
-                    if (reader != null && reader.ProtocolVersion != NetConfig.ProtocolVersion)
+                    if (reader != null && !ReplayIdentityCompatibility.Supports(reader.ProtocolVersion))
                         result = ReplayOpenResult.ProtocolMismatch;
                     uint duration = reader?.FormatVersion == 2
                         && Durations.TryGetValue(path, out var cached)

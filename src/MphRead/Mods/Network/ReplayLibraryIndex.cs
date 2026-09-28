@@ -7,7 +7,7 @@ using System.Runtime.CompilerServices;
 
 namespace MphRead.Mods.Network
 {
-    internal sealed record ReplayLibraryPlayerEntry(byte Slot, byte Hunter, sbyte Team, string Name);
+    internal sealed record ReplayLibraryPlayerEntry(byte Slot, byte Hunter, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0);
 
     internal sealed class ReplayLibraryIndexEntry
     {
@@ -49,7 +49,7 @@ namespace MphRead.Mods.Network
                     BuildId = BuildId,
                     BuildVersion = BuildVersion,
                     Players = Players.Select(p => new ReplayPlayerInfo(
-                        p.Slot, p.Hunter, p.Team, p.Name)).ToArray()
+                        p.Slot, p.Hunter, p.Team, p.Name, p.IsBot, p.BotLevel)).ToArray()
                 };
             }
             DateTime recorded = RecordedUtcTicks > 0
@@ -66,7 +66,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class ReplayLibraryIndex
     {
-        private const int Version = 1;
+        private const int Version = 3; // Re-evaluate legacy protocol compatibility after the identity codec upgrade.
         private sealed class Document
         {
             public int Version { get; set; } = ReplayLibraryIndex.Version;
@@ -153,7 +153,7 @@ namespace MphRead.Mods.Network
                 BuildVersion = metadata?.BuildVersion ?? "",
                 Integrity = metadata?.Integrity ?? ReplayIntegrity.Unknown,
                 Players = metadata?.Players.Select(p => new ReplayLibraryPlayerEntry(
-                    p.Slot, p.Hunter, p.Team, p.Name)).ToList() ?? new()
+                    p.Slot, p.Hunter, p.Team, p.Name, p.IsBot, p.BotLevel)).ToList() ?? new()
             };
             Load().Entries[info.Name] = entry;
             _dirty = true;

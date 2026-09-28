@@ -10,7 +10,25 @@ using MphRead.Mods.MapGen;
 int checks = 0;
 MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
+if (args.Contains("--large-model-benchmark")) { Benchmarks.LargeModels(); return; }
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+if (args.Contains("--community-only"))
+{
+    string fixture = Path.Combine(Path.GetTempPath(), "prime-community-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(fixture);
+    try { await CommunityMapChecks.Run(Check, fixture); }
+    finally { Directory.Delete(fixture, true); }
+    Console.WriteLine($"Community: {checks} checks passed."); return;
+}
+if (args.Contains("--model-import-only"))
+{
+    string fixture = Path.Combine(Path.GetTempPath(), "prime-model-" + Guid.NewGuid().ToString("N"));
+    Directory.CreateDirectory(fixture);
+    try { ModelImportChecks.Run(Check, fixture); ModelReimportChecks.Run(Check, fixture); ModelCollisionChecks.Run(Check, fixture); }
+    finally { Directory.Delete(fixture, true); }
+    Console.WriteLine($"Model import: {checks} checks passed.");
+    return;
+}
 if (args.Contains("--collision-only"))
 {
     CustomCollisionChecks.Run(Check);
@@ -86,6 +104,7 @@ try
         CustomRooms.UserMapDirectory = previousUserMaps;
         CustomRooms.Reload();
     }
+    ModelImportChecks.Run(Check, root); ModelReimportChecks.Run(Check, root); ModelCollisionChecks.Run(Check, root);
     CustomCollisionChecks.Run(Check);
     Q3ImportChecks.Run(Check, root);
     doc.Save(Path.Combine(root, "map.json"));
@@ -859,9 +878,45 @@ try
     Check(MapBuildFingerprint.Create(realDefinition).ContentKey!=beforeAssetChange,"asset content changes fingerprint");
     string package=MapPackageBuilder.Build(realDefinition,Path.Combine(root,"real.ppmap"));
     var importedPackage=MapDefinition.Load(package);
+    var exactIdentity = MapContentIdentity.FromPackage(package);
+    var installedIndex = InstalledMapRegistry.Create(new[] { importedPackage });
+    Check(installedIndex.HasExact(exactIdentity), "installed package indexed by exact identity");
+    string repacked = Path.Combine(root, "altered-archive.ppmap");
+    File.Copy(package, repacked);
+    using (var trailing = new FileStream(repacked, FileMode.Append)) trailing.WriteByte(0);
+    var alteredIdentity = MapContentIdentity.FromPackage(repacked);
+    Check(alteredIdentity.ContentHash == exactIdentity.ContentHash && alteredIdentity.PackageHash != exactIdentity.PackageHash
+        && !installedIndex.HasExact(alteredIdentity), "same contents with changed archive is not exact version");
     Check(importedPackage.FormatVersion==2 && importedPackage.MapId!=Guid.Empty,"legacy project packages with stable upgraded identity");
     var packageResult=await realScheduler.BuildAsync(MapBuildSnapshot.Capture(importedPackage));
     Check(packageResult.Succeeded,"existing ppmap package compiles through scheduler");
+    string stagedLibrary = Path.Combine(root,"staged-library");
+    using(var prepared = await MapPackageInstaller.PrepareAsync(package,exactIdentity))
+    {
+        Check(!Directory.Exists(stagedLibrary),"preparation builds privately without publishing a package");
+        var acquire = typeof(MapRuntimeUsage).GetMethod("AcquirePreparation",System.Reflection.BindingFlags.Static|System.Reflection.BindingFlags.NonPublic)!;
+        using(var reader = (IDisposable)acquire.Invoke(null,new object[] {exactIdentity.RoomKey})!)
+        {
+            bool refused=false; try { prepared.Commit(stagedLibrary); } catch(IOException) {refused=true;}
+            Check(refused && !Directory.Exists(stagedLibrary),"active prewarm blocks package publication");
+        }
+        string oldRuntime = MphRead.Paths.AllPaths[MphRead.Paths.MphKey];
+        try
+        {
+            MphRead.Paths.SetPath(MphRead.Paths.MphKey,Path.Combine(root,"staged-runtime"));
+            var installed = prepared.Commit(stagedLibrary);
+            Check(InstalledMapRegistry.Create(new[] {installed}).HasExact(exactIdentity),"prepared package publishes exact immutable bytes");
+            Check(!CustomRooms.NeedsGenerating(installed),"staged installation publishes validated runtime outputs");
+        }
+        finally { MphRead.Paths.SetPath(MphRead.Paths.MphKey,oldRuntime); }
+    }
+    using(var cancelled = new CancellationTokenSource())
+    {
+        cancelled.Cancel(); bool stopped=false;
+        try { using var ignored=await MapPackageInstaller.PrepareAsync(package,exactIdentity,cancelled.Token); }
+        catch(OperationCanceledException) {stopped=true;}
+        Check(stopped,"cancelled preparation never reaches publication");
+    }
     var changedScheduler=new MapBuildScheduler(Path.Combine(root,"changed-cache"),build:(map,directory)=>
     {
         File.AppendAllText(texturePath,"changed while building");

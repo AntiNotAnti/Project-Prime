@@ -13,7 +13,7 @@ namespace MphRead.Mods.MapEditor
         void FrameSelection();
     }
     public sealed record MapViewportFace(Guid ObjectId, Vector3[] Points, float Shade, int Material, bool Solid,
-        int SourceMaterial = -1);
+        int SourceMaterial = -1, Vector2[]? Texcoords = null, bool CollisionOnly = false);
     public sealed class MapViewportScene
     {
         public List<MapViewportFace> Faces { get; } = new();
@@ -21,13 +21,14 @@ namespace MphRead.Mods.MapEditor
         public static MapViewportScene Create(MapDefinition definition, ISet<Guid>? objectIds = null)
         {
             var scene = new MapViewportScene();
-            void Add(Guid id, IEnumerable<BuiltFace> faces, bool solid)
+            void Add(Guid id, IEnumerable<BuiltFace> faces, bool solid, bool collisionOnly = false)
             {
                 foreach(var face in faces)
                 {
                     var points=new Vector3[face.Points.Length];
                     for(int i=0;i<points.Length;i++) points[i]=new(face.Points[i].X,face.Points[i].Y,face.Points[i].Z);
-                    scene.Faces.Add(new(id,points,face.Shade,face.Material,solid));
+                    scene.Faces.Add(new(id,points,face.Shade,face.Material,solid,face.SourceMaterial,
+                        Array.ConvertAll(face.Texcoords, uv => new Vector2(uv.X,uv.Y)), collisionOnly));
                 }
             }
             foreach(var b in definition.Brushes)
@@ -39,7 +40,7 @@ namespace MphRead.Mods.MapEditor
             foreach(var g in definition.Geometry)
             {
                 if(g.Hidden || (objectIds != null && !objectIds.Contains(g.Id))) continue;
-                try { Add(g.Id,GeometryCompiler.Compile(g,g.Material>=0&&g.Material<definition.Materials.Count?definition.Materials[g.Material].TexScale:16),g.Solid); }
+                try { Add(g.Id,GeometryCompiler.Compile(g,g.Material>=0&&g.Material<definition.Materials.Count?definition.Materials[g.Material].TexScale:16),g.Solid,g is MapMesh { CollisionOnly: true }); }
                 catch(MapAuthoringException) { /* Invalid objects remain selectable in the hierarchy. */ }
             }
             return scene;

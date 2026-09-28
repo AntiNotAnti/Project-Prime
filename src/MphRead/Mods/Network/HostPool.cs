@@ -84,7 +84,7 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// Start a match for somebody, and say where it is listening.
         /// </summary>
-        public HostReplyPacket Start(HostRequestPacket request, IPEndPoint asker, double now)
+        public HostReplyPacket Start(HostRequestPacket request, IPEndPoint asker, double now, string? hostedPackage = null)
         {
             // A child can die between regular server-loop reaps and this
             // request. Drop those dead reservations before choosing a port so
@@ -114,7 +114,7 @@ namespace MphRead.Mods.Network
             HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
                 reporter?.Host ?? NetMasterConfig.DefaultHost,
                 reporter?.Port ?? NetMasterConfig.DefaultPort,
-                listed: reporter != null, ownerToken, out string reason);
+                listed: reporter != null, ownerToken, out string reason, hostedPackage);
             if (process == null)
             {
                 return new HostReplyPacket { Reason = reason };

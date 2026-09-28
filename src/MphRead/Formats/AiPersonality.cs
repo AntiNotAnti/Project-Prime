@@ -22,63 +22,65 @@ namespace MphRead.Formats
 
         public static void LoadAll(GameMode mode)
         {
-            for (int i = 0; i < PlayerEntity.Players.Count; i++)
+            foreach (PlayerEntity player in PlayerEntity.Players) Load(player, mode);
+        }
+
+        // Dynamic server slots need their own personality without resetting other active AI.
+        public static void Load(PlayerEntity player, GameMode mode)
+        {
+            player.AiData.Reset();
+            if (!player.IsBot)
             {
-                PlayerEntity player = PlayerEntity.Players[i];
-                player.AiData.Reset();
-                if (!player.IsBot)
+                return;
+            }
+            int aiOffset = 32896; // default, Battle, BattleTeams
+            if (mode == GameMode.SinglePlayer)
+            {
+                int encounterState = GameState.EncounterState[player.SlotIndex];
+                if (player.Hunter == Hunter.Guardian)
                 {
-                    continue;
+                    aiOffset = encounterState == 2 ? 32932 : 13480;
                 }
-                int aiOffset = 32896; // default, Battle, BattleTeams
-                if (mode == GameMode.SinglePlayer)
+                else
                 {
-                    int encounterState = GameState.EncounterState[i];
-                    if (player.Hunter == Hunter.Guardian)
+                    if (encounterState == 2)
                     {
-                        aiOffset = encounterState == 2 ? 32932 : 13480;
+                        aiOffset = 33232;
                     }
                     else
                     {
-                        if (encounterState == 2)
+                        int index = encounterState switch
                         {
-                            aiOffset = 33232;
-                        }
-                        else
-                        {
-                            int index = encounterState switch
-                            {
-                                1 => 1,
-                                3 => 2,
-                                4 => 3,
-                                _ => 0
-                            };
-                            // todo?: if replacing enemy hunters, consider loading the offset belonging to the one replaced
-                            aiOffset = _encounterAiOffsets[index][(int)player.Hunter];
-                        }
-                        player.AiData.Flags1 = true;
+                            1 => 1,
+                            3 => 2,
+                            4 => 3,
+                            _ => 0
+                        };
+                        // todo?: if replacing enemy hunters, consider loading the offset belonging to the one replaced
+                        aiOffset = _encounterAiOffsets[index][(int)player.Hunter];
                     }
+                    player.AiData.Flags1 = true;
                 }
-                else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
-                {
-                    aiOffset = 45696;
-                }
-                else if (mode == GameMode.Capture
-                    || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
-                {
-                    aiOffset = 32968;
-                }
-                else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams
-                    || mode == GameMode.Defender || mode == GameMode.DefenderTeams)
-                {
-                    aiOffset = 33012;
-                }
-                else if (mode == GameMode.PrimeHunter)
-                {
-                    aiOffset = 45220;
-                }
-                player.AiData.Personality = LoadData(aiOffset);
             }
+            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            {
+                aiOffset = 45696;
+            }
+            else if (mode == GameMode.Capture
+                || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            {
+                aiOffset = 32968;
+            }
+            else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams
+                || mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            {
+                aiOffset = 33012;
+            }
+            else if (mode == GameMode.PrimeHunter)
+            {
+                aiOffset = 45220;
+            }
+            player.AiData.Personality = LoadData(aiOffset);
         }
 
         private static string _cachedVersion = "";

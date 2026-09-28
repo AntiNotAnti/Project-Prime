@@ -70,6 +70,8 @@ namespace MphRead.Mods.Network
             // And the ice wave's reach, for the same reason: a client that
             // switched the glitch off on its own would still be frozen through
             // the floor by a server that had not.
+            if ((GameMode)state.Mode == GameMode.InstaGib)
+            { GameState.Mode = GameMode.Battle; GameState.InstaGib = true; }
             GameState.ShadowFreeze = state.ShadowFreeze;
             // Spawn protection is also carried in MatchState so a reordered or
             // late SessionState cannot leave a client on the wrong rule for

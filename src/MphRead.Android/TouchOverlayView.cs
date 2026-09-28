@@ -92,6 +92,17 @@ namespace MphRead.Droid
                 // cannot reach are worse than no buttons.
                 return;
             }
+            if (MphRead.Mods.Chat.ChatBox.Composing)
+            {
+                float cell = Width / 4f;
+                _fill.Color = _panel;
+                canvas.DrawRect(0, 0, Width, 56 * (Resources?.DisplayMetrics?.Density ?? 1f), _fill);
+                _text.Color = _label;
+                _text.TextSize = 14 * (Resources?.DisplayMetrics?.Density ?? 1f);
+                string[] labels = { MphRead.Mods.Chat.ChatBox.HistoryOpen ? "CLOSE HISTORY" : "HISTORY", "NEWEST", "SEND", "CANCEL" };
+                for (int i = 0; i < labels.Length; i++) canvas.DrawText(labels[i], cell * (i + .5f), _text.TextSize * 2, _text);
+                return;
+            }
             if (_controls.PadDriving)
             {
                 // A pad is being held: nothing is drawn, and the view stays
@@ -133,6 +144,9 @@ namespace MphRead.Droid
             }
         }
 
+        private float _historyTouchY;
+        private int _historyPointer = -1;
+
         public override bool OnTouchEvent(MotionEvent? e)
         {
             if (e == null)
@@ -146,6 +160,40 @@ namespace MphRead.Droid
                 // The desktop says the same thing by releasing the cursor for
                 // as long as the panel is drawn.
                 return HandUp(surface, e);
+            }
+            if (MphRead.Mods.Chat.ChatBox.Composing)
+            {
+                _controls.ReleaseEverything();
+                if (e.ActionMasked == MotionEventActions.Down)
+                {
+                    _historyTouchY = e.GetY();
+                    _historyPointer = e.GetPointerId(0);
+                    if (_historyTouchY < 56 * (Resources?.DisplayMetrics?.Density ?? 1f))
+                    {
+                        switch (Math.Clamp((int)(e.GetX() / Math.Max(1, Width / 4f)), 0, 3))
+                        {
+                            case 0: MphRead.Mods.Chat.ChatBox.ToggleHistory(); break;
+                            case 1: MphRead.Mods.Chat.ChatBox.JumpHistoryNewest(); break;
+                            case 2: MphRead.Mods.Chat.ChatBox.Submit(); break;
+                            case 3: MphRead.Mods.Chat.ChatBox.Cancel(); break;
+                        }
+                        _historyPointer = -1;
+                    }
+                }
+                else if (e.ActionMasked == MotionEventActions.Move && _historyPointer >= 0)
+                {
+                    int index = e.FindPointerIndex(_historyPointer);
+                    if (index >= 0)
+                    {
+                        float step = 20 * (Resources?.DisplayMetrics?.Density ?? 1f);
+                        int lines = (int)((e.GetY(index) - _historyTouchY) / step);
+                        MphRead.Mods.Chat.ChatBox.ScrollHistory(lines);
+                        _historyTouchY += lines * step;
+                    }
+                }
+                else if (e.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel) _historyPointer = -1;
+                InvalidateNextFrame();
+                return true;
             }
             bool redraw = false;
             switch (e.ActionMasked)

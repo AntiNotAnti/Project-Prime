@@ -125,7 +125,7 @@ namespace MphRead.Mods.Network
             RosterPacket roster = NetSession.LobbyRoster();
             for (int i = 0; i < roster.Count; i++)
             {
-                players.Add(new(roster.Slots[i], roster.Hunters[i], roster.Teams[i], roster.Names[i]));
+                players.Add(new(roster.Slots[i], roster.Hunters[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i]));
             }
             byte[] rosterBytes = new byte[1 + RosterPacket.Size];
             rosterBytes[0] = (byte)PacketType.Roster; roster.Write(rosterBytes.AsSpan(1));
@@ -143,6 +143,15 @@ namespace MphRead.Mods.Network
                 Type = type, RoomKey = room, Mode = (GameMode)(match?.Mode ?? 0), MapHash = _mapHash,
                 Players = players, Bootstrap = new ReplayBootstrap { Packets = packets }
             };
+        }
+
+        internal static void AcceptedChat(ChatPacket chat)
+        {
+            if (DemoPlayback.IsActive || !Recorder.HasMatch) return;
+            Span<byte> bytes = stackalloc byte[1 + ChatPacket.Size];
+            bytes[0] = (byte)PacketType.Chat;
+            chat.Write(bytes[1..]);
+            Recorder.AcceptChat(bytes, NetSession.NetFrame);
         }
 
         internal static void AcceptedCosmetics()
@@ -220,14 +229,14 @@ namespace MphRead.Mods.Network
             { world.EndCause = previous.EndCause; world.EndingKill = previous.EndingKill; return; }
             world.EndCause = ReplayEndCause.Other;
             if (scene.GameState.ForceEndGame) return;
-            bool combat = scene.GameState.Mode is GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib
+            bool combat = scene.GameState.Mode is GameMode.Battle or GameMode.BattleTeams
                 or GameMode.Survival or GameMode.SurvivalTeams;
             if (combat && _authorityKill is { } kill && kill.MatchId == world.MatchId && kill.AuthorityEpoch == world.Epoch
                 && world.Tick >= kill.ServerTick && world.Tick - kill.ServerTick <= 1
                 && (!scene.GameState.Teams || scene.Players.Items[kill.KillerSlot].TeamIndex != scene.Players.Items[kill.VictimSlot].TeamIndex)
                 && (scene.GameState.Mode is GameMode.Survival or GameMode.SurvivalTeams
                     && scene.GameState.TeamDeaths[scene.Players.Items[kill.VictimSlot].TeamIndex] > scene.GameState.PointGoal
-                    || scene.GameState.Mode is GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib
+                    || scene.GameState.Mode is GameMode.Battle or GameMode.BattleTeams
                     && scene.GameState.TeamPoints[scene.Players.Items[kill.KillerSlot].TeamIndex] >= scene.GameState.PointGoal))
             { world.EndCause = ReplayEndCause.Kill; world.EndingKill = kill; }
             else if (LatestAuthorityWorld is { Phase: MatchState.InProgress, MatchTime: > 0 and <= 0.12f })

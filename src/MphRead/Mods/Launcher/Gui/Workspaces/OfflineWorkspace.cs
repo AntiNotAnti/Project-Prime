@@ -26,7 +26,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _settings = settings; _rooms = rooms; _overlays = overlays;
             _room = rooms.Contains(settings.RoomKey) ? settings.RoomKey : rooms.FirstOrDefault() ?? "";
-            var names = Enumerable.Range(0, Hunters.Playable).Select(i => ((Hunter)i).ToString()).Append("Random").ToArray();
+            var names = Multiplayer.HunterRules.Pool(settings.LowTier == "on").Select(h => h.ToString()).Append("Random").ToArray();
             _hunter = new ChoiceRow("Hunter", names, Math.Max(0, Array.IndexOf(names, LauncherPrefs.LastHunter.ToString())));
             _suit = new ChoiceRow("Suit", new[] { "1", "2", "3", "4" }, Math.Clamp(LauncherPrefs.LastColor, 0, 3));
             _mode = new ChoiceRow("Mode", OfflineLaunch.Modes.Select(m => m.Label).ToArray());
@@ -131,12 +131,17 @@ namespace MphRead.Mods.Launcher.Gui
             var fire = new ToggleRow("Friendly fire", _settings.FriendlyFire == "on");
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
-            var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection != "off");
+            var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
+            var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
+            var lowTier = new ToggleRow("Low Tier", _settings.LowTier == "on");
+            var noImperialist = new ToggleRow("No Imp", _settings.NoImperialist == "on");
+            instaGib.Changed += (_, _) => { if (instaGib.On) noImperialist.On = false; };
+            noImperialist.Changed += (_, _) => { if (noImperialist.On) instaGib.On = false; };
             var radar = new ToggleRow("Hunter radar", _settings.HunterRadar == "on");
             var damage = new ChoiceRow("Damage", new[] { "low", "medium", "high" }, _settings.DamageLevel == "low" ? 0 : _settings.DamageLevel == "high" ? 2 : 1);
             var error = PrimeChrome.Text("", 12, PrimeTheme.DangerBrush);
             _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("ENGAGEMENT PROTOCOL"),
-                score, time, objective, damage, fire, affinity, freeze, spawnProtection, radar, error,
+                score, time, objective, damage, fire, instaGib, lowTier, noImperialist, affinity, freeze, spawnProtection, radar, error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
@@ -148,6 +153,9 @@ namespace MphRead.Mods.Launcher.Gui
                     // so the first match saw the edit and the next reload restored 7:00/7.
                     // Treat APPLY RULES like the main settings screen: persist first, then
                     // keep the runtime settings facade in sync with the committed values.
+                    string oldInstaGib = _settings.InstaGib;
+                    string oldLowTier = _settings.LowTier;
+                    string oldNoImperialist = _settings.NoImperialist;
                     string oldPointGoal = _settings.PointGoal;
                     string oldTimeLimit = _settings.TimeLimit;
                     string oldTimeGoal = _settings.TimeGoal;
@@ -157,6 +165,9 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldSpawnProtection = _settings.SpawnProtection;
                     string oldHunterRadar = _settings.HunterRadar;
                     string oldDamageLevel = _settings.DamageLevel;
+                    _settings.InstaGib = instaGib.On ? "on" : "off";
+                    _settings.LowTier = lowTier.On ? "on" : "off";
+                    _settings.NoImperialist = noImperialist.On ? "on" : "off";
                     _settings.PointGoal = score.Value;
                     _settings.TimeLimit = time.Value;
                     _settings.TimeGoal = objective.Value;
@@ -175,6 +186,9 @@ namespace MphRead.Mods.Launcher.Gui
                         // Do not leave a one-match-only in-memory configuration behind if
                         // the disk write fails. The error stays in this sheet so the player
                         // can retry or cancel without silently diverging from settings.json.
+                        _settings.InstaGib = oldInstaGib;
+                        _settings.LowTier = oldLowTier;
+                        _settings.NoImperialist = oldNoImperialist;
                         _settings.PointGoal = oldPointGoal;
                         _settings.TimeLimit = oldTimeLimit;
                         _settings.TimeGoal = oldTimeGoal;
@@ -188,6 +202,9 @@ namespace MphRead.Mods.Launcher.Gui
                         return;
                     }
                     Mods.GameSettings.Apply(_settings);
+                    var selected = Multiplayer.HunterRules.Sanitize(SelectedHunter(), lowTier.On);
+                    var names = Multiplayer.HunterRules.Pool(lowTier.On).Select(h => h.ToString()).Append("Random").ToArray();
+                    _hunter.SetItems(names, Array.IndexOf(names, selected.ToString()));
                     _overlays.Close();
                 }, true)))), PrimeModalSize.Medium);
         }

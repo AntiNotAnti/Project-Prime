@@ -20,6 +20,11 @@ namespace MphRead.Mods.MapGen
         public string ContentHash { get; set; } = "";
         public string Project { get; set; } = "project.json";
         public string? Preview { get; set; }
+        public int MinimumProtocol { get; set; }
+        public string? MinimumGameVersion { get; set; }
+        public string[] SupportedModes { get; set; } = Array.Empty<string>();
+        public int MinPlayers { get; set; } = 1;
+        public int MaxPlayers { get; set; } = 8;
     }
 
     public sealed class MapPackageReader : IDisposable
@@ -60,6 +65,12 @@ namespace MphRead.Mods.MapGen
                     if (Manifest.Format != 2 || Manifest.MapId == Guid.Empty || !MapValidator.ValidRuntimeName(Manifest.Name)
                         || Manifest.Project != "project.json" || Manifest.ContentHash?.Length != 64)
                         throw new InvalidDataException("Invalid package manifest or identity.");
+                    if (Manifest.MinimumProtocol < 0 || Manifest.MinimumProtocol > Network.NetConfig.ProtocolVersion)
+                        throw new InvalidDataException("This map requires a newer network protocol.");
+                    if (Manifest.MinimumGameVersion?.Length > 64 || Manifest.SupportedModes == null || Manifest.SupportedModes.Length > 32
+                        || Manifest.SupportedModes.Any(m => m == null || !Enum.TryParse<GameMode>(m, out var mode) || !Enum.IsDefined(mode))
+                        || Manifest.MinPlayers < 1 || Manifest.MaxPlayers > 8 || Manifest.MinPlayers > Manifest.MaxPlayers)
+                        throw new InvalidDataException("Invalid map compatibility metadata.");
                     ProjectEntry = Manifest.Project;
                     if (_entries.Keys.Count(n => n.EndsWith(".json", StringComparison.OrdinalIgnoreCase)) != 2)
                         throw new InvalidDataException("Package must have exactly one manifest and one project.");

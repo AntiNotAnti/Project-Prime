@@ -53,7 +53,7 @@ namespace MphRead
                 FriendlyFire = FriendlyFire, PointGoal = PointGoal, TimeGoal = TimeGoal,
                 OctolithReset = OctolithReset, RadarPlayers = RadarPlayers,
                 AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
-                SpawnProtection = SpawnProtection
+                SpawnProtection = SpawnProtection, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
             };
             Nicknames.CopyTo(state.Nicknames, 0);
             return state;
@@ -145,7 +145,10 @@ namespace MphRead
         /// for the first three seconds of the life. Firing a real shot clears
         /// the player's timer immediately; see PlayerEntity.TryFireWeapon.
         /// </summary>
-        public bool SpawnProtection { get; set; } = true;
+        public bool SpawnProtection { get; set; }
+        public bool InstaGib { get; set; }
+        public bool LowTier { get; set; }
+        public bool NoImperialist { get; set; }
 
         /// <summary>
         /// Whether the Judicator's ice wave keeps the cartridge's own reach.
@@ -165,7 +168,7 @@ namespace MphRead
         /// about this would be two clients playing different games. The
         /// server holds it and broadcasts it in the match state.
         /// </summary>
-        public bool ShadowFreeze { get; set; } = true;
+        public bool ShadowFreeze { get; set; } = false;
 
         public float MatchTime { get; set; } = -1;
         public bool ForceEndGame { get; set; } = false;
@@ -288,7 +291,7 @@ namespace MphRead
             // this to null, which left SinglePlayer with no handler and made
             // the first gameplay frame crash at ModeState(scene).
             ModeState = ModeStateAdventure;
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.InstaGib)
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams)
             {
                 PointGoal = 7;
                 MatchTime = 7 * 60;
@@ -1282,7 +1285,7 @@ namespace MphRead
                     Time[i] = TeamTime[player.TeamIndex];
                 }
             }
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.InstaGib || Mode == GameMode.Capture || Mode == GameMode.Bounty
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.Capture || Mode == GameMode.Bounty
                 || Mode == GameMode.BountyTeams || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
             {
                 int teamPoints = TeamPoints[_players.Main.TeamIndex];
@@ -1352,7 +1355,7 @@ namespace MphRead
             int deaths2 = Deaths[slot2];
             int kills1 = Kills[slot1];
             int kills2 = Kills[slot2];
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.InstaGib)
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams)
             {
                 if (points1 == points2 && deaths1 == deaths2)
                 {
@@ -1578,15 +1581,24 @@ namespace MphRead
         public StorySave ReadSave()
         {
             StorySave? save = null;
+            bool fileExists = false;
             if (Menu.SaveSlot != 0)
             {
                 string path = GetSavePath(Menu.SaveSlot);
-                if (File.Exists(path))
+                fileExists = File.Exists(path);
+                if (fileExists)
                 {
                     save = JsonSerializer.Deserialize<StorySave>(File.ReadAllText(path), _jsonOpt);
                 }
             }
-            return save ?? new StorySave();
+            StorySave result = save ?? new StorySave();
+            if (DebugLog.Active)
+            {
+                DebugLog.Line("save", fileExists
+                    ? $"read slot {Menu.SaveSlot}: artifacts=0x{result.Artifacts:X8} checkpoint room={result.CheckpointRoomId}"
+                    : $"read slot {Menu.SaveSlot}: no file, new game");
+            }
+            return result;
         }
 
         /// <summary>True when that slot has a game in it.</summary>
@@ -1646,6 +1658,11 @@ namespace MphRead
                 }
             }
             File.WriteAllText(GetSavePath(Menu.SaveSlot), JsonSerializer.Serialize(StorySave, _jsonOpt));
+            if (DebugLog.Active)
+            {
+                DebugLog.Line("save", $"wrote slot {Menu.SaveSlot}: artifacts=0x{StorySave.Artifacts:X8} "
+                    + $"checkpoint room={StorySave.CheckpointRoomId}");
+            }
         }
 
         internal sealed class ByteArrayConverter : JsonConverter<byte[]>
@@ -1813,7 +1830,7 @@ namespace MphRead
             // Back to the cartridge's behaviour, like every other rule here
             // goes back to its own default: a match that has not said
             // otherwise is the game as the DS played it.
-            ShadowFreeze = true;
+            ShadowFreeze = false;
             MatchTime = -1;
             PlayerEntity.Reset();
             CamSeqEntity.Current = null;

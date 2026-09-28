@@ -731,7 +731,29 @@ namespace MphRead.Entities
                 && _scene.PlayerReplication.AimTrusted(SlotIndex))
             {
                 ModSetAim(recorded.Aim);
+                ModRefreshObservedAimBasis();
             }
+        }
+
+        internal void ModTranslateReplayPresentation(Vector3 delta)
+        {
+            // Accepted snapshots are applied after the replica movement/camera
+            // step. Carry its camera and viewmodel along with the corrected body
+            // before capturing interpolation history.
+            CameraInfo.Position += delta;
+            CameraInfo.Target += delta;
+            CameraInfo.PrevPosition += delta;
+            _gunDrawPos += delta;
+        }
+
+        internal void ModRefreshObservedAimBasis()
+        {
+            // Movement built these vectors before the replicated facing correction.
+            // Rebuild the gun basis without running movement or camera timers again.
+            Vector3 right = new(_facingVector.Z, 0, -_facingVector.X);
+            if (right.LengthSquared <= 0.000001f) return;
+            _gunVec2 = right.Normalized();
+            _upVector = Vector3.Cross(_facingVector, _gunVec2).Normalized();
         }
 
         /// <summary>
@@ -1312,6 +1334,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetHunter(Hunter hunter)
         {
+            if (_scene.GameState.Multiplayer) hunter = Mods.Multiplayer.HunterRules.Sanitize(hunter, _scene.GameState.LowTier);
             if (hunter != Hunter)
             {
                 // Sylux's three bomb slots and the count that indexes them
@@ -1477,6 +1500,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetWeapon(BeamType weapon)
         {
+            if (!Mods.Multiplayer.WeaponResourceRules.AllowsBeam(weapon, _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return;
             if (weapon == CurrentWeapon || weapon < BeamType.PowerBeam
                 || weapon > BeamType.OmegaCannon)
             {

@@ -839,8 +839,10 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             Mods.Network.NetHooks.AfterRemoteMovement(this);
-            UpdateCamera();
+            // Refresh replicated facing before building the camera and weapon.
+            // Doing this after UpdateCamera mixed two aim samples in one POV.
             ModRefreshNetworkAim();
+            UpdateCamera();
             UpdateAimVecs();
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
             {
@@ -2721,11 +2723,13 @@ namespace MphRead.Entities
             for (int i = 0; i < players.Items.Count; i++)
             {
                 PlayerEntity player = players.Items[i];
-                if (player.IsBot)
+                if (player.IsBot && !player.SceneServices.IsReplica
+                    && (!Mods.Network.NetSession.Active || Mods.Network.NetSession.IsAuthority))
                 {
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))
                     {
                         player.AiData.ProcessInput();
+                        Mods.Network.NetBotInput.Capture(player);
                     }
                     continue;
                 }

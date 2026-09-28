@@ -68,6 +68,10 @@ namespace MphRead.Mods.Network
             /// </summary>
             public bool PostMatchReady;
             public bool MatchReady, SceneLoaded;
+            public NetworkMapIdentity PreparedMap;
+            public MapAvailabilityState MapAvailability;
+            public double LastMapAvailability = double.NegativeInfinity;
+            public uint LastMapAvailabilitySequence;
             public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
             public readonly int[] BootstrapLengths = new int[3];
             public int BootstrapLength;
@@ -316,18 +320,19 @@ namespace MphRead.Mods.Network
         public bool AffinityWeapons { get; set; }
 
         /// <summary>
-        /// Whether the shadow freeze glitch is allowed here. On by default,
-        /// because it is what the cartridge does and a server that quietly
-        /// changed the game would be a surprising one; <c>-noshadowfreeze</c>
-        /// turns it off for the room. See GameState.ShadowFreeze.
+        /// Whether the shadow freeze glitch is allowed here. Off by default;
+        /// <c>-shadowfreeze</c> enables it. See GameState.ShadowFreeze.
         /// </summary>
-        public bool ShadowFreeze { get; set; } = true;
+        public bool ShadowFreeze { get; set; } = false;
 
         /// <summary>
         /// Whether players receive the three-second spawn protection rule.
-        /// Enabled by default; lobby matches may override it per match.
+        /// Off by default; lobby matches may enable it per match.
         /// </summary>
-        public bool SpawnProtection { get; set; } = true;
+        public bool SpawnProtection { get; set; } = false;
+        public bool InstaGib { get; set; }
+        public bool LowTier { get; set; }
+        public bool NoImperialist { get; set; }
 
         /// <summary>
         /// Whether this server keeps itself on the newest release.
@@ -355,8 +360,11 @@ namespace MphRead.Mods.Network
         /// passed <c>-hostports</c>. See <see cref="HostPool"/>.
         /// </summary>
         public HostPool Hosts { get; }
+        private readonly HostedMapRequests _hostMapRequests = new();
 
         /// <summary>True when this server is the match's simulation authority.</summary>
+        public string MapDownloadSource { get; set; } = NetworkMapIdentity.ConfiguredDownloadSource();
+
         public bool Simulating => _sim != null && _sim.Running;
 
         public DedicatedServer(int port = NetConfig.DefaultPort, int maxPlayers = 4,
@@ -396,7 +404,12 @@ namespace MphRead.Mods.Network
                 ServerReplayRecorder.Configure(ReplayPolicy);
                 CareerReportOutbox.Start();
             }
+            if (!_controlPlaneOnlyForTests)
+                foreach (var entry in _rotation.Entries) NetworkMapIdentity.StageRoom(entry.RoomKey);
             _lobbyMatch = DefinitionFor(_rotation.Current);
+            if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
+                throw new InvalidOperationException(ruleError);
+            if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
             _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
             if (_phase == SessionPhase.Lobby && !_controlPlaneOnlyForTests)
                 Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
@@ -530,6 +543,7 @@ namespace MphRead.Mods.Network
                     // that ended on Tuesday is a port nobody can use until
                     // somebody notices.
                     Hosts.Reap(now);
+                    _hostMapRequests.Pump(now, (request, sender, time, package) => Hosts.Start(request, sender, time, package), SendHostReply);
                     // Newest release, checked on a timer and applied the
                     // moment there is nobody to interrupt. It says yes at most
                     // once, and only with an empty server, so a busy one keeps
@@ -539,7 +553,7 @@ namespace MphRead.Mods.Network
                     // server processes tracked by Hosts, and restarting this parent
                     // would tear those children down while people are playing.
                     if (AutoUpdate
-                        && Update.ServerUpdate.ShouldRestart(_peers.Count + Hosts.Count))
+                        && Update.ServerUpdate.ShouldRestart(_peers.Count + Hosts.Count + _hostMapRequests.ActiveCount))
                     {
                         Log("shutting down to come back on the new build");
                         _running = false;
@@ -650,6 +664,7 @@ namespace MphRead.Mods.Network
         {
             Telemetry.ProductionTelemetry.Shutdown();
             Log("shutting down");
+            _hostMapRequests.Dispose();
             Hosts.StopAll("the server is shutting down");
             _running = false;
             try
@@ -716,6 +731,16 @@ namespace MphRead.Mods.Network
         {
             ServerReplayRecorder.Stop(matchEnded: true);
             RotationEntry entry = _rotation.Advance();
+            NetworkMapIdentity.StageRoom(entry.RoomKey);
+            var next = DefinitionFor(entry);
+            if (next.MapIdentity.IsCustom)
+            {
+                // A custom-map transition must first tear down client scenes and synchronize in a lobby.
+                _sessionPolicy = ServerSessionPolicy.Lobby;
+                if (_lobbyOwnerClientId == 0 && _peers.Count > 0) _lobbyOwnerClientId = _peers[0].ClientId;
+                EnterLobby(next);
+                return;
+            }
             NormalizeTeams();
             CancelMapVote(now);
             foreach (Peer peer in _peers) peer.PostMatchReady = false;
@@ -737,11 +762,11 @@ namespace MphRead.Mods.Network
                     ? 0
                     : Math.Max(0, entry.TimeLimitSeconds - elapsed),
                 TimeElapsed = elapsed,
-                PlayerCount = (byte)_peers.Count,
+                PlayerCount = (byte)OccupiedSlotCount,
                 Flags = (byte)((ending ? MatchStatePacket.FlagEnding : MatchStatePacket.FlagInProgress)
                     | (entry.FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0)
-                    | (entry.ShadowFreeze ? 0 : MatchStatePacket.FlagNoShadowFreeze)
-                    | (entry.SpawnProtection ? 0 : MatchStatePacket.FlagNoSpawnProtection)
+                    | (entry.ShadowFreeze ? MatchStatePacket.FlagShadowFreeze : 0)
+                    | (entry.SpawnProtection ? MatchStatePacket.FlagSpawnProtection : 0)
                     | MatchStatePacket.RuleFlags(DamageLevel, entry.AffinityWeapons)),
                 PointGoal = entry.PointGoal,
                 MatchId = _matchId,
@@ -791,13 +816,12 @@ namespace MphRead.Mods.Network
             report.MatchId = _matchId;
             var added = new bool[PlayerEntity.SlotCapacity];
 
-            void AddPeer(Peer peer)
+            void AddParticipant(int slot, sbyte team, string name)
             {
                 if (report.Count >= PostMatchReportPacket.MaxEntries)
                 {
                     return;
                 }
-                int slot = peer.SlotIndex;
                 if ((uint)slot >= PlayerEntity.SlotCapacity || added[slot])
                 {
                     return;
@@ -806,7 +830,7 @@ namespace MphRead.Mods.Network
                 int at = report.Count;
                 report.Slots[at] = (byte)slot;
                 report.Generations[at] = _slotGenerations[slot];
-                report.Teams[at] = (sbyte)Math.Clamp((int)peer.TeamIndex, -1, PlayerEntity.SlotCapacity - 1);
+                report.Teams[at] = (sbyte)Math.Clamp((int)team, -1, PlayerEntity.SlotCapacity - 1);
                 report.Kills[at] = (ushort)Math.Clamp(GameState.Kills[slot], 0, UInt16.MaxValue);
                 report.Deaths[at] = (ushort)Math.Clamp(GameState.Deaths[slot], 0, UInt16.MaxValue);
                 report.Headshots[at] = (ushort)Math.Clamp(GameState.HeadshotKills[slot], 0, UInt16.MaxValue);
@@ -816,7 +840,7 @@ namespace MphRead.Mods.Network
                 report.ShotsHit[at] = (uint)Math.Max(0, GameState.ShotsHit[slot]);
                 report.DamageDealt[at] = (uint)Math.Max(0, GameState.MatchDamageDealt[slot]);
                 report.DamageTaken[at] = (uint)Math.Max(0, GameState.MatchDamageTaken[slot]);
-                report.Names[at] = peer.Name.Length > 0 ? peer.Name : $"Player{slot + 1}";
+                report.Names[at] = name.Length > 0 ? name : $"Player{slot + 1}";
                 report.Count++;
                 added[slot] = true;
             }
@@ -828,16 +852,17 @@ namespace MphRead.Mods.Network
                 {
                     if (_peers[p].SlotIndex == slot)
                     {
-                        AddPeer(_peers[p]);
+                        AddParticipant(_peers[p].SlotIndex, _peers[p].TeamIndex, _peers[p].Name);
                         break;
                     }
                 }
             }
             for (int p = 0; p < _peers.Count; p++)
             {
-                AddPeer(_peers[p]);
+                AddParticipant(_peers[p].SlotIndex, _peers[p].TeamIndex, _peers[p].Name);
             }
 
+            foreach (var bot in _bots) AddParticipant(bot.SlotIndex, bot.TeamIndex, bot.Name);
             report.Write(_scratch);
             for (int i = 0; i < _peers.Count; i++)
             {
@@ -894,6 +919,7 @@ namespace MphRead.Mods.Network
                 throw new ProgramException($"the server could not load \"{entry.RoomKey}\"");
             }
             _sim = sim;
+            NetBotInput.Sink = BroadcastBotIntent;
             _transport?.ResetContentionStats();
             Telemetry.ProductionTelemetry.Begin(entry.RoomKey, entry.Mode.ToString(), _maxPlayers);
             Array.Clear(_studyAdmissions); _studyAdmissionHead = 0;
@@ -966,8 +992,8 @@ namespace MphRead.Mods.Network
                 var players = new List<ReplayPlayerInfo>(roster.Count);
                 for (int i = 0; i < roster.Count; i++)
                 {
-                    players.Add(new ReplayPlayerInfo(roster.Slots[i], roster.Hunters[i], -1,
-                        roster.Names[i]));
+                    players.Add(new ReplayPlayerInfo(roster.Slots[i], roster.Hunters[i], roster.Teams[i],
+                        roster.Names[i], roster.IsBot(i), roster.BotLevels[i]));
                 }
 
                 var metadata = new ReplayMetadata
@@ -1036,6 +1062,7 @@ namespace MphRead.Mods.Network
                     }
                     break;
                 case PacketType.WorldReady: HandleWorldReady(packet, now); break;
+                case PacketType.MapAvailability: HandleMapAvailability(packet, now); break;
                 case PacketType.MatchLoaded: HandleMatchLoaded(packet, now); break;
                 case PacketType.MatchLoadFailed: HandleMatchLoadFailed(packet); break;
                 case PacketType.MatchLoadProgress: HandleMatchLoadProgress(packet, now); break;
@@ -1284,8 +1311,8 @@ namespace MphRead.Mods.Network
                 string who = peer.Name.Length > 0 ? peer.Name : $"Player{peer.SlotIndex + 1}";
                 string choice = PostMatchChoice.IsReturnToLobby(key)
                     ? "to return to the lobby" : $"{key} next";
-                Announce($"{who} wants {choice} -- pick it to agree; "
-                    + "the choice with the most votes wins");
+                Announce($"wants {choice} -- pick it to agree; "
+                    + "the choice with the most votes wins", who);
             }
             else if (key.Length == 0 && was.Length > 0)
             {
@@ -1512,7 +1539,7 @@ namespace MphRead.Mods.Network
             // they think of it, and making them press the key as well is a
             // vote that can fail 0-0.
             peer.Ballot = VotePacket.KindYes;
-            Announce($"{_voteProposer} proposes {resolved} -- F1 to accept, F2 to deny");
+            Announce($"proposes {resolved} -- F1 to accept, F2 to deny", _voteProposer);
             Log($"vote started by slot {peer.SlotIndex} for {resolved} ({_voteMode})");
             BroadcastVoteState(now);
             Tally(now);
@@ -1811,6 +1838,7 @@ namespace MphRead.Mods.Network
                         _scratch.AsSpan(0, ChatPacket.Size));
                 }
             }
+            ReplayCapture.AcceptedChat(chat);
             Log($"chat {chat.Name}: {chat.Text}");
         }
 
@@ -1822,7 +1850,7 @@ namespace MphRead.Mods.Network
         /// notice attributed to a player reads as that player having typed it.
         /// Not rate limited: nothing a client sends can cause one.
         /// </summary>
-        private void Announce(string text)
+        private void Announce(string text, string name = "")
         {
             if (_peers.Count == 0)
             {
@@ -1832,9 +1860,10 @@ namespace MphRead.Mods.Network
             {
                 Slot = 0xFF,
                 Kind = ChatPacket.KindSystem,
-                Name = String.Empty,
+                Name = name,
                 Text = text
             };
+            ReplayCapture.AcceptedChat(chat);
             chat.Write(_scratch);
             for (int i = 0; i < _peers.Count; i++)
             {
@@ -1855,7 +1884,7 @@ namespace MphRead.Mods.Network
         {
             var status = new ServerStatusPacket
             {
-                Match = BuildState(now), Phase = _phase, Format = CurrentDefinition.Format,
+                Match = BuildState(now), Rules = CurrentDefinition.Rules, Phase = _phase, Format = CurrentDefinition.Format,
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
@@ -1882,6 +1911,12 @@ namespace MphRead.Mods.Network
         /// pinged and already reachable, so nothing new has to be deployed,
         /// opened or found.
         /// </summary>
+        private void SendHostReply(IPEndPoint sender, HostReplyPacket reply)
+        {
+            reply.Write(_scratch);
+            _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
+        }
+
         private void HandleHostRequest(ReceivedPacket packet, double now)
         {
             var reply = new HostReplyPacket();
@@ -1903,6 +1938,11 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
+                    if (request.MapIdentity.IsCustom)
+                    {
+                        _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
+                        return;
+                    }
                     reply = Hosts.Start(request, packet.Sender, now);
                 }
             }
@@ -1983,7 +2023,7 @@ namespace MphRead.Mods.Network
                 _slotGenerations[slot] = NetLifecycleTracker.Next(_slotGenerations[slot]);
                 bool rejoining = clientId != 0 && Array.IndexOf(_studyAdmissions, clientId) >= 0;
                 _studyAdmissions[_studyAdmissionHead++ % _studyAdmissions.Length] = clientId;
-                peer = new Peer { EndPoint = packet.Sender, SlotIndex = slot, ClientId = clientId, TeamIndex = team,
+                peer = new Peer { Hunter = (byte)Multiplayer.HunterRules.Sanitize(Hunter.Samus, CurrentDefinition.LowTier), EndPoint = packet.Sender, SlotIndex = slot, ClientId = clientId, TeamIndex = team,
                     JoinedAt = now, LoadStartedAt = now, FirstBootstrapAt = -1, LateJoin = _phase == SessionPhase.InMatch, Rejoining = rejoining };
                 _peers.Add(peer);
                 CareerPeerJoined(peer);
@@ -2029,7 +2069,7 @@ namespace MphRead.Mods.Network
             var refusal = new RefusedPacket
             {
                 Reason = reason,
-                Players = (byte)_peers.Count,
+                Players = (byte)OccupiedSlotCount,
                 MaxPlayers = (byte)_maxPlayers
             };
             refusal.Write(_scratch);
@@ -2056,18 +2096,8 @@ namespace MphRead.Mods.Network
             byte hunter = packet.Payload[0];
             byte color = packet.Payload[1];
             if (hunter >= Launcher.Hunters.Playable || color > 3) return;
-            string name = System.Text.Encoding.ASCII
-                .GetString(packet.Payload[2..])
-                .TrimEnd('\0')
-                .Trim();
-            if (name.Length == 0)
-            {
-                return;
-            }
-            if (name.Length > RosterPacket.MaxNameBytes)
-            {
-                name = name[..RosterPacket.MaxNameBytes];
-            }
+            hunter = (byte)Multiplayer.HunterRules.Sanitize((Hunter)hunter, CurrentDefinition.LowTier);
+            if (!PlayerNameCodec.TryDecode(packet.Payload[2..], out string name, padded: false)) return;
             if (peer.Name == name && peer.Hunter == hunter && peer.Color == color)
             {
                 return;
@@ -2088,7 +2118,7 @@ namespace MphRead.Mods.Network
                 // working at all here": a player who joins and sees nothing
                 // when the next person arrives is on a server that predates
                 // chat, which otherwise looks exactly like nobody talking.
-                Announce($"{name} joined");
+                Announce("joined", name);
             }
             TouchLobbyRevision($"slot {peer.SlotIndex} identity changed");
         }
@@ -2147,6 +2177,7 @@ namespace MphRead.Mods.Network
             roster.AuthorityEpoch = _authorityEpoch;
             roster.Revision = ++_rosterRevision;
             roster.SessionRevision = _sessionRevision;
+            roster.ContainsBots = _botAssistedMatch;
             for (int i = 0; i < _peers.Count && i < RosterPacket.MaxSlots; i++)
             {
                 roster.Slots[roster.Count] = (byte)_peers[i].SlotIndex;
@@ -2160,6 +2191,16 @@ namespace MphRead.Mods.Network
                     ? _peers[i].Name
                     : $"Player{_peers[i].SlotIndex + 1}";
                 roster.Count++;
+            }
+            foreach (var bot in _bots)
+            {
+                int at = roster.Count++;
+                roster.Slots[at] = (byte)bot.SlotIndex;
+                roster.Generations[at] = _slotGenerations[bot.SlotIndex];
+                roster.Hunters[at] = bot.Hunter; roster.Colors[at] = bot.Color;
+                roster.Teams[at] = bot.TeamIndex; roster.LobbyReady[at] = true;
+                roster.Flags[at] = 1; roster.BotLevels[at] = bot.BotLevel;
+                roster.Names[at] = bot.Name;
             }
             return roster;
         }
@@ -2304,7 +2345,7 @@ namespace MphRead.Mods.Network
             Log($"{peer.EndPoint} {reason} (slot {peer.SlotIndex})");
             if (peer.Name.Length > 0)
             {
-                Announce($"{peer.Name} {reason}");
+                Announce(reason, peer.Name);
             }
         }
 
@@ -2322,6 +2363,7 @@ namespace MphRead.Mods.Network
 
         private bool SlotFree(int slot)
         {
+            if (FindBot(slot) != null) return false;
             for (int i = 0; i < _peers.Count; i++)
             {
                 if (_peers[i].SlotIndex == slot)
@@ -2336,7 +2378,7 @@ namespace MphRead.Mods.Network
         {
             for (int slot = 0; slot < _maxPlayers; slot++)
             {
-                bool taken = false;
+                bool taken = FindBot(slot) != null;
                 for (int i = 0; i < _peers.Count; i++)
                 {
                     if (_peers[i].SlotIndex == slot)

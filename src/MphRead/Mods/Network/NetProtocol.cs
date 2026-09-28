@@ -72,6 +72,7 @@ namespace MphRead.Mods.Network
         PeerTiming = 43,     // client -> authority, bounded presentation-delay diagnostic
         WorldBootstrap = 46, WorldReady = 47, SnapshotFast = 48, PlayerSlowState = 49, WorldState = 50,
         ReplayWorld = 42,    // optional authority -> recorder facts; no live gameplay effects
+        MapAvailability = 54,
         CosmeticState = 53, // optional, catalog IDs only; fixed legacy packets unchanged
         CareerIdentity = 41, // client -> server, short-lived career attribution ticket
         MapDone = 35,        // client -> server, "I have it and it hashes right"
@@ -185,17 +186,13 @@ namespace MphRead.Mods.Network
         public ushort PointGoal;
         public string RoomKey;
         public string ServerName;
+        public NetworkMapIdentity MapIdentity;
 
         /// <summary>
         /// Every map the asker wants played, in order, or an empty list.
         ///
-        /// Written *after* the fixed block rather than into it, which is the
-        /// whole reason this needed no protocol bump: a directory built before
-        /// rotations existed length-checks the payload against
-        /// <see cref="Size"/> and reads exactly that many bytes, so the tail is
-        /// invisible to it and it plays <see cref="RoomKey"/> on a loop -- the
-        /// behaviour it always had. Entry zero is that same first map, so the
-        /// two halves of the packet never disagree about what starts.
+        /// Protocol 25 requires the complete rotation/policy/identity tail.
+        /// Entry zero is the same first map as RoomKey.
         /// </summary>
         public IReadOnlyList<(string RoomKey, GameMode Mode)>? Rotation;
 
@@ -205,7 +202,7 @@ namespace MphRead.Mods.Network
         public bool RequireReady = false;
         public MatchFormat Format;
         public HostRequestPacket() { RoomKey = ""; ServerName = ""; }
-        public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation) * RotationEntrySize + 4;
+        public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation) * RotationEntrySize + 4 + NetworkMapIdentity.Size;
 
         public void Write(Span<byte> dest)
         {
@@ -229,17 +226,19 @@ namespace MphRead.Mods.Network
             dest[tail + 1] = AllowJoinInProgress ? (byte)1 : (byte)0;
             dest[tail + 2] = RequireReady ? (byte)1 : (byte)0;
             dest[tail + 3] = (byte)Format;
+            MapIdentity.Write(dest[(tail + 4)..]);
         }
 
         public static HostRequestPacket Read(ReadOnlySpan<byte> src)
         {
             if (src.Length < Size + 5 || src[Size] > MaxRotation) return default;
             int tail = Size + 1 + src[Size] * RotationEntrySize;
-            if (src.Length != tail + 4 || src[tail] > 1 || src[tail + 1] > 1
-                || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo) return default;
+            if (src.Length != tail + 4 + NetworkMapIdentity.Size || src[tail] > 1 || src[tail + 1] > 1
+                || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo
+                || !NetworkMapIdentity.TryRead(src[(tail + 4)..], out var mapIdentity)) return default;
             return new HostRequestPacket
             {
-                Protocol = src[0],
+                Protocol = src[0], MapIdentity = mapIdentity,
                 MaxPlayers = src[1],
                 Mode = src[2],
                 TimeLimit = BinaryPrimitives.ReadUInt16LittleEndian(src[3..]),
@@ -348,7 +347,8 @@ namespace MphRead.Mods.Network
         /// built before it existed never looks: the length check is what
         /// separates the two, and neither side needed a protocol bump.
         /// </summary>
-        public const int SizeWithFlags = Size + 5;
+        public const int SizeWithFlags = Size + 7;
+        public SessionRules Rules;
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
         public const byte FlagCanHost = 1;
@@ -388,6 +388,7 @@ namespace MphRead.Mods.Network
                 dest[Size + 1] = (byte)Phase; dest[Size + 2] = (byte)Format;
                 dest[Size + 3] = LobbyEnabled ? (byte)1 : (byte)0;
                 dest[Size + 4] = AllowJoinInProgress ? (byte)1 : (byte)0;
+                BinaryPrimitives.WriteUInt16LittleEndian(dest[(Size + 5)..], (ushort)Rules);
             }
         }
 
@@ -402,10 +403,11 @@ namespace MphRead.Mods.Network
                     ? NetText.Read(src.Slice(MatchStatePacket.Size + 2, MaxNameBytes))
                     : "",
                 Flags = src.Length > Size ? src[Size] : (byte)0,
-                Phase = src.Length >= SizeWithFlags ? (SessionPhase)src[Size + 1] : SessionPhase.InMatch,
-                Format = src.Length >= SizeWithFlags ? (MatchFormat)src[Size + 2] : MatchFormat.Auto,
-                LobbyEnabled = src.Length >= SizeWithFlags && src[Size + 3] != 0,
-                AllowJoinInProgress = src.Length < SizeWithFlags || src[Size + 4] != 0
+                Phase = src.Length >= Size + 5 ? (SessionPhase)src[Size + 1] : SessionPhase.InMatch,
+                Format = src.Length >= Size + 5 ? (MatchFormat)src[Size + 2] : MatchFormat.Auto,
+                LobbyEnabled = src.Length >= Size + 5 && src[Size + 3] != 0,
+                AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
+                Rules = src.Length >= SizeWithFlags ? (SessionRules)BinaryPrimitives.ReadUInt16LittleEndian(src[(Size + 5)..]) : SessionRules.None
             };
         }
     }
@@ -613,19 +615,8 @@ namespace MphRead.Mods.Network
         /// <see cref="DedicatedServer.FriendlyFire"/>.
         /// </summary>
         public const byte FlagFriendlyFire = 1 << 2;
-        /// <summary>
-        /// The shadow freeze glitch is switched **off** on this server, so an
-        /// affinity Judicator's ice wave freezes what is in front of it rather
-        /// than everything within 60 degrees at any height. Server-decided for
-        /// the same reason friendly fire is: the machine resolving a shot
-        /// decides who it hit.
-        ///
-        /// Stated as the negative deliberately. Zero is the cartridge's own
-        /// behaviour, so a packet from anything that does not know about this
-        /// rule -- a demo recorded before it, a server built before it --
-        /// plays exactly as it always did.
-        /// </summary>
-        public const byte FlagNoShadowFreeze = 1 << 3;
+        /// <summary>Protocol 28: opt-in shadow freeze; zero means off.</summary>
+        public const byte FlagShadowFreeze = 1 << 3;
         /// <summary>
         /// Bits 4-5: the damage level every machine in this match scales its
         /// hits by, as the level plus one, so that <b>zero means "this server
@@ -660,17 +651,13 @@ namespace MphRead.Mods.Network
         /// 18 where the plain one deals 12.
         /// </summary>
         public const byte FlagAffinityWeapons = 1 << 6;
-        /// <summary>
-        /// Bit 7: the server explicitly disables the default three-second
-        /// spawn protection. Negative semantics keep a zero/default packet
-        /// aligned with the user-facing default: protection enabled.
-        /// </summary>
-        public const byte FlagNoSpawnProtection = 1 << 7;
+        /// <summary>Protocol 28: opt-in three-second spawn protection.</summary>
+        public const byte FlagSpawnProtection = 1 << 7;
 
         public readonly bool Ending => (Flags & FlagEnding) != 0;
         public readonly bool FriendlyFire => (Flags & FlagFriendlyFire) != 0;
-        public readonly bool ShadowFreeze => (Flags & FlagNoShadowFreeze) == 0;
-        public readonly bool SpawnProtection => (Flags & FlagNoSpawnProtection) == 0;
+        public readonly bool ShadowFreeze => (Flags & FlagShadowFreeze) != 0;
+        public readonly bool SpawnProtection => (Flags & FlagSpawnProtection) != 0;
 
         /// <summary>
         /// The damage level this server plays at, or -1 when it did not say.
@@ -892,9 +879,9 @@ namespace MphRead.Mods.Network
     public struct PostMatchReportPacket
     {
         public const int MaxEntries = PlayerEntity.SlotCapacity;
-        public const int MaxNameBytes = 16;
+        public const int MaxNameBytes = PlayerNameCodec.MaxWireBytes;
         public const int HeaderSize = 3;
-        public const int EntrySize = 44;
+        public const int EntrySize = 28 + MaxNameBytes;
         public const int Size = HeaderSize + MaxEntries * EntrySize;
 
         public ushort MatchId;
@@ -999,29 +986,10 @@ namespace MphRead.Mods.Network
         }
 
         private static void WritePostMatchName(Span<byte> dest, string? value)
-        {
-            dest.Clear();
-            if (String.IsNullOrEmpty(value))
-            {
-                return;
-            }
-            int count = Math.Min(value.Length, dest.Length);
-            for (int i = 0; i < count; i++)
-            {
-                char ch = value[i];
-                dest[i] = (byte)(ch < 32 || ch > 126 ? '?' : ch);
-            }
-        }
+            => PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(value), dest, out _);
 
-        private static string ReadPostMatchName(ReadOnlySpan<byte> src)
-        {
-            int length = 0;
-            while (length < src.Length && src[length] != 0)
-            {
-                length++;
-            }
-            return length == 0 ? String.Empty : Encoding.ASCII.GetString(src[..length]);
-        }
+        private static string ReadPostMatchName(ReadOnlySpan<byte> src) => PlayerNameCodec.Decode(src);
+
     }
 
     /// <summary>
@@ -1034,7 +1002,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public struct RosterPacket
     {
-        public const int MaxNameBytes = 16;
+        public const int MaxNameBytes = PlayerNameCodec.MaxWireBytes;
         public const int MaxSlots = PlayerEntity.SlotCapacity;
         // Slot, hunter, suit colour, round trip time and name per entry. The
         // hunter travels with the name because both answer the same question
@@ -1046,8 +1014,8 @@ namespace MphRead.Mods.Network
         // rides along for the same reason: it is a property of who is in the
         // slot, the server is the only party that can measure it for
         // everybody, and it already sends this packet every second.
-        public const int EntrySize = 1 + 1 + 1 + 2 + MaxNameBytes + 4;
-        public const int HeaderSize = 17;
+        public const int EntrySize = 1 + 1 + 1 + 2 + MaxNameBytes + 6;
+        public const int HeaderSize = 18;
         public const int Size = HeaderSize + MaxSlots * EntrySize;
         public ushort SessionRevision;
         public ushort MatchId;
@@ -1061,6 +1029,10 @@ namespace MphRead.Mods.Network
         public byte[] Slots;      // slot index per entry
         public byte[] Hunters;    // Hunter enum value per entry
         public byte[] Colors;     // suit palette asked for, 0-3
+        public byte[] Flags;
+        public byte[] BotLevels;
+        public bool ContainsBots; // Sticky for the entire round, including late join bootstrap.
+        public bool IsBot(int index) => Flags != null && (Flags[index] & 1) != 0;
         public ushort[] Pings;    // round trip to the server, milliseconds
         public string[] Names;
 
@@ -1075,6 +1047,8 @@ namespace MphRead.Mods.Network
                 LobbyReady = new bool[MaxSlots],
                 Hunters = new byte[MaxSlots],
                 Colors = new byte[MaxSlots],
+                Flags = new byte[MaxSlots],
+                BotLevels = new byte[MaxSlots],
                 Pings = new ushort[MaxSlots],
                 Names = new string[MaxSlots]
             };
@@ -1088,6 +1062,7 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt64LittleEndian(dest[3..], AuthorityEpoch);
             BinaryPrimitives.WriteUInt32LittleEndian(dest[11..], Revision);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[15..], SessionRevision);
+            dest[17] = ContainsBots ? (byte)1 : (byte)0;
             int offset = HeaderSize;
             for (int i = 0; i < Count && i < MaxSlots; i++)
             {
@@ -1098,7 +1073,9 @@ namespace MphRead.Mods.Network
                 WriteName(dest.Slice(offset + 5, MaxNameBytes), Names[i]);
                 dest[offset + 7 + MaxNameBytes] = unchecked((byte)Teams[i]);
                 dest[offset + 8 + MaxNameBytes] = LobbyReady[i] ? (byte)1 : (byte)0;
-                BinaryPrimitives.WriteUInt16LittleEndian(dest[(offset + 21)..], Generations[i]);
+                BinaryPrimitives.WriteUInt16LittleEndian(dest[(offset + 5 + MaxNameBytes)..], Generations[i]);
+                dest[offset + 9 + MaxNameBytes] = Flags?[i] ?? 0;
+                dest[offset + 10 + MaxNameBytes] = BotLevels?[i] ?? 0;
                 offset += EntrySize;
             }
         }
@@ -1106,7 +1083,7 @@ namespace MphRead.Mods.Network
         public static bool TryRead(ReadOnlySpan<byte> src, out RosterPacket roster)
         {
             roster = default;
-            if (src.Length != Size || src[0] > MaxSlots) return false;
+            if (src.Length != Size || src[0] > MaxSlots || src[17] > 1) return false;
             int seen = 0;
             for (int i = 0; i < src[0]; i++)
             {
@@ -1114,6 +1091,8 @@ namespace MphRead.Mods.Network
                 int slot = src[offset];
                 int team = unchecked((sbyte)src[offset + 7 + MaxNameBytes]);
                 if (slot >= MaxSlots || (seen & (1 << slot)) != 0 || src[offset + 1] >= 7
+                    || src[offset + 9 + MaxNameBytes] > 1 || src[offset + 10 + MaxNameBytes] > 3
+                    || (src[offset + 9 + MaxNameBytes] == 0 && src[offset + 10 + MaxNameBytes] != 0)
                     || src[offset + 2] > 3 || team < -1 || team > 3 || src[offset + 8 + MaxNameBytes] > 1)
                     return false;
                 seen |= 1 << slot;
@@ -1130,48 +1109,30 @@ namespace MphRead.Mods.Network
             roster.AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[3..]);
             roster.Revision = BinaryPrimitives.ReadUInt32LittleEndian(src[11..]);
             roster.SessionRevision = BinaryPrimitives.ReadUInt16LittleEndian(src[15..]);
+            roster.ContainsBots = src[17] != 0;
             int offset = HeaderSize;
             for (int i = 0; i < roster.Count; i++)
             {
                 roster.Slots[i] = src[offset];
                 roster.Hunters[i] = src[offset + 1];
                 roster.Colors[i] = src[offset + 2];
+                roster.Flags[i] = src[offset + 9 + MaxNameBytes];
+                roster.BotLevels[i] = src[offset + 10 + MaxNameBytes];
                 roster.Pings[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(offset + 3)..]);
                 roster.Names[i] = ReadName(src.Slice(offset + 5, MaxNameBytes));
                 roster.Teams[i] = unchecked((sbyte)src[offset + 7 + MaxNameBytes]);
                 roster.LobbyReady[i] = src[offset + 8 + MaxNameBytes] != 0;
-                roster.Generations[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(offset + 21)..]);
+                roster.Generations[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(offset + 5 + MaxNameBytes)..]);
                 offset += EntrySize;
             }
             return roster;
         }
 
         private static void WriteName(Span<byte> dest, string? value)
-        {
-            dest.Clear();
-            if (string.IsNullOrEmpty(value))
-            {
-                return;
-            }
-            int count = Math.Min(value.Length, MaxNameBytes);
-            for (int i = 0; i < count; i++)
-            {
-                char c = value[i];
-                // The in-game font is ASCII; substitute rather than emit
-                // bytes the HUD cannot draw.
-                dest[i] = (byte)(c < 32 || c > 126 ? '?' : c);
-            }
-        }
+            => PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(value), dest, out _);
 
-        private static string ReadName(ReadOnlySpan<byte> src)
-        {
-            int length = 0;
-            while (length < src.Length && src[length] != 0)
-            {
-                length++;
-            }
-            return length == 0 ? string.Empty : Encoding.ASCII.GetString(src[..length]);
-        }
+        private static string ReadName(ReadOnlySpan<byte> src) => PlayerNameCodec.Decode(src);
+
     }
 
     /// <summary>
@@ -1199,7 +1160,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public struct ChatPacket
     {
-        public const int MaxNameBytes = 16;
+        public const int MaxNameBytes = PlayerNameCodec.MaxWireBytes;
         /// <summary>
         /// Room for a sentence and no more. The HUD draws these in the DS's
         /// 256-unit space at half size, which is about 90 characters across
@@ -1231,7 +1192,7 @@ namespace MphRead.Mods.Network
             dest[..Size].Clear();
             dest[0] = Slot;
             dest[1] = Kind;
-            WriteAscii(dest.Slice(2, MaxNameBytes), Name);
+            PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(Name), dest.Slice(2, MaxNameBytes), out _);
             WriteAscii(dest.Slice(2 + MaxNameBytes, MaxTextBytes), Text);
         }
 
@@ -1241,7 +1202,7 @@ namespace MphRead.Mods.Network
             {
                 Slot = src[0],
                 Kind = src[1],
-                Name = ReadAscii(src.Slice(2, MaxNameBytes)),
+                Name = PlayerNameCodec.Decode(src.Slice(2, MaxNameBytes)),
                 Text = ReadAscii(src.Slice(2 + MaxNameBytes, MaxTextBytes))
             };
         }
@@ -2357,7 +2318,12 @@ namespace MphRead.Mods.Network
         /// life-fenced successful-shot release signal. Mixed v23/v24 peers must be
         /// refused because those existing bytes now have new gameplay semantics.
         /// </summary>
-        public const int ProtocolVersion = 24;
+        // Version 27 expands identity fields to 24 native MPH glyphs (48 bytes).
+        // Versions 25/26 are already reserved for map identity and server bots.
+        // Protocol 28 adds Insta-Gib, Low Tier and No Imp session rules and positive,
+        // default-off Shadow Freeze / Spawn Protection flags. Gameplay packet sizes
+        // stay unchanged; status replies append the rule mask for browser presentation.
+        public const int ProtocolVersion = 28;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
@@ -2474,7 +2440,7 @@ namespace MphRead.Mods.Network
             dest[..Size].Clear();
             dest[0] = State;
             ChatPacket.WriteAscii(dest.Slice(1, MaxRoomBytes), RoomKey);
-            ChatPacket.WriteAscii(dest.Slice(1 + MaxRoomBytes, MaxNameBytes), Proposer);
+            PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(Proposer), dest.Slice(1 + MaxRoomBytes, MaxNameBytes), out _);
             int at = 1 + MaxRoomBytes + MaxNameBytes;
             dest[at] = Yes;
             dest[at + 1] = No;
@@ -2490,7 +2456,7 @@ namespace MphRead.Mods.Network
             {
                 State = src[0],
                 RoomKey = ChatPacket.ReadAscii(src.Slice(1, MaxRoomBytes)),
-                Proposer = ChatPacket.ReadAscii(src.Slice(1 + MaxRoomBytes, MaxNameBytes)),
+                Proposer = PlayerNameCodec.Decode(src.Slice(1 + MaxRoomBytes, MaxNameBytes)),
                 Yes = src[at],
                 No = src[at + 1],
                 Eligible = src[at + 2],

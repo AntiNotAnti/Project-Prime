@@ -21,7 +21,7 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current transport is protocol 17: endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 28. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.
@@ -100,7 +100,7 @@ export ALSOFT_DRIVERS=null PULSE_SERVER=   # else ALSA retries stall frames
 
 | Command | Use |
 |---|---|
-| `MphRead -server ... -noshadowfreeze` | run the room with the Judicator's ice wave as a cone rather than as a column of infinite height. A rule, broadcast to every client in the match state, because the machine resolving a shot decides who it hit |
+| `MphRead -server ... -shadowfreeze` | opt in to the cartridge Judicator shadow-freeze behavior; the default is a cone. A rule, broadcast to every client in the match state, because the machine resolving a shot decides who it hit |
 | `MphRead -server -port N -players 8` | dedicated **authoritative** server: it runs the match itself, so it needs the game files and `paths.txt` beside the binary, and it refuses to start without them. `-simulate`/`-authority` are accepted and do nothing. `-servername "NAME"` is what a browser shows; it announces itself to `51.161.113.128` unless `-nomaster` is passed, and `-master HOST -masterport N` points it elsewhere. `-affinityweapons` is a **match rule broadcast to every client**, not a local preference: the affinity weapons are a different row of the damage table, so a client playing by its own settings ran a victim's health down at a different rate from the machine keeping score. The **damage level is pinned to medium (x1) everywhere** and has no flag -- it multiplied every weapon's damage and was the one rule each machine read out of its own file |
 | `MphRead -simcheck "ROOM" [-players N] [-seconds N]` | what a room costs a server: peak memory, milliseconds a simulation step, and whether every slot spawned. Runs the headless engine with nobody connected. The measurement that decides whether a given box can be the authority for a given map |
 | `ProjectPrimeServer.exe -server ...` | the authoritative server on Windows, as its own console binary. `ProjectPrime.exe` also contains the command path, but it is a GUI binary: a shell will not wait for it and its exit code never reaches `%ERRORLEVEL%`. Run with no arguments it prints what it is for |
@@ -1348,3 +1348,10 @@ a small tracked list instead of scanning every active effect per picture.
 `-netcheck HOST -nographics -recorddemo` covers simulation/storage without GL.
 See `docs/architecture/replay-map-performance.md` for current measurements and
 remaining rendered/high-refresh validation.
+
+Advanced Match Rules: Insta-Gib is a modifier of the selected base mode; Low Tier
+allows Kanden/Spire/Noxus/Weavel; No Imp uses deterministic map/spawn replacements
+and cannot combine with Insta-Gib. Shadow Freeze and Spawn Protection default off.
+Current wire protocol: 28. Shared helpers live in `Mods/Multiplayer/HunterRules.cs`
+and `WeaponResourceRules.cs`. `tools/nettest --advanced-rules` covers rules and
+real UDP enforcement; `--advanced-rules-scene <data directory>` covers loadouts.

@@ -8,12 +8,13 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     internal readonly record struct ReplayOccupant(ushort Generation, Hunter Hunter,
-        byte Color, sbyte Team, string Name);
+        byte Color, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0);
 
     /// <summary>Packet-visible replica values, with private lifecycle/order tracking.
     /// This decoder deliberately has no NetSession or NetPlayerLifecycle dependency.</summary>
     internal sealed partial class ReplayReplicaState
     {
+        internal List<(uint Frame, ChatPacket Packet)> ChatLines { get; } = new();
         public NetCosmetics Cosmetics { get; private set; } = new();
         private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
         private readonly PlayerState[] _players = new PlayerState[PlayerEntity.SlotCapacity];
@@ -38,6 +39,7 @@ namespace MphRead.Mods.Network
         private byte[] _worldTail = Array.Empty<byte>();
         public ReadOnlySpan<byte> WorldTail => _worldTail;
         public bool TryGetHealthSpawn(short id, out HealthSpawnState state) => _healthSpawns.TryGetValue(id, out state);
+        public bool ContainsBots { get; private set; }
         public long AcceptedPackets { get; private set; }
         public long IgnoredPackets { get; private set; }
         public ReplayReplicaState()
@@ -55,6 +57,7 @@ namespace MphRead.Mods.Network
         internal void Advance(uint frame) => RecordingFrame = frame;
         public void Reset()
         {
+            ContainsBots = false;
             Match = null;
             Configuration = null;
             Array.Clear(_roster);
@@ -63,6 +66,7 @@ namespace MphRead.Mods.Network
         }
         public void Rewind()
         {
+            ChatLines.Clear();
             Cosmetics.Reset();
             Array.Clear(_players);
             Array.Clear(_intents);
@@ -121,13 +125,14 @@ namespace MphRead.Mods.Network
                     if (!Matches(roster.MatchId, roster.AuthorityEpoch)
                         || _rosterRevision is uint revision && !NetLifecycleTracker.Newer(roster.Revision, revision)) break;
                     _rosterRevision = roster.Revision;
+                    ContainsBots |= roster.ContainsBots;
                     Span<bool> present = stackalloc bool[PlayerEntity.SlotCapacity];
                     for (int i = 0; i < roster.Count; i++)
                     {
                         int slot = roster.Slots[i];
                         present[slot] = true;
                         SetOccupant(slot, new(roster.Generations[i], (Hunter)roster.Hunters[i],
-                            roster.Colors[i], roster.Teams[i], roster.Names[i]));
+                            roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i]));
                     }
                     for (int i = 0; i < present.Length; i++) if (!present[i]) SetOccupant(i, default);
                     accepted = true;
@@ -163,7 +168,13 @@ namespace MphRead.Mods.Network
                     _hasIntent[actor] = true;
                     accepted = true;
                     break;
-                // Welcome, Authority, Bye, lobby commands, reconnect and chat are inert.
+                case PacketType.Chat:
+                    if (payload.Length != ChatPacket.Size) throw Malformed();
+                    ChatLines.Add((frame, ChatPacket.Read(payload)));
+                    if (ChatLines.Count > Chat.ChatBox.HistoryCapacity) ChatLines.RemoveAt(0);
+                    accepted = true;
+                    break;
+                // Welcome, Authority, Bye, lobby commands and reconnect are inert.
                 // They describe a connection, not a replica's authoritative world.
             }
             RecordingFrame = frame;

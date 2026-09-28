@@ -86,6 +86,7 @@ namespace MphRead.Mods.MapGen
         public List<MapMaterial> Materials { get; set; } = new List<MapMaterial>();
         public List<MapBrush> Brushes { get; set; } = new List<MapBrush>();
         public List<MapGeometry> Geometry { get; set; } = new();
+        public List<MapModelSource> ModelSources { get; set; } = new();
         public List<MapAsset> Assets { get; set; } = new();
         public MapAudioSettings? Audio { get; set; }
         public MapCapabilities? Capabilities { get; set; }

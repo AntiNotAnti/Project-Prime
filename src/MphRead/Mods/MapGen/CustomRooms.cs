@@ -22,6 +22,11 @@ namespace MphRead.Mods.MapGen
     {
         private static IReadOnlyList<MapDefinition>? _definitions;
         private static int _firstId = -1;
+        private static InstalledMapRegistry? _installed;
+        public static InstalledMapRegistry Installed
+        {
+            get { lock (_lock) return _installed ??= InstalledMapRegistry.Create(Definitions); }
+        }
         internal static int FirstId => _firstId;
         // Android builds the map binaries on a background thread while the
         // front screen is listing rooms on another, and both go through here.
@@ -35,6 +40,10 @@ namespace MphRead.Mods.MapGen
         /// already do. Set it before anything reads <see cref="Definitions"/>:
         /// the list is loaded once and cached.
         /// </summary>
+        // Private child-server namespace prevents two hosted versions sharing generated binaries.
+        public static string RuntimeNamespace { get; set; } = "";
+        private static string RuntimePath(string path) => string.IsNullOrEmpty(RuntimeNamespace) ? path : Path.Combine("hosted", RuntimeNamespace, path);
+
         public static string UserMapDirectory { get; set; } = Path.Combine(Platform.AppPaths.UserDataDirectory, "user-maps");
 
         public static string MapDirectory { get; set; }
@@ -81,7 +90,7 @@ namespace MphRead.Mods.MapGen
             lock (_lock)
             {
                 var entries = new MapCatalog(MapDirectory).Refresh();
-                if (_firstId < 0) _definitions = null;
+                if (_firstId < 0) { _definitions = null; _installed = null; }
                 return entries;
             }
         }
@@ -92,6 +101,7 @@ namespace MphRead.Mods.MapGen
                 var list=Definitions.ToList();int index=list.FindIndex(d=>d.Name.Equals(definition.Name,StringComparison.OrdinalIgnoreCase));
                 if(index<0)list.Add(definition);else list[index]=definition;
                 _definitions=list.AsReadOnly();
+                _installed = null;
             }
         }
 
@@ -124,14 +134,14 @@ namespace MphRead.Mods.MapGen
                 id: id,
                 name: def.Name,
                 inGameName: def.InGameName ?? def.Name,
-                archive: prefix,
+                archive: RuntimePath(prefix),
                 modelPath: Path.GetFileName(outputs.Model),
                 animationPath: Path.GetFileName(outputs.Animation),
                 collisionPath: Path.GetFileName(outputs.Collision),
                 texturePath: null, // the textures are inside the model file
-                entityPath: Path.GetFileName(outputs.Entities),
+                entityPath: RuntimePath(Path.GetFileName(outputs.Entities)),
                 // the metadata prepends levels\nodeData\ itself
-                nodePath: Path.GetFileName(outputs.Nodes),
+                nodePath: RuntimePath(Path.GetFileName(outputs.Nodes)),
                 roomNodeName: null,
                 battleTimeLimit: def.BattleTimeLimit,
                 timeLimit: def.BattleTimeLimit,
@@ -167,17 +177,17 @@ namespace MphRead.Mods.MapGen
 
         public static string ArchiveDirectory(MapDefinition def)
         {
-            return Paths.Combine(Paths.FileSystem, @"_archives", def.Name.ToLowerInvariant());
+            return Paths.Combine(Paths.FileSystem, @"_archives", RuntimePath(def.Name.ToLowerInvariant()));
         }
 
         public static string EntityDirectory()
         {
-            return Paths.Combine(Paths.FileSystem, @"levels\entities");
+            return Paths.Combine(Paths.FileSystem, @"levels\entities", RuntimePath(""));
         }
 
         public static string NodeDirectory()
         {
-            return Paths.Combine(Paths.FileSystem, @"levels\nodeData");
+            return Paths.Combine(Paths.FileSystem, @"levels\nodeData", RuntimePath(""));
         }
 
         /// <summary>

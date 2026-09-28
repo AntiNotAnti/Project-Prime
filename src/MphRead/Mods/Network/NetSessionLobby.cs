@@ -39,7 +39,7 @@ namespace MphRead.Mods.Network
         // time. Release against that local deadline instead of waiting for the
         // InMatch datagram to reach every client at a different instant.
         public static bool FreezeGameplay => IsInLobby || !WorldIsReady || (IsStarting && !StartReleaseReached);
-        public static bool ShouldLoadMatch => ServerSession is { } session
+        public static bool ShouldLoadMatch => RequiredMapReady && ServerSession is { } session
             && (session.Phase == SessionPhase.InMatch || (session.Phase == SessionPhase.Starting
                 && LocalSlot >= 0 && (session.ExpectedParticipants & (1 << LocalSlot)) != 0));
         public static string LobbyMessage { get; private set; } = "";
@@ -99,13 +99,15 @@ namespace MphRead.Mods.Network
         }
 
         public static bool SendLobbyCommand(LobbyCommandType type, byte targetSlot = 255,
-            sbyte team = -1, bool ready = false, SessionStatePacket? configuration = null)
+            sbyte team = -1, bool ready = false, SessionStatePacket? configuration = null,
+            byte hunter = 0, byte color = 0, byte botLevel = 1)
         {
             if (!Active || ServerSession == null || _pendingLobby.Count != 0) return false;
             uint id = ++_nextCommandId;
             if (id == 0) id = ++_nextCommandId;
             var command = new LobbyCommandPacket { CommandId = id, ExpectedRevision = SessionRevision,
                 Type = type, TargetSlot = targetSlot, TeamIndex = team, Ready = ready,
+                Hunter = hunter, Color = color, BotLevel = botLevel,
                 Configuration = configuration ?? ServerSession.Value };
             var pending = new PendingLobbyCommand { Packet = command, SentAt = Clock, Attempts = 0 };
             _pendingLobby.Add(id, pending);
@@ -123,6 +125,7 @@ namespace MphRead.Mods.Network
 
         private static void PumpLobby(double now)
         {
+            PumpMapPreparation(now);
             foreach (var pair in _pendingLobby)
             {
                 var pending = pair.Value;
@@ -187,9 +190,9 @@ namespace MphRead.Mods.Network
             // The session packet can arrive before the world is constructed.
             // Put the authoritative rule on the scene template now so initial
             // spawns and the server simulation do not briefly use a local value.
-            GameState.SpawnProtection = state.Match.SpawnProtection;
+            state.Match.NormalizeLegacy().ApplyModifiers(GameState.Current);
             ReplayCapture.AcceptedConfiguration(state);
-            if (state.Policy == ServerSessionPolicy.Lobby && state.Phase == SessionPhase.Lobby)
+            if (!state.Match.MapIdentity.IsCustom && state.Policy == ServerSessionPolicy.Lobby && state.Phase == SessionPhase.Lobby)
             {
                 Mods.RoomPrewarm.Begin(state.Match.RoomKey);
             }
@@ -200,8 +203,8 @@ namespace MphRead.Mods.Network
                     AuthorityEpoch = state.AuthorityEpoch,
                     PointGoal = state.Match.PointGoal, TimeRemaining = state.Match.TimeLimitSeconds, MatchId = state.MatchId,
                     Flags = (byte)(MatchStatePacket.FlagInProgress | (state.Match.FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0)
-                        | (state.Match.ShadowFreeze ? 0 : MatchStatePacket.FlagNoShadowFreeze)
-                        | (state.Match.SpawnProtection ? 0 : MatchStatePacket.FlagNoSpawnProtection)
+                        | (state.Match.ShadowFreeze ? MatchStatePacket.FlagShadowFreeze : 0)
+                        | (state.Match.SpawnProtection ? MatchStatePacket.FlagSpawnProtection : 0)
                         | MatchStatePacket.RuleFlags(1, state.Match.AffinityWeapons)) }, rotated: false);
             }
             MatchStartIdentity startIdentity = StartIdentity(state);
@@ -346,6 +349,14 @@ namespace MphRead.Mods.Network
             }
             var state = ServerSession.Value;
             if (state.Phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
+            if (state.Match.MapIdentity.IsCustom && (!RequiredMapReady || LocalSlot < 0
+                || state.MapAvailability == null || state.MapAvailability[LocalSlot] != MapAvailabilityState.Ready))
+            {
+                // Readiness uses a retried heartbeat. Wait for the server's acknowledgement
+                // before sending a reliable load acknowledgement that cannot be replayed after rejection.
+                _pendingLoadedScene = (state.MatchId, state.AuthorityEpoch);
+                return;
+            }
             var identity = new MatchStartIdentity(state.MatchId, state.AuthorityEpoch, state.StartGeneration);
             ushort generation = NetPlayerLifecycle.Generation(LocalSlot);
             if (_loadedStart == identity && _loadedSlot == LocalSlot && _loadedSlotGeneration == generation) return;
@@ -386,6 +397,7 @@ namespace MphRead.Mods.Network
 
         private static void ResetLobbySession()
         {
+            ResetMapPreparation(); _lastMapReport = 0;
             _appliedBootstrap = _receivingBootstrap = null;
             _bootstrapMask = 0;
             _laneReceiver.Reset(0, 0);
@@ -397,7 +409,7 @@ namespace MphRead.Mods.Network
             LobbyMessage = ""; _loadStage = MatchLoadStage.None; _loadProgressIdentity = null;
             ResetStartCountdown();
             _loadingFrameHeld = false;
-            _lastLoadAck = _lastLoadProgress = _lastIdentity = 0;
+            _lastLoadAck = _lastLoadProgress = _lastIdentity = 0; _mapReportSequence = 0;
             Array.Fill(SlotTeamIndex, (sbyte)-1); Array.Clear(SlotLobbyReady);
             Chat.NetChat.Clear();
         }
@@ -409,6 +421,7 @@ namespace MphRead.Mods.Network
             roster.SessionRevision = _rosterSessionRevision;
             roster.MatchId = CurrentMatchId;
             roster.AuthorityEpoch = AuthorityEpoch;
+            roster.ContainsBots = MatchContainsBots;
             for (int slot = 0; slot < SlotOccupied.Length; slot++)
             {
                 if (!SlotOccupied[slot]) continue;
@@ -418,6 +431,8 @@ namespace MphRead.Mods.Network
                 roster.LobbyReady[at] = SlotLobbyReady[slot]; roster.Names[at] = GameState.Nicknames[slot];
                 roster.Hunters[at] = (byte)SlotHunter[slot]; roster.Colors[at] = (byte)PlayerColors.Choice[slot];
                 roster.Pings[at] = (ushort)SlotPing[slot];
+                roster.Flags[at] = SlotIsBot[slot] ? (byte)1 : (byte)0;
+                roster.BotLevels[at] = SlotBotLevel[slot];
             }
             return roster;
         }

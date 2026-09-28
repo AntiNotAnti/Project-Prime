@@ -81,6 +81,7 @@ namespace MphRead.Entities
 
         public void Setup(string name, RoomMetadata meta, CollisionInstance collision, int layerMask, int roomId)
         {
+            Mods.MapGen.MapRuntimeUsage.Track(_scene, meta.Name);
             // todo: unlock the corresponding multiplayer arena when visiting a new planet
             _portals.Clear();
             _portalSides.Clear();

@@ -54,7 +54,8 @@ namespace MphRead.Entities
                 }
                 int nameLength = Math.Clamp((int)((ModScoreColumn1 - ModScoreNameColumn - 6) / (6.4f * HudAspectFix)), 4, 20);
                 string name = (player.IsMainPlayer ? "> " : "  ") + _scene.GameState.Nicknames[slot];
-                DrawText2D(ModScoreNameColumn - 18, y, Align.Left, 0, name, ink, maxLength: nameLength, scale: 0.8f);
+                DrawPlayerName(ModScoreNameColumn - 18, y, Align.Left, 0, name, ink, scale: 0.8f,
+                    maxWidth: (ModScoreColumn1 - ModScoreNameColumn + 8) / HudAspectFix);
                 DrawText2D(ModScoreColumn1, y, Align.Center, 0,
                     TeamScoreValue(timed, _scene.GameState.Time[slot], _scene.GameState.Points[slot]), ink);
                 DrawText2D(ModScoreColumn2, y, Align.Center, 0,

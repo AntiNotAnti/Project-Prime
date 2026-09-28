@@ -16,6 +16,16 @@ internal static class ReplayTheatreCheck
 {
     internal static int Run(string path, string? shots)
     {
+        if (path == "synthetic")
+        {
+            string fixture = Path.Combine(Path.GetTempPath(), "prime-theatre-" + Guid.NewGuid().ToString("N") + ".ppdemo");
+            try
+            {
+                ReplayWorldCoverageCheck.Write(fixture, "TEST ARENA", GameMode.Battle, new Vector3(0, 1, 0));
+                return Run(fixture, shots);
+            }
+            finally { File.Delete(fixture); }
+        }
 #if !ANDROID
         NativeWindow? window = null;
         if (shots != null)
@@ -57,6 +67,8 @@ internal static class ReplayTheatreCheck
                 {
                     shell.OnDrawFrame(); shell.OnRenderFrame();
                     ScreenCapture.SaveWindow(scene, Path.Combine(shots, $"theatre-{i}.png"));
+                    ScreenCapture.Save(scene, Path.Combine(shots, $"world-{i}.png"));
+                    if (i == 0) Console.WriteLine($"[replaytheatre] initial actor={scene.Players.Main.Position} camera={scene.CameraPosition} target={scene.Players.Main.CameraInfo.Target} mode={scene.CameraMode}");
                 }
                 if (i % 120 == 20) SpectatorMode.CycleNext();
                 if (i % 120 == 50) ReplayCamera.SetMode(ReplayCameraMode.Chase);

@@ -12,7 +12,6 @@ namespace MphRead.Mods.Launcher
             new OfflineModeOption[]
             {
                 new("Battle", GameMode.Battle),
-                new("Insta-Gib", GameMode.InstaGib),
                 new("Battle teams", GameMode.BattleTeams),
                 new("Survival", GameMode.Survival),
                 new("Survival teams", GameMode.SurvivalTeams),
@@ -39,10 +38,16 @@ namespace MphRead.Mods.Launcher
             return new LaunchPlan
             {
                 Kind = LaunchKind.Offline,
-                Hunter = hunter,
+                Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
+                MatchRules = new Network.MatchDefinition { Mode = mode,
+                    FriendlyFire = settings.FriendlyFire == "on", AffinityWeapons = settings.AffinityWeapons == "on",
+                    InstaGib = settings.InstaGib == "on" || mode == GameMode.InstaGib,
+                    LowTier = settings.LowTier == "on",
+                    NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
+                    ShadowFreeze = settings.ShadowFreeze == "on", SpawnProtection = settings.SpawnProtection == "on" },
                 PlayerName = LauncherPrefs.PlayerName,
                 RoomKey = roomKey,
-                Mode = mode,
+                Mode = mode == GameMode.InstaGib ? GameMode.Battle : mode,
                 Bots = LauncherPrefs.Bots,
                 BotLevel = LauncherPrefs.BotLevel
             };

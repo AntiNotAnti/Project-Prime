@@ -54,7 +54,72 @@ namespace MphRead.Mods.Chat
     public static class ChatBox
     {
         /// <summary>How many lines are on screen at once. Quake 3's number.</summary>
-        public const int VisibleLines = 3;
+        public const int CompactVisibleLines = 3;
+        public const int VisibleLines = CompactVisibleLines;
+        public const int ExpandedVisibleLines = 12;
+        public const int HistoryCapacity = 128;
+        public static bool HistoryOpen { get; private set; }
+        public static int HistoryOffset { get; private set; }
+        public static int UnreadWhileScrolled { get; private set; }
+        public static bool HistoryFollowingNewest => HistoryOffset == 0;
+
+        private static void ResetHistory()
+        {
+            HistoryOpen = false;
+            HistoryOffset = 0;
+            UnreadWhileScrolled = 0;
+        }
+
+        public static void HandleController()
+        {
+            if (!Composing) return;
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.Y)) ToggleHistory();
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.DpadUp)) ScrollHistory(1);
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.DpadDown)) ScrollHistory(-1);
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.LeftBumper)) PageHistory(1);
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.RightBumper)) PageHistory(-1);
+            if (Input.GamepadInput.TakePress(Input.GamepadButtons.B | Input.GamepadButtons.Start)) Cancel();
+            else if (Input.GamepadInput.TakePress(Input.GamepadButtons.A)) Submit();
+        }
+
+        public static void ToggleHistory()
+        {
+            lock (_lock)
+            {
+                if (!Composing) return;
+                HistoryOpen = !HistoryOpen;
+                HistoryOffset = 0;
+                UnreadWhileScrolled = 0;
+            }
+        }
+
+        public static void ScrollHistory(int lines)
+        {
+            lock (_lock)
+            {
+                if (!Composing || !HistoryOpen) return;
+                HistoryOffset = (int)Math.Clamp((long)HistoryOffset + lines, 0,
+                    Math.Max(0, _lines.Count - ExpandedVisibleLines));
+                if (HistoryOffset == 0) UnreadWhileScrolled = 0;
+            }
+        }
+
+        public static void PageHistory(int direction) => ScrollHistory(Math.Sign(direction) * ExpandedVisibleLines);
+        public static void JumpHistoryOldest() => ScrollHistory(HistoryCapacity);
+        public static void JumpHistoryNewest() => ScrollHistory(-HistoryCapacity);
+
+        internal static void CollectHistory(List<(ChatLine Line, float Alpha)> into)
+        {
+            into.Clear();
+            lock (_lock)
+            {
+                int end = _lines.Count - HistoryOffset;
+                for (int i = Math.Max(0, end - ExpandedVisibleLines); i < end; i++)
+                    into.Add((_lines[i], 1));
+            }
+        }
+
+        internal static void CollectCompact(List<(ChatLine Line, float Alpha)> into) => CollectVisible(into);
 
         /// <summary>
         /// How much a player may type. Shorter than the packet's 96 bytes on
@@ -199,6 +264,7 @@ namespace MphRead.Mods.Chat
             {
                 _lines.Clear();
                 _compose.Clear();
+                ResetHistory();
             }
             Composing = false;
             _swallowNextChar = false;
@@ -212,7 +278,7 @@ namespace MphRead.Mods.Chat
             string name = packet.Name.Length > 0 ? packet.Name : $"Player{packet.Slot}";
             if (packet.Kind == ChatPacket.KindSystem)
             {
-                Add("", packet.Text, ChatPacket.KindSystem);
+                Add(packet.Name, packet.Text, ChatPacket.KindSystem);
             }
             else
             {
@@ -232,13 +298,20 @@ namespace MphRead.Mods.Chat
             }
             lock (_lock)
             {
+                if (HistoryOpen && HistoryOffset > 0)
+                {
+                    HistoryOffset++;
+                    UnreadWhileScrolled++;
+                }
                 _lines.Add(new ChatLine(name, text, kind, Environment.TickCount64));
+                ReplayCapture.AcceptedChat(new ChatPacket { Name = name, Text = text, Kind = kind });
                 // A cap, not a window: CollectVisible only ever reads the tail,
                 // and a match left running all night must not grow a list of
                 // every word anyone said in it.
-                if (_lines.Count > 64)
+                if (_lines.Count > HistoryCapacity)
                 {
-                    _lines.RemoveRange(0, _lines.Count - 64);
+                    _lines.RemoveRange(0, _lines.Count - HistoryCapacity);
+                    HistoryOffset = Math.Min(HistoryOffset, Math.Max(0, _lines.Count - ExpandedVisibleLines));
                 }
             }
         }
@@ -265,6 +338,7 @@ namespace MphRead.Mods.Chat
             lock (_lock)
             {
                 _compose.Clear();
+                ResetHistory();
             }
             Composing = true;
             _swallowNextChar = swallowOpeningChar;
@@ -275,6 +349,7 @@ namespace MphRead.Mods.Chat
             lock (_lock)
             {
                 _compose.Clear();
+                ResetHistory();
             }
             Composing = false;
             _swallowNextChar = false;
@@ -297,6 +372,7 @@ namespace MphRead.Mods.Chat
             {
                 text = _compose.ToString().Trim();
                 _compose.Clear();
+                ResetHistory();
             }
             Composing = false;
             _swallowNextChar = false;
@@ -396,8 +472,21 @@ namespace MphRead.Mods.Chat
                 }
                 return false;
             }
+            if (HistoryOpen)
+            {
+                switch (key)
+                {
+                    case Keys.Up: ScrollHistory(1); return true;
+                    case Keys.Down: ScrollHistory(-1); return true;
+                    case Keys.PageUp: PageHistory(1); return true;
+                    case Keys.PageDown: PageHistory(-1); return true;
+                    case Keys.Home: JumpHistoryOldest(); return true;
+                    case Keys.End: JumpHistoryNewest(); return true;
+                }
+            }
             switch (key)
             {
+                case Keys.Tab: ToggleHistory(); return true;
                 case Keys.Enter:
                 case Keys.KeyPadEnter:
                     Submit();

@@ -82,7 +82,7 @@ internal static class KillCam
                         bool winner = (uint)team < (uint)game.TeamPoints.Length
                             && scene.Players.Items[game.ResultSlots[0]].TeamIndex == team;
                         causal = winner && (game.Mode is GameMode.Survival or GameMode.SurvivalTeams
-                            || game.Mode is GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib
+                            || game.Mode is GameMode.Battle or GameMode.BattleTeams
                                 && game.TeamPoints[team] >= game.PointGoal);
                     }
                     Controller.BeginFinal(scene, context, _finalRequestedFrame,

@@ -76,7 +76,6 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly (string Label, GameMode Mode)[] _modes =
         {
             ("Battle", GameMode.Battle),
-            ("Insta-Gib", GameMode.InstaGib),
             ("Battle teams", GameMode.BattleTeams),
             ("Survival", GameMode.Survival),
             ("Survival teams", GameMode.SurvivalTeams),
@@ -1087,9 +1086,12 @@ namespace MphRead.Mods.Launcher.Gui
                 sizeEms: 0.95, padXEms: 0.8, padYEms: 0.4, lip: 3);
             refresh.Click += (_, _) => ReloadServers();
             var bar = new BarRow();
-            DockPanel.SetDock(_name, Dock.Left);
+            var nameEditor = new StackPanel();
+            nameEditor.Children.Add(_name);
+            nameEditor.Children.Add(PlayerNameGlyphPicker.Create(_name.Box));
+            DockPanel.SetDock(nameEditor, Dock.Left);
             DockPanel.SetDock(refresh, Dock.Right);
-            bar.Children.Add(_name);
+            bar.Children.Add(nameEditor);
             bar.Children.Add(refresh);
             // Last and undocked, so it fills what the other two leave: that is
             // `flex: 1` in a DockPanel's own terms.
@@ -1375,6 +1377,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task Join()
         {
+            if (_name != null && PlayerNameCodec.ValidationError(_name.Value) is string nameError)
+            {
+                _note.Text = nameError;
+                return;
+            }
             (string host, int port) = Endpoint();
             string name = _name != null && _name.Value.Trim().Length > 0
                 ? _name.Value.Trim() : PlayerName();

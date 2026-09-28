@@ -71,6 +71,7 @@ namespace MphRead.Mods.Network
 
         public static void Enqueue(CareerMatchReport report)
         {
+            if (report.ContainsBots) return;
             if (!Enabled)
             {
                 Start();
@@ -219,8 +220,10 @@ namespace MphRead.Mods.Network
         public string EndReason { get; set; } = "completed";
         public string RoomKey { get; set; } = "";
         public int Mode { get; set; }
+        public ushort Rules { get; set; }
         public bool Teams { get; set; }
         public int TeamCount { get; set; }
+        public bool ContainsBots { get; set; }
         public bool RatingEligible { get; set; }
         public List<CareerParticipantReport> Participants { get; set; } = new();
     }
@@ -271,6 +274,7 @@ namespace MphRead.Mods.Network
             public DateTimeOffset StartedAtUtc;
             public string RoomKey = "";
             public GameMode Mode;
+            public SessionRules Rules;
             public bool Teams;
             public int TeamCount;
             public bool RatingEligible;
@@ -312,7 +316,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void EnsureCareerMatchStarted(double now)
         {
-            if (_careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
+            if (_botAssistedMatch || _careerMatch != null || _sim == null || _phase != SessionPhase.InMatch
                 || _peers.Count == 0 || !NetRoomChange.GameplayReady)
             {
                 return;
@@ -327,7 +331,7 @@ namespace MphRead.Mods.Network
                 StartedAtUtc = DateTimeOffset.UtcNow
                     - TimeSpan.FromSeconds(Math.Max(0, now - _matchStarted)),
                 RoomKey = match.RoomKey,
-                Mode = match.Mode,
+                Mode = match.Mode, Rules = match.Rules,
                 Teams = GameState.IsTeamMode(match.Mode),
                 TeamCount = Math.Max(1, LobbyRules.TeamCount(match)),
                 // The public continuous rotation is the verified rules lane.
@@ -348,6 +352,7 @@ namespace MphRead.Mods.Network
 
         private void CareerActivate(Peer peer, bool startedMatch)
         {
+            if (_botAssistedMatch) return;
             CareerMatchState? match = _careerMatch;
             if (match == null) return;
             uint key = CareerKey(peer);
@@ -462,6 +467,12 @@ namespace MphRead.Mods.Network
 
         private void CompleteCareerMatch(double now, string reason)
         {
+            if (_botAssistedMatch)
+            {
+                Console.WriteLine("[career] bot-assisted match; Hunter License reporting suppressed");
+                AbandonCareerMatch();
+                return;
+            }
             CareerMatchState? match = _careerMatch;
             if (match == null || _sim == null)
             {
@@ -541,10 +552,11 @@ namespace MphRead.Mods.Network
                 PlayedTicks = Math.Max(0, CareerFrame - match.StartedFrame),
                 EndReason = "completed",
                 RoomKey = match.RoomKey,
-                Mode = (int)match.Mode,
+                Mode = (int)match.Mode, Rules = (ushort)match.Rules,
                 Teams = match.Teams,
                 TeamCount = match.TeamCount,
-                RatingEligible = match.RatingEligible,
+                ContainsBots = _botAssistedMatch,
+                RatingEligible = match.RatingEligible && !_botAssistedMatch,
                 Participants = reports
             };
             CareerReportOutbox.Enqueue(report);

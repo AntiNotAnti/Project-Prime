@@ -1,3 +1,4 @@
+import { normalizePlayerName } from "../_shared/player-name.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "npm:postgres@3.4.7";
 
@@ -175,6 +176,14 @@ Deno.serve(async (req: Request) => {
     return json(400, { error: "invalid_report" });
   }
 
+  if (incoming.contains_bots != null && typeof incoming.contains_bots !== "boolean") {
+    return json(400, { error: "invalid_contains_bots" });
+  }
+  // Practice rounds never enter accepted-match history, even if a server reports one.
+  if (incoming.contains_bots === true) {
+    return json(200, { accepted: false, reason: "BotAssistedMatch" });
+  }
+
   const matchEpoch = Math.floor(Date.parse(incoming.ended_at_utc) / 1000);
   if (!Number.isFinite(matchEpoch) || matchEpoch > Math.floor(Date.now() / 1000) + 300) {
     return json(400, { error: "invalid_match_time" });
@@ -195,7 +204,7 @@ Deno.serve(async (req: Request) => {
     const metrics = p?.metrics;
     if (clientId == null || hunter == null || team == null || standing == null
       || teamStanding == null || ticks == null || !metrics
-      || typeof p.display_name !== "string" || p.display_name.length < 1 || p.display_name.length > 64
+      || normalizePlayerName(p.display_name) === null
       || !Array.isArray(metrics.beam_kills) || metrics.beam_kills.length !== 9) {
       return json(400, { error: "invalid_participant" });
     }
@@ -222,7 +231,7 @@ Deno.serve(async (req: Request) => {
       participant_id: p.participant_id,
       client_id: clientId,
       player_id: playerId,
-      display_name: p.display_name,
+      display_name: normalizePlayerName(p.display_name),
       hunter,
       single_hunter: p.single_hunter !== false,
       team,
@@ -278,7 +287,8 @@ Deno.serve(async (req: Request) => {
     mode: incoming.mode,
     teams: incoming.teams === true,
     team_count: incoming.team_count,
-    rating_eligible: incoming.rating_eligible === true && !missingStartedIdentity,
+    contains_bots: incoming.contains_bots === true,
+    rating_eligible: incoming.rating_eligible === true && !missingStartedIdentity && incoming.contains_bots !== true,
     participants: normalizedParticipants,
   };
   const normalizedText = JSON.stringify(normalized);
