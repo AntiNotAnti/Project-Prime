@@ -1506,32 +1506,43 @@ namespace MphRead.Mods.Launcher.Gui
             var keyboard = new StackPanel { Spacing = 2 };
             var gamepad = new StackPanel { Spacing = 2 };
             var stylus = new StackPanel { Spacing = 2 };
+            StackPanel? touch = OperatingSystem.IsAndroid()
+                ? new StackPanel { Spacing = 2 } : null;
+
+            var pages = new List<(string Name, StackPanel Page, Color Accent)>
+            {
+                ("KEYBOARD", keyboard, HubTheme.Accent),
+                ("GAMEPAD", gamepad, Color.FromRgb(0x86, 0xb8, 0xff))
+            };
+            if (touch != null)
+            {
+                pages.Add(("TOUCH", touch, Color.FromRgb(0x54, 0xd6, 0xb6)));
+            }
+            pages.Add(("STYLUS", stylus, HubTheme.Warm));
+
             _controlPages.Clear();
-            _controlPages.Add(keyboard);
-            _controlPages.Add(gamepad);
-            _controlPages.Add(stylus);
+            foreach (var entry in pages)
+            {
+                _controlPages.Add(entry.Page);
+            }
 
             var subs = new Grid
             {
-                ColumnDefinitions = new ColumnDefinitions("*,*,*"),
+                ColumnDefinitions = new ColumnDefinitions(
+                    String.Join(",", Enumerable.Repeat("*", pages.Count))),
                 ColumnSpacing = 5,
                 Margin = new Thickness(0, 0, 0, 8)
             };
-            string[] names = { "KEYBOARD", "GAMEPAD", "STYLUS" };
-            Color[] accents =
-            {
-                HubTheme.Accent,
-                Color.FromRgb(0x86, 0xb8, 0xff),
-                HubTheme.Warm
-            };
-            for (int i = 0; i < names.Length; i++)
+            for (int i = 0; i < pages.Count; i++)
             {
                 int at = i;
-                var button = new HubNavButton(names[i], compact: true, accent: accents[i])
+                string name = pages[i].Name;
+                Color accent = pages[i].Accent;
+                var button = new HubNavButton(name, compact: true, accent: accent)
                 {
                     MinHeight = 40
                 };
-                string id = $"settings.controls.{names[i].ToLowerInvariant()}";
+                string id = $"settings.controls.{name.ToLowerInvariant()}";
                 ControllerNav.Identify(button, id, initial: i == 0);
                 button.Click += (_, _) => ShowControlPage(at);
                 Grid.SetColumn(button, i);
@@ -1540,8 +1551,8 @@ namespace MphRead.Mods.Launcher.Gui
             }
             for (int i = 0; i < _controlNav.Count; i++)
             {
-                string prev = names[(i + names.Length - 1) % names.Length].ToLowerInvariant();
-                string next = names[(i + 1) % names.Length].ToLowerInvariant();
+                string prev = pages[(i + pages.Count - 1) % pages.Count].Name.ToLowerInvariant();
+                string next = pages[(i + 1) % pages.Count].Name.ToLowerInvariant();
                 _controlNav[i].SetValue(ControllerNav.NavLeftProperty,
                     $"settings.controls.{prev}");
                 _controlNav[i].SetValue(ControllerNav.NavRightProperty,
@@ -1549,11 +1560,16 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             outer.Children.Add(subs);
-            outer.Children.Add(keyboard);
-            outer.Children.Add(gamepad);
-            outer.Children.Add(stylus);
+            foreach (var entry in pages)
+            {
+                outer.Children.Add(entry.Page);
+            }
             BuildKeyboard(keyboard);
             BuildGamepad(gamepad);
+            if (touch != null)
+            {
+                BuildTouch(touch);
+            }
             BuildStylus(stylus);
             ShowControlPage(0);
         }
@@ -1622,7 +1638,6 @@ namespace MphRead.Mods.Launcher.Gui
                     "Turn this off if fast mouse movement should never boost Samus. "
                     + "Right-click/Zoom and the normal Boost binding still work."));
             }
-            BuildTouchControls(advanced);
             AddAdvancedToggle(page, advanced, "keyboard.advanced");
 
             Heading(page, "Keys");
@@ -1801,14 +1816,42 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach (PadRow row in padRows) row.InvalidateVisual();
                 foreach (PadRow row in _replayPadRows) row.InvalidateVisual();
                 foreach (KeyRow row in _keyRows) row.InvalidateVisual();
-                if (_touchButtonsRow != null) _touchButtonsRow.On = Mods.Input.TouchSettings.ButtonsVisible;
+                if (_touchButtonsRow != null)
+                    _touchButtonsRow.On = Mods.Input.TouchSettings.ButtonsVisible;
+                if (_touchButtonScale != null)
+                    _touchButtonScale.Value = (int)MathF.Round(Mods.Input.TouchSettings.ButtonScale * 100);
+                if (_touchStickScale != null)
+                    _touchStickScale.Value = (int)MathF.Round(Mods.Input.TouchSettings.StickScale * 100);
+                if (_touchOpacity != null)
+                    _touchOpacity.Value = (int)MathF.Round(Mods.Input.TouchSettings.OverlayOpacity * 100);
                 foreach ((Mods.Input.TouchControl control, ToggleRow row) in _touchRows)
+                {
                     row.On = Mods.Input.TouchSettings.IsEnabled(control);
+                    _touchEditor?.SetEnabled(control, row.On);
+                }
+                if (_touchEditor != null)
+                {
+                    _touchEditor.ButtonScale = Mods.Input.TouchSettings.ButtonScale;
+                    _touchEditor.StickScale = Mods.Input.TouchSettings.StickScale;
+                    _touchEditor.ResetAll();
+                    _touchEditor.Select(Mods.Input.TouchSettings.Order[0].Control);
+                }
+                if (_touchEditControlRow != null)
+                    _touchEditControlRow.Index = 0;
+                if (_touchSelectedScale != null)
+                    _touchSelectedScale.Value = 100;
             };
             page.Children.Add(reset);
         }
 
         private ToggleRow? _touchButtonsRow;
+        private SliderRow? _touchButtonScale;
+        private SliderRow? _touchStickScale;
+        private SliderRow? _touchOpacity;
+        private ChoiceRow? _touchEditControlRow;
+        private SliderRow? _touchSelectedScale;
+        private TouchLayoutEditor? _touchEditor;
+        private bool _syncingTouchEditor;
 
         private readonly List<(Mods.Input.TouchControl Control, ToggleRow Row)> _touchRows = new();
 
@@ -1911,32 +1954,165 @@ namespace MphRead.Mods.Launcher.Gui
         /// "turn them all off" is the answer most people who come here want
         /// and it should not be eleven presses.
         /// </summary>
-        private void BuildTouchControls(StackPanel page)
+        /// <summary>
+        /// Android's touch overlay gets its own controls sub-page instead of
+        /// living under keyboard Advanced. The canvas is a draft: positions and
+        /// sizes only become the live overlay when Settings is applied.
+        /// </summary>
+        private void BuildTouch(StackPanel page)
         {
             if (!OperatingSystem.IsAndroid())
             {
                 return;
             }
-            Heading(page, "On-screen buttons");
-            _touchButtonsRow = Add(page, new ToggleRow("Show on-screen buttons",
+
+            Heading(page, "Touch controls");
+            _touchButtonsRow = Add(page, new ToggleRow("Show on-screen controls",
                 Mods.Input.TouchSettings.ButtonsVisible));
-            Add(page, new Note("The stick, aiming, the double tap that jumps and the flick "
-                + "that boosts are not buttons, so they keep working with every one of these off."));
-            foreach ((Mods.Input.TouchControl control, string label) in Mods.Input.TouchSettings.Order)
+            _touchButtonScale = Add(page, new SliderRow("Global button size",
+                (int)MathF.Round(Mods.Input.TouchSettings.ButtonScale * 100),
+                v => $"{v}%",
+                min: (int)(Mods.Input.TouchSettings.MinButtonScale * 100),
+                max: (int)(Mods.Input.TouchSettings.MaxButtonScale * 100),
+                keyStep: 5));
+            _touchStickScale = Add(page, new SliderRow("Movement stick size",
+                (int)MathF.Round(Mods.Input.TouchSettings.StickScale * 100),
+                v => $"{v}%",
+                min: (int)(Mods.Input.TouchSettings.MinStickScale * 100),
+                max: (int)(Mods.Input.TouchSettings.MaxStickScale * 100),
+                keyStep: 5));
+            _touchOpacity = Add(page, new SliderRow("Overlay opacity",
+                (int)MathF.Round(Mods.Input.TouchSettings.OverlayOpacity * 100),
+                v => $"{v}%",
+                min: (int)(Mods.Input.TouchSettings.MinOverlayOpacity * 100),
+                max: 100, keyStep: 5));
+            Explain(page, "Move and resize the on-screen controls without changing aim gestures. "
+                + "The movement stick remains floating on the left half of the screen. "
+                + "Low opacity and a smaller action cluster leave more glass clear for stylus aiming.");
+
+            Heading(page, "Layout editor");
+            string[] labels = Mods.Input.TouchSettings.Order
+                .Select(item => item.Label).ToArray();
+            _touchEditControlRow = Add(page, new ChoiceRow("Editing", labels, 0));
+            _touchSelectedScale = Add(page, new SliderRow("Selected button size",
+                (int)MathF.Round(Mods.Input.TouchSettings.IndividualScale(
+                    Mods.Input.TouchSettings.Order[0].Control) * 100),
+                v => $"{v}%",
+                min: (int)(Mods.Input.TouchSettings.MinIndividualScale * 100),
+                max: (int)(Mods.Input.TouchSettings.MaxIndividualScale * 100),
+                keyStep: 5));
+
+            _touchEditor = new TouchLayoutEditor
             {
+                Margin = new Thickness(0, 8, 0, 8)
+            };
+            page.Children.Add(_touchEditor);
+
+            void SyncEditorInspector()
+            {
+                if (_touchEditor == null || _touchEditControlRow == null
+                    || _touchSelectedScale == null)
+                {
+                    return;
+                }
+                _syncingTouchEditor = true;
+                int index = Array.FindIndex(Mods.Input.TouchSettings.Order,
+                    item => item.Control == _touchEditor.Selected);
+                _touchEditControlRow.Index = Math.Max(0, index);
+                _touchSelectedScale.Value = (int)MathF.Round(
+                    _touchEditor.SelectedScale * 100);
+                _syncingTouchEditor = false;
+            }
+
+            _touchEditControlRow.Changed += (_, _) =>
+            {
+                if (_syncingTouchEditor || _touchEditor == null)
+                {
+                    return;
+                }
+                int index = Math.Clamp(_touchEditControlRow.Index, 0,
+                    Mods.Input.TouchSettings.Order.Length - 1);
+                _touchEditor.Select(Mods.Input.TouchSettings.Order[index].Control);
+            };
+            _touchSelectedScale.ValueChanged += (_, _) =>
+            {
+                if (!_syncingTouchEditor && _touchEditor != null)
+                {
+                    _touchEditor.SetSelectedScale(_touchSelectedScale.Value / 100f);
+                }
+            };
+            _touchButtonScale.ValueChanged += (_, _) =>
+            {
+                if (_touchEditor != null)
+                {
+                    _touchEditor.ButtonScale = _touchButtonScale.Value / 100f;
+                }
+            };
+            _touchStickScale.ValueChanged += (_, _) =>
+            {
+                if (_touchEditor != null)
+                {
+                    _touchEditor.StickScale = _touchStickScale.Value / 100f;
+                }
+            };
+            _touchEditor.SelectionChanged += SyncEditorInspector;
+
+            var resetRow = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 8,
+                Margin = new Thickness(0, 2, 0, 8)
+            };
+            var resetSelected = new HubNavButton("RESET SELECTED",
+                compact: true, accent: HubTheme.Warm)
+            {
+                Width = 180
+            };
+            ControllerNav.Identify(resetSelected, "touch.reset.selected");
+            resetSelected.Click += (_, _) =>
+            {
+                _touchEditor.ResetSelected();
+                SyncEditorInspector();
+            };
+            resetRow.Children.Add(resetSelected);
+
+            var resetLayout = new HubNavButton("RESET TOUCH LAYOUT",
+                compact: true, accent: HubTheme.Warm)
+            {
+                Width = 210
+            };
+            ControllerNav.Identify(resetLayout, "touch.reset.layout");
+            resetLayout.Click += (_, _) =>
+            {
+                _touchEditor.ResetAll();
+                SyncEditorInspector();
+            };
+            resetRow.Children.Add(resetLayout);
+            page.Children.Add(resetRow);
+
+            Heading(page, "Buttons");
+            Explain(page, "Disable controls you never touch to free that area for aiming. "
+                + "Disabled controls remain faint in the editor so they can be positioned before enabling them.");
+            _touchRows.Clear();
+            bool weaponHeading = false;
+            foreach ((Mods.Input.TouchControl control, string label)
+                in Mods.Input.TouchSettings.Order)
+            {
+                if (!weaponHeading && Mods.Input.TouchSettings.IsDirectWeapon(control))
+                {
+                    weaponHeading = true;
+                    Heading(page, "Direct weapon buttons");
+                    Explain(page, "These are off by default. Enable any weapon you want as a one-tap "
+                        + "button instead of opening the weapon wheel.");
+                }
                 ToggleRow row = Add(page, new ToggleRow(label,
                     Mods.Input.TouchSettings.IsEnabled(control)));
+                Mods.Input.TouchControl captured = control;
+                row.Changed += (_, _) => _touchEditor?.SetEnabled(captured, row.On);
                 _touchRows.Add((control, row));
             }
-            void ShowTouchRows()
-            {
-                foreach ((_, ToggleRow row) in _touchRows)
-                {
-                    row.IsVisible = _touchButtonsRow.On;
-                }
-            }
-            _touchButtonsRow.Changed += (_, _) => ShowTouchRows();
-            ShowTouchRows();
+
+            SyncEditorInspector();
         }
 
         private void BuildAltSwipeSensitivity(StackPanel page)
@@ -2393,9 +2569,19 @@ namespace MphRead.Mods.Launcher.Gui
             if (_touchButtonsRow != null)
             {
                 Mods.Input.TouchSettings.ButtonsVisible = _touchButtonsRow.On;
+                if (_touchButtonScale != null)
+                    Mods.Input.TouchSettings.ButtonScale = _touchButtonScale.Value / 100f;
+                if (_touchStickScale != null)
+                    Mods.Input.TouchSettings.StickScale = _touchStickScale.Value / 100f;
+                if (_touchOpacity != null)
+                    Mods.Input.TouchSettings.OverlayOpacity = _touchOpacity.Value / 100f;
                 foreach ((Mods.Input.TouchControl control, ToggleRow row) in _touchRows)
                 {
                     Mods.Input.TouchSettings.SetEnabled(control, row.On);
+                }
+                if (_touchEditor != null)
+                {
+                    Mods.Input.TouchSettings.ReplaceLayout(_touchEditor.CopyLayout());
                 }
             }
             InputSettings.Save();

@@ -94,13 +94,29 @@ namespace MphRead.Droid
             }
             if (MphRead.Mods.Chat.ChatBox.Composing)
             {
+                // Chat owns the glass while the soft keyboard is up. Reset the
+                // Paint alpha first because normal gameplay may have applied a
+                // reduced touch-overlay opacity on the previous frame.
+                float density = Resources?.DisplayMetrics?.Density ?? 1f;
                 float cell = Width / 4f;
                 _fill.Color = _panel;
-                canvas.DrawRect(0, 0, Width, 56 * (Resources?.DisplayMetrics?.Density ?? 1f), _fill);
+                _fill.Alpha = _panel.A;
+                canvas.DrawRect(0, 0, Width, 56 * density, _fill);
                 _text.Color = _label;
-                _text.TextSize = 14 * (Resources?.DisplayMetrics?.Density ?? 1f);
-                string[] labels = { MphRead.Mods.Chat.ChatBox.HistoryOpen ? "CLOSE HISTORY" : "HISTORY", "NEWEST", "SEND", "CANCEL" };
-                for (int i = 0; i < labels.Length; i++) canvas.DrawText(labels[i], cell * (i + .5f), _text.TextSize * 2, _text);
+                _text.Alpha = _label.A;
+                _text.TextSize = 14 * density;
+                string[] labels =
+                {
+                    MphRead.Mods.Chat.ChatBox.HistoryOpen ? "CLOSE HISTORY" : "HISTORY",
+                    "NEWEST",
+                    "SEND",
+                    "CANCEL"
+                };
+                for (int i = 0; i < labels.Length; i++)
+                {
+                    canvas.DrawText(labels[i], cell * (i + .5f),
+                        _text.TextSize * 2, _text);
+                }
                 return;
             }
             if (_controls.PadDriving)
@@ -113,6 +129,7 @@ namespace MphRead.Droid
             }
             float unit = Math.Max(1f, Height / 100f);
             _stroke.StrokeWidth = Math.Max(2f, unit * 0.22f);
+            float opacity = MphRead.Mods.Input.TouchSettings.OverlayOpacity;
             foreach (TouchButton button in _controls.Buttons)
             {
                 if (!button.Visible)
@@ -121,10 +138,13 @@ namespace MphRead.Droid
                 }
                 bool held = _controls.IsHeld(button.Action);
                 _fill.Color = held ? _accentFill : _panel;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 _stroke.Color = held ? _accent : _edge;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 canvas.DrawCircle(button.CentreX, button.CentreY, button.Radius, _fill);
                 canvas.DrawCircle(button.CentreX, button.CentreY, button.Radius, _stroke);
                 _text.Color = held ? _accent : _label;
+                _text.Alpha = ScaledAlpha(_text.Color, opacity);
                 _text.TextSize = button.Radius * 0.42f;
                 canvas.DrawText(button.Label, button.CentreX,
                     button.CentreY + _text.TextSize * 0.35f, _text);
@@ -132,16 +152,25 @@ namespace MphRead.Droid
             if (_controls.StickActive)
             {
                 _stroke.Color = _edge;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 _fill.Color = _panel;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 canvas.DrawCircle(_controls.StickX, _controls.StickY, _controls.StickRadius, _fill);
                 canvas.DrawCircle(_controls.StickX, _controls.StickY, _controls.StickRadius, _stroke);
                 _fill.Color = _accentFill;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 _stroke.Color = _accent;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 canvas.DrawCircle(_controls.StickKnobX, _controls.StickKnobY,
                     _controls.StickKnobRadius, _fill);
                 canvas.DrawCircle(_controls.StickKnobX, _controls.StickKnobY,
                     _controls.StickKnobRadius, _stroke);
             }
+        }
+
+        private static int ScaledAlpha(Color color, float opacity)
+        {
+            return Math.Clamp((int)MathF.Round(color.A * opacity), 0, 255);
         }
 
         private float _historyTouchY;
@@ -170,17 +199,27 @@ namespace MphRead.Droid
                     _historyPointer = e.GetPointerId(0);
                     if (_historyTouchY < 56 * (Resources?.DisplayMetrics?.Density ?? 1f))
                     {
-                        switch (Math.Clamp((int)(e.GetX() / Math.Max(1, Width / 4f)), 0, 3))
+                        switch (Math.Clamp(
+                            (int)(e.GetX() / Math.Max(1, Width / 4f)), 0, 3))
                         {
-                            case 0: MphRead.Mods.Chat.ChatBox.ToggleHistory(); break;
-                            case 1: MphRead.Mods.Chat.ChatBox.JumpHistoryNewest(); break;
-                            case 2: MphRead.Mods.Chat.ChatBox.Submit(); break;
-                            case 3: MphRead.Mods.Chat.ChatBox.Cancel(); break;
+                            case 0:
+                                MphRead.Mods.Chat.ChatBox.ToggleHistory();
+                                break;
+                            case 1:
+                                MphRead.Mods.Chat.ChatBox.JumpHistoryNewest();
+                                break;
+                            case 2:
+                                MphRead.Mods.Chat.ChatBox.Submit();
+                                break;
+                            case 3:
+                                MphRead.Mods.Chat.ChatBox.Cancel();
+                                break;
                         }
                         _historyPointer = -1;
                     }
                 }
-                else if (e.ActionMasked == MotionEventActions.Move && _historyPointer >= 0)
+                else if (e.ActionMasked == MotionEventActions.Move
+                    && _historyPointer >= 0)
                 {
                     int index = e.FindPointerIndex(_historyPointer);
                     if (index >= 0)
@@ -191,7 +230,11 @@ namespace MphRead.Droid
                         _historyTouchY += lines * step;
                     }
                 }
-                else if (e.ActionMasked is MotionEventActions.Up or MotionEventActions.Cancel) _historyPointer = -1;
+                else if (e.ActionMasked is MotionEventActions.Up
+                    or MotionEventActions.Cancel)
+                {
+                    _historyPointer = -1;
+                }
                 InvalidateNextFrame();
                 return true;
             }

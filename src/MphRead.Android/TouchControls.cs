@@ -52,7 +52,19 @@ namespace MphRead.Droid
         /// </summary>
         Chat,
         /// <summary>Save the rolling instant-replay buffer.</summary>
-        Clip
+        Clip,
+        // Optional direct-select weapon buttons. These are off by default and
+        // become useful on phones where a nine-way bank is faster than the
+        // weapon wheel, especially while aiming with a stylus.
+        PowerBeam,
+        MissileSelect,
+        VoltDriver,
+        Battlehammer,
+        Imperialist,
+        Judicator,
+        Magmaul,
+        ShockCoil,
+        OmegaCannon
     }
 
     internal sealed class TouchButton
@@ -148,7 +160,16 @@ namespace MphRead.Droid
             new TouchButton(TouchAction.Pause, "MENU"),
             new TouchButton(TouchAction.Scoreboard, "SCORE"),
             new TouchButton(TouchAction.Chat, "CHAT") { Visible = false },
-            new TouchButton(TouchAction.Clip, "CLIP") { Visible = false }
+            new TouchButton(TouchAction.Clip, "CLIP") { Visible = false },
+            new TouchButton(TouchAction.PowerBeam, "PB") { Visible = false },
+            new TouchButton(TouchAction.MissileSelect, "MSL") { Visible = false },
+            new TouchButton(TouchAction.VoltDriver, "VOLT") { Visible = false },
+            new TouchButton(TouchAction.Battlehammer, "BH") { Visible = false },
+            new TouchButton(TouchAction.Imperialist, "IMP") { Visible = false },
+            new TouchButton(TouchAction.Judicator, "JUD") { Visible = false },
+            new TouchButton(TouchAction.Magmaul, "MAG") { Visible = false },
+            new TouchButton(TouchAction.ShockCoil, "COIL") { Visible = false },
+            new TouchButton(TouchAction.OmegaCannon, "OMEGA") { Visible = false }
         };
 
         public float Width { get; private set; }
@@ -687,7 +708,17 @@ namespace MphRead.Droid
                 TouchAction.Zoom => TouchControl.Zoom,
                 TouchAction.Pause => TouchControl.Pause,
                 TouchAction.Scoreboard => TouchControl.Scoreboard,
+                TouchAction.Chat => TouchControl.Chat,
                 TouchAction.Clip => TouchControl.Clip,
+                TouchAction.PowerBeam => TouchControl.PowerBeam,
+                TouchAction.MissileSelect => TouchControl.MissileSelect,
+                TouchAction.VoltDriver => TouchControl.VoltDriver,
+                TouchAction.Battlehammer => TouchControl.Battlehammer,
+                TouchAction.Imperialist => TouchControl.Imperialist,
+                TouchAction.Judicator => TouchControl.Judicator,
+                TouchAction.Magmaul => TouchControl.Magmaul,
+                TouchAction.ShockCoil => TouchControl.ShockCoil,
+                TouchAction.OmegaCannon => TouchControl.OmegaCannon,
                 _ => TouchControl.Chat
             };
         }
@@ -701,6 +732,13 @@ namespace MphRead.Droid
         {
             lock (_lock)
             {
+                // Position/scale/opacity settings may have changed while the
+                // settings UI covered the game. Re-resolve geometry even when
+                // Android did not resize the overlay.
+                if (Width > 0 && Height > 0)
+                {
+                    LayoutLocked(Width, Height, Density);
+                }
                 ApplyLayoutLocked();
             }
             Invalidated?.Invoke();
@@ -815,53 +853,36 @@ namespace MphRead.Droid
             Invalidated?.Invoke();
         }
 
-        /// <summary>Lay the controls out for a viewport of this size.</summary>
+        /// <summary>
+        /// Lay the controls out for a viewport of this size. Defaults still
+        /// resolve to the old phone layout; custom centres are normalized so
+        /// the same profile survives different aspect ratios and resolutions.
+        /// </summary>
         public void Layout(float width, float height, float density)
         {
             lock (_lock)
             {
-                Width = width;
-                Height = height;
-                Density = density <= 0 ? 1f : density;
-                float h = height;
-                StickRadius = 0.15f * h;
-                StickKnobRadius = 0.06f * h;
-                Place(TouchAction.Shoot, width - 0.17f * h, h - 0.19f * h, 0.105f * h);
-                // The same place and the same size: in the visor, that thumb
-                // has nothing to shoot with and everything to scan with.
-                Place(TouchAction.Scan, width - 0.17f * h, h - 0.19f * h, 0.105f * h);
-                Place(TouchAction.Jump, width - 0.40f * h, h - 0.15f * h, 0.085f * h);
-                Place(TouchAction.Morph, width - 0.15f * h, h - 0.47f * h, 0.080f * h);
-                Place(TouchAction.ScanVisor, width - 0.38f * h, h - 0.42f * h, 0.075f * h);
-                // Within the firing thumb's reach, since a missile is fired
-                // rather than administered, and clear of JUMP above it and
-                // VISOR beside it.
-                Place(TouchAction.Missile, width - 0.62f * h, h - 0.28f * h, 0.075f * h);
-                Place(TouchAction.WeaponMenu, width - 0.12f * h, 0.15f * h, 0.075f * h);
-                Place(TouchAction.Zoom, width - 0.33f * h, 0.12f * h, 0.065f * h);
-                Place(TouchAction.Pause, 0.11f * h, 0.12f * h, 0.060f * h);
-                Place(TouchAction.Scoreboard, 0.28f * h, 0.12f * h, 0.060f * h);
-                // Third along the top row, past MENU and SCORE. Low enough to
-                // clear the chat log itself, which grows downward from the top
-                // of the HUD's own space and is inset to miss MENU already.
-                Place(TouchAction.Chat, 0.45f * h, 0.12f * h, 0.060f * h);
-                // Fourth utility button, still clear of the floating stick and
-                // far from the weapon/zoom cluster on the aiming side.
-                Place(TouchAction.Clip, 0.62f * h, 0.12f * h, 0.060f * h);
+                LayoutLocked(width, height, density);
             }
         }
 
-        private void Place(TouchAction action, float x, float y, float radius)
+        private void LayoutLocked(float width, float height, float density)
         {
+            Width = width;
+            Height = height;
+            Density = density <= 0 ? 1f : density;
+            float h = Math.Max(1, height);
+            float stickScale = TouchSettings.StickScale;
+            StickRadius = 0.15f * h * stickScale;
+            StickKnobRadius = 0.06f * h * stickScale;
+
             foreach (TouchButton button in _buttons)
             {
-                if (button.Action == action)
-                {
-                    button.CentreX = x;
-                    button.CentreY = y;
-                    button.Radius = radius;
-                    return;
-                }
+                TouchButtonGeometry geometry = TouchSettings.Geometry(
+                    SettingOf(button.Action), width, height);
+                button.CentreX = geometry.X;
+                button.CentreY = geometry.Y;
+                button.Radius = geometry.Radius;
             }
         }
 
