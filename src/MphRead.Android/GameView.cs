@@ -1621,6 +1621,21 @@ namespace MphRead.Droid
                 _input.Apply(controls.ScanVisor, _controls.IsHeld(TouchAction.ScanVisor));
                 _input.Apply(controls.Scan, _controls.IsHeld(TouchAction.Scan));
                 _input.Apply(controls.Zoom, _controls.IsHeld(TouchAction.Zoom));
+
+                // Optional direct-select buttons. They press the exact same
+                // weapon bindings as the keyboard number row, so inventory,
+                // affinity and weapon-switch legality stay in the engine's
+                // normal path rather than being reimplemented by Android.
+                _input.Apply(controls.PowerBeam, _controls.IsHeld(TouchAction.PowerBeam));
+                _input.Apply(controls.Missile, _controls.IsHeld(TouchAction.MissileSelect));
+                _input.Apply(controls.VoltDriver, _controls.IsHeld(TouchAction.VoltDriver));
+                _input.Apply(controls.Battlehammer, _controls.IsHeld(TouchAction.Battlehammer));
+                _input.Apply(controls.Imperialist, _controls.IsHeld(TouchAction.Imperialist));
+                _input.Apply(controls.Judicator, _controls.IsHeld(TouchAction.Judicator));
+                _input.Apply(controls.Magmaul, _controls.IsHeld(TouchAction.Magmaul));
+                _input.Apply(controls.ShockCoil, _controls.IsHeld(TouchAction.ShockCoil));
+                _input.Apply(controls.OmegaCannon, _controls.IsHeld(TouchAction.OmegaCannon));
+
                 // MSSL swaps to the Missile and back to the Power Beam, since
                 // neither is on the wheel and a thumb has no number row. The
                 // press decides which of the two binds to hold for the frame;
