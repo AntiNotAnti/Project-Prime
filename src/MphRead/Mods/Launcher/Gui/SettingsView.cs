@@ -1521,9 +1521,9 @@ namespace MphRead.Mods.Launcher.Gui
             pages.Add(("STYLUS", stylus, HubTheme.Warm));
 
             _controlPages.Clear();
-            foreach ((_, StackPanel page, _) in pages)
+            foreach (var entry in pages)
             {
-                _controlPages.Add(page);
+                _controlPages.Add(entry.Page);
             }
 
             var subs = new Grid
@@ -1536,7 +1536,8 @@ namespace MphRead.Mods.Launcher.Gui
             for (int i = 0; i < pages.Count; i++)
             {
                 int at = i;
-                (string name, _, Color accent) = pages[i];
+                string name = pages[i].Name;
+                Color accent = pages[i].Accent;
                 var button = new HubNavButton(name, compact: true, accent: accent)
                 {
                     MinHeight = 40
@@ -1559,9 +1560,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             outer.Children.Add(subs);
-            foreach ((_, StackPanel page, _) in pages)
+            foreach (var entry in pages)
             {
-                outer.Children.Add(page);
+                outer.Children.Add(entry.Page);
             }
             BuildKeyboard(keyboard);
             BuildGamepad(gamepad);
