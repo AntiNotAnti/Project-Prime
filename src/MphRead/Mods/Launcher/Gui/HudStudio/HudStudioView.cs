@@ -39,6 +39,7 @@ internal sealed class HudStudioView : UserControl
         Button(toolbar, "Unlock all", () => { _history.Edit(p => { foreach (var element in p.Elements.Values) element.Locked = false; }); Refresh(); });
         Button(toolbar, "Align left", () => _canvas.AlignSelection(true));
         Button(toolbar, "Align top", () => _canvas.AlignSelection(false));
+        Button(toolbar,"Use native elements",()=> { Edit(p=> { p.Health.Native=true;p.Ammo.Native=true;p.Inventory.Native=true;p.Crosshair.Native=true; }); Refresh(); });
         Button(toolbar, "Reset HUD", () => { _history.Replace(HudProfileDefaults.Create(_history.Draft.BasePreset)); Refresh(); });
         Button(toolbar, "Use in settings", () =>
         {
@@ -61,6 +62,10 @@ internal sealed class HudStudioView : UserControl
             (_canvas.PreviewWidth, _canvas.PreviewHeight) = aspects.SelectedIndex switch { 1 => (3440,1440), 2 => (1440,1080), 3 => (1920,1200), 4 => (1080,1920), _ => (1920,1080) }; _canvas.InvalidateVisual();
         };
         controls.Children.Add(aspects);
+        var nativeHunter=new ComboBox { ItemsSource=new[] { "Samus", "Kanden", "Trace", "Sylux", "Noxus", "Spire", "Weavel", "Guardian" },SelectedIndex=0,MinWidth=100 };
+        ToolTip.SetTip(nativeHunter,"Native preview hunter; matches use your current hunter's assets.");
+        nativeHunter.SelectionChanged+=(_,_)=> { _canvas.PreviewHunter=Math.Max(0,nativeHunter.SelectedIndex);_canvas.Refresh(); };
+        controls.Children.Add(nativeHunter);
         var scenario = new ComboBox { ItemsSource = Enum.GetNames<HudPreviewScenario>(), SelectedIndex = 0, MinWidth = 120 };
         scenario.SelectionChanged += (_,_) => { _canvas.Scenario=(HudPreviewScenario)scenario.SelectedIndex; _canvas.Zoom=_canvas.Scenario==HudPreviewScenario.Zoomed; _canvas.Refresh(); };
         controls.Children.Add(scenario);
@@ -208,9 +213,7 @@ internal sealed class HudStudioView : UserControl
         else _inspector.Children.Add(new TextBlock { Text = "Crosshair follows the existing aim center.", TextWrapping = Avalonia.Media.TextWrapping.Wrap });
         Number("Scale", e.Scale,.1f,8,(p,v) => p.Elements[id].Scale=v);
         Number("Opacity", e.Opacity,0,1,(p,v) => p.Elements[id].Opacity=v);
-        var tint = new TextBox { Text = e.Color, PlaceholderText = "Tint #RRGGBB" };
-        tint.LostFocus += (_, _) => Edit(p => p.Elements[id].Color = tint.Text ?? "#FFFFFF");
-        _inspector.Children.Add(tint);
+        ColorField("Tint",e.Color,(p,v)=>p.Elements[id].Color=v);
         Button(_inspector,"Reset element",() => { Edit(p => p.ResetElement(id)); Refresh(); });
         Button(_inspector,"Reset section",() =>
         {
@@ -244,6 +247,7 @@ internal sealed class HudStudioView : UserControl
             Toggle("Horizontal",p.Inventory.Horizontal,(p,v)=>p.Inventory.Horizontal=v);
             Toggle("Show unowned",p.Inventory.ShowUnowned,(p,v)=>p.Inventory.ShowUnowned=v);
             Toggle("Show ammo",p.Inventory.ShowAmmo,(p,v)=>p.Inventory.ShowAmmo=v);
+            Toggle("Native equipped-weapon icon",p.Inventory.Native,(p,v)=>p.Inventory.Native=v);
             Toggle("Selected outline",p.Inventory.SelectedOutline,(p,v)=>p.Inventory.SelectedOutline=v);
             Number("Icon scale",p.Inventory.IconScale,.1f,4,(p,v)=>p.Inventory.IconScale=v);
             Number("Spacing",p.Inventory.Spacing,0,16,(p,v)=>p.Inventory.Spacing=v);
@@ -320,6 +324,8 @@ internal sealed class HudStudioView : UserControl
     {
         HudMeterProfile Meter(HudProfile p) => health ? p.Health : p.Ammo;
         var m = Meter(_history.Draft);
+        Toggle("Use native meter",m.Native,(p,v)=>Meter(p).Native=v);
+        _inspector.Children.Add(new TextBlock { Text="Native meters use original artwork and colors. Resize with the element Scale above; the style controls below apply to modern meters.",TextWrapping=Avalonia.Media.TextWrapping.Wrap });
         Toggle("Number",m.Number,(p,v)=>Meter(p).Number=v);
         Toggle("Gauge",m.Gauge,(p,v)=>Meter(p).Gauge=v);
         Toggle("Background",m.Background,(p,v)=>Meter(p).Background=v);
@@ -336,10 +342,7 @@ internal sealed class HudStudioView : UserControl
     }
     private void ColorField(string label, string value, Action<HudProfile,string> set)
     {
-        _inspector.Children.Add(new TextBlock { Text = label + " color" });
-        var field = new TextBox { Text=value, PlaceholderText="#RRGGBB" };
-        field.LostFocus += (_,_)=>Edit(p=>set(p,field.Text ?? "#FFFFFF"));
-        _inspector.Children.Add(field);
+        _inspector.Children.Add(new HudColorEditor(label,value,color=>Edit(p=>set(p,color))));
     }
     private void CrosshairInspector()
     {
@@ -355,6 +358,7 @@ internal sealed class HudStudioView : UserControl
             if (!custom) return;
         }
         var c=CrosshairOf(p);
+        if(c.Native) _inspector.Children.Add(new TextBlock { Text="Native reticle uses the current hunter's game sprite and palette. Size and opacity apply; geometric part controls apply when Native is off.",TextWrapping=Avalonia.Media.TextWrapping.Wrap });
         var presets = new ComboBox { ItemsSource=CrosshairPresets.Names, PlaceholderText="Crosshair preset" };
         presets.SelectionChanged += (_,_) => { if (presets.SelectedIndex < 0) return; Edit(p => { var c=CrosshairPresets.Create(presets.SelectedIndex); if (_zoom) p.ZoomCrosshair=c; else if (_weapon>=0) p.WeaponCrosshairs[_weapon]=c; else p.Crosshair=c; }); Refresh(); };
         _inspector.Children.Add(presets);

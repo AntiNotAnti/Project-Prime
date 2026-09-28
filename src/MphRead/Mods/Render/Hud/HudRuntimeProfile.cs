@@ -23,14 +23,15 @@ public sealed class CrosshairRuntime
     public ReadOnlySpan<HudCrosshairVertex> OutlineDot => _outlineDot;
     public readonly Vector3 OutlineColor;
     public readonly float OutlineOpacity;
-    public readonly bool Enabled, HealthColor;
+    public readonly bool Enabled, HealthColor, Native;
+    public readonly float NativeScale;
     public readonly float Opacity, Outline;
     public readonly Vector3 Color;
     public CrosshairRuntime(CrosshairProfile p) : this(p,true) { }
     private CrosshairRuntime(CrosshairProfile p,bool compileParts)
     {
         _parts=Array.Empty<CrosshairRuntime>();
-        p.Validate(); Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
+        p.Validate(); Native=p.Native; NativeScale=p.Scale; Enabled = p.Enabled; HealthColor = p.HealthColor; Opacity = p.Opacity; Outline = p.Outline * p.Scale;
         OutlineColor = HudColor.Parse(p.OutlineColor); OutlineOpacity = p.OutlineOpacity;
         uint rgb = Convert.ToUInt32(p.Color[1..], 16);
         Color = new Vector3((rgb >> 16) / 255f, ((rgb >> 8) & 255) / 255f, (rgb & 255) / 255f);

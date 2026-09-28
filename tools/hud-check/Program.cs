@@ -63,6 +63,14 @@ Check(HudRadarGeometry.Build(radarPrimitives,radarStyle,100,true,true,new(0,0,0,
 Near(radarPrimitives[2].Radius,55,"radar inner ring");
 Check(HudRadarGeometry.Build(radarPrimitives,new(new HudRadarProfile { Style=HudRadarStyle.Minimal }),100,true,true,Vector4.One,Vector4.One,Vector4.One,1)==0,"minimal radar suppresses frame");
 Check(HudRadarGeometry.Build(radarPrimitives,new(new HudRadarProfile { Style=HudRadarStyle.Square }),100,true,true,Vector4.One,Vector4.One,Vector4.One,1)==5,"square radar backing and edges");
+var nativeProfile=HudProfileDefaults.Create("Project Prime");nativeProfile.Mode=HudMode.Custom;
+nativeProfile.Crosshair.Native=true;nativeProfile.Health.Native=true;nativeProfile.Ammo.Native=true;nativeProfile.Inventory.Native=true;
+nativeProfile.GlobalScale=1.25f;nativeProfile.Crosshair.Scale=1.5f;
+foreach(string id in new[]{"core.health","core.ammo","core.weapons","core.crosshair"}) nativeProfile.Elements[id].Scale=2;
+var nativeRuntime=new HudRuntimeProfile(HudProfileStore.Parse(HudProfileStore.Serialize(nativeProfile)));
+Check(nativeRuntime.Crosshair.Native && nativeRuntime.Health.Native && nativeRuntime.Ammo.Native && nativeRuntime.Inventory.Native,"native selections persist and resolve");
+Near(nativeRuntime.Crosshair.NativeScale,1.5f,"native crosshair size persists");
+foreach(int index in new[]{0,1,2,3}) Near(nativeRuntime[index].Scale,2.5f,"native element scale includes global scale");
 var accessible=HudProfileDefaults.Create("Accessibility");
 var healthLayout=accessible.Elements["core.health"];
 var accessibleTransform=new HudTransform(1440,600);

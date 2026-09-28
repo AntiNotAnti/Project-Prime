@@ -12,6 +12,24 @@ using MphRead.Mods.Input;
 int checks=0;
 void Check(bool ok,string message) { checks++; if(!ok) throw new Exception(message); }
 Check(GuiLauncher.EnsureSetup(requireDisplay:false),"UI initialization");
+string? chosenColor=null;
+var colorEditor=new HudColorEditor("Test","#FFFFFF",v=>chosenColor=v);
+Check(colorEditor.Apply(" 0af ") && chosenColor=="#00AAFF","pasted short hex normalizes");
+Check(!colorEditor.Apply("not a color") && chosenColor=="#00AAFF","invalid color leaves prior value");
+Check(colorEditor.Apply(HudColorEditor.Swatches[6]) && chosenColor=="#FF0000","palette color applies immediately");
+if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT") is {} nativeRoot)
+{
+    MphRead.Paths.SetPath("AMHE1",nativeRoot); MphRead.Paths.MphKey="AMHE1";
+    using var sprites=new HudNativePreview();
+    for(int hunter=0;hunter<8;hunter++)
+    {
+        var objects=MphRead.Hud.HudElements.HunterObjects[hunter];
+        Check(sprites.Frame(objects.Reticle,0)!=null,"native reticle decoded "+hunter);
+        Check(sprites.Frame(objects.SniperReticle,0)!=null,"native zoom reticle decoded "+hunter);
+        Check(sprites.Frame(objects.HealthBarA,4)!=null,"native health decoded "+hunter);
+        Check(sprites.Frame(objects.AmmoBar,4)!=null,"native ammo decoded "+hunter);
+    }
+}
 string directory=Path.Combine(Path.GetTempPath(),"prime-hud-ui-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory); HudProfiles.Load(directory);
 var original=HudProfiles.CopyCurrent(); HudProfile? accepted=null; bool closed=false;
@@ -75,6 +93,12 @@ foreach(var (w,h) in new[]{(1280,720),(960,600),(420,900)})
  window.Width=w;window.Height=h;window.UpdateLayout();Dispatcher.UIThread.RunJobs();
  Check(canvas.Bounds.Width>0 && canvas.Bounds.Height>0,"canvas visible "+w);
  using var bitmap=new RenderTargetBitmap(new PixelSize(w,h),new Vector(96,96));bitmap.Render(view);bitmap.Save(Path.Combine(shots,$"hud-{w}x{h}.png"));
+}
+if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT")!=null)
+{
+    canvas.History.Edit(p=> { p.Mode=HudMode.Custom;p.Health.Native=true;p.Ammo.Native=true;p.Inventory.Native=true;p.Crosshair.Native=true; });
+    canvas.Refresh(); window.Width=1280;window.Height=720;window.UpdateLayout();Dispatcher.UIThread.RunJobs();
+    using var nativeBitmap=new RenderTargetBitmap(new PixelSize(1280,720),new Vector(96,96));nativeBitmap.Render(view);nativeBitmap.Save(Path.Combine(shots,"native-hud.png"));
 }
 view.HandleController(UiAction.Back); Check(closed && accepted==null,"cancel");
 Check(HudProfiles.CopyCurrent().Elements["core.health"].OffsetX==original.Elements["core.health"].OffsetX,"cancel restores original");

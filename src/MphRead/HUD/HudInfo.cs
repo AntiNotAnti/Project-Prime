@@ -730,9 +730,9 @@ namespace MphRead.Hud
         private static readonly int _animParamSize = Marshal.SizeOf<UiAnimParams>();
         private static readonly int _oamAttrSize = Marshal.SizeOf<RawUiOamAttrs>();
 
-        public static HudObject GetHudObject(string file)
+        public static HudObject GetHudObject(string file, string? root = null)
         {
-            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(Paths.FileSystem, file)));
+            var bytes = new ReadOnlySpan<byte>(File.ReadAllBytes(Paths.Combine(root ?? Paths.FileSystem, file)));
             UiObjectHeader header = Read.ReadStruct<UiObjectHeader>(bytes);
             int offset = _objHeaderSize;
             Debug.Assert(header.ParamDataSize % _animParamSize == 0);
