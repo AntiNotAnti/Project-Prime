@@ -583,18 +583,19 @@ namespace MphRead.Entities
 
             Vector3 renderFacing;
             Vector3 upHint;
-            // The original DS camera intentionally eases toward the raw aim
-            // when FixedCrosshair is off. Late-latching raw _gunVec1 on top of
-            // that smoothed camera bypasses the easing on extra draw frames and
-            // then snaps back at the next simulation step. That is the whole-
-            // scene high-refresh shimmer. In that mode, interpolate the camera
-            // history at the same timestamp as the viewmodel/world instead.
+            // Dynamic/Metroid camera presentation intentionally eases toward
+            // raw aim. Late-latching raw _gunVec1 on top of that smoothed
+            // camera bypasses the easing on extra draw frames and then snaps
+            // back at the next simulation step. In that mode, interpolate the
+            // camera history at the same timestamp as the viewmodel/world.
+            // FixedCrosshair cannot decide this by itself because Pro HUD
+            // freezes reticle animation in both Static and Dynamic modes.
             Vector3 drawCameraPosition = default;
             Vector3 drawCameraTarget = default;
             Vector3 drawCameraUp = default;
             float drawCameraFov = CameraInfo.Fov;
             bool smoothLegacyCamera = false;
-            if (!Features.FixedCrosshair && Mods.Render.FrameTiming.HighRefreshPresentation)
+            if (!Features.FixedAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
             {
                 smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
                     out drawCameraPosition, out drawCameraTarget,
@@ -614,19 +615,19 @@ namespace MphRead.Entities
             }
             else
             {
-                // Keep fixed-crosshair aiming low latency in orientation, but keep
+                // Keep Static/Quake aiming low latency in orientation, but keep
                 // camera translation on the same previous/current presentation
                 // timeline as the world. Forward-extrapolating body motion made
                 // each 60 Hz correction visible as a tiny positional hitch while
                 // walking, strafing, jumping or landing.
-                if (Features.FixedCrosshair && Mods.Render.FrameTiming.HighRefreshPresentation)
+                if (Features.FixedAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
                 {
                     cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha);
                 }
 
-                // Fixed-crosshair / modern first-person aiming is intentionally
-                // low latency. Apply only unsimulated input on top of the current
-                // simulation pose and attach the gun to the exact same basis.
+                // Static/Quake first-person aiming is intentionally low latency.
+                // Apply only unsimulated input on top of the current simulation
+                // pose and attach the gun to the exact same basis.
                 ModRenderAimDelta(presentationAlpha,
                     pointerX, pointerY, controllerX, controllerY,
                     out float x, out float y);
