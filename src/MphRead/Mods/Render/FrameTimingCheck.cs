@@ -106,6 +106,7 @@ namespace MphRead.Mods.Render
             }
             failures += RunStallCase() ? 0 : 1;
             failures += RunPresentationAlphaCase() ? 0 : 1;
+            failures += RunDynamicCrosshairCameraPolicyCase() ? 0 : 1;
             failures += RunFirstPersonPresentationCase() ? 0 : 1;
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
@@ -190,6 +191,42 @@ namespace MphRead.Mods.Render
                 FrameTiming.FrameRateCap = priorCap;
                 FrameTiming.Reset();
                 FrameTiming.ResetDiagnostics();
+            }
+        }
+
+        /// <summary>
+        /// Pro HUD freezes the native reticle fire animation in both weapon
+        /// styles, but only Static/Quake may weld camera facing to raw aim.
+        /// Dynamic/Metroid needs the eased camera-to-aim delta or its projected
+        /// crosshair is mathematically forced back to screen center.
+        /// </summary>
+        private static bool RunDynamicCrosshairCameraPolicyCase()
+        {
+            bool priorPro = Features.ProHud;
+            bool priorWeapon = Features.ProHudFixedWeapon;
+            try
+            {
+                Features.ProHud = true;
+                Features.ProHudFixedWeapon = false;
+                bool dynamicOk = Features.FixedCrosshair
+                    && !Features.FixedWeapon
+                    && !Features.FixedAimCamera;
+
+                Features.ProHudFixedWeapon = true;
+                bool staticOk = Features.FixedCrosshair
+                    && Features.FixedWeapon
+                    && Features.FixedAimCamera;
+
+                bool ok = dynamicOk && staticOk;
+                Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
+                    + $" | dynamic={(dynamicOk ? "eased" : "welded")}"
+                    + $" | static={(staticOk ? "welded" : "eased")}");
+                return ok;
+            }
+            finally
+            {
+                Features.ProHud = priorPro;
+                Features.ProHudFixedWeapon = priorWeapon;
             }
         }
 
