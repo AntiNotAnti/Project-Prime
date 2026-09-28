@@ -1134,11 +1134,13 @@ namespace MphRead.Entities
             float alpha = (float)Math.Clamp(Mods.Render.FrameTiming.Alpha, 0.0, 1.0);
             Vector2 step = _reticleCurrentPosition - _reticlePreviousPosition;
 
-            // Legacy moving-reticle aim now renders its camera from the
-            // previous/current camera history. Keep the reticle on that same
-            // presentation timestamp instead of predicting it forward while
-            // the camera is deliberately interpolating behind the simulation.
-            if (!Features.FixedCrosshair)
+            // Moving-reticle aim renders its camera from previous/current
+            // camera history. Keep the reticle on that same presentation
+            // timestamp instead of predicting it forward while the camera is
+            // deliberately interpolating behind the simulation. Pro HUD may
+            // still freeze the reticle's fire animation; Dynamic/Metroid mode
+            // is distinguished by the aim-camera policy, not that animation.
+            if (!Features.FixedAimCamera)
             {
                 return _reticlePreviousPosition + step * alpha;
             }
