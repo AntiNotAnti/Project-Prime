@@ -88,7 +88,7 @@ namespace MphRead.Mods.Launcher.Gui
             for (int i = 0; i < timelinePlayers.Length; i++)
             {
                 _timelineSlots[i + 1] = timelinePlayers[i].Slot;
-                timelineNames[i + 1] = timelinePlayers[i].Name;
+                timelineNames[i + 1] = timelinePlayers[i].DisplayName;
             }
             _timelinePlayer = new ChoiceRow("Timeline player", timelineNames, 0);
             _timelineEvents = new ChoiceRow("Timeline events",
@@ -752,7 +752,7 @@ namespace MphRead.Mods.Launcher.Gui
             _analyticsPanel.Children.Clear();
             ReplayAnalyticsSnapshot analytics = ReplayStudio.Analytics();
             var names = DemoPlayback.Metadata?.Players
-                .ToDictionary(player => player.Slot, player => player.Name)
+                .ToDictionary(player => player.Slot, player => player.DisplayName)
                 ?? new System.Collections.Generic.Dictionary<byte, string>();
 
             string Name(byte slot) => names.TryGetValue(slot, out string? value)

@@ -16,6 +16,8 @@ namespace MphRead
             LoadGame(string name, Scene scene, int playerCount = 0, BossFlags bossFlags = BossFlags.Unspecified,
             int nodeLayerMask = 0, int entityLayerId = -1)
         {
+            if (!scene.Services.IsReplica && Mods.Network.NetSession.Active)
+                Mods.Network.NetSession.ActiveMatchDefinition?.ApplyModifiers(scene.GameState);
             (RoomMetadata? metadata, int roomId) = Metadata.GetRoomByName(name);
             scene.AreaId = Metadata.GetAreaInfo(roomId);
             if (metadata == null)
@@ -23,6 +25,8 @@ namespace MphRead
                 throw new ProgramException("No room with this name is known.");
             }
             GameMode mode = scene.GameState.Mode;
+            if (mode == GameMode.InstaGib)
+            { mode = GameMode.Battle; scene.GameState.InstaGib = true; }
             if (mode == GameMode.None)
             {
                 mode = metadata.Multiplayer ? GameMode.Battle : GameMode.SinglePlayer;
@@ -37,6 +41,8 @@ namespace MphRead
                 if (!scene.Services.IsReplica) Weapons.Current = scene.GameState.Multiplayer ? Weapons.WeaponsMP : Weapons.Weapons1P;
             }
             scene.GameState.Mode = mode;
+            if (mode == GameMode.SinglePlayer)
+            { scene.GameState.InstaGib = scene.GameState.LowTier = scene.GameState.NoImperialist = false; }
             if (!scene.Services.IsReplica && mode == GameMode.SinglePlayer)
             {
                 Menu.ApplyAdventureSettings();
@@ -480,7 +486,7 @@ namespace MphRead
                 else if (entity.Type == EntityType.ItemSpawn)
                 {
                     var data = Mods.Multiplayer.MapResourceRules.ResolveData(metadata, resources,
-                        ((Entity<ItemSpawnEntityData>)entity).Data);
+                        ((Entity<ItemSpawnEntityData>)entity).Data, scene.GameState.NoImperialist);
                     if (scene.Services.DisablePowerups
                         && Mods.Multiplayer.MapResourceRules.IsPowerup(data.ItemType))
                     {

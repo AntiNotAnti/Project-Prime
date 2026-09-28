@@ -2007,6 +2007,7 @@ namespace MphRead.Mods.Launcher.Gui
             Heading(page, "You");
             _playerName = Add(page, new FieldRow("Your name", LauncherPrefs.PlayerName,
                 boxWidth: 200));
+            page.Children.Add(PlayerNameGlyphPicker.Create(_playerName.Box));
             // The seven playable hunters and Random, the same list the front
             // screen offers -- not every name in the enum, which also holds the
             // Guardian and the enemies' entries.
@@ -2410,7 +2411,7 @@ namespace MphRead.Mods.Launcher.Gui
                 InputSettings.ApplyToPlayers();
             }
             // Launcher preferences
-            if (_playerName.Value.Trim().Length > 0)
+            if (Network.PlayerNameCodec.ValidationError(_playerName.Value) == null)
             {
                 LauncherPrefs.PlayerName = _playerName.Value.Trim();
             }

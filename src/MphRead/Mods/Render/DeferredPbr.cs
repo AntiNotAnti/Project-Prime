@@ -253,7 +253,15 @@ namespace MphRead
 
             if (item.MatrixStackCount > 0)
             {
-                GL.UniformMatrix4(_pbrMatrixStack, item.MatrixStackCount, false, item.MatrixStack);
+                int matrixCount = Math.Clamp(item.MatrixStackCount, 0,
+                    Math.Min(32, item.MatrixStack.Length / 16));
+                if (matrixCount > 0)
+                    GL.UniformMatrix4(_pbrMatrixStack, matrixCount, false, item.MatrixStack);
+                else
+                {
+                    Matrix4 transform = item.Transform;
+                    GL.UniformMatrix4(_pbrMatrixStack, false, ref transform);
+                }
             }
             else
             {
@@ -374,7 +382,7 @@ out vec3 surface_normal;
 out vec3 surface_position;
 void main() {
     vec4 source_color = a_color_set > 0.5 ? a_color : imm_color;
-    mat4 stack_mtx = mtx_stack[int(a_texcoord.z)];
+    mat4 stack_mtx = mtx_stack[int(clamp(a_texcoord.z, 0.0, 31.0))];
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * a_position;
     vertex_color = vec4(source_color.rgb, 1.0);
@@ -412,7 +420,7 @@ varying vec4 vertex_color;
 varying vec3 surface_normal;
 varying vec3 surface_position;
 void main() {
-    mat4 stack_mtx = mtx_stack[int(gl_MultiTexCoord0.z)];
+    mat4 stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * gl_Vertex;
     vertex_color = vec4(gl_Color.rgb, 1.0);

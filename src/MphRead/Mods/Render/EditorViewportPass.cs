@@ -14,12 +14,14 @@ namespace MphRead;
 public partial class Scene
 {
     private readonly Dictionary<Guid, EditorMesh> _editorMeshes = new();
+    private readonly Dictionary<string, int> _editorTextures = new();
     private RenderItem? _editorGrid;
     private string _editorGridView = "";
     private float _editorGridStep;
-    private sealed record EditorPart(bool Solid, bool CollisionOnly, bool SurfaceOnly, RenderItem Fill, RenderItem Edges);
+    private sealed record EditorPart(bool Solid, bool CollisionOnly, bool SurfaceOnly, (bool Imported, int Index) Material, RenderItem Fill, RenderItem Edges);
     private sealed record EditorMesh(MapViewportMesh Source, EditorPart[] Parts);
     public int EditorMeshUploads { get; private set; }
+    public int EditorTextureUploads { get; private set; }
     public int EditorMeshCount => _editorMeshes.Count;
 
     public static Scene CreateEditorRenderer(Vector2i size)
@@ -62,6 +64,10 @@ public partial class Scene
     {
         if (!frame.Layout.IsValid) return;
         SynchronizeEditorMeshes(frame.Meshes);
+        var usedTextures = frame.Materials.Values.Select(t => t.Key).ToHashSet();
+        if (frame.UvChecker) usedTextures.Add(MapViewportMaterials.Checker.Key);
+        foreach (string key in _editorTextures.Keys.Where(k => !usedTextures.Contains(k)).ToArray())
+        { ReleaseTexture(_editorTextures[key]); _editorTextures.Remove(key); }
         int previousFramebuffer = GL.GetInteger(GetPName.FramebufferBinding);
         int previousReadFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int previousProgram = GL.GetInteger(GetPName.CurrentProgram);
@@ -126,8 +132,17 @@ public partial class Scene
                 {
                     if (frame.Collision ? !part.Solid || part.SurfaceOnly : part.CollisionOnly) continue;
                     part.Fill.Transform = part.Edges.Transform = transform;
-                    part.Fill.OverrideColor = selected ? new Vector4(.73f, .55f, .28f, 1)
-                        : frame.Collision ? new Vector4(.2f, .6f, .4f, 1) : null;
+                    part.Fill.OverrideColor = frame.Collision ? new Vector4(.2f, .6f, .4f, 1) : null;
+                    part.Fill.HasTexture = !frame.Collision && (frame.UvChecker || frame.Materials.TryGetValue(part.Material, out _));
+                    if (part.Fill.HasTexture)
+                    {
+                        var texture = frame.UvChecker ? MapViewportMaterials.Checker : frame.Materials[part.Material];
+                        if (!_editorTextures.TryGetValue(texture.Key, out int binding))
+                        { binding = BindGetTexture(texture.Pixels, texture.Width, texture.Height); _editorTextures.Add(texture.Key, binding); EditorTextureUploads++; }
+                        part.Fill.TextureBindingId = binding;
+                        part.Fill.TexcoordMatrix = Matrix4.CreateScale(1f / texture.Width, 1f / texture.Height, 1);
+                        part.Fill.XRepeat = part.Fill.YRepeat = RepeatMode.Repeat;
+                    }
                     if (!frame.Wireframe) RenderItem(part.Fill);
                     if (frame.Wireframe || selected)
                     {
@@ -165,7 +180,7 @@ public partial class Scene
                     ? new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: false) }
                     : new[] { (Faces: mesh.Faces, CollisionOnly: false, SurfaceOnly: true),
                         (Faces: mesh.CollisionFaces, CollisionOnly: true, SurfaceOnly: false) })
-                foreach (var group in variant.Faces.GroupBy(f => f.Solid))
+                foreach (var group in variant.Faces.GroupBy(f => (f.Solid, Imported: f.ObjectId == Guid.Empty, f.Material)))
                 {
                     int fill = CompileEditorList(group, edges: false);
                     int edges;
@@ -173,7 +188,7 @@ public partial class Scene
                     catch { GL.DeleteLists(fill, 1); throw; }
                     var surface = EditorItem(fill);
                     surface.CullingMode = CullingMode.Back;
-                    parts.Add(new(group.Key, variant.CollisionOnly, variant.SurfaceOnly, surface, EditorItem(edges)));
+                    parts.Add(new(group.Key.Solid, variant.CollisionOnly, variant.SurfaceOnly, (group.Key.Imported, group.Key.Material), surface, EditorItem(edges)));
                 }
                 _editorMeshes.Add(mesh.ObjectId, new(mesh, parts.ToArray()));
                 EditorMeshUploads++;
@@ -196,14 +211,18 @@ public partial class Scene
         GL.Begin(edges ? PrimitiveType.Lines : PrimitiveType.Triangles);
         foreach (var face in faces)
         {
-            int shade = (int)Math.Clamp(100 * face.Shade, 35, 200);
-            GL.Color3((shade + face.Material % 3 * 15) / 255f, (shade + 15) / 255f, (shade + 30) / 255f);
+            GL.Color3(Math.Clamp(face.Shade, .2f, 1), Math.Clamp(face.Shade, .2f, 1), Math.Clamp(face.Shade, .2f, 1));
+            void Vertex(int index)
+            {
+                var uv = face.Texcoords is { } coords && index < coords.Length ? coords[index] : Numerics.Vector2.Zero;
+                GL.TexCoord2(uv.X, uv.Y); GL.Vertex3(EditorVector(face.Points[index]));
+            }
             if (edges)
                 for (int i = 0; i < face.Points.Length; i++)
                 { GL.Vertex3(EditorVector(face.Points[i])); GL.Vertex3(EditorVector(face.Points[(i + 1) % face.Points.Length])); }
             else
                 for (int i = 1; i < face.Points.Length - 1; i++)
-                { GL.Vertex3(EditorVector(face.Points[0])); GL.Vertex3(EditorVector(face.Points[i])); GL.Vertex3(EditorVector(face.Points[i + 1])); }
+                { Vertex(0); Vertex(i); Vertex(i + 1); }
         }
         GL.End(); GL.EndList();
         return list;
@@ -214,6 +233,8 @@ public partial class Scene
     }
     private void DisposeEditorMeshes()
     {
+        foreach (int texture in _editorTextures.Values) ReleaseTexture(texture);
+        _editorTextures.Clear();
         if (_editorGrid != null) { GL.DeleteLists(_editorGrid.ListId, 1); _editorGrid = null; }
         if (_editorMeshes == null) return;
         foreach (var mesh in _editorMeshes.Values) DeleteEditorMesh(mesh);

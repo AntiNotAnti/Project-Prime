@@ -1353,7 +1353,11 @@ namespace MphRead
                     // in order to allow toggling room node transforms, keep the matrix ID at 0
                     if (!isRoom)
                     {
-                        matrixId = instruction.Arguments[0];
+                        uint requested = (uint)(instruction.Arguments[0] & 0x1F);
+                        int matrixCount = model.NodeMatrixIds.Count;
+                        matrixId = matrixCount == 0
+                            ? 0
+                            : Math.Min(requested, (uint)(matrixCount - 1));
                     }
                     GL.TexCoord3(texX, texY, matrixId);
                     break;
@@ -1475,6 +1479,8 @@ namespace MphRead
 
         private void ReleaseTexture(int texture)
         {
+            _flatColors.Remove(texture);
+            _mipmappedTextures.Remove(texture);
             _textureSources.Remove(texture);
             if (_materialMaps.Remove(texture, out Mods.Render.MaterialMapBindings maps))
             {
@@ -2494,9 +2500,7 @@ namespace MphRead
             bool answered = false;
             try
             {
-                while (GL.GetError() != OpenTK.Graphics.OpenGL.ErrorCode.NoError)
-                {
-                }
+                DrainGlError();
                 GL.GetFramebufferAttachmentParameter(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.DepthAttachment,
                     FramebufferParameterName.FramebufferAttachmentDepthSize, out int answer);
@@ -3489,6 +3493,7 @@ namespace MphRead
             for (int i = 0; i < entry.Elements.Count; i++)
             {
                 EffectElementEntry element = entry.Elements[i];
+                element.EffectEntry = null;
                 UnlinkEffectElement(element);
             }
             entry.Elements.Clear();
@@ -3502,6 +3507,7 @@ namespace MphRead
                 EffectElementEntry element = entry.Elements[i];
                 if (element.Flags.TestFlag(EffElemFlags.DestroyOnDetach))
                 {
+                    element.EffectEntry = null;
                     UnlinkEffectElement(element);
                 }
                 else
@@ -3526,6 +3532,8 @@ namespace MphRead
                 return null;
             }
             EffectElementEntry entry = _inactiveElements.Dequeue();
+            Debug.Assert(!_activeElements.Contains(entry));
+            Debug.Assert(entry.EffectEntry == null);
             entry.EffectId = effect.Id;
             entry.EffectName = effect.Name;
             entry.ElementName = element.Name;
@@ -3565,13 +3573,17 @@ namespace MphRead
 
         private void UnlinkEffectElement(EffectElementEntry element)
         {
+            if (!_activeElements.Remove(element))
+            {
+                Debug.Assert(false, "Effect element was released more than once.");
+                return;
+            }
             while (element.Particles.Count > 0)
             {
                 EffectParticle particle = element.Particles[0];
                 element.Particles.Remove(particle);
                 UnlinkEffectParticle(particle);
             }
-            _activeElements.Remove(element);
             element.EntityCollision = null;
             element.Definition = null;
             element.Model = null!;
@@ -3582,6 +3594,17 @@ namespace MphRead
             element.TextureBindingIds.Clear();
             Debug.Assert(element.Particles.Count == 0);
             _inactiveElements.Enqueue(element);
+        }
+
+        // Bulk scene cleanup can release an element without going through its
+        // EffectEntry. Detach it first so a later owner teardown cannot release
+        // the same pooled element again.
+        private static void ReleaseEffectElementOwner(EffectElementEntry element)
+        {
+            EffectEntry? owner = element.EffectEntry;
+            if (owner == null) return;
+            owner.Elements.Remove(element);
+            element.EffectEntry = null;
         }
 
         private EffectParticle? InitEffectParticle()
@@ -3749,6 +3772,7 @@ namespace MphRead
             for (int i = 0; i < _activeElements.Count; i++)
             {
                 EffectElementEntry element = _activeElements[i];
+                ReleaseEffectElementOwner(element);
                 UnlinkEffectElement(element);
                 i--;
             }
@@ -3762,6 +3786,7 @@ namespace MphRead
                 Effect? effect = Read.GetEffect(element.EffectId);
                 if (effect == null || !effect.Persistent)
                 {
+                    ReleaseEffectElementOwner(element);
                     UnlinkEffectElement(element);
                     i--;
                 }
@@ -4776,6 +4801,7 @@ namespace MphRead
 
         public void DoCleanup()
         {
+            if (Mods.Headless.Active) Mods.MapGen.MapRuntimeUsage.Release(this);
             if (!_exiting)
             {
                 _exiting = true;
@@ -4832,6 +4858,7 @@ namespace MphRead
             _texPalMap.Clear();
             _textureSources.Clear();
             _mipmappedTextures?.Clear();
+            _flatColors.Clear();
             _cosmeticTextures.Clear();
             ReleasePreviewItems();
             _materialMaps.Clear();
@@ -4870,6 +4897,7 @@ namespace MphRead
             DeleteProgram(ref _rttShaderProgramId);
             DeleteProgram(ref _shiftShaderProgramId);
             DeleteProgram(ref _celShaderProgramId);
+            Mods.MapGen.MapRuntimeUsage.Release(this);
         }
 
         private static void DeleteTexture(ref int texture)
@@ -4951,7 +4979,15 @@ namespace MphRead
 
             if (item.MatrixStackCount > 0)
             {
-                GL.UniformMatrix4(_shaderLocations.MatrixStack, item.MatrixStackCount, transpose: false, item.MatrixStack);
+                int matrixCount = Math.Clamp(item.MatrixStackCount, 0,
+                    Math.Min(32, item.MatrixStack.Length / 16));
+                if (matrixCount > 0)
+                    GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount, transpose: false, item.MatrixStack);
+                else
+                {
+                    Matrix4 transform = item.Transform;
+                    GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref transform);
+                }
             }
             else
             {
@@ -6078,8 +6114,12 @@ localCenter *= _profileHudScale;
                 }
             }
             model.UpdateMatrixStack();
-            Array.Copy(model.MatrixStackValues.ToArray(), _hudMatrixStack, model.MatrixStackValues.Count);
-            GL.UniformMatrix4(_shaderLocations.MatrixStack, model.NodeMatrixIds.Count, transpose: false, _hudMatrixStack);
+            int copyCount = Math.Min(model.MatrixStackValues.Count, _hudMatrixStack.Length);
+            for (int i = 0; i < copyCount; i++)
+                _hudMatrixStack[i] = model.MatrixStackValues[i];
+            int matrixCount = Math.Min(model.NodeMatrixIds.Count, copyCount / 16);
+            if (matrixCount > 0)
+                GL.UniformMatrix4(_shaderLocations.MatrixStack, matrixCount, transpose: false, _hudMatrixStack);
             int bindingId = -1;
             for (int i = 1; i < 9; i++)
             {
@@ -6349,7 +6389,9 @@ localCenter *= _profileHudScale;
         /// </summary>
         public void SetFreeCamera(bool on)
         {
-            if (on == _freeCam)
+            // A freshly restored replica starts in Roam with _freeCam false.
+            // The flag alone cannot tell whether first-person was established.
+            if (on == _freeCam && (on || _cameraMode == CameraMode.Player))
             {
                 return;
             }
@@ -8236,9 +8278,7 @@ localCenter *= _profileHudScale;
             // scene because opening the menu is a window operation and the
             // window is this class -- the same reason the keyboard's Escape
             // is handled in OnKeyDown and not in the entity.
-            if (Mods.Chat.ChatBox.Composing && Mods.Input.GamepadInput.TakePress(
-                Mods.Input.GamepadButtons.B | Mods.Input.GamepadButtons.Start))
-                Mods.Chat.ChatBox.Cancel();
+            Mods.Chat.ChatBox.HandleController();
             if (Mods.Input.GamepadInput.TakeMenuPress()
                 && (Scene.CameraMode == CameraMode.Player || Scene.IsFreeCam))
             {
@@ -8579,6 +8619,11 @@ localCenter *= _profileHudScale;
 
         protected override void OnMouseWheel(MouseWheelEventArgs e)
         {
+            if (Mods.Chat.ChatBox.Composing && Mods.Chat.ChatBox.HistoryOpen)
+            {
+                Mods.Chat.ChatBox.ScrollHistory((int)Math.Ceiling(Math.Abs(e.OffsetY)) * Math.Sign(e.OffsetY));
+                return;
+            }
             // The results screen's map list, which is longer than the panel it
             // is drawn in. Ahead of the shell's own handling only in the sense
             // that the two cannot both be up: a screen and a results screen
