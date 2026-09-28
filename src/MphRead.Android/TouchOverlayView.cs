@@ -102,6 +102,7 @@ namespace MphRead.Droid
             }
             float unit = Math.Max(1f, Height / 100f);
             _stroke.StrokeWidth = Math.Max(2f, unit * 0.22f);
+            float opacity = MphRead.Mods.Input.TouchSettings.OverlayOpacity;
             foreach (TouchButton button in _controls.Buttons)
             {
                 if (!button.Visible)
@@ -110,10 +111,13 @@ namespace MphRead.Droid
                 }
                 bool held = _controls.IsHeld(button.Action);
                 _fill.Color = held ? _accentFill : _panel;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 _stroke.Color = held ? _accent : _edge;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 canvas.DrawCircle(button.CentreX, button.CentreY, button.Radius, _fill);
                 canvas.DrawCircle(button.CentreX, button.CentreY, button.Radius, _stroke);
                 _text.Color = held ? _accent : _label;
+                _text.Alpha = ScaledAlpha(_text.Color, opacity);
                 _text.TextSize = button.Radius * 0.42f;
                 canvas.DrawText(button.Label, button.CentreX,
                     button.CentreY + _text.TextSize * 0.35f, _text);
@@ -121,16 +125,25 @@ namespace MphRead.Droid
             if (_controls.StickActive)
             {
                 _stroke.Color = _edge;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 _fill.Color = _panel;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 canvas.DrawCircle(_controls.StickX, _controls.StickY, _controls.StickRadius, _fill);
                 canvas.DrawCircle(_controls.StickX, _controls.StickY, _controls.StickRadius, _stroke);
                 _fill.Color = _accentFill;
+                _fill.Alpha = ScaledAlpha(_fill.Color, opacity);
                 _stroke.Color = _accent;
+                _stroke.Alpha = ScaledAlpha(_stroke.Color, opacity);
                 canvas.DrawCircle(_controls.StickKnobX, _controls.StickKnobY,
                     _controls.StickKnobRadius, _fill);
                 canvas.DrawCircle(_controls.StickKnobX, _controls.StickKnobY,
                     _controls.StickKnobRadius, _stroke);
             }
+        }
+
+        private static int ScaledAlpha(Color color, float opacity)
+        {
+            return Math.Clamp((int)MathF.Round(color.A * opacity), 0, 255);
         }
 
         public override bool OnTouchEvent(MotionEvent? e)
