@@ -392,13 +392,13 @@ namespace MphRead.Entities
 
         private void UpdateAimFacing()
         {
-            if (Features.FixedCrosshair)
+            if (Features.FixedAimCamera)
             {
-                // The camera's own facing is normally eased 10%/frame toward
-                // the raw aim direction (a DS-camera holdover) -- with the
-                // crosshair pinned to screen-centre there's nothing crisp
-                // left to mask that lag, so it reads as sluggish mouse-look
-                // instead. 1:1 here removes it.
+                // Static/Quake presentation welds the camera to raw aim. A
+                // fixed reticle animation alone must not do that: Pro HUD also
+                // freezes that animation in Dynamic/Metroid mode, where the
+                // original camera easing is exactly what creates the visible
+                // camera-to-aim delta used by the moving crosshair.
                 _facingVector = _gunVec1;
                 return;
             }
