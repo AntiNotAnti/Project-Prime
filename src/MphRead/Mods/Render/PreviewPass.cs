@@ -117,7 +117,10 @@ namespace MphRead
             }
             _preview ??= new Mods.Render.HunterPreviewEntity(this);
             Hunter want = LauncherPreview ? LauncherHunter : Mods.EndScreen.Hunter;
-            _preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit);
+            var mode = LauncherPreview && Mods.Cosmetics.CosmeticPreview.Loadout != null
+                ? Mods.Cosmetics.CosmeticPreview.Mode : Mods.Cosmetics.SkinContext.Biped;
+            bool modelChanged = !_preview.Ready || _preview.Shown != want || _preview.Mode != mode;
+            _preview.SetUp(want, LauncherPreview ? LauncherSuit : Mods.EndScreen.Suit, mode);
             _preview.SetCosmetics(Mods.Cosmetics.CosmeticPreview.Loadout ?? Mods.Cosmetics.CosmeticPersistence.Get(want),
                 Mods.Cosmetics.CosmeticPreview.DeathRequest);
             // Textures and display lists, which nobody else is going to make.
@@ -129,7 +132,7 @@ namespace MphRead
             // entity generated. On the launcher there is no player and no
             // room, so nothing ever did, and the first draw died looking a
             // palette up by an id that was never registered.
-            if (_previewInited != want)
+            if (_previewInited != want || modelChanged)
             {
                 _previewInited = want;
                 if (_preview.Ready)
@@ -247,8 +250,16 @@ namespace MphRead
         /// wide enough to read the shape, narrow enough not to distort it the
         /// way a wide angle at this distance would.
         /// </summary>
-        private static readonly Vector3 _previewEye = new Vector3(0, 1.15f, 3.8f);
-        private static readonly Vector3 _previewTarget = new Vector3(0, 1.05f, 0);
+        private static Matrix4 PreviewView(Hunter hunter, float aspect)
+        {
+            // Trace's raised limbs and Spire's shoulders extend beyond the
+            // shared biped framing. Narrow panels need horizontal room too.
+            float distance = hunter == Hunter.Trace ? 4.6f : hunter == Hunter.Spire ? 4.2f : 3.9f;
+            float targetHeight = hunter == Hunter.Trace ? 1.2f : 1.05f;
+            distance *= Math.Max(1, 1 / Math.Max(0.1f, aspect));
+            return Matrix4.LookAt(new Vector3(0, targetHeight + 0.1f, distance),
+                new Vector3(0, targetHeight, 0), Vector3.UnitY);
+        }
         private const float PreviewFov = 40;
 
         /// <summary>The window's own background, behind the model.</summary>
@@ -370,7 +381,8 @@ namespace MphRead
             Matrix4 projection = Matrix4.CreatePerspectiveFieldOfView(
                 MathHelper.DegreesToRadians(PreviewFov),
                 width / (float)height, 0.1f, 100f);
-            Matrix4 view = Matrix4.LookAt(_previewEye, _previewTarget, Vector3.UnitY);
+            Matrix4 view = PreviewView(_preview?.Mode == Mods.Cosmetics.SkinContext.Biped
+                ? _preview.Shown : Hunter.Samus, width / (float)height);
             GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
             GL.UniformMatrix4(_shaderLocations.ViewMatrix, transpose: false, ref view);
             // No fog, whatever the room does with it: a preview window is not
@@ -391,7 +403,8 @@ namespace MphRead
             {
                 RenderItem(_previewItems[i]);
             }
-            if (_preview != null && Mods.Cosmetics.CosmeticPreview.Loadout != null)
+            if (_preview != null && _preview.Mode == Mods.Cosmetics.SkinContext.Biped
+                && Mods.Cosmetics.CosmeticPreview.Loadout != null)
                 Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,
                     Mods.Cosmetics.CosmeticThumbnail.PathFor(_preview.Shown, _preview.ThumbnailKey));
             // Everything back the way the HUD expects to find it.

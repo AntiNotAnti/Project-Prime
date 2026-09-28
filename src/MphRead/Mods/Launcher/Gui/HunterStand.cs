@@ -206,7 +206,9 @@ namespace MphRead.Mods.Launcher.Gui
         public Mods.Cosmetics.CosmeticLoadout? Cosmetics { get; set; }
         private float _cosmeticZoom = 1;
         private int _deathPreviewRequest;
-        public void PreviewDeath() { _deathPreviewRequest++; }
+        public Mods.Cosmetics.SkinContext PreviewMode { get; set; }
+        public bool LoopDeath { get; set; }
+        public void PreviewDeath() { PreviewMode = Mods.Cosmetics.SkinContext.Biped; _deathPreviewRequest++; }
         public void ResetPreview() { _deathPreviewRequest = 0; _cosmeticZoom = 1; _spin = 0; }
         protected override void OnPointerWheelChanged(PointerWheelEventArgs e)
         {
@@ -217,9 +219,11 @@ namespace MphRead.Mods.Launcher.Gui
         private void PublishCosmetics()
         {
             Mods.Cosmetics.CosmeticPreview.Loadout = Cosmetics;
+            Mods.Cosmetics.CosmeticPreview.Mode = Cosmetics != null ? PreviewMode : Mods.Cosmetics.SkinContext.Biped;
             Mods.Cosmetics.CosmeticPreview.Yaw = (float)_spin;
             Mods.Cosmetics.CosmeticPreview.Zoom = _cosmeticZoom;
             Mods.Cosmetics.CosmeticPreview.DeathRequest = _deathPreviewRequest;
+            Mods.Cosmetics.CosmeticPreview.LoopDeath = Cosmetics != null && LoopDeath;
         }
 
         public int Suit
@@ -409,7 +413,7 @@ namespace MphRead.Mods.Launcher.Gui
             double scale = Math.Min(1, ShotEdge / Math.Max(w, h));
             int width = Grain((int)Math.Round(w * scale));
             int height = Grain((int)Math.Round(h * scale));
-            string want = $"{_who}/{_suit}/{width}x{height}/{Cosmetics}/{_spin:0.00}/{_cosmeticZoom:0.00}/{_deathPreviewRequest}";
+            string want = $"{_who}/{_suit}/{width}x{height}/{Cosmetics}/{PreviewMode}/{_spin:0.00}/{_cosmeticZoom:0.00}/{_deathPreviewRequest}";
             if (Cosmetics != null) want += "/" + (Environment.TickCount64 / 100);
             if (want == _shotAsked)
             {

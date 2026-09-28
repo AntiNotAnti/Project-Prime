@@ -96,3 +96,66 @@ The real-model visual diagnostic asserts nondegenerate particle geometry and no
 world-queue growth, in addition to capturing every catalog choice. It also
 exercises the actual player material/death path with Bright Skins, cloak,
 first-person/native-hidden death bodies, and respawn lifecycle checks.
+
+## Hunter visibility and preview follow-up (2026-09-28)
+
+Armor motes now use per-hunter biped and alternate-form presentation envelopes,
+with larger sprites on Spire and smaller envelopes on Trace and compact forms.
+These are visual-only values; collision and gameplay dimensions are unchanged.
+Preview particles share the model's zoom and rotation. Camera framing gives
+Trace's raised limbs and Spire's shoulders more room and backs away for narrow
+panels. Changing hunters re-resolves the preview appearance even when the
+loadout keys are unchanged.
+
+Customization now distinguishes an unequipped preview from equipped/pending-sync
+items and offers a looping death preview with a short living-pose interval.
+Reset Preview stops the loop until another preview is requested. Armor and death
+particle submission both enforce the master visibility and quality switches;
+death particles use budgets of 0/6/12/18 for Off/Low/Medium/High. Armor retains its
+existing maximum of 16 rather than increasing particle counts for visibility.
+
+The diagnostics cover all seven actual player material/death paths, all hunters'
+replicated loadouts across team/alternate-form/quality combinations, GPU particle
+budgets and visibility toggles, and 600 looping death frames with restart/reset
+and render-queue ownership assertions. This is automated path coverage, not a
+claim of a completed two-client match or a GPU frame-time benchmark. Authored
+skin assets, weapon/alternate-form preview modes, Android captures, and live
+multiplayer visual acceptance remain follow-up work.
+
+Validation for this follow-up: desktop build passed (20 warnings, zero errors),
+299 cosmetics checks passed, 18,015 UI checks passed, and the OpenGL diagnostic
+captured 196 catalog previews and passed the repeated-loop/toggle checks. Trace
+and Spire captures were visually inspected after the camera adjustment.
+
+## Authored artwork and model previews (2026-09-28)
+
+Obsidian and Alimbic now ship 14 original transparent decal sheets (one of each
+style per hunter), with technical panel markings, circuit inlays, and distinct
+hunter insignia. These upgrade the existing skin IDs, so saved and replicated
+loadouts remain compatible. They are authored UV decal treatments, not fully
+hand-painted per-material atlases. The standard-library source generator and
+asset workflow are documented in `tools/cosmetic-art/README.md`.
+
+When no material-specific albedo exists, the renderer composites the bundled
+sheet over locally extracted native pixels and preserves native alpha. It
+caches the resulting texture and releases it through normal cosmetic texture
+cleanup. The optional-art path falls back safely on loading failures. Existing
+team-palette and critical-status suppression policies remain in force.
+
+Hunter License now offers Hunter, Weapon, and Alternate Form preview modes.
+They load the corresponding gameplay models and use their material contexts;
+weapon effects use first-person intensity and omit armor particles. Non-biped
+models are centered and sized from model bounds, with an idle-size adjustment
+for Spire's expanded attack bounds. Drag and zoom remain available. Death preview
+returns to Hunter mode, model switches initialize their own GPU resources, and
+non-biped views cannot overwrite the hunter catalog thumbnails. Thumbnail cache
+v3 invalidates images from before the authored artwork.
+
+Validation: desktop build passed (20 warnings, zero errors), 299 cosmetics checks
+and 18,025 UI checks passed. The OpenGL diagnostic captured 196 catalog previews
+plus 63 native/authored model-mode comparisons, checked all 42 authored bindings,
+and passed visibility/quality toggles and 600 death-preview frames. UI checks
+exercise repeated model selection and License detach/re-entry. Weapon and
+alternate-form captures were visually inspected; Spire's shell gap is also
+present in the native model comparison. Android and live two-client visual
+acceptance remain unverified.

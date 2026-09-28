@@ -60,19 +60,24 @@ namespace MphRead.Mods.Render
         private int _deathRequest;
         public void SetCosmetics(Mods.Cosmetics.CosmeticLoadout loadout, int deathRequest)
         {
-            if (_cosmetics.Loadout != loadout) { _cosmetics = new(_hunter, loadout); _death.Reset(); }
+            if (_cosmetics.Loadout != loadout || _cosmeticHunter != _hunter) { _cosmetics = new(_hunter, loadout); _cosmeticHunter = _hunter; _death.Reset(); }
             if (_deathRequest != deathRequest)
             {
                 _deathRequest = deathRequest;
                 if (deathRequest == 0) _death.Reset(); else _death.Preview(_cosmetics, _cosmeticTime);
             }
         }
+        private Hunter _cosmeticHunter = Hunter.Random;
         private Hunter _hunter = Hunter.Random;
 
         /// <summary>The hunter whose model is not on this machine. See SetUp.</summary>
+        public Mods.Cosmetics.SkinContext Mode { get; private set; }
+        private Mods.Cosmetics.SkinContext _missingMode;
         private Hunter _missing = Hunter.Random;
         private int _recolor = -1;
         private ModelInstance? _model;
+        private Vector3 _displayCenter;
+        private float _displayScale = 1;
 
         public HunterPreviewEntity(Scene scene) : base(EntityType.Model, scene)
         {
@@ -98,13 +103,13 @@ namespace MphRead.Mods.Render
         /// change loads anything, and <c>Read</c> caches models globally, so a
         /// hunter somebody is already playing costs nothing at all.
         /// </summary>
-        public void SetUp(Hunter hunter, int recolor)
+        public void SetUp(Hunter hunter, int recolor, Mods.Cosmetics.SkinContext mode = Mods.Cosmetics.SkinContext.Biped)
         {
-            if (_model != null && hunter == _hunter && recolor == _recolor)
+            if (_model != null && hunter == _hunter && recolor == _recolor && Mode == mode)
             {
                 return;
             }
-            if (_missing == hunter)
+            if (_missing == hunter && _missingMode == mode)
             {
                 // Already tried and it is not there. Asking again is asking
                 // the disk the same question sixty times a second: on the
@@ -114,7 +119,7 @@ namespace MphRead.Mods.Render
                 // for ever, which is what a player's first report of it was.
                 return;
             }
-            if (hunter != _hunter || _model == null)
+            if (hunter != _hunter || _model == null || Mode != mode)
             {
                 try
                 {
@@ -125,11 +130,15 @@ namespace MphRead.Mods.Render
                     }
                     // The first LOD, which is the one the game draws for a
                     // player you are standing next to.
-                    ModelInstance inst = Read.GetModelInstance(models[0]);
+                    int modelIndex = mode == Mods.Cosmetics.SkinContext.ViewModel ? 3
+                        : mode == Mods.Cosmetics.SkinContext.AltForm ? 2 : 0;
+                    ModelInstance inst = Read.GetModelInstance(models[modelIndex]);
                     _models.Clear();
                     _models.Add(inst);
                     _model = inst;
                     _hunter = hunter;
+                    Mode = mode;
+                    _death.Reset(); _deathRequest = 0;
                     // Standing, not the bind pose.
                     //
                     // A model with no animation set draws the skeleton as it
@@ -138,7 +147,9 @@ namespace MphRead.Mods.Render
                     // animation the game plays for a hunter standing still,
                     // so it is both the right pose and the one everybody
                     // recognises the character in.
-                    inst.SetAnimation((int)PlayerAnimation.Idle);
+                    inst.SetAnimation(mode == Mods.Cosmetics.SkinContext.Biped ? (int)PlayerAnimation.Idle : 0,
+                        mode == Mods.Cosmetics.SkinContext.Biped ? AnimFlags.None : AnimFlags.Paused);
+                    FitDisplayModel(inst);
                 }
                 catch (Exception ex)
                 {
@@ -146,13 +157,45 @@ namespace MphRead.Mods.Render
                     // the portrait sprite when this never becomes ready.
                     // Once per hunter, not once per frame. See the guard above.
                     Console.WriteLine($"[endscreen] no model for {hunter}: {ex.Message}");
-                    _missing = hunter;
+                    _missing = hunter; _missingMode = mode;
                     _model = null;
                     return;
                 }
             }
-            _recolor = recolor;
-            Recolor = recolor;
+            _recolor = _model == null ? 0 : Math.Clamp(recolor, 0, _model.Model.Recolors.Count - 1);
+            Recolor = _recolor;
+        }
+
+        private void FitDisplayModel(ModelInstance inst)
+        {
+            _displayCenter = Vector3.Zero; _displayScale = 1;
+            if (Mode == Mods.Cosmetics.SkinContext.Biped) return;
+            var model = inst.Model;
+            model.ComputeNodeMatrices(0);
+            model.AnimateNodes(0, UseNodeTransform, Matrix4.Identity, model.Scale, inst.AnimInfo);
+            Vector3 min = new(float.PositiveInfinity), max = new(float.NegativeInfinity);
+            foreach (var node in model.Nodes)
+            {
+                if (node.MeshCount == 0 || !node.Enabled) continue;
+                for (int corner = 0; corner < 8; corner++)
+                {
+                    var p = new Vector3((corner & 1) == 0 ? node.MinBounds.X : node.MaxBounds.X,
+                        (corner & 2) == 0 ? node.MinBounds.Y : node.MaxBounds.Y,
+                        (corner & 4) == 0 ? node.MinBounds.Z : node.MaxBounds.Z);
+                    p = Vector3.TransformPosition(p, node.Animation);
+                    min = Vector3.ComponentMin(min, p); max = Vector3.ComponentMax(max, p);
+                }
+            }
+            float diameter = (max - min).Length;
+            if (float.IsFinite(diameter) && diameter > 0.001f)
+            {
+                _displayCenter = (min + max) / 2;
+                _displayScale = Math.Clamp(2.2f / diameter, 0.1f, 20);
+                // Spire's authored bounds include the extended attack shell,
+                // while the paused idle shape is a compact ball.
+                if (Mode == Mods.Cosmetics.SkinContext.AltForm && _hunter == Hunter.Spire)
+                    _displayScale *= 2.4f;
+            }
         }
 
         /// <summary>
@@ -169,6 +212,10 @@ namespace MphRead.Mods.Render
         {
             _model?.UpdateAnimFrames();
             _cosmeticTime += 1f / 60;
+            if (Mods.Cosmetics.CosmeticPreview.LoopDeath && _deathRequest != 0
+                && Mode == Mods.Cosmetics.SkinContext.Biped
+                && (!_death.Active || _cosmeticTime - _death.StartTime >= _cosmetics.Death.Duration + 0.75f))
+                _death.Preview(_cosmetics, _cosmeticTime);
         }
 
         public void Reset()
@@ -178,7 +225,7 @@ namespace MphRead.Mods.Render
         }
 
         protected override Mods.Cosmetics.Skins.RenderMaterialOverride GetCosmeticMaterialOverride(ModelInstance inst, Material material, int index)
-            => Mods.RenderOptions.ShowCustomCosmetics ? _scene.GetCosmeticMaterial(_cosmetics.Skin, inst.Model, index, Mods.Cosmetics.SkinContext.Biped) : default;
+            => Mods.RenderOptions.ShowCustomCosmetics ? _scene.GetCosmeticMaterial(_cosmetics.Skin, inst.Model, index, Mode) : default;
 
         protected override LightInfo GetLightInfo()
         {
@@ -214,8 +261,16 @@ namespace MphRead.Mods.Render
             // whichever side happens to be towards you.
             Matrix4 pose = Matrix4.CreateScale(Mods.Cosmetics.CosmeticPreview.Zoom)
                 * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw) * _facing;
-            var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false);
-            bool presentingDeath = _death.Active && Mods.RenderOptions.ShowCustomCosmetics
+            if (Mode != Mods.Cosmetics.SkinContext.Biped)
+                pose = Matrix4.CreateTranslation(-_displayCenter)
+                    * Matrix4.CreateScale(_displayScale * Mods.Cosmetics.CosmeticPreview.Zoom)
+                    * Matrix4.CreateRotationY(Mods.Cosmetics.CosmeticPreview.Yaw
+                        + (Mode == Mods.Cosmetics.SkinContext.ViewModel ? -0.7f : MathF.PI + 0.45f))
+                    * Matrix4.CreateTranslation(0, 1.05f, 0);
+            Matrix4 particlePose = pose;
+            var surface = Mods.Cosmetics.CosmeticRuntime.Surface(_cosmetics, _cosmeticTime, false,
+                firstPerson: Mode == Mods.Cosmetics.SkinContext.ViewModel, alt: Mode == Mods.Cosmetics.SkinContext.AltForm);
+            bool presentingDeath = Mode == Mods.Cosmetics.SkinContext.Biped && _death.Active && Mods.RenderOptions.ShowCustomCosmetics
                 && Mods.RenderOptions.CosmeticQuality != Mods.Cosmetics.CosmeticEffectQuality.Off
                 && _cosmeticTime - _death.StartTime < _cosmetics.Death.Duration;
             bool dying = presentingDeath;
@@ -230,10 +285,10 @@ namespace MphRead.Mods.Render
             _scene.CosmeticSubmission = surface;
             try { if (!presentingDeath || (dying && _cosmetics.Death.WireId != 0 && progress < _cosmetics.Death.HideBodyAt)) GetDrawItems(_model, 0, _light); }
             finally { _scene.CosmeticSubmission = previous; }
-            if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17);
-            else if (!presentingDeath && Mods.RenderOptions.ShowCustomCosmetics)
+            if (dying) Mods.Cosmetics.Armor.ArmorEffectParticles.DrawDeath(_scene, Vector3.Zero, _cosmetics.Death, progress, 17, particlePose);
+            else if (!presentingDeath && Mode != Mods.Cosmetics.SkinContext.ViewModel && Mods.RenderOptions.ShowCustomCosmetics)
                 Mods.Cosmetics.Armor.ArmorEffectParticles.Draw(_scene, _model.Model, Vector3.Zero, _cosmetics.Armor,
-                    _cosmeticTime, 17, Mods.Cosmetics.CosmeticLod.Near, false);
+                    _cosmeticTime, 17, Mods.Cosmetics.CosmeticLod.Near, Mode == Mods.Cosmetics.SkinContext.AltForm, _hunter, pose);
         }
     }
 }

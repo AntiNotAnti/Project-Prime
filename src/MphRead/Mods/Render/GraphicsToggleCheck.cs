@@ -64,10 +64,13 @@ namespace MphRead
                 int companion = AllocateTexture();
                 GL.BindTexture(TextureTarget.Texture2D, companion);
                 _materialMaps[binding] = new(companion, 0, 0);
+                _flatColors[companion] = OpenTK.Mathematics.Vector3.One;
+                _mipmappedTextures.Add(companion);
                 RenderOptions.TextureReplacements = false;
                 RefreshTextureQuality();
-                if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion))
-                    throw new InvalidOperationException("HD replacements Off retained a companion texture");
+                if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion)
+                    || _flatColors.ContainsKey(companion) || _mipmappedTextures.Contains(companion))
+                    throw new InvalidOperationException("HD replacements Off retained a companion texture or side-cache entry");
                 Console.WriteLine("[graphicstogglecheck] upscale Off restores native GPU dimensions; HD Off releases companions; binding handles remain stable");
             }
             finally

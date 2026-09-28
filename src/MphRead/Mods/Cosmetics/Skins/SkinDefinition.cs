@@ -3,6 +3,7 @@ namespace MphRead.Mods.Cosmetics.Skins
     public sealed record SkinDefinition(string Key, ushort WireId, string DisplayName, Hunter? Hunter)
         : CosmeticDefinition(Key, WireId, DisplayName)
     {
+        public string? DecalAsset { get; init; }
         public string? AlbedoSet { get; init; }
         public string? NormalSet { get; init; }
         public string? SpecularSet { get; init; }

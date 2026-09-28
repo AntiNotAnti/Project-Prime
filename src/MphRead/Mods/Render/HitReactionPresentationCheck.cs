@@ -28,6 +28,9 @@ internal static class HitReactionPresentationCheck
             Features.FixedCrosshair = true;
             var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
                 SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
+            scene.SetFreeCamera(false);
+            Check(scene.CameraMode == CameraMode.Player,
+                "initial POV request selects player camera even when free-camera flag is already false");
             var player = scene.Players.Main;
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.Values))!
                 .SetValue(player, Metadata.PlayerValues[(int)Hunter.Samus]);
@@ -146,6 +149,34 @@ internal static class HitReactionPresentationCheck
             player.ModGetFirstPersonGunTransform(out var correctedGun);
             Check(Near(correctedGun.Row2.Xyz.Normalized(), forward),
                 "observed cannon uses corrected camera endpoints instead of stale facing");
+            // A remote turn arrives after movement has cached its weapon basis.
+            // The refreshed basis must keep the cannon offset fixed across yaw.
+            Vector3 GunOffset(Vector3 direction)
+            {
+                player.ModSetFacing(direction);
+                player.ModRefreshObservedAimBasis();
+                player.CameraInfo.Position = Vector3.Zero;
+                player.CameraInfo.Target = direction;
+                player.CameraInfo.UpVector = Vector3.UnitY;
+                player.CameraInfo.Update();
+                typeof(PlayerEntity).GetMethod("UpdateAimVecs", BindingFlags.Instance | BindingFlags.NonPublic)!
+                    .Invoke(player, null);
+                player.ModResetFirstPersonDrawState();
+                var view = Matrix4.LookAt(Vector3.Zero, direction, Vector3.UnitY);
+                player.ModPrepareObservedFirstPersonViewmodel(1, Vector3.Zero, direction,
+                    Vector3.UnitY, 78, view);
+                player.ModGetFirstPersonGunTransform(out var gun);
+                return Vector3.TransformPosition(gun.Row3.Xyz, view);
+            }
+            Check(Near(GunOffset(-Vector3.UnitZ), GunOffset(-Vector3.UnitX)),
+                "remote yaw rebuild keeps cannon camera-local offset stable");
+            Vector3 beforeCorrection = player.CameraInfo.Position;
+            Vector3 beforeDirection = player.CameraInfo.Target - beforeCorrection;
+            var correction = new Vector3(.4f, -.2f, .1f);
+            player.ModTranslateReplayPresentation(correction);
+            Check(Near(player.CameraInfo.Position, beforeCorrection + correction)
+                && Near(player.CameraInfo.Target - player.CameraInfo.Position, beforeDirection),
+                "replica position correction moves camera without changing its aim");
             Vector3 savedTarget = player.CameraInfo.Target;
             Vector3 savedAim = player.ModGunVector;
             uint savedRng = scene.Random.Rng2;

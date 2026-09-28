@@ -96,6 +96,35 @@ namespace MphRead.Mods.Cosmetics
                 Check(surface.Skin != 0 && surface.Effect == 0, "quality off retains skin");
                 RenderOptions.ShowCustomCosmetics = false;
                 Check(CosmeticRuntime.Surface(appearance, 1, false) == default, "competitive mode hides all");
+                // Every hunter's equipment must survive replication and retain the
+                // same visibility rules in biped, alternate and first-person views.
+                for (int h = 0; h < 7; h++)
+                {
+                    var hunter = (Hunter)h;
+                    var selected = new CosmeticLoadout($"skin.{hunter.ToString().ToLowerInvariant()}.alimbic",
+                        "armor.inferno", "death.quantum");
+                    var outfit = new CosmeticAppearance(hunter, selected);
+                    var remote = new NetCosmetics();
+                    var update = CosmeticStatePacket.Create(h, hunter, 7, 3, 9, 1, outfit);
+                    Check(remote.Accept(update, 3, 9, 7) && remote.Get(h, hunter, 7).Loadout == selected,
+                        $"{hunter} remote outfit resolves");
+                    foreach (var quality in Enum.GetValues<CosmeticEffectQuality>())
+                    foreach (bool team in new[] { false, true })
+                    foreach (bool alt in new[] { false, true })
+                    {
+                        RenderOptions.ShowCustomCosmetics = true;
+                        RenderOptions.CosmeticQuality = quality;
+                        var drawn = CosmeticRuntime.Surface(remote.Get(h, hunter, 7), 1, false, alt: alt, team: team);
+                        Check(drawn.Skin == 2 && drawn.PreservePalette == team
+                            && (drawn.Effect != 0) == (quality != CosmeticEffectQuality.Off),
+                            $"{hunter} {quality} team={team} alt={alt} surface");
+                        RenderOptions.ShowCustomCosmetics = false;
+                        Check(CosmeticRuntime.Surface(outfit, 1, false, alt: alt, team: team) == default,
+                            $"{hunter} hide immediately removes surface");
+                    }
+                }
+                RenderOptions.ShowCustomCosmetics = true;
+                RenderOptions.CosmeticQuality = CosmeticEffectQuality.High;
                 var state = new DeathPresentationState();
                 state.Observe(100, 1, 1, 0, appearance, Vector3.Zero, Vector3.UnitZ, false, 1);
                 Check(!state.Active, "alive has no death presentation");
