@@ -8,7 +8,7 @@ namespace MphRead
     {
         internal static bool IsBuiltInRoom(string name)
         {
-            var room=GetRoomByName(name.ToUpperInvariant()).Item1;
+            var room=RoomList.FirstOrDefault(r=>r.Name.Equals(name,System.StringComparison.OrdinalIgnoreCase));
             return room!=null&&room.Id<CustomRooms.FirstId;
         }
         // Called between scenes on the shell thread. Existing metadata objects

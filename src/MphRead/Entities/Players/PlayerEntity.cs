@@ -807,7 +807,7 @@ namespace MphRead.Entities
             _availableCharges.ClearAll();
             InitializeWeapon();
             // todo: much of this is the same as what's done in init, so we could use a common method
-            bool instaGib = _scene.GameState.Mode == GameMode.InstaGib;
+            bool instaGib = _scene.GameState.InstaGib;
             EquipInfo.InfiniteAmmo = instaGib;
             EquipInfo.ChargeLevel = 0;
             EquipInfo.SmokeLevel = 0;
@@ -1443,12 +1443,13 @@ namespace MphRead.Entities
 
         private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false)
         {
+            if (_scene.GameState.NoImperialist && beam == BeamType.Imperialist) return false;
             int index = (int)beam;
             if (index < 0 || index >= 9)
             {
                 return false;
             }
-            if (_scene.GameState.Mode == GameMode.InstaGib
+            if (_scene.GameState.InstaGib
                 && LoadFlags.TestFlag(LoadFlags.Spawned) && beam != BeamType.Imperialist)
             {
                 return false;
@@ -1783,7 +1784,7 @@ namespace MphRead.Entities
                 return;
             }
             bool instaGibHit = false;
-            if (_scene.GameState.Mode == GameMode.InstaGib)
+            if (_scene.GameState.InstaGib)
             {
                 BeamType sourceBeam = source?.Type == EntityType.BeamProjectile
                     ? ((BeamProjectileEntity)source).Beam
@@ -2400,7 +2401,7 @@ namespace MphRead.Entities
                         if (attacker == this)
                         {
                             _scene.GameState.Suicides[SlotIndex]++;
-                            if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams || _scene.GameState.Mode == GameMode.InstaGib)
+                            if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
                             {
                                 _scene.GameState.Points[SlotIndex]--;
                             }
@@ -2538,7 +2539,7 @@ namespace MphRead.Entities
                                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
                                     }
                                 }
-                                else if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams || _scene.GameState.Mode == GameMode.InstaGib)
+                                else if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
                                 {
                                     if (_scene.GameState.Points[attacker.SlotIndex] < 99999)
                                     {
@@ -2560,7 +2561,7 @@ namespace MphRead.Entities
                     else // no attacker
                     {
                         _scene.GameState.Suicides[SlotIndex]++;
-                        if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams || _scene.GameState.Mode == GameMode.InstaGib)
+                        if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
                         {
                             _scene.GameState.Points[SlotIndex]--;
                         }

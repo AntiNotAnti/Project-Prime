@@ -4,6 +4,7 @@ namespace MphRead.Mods.Render.Hud;
 
 public sealed class HudMeterProfile
 {
+    public bool Native { get; set; }
     public bool Number { get; set; } = true;
     public bool Gauge { get; set; } = true;
     public bool Background { get; set; } = true;
@@ -26,10 +27,10 @@ public sealed class HudMeterProfile
     }
 }
 public readonly record struct HudMeterRuntime(bool Number, bool Gauge, bool Background, bool Icon, bool Vertical,
-    float NumberScale, float GaugeScale, float GaugeThickness, float Warning, float Danger,
+    float NumberScale, float GaugeScale, float GaugeThickness, float Warning, float Danger, bool Native,
     Vector3 FullColor, Vector3 WarningColor, Vector3 DangerColor)
 {
-    public HudMeterRuntime(HudMeterProfile p) : this(p.Number,p.Gauge,p.Background,p.Icon,p.Vertical,p.NumberScale,p.GaugeScale,p.GaugeThickness,p.Warning,p.Danger,
+    public HudMeterRuntime(HudMeterProfile p) : this(p.Number,p.Gauge,p.Background,p.Icon,p.Vertical,p.NumberScale,p.GaugeScale,p.GaugeThickness,p.Warning,p.Danger,p.Native,
         HudColor.Parse(p.FullColor),HudColor.Parse(p.WarningColor),HudColor.Parse(p.DangerColor)) { }
     public Vector3 ColorFor(float fraction) => fraction > Warning ? FullColor : fraction > Danger ? WarningColor : DangerColor;
 }
@@ -49,6 +50,7 @@ public readonly record struct HudKillFeedRuntime(int Rows, float Lifetime, float
 }
 public sealed class HudInventoryProfile
 {
+    public bool Native { get; set; }
     public bool Horizontal { get; set; }
     public bool ShowUnowned { get; set; }
     public bool ShowAmmo { get; set; } = true;
@@ -61,9 +63,9 @@ public sealed class HudInventoryProfile
     { IconScale=HudProfile.Clamp(IconScale,.1f,4,1); Spacing=HudProfile.Clamp(Spacing,0,16,0); UnownedOpacity=HudProfile.Clamp(UnownedOpacity,0,1,.3f); SelectedColor=HudColor.Normalize(SelectedColor); }
 }
 public readonly record struct HudInventoryRuntime(bool Horizontal, bool ShowUnowned, bool ShowAmmo, bool SelectedOutline,
-    float IconScale, float Spacing, float UnownedOpacity, Vector3 SelectedColor)
+    float IconScale, float Spacing, float UnownedOpacity, Vector3 SelectedColor, bool Native)
 {
-    public HudInventoryRuntime(HudInventoryProfile p) : this(p.Horizontal,p.ShowUnowned,p.ShowAmmo,p.SelectedOutline,p.IconScale,p.Spacing,p.UnownedOpacity,HudColor.Parse(p.SelectedColor)) { }
+    public HudInventoryRuntime(HudInventoryProfile p) : this(p.Horizontal,p.ShowUnowned,p.ShowAmmo,p.SelectedOutline,p.IconScale,p.Spacing,p.UnownedOpacity,HudColor.Parse(p.SelectedColor),p.Native) { }
 }
 public enum HudHitMarkerShape { X, Plus, Dot }
 public sealed class HudHitMarkerProfile

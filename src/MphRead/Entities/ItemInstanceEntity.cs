@@ -44,8 +44,11 @@ namespace MphRead.Entities
             : base(0.35f, Vector3.UnitY, 0, 0, EntityType.ItemInstance, nodeRef, scene)
         {
             Position = data.Position;
-            ItemType = data.ItemType;
-            _scanId = _scanIds[(int)data.ItemType];
+            // Dynamic drops have no shared spawn ID: use the room fallback rather
+            // than positions, which can differ between authority and replicas.
+            ItemType = Mods.Multiplayer.WeaponResourceRules.Resolve(data.ItemType, scene.GameState.NoImperialist,
+                scene.Room?.Meta.Name ?? "", 0);
+            _scanId = _scanIds[(int)ItemType];
             if (_scene.GameState.Multiplayer && _scene.GameState.AffinityWeapons && (ItemType == ItemType.VoltDriver
                 || ItemType == ItemType.Battlehammer || ItemType == ItemType.Imperialist
                 || ItemType == ItemType.Judicator || ItemType == ItemType.Magmaul || ItemType == ItemType.ShockCoil))

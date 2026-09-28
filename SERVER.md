@@ -237,3 +237,28 @@ samples per-process CPU/RSS from `/proc`, and preserves the server logs and a
 JSON summary. Run it on the actual VPS/Pi class being evaluated; CPU percentages
 and ReadyToRun gains are hardware/runtime-specific.
 
+
+## Advanced Match Rules
+
+Game type controls scoring and objectives. Advanced Match Rules can be combined
+with Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter and their
+available team variants:
+
+- **Insta-Gib:** Imperialist-only loadout, infinite ammo, 99 displayed UA.
+- **Low Tier:** Kanden, Spire, Noxus and Weavel only. Disallowed selections become
+  Kanden; Random and bots use the allowed pool. The server enforces this.
+- **No Imp:** Imperialist spawns become Volt Driver, Battlehammer, Judicator,
+  Magmaul or Shock Coil. A stable room/spawn hash reproduces the layout across
+  authority, clients and replay seeks. Drops and Trace affinity cannot grant
+  Imperialist. No Imp and Insta-Gib cannot be combined.
+- **Shadow Freeze** and **Spawn Protection (3s)** both default **Off**. Explicitly
+  saved On values remain enabled.
+
+Online settings come from the server before world construction. Offline rules
+are captured in the launch plan shared by desktop and Android. Legacy Insta-Gib
+mode data is interpreted as Battle plus the modifier. Protocol **28** introduces
+these rules (25–27 were already used by map identity, names and online bots).
+Older live clients are refused during the version handshake.
+
+Dedicated-server flags: `-instagib`, `-lowtier`, `-noimp`, `-shadowfreeze`, and
+`-spawnprotection`. The last two enable their otherwise disabled rules.

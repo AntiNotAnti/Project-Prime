@@ -8,7 +8,13 @@ namespace MphRead.Mods.Network
     public struct SessionStatePacket
     {
         private const int LegacySize = 35 + HostRequestPacket.MaxRoomBytes;
-        public const int Size = LegacySize + 6;
+        public const int AvailabilityOffset = LegacySize + 6 + NetworkMapIdentity.Size;
+        public const int DownloadSourceOffset = AvailabilityOffset + 8;
+        public const int MaxDownloadSourceBytes = 192;
+        public const int Size = DownloadSourceOffset + MaxDownloadSourceBytes + 2;
+        public ushort MapGeneration;
+        public string? MapDownloadSource;
+        public MapAvailabilityState[]? MapAvailability;
         public uint StartGeneration;
         public StartStage StartStage;
         public ulong AuthorityEpoch;
@@ -27,6 +33,10 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             dest[..Size].Clear();
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[(Size-2)..],MapGeneration);
+            Match.MapIdentity.Write(dest[(LegacySize + 6)..]);
+            NetText.Write(dest.Slice(DownloadSourceOffset, MaxDownloadSourceBytes), MapDownloadSource ?? "");
+            for (int i = 0; i < 8; i++) dest[AvailabilityOffset + i] = MapAvailability != null && i < MapAvailability.Length ? (byte)MapAvailability[i] : (byte)0;
             BinaryPrimitives.WriteUInt32LittleEndian(dest[LegacySize..], StartGeneration);
             dest[LegacySize + 4] = (byte)StartStage;
             dest[LegacySize + 5] = WorldReadyParticipants;
@@ -47,7 +57,7 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt64LittleEndian(dest[(LegacySize - 8)..], AuthorityEpoch);
         }
 
-        public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state)
+        public static bool TryRead(ReadOnlySpan<byte> src, out SessionStatePacket state, bool validateDefinition = true)
         {
             state = default;
             if (src.Length != Size || src[LegacySize + 4] > (byte)StartStage.InMatch || src[0] > (byte)SessionPhase.PostMatch
@@ -57,9 +67,18 @@ namespace MphRead.Mods.Network
                 || src[8] > (byte)MatchFormat.Custom
                 || !Enum.IsDefined(typeof(GameMode), src[9])) return false;
             var flags = (SessionRules)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
-            if (((ushort)flags & ~1023) != 0) return false;
+            if (((ushort)flags & ~8191) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
+            var availability = new MapAvailabilityState[8];
+            for (int i = 0; i < 8; i++)
+            {
+                if (src[AvailabilityOffset + i] > (byte)MapAvailabilityState.Failed) return false;
+                availability[i] = (MapAvailabilityState)src[AvailabilityOffset + i];
+            }
             state = new SessionStatePacket
             {
+                MapAvailability = availability,
+                MapGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[(Size-2)..]),
+                MapDownloadSource = NetText.Read(src.Slice(DownloadSourceOffset, MaxDownloadSourceBytes)),
                 StartGeneration = BinaryPrimitives.ReadUInt32LittleEndian(src[LegacySize..]),
                 StartStage = (StartStage)src[LegacySize + 4],
                 WorldReadyParticipants = src[LegacySize + 5],
@@ -73,7 +92,7 @@ namespace MphRead.Mods.Network
                 WorldProfile = new MatchWorldProfile(src[25], (ResourceSpawnProfile)src[26]),
                 Match = new MatchDefinition
                 {
-                    Format = (MatchFormat)src[8], Mode = (GameMode)src[9],
+                    MapIdentity = mapIdentity, Format = (MatchFormat)src[8], Mode = (GameMode)src[9],
                     CustomTeams = new TeamLayout(src[20], src[21], src[22], src[23], src[24]),
                     TimeLimitSeconds = BinaryPrimitives.ReadUInt16LittleEndian(src[10..]),
                     PointGoal = BinaryPrimitives.ReadUInt16LittleEndian(src[12..]),
@@ -84,10 +103,13 @@ namespace MphRead.Mods.Network
                     HideOpponentHealth = flags.HasFlag(SessionRules.HideOpponentHealth),
                     DisablePowerups = flags.HasFlag(SessionRules.DisablePowerups),
                     SpawnProtection = flags.HasFlag(SessionRules.SpawnProtection),
-                    VanillaDuelResources = flags.HasFlag(SessionRules.VanillaDuelResources)
-                }
+                    VanillaDuelResources = flags.HasFlag(SessionRules.VanillaDuelResources),
+                    InstaGib = flags.HasFlag(SessionRules.InstaGib),
+                    LowTier = flags.HasFlag(SessionRules.LowTier),
+                    NoImperialist = flags.HasFlag(SessionRules.NoImperialist)
+                }.NormalizeLegacy()
             };
-            return LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok
+            return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok)
                 && (state.Match.Format != MatchFormat.Custom || state.Match.CustomTeams.IsValid)
                 && (state.WorldProfile.IsValid || (state.Phase == SessionPhase.Lobby && state.WorldProfile == default));
         }
@@ -107,7 +129,7 @@ namespace MphRead.Mods.Network
             String.Equals(roomKey, ReturnToLobbyKey, StringComparison.OrdinalIgnoreCase);
     }
 
-    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby }
+    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot }
     public enum LobbyResultCode : byte
     {
         Ok, NotOwner, InvalidPhase, StaleRevision, InvalidConfiguration, InvalidTeam,
@@ -116,13 +138,14 @@ namespace MphRead.Mods.Network
 
     public struct LobbyCommandPacket
     {
-        public const int Size = 10 + SessionStatePacket.Size;
+        public const int Size = 13 + SessionStatePacket.Size;
         public uint CommandId;
         public ushort ExpectedRevision;
         public LobbyCommandType Type;
         public byte TargetSlot;
         public sbyte TeamIndex;
         public bool Ready;
+        public byte Hunter, Color, BotLevel;
         public SessionStatePacket Configuration;
         public void Write(Span<byte> dest)
         {
@@ -131,21 +154,23 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], ExpectedRevision);
             dest[6] = (byte)Type; dest[7] = TargetSlot;
             dest[8] = unchecked((byte)TeamIndex); dest[9] = Ready ? (byte)1 : (byte)0;
-            Configuration.Write(dest[10..]);
+            dest[10] = Hunter; dest[11] = Color; dest[12] = BotLevel;
+            Configuration.Write(dest[13..]);
         }
         public static bool TryRead(ReadOnlySpan<byte> src, out LobbyCommandPacket command)
         {
             command = default;
-            if (src.Length != Size || src[6] > (byte)LobbyCommandType.CloseLobby || src[9] > 1) return false;
+            if (src.Length != Size || src[6] > (byte)LobbyCommandType.UpdateBot || src[9] > 1) return false;
             SessionStatePacket config = default;
             if (src[6] == (byte)LobbyCommandType.UpdateMatch
-                && !SessionStatePacket.TryRead(src[10..], out config)) return false;
+                && !SessionStatePacket.TryRead(src[13..], out config, validateDefinition: false)) return false;
             command = new LobbyCommandPacket
             {
                 CommandId = BinaryPrimitives.ReadUInt32LittleEndian(src),
                 ExpectedRevision = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]),
                 Type = (LobbyCommandType)src[6], TargetSlot = src[7],
-                TeamIndex = unchecked((sbyte)src[8]), Ready = src[9] != 0, Configuration = config
+                TeamIndex = unchecked((sbyte)src[8]), Ready = src[9] != 0, Configuration = config,
+                Hunter = src[10], Color = src[11], BotLevel = src[12]
             };
             return command.CommandId != 0;
         }

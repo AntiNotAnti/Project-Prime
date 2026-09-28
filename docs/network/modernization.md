@@ -449,3 +449,29 @@ physical separation, damage values and Protocol 18. Contact sweeps cross accepte
 movement intervals without rewinding the actual physics world. Kanden/Sylux bombs
 retain their existing entity path. Evidence, boundaries and commands are in
 [alt-form-validation.md](alt-form-validation.md).
+
+## Advanced Match Rules
+
+Game type controls scoring and objectives. Advanced Match Rules can be combined
+with Battle, Survival, Capture, Bounty, Defender, Nodes, Prime Hunter and their
+available team variants:
+
+- **Insta-Gib:** Imperialist-only loadout, infinite ammo, 99 displayed UA.
+- **Low Tier:** Kanden, Spire, Noxus and Weavel only. Disallowed selections become
+  Kanden; Random and bots use the allowed pool. The server enforces this.
+- **No Imp:** Imperialist spawns become Volt Driver, Battlehammer, Judicator,
+  Magmaul or Shock Coil. A stable room/spawn hash reproduces the layout across
+  authority, clients and replay seeks. Drops and Trace affinity cannot grant
+  Imperialist. No Imp and Insta-Gib cannot be combined.
+- **Shadow Freeze** and **Spawn Protection (3s)** both default **Off**. Explicitly
+  saved On values remain enabled.
+
+Online settings come from the server before world construction. Offline rules
+are captured in the launch plan shared by desktop and Android. Legacy Insta-Gib
+mode data is interpreted as Battle plus the modifier. Protocol **28** introduces
+these rules (25–27 were already used by map identity, names and online bots).
+Older live clients are refused during the version handshake.
+
+The main gameplay packet sizes remain unchanged. Status replies append a ushort
+SessionRules mask for browser modifiers. Checkpoint decoder configuration retains modifiers and reapplies them after
+world restore without changing the existing world field contract.

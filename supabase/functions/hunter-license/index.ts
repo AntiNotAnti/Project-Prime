@@ -1,3 +1,4 @@
+import { normalizePlayerName } from "../_shared/player-name.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import postgres from "npm:postgres@3.4.7";
@@ -33,9 +34,8 @@ Deno.serve(async (req: Request) => {
     return json(400, { error: "invalid_json" });
   }
 
-  const displayName = typeof body.display_name === "string"
-    ? body.display_name.trim().slice(0, 24)
-    : "Hunter";
+  const displayName = normalizePlayerName(body.display_name ?? "Hunter");
+  if (displayName === null) return json(400, { error: "invalid_display_name" });
   const favoriteHunter = Number.isInteger(body.favorite_hunter)
     ? Math.max(0, Math.min(6, body.favorite_hunter!))
     : 0;

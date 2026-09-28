@@ -69,11 +69,11 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 // Remote: no AI, and no bot level to drive one.
-                player.IsBot = false;
-                player.BotLevel = 0;
+                player.IsBot = NetSession.IsAuthority && !player.SceneServices.IsReplica && NetSession.SlotIsBot[slot];
+                player.BotLevel = player.IsBot ? NetSession.SlotBotLevel[slot] : 0;
             }
             Console.WriteLine($"[net] player slots prepared -- local slot {local}, "
-                + $"{CountActive()} active, AI disabled on remote slots");
+                + $"{CountActive()} active, AI enabled only on authoritative bot slots");
         }
 
         private static int CountActive()

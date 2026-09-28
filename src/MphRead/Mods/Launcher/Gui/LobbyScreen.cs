@@ -23,7 +23,6 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly (string Label, GameMode Free, GameMode Team, bool TeamOnly, bool FfaOnly)[] _gameTypes =
         {
             ("Battle", GameMode.Battle, GameMode.BattleTeams, false, false),
-            ("Insta-Gib", GameMode.InstaGib, GameMode.InstaGib, false, true),
             ("Survival", GameMode.Survival, GameMode.SurvivalTeams, false, false),
             ("Bounty", GameMode.Bounty, GameMode.BountyTeams, false, false),
             ("Defender", GameMode.Defender, GameMode.DefenderTeams, false, false),
@@ -66,7 +65,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
-        private readonly ButtonToggleRow _vanillaDuelResources;
+        private readonly ButtonToggleRow _vanillaDuelResources, _instaGib, _lowTier, _noImperialist;
+        private Hunter[] _allowedHunters = Enumerable.Range(0, Hunters.Playable).Select(i => (Hunter)i).ToArray();
         private readonly Note _layoutSummary = new("");
         private readonly Note _teamSummary = new("", lines: 1);
         private readonly FieldRow _time, _goal;
@@ -83,6 +83,7 @@ namespace MphRead.Mods.Launcher.Gui
             BorderBrush = HubTheme.EdgeBrush,
             VerticalContentAlignment = VerticalAlignment.Center
         };
+        private readonly PrimeButton _retryMap;
         private readonly HubNavButton _leave, _mainMenu, _ready, _start, _spectatorRole;
         private readonly HubNavButton _closeLobby, _transferButton, _kickButton;
         private readonly HubNavButton[] _teamAssign = new HubNavButton[5];
@@ -152,12 +153,18 @@ namespace MphRead.Mods.Launcher.Gui
             _lockTeams = Toggle("Lock teams");
             _opponentHealth = Toggle("Opponent health");
             _disablePowerups = Toggle("Disable powerups", on: true);
-            _spawnProtection = Toggle("Spawn protection (3s)", on: true);
+            _spawnProtection = Toggle("Spawn protection (3s)");
+            _instaGib = Toggle("Insta-Gib");
+            _lowTier = Toggle("Low Tier");
+            _noImperialist = Toggle("No Imp");
+            _lowTier.Changed += (_, _) => { if (!_syncing) RefreshHunterChoices(_lowTier.On); };
+            _instaGib.Changed += (_, _) => { if (!_syncing && _instaGib.On) _noImperialist.On = false; };
+            _noImperialist.Changed += (_, _) => { if (!_syncing && _noImperialist.On) _instaGib.On = false; };
             _vanillaDuelResources = Toggle("Vanilla 1v1 spawns/pickups");
             foreach (ButtonToggleRow toggle in new[]
             {
                 _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
-                _disablePowerups, _spawnProtection
+                _instaGib, _lowTier, _noImperialist, _disablePowerups, _spawnProtection
             })
                 toggle.Changed += (_, _) => DraftChanged();
             _vanillaDuelResources.Changed += (_, _) =>
@@ -193,7 +200,7 @@ namespace MphRead.Mods.Launcher.Gui
             var toggles = new Grid
             {
                 ColumnDefinitions = new ColumnDefinitions("*,*"),
-                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto"),
+                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
                 ColumnSpacing = 24,
                 RowSpacing = 10
             };
@@ -201,7 +208,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _fire, _affinity, _freeze, _opponentHealth,
                 _requireReady, _join, _lockTeams, _disablePowerups,
-                _spawnProtection, _vanillaDuelResources
+                _spawnProtection, _vanillaDuelResources, _instaGib, _lowTier, _noImperialist
             };
             for (int i = 0; i < toggleRows.Length; i++)
             {
@@ -237,6 +244,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             administration.Children.Add(teamButtons);
 
+            administration.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new BotManagementView() });
             administration.Children.Add(LobbySubhead("LOBBY CONTROL"));
             var adminButtons = new Grid
             {
@@ -406,7 +414,8 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(chatBody, 1); comms.Children.Add(chatBody);
             Grid.SetRow(_status, 2); comms.Children.Add(_status);
             _start.MinHeight = 64;
-            var sessionActions = PrimeChrome.Stack(_start, _ready, _spectatorRole,
+            _retryMap = new PrimeButton("RETRY MAP DOWNLOAD", NetSession.RetryMapPreparation);
+            var sessionActions = PrimeChrome.Stack(_start, _ready, _spectatorRole, _retryMap,
                 PrimeChrome.Columns("*,*,*", new PrimeButton("INVITE", Invite), _mainMenu, _leave));
             Grid.SetRow(sessionActions, 3); comms.Children.Add(sessionActions);
             var nativeBody = PrimeChrome.Columns("1.04*,1.05*,1*", nativeLeft, nativeMiddle, new PrimePanel(comms));
@@ -632,12 +641,19 @@ namespace MphRead.Mods.Launcher.Gui
                 ? "JOIN NEXT MATCH" : "SPECTATE NEXT MATCH";
         }
 
+        private void RefreshHunterChoices(bool lowTier)
+        {
+            _allowedHunters = Multiplayer.HunterRules.Pool(lowTier).ToArray();
+            _hunter.SetItems(_allowedHunters.Select(h => h.ToString()).ToArray(),
+                Math.Max(0, Array.IndexOf(_allowedHunters, NetSession.LocalHunter)));
+        }
+
         private void Refresh()
         {
             if (NetSession.ServerSession is not { } session) return;
             AcceptSubmittedRules(session);
             _syncing = true;
-            _hunter.Index = (int)NetSession.LocalHunter;
+            RefreshHunterChoices(_draftDirty && NetSession.CanEditLobby ? _lowTier.On : session.Match.LowTier);
             _suit.Index = NetSession.LocalColor;
             RosterPacket roster = NetSession.LobbyRoster();
             _rosterCount = roster.Count;
@@ -694,6 +710,10 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            for (int i = 0; i < roster.Count && i < _players.Children.Count; i++)
+                if (_players.Children[i] is LobbyPlayerRow row)
+                    row.SetMapAvailability(session.Match.MapIdentity.IsCustom && session.MapAvailability is { } states
+                        ? states[roster.Slots[i]] : null, roster.LobbyReady[i]);
             if (_shownMatch != session.Match || _shownRules != session.RuleFlags)
             {
                 _shownMatch = session.Match;
@@ -718,6 +738,9 @@ namespace MphRead.Mods.Launcher.Gui
                 _disablePowerups.On = session.Match.DisablePowerups;
                 _spawnProtection.On = session.Match.SpawnProtection;
                 _vanillaDuelResources.On = session.Match.VanillaDuelResources;
+                _instaGib.On = session.Match.InstaGib;
+                _lowTier.On = session.Match.LowTier;
+                _noImperialist.On = session.Match.NoImperialist;
                 _requireReady.On = session.RequireReady;
                 _join.On = session.AllowJoinInProgress;
                 _lockTeams.On = PlayerChoosesTeam(session.Match) && session.LockTeams;
@@ -731,7 +754,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
-            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _disablePowerups, _spawnProtection, _vanillaDuelResources })
+            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _instaGib, _lowTier, _noImperialist, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne
                 && session.Match.Mode == GameMode.BattleTeams;
@@ -750,6 +773,7 @@ namespace MphRead.Mods.Launcher.Gui
             // made players think they still had to use it, and controller
             // navigation could land on an action the server ignores for start.
             _ready.IsVisible = session.RequireReady;
+            _retryMap.IsVisible = NetSession.MapPreparation?.State == MapAvailabilityState.Failed;
             _ready.IsEnabled = session.RequireReady && NetSession.IsInLobby
                 && !NetSession.LobbyCommandPending;
             _ready.Label = NetSession.LocalSlot >= 0 && NetSession.SlotLobbyReady[NetSession.LocalSlot]
@@ -786,7 +810,9 @@ namespace MphRead.Mods.Launcher.Gui
                 ? "Connection lost, retrying..."
                 : NetSession.LobbyMessage.Length > 0
                     ? NetSession.LobbyMessage
-                    : session.Phase == SessionPhase.Lobby
+                    : !NetSession.RequiredMapReady
+                        ? NetSession.MapPreparationMessage
+                        : session.Phase == SessionPhase.Lobby
                         ? reason
                         : NetSession.StartCountdownRemainingSeconds > 0
                             ? $"Match starts in {Math.Max(1, (int)Math.Ceiling(NetSession.StartCountdownRemainingSeconds))}..."
@@ -794,6 +820,10 @@ namespace MphRead.Mods.Launcher.Gui
                                 ? $"Synchronizing world: {CountParticipants(session.WorldReadyParticipants)}/{CountParticipants(session.ExpectedParticipants)} ready..."
                                 : $"Loading world: {CountParticipants(session.LoadedParticipants)}/{CountParticipants(session.ExpectedParticipants)} loaded...";
 
+            if (session.Match.ModifierSummary.Length > 0)
+                _status.Text = session.Match.ModifierSummary + " · " + _status.Text;
+            if (NetSession.MatchContainsBots || Enumerable.Range(0, roster.Count).Any(roster.IsBot))
+                _status.Text = "PRACTICE · BOTS USED — Hunter License progression disabled. " + _status.Text;
             if (_chatRevision != NetChat.Revision)
             {
                 _chatRevision = NetChat.Revision;
@@ -843,7 +873,7 @@ namespace MphRead.Mods.Launcher.Gui
         private void Identify()
         {
             if (_syncing || !NetSession.IsInLobby) return;
-            NetSession.LocalHunter = (Hunter)_hunter.Index;
+            NetSession.LocalHunter = _allowedHunters[_hunter.Index];
             NetSession.LocalColor = _suit.Index;
             LauncherPrefs.LastHunter = NetSession.LocalHunter;
             LauncherPrefs.LastColor = NetSession.LocalColor;
@@ -966,7 +996,8 @@ namespace MphRead.Mods.Launcher.Gui
                     && (selectedTeam == team || counts[team] < capacity);
             }
 
-            bool targetIsOther = selected != byte.MaxValue && selected != NetSession.LocalSlot;
+            bool targetIsOther = selected != byte.MaxValue && selected != NetSession.LocalSlot
+                && !NetSession.SlotIsBot[selected];
             _transferButton.IsEnabled = targetIsOther && NetSession.CanEditLobby
                 && !NetSession.LobbyCommandPending;
             _kickButton.IsEnabled = targetIsOther && NetSession.CanEditLobby
@@ -1113,6 +1144,12 @@ namespace MphRead.Mods.Launcher.Gui
         private bool TryBuildMatch(out MatchDefinition match, out string reason)
         {
             match = DraftMatch();
+            try
+            {
+                match = match with { MapIdentity = NetSession.ServerSession is { } current && current.Match.RoomKey == match.RoomKey
+                    ? current.Match.MapIdentity : NetworkMapIdentity.ForRoom(match.RoomKey) };
+            }
+            catch (Exception ex) { reason = ex.Message; return false; }
             if (LobbyRules.ValidateDefinition(match, out reason) != LobbyResultCode.Ok)
                 return false;
 
@@ -1145,6 +1182,7 @@ namespace MphRead.Mods.Launcher.Gui
                 HideOpponentHealth = !_opponentHealth.On,
                 DisablePowerups = _disablePowerups.On,
                 SpawnProtection = _spawnProtection.On,
+                InstaGib = _instaGib.On, LowTier = _lowTier.On, NoImperialist = _noImperialist.On,
                 VanillaDuelResources = vanillaDuelResources
             };
             return true;

@@ -36,6 +36,23 @@ namespace MphRead.Mods.Launcher.Gui
         public int[] NavigationPath { get; set; } = Array.Empty<int>();
         public MapNodePacker.NavigationGraph? Navigation { get; set; }
         public string ElementMode { get; set; } = "Object";
+        public int ActivePaintMaterial { get; set; } = -1;
+        public bool ReadOnlyPreview { get; set; }
+        public bool MaterialPaint { get; set; }
+        private object? _paintStroke;
+        private Guid _paintMesh;
+        private readonly HashSet<(int Face, int Material)> _painted = new();
+        private void PaintAt(MapPickHit hit, KeyModifiers modifiers)
+        {
+            if (hit.ObjectId != _paintMesh || MapObjects.Find(Document.Project.Definition, hit.ObjectId)?.Value is not MapMesh mesh) return;
+            int material = modifiers.HasFlag(KeyModifiers.Alt) ? mesh.Material : ActivePaintMaterial;
+            if (material < 0 || material >= Document.Project.Definition.Materials.Count || !_painted.Add((hit.FaceIndex, material))) return;
+            int[] faces = modifiers.HasFlag(KeyModifiers.Shift) ? MapMeshEditing.ConnectedFaces(mesh, hit.FaceIndex) : new[] { hit.FaceIndex };
+            Document.PaintFaces(hit.ObjectId, faces, material, _paintStroke);
+        }
+        public bool UvChecker { get; set; }
+        public HashSet<int> SelectedFaceIndices { get; } = new();
+        public Guid SelectedFaceObjectId => _subObjectId;
         public int SelectedFaceIndex { get; private set; } = -1;
         public int SelectedVertexIndex { get; private set; } = -1;
         public (int A,int B)? SelectedEdge { get; private set; }
@@ -47,8 +64,8 @@ namespace MphRead.Mods.Launcher.Gui
         public event Action? SelectionChanged;
         public event Action<MapPickHit>? MaterialPicked;
         internal MapViewportCache Cache { get; } = new();
-        private IEnumerable<MapViewportFace> Faces => Cache.NativeFaces.Concat(Collision ? Cache.ImportedCollisionFaces : Cache.ImportedFaces);
-        private IEnumerable<MapViewportFace> VisibleFaces => Cache.NativeFaces.Concat(
+        private IEnumerable<MapViewportFace> Faces => Cache.NativeFaces.Where(f=>Collision || !f.CollisionOnly).Concat(Collision ? Cache.ImportedCollisionFaces : Cache.ImportedFaces);
+        private IEnumerable<MapViewportFace> VisibleFaces => Cache.NativeFaces.Where(f=>Collision || !f.CollisionOnly).Concat(
             Cache.VisibleImportedFaces(Camera,Layout,Collision));
         private MapValidationResult? _overlayDiagnostics;
         private HashSet<Guid> _warningObjects = new();
@@ -92,9 +109,12 @@ namespace MphRead.Mods.Launcher.Gui
             Document.Invalidated += InvalidateDocument;
             InvalidateDocument(new(MapChangeDomain.All));
         }
+        private IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> _viewportMaterials = new Dictionary<(bool, int), MapViewportMaterial>();
         private void InvalidateDocument(MapDocumentChange change)
         {
             Cache.Invalidate(Document.Project.Definition, change);
+            if ((change.Domains & (MapChangeDomain.Material | MapChangeDomain.Import)) != 0)
+                _viewportMaterials = MapViewportMaterials.Resolve(Document.Project.Definition);
             if ((change.Domains & (MapChangeDomain.Geometry | MapChangeDomain.Entity)) != 0) _labels.Clear();
             if ((change.Domains & (MapChangeDomain.Navigation | MapChangeDomain.Import)) != 0) Navigation = null;
             InvalidateVisual();
@@ -154,7 +174,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void ClearSubSelection()
         {
-            SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;_subObjectId=Guid.Empty;InvalidateVisual();
+            SelectedFaceIndices.Clear();SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;_subObjectId=Guid.Empty;InvalidateVisual();
         }
 
         private MapViewportCamera Camera => new(CameraPosition, CameraTarget, View == "Perspective");
@@ -187,11 +207,12 @@ namespace MphRead.Mods.Launcher.Gui
             catch(MapAuthoringException){return Array.Empty<BuiltFace>();}
         }
 
-        private bool PickSubElement(Point point)
+        private bool PickSubElement(Point point, bool extend = false)
         {
             if(ElementMode=="Object")return false;
             BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);
             if(mesh==null||faces.Length==0||ActiveSelection is not { } active)return false;
+            if (_subObjectId != active.Id || !extend) SelectedFaceIndices.Clear();
             _subObjectId=active.Id;
             SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;
 
@@ -200,6 +221,7 @@ namespace MphRead.Mods.Launcher.Gui
                 MapPickHit? hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
                 if(hit is not { } picked||picked.ObjectId!=active.Id)return false;
                 SelectedFaceIndex=Math.Clamp(picked.FaceIndex,0,faces.Length-1);
+                if (!SelectedFaceIndices.Add(SelectedFaceIndex)) SelectedFaceIndices.Remove(SelectedFaceIndex);
                 return true;
             }
 
@@ -255,9 +277,9 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if(_subObjectId==Guid.Empty||ActiveSelection?.Id!=_subObjectId)return;
             BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);if(mesh==null)return;
-            if(SelectedFaceIndex>=0&&SelectedFaceIndex<faces.Length)
+            foreach (int selectedFace in SelectedFaceIndices.Where(i=>i>=0&&i<faces.Length))
             {
-                var projected=faces[SelectedFaceIndex].Points.Select(p=>Project(new Vector(p.X,p.Y,p.Z))).ToArray();
+                var projected=faces[selectedFace].Points.Select(p=>Project(new Vector(p.X,p.Y,p.Z))).ToArray();
                 if(projected.All(p=>p!=null))
                 {
                     Point[] points=projected.Select(p=>p!.Value.Point).ToArray();
@@ -292,7 +314,7 @@ namespace MphRead.Mods.Launcher.Gui
             if (_drag)
                 foreach (var item in MapObjects.All(Document.Project.Definition))
                     if (Document.Selection.Contains(item.Id)) transforms[item.Id] = PreviewTransform(item);
-            return new(layout, Camera, Cache.VisibleMeshes(Camera,layout), Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep };
+            return new(layout, Camera, Cache.VisibleMeshes(Camera,layout), Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;
@@ -614,13 +636,27 @@ namespace MphRead.Mods.Launcher.Gui
             _orbit=props.IsRightButtonPressed;_pan=props.IsMiddleButtonPressed;
             if(props.IsLeftButtonPressed)
             {
+                if (ReadOnlyPreview) { e.Handled=true; return; }
                 MapPickHit? surface=MapViewportPicking.PickHit(BuildRenderFrame(Layout),_last.X,_last.Y,true);
                 if(surface!=null)LastSurfaceHit=surface;
 
                 if(MaterialEyedropper)
                 {
-                    if(surface is { } materialHit){MaterialEyedropper=false;MaterialPicked?.Invoke(materialHit);}
+                    if(surface is { } materialHit){MaterialEyedropper=false;if(materialHit.ObjectId!=Guid.Empty)ActivePaintMaterial=materialHit.Material;MaterialPicked?.Invoke(materialHit);}
                     e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
+                }
+                if (MaterialPaint && surface is { ObjectId: var paintObject } paintHit && paintObject != Guid.Empty)
+                {
+                    if (e.KeyModifiers.HasFlag(KeyModifiers.Control))
+                    { ActivePaintMaterial = paintHit.Material; MaterialPicked?.Invoke(paintHit); }
+                    else if (MapObjects.Find(Document.Project.Definition, paintObject)?.Value is MapMesh paintMesh
+                        && ActivePaintMaterial >= 0 && ActivePaintMaterial < Document.Project.Definition.Materials.Count)
+                    {
+                        _paintStroke = new object(); _paintMesh = paintObject; _painted.Clear();
+                        PaintAt(paintHit, e.KeyModifiers);
+                        _interactionPointer = e.Pointer; e.Pointer.Capture(this);
+                    }
+                    e.Handled = true; InvalidateVisual(); return;
                 }
                 if(MeasureMode)
                 {
@@ -629,7 +665,7 @@ namespace MphRead.Mods.Launcher.Gui
                     else _measureB=point;
                     e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
                 }
-                if(ElementMode!="Object"&&PickSubElement(_last))
+                if(ElementMode!="Object"&&PickSubElement(_last, e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Shift)))
                 {
                     SelectionChanged?.Invoke();e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
                 }
@@ -669,6 +705,11 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnPointerMoved(PointerEventArgs e)
         {
             base.OnPointerMoved(e);Point p=e.GetPosition(this);var delta=p-_last;_last=p;
+            if (_paintStroke != null)
+            {
+                if (MapViewportPicking.PickHit(BuildRenderFrame(Layout), p.X, p.Y, true) is { } hit) PaintAt(hit, e.KeyModifiers);
+                InvalidateVisual(); return;
+            }
             if (_boxSelect) { _boxCurrent=p; InvalidateVisual(); return; }
             var(right,up,forward)=Basis();float distance=Vector.Distance(CameraPosition,CameraTarget);
             if(_orbit)
@@ -700,6 +741,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         internal void CancelInteraction()
         {
+            _paintStroke = null; _paintMesh = Guid.Empty; _painted.Clear();
             _drag=_orbit=_pan=_boxSelect=false;
             _preview=Vector.Zero;_rotation=0;_scale=1;_axis=-1;
             var pointer=_interactionPointer;_interactionPointer=null;
@@ -742,6 +784,7 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (ReadOnlyPreview) { if(e.Key==Key.F)FrameAll(); e.Handled=true; return; }
             bool control=(e.KeyModifiers & (KeyModifiers.Control|KeyModifiers.Meta))!=0;
             bool shift=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             bool alt=e.KeyModifiers.HasFlag(KeyModifiers.Alt);
@@ -749,7 +792,9 @@ namespace MphRead.Mods.Launcher.Gui
             else if(_drag||_boxSelect){e.Handled=true;return;}
             else if(!control&&!alt&&e.Key==Key.F)FrameSelection();
             else if(e.Key==Key.Escape&&MeasureMode){MeasureMode=false;_measureA=_measureB=null;InvalidateVisual();}
+            else if(e.Key==Key.Escape&&MaterialPaint){MaterialPaint=false;InvalidateVisual();}
             else if(e.Key==Key.Escape&&_boxSelect){_boxSelect=false;InvalidateVisual();}
+            else if(!control&&!alt&&e.Key==Key.P){MaterialPaint=!MaterialPaint;}
             else if(!control&&!alt&&e.Key==Key.D1){ElementMode="Object";ClearSubSelection();SelectionChanged?.Invoke();}
             else if(!control&&!alt&&e.Key==Key.D2){ElementMode="Face";ClearSubSelection();SelectionChanged?.Invoke();}
             else if(!control&&!alt&&e.Key==Key.D3){ElementMode="Edge";ClearSubSelection();SelectionChanged?.Invoke();}

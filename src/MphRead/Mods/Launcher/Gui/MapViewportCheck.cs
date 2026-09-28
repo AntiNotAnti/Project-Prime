@@ -165,7 +165,7 @@ internal static class MapViewportCheck
             NativeWindow.ProcessWindowEvents(false);
             surface.Resize(window.FramebufferSize.X, window.FramebufferSize.Y);
             var studio = new MapStudioScreen(); studio.Load(MapTemplates.Create("Renderer check", false));
-            surface.Show(studio); surface.PrepareMapRenderer();
+            surface.Show(studio); surface.Resize(window.FramebufferSize.X, window.FramebufferSize.Y); surface.PrepareMapRenderer();
             for (int i = 0; i < 5; i++) { System.Threading.Thread.Sleep(20); surface.Invalidate(); surface.Tick(); }
             GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             surface.DrawMapViewport(window.FramebufferSize.X, window.FramebufferSize.Y);
@@ -198,6 +198,20 @@ internal static class MapViewportCheck
             Check(panes.Count(v=>v.GpuMeshUploads>0)==1,"single view releases other GPU resources");
             studio.ToggleFourViews();studio.ToggleFourViews();
             Check(studio.GetVisualDescendants().OfType<MapViewport>().Count()==1,"repeated layout toggles reparent safely");
+            Check(UiLayout.EditorFactor(1440,900)==1 && UiLayout.EditorFactor(2880,1800)==2,
+                "editor doubles control size for doubled framebuffer resolution");
+            var overlays = new PrimeOverlayHost();
+            var libraryStudio = new MapStudioScreen(overlays); libraryStudio.Load(MapTemplates.Create("Library layout",false));
+            var libraryRoot = new Panel(); libraryRoot.Children.Add(libraryStudio); libraryRoot.Children.Add(overlays);
+            surface.Show(libraryRoot); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y);
+            typeof(MapStudioScreen).GetMethod("ShowLibrary",System.Reflection.BindingFlags.Instance|System.Reflection.BindingFlags.NonPublic)!.Invoke(libraryStudio,null);
+            for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
+            var libraryFrame=(Border)overlays.Children.Single();
+            Check(libraryFrame.Bounds.Height<550 && libraryFrame.Bounds.Height>460,"map library fits its content instead of stretching to window height");
+            GL.Clear(ClearBufferMask.ColorBufferBit|ClearBufferMask.DepthBufferBit);
+            surface.PrepareMapRenderer();surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);UiOverlay.Draw(window.FramebufferSize.X,window.FramebufferSize.Y);
+            Check(ScreenCapture.SaveWindow(window.FramebufferSize.X,window.FramebufferSize.Y,Path.Combine(directory,"map-library-scaled.png")),"scaled map library capture");
+            overlays.Clear();surface.Show(studio);surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y);surface.PrepareMapRenderer();
             if (projectPath != null)
             {
                 var imported = MapDefinition.Load(Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, projectPath)));
@@ -241,6 +255,42 @@ internal static class MapViewportCheck
                     + $"uploads={importedUploads} GPU-draw-ms={gpuMs:F3} CPU-fallback-raster-ms={clock.Elapsed.TotalMilliseconds / 5:F3}; "
                     + "GPU includes driver completion; CPU includes UI polygon rasterization, excludes upload. Not whole-editor frame times.");
             }
+            string texturePath = Path.Combine(directory,"green.tex");
+            using (var texture = new BinaryWriter(File.Create(texturePath)))
+            {
+                texture.Write(System.Text.Encoding.ASCII.GetBytes("FPTX")); texture.Write((ushort)1); texture.Write((ushort)1);
+                texture.Write((ushort)0); texture.Write((ushort)8); texture.Write((ushort)8); texture.Write((ushort)1); texture.Write((ushort)0);
+                texture.Write((ushort)992); texture.Write(new byte[64]);
+            }
+            var texturedDefinition = new MapDefinition { BaseDirectory = directory };
+            texturedDefinition.Materials.Add(new() {Texture="green.tex"});
+            texturedDefinition.Geometry.Add(new MapBox());
+            var texturedDocument = new MapDocument(new MapProject(texturedDefinition));
+            var texturedView = new MapViewport(texturedDocument);
+            var texturedPanel = new Panel(); texturedPanel.Children.Add(texturedView);
+            surface.Show(texturedPanel); surface.Resize(window.FramebufferSize.X,window.FramebufferSize.Y); surface.PrepareMapRenderer();
+            for(int i=0;i<5;i++){System.Threading.Thread.Sleep(20);surface.Invalidate();surface.Tick();}
+            texturedView.FrameAll();
+            surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
+            using(var overlay = new RenderTargetBitmap(new PixelSize((int)texturedView.Bounds.Width,(int)texturedView.Bounds.Height),new Avalonia.Vector(96,96)))
+            {
+                overlay.Render(texturedView); using var stream = new MemoryStream(); overlay.Save(stream,PngBitmapEncoderOptions.Default);
+                byte[] picture = texturedView.CaptureGpuPreview(stream.ToArray());
+                File.WriteAllBytes(Path.Combine(directory,"textured-material.png"),picture);
+                using var bitmap = SkiaSharp.SKBitmap.Decode(picture);
+                Check(bitmap.Pixels.Count(p=>p.Green>60 && p.Green>p.Red*2 && p.Green>p.Blue*2)>bitmap.Pixels.Length/100,
+                    "authored baked texture is visible in GPU output");
+            }
+            int textureUploads = texturedView.GpuTextureUploads;
+            Check(textureUploads==1,"one material uploads exactly one texture");
+            texturedView.SetView("Top"); texturedDocument.Selection.Add(texturedDefinition.Geometry[0].Id); texturedDocument.SelectionChanged();
+            surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
+            Check(texturedView.GpuTextureUploads==textureUploads,"camera and selection reuse texture bindings");
+            texturedView.UvChecker=true; surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
+            Check(texturedView.GpuTextureUploads==textureUploads+1,"checker uploads once without replacing material assets");
+            texturedView.UvChecker=false; surface.DrawMapViewport(window.FramebufferSize.X,window.FramebufferSize.Y);
+            Check(texturedView.GpuTextureUploads==textureUploads+1,"leaving checker reuses authored texture");
+            Check(GL.GetError()==ErrorCode.NoError,"textured rendering leaves valid GL state");
             Console.WriteLine($"MAPVIEWPORT {checks} checks passed.");
             return 0;
         }

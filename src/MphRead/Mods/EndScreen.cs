@@ -466,11 +466,11 @@ namespace MphRead.Mods
             {
                 return;
             }
-            int hunter = (int)Launcher.Hunters.Resolve(Hunter);
+            int hunter = (int)Multiplayer.HunterRules.Resolve(Hunter, GameState.LowTier);
             if (hunterBy != 0)
             {
-                hunter = ((hunter + hunterBy) % Hunters.Playable + Hunters.Playable)
-                    % Hunters.Playable;
+                do { hunter = ((hunter + hunterBy) % Hunters.Playable + Hunters.Playable) % Hunters.Playable; }
+                while (!Multiplayer.HunterRules.Allowed((Hunter)hunter, GameState.LowTier));
             }
             int suit = Suit;
             if (suitBy != 0)
@@ -500,6 +500,7 @@ namespace MphRead.Mods
 
         private static void Choose(Hunter hunter, int suit)
         {
+            hunter = Multiplayer.HunterRules.Resolve(hunter, GameState.LowTier);
             RespawnChoice.Request(hunter, suit);
             LauncherPrefs.LastHunter = hunter;
             LauncherPrefs.LastColor = suit;

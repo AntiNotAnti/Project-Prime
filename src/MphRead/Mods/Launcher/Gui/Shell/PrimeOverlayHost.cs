@@ -20,7 +20,7 @@ namespace MphRead.Mods.Launcher.Gui
             SetValue(ControllerNav.ModalProperty, true);
             KeyboardNavigation.SetTabNavigation(this, KeyboardNavigationMode.Cycle);
         }
-        public void Show(Control view, PrimeModalSize size = PrimeModalSize.Large, Action? cancel = null)
+        public void Show(Control view, PrimeModalSize size = PrimeModalSize.Large, Action? cancel = null, bool fitContent = false)
         {
             var focused = TopLevel.GetTopLevel(this)?.FocusManager?.GetFocusedElement() as Control;
             double width = size switch { PrimeModalSize.Small => 480, PrimeModalSize.Medium => 680,
@@ -31,7 +31,8 @@ namespace MphRead.Mods.Launcher.Gui
                 BorderBrush = PrimeTheme.BorderBrightBrush, BorderThickness = new Thickness(1),
                 Margin = new Thickness(24), MaxWidth = width,
                 HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = size == PrimeModalSize.Small || size == PrimeModalSize.Medium
+                Padding = fitContent ? new Thickness(20) : new Thickness(0),
+                VerticalAlignment = fitContent || size == PrimeModalSize.Small || size == PrimeModalSize.Medium
                     ? VerticalAlignment.Center : VerticalAlignment.Stretch,
                 MaxHeight = size == PrimeModalSize.Small ? 420 : double.PositiveInfinity
             };

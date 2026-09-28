@@ -39,6 +39,21 @@ public static class NetContinuousTargetCheck
                 beam.Target = null; selector.Invoke(null, new object[] { beam, owner.EquipInfo, scene });
             }
             Local(); Check(beam.Target == target && owner.ModContinuousNetworkTarget == NetTargetIdentity.ForSlot(1), $"production owner captures actual selected player target={beam.Target?.Type}/{(beam.Target as PlayerEntity)?.SlotIndex} identity={owner.ModContinuousNetworkTarget} flags={target.LoadFlags} morph={target.IsMorphing} tolerance={owner.EquipInfo.HomingTolerance} weapon={owner.EquipInfo.Weapon.Beam} position={target.Position}");
+            typeof(NetSession).GetProperty(nameof(NetSession.Role))!.SetValue(null, NetRole.Server);
+            typeof(NetSession).GetProperty(nameof(NetSession.LocalSlot))!.SetValue(null, -1);
+            owner.IsBot = true; NetSession.SlotIsBot[0] = true;
+            owner.Controls.Shoot.IsDown = owner.Controls.Shoot.IsPressed = true;
+            typeof(NetSession).GetProperty(nameof(NetSession.NetFrame))!.SetValue(null, (uint)120);
+            IntentPacket botIntent = default;
+            NetBotInput.Sink = (_, packet) => botIntent = packet;
+            NetBotInput.Capture(owner);
+            beam.ModContinuousPhase = 42;
+            selector.Invoke(null, new object[] { beam, owner.EquipInfo, scene });
+            NetBotInput.Flush();
+            Check(botIntent.Target == NetTargetIdentity.ForSlot(1) && botIntent.ContinuousFireTick == 42
+                && botIntent.AckFrame == 0 && (botIntent.Buttons & IntentButtons.Shoot) != 0,
+                "authority bot captures continuous target, firing phase and no rewind");
+            owner.IsBot = false; NetSession.SlotIsBot[0] = false; NetBotInput.Sink = null;
             other.ModPlaceAt(target.Position);
             Local(); Check(beam.Target == target, "equal-angle tie uses slot order");
             var entities = (System.Collections.Generic.LinkedList<EntityBase>)typeof(Scene)

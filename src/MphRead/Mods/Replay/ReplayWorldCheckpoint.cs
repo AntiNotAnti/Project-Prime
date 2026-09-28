@@ -377,6 +377,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         if (!replay.Session.Reposition(playbackFrame ?? frame, 0, sourceClock: playbackFrame.HasValue))
             throw new InvalidDataException(replay.Session.LastError);
         replay.State.RestoreCheckpoint(decoder);
+        ((ReplaySceneServices)replay.Scene.Services).RestoreMatchModifiers(replay.Scene);
         if (cosmetics != null)
         {
             using var cosmeticStream = new MemoryStream(cosmetics, writable: false);

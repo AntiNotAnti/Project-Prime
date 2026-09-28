@@ -30,6 +30,8 @@ namespace MphRead.Mods.Network
         public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason)
         {
             reason = "";
+            if (match.InstaGib && match.NoImperialist)
+            { reason = "Insta-Gib and No Imp cannot be enabled together."; return LobbyResultCode.InvalidConfiguration; }
             if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
                 || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
                 || match.Mode is GameMode.SinglePlayer or GameMode.None)
@@ -63,6 +65,7 @@ namespace MphRead.Mods.Network
             }
 
             Span<int> counts = stackalloc int[4];
+            counts.Clear();
             for (int i = 0; i < roster.Count; i++)
             {
                 if (layout.TeamCount > 0)
@@ -72,7 +75,7 @@ namespace MphRead.Mods.Network
                     { reason = "Every player needs a valid team."; return LobbyResultCode.InvalidTeam; }
                     counts[team]++;
                 }
-                if (requireReady && !roster.LobbyReady[i])
+                if (requireReady && !roster.IsBot(i) && !roster.LobbyReady[i])
                 { reason = $"Waiting for {roster.Names[i]} to ready."; return LobbyResultCode.PlayersNotReady; }
             }
 

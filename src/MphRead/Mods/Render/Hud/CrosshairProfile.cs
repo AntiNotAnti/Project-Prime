@@ -13,6 +13,7 @@ public sealed class CrosshairProfile
     public CrosshairPartStyle OuterStyle { get; set; } = new();
     public CrosshairPartStyle RingStyle { get; set; } = new();
     public CrosshairPartStyle BracketStyle { get; set; } = new();
+    public bool Native { get; set; }
     public bool Enabled { get; set; } = true;
     public bool HealthColor { get; set; } = true;
     public string Color { get; set; } = "#FFFFFF";

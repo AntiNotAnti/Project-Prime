@@ -23,11 +23,60 @@ namespace MphRead
             string Channel(string? channelRoot, string suffix) =>
                 (context == SkinContext.Biped && channelRoot != null
                     ? channelRoot + "/" + model.Name + "/" + material : stem) + suffix;
-            binding = new(UploadCosmetic(stem + "_albedo.png"), UploadCosmetic(Channel(skin.NormalSet, "_normal.png")),
+            int albedo = UploadCosmetic(stem + "_albedo.png");
+            if (albedo == 0 && skin.DecalAsset != null) albedo = UploadDecal(skin.DecalAsset, model, material);
+            binding = new(albedo, UploadCosmetic(Channel(skin.NormalSet, "_normal.png")),
                 UploadCosmetic(Channel(skin.SpecularSet, "_specular.png")), UploadCosmetic(Channel(skin.EmissiveSet, "_emissive.png")));
             _cosmeticTextures[key] = binding;
             return binding;
         }
+        private int UploadDecal(string path, Model model, int materialIndex)
+        {
+            int texture = 0;
+            try
+            {
+                var material = model.Materials[materialIndex];
+                if (material.TextureId < 0 || material.Alpha < 31) return 0;
+                using Stream? stream = CosmeticAsset.Open(path);
+                if (stream == null) return 0;
+                using StbImage decal = StbImage.Load(stream, StbiImageFormat.Rgba);
+                if (decal.Width <= 0 || decal.Height <= 0 || decal.Width > 512 || decal.Height > 512 || decal.ImagePointer == IntPtr.Zero) return 0;
+                byte[] ink = new byte[decal.Width * decal.Height * 4];
+                System.Runtime.InteropServices.Marshal.Copy(decal.ImagePointer, ink, 0, ink.Length);
+                var native = model.Recolors[0].Textures[material.TextureId];
+                var pixels = model.GetPixels(material.TextureId, material.PaletteId, 0);
+                int width = Math.Min(512, Math.Max(native.Width, decal.Width));
+                int height = Math.Min(512, Math.Max(native.Height, decal.Height));
+                byte[] output = new byte[width * height * 4];
+                for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    var basis = pixels[(y * native.Height / height) * native.Width + x * native.Width / width];
+                    int source = ((y * decal.Height / height) * decal.Width + x * decal.Width / width) * 4;
+                    int target = (y * width + x) * 4;
+                    float opacity = ink[source + 3] / 255f;
+                    output[target] = (byte)(basis.Red * (1 - opacity) + ink[source] * opacity);
+                    output[target + 1] = (byte)(basis.Green * (1 - opacity) + ink[source + 1] * opacity);
+                    output[target + 2] = (byte)(basis.Blue * (1 - opacity) + ink[source + 2] * opacity);
+                    output[target + 3] = basis.Alpha;
+                }
+                texture = AllocateTexture();
+                GL.ActiveTexture(TextureUnit.Texture0); GL.BindTexture(TextureTarget.Texture2D, texture);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, output);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                return texture;
+            }
+            catch (Exception ex)
+            {
+                if (texture != 0) ReleaseTexture(texture);
+                Mods.DebugLog.Line("cosmetics", $"Authored decal unavailable: {path}: {ex.Message}");
+                return 0;
+            }
+            finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
+        }
+
         private int UploadCosmetic(string path)
         {
             using Stream? stream = CosmeticAsset.Open(path);

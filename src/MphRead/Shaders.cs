@@ -45,7 +45,7 @@ vec3 light_calc(vec3 light_vec, vec3 light_col, vec3 normal_vec, vec3 dif_col, v
 
 void main()
 {
-    mat4 stack_mtx = mtx_stack[int(gl_MultiTexCoord0.z)];
+    mat4 stack_mtx = mtx_stack[int(clamp(gl_MultiTexCoord0.z, 0.0, 31.0))];
     // view_inv_mtx is set for billboard transforms
     mat4 model_mtx = stack_mtx * view_inv_mtx;
     gl_Position = proj_mtx * view_mtx * model_mtx * gl_Vertex;
@@ -181,7 +181,7 @@ void apply_material_lighting(inout vec4 col)
 
 vec4 toon_color(vec4 vtx_color)
 {
-    return vec4(toon_table[int(vtx_color.r * 31)], vtx_color.a);
+    return vec4(toon_table[int(clamp(vtx_color.r * 31.0, 0.0, 31.0))], vtx_color.a);
 }
 
 // Brightness to steps, hue left alone: a surface keeps its colour and it is
@@ -583,10 +583,10 @@ varying vec4 color;
 
 void main()
 {
-    int band = int((1.0 - texcoord.y) * 192.0);
+    int band = int(clamp((1.0 - texcoord.y) * 192.0, 0.0, 191.0));
     int index = int(mod((band + shift_idx + mod(band, 2) * 32), 64));
-    float value1 = shift_table[index];
-    float value2 = shift_table[int(mod(index + 1, 64))];
+    float value1 = shift_table[int(clamp(float(index), 0.0, 63.0))];
+    float value2 = shift_table[int(clamp(mod(float(index) + 1.0, 64.0), 0.0, 63.0))];
     float value = mix(value1, value2, lerp_fac) * shift_fac;
     vec2 shifted = vec2(texcoord.x + value, texcoord.y);
     if (shifted.x < 0.0 || shifted.x > 1.0) {

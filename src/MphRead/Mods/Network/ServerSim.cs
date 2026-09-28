@@ -240,8 +240,9 @@ namespace MphRead.Mods.Network
                 // the first four.
                 PlayerEntity.MaxPlayers = Math.Clamp(maxPlayers, 2, PlayerEntity.SlotCapacity);
                 NetSession.StartServerAuthority(sink, matchEnded);
-                if (roster is { } players) NetSession.ApplyRoster(players);
+                // Establish the match identity/rules before accepting its roster.
                 if (session is { } state) NetSession.ApplySessionState(state);
+                if (roster is { } players) NetSession.ApplyRoster(players);
                 // A size, because the scene divides by it when it builds a
                 // projection. Nothing here ever builds one; this is the DS's
                 // own, so a stray aspect ratio is at least the right one.
@@ -353,6 +354,7 @@ namespace MphRead.Mods.Network
                 if (!preserveRoomPrewarm) Mods.RoomPrewarm.Clear();
                 return;
             }
+            MapGen.MapRuntimeUsage.Release(_scene);
             _scene = null;
             _room = "";
             if (preserveRoomPrewarm) NetSession.StopMatchRuntime();

@@ -858,7 +858,7 @@ namespace MphRead.Entities
 
             private void ApplyCombatEnhancements()
             {
-                bool instaGib = _scene.GameState.Mode == GameMode.InstaGib;
+                bool instaGib = _scene.GameState.InstaGib;
                 BotDifficultyTuning tuning = Difficulty;
 
                 // Insta-Gib owns the loadout. The stock Battle personality assumes
@@ -2281,7 +2281,7 @@ namespace MphRead.Entities
             // helper
             private bool CheckBeam(BeamType beam)
             {
-                if (_scene.GameState.Mode == GameMode.InstaGib)
+                if (_scene.GameState.InstaGib)
                 {
                     return beam == BeamType.Imperialist && _player._availableWeapons[beam];
                 }
@@ -2292,7 +2292,7 @@ namespace MphRead.Entities
             // helper
             private bool CheckCharge(BeamType beam)
             {
-                if (_scene.GameState.Mode == GameMode.InstaGib)
+                if (_scene.GameState.InstaGib)
                 {
                     return false;
                 }
@@ -2341,7 +2341,7 @@ namespace MphRead.Entities
 
             private void Func1_214A098()
             {
-                if (_scene.GameState.Mode == GameMode.InstaGib)
+                if (_scene.GameState.InstaGib)
                 {
                     _findWeaponIndex = GetWeaponIndex(BeamType.Imperialist);
                     return;
@@ -2414,7 +2414,7 @@ namespace MphRead.Entities
 
             private void Func1_2149D3C()
             {
-                if (_scene.GameState.Mode == GameMode.InstaGib)
+                if (_scene.GameState.InstaGib)
                 {
                     _weapon2 = GetWeaponIndex(BeamType.Imperialist);
                     Flags4 &= ~AiFlags4.Bit1;
@@ -7113,7 +7113,7 @@ namespace MphRead.Entities
                     shotDelay /= 2;
                 }
                 shotDelay *= 2; // todo: FPS stuff
-                BeamType beam = _scene.GameState.Mode == GameMode.InstaGib
+                BeamType beam = _scene.GameState.InstaGib
                     ? BeamType.Imperialist
                     : GetBeamType(_weapon1);
                 if (beam != BeamType.ShockCoil && !_player.AvailableWeapons[beam])
@@ -7366,7 +7366,7 @@ namespace MphRead.Entities
                 {
                     return;
                 }
-                BeamType beam = _scene.GameState.Mode == GameMode.InstaGib
+                BeamType beam = _scene.GameState.InstaGib
                     ? BeamType.Imperialist
                     : GetBeamType(_weapon1);
                 if (_player.CurrentWeapon != beam && _player._availableWeapons[beam])

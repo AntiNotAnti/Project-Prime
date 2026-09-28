@@ -46,11 +46,14 @@ namespace MphRead.Entities
             const float contentHeight = 13.5f;
 
             DrawText2D(left + 1.8f * aspect, titleY, Align.Left, 0,
-                "POST-MATCH REPORT", _killFeedInk, scale: 0.48f);
+                (NetSession.MatchContainsBots ? "PRACTICE - BOTS USED" : "POST-MATCH REPORT"), _killFeedInk, scale: 0.48f);
             DrawText2D(right - 1.2f * aspect, titleY + 0.5f, Align.Right, 0,
                 count > 0 ? $"{count} PLAYER{(count == 1 ? "" : "S")}" : "RESULTS",
                 _killFeedSpecial, scale: 0.34f);
 
+            if (NetSession.MatchContainsBots)
+                DrawText2D(left + 1.8f * aspect, titleY + 5f, Align.Left, 0,
+                    "Hunter License progression disabled", _killFeedSpecial, scale: 0.23f);
             Vector4 titleRule = _killFeedRule;
             titleRule.W *= 1.15f;
             _scene.DrawHudFlatBox(left, titleY + 8.2f, right, titleY + 8.55f, titleRule);
@@ -133,8 +136,9 @@ namespace MphRead.Entities
 
                 DrawText2D(left + 2f * aspect, y + 0.8f, Align.Left, 0,
                     $"#{i + 1}", _killFeedSpecial, scale: 0.31f);
-                DrawText2D(left + 8.2f * aspect, y + 0.35f, Align.Left, 0,
-                    PostMatchName(name), nameColor, scale: 0.43f);
+                DrawPlayerName(left + 8.2f * aspect, y + 0.35f, Align.Left, 0,
+                    name, nameColor, scale: 0.43f,
+                    maxWidth: Math.Max(12, (kdX - left) / aspect - 23.2f));
 
                 int shots = Math.Max(0, state.ShotsFired[slot]);
                 int hits = Math.Min(shots, Math.Max(0, state.ShotsHit[slot]));
@@ -156,14 +160,6 @@ namespace MphRead.Entities
             }
         }
 
-        private static string PostMatchName(string name)
-        {
-            if (String.IsNullOrWhiteSpace(name))
-            {
-                return "PLAYER";
-            }
-            name = name.ToUpperInvariant();
-            return name.Length <= 12 ? name : name[..9] + "...";
-        }
+
     }
 }

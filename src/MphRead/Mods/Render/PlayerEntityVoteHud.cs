@@ -95,7 +95,7 @@ namespace MphRead.Entities
                 return;
             }
             float aspect = HudAspectFix;
-            string prompt = MapVote.PromptLine();
+            string prompt = " PROPOSES " + MapVote.RoomKey.ToUpperInvariant();
             string tally = MapVote.TallyLine();
             if (!MapVote.Answered && Mods.Input.InputSourceTracker.Current == Mods.Input.InputSource.Gamepad)
             {
@@ -107,10 +107,12 @@ namespace MphRead.Entities
                 + (buttons ? VoteButtonHeight + VoteButtonGap : 0);
             // Wide enough for the prompt, and never narrower than the two
             // buttons under it plus their gap.
-            float width = Math.Max(118f, VoteButtonWidth * 2 + VoteButtonGap + 6);
+            float width = Math.Max(180f, VoteButtonWidth * 2 + VoteButtonGap + 6);
             float right = VoteLeft + width * aspect;
             _scene.DrawHudFlatBox(VoteLeft, VoteTop, right, VoteTop + height, _votePanel);
-            DrawText2D(VoteLeft + 3 * aspect, VoteTop + 2, Align.Left, palette: 0,
+            float nameEnd = DrawPlayerName(VoteLeft + 3 * aspect, VoteTop + 2, Align.Left, 0,
+                MapVote.Proposer, _voteInk, fontSpacing: 8, scale: 0.42f, maxWidth: 55).X;
+            DrawText2D(nameEnd, VoteTop + 2, Align.Left, palette: 0,
                 prompt, color: _voteInk, fontSpacing: 8, scale: 0.42f);
             DrawText2D(VoteLeft + 3 * aspect, VoteTop + 2 + VoteLineHeight, Align.Left,
                 palette: 0, tally, color: _voteDimInk, fontSpacing: 8, scale: 0.42f);

@@ -98,6 +98,8 @@ namespace MphRead.Mods.Network
             {
                 writer.Write(player.Slot); writer.Write(player.Hunter); writer.Write(player.Team);
                 WriteString(writer, player.Name);
+                if (metadata.ProtocolVersion >= 26)
+                { writer.Write(player.IsBot); writer.Write(player.BotLevel); }
             }
             if (metadata.Bootstrap.Packets.Count > 32) throw new InvalidDataException("Bootstrap too large.");
             writer.Write((byte)metadata.Bootstrap.Packets.Count);
@@ -143,7 +145,12 @@ namespace MphRead.Mods.Network
                 if (slot >= RosterPacket.MaxSlots || hunter >= 7 || team is < -1 or > 3 || (seen & (1 << slot)) != 0)
                     throw new InvalidDataException("Invalid replay roster.");
                 seen |= 1 << slot;
-                players.Add(new(slot, hunter, team, ReadString(reader)));
+                string name = ReadString(reader);
+                byte bot = protocol >= 26 ? reader.ReadByte() : (byte)0;
+                byte level = protocol >= 26 ? reader.ReadByte() : (byte)0;
+                if (bot > 1 || level > 3 || (bot == 0 && level != 0))
+                    throw new InvalidDataException("Invalid replay bot identity.");
+                players.Add(new(slot, hunter, team, name, bot != 0, level));
             }
             int packetCount = reader.ReadByte();
             if (packetCount > 32) throw new InvalidDataException("Invalid bootstrap count.");

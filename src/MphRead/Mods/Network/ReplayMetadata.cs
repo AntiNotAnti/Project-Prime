@@ -1,4 +1,5 @@
 using System;
+using MphRead.Mods.MapGen;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -24,7 +25,12 @@ namespace MphRead.Mods.Network
 
     public readonly record struct ReplayEvent(uint Frame, ReplayEventType Type,
         byte ActorSlot = byte.MaxValue, byte TargetSlot = byte.MaxValue, int Value = 0);
-    internal readonly record struct ReplayPlayerInfo(byte Slot, byte Hunter, sbyte Team, string Name);
+    internal readonly record struct ReplayPlayerInfo(byte Slot, byte Hunter, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0)
+    {
+        public string DisplayName => IsBot
+            ? $"{Name} [BOT · {new[] { "EASY", "NORMAL", "HARD", "INSANE" }[Math.Clamp((int)BotLevel, 0, 3)]}]"
+            : Name;
+    }
     internal readonly record struct ReplayExpectedHash(uint Frame, string Value);
 
     // Bootstrap is composed of existing wire packets, applied by the usual session handlers.
@@ -46,6 +52,8 @@ namespace MphRead.Mods.Network
         public ReplayType Type { get; init; }
         public string RoomKey { get; init; } = "";
         public ulong MapHash { get; init; }
+        // Protocol-bound bootstrap persists the complete custom identity and download source.
+        public MapContentIdentity? CustomMapIdentity => ReplayMapIdentity.CustomSession(this)?.Match.MapIdentity.Content(RoomKey);
         public GameMode Mode { get; init; }
         public uint DurationFrames { get; set; }
         public ReplayIntegrity Integrity { get; set; }
@@ -67,6 +75,34 @@ namespace MphRead.Mods.Network
 
     internal static class ReplayMapIdentity
     {
+        internal static SessionStatePacket? CustomSession(ReplayMetadata metadata)
+        {
+            foreach (byte[] packet in metadata.Bootstrap.Packets)
+                if (packet.Length == 1 + SessionStatePacket.Size && packet[0] == (byte)PacketType.SessionState
+                    && SessionStatePacket.TryRead(packet.AsSpan(1), out var session)
+                    && session.Match.MapIdentity.IsCustom && session.Match.RoomKey == metadata.RoomKey) return session;
+            return null;
+        }
+
+        internal static void PrepareExactPackage(ReplayMetadata metadata)
+        {
+            if (CustomSession(metadata) is not { } session) return;
+            var identity = session.Match.MapIdentity.Content(metadata.RoomKey);
+            bool haveArchive = CustomRooms.Installed.HasExact(identity);
+            if (haveArchive && Validate(metadata) == ReplayOpenResult.Success) return;
+            MapRuntimeUsage.RequireInstallationAllowed(identity.RoomKey);
+            string configured = NetworkMapIdentity.ConfiguredDownloadSource();
+            string address = haveArchive || string.IsNullOrWhiteSpace(session.MapDownloadSource) ? configured : session.MapDownloadSource;
+            if (new Uri(address).IsLoopback && new Uri(address) != new Uri(configured))
+                throw new InvalidDataException("The replay's local Community address differs from your configured service.");
+            using var client = new MapCommunityClient(address);
+            using var prepared = haveArchive && CustomRooms.Installed.TryGet(identity.MapId,out var local)
+                ? MapPackageInstaller.PrepareAsync(local.PackagePath,identity).GetAwaiter().GetResult()
+                : client.PrepareExactAsync(identity, default).GetAwaiter().GetResult();
+            var installed = prepared.Commit(CustomRooms.UserMapDirectory);
+            Metadata.RegisterDownloadedMap(installed);
+        }
+
         // Hash the actual room binaries, not its filename or local absolute paths. Streaming
         // bounds memory and covers custom-map geometry, collision, entities and node layout.
         public static ulong Compute(string roomKey)
@@ -95,6 +131,8 @@ namespace MphRead.Mods.Network
 
         public static ReplayOpenResult Validate(ReplayMetadata metadata)
         {
+            if (metadata.CustomMapIdentity is { } identity && !CustomRooms.Installed.HasExact(identity))
+                return ReplayOpenResult.MapHashMismatch;
             // Zero identifies an unavailable hash (e.g. an asset-free format fixture).
             // Real recordings require a hash at Start, so never silently waive it there.
             if (metadata.MapHash == 0) return ReplayOpenResult.Success;

@@ -196,8 +196,12 @@ namespace MphRead.Mods
         /// <summary>Pure rule application shared by launch code and regressions.</summary>
         internal static void ApplyMatchRules(MenuSettings settings, SceneGameState state)
         {
-            if (!state.Multiplayer)
+            if (!state.Multiplayer) return;
+            if (Network.NetSession.Active)
+            {
+                Network.NetSession.ActiveMatchDefinition?.ApplyModifiers(state);
                 return;
+            }
 
             if (TryTime(settings.TimeLimit, out float timeLimit))
                 state.MatchTime = timeLimit > 0 ? timeLimit : -1;
@@ -214,13 +218,13 @@ namespace MphRead.Mods
             state.FriendlyFire = settings.FriendlyFire == "on";
             state.RadarPlayers = settings.HunterRadar == "on";
             state.AffinityWeapons = settings.AffinityWeapons == "on";
-            // New settings files default this on, and treating anything other
-            // than an explicit off as enabled keeps older files on that default.
-            state.SpawnProtection = settings.SpawnProtection != "off";
-            // Anything but an explicit "off" is the cartridge's behaviour, so
-            // a settings file written before this rule existed plays exactly
-            // as it did.
-            state.ShadowFreeze = settings.ShadowFreeze != "off";
+            // Advanced combat rules are opt-in. Explicit saved on values are preserved.
+            state.InstaGib = settings.InstaGib == "on";
+            state.LowTier = settings.LowTier == "on";
+            state.NoImperialist = settings.NoImperialist == "on" && !state.InstaGib;
+            state.SpawnProtection = settings.SpawnProtection == "on";
+            // Shadow Freeze also requires an explicit opt-in.
+            state.ShadowFreeze = settings.ShadowFreeze == "on";
             state.OctolithReset = settings.PointGoal != "off";
             // Teams is not set here. GameState.Setup derives it from the mode,
             // and the launcher passes the choice through as the team id it

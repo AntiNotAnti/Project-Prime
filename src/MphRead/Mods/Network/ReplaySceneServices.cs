@@ -82,10 +82,27 @@ namespace MphRead.Mods.Network
             scene.Players.PlayerCount = scene.GameState.ActivePlayers = active;
         }
 
+        // Modifiers belong to the decoder configuration in every checkpoint.
+        // Reapply them after world restore without changing its exact clock or
+        // requiring a new world-object field contract for historical capsules.
+        internal void RestoreMatchModifiers(Scene scene)
+        {
+            if (State.Match is not MatchStatePacket match) return;
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode }).NormalizeLegacy();
+            definition.ApplyModifiers(scene.GameState);
+            scene.GameState.Mode = definition.Mode;
+            scene.GameState.FriendlyFire = match.FriendlyFire;
+            scene.GameState.ShadowFreeze = match.ShadowFreeze;
+            scene.GameState.SpawnProtection = State.Configuration?.Match.SpawnProtection ?? match.SpawnProtection;
+            if (match.StatesRules) scene.GameState.AffinityWeapons = match.AffinityWeapons;
+        }
+
         internal void ApplyRules(Scene scene, uint frame)
         {
             if (State.Match is not MatchStatePacket match) return;
-            scene.GameState.Mode = (GameMode)match.Mode;
+            var definition = (State.Configuration?.Match ?? new MatchDefinition { Mode = (GameMode)match.Mode }).NormalizeLegacy();
+            definition.ApplyModifiers(scene.GameState);
+            scene.GameState.Mode = definition.Mode;
             if (MatchGoalRules.UsesTimeTarget((GameMode)match.Mode)) scene.GameState.TimeGoal = match.PointGoal;
             else scene.GameState.PointGoal = match.PointGoal;
             scene.GameState.FriendlyFire = match.FriendlyFire;
@@ -116,7 +133,9 @@ namespace MphRead.Mods.Network
                 if (State.TryGetPlayer(slot, out var recorded))
                 {
                     var player = scene.Players.Items[slot];
+                    var cameraAnchor = player.Position;
                     scene.PlayerReplication.ApplyState(player, recorded, isLocal: false);
+                    player.ModTranslateReplayPresentation(player.Position - cameraAnchor);
                     var life = (recorded.SlotGeneration, recorded.LifeId,
                         (byte)(recorded.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm)), recorded.Health > 0);
                     if (!_presentationKnown[slot] || _presentationLives[slot] != life)

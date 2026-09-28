@@ -49,9 +49,9 @@ namespace MphRead.Mods.Cosmetics
             {
                 string hunter = ((Hunter)h).ToString().ToLowerInvariant();
                 skins.Add(new($"skin.{hunter}.obsidian", (ushort)(1 + h * 2), "Obsidian", (Hunter)h)
-                { SurfaceTreatment = 1, AlbedoSet = $"Skins/{(Hunter)h}/Obsidian/Biped", GunAssets = $"Skins/{(Hunter)h}/Obsidian/ViewModel", AltFormAssets = $"Skins/{(Hunter)h}/Obsidian/AltForm", TurretAssets = $"Skins/{(Hunter)h}/Obsidian/Halfturret", Description = "Graphite armor with native palette accents" });
+                { SurfaceTreatment = 1, DecalAsset = $"Decals/{(Hunter)h}/Obsidian.png", AlbedoSet = $"Skins/{(Hunter)h}/Obsidian/Biped", GunAssets = $"Skins/{(Hunter)h}/Obsidian/ViewModel", AltFormAssets = $"Skins/{(Hunter)h}/Obsidian/AltForm", TurretAssets = $"Skins/{(Hunter)h}/Obsidian/Halfturret", Description = "Graphite armor with native palette accents" });
                 skins.Add(new($"skin.{hunter}.alimbic", (ushort)(2 + h * 2), "Alimbic", (Hunter)h)
-                { SurfaceTreatment = 2, AlbedoSet = $"Skins/{(Hunter)h}/Alimbic/Biped", GunAssets = $"Skins/{(Hunter)h}/Alimbic/ViewModel", AltFormAssets = $"Skins/{(Hunter)h}/Alimbic/AltForm", TurretAssets = $"Skins/{(Hunter)h}/Alimbic/Halfturret", Description = "Warm alloy with etched energy channels" });
+                { SurfaceTreatment = 2, DecalAsset = $"Decals/{(Hunter)h}/Alimbic.png", AlbedoSet = $"Skins/{(Hunter)h}/Alimbic/Biped", GunAssets = $"Skins/{(Hunter)h}/Alimbic/ViewModel", AltFormAssets = $"Skins/{(Hunter)h}/Alimbic/AltForm", TurretAssets = $"Skins/{(Hunter)h}/Alimbic/Halfturret", Description = "Warm alloy with etched energy channels" });
             }
             return skins.AsReadOnly();
         }

@@ -37,6 +37,8 @@ internal sealed class HudStudioCanvas : Control
     private double? _guideX, _guideY;
     public float PreviewWidth { get; set; } = 1920;
     public float PreviewHeight { get; set; } = 1080;
+    internal int PreviewHunter { get; set; }
+    private readonly HudNativePreview _native = new();
     public int Weapon { get; set; } = -1;
     public bool Zoom { get; set; }
     internal bool RadarOnly { get; set; }
@@ -69,8 +71,11 @@ internal sealed class HudStudioCanvas : Control
         var baseCrosshair = CrosshairProperties.Resolve(p.Crosshair, p.WeaponCrosshairs[Zoom ? 4 : Weapon >= 0 ? Weapon : 0]);
         if (Weapon < 0 && !Zoom) baseCrosshair=p.Crosshair;
         _crosshair = new(Zoom ? CrosshairProperties.Resolve(baseCrosshair,p.ZoomCrosshair) : baseCrosshair);
+        _native.Prepare();
         InvalidateVisual();
     }
+    protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+    { _native.Dispose(); base.OnDetachedFromVisualTree(e); }
     private Rect Surface
     {
         get
@@ -121,6 +126,11 @@ internal sealed class HudStudioCanvas : Control
                 using (context.PushOpacity(visible ? element.Opacity * History.Draft.GlobalOpacity : .18))
                 {
                     if (i == 0) DrawCrosshair(context, rect.Center);
+                    else if(i==3 && (History.Draft.Inventory.Native || History.Draft.Mode==HudMode.Classic))
+                    {
+                        double unit=5.625*Transform.UnitScale*element.Scale*History.Draft.GlobalScale*History.Draft.IconScale;
+                        _native.Draw(context,MphRead.Hud.HudElements.HunterObjects[PreviewHunter].WeaponIcon,Math.Max(0,Weapon),rect.TopLeft,unit,unit);
+                    }
                     else if(i==4) DrawRadar(context,rect);
                     else if (i is 1 or 2 or 12 or 13) DrawMeter(context, rect, i is 1 or 12,i>=12);
                     else
@@ -214,6 +224,8 @@ internal sealed class HudStudioCanvas : Control
     private void DrawMeter(DrawingContext context, Rect bounds, bool health, bool gaugeOnly)
     {
         var p = History.Draft;
+        if(!gaugeOnly && (p.Mode==HudMode.Classic || (health ? p.Health.Native : p.Ammo.Native)))
+        { DrawNativeMeter(context,bounds,health); return; }
         if(gaugeOnly && !p.IndependentGauges) return;
         var style = new HudMeterRuntime(health ? p.Health : p.Ammo);
         float fraction = health ? Preview.Health / 99f : Preview.Ammo / 80f;
@@ -237,9 +249,37 @@ internal sealed class HudStudioCanvas : Control
             context.FillRectangle(brush,new Rect(bounds.X+r.X*unit,bounds.Y+r.Y*unit,r.Width*unit,r.Height*unit));
         }
     }
+    private void DrawNativeMeter(DrawingContext context,Rect bounds,bool health)
+    {
+        var p=History.Draft;
+        var objects=MphRead.Hud.HudElements.HunterObjects[PreviewHunter];
+        var meter=health ? MphRead.Hud.HudElements.MainHealthbars[PreviewHunter] : MphRead.Hud.HudElements.AmmoBars[PreviewHunter];
+        string asset=health ? objects.HealthBarA : objects.AmmoBar;
+        double uy=5.625*Transform.UnitScale*p.GlobalScale*p.Elements[health ? "core.health" : "core.ammo"].Scale;
+        double ux=uy*PreviewWidth/PreviewHeight*.75;
+        int filled=(int)(meter.Length*Math.Clamp(health ? Preview.Health/99f : Preview.Ammo/80f,0,1));
+        for(int tile=0;tile<(meter.Length+7)/8;tile++)
+        {
+            int amount=Math.Clamp(filled-tile*8,0,8);
+            _native.Draw(context,asset,8-amount,new Point(bounds.X+(meter.Horizontal ? tile*8*ux : 0),bounds.Y-(meter.Horizontal ? 0 : tile*8*uy)),ux,uy);
+        }
+        var number=new FormattedText((health ? Preview.Health : Preview.Ammo).ToString("00"),System.Globalization.CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,new Typeface("monospace"),8*uy*p.TextScale,Brushes.White);
+        context.DrawText(number,new Point(bounds.X+meter.BarOffsetX*ux,bounds.Y+meter.BarOffsetY*uy));
+        if(_native.Error is {} error)
+            context.DrawText(new FormattedText(error,System.Globalization.CultureInfo.InvariantCulture,FlowDirection.LeftToRight,new Typeface("sans-serif"),12,Brushes.Orange),bounds.TopLeft);
+    }
     private void DrawCrosshair(DrawingContext context, Point center)
     {
         if (!_crosshair.Enabled) return;
+        if(_crosshair.Native || History.Draft.Mode==HudMode.Classic)
+        {
+            var objects=MphRead.Hud.HudElements.HunterObjects[PreviewHunter];
+            double unit=Surface.Width/256*History.Draft.GlobalScale*History.Draft.Elements["core.crosshair"].Scale*_crosshair.NativeScale*History.Draft.IconScale;
+            using(context.PushOpacity(_crosshair.Opacity*History.Draft.NativeReticleOpacity))
+                _native.Draw(context,Zoom ? objects.SniperReticle : objects.Reticle,0,center,unit,unit,true);
+            return;
+        }
         float scale = History.Draft.GlobalScale * History.Draft.Elements["core.crosshair"].Scale;
         // Preview uses physical crosshair pixels, as does the game.
         scale *= (float)(Surface.Width / PreviewWidth);

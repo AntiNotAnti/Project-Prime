@@ -392,13 +392,13 @@ namespace MphRead.Entities
 
         private void UpdateAimFacing()
         {
-            if (Features.FixedCrosshair)
+            if (Features.FixedAimCamera)
             {
-                // The camera's own facing is normally eased 10%/frame toward
-                // the raw aim direction (a DS-camera holdover) -- with the
-                // crosshair pinned to screen-centre there's nothing crisp
-                // left to mask that lag, so it reads as sluggish mouse-look
-                // instead. 1:1 here removes it.
+                // Static/Quake presentation welds the camera to raw aim. A
+                // fixed reticle animation alone must not do that: Pro HUD also
+                // freezes that animation in Dynamic/Metroid mode, where the
+                // original camera easing is exactly what creates the visible
+                // camera-to-aim delta used by the moving crosshair.
                 _facingVector = _gunVec1;
                 return;
             }
@@ -839,8 +839,10 @@ namespace MphRead.Entities
             }
             ProcessMovement();
             Mods.Network.NetHooks.AfterRemoteMovement(this);
-            UpdateCamera();
+            // Refresh replicated facing before building the camera and weapon.
+            // Doing this after UpdateCamera mixed two aim samples in one POV.
             ModRefreshNetworkAim();
+            UpdateCamera();
             UpdateAimVecs();
             if (_frozenTimer == 0 && _health > 0 && !_field6D0)
             {
@@ -2721,11 +2723,13 @@ namespace MphRead.Entities
             for (int i = 0; i < players.Items.Count; i++)
             {
                 PlayerEntity player = players.Items[i];
-                if (player.IsBot)
+                if (player.IsBot && !player.SceneServices.IsReplica
+                    && (!Mods.Network.NetSession.Active || Mods.Network.NetSession.IsAuthority))
                 {
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))
                     {
                         player.AiData.ProcessInput();
+                        Mods.Network.NetBotInput.Capture(player);
                     }
                     continue;
                 }

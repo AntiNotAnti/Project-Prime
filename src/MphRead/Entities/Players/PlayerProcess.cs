@@ -1545,7 +1545,7 @@ namespace MphRead.Entities
             // Insta-Gib owns the loadout for the whole life. Arena weapon
             // pickups may still be collected/removed normally, but they never
             // add a selectable weapon or disturb the Imperialist-only slots.
-            if (_scene.GameState.Mode == GameMode.InstaGib)
+            if (_scene.GameState.InstaGib)
             {
                 return;
             }
@@ -1577,6 +1577,8 @@ namespace MphRead.Entities
                     _ => BeamType.None
                 };
             }
+            weapon = Mods.Multiplayer.WeaponResourceRules.ResolveBeam(weapon, _scene.GameState.NoImperialist,
+                _scene.Room?.Meta.Name ?? "", SlotIndex);
             if (weapon == BeamType.None)
             {
                 return;

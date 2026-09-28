@@ -875,7 +875,10 @@ namespace MphRead.Entities
                     {
                         factor = 2 * 2; // todo: FPS stuff
                     }
-                    position.Y += result.Plane.Y * v2 * factor;
+                    float step = result.Plane.Y * v2 * factor;
+                    float reach = MathF.Max(0, Fixed.ToFloat(
+                        IsAltForm ? Values.AltColRadius : Values.BipedColRadius));
+                    position.Y += Math.Clamp(step, -reach, reach);
                 }
                 float dot = Vector3.Dot(Speed, result.Plane.Xyz);
                 if (dot < 0)

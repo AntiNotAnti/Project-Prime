@@ -25,7 +25,7 @@ internal static class ReplayTimelineArchive
             Players = Enumerable.Range(0, 8).Select(slot => (Slot: slot, Occupant: world.State.Occupant(slot)))
                 .Where(p => p.Occupant.Generation != 0)
                 .Select(p => new ReplayPlayerInfo((byte)p.Slot, (byte)p.Occupant.Hunter,
-                    p.Occupant.Team, p.Occupant.Name)).ToArray()
+                    p.Occupant.Team, p.Occupant.Name, p.Occupant.IsBot, p.Occupant.BotLevel)).ToArray()
         };
     }
     internal static void Write(ReplayWriterV3 writer, ReplayTimelineRecord record, uint origin)

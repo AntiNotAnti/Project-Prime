@@ -214,3 +214,29 @@ Local validation artifacts are under `/tmp/prime-enhanced-radar-validation`:
 `editor/`, `baseline/`, `basic/`, `basic-parity/comparison.json`, `scanner/` and
 `tactical-capture-portrait/`. They are diagnostic captures, not automatically
 approved repository goldens.
+
+## Native artwork and color controls (2026-09-28)
+
+HUD Studio's **Use native elements** action enables the current hunter's native
+health meter, ammo meter, equipped-weapon icon and reticle in a Custom profile.
+Each can also be selected independently. Element **Scale** resizes native artwork;
+the crosshair's own size and per-weapon/zoom overrides also apply. These options
+reuse existing HUD presentation and preserve the reticle's existing aim position.
+Native sprites keep their original palettes. Modern meter styles and geometric
+crosshair controls remain available when the corresponding native option is off.
+The editor offers a hunter selector for native sprite previews; it does not change
+the player's hunter. Native preview text/layout remains schematic rather than a
+complete recreation of the native visor and font rendering.
+
+Every color field now includes 30 selectable swatches, a live sample and Copy/Paste
+buttons, and accepts both three- and six-digit hex colors. The desktop Paste button
+uses the operating-system clipboard because the embedded Avalonia host's headless
+clipboard is separate. Invalid input preserves the previous color.
+
+Validation: 978 model assertions passed, including serialized native options and
+combined element/global scaling. Native asset decoding was exercised for all eight
+hunters in the UI suite. A macOS rendered match using an isolated Custom profile
+confirmed native health, equipped-weapon icon and reticle at 150% size; ammo asset
+preview was checked, but that match used the ammo-free Power Beam. Clipboard OS
+integration is implemented but has not been manually exercised against a user's
+clipboard. Captures: `/tmp/prime-native-match-shots`.

@@ -131,6 +131,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Add(menu, DemoRecorder.IsRecording ? "STOP REPLAY RECORDING" : "RECORD REPLAY",
                     () => RecordToggleRequested?.Invoke(this, EventArgs.Empty));
             }
+            if (!DemoPlayback.IsActive && NetSession.LocalIsLobbyOwner)
+                menu.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new ScrollViewer { MaxHeight = 280, Content = new BotManagementView() } });
             Add(menu, "SETTINGS", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
             Add(menu, "LEAVE MATCH", () => LeaveRequested?.Invoke(this, EventArgs.Empty),
                 HubTheme.Warm);

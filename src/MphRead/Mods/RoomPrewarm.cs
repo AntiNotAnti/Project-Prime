@@ -183,6 +183,11 @@ namespace MphRead.Mods
             var clock = Stopwatch.StartNew();
             try
             {
+                using var mapLease = MapGen.MapRuntimeUsage.AcquirePreparation(metadata.Name);
+                lock (Gate)
+                {
+                    if (generation != _generation) { prepared.TrySetResult(false); return; }
+                }
                 // Custom maps can compile while players are choosing settings,
                 // instead of making Start Match pay that cost.
                 MapGen.CustomRooms.GenerateMissing(metadata.Name);

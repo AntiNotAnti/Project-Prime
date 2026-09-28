@@ -16,6 +16,7 @@ namespace MphRead.Mods.Network
         internal static void ResetContinuousIntent() => _continuousIntentPending = false;
         internal static void CaptureContinuousShot(PlayerEntity player)
         {
+            NetBotInput.CaptureContinuousShot(player);
             if (!_continuousIntentPending || _continuousIntentFrame != NetSession.NetFrame
                 || player.SlotIndex != NetSession.LocalSlot) return;
             // Targeting runs after aim/input processing. The proposal must carry that
@@ -85,7 +86,7 @@ namespace MphRead.Mods.Network
         {
             if (player.SceneServices.IsReplica) return true;
             return (NetSession.Active || DemoPlayback.IsActive)
-                && player.SlotIndex != LocalSlot;
+                && !(NetSession.IsAuthority && player.IsBot) && player.SlotIndex != LocalSlot;
         }
 
         public static bool KeepSlotAlive(PlayerEntity player)
@@ -212,7 +213,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             if (!NetSession.Active || !NetRoomChange.GameplayReady
-                || player.SlotIndex == NetSession.LocalSlot)
+                || player.SlotIndex == NetSession.LocalSlot || player.IsBot)
             {
                 return;
             }
@@ -256,7 +257,7 @@ namespace MphRead.Mods.Network
         public static Vector3 RemoteShotOrigin(PlayerEntity player, Vector3 current)
         {
             if (player.SceneServices.IsReplica) return current;
-            if (!NetSession.IsAuthority || player.SlotIndex == NetSession.LocalSlot
+            if (!NetSession.IsAuthority || player.IsBot || player.SlotIndex == NetSession.LocalSlot
                 || player.SlotIndex < 0 || player.SlotIndex >= NetSession.RemoteIntents.Length)
             {
                 return current;
@@ -573,6 +574,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            NetBotInput.Flush();
             if (_continuousIntentPending)
             {
                 _continuousIntentPending = false;
@@ -613,7 +615,7 @@ namespace MphRead.Mods.Network
                 for (int i = 0; i < PlayerEntity.Players.Count; i++)
                 {
                     PlayerEntity player = PlayerEntity.Players[i];
-                    if (!player.LoadFlags.TestFlag(LoadFlags.Active) || i == NetSession.LocalSlot)
+                    if (!player.LoadFlags.TestFlag(LoadFlags.Active) || i == NetSession.LocalSlot || player.IsBot)
                     {
                         continue;
                     }

@@ -317,6 +317,14 @@ namespace MphRead.Mods.Launcher.Gui
         /// curve is capped by what the window can actually hold, and the
         /// layout box never goes below the size the screens were drawn for.
         /// </summary>
+        // Keep a useful editor workspace while allowing readable controls on Retina/4K displays.
+        public static double EditorFactor(double width, double height)
+        {
+            double smallWindowFit = Math.Min(width / 960.0, height / 600.0);
+            double workspaceScale = Math.Max(1, Math.Min(width / 1440.0, height / 900.0));
+            return Math.Clamp(Math.Min(smallWindowFit, workspaceScale), .6, 4);
+        }
+
         public static double Factor(double width, double height)
         {
             double room = Math.Max(height, 1) / 720.0;

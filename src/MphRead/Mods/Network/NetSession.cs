@@ -429,6 +429,7 @@ namespace MphRead.Mods.Network
             NetContinuousTargeting.Reset();
             NetContinuousTargetDiagnostics.Reset();
             Array.Clear(SlotPing);
+            MatchContainsBots = false;
             Array.Clear(_lastSlotIntentFrame);
             _lastServerPacket = 0;
             _lastClientMaintenance = 0;
@@ -444,6 +445,8 @@ namespace MphRead.Mods.Network
             NetPlayerLifecycle.Reset();
             _reAnnounced = false;
             Array.Clear(SlotOccupied);
+            Array.Clear(SlotIsBot);
+            Array.Clear(SlotBotLevel);
             SnapshotsReceived = 0;
             SnapshotsSent = 0;
             SnapshotsOutOfOrder = 0;
@@ -481,11 +484,10 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            byte[] name = System.Text.Encoding.ASCII.GetBytes(PlayerName);
-            int count = Math.Min(name.Length, RosterPacket.MaxNameBytes);
+            if (!PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(PlayerName),
+                _scratch.AsSpan(2, PlayerNameCodec.MaxWireBytes), out int count)) return;
             _scratch[0] = (byte)LocalHunter;
             _scratch[1] = (byte)PlayerColors.Clamp(LocalColor);
-            name.AsSpan(0, count).CopyTo(_scratch.AsSpan(2));
             _transport.Send(_hostEndPoint, PacketType.Identify, _scratch.AsSpan(0, count + 2));
             SendCosmetics();
 #if MPHREAD_AVALONIA
@@ -1358,12 +1360,24 @@ namespace MphRead.Mods.Network
         public static int ServerPlayerCount => ServerMatch?.PlayerCount ?? 0;
 
         /// <summary>Display name sent to the server on join.</summary>
-        public static string PlayerName { get; set; } = "Player";
+        private static string _playerName = "Player";
+        public static string PlayerName
+        {
+            get => _playerName;
+            set
+            {
+                string normalized = PlayerNameCodec.Clamp(value);
+                _playerName = normalized.Length == 0 ? "Player" : normalized;
+            }
+        }
 
         /// <summary>Raised when the server rotates to a different map.</summary>
         public static event Action<MatchStatePacket>? MapChanged;
 
         /// <summary>Slots currently occupied by a real peer, per the server.</summary>
+        public static readonly bool[] SlotIsBot = new bool[PlayerEntity.SlotCapacity];
+        public static readonly byte[] SlotBotLevel = new byte[PlayerEntity.SlotCapacity];
+        public static bool MatchContainsBots { get; private set; }
         public static readonly bool[] SlotOccupied = new bool[PlayerEntity.SlotCapacity];
 
         private static void HandleRoster(ReceivedPacket packet)
@@ -1420,6 +1434,7 @@ namespace MphRead.Mods.Network
             }
             _hasRoster = true;
             _rosterRevision = roster.Revision;
+            MatchContainsBots |= roster.ContainsBots;
             _rosterSessionRevision = roster.SessionRevision;
             for (int slot = 0; slot < SlotOccupied.Length; slot++)
             {
@@ -1427,6 +1442,8 @@ namespace MphRead.Mods.Network
                 for (int i = 0; i < roster.Count; i++) present |= roster.Slots[i] == slot;
             }
             Array.Clear(SlotOccupied);
+            Array.Clear(SlotIsBot);
+            Array.Clear(SlotBotLevel);
             Array.Clear(SlotLobbyReady);
             Array.Fill(SlotTeamIndex, (sbyte)-1);
             for (int i = 0; i < roster.Count; i++)
@@ -1442,6 +1459,9 @@ namespace MphRead.Mods.Network
                     && !NetLifecycleTracker.Newer(roster.Generations[i], previousGeneration)) continue;
                 NetPlayerLifecycle.SetOccupant(slot, roster.Generations[i]);
                 SlotOccupied[slot] = true;
+                SlotIsBot[slot] = roster.IsBot(i);
+                SlotBotLevel[slot] = roster.BotLevels?[i] ?? 0;
+                MatchContainsBots |= SlotIsBot[slot];
                 SlotTeamIndex[slot] = roster.Teams[i];
                 SlotLobbyReady[slot] = roster.LobbyReady[i];
                 // Nicknames is what the scoreboard draws, so writing here is
@@ -1450,6 +1470,7 @@ namespace MphRead.Mods.Network
                 if (Enum.IsDefined(typeof(Hunter), roster.Hunters[i]))
                 {
                     SlotHunter[slot] = (Hunter)roster.Hunters[i];
+                    if (slot == LocalSlot) LocalHunter = SlotHunter[slot];
                 }
                 // What they asked for. PlayerColors decides what they get,
                 // every frame, from every slot's answer at once.
@@ -1505,6 +1526,7 @@ namespace MphRead.Mods.Network
                 _hasSnapshot = false;
                 _lastSnapshotFrame = SnapshotArrived = AppliedSnapshotFrame = 0;
                 _hasRoster = false;
+                MatchContainsBots = false;
                 Array.Clear(_lastSlotIntentFrame);
                 Array.Clear(RemoteIntentValid);
                 Array.Clear(RemoteStateValid);
@@ -1519,6 +1541,8 @@ namespace MphRead.Mods.Network
                     for (int slot = 0; slot < SlotOccupied.Length; slot++)
                         NetPlayerLifecycle.SetOccupant(slot, 0);
                     Array.Clear(SlotOccupied);
+                    Array.Clear(SlotIsBot);
+                    Array.Clear(SlotBotLevel);
                     IsAuthority = false;
                     if (!_playback && Role == NetRole.Client)
                     {

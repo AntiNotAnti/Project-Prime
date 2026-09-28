@@ -311,8 +311,8 @@ namespace MphRead.Mods.Launcher.Gui
             // everything else: the layout box a screen is given has to be the
             // same box whether or not the raster was capped, or capping it
             // would relayout every screen as well as rasterising it smaller.
-            bool editing = _view?.GetVisualDescendants().OfType<MapStudioScreen>().Any(v => v.IsEffectivelyVisible) == true;
-            double factor = (editing ? Math.Clamp(Math.Min(width / 960.0, height / 600.0), .6, 1) : Factor(width, height)) * raster;
+            bool editing = _view is MapStudioScreen || _view?.GetVisualDescendants().OfType<MapStudioScreen>().Any(v => v.IsEffectivelyVisible) == true;
+            double factor = (editing ? UiLayout.EditorFactor(width, height) : Factor(width, height)) * raster;
             if (surfaceWidth == _pixelWidth && surfaceHeight == _pixelHeight
                 && factor == _factor)
             {

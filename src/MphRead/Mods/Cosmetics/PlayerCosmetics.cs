@@ -52,7 +52,7 @@ namespace MphRead.Entities
             if (Health <= 0 || !RenderOptions.ShowCustomCosmetics || CosmeticMaterial(false).Effect == 0) return;
             float distance = (Position - _scene.Players.Main.CameraInfo.Position).Length;
             Mods.Cosmetics.Armor.ArmorEffectParticles.Draw(_scene, model, Position, CosmeticAppearance.Armor,
-                _scene.ElapsedTime, CosmeticSeed, CosmeticRuntime.Lod(distance), alt);
+                _scene.ElapsedTime, CosmeticSeed, CosmeticRuntime.Lod(distance), alt, Hunter);
         }
         private bool DrawCosmeticDeath(ModelInstance? body = null)
         {

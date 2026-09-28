@@ -8,6 +8,7 @@ namespace MphRead.Mods.MapGen
     public sealed class MapAsset
     {
         public string? Name { get; set; }
+        public string? SourcePath { get; set; }
         public string Path { get; set; } = "";
         public string Kind { get; set; } = "texture";
     }
@@ -87,7 +88,7 @@ namespace MphRead.Mods.MapGen
         public static string? WhyUnsupported(MapDefinition definition,GameMode mode,int players=1)
         {
             if(definition.Capabilities is not {} capabilities)return null;
-            if(capabilities.SupportedModes==null||!capabilities.SupportedModes.Contains(mode.ToString(),StringComparer.OrdinalIgnoreCase))return $"{definition.Name} does not support {mode}.";
+            if(capabilities.SupportedModes==null||!capabilities.SupportedModes.Any(m => string.Equals(m, mode.ToString(), StringComparison.OrdinalIgnoreCase) || mode == GameMode.Battle && string.Equals(m, "InstaGib", StringComparison.OrdinalIgnoreCase)))return $"{definition.Name} does not support {mode}.";
             if(players<capabilities.MinPlayers||players>capabilities.MaxPlayers)return $"{definition.Name} supports {capabilities.MinPlayers}–{capabilities.MaxPlayers} players.";
             return null;
         }
@@ -99,8 +100,9 @@ namespace MphRead.Mods.MapGen
             foreach(string mode in c.SupportedModes)
             {
                 if(!Enum.TryParse<GameMode>(mode,true,out var parsed)||!Enum.IsDefined(parsed)){r.Error("FP-MAP-022","Unknown game mode: "+mode);continue;}
+                if (parsed == GameMode.InstaGib) parsed = GameMode.Battle;
                 if(mode.Contains("Teams",StringComparison.OrdinalIgnoreCase)&&(!d.Spawns.Any(s=>s?.Team==0)||!d.Spawns.Any(s=>s?.Team==1)))r.Error("FP-MAP-022","Team modes require spawns for both teams.");
-                if(parsed is not(GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib or GameMode.Survival or GameMode.SurvivalTeams or GameMode.Bounty or GameMode.BountyTeams))
+                if(parsed is not(GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.Bounty or GameMode.BountyTeams))
                     r.Error("FP-MAP-022",$"{mode} requires objective entities that this source does not supply.");
             }
         }

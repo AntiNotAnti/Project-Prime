@@ -66,7 +66,7 @@ namespace MphRead.Mods
         /// </summary>
         public static void Request(Hunter hunter, int color)
         {
-            _hunter = Launcher.Hunters.Resolve(hunter);
+            _hunter = Multiplayer.HunterRules.Resolve(hunter, GameState.LowTier);
             _color = PlayerColors.Clamp(color);
         }
 
@@ -87,7 +87,7 @@ namespace MphRead.Mods
             {
                 return;
             }
-            Hunter hunter = _hunter ?? player.Hunter;
+            Hunter hunter = Multiplayer.HunterRules.Sanitize(_hunter ?? player.Hunter, player.OwningScene.GameState.LowTier);
             int color = _color ?? Color;
             _hunter = null;
             _color = null;

@@ -1326,6 +1326,10 @@ namespace MphRead.Mods.Network
                 RefusedHere++;
                 return HitVerdictPacket.ResultInvalidLaunch;
             }
+            var matchRules = PlayerEntity.Players[shooterSlot].OwningScene.GameState;
+            if (claim.Beam != HitClaimPacket.NoBeam && !Multiplayer.WeaponResourceRules.AllowsBeam(
+                (BeamType)claim.Beam, matchRules.InstaGib, matchRules.NoImperialist))
+            { RefusedHere++; return HitVerdictPacket.ResultDamageLimit; }
             Hunter shooterHunter = PlayerEntity.Players[shooterSlot].Hunter;
             int maxDamage = MaxDamageFor(claim.Beam, shooterHunter);
             if (claim.Damage > maxDamage)

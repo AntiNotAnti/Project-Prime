@@ -57,12 +57,14 @@ namespace MphRead.Droid
                 // Offline the plan's mode is the match, so it is what decides
                 // teams. GameState's own list rather than the mode's name:
                 // Capture is a team mode that does not end in "Teams".
+                plan.MatchRules.ApplyModifiers(scene.GameState);
                 AddLocalPlayers(scene, plan, GameState.IsTeamMode(plan.Mode));
                 scene.AddRoom(plan.RoomKey, plan.Mode);
                 // Scene setup installs each mode's retail defaults. Apply the
                 // launcher's offline rules afterwards so custom point/time
                 // limits are not replaced by values such as Battle's 7/7:00.
                 MphRead.Mods.GameSettings.ApplyMatchRules(scene.GameState);
+                plan.MatchRules.ApplyModifiers(scene.GameState);
             }
             return scene;
         }
@@ -146,7 +148,7 @@ namespace MphRead.Droid
             }
 
             scene.GameState.Mode = GameMode.SinglePlayer;
-            scene.AddPlayer(plan.Hunter, recolor: 0, team: -1);
+            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: -1);
             scene.AddRoom(roomKey, GameMode.SinglePlayer);
             Console.WriteLine($"[match] adventure, slot {plan.SaveSlot}, "
                 + $"{(plan.NewGame ? "new game" : "continued")}, room {roomKey}");
@@ -210,10 +212,10 @@ namespace MphRead.Droid
             // back between matches, and a seven-bot match must not leave the
             // next one at eight.
             PlayerEntity.MaxPlayers = Math.Max(4, bots + 1);
-            scene.AddPlayer(plan.Hunter, recolor: 0, team: teamPlay ? 0 : -1);
+            scene.AddPlayer(MphRead.Mods.Multiplayer.HunterRules.Resolve(plan.Hunter, plan.MatchRules.LowTier), recolor: 0, team: teamPlay ? 0 : -1);
             for (int i = 1; i <= bots; i++)
             {
-                var hunter = (Hunter)(((int)plan.Hunter + i) % 7);
+                var hunter = MphRead.Mods.Multiplayer.HunterRules.RandomAllowed((uint)((int)plan.Hunter + i), plan.MatchRules.LowTier);
                 scene.AddPlayer(hunter, recolor: 0, team: teamPlay ? i % 2 : -1);
             }
             int level = Math.Clamp(plan.BotLevel, 0, 3);

@@ -4,8 +4,10 @@ namespace MphRead.Mods.Cosmetics
     public static class CosmeticPreview
     {
         public static CosmeticLoadout? Loadout { get; set; }
+        public static SkinContext Mode { get; set; } = SkinContext.Biped;
         public static float Yaw { get; set; }
         public static float Zoom { get; set; } = 1;
+        public static bool LoopDeath { get; set; }
         public static int DeathRequest { get; set; }
     }
 }

@@ -61,7 +61,6 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly (string Label, GameMode Mode)[] _modes =
         {
             ("Battle", GameMode.Battle),
-            ("Insta-Gib", GameMode.InstaGib),
             ("Battle teams", GameMode.BattleTeams),
             ("Survival", GameMode.Survival),
             ("Survival teams", GameMode.SurvivalTeams),
@@ -892,7 +891,7 @@ namespace MphRead.Mods.Launcher.Gui
             var failures = new List<string>();
             foreach (HostCandidate candidate in attempts)
             {
-                Say($"Asking {candidate.Label} to open your lobby...", GuiTheme.TextDim);
+                Say($"Asking {candidate.Label} to prepare your map and open your lobby...", GuiTheme.TextDim);
                 HostedGame answer = await Task.Run(() => NetMasterClient.RequestGame(
                     candidate.Host, candidate.Port, maps[0].RoomKey, mode,
                     timeLimit: timeLimit, pointGoal: pointGoal,

@@ -56,10 +56,16 @@ namespace MphRead.Mods.MapGen
                 cancellation.ThrowIfCancellationRequested();
                 if(!entries.TryAdd(asset,MapAssets.Read(source,asset)))throw new InvalidDataException("Asset conflicts with a generated package entry.");
             }
+            // External authoring paths and reimport baselines are private, not runtime dependencies.
+            definition.ModelSources.Clear();
+            foreach(var asset in definition.Assets) asset.SourcePath = null;
             entries.Add("project.json", Encoding.UTF8.GetBytes(definition.Serialize()));
             var manifest = new MapPackageManifest
             {
                 MapId = definition.MapId, Name = definition.Name, DisplayName = definition.InGameName,
+                MinimumProtocol = Network.NetConfig.ProtocolVersion,
+                SupportedModes = definition.Capabilities?.SupportedModes.ToArray() ?? Array.Empty<string>(),
+                MinPlayers = definition.Capabilities?.MinPlayers ?? 1, MaxPlayers = definition.Capabilities?.MaxPlayers ?? 8,
                 MapVersion = definition.Version, Author = definition.Author,
                 Preview = definition.Assets.FirstOrDefault(a=>a.Kind=="preview")?.Path,
                 ContentHash = MapPackageReader.ContentHash(entries.Keys, name => entries[name])

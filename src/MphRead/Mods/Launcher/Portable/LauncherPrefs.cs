@@ -54,7 +54,16 @@ namespace MphRead.Mods.Launcher
         public static string MasterHost { get; set; } = Network.NetMasterConfig.DefaultHost;
         public static int MasterPort { get; set; } = Network.NetMasterConfig.DefaultPort;
         public static int LastRole { get; set; }
-        public static string PlayerName { get; set; } = "Player";
+        private static string _playerName = "Player";
+        public static string PlayerName
+        {
+            get => _playerName;
+            set
+            {
+                string name = Network.PlayerNameCodec.Clamp(value);
+                _playerName = name.Length == 0 ? "Player" : name;
+            }
+        }
         /// <summary>Hunter last chosen, possibly <see cref="Hunter.Random"/>.</summary>
         public static Hunter LastHunter { get; set; } = Hunter.Samus;
 

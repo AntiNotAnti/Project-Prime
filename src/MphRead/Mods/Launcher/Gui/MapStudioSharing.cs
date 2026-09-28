@@ -54,7 +54,28 @@ internal sealed partial class MapStudioScreen
 #endif
     }
 
-    private Task PrepareOnline() => Work("Preparing map for online play", async (project, token) =>
+    private Task PrepareOnline()
+    {
+        var panel = new StackPanel { Spacing = 8, MinWidth = 540 };
+        panel.Children.Add(Text("CUSTOM MAP ONLINE PLAY"));
+        panel.Children.Add(Text("Joining players need this exact package in their configured Community library."));
+        var address = new TextBox { Text = MapCommunityClient.DefaultAddress };
+        if (File.Exists(CommunitySettingsPath)) address.Text = File.ReadAllText(CommunitySettingsPath).Trim();
+        var uploadToken = new TextBox { PlaceholderText = "Upload token (not saved)", PasswordChar = '●' };
+        panel.Children.Add(address); panel.Children.Add(uploadToken);
+        void Start(bool publish, bool listed)
+        {
+            string endpoint = address.Text ?? ""; string? credential = uploadToken.Text;
+            Dismiss(); _ = PreparePublishedOnline(publish, listed, endpoint, credential);
+        }
+        AddButton(panel, "Host published version", () => Start(false, true));
+        AddButton(panel, "Publish & Host", () => Start(true, true));
+        AddButton(panel, "Host Unlisted", () => Start(true, false));
+        AddButton(panel, "Cancel", Dismiss); Modal(panel);
+        return Task.CompletedTask;
+    }
+
+    private Task PreparePublishedOnline(bool publish, bool listed, string address, string? uploadToken) => Work("Preparing map for online play", async (project, token) =>
     {
         if (!GameFiles.Ready) throw new IOException("Set up game files before hosting a map.");
         GameFiles.ApplyPaths();
@@ -66,11 +87,24 @@ internal sealed partial class MapStudioScreen
             GuardJob(token);
             using var package = new MapPackageReader(path);
             var manifest = package.Manifest!;
+            string hash = MapBuildFingerprint.HashFile(path);
+            using var community = new MapCommunityClient(address, uploadToken);
+            if (publish)
+                await community.UploadAsync(path, token, listed);
+            else
+            {
+                var published = await community.GetPackageAsync(hash,token);
+                if (published == null || published.MapId != manifest.MapId || published.ContentHash != manifest.ContentHash)
+                    throw new IOException("This exact version is not published. Choose Publish & Host or Host Unlisted.");
+            }
+            GuardJob(token);
+            Directory.CreateDirectory(LauncherPrefs.Directory);
+            File.WriteAllText(CommunitySettingsPath, address.Trim());
             var installed = await Task.Run(() => MapPackageInstaller.Install(path, manifest.MapId,
                 manifest.ContentHash, MapBuildFingerprint.HashFile(path), UserMapLibrary), token);
             GuardJob(token);
             Metadata.RegisterDownloadedMap(installed);
-            _status.Text="Map installed. Choose this computer to host; players can install the same package from Community.";
+            _status.Text="Exact package published and installed. The lobby will advertise this Community service to joining players.";
             HostRequested?.Invoke(this, installed);
         }
         finally { if (File.Exists(path)) File.Delete(path); }
@@ -79,14 +113,14 @@ internal sealed partial class MapStudioScreen
 
     private static void EnsureMapInstallationAllowed()
     {
-        if (Network.NetSession.Active) throw new IOException("Leave the current online session before installing or replacing maps.");
+        MapRuntimeUsage.RequireInstallationAllowed();
     }
 
     private void ShowCommunity()
     {
         var panel=new StackPanel { Spacing=8, MinWidth=620 };
         panel.Children.Add(Text("COMMUNITY MAPS"));
-        panel.Children.Add(Text("Connect to your community library to share maps. Install the same version before joining an online lobby."));
+        panel.Children.Add(Text("Connect to your community library to share maps. Lobbies prepare the exact required package automatically."));
         var address=new TextBox { Text=MapCommunityClient.DefaultAddress, PlaceholderText="Community address · https://maps.example.com/" };
         try { if(File.Exists(CommunitySettingsPath)) address.Text=File.ReadAllText(CommunitySettingsPath).Trim(); } catch(IOException) { }
         var credential=new TextBox { PlaceholderText="Upload token (only needed to publish; not saved)", PasswordChar='●' };
@@ -95,8 +129,17 @@ internal sealed partial class MapStudioScreen
         var list=new ListBox { Height=230 }; panel.Children.Add(list);
         var shareLink=new TextBox { IsReadOnly=true,PlaceholderText="Select a map for its downloadable package link" };
         panel.Children.Add(shareLink);
-        list.SelectionChanged+=(_,_)=>shareLink.Text=list.SelectedItem is CommunityMap chosen && MapCommunityClient.ValidHash(chosen.Hash)
-            ? (address.Text??"").TrimEnd('/')+"/maps/"+chosen.Hash : "";
+        var details = Text("Select a map to view its version and installation status."); panel.Children.Add(details);
+        list.SelectionChanged+=(_,_)=>
+        {
+            if(list.SelectedItem is not CommunityMap chosen || !MapCommunityClient.ValidHash(chosen.Hash)) { shareLink.Text=""; return; }
+            shareLink.Text=(address.Text??"").TrimEnd('/')+"/packages/"+chosen.Hash;
+            string installed = CustomRooms.Installed.TryGet(chosen.MapId,out var local)
+                ? local.Identity.PackageHash.ToString()==chosen.Hash ? "Exact version installed" : "Different version installed · install this version to update" : "Not installed";
+            details.Text=$"{chosen.DisplayName ?? chosen.Name} · v{chosen.Version ?? "1"}\n{chosen.Author ?? "Unknown author"} · {chosen.MinPlayers}–{chosen.MaxPlayers} players · {chosen.Bytes/1024:N0} KiB\n"
+                + (chosen.SupportedModes.Length==0 ? "" : string.Join(", ",chosen.SupportedModes)+"\n")
+                + installed + (chosen.MinimumProtocol>Network.NetConfig.ProtocolVersion ? "\nRequires a newer Project Prime version." : "");
+        };
         var message=Text("Enter a library address and select Refresh.");panel.Children.Add(message);
         var buttons=new WrapPanel();panel.Children.Add(buttons);
         CommunityMap[] entries=Array.Empty<CommunityMap>();

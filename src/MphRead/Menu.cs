@@ -85,8 +85,11 @@ namespace MphRead
         public string DamageLevel { get; set; } = "medium";
         public string FriendlyFire { get; set; } = "off";
         public string AffinityWeapons { get; set; } = "off";
-        public string ShadowFreeze { get; set; } = "on";
-        public string SpawnProtection { get; set; } = "on";
+        public string InstaGib { get; set; } = "off";
+        public string LowTier { get; set; } = "off";
+        public string NoImperialist { get; set; } = "off";
+        public string ShadowFreeze { get; set; } = "off";
+        public string SpawnProtection { get; set; } = "off";
         public string SaveSlot { get; set; } = "none";
         public string SaveFromExit { get; set; } = "never";
         public string SaveFromShip { get; set; } = "prompt";
@@ -177,7 +180,6 @@ namespace MphRead
                 new("story", "Adventure"),
                 new("1p", "Adventure"),
                 new("battle", "Battle"),
-                new("instagib", "InstaGib"),
                 new("battleteams", "Battle Teams"),
                 new("survival", "Survival"),
                 new("survivalteams", "Survival Teams"),
@@ -192,7 +194,7 @@ namespace MphRead
             ]);
             var modes = new List<string>()
             {
-                "auto-select", "Adventure", "Battle", "InstaGib", "Battle Teams", "Survival", "Survival Teams", "Capture",
+                "auto-select", "Adventure", "Battle", "Battle Teams", "Survival", "Survival Teams", "Capture",
                 "Bounty", "Bounty Teams", "Nodes", "Nodes Teams", "Defender", "Defender Teams", "Prime Hunter"
             };
             var teamsModes = new List<string>()

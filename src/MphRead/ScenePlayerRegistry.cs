@@ -27,7 +27,8 @@ namespace MphRead
         {
             if (PlayersCreated >= MaxPlayers) return null;
             PlayerEntity player = Values[PlayersCreated++];
-            player.Hunter = hunter;
+            player.Hunter = player.OwningScene.GameState.Multiplayer
+                ? Mods.Multiplayer.HunterRules.Sanitize(hunter, player.OwningScene.GameState.LowTier) : hunter;
             player.Recolor = recolor;
             player.LoadFlags |= LoadFlags.SlotActive;
             player.LoadFlags &= ~LoadFlags.Spawned;

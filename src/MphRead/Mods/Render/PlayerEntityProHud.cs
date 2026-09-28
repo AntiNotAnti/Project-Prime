@@ -59,7 +59,12 @@ namespace MphRead.Entities
         private void DrawProHud()
         {
             float aspect = HudAspectFix;
-            if (ModHudHealthVisible)
+            if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Health.Native)
+            {
+                using var nativeLayout=UseHudLayout(1,_hudObjects.HealthMainPosX+_objShiftX,_hudObjects.HealthMainPosY+_healthbarYOffset+_objShiftY);
+                DrawHealthbars();
+            }
+            else if (ModHudHealthVisible)
             {
                 using var layout = UseHudLayout(1, 2 * aspect, 170);
                 var style = HudProfiles.Runtime.Health;
@@ -121,6 +126,11 @@ namespace MphRead.Entities
                 return;
             }
 
+            if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Ammo.Native)
+            {
+                using var nativeLayout=UseHudLayout(2,_hudObjects.AmmoBarPosX+_objShiftX,_hudObjects.AmmoBarPosY+_objShiftY);
+                DrawAmmoBar(); return;
+            }
             int amount = _ammo[info.AmmoType];
             Span<char> ammoBuffer = stackalloc char[12];
             scoped ReadOnlySpan<char> ammo = "--";
@@ -355,7 +365,7 @@ namespace MphRead.Entities
             int slot=_scene.Players.MainPlayerIndex;
             var mode=GameState.Mode;
             int length;
-            if(mode is GameMode.Battle or GameMode.BattleTeams or GameMode.InstaGib or GameMode.Capture or GameMode.Nodes or GameMode.NodesTeams or GameMode.Bounty or GameMode.BountyTeams)
+            if(mode is GameMode.Battle or GameMode.BattleTeams or GameMode.Capture or GameMode.Nodes or GameMode.NodesTeams or GameMode.Bounty or GameMode.BountyTeams)
             {
                 int points=_scene.GameState.Teams ? _scene.GameState.TeamPoints[_scene.Players.Items[slot].TeamIndex] : _scene.GameState.Points[slot];
                 if(score.TryWrite($"{points} / {_scene.GameState.PointGoal}",out length)) ProNumber(x,y+8,align,score[..length],ProHudInk,scale);

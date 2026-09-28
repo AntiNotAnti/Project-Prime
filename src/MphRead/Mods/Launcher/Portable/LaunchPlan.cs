@@ -82,6 +82,7 @@ namespace MphRead.Mods.Launcher
     public readonly struct LaunchPlan
     {
         public LaunchKind Kind { get; init; }
+        public Network.MatchDefinition MatchRules { get; init; }
         public LobbyContext? Lobby { get; init; }
         // Enter the existing spectator camera after the joined match has loaded.
         public bool Spectate { get; init; }

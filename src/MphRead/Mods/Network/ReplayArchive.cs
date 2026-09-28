@@ -98,7 +98,7 @@ namespace MphRead.Mods.Network
                 for (int slot = 0; slot < RosterPacket.MaxSlots; slot++)
                 {
                     var occupant = state.Occupant(slot);
-                    if (occupant.Generation != 0) players.Add(new((byte)slot, (byte)occupant.Hunter, occupant.Team, occupant.Name));
+                    if (occupant.Generation != 0) players.Add(new((byte)slot, (byte)occupant.Hunter, occupant.Team, occupant.Name, occupant.IsBot, occupant.BotLevel));
                 }
                 metadata = new ReplayMetadata { FormatVersion = 4, RoomKey = match.RoomKey,
                     Mode = (GameMode)match.Mode, MapHash = ReplayMapIdentity.Compute(match.RoomKey), Players = players,

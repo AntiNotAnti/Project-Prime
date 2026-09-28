@@ -583,18 +583,19 @@ namespace MphRead.Entities
 
             Vector3 renderFacing;
             Vector3 upHint;
-            // The original DS camera intentionally eases toward the raw aim
-            // when FixedCrosshair is off. Late-latching raw _gunVec1 on top of
-            // that smoothed camera bypasses the easing on extra draw frames and
-            // then snaps back at the next simulation step. That is the whole-
-            // scene high-refresh shimmer. In that mode, interpolate the camera
-            // history at the same timestamp as the viewmodel/world instead.
+            // Dynamic/Metroid camera presentation intentionally eases toward
+            // raw aim. Late-latching raw _gunVec1 on top of that smoothed
+            // camera bypasses the easing on extra draw frames and then snaps
+            // back at the next simulation step. In that mode, interpolate the
+            // camera history at the same timestamp as the viewmodel/world.
+            // FixedCrosshair cannot decide this by itself because Pro HUD
+            // freezes reticle animation in both Static and Dynamic modes.
             Vector3 drawCameraPosition = default;
             Vector3 drawCameraTarget = default;
             Vector3 drawCameraUp = default;
             float drawCameraFov = CameraInfo.Fov;
             bool smoothLegacyCamera = false;
-            if (!Features.FixedCrosshair && Mods.Render.FrameTiming.HighRefreshPresentation)
+            if (!Features.FixedAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
             {
                 smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
                     out drawCameraPosition, out drawCameraTarget,
@@ -614,19 +615,19 @@ namespace MphRead.Entities
             }
             else
             {
-                // Keep fixed-crosshair aiming low latency in orientation, but keep
+                // Keep Static/Quake aiming low latency in orientation, but keep
                 // camera translation on the same previous/current presentation
                 // timeline as the world. Forward-extrapolating body motion made
                 // each 60 Hz correction visible as a tiny positional hitch while
                 // walking, strafing, jumping or landing.
-                if (Features.FixedCrosshair && Mods.Render.FrameTiming.HighRefreshPresentation)
+                if (Features.FixedAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
                 {
                     cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha);
                 }
 
-                // Fixed-crosshair / modern first-person aiming is intentionally
-                // low latency. Apply only unsimulated input on top of the current
-                // simulation pose and attach the gun to the exact same basis.
+                // Static/Quake first-person aiming is intentionally low latency.
+                // Apply only unsimulated input on top of the current simulation
+                // pose and attach the gun to the exact same basis.
                 ModRenderAimDelta(presentationAlpha,
                     pointerX, pointerY, controllerX, controllerY,
                     out float x, out float y);
@@ -731,7 +732,29 @@ namespace MphRead.Entities
                 && _scene.PlayerReplication.AimTrusted(SlotIndex))
             {
                 ModSetAim(recorded.Aim);
+                ModRefreshObservedAimBasis();
             }
+        }
+
+        internal void ModTranslateReplayPresentation(Vector3 delta)
+        {
+            // Accepted snapshots are applied after the replica movement/camera
+            // step. Carry its camera and viewmodel along with the corrected body
+            // before capturing interpolation history.
+            CameraInfo.Position += delta;
+            CameraInfo.Target += delta;
+            CameraInfo.PrevPosition += delta;
+            _gunDrawPos += delta;
+        }
+
+        internal void ModRefreshObservedAimBasis()
+        {
+            // Movement built these vectors before the replicated facing correction.
+            // Rebuild the gun basis without running movement or camera timers again.
+            Vector3 right = new(_facingVector.Z, 0, -_facingVector.X);
+            if (right.LengthSquared <= 0.000001f) return;
+            _gunVec2 = right.Normalized();
+            _upVector = Vector3.Cross(_facingVector, _gunVec2).Normalized();
         }
 
         /// <summary>
@@ -1312,6 +1335,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetHunter(Hunter hunter)
         {
+            if (_scene.GameState.Multiplayer) hunter = Mods.Multiplayer.HunterRules.Sanitize(hunter, _scene.GameState.LowTier);
             if (hunter != Hunter)
             {
                 // Sylux's three bomb slots and the count that indexes them
@@ -1477,6 +1501,7 @@ namespace MphRead.Entities
         /// </summary>
         internal void ModSetWeapon(BeamType weapon)
         {
+            if (!Mods.Multiplayer.WeaponResourceRules.AllowsBeam(weapon, _scene.GameState.InstaGib, _scene.GameState.NoImperialist)) return;
             if (weapon == CurrentWeapon || weapon < BeamType.PowerBeam
                 || weapon > BeamType.OmegaCannon)
             {

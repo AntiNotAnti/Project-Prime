@@ -30,6 +30,7 @@ namespace MphRead.Mods.Network
             init => _roomKey = value;
         }
         public GameMode Mode { get; init; }
+        public SessionRules Rules { get; init; }
         public int Players { get; init; }
         /// <summary>0 when the server did not say -- an older build answering the join probe.</summary>
         public int MaxPlayers { get; init; }
@@ -270,6 +271,9 @@ namespace MphRead.Mods.Network
             string message = room.Length > 0
                 ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {players}"
                 : players;
+            string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(SessionRules.InstaGib),
+                LowTier = status.Rules.HasFlag(SessionRules.LowTier), NoImperialist = status.Rules.HasFlag(SessionRules.NoImperialist) }.ModifierSummary;
+            if (modifiers.Length > 0) message += " · " + modifiers;
             if (!String.IsNullOrEmpty(status.ServerName))
             {
                 // The name first: it is what the player recognises, and the
@@ -281,7 +285,7 @@ namespace MphRead.Mods.Network
                 Online = true,
                 RoomKey = match.RoomKey,
                 ServerName = status.ServerName ?? "",
-                Mode = mode,
+                Mode = mode, Rules = status.Rules,
                 Players = match.PlayerCount,
                 MaxPlayers = status.MaxPlayers,
                 TimeRemaining = match.TimeRemaining,
@@ -298,7 +302,7 @@ namespace MphRead.Mods.Network
         /// <summary>"BattleTeams" -> "Battle Teams", for a screen rather than a log.</summary>
         public static string ModeName(GameMode mode)
         {
-            if (mode == GameMode.InstaGib) return "Insta-Gib";
+            if (mode == GameMode.InstaGib) return "Battle";
             string name = mode.ToString();
             var builder = new System.Text.StringBuilder(name.Length + 4);
             for (int i = 0; i < name.Length; i++)

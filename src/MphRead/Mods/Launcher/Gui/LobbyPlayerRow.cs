@@ -61,7 +61,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             var ping = _ping = new TextBlock
             {
-                Text = $"{roster.Pings[index]} ms",
+                Text = roster.IsBot(index) ? BotManagementView.Difficulties[roster.BotLevels[index]] : $"{roster.Pings[index]} ms",
                 FontFamily = Deck.Mono,
                 FontSize = 8.25,
                 Foreground = GuiTheme.TextDimBrush,
@@ -99,6 +99,10 @@ namespace MphRead.Mods.Launcher.Gui
             BorderThickness = selected ? new Thickness(1) : new Thickness(0);
             Child = line;
         }
+        internal void SetMapAvailability(MapAvailabilityState? state, bool ready)
+        {
+            _ready.Text = (ready ? "READY" : "WAIT") + (state.HasValue ? "\nMap: " + state.Value : "");
+        }
         internal void SetTeamAvailability(bool previous, bool next)
         {
             _previousTeam.IsEnabled = previous;
@@ -133,7 +137,7 @@ namespace MphRead.Mods.Launcher.Gui
             _hunter.Text = $"{(Hunter)roster.Hunters[index]} · S{roster.Colors[index] + 1}";
             _team.Text = roster.Teams[index] < 0 ? "AUTO" : $"{(char)('A' + roster.Teams[index])}";
             ToolTip.SetTip(_player, _player.Text);
-            _ping.Text = $"{roster.Pings[index]} ms";
+            _ping.Text = roster.IsBot(index) ? BotManagementView.Difficulties[roster.BotLevels[index]] : $"{roster.Pings[index]} ms";
             Background = selected ? HubTheme.AccentPanel(HubTheme.Accent, 34) : Brushes.Transparent;
             BorderBrush = selected ? HubTheme.AccentBrush : Brushes.Transparent;
             BorderThickness = selected ? new Thickness(1) : new Thickness(0);

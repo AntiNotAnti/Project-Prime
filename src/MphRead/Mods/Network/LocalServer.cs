@@ -264,6 +264,20 @@ namespace MphRead.Mods.Network
         /// that follows reliable: the socket binds a moment after the process
         /// does, and loading the first room is slower than either.
         /// </summary>
+        internal static string? HostedLibrary { get; private set; }
+        internal static void CleanupHostedLibrary(string? library)
+        {
+            if (library == null) return;
+            string id = Path.GetFileName(library);
+            if (!Guid.TryParseExact(id, "N", out _)) return;
+            foreach (string directory in new[] { library,
+                Paths.Combine(Paths.FileSystem, "_archives", "hosted", id),
+                Paths.Combine(Paths.FileSystem, "levels/entities", "hosted", id),
+                Paths.Combine(Paths.FileSystem, "levels/nodeData", "hosted", id) })
+                try { if (System.IO.Directory.Exists(directory)) System.IO.Directory.Delete(directory, true); }
+                catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+
         public static int Start(string serverName,
             IReadOnlyList<(string RoomKey, GameMode Mode)> rotation,
             int maxPlayers, float timeLimit, int pointGoal,
@@ -272,10 +286,11 @@ namespace MphRead.Mods.Network
             int? requestedPort = null, Guid? ownerToken = null,
             MatchFormat format = MatchFormat.Auto, bool requireReady = false,
             bool allowJoinInProgress = true, bool friendlyFire = false,
-            bool shadowFreeze = true, bool affinityWeapons = false,
-            bool spawnProtection = true, bool waitUntilReady = true)
+            bool shadowFreeze = false, bool affinityWeapons = false,
+            bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, string? hostedPackage = null)
         {
             LastError = null;
+            HostedLibrary = null;
             OwnerToken = lobby
                 ? ownerToken ?? new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
                 : Guid.Empty;
@@ -314,11 +329,36 @@ namespace MphRead.Mods.Network
             // it is still starting.
             string rotationPath = Path.Combine(binary.WorkingDirectory,
                 $"maprotation-launcher-{port}.txt");
+            string childLibrary = MapGen.CustomRooms.UserMapDirectory;
+            string? runtimeNamespace = null;
             try
             {
+                if (hostedPackage != null)
+                {
+                    runtimeNamespace = Guid.NewGuid().ToString("N");
+                    childLibrary = Path.Combine(HostedMapRequests.CacheDirectory, "lobbies", runtimeNamespace);
+                    HostedLibrary = childLibrary;
+                    System.IO.Directory.CreateDirectory(childLibrary);
+                    foreach (var entry in rotation)
+                    {
+                        if (entry.RoomKey == rotation[0].RoomKey) continue;
+                        if (Metadata.IsBuiltInRoom(entry.RoomKey)) continue;
+                        if (!MapGen.CustomRooms.Installed.TryGet(entry.RoomKey, out var installed))
+                            throw new InvalidDataException("A later rotation map is not installed: " + entry.RoomKey);
+                        string target = Path.Combine(childLibrary, installed.Identity.MapId.ToString("N") + ".ppmap");
+                        if (!File.Exists(target)) File.Copy(installed.PackagePath, target);
+                    }
+                    File.Copy(hostedPackage, Path.Combine(childLibrary, requiredMap!.Value.MapId.ToString("N") + ".ppmap"));
+                }
                 MapRotation.WriteList(rotationPath, rotation, timeLimit, pointGoal);
                 CopyPaths(binary.WorkingDirectory);
-                StageCustomMaps(rotation);
+                if (hostedPackage == null) StageCustomMaps(rotation);
+                if (requiredMap is { IsCustom: true } expected)
+                {
+                    string staged = Path.Combine(childLibrary,expected.MapId.ToString("N")+".ppmap");
+                    if (rotation.Count == 0 || !MapGen.MapContentIdentity.FromPackage(staged).Matches(expected.Content(rotation[0].RoomKey)))
+                        throw new InvalidDataException("Staged map no longer matches the requested package.");
+                }
             }
             catch (Exception ex)
             {
@@ -349,9 +389,13 @@ namespace MphRead.Mods.Network
             }
             start.ArgumentList.Add("-server");
             start.ArgumentList.Add("-usermapdirectory");
-            start.ArgumentList.Add(MapGen.CustomRooms.UserMapDirectory);
+            start.ArgumentList.Add(childLibrary);
+            if (runtimeNamespace != null)
+            {
+                start.ArgumentList.Add("-customruntimenamespace"); start.ArgumentList.Add(runtimeNamespace);
+            }
             start.ArgumentList.Add("-mapdirectory");
-            start.ArgumentList.Add(Path.GetFullPath(MapGen.CustomRooms.MapDirectory));
+            start.ArgumentList.Add(hostedPackage == null ? Path.GetFullPath(MapGen.CustomRooms.MapDirectory) : childLibrary);
             if (lobby)
             {
                 start.ArgumentList.Add("-lobby");
@@ -372,17 +416,17 @@ namespace MphRead.Mods.Network
             {
                 start.ArgumentList.Add("-friendlyfire");
             }
-            if (!shadowFreeze)
+            if (shadowFreeze)
             {
-                start.ArgumentList.Add("-noshadowfreeze");
+                start.ArgumentList.Add("-shadowfreeze");
             }
             if (affinityWeapons)
             {
                 start.ArgumentList.Add("-affinityweapons");
             }
-            if (!spawnProtection)
+            if (spawnProtection)
             {
-                start.ArgumentList.Add("-nospawnprotection");
+                start.ArgumentList.Add("-spawnprotection");
             }
             start.ArgumentList.Add("-port");
             start.ArgumentList.Add(port.ToString(CultureInfo.InvariantCulture));
@@ -496,7 +540,16 @@ namespace MphRead.Mods.Network
                 Guid id = definition.MapId == Guid.Empty ? MapGen.MapPackageBuilder.LegacyId(definition.Name) : definition.MapId;
                 string path = Path.Combine(folder, id.ToString("N") + ".ppmap");
                 if (definition.BundlePath == null || Path.GetFullPath(definition.BundlePath) != Path.GetFullPath(path))
-                    MapGen.MapPackageBuilder.Build(definition, path);
+                {
+                    if (definition.BundlePath is { } package)
+                    {
+                        // Preserve archive identity, including ZIP metadata. Repacking changes its hash.
+                        using var archive = new MapGen.MapPackageReader(package);
+                        if (archive.Manifest == null) MapGen.MapPackageBuilder.Build(definition, path);
+                        else MapGen.AtomicFile.Write(path, File.ReadAllBytes(package));
+                    }
+                    else MapGen.MapPackageBuilder.Build(definition, path);
+                }
             }
         }
 

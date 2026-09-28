@@ -56,6 +56,13 @@ namespace MphRead.Mods.MapGen
     /// </summary>
     public sealed class MapMesh : MapGeometry
     {
+        /// <summary>Authoring-visible collision proxy, omitted from the runtime visual model.</summary>
+        public bool CollisionOnly { get; set; }
+        public int Slipperiness { get; set; }
+        public bool ReflectBeams { get; set; }
+        public bool IgnorePlayers { get; set; }
+        public bool IgnoreBeams { get; set; }
+        public bool IgnoreScan { get; set; }
         public List<float[]> Vertices { get; set; } = new();
         public List<int[]> Faces { get; set; } = new();
         public List<int> FaceMaterials { get; set; } = new();

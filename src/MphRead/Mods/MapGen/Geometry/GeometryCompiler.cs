@@ -121,7 +121,12 @@ namespace MphRead.Mods.MapGen
                 if (geometry is MapMesh mesh && mesh.FaceMaterials != null && faceIndex < mesh.FaceMaterials.Count)
                     material = mesh.FaceMaterials[faceIndex];
                 result.Add(new BuiltFace(points,coords,normal,material + materialOffset,geometry.Shade * (.7f+.3f*Math.Max(0,normal.Y)))
-                { Damaging = geometry.Damaging, Terrain = Enum.TryParse<Terrain>(geometry.Terrain, true, out var terrain) ? terrain : Terrain.Metal });
+                { Slipperiness = (geometry as MapMesh)?.Slipperiness ?? 0,
+                    ReflectBeams = (geometry as MapMesh)?.ReflectBeams ?? false,
+                    IgnorePlayers = (geometry as MapMesh)?.IgnorePlayers ?? false,
+                    IgnoreBeams = (geometry as MapMesh)?.IgnoreBeams ?? false,
+                    IgnoreScan = (geometry as MapMesh)?.IgnoreScan ?? false,
+                    Damaging = geometry.Damaging, Terrain = Enum.TryParse<Terrain>(geometry.Terrain, true, out var terrain) ? terrain : Terrain.Metal });
             }
             return result;
         }
@@ -133,7 +138,7 @@ namespace MphRead.Mods.MapGen
             {
                 cancellation.ThrowIfCancellationRequested();
                 foreach (var face in Compile(geometry, definition.Materials[geometry.Material].TexScale, materialOffset))
-                { map.Faces.Add(face); if (geometry.Solid) map.Solid.Add(face); }
+                { if (geometry is not MapMesh { CollisionOnly: true }) map.Faces.Add(face); if (geometry.Solid) map.Solid.Add(face); }
             }
         }
     }

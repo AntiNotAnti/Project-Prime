@@ -9,6 +9,85 @@ namespace MphRead.Mods.MapEditor;
 
 public static class MapMeshEditing
 {
+    public static int[] ConnectedFaces(MapMesh mesh, int face)
+    {
+        if (face < 0 || face >= mesh.Faces.Count) throw new ArgumentOutOfRangeException(nameof(face));
+        var edges = new Dictionary<(int, int), List<int>>();
+        for (int f = 0; f < mesh.Faces.Count; f++)
+            for (int i = 0; i < mesh.Faces[f].Length; i++)
+            {
+                int a = mesh.Faces[f][i], b = mesh.Faces[f][(i + 1) % mesh.Faces[f].Length];
+                var key = (Math.Min(a, b), Math.Max(a, b));
+                if (!edges.TryGetValue(key, out var adjacent)) edges[key] = adjacent = new();
+                adjacent.Add(f);
+            }
+        var seen = new HashSet<int> { face }; var queue = new Queue<int>(); queue.Enqueue(face);
+        while (queue.TryDequeue(out int current))
+            for (int i = 0; i < mesh.Faces[current].Length; i++)
+            {
+                int a = mesh.Faces[current][i], b = mesh.Faces[current][(i + 1) % mesh.Faces[current].Length];
+                foreach (int neighbor in edges[(Math.Min(a, b), Math.Max(a, b))])
+                    if (seen.Add(neighbor)) queue.Enqueue(neighbor);
+            }
+        return seen.OrderBy(i => i).ToArray();
+    }
+
+    public static void AssignMaterial(MapMesh mesh, IEnumerable<int> faces, int material)
+    {
+        int[] selected = faces.Distinct().ToArray();
+        if (material < 0 || selected.Any(i => i < 0 || i >= mesh.Faces.Count)) throw new ArgumentOutOfRangeException(nameof(faces));
+        foreach (int face in selected) SetMaterial(mesh, face, material);
+    }
+
+    public static void TransformUv(MapMesh mesh, IEnumerable<int> faces, Vector2 scale, Vector2 offset, float degrees, float texScale)
+    {
+        if (!float.IsFinite(scale.X) || !float.IsFinite(scale.Y) || !float.IsFinite(offset.X) || !float.IsFinite(offset.Y) || !float.IsFinite(degrees))
+            throw new ArgumentException("UV values must be finite.");
+        int[] selected = faces.Distinct().ToArray();
+        if (selected.Any(i => i < 0 || i >= mesh.Faces.Count)) throw new ArgumentOutOfRangeException(nameof(faces));
+        var compiled = GeometryCompiler.Compile(mesh, texScale);
+        var rotation = Matrix3x2.CreateRotation(degrees * MathF.PI / 180);
+        while (mesh.FaceTexcoords.Count < mesh.Faces.Count) mesh.FaceTexcoords.Add(null);
+        foreach (int face in selected)
+            mesh.FaceTexcoords[face] = compiled[face].Texcoords.Select(uv =>
+            {
+                var transformed = Vector2.Transform(new Vector2(uv.X, uv.Y) * scale, rotation) + offset;
+                return new[] { transformed.X, transformed.Y };
+            }).ToArray();
+    }
+
+    public static void FitUv(MapMesh mesh, IEnumerable<int> faces, float texScale, float width = 64, float height = 64)
+    {
+        int[] selected = faces.Distinct().ToArray();
+        TransformUv(mesh, selected, Vector2.One, Vector2.Zero, 0, texScale);
+        foreach (int face in selected)
+        {
+            var uv = mesh.FaceTexcoords[face]!;
+            float minX = uv.Min(p => p[0]), minY = uv.Min(p => p[1]);
+            float sizeX = Math.Max(1e-6f, uv.Max(p => p[0]) - minX), sizeY = Math.Max(1e-6f, uv.Max(p => p[1]) - minY);
+            foreach (var p in uv) { p[0] = (p[0] - minX) / sizeX * width; p[1] = (p[1] - minY) / sizeY * height; }
+        }
+    }
+    public static void MatchTexelDensity(MapMesh mesh, IEnumerable<int> faces, float density, float texScale)
+    {
+        if (!float.IsFinite(density) || density <= 0) throw new ArgumentException("Texel density must be positive and finite.");
+        int[] selected = faces.Distinct().ToArray();
+        var compiled = GeometryCompiler.Compile(mesh, texScale);
+        TransformUv(mesh, selected, Vector2.One, Vector2.Zero, 0, texScale);
+        foreach (int face in selected)
+        {
+            var uv = mesh.FaceTexcoords[face]!; var points = compiled[face].Points;
+            double worldArea = 0, uvArea = 0;
+            for (int i = 1; i + 1 < points.Length; i++) worldArea += OpenTK.Mathematics.Vector3.Cross(points[i] - points[0], points[i + 1] - points[0]).Length / 2;
+            for (int i = 0; i < uv.Length; i++) uvArea += uv[i][0] * uv[(i + 1) % uv.Length][1] - uv[(i + 1) % uv.Length][0] * uv[i][1];
+            uvArea = Math.Abs(uvArea) / 2;
+            if (worldArea < 1e-9 || uvArea < 1e-9) throw new InvalidOperationException("Degenerate UVs need Fit or Reset before matching density.");
+            float factor = (float)(density * Math.Sqrt(worldArea / uvArea));
+            float centerX = uv.Average(p => p[0]), centerY = uv.Average(p => p[1]);
+            foreach (var p in uv) { p[0] = centerX + (p[0] - centerX) * factor; p[1] = centerY + (p[1] - centerY) * factor; }
+        }
+    }
+
     public static MapMesh Convert(MapGeometry geometry,float texScale)
     {
         var faces=GeometryCompiler.Compile(geometry,texScale);

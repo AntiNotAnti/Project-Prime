@@ -87,8 +87,16 @@ namespace MphRead.Mods.Multiplayer
         }
 
         public static ItemSpawnEntityData ResolveData(RoomMetadata room, ResourceSpawnProfile profile,
-            ItemSpawnEntityData data)
+            ItemSpawnEntityData data, bool noImperialist = false)
         {
+            ItemType resolved = WeaponResourceRules.Resolve(data.ItemType, noImperialist, room.Name, data.Header.EntityId);
+            if (resolved != data.ItemType)
+            {
+                Span<byte> itemBytes = stackalloc byte[72];
+                MemoryMarshal.Write(itemBytes, in data);
+                BinaryPrimitives.WriteUInt32LittleEndian(itemBytes[44..], (uint)resolved);
+                data = Read.ReadStruct<ItemSpawnEntityData>(itemBytes);
+            }
             if (profile == ResourceSpawnProfile.Vanilla) return data;
             if (profile != ResourceSpawnProfile.High || !room.Multiplayer || room.FirstHunt
                 || !_highHealth.ContainsKey(room.Name) || !IsHealth(data.ItemType)) return data;

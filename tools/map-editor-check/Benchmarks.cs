@@ -9,6 +9,37 @@ using MphRead.Mods.MapGen;
 
 static class Benchmarks
 {
+    public static void LargeModels()
+    {
+        foreach (int count in new[] { 50_000, 100_000 })
+        {
+            var definition = new MapDefinition { Name = "LARGE_MODEL_BENCHMARK" };
+            definition.Materials.Add(new()); definition.Materials.Add(new());
+            for (int batch=0; batch<count/10_000; batch++)
+            {
+                var mesh = new MapMesh { Label = "Batch " + batch, Solid = false };
+                for (int face=0; face<10_000; face++)
+                {
+                    float x=face%100, z=face/100+batch*100;
+                    int vertex=mesh.Vertices.Count;
+                    mesh.Vertices.Add(new[] { x,0f,z }); mesh.Vertices.Add(new[] { x+1,0f,z }); mesh.Vertices.Add(new[] { x,0f,z+1 });
+                    mesh.Faces.Add(new[] { vertex,vertex+1,vertex+2 }); mesh.FaceMaterials.Add(0);
+                }
+                definition.Geometry.Add(mesh);
+            }
+            var document = new MapDocument(new MapProject(definition));
+            var cache = new MapViewportCache();
+            var watch=Stopwatch.StartNew(); cache.Invalidate(definition,new(MapChangeDomain.All)); watch.Stop();
+            double build=watch.Elapsed.TotalMilliseconds;
+            watch.Restart(); for(int i=0;i<1000;i++) cache.Invalidate(definition,new(MapChangeDomain.Selection)); watch.Stop();
+            double selection=watch.Elapsed.TotalMilliseconds/1000;
+            long before=GC.GetAllocatedBytesForCurrentThread(); watch.Restart();
+            for(int i=0;i<100;i++) { document.PaintFaces(definition.Geometry[0].Id,new[] { i },1); document.History.Undo(); }
+            watch.Stop();
+            Console.WriteLine($"BENCH {count:N0} triangles: CPU cache {build:0.00} ms; selection {selection:0.0000} ms/op; paint+undo {watch.Elapsed.TotalMilliseconds/100:0.000} ms/op; {(GC.GetAllocatedBytesForCurrentThread()-before)/100:N0} bytes/op");
+        }
+    }
+
     public static void Run()
     {
         var source = new MapDefinition { Name = "BENCHMARK" };

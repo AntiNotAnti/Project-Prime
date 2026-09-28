@@ -1,5 +1,6 @@
 #if MPHREAD_SHELL
 using System;
+using Avalonia.LogicalTree;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -84,6 +85,30 @@ namespace MphRead.Mods.Launcher.Gui
             finally { window.Close(); File.Delete(path); }
         }
 
+        private static void CheckCosmeticPreviewModes()
+        {
+            var license = new LicenseWorkspace(loadProfile: false);
+            var window = new Window { Width = 1280, Height = 720, Content = license, ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000), WindowStartupLocation = WindowStartupLocation.Manual };
+            try
+            {
+                window.Show(); Drain(window);
+                var customize = ControllerNav.Find(license, "hunter-license.customization")!;
+                customize.Focus(); FocusNavigator.Key(customize, Key.Enter); Drain(window);
+                foreach (int mode in new[] { 1, 2, 0, 2, 1 })
+                {
+                    ((ChoiceRow)ControllerNav.Find(license, "cosmetics.preview-mode")!).Index = mode;
+                    Drain(window);
+                    var stand = license.GetVisualDescendants().OfType<HunterStand>().Single();
+                    Check((int)stand.PreviewMode == mode, "license selects preview model " + mode);
+                    window.Content = null; Drain(window); window.Content = license; Drain(window);
+                    Check(((ChoiceRow)ControllerNav.Find(license, "cosmetics.preview-mode")!).Index == mode,
+                        "license retains preview mode after re-entry " + mode);
+                }
+            }
+            finally { window.Close(); }
+        }
+
         private static void CheckSavedLobbyLimits()
         {
             GameMode previousMode = LauncherPrefs.LastLobbyMode;
@@ -152,6 +177,28 @@ namespace MphRead.Mods.Launcher.Gui
             }
             finally { NetSession.Stop(); }
         }
+        private static void CheckAdvancedRules()
+        {
+            using var stopped = new LobbySessionCoordinator();
+            var overlays = new PrimeOverlayHost();
+            var lobby = new LobbyScreen(new[] { "MP1 SANCTORUS" }) { Overlays = overlays };
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            ButtonToggleRow Toggle(string name) => (ButtonToggleRow)typeof(LobbyScreen).GetField(name, flags)!.GetValue(lobby)!;
+            var insta = Toggle("_instaGib"); var noImp = Toggle("_noImperialist"); var low = Toggle("_lowTier");
+            Check(new[] { insta, noImp, low }.All(row => row.Children.OfType<PrimeButton>().Count(button => button.Focusable) == 2), "advanced rules support controller focus");
+            var advanced = (Control)insta.Parent!.Parent!;
+            typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby, new object[] { "LOBBY RULES", advanced });
+            Check(overlays.GetLogicalDescendants().Contains(insta) && overlays.GetLogicalDescendants().Contains(noImp)
+                && overlays.GetLogicalDescendants().Contains(low), "advanced rules are in the open rules sheet");
+            noImp.On = true; FocusNavigator.Key(insta.Children.OfType<PrimeButton>().Last(), Key.Enter);
+            Check(insta.On && !noImp.On, "Insta-Gib clears conflicting No Imp");
+            noImp.On = true;
+            Check(noImp.On && !insta.On, "No Imp clears conflicting Insta-Gib");
+            Check(!Toggle("_spawnProtection").On && !Toggle("_freeze").On, "lobby protection and freeze defaults off");
+            Check(!OfflineLaunch.Modes.Any(mode => mode.Mode == GameMode.InstaGib), "legacy mode is absent from offline selector");
+            overlays.Close();
+        }
+
         public static int Run(string? directory)
         {
             if (!GuiLauncher.EnsureSetup(requireDisplay: false)) return 1;
@@ -176,7 +223,9 @@ namespace MphRead.Mods.Launcher.Gui
                         && WindowMode.Parse("1", WindowStartMode.Windowed) == WindowStartMode.BorderlessFullscreen,
                         "legacy borderless preferences remain valid");
                     CheckCosmeticThumbnailReentry();
+                    CheckCosmeticPreviewModes();
                     CheckSavedLobbyLimits();
+                    CheckAdvancedRules();
                     CheckInProgressAdmission();
                     var shell = Create();
                     var window = new Window { Width = 1280, Height = 720, Content = shell, ShowInTaskbar = false,
