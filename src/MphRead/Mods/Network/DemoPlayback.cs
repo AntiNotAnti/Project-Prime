@@ -63,12 +63,7 @@ public static class DemoPlayback
         try { UpdateCore(shell); }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            _failed = true;
-            ReplayInput.CancelScrub();
-            ReplayAudioOwner.Release(_audio); _audio = 0;
-            Session.FailVerification("Replay playback stopped: " + ex.Message);
-            MphRead.Mods.DebugLog.Exception("replay", ex);
-            Session.Transport.AfterFrame();
+            FailPlayback(ex);
         }
     }
     private static void PollFailedControls(Scene shell)
@@ -77,6 +72,29 @@ public static class DemoPlayback
         if (_player?.Current.Scene is not Scene replay) return;
         replay.UseReplayInput(_shell);
         replay.PollReplayControls();
+
+        // Play/restart from Error transitions the transport into Seeking. Let
+        // the private player rebuild from frame zero instead of leaving the
+        // failure latch permanently in front of an otherwise recoverable replay.
+        if (_player.Transport.IsSeeking)
+        {
+            _failed = false;
+            try { UpdateCore(shell); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                FailPlayback(ex);
+            }
+        }
+    }
+
+    private static void FailPlayback(Exception ex)
+    {
+        _failed = true;
+        ReplayInput.CancelScrub();
+        ReplayAudioOwner.Release(_audio); _audio = 0;
+        Session.FailVerification("Replay playback stopped: " + ex.Message);
+        MphRead.Mods.DebugLog.Exception("replay", ex);
+        Session.Transport.AfterFrame();
     }
 
     private static void UpdateCore(Scene shell)
