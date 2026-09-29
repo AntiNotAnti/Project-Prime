@@ -479,24 +479,17 @@ Gotchas worth keeping in view without opening another file:
   picker used to be drawn at on a phone was the whole button. The suit caption
   and the colour's name are one line now ("SUIT: ORANGE") rather than two on
   either side of the swatches, and `EndScale` is 1.3 on Android.
-- **Two additions to the directory's wire, both after the fixed block and
-  neither a protocol bump.** A `HostRequest` may carry the asker's whole map
-  cycle -- `[count][count x (40-byte room key + mode)]` appended past
-  `HostRequestPacket.Size` -- and a `MasterList` reply ends with a flags byte
-  saying whether that directory starts games at all. Both are invisible to the
-  other side's older build: a directory from before reads exactly `Size` bytes
-  and plays the single map it always did, and a launcher from before stops
-  reading once it has taken `count` entries. So `NetConfig.ProtocolVersion`
-  does **not** move -- but a directory has to be **redeployed** before a
-  rotation asked for is more than a rotation of one. **Silence is not a no.**
-  The flag has three states and the third is the one that matters: hosting is
-  on by default and has to be turned *off* with `-hostports none`, so every
-  directory deployed in the world hosts, and a launcher reading "did not say"
-  as "will not" offers nothing to anybody until every one of them is
-  redeployed -- which is what "Host on: nobody" against the live directory
-  was. Only an explicit no is a no (`MasterListResult.WillHost`); the cost of
-  being wrong is a clear refusal at the moment the button is pressed, against
-  a row that says nothing and explains less.
+- **Hosted rotations carry exact custom package hashes.** Protocol 34
+  makes each `HostRequest` rotation entry `room key + mode + package hash`.
+  Built-in entries carry zero; every custom entry names the exact immutable
+  Community archive. The host resolves and downloads all missing custom entries
+  before spawning the isolated child, so a later custom map no longer depends
+  on whatever that region happened to have installed. This changes the old
+  41-byte rotation stride and therefore intentionally bumps the protocol instead
+  of letting an older directory misread the policy/identity tail. The
+  `MasterList` host-capability flag is still additive and tri-state:
+  **silence is not a no**; only an explicit false means that host will not open
+  games.
 - `PacketType.StatusQuery` answers "what map, what mode, how many players"
   without claiming a slot, which is what lets the browser poll idly. A server
   built before it falls back to a slot-taking Hello/Bye probe — redeploy the
