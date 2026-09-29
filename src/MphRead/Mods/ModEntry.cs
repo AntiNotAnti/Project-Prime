@@ -126,6 +126,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Diagnostics.CompatibilityCheck.Run();
                 return true;
             }
+            if (HasFlag(args, "fpsconvertaudit"))
+            {
+                Environment.ExitCode = Diagnostics.FpsConversionAudit.Run(ValueAfter(args, "fpsconvertauditout"));
+                return true;
+            }
             // Keys and mouse feel, before anything creates a player. Called
             // here because this runs for every invocation, launcher or not.
             InputSettings.Load();
