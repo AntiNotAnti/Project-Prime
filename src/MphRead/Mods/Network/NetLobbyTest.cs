@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 32, "bot wire contract supersedes custom map protocol 25");
+            Check(NetConfig.ProtocolVersion == 33, "bot wire contract supersedes custom map protocol 25");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -399,7 +399,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 32 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 33 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
@@ -454,13 +454,17 @@ namespace MphRead.Mods.Network
             Check(!SessionStatePacket.TryRead(data, out _), "participant mask bounded by server slots");
             data[7] = savedMax; data[6] = savedOwner;
             Check(SessionStatePacket.IsNewer(0, ushort.MaxValue) && !SessionStatePacket.IsNewer(ushort.MaxValue, 0), "revision wrap ordering");
+            Check(PlayerHandicap.IsValid(0) && PlayerHandicap.IsValid(50) && !PlayerHandicap.IsValid(15)
+                && PlayerHandicap.ScaleDamage(100, 30) == 70 && PlayerHandicap.ScaleDamage(1, 50) == 1,
+                "handicap validation and minimum-one damage scaling");
             foreach (LobbyCommandType type in Enum.GetValues<LobbyCommandType>())
             {
                 var command = new LobbyCommandPacket { CommandId = 42, ExpectedRevision = 17, Type = type,
-                    TargetSlot = 7, TeamIndex = -1, Ready = true, Configuration = state };
+                    TargetSlot = 7, TeamIndex = -1, Ready = true, DamageReduction = 20, Configuration = state };
                 byte[] bytes = new byte[LobbyCommandPacket.Size]; command.Write(bytes);
                 Check(LobbyCommandPacket.TryRead(bytes, out var decoded) && decoded.Type == type
-                    && decoded.CommandId == 42 && decoded.TeamIndex == -1 && decoded.Ready, "command round trip");
+                    && decoded.CommandId == 42 && decoded.TeamIndex == -1 && decoded.Ready
+                    && decoded.DamageReduction == 20, "command round trip");
                 for (int length = 0; length < bytes.Length; length++)
                     Check(!LobbyCommandPacket.TryRead(bytes.AsSpan(0, length), out _), "truncated command");
             }
@@ -479,10 +483,20 @@ namespace MphRead.Mods.Network
             Check(MatchLoadFailedPacket.TryRead(failedBytes, out var failed) && failed.MatchId == 17 && failed.Reason == "missing map", "failed round trip");
             for (int length = 0; length < failedBytes.Length; length++) Check(!MatchLoadFailedPacket.TryRead(failedBytes.AsSpan(0, length), out _), "truncated failure");
             var roster = RosterPacket.Create(); roster.Count = 8; roster.Revision = 123;
-            for (int i = 0; i < 8; i++) { roster.Slots[i] = (byte)i; roster.Teams[i] = (sbyte)(i % 5 - 1); roster.LobbyReady[i] = i % 2 == 0; roster.Names[i] = $"Player{i}"; }
+            for (int i = 0; i < 8; i++)
+            {
+                roster.Slots[i] = (byte)i; roster.Teams[i] = (sbyte)(i % 5 - 1);
+                roster.LobbyReady[i] = i % 2 == 0; roster.Names[i] = $"Player{i}";
+                roster.DamageReductions[i] = (byte)((i % 6) * 10);
+            }
             byte[] rosterBytes = new byte[RosterPacket.Size]; roster.Write(rosterBytes);
             Check(RosterPacket.TryRead(rosterBytes, out var rr) && rr.Teams.SequenceEqual(roster.Teams)
-                && rr.LobbyReady.SequenceEqual(roster.LobbyReady) && rr.Revision == 123, "roster team/ready/revision round trip");
+                && rr.LobbyReady.SequenceEqual(roster.LobbyReady)
+                && rr.DamageReductions.SequenceEqual(roster.DamageReductions)
+                && rr.Revision == 123, "roster team/ready/handicap/revision round trip");
+            rosterBytes[RosterPacket.HeaderSize + 11 + RosterPacket.MaxNameBytes] = 15;
+            Check(!RosterPacket.TryRead(rosterBytes, out _), "invalid roster handicap rejected");
+            roster.Write(rosterBytes);
             for (int length = 0; length < rosterBytes.Length; length++) Check(!RosterPacket.TryRead(rosterBytes.AsSpan(0, length), out _), "truncated roster");
             Check(!new HostRequestPacket().RequireReady, "host requests default ready off");
             var host = new HostRequestPacket { Protocol = NetConfig.ProtocolVersion, MaxPlayers = 8, RoomKey = "room", ServerName = "test",
@@ -781,10 +795,12 @@ namespace MphRead.Mods.Network
             { byte[] bytes = new byte[2 + RosterPacket.MaxNameBytes]; bytes[0] = hunter; PlayerNameCodec.TryEncode($"Test{Id}", bytes.AsSpan(2), out int length); Send(PacketType.Identify, bytes.AsSpan(0, 2 + length).ToArray()); }
             public void Send(PacketType type, byte[] bytes) => Transport.Send(Server, type, bytes);
             public LobbyCommandPacket Command(LobbyCommandType type, bool ready = false, SessionStatePacket? config = null,
-                byte target = 255, sbyte team = -1, ushort? revision = null, byte hunter = 0, byte level = 1)
+                byte target = 255, sbyte team = -1, ushort? revision = null, byte hunter = 0, byte level = 1,
+                byte reduction = 0)
             {
                 var packet = new LobbyCommandPacket { CommandId = ++_command, ExpectedRevision = revision ?? State!.Value.Revision,
-                    Type = type, Ready = ready, Configuration = config ?? State!.Value, TargetSlot = target, TeamIndex = team, Hunter = hunter, BotLevel = level };
+                    Type = type, Ready = ready, Configuration = config ?? State!.Value, TargetSlot = target, TeamIndex = team,
+                    Hunter = hunter, BotLevel = level, DamageReduction = reduction };
                 Resend(packet); return packet;
             }
             public void Resend(LobbyCommandPacket command)
@@ -942,6 +958,11 @@ namespace MphRead.Mods.Network
             rig.Expect(b, b.Command(LobbyCommandType.StartMatch), LobbyResultCode.NotOwner);
             rig.Expect(a, a.Command(LobbyCommandType.StartMatch), LobbyResultCode.PlayersNotReady);
             rig.Expect(a, a.Command(LobbyCommandType.SetReady, true, revision: 0), LobbyResultCode.StaleRevision);
+            rig.Expect(b, b.Command(LobbyCommandType.SetHandicap, target: (byte)a.Slot, reduction: 20), LobbyResultCode.NotOwner);
+            rig.Expect(a, a.Command(LobbyCommandType.SetHandicap, target: (byte)b.Slot, reduction: 30), LobbyResultCode.Ok);
+            int handicapIndex = Array.IndexOf(a.Roster.Slots, (byte)b.Slot, 0, a.Roster.Count);
+            Check(handicapIndex >= 0 && a.Roster.DamageReductions[handicapIndex] == 30
+                && b.Roster.DamageReductions[handicapIndex] == 30, "owner handicap synchronizes to every client");
             rig.ReadyAll();
             var config = a.State.Value; config.Match = config.Match with
             {
