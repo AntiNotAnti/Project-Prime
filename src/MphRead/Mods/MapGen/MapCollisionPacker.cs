@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using MphRead.Formats.Collision;
 using MphRead.Utility;
 using OpenTK.Mathematics;
@@ -36,202 +37,91 @@ namespace MphRead.Mods.MapGen
             portals ??= Array.Empty<Portal>();
             MapCollisionOptimizer.Result optimization=MapCollisionOptimizer.Optimize(data);
             data=optimization.Editors;
-            if (data.Count == 0)
+            if(data.Count==0)throw new ProgramException("A map needs at least one solid face.");
+            var points=new List<Vector3>();var pointIds=new Dictionary<Vector3,int>();
+            var planes=new List<Vector4>();var planeIds=new Dictionary<Vector4,int>();
+            var pointIndices=new List<int>();
+            var faces=new List<(int PlaneIndex,CollisionDataEditor Editor,int Count,int Start)>();
+            var min=new Vector3(Single.MaxValue);var max=new Vector3(Single.MinValue);
+            foreach(CollisionDataEditor editor in data)
             {
-                throw new ProgramException("A map needs at least one solid face.");
-            }
-            if(data.Count>=ushort.MaxValue)throw new MapAuthoringException("FP-MAP-003","Collision face budget exceeded.");
-            var points = new List<Vector3>();
-            var pointIds = new Dictionary<Vector3, ushort>();
-            var planes = new List<Vector4>();
-            var planeIds = new Dictionary<Vector4, ushort>();
-            var pointIndices = new List<ushort>();
-            var faces = new List<(ushort PlaneIndex, CollisionDataEditor Editor, ushort Count, ushort Start)>();
-            var min = new Vector3(Single.MaxValue);
-            var max = new Vector3(Single.MinValue);
-
-            foreach (CollisionDataEditor editor in data)
-            {
-                if (editor.Points.Count < 3 || editor.Points.Count > 10)
+                if(editor.Points.Count<3||editor.Points.Count>10)
+                    throw new ProgramException($"A collision face has {editor.Points.Count} points; the format allows 3 to 10.");
+                if(!planeIds.TryGetValue(editor.Plane,out int planeIndex))
+                {planeIndex=planes.Count;planes.Add(editor.Plane);planeIds.Add(editor.Plane,planeIndex);}
+                int start=pointIndices.Count;
+                foreach(Vector3 point in editor.Points)
                 {
-                    throw new ProgramException(
-                        $"A collision face has {editor.Points.Count} points; the format allows 3 to 10.");
-                }
-                if (!planeIds.TryGetValue(editor.Plane, out ushort planeIndex))
-                {
-                    if(planes.Count>=ushort.MaxValue)throw new MapAuthoringException("FP-MAP-003","Collision plane budget exceeded.");
-                    planeIndex = (ushort)planes.Count;
-                    planes.Add(editor.Plane);
-                    planeIds.Add(editor.Plane, planeIndex);
-                }
-                int start = pointIndices.Count;
-                if(start+editor.Points.Count>ushort.MaxValue)
-                    throw new MapAuthoringException("FP-MAP-003",
-                        $"Collision point index budget exceeded after lossless compaction "
-                        + $"({optimization.OriginalPointIndices:N0} -> {optimization.OptimizedPointIndices:N0}).");
-                foreach (Vector3 point in editor.Points)
-                {
-                    if(!float.IsFinite(point.X)||!float.IsFinite(point.Y)||!float.IsFinite(point.Z)||Math.Abs(point.X)>=524288||Math.Abs(point.Y)>=524288||Math.Abs(point.Z)>=524288)
+                    if(!float.IsFinite(point.X)||!float.IsFinite(point.Y)||!float.IsFinite(point.Z)
+                        ||Math.Abs(point.X)>=524288||Math.Abs(point.Y)>=524288||Math.Abs(point.Z)>=524288)
                         throw new MapAuthoringException("FP-MAP-004","Collision coordinates exceed the fixed-point range.");
-                    if (!pointIds.TryGetValue(point, out ushort pointIndex))
-                    {
-                        pointIndex = (ushort)points.Count;
-                        if (points.Count > UInt16.MaxValue)
-                        {
-                            throw new ProgramException(
-                                "The map has more than 65535 distinct collision points, which the format cannot index. "
-                                + "Convert at a larger scale or with less geometry.");
-                        }
-                        points.Add(point);
-                        pointIds.Add(point, pointIndex);
-                        min = Vector3.ComponentMin(min, point);
-                        max = Vector3.ComponentMax(max, point);
-                    }
+                    if(!pointIds.TryGetValue(point,out int pointIndex))
+                    {pointIndex=points.Count;points.Add(point);pointIds.Add(point,pointIndex);
+                     min=Vector3.ComponentMin(min,point);max=Vector3.ComponentMax(max,point);}
                     pointIndices.Add(pointIndex);
                 }
-                // The runtime wraps each polygon's local vertex index back to
-                // zero itself. Shipped files carry a duplicate closing index
-                // for round-trip fidelity, but custom maps do not need it.
-                faces.Add((planeIndex, editor, (ushort)editor.Points.Count, (ushort)start));
+                faces.Add((planeIndex,editor,editor.Points.Count,start));
             }
-
-            int partsX = Math.Max(1, (int)MathF.Floor((max.X - min.X) / CellSize) + 1);
-            int partsY = Math.Max(1, (int)MathF.Floor((max.Y - min.Y) / CellSize) + 1);
-            int partsZ = Math.Max(1, (int)MathF.Floor((max.Z - min.Z) / CellSize) + 1);
-            if((long)partsX*partsY*partsZ>2000000)throw new MapAuthoringException("FP-MAP-003","Collision grid budget exceeded.");
-            var cells = new List<ushort>[partsX * partsY * partsZ];
-            for (int i = 0; i < data.Count; i++)
+            int partsX=Math.Max(1,(int)MathF.Floor((max.X-min.X)/CellSize)+1);
+            int partsY=Math.Max(1,(int)MathF.Floor((max.Y-min.Y)/CellSize)+1);
+            int partsZ=Math.Max(1,(int)MathF.Floor((max.Z-min.Z)/CellSize)+1);
+            if((long)partsX*partsY*partsZ>MapBudgetValidator.MaxGridCells)
+                throw new MapAuthoringException("FP-MAP-003","Collision grid budget exceeded.");
+            var cells=new List<int>[partsX*partsY*partsZ];
+            for(int i=0;i<data.Count;i++)
             {
-                CollisionDataEditor editor = data[i];
-                var faceMin = new Vector3(Single.MaxValue);
-                var faceMax = new Vector3(Single.MinValue);
-                foreach (Vector3 point in editor.Points)
-                {
-                    faceMin = Vector3.ComponentMin(faceMin, point);
-                    faceMax = Vector3.ComponentMax(faceMax, point);
-                }
-                int x0 = CellIndex(faceMin.X, min.X, partsX);
-                int x1 = CellIndex(faceMax.X, min.X, partsX);
-                int y0 = CellIndex(faceMin.Y, min.Y, partsY);
-                int y1 = CellIndex(faceMax.Y, min.Y, partsY);
-                int z0 = CellIndex(faceMin.Z, min.Z, partsZ);
-                int z1 = CellIndex(faceMax.Z, min.Z, partsZ);
-                for (int y = y0; y <= y1; y++)
-                {
-                    for (int z = z0; z <= z1; z++)
-                    {
-                        for (int x = x0; x <= x1; x++)
-                        {
-                            int index = y * partsX * partsZ + z * partsX + x;
-                            (cells[index] ??= new List<ushort>()).Add((ushort)i);
-                        }
-                    }
-                }
+                CollisionDataEditor editor=data[i];var faceMin=new Vector3(Single.MaxValue);var faceMax=new Vector3(Single.MinValue);
+                foreach(Vector3 point in editor.Points){faceMin=Vector3.ComponentMin(faceMin,point);faceMax=Vector3.ComponentMax(faceMax,point);}
+                int x0=CellIndex(faceMin.X,min.X,partsX),x1=CellIndex(faceMax.X,min.X,partsX);
+                int y0=CellIndex(faceMin.Y,min.Y,partsY),y1=CellIndex(faceMax.Y,min.Y,partsY);
+                int z0=CellIndex(faceMin.Z,min.Z,partsZ),z1=CellIndex(faceMax.Z,min.Z,partsZ);
+                for(int y=y0;y<=y1;y++)for(int z=z0;z<=z1;z++)for(int x=x0;x<=x1;x++)
+                    (cells[y*partsX*partsZ+z*partsX+x]??=new List<int>()).Add(i);
             }
-
-            int references = 0;
-            foreach (List<ushort>? cell in cells)
+            var dataIndices=new List<int>();var entries=new List<(int Count,int Start)>();
+            foreach(List<int>? cell in cells){int start=dataIndices.Count;if(cell!=null)dataIndices.AddRange(cell);entries.Add((cell?.Count??0,start));}
+            bool extended=points.Count>ushort.MaxValue||planes.Count>ushort.MaxValue||faces.Count>ushort.MaxValue
+                ||pointIndices.Count>ushort.MaxValue||dataIndices.Count>ushort.MaxValue
+                ||pointIndices.Any(i=>i>ushort.MaxValue)||dataIndices.Any(i=>i>ushort.MaxValue)
+                ||faces.Any(f=>f.PlaneIndex>ushort.MaxValue||f.Start>ushort.MaxValue||f.Count>ushort.MaxValue)
+                ||entries.Any(e=>e.Count>ushort.MaxValue||e.Start>ushort.MaxValue);
+            using var stream=new MemoryStream();using var writer=new BinaryWriter(stream);stream.Position=Sizes.CollisionHeader;
+            int pointOffset=(int)stream.Position;foreach(Vector3 point in points)writer.WriteVector3(point);
+            int planeOffset=(int)stream.Position;foreach(Vector4 plane in planes)writer.WriteVector4(plane);
+            int pointIndexOffset=(int)stream.Position;
+            if(extended)foreach(int index in pointIndices)writer.Write((uint)index);
+            else{foreach(int index in pointIndices)writer.Write((ushort)index);Align(stream,writer);}
+            int dataOffset=(int)stream.Position;
+            foreach((int planeIndex,CollisionDataEditor editor,int count,int start) in faces)
             {
-                references += cell?.Count ?? 0;
+                writer.Write(0);
+                if(extended){writer.Write((uint)planeIndex);writer.Write((ushort)editor.Flags);writer.Write(editor.LayerMask);
+                    writer.Write((uint)count);writer.Write((uint)start);}
+                else{writer.Write((ushort)planeIndex);writer.Write((ushort)editor.Flags);writer.Write(editor.LayerMask);writer.Write((ushort)0);
+                    writer.Write((ushort)count);writer.Write((ushort)start);}
             }
-            var dataIndices = new List<ushort>();
-            var entries = new List<(ushort Count, ushort Start)>();
-            foreach (List<ushort>? cell in cells)
-            {
-                int start = dataIndices.Count;
-                if (start > UInt16.MaxValue)
-                {
-                    throw new ProgramException(
-                        $"The collision grid needs {references} face references ({partsX}x{partsY}x{partsZ} cells "
-                        + $"over {data.Count} faces), and the format indexes them with 16 bits. "
-                        + "Convert at a larger scale, or with fewer solid surfaces.");
-                }
-                if (cell != null)
-                {
-                    dataIndices.AddRange(cell);
-                }
-                entries.Add(((ushort)(cell?.Count ?? 0), (ushort)start));
-            }
-
-            using var stream = new MemoryStream();
-            using var writer = new BinaryWriter(stream);
-            stream.Position = Sizes.CollisionHeader;
-            int pointOffset = (int)stream.Position;
-            foreach (Vector3 point in points)
-            {
-                writer.WriteVector3(point);
-            }
-            int planeOffset = (int)stream.Position;
-            foreach (Vector4 plane in planes)
-            {
-                writer.WriteVector4(plane);
-            }
-            int pointIndexOffset = (int)stream.Position;
-            foreach (ushort index in pointIndices)
-            {
-                writer.Write(index);
-            }
-            Align(stream, writer);
-            int dataOffset = (int)stream.Position;
-            foreach ((ushort planeIndex, CollisionDataEditor editor, ushort count, ushort start) in faces)
-            {
-                writer.Write(0u); // Counter, set at run time
-                writer.Write(planeIndex);
-                writer.Write((ushort)editor.Flags);
-                writer.Write(editor.LayerMask);
-                writer.Write((ushort)0);
-                writer.Write(count);
-                writer.Write(start);
-            }
-            int dataIndexOffset = (int)stream.Position;
-            foreach (ushort index in dataIndices)
-            {
-                writer.Write(index);
-            }
-            Align(stream, writer);
-            int entryOffset = (int)stream.Position;
-            foreach ((ushort count, ushort start) in entries)
-            {
-                writer.Write(count);
-                writer.Write(start);
-            }
-            int portalOffset = (int)stream.Position;
+            int dataIndexOffset=(int)stream.Position;
+            if(extended)foreach(int index in dataIndices)writer.Write((uint)index);
+            else{foreach(int index in dataIndices)writer.Write((ushort)index);Align(stream,writer);}
+            int entryOffset=(int)stream.Position;
+            foreach((int count,int start) in entries)
+                if(extended){writer.Write((uint)count);writer.Write((uint)start);}
+                else{writer.Write((ushort)count);writer.Write((ushort)start);}
+            int portalOffset=(int)stream.Position;
             foreach(Portal portal in portals)
             {
                 if(portal.Points.Count!=4||portal.Planes.Count!=4)
                     throw new MapAuthoringException("FP-MAP-003","Runtime partition portals require four points and four edge planes.");
-                writer.WriteString(portal.Name,40);
-                writer.WriteString(portal.NodeName1,24);
-                writer.WriteString(portal.NodeName2,24);
-                foreach(Vector3 point in portal.Points)writer.WriteVector3(point);
-                foreach(Vector4 plane in portal.Planes)writer.WriteVector4(plane);
-                writer.WriteVector4(portal.Plane);
-                writer.Write((ushort)0); // Flags; generated spatial portals are always open
-                writer.Write(portal.LayerMask);
-                writer.Write((ushort)4);
-                writer.Write(portal.Unknown00);
-                writer.Write(portal.Unknown01);
+                writer.WriteString(portal.Name,40);writer.WriteString(portal.NodeName1,24);writer.WriteString(portal.NodeName2,24);
+                foreach(Vector3 point in portal.Points)writer.WriteVector3(point);foreach(Vector4 plane in portal.Planes)writer.WriteVector4(plane);
+                writer.WriteVector4(portal.Plane);writer.Write((ushort)0);writer.Write(portal.LayerMask);writer.Write((ushort)4);
+                writer.Write(portal.Unknown00);writer.Write(portal.Unknown01);
             }
-            stream.Position = 0;
-            writer.Write("wc01".ToCharArray());
-            writer.Write(points.Count);
-            writer.Write(pointOffset);
-            writer.Write(planes.Count);
-            writer.Write(planeOffset);
-            writer.Write(pointIndices.Count);
-            writer.Write(pointIndexOffset);
-            writer.Write(faces.Count);
-            writer.Write(dataOffset);
-            writer.Write(dataIndices.Count);
-            writer.Write(dataIndexOffset);
-            writer.Write(partsX);
-            writer.Write(partsY);
-            writer.Write(partsZ);
-            writer.WriteVector3(min);
-            writer.Write(entries.Count);
-            writer.Write(entryOffset);
-            writer.Write(portals.Count);
-            writer.Write(portalOffset);
+            stream.Position=0;writer.Write((extended?"wc02":"wc01").ToCharArray());writer.Write(points.Count);writer.Write(pointOffset);
+            writer.Write(planes.Count);writer.Write(planeOffset);writer.Write(pointIndices.Count);writer.Write(pointIndexOffset);
+            writer.Write(faces.Count);writer.Write(dataOffset);writer.Write(dataIndices.Count);writer.Write(dataIndexOffset);
+            writer.Write(partsX);writer.Write(partsY);writer.Write(partsZ);writer.WriteVector3(min);
+            writer.Write(entries.Count);writer.Write(entryOffset);writer.Write(portals.Count);writer.Write(portalOffset);
             return stream.ToArray();
         }
 

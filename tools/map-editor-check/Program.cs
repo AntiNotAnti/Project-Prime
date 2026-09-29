@@ -656,9 +656,9 @@ try
             new[]{OpenTK.Mathematics.Vector2.Zero,OpenTK.Mathematics.Vector2.Zero,OpenTK.Mathematics.Vector2.Zero},
             OpenTK.Mathematics.Vector3.UnitY,0,1);
         Check(MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,10000)),
-            "collision fit accepts representable point-index load");
-        Check(!MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,22000)),
-            "collision fit rejects 16-bit point-index overflow");
+            "collision fit accepts ordinary point-index load");
+        Check(MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,22000)),
+            "collision fit accepts extended 32-bit point-index load");
         var strip=new System.Collections.Generic.List<MphRead.Utility.CollisionDataEditor>();
         for(int x=0;x<1000;x++)
         {
@@ -784,13 +784,13 @@ try
     }
     // Editor analysis keeps compiled geometry visible when a runtime
     // post-compile budget is exceeded, while runtime publication stays blocked.
-    var oversizedDefinition=new MapDefinition{Name="OVERSIZED_PREVIEW_CHECK",ScaleFactor=7};
-    oversizedDefinition.Materials.Add(new(){TexScale=1});
-    oversizedDefinition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,0,0},Scale=new[]{1024f,1,1024f}}});
+    var oversizedDefinition=new MapDefinition{Name="OVERSIZED_PREVIEW_CHECK",ScaleFactor=10};
+    oversizedDefinition.Materials.Add(new(){TexScale=.1f});
+    oversizedDefinition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,0,0},Scale=new[]{6000f,1,6000f}}});
     oversizedDefinition.Spawns.Add(new(){Position=new[]{0f,2,0}});
     var oversizedCompilation=MapCompiler.Compile(oversizedDefinition);
     Check(oversizedCompilation.Map!=null&&!oversizedCompilation.Validation.IsValid
-        && oversizedCompilation.Validation.Diagnostics.Any(d=>d.Message.Contains("Collision references")),
+        && oversizedCompilation.Validation.Diagnostics.Any(d=>d.Message.Contains("Collision grid cells")),
         "oversized map retains editor geometry with runtime budget errors");
 
     var oversizedScheduler=new MapBuildScheduler(Path.Combine(root,"oversized-cache"));

@@ -102,62 +102,63 @@ namespace MphRead.Mods.MapGen
         }
 
         /// <summary>
-        /// Against the format's ceilings. The one that bites first is not the
-        /// face count: it is the grid, which lists every face in every cell it
-        /// reaches and indexes those listings with sixteen bits.
+        /// Against the collision runtime's practical ceilings. Project Prime
+        /// promotes custom maps to 32-bit collision indexes when the legacy
+        /// wc01 representation no longer fits; the spatial grid still has a
+        /// deliberate cell-count guard against pathological sparse worlds.
         /// </summary>
         private static int Size(BuiltMap map)
         {
             var points = new HashSet<Vector3>();
             int faces = 0;
             int fanned = 0;
+            long pointIndices = 0;
             foreach (BuiltFace face in map.Solid)
             {
-                foreach (Vector3 point in face.Points)
-                {
-                    points.Add(point);
-                }
+                foreach (Vector3 point in face.Points) points.Add(point);
                 if (face.Points.Length > 10)
                 {
-                    faces += face.Points.Length - 2;
+                    int triangles = face.Points.Length - 2;
+                    faces += triangles;
+                    pointIndices += triangles * 3L;
                     fanned++;
                 }
                 else
                 {
                     faces++;
+                    pointIndices += face.Points.Length;
                 }
             }
             Bounds(map.Solid, out Vector3 low, out Vector3 high);
             int partsX = Math.Max(1, (int)MathF.Floor((high.X - low.X) / CellSize) + 1);
             int partsY = Math.Max(1, (int)MathF.Floor((high.Y - low.Y) / CellSize) + 1);
             int partsZ = Math.Max(1, (int)MathF.Floor((high.Z - low.Z) / CellSize) + 1);
-            int references = 0;
+            long gridCells = (long)partsX * partsY * partsZ;
+            long references = 0;
             foreach (BuiltFace face in map.Solid)
             {
                 Bounds(new[] { face }, out Vector3 faceLow, out Vector3 faceHigh);
-                references += Span(faceLow.X, faceHigh.X, low.X, partsX)
+                references += (long)Span(faceLow.X, faceHigh.X, low.X, partsX)
                     * Span(faceLow.Y, faceHigh.Y, low.Y, partsY)
                     * Span(faceLow.Z, faceHigh.Z, low.Z, partsZ);
             }
+            bool extended = points.Count > ushort.MaxValue || faces > ushort.MaxValue
+                || pointIndices > ushort.MaxValue || references > ushort.MaxValue;
             Console.WriteLine();
-            Console.WriteLine("  against the format's limits");
+            Console.WriteLine("  collision scale");
             Console.WriteLine($"    faces written      {faces,8}"
                 + (fanned > 0 ? $"   ({fanned} with more than ten points, split into triangles)" : ""));
-            Console.WriteLine($"    distinct points    {points.Count,8}   of 65535  ({Percent(points.Count, 65535)})");
-            Console.WriteLine($"    grid references    {references,8}   of 65535  ({Percent(references, 65535)})"
-                + $"   in {partsX}x{partsY}x{partsZ} cells");
-            int problems = 0;
-            if (points.Count > 65535 || references > 65535)
+            Console.WriteLine($"    distinct points    {points.Count,8}");
+            Console.WriteLine($"    point indices      {pointIndices,8}");
+            Console.WriteLine($"    grid references    {references,8}   in {partsX}x{partsY}x{partsZ} cells");
+            Console.WriteLine($"    index format       {(extended ? "wc02 / 32-bit" : "wc01 / 16-bit")}");
+            Console.WriteLine($"    grid cells         {gridCells,8}   of {MapBudgetValidator.MaxGridCells:N0}");
+            if (gridCells > MapBudgetValidator.MaxGridCells)
             {
-                Console.WriteLine("    This will not pack. Take collision out, or convert at a larger scale.");
-                problems++;
+                Console.WriteLine("    This will not pack: the collision grid is pathologically large. Reduce world extent or raise cell density.");
+                return 1;
             }
-            return problems;
-        }
-
-        private static string Percent(int value, int of)
-        {
-            return $"{value * 100f / of:0.#}%";
+            return 0;
         }
 
         private static int Span(float low, float high, float origin, int parts)

@@ -34,9 +34,13 @@ namespace MphRead.Mods.MapGen
                                 : "Portal culling requested, but the spatial part graph is disconnected. Render partitioning remains enabled without portal culling.");
                 }
             }
-            Add(result, "Collision faces", collisionMetrics.Faces, 65535);
-            Add(result, "Collision points", collisionMetrics.Points, 65535);
-            Add(result, "Collision point indices", collisionMetrics.PointIndices, 65535);
+            Add(result, "Collision faces", collisionMetrics.Faces);
+            Add(result, "Collision points", collisionMetrics.Points);
+            Add(result, "Collision point indices", collisionMetrics.PointIndices);
+            if(collisionMetrics.Faces>ushort.MaxValue||collisionMetrics.Points>ushort.MaxValue
+                ||collisionMetrics.PointIndices>ushort.MaxValue||collisionMetrics.References>ushort.MaxValue)
+                result.Diagnostics.Add(new MapDiagnostic("FP-MAP-024",MapDiagnosticSeverity.Info,
+                    "This map uses Project Prime extended 32-bit collision indexing; the legacy 65,535 index ceiling does not apply."));
             Add(result, "Entities", map.Entities.Count, 32767);
             int materialCount=Math.Max(map.Definition.Materials.Count,map.Faces.Count==0?0:map.Faces.Max(f=>f.Material)+1);
             Add(result, "Materials", materialCount, 32767);
@@ -52,7 +56,7 @@ namespace MphRead.Mods.MapGen
                 foreach (var p in face.Points) { min = Vector3.ComponentMin(min, p); max = Vector3.ComponentMax(max, p); }
             }
             Add(result, "Collision grid cells", collisionMetrics.GridCells, MaxGridCells);
-            Add(result, "Collision references", collisionMetrics.References, 65535);
+            Add(result, "Collision references", collisionMetrics.References);
             if(map.CollisionHealth is {} health)
             {
                 Add(result,"Collision auto-heal repairs",map.CollisionRepairs.Count);
@@ -97,11 +101,11 @@ namespace MphRead.Mods.MapGen
             MapCollisionOptimizer.Result optimized=MapCollisionOptimizer.Optimize(
                 MapCollisionOptimizer.FromFaces(faces));
             MapCollisionOptimizer.Metrics metrics=MapCollisionOptimizer.Measure(optimized.Editors);
-            return metrics.Faces < 65535
-                && metrics.Points < 65535
-                && metrics.PointIndices <= 65535
+            return metrics.Faces <= Int32.MaxValue
+                && metrics.Points <= Int32.MaxValue
+                && metrics.PointIndices <= Int32.MaxValue
                 && metrics.GridCells < MaxGridCells
-                && metrics.References < 65535;
+                && metrics.References <= Int32.MaxValue;
         }
 
         private static long SaturatingMultiply(long a, long b) => a <= 0 || b <= 0 || a > long.MaxValue / b ? long.MaxValue : a * b;
