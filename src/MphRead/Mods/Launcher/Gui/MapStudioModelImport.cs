@@ -81,18 +81,47 @@ internal sealed partial class MapStudioScreen
         if (previous != null && previous.NormalizedHash == ModelReimport.NormalizedHash(result)
             && previous.Settings == settings && previous.Source == path && previous.SourceHash == hash)
         { _status.Text = "Model and referenced materials are unchanged."; return; }
-        string root = document.Project.Definition.BaseDirectory ?? Path.GetDirectoryName(Path.GetFullPath(_path.Text!))!;
-        foreach (var asset in result.Assets)
+        string previewRoot=Path.Combine(Path.GetTempPath(),"ProjectPrime-model-preview-"+Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(previewRoot);
+        try
         {
-            string destination = Path.Combine(root, asset.Key);
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
-            AtomicFile.Write(destination, asset.Value);
-            document.RegisterGeneratedAsset(asset.Key, root);
+            foreach(var asset in result.Assets)
+            {
+                MapPackageReader.CanonicalName(asset.Key);
+                string destination=Path.GetFullPath(Path.Combine(previewRoot,asset.Key));
+                string prefix=Path.GetFullPath(previewRoot)+Path.DirectorySeparatorChar;
+                if(!destination.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Model preview asset escapes its staging folder.");
+                Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                AtomicFile.Write(destination,asset.Value);
+            }
         }
-        var previewDefinition = new MapDefinition { BaseDirectory = root };
+        catch
+        {
+            try{Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
+            throw;
+        }
+        var previewDefinition = new MapDefinition { BaseDirectory = previewRoot };
         previewDefinition.Geometry.AddRange(result.Meshes); previewDefinition.Materials.AddRange(result.Materials);
-        var preview = new MapViewport(new MapDocument(new MapProject(previewDefinition))) { Height = 280, MinWidth = 480, ReadOnlyPreview = true };
-        preview.DetachedFromVisualTree += (_, _) => preview.DetachDocument();
+        MapViewport preview;
+        try
+        {
+            preview = new MapViewport(new MapDocument(new MapProject(previewDefinition)))
+                { Height = 280, MinWidth = 480, ReadOnlyPreview = true };
+        }
+        catch
+        {
+            try{Directory.Delete(previewRoot,true);}catch(IOException){}catch(UnauthorizedAccessException){}
+            throw;
+        }
+        bool previewCleaned=false;
+        void CleanupPreview()
+        {
+            if(previewCleaned)return;previewCleaned=true;preview.DetachDocument();
+            try{if(Directory.Exists(previewRoot))Directory.Delete(previewRoot,true);}
+            catch(IOException){}catch(UnauthorizedAccessException){}
+        }
+        preview.DetachedFromVisualTree += (_, _) => CleanupPreview();
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Text(sourceId == null ? "IMPORT PREVIEW" : "REIMPORT PREVIEW"));
         var oldMeshes = document.Project.Definition.Geometry.OfType<MapMesh>()
@@ -116,16 +145,49 @@ internal sealed partial class MapStudioScreen
             try
             {
                 if (_document != document || document.CurrentStateId != state) throw new IOException("The project changed. Preview the model again before applying.");
-                document.Edit(sourceId == null ? "Import 3D model" : "Reimport 3D model", definition =>
+                string? root=document.Project.Definition.BaseDirectory;
+                if(String.IsNullOrWhiteSpace(root)&&document.FilePath!=null)
+                    root=Path.GetDirectoryName(Path.GetFullPath(document.FilePath));
+                if(result.Assets.Count>0&&String.IsNullOrWhiteSpace(root))
+                    throw new IOException("Save this map project before applying a textured 3D model.");
+                var created=new System.Collections.Generic.List<string>();
+                try
                 {
-                    definition.BaseDirectory = root;
-                    ModelReimport.Apply(definition, result, path, hash, settings, sourceId);
-                }, MapChangeDomain.Geometry | MapChangeDomain.Material);
+                    if(root!=null)
+                    {
+                        root=Path.GetFullPath(root);
+                        string prefix=root+Path.DirectorySeparatorChar;
+                        foreach(var asset in result.Assets)
+                        {
+                            MapPackageReader.CanonicalName(asset.Key);
+                            string destination=Path.GetFullPath(Path.Combine(root,asset.Key));
+                            if(!destination.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))
+                                throw new InvalidDataException("Model asset escapes the map project.");
+                            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+                            bool existed=File.Exists(destination);
+                            AtomicFile.Write(destination,asset.Value);
+                            if(!existed)created.Add(destination);
+                        }
+                    }
+                    string? projectRoot=root;
+                    document.Edit(sourceId == null ? "Import 3D model" : "Reimport 3D model", definition =>
+                    {
+                        if(projectRoot!=null)definition.BaseDirectory=projectRoot;
+                        ModelReimport.Apply(definition, result, path, hash, settings, sourceId);
+                    }, MapChangeDomain.Geometry | MapChangeDomain.Material);
+                    if(root!=null)foreach(var asset in result.Assets)document.RegisterGeneratedAsset(asset.Key,root);
+                }
+                catch
+                {
+                    foreach(string createdPath in created)
+                        try{if(File.Exists(createdPath))File.Delete(createdPath);}catch(IOException){}catch(UnauthorizedAccessException){}
+                    throw;
+                }
                 foreach(string dependency in result.Dependencies)_changedSources.Remove(dependency);
-                Dismiss(); _viewport?.FrameAll(); _status.Text = "Model applied. Undo restores the previous import.";
+                CleanupPreview();Dismiss(); _viewport?.FrameAll(); _status.Text = "Model applied. Undo restores the previous import.";
             }
             catch (Exception ex) { Failure(ex); }
         });
-        AddButton(panel, "Cancel", Dismiss); Modal(panel);
+        AddButton(panel, "Cancel", () => { CleanupPreview(); Dismiss(); }); Modal(panel);
     });
 }

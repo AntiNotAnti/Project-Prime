@@ -130,10 +130,18 @@ public sealed class GltfModelImporter : IModelImporter
                 int count=BinaryPrimitives.ReadUInt16LittleEndian(baked.AsSpan(14)),nameLength=BinaryPrimitives.ReadUInt16LittleEndian(baked.AsSpan(16));
                 for(int i=0;i<count;i++){int offset=18+nameLength+i*2;ushort rgb=BinaryPrimitives.ReadUInt16LittleEndian(baked.AsSpan(offset));int tinted=0;for(int c=0;c<3;c++)tinted|=(int)Math.Clamp(Math.Round(((rgb>>(c*5))&31)*MathF.Pow(color[c],1/2.2f)),0,31)<<(c*5);BinaryPrimitives.WriteUInt16LittleEndian(baked.AsSpan(offset),(ushort)tinted);}
             }
-            string assetPath="assets/gltf-"+Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant()+".tex";assets.TryAdd(assetPath,baked);assetSources[assetPath]=path;
+            string assetPath="textures/gltf-"+Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant()+".tex";assets.TryAdd(assetPath,baked);assetSources[assetPath]=path;
             materials.Add(new(){Name=Name(material,"Material "+materials.Count),Texture=assetPath});
         }
-        int defaultMaterial=materials.Count;materials.Add(new(){Name="Default"});
+        int defaultMaterial=-1;
+        int DefaultMaterial()
+        {
+            if(defaultMaterial>=0)return defaultMaterial;
+            byte[] baked=ObjModelImporter.Solid(1,1,1);
+            string assetPath="textures/gltf-default-"+Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant()+".tex";
+            assets.TryAdd(assetPath,baked);assetSources[assetPath]=path;
+            defaultMaterial=materials.Count;materials.Add(new(){Name="Default",Texture=assetPath});return defaultMaterial;
+        }
         var meshes=new List<MapMesh>();var nodes=Array(root,"nodes");var definitions=Array(root,"meshes");var scenes=Array(root,"scenes");
         if(nodes.Length>10000)throw new InvalidDataException("glTF exceeds node budget.");int totalVertices=0,totalFaces=0;var visited=new HashSet<int>();
         float[] Floats(JsonElement node,string name,float[] defaults){if(!node.TryGetProperty(name,out var p))return defaults;var values=p.EnumerateArray().Select(v=>v.GetSingle()).ToArray();if(values.Length!=defaults.Length||values.Any(v=>!float.IsFinite(v)))throw new InvalidDataException("Invalid node transform.");return values;}
@@ -155,7 +163,9 @@ public sealed class GltfModelImporter : IModelImporter
                     var indices=primitive.TryGetProperty("indices",out var ia)?Accessor(ia.GetInt32(),1,true).Select(v=>v[0]).ToArray():Enumerable.Range(0,positions.Length).Select(i=>(double)i).ToArray();
                     if(indices.Length%3!=0||indices.Any(i=>i<0||i>=positions.Length))throw new InvalidDataException("Invalid triangle index stream.");
                     if((totalVertices+=positions.Length)>1000000||(totalFaces+=indices.Length/3)>1000000)throw new InvalidDataException("Scene exceeds geometry budget.");
-                    int material=Int(primitive,"material",defaultMaterial);if((uint)material>=materials.Count)throw new InvalidDataException("Invalid primitive material.");
+                    int material=primitive.TryGetProperty("material",out var materialProperty)
+                        ?materialProperty.GetInt32():DefaultMaterial();
+                    if((uint)material>=materials.Count)throw new InvalidDataException("Invalid primitive material.");
                     var mesh=new MapMesh{Label=Name(node,Name(definition,"Mesh "+mi))+" / "+ordinal,Material=material,Solid=settings.VisualCollision};
                     foreach(var value in positions){Vector3 p=Vector3.Transform(new((float)value[0],(float)value[1],(float)value[2]),world)*settings.Scale;if(settings.ZUp)p=new(p.X,p.Z,-p.Y);if(!float.IsFinite(p.X)||!float.IsFinite(p.Y)||!float.IsFinite(p.Z))throw new InvalidDataException("Node transform exceeds coordinate range.");mesh.Vertices.Add(new[]{p.X,p.Y,p.Z});}
                     bool flip=settings.FlipWinding^(world.GetDeterminant()<0);

@@ -127,17 +127,24 @@ namespace MphRead.Mods.MapGen
 
         public static string CanonicalName(string name)
         {
-            // Apply Windows rules on every platform so an archive safe on Linux
-            // cannot become a traversal or device path when sent to a PC.
+            // Package components are file names, not runtime room names. In particular,
+            // content-addressed texture names contain a 64-character SHA-256 digest and
+            // legitimately exceed the runtime room-name limit. Keep the traversal/device
+            // protections here without applying that unrelated 40-character constraint.
             if (string.IsNullOrWhiteSpace(name) || name.Length > 240 || name.Contains('\\') || name.StartsWith('/')
                 || name.Any(c => c < 32 || ":<>\"|?*".Contains(c))) throw new InvalidDataException("Unsafe package path.");
             foreach (string part in name.Split('/'))
             {
+                if (part is "" or "." or ".." || part.Trim() != part || part.EndsWith('.')
+                    || !Char.IsAsciiLetterOrDigit(part[0])
+                    || part.Any(c => !(Char.IsAsciiLetterOrDigit(c) || c is ' ' or '_' or '-' or '.')))
+                    throw new InvalidDataException("Unsafe package path: " + name);
                 // Windows recognizes device names before the first dot, even
                 // when the path has multiple extensions (CON.backup.tex).
-                if (part is "" or "." or ".." || part.EndsWith('.') || part.EndsWith(' ')
-                    || !MapValidator.ValidRuntimeName(part.Split('.')[0])
-                    || !MapValidator.ValidRuntimeName(Path.GetFileNameWithoutExtension(part).Replace('.', '_')))
+                string stem=part.Split('.')[0].ToUpperInvariant();
+                if (stem is "CON" or "PRN" or "AUX" or "NUL"
+                    || stem.Length==4 && (stem.StartsWith("COM",StringComparison.Ordinal)
+                        || stem.StartsWith("LPT",StringComparison.Ordinal)) && stem[3] is >= '1' and <= '9')
                     throw new InvalidDataException("Unsafe package path: " + name);
             }
             return name;

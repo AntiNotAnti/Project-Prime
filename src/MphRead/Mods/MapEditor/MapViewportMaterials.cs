@@ -87,7 +87,7 @@ public static class MapViewportMaterials
                 }
                 result[(false, i)] = texture; result[(true, i + offset)] = texture;
             }
-            catch (Exception ex) when (ex is System.IO.IOException or ProgramException or ArgumentException or InvalidOperationException) { }
+            catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or ProgramException or ArgumentException or InvalidOperationException) { }
         }
         return result;
     }

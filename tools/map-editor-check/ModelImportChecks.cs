@@ -17,6 +17,15 @@ internal static class ModelImportChecks
         check(mesh.FaceTexcoords.All(uv => uv?.Length == 3), "OBJ face-corner UVs preserved");
         check(mesh.FaceMaterials.All(i => result.Materials[i].Name == "red"), "OBJ material mapping retained");
         check(result.Assets.Count == 1 && MapTexturePack.Load(result.Assets.Single().Value,"color").Entries.Count == 1, "MTL diffuse color baked");
+        File.WriteAllText(path,"v 0 0 0\nv 2 0 0\nv 2 2 .35\nv 0 2 0\nf 1 2 3 4\n");
+        var warped=ModelImportService.Import(path,new());
+        check(warped.Meshes.Single().Faces.Count==2
+            &&warped.Warnings.Any(w=>w.Contains("Non-planar OBJ polygons",StringComparison.Ordinal)),
+            "non-planar OBJ quad auto-triangulates instead of rejecting the model");
+        string longTexture="textures/model-"+new string('a',64)+".tex";
+        check(MapPackageReader.CanonicalName(longTexture)==longTexture,
+            "content-addressed model texture path is package-safe");
+        File.WriteAllText(path,source);
         foreach (string bad in new[] { "f 0 1 2", "f 1 2 99", "mtllib ../secret.mtl", "mtllib /secret.mtl", "v NaN 0 0", "f 1/99 2/1 3/1" })
         {
             File.WriteAllText(path, source + bad + "\n"); bool rejected = false;

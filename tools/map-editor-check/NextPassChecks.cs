@@ -57,6 +57,10 @@ internal static class NextPassChecks
         string Document(string? uri)=>JsonSerializer.Serialize(new{asset=new{version="2.0"},buffers=new[]{new{uri,byteLength=buffer.Length}},bufferViews=new[]{new{buffer=0,byteOffset=0,byteLength=36},new{buffer=0,byteOffset=36,byteLength=6}},accessors=new[]{new{bufferView=0,componentType=5126,count=3,type="VEC3"},new{bufferView=1,componentType=5123,count=3,type="SCALAR"}},meshes=new[]{new{primitives=new[]{new{attributes=new{POSITION=0},indices=1}}}},nodes=new[]{new{mesh=0,translation=new[]{2,3,4}}},scenes=new[]{new{nodes=new[]{0}}},scene=0},new JsonSerializerOptions{DefaultIgnoreCondition=System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull});
         string path=Path.Combine(folder,"scene.gltf");File.WriteAllText(path,Document("mesh.bin"));
         var model=ModelImportService.Import(path,new());check(model.Meshes.Count==1&&model.Meshes[0].Vertices[0].SequenceEqual(new[]{2f,3,4}),"glTF flattens scene transform");
+        check(model.Assets.Count==1&&model.Materials.Count==1&&model.Materials[0].Texture is {} defaultTexture
+            &&defaultTexture.StartsWith("textures/gltf-default-",StringComparison.Ordinal)
+            &&MapPackageReader.CanonicalName(defaultTexture)==defaultTexture,
+            "glTF primitive without a material gets a portable baked default texture");
         check(model.Dependencies.Count==2,"glTF records external buffer dependency");string hash=MapSourceFingerprint.Hash(model.Dependencies);buffer[0]=1;File.WriteAllBytes(Path.Combine(folder,"mesh.bin"),buffer);check(hash!=MapSourceFingerprint.Hash(model.Dependencies),"buffer change invalidates source fingerprint");buffer[0]=0;File.WriteAllBytes(Path.Combine(folder,"mesh.bin"),buffer);
         File.WriteAllText(path,Document("data:application/octet-stream;base64,"+Convert.ToBase64String(buffer)));check(ModelImportService.Import(path,new()).Meshes[0].Faces.Count==1,"glTF data URI buffers");
         byte[] json=Encoding.UTF8.GetBytes(Document(null));int padded=(json.Length+3)&~3;
