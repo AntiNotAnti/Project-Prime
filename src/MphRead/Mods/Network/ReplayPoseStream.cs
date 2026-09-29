@@ -118,7 +118,7 @@ internal sealed class ReplayPoseStream : IDisposable
             {
                 next = checked(origin + packet.Frame);
                 if (next > (ulong)frame + 6) break;
-                Accept(next, packet.Data); _pending = _reader.ReadNext();
+                AcceptRecorded(next, packet.Data); _pending = _reader.ReadNext();
             }
             else if (_clip != null && _index < _clip.Records.Count)
             {
@@ -139,6 +139,19 @@ internal sealed class ReplayPoseStream : IDisposable
             while (list.Count > 2 && ((ulong)list[1].Frame + 12 < frame || list.Count > 24)) list.RemoveAt(0);
         }
     }
+    private void AcceptRecorded(uint frame, ReadOnlySpan<byte> packet)
+    {
+        try
+        {
+            ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
+            if (!converted.IsEmpty) Accept(frame, converted);
+        }
+        catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
+        {
+            LastError = $"Legacy presentation record skipped at {frame}: {ex.Message}";
+        }
+    }
+
     private void Accept(uint frame, ReadOnlySpan<byte> packet)
     {
         if (packet.Length == 0 || packet[0] is 253 or 254 or 255) return;
