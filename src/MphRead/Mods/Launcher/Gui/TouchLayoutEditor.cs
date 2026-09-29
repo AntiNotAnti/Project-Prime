@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 using MphRead.Mods.Input;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -25,6 +27,10 @@ namespace MphRead.Mods.Launcher.Gui
         private TouchControl _selected = TouchControl.Shoot;
         private IPointer? _dragPointer;
         private bool _dragging;
+        private Vector _dragGrabOffset;
+        private ScrollViewer? _lockedScroller;
+        private Vector _lockedScrollOffset;
+        private bool _restoringScroll;
         private double _pinchDistance;
         private float _pinchScale = 1f;
         private float _buttonScale;
@@ -291,6 +297,70 @@ namespace MphRead.Mods.Launcher.Gui
             return null;
         }
 
+        /// <summary>
+        /// Freeze the Settings page while a button is being manipulated.
+        ///
+        /// TouchLayoutEditor lives inside the Controls page ScrollViewer. On a
+        /// phone that viewer can recognize the same drag as a page pan even
+        /// after this control captures the pointer, which makes the preview
+        /// move underneath the finger. Pin its offset for the lifetime of the
+        /// edit gesture and restore normal scrolling as soon as every editing
+        /// pointer is released.
+        /// </summary>
+        private void LockPageScroll()
+        {
+            if (_lockedScroller != null)
+            {
+                return;
+            }
+            _lockedScroller = this.GetVisualAncestors()
+                .OfType<ScrollViewer>()
+                .FirstOrDefault();
+            if (_lockedScroller == null)
+            {
+                return;
+            }
+            _lockedScrollOffset = _lockedScroller.Offset;
+            _lockedScroller.ScrollChanged += OnLockedScrollChanged;
+        }
+
+        private void UnlockPageScroll()
+        {
+            if (_lockedScroller == null)
+            {
+                return;
+            }
+            _lockedScroller.ScrollChanged -= OnLockedScrollChanged;
+            _lockedScroller.Offset = _lockedScrollOffset;
+            _lockedScroller = null;
+            _restoringScroll = false;
+        }
+
+        private void OnLockedScrollChanged(object? sender, ScrollChangedEventArgs e)
+        {
+            if (_lockedScroller == null || _restoringScroll)
+            {
+                return;
+            }
+            Vector offset = _lockedScroller.Offset;
+            if (Math.Abs(offset.X - _lockedScrollOffset.X) < 0.01
+                && Math.Abs(offset.Y - _lockedScrollOffset.Y) < 0.01)
+            {
+                return;
+            }
+            _restoringScroll = true;
+            _lockedScroller.Offset = _lockedScrollOffset;
+            _restoringScroll = false;
+        }
+
+        private void UnlockPageScrollIfIdle()
+        {
+            if (!_dragging && _touches.Count == 0)
+            {
+                UnlockPageScroll();
+            }
+        }
+
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
             base.OnPointerPressed(e);
@@ -309,6 +379,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _pinchDistance = TouchDistance();
                     _pinchScale = SelectedScale;
                     _dragging = false;
+                    LockPageScroll();
                     e.Pointer.Capture(this);
                     e.Handled = true;
                     return;
@@ -321,6 +392,10 @@ namespace MphRead.Mods.Launcher.Gui
                 Select(hit.Value);
                 _dragPointer = e.Pointer;
                 _dragging = true;
+                // Preserve where the player grabbed the icon instead of
+                // teleporting its centre under the finger on first movement.
+                _dragGrabOffset = CentreOf(hit.Value) - point;
+                LockPageScroll();
                 e.Pointer.Capture(this);
                 e.Handled = true;
             }
@@ -347,7 +422,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             Rect surface = Surface;
-            Point point = e.GetPosition(this);
+            Point point = e.GetPosition(this) + _dragGrabOffset;
             TouchButtonLayout current = LayoutOf(_selected);
             float x = (float)((point.X - surface.X) / Math.Max(1, surface.Width));
             float y = (float)((point.Y - surface.Y) / Math.Max(1, surface.Height));
@@ -368,6 +443,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _pinchDistance = 0;
             }
+            UnlockPageScrollIfIdle();
             e.Pointer.Capture(null);
         }
 
@@ -384,6 +460,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 _pinchDistance = 0;
             }
+            UnlockPageScrollIfIdle();
         }
 
         protected override void OnKeyDown(KeyEventArgs e)
