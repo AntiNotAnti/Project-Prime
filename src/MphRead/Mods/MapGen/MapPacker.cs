@@ -115,7 +115,7 @@ namespace MphRead.Mods.MapGen
                 return BuildModel(map, own);
             }
             Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelForExport(def.TextureSource) : null;
-            Recolor? recolor = source?.Recolors[0];
+            Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             // copy only the textures the map asks for, remapping the IDs as we
             // go -- the texture and its palette are copied as a pair, so a
             // material can never end up wearing someone else's colours
@@ -137,34 +137,33 @@ namespace MphRead.Mods.MapGen
                         diffuse:new ColorRgb(31,31,31),ambient:new ColorRgb(0,0,0)));
                     continue;
                 }
-                if(source==null||recolor==null)throw new MapAuthoringException("FP-MAP-001","Missing source material.");
+                if(source==null)throw new MapAuthoringException("FP-MAP-001","Missing source material.");
                 if (mapMaterial.SourceMaterial < 0 || mapMaterial.SourceMaterial >= source.Materials.Count)
                 {
                     throw new ProgramException($"{def.TextureSource} has no material {mapMaterial.SourceMaterial}.");
                 }
                 Material srcMaterial = source.Materials[mapMaterial.SourceMaterial];
-                if (srcMaterial.TextureId < 0 || srcMaterial.PaletteId < 0)
+                int textureId = -1, paletteId = -1;
+                if (srcMaterial.TextureId >= 0 && srcMaterial.PaletteId >= 0)
                 {
-                    throw new ProgramException(
-                        $"Material {mapMaterial.SourceMaterial} of {def.TextureSource} has no texture.");
+                    if (recolor == null)
+                        throw new MapAuthoringException("FP-MAP-001", "Textured source material has no recolor data.");
+                    if (!textureMap.TryGetValue(srcMaterial.TextureId, out textureId))
+                    {
+                        textureId = textures.Count;
+                        textures.Add(Repack.ConvertData(recolor.Textures[srcMaterial.TextureId],
+                            recolor.TextureData[srcMaterial.TextureId]));
+                        textureMap.Add(srcMaterial.TextureId, textureId);
+                    }
+                    if (!paletteMap.TryGetValue(srcMaterial.PaletteId, out paletteId))
+                    {
+                        paletteId = palettes.Count;
+                        palettes.Add(new Repack.PaletteInfo(recolor.PaletteData[srcMaterial.PaletteId]
+                            .Select(d => d.Data).ToList()));
+                        paletteMap.Add(srcMaterial.PaletteId, paletteId);
+                    }
                 }
-                if (!textureMap.TryGetValue(srcMaterial.TextureId, out int textureId))
-                {
-                    textureId = textures.Count;
-                    textures.Add(Repack.ConvertData(recolor.Textures[srcMaterial.TextureId],
-                        recolor.TextureData[srcMaterial.TextureId]));
-                    textureMap.Add(srcMaterial.TextureId, textureId);
-                }
-                if (!paletteMap.TryGetValue(srcMaterial.PaletteId, out int paletteId))
-                {
-                    paletteId = palettes.Count;
-                    palettes.Add(new Repack.PaletteInfo(recolor.PaletteData[srcMaterial.PaletteId]
-                        .Select(d => d.Data).ToList()));
-                    paletteMap.Add(srcMaterial.PaletteId, paletteId);
-                }
-                materials.Add(RawStructs.MakeMaterial(mapMaterial.Name, textureId, paletteId,
-                    RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
-                    diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
+                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId, paletteId));
             }
             if (materials.Count == 0)
             {
@@ -336,7 +335,7 @@ namespace MphRead.Mods.MapGen
             // appended after the BSP set.
             Model? source = def.Materials.Any(m => m.Texture == null)
                 ? Read.GetRoomModelForExport(def.TextureSource) : null;
-            Recolor? recolor = source?.Recolors[0];
+            Recolor? recolor = source != null && source.Recolors.Count > 0 ? source.Recolors[0] : null;
             var sourceTextures = new Dictionary<int, int>();
             var sourcePalettes = new Dictionary<int, int>();
             foreach (MapMaterial mapMaterial in def.Materials)
@@ -356,30 +355,32 @@ namespace MphRead.Mods.MapGen
                         diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
                     continue;
                 }
-                if (source == null || recolor == null)
+                if (source == null)
                     throw new MapAuthoringException("FP-MAP-001", "Missing source material.");
                 if (mapMaterial.SourceMaterial < 0 || mapMaterial.SourceMaterial >= source.Materials.Count)
                     throw new ProgramException($"{def.TextureSource} has no material {mapMaterial.SourceMaterial}.");
                 Material srcMaterial = source.Materials[mapMaterial.SourceMaterial];
-                if (srcMaterial.TextureId < 0 || srcMaterial.PaletteId < 0)
-                    throw new ProgramException($"Material {mapMaterial.SourceMaterial} of {def.TextureSource} has no texture.");
-                if (!sourceTextures.TryGetValue(srcMaterial.TextureId, out int textureId2))
+                int textureId2 = -1, paletteId2 = -1;
+                if (srcMaterial.TextureId >= 0 && srcMaterial.PaletteId >= 0)
                 {
-                    textureId2 = textures.Count;
-                    textures.Add(Repack.ConvertData(recolor.Textures[srcMaterial.TextureId],
-                        recolor.TextureData[srcMaterial.TextureId]));
-                    sourceTextures.Add(srcMaterial.TextureId, textureId2);
+                    if (recolor == null)
+                        throw new MapAuthoringException("FP-MAP-001", "Textured source material has no recolor data.");
+                    if (!sourceTextures.TryGetValue(srcMaterial.TextureId, out textureId2))
+                    {
+                        textureId2 = textures.Count;
+                        textures.Add(Repack.ConvertData(recolor.Textures[srcMaterial.TextureId],
+                            recolor.TextureData[srcMaterial.TextureId]));
+                        sourceTextures.Add(srcMaterial.TextureId, textureId2);
+                    }
+                    if (!sourcePalettes.TryGetValue(srcMaterial.PaletteId, out paletteId2))
+                    {
+                        paletteId2 = palettes.Count;
+                        palettes.Add(new Repack.PaletteInfo(recolor.PaletteData[srcMaterial.PaletteId]
+                            .Select(d => d.Data).ToList()));
+                        sourcePalettes.Add(srcMaterial.PaletteId, paletteId2);
+                    }
                 }
-                if (!sourcePalettes.TryGetValue(srcMaterial.PaletteId, out int paletteId2))
-                {
-                    paletteId2 = palettes.Count;
-                    palettes.Add(new Repack.PaletteInfo(recolor.PaletteData[srcMaterial.PaletteId]
-                        .Select(d => d.Data).ToList()));
-                    sourcePalettes.Add(srcMaterial.PaletteId, paletteId2);
-                }
-                materials.Add(RawStructs.MakeMaterial(mapMaterial.Name, textureId2, paletteId2,
-                    RepeatMode.Repeat, RepeatMode.Repeat, lighting: false,
-                    diffuse: new ColorRgb(31, 31, 31), ambient: new ColorRgb(0, 0, 0)));
+                materials.Add(RawStructs.MakeSourceMaterial(mapMaterial.Name, srcMaterial, textureId2, paletteId2));
             }
             if (materials.Count == 0)
             {

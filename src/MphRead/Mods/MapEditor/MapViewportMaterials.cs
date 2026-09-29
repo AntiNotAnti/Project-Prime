@@ -68,14 +68,26 @@ public static class MapViewportMaterials
                     var model = Read.GetRoomModelInstance(definition.TextureSource).Model;
                     if (material.SourceMaterial < 0 || material.SourceMaterial >= model.Materials.Count) continue;
                     var source = model.Materials[material.SourceMaterial];
-                    if (source.TextureId < 0 || source.PaletteId < 0) continue;
-                    var recolor = model.Recolors[0]; var entry = recolor.Textures[source.TextureId];
-                    texture = new($"native/{definition.TextureSource}/{material.SourceMaterial}", entry.Width, entry.Height,
-                        recolor.GetPixels(source.TextureId, source.PaletteId).ToArray());
+                    if (source.TextureId < 0 || source.PaletteId < 0)
+                    {
+                        int red=Math.Max((int)source.Diffuse.Red,source.Ambient.Red);
+                        int green=Math.Max((int)source.Diffuse.Green,source.Ambient.Green);
+                        int blue=Math.Max((int)source.Diffuse.Blue,source.Ambient.Blue);
+                        var pixel=new ColorRgba((byte)(red*255/31),(byte)(green*255/31),(byte)(blue*255/31),
+                            (byte)(source.Alpha*255/31));
+                        texture=new($"native-flat/{definition.TextureSource}/{material.SourceMaterial}/{red}/{green}/{blue}/{source.Alpha}",
+                            1,1,new[]{pixel});
+                    }
+                    else
+                    {
+                        var recolor = model.Recolors[0]; var entry = recolor.Textures[source.TextureId];
+                        texture = new($"native/{definition.TextureSource}/{material.SourceMaterial}", entry.Width, entry.Height,
+                            recolor.GetPixels(source.TextureId, source.PaletteId).ToArray());
+                    }
                 }
                 result[(false, i)] = texture; result[(true, i + offset)] = texture;
             }
-            catch (Exception ex) when (ex is System.IO.IOException or ProgramException or ArgumentException or InvalidOperationException) { }
+            catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException or ProgramException or ArgumentException or InvalidOperationException) { }
         }
         return result;
     }

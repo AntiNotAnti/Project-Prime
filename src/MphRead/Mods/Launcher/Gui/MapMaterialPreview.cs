@@ -24,11 +24,24 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 var model=Read.GetRoomModelInstance(definition.TextureSource).Model;
                 if(material.SourceMaterial<0||material.SourceMaterial>=model.Materials.Count)throw new ArgumentException("Choose an existing source material.");
-                var source=model.Materials[material.SourceMaterial];var recolor=model.Recolors[0];
-                if(source.TextureId<0||source.PaletteId<0)throw new ArgumentException("Source material has no texture.");
-                var texture=recolor.Textures[source.TextureId];width=texture.Width;height=texture.Height;
-                pixels=recolor.GetPixels(source.TextureId,source.PaletteId).ToArray();
-                details=$"{definition.TextureSource}\n{source.Name} · {width} × {height} · {texture.Format}";
+                var source=model.Materials[material.SourceMaterial];
+                if(source.TextureId<0||source.PaletteId<0)
+                {
+                    int red=Math.Max((int)source.Diffuse.Red,source.Ambient.Red);
+                    int green=Math.Max((int)source.Diffuse.Green,source.Ambient.Green);
+                    int blue=Math.Max((int)source.Diffuse.Blue,source.Ambient.Blue);
+                    pixels=new[]{new ColorRgba((byte)(red*255/31),(byte)(green*255/31),(byte)(blue*255/31),
+                        (byte)(source.Alpha*255/31))};
+                    width=height=1;
+                    details=$"{definition.TextureSource}\n{source.Name} · flat native material · no texture";
+                }
+                else
+                {
+                    var recolor=model.Recolors[0];var texture=recolor.Textures[source.TextureId];
+                    width=texture.Width;height=texture.Height;
+                    pixels=recolor.GetPixels(source.TextureId,source.PaletteId).ToArray();
+                    details=$"{definition.TextureSource}\n{source.Name} · {width} × {height} · {texture.Format}";
+                }
             }
             var bitmap=new WriteableBitmap(new PixelSize(64,64),new Avalonia.Vector(96,96),PixelFormat.Bgra8888,AlphaFormat.Unpremul);
             using(var buffer=bitmap.Lock())

@@ -219,9 +219,17 @@ public static class Q3ImportService
     {
         string root = Path.GetDirectoryName(Path.GetFullPath(projectPath))
             ?? throw new IOException("Project path has no directory.");
+        IReadOnlyList<string>? dependencies=options.Dependencies;
+        if(dependencies==null||dependencies.Count==0)
+            dependencies=Q3ImportManifest.Load(root)?.DependencyArchives();
         string tempDestination = Path.Combine(Path.GetTempPath(), "ProjectPrime-reimport-"
             + Guid.NewGuid().ToString("N"));
-        var request = options with { DestinationDirectory = tempDestination, RoomName = existing.Name };
+        var request = options with
+        {
+            DestinationDirectory = tempDestination,
+            RoomName = existing.Name,
+            Dependencies = dependencies
+        };
         Result imported = Import(request, cancellation);
         if (!imported.Succeeded || imported.ProjectPath == null) return imported;
         try

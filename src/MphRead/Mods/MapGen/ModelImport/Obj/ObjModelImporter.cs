@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -31,7 +32,7 @@ public sealed class ObjModelImporter : IModelImporter
         long textureBytes = 0;
         int triangleCount = 0;
         var textures = new Dictionary<string, string>(StringComparer.Ordinal);
-        int activeMaterial = Material("Default"); string label = Path.GetFileNameWithoutExtension(path);
+        int activeMaterial = -1; string label = Path.GetFileNameWithoutExtension(path);
         MapMesh? mesh = null; int faces = 0;
         int Material(string name)
         {
@@ -79,8 +80,8 @@ public sealed class ObjModelImporter : IModelImporter
                                     if (!defined.Add(name)) Warn("Duplicate material: " + name);
                                     current = Material(name); break;
                                 case "map_Kd" when current >= 0:
-                                    string imageName = string.Join(" ", f.Skip(1));
-                                    if (imageName.StartsWith('-')) { Warn("Unsupported map_Kd options: " + imageName); break; }
+                                    string? imageName = DiffuseMapPath(f, Warn);
+                                    if (imageName == null) break;
                                     string image = Resolve(root, Path.GetDirectoryName(mtl)!, imageName);
                                     if (!File.Exists(image)) { Warn("Missing texture: " + imageName); break; }
                                     if (new FileInfo(image).Length > MaxSourceBytes) throw new InvalidDataException("Texture exceeds source byte limit.");
@@ -88,7 +89,7 @@ public sealed class ObjModelImporter : IModelImporter
                                     if (!textures.TryGetValue(hash, out string? asset))
                                     {
                                         if (textures.Count >= 128) throw new InvalidDataException("Model exceeds 128 textures.");
-                                        asset = "assets/model-" + hash + ".tex";
+                                        asset = "textures/model-" + hash + ".tex";
                                         byte[] imageBytes = File.ReadAllBytes(image);
                                         if ((textureBytes += imageBytes.Length) > 128 * 1024 * 1024) throw new InvalidDataException("Model textures exceed byte budget.");
                                         ValidateImage(imageBytes);
@@ -112,6 +113,7 @@ public sealed class ObjModelImporter : IModelImporter
                     if (fields.Length is < 4 or > 33) throw new InvalidDataException("OBJ faces require 3–32 corners.");
                     Limit(faces++);
                     mesh ??= NewMesh();
+                    if(activeMaterial<0)activeMaterial=Material("Default");
                     var indices = new int[fields.Length - 1]; var coords = new float[indices.Length][]; bool completeUv = true;
                     for (int i = 0; i < indices.Length; i++)
                     {
@@ -124,7 +126,9 @@ public sealed class ObjModelImporter : IModelImporter
                     }
                     if (!completeUv) Warn("Faces without complete UVs use projected mapping.");
                     if (settings.FlipWinding) { Array.Reverse(indices); Array.Reverse(coords); }
-                    foreach (int[] triangle in Triangulate(indices.Select(i => new Vector3(vertices[i][0], vertices[i][1], vertices[i][2])).ToArray()))
+                    Vector3[] polygon=indices.Select(i => new Vector3(vertices[i][0], vertices[i][1], vertices[i][2])).ToArray();
+                    if(IsNonPlanar(polygon))Warn("Non-planar OBJ polygons were triangulated automatically.");
+                    foreach (int[] triangle in Triangulate(polygon))
                     {
                         Limit(triangleCount++);
                         mesh.Faces.Add(triangle.Select(i => indices[i]).ToArray()); mesh.FaceMaterials.Add(activeMaterial);
@@ -136,6 +140,14 @@ public sealed class ObjModelImporter : IModelImporter
             }
         }
         if (meshes.Count == 0) throw new InvalidDataException("Model contains no faces.");
+        if(materials.Any(material=>material.Texture==null))
+        {
+            byte[] fallback=Solid(1,1,1);
+            string fallbackAsset="textures/model-default-"
+                +Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(fallback)).ToLowerInvariant()+".tex";
+            assets.TryAdd(fallbackAsset,fallback);assetSources.TryAdd(fallbackAsset,path);
+            foreach(var material in materials)material.Texture??=fallbackAsset;
+        }
         foreach (var item in meshes)
         {
             // Remap each group to its own compact vertex table, preserving face-corner UV seams.
@@ -177,10 +189,31 @@ public sealed class ObjModelImporter : IModelImporter
         }
         if (line.Length > 0) yield return line.ToString();
     }
+    private static string SafeSourceRelativePath(string relative)
+    {
+        relative=relative.Trim().Trim('"').Replace('\\','/');
+        if(string.IsNullOrWhiteSpace(relative)||relative.Length>240||relative.StartsWith('/')
+            ||relative.Contains(':')||relative.Any(ch=>ch<32||"<>\"|?*".Contains(ch)))
+            throw new InvalidDataException("Unsafe model asset path.");
+        foreach(string part in relative.Split('/'))
+        {
+            if(part is "" or "." or ".."||part.Trim()!=part||part.EndsWith('.'))
+                throw new InvalidDataException("Unsafe model asset path.");
+            string stem=part.Split('.')[0].TrimEnd(' ','.').ToUpperInvariant();
+            if(stem is "CON" or "PRN" or "AUX" or "NUL"
+                ||stem.Length==4&&(stem.StartsWith("COM",StringComparison.Ordinal)
+                    ||stem.StartsWith("LPT",StringComparison.Ordinal))&&stem[3] is >= '1' and <= '9')
+                throw new InvalidDataException("Unsafe model asset path.");
+        }
+        return relative;
+    }
+
     private static string Resolve(string root, string directory, string relative)
     {
-        // Validate before fallback lookup; missing malicious paths are still rejected.
-        relative = relative.Replace('\\', '/'); MapPackageReader.CanonicalName(relative);
+        // Source dependencies are ordinary authoring filenames, not package entry
+        // names. Validate traversal and Windows-unsafe forms without imposing the
+        // package/runtime naming policy on legitimate OBJ/MTL texture filenames.
+        relative = SafeSourceRelativePath(relative);
         if (relative.Split('/').Length > 16) throw new InvalidDataException("Model path is too deep.");
         string candidate = Path.GetFullPath(Path.Combine(directory, relative));
         foreach (string path in new[] { candidate, Path.Combine(root, relative), Path.Combine(directory, Path.GetFileName(relative)), Path.Combine(directory, "textures", Path.GetFileName(relative)), Path.Combine(root, "textures", Path.GetFileName(relative)) }.Distinct())
@@ -205,6 +238,39 @@ public sealed class ObjModelImporter : IModelImporter
         }
         return candidate;
     }
+    private static string? DiffuseMapPath(string[] fields, Action<string> warn)
+    {
+        int at=1;bool options=false;
+        while(at<fields.Length&&fields[at].StartsWith("-",StringComparison.Ordinal))
+        {
+            options=true;string option=fields[at++].ToLowerInvariant();
+            if(option is "-o" or "-s" or "-t")
+            {
+                int count=0;
+                while(at<fields.Length&&count<3
+                    &&float.TryParse(fields[at],NumberStyles.Float,CultureInfo.InvariantCulture,out _))
+                {at++;count++;}
+                if(count==0){warn("Invalid map_Kd option: "+option);return null;}
+                continue;
+            }
+            int arguments=option switch
+            {
+                "-blendu" or "-blendv" or "-boost" or "-bm" or "-cc" or "-clamp"
+                    or "-colorspace" or "-imfchan" or "-texres" or "-type"=>1,
+                "-mm"=>2,
+                _=>-1
+            };
+            if(arguments<0||at+arguments>fields.Length)
+            {warn("Unsupported map_Kd option: "+option);return null;}
+            at+=arguments;
+        }
+        if(at>=fields.Length){warn("map_Kd has no texture path.");return null;}
+        if(options)warn("map_Kd options are ignored; the diffuse image is still imported.");
+        string path=string.Join(" ",fields.Skip(at)).Trim().Trim('"');
+        if(path.Length==0){warn("map_Kd has no texture path.");return null;}
+        return path;
+    }
+
     internal static void ValidateImage(byte[] bytes)
     {
         // Inspect dimensions before handing hostile input to the native decoder.
@@ -232,8 +298,19 @@ public sealed class ObjModelImporter : IModelImporter
                 at += length;
             }
         }
+        else if(bytes.Length>=26&&bytes[0]=='B'&&bytes[1]=='M')
+        {
+            width=BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(18));
+            int rawHeight=BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(22));
+            height=rawHeight==int.MinValue?0:Math.Abs(rawHeight);
+        }
+        else if(bytes.Length>=18&&bytes[2] is 1 or 2 or 3 or 9 or 10 or 11)
+        {
+            width=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(12));
+            height=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(14));
+        }
         if (width is < 1 or > 4096 || height is < 1 or > 4096)
-            throw new InvalidDataException("Model textures must be PNG or JPEG with dimensions at most 4096×4096.");
+            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 4096×4096.");
     }
 
     internal static byte[] Solid(float r, float g, float b)
@@ -244,13 +321,26 @@ public sealed class ObjModelImporter : IModelImporter
         writer.Write((ushort)((int)(Math.Clamp(r, 0, 1) * 31) | ((int)(Math.Clamp(g, 0, 1) * 31) << 5) | ((int)(Math.Clamp(b, 0, 1) * 31) << 10)));
         writer.Write(new byte[4096]); return stream.ToArray();
     }
+    private static bool IsNonPlanar(Vector3[] points)
+    {
+        if(points.Length<4)return false;
+        var normal=Vector3.Zero;
+        for(int i=0;i<points.Length;i++)normal+=Vector3.Cross(points[i],points[(i+1)%points.Length]);
+        if(normal.LengthSquared()<1e-12f)return false;
+        normal=Vector3.Normalize(normal);
+        return points.Any(point=>MathF.Abs(Vector3.Dot(point-points[0],normal))>.01f);
+    }
+
     private static IEnumerable<int[]> Triangulate(Vector3[] points)
     {
         var normal = Vector3.Zero;
         for (int i = 0; i < points.Length; i++) normal += Vector3.Cross(points[i], points[(i + 1) % points.Length]);
         if (normal.LengthSquared() < 1e-12f) throw new InvalidDataException("Degenerate OBJ polygon.");
         normal = Vector3.Normalize(normal);
-        if (points.Any(p => MathF.Abs(Vector3.Dot(p - points[0], normal)) > .01f)) throw new InvalidDataException("Non-planar OBJ polygon; triangulate it before export.");
+        // Ear clipping happens in the dominant 2D projection, while emitted
+        // triangles retain the original 3D vertices. This intentionally accepts
+        // warped quads/n-gons exported by Blender and similar tools instead of
+        // forcing authors to triangulate them before import.
         int axis = Math.Abs(normal.X) > Math.Abs(normal.Y) ? 0 : 1;
         if (Math.Abs(normal.Z) > Math.Abs(axis == 0 ? normal.X : normal.Y)) axis = 2;
         var projected = points.Select(p => axis == 0 ? new Vector2(p.Y, p.Z) : axis == 1 ? new Vector2(p.Z, p.X) : new Vector2(p.X, p.Y)).ToArray();

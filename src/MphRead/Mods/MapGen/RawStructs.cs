@@ -96,6 +96,51 @@ namespace MphRead.Mods.MapGen
             return new Material(Marshal<RawMaterial>(stream));
         }
 
+        /// <summary>
+        /// Rebuild a material borrowed from a shipped room while remapping its texture and palette.
+        /// Static render state is preserved; animation table references are cleared because custom
+        /// room models do not carry the source room's material/texture animation tables.
+        /// A texture/palette pair of -1 is valid for native flat-color materials.
+        /// </summary>
+        public static Material MakeSourceMaterial(string name, Material source, int textureId, int paletteId)
+        {
+            using var stream = new MemoryStream();
+            using var writer = new BinaryWriter(stream);
+            WriteFixedString(writer, name, 64);
+            writer.Write(source.Lighting);
+            writer.Write((byte)source.Culling);
+            writer.Write(source.Alpha);
+            writer.Write(source.Wireframe);
+            writer.Write((short)paletteId);
+            writer.Write((short)textureId);
+            writer.Write((byte)source.XRepeat);
+            writer.Write((byte)source.YRepeat);
+            WriteColorRgb(writer, source.Diffuse);
+            WriteColorRgb(writer, source.Ambient);
+            WriteColorRgb(writer, source.Specular);
+            writer.Write((byte)0); // Padding53
+            writer.Write((uint)source.PolygonMode);
+            writer.Write((byte)source.RenderMode);
+            writer.Write((byte)0); // AnimationFlags; source animation tables are not packed.
+            writer.Write((ushort)0); // Padding5A
+            writer.Write((uint)source.TexgenMode);
+            writer.Write((ushort)0); // TexcoordAnimationId
+            writer.Write((ushort)0); // Padding62
+            writer.Write(0u); // MatrixId is recomputed by Repack.PackModel.
+            writer.Write(Fixed.ToInt(source.ScaleS));
+            writer.Write(Fixed.ToInt(source.ScaleT));
+            writer.Write((ushort)((int)MathF.Round(source.RotateZ / (2 * MathF.PI) * 65536f) & 0xFFFF));
+            writer.Write((ushort)0); // Padding72
+            writer.Write(Fixed.ToInt(source.TranslateS));
+            writer.Write(Fixed.ToInt(source.TranslateT));
+            writer.Write((ushort)0); // MaterialAnimationId
+            writer.Write((ushort)0); // TextureAnimationId
+            writer.Write((byte)0); // PackedRepeatMode
+            writer.Write((byte)0); // Padding81
+            writer.Write((ushort)0); // Padding82
+            return new Material(Marshal<RawMaterial>(stream));
+        }
+
         public static Mesh MakeMesh(int materialId, int dlistId)
         {
             using var stream = new MemoryStream();
