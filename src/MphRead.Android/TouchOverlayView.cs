@@ -119,17 +119,19 @@ namespace MphRead.Droid
                 }
                 return;
             }
-            if (_controls.PadDriving)
+            // Controller activity must not change presentation. Enabled touch
+            // targets remain visually stable at the opacity the player chose,
+            // while the overlay continues to receive touches in mixed
+            // controller/touch play.
+            float opacity = MphRead.Mods.Input.TouchSettings.OverlayOpacity;
+            if (opacity <= 0f)
             {
-                // A pad is being held: nothing is drawn, and the view stays
-                // where it is rather than going away. It is still the only
-                // thing receiving touches, and the first one brings the
-                // controls back -- see TouchControls.PointerDown.
+                // Drawing nothing does not disable hit testing: OnTouchEvent
+                // still hands every contact to TouchControls.
                 return;
             }
             float unit = Math.Max(1f, Height / 100f);
             _stroke.StrokeWidth = Math.Max(2f, unit * 0.22f);
-            float opacity = MphRead.Mods.Input.TouchSettings.OverlayOpacity;
             foreach (TouchButton button in _controls.Buttons)
             {
                 if (!button.Visible)
