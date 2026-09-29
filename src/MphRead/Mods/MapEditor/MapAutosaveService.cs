@@ -46,7 +46,9 @@ public sealed class MapAutosaveService : IDisposable
                 var definition = payload.Snapshot.CreateDefinition();
                 AtomicFile.Write(payload.Path + ".context.json", JsonSerializer.SerializeToUtf8Bytes(new
                 { payload.FilePath, payload.BaseDirectory, payload.BundlePath }));
-                definition.Save(payload.Path);
+                // Autosave must preserve the detached snapshot byte-for-byte in
+                // semantic ordering. Normal Save canonicalizes project collections.
+                AtomicFile.Write(payload.Path, System.Text.Encoding.UTF8.GetBytes(definition.Serialize()));
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException) { error = ex.Message; }
             lock (_gate) if (!_disposed)

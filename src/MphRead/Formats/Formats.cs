@@ -1444,8 +1444,10 @@ namespace MphRead
         public static string MphKey { get; set; } = Ver.AMHE0;
         public static string FhKey { get; set; } = Ver.AMFE0;
 
-        public static string FileSystem => _allPaths[MphKey];
-        public static string FhFileSystem => _allPaths[FhKey];
+        public static string FileSystem =>
+            AllPaths.TryGetValue(MphKey, out string? path) ? path : "";
+        public static string FhFileSystem =>
+            AllPaths.TryGetValue(FhKey, out string? path) ? path : "";
         /// <summary>
         /// Where anything this program writes goes: recordings, exports,
         /// screenshots. Empty until paths.txt has been read, and empty rather
