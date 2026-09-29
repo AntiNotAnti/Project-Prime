@@ -447,6 +447,7 @@ namespace MphRead.Mods.Network
             Array.Clear(SlotOccupied);
             Array.Clear(SlotIsBot);
             Array.Clear(SlotBotLevel);
+            Array.Clear(SlotDamageReduction);
             SnapshotsReceived = 0;
             SnapshotsSent = 0;
             SnapshotsOutOfOrder = 0;
@@ -1448,6 +1449,7 @@ namespace MphRead.Mods.Network
             Array.Clear(SlotOccupied);
             Array.Clear(SlotIsBot);
             Array.Clear(SlotBotLevel);
+            Array.Clear(SlotDamageReduction);
             Array.Clear(SlotLobbyReady);
             Array.Fill(SlotTeamIndex, (sbyte)-1);
             for (int i = 0; i < roster.Count; i++)
@@ -1468,6 +1470,7 @@ namespace MphRead.Mods.Network
                 MatchContainsBots |= SlotIsBot[slot];
                 SlotTeamIndex[slot] = roster.Teams[i];
                 SlotLobbyReady[slot] = roster.LobbyReady[i];
+                SlotDamageReduction[slot] = roster.DamageReductions[i];
                 // Nicknames is what the scoreboard draws, so writing here is
                 // what makes the other player's name appear on Tab.
                 GameState.Nicknames[slot] = roster.Names[i];
@@ -1547,6 +1550,7 @@ namespace MphRead.Mods.Network
                     Array.Clear(SlotOccupied);
                     Array.Clear(SlotIsBot);
                     Array.Clear(SlotBotLevel);
+            Array.Clear(SlotDamageReduction);
                     IsAuthority = false;
                     if (!_playback && Role == NetRole.Client)
                     {
