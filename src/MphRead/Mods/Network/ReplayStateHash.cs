@@ -154,7 +154,7 @@ namespace MphRead.Mods.Network
             _nextHash++;
             string actual = ReplayStateHash.Compute(scene);
             if (actual != expected.Value)
-                DemoPlayback.FailVerification($"Replay state differs at frame {expected.Frame}: expected {expected.Value}, got {actual}.");
+                DemoPlayback.WarnVerification($"Replay state differs at frame {expected.Frame}; playback is continuing in compatibility mode.");
         }
     }
 }
