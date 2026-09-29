@@ -13,6 +13,7 @@ namespace MphRead.Mods.Network
         public static MatchDefinition? ActiveMatchDefinition => ServerSession?.Match;
         public static readonly sbyte[] SlotTeamIndex = new sbyte[PlayerEntity.SlotCapacity];
         public static readonly bool[] SlotLobbyReady = new bool[PlayerEntity.SlotCapacity];
+        public static readonly byte[] SlotDamageReduction = new byte[PlayerEntity.SlotCapacity];
         public static bool LocalIsLobbyOwner => LocalSlot >= 0 && ServerSession?.OwnerSlot == LocalSlot;
         public static bool IsInLobby => SessionPhase == SessionPhase.Lobby;
         public static bool IsStarting => SessionPhase == SessionPhase.Starting;
@@ -100,14 +101,14 @@ namespace MphRead.Mods.Network
 
         public static bool SendLobbyCommand(LobbyCommandType type, byte targetSlot = 255,
             sbyte team = -1, bool ready = false, SessionStatePacket? configuration = null,
-            byte hunter = 0, byte color = 0, byte botLevel = 1)
+            byte hunter = 0, byte color = 0, byte botLevel = 1, byte damageReduction = 0)
         {
             if (!Active || ServerSession == null || _pendingLobby.Count != 0) return false;
             uint id = ++_nextCommandId;
             if (id == 0) id = ++_nextCommandId;
             var command = new LobbyCommandPacket { CommandId = id, ExpectedRevision = SessionRevision,
                 Type = type, TargetSlot = targetSlot, TeamIndex = team, Ready = ready,
-                Hunter = hunter, Color = color, BotLevel = botLevel,
+                Hunter = hunter, Color = color, BotLevel = botLevel, DamageReduction = damageReduction,
                 Configuration = configuration ?? ServerSession.Value };
             var pending = new PendingLobbyCommand { Packet = command, SentAt = Clock, Attempts = 0 };
             _pendingLobby.Add(id, pending);
@@ -411,7 +412,7 @@ namespace MphRead.Mods.Network
             ResetStartCountdown();
             _loadingFrameHeld = false;
             _lastLoadAck = _lastLoadProgress = _lastIdentity = 0; _mapReportSequence = 0;
-            Array.Fill(SlotTeamIndex, (sbyte)-1); Array.Clear(SlotLobbyReady);
+            Array.Fill(SlotTeamIndex, (sbyte)-1); Array.Clear(SlotLobbyReady); Array.Clear(SlotDamageReduction);
             Chat.NetChat.Clear();
         }
 
@@ -434,6 +435,7 @@ namespace MphRead.Mods.Network
                 roster.Pings[at] = (ushort)SlotPing[slot];
                 roster.Flags[at] = SlotIsBot[slot] ? (byte)1 : (byte)0;
                 roster.BotLevels[at] = SlotBotLevel[slot];
+                roster.DamageReductions[at] = SlotDamageReduction[slot];
             }
             return roster;
         }

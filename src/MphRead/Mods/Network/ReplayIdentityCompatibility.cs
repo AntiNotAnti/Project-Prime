@@ -12,6 +12,19 @@ internal static class ReplayIdentityCompatibility
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
     {
         var converted = ConvertIdentity(packet, protocol);
+        if (protocol < 33 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.Roster
+            && converted.Length == 1 + RosterPacket.LegacySize)
+        {
+            byte[] expanded = New(PacketType.Roster, RosterPacket.Size);
+            converted.Slice(1, RosterPacket.HeaderSize).CopyTo(expanded.AsSpan(1));
+            for (int i = 0; i < RosterPacket.MaxSlots; i++)
+            {
+                converted.Slice(1 + RosterPacket.HeaderSize + i * RosterPacket.LegacyEntrySize,
+                        RosterPacket.LegacyEntrySize)
+                    .CopyTo(expanded.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize));
+            }
+            converted = expanded; // new handicap byte remains zero for legacy recordings
+        }
         if (protocol < 30 && !converted.IsEmpty && (PacketType)converted[0] is PacketType.Intent or PacketType.SlotIntent)
         {
             int prefix = (PacketType)converted[0] == PacketType.SlotIntent ? 2 : 1;

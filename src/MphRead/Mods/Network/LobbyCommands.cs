@@ -213,6 +213,21 @@ namespace MphRead.Mods.Network
                     target.TeamIndex = requestedTeam;
                     target.LobbyReady = false;
                     break;
+                case LobbyCommandType.SetHandicap:
+                    if (!PlayerHandicap.IsValid(command.DamageReduction))
+                    { reason = "Choose a damage reduction from 0% to 50% in 10% steps."; return LobbyResultCode.InvalidConfiguration; }
+                    var handicapBot = FindBot(command.TargetSlot);
+                    if (handicapBot != null)
+                    {
+                        handicapBot.DamageReduction = command.DamageReduction;
+                        break;
+                    }
+                    Peer? handicapTarget = _peers.Find(p => p.SlotIndex == command.TargetSlot);
+                    if (handicapTarget == null)
+                    { reason = "That player has left."; return LobbyResultCode.TargetNotFound; }
+                    handicapTarget.DamageReduction = command.DamageReduction;
+                    handicapTarget.LobbyReady = false;
+                    break;
                 case LobbyCommandType.UpdateMatch:
                     var proposed = command.Configuration.Match;
                     var valid = LobbyRules.ValidateDefinition(proposed, out reason);

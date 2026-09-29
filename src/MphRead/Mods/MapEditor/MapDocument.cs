@@ -149,7 +149,10 @@ namespace MphRead.Mods.MapEditor
             {
                 string path=RecoveryPath(directory);
                 AtomicFile.Write(path+".context.json",JsonSerializer.SerializeToUtf8Bytes(new RecoveryContext(FilePath,Project.Definition.BaseDirectory,Project.Definition.BundlePath)));
-                Project.Definition.Save(path);
+                // Recovery is an exact editor snapshot. Normal Save canonicalizes
+                // collection order for portable project files, which changes the
+                // live document's ordering and breaks recovery identity.
+                AtomicFile.Write(path, System.Text.Encoding.UTF8.GetBytes(Project.Definition.Serialize()));
             }
         }
         private sealed record RecoveryContext(string? FilePath,string? BaseDirectory,string? BundlePath);

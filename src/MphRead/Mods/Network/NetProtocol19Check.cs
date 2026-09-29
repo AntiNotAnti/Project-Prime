@@ -37,6 +37,22 @@ public static class NetProtocol19Check
                 NetHitClaims.Tick();
                 NetUnlagged.Record(NetSession.NetFrame);
             }
+            roster.DamageReductions[1] = 50;
+            roster.Revision = 2;
+            NetSession.ApplyRoster(roster);
+            Prepare(100, 37);
+            victim.TakeDamage(20, DamageFlags.NoDmgInvuln, null, shooter);
+            Check(victim.Health == 90 && victim.Halfturret.Health == 37,
+                "victim handicap reduces authoritative incoming damage before routing");
+            Prepare(100, 37);
+            using (new NetDamage.ClaimScope(BeamType.PowerBeam))
+                victim.TakeDamage(10, DamageFlags.NoDmgInvuln, null, shooter);
+            Check(victim.Health == 90 && victim.Halfturret.Health == 37,
+                "rescued claim carries finalized handicap damage and is not reduced twice");
+            roster.DamageReductions[1] = 0;
+            roster.Revision = 3;
+            NetSession.ApplyRoster(roster);
+
             foreach (int body in new[] { 1, 9, 100 })
             foreach (int turret in new[] { 1, 37, 100 })
             foreach (uint damage in new uint[] { 1, 11, 64, 128, 256 })

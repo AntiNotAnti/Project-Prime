@@ -41,7 +41,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly TextBlock _startDetail;
         private readonly ScrollViewer _chatHistory;
         private readonly ChoiceRow _hunter, _suit, _team, _mode, _format;
-        private readonly ChoiceRow _target;
+        private readonly ChoiceRow _target, _handicap;
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _enhancedHunters, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
@@ -193,6 +193,24 @@ namespace MphRead.Mods.Launcher.Gui
             var advancedRules = RuleSection("ADVANCED", _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist);
 
             _target = new ChoiceRow("Player", Array.Empty<string>());
+            _handicap = new ChoiceRow("Damage reduction",
+                new[] { "Off", "10%", "20%", "30%", "40%", "50%" });
+            _target.Changed += (_, _) =>
+            {
+                if (_syncing) return;
+                _shownRosterRevision = null;
+                Refresh();
+            };
+            _handicap.Changed += (_, _) =>
+            {
+                if (_syncing || !NetSession.CanEditLobby) return;
+                byte target = SelectedTargetSlot();
+                if (target == byte.MaxValue) return;
+                byte reduction = (byte)Math.Clamp(_handicap.Index * PlayerHandicap.Step,
+                    0, PlayerHandicap.MaxDamageReduction);
+                NetSession.SendLobbyCommand(LobbyCommandType.SetHandicap, target,
+                    damageReduction: reduction);
+            };
 
             // Team management is a one-click action now. The previous flow was:
             // select a player, select a destination, then press MOVE. In a full
@@ -201,6 +219,7 @@ namespace MphRead.Mods.Launcher.Gui
             var administration = new StackPanel { Spacing = 4 };
             administration.Children.Add(LobbySubhead("MANAGE PLAYER"));
             administration.Children.Add(_target);
+            administration.Children.Add(_handicap);
             administration.Children.Add(_teamSummary);
 
             var teamButtons = new Grid
@@ -681,7 +700,10 @@ namespace MphRead.Mods.Launcher.Gui
                     string team = roster.Teams[i] < 0
                         ? "AUTO"
                         : $"TEAM {(char)('A' + roster.Teams[i])}";
-                    names.Add($"{roster.Names[i]}  //  {team}");
+                    string reduction = roster.DamageReductions[i] > 0
+                        ? $"  //  DR {roster.DamageReductions[i]}%"
+                        : "";
+                    names.Add($"{roster.Names[i]}  //  {team}{reduction}");
                 }
                 if (!_targetNames.SequenceEqual(names))
                 {
@@ -689,6 +711,12 @@ namespace MphRead.Mods.Launcher.Gui
                     _target.SetItems(names, Math.Max(0, _targetSlots.IndexOf(selected)));
                 }
             }
+
+            byte selectedTargetSlot = SelectedTargetSlot();
+            _handicap.Index = selectedTargetSlot != byte.MaxValue
+                && selectedTargetSlot < NetSession.SlotDamageReduction.Length
+                ? NetSession.SlotDamageReduction[selectedTargetSlot] / PlayerHandicap.Step
+                : 0;
 
             for (int i = 0; i < roster.Count && i < _players.Children.Count; i++)
                 if (_players.Children[i] is LobbyPlayerRow row)
@@ -738,6 +766,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
+            _handicap.IsEnabled = _ownerControls.IsEnabled && selectedTargetSlot != byte.MaxValue;
             foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne

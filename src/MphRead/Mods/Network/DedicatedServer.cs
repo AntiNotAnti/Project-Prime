@@ -87,6 +87,7 @@ namespace MphRead.Mods.Network
             public ulong TimingEpoch;
             public bool LobbyReady;
             public sbyte TeamIndex = -1;
+            public byte DamageReduction;
             public readonly Dictionary<uint, LobbyCommandResultPacket> Commands = new();
             public readonly Queue<uint> CommandOrder = new();
             /// <summary>
@@ -2205,6 +2206,7 @@ namespace MphRead.Mods.Network
                 roster.LobbyReady[roster.Count] = _peers[i].LobbyReady;
                 roster.Hunters[roster.Count] = _peers[i].Hunter;
                 roster.Colors[roster.Count] = _peers[i].Color;
+                roster.DamageReductions[roster.Count] = _peers[i].DamageReduction;
                 roster.Pings[roster.Count] = (ushort)Math.Clamp(_peers[i].Ping, 0, 9999);
                 roster.Names[roster.Count] = _peers[i].Name.Length > 0
                     ? _peers[i].Name
@@ -2219,6 +2221,7 @@ namespace MphRead.Mods.Network
                 roster.Hunters[at] = bot.Hunter; roster.Colors[at] = bot.Color;
                 roster.Teams[at] = bot.TeamIndex; roster.LobbyReady[at] = true;
                 roster.Flags[at] = 1; roster.BotLevels[at] = bot.BotLevel;
+                roster.DamageReductions[at] = bot.DamageReduction;
                 roster.Names[at] = bot.Name;
             }
             return roster;

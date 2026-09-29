@@ -281,10 +281,12 @@ namespace MphRead.Mods.Launcher.Gui
             }, point, modifiers));
         }
 
-        public void MouseWheel(Point point, Vector delta, RawInputModifiers modifiers)
+        public bool MouseWheel(Point point, Vector delta, RawInputModifiers modifiers)
         {
-            Raise(new RawMouseWheelEventArgs(_mouse, Timestamp, InputRoot!,
-                point, delta, modifiers));
+            var args = new RawMouseWheelEventArgs(_mouse, Timestamp, InputRoot!,
+                point, delta, modifiers);
+            Raise(args);
+            return args.Handled;
         }
 
         // A finger, not the mouse. Avalonia's ScrollGestureRecognizer only

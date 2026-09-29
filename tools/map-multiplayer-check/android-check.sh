@@ -1,7 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
-sdkmanager 'system-images;android-36;google_apis;x86_64' emulator
-printf 'no\n' | avdmanager create avd --force --name prime-map-check --package 'system-images;android-36;google_apis;x86_64'
+
+sdkmanager_bin="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+avdmanager_bin="$ANDROID_HOME/cmdline-tools/latest/bin/avdmanager"
+if [[ ! -x "$sdkmanager_bin" ]]; then
+  sdkmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/sdkmanager' -print 2>/dev/null | sort -V | tail -n 1)"
+fi
+if [[ ! -x "$avdmanager_bin" ]]; then
+  avdmanager_bin="$(find "$ANDROID_HOME/cmdline-tools" -type f -path '*/bin/avdmanager' -print 2>/dev/null | sort -V | tail -n 1)"
+fi
+if [[ -z "$sdkmanager_bin" || ! -x "$sdkmanager_bin" || -z "$avdmanager_bin" || ! -x "$avdmanager_bin" ]]; then
+  echo "Android command-line tools were not found under $ANDROID_HOME/cmdline-tools." >&2
+  exit 1
+fi
+
+"$sdkmanager_bin" --sdk_root="$ANDROID_HOME" 'system-images;android-36;google_apis;x86_64' emulator
+printf 'no\n' | "$avdmanager_bin" create avd --force --name prime-map-check --package 'system-images;android-36;google_apis;x86_64'
 if [[ -e /dev/kvm ]]; then sudo chmod 666 /dev/kvm; fi
 "$ANDROID_HOME/emulator/emulator" -avd prime-map-check -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect > "$RUNNER_TEMP/map-android-emulator.log" 2>&1 &
 emulator_pid=$!

@@ -18,7 +18,8 @@ namespace MphRead.Mods.Launcher.Gui
             string team = roster.Teams[index] < 0 ? "AUTO" : $"{(char)('A' + roster.Teams[index])}";
             string state = roster.LobbyReady[index] ? "READY" : "WAIT";
             string name = roster.Names[index] + (slot == owner ? "  [OWNER]" : "");
-            string hunter = $"{(Hunter)roster.Hunters[index]} · S{roster.Colors[index] + 1}";
+            string reduction = roster.DamageReductions[index] > 0 ? $" · DR {roster.DamageReductions[index]}%" : "";
+            string hunter = $"{(Hunter)roster.Hunters[index]} · S{roster.Colors[index] + 1}{reduction}";
 
             var line = new Grid
             {
@@ -134,7 +135,8 @@ namespace MphRead.Mods.Launcher.Gui
             _ready.Text = roster.LobbyReady[index] ? "READY" : "WAIT";
             _ready.Foreground = roster.LobbyReady[index] ? GuiTheme.GoodBrush : GuiTheme.TextDimBrush;
             _player.Text = roster.Names[index] + (roster.Slots[index] == owner ? "  [OWNER]" : "");
-            _hunter.Text = $"{(Hunter)roster.Hunters[index]} · S{roster.Colors[index] + 1}";
+            string reduction = roster.DamageReductions[index] > 0 ? $" · DR {roster.DamageReductions[index]}%" : "";
+            _hunter.Text = $"{(Hunter)roster.Hunters[index]} · S{roster.Colors[index] + 1}{reduction}";
             _team.Text = roster.Teams[index] < 0 ? "AUTO" : $"{(char)('A' + roster.Teams[index])}";
             ToolTip.SetTip(_player, _player.Text);
             _ping.Text = roster.IsBot(index) ? BotManagementView.Difficulties[roster.BotLevels[index]] : $"{roster.Pings[index]} ms";
