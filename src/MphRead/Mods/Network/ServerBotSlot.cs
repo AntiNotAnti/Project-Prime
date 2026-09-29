@@ -11,6 +11,7 @@ namespace MphRead.Mods.Network
     {
         public int SlotIndex;
         public byte Hunter, Color, BotLevel;
+        public byte DamageReduction;
         public sbyte TeamIndex;
         public string Name => $"BOT {((Hunter)Hunter).ToString().ToUpperInvariant()} {SlotIndex + 1}";
     }
