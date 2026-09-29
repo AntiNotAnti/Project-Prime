@@ -1925,6 +1925,18 @@ namespace MphRead.Entities
                     damage = 1;
                 }
             }
+            // Handicap is a property of the victim's authoritative roster slot.
+            // Predicted hits and the authority both see the same frozen value.
+            // A rescued claim and an authority replay already carry finalized
+            // damage, so applying it again here would double-reduce the hit.
+            if (damage > 0 && !flags.TestFlag(DamageFlags.Death)
+                && !Mods.Network.NetDamage.ApplyingClaim && !Mods.Network.NetDamage.Replaying
+                && SlotIndex >= 0 && SlotIndex < Mods.Network.NetSession.SlotDamageReduction.Length)
+            {
+                byte reduction = Mods.Network.NetSession.SlotDamageReduction[SlotIndex];
+                if (reduction > 0)
+                    damage = Mods.Network.PlayerHandicap.ScaleDamage(damage, reduction);
+            }
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
             {
                 _halfturret.OnTakeDamage(attacker, damage);
