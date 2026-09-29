@@ -81,7 +81,7 @@ namespace MphRead.Mods.Input
         public const float MaxButtonScale = 1.75f;
         public const float MinStickScale = 0.60f;
         public const float MaxStickScale = 1.80f;
-        public const float MinOverlayOpacity = 0.20f;
+        public const float MinOverlayOpacity = 0.00f;
         public const float MaxOverlayOpacity = 1.00f;
         public const float MinIndividualScale = 0.40f;
         public const float MaxIndividualScale = 2.00f;
