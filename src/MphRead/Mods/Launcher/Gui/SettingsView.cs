@@ -1967,7 +1967,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             Heading(page, "Touch controls");
-            _touchButtonsRow = Add(page, new ToggleRow("Show on-screen controls",
+            _touchButtonsRow = Add(page, new ToggleRow("Enable on-screen touch buttons",
                 Mods.Input.TouchSettings.ButtonsVisible));
             _touchButtonScale = Add(page, new SliderRow("Global button size",
                 (int)MathF.Round(Mods.Input.TouchSettings.ButtonScale * 100),
@@ -1987,8 +1987,9 @@ namespace MphRead.Mods.Launcher.Gui
                 min: (int)(Mods.Input.TouchSettings.MinOverlayOpacity * 100),
                 max: 100, keyStep: 5));
             Explain(page, "Move and resize the on-screen controls without changing aim gestures. "
+                + "The editor locks the settings page in place while you drag a command. "
                 + "The movement stick remains floating on the left half of the screen. "
-                + "Low opacity and a smaller action cluster leave more glass clear for stylus aiming.");
+                + "Set overlay opacity to 0% to hide the artwork while keeping enabled touch targets active.");
 
             Heading(page, "Layout editor");
             string[] labels = Mods.Input.TouchSettings.Order
