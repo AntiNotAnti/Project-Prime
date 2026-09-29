@@ -532,7 +532,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 else if (plan.Kind == LaunchKind.Demo && _front != null)
                 {
-                    _front.ShowReplayEditor(RequestEndMatch, () => UiSurface.Current?.Hide());
+                    _front.ShowReplayEditor(RequestEndMatch, () => FullscreenReplay(window));
                     UiSurface.Current?.Show(_front);
                 }
                 else
@@ -562,6 +562,17 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(ex.Message);
             }
+        }
+
+        private static void FullscreenReplay(RenderWindow window)
+        {
+            UiSurface.Current?.Hide();
+            // The Replay Studio button owns toolkit focus. Hiding the toolkit
+            // does not reliably return keyboard focus to GLFW on every window
+            // manager, which makes fullscreen playback appear frozen because
+            // Space/Escape and the replay keyboard bindings stop arriving.
+            try { window.Focus(); }
+            catch (Exception) { /* pointer/gamepad remain usable */ }
         }
 
         private static void EndNetworkMatchToLobby(RenderWindow window)
