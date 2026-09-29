@@ -418,18 +418,8 @@ namespace MphRead.Mods.Network
             {
                 while (_pending is DemoRecord record && record.Frame <= _frame)
                 {
-                    try
-                    {
-                        InjectConverted(record.Data,
-                            checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
-                    }
-                    catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader.ProtocolVersion))
-                    {
-                        CompatibilityDrops++;
-                        LastWarning = $"Legacy compatibility skipped a record at frame {record.Frame}: {ex.Message}";
-                        if (CompatibilityDrops <= 5)
-                            Console.WriteLine("[replay] " + LastWarning);
-                    }
+                    InjectConverted(record.Data,
+                        checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
                     FactRead?.Invoke(record.Frame >= LeadInFrames ? record.Frame - LeadInFrames : 0, record.Data);
                     _pending = _reader.ReadNext();
                 }
@@ -451,8 +441,18 @@ namespace MphRead.Mods.Network
 
         private void InjectConverted(ReadOnlySpan<byte> packet, uint frame)
         {
-            ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
-            if (!converted.IsEmpty) _host.Inject(converted, frame);
+            try
+            {
+                ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
+                if (!converted.IsEmpty) _host.Inject(converted, frame);
+            }
+            catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
+            {
+                CompatibilityDrops++;
+                LastWarning = $"Legacy compatibility skipped a record at frame {frame}: {ex.Message}";
+                if (CompatibilityDrops <= 5)
+                    Console.WriteLine("[replay] " + LastWarning);
+            }
         }
 
         internal void WarnVerification(string warning)
