@@ -297,6 +297,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (NetSession.Active) { _prime.Router.Navigate(PrimeRoute.Lobby); return; }
             if (!CanLaunchLocal()) return;
+            RefreshRooms();
             var view = new CreateServerScreen(_rooms, firstMap ?? _settings.RoomKey);
             if (firstMap != null && !Metadata.IsBuiltInRoom(firstMap)) view.ShowDedicated();
             view.Closed += (_, _) => Pop();

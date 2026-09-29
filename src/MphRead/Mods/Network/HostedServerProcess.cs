@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace MphRead.Mods.Network
@@ -41,18 +43,44 @@ namespace MphRead.Mods.Network
 
         public static HostedServerProcess? Start(int port, in HostRequestPacket request,
             string name, string masterHost, int masterPort, bool listed,
-            Guid ownerToken, out string reason, string? hostedPackage = null)
+            Guid ownerToken, out string reason, HostedMapPreparation? hostedMaps = null)
         {
             try
             {
-                if (hostedPackage != null)
+                HostedMapRequests.Validate(request);
+                if (request.RequiresMapPreparation)
                 {
-                    if (!MapGen.MapContentIdentity.FromPackage(hostedPackage).Matches(request.MapIdentity.Content(request.RoomKey)))
-                        throw new System.IO.InvalidDataException("Hosted package does not match the request.");
+                    if (hostedMaps == null)
+                        throw new InvalidDataException("The host did not prepare the requested Community rotation.");
+
+                    foreach (HostRotationEntry entry in HostedMapRequests.RequestedMaps(request)
+                        .Where(entry => entry.IsCustom))
+                    {
+                        HostedMapArchive? archive = hostedMaps.Find(entry.RoomKey, entry.PackageHash);
+                        if (archive == null || !File.Exists(archive.PackagePath)
+                            || archive.Identity.PackageHash != entry.PackageHash
+                            || !MapGen.MapContentIdentity.FromPackage(archive.PackagePath).Matches(archive.Identity))
+                        {
+                            throw new InvalidDataException(
+                                "The host does not have the exact requested package for " + entry.RoomKey + ".");
+                        }
+                    }
+
+                    if (request.MapIdentity.IsCustom)
+                    {
+                        HostedMapArchive? first = hostedMaps.Find(
+                            request.RoomKey, request.MapIdentity.PackageHash);
+                        if (first == null
+                            || !first.Identity.Matches(request.MapIdentity.Content(request.RoomKey)))
+                        {
+                            throw new InvalidDataException("The hosted first package does not match the request.");
+                        }
+                    }
                 }
-                else if (request.MapIdentity != NetworkMapIdentity.ForRoom(request.RoomKey)
-                    || request.MapIdentity.IsCustom && !MapGen.CustomRooms.Installed.HasExact(request.MapIdentity.Content(request.RoomKey)))
-                { reason = "This host does not have the exact requested map package."; return null; }
+                else if (request.MapIdentity != NetworkMapIdentity.ForRoom(request.RoomKey))
+                {
+                    throw new InvalidDataException("The hosted built-in map identity changed.");
+                }
             }
             catch (Exception ex) { reason = ex.Message; return null; }
             GameMode mode = Enum.IsDefined(typeof(GameMode), request.Mode)
@@ -61,7 +89,9 @@ namespace MphRead.Mods.Network
             IReadOnlyList<(string RoomKey, GameMode Mode)> maps;
             if (request.Rotation != null && request.Rotation.Count > 0)
             {
-                maps = request.Rotation;
+                maps = request.Rotation
+                    .Select(entry => (entry.RoomKey, entry.Mode))
+                    .ToArray();
             }
             else
             {
@@ -79,7 +109,7 @@ namespace MphRead.Mods.Network
                 format: request.Format,
                 requireReady: request.RequireReady,
                 allowJoinInProgress: request.AllowJoinInProgress,
-                waitUntilReady: false, requiredMap: request.MapIdentity, hostedPackage: hostedPackage);
+                waitUntilReady: false, requiredMap: request.MapIdentity, hostedMaps: hostedMaps);
             if (started < 0 || LocalServer.Running == null)
             {
                 LocalServer.CleanupHostedLibrary(LocalServer.HostedLibrary);

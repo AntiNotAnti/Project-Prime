@@ -549,7 +549,7 @@ namespace MphRead.Mods.Network
                     // that ended on Tuesday is a port nobody can use until
                     // somebody notices.
                     Hosts.Reap(now);
-                    _hostMapRequests.Pump(now, (request, sender, time, package) => Hosts.Start(request, sender, time, package), SendHostReply);
+                    _hostMapRequests.Pump(now, (request, sender, time, packages) => Hosts.Start(request, sender, time, packages), SendHostReply);
                     // Newest release, checked on a timer and applied the
                     // moment there is nobody to interrupt. It says yes at most
                     // once, and only with an empty server, so a busy one keeps
@@ -1944,13 +1944,17 @@ namespace MphRead.Mods.Network
             {
                 reply.Reason = "malformed request";
             }
+            else if (packet.Payload[0] != NetConfig.ProtocolVersion)
+            {
+                reply.Reason = $"this server speaks protocol {NetConfig.ProtocolVersion}, "
+                    + $"your build speaks {packet.Payload[0]}";
+            }
             else
             {
                 HostRequestPacket request = HostRequestPacket.Read(packet.Payload);
                 if (request.Protocol != NetConfig.ProtocolVersion)
                 {
-                    reply.Reason = $"this server speaks protocol {NetConfig.ProtocolVersion}, "
-                        + $"your build speaks {request.Protocol}";
+                    reply.Reason = "malformed request";
                 }
                 else if (!Hosts.CanHost)
                 {
@@ -1958,7 +1962,7 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
-                    if (request.MapIdentity.IsCustom)
+                    if (request.RequiresMapPreparation)
                     {
                         _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
                         return;

@@ -21,22 +21,25 @@ available through the inspector and command palette.
 
 1. Open **Online → Community maps** and refresh. The default library address is
    `https://maps.rebooty.xyz/`; a different address can be entered and is remembered.
-   Upload credentials are never saved.
-2. Authors enter the community operator's upload token and choose **Upload current**.
-   Map Studio builds a portable `.ppmap` including referenced assets before upload.
-   Selecting a published map also displays its direct package link for sharing.
-3. Players browse/search and select **Install** or **Install & host**. They can also
-   import a downloaded `.ppmap` directly. Installation checks the archive hash,
-   package identity, references and compilation before registering the map.
+   Publishing identity comes from Hunter License, so there is no creator secret to copy into Map Studio.
+2. Authors choose **Upload current**. Project Prime obtains a short-lived Community
+   publishing ticket from the author's Hunter License automatically; no creator
+   token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
+   including referenced assets before upload.
+3. Players can browse Community maps from Forge or directly from **Create Lobby →
+   Map Rotation → Source: Community**. Selecting a remote map downloads, validates,
+   installs, builds and registers that exact immutable version.
 4. **Online → Host current map** packages and installs the editor snapshot, then
-   opens lobby creation with that map and local hosting selected. The local server
-   receives the same map directories, including the writable user library.
+   opens normal lobby creation with that map selected. Remote directory-managed
+   hosts carry an exact package hash for every custom rotation entry and download
+   every missing package before spawning the isolated lobby server.
+5. Joining players do not need to pre-install a published map. The lobby advertises
+   the exact package identity and Community source; clients download, verify, build,
+   prewarm and report Ready before the server's normal start barrier releases.
 
-Players must install the same published version before joining. This implementation
-uses an explicit shared library, not automatic UDP map negotiation. Community maps
-are hosted on the player's computer; remote directory-managed servers do not yet
-accept map uploads. Existing requirements for Internet-reachable local hosting
-still apply. Map installation is unavailable during an active online session.
+Map installation is unavailable while a conflicting map runtime is active. Remote
+hosts only trust their operator-configured Community service rather than arbitrary
+URLs supplied by clients.
 
 Downloads live in the writable `user-maps` directory, separate from bundled app
 resources. The catalog includes them after restart and prefers installed versions
@@ -55,14 +58,19 @@ ProjectPrime -maphub http://127.0.0.1:8091/ -maphubstorage /srv/prime/community
 
 Use an HTTPS reverse proxy for public access. Configure its request/body timeouts
 and upload limit (at most 128 MiB). HTTP clients are allowed only for loopback
-addresses. Operators supply the upload token to trusted map authors. Tokens grant publishing
-access; there are no individual author accounts or moderation UI yet.
+addresses. Normal authors authenticate with Hunter License. Map Studio exchanges the Supabase
+session for a short-lived `ppm1` Community ticket, and the map service verifies that
+ticket through the `community-map-ticket` Edge Function. The Supabase access token
+never reaches the map service. The legacy upload token remains an administrator /
+service-owner credential for recovery and automation, not something distributed to
+map authors.
 
 Routes beneath the configured prefix:
 
 - `GET health`: service status and map count, no credentials required.
 - `GET maps`: JSON listing, no credentials required.
-- `POST maps`: raw `.ppmap` body, `Authorization: Bearer <token>` required.
+- `POST maps`: raw `.ppmap` body, Hunter License Community bearer ticket required
+  (the service-owner token remains accepted for administration).
 - `GET maps/<sha256>`: immutable package bytes, no credentials required.
 
 The library uses SHA-256 filenames, validates package manifests/assets, rejects
@@ -96,10 +104,14 @@ but that full deployment restarts game services.
 - Persistent packages: `/home/ubuntu/prime-maps/data/packages`
 - Private listener: `http://127.0.0.1:8091/`
 - Caddy site: `/etc/caddy/prime-maps.caddy`
-- Upload token: `PROJECT_PRIME_MAP_UPLOAD_TOKEN` in root-only
+- Administrator token: `PROJECT_PRIME_MAP_UPLOAD_TOKEN` in root-only
   `/etc/project-prime/maps.env`. Generated on first installation and retained on
-  upgrades. Retrieve it privately over SSH with sudo and give it only to publishers.
-  Players do not need a token to browse or download.
+  upgrades. Do not distribute it to creators. Normal publishing uses Hunter License.
+- Deploy the `community-map-ticket` Supabase Edge Function with JWT gateway
+  verification disabled for that function. The function performs its own session
+  validation for minting and exposes only ticket verification to the map service.
+  `supabase/config.toml` contains the expected setting.
+- Players do not need credentials to browse or download published maps.
 
 Use `sudo systemctl status prime-maps` and `sudo journalctl -u prime-maps`
 for diagnostics. Back up the packages directory and token file. To rotate the

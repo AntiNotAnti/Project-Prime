@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -14,6 +15,7 @@ using Avalonia.Threading;
 using MphRead.Entities;
 using MphRead.Mods;
 using MphRead.Mods.Network;
+using MphRead.Mods.MapGen;
 using MphRead.Mods.Update;
 
 namespace MphRead.Mods.Launcher.Gui
@@ -799,11 +801,6 @@ namespace MphRead.Mods.Launcher.Gui
                 await StartHere(name, player, hunter, maps, timeLimit, pointGoal);
                 return;
             }
-            if (_rotation.Any(room => !Metadata.IsBuiltInRoom(room)))
-            {
-                Say("Custom maps must be hosted on this computer. Share the package through Community so players can install it before joining.", GuiTheme.Warm);
-                return;
-            }
             await StartOnServer(name, player, hunter, mode, maps, timeLimit, pointGoal);
         }
 
@@ -1338,26 +1335,41 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Dictionary<string, UiListRow> _byRoom = new();
         private readonly bool _single;
         private readonly Dictionary<string, string?> _incompatibilities = new();
+        private readonly Func<string, string?>? _incompatibility;
+        private readonly ChoiceRow _source;
+        private readonly CancellationTokenSource _communityLifetime = new();
+        private CommunityMap[] _community = Array.Empty<CommunityMap>();
+        private bool _communityLoading;
+        private bool _communityInstalling;
         private string? Incompatibility(string room) => _incompatibilities.GetValueOrDefault(room);
 
         public MapRotationPicker(IReadOnlyList<string> rooms, IReadOnlyList<string> picked,
             bool single = false, Func<string, string?>? incompatibility = null)
         {
             _single = single;
+            _incompatibility = incompatibility;
             foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
             _rooms = rooms.Where(room => Incompatibility(room) == null).ToList();
             _picked = picked.Where(room => _rooms.Contains(room)).ToList();
+            _source = new ChoiceRow("Source", new[] { "All", "Built-in", "Installed", "Community" }, 0);
+            _source.Changed += (_, _) =>
+            {
+                if (_source.Index == 3) _ = LoadCommunityAsync();
+                else Fill();
+            };
             Background = Brushes.Transparent;
             Focusable = true;
 
             var body = new Grid
             {
-                RowDefinitions = new RowDefinitions("*,Auto"),
+                RowDefinitions = new RowDefinitions("Auto,*,Auto"),
                 RowSpacing = 7
             };
-            Grid.SetRow(_list, 0);
+            Grid.SetRow(_source, 0);
+            body.Children.Add(_source);
+            Grid.SetRow(_list, 1);
             body.Children.Add(_list);
-            Grid.SetRow(_note, 1);
+            Grid.SetRow(_note, 2);
             body.Children.Add(_note);
 
             var panel = new Border
@@ -1420,6 +1432,12 @@ namespace MphRead.Mods.Launcher.Gui
             _list.FocusFirst();
         }
 
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            _communityLifetime.Cancel();
+            base.OnDetachedFromVisualTree(e);
+        }
+
         protected override void OnKeyDown(KeyEventArgs e)
         {
             if (e.Key == Key.Escape)
@@ -1440,15 +1458,28 @@ namespace MphRead.Mods.Launcher.Gui
         {
             _list.Clear();
             _byRoom.Clear();
-            if (_rooms.Count == 0)
+            if (_source.Index == 3)
             {
-                _list.AddNote("No maps support the selected game type and matchup.", GuiTheme.Warm);
+                FillCommunity();
                 return;
             }
-            foreach (string room in _rooms)
+            IEnumerable<string> visible = _rooms;
+            if (_source.Index == 1) visible = visible.Where(Metadata.IsBuiltInRoom);
+            else if (_source.Index == 2) visible = visible.Where(room => !Metadata.IsBuiltInRoom(room)
+                && CustomRooms.Installed.TryGet(room, out _));
+            string[] rooms = visible.ToArray();
+            if (rooms.Length == 0)
+            {
+                _list.AddNote(_source.Index == 2
+                    ? "No Community maps are installed yet. Switch Source to Community to browse and install one."
+                    : "No maps support the selected game type and matchup.", GuiTheme.Warm);
+                return;
+            }
+            foreach (string room in rooms)
             {
                 (RoomMetadata? meta, _) = Metadata.GetRoomByName(room);
-                var row = new UiListRow(meta?.InGameName ?? room, "") { Choice = room };
+                string kind = Metadata.IsBuiltInRoom(room) ? "BUILT-IN" : "INSTALLED";
+                var row = new UiListRow(meta?.InGameName ?? room, kind) { Choice = room };
                 _byRoom[room] = row;
                 // The press, not the list's own `activate` hook. That hook is
                 // the row's side effect of *becoming the selection*, and
@@ -1460,6 +1491,122 @@ namespace MphRead.Mods.Launcher.Gui
                 row.Clicked += (_, _) => Toggle(room);
             }
             Mark();
+        }
+
+        private async Task LoadCommunityAsync()
+        {
+            if (_communityLoading || _community.Length > 0)
+            {
+                Fill();
+                return;
+            }
+            _communityLoading = true;
+            _list.Clear();
+            _note.Foreground = GuiTheme.TextDimBrush;
+            _note.Text = "Loading published Community maps...";
+            try
+            {
+                using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
+                _community = await client.BrowseAsync(_communityLifetime.Token, sort: "favorites");
+                _communityLoading = false;
+                if (_source.Index == 3) Fill();
+            }
+            catch (OperationCanceledException) when (_communityLifetime.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                if (_source.Index == 3)
+                {
+                    _list.Clear();
+                    _note.Foreground = GuiTheme.WarmBrush;
+                    _note.Text = "Community maps unavailable: " + ex.Message;
+                }
+            }
+            finally
+            {
+                _communityLoading = false;
+            }
+        }
+
+        private void FillCommunity()
+        {
+            _list.Clear();
+            _byRoom.Clear();
+            if (_communityLoading)
+            {
+                _list.AddNote("Loading Community maps...", GuiTheme.TextDim);
+                return;
+            }
+            if (_community.Length == 0)
+            {
+                _list.AddNote("No published Community maps are available.", GuiTheme.Warm);
+                return;
+            }
+            foreach (CommunityMap map in _community)
+            {
+                bool exact = CustomRooms.Installed.TryGet(map.MapId, out var local)
+                    && local.Identity.PackageHash.ToString() == map.Hash;
+                int at = _picked.IndexOf(map.Name);
+                string detail = exact ? "INSTALLED" : "COMMUNITY · CLICK TO INSTALL";
+                if (!string.IsNullOrWhiteSpace(map.Author)) detail += " · " + map.Author;
+                if (!string.IsNullOrWhiteSpace(map.Version)) detail += " · v" + map.Version;
+                if (at >= 0) detail += " · #" + (at + 1).ToString(CultureInfo.InvariantCulture);
+                var row = new UiListRow(map.DisplayName ?? map.Name, detail) { Choice = map };
+                _list.Add(row);
+                CommunityMap selected = map;
+                row.Clicked += async (_, _) => await SelectCommunityAsync(selected);
+            }
+            _note.Foreground = GuiTheme.TextDimBrush;
+            _note.Text = "Community maps install the exact published package, then behave like normal lobby maps.";
+        }
+
+        private async Task SelectCommunityAsync(CommunityMap map)
+        {
+            if (_communityInstalling) return;
+            _communityInstalling = true;
+            try
+            {
+                string room;
+                if (CustomRooms.Installed.TryGet(map.MapId, out var local)
+                    && local.Identity.PackageHash.ToString() == map.Hash)
+                {
+                    room = local.Identity.RoomKey;
+                }
+                else
+                {
+                    if (!GameFiles.Ready) throw new IOException("Set up game files before installing Community maps.");
+                    MapRuntimeUsage.RequireInstallationAllowed();
+                    GameFiles.ApplyPaths();
+                    _note.Foreground = GuiTheme.TextDimBrush;
+                    _note.Text = "Downloading and preparing " + (map.DisplayName ?? map.Name) + "...";
+                    using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
+                    MapDefinition installed = await client.InstallAsync(
+                        map, CustomRooms.UserMapDirectory, _communityLifetime.Token);
+                    Metadata.RegisterDownloadedMap(installed);
+                    room = installed.Name;
+                    if (!_rooms.Contains(room, StringComparer.OrdinalIgnoreCase))
+                        _rooms.Add(room);
+                    _incompatibilities[room] = _incompatibility?.Invoke(room);
+                }
+
+                if (Incompatibility(room) is string reason)
+                {
+                    _note.Foreground = GuiTheme.WarmBrush;
+                    _note.Text = reason;
+                    return;
+                }
+                Toggle(room);
+                FillCommunity();
+            }
+            catch (OperationCanceledException) when (_communityLifetime.IsCancellationRequested) { }
+            catch (Exception ex)
+            {
+                _note.Foreground = GuiTheme.WarmBrush;
+                _note.Text = ex.Message;
+            }
+            finally
+            {
+                _communityInstalling = false;
+            }
         }
 
         private void Toggle(string room)

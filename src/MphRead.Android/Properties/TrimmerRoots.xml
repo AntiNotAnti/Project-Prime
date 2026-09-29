@@ -90,6 +90,7 @@
     <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+AuthIdentity" preserve="all" />
     <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+OAuthAuthorizeResponse" preserve="all" />
     <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+CareerTicketResponse" preserve="all" />
+    <type fullname="MphRead.Mods.Launcher.HunterLicenseClient+CommunityMapTicketResponse" preserve="all" />
   </assembly>
   <assembly fullname="OpenTK.Windowing.GraphicsLibraryFramework">
     <type fullname="OpenTK.Windowing.GraphicsLibraryFramework.KeyboardState" preserve="all" />

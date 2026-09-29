@@ -44,7 +44,7 @@ public sealed class MapCommunityClient : IDisposable
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
         using var response = await _http.GetAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), data, 2 * 1024 * 1024, token);
         return JsonSerializer.Deserialize<CommunityMap[]>(data.ToArray(), MapPackageReader.JsonOptions)
@@ -53,24 +53,24 @@ public sealed class MapCommunityClient : IDisposable
     public async Task SetFavoriteAsync(Guid map,bool favorite,CancellationToken token)
     {
         using var request=new HttpRequestMessage(favorite?HttpMethod.Put:HttpMethod.Delete,"maps/"+map+"/favorite");
-        using var response=await _http.SendAsync(request,token);response.EnsureSuccessStatusCode();
+        using var response=await _http.SendAsync(request,token);EnsureSuccess(response);
     }
     public async Task ReportAsync(Guid map,MapReportRequest report,CancellationToken token)
     {
         using var content=new StringContent(JsonSerializer.Serialize(report,MapPackageReader.JsonOptions),System.Text.Encoding.UTF8,"application/json");
-        using var response=await _http.PostAsync("maps/"+map+"/reports",content,token);response.EnsureSuccessStatusCode();
+        using var response=await _http.PostAsync("maps/"+map+"/reports",content,token);EnsureSuccess(response);
     }
     public async Task SetVisibilityAsync(string hash,string visibility,CancellationToken token)
     {
         using var content=new StringContent(JsonSerializer.Serialize(visibility),System.Text.Encoding.UTF8,"application/json");
-        using var response=await _http.PostAsync("packages/"+hash+"/visibility",content,token);response.EnsureSuccessStatusCode();
+        using var response=await _http.PostAsync("packages/"+hash+"/visibility",content,token);EnsureSuccess(response);
     }
     public async Task<CommunityMap?> GetPackageAsync(string packageHash, CancellationToken token)
     {
         if (!ValidHash(packageHash)) throw new InvalidDataException("Invalid package hash.");
         using var response = await _http.GetAsync("packages/"+packageHash+"/metadata", HttpCompletionOption.ResponseHeadersRead, token);
         if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token),data,65536,token);
         var result = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(),MapPackageReader.JsonOptions);
@@ -87,7 +87,7 @@ public sealed class MapCommunityClient : IDisposable
         using var response = await _http.PostAsync("maps?listed="+listed.ToString().ToLowerInvariant()+"&draft="+draft.ToString().ToLowerInvariant(), content, token);
         if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             throw new HttpRequestException("This map version already has different published contents. Increase the project's Version before publishing.",null,response.StatusCode);
-        response.EnsureSuccessStatusCode();
+        EnsureSuccess(response);
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), data, 64 * 1024, token);
         var published = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(), MapPackageReader.JsonOptions)
@@ -109,7 +109,7 @@ public sealed class MapCommunityClient : IDisposable
         {
             using (var response = await _http.GetAsync("maps/" + map.Hash, HttpCompletionOption.ResponseHeadersRead, token))
             {
-                response.EnsureSuccessStatusCode();
+                EnsureSuccess(response);
                 await using var output = File.Create(temporary);
                 await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), output, map.Bytes, token);
                 if (output.Length != map.Bytes) throw new InvalidDataException("Incomplete map download.");
@@ -133,7 +133,7 @@ public sealed class MapCommunityClient : IDisposable
             stage?.Invoke("Downloading");
             using (var response = await _http.GetAsync("maps/" + required.PackageHash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
             {
-                response.EnsureSuccessStatusCode();
+                EnsureSuccess(response);
                 if (response.Content.Headers.ContentLength > MapPackageReader.MaxArchiveBytes) throw new InvalidDataException("Package exceeds size limit.");
                 await using var output = File.Create(temporary);
                 await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), output, MapPackageReader.MaxArchiveBytes, token,
@@ -157,7 +157,7 @@ public sealed class MapCommunityClient : IDisposable
         try
         {
             using var response = await _http.GetAsync("packages/" + required.PackageHash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-            response.EnsureSuccessStatusCode();
+            EnsureSuccess(response);
             if (response.Content.Headers.ContentLength > MapPackageReader.MaxArchiveBytes) throw new InvalidDataException("Package exceeds size limit.");
             await using (var output = File.Create(temporary))
             {
@@ -169,6 +169,20 @@ public sealed class MapCommunityClient : IDisposable
             File.Move(temporary, destination, overwrite: true);
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
+    }
+
+    private static void EnsureSuccess(HttpResponseMessage response)
+    {
+        if (response.IsSuccessStatusCode) return;
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+            throw new HttpRequestException("Community authentication expired or was rejected. Project Prime will refresh your Hunter License credential; try again.", null, response.StatusCode);
+        if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+            throw new HttpRequestException("Your Hunter License does not have permission to modify or read this map version.", null, response.StatusCode);
+        if ((int)response.StatusCode == 429)
+            throw new HttpRequestException("The Community service is busy. Wait a moment and try again.", null, response.StatusCode);
+        if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+            throw new HttpRequestException("Community identity verification is temporarily unavailable.", null, response.StatusCode);
+        response.EnsureSuccessStatusCode();
     }
 
     public static bool ValidHash(string? hash) => hash is { Length: 64 } && hash.All(c => c is >= '0' and <= '9' or >= 'a' and <= 'f');

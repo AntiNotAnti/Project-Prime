@@ -1,8 +1,10 @@
 using System;
 using System.Buffers.Binary;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using MphRead.Entities;
+using MphRead.Mods.MapGen;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network
@@ -159,6 +161,27 @@ namespace MphRead.Mods.Network
     /// putting the relay somewhere reachable is the whole of the work, and it
     /// has no failure mode -- hole punching has one for every symmetric NAT.
     /// </summary>
+    /// <summary>
+    /// One requested map in a remotely hosted rotation. Built-in rooms carry
+    /// an all-zero package hash; custom rooms carry the exact immutable
+    /// Community archive hash. The full first-map identity remains in
+    /// <see cref="HostRequestPacket.MapIdentity"/>, while later custom maps
+    /// are expanded to full identities by the host after exact download.
+    /// </summary>
+    public readonly record struct HostRotationEntry(
+        string RoomKey, GameMode Mode, MapHash256 PackageHash)
+    {
+        public bool IsCustom => !PackageHash.IsZero;
+
+        public static HostRotationEntry ForRoom(string roomKey, GameMode mode)
+        {
+            NetworkMapIdentity identity = NetworkMapIdentity.ForRoom(roomKey);
+            return new(roomKey,
+                mode == GameMode.None ? GameMode.Battle : mode,
+                identity.IsCustom ? identity.PackageHash : default);
+        }
+    }
+
     public struct HostRequestPacket
     {
         public const int MaxRoomBytes = 40;
@@ -169,14 +192,14 @@ namespace MphRead.Mods.Network
         /// How many maps a requested rotation may carry, and what one costs on
         /// the wire.
         ///
-        /// The cap is the datagram rather than a policy: the fixed block is 79
-        /// bytes, an entry is 41, and sixteen entries plus the current tail fit
-        /// comfortably under <see cref="NetConfig.MaxPacketSize"/>. Keep this
-        /// derived from the packet budget rather than duplicating its numeric
-        /// value in prose.
+        /// The cap is the datagram rather than a policy. Protocol 34 adds the
+        /// exact 32-byte package hash to every rotation entry. Built-in maps
+        /// write zero there. Sixteen entries still fit below
+        /// <see cref="NetConfig.MaxPacketSize"/> including the fixed request,
+        /// policy and first-map identity tail.
         /// </summary>
         public const int MaxRotation = 16;
-        public const int RotationEntrySize = MaxRoomBytes + 1;
+        public const int RotationEntrySize = MaxRoomBytes + 1 + MapHash256.Size;
 
         public byte Protocol;
         public byte MaxPlayers;
@@ -191,10 +214,13 @@ namespace MphRead.Mods.Network
         /// <summary>
         /// Every map the asker wants played, in order, or an empty list.
         ///
-        /// Protocol 25 requires the complete rotation/policy/identity tail.
+        /// Protocol 34 requires an exact package hash for every custom entry.
         /// Entry zero is the same first map as RoomKey.
         /// </summary>
-        public IReadOnlyList<(string RoomKey, GameMode Mode)>? Rotation;
+        public IReadOnlyList<HostRotationEntry>? Rotation;
+
+        public bool RequiresMapPreparation
+            => MapIdentity.IsCustom || (Rotation?.Any(entry => entry.IsCustom) ?? false);
 
         /// <summary>How many bytes this request takes, tail included.</summary>
         public ServerSessionPolicy Policy;
@@ -220,6 +246,8 @@ namespace MphRead.Mods.Network
                 int at = Size + 1 + i * RotationEntrySize;
                 NetText.Write(dest.Slice(at, MaxRoomBytes), Rotation![i].RoomKey);
                 dest[at + MaxRoomBytes] = (byte)Rotation![i].Mode;
+                Rotation![i].PackageHash.Write(
+                    dest.Slice(at + MaxRoomBytes + 1, MapHash256.Size));
             }
             int tail = Size + 1 + count * RotationEntrySize;
             dest[tail] = (byte)Policy;
@@ -252,12 +280,11 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// The tail, or null when the sender is an older launcher that wrote
-        /// none. Every length is checked rather than trusted: the count byte
-        /// is the asker's and a truncated datagram must not read past the end
-        /// of what arrived.
+        /// Decode the protocol-34 rotation tail. Every length is checked rather
+        /// than trusted: the count byte is the asker's and a truncated datagram
+        /// must not read past the end of what arrived.
         /// </summary>
-        private static List<(string, GameMode)>? ReadRotation(ReadOnlySpan<byte> src)
+        private static List<HostRotationEntry>? ReadRotation(ReadOnlySpan<byte> src)
         {
             if (src.Length <= Size)
             {
@@ -268,7 +295,7 @@ namespace MphRead.Mods.Network
             {
                 return null;
             }
-            var maps = new List<(string, GameMode)>(count);
+            var maps = new List<HostRotationEntry>(count);
             for (int i = 0; i < count; i++)
             {
                 int at = Size + 1 + i * RotationEntrySize;
@@ -282,8 +309,12 @@ namespace MphRead.Mods.Network
                     continue;
                 }
                 byte mode = src[at + MaxRoomBytes];
-                maps.Add((room, Enum.IsDefined(typeof(GameMode), mode)
-                    ? (GameMode)mode : GameMode.Battle));
+                MapHash256 packageHash = MapHash256.Read(
+                    src.Slice(at + MaxRoomBytes + 1, MapHash256.Size));
+                maps.Add(new HostRotationEntry(room,
+                    Enum.IsDefined(typeof(GameMode), mode)
+                        ? (GameMode)mode : GameMode.Battle,
+                    packageHash));
             }
             return maps.Count > 0 ? maps : null;
         }
@@ -2362,7 +2393,12 @@ namespace MphRead.Mods.Network
         // Protocol 33 appends one authoritative per-slot damage-reduction byte to each
         // roster entry. Older peers would stride the roster at the wrong width, so
         // mixed builds must be refused at Hello.
-        public const int ProtocolVersion = 33;
+        // Protocol 34 extends every remotely hosted rotation entry with the exact
+        // immutable custom-map package hash. Hosts can now fetch every later custom
+        // map before spawning the child instead of relying on whatever happened to
+        // be installed on that region. Older directories would stride this tail at
+        // 41 bytes and misread the policy/identity block, so mixed builds are refused.
+        public const int ProtocolVersion = 34;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

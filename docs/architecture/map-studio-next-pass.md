@@ -27,21 +27,28 @@ Export project folder writes a new portable directory containing `map.json` and 
 
 ## Community creator setup
 
-The existing filesystem-backed Community service now stores ownership and visibility separately from immutable archives. Its configured upload token retains the `service-owner` identity for backwards compatibility. Other creators authenticate with individual bearer tokens.
+Normal creator identity is Hunter License-backed. Map Studio asks
+`HunterLicenseClient` for a short-lived `ppm1` Community ticket and sends only
+that ticket to the map service. The player's Supabase access/refresh tokens remain
+inside the launcher. The `community-map-ticket` Edge Function mints and verifies
+the ticket; the map service caches the verified `hunter:<uuid>` creator identity
+only until ticket expiry.
 
-Create `creators.json` in the service storage directory before starting it:
+The filesystem `creators.json` registry remains supported for operator-managed
+service accounts and migrations. The root-only `PROJECT_PRIME_MAP_UPLOAD_TOKEN`
+remains the `service-owner` moderator credential and must not be handed to normal
+creators.
 
-```json
-[
-  { "creatorId": "alice", "tokenHash": "<64 lowercase SHA-256 hex characters of Alice's token>", "moderator": false }
-]
-```
+Owners and explicitly authorized collaborators may publish subsequent versions.
+Existing version package bytes cannot be replaced. Publish a new version instead.
+Published, unlisted and private draft visibility can change independently of archive
+identity. Draft access requires owner/collaborator authentication; unlisted exact
+links remain accessible.
 
-Use unique, randomly generated tokens and give each token only to its creator. The registry is read at startup; restart after changing it. Store token hashes, never raw tokens. Creator IDs are stable and case-sensitive. The existing service token is a moderator; `moderator: true` grants report review to a registered creator.
-
-Owners and explicitly authorized collaborators may publish subsequent versions. `POST maps/{mapId}/collaborators` accepts an array of registered creator IDs. Existing version package bytes cannot be replaced. Publish a new version instead. Published, unlisted and private draft visibility can change independently of archive identity. Draft access requires owner/collaborator authentication; unlisted exact links remain accessible.
-
-The Community UI includes My Maps, My favorites, favorite ordering, favorite/unfavorite, report reasons/details and visibility controls. `map_favorites.json`, `map_reports.json` and `map_collaborators.json` persist atomically. Reports never automatically delist content. Moderators use `GET reports` and `POST reports/{reportId}` with a JSON status string; statuses are Open, Reviewed, Resolved and Dismissed. This is token-based creator authentication, not an account registration/password service.
+The Community UI includes My Maps, My favorites, favorite ordering,
+favorite/unfavorite, report reasons/details and visibility controls. Reports never
+automatically delist content. Moderators use `GET reports` and
+`POST reports/{reportId}`; statuses are Open, Reviewed, Resolved and Dismissed.
 
 ## Acceptance and reproducibility
 

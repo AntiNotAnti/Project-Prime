@@ -1,0 +1,2 @@
+[functions.community-map-ticket]
+verify_jwt = false

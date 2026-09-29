@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -419,7 +420,7 @@ namespace MphRead.Mods.Network
                 }
                 Expire(now);
                 ReapHosted(now);
-                _mapRequests.Pump(now, (request, sender, time, package) => StartHosted(request, sender, time, package), SendHostReply);
+                _mapRequests.Pump(now, (request, sender, time, packages) => StartHosted(request, sender, time, packages), SendHostReply);
                 // The directory keeps itself current too, and waits on the
                 // matches it is running rather than on the servers it lists:
                 // a listed server re-announces every fifteen seconds, so the
@@ -507,13 +508,17 @@ namespace MphRead.Mods.Network
             {
                 reply.Reason = "malformed request";
             }
+            else if (packet.Payload[0] != NetConfig.ProtocolVersion)
+            {
+                reply.Reason = $"this directory speaks protocol {NetConfig.ProtocolVersion}, "
+                    + $"your build speaks {packet.Payload[0]}";
+            }
             else
             {
                 HostRequestPacket request = HostRequestPacket.Read(packet.Payload);
                 if (request.Protocol != NetConfig.ProtocolVersion)
                 {
-                    reply.Reason = $"this directory speaks protocol {NetConfig.ProtocolVersion}, "
-                        + $"your build speaks {request.Protocol}";
+                    reply.Reason = "malformed request";
                 }
                 else if (!CanHost)
                 {
@@ -523,7 +528,7 @@ namespace MphRead.Mods.Network
                 {
                     try
                     {
-                        if (request.MapIdentity.IsCustom)
+                        if (request.RequiresMapPreparation)
                         {
                             _mapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
                             return;
@@ -548,7 +553,7 @@ namespace MphRead.Mods.Network
             _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
         }
 
-        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now, string? hostedPackage = null)
+        private HostReplyPacket StartHosted(HostRequestPacket request, IPEndPoint asker, double now, HostedMapPreparation? hostedMaps = null)
         {
             // A child can exit between the periodic reap and this packet. Free
             // that reservation before looking for a game port so one stale
@@ -578,7 +583,7 @@ namespace MphRead.Mods.Network
             // not simulate more than one static session, so it promoted the
             // first joining player to authority.
             HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
-                "127.0.0.1", _port, listed: true, ownerToken, out string reason, hostedPackage);
+                "127.0.0.1", _port, listed: true, ownerToken, out string reason, hostedMaps);
             if (process == null)
             {
                 return new HostReplyPacket { Reason = reason };
@@ -1239,6 +1244,10 @@ namespace MphRead.Mods.Network
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
+                IReadOnlyList<HostRotationEntry>? hostedRotation = rotation?
+                    .Take(HostRequestPacket.MaxRotation)
+                    .Select(entry => HostRotationEntry.ForRoom(entry.RoomKey, entry.Mode))
+                    .ToArray();
                 var request = new HostRequestPacket
                 {
                     Protocol = NetConfig.ProtocolVersion,
@@ -1250,21 +1259,21 @@ namespace MphRead.Mods.Network
                     RoomKey = roomKey, MapIdentity = NetworkMapIdentity.ForRoom(roomKey),
                     ServerName = serverName,
                     Policy = policy, AllowJoinInProgress = true, RequireReady = false,
-                    Rotation = rotation
+                    Rotation = hostedRotation
                 };
                 var datagram = new byte[1 + request.Length];
                 datagram[0] = (byte)PacketType.HostRequest;
                 request.Write(datagram.AsSpan(1));
                 socket.Send(datagram, datagram.Length, endPoint);
                 var from = new IPEndPoint(IPAddress.Any, 0);
-                int requestTimeout = request.MapIdentity.IsCustom ? Math.Max(timeoutMs, 150_000) : timeoutMs;
-                socket.Client.ReceiveTimeout = request.MapIdentity.IsCustom ? 1000 : timeoutMs;
+                int requestTimeout = request.RequiresMapPreparation ? Math.Max(timeoutMs, 150_000) : timeoutMs;
+                socket.Client.ReceiveTimeout = request.RequiresMapPreparation ? 1000 : timeoutMs;
                 DateTime deadline = DateTime.UtcNow.AddMilliseconds(requestTimeout);
                 while (DateTime.UtcNow < deadline)
                 {
                     byte[] reply;
                     try { reply = socket.Receive(ref from); }
-                    catch (SocketException ex) when (request.MapIdentity.IsCustom && ex.SocketErrorCode == SocketError.TimedOut)
+                    catch (SocketException ex) when (request.RequiresMapPreparation && ex.SocketErrorCode == SocketError.TimedOut)
                     { socket.Send(datagram, datagram.Length, endPoint); continue; }
                     if (reply.Length < 1 + HostReplyPacket.Size
                         || reply[0] != (byte)PacketType.HostReply || !from.Equals(endPoint))
@@ -1290,7 +1299,7 @@ namespace MphRead.Mods.Network
                     // learned the truth from an eight-second join timeout.
                     // StatusQuery proves the actual game endpoint is answering.
                     var readyClock = System.Diagnostics.Stopwatch.StartNew();
-                    int readyTimeoutMs = request.MapIdentity.IsCustom ? 120_000 : 8_000;
+                    int readyTimeoutMs = request.RequiresMapPreparation ? 120_000 : 8_000;
                     while (readyClock.ElapsedMilliseconds < readyTimeoutMs)
                     {
                         int remaining = readyTimeoutMs - (int)readyClock.ElapsedMilliseconds;

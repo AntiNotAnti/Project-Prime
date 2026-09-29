@@ -56,7 +56,7 @@ dotnet src/MphRead/bin/Debug/net10.0/ProjectPrime.dll -mapviewportcheck /tmp/pri
 
 ## Remaining limits
 
-- Remote hosts use their configured Community service (`PROJECT_PRIME_MAP_COMMUNITY`, saved Community preference, or the default service). A map published to another service must also be available on that configured service. Later custom maps in a multi-map rotation still need to be installed on the host; the request carries exact identity for its initial map.
+- Remote hosts use their configured Community service (`PROJECT_PRIME_MAP_COMMUNITY`, saved Community preference, or the default service). A map published to another service must also be available on that configured service. Hosted rotation requests carry the exact immutable package hash for every custom entry; the host resolves and downloads every missing package before spawning the isolated child, so later custom maps no longer need to be preinstalled on that region.
 - The host archive cache is bounded to approximately 2 GiB plus in-flight downloads. Operators can remove unused files from `hosted-map-packages` under the application user-data directory. Private lobby libraries and generated files are removed when their child is reaped.
 - The asset-free multiprocess acceptance runner now covers two clients, rotation, service/server restarts, download failures and historical replay package retrieval. Full interactive gameplay and rendered historical replay still require extracted game assets. Windows/Linux/Android gates are configured but have not been run locally.
 - Filesystem changes produce debounced review notifications. Reimport and texture reload remain explicit actions.

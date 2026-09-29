@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 33, "bot wire contract supersedes custom map protocol 25");
+            Check(NetConfig.ProtocolVersion == 34, "bot wire contract supersedes custom map protocol 25");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -242,27 +242,75 @@ namespace MphRead.Mods.Network
                 string package = MapPackageBuilder.Build(definition,Path.Combine(root,"source.ppmap"));
                 var identity = MapContentIdentity.FromPackage(package);
                 Metadata.RegisterDownloadedMap(MapDefinition.Load(package));
+
+                var secondDefinition = new MapDefinition
+                {
+                    FormatVersion=2, MapId=Guid.NewGuid(), Name="SYNC_ROTATION_2",
+                    Version="1", BaseDirectory=root
+                };
+                secondDefinition.Materials.Add(new(){Texture="tile.tex"});
+                secondDefinition.Assets.Add(new(){Path="tile.tex"});
+                secondDefinition.Geometry.Add(new MapBox
+                    {Transform=new(){Position=new[]{0f,-1,0},Scale=new[]{10f,1,10f}}});
+                secondDefinition.Spawns.Add(new(){Position=new[]{0f,2,0}});
+                secondDefinition.Spawns.Add(new(){Position=new[]{3f,2,0}});
+                string secondPackage = MapPackageBuilder.Build(
+                    secondDefinition,Path.Combine(root,"second.ppmap"));
+                var secondIdentity = MapContentIdentity.FromPackage(secondPackage);
+                Metadata.RegisterDownloadedMap(MapDefinition.Load(secondPackage));
+
                 using var probe = new TcpListener(IPAddress.Loopback,0); probe.Start();
                 string address = "http://127.0.0.1:"+((IPEndPoint)probe.LocalEndpoint).Port+"/"; probe.Stop();
                 const string secret="local-download-integration-test-token";
                 service = MapCommunityServer.ServeAsync(address,Path.Combine(root,"community"),secret,stop.Token);
-                using(var community = new MapCommunityClient(address,secret)) community.UploadAsync(package,default).GetAwaiter().GetResult();
-                Check(CustomRooms.Installed.HasExact(identity),"host indexed immutable package before client removal");
+                using(var community = new MapCommunityClient(address,secret))
+                {
+                    community.UploadAsync(package,default).GetAwaiter().GetResult();
+                    community.UploadAsync(secondPackage,default).GetAwaiter().GetResult();
+                }
+                Check(CustomRooms.Installed.HasExact(identity)
+                    && CustomRooms.Installed.HasExact(secondIdentity),
+                    "host indexed both immutable packages before client removal");
                 using var rig = new Rig(room:definition.Name); rig.Server.MapDownloadSource=address;
-                File.Delete(package); // Only the Community now has the exact archive.
-                Check(!CustomRooms.Installed.HasExact(identity),"clean client lacks required archive");
-                var hostRequest = new HostRequestPacket { Protocol=NetConfig.ProtocolVersion, RoomKey=definition.Name,
-                    MapIdentity=new(identity.MapId,identity.ContentHash,identity.PackageHash,NetworkMapFlags.Custom), Policy=ServerSessionPolicy.Lobby };
+                File.Delete(package); File.Delete(secondPackage); // Only Community now has either exact archive.
+                Check(!CustomRooms.Installed.HasExact(identity)
+                    && !CustomRooms.Installed.HasExact(secondIdentity),
+                    "clean host lacks both required rotation archives");
+                var hostRequest = new HostRequestPacket
+                {
+                    Protocol=NetConfig.ProtocolVersion, RoomKey=definition.Name,
+                    MapIdentity=new(identity.MapId,identity.ContentHash,identity.PackageHash,NetworkMapFlags.Custom),
+                    Policy=ServerSessionPolicy.Lobby,
+                    Rotation=new[]
+                    {
+                        new HostRotationEntry(definition.Name,GameMode.Battle,identity.PackageHash),
+                        new HostRotationEntry(secondDefinition.Name,GameMode.Battle,secondIdentity.PackageHash)
+                    }
+                };
+                Check(hostRequest.RequiresMapPreparation,"later custom rotation maps trigger host preparation");
+                byte[] hostWire=new byte[hostRequest.Length];hostRequest.Write(hostWire);
+                HostRequestPacket restoredHost=HostRequestPacket.Read(hostWire);
+                Check(restoredHost.Rotation?.Count==2
+                    && restoredHost.Rotation[0].PackageHash==identity.PackageHash
+                    && restoredHost.Rotation[1].PackageHash==secondIdentity.PackageHash,
+                    "host request round trip retains every exact rotation package hash");
                 using (var requests = new HostedMapRequests(Path.Combine(root,"host-cache"),address))
                 {
                     int starts=0, replies=0; HostReplyPacket answer=default;
                     var sender=new IPEndPoint(IPAddress.Loopback,31234);
                     void Send(IPEndPoint _, HostReplyPacket reply) { answer=reply; replies++; }
-                    HostReplyPacket Start(HostRequestPacket request,IPEndPoint _,double now,string archive)
+                    HostReplyPacket Start(HostRequestPacket request,IPEndPoint _,double now,HostedMapPreparation prepared)
                     {
                         starts++;
-                        Check(MapContentIdentity.FromPackage(archive).Matches(identity),"remote host fetched exact published archive");
-                        Check(!CustomRooms.Installed.HasExact(identity),"host download does not publish into parent's active map library");
+                        HostedMapArchive? first=prepared.Find(definition.Name,identity.PackageHash);
+                        HostedMapArchive? second=prepared.Find(secondDefinition.Name,secondIdentity.PackageHash);
+                        Check(first!=null && MapContentIdentity.FromPackage(first.PackagePath).Matches(identity),
+                            "remote host fetched exact first published archive");
+                        Check(second!=null && MapContentIdentity.FromPackage(second.PackagePath).Matches(secondIdentity),
+                            "remote host fetched exact later rotation archive");
+                        Check(!CustomRooms.Installed.HasExact(identity)
+                            && !CustomRooms.Installed.HasExact(secondIdentity),
+                            "host downloads stay isolated from parent's active map library");
                         return new() { Started=true,Port=31235 };
                     }
                     requests.Enqueue(hostRequest,sender,0,Send);
@@ -274,8 +322,40 @@ namespace MphRead.Mods.Network
                     var corrupt=hostRequest; corrupt.MapIdentity=corrupt.MapIdentity with { ContentHash=MapHash256.Parse(new string('f',64)) };
                     requests.Enqueue(corrupt,new IPEndPoint(IPAddress.Loopback,31236),3,Send);
                     rig.Wait(()=>{requests.Pump(4,Start,Send);return replies>2;},"remote host mismatch rejection",20000);
-                    Check(!answer.Started && starts==1,"wrong content identity cannot launch a server");
+                    Check(!answer.Started && starts==1,"wrong first content identity cannot launch a server");
+
+                    var corruptLater=hostRequest;
+                    HostRotationEntry[] badRotation=hostRequest.Rotation!.ToArray();
+                    badRotation[1]=badRotation[1] with { PackageHash=MapHash256.Parse(new string('e',64)) };
+                    corruptLater.Rotation=badRotation;
+                    requests.Enqueue(corruptLater,new IPEndPoint(IPAddress.Loopback,31237),5,Send);
+                    rig.Wait(()=>{requests.Pump(6,Start,Send);return replies>3;},"later rotation mismatch rejection",20000);
+                    Check(!answer.Started && starts==1,
+                        "unknown later rotation package cannot launch a server");
                 }
+
+                string builtIn=Metadata.RoomMetadata.First(pair=>pair.Value.Multiplayer).Key;
+                var mixedRequest=new HostRequestPacket
+                {
+                    Protocol=NetConfig.ProtocolVersion,RoomKey=builtIn,
+                    MapIdentity=default,Policy=ServerSessionPolicy.Lobby,
+                    Rotation=new[]
+                    {
+                        new HostRotationEntry(builtIn,GameMode.Battle,default),
+                        new HostRotationEntry(secondDefinition.Name,GameMode.Battle,secondIdentity.PackageHash)
+                    }
+                };
+                Check(mixedRequest.RequiresMapPreparation,
+                    "built-in first map still prepares a later custom rotation entry");
+                HostedMapPreparation mixedPrepared=HostedMapRequests.PrepareArchivesAsync(
+                    mixedRequest,address,Path.Combine(root,"mixed-host-cache"),null,default)
+                    .GetAwaiter().GetResult();
+                HostedMapArchive? mixedLater=mixedPrepared.Find(
+                    secondDefinition.Name,secondIdentity.PackageHash);
+                Check(mixedLater!=null
+                    && MapContentIdentity.FromPackage(mixedLater.PackagePath).Matches(secondIdentity),
+                    "built-in-first remote rotation downloads its later exact custom package");
+
                 string cached=Path.Combine(root,"host-cache",identity.PackageHash+".ppmap");
                 string reused=HostedMapRequests.PrepareArchiveAsync(hostRequest,"https://unused.invalid/",Path.Combine(root,"host-cache"),null,default).GetAwaiter().GetResult();
                 Check(reused==cached,"verified host cache works without network");
@@ -403,10 +483,14 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 33 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 34 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
+            Check(1 + HostRequestPacket.Size + 1
+                + HostRequestPacket.MaxRotation * HostRequestPacket.RotationEntrySize
+                + 4 + NetworkMapIdentity.Size <= NetConfig.MaxPacketSize,
+                "full exact-identity hosted rotation fits one UDP datagram");
             var state = new SessionStatePacket { Phase = SessionPhase.Starting, Policy = ServerSessionPolicy.Lobby,
                 OwnerSlot = 7, MaxPlayers = 8, Revision = ushort.MaxValue, MatchId = 19,
                 RuleFlags = LobbyRuleFlags.RequireReady | LobbyRuleFlags.AllowJoinInProgress | LobbyRuleFlags.LockTeams,
