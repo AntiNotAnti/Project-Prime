@@ -206,9 +206,9 @@ namespace MphRead.Mods.Diagnostics
 
             Console.WriteLine("[fpsconvertaudit] math exact-multiplier: F60=sqrt(F30)");
             Console.WriteLine("[fpsconvertaudit] math exact-lerp: A60=1-sqrt(1-A30)");
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            Console.WriteLine(FormattableString.Invariant(
                 $"[fpsconvertaudit] math facing A30=0.3 naivePair={naiveEffectiveLerp:0.000000} exactHalf={exactLerp:0.000000}"));
-            Console.WriteLine(string.Create(CultureInfo.InvariantCulture,
+            Console.WriteLine(FormattableString.Invariant(
                 $"[fpsconvertaudit] math alt-air gravity pair native={nativePairDisplacement:0.000000} current={currentPairDisplacement:0.000000} delta={currentPairDisplacement - nativePairDisplacement:0.000000}"));
         }
 
