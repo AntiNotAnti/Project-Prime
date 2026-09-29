@@ -40,7 +40,7 @@ namespace MphRead.Mods.Network
         None = 0, FriendlyFire = 1, AffinityWeapons = 2, ShadowFreeze = 4,
         RequireReady = 8, AllowJoinInProgress = 16, LockTeams = 32,
         HideOpponentHealth = 64, DisablePowerups = 128, SpawnProtection = 256,
-        VanillaDuelResources = 512, InstaGib = 1024, LowTier = 2048, NoImperialist = 4096
+        VanillaDuelResources = 512, InstaGib = 1024, LowTier = 2048, NoImperialist = 4096, EnhancedHunters = 8192
     }
 
     public readonly record struct MatchDefinition
@@ -54,6 +54,7 @@ namespace MphRead.Mods.Network
         public ushort PointGoal { get; init; }
         public bool FriendlyFire { get; init; }
         public bool AffinityWeapons { get; init; }
+        public bool EnhancedHunters { get; init; }
         public bool ShadowFreeze { get; init; }
         public bool HideOpponentHealth { get; init; }
         public bool DisablePowerups { get; init; }
@@ -69,6 +70,7 @@ namespace MphRead.Mods.Network
         {
             state.FriendlyFire = FriendlyFire;
             state.AffinityWeapons = AffinityWeapons;
+            state.EnhancedHunters = EnhancedHunters;
             state.InstaGib = InstaGib || Mode == GameMode.InstaGib;
             state.LowTier = LowTier;
             state.NoImperialist = NoImperialist;
@@ -82,6 +84,7 @@ namespace MphRead.Mods.Network
 
         public SessionRules Rules => (FriendlyFire ? SessionRules.FriendlyFire : 0)
             | (AffinityWeapons ? SessionRules.AffinityWeapons : 0)
+            | (EnhancedHunters ? SessionRules.EnhancedHunters : 0)
             | (ShadowFreeze ? SessionRules.ShadowFreeze : 0)
             | (HideOpponentHealth ? SessionRules.HideOpponentHealth : 0)
             | (DisablePowerups ? SessionRules.DisablePowerups : 0)

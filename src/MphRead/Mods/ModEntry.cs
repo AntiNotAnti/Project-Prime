@@ -154,6 +154,11 @@ namespace MphRead.Mods
                 return true;
             }
 #endif
+            if (HasFlag(args, "trainingcheck"))
+            {
+                Environment.ExitCode = Training.AimTrainerChecks.Run(HasFlag(args, "simulation"), ValueAfter(args, "shots"));
+                return true;
+            }
             if (HasFlag(args, "gamepadcheck"))
             {
                 Environment.ExitCode = Input.GamepadChecks.Run(ValueAfter(args, "shots"));
@@ -358,6 +363,9 @@ namespace MphRead.Mods
             // that raises it has to be otherwise identical to the run that
             // did not. Read on the machine that simulates the match, which is
             // the only one that rewinds anything.
+            string? sampling = ValueAfter(args, "shadowsampling");
+            if (sampling != null && !Network.NetShadowSampler.Configure(sampling))
+                Console.WriteLine("[net] shadowsampling: expected off, production, study or full");
             string? plausibility = ValueAfter(args, "lagcompplausibility");
             if (plausibility != null && !Network.LagCompensationPolicy.Configure(plausibility))
                 Console.WriteLine("[net] lagcomp plausibility refused; off/shadow supported, enforce requires a Debug build");
@@ -961,6 +969,7 @@ namespace MphRead.Mods
                 // file. The damage level is not an option: it is pinned to
                 // medium everywhere. See GameState.DamageLevel.
                 AffinityWeapons = HasFlag(args, "affinityweapons"),
+                EnhancedHunters = HasFlag(args, "enhancedhunters"),
                 // Spawn protection is the default match rule; the negative
                 // flag is useful for fixed competitive servers that opt out.
                 InstaGib = HasFlag(args, "instagib"),

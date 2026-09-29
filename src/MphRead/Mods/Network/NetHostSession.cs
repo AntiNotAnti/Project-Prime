@@ -53,6 +53,7 @@ namespace MphRead.Mods.Network
                 friendlyFire: GameState.FriendlyFire,
                 shadowFreeze: GameState.ShadowFreeze,
                 affinityWeapons: GameState.AffinityWeapons,
+                enhancedHunters: GameState.EnhancedHunters,
                 spawnProtection: GameState.SpawnProtection);
             if (started < 0 || LocalServer.Running == null)
             {

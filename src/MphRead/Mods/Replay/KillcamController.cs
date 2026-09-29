@@ -19,6 +19,8 @@ internal readonly record struct KillcamContext(ushort MatchId, ulong Epoch, uint
 /// The caller keeps live simulation running and supplies authoritative lifecycle state.</summary>
 internal sealed class KillcamController : IDisposable
 {
+    private readonly record struct KillcamCameraSnapshot(Vector3 Position, Vector3 Target,
+        Vector3 Facing, float Fov, uint Frame);
     internal const uint PreRollFrames = 210;
     internal const uint PostRollFrames = 90;
     internal const uint PersonalReplayFrames = PreRollFrames + PostRollFrames;
@@ -39,6 +41,8 @@ internal sealed class KillcamController : IDisposable
     private Scene? _live;
     private KillcamHud? _hud;
     private readonly Stopwatch _startup = new();
+    private KillcamCameraSnapshot? _lastKillerCamera;
+    private string? _killerName;
     internal double StartupMilliseconds { get; private set; }
     internal long ClipBytes { get; private set; }
     internal KillcamState State { get; private set; }
@@ -52,6 +56,28 @@ internal sealed class KillcamController : IDisposable
     internal float Progress => !Active || _end <= _start ? 1 : Math.Clamp((Frame - _start) / (float)(_end - _start), 0, 1);
     internal ReplayMarker? Playing => _playing;
     internal ReplayMarker? Candidate => _candidate;
+    internal uint CandidateFrame => _candidateFrame;
+    internal uint PlayingFrame => _killFrame;
+    internal string AuthorityEndCause { get; private set; } = "unknown";
+    internal static bool SameKillIdentity(ReplayKillIdentity? left, ReplayKillIdentity? right)
+    {
+        if (left is not { } a || right is not { } b) return false;
+        return a.MatchId == b.MatchId && a.AuthorityEpoch == b.AuthorityEpoch
+            && a.ServerTick == b.ServerTick && a.EventId == b.EventId
+            && a.KillerSlot == b.KillerSlot && a.KillerGeneration == b.KillerGeneration
+            && (a.KillerLifeId == 0 || b.KillerLifeId == 0 || a.KillerLifeId == b.KillerLifeId)
+            && a.VictimSlot == b.VictimSlot && a.VictimGeneration == b.VictimGeneration
+            && a.VictimLifeId == b.VictimLifeId;
+    }
+    internal static int ResolveAttackerSlot(ReplayKillIdentity kill, ReplayReplicaState state)
+        => kill.KillerSlot < PlayerEntity.SlotCapacity
+            && kill.KillerGeneration != 0 && state.TryGetPlayer(kill.KillerSlot, out var actor)
+            && actor.SlotGeneration == kill.KillerGeneration
+            && (actor.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned))
+                == (PlayerState.FlagActive | PlayerState.FlagSpawned)
+            && state.Occupant(kill.KillerSlot).Generation == kill.KillerGeneration
+            && (kill.KillerLifeId == 0 || state.MatchesLife(kill.KillerSlot,
+                kill.KillerGeneration, kill.KillerLifeId)) ? kill.KillerSlot : -1;
     internal PassiveReplayScene? Replica => _player?.Current;
 
     internal KillcamController(IReplayTimeline timeline, Func<ReplayTimelineClip, Vector2i, PassiveReplayPlayer>? open = null)
@@ -124,9 +150,10 @@ internal sealed class KillcamController : IDisposable
 
     internal bool BeginFinal(Scene live, KillcamContext context, uint endFrame, bool timedEnd, bool causalEnd)
     {
+        AuthorityEndCause = causalEnd ? "kill" : timedEnd ? "time" : "non-causal";
         Stop(KillcamEndReason.None); _pending = null;
         if (!context.FinalEnabled || _candidate is not { Kill: { } kill } marker || !Matches(kill, context)
-            || !FinalEligible(_candidateFrame, endFrame, timedEnd, causalEnd)) return false;
+            || !FinalEligible(kill.ServerTick, endFrame, timedEnd, causalEnd)) return false;
         var clip = Freeze(_candidateFrame);
         if (clip == null) { EndReason = KillcamEndReason.Unavailable; return false; }
         try { Start(live, clip, marker, KillCamKind.Final, _candidateFrame); return true; }
@@ -166,16 +193,40 @@ internal sealed class KillcamController : IDisposable
     {
         if (!Visible || _playing?.Kill is not { } kill) return;
         var world = _player!.Current;
-        int slot = world.State.Occupant(kill.KillerSlot).Generation == kill.KillerGeneration ? kill.KillerSlot
-            : world.State.Occupant(kill.VictimSlot).Generation == kill.VictimGeneration ? kill.VictimSlot : -1;
-        if (slot < 0) { Stop(KillcamEndReason.InvalidIdentity); return; }
         Scene scene = world.Scene;
+        double hostAlpha = Render.FrameTiming.Active ? Render.FrameTiming.PresentationAlpha : 1;
         scene.ReplayRenderAlpha = Render.FrameTiming.Active
-            ? _player.Transport.PresentationAlpha(Render.FrameTiming.PresentationAlpha) : 1;
+            ? _player.Transport.PresentationAlpha(hostAlpha) : 1;
+        scene.ReplayPresentationFrame = Render.FrameTiming.Active
+            ? _player.Transport.PresentationFrame(hostAlpha) : Frame;
         if (scene.Size != size) { scene.Size = size; scene.OnResize(); }
+        int slot = ResolveAttackerSlot(kill, world.State);
+        if (slot < 0)
+        {
+            if (_lastKillerCamera is { } saved && Frame >= saved.Frame && Frame - saved.Frame <= 15)
+            {
+                scene.SetReplicaCamera(saved.Position, saved.Target, saved.Fov);
+                return;
+            }
+            PlayerEntity? victim = world.State.Occupant(kill.VictimSlot).Generation == kill.VictimGeneration
+                && (kill.VictimLifeId == 0 || world.State.MatchesLife(kill.VictimSlot,
+                    kill.VictimGeneration, kill.VictimLifeId)) ? scene.Players.Items[kill.VictimSlot] : null;
+            if (victim != null)
+            {
+                Vector3 target = victim.ReplayDrawTransform.Row3.Xyz + Vector3.UnitY * 1.2f;
+                scene.SetReplicaCamera(target + new Vector3(4, 3, 4), target, 82);
+            }
+            else
+            {
+                scene.SetReplicaCamera(new Vector3(0, 3, 4), new Vector3(0, 1, 0), 82);
+            }
+            return;
+        }
         PlayerEntity actor = scene.Players.Items[slot];
+        _killerName ??= scene.GameState.Nicknames[kill.KillerSlot];
         Vector3 facing = actor.CameraInfo.Facing.LengthSquared > .0001f ? actor.CameraInfo.Facing : actor.FacingVector;
-        if (scene.ReplayPoses?.Sample(actor.SlotIndex, scene.ReplayRenderAlpha, out _, out var replicaFacing) == true)
+        if (scene.ReplayPoses?.SamplePresented(actor.SlotIndex, scene.ReplayRenderAlpha,
+            out _, out var replicaFacing) == true)
             facing = replicaFacing;
         if (facing.LengthSquared < .0001f) facing = Vector3.UnitZ;
         facing = facing.Normalized();
@@ -185,27 +236,54 @@ internal sealed class KillcamController : IDisposable
         var mode = (KillcamCameraMode)Math.Clamp(Launcher.LauncherPrefs.KillCamCamera, 0, 2);
         if (mode == KillcamCameraMode.FirstPerson && !actor.IsAltForm && actor.CameraInfo.Facing.LengthSquared > .0001f)
         {
-            var eye = actor.CameraInfo.Position + actor.ReplayDrawTransform.Row3.Xyz - actor.Position;
-            scene.SetReplicaCamera(eye, eye + facing * 5, 82); return;
+            var eye = actor.CameraInfo.ModGetDrawPosition(scene.ReplayRenderAlpha)
+                + actor.ReplayDrawTransform.Row3.Xyz - actor.SimulationDrawPosition;
+            Vector3 target = eye + facing * 5;
+            float fov = actor.CameraInfo.ModGetDrawFov(scene.ReplayRenderAlpha);
+            if (!float.IsFinite(fov) || fov <= 0) fov = 82;
+            fov = Math.Clamp(fov, 1, 175);
+            scene.SetReplicaCamera(eye, target, fov);
+            _lastKillerCamera = new(eye, target, facing, fov, Frame);
+            return;
         }
-        float distance = mode == KillcamCameraMode.Cinematic
-            ? 3.2f + Math.Clamp(((float)_killFrame - Frame) / 60, 0, 1) * 1.8f : 3.2f;
+        double relativeFrame = scene.ReplayPresentationFrame - _killFrame;
+        float distance = 3.2f;
+        if (mode == KillcamCameraMode.Cinematic)
+        {
+            if (relativeFrame < -15) distance = 4.6f;
+            else if (relativeFrame <= 15) distance = 2.7f;
+            else distance = 2.7f + (float)Math.Clamp((relativeFrame - 15) / 60, 0, 1) * 1.5f;
+            float orbit = (float)Math.Clamp(relativeFrame / 75, 0, 1) * .55f;
+            if (orbit != 0)
+            {
+                facing = Vector3.Transform(facing, Quaternion.FromAxisAngle(Vector3.UnitY, orbit));
+                right = Vector3.Cross(facing, Vector3.UnitY);
+                if (right.LengthSquared < .0001f) right = Vector3.UnitX;
+            }
+        }
         Vector3 camera = focus - facing * distance + right.Normalized() * .9f + Vector3.UnitY * .8f;
         CollisionResult collision = default;
         if (CollisionDetection.CheckBetweenPoints(focus, camera, TestFlags.Players, scene, ref collision))
             camera = focus + (camera - focus) * Math.Max(.05f, collision.Distance - .05f);
-        scene.SetReplicaCamera(camera, focus + facing * 5, 82);
+        Vector3 cameraTarget = focus + facing * 5;
+        scene.SetReplicaCamera(camera, cameraTarget, 82);
+        _lastKillerCamera = new(camera, cameraTarget, facing, 82, Frame);
     }
     internal void DrawHud(Scene scene)
     {
         if (!ReferenceEquals(scene, Presentation) || _playing is not { Kill: { } kill } marker) return;
         _hud ??= new KillcamHud(scene);
-        string killer = scene.GameState.Nicknames[kill.KillerSlot].ToUpperInvariant();
+        string killer = (_killerName ?? "ATTACKER").ToUpperInvariant();
         string victim = scene.GameState.Nicknames[kill.VictimSlot].ToUpperInvariant();
         string weapon = KillCam.WeaponName(marker.Weapon);
         bool headshot = ((DamageFlags)marker.DamageFlags & DamageFlags.Headshot) != 0;
+        int killerHealth = scene.Services is ReplaySceneServices services
+            && services.State.Occupant(kill.KillerSlot).Generation == kill.KillerGeneration
+            && (kill.KillerLifeId == 0 || services.State.MatchesLife(kill.KillerSlot,
+                kill.KillerGeneration, kill.KillerLifeId))
+            ? scene.Players.Items[kill.KillerSlot].Health : 0;
         _hud.Draw(Kind == KillCamKind.Final, killer, victim, weapon, headshot,
-            scene.Players.Items[kill.KillerSlot].Health, Progress,
+            killerHealth, Progress,
             _end > _start ? (_killFrame - _start) / (float)(_end - _start) : 1,
             ((float)_killFrame - Frame) / 60);
     }
@@ -230,7 +308,7 @@ internal sealed class KillcamController : IDisposable
         _live = null;
         ReplayAudioOwner.Release(_audio); _audio = 0;
         _startup.Stop();
-        _hud = null; _player?.Dispose(); _player = null; _playingClip?.Dispose(); _playingClip = null; _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
+        _hud = null; _lastKillerCamera = null; _killerName = null; _player?.Dispose(); _player = null; _playingClip?.Dispose(); _playingClip = null; _playing = null; State = KillcamState.None; Kind = KillCamKind.None;
         EndReason = reason;
         if (live != null && live.Players.Items.Count > 0)
         { live.Players.Main.Controls.ClearAll(); live.Players.Main.ModForgetInputDeltas(); }

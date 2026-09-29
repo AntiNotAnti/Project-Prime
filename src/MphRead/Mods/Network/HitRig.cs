@@ -537,7 +537,7 @@ namespace MphRead.Mods.Network
                 return false;
             }
             Vector3 at = headHeight > 0
-                ? target.Position.AddY(headHeight)
+                ? target.Position.AddY(Mods.Training.TrainingTargetGeometry.HeadTop(target) - .15f)
                 : target.IsAltForm ? target.Volume.SpherePosition : target.ModAimTarget;
             (float turnX, float turnY) = player.ModAimDeltaTowards(at);
             if (!Single.IsFinite(turnX) || !Single.IsFinite(turnY))

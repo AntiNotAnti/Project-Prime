@@ -61,7 +61,7 @@ namespace MphRead.Mods.Network
         private static bool _playback;
         private static readonly List<RemotePeer> _peers = new();
         private static IPEndPoint? _hostEndPoint;
-        private static readonly byte[] _scratch = new byte[NetConfig.MaxPacketSize];
+        private static readonly byte[] _scratch = new byte[4096];
         public static NetRole Role { get; private set; } = NetRole.Offline;
         public static bool Active => Role != NetRole.Offline;
         public static bool IsHost => Role == NetRole.Host;
@@ -982,6 +982,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            if (!NetHitClaims.ValidateWireClaims(packet.Payload)) return;
             NetHitClaims.Receive(peer.SlotIndex, packet.Payload);
         }
 
@@ -1223,6 +1224,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             IntentPacket intent = IntentPacket.Read(packet.Payload);
+            if (!NetFireEvents.Validate(intent)) return;
             if (!NetPlayerLifecycle.AcceptIntent(peer.SlotIndex, intent)) return;
             // UDP reorders; an older frame must not overwrite a newer one --
             // unless it is so much older that the peer restarted its counter.
@@ -1261,7 +1263,9 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            AcceptSlotIntent(slot, IntentPacket.Read(packet.Payload[1..]));
+            var intent = IntentPacket.Read(packet.Payload[1..]);
+            if (!NetFireEvents.Validate(intent)) return;
+            AcceptSlotIntent(slot, intent);
         }
 
         /// <summary>
@@ -1662,24 +1666,32 @@ namespace MphRead.Mods.Network
                 return;
             }
             SnapshotHeader header = SnapshotHeader.Read(payload);
+            bool direct = packet.Type == PacketType.SnapshotFast;
+            Span<PlayerState> decoded = stackalloc PlayerState[PlayerEntity.SlotCapacity];
+            ReadOnlySpan<byte> timeState, worldState;
             int timeOffset = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
-            int healthOffset = timeOffset + NetMatchTimeSync.Size;
-            // The snapshot header owns stream identity. Check it before
-            // validating stream-specific tails so an old match/authority is
-            // rejected for the right lifecycle reason and cannot hide behind
-            // a secondary health-tail mismatch.
-            if (header.PlayerCount > PlayerEntity.SlotCapacity || healthOffset > payload.Length
-                || !MatchesStream(header.MatchId, header.AuthorityEpoch)) return;
-            if (!NetMatchTimeSync.Validate(payload.Slice(timeOffset, NetMatchTimeSync.Size))
-                || !NetHealthSync.Validate(payload[healthOffset..])
-                || !NetHealthSync.IsCurrentMatch(payload[healthOffset..])) return;
-            int occupied = 0;
-            for (int i = 0; i < header.PlayerCount; i++)
+            if (direct)
             {
-                int slot = payload[SnapshotHeader.Size + i * PlayerState.Size];
-                if (slot >= RemoteStates.Length || (occupied & (1 << slot)) != 0) return;
-                occupied |= 1 << slot;
+                if (!_laneReceiver.TryDecodeLive(payload, decoded, CurrentMatchId, AuthorityEpoch, out header)) return;
+                timeState = _laneReceiver.TimeState; worldState = _laneReceiver.WorldState;
             }
+            else
+            {
+                int healthOffset = timeOffset + NetMatchTimeSync.Size;
+                if (header.PlayerCount > PlayerEntity.SlotCapacity || healthOffset > payload.Length
+                    || !MatchesStream(header.MatchId, header.AuthorityEpoch)) return;
+                timeState = payload.Slice(timeOffset, NetMatchTimeSync.Size); worldState = payload[healthOffset..];
+                int occupied = 0;
+                for (int i = 0; i < header.PlayerCount; i++)
+                {
+                    int slot = payload[SnapshotHeader.Size + i * PlayerState.Size];
+                    if (slot >= RemoteStates.Length || (occupied & (1 << slot)) != 0) return;
+                    occupied |= 1 << slot;
+                    decoded[i] = PlayerState.Read(payload[(SnapshotHeader.Size + i * PlayerState.Size)..]);
+                }
+            }
+            if (!NetMatchTimeSync.Validate(timeState) || !NetHealthSync.Validate(worldState)
+                || !NetHealthSync.IsCurrentMatch(worldState)) return;
             if (!bootstrap && _hasSnapshot && !NetLifecycleTracker.Newer(header.Frame, _lastSnapshotFrame))
             {
                 SnapshotsOutOfOrder++;
@@ -1688,24 +1700,19 @@ namespace MphRead.Mods.Network
             _hasSnapshot = true;
             _lastSnapshotFrame = header.Frame;
             SnapshotArrived = Math.Max(NetFrame, 1);
-            ReplayCapture.Observe(packet.Data.AsSpan(0, packet.Length));
+            if (direct) ReplayCapture.ObserveSnapshot(header, decoded[..header.PlayerCount], timeState, worldState);
+            else ReplayCapture.Observe(packet.Data.AsSpan(0, packet.Length));
             SnapshotsReceived++;
             // Rng.cs reproduces the game's original LCG and its state is
             // global, so adopting the host's words keeps every random
             // consumer agreeing without replicating each one individually.
             Rng.SetRng1(header.Rng1);
             Rng.SetRng2(header.Rng2);
-            int offset = SnapshotHeader.Size;
             int count = 0;
             Array.Clear(RemoteStateValid);
             for (int i = 0; i < header.PlayerCount; i++)
             {
-                if (offset + PlayerState.Size > payload.Length)
-                {
-                    break;
-                }
-                PlayerState state = PlayerState.Read(payload[offset..]);
-                offset += PlayerState.Size;
+                PlayerState state = decoded[i];
                 if (state.SlotIndex < RemoteStates.Length && NetPlayerLifecycle.AcceptState(state, header.Frame))
                 {
                     RemoteStates[state.SlotIndex] = state;
@@ -1725,18 +1732,19 @@ namespace MphRead.Mods.Network
             // NetSmoothing.
             NetTimingDiagnostics.Snapshot(packet.ArrivedAt);
             NetSmoothing.Record(header.Frame, _snapshotScratch.AsSpan(0, count), packet.ArrivedAt);
-            NetMatchTimeSync.Receive(payload.Slice(timeOffset, NetMatchTimeSync.Size));
-            NetHealthSync.Receive(payload[healthOffset..]);
+            NetMatchTimeSync.Receive(timeState);
+            NetHealthSync.Receive(worldState);
             // Only accepted player lives enter the timeline. Preserve the validated
             // clock/health tail, but omit stale-generation player states.
-            int tailLength = payload.Length - timeOffset;
+            int tailLength = timeState.Length + worldState.Length;
             Span<byte> accepted = stackalloc byte[1 + SnapshotHeader.Size + count * PlayerState.Size + tailLength];
             accepted[0] = (byte)PacketType.Snapshot;
             header.PlayerCount = (byte)count;
             header.Write(accepted[1..]);
             for (int i = 0; i < count; i++)
                 _snapshotScratch[i].Write(accepted[(1 + SnapshotHeader.Size + i * PlayerState.Size)..]);
-            payload[timeOffset..].CopyTo(accepted[(1 + SnapshotHeader.Size + count * PlayerState.Size)..]);
+            int tailAt = 1 + SnapshotHeader.Size + count * PlayerState.Size;
+            timeState.CopyTo(accepted[tailAt..]); worldState.CopyTo(accepted[(tailAt + timeState.Length)..]);
             ReplayCapture.AcceptedSnapshot(accepted, header.Frame);
             for (int i = 0; i < count; i++) ReplayCapture.AcceptedState(_snapshotScratch[i], header.Frame);
         }
@@ -1829,6 +1837,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             intent.Frame = NetFrame;
+            NetFireEvents.Fill(ref intent, LocalSlot);
             intent.MatchId = CurrentMatchId;
             intent.AuthorityEpoch = AuthorityEpoch;
             intent.SlotGeneration = NetPlayerLifecycle.Generation(LocalSlot);
@@ -1886,7 +1895,7 @@ namespace MphRead.Mods.Network
                 {
                     continue;
                 }
-                if (offset + PlayerState.Size > NetConfig.MaxPayloadSize)
+                if (offset + PlayerState.Size > _scratch.Length)
                 {
                     break;
                 }
@@ -1901,6 +1910,7 @@ namespace MphRead.Mods.Network
                 }
                 var state = new PlayerState
                 {
+                    Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Capture(player.EnhancedState),
                     SlotIndex = (byte)i,
                     SlotGeneration = NetPlayerLifecycle.Generation(i),
                     LifeId = NetPlayerLifecycle.Get(i),
@@ -1935,7 +1945,8 @@ namespace MphRead.Mods.Network
             }
             NetMatchTimeSync.Write(_scratch.AsSpan(offset));
             offset += NetMatchTimeSync.Size;
-            offset += NetHealthSync.Write(_scratch.AsSpan(offset, NetConfig.MaxPayloadSize - offset));
+            offset += NetHealthSync.Write(_scratch.AsSpan(offset));
+            if (GameState.EnhancedHunters) offset += PlayerEntity.Main.OwningScene.EnhancedWorld.Write(_scratch.AsSpan(offset));
             var header = new SnapshotHeader
             {
                 MatchId = CurrentMatchId,

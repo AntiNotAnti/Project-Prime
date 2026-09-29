@@ -4,10 +4,10 @@ using System.Buffers.Binary;
 namespace MphRead.Mods.Network;
 
 // Anonymous, lossy diagnostics only. Never enters a reliable channel or a
-// gameplay decision. At most one 431-byte batch per client per second.
+// gameplay decision. At most one 559-byte batch per client per second.
 public static class CombatStudyReports
 {
-    public const int Capacity = 32, HeaderSize = 15, EntrySize = 13;
+    public const int Capacity = 32, HeaderSize = 15, EntrySize = 17;
     private static readonly byte[] Pending = new byte[Capacity * EntrySize];
     private static int _count;
     private static ushort _generation, _life;
@@ -23,6 +23,7 @@ public static class CombatStudyReports
         { _count = 0; _generation = generation; _life = life; _epoch = NetSession.AuthorityEpoch; _match = NetSession.CurrentMatchId; }
         if (_count == Capacity) return;
         Span<byte> b = Pending.AsSpan(_count++ * EntrySize, EntrySize);
+        BinaryPrimitives.WriteUInt32LittleEndian(b[13..], ack.ShotId);
         BinaryPrimitives.WriteUInt16LittleEndian(b, ack.ClaimId); b[2] = ack.VictimSlot; b[3] = ack.Result;
         BinaryPrimitives.WriteUInt16LittleEndian(b[4..], (ushort)Math.Clamp(ageFrames * 1000 / 60, 0, 60000));
         BinaryPrimitives.WriteInt16LittleEndian(b[6..], (short)Math.Clamp(damageCorrection, short.MinValue, short.MaxValue));
@@ -56,7 +57,7 @@ public static class CombatStudyReports
                 Player: (byte)slot, Victim: entry[2], Weapon: entry[12],
                 Id: BinaryPrimitives.ReadUInt16LittleEndian(entry), Result: entry[3],
                 Flags: entry[11] | 128, A: BinaryPrimitives.ReadUInt16LittleEndian(entry[4..]),
-                B: BinaryPrimitives.ReadInt16LittleEndian(entry[6..]), C: BinaryPrimitives.ReadInt16LittleEndian(entry[8..]), D: entry[10]));
+                B: BinaryPrimitives.ReadInt16LittleEndian(entry[6..]), C: BinaryPrimitives.ReadInt16LittleEndian(entry[8..]), D: entry[10], ShotId: BinaryPrimitives.ReadUInt32LittleEndian(entry[13..])));
         }
         return true;
     }

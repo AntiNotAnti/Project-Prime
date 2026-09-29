@@ -53,7 +53,7 @@ namespace MphRead.Entities
                 LoadFlags.TestFlag(LoadFlags.Active),
                 LoadFlags.TestFlag(LoadFlags.Spawned), _health);
 
-            if (_scene.ReplayPoses?.Sample(SlotIndex, _scene.ReplayRenderAlpha, out _, out Vector3 replicaFacing) == true)
+            if (_scene.ReplayPoses?.SamplePresented(SlotIndex, _scene.ReplayRenderAlpha, out _, out Vector3 replicaFacing) == true)
             {
                 drawFacing = replicaFacing;
             }

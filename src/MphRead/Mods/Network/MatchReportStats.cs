@@ -47,7 +47,8 @@ namespace MphRead.Mods.Network
 
         private static bool CanRecord(PlayerEntity player)
         {
-            return player.OwningScene.GameState.Multiplayer
+            return player.OwningScene.AimTrainer == null
+                && player.OwningScene.GameState.Multiplayer
                 && !player.SceneServices.IsReplica
                 && (!NetSession.Active || NetSession.IsAuthority);
         }
@@ -121,7 +122,7 @@ namespace MphRead.Mods.Network
             // not always have that identity, so fall back to a damaging-contact
             // count there.
             ShotKey key = beam.ModLaunchKey;
-            if (key.LaunchFrame == 0 || _hitShots[attackerSlot].Add(key))
+            if (key.ShotId == 0 || _hitShots[attackerSlot].Add(key))
             {
                 Increment(state.ShotsHit, attackerSlot);
             }

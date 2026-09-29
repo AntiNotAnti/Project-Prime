@@ -189,6 +189,15 @@ namespace MphRead.Mods.Network
             }
             _roster[slot] = occupant;
         }
+        internal ReadOnlySpan<byte> EnhancedWorldState
+        {
+            get
+            {
+                if (_worldTail.Length < NetMatchTimeSync.Size + NetHealthSync.HeaderSize) return default;
+                var health = _worldTail.AsSpan(NetMatchTimeSync.Size);
+                return health[(NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize)..];
+            }
+        }
         private bool AcceptSnapshot(ReadOnlySpan<byte> payload)
         {
             if (payload.Length < SnapshotHeader.Size) throw Malformed();
@@ -230,7 +239,7 @@ namespace MphRead.Mods.Network
             _worldTail = payload[tail..].ToArray();
             _healthSpawns.Clear();
             var healthState = payload[health..];
-            for (int offset = NetHealthSync.HeaderSize; offset < healthState.Length; offset += NetHealthSync.EntrySize)
+            for (int offset = NetHealthSync.HeaderSize; offset < NetHealthSync.HeaderSize + healthState[2] * NetHealthSync.EntrySize; offset += NetHealthSync.EntrySize)
             {
                 byte flags = healthState[offset + 2];
                 _healthSpawns.Add(BinaryPrimitives.ReadInt16LittleEndian(healthState[offset..]), new(

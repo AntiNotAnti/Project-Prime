@@ -298,6 +298,7 @@ namespace MphRead.Mods.Network
 
         public static void ResetSlot(int slot)
         {
+            _collisionCacheActive = false;
             if (slot < 0 || slot >= Slots) return;
             NetContactLagComp.ResetSlot(slot);
             for (int i = 0; i < HistoryFrames; i++)
@@ -365,6 +366,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            _collisionCacheActive = false;
             NetContactLagComp.Reset();
             FormRewinds = FormMismatches = KandenHistoricalSegmentChecks = KandenHistoricalSegmentHits = 0; Array.Clear(_formLog);
             NetDynamicGeometryHistory.ResetRoom();
@@ -413,6 +415,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         public static void Record(uint frame)
         {
+            _collisionCacheActive = false;
             if (!Enabled)
             {
                 return;
@@ -480,7 +483,49 @@ namespace MphRead.Mods.Network
                 AltCollisionPose.Lerp(lower.AltPose, upper.AltPose, fraction));
         }
 
+        private struct CollisionCacheEntry
+        {
+            public uint Token;
+            public double Frame;
+            public ushort Generation, Life;
+            public bool PoseQueried, PoseValid, TurretQueried, TurretValid;
+            public HistoricalPlayerPose Pose;
+            public Vector3 Turret;
+        }
+        private static readonly CollisionCacheEntry[,] _collisionCache = new CollisionCacheEntry[Slots, HistoryFrames];
+        private static uint _collisionCacheToken;
+        private static bool _collisionCacheActive;
+        internal static bool CollisionCacheActive => _collisionCacheActive;
+        internal static uint CollisionCacheToken => _collisionCacheToken;
+        public static long HistoricalCollisionQueries, HistoricalCollisionCacheHits, HistoricalCollisionCacheMisses, HistoricalCollisionBuildTicks;
+        private static ref CollisionCacheEntry CollisionCell(int slot, double target, ushort generation, ushort life)
+        {
+            ref var cell = ref _collisionCache[slot, (int)((uint)Math.Floor(target) % HistoryFrames)];
+            if (cell.Token != _collisionCacheToken || cell.Frame != target || cell.Generation != generation || cell.Life != life)
+                cell = new() { Token = _collisionCacheToken, Frame = target, Generation = generation, Life = life };
+            return ref cell;
+        }
+        private static void BeginCollisionCache()
+        {
+            if (++_collisionCacheToken == 0) { Array.Clear(_collisionCache); NetHistoricalTrace.ClearCache(); _collisionCacheToken = 1; }
+            _collisionCacheActive = true;
+        }
         internal static bool TryHistoricalPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
+        {
+            HistoricalCollisionQueries++;
+            if (!_collisionCacheActive || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
+                return BuildHistoricalPose(player, target, out pose);
+            int slot = player.SlotIndex;
+            ref var cell = ref CollisionCell(slot, target, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot));
+            if (cell.PoseQueried) { HistoricalCollisionCacheHits++; pose = cell.Pose; return cell.PoseValid; }
+            HistoricalCollisionCacheMisses++;
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            cell.PoseValid = BuildHistoricalPose(player, target, out cell.Pose); cell.PoseQueried = true;
+            HistoricalCollisionBuildTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            pose = cell.Pose; return cell.PoseValid;
+        }
+
+        private static bool BuildHistoricalPose(PlayerEntity player, double target, out HistoricalPlayerPose pose)
         {
             pose = default;
             if (!double.IsFinite(target) || target < 1 || target >= uint.MaxValue) return false;
@@ -499,6 +544,22 @@ namespace MphRead.Mods.Network
         }
 
         internal static bool TryHistoricalHalfturretPosition(int slot, double target,
+            ushort expectedGeneration, ushort expectedLife, out Vector3 position)
+        {
+            HistoricalCollisionQueries++;
+            if (!_collisionCacheActive || (uint)slot >= Slots || !double.IsFinite(target) || target < 1 || target >= uint.MaxValue)
+                return BuildHistoricalHalfturretPosition(slot, target, expectedGeneration, expectedLife, out position);
+            ref var cell = ref CollisionCell(slot, target, expectedGeneration, expectedLife);
+            if (cell.TurretQueried) { HistoricalCollisionCacheHits++; position = cell.Turret; return cell.TurretValid; }
+            HistoricalCollisionCacheMisses++;
+            long start = System.Diagnostics.Stopwatch.GetTimestamp();
+            cell.TurretValid = BuildHistoricalHalfturretPosition(slot, target, expectedGeneration, expectedLife, out cell.Turret);
+            cell.TurretQueried = true;
+            HistoricalCollisionBuildTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+            position = cell.Turret; return cell.TurretValid;
+        }
+
+        private static bool BuildHistoricalHalfturretPosition(int slot, double target,
             ushort expectedGeneration, ushort expectedLife, out Vector3 position)
         {
             position = default;
@@ -631,6 +692,11 @@ namespace MphRead.Mods.Network
             }
             uint ack = NetSession.RemoteIntents[slot].AckFrame;
             uint now = NetSession.NetFrame;
+            int age = PressAgeEnabled && allowPressAge && slot < NetPlayerBridge.ShootPressAge.Length
+                ? NetPlayerBridge.ShootPressAge[slot] : 0;
+            byte subFrame = NetSession.RemoteIntents[slot].AckSubFrame;
+            if ((uint)slot < PlayerEntity.Players.Count && NetFireEvents.TryTiming(PlayerEntity.Players[slot], out var fire))
+            { ack = fire.AckFrame; subFrame = fire.AckSubFrame; age = 0; }
             if (ack == 0 || ack >= now)
             {
                 // Nothing acked yet (a client that has only just joined), or
@@ -639,10 +705,8 @@ namespace MphRead.Mods.Network
                 // the present is the only defensible guess for either.
                 return 0;
             }
-            int age = PressAgeEnabled && allowPressAge && slot < NetPlayerBridge.ShootPressAge.Length
-                ? NetPlayerBridge.ShootPressAge[slot] : 0;
             if (age > 0) { StalePresses++; StalePressFrames += age; }
-            var decision = LagCompensationPolicy.Evaluate(slot, now, ack, NetSession.RemoteIntents[slot].AckSubFrame, age);
+            var decision = LagCompensationPolicy.Evaluate(slot, now, ack, subFrame, age);
             rawRequested = decision.RequestedDepth;
             requested = (int)Math.Min(Math.Round(rawRequested), HistoryFrames);
             return decision.GlobalServedDepth;
@@ -677,6 +741,7 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
+            BeginCollisionCache();
             _shooter = null;
             _rewind = 0;
             if (!Enabled || !Simulating || shooter.IsBot)
@@ -691,6 +756,8 @@ namespace MphRead.Mods.Network
             {
                 var policy = LagCompensationPolicy.Evaluate(slot, NetSession.NetFrame, NetSession.RemoteIntents[slot].AckFrame,
                     NetSession.RemoteIntents[slot].AckSubFrame, PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0);
+                if (NetFireEvents.TryTiming(shooter, out var fire))
+                    policy = LagCompensationPolicy.Evaluate(slot, NetSession.NetFrame, fire.AckFrame, fire.AckSubFrame, 0);
                 var decision = policy.Timing;
                 // Preserve fractional ACK time exactly; rounded histograms must
                 // never become the gameplay time source, including in Shadow.
@@ -698,14 +765,14 @@ namespace MphRead.Mods.Network
                     FramesShadowRefused = Math.Max(0, rewind - (decision.ShadowAllowedFrames ?? rewind)),
                     WouldClamp = decision.ShadowAllowedFrames.HasValue && rewind > decision.ShadowAllowedFrames.Value };
                 var outcome = decision.ShadowAllowedFrames.HasValue
-                    ? NetHistoricalTrace.CompareShot(shooter, origin, direction, rewind, Math.Min(rewind, decision.ShadowAllowedFrames.Value))
+                    ? NetShadowSampler.CompareShot(ShotKey.For(slot, NetFireEvents.ActiveShotId(shooter)), shooter, origin, direction, rewind, Math.Min(rewind, decision.ShadowAllowedFrames.Value))
                     : ShadowOutcome.HistoricalDataUnavailable;
                 LagCompensationPolicy.Record(slot, NetShotDiagnostics.Bucket(shooter.CurrentWeapon), decision, outcome);
-                LagCompensationPolicy.RecordShotContext(slot, LaunchFrameFor(shooter), policy, NetShotDiagnostics.Bucket(shooter.CurrentWeapon));
+                LagCompensationPolicy.RecordShotContext(slot, NetFireEvents.ActiveShotId(shooter), policy, NetShotDiagnostics.Bucket(shooter.CurrentWeapon));
                 Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.Shot, NetSession.NetFrame,
                     Player: (byte)slot, Weapon: (byte)shooter.CurrentWeapon, Id: NetSession.RemoteIntents[slot].AckFrame,
                     Result: (int)outcome, A: rawRequested, B: rewind, C: decision.ShadowAllowedFrames ?? -1,
-                    D: PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0));
+                    D: PressAgeEnabled && _shotPolicy.AllowPressAge ? NetPlayerBridge.ShootPressAge[slot] : 0, ShotId: NetFireEvents.ActiveShotId(shooter)));
                 rewind = LagCompensationPolicy.Applied(decision);
             }
             if (requested > 0 && requested < DepthHistogram.Length)
@@ -777,6 +844,7 @@ namespace MphRead.Mods.Network
         /// </summary>
         internal static uint LaunchFrameFor(PlayerEntity shooter)
         {
+            if (NetFireEvents.TryTiming(shooter, out var fire)) return fire.AckFrame;
             int slot = shooter.SlotIndex;
             if (Simulating && slot != NetSession.LocalSlot && !shooter.IsBot
                 && slot >= 0 && slot < Slots && NetSession.RemoteIntentValid[slot])
@@ -990,8 +1058,9 @@ namespace MphRead.Mods.Network
         public static int MaximumCatchUpSteps { get; private set; }
 
         public static void AbortShot()
-        { Restore(); _shooter = null; _rewind = 0; _inProgress = false; }
+        { Restore(); _shooter = null; _rewind = 0; _inProgress = false; _collisionCacheActive = false; }
         public static void EndShot(PlayerEntity shooter)
+
         {
             try { EndShotCore(shooter); }
             finally { AbortShot(); }

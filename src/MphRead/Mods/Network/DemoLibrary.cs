@@ -100,7 +100,7 @@ namespace MphRead.Mods.Network
         public static IReadOnlyList<DemoRecording> List()
         {
             var found = new List<DemoRecording>();
-            var present = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var present = new HashSet<string>(ReplayPathComparer.Comparer);
             try
             {
                 string directory = Directory;
@@ -215,15 +215,7 @@ namespace MphRead.Mods.Network
         }
         public static void Delete(string path)
         {
-            File.Delete(path);
-            File.Delete(path + ".name");
-            File.Delete(path + ".favorite");
-            File.Delete(path + ".camera");
-            File.Delete(path + ".analytics.json");
-            Replay.ReplayAnnotations.DeleteFor(path);
-            Replay.ReplayReels.DeleteFor(path);
-            for (int i = 0; i < 3; i++)
-                File.Delete(path + $".thumb{i}.png");
+            ReplayArtifacts.DeleteAll(path);
             Durations.TryRemove(path, out _);
             ReplayLibraryIndex.Remove(path);
             ReplayLibraryIndex.Flush();

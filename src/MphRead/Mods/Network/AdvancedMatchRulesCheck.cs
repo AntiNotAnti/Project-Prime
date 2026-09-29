@@ -165,6 +165,17 @@ namespace MphRead.Mods.Network
                 MatchId = 1, AuthorityEpoch = 1 }.Write(old.AsSpan(1));
             oldDecoder.Accept(old, 0);
             byte[] historicalCheckpoint = oldDecoder.CaptureCheckpoint().Bytes.ToArray();
+            // Build actual protocol-27 bytes; changing only the version label would
+            // leave protocol-29 player extensions in the historical fixture.
+            var historicalBytes = historicalCheckpoint.ToList();
+            const int matchStart = 46;
+            int firstPlayer = matchStart + MatchStatePacket.Size + 1 + RosterPacket.Size;
+            int stride = 7 + PlayerState.Size + 1 + IntentPacket.FullSize + 4;
+            for (int slot = PlayerEntity.SlotCapacity - 1; slot >= 0; slot--)
+                historicalBytes.RemoveRange(firstPlayer + slot * stride + 7 + PlayerState.LegacySize,
+                    Mods.EnhancedHunters.EnhancedHunterNetState.Size);
+            historicalBytes.RemoveRange(matchStart + 103, 2);
+            historicalCheckpoint = historicalBytes.ToArray();
             historicalCheckpoint[6] = 27;
             var legacyDecoder = new ReplayReplicaState(); legacyDecoder.RestoreCheckpoint(new(historicalCheckpoint));
             Check(legacyDecoder.Match is { ShadowFreeze: true, SpawnProtection: true }, "historical decoder checkpoints adapt negative flags");

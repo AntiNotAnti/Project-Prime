@@ -10,6 +10,33 @@ internal static class DemoRecorder
     private static uint _origin, _lastFrame;
     private static ReplayWritePump? _lastWriter;
     private static bool _pending;
+    private static readonly System.Collections.Generic.List<(ReplayWritePump Writer, string Path)> Finishing = new();
+    public static void ToggleWithFeedback()
+    {
+        if (IsRecording)
+        {
+            bool hadWriter = _writer != null;
+            Stop();
+            Chat.ChatBox.System(hadWriter ? "Finishing replay save..." : "No replay frames were recorded yet. Resume the match before stopping the recording.");
+        }
+        else Chat.ChatBox.System(Start() ? "Replay recording started. Stop recording to save it to the theatre archive."
+            : LastError ?? "Cannot record until a match is active.");
+    }
+    internal static void PollSaves()
+    {
+        for (int i = Finishing.Count - 1; i >= 0; i--)
+        {
+            var save = Finishing[i];
+            if (!save.Writer.Completion.IsCompleted) continue;
+            Finishing.RemoveAt(i);
+            if (save.Writer.Error is { } error)
+            {
+                _lastError = "Could not save replay: " + error.Message;
+                Chat.ChatBox.System(_lastError);
+            }
+            else Chat.ChatBox.System("Replay saved: " + save.Path);
+        }
+    }
     static DemoRecorder()
     {
         ReplayCapture.Recorder.Accepted += Accept;
@@ -63,7 +90,14 @@ internal static class DemoRecorder
     }
     public static void Stop()
     {
-        try { _writer?.Complete(); }
+        try
+        {
+            if (_writer is { } writer)
+            {
+                writer.Complete();
+                Finishing.Add((writer, CurrentPath!));
+            }
+        }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException) { Fail(ex); }
         finally { _pending = false; _writer = null; CurrentPath = null; }
     }
@@ -71,6 +105,7 @@ internal static class DemoRecorder
     {
         _lastError = "Recording interrupted; recover completed chunks from its .part file. " + error.Message;
         Console.WriteLine("[replay] " + LastError);
+        Chat.ChatBox.System(_lastError);
         _writer?.Abort(); _writer = null; _pending = false; CurrentPath = null;
     }
     internal static void RecordOwnSnapshot(ReadOnlySpan<byte> payload)

@@ -89,8 +89,10 @@ public static class NetProjectileCounterfactual
         Vector3 velocity = direction * ballistic.Speed;
         Vector3 acceleration = new(0, ballistic.Gravity / 2, 0);
 
+        Span<HistoricalBody> bodies = stackalloc HistoricalBody[16];
         for (int step = 1; step <= steps && step <= ballistic.LifespanFrames; step++)
         {
+            NetShadowSampler.ShadowSimulationSteps++;
             Vector3 back = position;
             position += velocity;
             velocity += acceleration / 2;
@@ -117,7 +119,6 @@ public static class NetProjectileCounterfactual
                 boundary = Math.Min(boundary, world);
             }
 
-            Span<HistoricalBody> bodies = stackalloc HistoricalBody[16];
             int count = 0;
             foreach (var player in shooter.OwningScene.GetPlayerEntities())
             {

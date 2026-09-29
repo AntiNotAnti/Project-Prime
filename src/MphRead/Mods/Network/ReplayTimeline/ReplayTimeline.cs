@@ -26,7 +26,7 @@ public enum ReplayMarkerKind
 
 public readonly record struct ReplayKillIdentity(ushort MatchId, ulong AuthorityEpoch,
     uint ServerTick, ushort EventId, byte KillerSlot, ushort KillerGeneration,
-    byte VictimSlot, ushort VictimGeneration, ushort VictimLifeId);
+    byte VictimSlot, ushort VictimGeneration, ushort VictimLifeId, ushort KillerLifeId = 0);
 public readonly record struct ReplayMarker(ReplayMarkerKind Kind, byte Actor, byte Target,
     int Value = 0, ReplayKillIdentity? Kill = null, byte Weapon = byte.MaxValue, byte DamageFlags = 0);
 

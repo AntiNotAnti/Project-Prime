@@ -262,3 +262,42 @@ Older live clients are refused during the version handshake.
 
 Dedicated-server flags: `-instagib`, `-lowtier`, `-noimp`, `-shadowfreeze`, and
 `-spawnprotection`. The last two enable their otherwise disabled rules.
+
+### Netcode performance and protocol 30
+
+Protocol 30 adds lifecycle-fenced shot IDs and a repeated 16-entry fire-event
+history. Upgrade server and clients together. Launch/ACK frames describe timing;
+they no longer identify projectile shots. Existing owner-reported movement and
+the server's authority over damage are unchanged.
+
+The diagnostic counterfactual sampler defaults to 1/16 of shots. Use
+`-shadowsampling off|production|study|full` to select 0, 1/16, 1/4 or all shots.
+This changes diagnostic simulation only; all compensated shots retain cheap
+rewind telemetry. Use full sampling for exhaustive studies.
+
+Performance checks (run from the repository with a .NET 10 SDK):
+
+```sh
+dotnet run --project tools/nettest -- --netcode-performance
+dotnet run --project tools/nettest -- --replication-decode-benchmark decode.json
+dotnet run --project tools/nettest -- --network-benchmark-json network.json --extended
+dotnet run --project tools/nettest -- --server-performance ASSET_DIRECTORY 'MP1 SANCTORUS' 8 server.json 30
+dotnet run --project tools/nettest -- --transport-stress
+```
+
+The server benchmark requires locally extracted game assets. It warms 300 steps,
+then measures a synthetic-input simulation without UDP. Run 2, 4 and 8 players.
+The separate virtual network matrix covers RTT, jitter, loss and reorder; it does
+not measure asset-backed combat under those impairments. Do not combine these
+results into a claim about real deployed capacity. Compare on the same machine,
+runtime and workload. The decoder benchmark compares canonical assembly plus
+parse with direct decoding and reports allocations and canonical bytes copied.
+
+`-netdebug` reports sampling, historical cache, geometry, rescue lookup and
+replication counters. Server-step telemetry uses batches of 60 samples, with
+exact counts, totals and maxima and a bounded quarter-millisecond histogram.
+Partial batches flush at stop, match end, exception and telemetry shutdown.
+Routine continuous-target repetitions are counted; transitions and individual
+combat outcomes remain individually correlated.
+
+See [implementation and measurements](docs/network/netcode-performance.md).

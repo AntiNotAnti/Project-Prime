@@ -11,13 +11,13 @@ namespace MphRead.Mods.Network
         NoProjectileSlot, DeadOrNotInPlay, StaleLife, OtherNoSpawn
     }
 
-    // Diagnostic identity only: no extra wire fields or gameplay authority.
+    // Logical identity; launch and ACK frames are separate timing metadata.
     public readonly record struct ShotKey(ulong AuthorityEpoch, ushort MatchId, int ShooterSlot,
-        ushort Generation, ushort LifeId, uint LaunchFrame)
+        ushort Generation, ushort LifeId, uint ShotId)
     {
-        public static ShotKey For(int slot, uint frame) => new(NetSession.AuthorityEpoch,
-            NetSession.CurrentMatchId, slot, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), frame);
-        public override string ToString() => $"{AuthorityEpoch}/{MatchId}/{ShooterSlot}/{Generation}/{LifeId}/{LaunchFrame}";
+        public static ShotKey For(int slot, uint shotId) => new(NetSession.AuthorityEpoch,
+            NetSession.CurrentMatchId, slot, NetPlayerLifecycle.Generation(slot), NetPlayerLifecycle.Get(slot), shotId);
+        public override string ToString() => $"{AuthorityEpoch}/{MatchId}/{ShooterSlot}/{Generation}/{LifeId}/{ShotId}";
     }
 
     public static class NetShotDiagnostics
@@ -59,7 +59,7 @@ namespace MphRead.Mods.Network
             {
                 Outcomes[Bucket(shooter.CurrentWeapon), (int)result]++;
                 if (result == ShotAttemptResult.Spawned) NetDamage.NoteFired(shooter, shot, aim);
-                if (NetLog.Enabled) Trace("attempt", ShotKey.For(shooter.SlotIndex, NetUnlagged.LaunchFrameFor(shooter)),
+                if (NetLog.Enabled) Trace("attempt", ShotKey.For(shooter.SlotIndex, NetFireEvents.ActiveShotId(shooter)),
                     shooter.CurrentWeapon, $"result={result} health={shooter.Health} shoot={shooter.Controls.Shoot.IsDown} press={shooter.Controls.Shoot.IsPressed} pressAge={NetPlayerBridge.ShootPressAge[shooter.SlotIndex]}");
             }
             return result == ShotAttemptResult.Spawned;

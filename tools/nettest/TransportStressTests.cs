@@ -65,6 +65,7 @@ internal static class TransportStressTests
             foreach (var client in clients) NetArchitectureTests.Check(client.ConnectionStats(address).HasValue, "all eight admitted");
             for (int i = 0; i < clients.Count; i++) for (int control = 1; control <= 16; control++)
                 server.Send(endpoints[i], PacketType.SessionState, BitConverter.GetBytes(control));
+            server.ResetContentionStats();
             clock.Restart(); uint frame = 0; double nextTick = 0;
             byte[] intentBytes = NetArchitectureTests.IntentFixture();
             byte[] snapshotBytes = new byte[SnapshotHeader.Size + 8 * PlayerState.Size];
@@ -95,6 +96,8 @@ internal static class TransportStressTests
                 NetArchitectureTests.Check(reliability?.Pending == 0, "all controls acknowledged after impairment");
                 Console.WriteLine($"peer {i}: configured RTT={latencies[i]}, snapshots={received[i]}, queueHigh={telemetry.QueueHighWater}, ACK RTT={clients[i].ConnectionStats(address)?.RttMilliseconds:F1}");
             }
+            var contention = server.ContentionStats();
+            Console.WriteLine($"LOCK acquisitions={contention.Acquisitions} contentions={contention.Contended} ratio={(contention.Acquisitions == 0 ? 0 : 100.0 * contention.Contended / contention.Acquisitions):F3}% waitTotalMs={contention.TotalWaitMilliseconds:F3} waitMaxMs={contention.MaximumWaitMilliseconds:F3} holdTotalMs={contention.TotalHoldMilliseconds:F3} holdMaxMs={contention.MaximumHoldMilliseconds:F3}");
             clients[6].Send(address, PacketType.Bye, ReadOnlySpan<byte>.Empty);
             clients[6].Dispose();
             NetArchitectureTests.Check(clients[6].UnacknowledgedCloseEvents == 0, "graceful close keeps retries and ACK reception alive");

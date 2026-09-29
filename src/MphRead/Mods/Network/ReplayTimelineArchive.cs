@@ -87,7 +87,7 @@ internal static class ReplayTimelineArchive
     internal static byte[] EncodeMarker(uint tick, ReplayMarker marker)
     {
         using var buffer = new MemoryStream(); using var writer = new BinaryWriter(buffer);
-        writer.Write((byte)254); writer.Write((byte)1); writer.Write(tick);
+        writer.Write((byte)254); writer.Write((byte)2); writer.Write(tick);
         writer.Write((byte)marker.Kind); writer.Write(marker.Actor); writer.Write(marker.Target);
         writer.Write(marker.Value); writer.Write(marker.Weapon); writer.Write(marker.DamageFlags);
         writer.Write(marker.Kill.HasValue);
@@ -96,20 +96,31 @@ internal static class ReplayTimelineArchive
             writer.Write(kill.MatchId); writer.Write(kill.AuthorityEpoch); writer.Write(kill.ServerTick);
             writer.Write(kill.EventId); writer.Write(kill.KillerSlot); writer.Write(kill.KillerGeneration);
             writer.Write(kill.VictimSlot); writer.Write(kill.VictimGeneration); writer.Write(kill.VictimLifeId);
+            writer.Write(kill.KillerLifeId);
         }
         return buffer.ToArray();
     }
     internal static ReplayTimelineRecord DecodeMarker(uint frame, byte[] bytes)
     {
         using var reader = new BinaryReader(new MemoryStream(bytes, writable: false));
-        if (reader.ReadByte() != 254 || reader.ReadByte() != 1) throw new InvalidDataException("Unknown replay semantic fact.");
+        if (reader.ReadByte() != 254) throw new InvalidDataException("Unknown replay semantic fact.");
+        byte version = reader.ReadByte();
+        if (version is not (1 or 2)) throw new InvalidDataException("Unknown replay semantic fact.");
         uint tick = reader.ReadUInt32();
         var kind = (ReplayMarkerKind)reader.ReadByte(); byte actor = reader.ReadByte(), target = reader.ReadByte();
         int value = reader.ReadInt32(); byte weapon = reader.ReadByte(), flags = reader.ReadByte(), hasKill = reader.ReadByte();
         if (!Enum.IsDefined(kind) || actor != byte.MaxValue && actor >= 8 || target != byte.MaxValue && target >= 8 || hasKill > 1)
             throw new InvalidDataException("Invalid replay semantic identity.");
-        ReplayKillIdentity? kill = hasKill == 0 ? null : new(reader.ReadUInt16(), reader.ReadUInt64(), reader.ReadUInt32(),
-            reader.ReadUInt16(), reader.ReadByte(), reader.ReadUInt16(), reader.ReadByte(), reader.ReadUInt16(), reader.ReadUInt16());
+        ReplayKillIdentity? kill = null;
+        if (hasKill != 0)
+        {
+            ushort match = reader.ReadUInt16(); ulong epoch = reader.ReadUInt64(); uint serverTick = reader.ReadUInt32();
+            ushort eventId = reader.ReadUInt16(); byte killer = reader.ReadByte(); ushort killerGeneration = reader.ReadUInt16();
+            byte victim = reader.ReadByte(); ushort victimGeneration = reader.ReadUInt16(); ushort victimLife = reader.ReadUInt16();
+            ushort killerLife = version >= 2 ? reader.ReadUInt16() : (ushort)0;
+            kill = new(match, epoch, serverTick, eventId, killer, killerGeneration, victim,
+                victimGeneration, victimLife, killerLife);
+        }
         if (reader.BaseStream.Position != bytes.Length || kill is { } k && (k.KillerSlot >= 8 || k.VictimSlot >= 8))
             throw new InvalidDataException("Invalid replay semantic fact length/slot.");
         return new(frame, tick, ReplayFactKind.Event, ReadOnlySpan<byte>.Empty, new(kind, actor, target, value, kill, weapon, flags));

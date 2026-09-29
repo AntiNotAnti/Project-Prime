@@ -11,6 +11,9 @@ namespace MphRead.Mods.Network
         public static bool IsPaused => Current.IsPaused;
         public static bool AtEnd => Current.AtEnd;
         public static uint CurrentFrame => Current.CurrentFrame;
+        public static double PresentationFrame => Current.PresentationFrame(
+            Render.FrameTiming.Active ? Render.FrameTiming.PresentationAlpha : 1);
+        public static double PresentationTime => PresentationFrame / 60.0;
         internal static uint TimelineFrame => Current.RequestedSeekTarget ?? Current.CurrentFrame;
         public static uint DurationFrames => Current.DurationFrames;
         public static float PlaybackRate => Current.PlaybackRate;
@@ -25,7 +28,8 @@ namespace MphRead.Mods.Network
         public static void MarkOut() => Current.MarkOut();
         public static void SetMarkIn(uint frame) => Current.SetMarkIn(frame);
         public static void SetMarkOut(uint frame) => Current.SetMarkOut(frame);
-        public static System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default) => Current.SaveSelectionAsync(cancellation);
+        public static string? LastSavedSelectionPath => Current.LastSavedSelectionPath;
+        public static System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default, bool wholeReplay = false) => Current.SaveSelectionAsync(cancellation, wholeReplay);
         public static void NoteInput() => Current.NoteInput();
         public static void Play() => Current.Play();
         public static void Pause() => Current.Pause();

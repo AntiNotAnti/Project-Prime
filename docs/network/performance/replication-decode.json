@@ -1,0 +1,37 @@
+{
+  "protocol": 30,
+  "runtime": ".NET 10.0.12",
+  "cpu": "Apple M4 Pro",
+  "results": [
+    {
+      "players": 2,
+      "iterations": 200000,
+      "canonicalAssembleAndParseUs": 0.697799,
+      "directDecodeUs": 0.719254,
+      "canonicalBytesCopiedPerFrame": 380,
+      "directCanonicalBytesCopiedPerFrame": 0,
+      "canonicalAllocationPerFrame": 0,
+      "directAllocationPerFrame": 0
+    },
+    {
+      "players": 4,
+      "iterations": 200000,
+      "canonicalAssembleAndParseUs": 1.186228,
+      "directDecodeUs": 1.2377935,
+      "canonicalBytesCopiedPerFrame": 670,
+      "directCanonicalBytesCopiedPerFrame": 0,
+      "canonicalAllocationPerFrame": 0,
+      "directAllocationPerFrame": 0
+    },
+    {
+      "players": 8,
+      "iterations": 200000,
+      "canonicalAssembleAndParseUs": 2.2966995000000003,
+      "directDecodeUs": 2.469096,
+      "canonicalBytesCopiedPerFrame": 1250,
+      "directCanonicalBytesCopiedPerFrame": 0,
+      "canonicalAllocationPerFrame": 0,
+      "directAllocationPerFrame": 0
+    }
+  ]
+}

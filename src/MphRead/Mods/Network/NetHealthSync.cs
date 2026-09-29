@@ -62,8 +62,9 @@ namespace MphRead.Mods.Network
         public static bool Validate(ReadOnlySpan<byte> src)
         {
             if (src.Length < HeaderSize || src[2] > MaxSpawns
-                || src.Length != HeaderSize + src[2] * EntrySize) return false;
-            for (int offset = HeaderSize; offset < src.Length; offset += EntrySize)
+                || src.Length < HeaderSize + src[2] * EntrySize
+                || !Mods.EnhancedHunters.EnhancedHunterWorld.Validate(src[(HeaderSize + src[2] * EntrySize)..])) return false;
+            for (int offset = HeaderSize; offset < HeaderSize + src[2] * EntrySize; offset += EntrySize)
             {
                 byte flags = src[offset + 2];
                 int encodedPicker = (flags >> PickerShift) & PickerMask;
@@ -86,7 +87,8 @@ namespace MphRead.Mods.Network
         {
             if (!Validate(src) || !IsCurrentMatch(src)) return;
             _states.Clear();
-            for (int offset = HeaderSize; offset < src.Length; offset += EntrySize)
+            if (PlayerEntity.Main is { } main) main.OwningScene.EnhancedWorld.Read(src[(HeaderSize + src[2] * EntrySize)..]);
+            for (int offset = HeaderSize; offset < HeaderSize + src[2] * EntrySize; offset += EntrySize)
             {
                 byte flags = src[offset + 2];
                 sbyte pickerSlot = (sbyte)(((flags >> PickerShift) & PickerMask) - 1);

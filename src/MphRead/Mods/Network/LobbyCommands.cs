@@ -45,7 +45,7 @@ namespace MphRead.Mods.Network
             RoomKey = entry.RoomKey, MapIdentity = NetworkMapIdentity.ForRoom(entry.RoomKey), Mode = entry.Mode, Format = Format,
             TimeLimitSeconds = (ushort)Math.Clamp(entry.TimeLimit, 0, ushort.MaxValue),
             PointGoal = (ushort)Math.Clamp(entry.PointGoal, 0, ushort.MaxValue),
-            FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
+            FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, EnhancedHunters = EnhancedHunters, ShadowFreeze = ShadowFreeze,
             HideOpponentHealth = true, DisablePowerups = true, SpawnProtection = SpawnProtection,
             InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
         }.NormalizeLegacy();

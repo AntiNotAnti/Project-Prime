@@ -1725,6 +1725,7 @@ namespace MphRead
         /// </summary>
         public void OnSimulationFrame()
         {
+            if (AimTrainer?.Completed == true) return;
             using var replayPerfFrame = Mods.Network.ReplayPerfTelemetry.Frame();
             if (Mods.Network.DemoPlayback.Presentation(this) is { IsReplayLab: true } lab)
             { lab.OnSimulationFrame(); return; }
@@ -1798,12 +1799,26 @@ namespace MphRead
             _replayOrbit = previous._replayOrbit;
             Players.MainPlayerIndex = previous.Players.MainPlayerIndex;
         }
+        internal void MoveReplayEditorCamera(Vector3 move, float yaw, float pitch)
+        {
+            if (Mods.Replay.ReplayCamera.Mode != Mods.Replay.ReplayCameraMode.Free) return;
+            SetFreeCamera(true);
+            _cameraPosition += _cameraRight * move.X + Vector3.UnitY * move.Y + _cameraFacing * move.Z;
+            if (yaw != 0 || pitch != 0) UpdateCameraRotation(yaw, pitch);
+        }
         internal void PollReplayControls()
         {
             // Replay controls are presentation-time input. They remain responsive
             // while the recorded simulation is paused or seeking, but are sampled
             // only once per rendered frame rather than once per replay simulation step.
             _frameTime = 1 / 60f;
+#if MPHREAD_SHELL
+            if (Mods.Launcher.Gui.Shell.UiVisible)
+            {
+                Mods.Launcher.Gui.ReplayViewport.Poll(this);
+                return;
+            }
+#endif
             if (!Mods.Headless.Active)
             {
                 Mods.Input.GamepadDesktop.Poll();
@@ -1973,6 +1988,7 @@ namespace MphRead
             }
             if (ProcessFrame && _room != null)
             {
+                AimTrainer?.ProcessFrame();
                 this.GameState.ProcessFrame(this);
                 // Turned once a step, never in a draw: a picture with no step
                 // behind it must not advance anything, or the hunter spins at
@@ -3065,6 +3081,7 @@ namespace MphRead
             // and free-camera modes as well as first-person playback.
             if (!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this))
             {
+                AimTrainer?.DrawHud();
                 Mods.Replay.ReplayHud.Draw(this);
                 Mods.Input.AimAssist.AimAssistDebug.Draw(this);
             }
@@ -4487,6 +4504,7 @@ namespace MphRead
 
         private void UpdateScene()
         {
+            EnhancedWorld.Tick(this);
             if (_playingLandingMovie)
             {
                 return;
@@ -4563,6 +4581,8 @@ namespace MphRead
             if (_room != null)
             {
                 _room.GetDrawInfo();
+                EnhancedWorld.Draw(this);
+                EnhancedWorld.DrawIndicators(this);
                 _room.GetDisplayVolumes();
             }
             foreach (PlayerEntity player in GetPlayerEntities())
@@ -4801,6 +4821,8 @@ namespace MphRead
 
         public void DoCleanup()
         {
+            if (AimTrainer?.Completed == true && this.GameState.MenuPause) this.GameState.UnpauseMenu();
+            AimTrainer = null;
             if (Mods.Headless.Active) Mods.MapGen.MapRuntimeUsage.Release(this);
             if (!_exiting)
             {
@@ -8154,6 +8176,7 @@ localCenter *= _profileHudScale;
 
         protected override void OnRenderFrame(FrameEventArgs args)
         {
+            Mods.Network.DemoRecorder.PollSaves();
             ApplyFrameRateSettings();
             if (Mods.Network.NetLaunch.TickTerminalLobby(this))
             {

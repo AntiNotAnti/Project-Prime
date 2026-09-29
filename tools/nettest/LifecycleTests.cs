@@ -64,7 +64,7 @@ namespace MphRead.NetTest
         private static void Wire()
         {
             Check(NetUnlagged.PressAgeEnabled, "recovered trigger pulls include their age by default");
-            Check(PlayerState.Size == 119, "compact player wire size includes four event history entries and jump-pad sequence");
+            Check(PlayerState.Size == 145, "compact player wire size includes four damage events, jump-pad sequence and enhanced state");
             Check(1 + SnapshotHeader.Size + PlayerState.Size * PlayerEntity.SlotCapacity <= NetConfig.MaxPacketSize
                 && NetConfig.MaxPacketSize <= 1472, "eight-player snapshot fits one Ethernet UDP datagram");
             byte[] buffer = new byte[NetConfig.MaxPacketSize];

@@ -37,7 +37,7 @@ public static partial class NetSession
     private static readonly byte[] _bootstrapFast = new byte[1200];
     private static int _bootstrapFastLength;
     private static byte _bootstrapMask;
-    private static readonly byte[] _bootstrapSlow = new byte[256], _bootstrapWorld = new byte[512];
+    private static readonly byte[] _bootstrapSlow = new byte[256], _bootstrapWorld = new byte[1200];
     private static int _bootstrapSlowLength, _bootstrapWorldLength;
     public static bool WorldIsReady => ServerSession is not { } session || IsAuthority || IsHost || _playback
         || _appliedBootstrap is { } baseline && baseline.Start == StartIdentity(session)

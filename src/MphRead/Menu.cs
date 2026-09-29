@@ -85,6 +85,7 @@ namespace MphRead
         public string DamageLevel { get; set; } = "medium";
         public string FriendlyFire { get; set; } = "off";
         public string AffinityWeapons { get; set; } = "off";
+        public string EnhancedHunters { get; set; } = "off";
         public string InstaGib { get; set; } = "off";
         public string LowTier { get; set; } = "off";
         public string NoImperialist { get; set; } = "off";
@@ -292,6 +293,7 @@ namespace MphRead
                 };
                 _friendlyFire = settings.FriendlyFire != "off";
                 _affinityWeapons = settings.AffinityWeapons != "off";
+                _enhancedHunters = settings.EnhancedHunters == "on";
                 if (settings.SaveSlot == "none")
                 {
                     SaveSlot = 0;
@@ -617,6 +619,7 @@ namespace MphRead
                     },
                     FriendlyFire = _friendlyFire ? "on" : "off",
                     AffinityWeapons = _affinityWeapons ? "on" : "off",
+                    EnhancedHunters = _enhancedHunters ? "on" : "off",
                     SaveSlot = SaveSlot == 0 ? "none" : SaveSlot.ToString(),
                     SaveFromExit = SaveFromExit.ToString().ToLower(),
                     SaveFromShip = SaveFromShip.ToString().ToLower(),
@@ -1375,6 +1378,7 @@ namespace MphRead
         private static int _damageLevel = 1;
         private static bool _friendlyFire = false;
         private static bool _affinityWeapons = false;
+        private static bool _enhancedHunters = false;
 
         private static string _goalType = "";
 
@@ -1549,6 +1553,7 @@ namespace MphRead
                 Console.WriteLine($"{X(s++)} (D) Damage Level: {damageLevels[_damageLevel]}");
                 Console.WriteLine($"{X(s++)} (F) Friendly Fire: {OnOff(_friendlyFire)}");
                 Console.WriteLine($"{X(s++)} (W) Available Weapons: {weaponsString}");
+                Console.WriteLine($"{X(s++)} (E) Enhanced Hunters: {OnOff(_enhancedHunters)}");
                 Console.WriteLine($"{X(s++)} (X) Reset Match Settings");
                 Console.WriteLine($"{X(s++)} (B) Go Back");
                 s--;
@@ -1572,6 +1577,7 @@ namespace MphRead
                             _damageLevel = 1;
                             _friendlyFire = false;
                             _affinityWeapons = false;
+                            _enhancedHunters = false;
                             UpdateSettings();
                             continue;
                         }
@@ -1609,9 +1615,13 @@ namespace MphRead
                     {
                         selection = 7;
                     }
-                    else if (keyInfo.Key == ConsoleKey.X)
+                    else if (keyInfo.Key == ConsoleKey.E)
                     {
                         selection = 8;
+                    }
+                    else if (keyInfo.Key == ConsoleKey.X)
+                    {
+                        selection = 9;
                     }
                     else if (keyInfo.Key == ConsoleKey.UpArrow || keyInfo.Key == ConsoleKey.W)
                     {
@@ -1663,6 +1673,7 @@ namespace MphRead
                         {
                             _affinityWeapons = false;
                         }
+                        else if (selection == 8) _enhancedHunters = false;
                     }
                     else if (keyInfo.Key == ConsoleKey.Add || keyInfo.Key == ConsoleKey.OemPlus
                         || keyInfo.Key == ConsoleKey.RightArrow || keyInfo.Key == ConsoleKey.Subtract
@@ -1740,6 +1751,7 @@ namespace MphRead
                         {
                             _affinityWeapons = !_affinityWeapons;
                         }
+                        else if (selection == 8) _enhancedHunters = !_enhancedHunters;
                         if (_teams && _mode != "Capture" && !_mode.EndsWith("Teams"))
                         {
                             if (_mode == "auto-select")
@@ -1775,6 +1787,7 @@ namespace MphRead
                         Console.WriteLine("Examples: 7, 2:30, 0:45");
                         ReadTimeLimit(Console.ReadLine());
                     }
+                    if (prompt == 9) _enhancedHunters = !_enhancedHunters;
                     prompt = 0;
                 }
             }
@@ -4052,6 +4065,7 @@ namespace MphRead
                 GameState.DamageLevel = _damageLevel;
                 GameState.FriendlyFire = _friendlyFire;
                 GameState.AffinityWeapons = _affinityWeapons;
+                GameState.EnhancedHunters = _enhancedHunters;
             }
         }
 

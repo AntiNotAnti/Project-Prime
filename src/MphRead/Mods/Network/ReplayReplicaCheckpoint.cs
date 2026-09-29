@@ -103,6 +103,14 @@ internal sealed partial class ReplayReplicaState
             if (reader.ReadUInt32() != CheckpointMagic) throw new InvalidDataException("Incompatible replica checkpoint.");
             ushort version = reader.ReadUInt16();
             int protocol = reader.ReadByte();
+            PlayerState ReadPlayer()
+            {
+                if (protocol >= 29) return PlayerState.Read(Read(PlayerState.Size));
+                byte[] upgraded = new byte[PlayerState.Size];
+                Read(PlayerState.LegacySize).CopyTo(upgraded, 0);
+                upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
+                return PlayerState.Read(upgraded);
+            }
             if (version is < 1 or > CheckpointVersion || !ReplayIdentityCompatibility.Supports(protocol)) throw new InvalidDataException("Incompatible replica checkpoint.");
             restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
             restored.ServerTick = reader.ReadUInt32(); restored.Rng1 = reader.ReadUInt32(); restored.Rng2 = reader.ReadUInt32();
@@ -112,7 +120,7 @@ internal sealed partial class ReplayReplicaState
             if (reader.ReadBoolean())
             {
                 var packet = new byte[1 + MatchStatePacket.Size]; packet[0] = (byte)PacketType.MatchState;
-                Read(MatchStatePacket.Size).CopyTo(packet, 1);
+                Read(protocol < 29 ? 103 : MatchStatePacket.Size).CopyTo(packet, 1);
                 restored.Match = MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(packet, protocol)[1..]);
             }
             if (reader.ReadBoolean())
@@ -140,7 +148,7 @@ internal sealed partial class ReplayReplicaState
             {
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
                     (NetworkPlayerState)reader.ReadByte(), reader.ReadBoolean()));
-                restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = PlayerState.Read(Read(PlayerState.Size));
+                restored._hasPlayer[i] = reader.ReadBoolean(); restored._players[i] = ReadPlayer();
                 restored._hasIntent[i] = reader.ReadBoolean(); restored._intents[i] = IntentPacket.Read(Read(IntentPacket.FullSize));
                 restored._intentReceivedFrame[i] = reader.ReadUInt32();
                 if (restored._lives[i].Generation != restored._roster[i].Generation
@@ -161,7 +169,7 @@ internal sealed partial class ReplayReplicaState
                     || !NetHealthSync.Validate(tail[NetMatchTimeSync.Size..])) throw Malformed();
                 var health = tail[NetMatchTimeSync.Size..];
                 if (BinaryPrimitives.ReadUInt16LittleEndian(health) != restored.Match?.MatchId) throw Malformed();
-                for (int offset = NetHealthSync.HeaderSize; offset < health.Length; offset += NetHealthSync.EntrySize)
+                for (int offset = NetHealthSync.HeaderSize; offset < NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize; offset += NetHealthSync.EntrySize)
                 {
                     byte flags = health[offset + 2];
                     restored._healthSpawns.Add(BinaryPrimitives.ReadInt16LittleEndian(health[offset..]), new(

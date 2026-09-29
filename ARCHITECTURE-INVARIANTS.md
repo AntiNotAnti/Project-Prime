@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **28** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **30** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -189,3 +189,26 @@ This file is the short, machine-oriented source of truth for architectural assum
   two bytes of rule bits. SessionState is required before playable world load.
 - Weapon replacements use fixed FNV-1a room/spawn hashing, never simulation RNG.
 - Legacy replay packets invert the old flags at the replay adapter boundary.
+
+## Enhanced Hunters
+
+- Protocol 29 appends MatchState RuleBits, using session bit 8192 for Enhanced Hunters.
+- Enhanced Hunters defaults OFF and is independent of affinity pickup replacement.
+- Accepted authority hits own enhanced damage and status. Owner movement remains owner-reported.
+- Per-player enhanced state fences target life and generation; zones belong to each Scene (maximum 16).
+- Canonical snapshots may reach 4096 bytes internally; realtime fast/world lanes remain at most 1200 bytes.
+- Historical replay protocols 24–28 upgrade at playback boundaries and default Enhanced Hunters OFF.
+
+## Protocol 30 shot identity and performance
+
+- Projectile identity is (match, authority epoch, shooter slot, generation, life,
+  ShotId). LaunchFrame and AckFrame are historical timing metadata only.
+- Repeated fire events preserve the original fire timing, charge and continuous
+  phase across lost or reordered intent carriers. Derived projectiles inherit
+  their parent identity. Live beam claims require a nonzero ShotId.
+- Shadow sampling is diagnostic only. It must never change damage, rewind or
+  projectile state.
+- Geometry revision/equality shortcuts retain live capture whenever the engine
+  cannot prove no intervening collision mutation.
+- Direct live snapshot decoding validates the complete packet before mutation;
+  replay recording and bootstrap retain owned canonical representations.

@@ -538,13 +538,10 @@ namespace MphRead.Mods.Network
                 if (NetSession.NetFrame % NetConfig.IntentSendInterval == 0)
                 {
                     var intent = NetPlayerBridge.CaptureIntent(player);
-                    if (player.CurrentWeapon == BeamType.ShockCoil && player.Controls.Shoot.IsDown)
-                    {
-                        // Queue input now; latch the firing pose and decision at the actual selector.
-                        _continuousIntent = intent; _continuousIntentFrame = NetSession.NetFrame;
-                        _continuousIntentPending = true;
-                    }
-                    else NetSession.SendIntent(intent);
+                    // Actual fire IDs are committed during simulation. Send the
+                    // pre-step movement/input with its post-step fire history.
+                    _continuousIntent = intent; _continuousIntentFrame = NetSession.NetFrame;
+                    _continuousIntentPending = true;
                 }
             }
             else
@@ -582,9 +579,12 @@ namespace MphRead.Mods.Network
                     && NetSession.LocalSlot < PlayerEntity.Players.Count)
                 {
                     var owner = PlayerEntity.Players[NetSession.LocalSlot];
-                    _continuousIntent.Target = owner.ModContinuousNetworkTarget;
-                    _continuousIntent.ContinuousFireTick = owner.ModContinuousFireTick;
-                    _continuousIntent.HasContinuousFireTick = true;
+                    if (owner.CurrentWeapon == BeamType.ShockCoil)
+                    {
+                        _continuousIntent.Target = owner.ModContinuousNetworkTarget;
+                        _continuousIntent.ContinuousFireTick = owner.ModContinuousFireTick;
+                        _continuousIntent.HasContinuousFireTick = true;
+                    }
                     NetSession.SendIntent(_continuousIntent);
                 }
             }

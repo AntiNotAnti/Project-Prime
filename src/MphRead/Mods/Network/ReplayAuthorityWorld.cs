@@ -114,11 +114,19 @@ internal sealed class ReplayAuthorityWorld
         using var stream = new MemoryStream(bytes.ToArray(), false); using var r = new BinaryReader(stream);
         try
         {
-            byte version = r.ReadByte(); if (version is < 1 or > 2) throw Invalid();
+            byte version = r.ReadByte(); if (version is < 1 or > 3) throw Invalid();
             ushort match = r.ReadUInt16(); ulong epoch = r.ReadUInt64(); uint tick = r.ReadUInt32();
             var prime = Actor(); var phase = (MatchState)r.ReadByte(); float time = Float();
             var cause = (ReplayEndCause)r.ReadByte(); ReplayKillIdentity? kill = null;
-            if (Bool()) kill = new(r.ReadUInt16(), r.ReadUInt64(), r.ReadUInt32(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16());
+            if (Bool())
+            {
+                ushort killMatch = r.ReadUInt16(); ulong killEpoch = r.ReadUInt64(); uint killTick = r.ReadUInt32();
+                ushort eventId = r.ReadUInt16(); byte killer = r.ReadByte(); ushort killerGeneration = r.ReadUInt16();
+                byte victim = r.ReadByte(); ushort victimGeneration = r.ReadUInt16(); ushort victimLife = r.ReadUInt16();
+                ushort killerLife = version >= 3 ? r.ReadUInt16() : (ushort)0;
+                kill = new(killMatch, killEpoch, killTick, eventId, killer, killerGeneration,
+                    victim, victimGeneration, victimLife, killerLife);
+            }
             if (!Enum.IsDefined(phase) || !Enum.IsDefined(cause) || match == 0
                 || (cause == ReplayEndCause.Kill) != kill.HasValue
                 || kill is { } k && (k.MatchId != match || k.AuthorityEpoch != epoch || k.KillerSlot >= 8 || k.VictimSlot >= 8

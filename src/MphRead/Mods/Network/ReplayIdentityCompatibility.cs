@@ -11,12 +11,48 @@ internal static class ReplayIdentityCompatibility
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
     {
         var converted = ConvertIdentity(packet, protocol);
+        if (protocol < 30 && !converted.IsEmpty && (PacketType)converted[0] is PacketType.Intent or PacketType.SlotIntent)
+        {
+            int prefix = (PacketType)converted[0] == PacketType.SlotIntent ? 2 : 1;
+            Require(converted.Length == prefix + IntentPacket.LegacyFullSize);
+            byte[] expanded = new byte[prefix + IntentPacket.FullSize];
+            converted.CopyTo(expanded); converted = expanded;
+        }
+        if (protocol < 29 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.MatchState
+            && converted.Length == 104)
+        {
+            byte[] expanded = new byte[1 + MatchStatePacket.Size];
+            converted.CopyTo(expanded);
+            converted = expanded;
+        }
         if (protocol < 28 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
             byte[] result = converted.ToArray();
             result[11] ^= MatchStatePacket.FlagShadowFreeze | MatchStatePacket.FlagSpawnProtection;
             return result;
+        }
+        if (protocol < 29 && !converted.IsEmpty && (PacketType)converted[0] is PacketType.Snapshot or PacketType.SnapshotFast)
+        {
+            var body = converted[1..];
+            Require(body.Length >= SnapshotHeader.Size);
+            var header = SnapshotHeader.Read(body);
+            Require(header.PlayerCount <= 8);
+            bool fast = (PacketType)converted[0] == PacketType.SnapshotFast;
+            int oldSize = PlayerState.LegacySize - (fast ? 7 : 0);
+            int newSize = oldSize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+            int oldTail = SnapshotHeader.Size + header.PlayerCount * oldSize;
+            Require(body.Length >= oldTail);
+            byte[] expanded = new byte[converted.Length + header.PlayerCount * (newSize - oldSize)];
+            converted[..(1 + SnapshotHeader.Size)].CopyTo(expanded);
+            for (int i = 0; i < header.PlayerCount; i++)
+            {
+                int offset = 1 + SnapshotHeader.Size + i * newSize;
+                body.Slice(SnapshotHeader.Size + i * oldSize, oldSize).CopyTo(expanded.AsSpan(offset));
+                expanded[offset + oldSize + 1] = byte.MaxValue;
+            }
+            body[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * newSize));
+            return expanded;
         }
         return converted;
     }

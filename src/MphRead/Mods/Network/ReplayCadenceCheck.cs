@@ -52,6 +52,8 @@ internal static class ReplayCadenceCheck
                     string before = ReplayStateHash.Compute(scene, world.Session.CurrentFrame);
                     var player = scene.Players.Items[0];
                     scene.ReplayRenderAlpha = (float)FrameTiming.PresentationAlpha;
+                    scene.ReplayPresentationFrame = Math.Max(0,
+                        world.Session.CurrentFrame - 1d + FrameTiming.PresentationAlpha);
                     scene.SetReplicaCamera(player.Position + new Vector3(0, 2, -4),
                         player.Position + Vector3.UnitZ * 5, 78);
                     scene.OnDrawFrame();

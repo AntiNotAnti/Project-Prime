@@ -55,7 +55,7 @@ namespace MphRead.Mods.Network
         public static void NoteDamage(PlayerEntity victim, PlayerEntity? attacker,
             uint damage, bool lethal, ulong frame)
         {
-            if (!GameState.Multiplayer || !NetSession.IsAuthority
+            if (victim.OwningScene.AimTrainer != null || !GameState.Multiplayer || !NetSession.IsAuthority
                 || NetDamage.Replaying || NetHitPrediction.Predicting)
             {
                 return;

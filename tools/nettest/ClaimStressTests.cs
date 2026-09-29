@@ -5,8 +5,17 @@ using MphRead.Mods.Network;
 namespace MphRead.NetTest;
 internal static class ClaimStressTests
 {
-    private static object? Call(string name, params object[] args) => typeof(NetHitClaims)
-        .GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!.Invoke(null, args);
+    private static object? Call(string name, params object[] args)
+    {
+        var method = typeof(NetHitClaims).GetMethod(name, BindingFlags.NonPublic | BindingFlags.Static)!;
+        if (name is "NoteLedger" or "TakeLedger" && args.Length + 1 == method.GetParameters().Length)
+        {
+            object[] expanded = new object[args.Length + 1]; args.CopyTo(expanded, 0); expanded[^1] = args[3];
+            var result = method.Invoke(null, expanded);
+            Array.Copy(expanded, args, args.Length); return result;
+        }
+        return method.Invoke(null, args);
+    }
     private static void Frame(uint frame) => typeof(NetSession).GetProperty("NetFrame")!.SetValue(null, frame);
     public static int Run()
     {
@@ -68,6 +77,7 @@ internal static class ClaimStressTests
             Call("Park", 0, new HitClaimPacket { ClaimId = 66, VictimSlot = 1 });
             NetArchitectureTests.Check(NetHitClaims.ClaimsPendingCurrent == 0 && NetHitClaims.ClaimsCapacityRefused == 1,
                 "unrecorded physical hit fences rescue until grace expires");
+            NetHitClaims.ValidateLedgerCounters();
             Console.WriteLine("PASS: claim retention, multiplicity, exact matching, shooter isolation and capacity refusal");
             return 0;
         }

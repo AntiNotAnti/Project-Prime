@@ -112,6 +112,23 @@ internal static class DynamicGeometryTests
             using (rotationHistory.Begin(3.5))
                 NetArchitectureTests.Check(rotating.State.Transform.ExtractScale() == new Vector3(3)
                     && rotating.State.Center == Vector3.UnitX * 3, "animated collision scale and transformed center are preserved");
+            var identical = new Geometry(9, true) { State = new(Matrix4.Identity, Matrix4.Identity,
+                Matrix4.CreateTranslation(1, 2, 3), Vector3.Zero, true) };
+            var identicalHistory = new NetDynamicGeometryHistory(new INetRewindableGeometry[] { identical });
+            identicalHistory.Record(10); identicalHistory.Record(11);
+            long applied = NetDynamicGeometryHistory.GeometryApplyPerformed;
+            long inverses = NetDynamicGeometryHistory.GeometryInversePerformed;
+            var exact = identical.State;
+            using (identicalHistory.Begin(10.5))
+                NetArchitectureTests.Check(identical.State == exact, "identical-frame interpolation preserves distinct cached inverses exactly");
+            NetArchitectureTests.Check(NetDynamicGeometryHistory.GeometryApplyPerformed == applied
+                && NetDynamicGeometryHistory.GeometryInversePerformed == inverses, "identical frames avoid applies and inversions");
+            identical.State = exact with { Center = Vector3.UnitX };
+            using (identicalHistory.Begin(10))
+                NetArchitectureTests.Check(identical.State == exact, "unrecorded live mutation uses safety capture");
+            NetArchitectureTests.Check(identical.State.Center == Vector3.UnitX, "unrecorded live mutation restores exactly");
+            identical.State = exact; identicalHistory.Record(12);
+            using (identicalHistory.Begin(10)) NetArchitectureTests.Check(identical.State == exact, "return to old transform is exact");
             Console.WriteLine("PASS: doors, force fields, moving collision, fractional sampling, catch-up, exception restoration, misses and 0 rewind allocations"); return 0;
         }
         catch (Exception e) { Console.Error.WriteLine(e); return 1; }

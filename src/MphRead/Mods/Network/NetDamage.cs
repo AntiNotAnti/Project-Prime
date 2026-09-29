@@ -28,6 +28,22 @@ namespace MphRead.Mods.Network
         public static ushort Sequence(int slot) => (uint)slot < Slots ? _sequence[slot] : (ushort)0;
         private static readonly ushort[] _sequence = new ushort[Slots];
         private static readonly DamageEvent[,] _history = new DamageEvent[Slots, PlayerState.DamageHistory];
+        // Kept only on the authority: the compact damage wire does not carry
+        // shooter life. Preserve the launch life for replay attribution instead
+        // of looking up a potentially respawned shooter when a snapshot is built.
+        private static readonly ushort[,] _replayAttackerLives = new ushort[Slots, PlayerState.DamageHistory];
+        internal static ushort ReplayAttackerLife(in PlayerState victim, ushort attackerGeneration)
+        {
+            int slot = victim.SlotIndex;
+            if (!NetSession.IsAuthority || (uint)slot >= Slots
+                || !NetPlayerLifecycle.Matches(slot, victim.SlotGeneration, victim.LifeId)) return 0;
+            for (int i = 0; i < PlayerState.DamageHistory; i++)
+                if (_history[slot, i].EventId == victim.DamageEventId
+                    && _history[slot, i].AttackerSlot == victim.AttackerSlot
+                    && _history[slot, i].AttackerGeneration == attackerGeneration)
+                    return _replayAttackerLives[slot, i];
+            return 0;
+        }
         private static readonly byte[] _attacker = new byte[Slots];
         private static readonly byte[] _beam = new byte[Slots];
         private static readonly byte[] _flags = new byte[Slots];
@@ -328,7 +344,8 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            for (int i = 0; i < PlayerState.DamageHistory; i++) _history[slot, i] = default;
+            for (int i = 0; i < PlayerState.DamageHistory; i++)
+            { _history[slot, i] = default; _replayAttackerLives[slot, i] = 0; }
             _sequence[slot] = 0;
             _attacker[slot] = NoSlot;
             _beam[slot] = NoBeam;
@@ -367,6 +384,7 @@ namespace MphRead.Mods.Network
         public static void Reset(bool resetSessionTotals = true)
         {
             Array.Clear(_history);
+            Array.Clear(_replayAttackerLives);
             Array.Clear(_sequence);
             Array.Fill(_attacker, NoSlot);
             Array.Fill(_beam, NoBeam);
@@ -427,6 +445,7 @@ namespace MphRead.Mods.Network
             }
             if (source is BeamProjectileEntity projectile && !NetPlayerLifecycle.CurrentProjectile(projectile))
                 return true;
+            if (source is BeamProjectileEntity { EnhancedMicroSeeker: true } && !NetSession.IsAuthority) return true;
             if (NetSession.IsHost || NetSession.IsAuthority)
             {
                 // Except its own copy of a shot a hit claim has already made
@@ -434,14 +453,14 @@ namespace MphRead.Mods.Network
                 // can still be in the air when the claim for it is applied,
                 // and this is the only point early enough to refuse the second
                 // helping. NetHitClaims.AlreadyRescued.
-                if (source is BeamProjectileEntity rescued && rescued.ModLaunchFrame != 0)
+                if (source is BeamProjectileEntity rescued && !rescued.EnhancedMicroSeeker)
                 {
                     PlayerEntity? owner = rescued.Owner as PlayerEntity
                         ?? (rescued.Owner as HalfturretEntity)?.Owner;
                     if (owner != null && rescued.Beam == BeamType.ShockCoil && rescued.ModHasSharedContinuousPhase
                         && NetHitClaims.ContinuousAlreadyResolved(owner.SlotIndex, victim.SlotIndex, (uint)rescued.ModContinuousPhase)) return true;
                     if (owner != null && NetHitClaims.AlreadyRescued(
-                        owner.SlotIndex, victim.SlotIndex, rescued.ModLaunchFrame, rescued.ModLaunchKey))
+                        owner.SlotIndex, victim.SlotIndex, rescued.ModShotId, rescued.ModLaunchKey))
                     {
                         return true;
                     }
@@ -518,7 +537,7 @@ namespace MphRead.Mods.Network
         /// <summary>Called by the authority for every hit it resolves.</summary>
         public static void Note(PlayerEntity victim, PlayerEntity? attacker, BeamType beam,
             DamageFlags flags, Vector3? direction, uint amount = 0, bool fromBomb = false,
-            uint launchFrame = 0, ShotKey? launchKey = null, uint continuousPhase = 0)
+            uint launchFrame = 0, ShotKey? launchKey = null, uint continuousPhase = 0, bool enhancedChild = false)
         {
             if (beam == BeamType.None && _claimedBeam != BeamType.None)
             {
@@ -587,8 +606,8 @@ namespace MphRead.Mods.Network
             // arbitration: two players who killed each other are separated by
             // which of them pulled the trigger in the earlier world, and this
             // is where that stamp is taken. NetHitClaims.
-            NetHitClaims.NoteAuthorityHit(
-                attacker != null ? attacker.SlotIndex : -1, slot, launchFrame, (int)amount, continuousPhase);
+            if (!enhancedChild && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus) NetHitClaims.NoteAuthorityHit(
+                attacker != null ? attacker.SlotIndex : -1, slot, launchFrame, (int)amount, continuousPhase, ApplyingClaim ? NetHitClaims.CurrentClaimShotId : launchKey?.ShotId ?? 0, launchKey);
             _attacker[slot] = attacker != null && attacker.SlotIndex >= 0 && attacker.SlotIndex < Slots
                 ? (byte)attacker.SlotIndex
                 : NoSlot;
@@ -614,7 +633,13 @@ namespace MphRead.Mods.Network
             // to the attacker's position for the damage indicator -- for the
             // indicator only, exactly as it does for a local hit.
             _direction[slot] = ClampImpulse(direction ?? Vector3.Zero);
-            for (int i = 0; i < PlayerState.DamageHistory - 1; i++) _history[slot, i] = _history[slot, i + 1];
+            for (int i = 0; i < PlayerState.DamageHistory - 1; i++)
+            {
+                _history[slot, i] = _history[slot, i + 1];
+                _replayAttackerLives[slot, i] = _replayAttackerLives[slot, i + 1];
+            }
+            _replayAttackerLives[slot, PlayerState.DamageHistory - 1] = launchKey?.LifeId
+                ?? (launchFrame == 0 && attacker != null ? NetPlayerLifecycle.Get(attacker.SlotIndex) : (ushort)0);
             _history[slot, PlayerState.DamageHistory - 1] = new DamageEvent
             {
                 EventId = _sequence[slot],

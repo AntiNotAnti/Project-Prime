@@ -32,7 +32,7 @@ internal static class Protocol18Tests
             NetArchitectureTests.Check(receiver.Receive(PacketType.WorldState, lanes.World.AsSpan(0, lanes.WorldLength), 65535, ulong.MaxValue), "world independent");
             NetArchitectureTests.Check(receiver.Receive(PacketType.PlayerSlowState, lanes.Slow.AsSpan(0, lanes.SlowLength), 65535, ulong.MaxValue), "slow independent");
             NetArchitectureTests.Check(!receiver.Receive(PacketType.PlayerSlowState, lanes.Slow.AsSpan(0, lanes.SlowLength), 65535, ulong.MaxValue), "duplicate revision refused");
-            var decoded = new byte[1472]; int length = receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
+            var decoded = new byte[NetConfig.MaxSnapshotSize]; int length = receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
             NetArchitectureTests.Check(canonical.AsSpan().SequenceEqual(decoded.AsSpan(0, length)), "all status/damage/lifecycle/world/score bytes preserved");
             for (int i = 0; i < 100; i++) receiver.Assemble(lanes.Fast.AsSpan(0, lanes.FastLength), decoded, 65535, ulong.MaxValue);
             long before = GC.GetAllocatedBytesForCurrentThread();

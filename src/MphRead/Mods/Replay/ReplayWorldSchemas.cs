@@ -41,6 +41,7 @@ internal static class ReplayWorldSchemas
             "_useRoomLights",
         ],
         ["MphRead.Entities.PlayerEntity"] = [
+            "<EnhancedState>k__BackingField",
             "_replicaLastDamage",
             "<BotLevel>k__BackingField",
             "<CameraInfo>k__BackingField",
@@ -413,8 +414,10 @@ internal static class ReplayWorldSchemas
             "_pickHits",
         ],
         ["MphRead.Entities.BeamProjectileEntity"] = [
+            "EnhancedBounceCount", "EnhancedMicroSeeker", "EnhancedFullCharge", "EnhancedSiegeRound",
             "<Flags>k__BackingField",
             "<ModLaunchFrame>k__BackingField",
+            "<ModShotId>k__BackingField",
             "<ModLaunchKey>k__BackingField",
             "<ModContinuousPhase>k__BackingField",
             "<ModHasSharedContinuousPhase>k__BackingField",
@@ -671,6 +674,7 @@ internal static class ReplayWorldSchemas
             "_active",
         ],
         ["MphRead.SceneGameState"] = [
+            "<EnhancedHunters>k__BackingField",
             "_players",
             "<Mode>k__BackingField",
             "<PausePrevented>k__BackingField",
@@ -991,6 +995,14 @@ internal static class ReplayWorldSchemas
             "_rngTick",
         ],
         ["MphRead.Entities.RoomEntity"] = [],
-        ["MphRead.Scene"] = ["_entities", "_queue", "_frameTime", "_elapsedTime", "_globalElapsedTime", "_frameCount", "_liveFrames", "_effectFrame", "_pendingEffectSteps", "_pendingFadeSteps", "<NextItemRotation>k__BackingField", "_inactiveEffects", "_inactiveElements", "_activeElements", "_inactiveParticles", "_singleParticles", "_singleParticleCount", "_inactiveBeamEffects", "_activeBeamEffects", "_inactiveBombs", "_activeBombs", "<EnemyBeams>k__BackingField", "<PlatformBeams>k__BackingField"],
+        ["MphRead.Mods.EnhancedHunters.EnhancedHunterState"] = [
+            "TargetSlot", "TargetLifeId", "TargetGeneration", "ValueA", "ValueB", "Flags",
+            "TimerA", "TimerB", "ContactFrames", "LastContactFrame", "MovementCooldown",
+            "GhostFrames", "DecayFrames", "CrossfireFrame", "CrossfireCooldown", "CrossfireTarget",
+            "FrostStacks", "BrittleTiers", "FrostExpiry", "FrostLives", "FrostGenerations", "Brittle", "CrossfireExpiry",
+            "CrossfireLife", "WasAlt", "WasAttacking", "WasFiring", "StationaryShot", "LocalLife", "Hunter", "Impulse0", "Impulse1", "AppliedImpulse", "PredictedImpulse", "PredictedUntil"
+        ],
+        ["MphRead.Mods.EnhancedHunters.EnhancedHunterWorld"] = [ "<Zones>k__BackingField", "_lastFrame" ],
+        ["MphRead.Scene"] = ["<EnhancedWorld>k__BackingField", "_entities", "_queue", "_frameTime", "_elapsedTime", "_globalElapsedTime", "_frameCount", "_liveFrames", "_effectFrame", "_pendingEffectSteps", "_pendingFadeSteps", "<NextItemRotation>k__BackingField", "_inactiveEffects", "_inactiveElements", "_activeElements", "_inactiveParticles", "_singleParticles", "_singleParticleCount", "_inactiveBeamEffects", "_activeBeamEffects", "_inactiveBombs", "_activeBombs", "<EnemyBeams>k__BackingField", "<PlatformBeams>k__BackingField"],
     };
 }

@@ -286,7 +286,7 @@ namespace MphRead.Mods.Network
             int? requestedPort = null, Guid? ownerToken = null,
             MatchFormat format = MatchFormat.Auto, bool requireReady = false,
             bool allowJoinInProgress = true, bool friendlyFire = false,
-            bool shadowFreeze = false, bool affinityWeapons = false,
+            bool shadowFreeze = false, bool affinityWeapons = false, bool enhancedHunters = false,
             bool spawnProtection = false, bool waitUntilReady = true, NetworkMapIdentity? requiredMap = null, string? hostedPackage = null)
         {
             LastError = null;
@@ -420,6 +420,7 @@ namespace MphRead.Mods.Network
             {
                 start.ArgumentList.Add("-shadowfreeze");
             }
+            if (enhancedHunters) start.ArgumentList.Add("-enhancedhunters");
             if (affinityWeapons)
             {
                 start.ArgumentList.Add("-affinityweapons");

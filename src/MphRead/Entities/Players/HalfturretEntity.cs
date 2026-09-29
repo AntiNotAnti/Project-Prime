@@ -14,6 +14,8 @@ namespace MphRead.Entities
         public PlayerEntity Owner { get; }
         private EntityBase? _target = null;
         public EntityBase? Target => _target;
+        internal void ModEnhancedTarget(PlayerEntity target)
+        { _target = target; _targetTimer = 36; }
         public NodeData3? ClosestNode { get; set; } = null;
 
         private int _health = 0;
@@ -229,6 +231,7 @@ namespace MphRead.Entities
                     {
                         cooldown = 7;
                     }
+                    if (Mods.EnhancedHunters.EnhancedHunters.Enabled(Owner) && Owner.EnhancedState.TimerB > 0) cooldown /= 1.25f;
                     if (Owner.TimeSinceShot >= cooldown * 2 && _cooldownTimer < 60 * 2) // todo: FPS stuff
                     {
                         if (Owner.IsBot && _scene.GameState.SinglePlayer

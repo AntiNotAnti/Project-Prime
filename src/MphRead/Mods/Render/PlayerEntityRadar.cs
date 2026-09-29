@@ -48,7 +48,7 @@ public partial class PlayerEntity
     private Vector3 RadarPresentedPosition()
     {
         // Translation-only sampling avoids decomposing an entire render matrix.
-        if(_scene.ReplayPoses?.Sample(SlotIndex,_scene.ReplayRenderAlpha,out var position,out _)==true) return position;
+        if(_scene.ReplayPoses?.SamplePresented(SlotIndex,_scene.ReplayRenderAlpha,out var position,out _)==true) return position;
         return SimulationDrawPosition;
     }
     private static NVector3 RadarVector(Vector3 v) => new(v.X,v.Y,v.Z);
@@ -102,7 +102,9 @@ public partial class PlayerEntity
         var origin=RadarVector(RadarPresentedPosition());
         var palette=Radar.PaletteOf;
         // Replica alpha freezes with playback. No wall clock or live-session time.
-        float alpha=_scene.Services.IsReplica ? _scene.ReplayRenderAlpha : (float)FrameTiming.PresentationAlpha;
+        float alpha=_scene.Services.IsReplica && double.IsFinite(_scene.ReplayPresentationFrame)
+            ? (float)(_scene.ReplayPresentationFrame - Math.Floor(_scene.ReplayPresentationFrame))
+            : _scene.Services.IsReplica ? _scene.ReplayRenderAlpha : (float)FrameTiming.PresentationAlpha;
         float time=(float)((_scene.FrameCount+alpha)/60.0);
         if(HudDrawMetrics.Enabled) HudDrawMetrics.RadarCheckpoint(0,ref radarAllocated);
         Span<HudShapePrimitive> shapes=stackalloc HudShapePrimitive[HudRadarGeometry.FrameCapacity];

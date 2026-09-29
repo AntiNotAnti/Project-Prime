@@ -312,7 +312,8 @@
           Exclude="..\..\maps\*.json;..\..\maps\*.bsp;..\..\maps\*.tex;..\..\maps\*.obj"
           Link="maps\%(RecursiveDir)%(Filename)%(Extension)">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      <CopyToPublishDirectory>Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory Condition="'%(Filename)' != 'aimlab'">Never</CopyToPublishDirectory>
+      <CopyToPublishDirectory Condition="'%(Filename)' == 'aimlab'">PreserveNewest</CopyToPublishDirectory>
     </None>
   </ItemGroup>
 

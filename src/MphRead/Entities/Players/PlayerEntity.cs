@@ -713,6 +713,7 @@ namespace MphRead.Entities
 
         public void Spawn(Vector3 pos, Vector3 facing, Vector3 up, NodeRef nodeRef, bool respawn)
         {
+            Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
@@ -1774,6 +1775,8 @@ namespace MphRead.Entities
         public void TakeDamage(uint damage, DamageFlags flags, Vector3? direction, EntityBase? source)
         {
             if (_scene.Services.SuppressDamage) return;
+            if (_scene.AimTrainer?.TryHandleDamage(this, source, damage, flags) == true) return;
+            bool enhancedWasFrozen = ModFrozen;
             using var predictedScores = new Mods.Network.NetDamage.PredictionScoreScope(Mods.Network.NetHitPrediction.Predicting);
             if (Mods.Network.NetDamage.Suppress(this, source, flags))
             {
@@ -1870,7 +1873,8 @@ namespace MphRead.Entities
                     // Not again for a rescued hit claim: the shooter's own
                     // machine already doubled it before it sent the number.
                     // Mods.Network.NetDamage.ApplyingClaim.
-                    if (attacker._doubleDmgTimer > 0 && !Mods.Network.NetDamage.ApplyingClaim)
+                    if (attacker._doubleDmgTimer > 0 && !Mods.Network.NetDamage.ApplyingClaim
+                        && !Mods.EnhancedHunters.EnhancedHunters.ApplyingBonus)
                     {
                         damage *= 2;
                     }
@@ -1920,6 +1924,14 @@ namespace MphRead.Entities
             if (Flags2.TestFlag(PlayerFlags2.Halfturret) && attacker != null && !ignoreDamage)
             {
                 _halfturret.OnTakeDamage(attacker, damage);
+            }
+            if (beam != null && attacker == this && Hunter == Hunter.Samus
+                && Mods.EnhancedHunters.EnhancedHunters.UsingAffinity(this, beam.Beam) && !beam.EnhancedMicroSeeker)
+            {
+                damage = (uint)System.Math.Ceiling(damage * .25f);
+                if (direction.HasValue) direction *= 1.35f;
+                if (Mods.EnhancedHunters.EnhancedHunters.Authority(this))
+                    Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(Hunter, "rocket-jumps");
             }
             uint combatUnsplitDamage = damage;
             if (flags.TestFlag(DamageFlags.Halfturret) && !ignoreDamage) // todo?: and either main player or not wifi
@@ -1978,8 +1990,9 @@ namespace MphRead.Entities
             // air. Mods.Network.NetHitClaims.
             int combatHealthBefore = _health;
             ushort combatSequenceBefore = Mods.Network.NetDamage.Sequence(SlotIndex);
+            if (beam?.EnhancedSiegeRound == true && direction.HasValue) direction *= 1.2f;
             Mods.Network.NetDamage.Note(this, attacker, beam?.Beam ?? BeamType.None, flags, direction,
-                damage, bomb != null, beam?.ModLaunchFrame ?? 0,
+                damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey, enhancedChild: beam?.EnhancedMicroSeeker == true,
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0);
             // The last point at which the damage is final and the death has
             // not been decided: a hit this machine's own player has landed is
@@ -1989,7 +2002,9 @@ namespace MphRead.Entities
             // low health kills on the frame it happens.
             // Mods.Network.NetHitPrediction.
             Mods.Network.NetHitPrediction.NoteHit(this, attacker, ref flags, ref damage,
-                beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction,
+                beam?.Beam ?? BeamType.None, beam?.ModLaunchFrame ?? 0, beam?.Age ?? 0, direction, shotId: beam?.ModShotId ?? 0, shotKey: beam?.ModLaunchKey,
+                direct: beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker?.IsAltForm == true && !flags.TestFlag(DamageFlags.Burn)
+                    || bomb?.BombType == BombType.Stinglarva,
                 afflictions: beam != null && !ignoreDamage && !flags.TestFlag(DamageFlags.Halfturret)
                     ? beam.Afflictions : Affliction.None, unsplitDamage: combatUnsplitDamage,
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0);
@@ -2824,8 +2839,17 @@ namespace MphRead.Entities
                 // todo: rumble
             }
             ushort combatSequence = Mods.Network.NetDamage.Sequence(SlotIndex);
-            if (combatSequence != combatSequenceBefore)
+            if (combatSequence != combatSequenceBefore && beam?.EnhancedMicroSeeker != true)
                 Mods.Network.NetHitClaims.CompleteAuthorityHit(this, attacker, combatHealthBefore, flags, combatSequence, beam?.ModLaunchFrame ?? 0, beam?.Beam ?? BeamType.None);
+            if (attacker != null && _health < combatHealthBefore && !Mods.Network.NetDamage.ApplyingClaim)
+                Mods.EnhancedHunters.EnhancedHunters.OnConfirmedHit(attacker, this, beam?.Beam ?? BeamType.None,
+                    beam?.EnhancedDirectHit == true || source is PlayerEntity && attacker.IsAltForm && !flags.TestFlag(DamageFlags.Burn) || bomb?.BombType == BombType.Stinglarva,
+                    beam?.Flags.TestFlag(BeamFlags.Charged) == true,
+                    flags.TestFlag(DamageFlags.Headshot), fromHalfturret, enhancedWasFrozen);
+            if (beam?.EnhancedMicroSeeker == true && attacker != null && _health < combatHealthBefore
+                && Mods.EnhancedHunters.EnhancedHunters.Authority(attacker))
+                Mods.EnhancedHunters.EnhancedHunterTelemetry.Event(attacker.Hunter, "micro-missile-hits");
+            if (_health == 0) Mods.EnhancedHunters.EnhancedHunters.ResetPlayer(this);
         }
 
         private static readonly string[] _altAttackNames = new string[8];

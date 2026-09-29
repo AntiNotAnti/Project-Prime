@@ -13,6 +13,7 @@ namespace MphRead
 {
     public partial class Scene
     {
+        public Mods.Training.AimTrainerSession? AimTrainer { get; internal set; }
         private readonly Sound.SfxInstanceBase _silentAudio = new();
         internal Sound.SfxInstanceBase Audio => Mods.Replay.ReplayAudioOwner.MayPlay(this)
             ? Sound.Sfx.Instance ?? _silentAudio : _silentAudio;
@@ -24,10 +25,12 @@ namespace MphRead
         public ISceneServices Services { get; private set; }
         internal bool IsReplayLab { get; private set; }
         internal float ReplayRenderAlpha { get; set; } = 1;
+        internal double ReplayPresentationFrame { get; set; } = double.NaN;
         internal Mods.Network.ReplayPoseStream? ReplayPoses { get; set; }
         internal Action<Scene>? ReplayPresentationHud { get; set; }
         internal Action<int, int>? ReplayShotPresented { get; set; }
         public SceneGameState GameState { get; }
+        internal Mods.EnhancedHunters.EnhancedHunterWorld EnhancedWorld { get; } = new();
         public ScenePlayerRegistry Players { get; }
         public MatchRandom Random { get; }
         public Mods.Network.PlayerReplicationBridge PlayerReplication { get; private set; }
