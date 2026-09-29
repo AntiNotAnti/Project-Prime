@@ -135,7 +135,8 @@ public sealed class EnhancedHunterWorld
             }
             var color = z.Type == EnhancedZoneType.IcePatch ? new Vector4(.3f, .75f, 1, .38f)
                 : new Vector4(1, .18f + .08f * MathF.Sin((float)scene.FrameCount * .15f), .025f, .55f);
-            scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(), color, RenderItemType.Ngon, vertices, noLines: true);
+            scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(), color, RenderItemType.Ngon,
+                vertices, vertexCount: vertices.Length, noLines: true);
         }
     }
     internal void DrawIndicators(Scene scene)
@@ -161,7 +162,8 @@ public sealed class EnhancedHunterWorld
                 Hunter.Kanden => new(1, .85f, .15f, .25f), Hunter.Noxus => new(.3f, .85f, 1, .25f),
                 Hunter.Sylux => new(.3f, 1, .35f, .25f + s.ValueA / 500f), _ => new(1, .4f, .15f, .35f)
             };
-            scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(), color, RenderItemType.Ngon, vertices, noLines: false);
+            scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(), color, RenderItemType.Ngon,
+                vertices, vertexCount: vertices.Length, noLines: false);
         }
     }
     public int Write(Span<byte> bytes)

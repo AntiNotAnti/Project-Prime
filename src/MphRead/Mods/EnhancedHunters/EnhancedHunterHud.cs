@@ -1,4 +1,6 @@
 using MphRead.Entities;
+using MphRead.Formats;
+using MphRead.Hud;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.EnhancedHunters;
@@ -35,14 +37,16 @@ internal static class EnhancedHunterHud
                 {
                     string icon = player.Hunter switch
                     {
-                        Hunter.Samus => "[   ]", Hunter.Kanden => "+ ROD +",
+                        Hunter.Samus => "[   ]", Hunter.Kanden => "+ +",
                         Hunter.Trace => (s.Flags & 1) != 0 ? "<< >>" : "< >",
-                        Hunter.Sylux => "~ ~", Hunter.Noxus => s.Flags != 0 ? "* BRITTLE *" : "* *", _ => ""
+                        Hunter.Sylux => "~ ~", Hunter.Noxus => s.Flags != 0 ? "** **" : "* *", _ => ""
                     };
                     if (icon.Length > 0) player.QueueHudMessage(point.X * 256, point.Y * 192, 1 / 60f, 0, icon, dialogHide: true);
                 }
             }
         }
-        if (text.Length != 0) player.QueueHudMessage(128, 112, 1 / 60f, 0, text, dialogHide: true);
+        // Use the HUD's logical coordinates so the status stays near the bottom at any resolution.
+        if (text.Length != 0) player.QueueHudMessage(128, 176, Align.Center, 232, 6,
+            new ColorRgba(0x3FEF), 1, 1 / 60f, 0, text, dialogHide: true);
     }
 }
