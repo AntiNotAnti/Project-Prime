@@ -15,7 +15,10 @@ internal static class CommunityMapChecks
 {
     public static async Task Run(Action<bool, string> check, string root)
     {
-        string storage = Path.Combine(root, "catalog");
+        string storage = Path.Combine(root, "catalog");Directory.CreateDirectory(storage);
+        const string creatorToken="creator-one-local-fixture-token", collaboratorToken="creator-two-local-fixture-token";
+        string TokenHash(string token)=>Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
+        File.WriteAllText(Path.Combine(storage,"creators.json"),JsonSerializer.Serialize(new[]{new MapCreatorCredential("creator-one",TokenHash(creatorToken)),new MapCreatorCredential("creator-two",TokenHash(collaboratorToken))},MapPackageReader.JsonOptions));
         using var port = new TcpListener(IPAddress.Loopback, 0); port.Start();
         string address = "http://127.0.0.1:" + ((IPEndPoint)port.LocalEndpoint).Port + "/"; port.Stop();
         const string secret = "deterministic-local-test-token-only";
@@ -64,6 +67,23 @@ internal static class CommunityMapChecks
             bool unauthorized = false;
             try { await anonymous.UploadAsync(one, default); } catch (HttpRequestException ex) { unauthorized = ex.StatusCode == HttpStatusCode.Unauthorized; }
             check(unauthorized, "publication requires upload credential");
+            using var creator=new MapCommunityClient(address,creatorToken);
+            bool forbidden=false;try{await creator.UploadAsync(one,default);}catch(HttpRequestException ex){forbidden=ex.StatusCode==HttpStatusCode.Forbidden;}
+            check(forbidden,"another authenticated creator cannot publish an owner's map");
+            await creator.SetFavoriteAsync(id,true,default);await creator.SetFavoriteAsync(id,true,default);
+            var favorites=await creator.BrowseAsync(default,favorites:true,sort:"favorites");
+            check(favorites.Length==2&&favorites.All(m=>m.FavoriteCount==1&&m.Favorited),"favorites are idempotent and visible in personal filter");
+            await creator.ReportAsync(id,new("1","Broken map","Fixture report"),default);
+            check((await client.BrowseAsync(default)).Length==2,"reports never automatically delist packages");
+            using(var request=new HttpRequestMessage(HttpMethod.Get,"reports"))
+            {request.Headers.Authorization=new("Bearer",secret);using var response=await http.SendAsync(request);var reports=JsonSerializer.Deserialize<CommunityMapReport[]>(await response.Content.ReadAsStringAsync(),MapPackageReader.JsonOptions)!;check(reports.Length==1&&reports[0].Status=="Open"&&reports[0].ReporterId=="creator-one","moderator can inspect persisted report identity");}
+            var draft=await client.UploadAsync(Package("4"),default,draft:true);
+            check((await client.BrowseAsync(default,mine:true)).Length==4,"My Maps includes published, unlisted and draft versions");
+            forbidden=false;try{await anonymous.GetPackageAsync(draft.Hash,default);}catch(HttpRequestException ex){forbidden=ex.StatusCode==HttpStatusCode.Forbidden;}check(forbidden,"unpublished draft packages require creator authorization");
+            using(var request=new HttpRequestMessage(HttpMethod.Post,"maps/"+id+"/collaborators"){Content=new StringContent("[\"creator-two\"]",Encoding.UTF8,"application/json")})
+            {request.Headers.Authorization=new("Bearer",secret);using var response=await http.SendAsync(request);check(response.IsSuccessStatusCode,"owner can authorize a collaborator");}
+            using var collaborator=new MapCommunityClient(address,collaboratorToken);
+            check((await collaborator.UploadAsync(Package("5"),default,listed:false)).OwnerId==MapCreatorCatalog.ServiceOwner,"collaborator publication preserves original owner");
             var reads = await Task.WhenAll(Enumerable.Range(0, 16).Select(_ => http.GetByteArrayAsync("packages/" + v1.Hash)));
             check(reads.All(b => b.SequenceEqual(bytes)), "concurrent downloads preserve package bytes");
             bool mismatch = false;

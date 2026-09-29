@@ -26,7 +26,11 @@ namespace MphRead.Droid
     /// yet when this runs, only <see cref="MainActivity.Instance"/> once one
     /// has been created.
     /// </summary>
+#if DEBUG
+    [Application(UsesCleartextTraffic = true)]
+#else
     [Application]
+#endif
     public class MainApplication : Avalonia.Android.AvaloniaAndroidApplication<AndroidApp>
     {
         public MainApplication(nint javaReference, JniHandleOwnership transfer)

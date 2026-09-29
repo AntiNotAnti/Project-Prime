@@ -7,29 +7,11 @@ using NVector3 = System.Numerics.Vector3;
 
 namespace MphRead.Mods.MapEditor;
 
-public static class MapMeshEditing
+public static partial class MapMeshEditing
 {
     public static int[] ConnectedFaces(MapMesh mesh, int face)
     {
-        if (face < 0 || face >= mesh.Faces.Count) throw new ArgumentOutOfRangeException(nameof(face));
-        var edges = new Dictionary<(int, int), List<int>>();
-        for (int f = 0; f < mesh.Faces.Count; f++)
-            for (int i = 0; i < mesh.Faces[f].Length; i++)
-            {
-                int a = mesh.Faces[f][i], b = mesh.Faces[f][(i + 1) % mesh.Faces[f].Length];
-                var key = (Math.Min(a, b), Math.Max(a, b));
-                if (!edges.TryGetValue(key, out var adjacent)) edges[key] = adjacent = new();
-                adjacent.Add(f);
-            }
-        var seen = new HashSet<int> { face }; var queue = new Queue<int>(); queue.Enqueue(face);
-        while (queue.TryDequeue(out int current))
-            for (int i = 0; i < mesh.Faces[current].Length; i++)
-            {
-                int a = mesh.Faces[current][i], b = mesh.Faces[current][(i + 1) % mesh.Faces[current].Length];
-                foreach (int neighbor in edges[(Math.Min(a, b), Math.Max(a, b))])
-                    if (seen.Add(neighbor)) queue.Enqueue(neighbor);
-            }
-        return seen.OrderBy(i => i).ToArray();
+        return new MapMeshTopology(mesh).ConnectedFaces(face);
     }
 
     public static void AssignMaterial(MapMesh mesh, IEnumerable<int> faces, int material)
@@ -104,7 +86,9 @@ public static class MapMeshEditing
         {
             Id=geometry.Id,Label=geometry.Label+" Mesh",Material=geometry.Material,Solid=geometry.Solid,
             Damaging=geometry.Damaging,Terrain=geometry.Terrain,Shade=geometry.Shade,Layer=geometry.Layer,
-            Hidden=geometry.Hidden,Locked=geometry.Locked,Transform=new(),Uv=geometry.Uv
+            Hidden=geometry.Hidden,Locked=geometry.Locked,Transform=new(),Uv=geometry.Uv,
+            CollisionOnly=(geometry as MapMesh)?.CollisionOnly??false,Slipperiness=(geometry as MapMesh)?.Slipperiness??0,ReflectBeams=(geometry as MapMesh)?.ReflectBeams??false,
+            IgnorePlayers=(geometry as MapMesh)?.IgnorePlayers??false,IgnoreBeams=(geometry as MapMesh)?.IgnoreBeams??false,IgnoreScan=(geometry as MapMesh)?.IgnoreScan??false
         };
         foreach(var face in faces)
         {
@@ -130,6 +114,11 @@ public static class MapMeshEditing
     public static void SetVertexWorld(MapMesh mesh,int vertex,NVector3 world)
     {
         RequireVertex(mesh,vertex);
+        mesh.Vertices[vertex]=A(WorldToLocal(mesh,world));
+    }
+
+    public static NVector3 WorldToLocal(MapMesh mesh,NVector3 world)
+    {
         var t=mesh.Transform;
         NVector3 local=world-new NVector3(t.Position[0],t.Position[1],t.Position[2]);
         var q=new System.Numerics.Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
@@ -138,7 +127,7 @@ public static class MapMeshEditing
         if(MathF.Abs(scale.X)<1e-6f||MathF.Abs(scale.Y)<1e-6f||MathF.Abs(scale.Z)<1e-6f)
             throw new InvalidOperationException("Cannot snap a vertex on a zero-scale mesh.");
         local/=scale;
-        mesh.Vertices[vertex]=A(local);
+        return local;
     }
 
     public static void MoveVertex(MapMesh mesh,int vertex,NVector3 delta)
@@ -159,9 +148,7 @@ public static class MapMeshEditing
     public static void DeleteFace(MapMesh mesh,int face)
     {
         RequireFace(mesh,face);EnsureChannels(mesh);
-        mesh.Faces.RemoveAt(face);
-        mesh.FaceMaterials.RemoveAt(face);
-        mesh.FaceTexcoords.RemoveAt(face);
+        RemoveFaces(mesh,new[]{face});
         Compact(mesh);
     }
 
@@ -311,8 +298,8 @@ public static class MapMeshEditing
     }
     private static NVector3 Normal(MapMesh mesh,int[] face)
     {
-        NVector3 a=V(mesh.Vertices[face[0]]),b=V(mesh.Vertices[face[1]]),c=V(mesh.Vertices[face[2]]);
-        NVector3 n=NVector3.Cross(b-a,c-a);
+        NVector3 n=NVector3.Zero;
+        for(int i=0;i<face.Length;i++)n+=NVector3.Cross(V(mesh.Vertices[face[i]]),V(mesh.Vertices[face[(i+1)%face.Length]]));
         if(n.LengthSquared()<1e-10f)throw new InvalidOperationException("Face is degenerate.");
         return NVector3.Normalize(n);
     }

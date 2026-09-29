@@ -13,6 +13,10 @@ public sealed record CommunityMap(string Hash, Guid MapId, string ContentHash, s
     string? DisplayName, string? Author, string? Version, long Bytes)
 {
     public bool Listed { get; init; } = true;
+    public string OwnerId { get; init; } = MapCreatorCatalog.ServiceOwner;
+    public bool Draft { get; init; }
+    public int FavoriteCount { get; init; }
+    public bool Favorited { get; init; }
     public int MinimumProtocol { get; init; }
     public string[] SupportedModes { get; init; } = Array.Empty<string>();
     public int MinPlayers { get; init; } = 1;
@@ -37,14 +41,29 @@ public sealed class MapCommunityClient : IDisposable
         { BaseAddress = uri, Timeout = TimeSpan.FromMinutes(3) };
         if (!string.IsNullOrWhiteSpace(uploadToken)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
     }
-    public async Task<CommunityMap[]> BrowseAsync(CancellationToken token)
+    public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
     {
-        using var response = await _http.GetAsync("maps", HttpCompletionOption.ResponseHeadersRead, token);
+        using var response = await _http.GetAsync("maps?mine="+mine.ToString().ToLowerInvariant()+"&favorites="+favorites.ToString().ToLowerInvariant()+"&sort="+Uri.EscapeDataString(sort??"name"), HttpCompletionOption.ResponseHeadersRead, token);
         response.EnsureSuccessStatusCode();
         using var data = new MemoryStream();
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), data, 2 * 1024 * 1024, token);
         return JsonSerializer.Deserialize<CommunityMap[]>(data.ToArray(), MapPackageReader.JsonOptions)
             ?? Array.Empty<CommunityMap>();
+    }
+    public async Task SetFavoriteAsync(Guid map,bool favorite,CancellationToken token)
+    {
+        using var request=new HttpRequestMessage(favorite?HttpMethod.Put:HttpMethod.Delete,"maps/"+map+"/favorite");
+        using var response=await _http.SendAsync(request,token);response.EnsureSuccessStatusCode();
+    }
+    public async Task ReportAsync(Guid map,MapReportRequest report,CancellationToken token)
+    {
+        using var content=new StringContent(JsonSerializer.Serialize(report,MapPackageReader.JsonOptions),System.Text.Encoding.UTF8,"application/json");
+        using var response=await _http.PostAsync("maps/"+map+"/reports",content,token);response.EnsureSuccessStatusCode();
+    }
+    public async Task SetVisibilityAsync(string hash,string visibility,CancellationToken token)
+    {
+        using var content=new StringContent(JsonSerializer.Serialize(visibility),System.Text.Encoding.UTF8,"application/json");
+        using var response=await _http.PostAsync("packages/"+hash+"/visibility",content,token);response.EnsureSuccessStatusCode();
     }
     public async Task<CommunityMap?> GetPackageAsync(string packageHash, CancellationToken token)
     {
@@ -58,14 +77,14 @@ public sealed class MapCommunityClient : IDisposable
         if (result?.Hash != packageHash) throw new InvalidDataException("Community returned different package metadata.");
         return result;
     }
-    public async Task<CommunityMap> UploadAsync(string path, CancellationToken token, bool listed = true)
+    public async Task<CommunityMap> UploadAsync(string path, CancellationToken token, bool listed = true, bool draft = false)
     {
         using var package = new MapPackageReader(path);
         if (package.Manifest == null) throw new InvalidDataException("Build a current .ppmap package before sharing.");
         using var stream = File.OpenRead(path);
         using var content = new StreamContent(stream);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        using var response = await _http.PostAsync(listed ? "maps" : "maps?listed=false", content, token);
+        using var response = await _http.PostAsync("maps?listed="+listed.ToString().ToLowerInvariant()+"&draft="+draft.ToString().ToLowerInvariant(), content, token);
         if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             throw new HttpRequestException("This map version already has different published contents. Increase the project's Version before publishing.",null,response.StatusCode);
         response.EnsureSuccessStatusCode();

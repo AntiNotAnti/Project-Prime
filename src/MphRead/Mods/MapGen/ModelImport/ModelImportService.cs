@@ -14,6 +14,7 @@ public sealed record ModelImportSettings(float Scale = 1, bool FlipWinding = fal
 public sealed record ImportedModel(IReadOnlyList<MapMesh> Meshes, IReadOnlyList<MapMaterial> Materials,
     IReadOnlyDictionary<string, byte[]> Assets, IReadOnlyList<string> Warnings)
 {
+    public IReadOnlyList<string> Dependencies { get; init; } = Array.Empty<string>();
     public IReadOnlyDictionary<string,string> AssetSources { get; init; } = new Dictionary<string,string>();
 }
 public interface IModelImporter
@@ -23,12 +24,15 @@ public interface IModelImporter
 }
 public static class ModelImportService
 {
-    private static readonly IModelImporter[] Importers = { new ObjModelImporter() };
+    private static readonly IModelImporter[] Importers = { new ObjModelImporter(), new GltfModelImporter() };
     public static ImportedModel Import(string path, ModelImportSettings settings, CancellationToken cancellation = default)
     {
         var importer = Importers.FirstOrDefault(i => i.CanImport(Path.GetExtension(path)))
             ?? throw new InvalidDataException("Unsupported model format.");
         var model = importer.Import(path, settings with { VisualCollision = settings.VisualCollision || settings.Collision == ModelCollisionMode.Visual }, cancellation);
-        return ModelCollisionImport.Add(model, path, settings, cancellation);
+        model = ModelCollisionImport.Add(model, path, settings, cancellation);
+        var dependencies=model.Dependencies.Append(Path.GetFullPath(path)).Concat(model.AssetSources.Values);
+        if(settings.Collision==ModelCollisionMode.Companion && ModelCollisionImport.FindCompanion(path) is {} companion)dependencies=dependencies.Append(companion);
+        return model with {Dependencies=dependencies.Select(Path.GetFullPath).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray()};
     }
 }
