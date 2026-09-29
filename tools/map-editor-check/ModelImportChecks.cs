@@ -57,14 +57,22 @@ internal static class ModelImportChecks
         Directory.CreateDirectory(Path.Combine(root, "textures"));
         byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=");
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
-        File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/TILE.png\nnewmtl other\nmap_Kd textures/TILE.png\n");
+        File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd -s 1 1 1 textures/TILE.png\nnewmtl other\nmap_Kd textures/TILE.png\n");
         File.WriteAllText(path, source);
         var textured = ModelImportService.Import(path, new());
         check(textured.Assets.Count == 1 && textured.Materials[1].Texture == textured.Materials[2].Texture,
             "PNG texture import resolves case-insensitive names and deduplicates source content");
         check(MapTexturePack.Load(textured.Assets.Single().Value, "image").Entries.Single().Width == 64,
             "source image bakes to runtime texture");
+        byte[] tga=TestTga();
+        File.WriteAllBytes(Path.Combine(root,"textures","tile.tga"),tga);
+        File.WriteAllText(Path.Combine(root,"model.mtl"),"newmtl red\nmap_Kd -o 0 0 0 textures/tile.tga\n");
+        var tgaTextured=ModelImportService.Import(path,new());
+        check(tgaTextured.Assets.Count==1&&MapTexturePack.Load(tgaTextured.Assets.Single().Value,"tga").Entries.Single().Width==64,
+            "OBJ imports TGA diffuse textures while tolerating standard map_Kd options");
         System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 5000);
+        File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
+        File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/tile.png\n");
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         bool oversizedImage = false;
         try { ModelImportService.Import(path, new()); } catch (InvalidDataException) { oversizedImage = true; }
@@ -76,5 +84,18 @@ internal static class ModelImportChecks
         var identity = new MapContentIdentity(Guid.NewGuid(), "ROOM", hash, hash, true);
         check(!identity.Matches(identity with { MapId = Guid.NewGuid() }) && !identity.Matches(identity with { ContentHash = default })
             && !identity.Matches(identity with { PackageHash = default }) && !identity.Matches(MapContentIdentity.BuiltIn("ROOM")), "room key alone never establishes identity");
+    }
+
+    private static byte[] TestTga()
+    {
+        using var stream=new MemoryStream();
+        using var writer=new BinaryWriter(stream);
+        writer.Write((byte)0);writer.Write((byte)0);writer.Write((byte)2);
+        writer.Write((ushort)0);writer.Write((ushort)0);writer.Write((byte)0);
+        writer.Write((ushort)0);writer.Write((ushort)0);
+        writer.Write((ushort)2);writer.Write((ushort)2);
+        writer.Write((byte)24);writer.Write((byte)0x20);
+        for(int i=0;i<4;i++){writer.Write((byte)16);writer.Write((byte)32);writer.Write((byte)240);}
+        return stream.ToArray();
     }
 }

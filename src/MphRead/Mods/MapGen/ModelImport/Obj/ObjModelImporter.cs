@@ -1,4 +1,5 @@
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -79,8 +80,8 @@ public sealed class ObjModelImporter : IModelImporter
                                     if (!defined.Add(name)) Warn("Duplicate material: " + name);
                                     current = Material(name); break;
                                 case "map_Kd" when current >= 0:
-                                    string imageName = string.Join(" ", f.Skip(1));
-                                    if (imageName.StartsWith('-')) { Warn("Unsupported map_Kd options: " + imageName); break; }
+                                    string? imageName = DiffuseMapPath(f, Warn);
+                                    if (imageName == null) break;
                                     string image = Resolve(root, Path.GetDirectoryName(mtl)!, imageName);
                                     if (!File.Exists(image)) { Warn("Missing texture: " + imageName); break; }
                                     if (new FileInfo(image).Length > MaxSourceBytes) throw new InvalidDataException("Texture exceeds source byte limit.");
@@ -205,6 +206,39 @@ public sealed class ObjModelImporter : IModelImporter
         }
         return candidate;
     }
+    private static string? DiffuseMapPath(string[] fields, Action<string> warn)
+    {
+        int at=1;bool options=false;
+        while(at<fields.Length&&fields[at].StartsWith("-",StringComparison.Ordinal))
+        {
+            options=true;string option=fields[at++].ToLowerInvariant();
+            if(option is "-o" or "-s" or "-t")
+            {
+                int count=0;
+                while(at<fields.Length&&count<3
+                    &&float.TryParse(fields[at],NumberStyles.Float,CultureInfo.InvariantCulture,out _))
+                {at++;count++;}
+                if(count==0){warn("Invalid map_Kd option: "+option);return null;}
+                continue;
+            }
+            int arguments=option switch
+            {
+                "-blendu" or "-blendv" or "-boost" or "-bm" or "-cc" or "-clamp"
+                    or "-colorspace" or "-imfchan" or "-texres" or "-type"=>1,
+                "-mm"=>2,
+                _=>-1
+            };
+            if(arguments<0||at+arguments>fields.Length)
+            {warn("Unsupported map_Kd option: "+option);return null;}
+            at+=arguments;
+        }
+        if(at>=fields.Length){warn("map_Kd has no texture path.");return null;}
+        if(options)warn("map_Kd options are ignored; the diffuse image is still imported.");
+        string path=string.Join(" ",fields.Skip(at)).Trim().Trim('"');
+        if(path.Length==0){warn("map_Kd has no texture path.");return null;}
+        return path;
+    }
+
     internal static void ValidateImage(byte[] bytes)
     {
         // Inspect dimensions before handing hostile input to the native decoder.
@@ -232,8 +266,19 @@ public sealed class ObjModelImporter : IModelImporter
                 at += length;
             }
         }
+        else if(bytes.Length>=26&&bytes[0]=='B'&&bytes[1]=='M')
+        {
+            width=BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(18));
+            int rawHeight=BinaryPrimitives.ReadInt32LittleEndian(bytes.AsSpan(22));
+            height=rawHeight==int.MinValue?0:Math.Abs(rawHeight);
+        }
+        else if(bytes.Length>=18&&bytes[2] is 1 or 2 or 3 or 9 or 10 or 11)
+        {
+            width=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(12));
+            height=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(14));
+        }
         if (width is < 1 or > 4096 || height is < 1 or > 4096)
-            throw new InvalidDataException("Model textures must be PNG or JPEG with dimensions at most 4096×4096.");
+            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 4096×4096.");
     }
 
     internal static byte[] Solid(float r, float g, float b)
