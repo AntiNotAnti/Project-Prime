@@ -285,11 +285,11 @@ namespace MphRead.Mods.Network
                         return null;
                     }
                     uint elapsedMs = _legacyReader!.ReadUInt32();
-                    int length = _legacyReader.ReadUInt16();
-                    if (length == 0 || length > ushort.MaxValue)
+                    int v1Length = _legacyReader.ReadUInt16();
+                    if (v1Length == 0 || v1Length > ushort.MaxValue)
                         throw new InvalidDataException("Invalid v1 replay packet.");
-                    byte[] data = _legacyReader.ReadBytes(length);
-                    if (data.Length != length)
+                    byte[] v1Data = _legacyReader.ReadBytes(v1Length);
+                    if (v1Data.Length != v1Length)
                         throw new EndOfStreamException();
                     ulong rounded = ((ulong)elapsedMs * 60 + 500) / 1000;
                     if (rounded > ReplayFormatV3.MaxFrame)
@@ -297,7 +297,7 @@ namespace MphRead.Mods.Network
                     uint frame = (uint)rounded;
                     if (frame < _frame) frame = _frame;
                     _frame = frame;
-                    return new DemoRecord(frame, data);
+                    return new DemoRecord(frame, v1Data);
                 }
 
                 int first = _deflate!.ReadByte();
