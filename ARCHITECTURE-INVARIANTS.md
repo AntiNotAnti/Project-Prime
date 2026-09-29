@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **32** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **34** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -75,7 +75,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Custom match starts require every participant to report the exact package ready. Availability reports carry the authority, match, map generation, and monotonic sequence; stale reports cannot satisfy the barrier.
 - HTTP downloads and detached builds use private staging. Publication runs on the session owner after live scenes and prewarm workers release their room leases. Cancellation cannot publish partial packages.
 - Published package bytes and versions are immutable. Runtime packages contain normalized geometry and assets, never local model source paths or a requirement to parse external models.
-- Replay bootstrap preserves the exact custom package identity and historical download source. Remote hosts fetch missing exact packages from the operator-configured Community service on bounded background workers. Retries are deduplicated, and each custom hosted child owns a private package library and generated-runtime namespace. Downloads never install into the parent process's active map library.
+- Replay bootstrap preserves the exact custom package identity and historical download source. Remote host requests carry the exact immutable package hash for every custom rotation entry. Bounded background workers resolve and fetch all missing archives from the operator-configured Community service before the isolated child is spawned; retries are deduplicated, and downloads never install into the parent process's active map library. Each custom hosted child owns a private package library and generated-runtime namespace.
 
 ## Timing and rendering
 
