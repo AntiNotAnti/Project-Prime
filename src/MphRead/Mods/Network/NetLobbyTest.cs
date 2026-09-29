@@ -334,7 +334,8 @@ namespace MphRead.Mods.Network
                         "unknown later rotation package cannot launch a server");
                 }
 
-                string builtIn=Metadata.RoomMetadata.First(pair=>pair.Value.Multiplayer).Key;
+                string builtIn=Metadata.RoomMetadata.First(pair=>pair.Value.Multiplayer
+                    && Metadata.IsBuiltInRoom(pair.Key)).Key;
                 var mixedRequest=new HostRequestPacket
                 {
                     Protocol=NetConfig.ProtocolVersion,RoomKey=builtIn,
