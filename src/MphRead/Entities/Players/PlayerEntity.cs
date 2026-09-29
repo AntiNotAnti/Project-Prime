@@ -830,6 +830,8 @@ namespace MphRead.Entities
             }
             PreviousWeapon = instaGib ? BeamType.Imperialist : BeamType.PowerBeam;
             TryEquipWeapon(PreviousWeapon, silent: true);
+            ApplyGunGameLoadout(force: true);
+            ApplySpawnLoadoutModifiers();
             Metadata.LoadEffectiveness(0x2AAAA, BeamEffectiveness);
             _frozenTimer = 0;
             _timeSinceFrozen = 255;
@@ -1443,6 +1445,8 @@ namespace MphRead.Entities
 
         private bool TryEquipWeapon(BeamType beam, bool silent = false, bool debug = false)
         {
+            if (_scene.GameState.OneInTheChamber && beam is not (BeamType.PowerBeam or BeamType.Imperialist)) return false;
+            if (_scene.GameState.Mode == GameMode.GunGame && beam != Mods.Multiplayer.GunGameRules.Weapon(_scene.GameState.Points[SlotIndex])) return false;
             if (_scene.GameState.NoImperialist && beam == BeamType.Imperialist) return false;
             int index = (int)beam;
             if (index < 0 || index >= 9)
@@ -1783,8 +1787,8 @@ namespace MphRead.Entities
             {
                 return;
             }
-            bool instaGibHit = false;
-            if (_scene.GameState.InstaGib)
+            bool precisionLethalHit = false;
+            if (_scene.GameState.InstaGib || _scene.GameState.OneInTheChamber)
             {
                 BeamType sourceBeam = source?.Type == EntityType.BeamProjectile
                     ? ((BeamProjectileEntity)source).Beam
@@ -1795,8 +1799,8 @@ namespace MphRead.Entities
                             : BeamType.None;
                 bool playerCombatSource = source != null
                     && source.Type is EntityType.BeamProjectile or EntityType.Player or EntityType.Bomb;
-                instaGibHit = playerCombatSource && sourceBeam == BeamType.Imperialist;
-                if (playerCombatSource && !instaGibHit)
+                precisionLethalHit = playerCombatSource && sourceBeam == BeamType.Imperialist;
+                if (_scene.GameState.InstaGib && playerCombatSource && !precisionLethalHit)
                 {
                     return;
                 }
@@ -1966,7 +1970,7 @@ namespace MphRead.Entities
             // Hunter-specific damage routing above may split or clamp normal
             // damage. Insta-Gib deliberately overrides that final amount so
             // every accepted Imperialist hit is lethal.
-            if (instaGibHit && damage > 0 && !ignoreDamage)
+            if (precisionLethalHit && damage > 0 && !ignoreDamage)
             {
                 damage = (uint)_health;
             }
@@ -2520,6 +2524,7 @@ namespace MphRead.Entities
                                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
                                     }
                                 }
+                                attacker.AwardChamberShot();
                                 if (_scene.GameState.Mode == GameMode.PrimeHunter)
                                 {
                                     if (attacker.IsPrimeHunter)
@@ -2537,6 +2542,23 @@ namespace MphRead.Entities
                                         string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
                                         string message = Strings.GetHudMessage(241); // %s is the new prime hunter!
                                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
+                                    }
+                                }
+                                else if (_scene.GameState.Mode == GameMode.GunGame)
+                                {
+                                    int stage = _scene.GameState.Points[attacker.SlotIndex];
+                                    bool precisionKill = beam?.Beam == BeamType.Imperialist
+                                        || Mods.Network.NetDamage.ApplyingClaim && Mods.Network.NetDamage.ClaimedBeam == BeamType.Imperialist
+                                        || Mods.Network.NetDamage.Replaying && Mods.Network.NetDamage.ReplayBeam == BeamType.Imperialist;
+                                    if (stage < Mods.Multiplayer.GunGameRules.StageCount - 1 || precisionKill)
+                                    {
+                                        int slot = attacker.SlotIndex;
+                                        float duration = _scene.GameState.StageSeconds[slot];
+                                        if (_scene.GameState.FastestStageSeconds[slot] == 0 || duration < _scene.GameState.FastestStageSeconds[slot])
+                                            _scene.GameState.FastestStageSeconds[slot] = duration;
+                                        _scene.GameState.StageSeconds[slot] = 0;
+                                        _scene.GameState.Points[slot] = Math.Min(Mods.Multiplayer.GunGameRules.StageCount, stage + 1);
+                                        attacker.ApplyGunGameLoadout(force: true);
                                     }
                                 }
                                 else if (_scene.GameState.Mode == GameMode.Battle || _scene.GameState.Mode == GameMode.BattleTeams)
@@ -2585,6 +2607,7 @@ namespace MphRead.Entities
                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
                     }
                 }
+                Mods.Multiplayer.TokenRules.DropOnDeath(_scene, this);
                 if (_scene.GameState.Multiplayer && attacker != null && attacker != this)
                 {
                     ItemType itemType = ItemType.UASmall;

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network;
 
@@ -16,6 +17,29 @@ internal static class ReplayIdentityCompatibility
             Require(converted.Length == 1 + MatchStatePacket.Size);
             byte[] result = converted.ToArray();
             result[11] ^= MatchStatePacket.FlagShadowFreeze | MatchStatePacket.FlagSpawnProtection;
+            return result;
+        }
+        if (protocol < 29 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.SessionState)
+        {
+            Require(converted.Length == 1 + SessionStatePacket.Protocol28Size);
+            byte[] result = new byte[1 + SessionStatePacket.Size];
+            converted.CopyTo(result);
+            ushort old = BinaryPrimitives.ReadUInt16LittleEndian(result.AsSpan(15));
+            ushort lobby = (ushort)(((old & 8) >> 3) | ((old & 16) >> 3) | ((old & 32) >> 3) | ((old & 64) >> 3));
+            uint modifiers = (uint)((old & 7) | ((old & 128) >> 4) | ((old & 256) >> 4)
+                | ((old & 512) >> 4) | ((old & 1024) >> 4) | ((old & 2048) >> 4) | ((old & 4096) >> 4));
+            BinaryPrimitives.WriteUInt16LittleEndian(result.AsSpan(15), lobby);
+            BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(1 + SessionStatePacket.Protocol28Size), modifiers);
+            return result;
+        }
+        if (protocol is 27 or 28 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.PostMatchReport)
+        {
+            Require(converted.Length == 1 + PostMatchReportPacket.HeaderSize + 8 * PostMatchReportPacket.LegacyEntrySize);
+            byte[] result = New(PacketType.PostMatchReport, PostMatchReportPacket.Size);
+            converted.Slice(1, 3).CopyTo(result.AsSpan(1));
+            for (int i = 0; i < 8; i++)
+                converted.Slice(4 + i * PostMatchReportPacket.LegacyEntrySize, PostMatchReportPacket.LegacyEntrySize)
+                    .CopyTo(result.AsSpan(4 + i * PostMatchReportPacket.EntrySize));
             return result;
         }
         return converted;
@@ -58,14 +82,14 @@ internal static class ReplayIdentityCompatibility
                 var old = source.Slice(3 + i * 44, 44);
                 var row = result.AsSpan(1 + 3 + i * PostMatchReportPacket.EntrySize);
                 old[..28].CopyTo(row);
-                CopyName(old[28..], row[..PostMatchReportPacket.EntrySize][28..]);
+                CopyName(old[28..], row.Slice(28, PostMatchReportPacket.MaxNameBytes));
             }
             return result;
         }
         if (type == PacketType.SessionState && protocol == 24)
         {
             Require(source.Length == 41 + HostRequestPacket.MaxRoomBytes);
-            byte[] result = New(type, SessionStatePacket.Size);
+            byte[] result = New(type, SessionStatePacket.Protocol28Size);
             source.CopyTo(result.AsSpan(1));
             return result;
         }

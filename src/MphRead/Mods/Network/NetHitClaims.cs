@@ -1372,6 +1372,9 @@ namespace MphRead.Mods.Network
                     + $"{claim.AckFrame} put them");
                 return HitVerdictPacket.ResultGeometry;
             }
+            PlayerEntity shooter = PlayerEntity.Players[shooterSlot];
+            if (shooter.OwningScene.GameState.OneInTheChamber && claim.Beam == (byte)BeamType.Imperialist
+                && !shooter.KnowsChamberShot(claim.LaunchFrame)) return HitVerdictPacket.ResultInvalidLaunch;
             PlayerEntity victim = PlayerEntity.Players[victimSlot];
             if (!victim.LoadFlags.TestFlag(LoadFlags.Active) || !victim.ModIsInPlay)
             {

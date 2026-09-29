@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 28, "bot wire contract supersedes custom map protocol 25");
+            Check(NetConfig.ProtocolVersion == 29, "bot wire contract supersedes custom map protocol 25");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -399,13 +399,13 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 28 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 29 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
             var state = new SessionStatePacket { Phase = SessionPhase.Starting, Policy = ServerSessionPolicy.Lobby,
                 OwnerSlot = 7, MaxPlayers = 8, Revision = ushort.MaxValue, MatchId = 19,
-                RuleFlags = SessionRules.RequireReady | SessionRules.AllowJoinInProgress | SessionRules.LockTeams,
+                RuleFlags = LobbyRuleFlags.RequireReady | LobbyRuleFlags.AllowJoinInProgress | LobbyRuleFlags.LockTeams,
                 WorldProfile = MatchWorldProfile.Resolve(8),
                 ExpectedParticipants = 255, LoadedParticipants = 3,
                 StartCountdownMilliseconds = 3000,
@@ -958,7 +958,7 @@ namespace MphRead.Mods.Network
                 "owner hidden-health rule synchronizes to both UDP clients");
             var forbidden = b.State.Value;
             forbidden.Match = forbidden.Match with { HideOpponentHealth = false };
-            forbidden.RuleFlags &= ~SessionRules.HideOpponentHealth;
+            forbidden.RuleFlags &= ~LobbyRuleFlags.HideOpponentHealth;
             rig.Expect(b, b.Command(LobbyCommandType.UpdateMatch, config: forbidden), LobbyResultCode.NotOwner);
             Check(a.State.Value.Match.HideOpponentHealth, "non-owner cannot expose hidden health");
             var lobbyStatus = NetStatus.Query("127.0.0.1", rig.Server.BoundPort, allowJoinProbe: false);
@@ -1015,7 +1015,7 @@ namespace MphRead.Mods.Network
             Client other = rig.Add(131);
 
             var config = owner.State!.Value;
-            config.RuleFlags &= ~SessionRules.RequireReady;
+            config.RuleFlags &= ~LobbyRuleFlags.RequireReady;
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config),
                 LobbyResultCode.Ok);
             Check(owner.State!.Value.RequireReady == false
@@ -1101,7 +1101,7 @@ namespace MphRead.Mods.Network
             using var rig = new Rig(); Client owner = rig.Add(10); Client other = rig.Add(11);
             var config = owner.State!.Value;
             config.Match = config.Match with { Mode = GameMode.BattleTeams, Format = MatchFormat.TwoVsTwo };
-            config.RuleFlags &= ~SessionRules.RequireReady;
+            config.RuleFlags &= ~LobbyRuleFlags.RequireReady;
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
             Check(LobbyRules.Validate(config.Match, owner.Roster, false, out _) == LobbyResultCode.Ok,
                 "2v2 start is valid with one player on each side");
@@ -1136,14 +1136,14 @@ namespace MphRead.Mods.Network
             using var rig = new Rig(); Client owner = rig.Add(50); Client other = rig.Add(51);
             var config = owner.State!.Value;
             config.Match = config.Match with { Mode = GameMode.BattleTeams, Format = MatchFormat.Custom, CustomTeams = new TeamLayout(2, 4, 2) };
-            config.RuleFlags &= ~SessionRules.RequireReady;
+            config.RuleFlags &= ~LobbyRuleFlags.RequireReady;
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
             rig.Expect(other, other.Command(LobbyCommandType.SetTeam, target: (byte)owner.Slot, team: 1), LobbyResultCode.NotOwner);
             rig.Expect(other, other.Command(LobbyCommandType.SetTeam, target: (byte)other.Slot, team: 0), LobbyResultCode.Ok);
             rig.Expect(other, other.Command(LobbyCommandType.SetReady, ready: true), LobbyResultCode.Ok);
             rig.Expect(owner, owner.Command(LobbyCommandType.SetTeam, target: (byte)other.Slot, team: -1), LobbyResultCode.Ok);
             Check(!owner.Roster.LobbyReady[other.Slot], "team move clears target ready");
-            config = owner.State.Value; config.RuleFlags |= SessionRules.LockTeams;
+            config = owner.State.Value; config.RuleFlags |= LobbyRuleFlags.LockTeams;
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
             rig.Expect(other, other.Command(LobbyCommandType.SetTeam, target: (byte)other.Slot, team: 0), LobbyResultCode.NotOwner);
             rig.Expect(owner, owner.Command(LobbyCommandType.SetTeam, target: (byte)other.Slot, team: -1), LobbyResultCode.Ok);
@@ -1183,7 +1183,7 @@ namespace MphRead.Mods.Network
             using var rig = new Rig(); Client owner = rig.Add(70);
             var config = owner.State!.Value;
             config.Match = config.Match with { Mode = GameMode.BattleTeams, Format = MatchFormat.TwoVsTwoVsTwoVsTwo };
-            config.RuleFlags &= ~SessionRules.RequireReady;
+            config.RuleFlags &= ~LobbyRuleFlags.RequireReady;
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateMatch, config: config), LobbyResultCode.Ok);
             for (int slot = 1; slot < 8; slot++)
             {

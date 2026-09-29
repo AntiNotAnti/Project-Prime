@@ -431,6 +431,13 @@ namespace MphRead
             new (GameMode.NodesTeams, new List<int>() { 7 }),
             new (GameMode.Defender, new List<int>() { 14 }),
             new (GameMode.DefenderTeams, new List<int>() { 14 }),
+            new (GameMode.Hardpoint, new List<int>() { 4, 5, 6 }),
+            new (GameMode.HardpointTeams, new List<int>() { 7 }),
+            new (GameMode.KillConfirmed, new List<int>() { 0, 1, 2 }),
+            new (GameMode.KillConfirmedTeams, new List<int>() { 3 }),
+            new (GameMode.Headhunter, new List<int>() { 8, 9, 10 }),
+            new (GameMode.GunGame, new List<int>() { 0, 1, 2 }),
+            new (GameMode.Relic, new List<int>() { 8, 9, 10 }),
             new (GameMode.PrimeHunter, new List<int>() { 0, 1, 2 }),
             new (GameMode.InstaGib, new List<int>() { 0, 1, 2 })
         ]);

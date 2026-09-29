@@ -30,8 +30,7 @@ namespace MphRead.Mods.Network
         public static LobbyResultCode ValidateDefinition(MatchDefinition match, out string reason)
         {
             reason = "";
-            if (match.InstaGib && match.NoImperialist)
-            { reason = "Insta-Gib and No Imp cannot be enabled together."; return LobbyResultCode.InvalidConfiguration; }
+            if (!MatchModifierRules.Validate(match, out reason)) return LobbyResultCode.InvalidConfiguration;
             if (String.IsNullOrWhiteSpace(match.RoomKey) || match.RoomKey.Length > HostRequestPacket.MaxRoomBytes
                 || !Enum.IsDefined(match.Format) || !Enum.IsDefined(match.Mode)
                 || match.Mode is GameMode.SinglePlayer or GameMode.None)
@@ -41,9 +40,6 @@ namespace MphRead.Mods.Network
                 reason = "Choose a team mode for a team format, or a free-for-all mode for FFA.";
             else if (GameState.IsTeamMode(match.Mode) && !ResolveTeamLayout(match).IsValid)
                 reason = "Use 2 to 4 nonempty teams, zero inactive capacities, and at most 8 players.";
-            else if (match.VanillaDuelResources
-                && (match.Format != MatchFormat.OneVsOne || match.Mode != GameMode.BattleTeams))
-                reason = "Vanilla 1v1 spawns/pickups are available only for Battle 1v1.";
             else if (match.Mode == GameMode.Capture && TeamCount(match) != 2)
                 reason = "Capture requires exactly two teams because maps have two bases.";
             return reason.Length == 0 ? LobbyResultCode.Ok : LobbyResultCode.InvalidConfiguration;

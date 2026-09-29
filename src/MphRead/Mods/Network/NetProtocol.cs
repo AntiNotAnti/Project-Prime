@@ -347,8 +347,8 @@ namespace MphRead.Mods.Network
         /// built before it existed never looks: the length check is what
         /// separates the two, and neither side needed a protocol bump.
         /// </summary>
-        public const int SizeWithFlags = Size + 7;
-        public SessionRules Rules;
+        public const int SizeWithFlags = Size + 9;
+        public MatchModifierFlags Rules;
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
         public const byte FlagCanHost = 1;
@@ -388,7 +388,7 @@ namespace MphRead.Mods.Network
                 dest[Size + 1] = (byte)Phase; dest[Size + 2] = (byte)Format;
                 dest[Size + 3] = LobbyEnabled ? (byte)1 : (byte)0;
                 dest[Size + 4] = AllowJoinInProgress ? (byte)1 : (byte)0;
-                BinaryPrimitives.WriteUInt16LittleEndian(dest[(Size + 5)..], (ushort)Rules);
+                BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 5)..], (uint)Rules);
             }
         }
 
@@ -407,7 +407,7 @@ namespace MphRead.Mods.Network
                 Format = src.Length >= Size + 5 ? (MatchFormat)src[Size + 2] : MatchFormat.Auto,
                 LobbyEnabled = src.Length >= Size + 5 && src[Size + 3] != 0,
                 AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
-                Rules = src.Length >= SizeWithFlags ? (SessionRules)BinaryPrimitives.ReadUInt16LittleEndian(src[(Size + 5)..]) : SessionRules.None
+                Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..]) : MatchModifierFlags.None
             };
         }
     }
@@ -881,7 +881,8 @@ namespace MphRead.Mods.Network
         public const int MaxEntries = PlayerEntity.SlotCapacity;
         public const int MaxNameBytes = PlayerNameCodec.MaxWireBytes;
         public const int HeaderSize = 3;
-        public const int EntrySize = 28 + MaxNameBytes;
+        public const int LegacyEntrySize = 28 + MaxNameBytes;
+        public const int EntrySize = LegacyEntrySize + 16;
         public const int Size = HeaderSize + MaxEntries * EntrySize;
 
         public ushort MatchId;
@@ -898,6 +899,7 @@ namespace MphRead.Mods.Network
         public uint[] DamageDealt;
         public uint[] DamageTaken;
         public string[] Names;
+        public int[] ObjectiveA, ObjectiveB, ObjectiveC, ObjectiveD;
 
         public static PostMatchReportPacket Create()
         {
@@ -914,6 +916,8 @@ namespace MphRead.Mods.Network
                 ShotsHit = new uint[MaxEntries],
                 DamageDealt = new uint[MaxEntries],
                 DamageTaken = new uint[MaxEntries],
+                ObjectiveA = new int[MaxEntries], ObjectiveB = new int[MaxEntries],
+                ObjectiveC = new int[MaxEntries], ObjectiveD = new int[MaxEntries],
                 Names = new string[MaxEntries]
             };
         }
@@ -938,6 +942,10 @@ namespace MphRead.Mods.Network
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(offset + 20)..], DamageDealt[i]);
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(offset + 24)..], DamageTaken[i]);
                 WritePostMatchName(dest.Slice(offset + 28, MaxNameBytes), Names[i]);
+                BinaryPrimitives.WriteInt32LittleEndian(dest[(offset + LegacyEntrySize + 0)..], ObjectiveA[i]);
+                BinaryPrimitives.WriteInt32LittleEndian(dest[(offset + LegacyEntrySize + 4)..], ObjectiveB[i]);
+                BinaryPrimitives.WriteInt32LittleEndian(dest[(offset + LegacyEntrySize + 8)..], ObjectiveC[i]);
+                BinaryPrimitives.WriteInt32LittleEndian(dest[(offset + LegacyEntrySize + 12)..], ObjectiveD[i]);
                 offset += EntrySize;
             }
         }
@@ -980,6 +988,10 @@ namespace MphRead.Mods.Network
                 report.DamageDealt[i] = BinaryPrimitives.ReadUInt32LittleEndian(src[(at + 20)..]);
                 report.DamageTaken[i] = BinaryPrimitives.ReadUInt32LittleEndian(src[(at + 24)..]);
                 report.Names[i] = ReadPostMatchName(src.Slice(at + 28, MaxNameBytes));
+                report.ObjectiveA[i] = BinaryPrimitives.ReadInt32LittleEndian(src[(at + LegacyEntrySize + 0)..]);
+                report.ObjectiveB[i] = BinaryPrimitives.ReadInt32LittleEndian(src[(at + LegacyEntrySize + 4)..]);
+                report.ObjectiveC[i] = BinaryPrimitives.ReadInt32LittleEndian(src[(at + LegacyEntrySize + 8)..]);
+                report.ObjectiveD[i] = BinaryPrimitives.ReadInt32LittleEndian(src[(at + LegacyEntrySize + 12)..]);
                 at += EntrySize;
             }
             return true;
@@ -2323,7 +2335,7 @@ namespace MphRead.Mods.Network
         // Protocol 28 adds Insta-Gib, Low Tier and No Imp session rules and positive,
         // default-off Shadow Freeze / Spawn Protection flags. Gameplay packet sizes
         // stay unchanged; status replies append the rule mask for browser presentation.
-        public const int ProtocolVersion = 28;
+        public const int ProtocolVersion = 29;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

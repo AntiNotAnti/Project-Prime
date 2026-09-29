@@ -71,7 +71,14 @@ namespace MphRead.Mods.Launcher.Gui
             ("Defender teams", GameMode.DefenderTeams),
             ("Nodes", GameMode.Nodes),
             ("Nodes teams", GameMode.NodesTeams),
-            ("Prime hunter", GameMode.PrimeHunter)
+            ("Hardpoint", GameMode.Hardpoint),
+                ("Hardpoint teams", GameMode.HardpointTeams),
+                ("Gun Game", GameMode.GunGame),
+                ("Kill Confirmed", GameMode.KillConfirmed),
+                ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
+                ("Headhunter", GameMode.Headhunter),
+                ("Relic", GameMode.Relic),
+                ("Prime hunter", GameMode.PrimeHunter)
         };
 
         private static readonly string[] _hunters =
@@ -643,13 +650,20 @@ namespace MphRead.Mods.Launcher.Gui
         /// answer to one of its own rows, and going back from it has to land
         /// on the half-filled form rather than on the browser.
         /// </summary>
+        private string? MapIncompatibility(string room)
+        {
+            var match = new MatchDefinition { RoomKey = room, Mode = _modes[_mode.Index].Mode };
+            return Multiplayer.MapModeCapabilities.Supports(room, match.Mode,
+                LobbyRules.ResolveWorldProfile(match, PlayerEntity.SlotCapacity), out string reason, PlayerEntity.SlotCapacity) ? null : reason;
+        }
+
         private void OpenMaps()
         {
             if (_busy)
             {
                 return;
             }
-            var picker = new MapRotationPicker(_rooms, _rotation);
+            var picker = new MapRotationPicker(_rooms, _rotation, incompatibility: MapIncompatibility);
             picker.Done += (_, picked) =>
             {
                 _rotation.Clear();
@@ -746,6 +760,14 @@ namespace MphRead.Mods.Launcher.Gui
                 Say("Pick at least one map first.", GuiTheme.Warm);
                 return;
             }
+            foreach (string room in _rotation)
+            {
+                if (MapIncompatibility(room) is string reason)
+                {
+                    Say(reason, GuiTheme.Warm);
+                    return;
+                }
+            }
             string name = _name.Value.Trim();
             if (name.Length == 0)
             {
@@ -781,7 +803,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal static (int TimeLimit, ushort PointGoal) InitialMatchLimits(GameMode mode)
         {
-            int timeLimit = Math.Clamp(LauncherPrefs.LastLobbyTimeLimitSeconds, 0, UInt16.MaxValue);
+            int timeLimit = mode is (GameMode.Relic or GameMode.Hardpoint or GameMode.HardpointTeams or GameMode.GunGame) && mode != LauncherPrefs.LastLobbyMode ? 600
+                : Math.Clamp(LauncherPrefs.LastLobbyTimeLimitSeconds, 0, UInt16.MaxValue);
             ushort pointGoal = mode == LauncherPrefs.LastLobbyMode
                 ? (ushort)Math.Clamp(LauncherPrefs.LastLobbyGoal, 0, UInt16.MaxValue)
                 : MatchGoalRules.DefaultValue(mode);
@@ -1307,13 +1330,16 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<string> _rooms;
         private readonly Dictionary<string, UiListRow> _byRoom = new();
         private readonly bool _single;
+        private readonly Dictionary<string, string?> _incompatibilities = new();
+        private string? Incompatibility(string room) => _incompatibilities.GetValueOrDefault(room);
 
         public MapRotationPicker(IReadOnlyList<string> rooms, IReadOnlyList<string> picked,
-            bool single = false)
+            bool single = false, Func<string, string?>? incompatibility = null)
         {
             _rooms = new List<string>(rooms);
             _picked = new List<string>(picked);
             _single = single;
+            foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
             Background = Brushes.Transparent;
             Focusable = true;
 
@@ -1432,6 +1458,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Toggle(string room)
         {
+            if (!_picked.Contains(room) && Incompatibility(room) is string reason)
+            {
+                _note.Text = reason;
+                _note.Foreground = GuiTheme.WarmBrush;
+                return;
+            }
             if (_single)
             {
                 _picked.Clear();
@@ -1459,8 +1491,8 @@ namespace MphRead.Mods.Launcher.Gui
             foreach ((string room, UiListRow row) in _byRoom)
             {
                 int at = _picked.IndexOf(room);
-                row.Detail = at < 0 ? ""
-                    : $"#{(at + 1).ToString(CultureInfo.InvariantCulture)}";
+                row.Detail = Incompatibility(room) ?? (at < 0 ? ""
+                    : $"#{(at + 1).ToString(CultureInfo.InvariantCulture)}");
             }
             _note.Foreground = GuiTheme.TextDimBrush;
             _note.Text = _picked.Count == 0
@@ -1478,6 +1510,15 @@ namespace MphRead.Mods.Launcher.Gui
                 _note.Text = _single ? "Pick a map." : "Pick at least one map.";
                 _note.Foreground = GuiTheme.WarmBrush;
                 return;
+            }
+            foreach (string room in _picked)
+            {
+                if (Incompatibility(room) is string reason)
+                {
+                    _note.Text = reason;
+                    _note.Foreground = GuiTheme.WarmBrush;
+                    return;
+                }
             }
             Done?.Invoke(this, _picked);
         }

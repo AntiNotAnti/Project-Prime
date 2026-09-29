@@ -14,6 +14,7 @@ internal static class ReplayAuthorityChecks
         var world = new ReplayAuthorityWorld
         {
             MatchId = 7, Epoch = 9, Tick = 120, Prime = new(2, 3, 4), Phase = MatchState.GameOver,
+            ActiveHardpointId = 12, HardpointTicksRemaining = 1234,
             MatchTime = 3, EndCause = ReplayEndCause.Kill, EndingKill = new(7, 9, 120, 4, 2, 3, 1, 6, 8),
             Flags = [new(11, new(1, 2, 3), new(2, 3, 4), new(255, 0, 0), false, true, 0, -.01f)],
             Nodes = [new(12, 1, 2, 4, new(2, 3, 4), .5f, .2f, .3f, 80, 2, true, false)],
@@ -24,6 +25,29 @@ internal static class ReplayAuthorityChecks
         byte[] bytes = world.Encode();
         var decoded = ReplayAuthorityWorld.Decode(bytes);
         check(decoded.Encode().AsSpan().SequenceEqual(bytes), "world value codec roundtrip");
+        check(decoded.ActiveHardpointId == 12 && decoded.HardpointTicksRemaining == 1234, "Hardpoint state codec roundtrip");
+        byte[] legacyWorld = bytes[..^ReplayAuthorityWorld.ModeTailSize]; legacyWorld[0] = 2;
+        var legacyDecoded = ReplayAuthorityWorld.Decode(legacyWorld);
+        check(legacyDecoded.ActiveHardpointId == -1 && legacyDecoded.HardpointTicksRemaining == 0, "version 2 world supplies inactive Hardpoint defaults");
+        var tokenWorld = new ReplayAuthorityWorld { MatchId = 7, Epoch = 9, Tick = 120, NextTokenId = 3,
+            Tokens = [new(2, 1, 1, 4, new(1,2,3), 1200)] };
+        tokenWorld.TokenStats[0] = 5;
+        var tokenDecoded = ReplayAuthorityWorld.Decode(tokenWorld.Encode());
+        check(tokenDecoded.Tokens[0] == tokenWorld.Tokens[0] && tokenDecoded.TokenStats[0] == 5,
+            "token identity, ownership, value, lifetime and carried state roundtrip");
+        var bootstrapIdentity = new WorldBootstrapIdentity(new(7,9,1), 1, 1, 120);
+        var bootstrap = new WorldBootstrapObjectives();
+        var fragments = WorldBootstrapObjectives.Packets(bootstrapIdentity, world);
+        check(fragments.Length > 1 && fragments.All(p => p.Length <= NetConfig.MaxPayloadSize), "objective bootstrap fragments fit MTU");
+        for (int i = fragments.Length-1; i >= 0; i--)
+        {
+            check(bootstrap.Accept(fragments[i].AsSpan(WorldBootstrapIdentity.Size+1), bootstrapIdentity), "objective bootstrap accepts reordered fragment");
+            check((bootstrap.World != null) == (i == 0), "objective bootstrap never publishes partial state");
+        }
+        check(bootstrap.World!.Encode().AsSpan().SequenceEqual(bytes), "objective bootstrap exact frame is complete");
+        bootstrap.Reset();
+        foreach (var fragment in fragments) bootstrap.Accept(fragment.AsSpan(WorldBootstrapIdentity.Size+1), bootstrapIdentity with { AuthorityFrame = 121 });
+        check(bootstrap.World == null, "objective bootstrap rejects mismatched authority tick");
         var packets = ReplayAuthorityWire.Packets(world).ToArray();
         check(packets.Length > 1 && packets.All(p => p.Length <= NetConfig.MaxPacketSize), "world fragments obey MTU");
         var wire = new ReplayAuthorityWire(); ReplayAuthorityWorld? completed = null;

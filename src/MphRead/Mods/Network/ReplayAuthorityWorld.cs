@@ -17,6 +17,7 @@ internal readonly record struct ReplayActorRef(byte Slot, ushort Generation, ush
     internal PlayerEntity? Resolve(Scene scene, ReplayReplicaState state) => Slot < 8 && state.MatchesLife(Slot, Generation, Life)
         ? scene.Players.Items[Slot] : null;
 }
+internal readonly record struct ReplayChamberState(ReplayActorRef Actor, ushort Ammo, uint AcknowledgedFrame);
 internal readonly record struct ReplayFlagState(int Id, Vector3 Position, ReplayActorRef Carrier,
     ReplayActorRef LastCarrier, bool AtBase, bool Grounded, float ResetTimer, float Gravity);
 internal readonly record struct ReplayNodeState(int Id, sbyte Team, sbyte Occupying, byte Occupants,
@@ -25,22 +26,49 @@ internal readonly record struct ReplayNodeState(int Id, sbyte Team, sbyte Occupy
 internal readonly record struct ReplayPickupState(short Id, HealthSpawnState State);
 internal readonly record struct ReplayDropState(ItemType Type, Vector3 Position, int DespawnTimer, int Identity = 1);
 internal readonly record struct ReplayDoorState(int Id, DoorFlags Flags, bool Portal, bool Collision, bool ConnectorInactive);
+internal readonly record struct ReplayTokenState(int Id, byte Victim, sbyte Team, int Value, Vector3 Position, int Timer);
 internal enum ReplayEndCause : byte { None, Time, Kill, Objective, Other }
 
 /// <summary>Versioned value contract for authority-only state that protocol 16's player
-/// snapshot cannot describe. It never changes live gameplay and contains no object graph.</summary>
+/// snapshot cannot describe. Replay applies all facts; live clients apply objective facts only.</summary>
 internal sealed class ReplayAuthorityWorld
 {
     internal const int MaximumBytes = 48 * 1024, MaximumEntities = 512;
+    internal const int ModeTailSize = 8 + 8 * 11 + 4 + 48 * 4 + 2 + 32 * 4;
+    internal int[] ObjectiveStats { get; set; } = new int[32];
+    internal int NextTokenId { get; set; } = 1;
+    internal int[] TokenStats { get; set; } = new int[48];
+    internal ReplayTokenState[] Tokens { get; set; } = [];
+    internal int TokenCount = -1;
     internal ushort MatchId { get; set; }
     internal ulong Epoch { get; set; }
     internal uint Tick { get; set; }
     internal ReplayActorRef Prime { get; set; } = new(255, 0, 0);
     internal MatchState Phase { get; set; }
+    internal int ActiveHardpointId { get; set; } = -1;
+    internal int HardpointTicksRemaining { get; set; }
     internal float MatchTime { get; set; }
     internal int[] TeamPoints { get; set; } = new int[8];
     internal int[] FlagScores { get; set; } = new int[8];
     internal int[] NodesCaptured { get; set; } = new int[8];
+    internal ReplayChamberState[] Chamber { get; set; } = EmptyChamber();
+    private static ReplayChamberState[] EmptyChamber()
+    {
+        var values = new ReplayChamberState[8];
+        Array.Fill(values, new ReplayChamberState(new(255, 0, 0), 0, 0));
+        return values;
+    }
+    internal static ReplayChamberState CaptureChamber(Scene scene, int slot)
+    {
+        var player = scene.Players.Items[slot];
+        if (!scene.GameState.OneInTheChamber || player.Health == 0 || !player.LoadFlags.TestFlag(LoadFlags.Active))
+            return new(new(255, 0, 0), 0, 0);
+        if (scene.Services is ReplaySceneServices replay && replay.State.TryGetPlayer(slot, out var recorded))
+            return new(new((byte)slot, recorded.SlotGeneration, recorded.LifeId),
+                (ushort)Math.Clamp(player.ModAmmo.Ua, 0, ushort.MaxValue), replay.State.AuthorityWorld?.Chamber[slot].AcknowledgedFrame ?? 0);
+        uint ack = NetSession.RemoteIntentValid[slot] ? NetSession.RemoteIntents[slot].Frame : NetSession.NetFrame;
+        return new(ReplayActorRef.Capture(player), (ushort)Math.Clamp(player.ModAmmo.Ua, 0, ushort.MaxValue), ack);
+    }
     internal ReplayFlagState[] Flags { get; set; } = [];
     internal ReplayNodeState[] Nodes { get; set; } = [];
     internal ReplayPickupState[] Pickups { get; set; } = [];
@@ -52,6 +80,7 @@ internal sealed class ReplayAuthorityWorld
 
     internal static ReplayAuthorityWorld Capture(Scene scene, ushort matchId, ulong epoch, uint tick, Func<ItemInstanceEntity, int>? dropIdentity = null)
     {
+        var tokens = new List<ReplayTokenState>();
         var flags = new List<ReplayFlagState>(); var nodes = new List<ReplayNodeState>();
         var pickups = new List<ReplayPickupState>(); var drops = new List<ReplayDropState>(); var doors = new List<ReplayDoorState>();
         foreach (var entity in scene.Entities)
@@ -61,16 +90,23 @@ internal sealed class ReplayAuthorityWorld
                 case OctolithFlagEntity flag: flags.Add(flag.CaptureReplayAuthority()); break;
                 case NodeDefenseEntity node: nodes.Add(node.CaptureReplayAuthority()); break;
                 case ItemSpawnEntity pickup: pickups.Add(new(checked((short)pickup.Id), pickup.ModHealthState)); break;
-                case ItemInstanceEntity { Owner: null, DespawnTimer: not 0 } drop:
+                case ItemInstanceEntity { TokenId: > 0, DespawnTimer: > 0 } token:
+                    tokens.Add(CaptureToken(token)); break;
+                case ItemInstanceEntity { TokenId: 0, Owner: null, DespawnTimer: not 0 } drop:
                     drops.Add(new(drop.ItemType, drop.Position, drop.DespawnTimer, dropIdentity?.Invoke(drop) ?? drops.Count + 1)); break;
                 case DoorEntity door: doors.Add(new(door.Id, door.Flags, door.Portal?.Active == true,
                     door.ConnectorCollision?.Active == true, door.ConnectorInactive)); break;
             }
         }
         int prime = scene.GameState.PrimeHunter;
-        return new() { MatchId = matchId, Epoch = epoch, Tick = tick,
+        var chamber = EmptyChamber();
+        for (int slot = 0; slot < 8; slot++) chamber[slot] = CaptureChamber(scene, slot);
+        var tokenStats = new int[48]; CaptureTokenStats(scene.GameState, tokenStats);
+        var objectiveStats = new int[32]; CaptureObjectiveStats(scene.GameState, objectiveStats);
+        return new() { ObjectiveStats = objectiveStats, NextTokenId = scene.GameState.NextTokenId, Tokens = tokens.ToArray(), TokenStats = tokenStats, MatchId = matchId, Epoch = epoch, Tick = tick,
             Prime = ReplayActorRef.Capture(prime is >= 0 and < 8 ? scene.Players.Items[prime] : null),
             Phase = scene.GameState.MatchState, MatchTime = scene.GameState.MatchTime,
+            ActiveHardpointId = scene.GameState.ActiveHardpointId, HardpointTicksRemaining = scene.GameState.HardpointTicksRemaining, Chamber = chamber,
             TeamPoints = (int[])scene.GameState.TeamPoints.Clone(), FlagScores = (int[])scene.GameState.OctolithScores.Clone(),
             NodesCaptured = (int[])scene.GameState.NodesCaptured.Clone(), Flags = flags.ToArray(), Nodes = nodes.ToArray(),
             Pickups = pickups.ToArray(), Drops = drops.ToArray(), Doors = doors.ToArray() };
@@ -85,7 +121,7 @@ internal sealed class ReplayAuthorityWorld
     {
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.AuthorityEncode);
         long start = w.BaseStream.Position;
-        w.Write((byte)2); w.Write(MatchId); w.Write(Epoch); w.Write(Tick);
+        w.Write((byte)4); w.Write(MatchId); w.Write(Epoch); w.Write(Tick);
         Actor(Prime); w.Write((byte)Phase); w.Write(MatchTime); w.Write((byte)EndCause); w.Write(EndingKill.HasValue);
         if (EndingKill is { } kill)
         {
@@ -102,6 +138,19 @@ internal sealed class ReplayAuthorityWorld
         Count(DropCount < 0 ? Drops.Length : DropCount); foreach (var v in Drops.AsSpan(0, DropCount < 0 ? Drops.Length : DropCount)) { w.Write(v.Identity); w.Write((byte)v.Type); Vector(v.Position); w.Write(v.DespawnTimer); }
         Count(DoorCount < 0 ? Doors.Length : DoorCount); foreach (var v in Doors.AsSpan(0, DoorCount < 0 ? Doors.Length : DoorCount))
         { w.Write(v.Id); w.Write((uint)v.Flags); w.Write(v.Portal); w.Write(v.Collision); w.Write(v.ConnectorInactive); }
+        w.Write(ActiveHardpointId); w.Write(HardpointTicksRemaining);
+        if (Chamber.Length != 8) throw Invalid();
+        foreach (var ammo in Chamber) { Actor(ammo.Actor); w.Write(ammo.Ammo); w.Write(ammo.AcknowledgedFrame); }
+        if (ObjectiveStats.Length != 32) throw Invalid();
+        foreach (int value in ObjectiveStats) w.Write(value);
+        w.Write(NextTokenId);
+        if (TokenStats.Length != 48) throw Invalid();
+        foreach (int value in TokenStats) w.Write(value);
+        int tokenCount = TokenCount < 0 ? Tokens.Length : TokenCount;
+        if (tokenCount > Multiplayer.TokenRules.MaximumTokens) throw Invalid();
+        Count(tokenCount);
+        foreach (var token in Tokens.AsSpan(0, tokenCount))
+        { w.Write(token.Id); w.Write(token.Victim); w.Write(token.Team); w.Write(token.Value); Vector(token.Position); w.Write(token.Timer); }
         if (w.BaseStream.Position - start > MaximumBytes) throw Invalid();
         void Scores(int[] values) { if (values.Length != 8) throw Invalid(); foreach (int value in values) w.Write(value); }
         void Count(int n) { if (n > MaximumEntities) throw Invalid(); w.Write((ushort)n); }
@@ -114,7 +163,7 @@ internal sealed class ReplayAuthorityWorld
         using var stream = new MemoryStream(bytes.ToArray(), false); using var r = new BinaryReader(stream);
         try
         {
-            byte version = r.ReadByte(); if (version is < 1 or > 2) throw Invalid();
+            byte version = r.ReadByte(); if (version is < 1 or > 4) throw Invalid();
             ushort match = r.ReadUInt16(); ulong epoch = r.ReadUInt64(); uint tick = r.ReadUInt32();
             var prime = Actor(); var phase = (MatchState)r.ReadByte(); float time = Float();
             var cause = (ReplayEndCause)r.ReadByte(); ReplayKillIdentity? kill = null;
@@ -146,10 +195,39 @@ internal sealed class ReplayAuthorityWorld
             }
             var doors = new ReplayDoorState[Count()]; ids.Clear();
             for (int i = 0; i < doors.Length; i++) doors[i] = new(Id(ids), (DoorFlags)r.ReadUInt32(), Bool(), Bool(), Bool());
+            int hardpoint = version >= 3 ? r.ReadInt32() : -1;
+            int hardpointTicks = version >= 3 ? r.ReadInt32() : 0;
+            var chamber = EmptyChamber();
+            if (version >= 3)
+                for (int slot = 0; slot < 8; slot++)
+                {
+                    chamber[slot] = new(Actor(), r.ReadUInt16(), r.ReadUInt32());
+                    if (chamber[slot].Actor.Slot != 255 && chamber[slot].Actor.Slot != slot) throw Invalid();
+                }
+            var objectiveStats = new int[32];
+            if (version >= 4) for (int i = 0; i < 32; i++) objectiveStats[i] = r.ReadInt32();
+            int nextTokenId = version >= 4 ? r.ReadInt32() : 1;
+            var tokenStats = new int[48];
+            if (version >= 4)
+                for (int i = 0; i < tokenStats.Length; i++)
+                { tokenStats[i] = r.ReadInt32(); if (tokenStats[i] < 0) throw Invalid(); }
+            var tokens = new ReplayTokenState[version >= 4 ? Count() : 0]; ids.Clear();
+            if (nextTokenId < 1 || tokens.Length > Multiplayer.TokenRules.MaximumTokens) throw Invalid();
+            for (int i = 0; i < tokens.Length; i++)
+            {
+                int id = r.ReadInt32(); byte victim = r.ReadByte(); sbyte team = r.ReadSByte();
+                int value = r.ReadInt32(); var position = Vector(); int timer = r.ReadInt32();
+                if (id < 1 || id >= nextTokenId || !ids.Add(id) || victim >= 8 || team is < 0 or > 7
+                    || value is < 1 or > 100000 || timer is < 1 or > Multiplayer.TokenRules.LifetimeTicks) throw Invalid();
+                tokens[i] = new(id, victim, team, value, position, timer);
+            }
+            if (hardpoint < -1 || hardpointTicks is < 0 or > Multiplayer.HardpointRules.RotationTicks
+                || hardpoint >= 0 && !Array.Exists(nodes, node => node.Id == hardpoint)) throw Invalid();
             if (stream.Position != stream.Length) throw Invalid();
-            return new() { MatchId = match, Epoch = epoch, Tick = tick, Prime = prime, Phase = phase, MatchTime = time,
+            return new() { ObjectiveStats = objectiveStats, NextTokenId = nextTokenId, TokenStats = tokenStats, Tokens = tokens, MatchId = match, Epoch = epoch, Tick = tick, Prime = prime, Phase = phase, MatchTime = time,
                 EndCause = cause, EndingKill = kill, TeamPoints = points, FlagScores = flagscores, NodesCaptured = captured,
-                Flags = flags, Nodes = nodes, Pickups = pickups, Drops = drops, Doors = doors };
+                Flags = flags, Nodes = nodes, Pickups = pickups, Drops = drops, Doors = doors,
+                ActiveHardpointId = hardpoint, HardpointTicksRemaining = hardpointTicks, Chamber = chamber };
         }
         catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated authoritative replay world.", ex); }
         int Count() { int n = r.ReadUInt16(); if (n > MaximumEntities) throw Invalid(); return n; }
@@ -169,6 +247,10 @@ internal sealed class ReplayAuthorityWorld
     internal void Apply(Scene scene, ReplayReplicaState state)
     {
         if (!scene.Services.IsReplica) throw new InvalidOperationException("Replay world facts require a private scene.");
+        foreach (var ammo in Chamber)
+            ammo.Actor.Resolve(scene, state)?.ApplyChamberAmmo(ammo.Ammo, ammo.AcknowledgedFrame);
+        scene.GameState.ActiveHardpointId = ActiveHardpointId;
+        scene.GameState.HardpointTicksRemaining = HardpointTicksRemaining;
         scene.GameState.PrimeHunter = Prime.Resolve(scene, state)?.SlotIndex ?? -1;
         TeamPoints.CopyTo(scene.GameState.TeamPoints, 0); FlagScores.CopyTo(scene.GameState.OctolithScores, 0);
         NodesCaptured.CopyTo(scene.GameState.NodesCaptured, 0);
@@ -185,7 +267,7 @@ internal sealed class ReplayAuthorityWorld
             }
         var existing = new Dictionary<int, ItemInstanceEntity>();
         foreach (var item in scene.GetItemInstanceEntities())
-            if (item.Owner == null)
+            if (item.Owner == null && item.TokenId == 0)
             {
                 if (item.Id >= -1) item.DespawnTimer = 0; // discard contact-inferred drops
                 else existing.Add(-2 - item.Id, item);
@@ -199,6 +281,52 @@ internal sealed class ReplayAuthorityWorld
             item.Position = drop.Position; item.DespawnTimer = drop.DespawnTimer;
         }
         foreach (var item in existing.Values) item.DespawnTimer = 0;
+        ApplyTokens(scene);
+    }
+    internal static void CaptureObjectiveStats(SceneGameState state, int[] values)
+    {
+        for (int slot = 0; slot < 8; slot++)
+        {
+            var (a,b,c,d) = Multiplayer.MatchObjectiveReport.Values(state, slot);
+            values[slot*4]=a; values[slot*4+1]=b; values[slot*4+2]=c; values[slot*4+3]=d;
+        }
+    }
+    internal static ReplayTokenState CaptureToken(ItemInstanceEntity token) =>
+        new(token.TokenId, (byte)token.TokenVictimSlot, (sbyte)token.TokenTeam, token.TokenValue, token.Position, token.DespawnTimer);
+    internal static void CaptureTokenStats(SceneGameState state, int[] values)
+    {
+        state.TokenCarried.CopyTo(values, 0); state.TokenConfirms.CopyTo(values, 8); state.TokenDenies.CopyTo(values, 16);
+        state.TokensCollected.CopyTo(values, 24); state.TokensBanked.CopyTo(values, 32); state.LargestBank.CopyTo(values, 40);
+    }
+    internal void ApplyTokens(Scene scene)
+    {
+        var state = scene.GameState; state.NextTokenId = NextTokenId;
+        for (int slot = 0; slot < 8; slot++)
+        {
+            float time = state.Time[slot]; // continuous mode time belongs to the player snapshot
+            Multiplayer.MatchObjectiveReport.Apply(state, slot, ObjectiveStats[slot*4], ObjectiveStats[slot*4+1],
+                ObjectiveStats[slot*4+2], ObjectiveStats[slot*4+3]);
+            state.Time[slot] = time;
+        }
+        Array.Copy(TokenStats, 0, state.TokenCarried, 0, 8); Array.Copy(TokenStats, 8, state.TokenConfirms, 0, 8);
+        Array.Copy(TokenStats, 16, state.TokenDenies, 0, 8); Array.Copy(TokenStats, 24, state.TokensCollected, 0, 8);
+        Array.Copy(TokenStats, 32, state.TokensBanked, 0, 8); Array.Copy(TokenStats, 40, state.LargestBank, 0, 8);
+        foreach (var item in scene.GetItemInstanceEntities())
+            if (item.TokenId > 0) item.DespawnTimer = 0;
+        foreach (var token in Tokens.AsSpan(0, TokenCount < 0 ? Tokens.Length : TokenCount))
+        {
+            ItemInstanceEntity? target = null;
+            foreach (var item in scene.GetItemInstanceEntities())
+                if (item.TokenId == token.Id) { target = item; break; }
+            if (target == null)
+            {
+                target = new ItemInstanceEntity(new(token.Position, ItemType.ArtifactKey, token.Timer),
+                    scene.Room!.GetNodeRefByPosition(token.Position), scene) { TokenId = token.Id };
+                scene.AddEntity(target);
+            }
+            target.TokenId = token.Id; target.TokenVictimSlot = token.Victim; target.TokenTeam = token.Team;
+            target.TokenValue = token.Value; target.Position = token.Position; target.DespawnTimer = token.Timer;
+        }
     }
     private static InvalidDataException Invalid() => new("Invalid authoritative replay world.");
 }

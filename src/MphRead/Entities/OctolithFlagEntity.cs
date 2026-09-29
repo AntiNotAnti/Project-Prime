@@ -32,7 +32,7 @@ namespace MphRead.Entities
             GameMode mode = _scene.GameState.Mode;
             Recolor = mode == GameMode.Capture ? data.TeamId : 2;
             _bounty = mode != GameMode.Capture;
-            if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            if (mode == GameMode.Capture || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
             {
                 SetUpModel("octolith_ctf");
                 SetUpModel(mode == GameMode.Capture ? "flagbase_ctf" : "flagbase_bounty");
@@ -71,6 +71,15 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (_scene.GameState.Mode == GameMode.Headhunter) return true;
+            if (Mods.Network.NetObjectiveSync.IsClient(_scene))
+            {
+                base.Process();
+                if (_carrier != null)
+                    Position = new Vector3(_carrier.Position.X - 0.35f * _carrier.Field70,
+                        _carrier.Position.Y + 1.05f, _carrier.Position.Z - 0.35f * _carrier.Field74);
+                return true;
+            }
             base.Process();
             // todo?: lots of wifi stuff
             bool pickedUp = false;
@@ -108,6 +117,7 @@ namespace MphRead.Entities
             }
             if (_carrier != null)
             {
+                if (_carrier.Health > 0) _scene.GameState.ObjectiveSeconds[_carrier.SlotIndex] += _scene.FrameTime;
                 _atBase = false;
                 _grounded = true;
                 _resetTimer = 0;
@@ -211,6 +221,7 @@ namespace MphRead.Entities
             {
                 _carrier.OctolithFlag = null;
             }
+            _scene.GameState.ObjectivePickups[player.SlotIndex]++;
             player.OctolithFlag = this;
             _carrier = player;
             _lastCarrier = player;
@@ -309,6 +320,7 @@ namespace MphRead.Entities
 
         public void OnCaptured()
         {
+            if (_scene.GameState.Mode == GameMode.Relic) return;
             Debug.Assert(_carrier != null);
             if (!_bounty)
             {

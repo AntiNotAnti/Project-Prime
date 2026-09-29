@@ -94,6 +94,10 @@ namespace MphRead.Mods.MapGen
         }
         public static void Validate(MapDefinition d,MapValidationResult r)
         {
+            if (d.HardpointOrder == null || d.HardpointOrder.Count > 512
+                || d.HardpointOrder.Any(id => id < 0 || id > short.MaxValue)
+                || d.HardpointOrder.Distinct().Count() != d.HardpointOrder.Count)
+                r.Error("FP-MAP-022", "Hardpoint order must contain unique objective entity IDs.");
             if(d.Capabilities is not {} c)return;
             if(c.MinPlayers<1||c.MaxPlayers>8||c.MinPlayers>c.MaxPlayers)r.Error("FP-MAP-022","Player range must be within 1–8.");
             if(c.SupportedModes==null||c.SupportedModes.Count==0){r.Error("FP-MAP-022","Choose at least one supported mode.");return;}
@@ -102,7 +106,7 @@ namespace MphRead.Mods.MapGen
                 if(!Enum.TryParse<GameMode>(mode,true,out var parsed)||!Enum.IsDefined(parsed)){r.Error("FP-MAP-022","Unknown game mode: "+mode);continue;}
                 if (parsed == GameMode.InstaGib) parsed = GameMode.Battle;
                 if(mode.Contains("Teams",StringComparison.OrdinalIgnoreCase)&&(!d.Spawns.Any(s=>s?.Team==0)||!d.Spawns.Any(s=>s?.Team==1)))r.Error("FP-MAP-022","Team modes require spawns for both teams.");
-                if(parsed is not(GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.Bounty or GameMode.BountyTeams))
+                if(parsed is not(GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams) && d.NativeRoom?.PreserveEntities != true)
                     r.Error("FP-MAP-022",$"{mode} requires objective entities that this source does not supply.");
             }
         }

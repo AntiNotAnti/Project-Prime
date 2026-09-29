@@ -219,13 +219,14 @@ namespace MphRead.Mods
             state.RadarPlayers = settings.HunterRadar == "on";
             state.AffinityWeapons = settings.AffinityWeapons == "on";
             // Advanced combat rules are opt-in. Explicit saved on values are preserved.
+            state.Fiesta = settings.Fiesta == "on"; state.OneInTheChamber = settings.OneInTheChamber == "on";
             state.InstaGib = settings.InstaGib == "on";
             state.LowTier = settings.LowTier == "on";
             state.NoImperialist = settings.NoImperialist == "on" && !state.InstaGib;
             state.SpawnProtection = settings.SpawnProtection == "on";
             // Shadow Freeze also requires an explicit opt-in.
             state.ShadowFreeze = settings.ShadowFreeze == "on";
-            state.OctolithReset = settings.PointGoal != "off";
+            state.OctolithReset = settings.AutoReset == "on";
             // Teams is not set here. GameState.Setup derives it from the mode,
             // and the launcher passes the choice through as the team id it
             // gives each player -- turning it on underneath a free-for-all

@@ -504,7 +504,7 @@ namespace MphRead.Mods.Network
             {
                 var e = new ReplayEvent(footer.ReadUInt32(), (ReplayEventType)footer.ReadByte(),
                     footer.ReadByte(), footer.ReadByte(), footer.ReadInt32());
-                if (e.Frame < lastEvent || e.Frame > duration || e.Type > ReplayEventType.Overtime
+                if (e.Frame < lastEvent || e.Frame > duration || e.Type > ReplayEventType.TokenBanked
                     || (e.ActorSlot != byte.MaxValue && e.ActorSlot >= RosterPacket.MaxSlots)
                     || (e.TargetSlot != byte.MaxValue && e.TargetSlot >= RosterPacket.MaxSlots))
                     throw new InvalidDataException("Invalid replay event.");

@@ -37,8 +37,17 @@ namespace MphRead.Mods.Launcher.Gui
             var start = _start = new PrimeButton("▷ INITIATE BOT SIMULATION", () =>
             {
                 if (_room.Length == 0) return;
-                Launched?.Invoke(this, OfflineLaunch.Create(settings, _room, OfflineLaunch.Modes[_mode.Index].Mode,
-                    SelectedHunter(), _suit.Index, _bots.Index, _skill.Index));
+                var plan = OfflineLaunch.Create(settings, _room, OfflineLaunch.Modes[_mode.Index].Mode,
+                    SelectedHunter(), _suit.Index, _bots.Index, _skill.Index);
+                if (!Multiplayer.MapModeCapabilities.Supports(_room, plan.Mode,
+                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1)
+                    || !Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out reason))
+                {
+                    _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Text(reason, 14, PrimeTheme.DangerBrush),
+                        new PrimeButton("BACK", _overlays.Close))), PrimeModalSize.Medium);
+                    return;
+                }
+                Launched?.Invoke(this, plan);
             }, true) { IsEnabled = rooms.Count > 0 };
             ControllerNav.Identify(start, "offline.start");
             var botBody = PrimeChrome.Stack(new PrimeBadge("MODE 01 // TACTICAL SIMULATION"), PrimeChrome.Title("BOT SKIRMISH"),
@@ -114,24 +123,30 @@ namespace MphRead.Mods.Launcher.Gui
         }
         private void PickMap()
         {
-            var list = new UiList();
-            foreach (var room in _rooms) list.Add(new UiListRow(RoomName(room), room) { Choice = room });
-            list.Activated += (_, row) =>
-            {
-                if (row is UiListRow { Choice: string room }) { _room = room; Refresh(); _overlays.Close(); }
-            };
-            _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("SELECT ARENA"),
-                new Border { Height = 360, Child = list }, new PrimeButton("CANCEL", _overlays.Close))), PrimeModalSize.Medium);
+            var picker = new MapCardPicker(_rooms, _room, room =>
+                Multiplayer.MapModeCapabilities.Supports(room, OfflineLaunch.Modes[_mode.Index].Mode,
+                    Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1) ? null : reason);
+            picker.Done += (_, room) => { _room = room; Refresh(); _overlays.Close(); };
+            picker.Cancelled += (_, _) => _overlays.Close();
+            _overlays.Show(picker);
         }
         private void Rules()
         {
-            var score = new FieldRow("Point goal", _settings.PointGoal);
-            var time = new FieldRow("Time limit (m:ss)", _settings.TimeLimit);
-            var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal);
+            var score = new FieldRow("Point goal", _settings.PointGoal, boxWidth: 88);
+            var time = new FieldRow("Time limit (m:ss)", _settings.TimeLimit, boxWidth: 88);
+            var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal, boxWidth: 88);
+            GameMode selectedMode = OfflineLaunch.Modes[_mode.Index].Mode;
+            score.IsVisible = !Network.MatchGoalRules.UsesTimeTarget(selectedMode) && selectedMode != GameMode.GunGame;
+            objective.IsVisible = Network.MatchGoalRules.UsesTimeTarget(selectedMode);
+            var autoReset = new ToggleRow("Octolith auto reset", _settings.AutoReset == "on")
+            { IsVisible = Multiplayer.MatchModifierRules.UsesOctolith(selectedMode) };
             var fire = new ToggleRow("Friendly fire", _settings.FriendlyFire == "on");
+            fire.IsVisible = GameState.IsTeamMode(selectedMode);
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
+            var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
+            var chamber = new ToggleRow("One in the Chamber", _settings.OneInTheChamber == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
             var lowTier = new ToggleRow("Low Tier", _settings.LowTier == "on");
             var noImperialist = new ToggleRow("No Imp", _settings.NoImperialist == "on");
@@ -140,8 +155,18 @@ namespace MphRead.Mods.Launcher.Gui
             var radar = new ToggleRow("Hunter radar", _settings.HunterRadar == "on");
             var damage = new ChoiceRow("Damage", new[] { "low", "medium", "high" }, _settings.DamageLevel == "low" ? 0 : _settings.DamageLevel == "high" ? 2 : 1);
             var error = PrimeChrome.Text("", 12, PrimeTheme.DangerBrush);
-            _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("ENGAGEMENT PROTOCOL"),
-                score, time, objective, damage, fire, instaGib, lowTier, noImperialist, affinity, freeze, spawnProtection, radar, error,
+            static Control Section(string title, params Control[] rows)
+            {
+                var section = new StackPanel { Spacing = 8 };
+                section.Children.Add(PrimeChrome.Text(title, 11, PrimeTheme.HighlightBrush, data: true));
+                foreach (var row in rows) section.Children.Add(row);
+                return new PrimePanel(section, raised: true) { Padding = new Thickness(12) };
+            }
+            var body = PrimeChrome.Stack(PrimeChrome.Title("MATCH RULES"),
+                PrimeChrome.Columns("*,*,*",
+                    Section("MATCH", score, time, objective, damage),
+                    Section("GAMEPLAY", fire, affinity, freeze, spawnProtection, radar),
+                    Section("ADVANCED", fiesta, chamber, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
@@ -153,6 +178,11 @@ namespace MphRead.Mods.Launcher.Gui
                     // so the first match saw the edit and the next reload restored 7:00/7.
                     // Treat APPLY RULES like the main settings screen: persist first, then
                     // keep the runtime settings facade in sync with the committed values.
+                    var rules = new Network.MatchDefinition { Mode = OfflineLaunch.Modes[_mode.Index].Mode,
+                        InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On, OneInTheChamber = chamber.On };
+                    if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
+                    string oldAutoReset = _settings.AutoReset;
+                    string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;
                     string oldInstaGib = _settings.InstaGib;
                     string oldLowTier = _settings.LowTier;
                     string oldNoImperialist = _settings.NoImperialist;
@@ -165,6 +195,9 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldSpawnProtection = _settings.SpawnProtection;
                     string oldHunterRadar = _settings.HunterRadar;
                     string oldDamageLevel = _settings.DamageLevel;
+                    _settings.AutoReset = autoReset.On ? "on" : "off";
+                    _settings.Fiesta = fiesta.On ? "on" : "off";
+                    _settings.OneInTheChamber = chamber.On ? "on" : "off";
                     _settings.InstaGib = instaGib.On ? "on" : "off";
                     _settings.LowTier = lowTier.On ? "on" : "off";
                     _settings.NoImperialist = noImperialist.On ? "on" : "off";
@@ -186,6 +219,8 @@ namespace MphRead.Mods.Launcher.Gui
                         // Do not leave a one-match-only in-memory configuration behind if
                         // the disk write fails. The error stays in this sheet so the player
                         // can retry or cancel without silently diverging from settings.json.
+                        _settings.AutoReset = oldAutoReset;
+                        _settings.Fiesta = oldFiesta; _settings.OneInTheChamber = oldChamber;
                         _settings.InstaGib = oldInstaGib;
                         _settings.LowTier = oldLowTier;
                         _settings.NoImperialist = oldNoImperialist;
@@ -206,7 +241,8 @@ namespace MphRead.Mods.Launcher.Gui
                     var names = Multiplayer.HunterRules.Pool(lowTier.On).Select(h => h.ToString()).Append("Random").ToArray();
                     _hunter.SetItems(names, Array.IndexOf(names, selected.ToString()));
                     _overlays.Close();
-                }, true)))), PrimeModalSize.Medium);
+                }, true)));
+            _overlays.Show(new PrimePanel(body) { Padding = new Thickness(0) }, PrimeModalSize.Wide, fitContent: true);
         }
         private static string RoomName(string key) => Metadata.RoomMetadata.TryGetValue(key, out var meta) ? meta.InGameName ?? key : key;
         public void OnActivated() => Refresh();

@@ -86,7 +86,14 @@ namespace MphRead.Mods.Launcher.Gui
             ("Defender teams", GameMode.DefenderTeams),
             ("Nodes", GameMode.Nodes),
             ("Nodes teams", GameMode.NodesTeams),
-            ("Prime hunter", GameMode.PrimeHunter)
+            ("Hardpoint", GameMode.Hardpoint),
+                ("Hardpoint teams", GameMode.HardpointTeams),
+                ("Gun Game", GameMode.GunGame),
+                ("Kill Confirmed", GameMode.KillConfirmed),
+                ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
+                ("Headhunter", GameMode.Headhunter),
+                ("Relic", GameMode.Relic),
+                ("Prime hunter", GameMode.PrimeHunter)
         };
 
         private static readonly string[] _hunters =
@@ -1540,9 +1547,9 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             GameMode mode = _modes[_mode!.Index].Mode;
-            var custom = MapGen.CustomRooms.Definitions.FirstOrDefault(d => d.Name == roomKey);
-            string? unsupported = custom == null ? null
-                : MapGen.MapModeValidator.WhyUnsupported(custom, mode, 1 + _bots!.Index);
+            bool supported = Multiplayer.MapModeCapabilities.Supports(roomKey, mode,
+                Multiplayer.MatchWorldProfile.Resolve(1 + _bots!.Index), out string reason, 1 + _bots.Index);
+            string? unsupported = supported ? null : reason;
             if (unsupported != null)
             {
                 _note.Text = unsupported;
@@ -1550,8 +1557,13 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _hunter!.Value);
-            Finish(OfflineLaunch.Create(_settings, roomKey, mode, hunter,
-                _suit?.Index ?? LauncherPrefs.LastColor, _bots!.Index, _skill!.Index));
+            var plan = OfflineLaunch.Create(_settings, roomKey, mode, hunter,
+                _suit?.Index ?? LauncherPrefs.LastColor, _bots!.Index, _skill!.Index);
+            if (!Multiplayer.MatchModifierRules.Validate(plan.MatchRules, out reason))
+            {
+                _note.Text = reason; _note.Foreground = GuiTheme.WarmBrush; return;
+            }
+            Finish(plan);
         }
 
         private string? SelectedRoom()

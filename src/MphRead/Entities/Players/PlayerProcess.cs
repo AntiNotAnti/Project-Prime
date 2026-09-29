@@ -52,6 +52,7 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            UpdateChamberFallback();
             bool result = ProcessPlayer();
             SetTransform(_facingVector, _upVector, Position);
             return result;
@@ -1348,7 +1349,7 @@ namespace MphRead.Entities
             distSqr *= distSqr;
             foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
             {
-                if (_scene.Services.IsReplica || !Mods.Network.NetHealthSync.OwnsPickup(item) || item.DespawnTimer == 0) continue;
+                if (item.TokenId > 0 || _scene.Services.IsReplica || !Mods.Network.NetHealthSync.OwnsPickup(item) || item.DespawnTimer == 0) continue;
                 bool inRange = false;
                 if (IsAltForm)
                 {
@@ -1400,6 +1401,7 @@ namespace MphRead.Entities
                 case ItemType.UABig:
                 case ItemType.MissileSmall:
                 case ItemType.MissileBig:
+                    if (_scene.GameState.OneInTheChamber) break;
                     pickedUp = true;
                     int slot = item.ItemType == ItemType.UASmall || item.ItemType == ItemType.UABig ? 0 : 1;
                     _timeSincePickup = 0;
@@ -1429,6 +1431,7 @@ namespace MphRead.Entities
                 case ItemType.ShockCoil:
                 case ItemType.OmegaCannon:
                 case ItemType.AffinityWeapon:
+                    if (_scene.GameState.Mode == GameMode.GunGame || _scene.GameState.OneInTheChamber) break;
                     pickedUp = true;
                     PickUpWeapon(item.ItemType);
                     break;
@@ -1545,7 +1548,7 @@ namespace MphRead.Entities
             // Insta-Gib owns the loadout for the whole life. Arena weapon
             // pickups may still be collected/removed normally, but they never
             // add a selectable weapon or disturb the Imperialist-only slots.
-            if (_scene.GameState.InstaGib)
+            if (_scene.GameState.InstaGib || _scene.GameState.Mode == GameMode.GunGame || _scene.GameState.OneInTheChamber)
             {
                 return;
             }
@@ -1679,6 +1682,7 @@ namespace MphRead.Entities
 
         private bool TrySwitchForms(bool force = false)
         {
+            if (!IsAltForm && _scene.GameState.Mode == GameMode.Relic && OctolithFlag != null) return false;
             if (!force && (IsMorphing || IsUnmorphing || _frozenTimer > 0 || _field6D0 || _deathaltTimer > 0
                     || Flags2.TestFlag(PlayerFlags2.NoFormSwitch)
                     || !IsAltForm && Flags2.TestFlag(PlayerFlags2.BipedStuck)

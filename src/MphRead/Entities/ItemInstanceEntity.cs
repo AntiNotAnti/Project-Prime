@@ -24,6 +24,10 @@ namespace MphRead.Entities
     // todo: preallocation
     public class ItemInstanceEntity : SpinningEntityBase
     {
+        public int TokenId { get; set; }
+        public int TokenVictimSlot { get; set; } = -1;
+        public int TokenTeam { get; set; } = -1;
+        public int TokenValue { get; set; }
         public ItemType ItemType { get; }
         private EffectEntry? _effectEntry = null;
         private bool _linkDone = false;
@@ -72,7 +76,7 @@ namespace MphRead.Entities
         public override void Initialize()
         {
             base.Initialize();
-            if (ItemType == ItemType.ArtifactKey)
+            if (ItemType == ItemType.ArtifactKey && TokenId == 0)
             {
                 Matrix4 transform = Matrix.GetTransform4(Vector3.UnitX, Vector3.UnitY, Position);
                 _effectEntry = _scene.SpawnEffectGetEntry(144, transform); // artifactKeyEffect
@@ -94,6 +98,8 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (TokenId > 0 && DespawnTimer > 0)
+                Mods.Multiplayer.TokenRules.Process(_scene, this);
             if (!_linkDone && ParentId != -1)
             {
                 if (_scene.TryGetEntity(ParentId, out EntityBase? parent))

@@ -21,7 +21,9 @@ public enum ReplayRestoreKind { NetworkBaseline, ReplicaCheckpoint }
 public enum ReplayMarkerKind
 {
     Kill, Death, Spawn, Damage, Headshot, Score, Objective, FlagCapture,
-    NodeCapture, PrimeChange, MatchPoint, Overtime, MatchEnd, Join, Leave, MatchStart, WeaponFired
+    NodeCapture, PrimeChange, MatchPoint, Overtime, MatchEnd, Join, Leave, MatchStart, WeaponFired,
+    RelicPickup, RelicDrop, HardpointChanged, HardpointCaptured, GunGameAdvance,
+    TokenSpawn, TokenConfirmed, TokenDenied, TokenBanked
 }
 
 public readonly record struct ReplayKillIdentity(ushort MatchId, ulong AuthorityEpoch,

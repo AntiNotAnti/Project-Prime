@@ -24,6 +24,9 @@ namespace MphRead.Mods.Network
         private static string _requested = "";
         private static bool _loadPending;
         private static ushort _requestedMatch;
+        private static MatchDefinition _requestedDefinition;
+        internal static bool CanApplyConfiguration(ushort match) => !_loadPending
+            && (_loadedMatch == 0 || _loadedMatch == match);
         public static bool GameplayReady => !_loadPending
             && (_loadedMatch == 0 || _loadedMatch == NetSession.CurrentMatchId);
         private static uint _requestedFrame;
@@ -65,6 +68,7 @@ namespace MphRead.Mods.Network
             _requested = "";
             _requestedFrame = 0;
             _requestedMatch = 0;
+            _requestedDefinition = default;
             _loadedMatch = 0;
             _loadedFrame = 0;
         }
@@ -125,6 +129,7 @@ namespace MphRead.Mods.Network
             _requestedFrame = NetSession.NetFrame;
             _loadPending = true;
             _requestedMatch = match;
+            _requestedDefinition = session.Match.NormalizeLegacy();
             Console.WriteLine(current == wanted
                 ? $"[net] server started a new match on {wanted}; loading it"
                 : $"[net] server rotated to {wanted}; loading it");
@@ -211,7 +216,7 @@ namespace MphRead.Mods.Network
             NetDamage.ResetForRoomChange();
             NetHitPrediction.ForgetPending();
             NetHitClaims.ForgetPending();
-            ResetScores();
+
             Console.WriteLine($"[net] player slots rebuilt for the new room, main player = slot {localSlot}");
             return scene.Players.Items[localSlot];
         }
@@ -325,36 +330,17 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private static void ResetScores()
+        /// <summary>Apply only at the room load boundary, after the old world stops processing.</summary>
+        public static void PrepareRoom(Scene scene)
         {
-            // Every slot, not the four a DS match could hold: with eight
-            // players the last four carried their points, kills and deaths
-            // across every map rotation, and only their rows disagreed with
-            // everyone else's scoreboard.
-            for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
-            {
-                GameState.Points[i] = 0;
-                GameState.TeamPoints[i] = 0;
-                GameState.Kills[i] = 0;
-                GameState.TeamKills[i] = 0;
-                GameState.Deaths[i] = 0;
-                GameState.TeamDeaths[i] = 0;
-                GameState.Standings[i] = 0;
-                GameState.TeamStandings[i] = 0;
-                GameState.DamageCount[i] = 0;
-                GameState.ShotsFired[i] = 0;
-                GameState.ShotsHit[i] = 0;
-                GameState.MatchDamageDealt[i] = 0;
-                GameState.MatchDamageTaken[i] = 0;
-                GameState.LongestKillStreak[i] = 0;
-                GameState.HeadshotKills[i] = 0;
-                GameState.KillStreak[i] = 0;
-            }
-            MatchReportStats.ResetTracking();
-            // The match itself, not just its scoreboard: the room this is
-            // loading is a new round, and the flags that say the last one had
-            // already ended have to go with the points.
-            GameState.ResetMatchProgress();
+            if (!_loadPending) return;
+            scene.GameState.ResetRoundState();
+            MatchDefinition match = _requestedDefinition;
+            scene.GameState.ConfigureMatchMode(match.Mode, applyDefaults: false);
+            match.ApplyModifiers(scene.GameState);
+            scene.GameState.PointGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? 0 : match.PointGoal;
+            scene.GameState.TimeGoal = MatchGoalRules.UsesTimeTarget(match.Mode) ? match.PointGoal : 0;
+            scene.GameState.MatchTime = match.TimeLimitSeconds == 0 ? -1 : match.TimeLimitSeconds;
             NetMatchEnd.Reset();
         }
     }

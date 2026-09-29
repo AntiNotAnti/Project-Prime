@@ -449,6 +449,7 @@ namespace MphRead.Entities
             _scene.ResetFrameCount();
             _scene.Random.SetRng2(0);
             StartTransition(fromDoor: false, resume);
+            Mods.Network.NetRoomChange.PrepareRoom(_scene);
             _scene.ClearEffects();
             if (!resume)
             {

@@ -20,7 +20,9 @@ namespace MphRead.Mods.Network
     {
         PlayerSpawn, PlayerDeath, Kill, Damage, ScoreChanged, PlayerJoined,
         PlayerLeft, Objective, MatchStarted, MatchEnded, WeaponFired,
-        Headshot, FlagCapture, NodeCapture, PrimeChanged, MatchPoint, Overtime
+        Headshot, FlagCapture, NodeCapture, PrimeChanged, MatchPoint, Overtime,
+        RelicPickup, RelicDrop, HardpointChanged, HardpointCaptured, GunGameAdvance,
+    TokenSpawn, TokenConfirmed, TokenDenied, TokenBanked
     }
 
     public readonly record struct ReplayEvent(uint Frame, ReplayEventType Type,

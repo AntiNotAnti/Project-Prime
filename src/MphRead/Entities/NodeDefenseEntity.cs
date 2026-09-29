@@ -52,7 +52,7 @@ namespace MphRead.Entities
             _volume = CollisionVolume.Move(_data.Volume, Position);
             GameMode mode = _scene.GameState.Mode;
             if (mode == GameMode.Defender || mode == GameMode.DefenderTeams
-                || mode == GameMode.Nodes || mode == GameMode.NodesTeams)
+                || mode == GameMode.Nodes || mode == GameMode.NodesTeams || scene.GameState.IsHardpoint)
             {
                 // yes, these names are correct
                 ModelInstance terminalInst = SetUpModel("koth_data_flow");
@@ -62,7 +62,7 @@ namespace MphRead.Entities
                 _terminalMat = terminalInst.Model.Materials.First(m => m.Name == "lambert4");
                 _ringMat = ringInst.Model.Materials.First(m => m.Name == "lambert2");
             }
-            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || scene.GameState.IsHardpoint)
             {
                 _defender = true;
             }
@@ -70,6 +70,15 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (Mods.Network.NetObjectiveSync.IsClient(_scene)) return true;
+            if (_scene.GameState.IsHardpoint && _scene.GameState.ActiveHardpointId != Id)
+            {
+                _currentTeam = _occupyingTeam = NoTeam;
+                _contested = _inProgress = false;
+                Array.Clear(_occupiedBy);
+                return true;
+            }
+            bool wasContested = _contested;
             if (_defender)
             {
                 ProcessDefender();
@@ -78,6 +87,14 @@ namespace MphRead.Entities
             {
                 ProcessNodes();
             }
+            if (!_scene.Services.IsReplica)
+                foreach (var player in _scene.GetPlayerEntities())
+                    if (player.Health > 0 && player.LoadFlags.TestFlag(LoadFlags.Active)
+                        && _volume.TestPoint(player.Volume.SpherePosition))
+                    {
+                        _scene.GameState.ObjectiveSeconds[player.SlotIndex] += _scene.FrameTime;
+                        if (_contested && !wasContested) _scene.GameState.ObjectiveContests[player.SlotIndex]++;
+                    }
             return true;
         }
 
@@ -114,7 +131,12 @@ namespace MphRead.Entities
             else
             {
                 (speed, rotation) = ConstantAcceleration(0.25f, _spinSpeed, maxVelocity: 8 * 30f);
+                float previous = _scene.GameState.TeamTime[team];
                 _scene.GameState.TeamTime[team] += _scene.FrameTime;
+                if (!Mods.Headless.Active && team == _scene.Players.Main.TeamIndex
+                    && Mods.Multiplayer.MatchPresentation.GetTimeWarning(_scene.GameState.TimeGoal - previous,
+                        _scene.GameState.TimeGoal - _scene.GameState.TeamTime[team]) is string warning)
+                    _scene.Players.Main.QueueHudMessage(128, 133, 3, 1, warning);
             }
             _spinSpeed = speed;
             _curRotation += rotation;
@@ -414,6 +436,7 @@ namespace MphRead.Entities
                     color = _enemyColor;
                 }
             }
+            if (_scene.GameState.IsHardpoint && _scene.GameState.ActiveHardpointId != Id) color = new ColorRgb(5, 5, 5);
             _terminalMat.Diffuse = color;
             _ringMat.Diffuse = color;
             base.GetDrawInfo();

@@ -370,7 +370,7 @@ namespace MphRead.Entities
                         _forceDisable = true;
                     }
                 }
-                else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams)
+                else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams || _scene.GameState.Mode == GameMode.Relic)
                 {
                     foreach (EntityBase entity in _scene.Entities)
                     {
@@ -860,6 +860,23 @@ namespace MphRead.Entities
             {
                 bool instaGib = _scene.GameState.InstaGib;
                 BotDifficultyTuning tuning = Difficulty;
+                if (_scene.GameState.Mode == GameMode.GunGame)
+                {
+                    int stageWeapon = GetWeaponIndex(Mods.Multiplayer.GunGameRules.Weapon(_scene.GameState.Points[_player.SlotIndex]));
+                    _weapon1 = _weapon2 = _findWeaponIndex = stageWeapon;
+                }
+
+                if (_scene.GameState.Fiesta)
+                {
+                    _weapon1 = GetWeaponIndex(_player._weaponSlots[0]);
+                    _weapon2 = GetWeaponIndex(_player._weaponSlots[1]);
+                    _findWeaponIndex = _weapon1;
+                }
+                if (_scene.GameState.OneInTheChamber)
+                {
+                    int chamberWeapon = GetWeaponIndex(_player.ModAmmo.Ua > 0 ? BeamType.Imperialist : BeamType.PowerBeam);
+                    _weapon1 = _weapon2 = _findWeaponIndex = chamberWeapon;
+                }
 
                 // Insta-Gib owns the loadout. The stock Battle personality assumes
                 // Power Beam/Missiles are always valid fallbacks, so keep every AI
@@ -3575,6 +3592,8 @@ namespace MphRead.Entities
                     {
                         position = targetPos = _player.Position.AddZ(-1);
                     }
+                    if (context.Field9 is 6 or 12 or 13 or 39 && TokenObjectivePosition() is Vector3 objectivePosition)
+                        position = targetPos = objectivePosition;
                     if (position.HasValue)
                     {
                         if (_player.IsAltForm)
@@ -6262,6 +6281,8 @@ namespace MphRead.Entities
                             Debug.Assert(_targetDefense != null);
                             position = _targetDefense.Position;
                         }
+                        if (context.Field9 is 6 or 12 or 13 or 39 && TokenObjectivePosition() is Vector3 objectivePosition)
+                            position = objectivePosition;
                         if (position.HasValue)
                         {
                             NodeData3 node = FindClosestNonHazardNodeToPosition(position.Value);
@@ -8975,6 +8996,21 @@ namespace MphRead.Entities
                 Func2135608(_entityRefs.Field77);
             }
 
+            private Vector3? TokenObjectivePosition()
+            {
+                if (!_scene.GameState.IsTokenMode) return null;
+                Vector3? best = null; float distance = float.MaxValue;
+                bool bank = _scene.GameState.Mode == GameMode.Headhunter && _scene.GameState.TokenCarried[_player.SlotIndex] > 0;
+                foreach (var entity in _scene.Entities)
+                {
+                    Vector3? target = bank && entity is FlagBaseEntity flagBase ? flagBase.Position
+                        : !bank && entity is ItemInstanceEntity { TokenId: > 0, DespawnTimer: > 0 } token ? token.Position : null;
+                    if (target is Vector3 position && Vector3.DistanceSquared(position, _player.Position) < distance)
+                    { best = position; distance = Vector3.DistanceSquared(position, _player.Position); }
+                }
+                return best;
+            }
+
             private void UpdateTargetItem(ItemInstanceEntity? item)
             {
                 if (item != null && item.DespawnTimer != 0)
@@ -10710,7 +10746,7 @@ namespace MphRead.Entities
                 }
                 foreach (ItemInstanceEntity item in _scene.GetItemInstanceEntities())
                 {
-                    if ((!checkNeeded || !IsItemNotNeeded(item.ItemType))
+                    if ((item.TokenId > 0 || !checkNeeded || !IsItemNotNeeded(item.ItemType))
                         && (_scene.GameState.Mode != GameMode.PrimeHunter || _scene.GameState.PrimeHunter != _player.SlotIndex || !IsHealth(item))
                         && item.DespawnTimer != 0
                         && !Func21377FC(item))
@@ -10822,6 +10858,7 @@ namespace MphRead.Entities
                 float minDist = Single.MaxValue;
                 foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())
                 {
+                    if (_scene.GameState.IsHardpoint && defense.Id != _scene.GameState.ActiveHardpointId) continue;
                     float dist = Vector3.DistanceSquared(defense.Position, position);
                     if (dist < minDist)
                     {
@@ -10834,6 +10871,7 @@ namespace MphRead.Entities
 
             private NodeDefenseEntity? ChooseNodeDefenseToRetake()
             {
+                if (_scene.GameState.IsHardpoint) return FindClosestNodeDefense(_player.Position);
                 // if all nodes are held by our team, return the first node in the list.
                 // otherwise, find the opponent who has captured the most nodes, choosing randomly
                 // among any tied opponents, and randomly return one of that opponent's nodes.
@@ -10899,6 +10937,7 @@ namespace MphRead.Entities
 
             private NodeDefenseEntity? FindClosestFriendlyNodeDefense()
             {
+                if (_scene.GameState.IsHardpoint) return FindClosestNodeDefense(_player.Position);
                 NodeDefenseEntity? result = null;
                 float minDist = Single.MaxValue;
                 foreach (NodeDefenseEntity defense in _scene.GetNodeDefenseEntities())

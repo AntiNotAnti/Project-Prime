@@ -1734,6 +1734,7 @@ namespace MphRead.Entities
 
         internal void ModSetAmmo(int ua, int missiles)
         {
+            if (_scene.GameState.OneInTheChamber) return; // Only spawn, confirmed kills and authority ammo facts own this pool.
             // -1 is the engine's "infinite" marker; a puppet must not be
             // handed one by a malformed packet.
             _ammo[UA] = Math.Clamp(ua, 0, _ammoMax[UA]);

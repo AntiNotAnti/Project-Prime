@@ -53,7 +53,7 @@ namespace MphRead
                 FriendlyFire = FriendlyFire, PointGoal = PointGoal, TimeGoal = TimeGoal,
                 OctolithReset = OctolithReset, RadarPlayers = RadarPlayers,
                 AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
-                SpawnProtection = SpawnProtection, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
+                SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
             };
             Nicknames.CopyTo(state.Nicknames, 0);
             return state;
@@ -71,7 +71,7 @@ namespace MphRead
         public GameMode Mode { get; set; } = GameMode.SinglePlayer;
         public bool SinglePlayer => Mode == GameMode.SinglePlayer;
         public bool Multiplayer => Mode != GameMode.SinglePlayer;
-        public bool IsOctolithMode => Mode == GameMode.Capture || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams;
+        public bool IsOctolithMode => Mode == GameMode.Capture || Mode == GameMode.Bounty || Mode == GameMode.BountyTeams || Mode == GameMode.Relic;
         public bool PausePrevented { get; set; }
         public bool MenuPause { get; private set; }
         public bool DialogPause { get; private set; }
@@ -102,6 +102,22 @@ namespace MphRead
         public int[] TeamStandings { get; } = new int[PlayerEntity.SlotCapacity];
         public int[] ResultSlots { get; } = new int[PlayerEntity.SlotCapacity]; // ordered by team rank, then by player rank
         public int PrimeHunter { get; set; } = -1;
+        public bool IsTokenMode => Mode is GameMode.KillConfirmed or GameMode.KillConfirmedTeams or GameMode.Headhunter;
+        public float[] ObjectiveSeconds { get; } = new float[8];
+        public int[] ObjectivePickups { get; } = new int[8];
+        public int[] ObjectiveContests { get; } = new int[8];
+        public float[] StageSeconds { get; } = new float[8];
+        public float[] FastestStageSeconds { get; } = new float[8];
+        public int NextTokenId { get; set; } = 1;
+        public int[] TokenCarried { get; } = new int[8];
+        public int[] TokenConfirms { get; } = new int[8];
+        public int[] TokenDenies { get; } = new int[8];
+        public int[] TokensCollected { get; } = new int[8];
+        public int[] TokensBanked { get; } = new int[8];
+        public int[] LargestBank { get; } = new int[8];
+        public int ActiveHardpointId { get; set; } = -1;
+        public int HardpointTicksRemaining { get; set; }
+        public bool IsHardpoint => Mode is GameMode.Hardpoint or GameMode.HardpointTeams;
 
         public bool Teams { get; set; } = false;
         public int TeamCount { get; set; } = 2;
@@ -146,6 +162,9 @@ namespace MphRead
         /// the player's timer immediately; see PlayerEntity.TryFireWeapon.
         /// </summary>
         public bool SpawnProtection { get; set; }
+        public bool Fiesta { get; set; }
+        public bool OneInTheChamber { get; set; }
+        public int[] SpawnOrdinals { get; } = new int[PlayerEntity.SlotCapacity];
         public bool InstaGib { get; set; }
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
@@ -268,12 +287,94 @@ namespace MphRead
         public bool IsTeamMode(GameMode mode)
         {
             return mode == GameMode.BattleTeams || mode == GameMode.SurvivalTeams
-                || mode == GameMode.Capture || mode == GameMode.BountyTeams
+                || mode == GameMode.Capture || mode == GameMode.BountyTeams || mode == GameMode.HardpointTeams || mode == GameMode.KillConfirmedTeams
                 || mode == GameMode.NodesTeams || mode == GameMode.DefenderTeams;
+        }
+
+        /// <summary>Select the objective handler without changing authoritative goals.</summary>
+        public void ConfigureMatchMode(GameMode mode, bool applyDefaults)
+        {
+            if (mode == GameMode.InstaGib)
+            {
+                mode = GameMode.Battle;
+                InstaGib = true;
+            }
+            Mode = mode;
+            Teams = IsTeamMode(mode);
+            if (applyDefaults)
+            {
+                PointGoal = 0;
+                TimeGoal = 0;
+                MatchTime = -1;
+            }
+            ModeState = ModeStateAdventure;
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams)
+            {
+                if (applyDefaults) { PointGoal = 7; }
+                if (applyDefaults) { MatchTime = 7 * 60; }
+                ModeState = ModeStateBattle;
+            }
+            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            {
+                if (applyDefaults) { PointGoal = 2; } // spare lives
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStateSurvival;
+            }
+            else if (Mode == GameMode.Bounty || Mode == GameMode.BountyTeams)
+            {
+                if (applyDefaults) { PointGoal = 3; }
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStateBounty;
+            }
+            else if (Mode == GameMode.Capture)
+            {
+                if (applyDefaults) { PointGoal = 5; }
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStateCapture;
+            }
+            else if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams)
+            {
+                if (applyDefaults) { TimeGoal = 1.5f * 60; }
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStateDefender;
+            }
+            else if (Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
+            {
+                if (applyDefaults) { PointGoal = 70; }
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStateNodes;
+            }
+            else if (IsTokenMode)
+            {
+                if (applyDefaults) { PointGoal = 25; MatchTime = 600; }
+                ModeState = Mode == GameMode.Headhunter ? ModeStateHeadhunter : ModeStateKillConfirmed;
+            }
+            else if (Mode == GameMode.GunGame)
+            {
+                if (applyDefaults) { PointGoal = Mods.Multiplayer.GunGameRules.StageCount; MatchTime = 600; }
+                ModeState = ModeStateGunGame;
+            }
+            else if (IsHardpoint)
+            {
+                if (applyDefaults) { TimeGoal = 150; MatchTime = 600; }
+                ModeState = ModeStateHardpoint;
+            }
+            else if (Mode == GameMode.Relic)
+            {
+                if (applyDefaults) { TimeGoal = 90; MatchTime = 600; }
+                ModeState = ModeStateRelic;
+            }
+            else if (Mode == GameMode.PrimeHunter)
+            {
+                if (applyDefaults) { TimeGoal = 1.5f * 60; }
+                if (applyDefaults) { MatchTime = 15 * 60; }
+                ModeState = ModeStatePrimeHunter;
+            }
         }
 
         public void Setup(Scene scene)
         {
+            ConfigureMatchMode(Mode, applyDefaults: true);
             if (IsTeamMode(Mode))
             {
                 Teams = true;
@@ -285,53 +386,6 @@ namespace MphRead
                         Mods.Multiplayer.TeamVisuals.Apply(player);
                     }
                 }
-            }
-            // Adventure is the default state machine. Multiplayer modes
-            // replace it below. The per-scene state migration briefly set
-            // this to null, which left SinglePlayer with no handler and made
-            // the first gameplay frame crash at ModeState(scene).
-            ModeState = ModeStateAdventure;
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams)
-            {
-                PointGoal = 7;
-                MatchTime = 7 * 60;
-                ModeState = ModeStateBattle;
-            }
-            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
-            {
-                PointGoal = 2; // spare lives
-                MatchTime = 15 * 60;
-                ModeState = ModeStateSurvival;
-            }
-            else if (Mode == GameMode.Bounty || Mode == GameMode.BountyTeams)
-            {
-                PointGoal = 3;
-                MatchTime = 15 * 60;
-                ModeState = ModeStateBounty;
-            }
-            else if (Mode == GameMode.Capture)
-            {
-                PointGoal = 5;
-                MatchTime = 15 * 60;
-                ModeState = ModeStateCapture;
-            }
-            else if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams)
-            {
-                TimeGoal = 1.5f * 60;
-                MatchTime = 15 * 60;
-                ModeState = ModeStateDefender;
-            }
-            else if (Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
-            {
-                PointGoal = 70;
-                MatchTime = 15 * 60;
-                ModeState = ModeStateNodes;
-            }
-            else if (Mode == GameMode.PrimeHunter)
-            {
-                TimeGoal = 1.5f * 60;
-                MatchTime = 15 * 60;
-                ModeState = ModeStatePrimeHunter;
             }
             if (CameraSequences.Intro != null)
             {
@@ -346,6 +400,54 @@ namespace MphRead
             if (Owner?.Services.IsReplica != true) Mods.KillCam.Reset();
             _lastAlarmTime = 0;
             _nextAlarmIndex = 0;
+        }
+
+        /// <summary>Clear round progress while retaining the selected match rules.</summary>
+        public void ResetRoundState()
+        {
+            Array.Clear(Points);
+            Array.Clear(TeamPoints);
+            Array.Clear(Kills);
+            Array.Clear(TeamKills);
+            Array.Clear(Deaths);
+            Array.Clear(TeamDeaths);
+            Array.Clear(Time);
+            Array.Clear(TeamTime);
+            Array.Clear(Standings);
+            Array.Clear(TeamStandings);
+            Array.Clear(ResultSlots);
+            Array.Clear(BeamDamageMax);
+            Array.Clear(BeamDamageDealt);
+            Array.Clear(DamageCount);
+            Array.Clear(AltDamageCount);
+            Array.Clear(ShotsFired);
+            Array.Clear(ShotsHit);
+            Array.Clear(MatchDamageDealt);
+            Array.Clear(MatchDamageTaken);
+            Array.Clear(LongestKillStreak);
+            Array.Clear(KillStreak);
+            Array.Clear(Suicides);
+            Array.Clear(FriendlyKills);
+            Array.Clear(HeadshotKills);
+            Array.Clear(OctolithScores);
+            Array.Clear(OctolithDrops);
+            Array.Clear(OctolithStops);
+            Array.Clear(NodesCaptured);
+            Array.Clear(NodesLost);
+            Array.Clear(KillsAsPrime);
+            Array.Clear(PrimesKilled);
+            Array.Clear(BeamKills);
+            Array.Clear(SpawnOrdinals);
+            PrimeHunter = -1;
+            Array.Clear(ObjectiveSeconds); Array.Clear(ObjectivePickups); Array.Clear(ObjectiveContests);
+            Array.Clear(StageSeconds); Array.Clear(FastestStageSeconds);
+            NextTokenId = 1;
+            Array.Clear(TokenCarried); Array.Clear(TokenConfirms); Array.Clear(TokenDenies);
+            Array.Clear(TokensCollected); Array.Clear(TokensBanked); Array.Clear(LargestBank);
+            ActiveHardpointId = -1; HardpointTicksRemaining = 0;
+            ActivePlayers = 0;
+            ResetMatchProgress();
+            if (Owner?.Services.IsReplica != true) Mods.Network.MatchReportStats.ResetTracking();
         }
 
         /// <summary>
@@ -760,6 +862,9 @@ namespace MphRead
             }
         }
 
+        public void ModeStateKillConfirmed(Scene scene) => EndIfPointGoalReached();
+        public void ModeStateHeadhunter(Scene scene) => EndIfPointGoalReached();
+
         public void ModeStateBattle(Scene scene)
         {
             EndIfPointGoalReached();
@@ -834,7 +939,7 @@ namespace MphRead
 
         public void ModeStateDefender(Scene scene)
         {
-            if (!Mods.Network.NetMatchEnd.MayEndOnScore)
+            if (TimeGoal <= 0 || !Mods.Network.NetMatchEnd.MayEndOnScore)
             {
                 return;
             }
@@ -854,8 +959,58 @@ namespace MphRead
             EndIfPointGoalReached();
         }
 
+        public void ModeStateGunGame(Scene scene)
+        {
+            foreach (PlayerEntity player in scene.GetPlayerEntities())
+            {
+                if (!player.LoadFlags.TestFlag(LoadFlags.Active)) continue;
+                if (!scene.Services.IsReplica && !Mods.Network.NetObjectiveSync.IsClient(scene))
+                    StageSeconds[player.SlotIndex] += scene.FrameTime;
+                player.ApplyGunGameLoadout();
+                if (!scene.Services.IsReplica && !Mods.Network.NetObjectiveSync.IsClient(scene)
+                    && Points[player.SlotIndex] >= Mods.Multiplayer.GunGameRules.StageCount) MatchTime = 0;
+            }
+        }
+
+        public void ModeStateHardpoint(Scene scene)
+        {
+            if (Mods.Network.NetObjectiveSync.IsClient(scene) || scene.Services.IsReplica) return;
+            if (HardpointTicksRemaining > 0) HardpointTicksRemaining--;
+            if (ActiveHardpointId < 0 || HardpointTicksRemaining == 0)
+            {
+                ActiveHardpointId = Mods.Multiplayer.HardpointRules.Next(scene, ActiveHardpointId);
+                HardpointTicksRemaining = Mods.Multiplayer.HardpointRules.RotationTicks;
+                if (!Mods.Headless.Active) _players.Main.QueueHudMessage(128, 133, 3, 1, "NEW HARDPOINT");
+            }
+            else if (!Mods.Headless.Active && HardpointTicksRemaining is 600 or 300)
+                _players.Main.QueueHudMessage(128, 133, 3, 1, $"HARDPOINT MOVES IN {HardpointTicksRemaining / 60}");
+            ModeStateDefender(scene);
+        }
+
+        public void ModeStateRelic(Scene scene)
+        {
+            if (Mods.Network.NetObjectiveSync.IsClient(scene) || scene.Services.IsReplica) return;
+            // Ownership is already part of live world state and replay authority checkpoints.
+            foreach (OctolithFlagEntity relic in scene.GetOctolithFlagEntities())
+            {
+                PlayerEntity? carrier = relic.Carrier;
+                if (carrier == null || carrier.Health == 0 || carrier.IsAltForm || carrier.IsMorphing
+                    || !carrier.LoadFlags.TestFlag(LoadFlags.Active)) continue;
+                int slot = carrier.SlotIndex;
+                float previous = Time[slot];
+                Time[slot] += scene.FrameTime;
+                TeamTime[carrier.TeamIndex] = Time[slot];
+                if (!Mods.Headless.Active && carrier == _players.Main
+                    && Mods.Multiplayer.MatchPresentation.GetTimeWarning(TimeGoal - previous, TimeGoal - Time[slot]) is string warning)
+                    carrier.QueueHudMessage(128, 133, 3, 1, warning);
+                if (TimeGoal > 0 && Time[slot] >= TimeGoal) MatchTime = 0;
+                break; // A Relic map has exactly one neutral objective.
+            }
+        }
+
         public void ModeStatePrimeHunter(Scene scene)
         {
+            if (Mods.Network.NetObjectiveSync.IsClient(scene) || scene.Services.IsReplica) return;
             if (PrimeHunter == -1)
             {
                 return;
@@ -863,8 +1018,7 @@ namespace MphRead
             PlayerEntity player = _players.Items[PrimeHunter];
             if (!player.LoadFlags.TestFlag(LoadFlags.Active))
             {
-                Mods.Network.MatchReportStats.ResetTracking();
-            PrimeHunter = -1;
+                PrimeHunter = -1;
                 return;
             }
             if (scene.FrameCount % (10 * 2) == 0) // todo: FPS stuff
@@ -873,8 +1027,13 @@ namespace MphRead
             }
             if (PrimeHunter != -1)
             {
+                float previous = Time[PrimeHunter];
                 Time[PrimeHunter] += scene.FrameTime;
-                if (Time[PrimeHunter] >= TimeGoal)
+                if (!Mods.Headless.Active && PrimeHunter == _players.Main.SlotIndex
+                    && Mods.Multiplayer.MatchPresentation.GetTimeWarning(TimeGoal - previous,
+                        TimeGoal - Time[PrimeHunter]) is string warning)
+                    _players.Main.QueueHudMessage(128, 133, 3, 1, warning);
+                if (TimeGoal > 0 && Time[PrimeHunter] >= TimeGoal)
                 {
                     MatchTime = 0;
                 }
@@ -1280,18 +1439,21 @@ namespace MphRead
                         TeamTime[player.TeamIndex] = Time[i];
                     }
                 }
-                else if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams)
+                else if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams || IsHardpoint)
                 {
                     Time[i] = TeamTime[player.TeamIndex];
                 }
             }
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.Capture || Mode == GameMode.Bounty
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.GunGame || IsTokenMode || Mode == GameMode.Capture || Mode == GameMode.Bounty
                 || Mode == GameMode.BountyTeams || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
             {
                 int teamPoints = TeamPoints[_players.Main.TeamIndex];
                 if (teamPoints != prevTeamPoints[_players.Main.TeamIndex] && teamPoints == PointGoal - 1)
                 {
-                    Sfx.QueueStream(VoiceId.VOICE_ONE_KILL_TO_WIN, delay: 1);
+                    var cue = Mods.Multiplayer.MatchPresentation.GetMatchPointCue(Mode);
+                    if (cue.KillVoice) Sfx.QueueStream(VoiceId.VOICE_ONE_KILL_TO_WIN, delay: 1);
+                    else if (!String.IsNullOrEmpty(cue.Text))
+                        _players.Main.QueueHudMessage(128, 133, 3, 1, cue.Text);
                 }
             }
             else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
@@ -1355,7 +1517,7 @@ namespace MphRead
             int deaths2 = Deaths[slot2];
             int kills1 = Kills[slot1];
             int kills2 = Kills[slot2];
-            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams)
+            if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.GunGame || IsTokenMode)
             {
                 if (points1 == points2 && deaths1 == deaths2)
                 {
@@ -1379,7 +1541,7 @@ namespace MphRead
                 }
                 return 1;
             }
-            if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams)
+            if (Mode == GameMode.Defender || Mode == GameMode.DefenderTeams || IsHardpoint)
             {
                 if (time1 == time2 && kills1 == kills2)
                 {
@@ -1404,7 +1566,7 @@ namespace MphRead
                 }
                 return 1;
             }
-            if (Mode == GameMode.PrimeHunter)
+            if (Mode == GameMode.PrimeHunter || Mode == GameMode.Relic)
             {
                 if (time1 == time2 && kills1 == kills2)
                 {

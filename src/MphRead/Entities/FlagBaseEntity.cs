@@ -28,7 +28,7 @@ namespace MphRead.Entities
             {
                 AddPlaceholderModel();
             }
-            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Headhunter)
             {
                 SetUpModel("flagbase_cap");
             }
@@ -37,6 +37,16 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            if (Mods.Network.NetObjectiveSync.IsClient(_scene)) return true;
+            if (_scene.GameState.Mode == GameMode.Headhunter)
+            {
+                if (!_scene.Services.IsReplica)
+                    foreach (var player in _scene.GetPlayerEntities())
+                        if (player.Health > 0 && _volume.TestPoint(player.Position))
+                            Mods.Multiplayer.TokenRules.Bank(_scene, player);
+                return true;
+            }
+            if (_scene.GameState.Mode == GameMode.Relic) return true;
             base.Process();
             foreach (PlayerEntity player in _scene.GetPlayerEntities())
             {

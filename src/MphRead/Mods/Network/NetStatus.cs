@@ -30,7 +30,7 @@ namespace MphRead.Mods.Network
             init => _roomKey = value;
         }
         public GameMode Mode { get; init; }
-        public SessionRules Rules { get; init; }
+        public MatchModifierFlags Rules { get; init; }
         public int Players { get; init; }
         /// <summary>0 when the server did not say -- an older build answering the join probe.</summary>
         public int MaxPlayers { get; init; }
@@ -271,8 +271,8 @@ namespace MphRead.Mods.Network
             string message = room.Length > 0
                 ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {players}"
                 : players;
-            string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(SessionRules.InstaGib),
-                LowTier = status.Rules.HasFlag(SessionRules.LowTier), NoImperialist = status.Rules.HasFlag(SessionRules.NoImperialist) }.ModifierSummary;
+            string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
+                LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
             if (modifiers.Length > 0) message += " · " + modifiers;
             if (!String.IsNullOrEmpty(status.ServerName))
             {

@@ -190,7 +190,8 @@ namespace MphRead.Mods.Network
             // The session packet can arrive before the world is constructed.
             // Put the authoritative rule on the scene template now so initial
             // spawns and the server simulation do not briefly use a local value.
-            state.Match.NormalizeLegacy().ApplyModifiers(GameState.Current);
+            if (NetRoomChange.CanApplyConfiguration(state.MatchId))
+                state.Match.NormalizeLegacy().ApplyModifiers(GameState.Current);
             ReplayCapture.AcceptedConfiguration(state);
             if (!state.Match.MapIdentity.IsCustom && state.Policy == ServerSessionPolicy.Lobby && state.Phase == SessionPhase.Lobby)
             {

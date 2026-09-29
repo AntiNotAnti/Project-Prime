@@ -36,14 +36,15 @@ internal static class ReplayWorldCoverageCheck
                 if (!found || seed.State.Match is not { } match) throw new InvalidDataException("Source needs a room and an alive player.");
                 room = match.RoomKey;
             }
-            for (GameMode mode = GameMode.Battle; mode <= GameMode.PrimeHunter; mode++)
+            foreach (var option in Launcher.OfflineLaunch.Modes)
             {
+                GameMode mode = option.Mode;
                 string path = Path.Combine(directory, mode + ".ppdemo");
                 Write(path, room, mode, origin);
                 Console.WriteLine($"[replayworld] {mode}: eight actors, all hunters, weapon/alt/affliction/death/respawn transitions");
                 if (ReplayReplicaCheck.Run(path) != 0) return 1;
             }
-            Console.WriteLine("[replayworld] PASS: all 12 multiplayer modes with detached restore, continuation and file/frozen-clip seeks.");
+            Console.WriteLine("[replayworld] PASS: all selectable multiplayer modes with detached restore, continuation and file/frozen-clip seeks.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine($"[replayworld] FAIL: {ex}"); return 1; }
@@ -135,6 +136,17 @@ internal static class ReplayWorldCoverageCheck
                 }
                 BinaryPrimitives.WriteUInt16LittleEndian(snapshot.AsSpan(snapshot.Length - NetHealthSync.HeaderSize), matchId);
                 writer.WriteRecord(frame, snapshot);
+            }
+            if (frame % 6 == 0 && mode is GameMode.KillConfirmed or GameMode.KillConfirmedTeams or GameMode.Headhunter)
+            {
+                var world = new ReplayAuthorityWorld { MatchId = matchId, Epoch = epoch, Tick = frame,
+                    Phase = MatchState.InProgress, MatchTime = 600 - frame / 60f, NextTokenId = frame < 1200 ? 2 : 3,
+                    Tokens = frame is >= 300 and < 600 ? [new(1, 1, 1, 3, origin.AddY(1), 1200-(int)(frame-300))]
+                        : frame is >= 1200 and < 1500 ? [new(2, 2, 0, 4, origin.AddX(3), 1200-(int)(frame-1200))] : [] };
+                world.TokenStats[0] = mode == GameMode.Headhunter && frame is >= 600 and < 900 ? 3 : 0;
+                world.TokenStats[24] = frame >= 600 ? 3 : 0;
+                world.TokenStats[32] = frame >= 900 ? 3 : 0;
+                foreach (byte[] packet in ReplayAuthorityWire.Packets(world)) writer.WriteRecord(frame, packet);
             }
             for (byte slot = 0; slot < 8; slot++)
             {

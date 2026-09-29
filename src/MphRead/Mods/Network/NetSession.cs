@@ -1638,6 +1638,7 @@ namespace MphRead.Mods.Network
                     ? GameState.Nicknames[slot]
                     : report.Names[i];
 
+                Multiplayer.MatchObjectiveReport.Apply(GameState.Current, slot, report.ObjectiveA[i], report.ObjectiveB[i], report.ObjectiveC[i], report.ObjectiveD[i]);
                 GameState.Kills[slot] = report.Kills[i];
                 GameState.Deaths[slot] = report.Deaths[i];
                 GameState.HeadshotKills[slot] = report.Headshots[i];

@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **28** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **29** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -62,6 +62,10 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Persistent lobbies keep their socket/session across matches.
 - Lobby match configuration is preserved across rematches unless the owner changes it.
 - Native post-match map selection can continue directly into the next match without requiring another Ready cycle. Custom-map transitions return to the lobby to prepare the exact package.
+- WorldReady requires the frozen player lanes plus a bounded, atomically assembled
+  objective baseline at the same authority frame. Prime, flags, nodes, Hardpoint,
+  modifier ammo and collectible tokens apply before readiness; periodic facts older
+  than that baseline cannot overwrite it.
 - Map/rematch transitions must rebuild the room and send `MatchLoaded`; the server's Starting barrier releases when expected participants load or the bounded timeout expires.
 - Only a launcher-authenticated owner token may terminate a locally spawned lobby server process. Ordinary ownership of a persistent dedicated lobby cannot kill the daemon.
 
@@ -148,10 +152,10 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Replay pose lookahead is bounded and presentation-only; it never advances simulation/RNG or uses live receive jitter. Do not blend across occupant/life, spawn/death, form or teleport boundaries.
 - Export stays at 60 Hz gameplay. A 120 FPS movie renders deterministic half-frame samples, never duplicate-frame conversion or 120 Hz physics. Camera paths and export collision anchors use recorded time. Native-size world/HUD targets belong to the scene and release on its GL owner.
 
-- Optional protocol-16 packet 42 is a replay-only authoritative world extension;
-  it never changes live gameplay. Its explicit bounded value schema and atomic
-  fragment assembly must validate before recording. Replays apply it only inside
-  private scenes; actor links fence occupant generation and life. New-server final
+- Packet 42 carries bounded authoritative world facts. Protocol 29 live clients
+  apply its objective ownership and modifier ammo facts; replay entity reconstruction
+  remains restricted to private scenes. Atomic fragment assembly validates before
+  publication; actor links fence occupant generation and life. New-server final
   killcams use the confirmed ending cause and exact kill identity.
 
 - World capsules are explicitly versioned (current v2, v1 readable). V4 files may index bounded durable checkpoints; invalid optional entries fall back to valid reconstruction. New capture spools at most 4,096 checkpoints / 256 MiB compressed and never stores live references or native handles.
@@ -183,9 +187,23 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Advanced match rules
 
-- Protocol 28 keeps SessionState and MatchState sizes; session rule bits 1024,
-  2048 and 4096 carry Insta-Gib, Low Tier and No Imp. MatchState bits 3 and 7
-  now positively enable Shadow Freeze and Spawn Protection. Status replies append
-  two bytes of rule bits. SessionState is required before playable world load.
+- Protocol 29 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
+  SessionState carries the modifier word after its protocol-28 payload; status
+  replies carry a 32-bit modifier word. Live clients must match protocol 29.
+- Protocols 24–28 recorded session packets convert their combined flags at the
+  replay boundary. Decoder checkpoints use the recorded protocol's packet size.
+- Octolith Auto Reset is authoritative and only valid in Capture/Bounty. The
+  offline setting comes from AutoReset, independently of PointGoal.
+- Match mode and modifiers change at the synchronous room-load boundary after
+  old entities are torn down and before new actors/entities are constructed.
+- Round reset clears all score, timer, objective and report arrays while keeping
+  match configuration. Prime ownership changes never clear combat deduplication.
 - Weapon replacements use fixed FNV-1a room/spawn hashing, never simulation RNG.
 - Legacy replay packets invert the old flags at the replay adapter boundary.
+
+- Live objective correction consumes the server's complete ReplayWorld facts after simulation.
+  It fences match, authority, loaded room and actor generation/life; clients do not author flag/node
+  scoring or Prime/Relic hold time. This does not apply replay object graphs to live scenes or alter
+  player movement. Objective facts currently arrive independently of the three-lane WorldReady barrier.
+- Relic is mode 16 and uses the Bounty entity layer with exactly one Octolith. Its hold time uses the
+  existing per-player Time array and its carrier uses the existing flag authority/replay contract.

@@ -22,6 +22,13 @@ namespace MphRead.Mods.Launcher
                 new("Defender teams", GameMode.DefenderTeams),
                 new("Nodes", GameMode.Nodes),
                 new("Nodes teams", GameMode.NodesTeams),
+                new("Hardpoint", GameMode.Hardpoint),
+                new("Hardpoint teams", GameMode.HardpointTeams),
+                new("Gun Game", GameMode.GunGame),
+                new("Kill Confirmed", GameMode.KillConfirmed),
+                new("Kill Confirmed teams", GameMode.KillConfirmedTeams),
+                new("Headhunter", GameMode.Headhunter),
+                new("Relic", GameMode.Relic),
                 new("Prime hunter", GameMode.PrimeHunter)
             };
 
@@ -41,8 +48,10 @@ namespace MphRead.Mods.Launcher
                 Hunter = Multiplayer.HunterRules.Resolve(hunter, settings.LowTier == "on"),
                 MatchRules = new Network.MatchDefinition { Mode = mode,
                     FriendlyFire = settings.FriendlyFire == "on", AffinityWeapons = settings.AffinityWeapons == "on",
+                    Fiesta = settings.Fiesta == "on", OneInTheChamber = settings.OneInTheChamber == "on",
                     InstaGib = settings.InstaGib == "on" || mode == GameMode.InstaGib,
                     LowTier = settings.LowTier == "on",
+                    OctolithAutoReset = Multiplayer.MatchModifierRules.UsesOctolith(mode) && settings.AutoReset == "on",
                     NoImperialist = settings.NoImperialist == "on" && settings.InstaGib != "on" && mode != GameMode.InstaGib,
                     ShadowFreeze = settings.ShadowFreeze == "on", SpawnProtection = settings.SpawnProtection == "on" },
                 PlayerName = LauncherPrefs.PlayerName,

@@ -624,7 +624,7 @@ namespace MphRead.Entities
                 _rulesLengths[i] = (0, 0);
             }
             GameMode mode = _scene.GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode)
             {
                 _rulesInfo = HudElements.RulesInfo[0];
             }
@@ -636,7 +636,7 @@ namespace MphRead.Entities
             {
                 _rulesInfo = HudElements.RulesInfo[2];
             }
-            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+            else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
             {
                 _rulesInfo = HudElements.RulesInfo[3];
             }
@@ -644,7 +644,7 @@ namespace MphRead.Entities
             {
                 _rulesInfo = HudElements.RulesInfo[4];
             }
-            else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+            else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || _scene.GameState.IsHardpoint)
             {
                 _rulesInfo = HudElements.RulesInfo[5];
             }
@@ -655,7 +655,27 @@ namespace MphRead.Entities
             char[] buf = new char[256];
             for (int i = 0; i < _rulesInfo.Count; i++)
             {
-                string line = Strings.GetMessage('S', _rulesInfo.MessageIds[i], StringTables.HudMessagesMP);
+                string line = mode == GameMode.GunGame ? i switch
+                {
+                    0 => "GUN GAME", 1 => "Each enemy kill advances your weapon.",
+                    2 => "Your stage survives death. Weapon pickups are disabled.",
+                    _ => "Finish the seven-weapon ladder to win."
+                } : _scene.GameState.IsTokenMode ? i switch
+                {
+                    0 => mode == GameMode.Headhunter ? "HEADHUNTER" : "KILL CONFIRMED",
+                    1 => "Deaths drop collectible tokens for 20 seconds.",
+                    2 => mode == GameMode.Headhunter ? "Carry tokens to a scoring base to bank them." : "Collect enemy tokens to confirm a point.",
+                    _ => mode == GameMode.Headhunter ? "Death drops every token you carry." : "Recover friendly tokens to deny the enemy."
+                } : _scene.GameState.IsHardpoint ? i switch
+                {
+                    0 => "HARDPOINT", 1 => "Occupy the active node to earn hold time.",
+                    2 => "Enemies in the node stop scoring.", _ => "The active node moves every 60 seconds."
+                } : mode == GameMode.Relic ? i switch
+                {
+                    0 => "RELIC", 1 => "Find and hold the neutral Octolith.",
+                    2 => "Only the carrier earns hold time.", 3 => "Reach the hold-time target to win.",
+                    _ => "You cannot morph while carrying the Relic."
+                } : Strings.GetMessage('S', _rulesInfo.MessageIds[i], StringTables.HudMessagesMP);
                 if (i == 0)
                 {
                     _rulesLines[i] = line;
@@ -2000,7 +2020,7 @@ namespace MphRead.Entities
             }
             string header1 = "";
             string header2 = "";
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode
                 || mode == GameMode.Nodes || mode == GameMode.NodesTeams)
             {
                 header1 = Strings.GetHudMessage(225); // points
@@ -2013,7 +2033,7 @@ namespace MphRead.Entities
             {
                 header1 = Strings.GetHudMessage(224); // time
             }
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode
                 || mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
             {
                 header2 = Strings.GetHudMessage(223); // deaths
@@ -2031,7 +2051,7 @@ namespace MphRead.Entities
             string ChooseValue1(float time, int points)
             {
                 if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.Defender
-                    || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter)
+                    || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter || mode == GameMode.Relic || _scene.GameState.IsHardpoint)
                 {
                     // time should only be -1 to indicate max in survival/teams
                     return time < 0 ? maxText : FormatTime(TimeSpan.FromSeconds(time));
@@ -2043,7 +2063,7 @@ namespace MphRead.Entities
             string ChooseValue2(int deaths, int kills)
             {
                 if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams
-                    || mode == GameMode.Battle || mode == GameMode.BattleTeams)
+                    || mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode)
                 {
                     return deaths.ToString();
                 }
@@ -2576,11 +2596,12 @@ namespace MphRead.Entities
         {
             _locatorInfo.Clear();
             ProcessOpponent();
+            if (_scene.GameState.IsTokenMode) ProcessHudTokens();
             if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams)
             {
                 ProcessHudSurvival();
             }
-            else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams)
+            else if (_scene.GameState.Mode == GameMode.Bounty || _scene.GameState.Mode == GameMode.BountyTeams || _scene.GameState.Mode == GameMode.Relic)
             {
                 ProcessHudBounty();
             }
@@ -2588,7 +2609,7 @@ namespace MphRead.Entities
             {
                 ProcessHudCapture();
             }
-            else if (_scene.GameState.Mode == GameMode.Defender || _scene.GameState.Mode == GameMode.DefenderTeams)
+            else if (_scene.GameState.Mode == GameMode.Defender || _scene.GameState.Mode == GameMode.DefenderTeams || _scene.GameState.IsHardpoint)
             {
                 ProcessHudDefender();
             }
@@ -2662,10 +2683,25 @@ namespace MphRead.Entities
             }
         }
 
+        private void ProcessHudTokens()
+        {
+            foreach (var token in _scene.GetItemInstanceEntities())
+                if (token.TokenId > 0 && token.DespawnTimer > 0)
+                {
+                    bool friendly = _scene.GameState.Teams ? token.TokenTeam == TeamIndex : token.TokenVictimSlot == SlotIndex;
+                    AddLocatorInfo(token.Position, _octolithLocator, friendly ? new ColorRgb(15,15,31) : new ColorRgb(31,15,0),
+                        radarKind: RadarContactKind.Objective, stableId: token.TokenId);
+                }
+            if (_scene.GameState.Mode == GameMode.Headhunter)
+                foreach (var flagBase in _scene.GetFlagBaseEntities())
+                    AddLocatorInfo(flagBase.Position, _nodeLocator, new ColorRgb(15,31,15),
+                        radarKind: RadarContactKind.ObjectiveBase, stableId: flagBase.Id);
+        }
+
         private void ProcessHudBounty()
         {
             var goodColor = new ColorRgb(15, 15, 31);
-            if (OctolithFlag != null)
+            if (OctolithFlag != null && _scene.GameState.Mode != GameMode.Relic)
             {
                 foreach (FlagBaseEntity flagBase in _scene.GetFlagBaseEntities())
                 {
@@ -2731,7 +2767,8 @@ namespace MphRead.Entities
                 {
                     color = new ColorRgb(31, 0, 0);
                 }
-                AddLocatorInfo(defense.Position, _nodeLocator, color, radarKind: RadarContactKind.Node, stableId: defense.Id);
+                float alpha = _scene.GameState.IsHardpoint && _scene.GameState.ActiveHardpointId != defense.Id ? 0.25f : 1;
+                AddLocatorInfo(defense.Position, _nodeLocator, color, alpha, radarKind: RadarContactKind.Node, stableId: defense.Id);
             }
         }
 
@@ -2800,7 +2837,7 @@ namespace MphRead.Entities
             {
                 if (!_hudIsPrimeHunter)
                 {
-                    _primeHunterInst.SetAnimation(start: 0, target: 1, frames: 20, loop: true);
+                    _primeHunterInst?.SetAnimation(start: 0, target: 1, frames: 20, loop: true);
                     _primeHunterTextTimer = 90 / 30f;
                     _hudIsPrimeHunter = true;
                 }
@@ -2817,7 +2854,7 @@ namespace MphRead.Entities
                 }
                 AddHudPrimeLocator();
             }
-            _primeHunterInst.ProcessAnimation(_scene);
+            _primeHunterInst?.ProcessAnimation(_scene);
         }
 
         // Presentation-only portions of the native locator pipeline. Replays do
@@ -2832,10 +2869,16 @@ namespace MphRead.Entities
                 switch(_scene.GameState.Mode)
                 {
                     case GameMode.Bounty:
-                    case GameMode.BountyTeams: ProcessHudBounty(); break;
+                    case GameMode.BountyTeams:
+                    case GameMode.Relic: ProcessHudBounty(); break;
+                    case GameMode.KillConfirmed:
+                    case GameMode.KillConfirmedTeams:
+                    case GameMode.Headhunter: ProcessHudTokens(); break;
                     case GameMode.Capture: ProcessHudCapture(); break;
                     case GameMode.Defender:
-                    case GameMode.DefenderTeams: ProcessHudDefender(); break;
+                    case GameMode.DefenderTeams:
+                    case GameMode.Hardpoint:
+                    case GameMode.HardpointTeams: ProcessHudDefender(); break;
                     case GameMode.Nodes:
                     case GameMode.NodesTeams:
                         foreach(var defense in _scene.GetNodeDefenseEntities()) AddHudNodeLocator(defense);
@@ -2920,7 +2963,7 @@ namespace MphRead.Entities
             }
             else
             {
-                if (mode == GameMode.Battle || mode == GameMode.BattleTeams)
+                if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode)
                 {
                     DrawHudBattle();
                 }
@@ -2928,7 +2971,7 @@ namespace MphRead.Entities
                 {
                     DrawHudSurvival();
                 }
-                else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+                else if (mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
                 {
                     DrawHudBounty();
                 }
@@ -2936,7 +2979,7 @@ namespace MphRead.Entities
                 {
                     DrawHudCapture();
                 }
-                else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+                else if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || _scene.GameState.IsHardpoint)
                 {
                     DrawHudDefender();
                 }
@@ -2995,7 +3038,11 @@ namespace MphRead.Entities
         private string FormatModeScore(int slot)
         {
             GameMode mode = _scene.GameState.Mode;
-            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.Capture || mode == GameMode.Nodes
+            if (mode == GameMode.Headhunter)
+                return $"{_scene.GameState.Points[slot]} / {_scene.GameState.PointGoal}  CARRY {_scene.GameState.TokenCarried[slot]}";
+            if (mode == GameMode.GunGame)
+                return $"{Math.Min(_scene.GameState.Points[slot] + 1, Mods.Multiplayer.GunGameRules.StageCount)} / {Mods.Multiplayer.GunGameRules.StageCount}";
+            if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode || mode == GameMode.Capture || mode == GameMode.Nodes
                 || mode == GameMode.NodesTeams || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
             {
                 if (_scene.GameState.Teams)
@@ -3009,7 +3056,7 @@ namespace MphRead.Entities
                 int lives = Math.Max(_scene.GameState.PointGoal - _scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex], 0);
                 return lives.ToString();
             }
-            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter)
+            if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter || mode == GameMode.Relic || _scene.GameState.IsHardpoint)
             {
                 return $"{FormatTime(TimeSpan.FromSeconds(_scene.GameState.Time[slot]))}/" +
                     $"{FormatTime(TimeSpan.FromSeconds(_scene.GameState.TimeGoal))}";
@@ -3017,7 +3064,7 @@ namespace MphRead.Entities
             return " ";
         }
 
-        private void DrawModeScore(int messageId)
+        private void DrawModeScore(int messageId, string? label = null)
         {
             if (Features.ProHud)
             {
@@ -3030,7 +3077,7 @@ namespace MphRead.Entities
             float posX = _hudObjects.ScorePosX + _objShiftX;
             float posY = _hudObjects.ScorePosY + _objShiftY;
             _textSpacingY = 8;
-            string message = Strings.GetHudMessage(messageId);
+            string message = label ?? Strings.GetHudMessage(messageId);
             // the game wraps text here, but the text used will never wrap (and doesn't have newlines)
             DrawText2D(posX, posY, _hudObjects.ScoreAlign, 0, message);
             posY += 9;
@@ -3040,7 +3087,9 @@ namespace MphRead.Entities
 
         private void DrawHudBattle()
         {
-            DrawModeScore(212); // points
+            DrawModeScore(212, _scene.GameState.Mode == GameMode.GunGame ? "WEAPON STAGE"
+                : _scene.GameState.Mode == GameMode.Headhunter ? "TOKENS BANKED / CARRIED"
+                : _scene.GameState.IsTokenMode ? "CONFIRMS" : null);
         }
 
         private void DrawHudSurvival()
@@ -3079,7 +3128,17 @@ namespace MphRead.Entities
 
         private void DrawHudBounty()
         {
-            DrawModeScore(215); // octoliths
+            DrawModeScore(215, _scene.GameState.Mode == GameMode.Relic ? "RELIC TIME" : null);
+            if (_scene.GameState.Mode == GameMode.Relic)
+            {
+                foreach (OctolithFlagEntity relic in _scene.GetOctolithFlagEntities())
+                {
+                    string carrier = relic.Carrier == null ? "RELIC AVAILABLE"
+                        : relic.Carrier == this ? "YOU HOLD THE RELIC" : $"RELIC: {_scene.GameState.Nicknames[relic.Carrier.SlotIndex]}";
+                    DrawText2D(128, 150, Align.Center, 0, carrier);
+                    break;
+                }
+            }
             DrawOctolithInst(frame: 0);
         }
 
@@ -3091,7 +3150,9 @@ namespace MphRead.Entities
 
         private void DrawHudDefender()
         {
-            DrawModeScore(217); // ring time
+            DrawModeScore(217, _scene.GameState.IsHardpoint ? "HARDPOINT TIME" : null);
+            if (_scene.GameState.IsHardpoint)
+                DrawText2D(128, 150, Align.Center, 0, $"MOVES IN {(_scene.GameState.HardpointTicksRemaining + 59) / 60}s");
         }
 
         private void DrawHudNodes()

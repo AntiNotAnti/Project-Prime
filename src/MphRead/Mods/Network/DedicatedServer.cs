@@ -74,6 +74,7 @@ namespace MphRead.Mods.Network
             public uint LastMapAvailabilitySequence;
             public readonly byte[][] Bootstrap = { new byte[1200], new byte[512], new byte[600] };
             public readonly int[] BootstrapLengths = new int[3];
+            public byte[][] BootstrapObjectives = Array.Empty<byte[]>();
             public int BootstrapLength;
             public WorldBootstrapIdentity BootstrapIdentity;
             public double BootstrapSentAt;
@@ -330,7 +331,10 @@ namespace MphRead.Mods.Network
         /// Off by default; lobby matches may enable it per match.
         /// </summary>
         public bool SpawnProtection { get; set; } = false;
+        public bool Fiesta { get; set; }
+        public bool OneInTheChamber { get; set; }
         public bool InstaGib { get; set; }
+        public bool OctolithAutoReset { get; set; }
         public bool LowTier { get; set; }
         public bool NoImperialist { get; set; }
 
@@ -828,6 +832,9 @@ namespace MphRead.Mods.Network
                 }
 
                 int at = report.Count;
+                var objective = Multiplayer.MatchObjectiveReport.Values(GameState.Current, slot);
+                report.ObjectiveA[at] = objective.A; report.ObjectiveB[at] = objective.B;
+                report.ObjectiveC[at] = objective.C; report.ObjectiveD[at] = objective.D;
                 report.Slots[at] = (byte)slot;
                 report.Generations[at] = _slotGenerations[slot];
                 report.Teams[at] = (sbyte)Math.Clamp((int)team, -1, PlayerEntity.SlotCapacity - 1);
@@ -912,6 +919,9 @@ namespace MphRead.Mods.Network
                 Mods.MapGen.CustomRooms.GenerateMissing(entry.RoomKey);
             if (Mods.MapGen.CustomRooms.WhyUnplayable(entry.RoomKey) is { } unplayable)
                 throw new ProgramException(unplayable);
+            if (!Mods.Multiplayer.MapModeCapabilities.Supports(entry.RoomKey, entry.Mode,
+                LobbyRules.ResolveWorldProfile(entry, _maxPlayers), out string incompatible))
+                throw new ProgramException(incompatible);
             if (!sim.Start(entry.RoomKey, entry.Mode, _maxPlayers, SendSnapshot,
                 () => EndMatch(_now, "score"), BuildRoster(), BuildSessionState()))
             {
@@ -1292,6 +1302,9 @@ namespace MphRead.Mods.Network
                             : "that is the map you are on");
                         return;
                     }
+                    if (!_controlPlaneOnlyForTests && !Mods.Multiplayer.MapModeCapabilities.Supports(resolved,
+                        ModeForRoom(resolved), LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers), out string incompatible))
+                    { Tell(peer, incompatible); return; }
                     key = resolved;
                 }
             }
@@ -1520,6 +1533,9 @@ namespace MphRead.Mods.Network
                 Tell(peer, "that is the map you are on");
                 return;
             }
+            if (!_controlPlaneOnlyForTests && !Mods.Multiplayer.MapModeCapabilities.Supports(resolved,
+                ModeForRoom(resolved), LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers), out string incompatible))
+            { Tell(peer, incompatible); return; }
             _voteRunning = true;
             _voteRoom = resolved;
             // The mode the rotation would play this map in if it lists it,

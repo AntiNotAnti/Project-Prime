@@ -42,9 +42,12 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Note _note = new("");
         private readonly PrimeButton _use;
         private string? _selected;
+        private readonly Dictionary<string, string?> _incompatibilities = new();
+        private string? Incompatibility(string room) => _incompatibilities.GetValueOrDefault(room);
 
-        public MapCardPicker(IReadOnlyList<string> rooms, string? selected)
+        public MapCardPicker(IReadOnlyList<string> rooms, string? selected, Func<string, string?>? incompatibility = null)
         {
+            foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
             Background = Brushes.Transparent;
             Focusable = true;
             _selected = selected != null && System.Linq.Enumerable.Contains(rooms, selected) ? selected : null;
@@ -52,7 +55,7 @@ namespace MphRead.Mods.Launcher.Gui
             var back = new PrimeButton("CANCEL", () => Cancelled?.Invoke(this, EventArgs.Empty));
             _use = new PrimeButton("USE MAP", () =>
             {
-                if (!String.IsNullOrWhiteSpace(_selected)) Done?.Invoke(this, _selected);
+                if (!String.IsNullOrWhiteSpace(_selected) && Incompatibility(_selected) == null) Done?.Invoke(this, _selected);
             }, primary: true);
             _use.SetValue(ControllerNav.NavIdProperty, "map-picker.use");
             _search.SetValue(ControllerNav.NavIdProperty, "map-picker.search");
@@ -98,6 +101,11 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (string room in rooms)
             {
                 DeckTile tile = MapCardFactory.Create(room);
+                if (Incompatibility(room) is string reason)
+                {
+                    tile.Verb = "UNAVAILABLE";
+                    ToolTip.SetTip(tile, reason);
+                }
                 tile.Chosen = String.Equals(room, _selected, StringComparison.OrdinalIgnoreCase);
                 tile.Click += (_, _) => Select(tile);
                 _grid.Children.Add(tile);
@@ -142,11 +150,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void RefreshSelection()
         {
-            _use.IsEnabled = !String.IsNullOrWhiteSpace(_selected);
+            string? reason = _selected == null ? null : Incompatibility(_selected);
+            _use.IsEnabled = !String.IsNullOrWhiteSpace(_selected) && reason == null;
             _note.Text = String.IsNullOrWhiteSpace(_selected)
                 ? "Choose a map."
                 : $"Selected: {Metadata.GetRoomByName(_selected).Item1?.InGameName ?? _selected}";
-            _note.Foreground = GuiTheme.TextDimBrush;
+            if (reason != null) _note.Text = reason;
+            _note.Foreground = reason == null ? GuiTheme.TextDimBrush : GuiTheme.WarmBrush;
             _name.Text = String.IsNullOrWhiteSpace(_selected) ? "SELECT AN ARENA" : MapPick.NameOf(_selected).ToUpperInvariant();
             _preview.Source = MapShot.For(_selected);
         }

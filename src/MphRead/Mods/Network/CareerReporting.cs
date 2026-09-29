@@ -220,7 +220,7 @@ namespace MphRead.Mods.Network
         public string EndReason { get; set; } = "completed";
         public string RoomKey { get; set; } = "";
         public int Mode { get; set; }
-        public ushort Rules { get; set; }
+        public uint Rules { get; set; }
         public bool Teams { get; set; }
         public int TeamCount { get; set; }
         public bool ContainsBots { get; set; }
@@ -274,7 +274,7 @@ namespace MphRead.Mods.Network
             public DateTimeOffset StartedAtUtc;
             public string RoomKey = "";
             public GameMode Mode;
-            public SessionRules Rules;
+            public MatchModifierFlags Rules;
             public bool Teams;
             public int TeamCount;
             public bool RatingEligible;
@@ -338,6 +338,7 @@ namespace MphRead.Mods.Network
                 // Player-created persistent lobbies still build career history,
                 // but never change rating points.
                 RatingEligible = SessionPolicy == ServerSessionPolicy.Continuous
+                    && Mods.Multiplayer.CareerMatchEligibility.IsStandard(match, _botAssistedMatch)
             };
             foreach (Peer peer in _peers)
             {
@@ -552,7 +553,7 @@ namespace MphRead.Mods.Network
                 PlayedTicks = Math.Max(0, CareerFrame - match.StartedFrame),
                 EndReason = "completed",
                 RoomKey = match.RoomKey,
-                Mode = (int)match.Mode, Rules = (ushort)match.Rules,
+                Mode = (int)match.Mode, Rules = (uint)match.Rules,
                 Teams = match.Teams,
                 TeamCount = match.TeamCount,
                 ContainsBots = _botAssistedMatch,

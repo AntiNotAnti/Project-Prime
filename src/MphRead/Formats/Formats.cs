@@ -1297,7 +1297,14 @@ namespace MphRead
         Defender = 12,
         DefenderTeams = 13,
         PrimeHunter = 14,
-        InstaGib = 15
+        InstaGib = 15,
+        Relic = 16,
+        Hardpoint = 17,
+        HardpointTeams = 18,
+        GunGame = 19,
+        KillConfirmed = 20,
+        KillConfirmedTeams = 21,
+        Headhunter = 22
     }
 
     [Flags]

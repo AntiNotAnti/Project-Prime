@@ -86,7 +86,7 @@ namespace MphRead.Mods.Network
             if (start > end) return ReplayOpenResult.Empty;
             using DemoReader? reader = DemoReader.Open(source, out var result);
             if (reader == null) return result;
-            if (reader.ProtocolVersion != NetConfig.ProtocolVersion) return ReplayOpenResult.ProtocolMismatch;
+            if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
             if (reader.FormatVersion == 2)
             {

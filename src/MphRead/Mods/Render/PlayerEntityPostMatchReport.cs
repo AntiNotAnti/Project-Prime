@@ -154,8 +154,9 @@ namespace MphRead.Entities
                     state.MatchDamageDealt[slot].ToString(),
                     _killFeedInk, scale: 0.40f);
 
+                string objective = Mods.Multiplayer.MatchObjectiveReport.Text(state, slot);
                 DrawText2D(right - 1.2f * aspect, y + 7.15f, Align.Right, 0,
-                    $"DAMAGE TAKEN {state.MatchDamageTaken[slot]}   HS {state.HeadshotKills[slot]}   BEST {state.LongestKillStreak[slot]}",
+                    objective.Length > 0 ? objective : $"DAMAGE TAKEN {state.MatchDamageTaken[slot]}   HS {state.HeadshotKills[slot]}   BEST {state.LongestKillStreak[slot]}",
                     _killFeedSpecial, scale: 0.29f);
             }
         }

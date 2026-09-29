@@ -22,7 +22,14 @@ namespace MphRead.Mods.Network
             {
                 foreach (var option in Launcher.OfflineLaunch.Modes)
                 {
-                    string room = option.Mode == GameMode.Capture ? "CTF1_FAULT LINE" : "MP1 SANCTORUS";
+                    if (option.Mode == GameMode.GunGame)
+                    {
+                        Check(!MatchModifierRules.Validate(new MatchDefinition { Mode = option.Mode, InstaGib = true }, out _),
+                            "Gun Game rejects a modifier that would replace its ladder");
+                        continue;
+                    }
+                    string room = ThumbnailGenerator.MultiplayerRooms().First(key =>
+                        MapModeCapabilities.Supports(key, option.Mode, MatchWorldProfile.Resolve(8), out _));
                     var definition = new MatchDefinition { RoomKey = room, Mode = option.Mode,
                         InstaGib = true, LowTier = true, TimeLimitSeconds = 600, PointGoal = MatchGoalRules.DefaultValue(option.Mode) };
                     var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1, MaxPlayers = 8,
@@ -134,7 +141,7 @@ namespace MphRead.Mods.Network
             foreach (var mode in Launcher.OfflineLaunch.Modes.Select(m => m.Mode))
             {
                 var match = new MatchDefinition { RoomKey = Rooms()[0], Mode = mode, InstaGib = true };
-                Check(LobbyRules.ValidateDefinition(match, out _) == LobbyResultCode.Ok, $"{mode} supports Insta-Gib");
+                Check(LobbyRules.ValidateDefinition(match, out _) == (mode == GameMode.GunGame ? LobbyResultCode.InvalidConfiguration : LobbyResultCode.Ok), $"{mode} validates Insta-Gib compatibility");
                 Check(LobbyRules.ValidateDefinition(match with { NoImperialist = true }, out _) == LobbyResultCode.InvalidConfiguration, $"{mode} rejects conflicting weapons");
             }
             foreach (Hunter hunter in Enum.GetValues<Hunter>())

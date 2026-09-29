@@ -28,6 +28,11 @@ namespace MphRead.Mods.Launcher.Gui
             ("Defender", GameMode.Defender, GameMode.DefenderTeams, false, false),
             ("Nodes", GameMode.Nodes, GameMode.NodesTeams, false, false),
             ("Capture", GameMode.Capture, GameMode.Capture, true, false),
+            ("Hardpoint", GameMode.Hardpoint, GameMode.HardpointTeams, false, false),
+            ("Gun Game", GameMode.GunGame, GameMode.GunGame, false, true),
+            ("Kill Confirmed", GameMode.KillConfirmed, GameMode.KillConfirmedTeams, true, true),
+            ("Headhunter", GameMode.Headhunter, GameMode.Headhunter, false, true),
+            ("Relic", GameMode.Relic, GameMode.Relic, false, true),
             ("Prime Hunter", GameMode.PrimeHunter, GameMode.PrimeHunter, false, true)
         };
 
@@ -65,7 +70,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
-        private readonly ButtonToggleRow _vanillaDuelResources, _instaGib, _lowTier, _noImperialist;
+        private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset;
         private Hunter[] _allowedHunters = Enumerable.Range(0, Hunters.Playable).Select(i => (Hunter)i).ToArray();
         private readonly Note _layoutSummary = new("");
         private readonly Note _teamSummary = new("", lines: 1);
@@ -93,12 +98,12 @@ namespace MphRead.Mods.Launcher.Gui
 
         private MatchDefinition? _shownMatch;
         private MatchDefinition? _submittedMatch;
-        private SessionRules _submittedRules;
+        private LobbyRuleFlags _submittedRules;
         private ushort? _shownRevision;
         private uint? _shownRosterRevision;
         private int _chatRevision = -1, _rosterCount;
         private double _nextPingRefresh;
-        private SessionRules _shownRules;
+        private LobbyRuleFlags _shownRules;
         private string _draftRoom = "";
         private string _teamChoiceKey = "";
         private TeamLayout _customLayout = new(2, 2, 2);
@@ -154,9 +159,12 @@ namespace MphRead.Mods.Launcher.Gui
             _opponentHealth = Toggle("Opponent health");
             _disablePowerups = Toggle("Disable powerups", on: true);
             _spawnProtection = Toggle("Spawn protection (3s)");
+            _fiesta = Toggle("Fiesta");
+            _oneInTheChamber = Toggle("One in the Chamber");
             _instaGib = Toggle("Insta-Gib");
             _lowTier = Toggle("Low Tier");
             _noImperialist = Toggle("No Imp");
+            _octolithAutoReset = Toggle("Octolith Auto Reset");
             _lowTier.Changed += (_, _) => { if (!_syncing) RefreshHunterChoices(_lowTier.On); };
             _instaGib.Changed += (_, _) => { if (!_syncing && _instaGib.On) _noImperialist.On = false; };
             _noImperialist.Changed += (_, _) => { if (!_syncing && _noImperialist.On) _instaGib.On = false; };
@@ -164,7 +172,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (ButtonToggleRow toggle in new[]
             {
                 _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
-                _instaGib, _lowTier, _noImperialist, _disablePowerups, _spawnProtection
+                _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection
             })
                 toggle.Changed += (_, _) => DraftChanged();
             _vanillaDuelResources.Changed += (_, _) =>
@@ -197,25 +205,17 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetColumn(_goal, 1);
             limits.Children.Add(_goal);
 
-            var toggles = new Grid
+            static StackPanel RuleSection(string title, params Control[] rows)
             {
-                ColumnDefinitions = new ColumnDefinitions("*,*"),
-                RowDefinitions = new RowDefinitions("Auto,Auto,Auto,Auto,Auto,Auto,Auto"),
-                ColumnSpacing = 24,
-                RowSpacing = 10
-            };
-            Control[] toggleRows =
-            {
-                _fire, _affinity, _freeze, _opponentHealth,
-                _requireReady, _join, _lockTeams, _disablePowerups,
-                _spawnProtection, _vanillaDuelResources, _instaGib, _lowTier, _noImperialist
-            };
-            for (int i = 0; i < toggleRows.Length; i++)
-            {
-                Grid.SetColumn(toggleRows[i], i % 2);
-                Grid.SetRow(toggleRows[i], i / 2);
-                toggles.Children.Add(toggleRows[i]);
+                var section = new StackPanel { Spacing = 6 };
+                section.Children.Add(LobbySubhead(title));
+                foreach (Control row in rows) section.Children.Add(row);
+                return section;
             }
+            var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams);
+            var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _freeze, _opponentHealth,
+                _disablePowerups, _spawnProtection, _octolithAutoReset);
+            var advancedRules = RuleSection("ADVANCED", _vanillaDuelResources, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist);
 
             _target = new ChoiceRow("Player", Array.Empty<string>());
 
@@ -392,7 +392,12 @@ namespace MphRead.Mods.Launcher.Gui
             // handlers and open as sheets over this same workspace.
             arena.Children.Remove(_mode); arena.Children.Remove(_format); arena.Children.Remove(_customTeams);
             _preview.Height = 145;
-            var advanced = PrimeChrome.Stack(toggles, _customTeams, _layoutSummary);
+            matchRules.Children.Add(_customTeams);
+            matchRules.Children.Add(_layoutSummary);
+            var advanced = PrimeChrome.Columns("*,*,*",
+                new PrimePanel(matchRules, raised: true) { Padding = new Thickness(12) },
+                new PrimePanel(gameplayRules, raised: true) { Padding = new Thickness(12) },
+                new PrimePanel(advancedRules, raised: true) { Padding = new Thickness(12) });
             var parameters = PrimeChrome.Stack(_mode, _format, limits,
                 new PrimeButton("ADVANCED RULES", () => ShowSheet("LOBBY RULES", advanced)),
                 new PrimeButton("TEAMS & ADMINISTRATION", () => ShowSheet("TEAM MANAGEMENT", administration)));
@@ -738,9 +743,13 @@ namespace MphRead.Mods.Launcher.Gui
                 _disablePowerups.On = session.Match.DisablePowerups;
                 _spawnProtection.On = session.Match.SpawnProtection;
                 _vanillaDuelResources.On = session.Match.VanillaDuelResources;
+                _fiesta.On = session.Match.Fiesta;
+                _oneInTheChamber.On = session.Match.OneInTheChamber;
                 _instaGib.On = session.Match.InstaGib;
                 _lowTier.On = session.Match.LowTier;
                 _noImperialist.On = session.Match.NoImperialist;
+                _octolithAutoReset.On = session.Match.OctolithAutoReset;
+                _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(session.Match.Mode);
                 _requireReady.On = session.RequireReady;
                 _join.On = session.AllowJoinInProgress;
                 _lockTeams.On = PlayerChoosesTeam(session.Match) && session.LockTeams;
@@ -754,7 +763,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
-            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _instaGib, _lowTier, _noImperialist, _disablePowerups, _spawnProtection, _vanillaDuelResources })
+            foreach (var toggle in new[] { _fire, _affinity, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne
                 && session.Match.Mode == GameMode.BattleTeams;
@@ -1067,6 +1076,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (target != _format.Index) _format.Index = target;
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
+            _goal.IsVisible = draft.Mode != GameMode.GunGame;
+            _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(draft.Mode);
             bool sameGoalKind = MatchGoalRules.UsesLives(previousGoalMode) == MatchGoalRules.UsesLives(draft.Mode)
                 && MatchGoalRules.UsesTimeTarget(previousGoalMode) == MatchGoalRules.UsesTimeTarget(draft.Mode);
             if (resetGoal && (!preserveCustomGoal || !sameGoalKind))
@@ -1111,6 +1122,8 @@ namespace MphRead.Mods.Launcher.Gui
             if (_syncing) return;
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
+            _goal.IsVisible = draft.Mode != GameMode.GunGame;
+            _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(draft.Mode);
             _goal.Box.PlaceholderText = MatchGoalRules.UsesTimeTarget(draft.Mode)
                 ? "1:30"
                 : MatchGoalRules.UsesLives(draft.Mode) ? "3" : "25";
@@ -1120,6 +1133,7 @@ namespace MphRead.Mods.Launcher.Gui
             _vanillaDuelResources.IsVisible = vanillaDuelAvailable;
             bool chooseTeams = PlayerChoosesTeam(draft);
             _lockTeams.IsVisible = chooseTeams;
+            _fire.IsVisible = GameState.IsTeamMode(draft.Mode);
             _layoutSummary.IsVisible = draft.Format != MatchFormat.OneVsOne;
             bool valid = TryBuildMatch(out MatchDefinition configured, out string reason);
             TeamLayout layout = LobbyRules.ResolveTeamLayout(configured);
@@ -1182,10 +1196,12 @@ namespace MphRead.Mods.Launcher.Gui
                 HideOpponentHealth = !_opponentHealth.On,
                 DisablePowerups = _disablePowerups.On,
                 SpawnProtection = _spawnProtection.On,
+                Fiesta = _fiesta.On, OneInTheChamber = _oneInTheChamber.On,
                 InstaGib = _instaGib.On, LowTier = _lowTier.On, NoImperialist = _noImperialist.On,
+                OctolithAutoReset = MatchModifierRules.UsesOctolith(match.Mode) && _octolithAutoReset.On,
                 VanillaDuelResources = vanillaDuelResources
             };
-            return true;
+            return MatchModifierRules.Validate(match, out reason);
         }
 
         private void TryAutoApply(bool force = false)
@@ -1220,10 +1236,10 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             config.Match = match;
-            config.RuleFlags = match.Rules
-                | (_requireReady.On ? SessionRules.RequireReady : 0)
-                | (_join.On ? SessionRules.AllowJoinInProgress : 0)
-                | (PlayerChoosesTeam(match) && _lockTeams.On ? SessionRules.LockTeams : 0);
+            config.RuleFlags = (match.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0)
+                | (_requireReady.On ? LobbyRuleFlags.RequireReady : 0)
+                | (_join.On ? LobbyRuleFlags.AllowJoinInProgress : 0)
+                | (PlayerChoosesTeam(match) && _lockTeams.On ? LobbyRuleFlags.LockTeams : 0);
             if (NetSession.SendLobbyCommand(LobbyCommandType.UpdateMatch, configuration: config))
             {
                 _submittedMatch = match;
@@ -1261,7 +1277,15 @@ namespace MphRead.Mods.Launcher.Gui
         private void OpenMapPicker()
         {
             if (!NetSession.CanEditLobby || NetSession.LobbyCommandPending) return;
-            var picker = new MapCardPicker(_rooms, _draftRoom);
+            var picker = new MapCardPicker(_rooms, _draftRoom, room =>
+            {
+                MatchDefinition draft = DraftMatch() with { RoomKey = room,
+                    VanillaDuelResources = SelectedFormat() == MatchFormat.OneVsOne && _vanillaDuelResources.On };
+                return Multiplayer.MapModeCapabilities.Supports(room, draft.Mode,
+                    LobbyRules.ResolveWorldProfile(draft, NetSession.ServerSession?.MaxPlayers ?? 8),
+                    out string reason, LobbyRules.ExactTeams(draft) ? LobbyRules.ResolveTeamLayout(draft).TotalPlayers
+                        : NetSession.ServerSession?.MaxPlayers ?? 8) ? null : reason;
+            });
             picker.Done += (_, room) =>
             {
                 _draftRoom = room;
@@ -1296,7 +1320,22 @@ namespace MphRead.Mods.Launcher.Gui
             // Sheets are reused too: release the previous frame's child before
             // attaching the rule controls to their next presentation.
             if (content.Parent is Panel old) old.Children.Remove(content);
-            Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title(title), content,
+            else if (content.Parent is ScrollViewer oldScroll) oldScroll.Content = null;
+            if (title == "LOBBY RULES")
+            {
+                Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title(title), content,
+                    new PrimeButton("DONE", Overlays.Close))) { Padding = new Thickness(0) },
+                    PrimeModalSize.Wide, fitContent: true);
+                return;
+            }
+            var scroll = new ScrollViewer
+            {
+                Content = content,
+                MaxHeight = Math.Max(160, (TopLevel.GetTopLevel(this)?.Bounds.Height ?? 720) - 220),
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto
+            };
+            Overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title(title), scroll,
                 new PrimeButton("DONE", Overlays.Close))), PrimeModalSize.Medium);
         }
         private void Confirm(string title, Action action)
@@ -1404,6 +1443,8 @@ namespace MphRead.Mods.Launcher.Gui
             GameMode.Defender or GameMode.DefenderTeams => "Hold time",
             GameMode.Nodes or GameMode.NodesTeams => "Node score",
             GameMode.PrimeHunter => "Prime time",
+            GameMode.Relic => "Relic hold time",
+            GameMode.Hardpoint or GameMode.HardpointTeams => "Hardpoint hold time",
             _ => "Score goal"
         };
 
@@ -1418,6 +1459,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private bool TryGoalValue(GameMode mode, out ushort value, out string reason)
         {
+            if (mode == GameMode.GunGame) { value = Multiplayer.GunGameRules.StageCount; reason = ""; return true; }
             value = 0;
             reason = "";
             if (MatchGoalRules.UsesLives(mode))

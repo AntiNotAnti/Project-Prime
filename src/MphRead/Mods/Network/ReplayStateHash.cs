@@ -11,7 +11,7 @@ namespace MphRead.Mods.Network
     // identities and reflection-discovered fields are intentionally not part of it.
     internal static class ReplayStateHash
     {
-        internal const ushort Schema = 3;
+        internal const ushort Schema = 4;
         internal static readonly string BuildId = typeof(ReplayStateHash).Assembly
             .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "unknown";
 
@@ -31,6 +31,14 @@ namespace MphRead.Mods.Network
             writer.Write((int)scene.GameState.MatchState);
             writer.Write(scene.GameState.MatchTime);
             writer.Write(scene.GameState.PrimeHunter);
+            writer.Write(scene.GameState.NextTokenId);
+            foreach (int value in scene.GameState.TokenCarried) writer.Write(value);
+            foreach (int value in scene.GameState.TokenConfirms) writer.Write(value);
+            foreach (int value in scene.GameState.TokenDenies) writer.Write(value);
+            foreach (int value in scene.GameState.TokensCollected) writer.Write(value);
+            foreach (int value in scene.GameState.TokensBanked) writer.Write(value);
+            foreach (int value in scene.GameState.LargestBank) writer.Write(value);
+            writer.Write(scene.GameState.ActiveHardpointId); writer.Write(scene.GameState.HardpointTicksRemaining);
             writer.Write(scene.Random.Rng1);
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
             {
@@ -45,6 +53,7 @@ namespace MphRead.Mods.Network
                 writer.Write((int)player.Hunter); writer.Write(player.TeamIndex);
                 Write(writer, player.Position); Write(writer, player.FacingVector); Write(writer, player.Speed);
                 writer.Write(player.Health); writer.Write((int)player.CurrentWeapon);
+                if (scene.GameState.OneInTheChamber) writer.Write(player.ModAmmo.Ua);
                 writer.Write(player.IsAltForm); writer.Write(player.IsMorphing); writer.Write(player.IsUnmorphing);
                 writer.Write(player.RespawnTimer); writer.Write(player.DeathCountdown); writer.Write(player.TimeSinceShot);
                 writer.Write(player.OctolithFlag?.Id ?? -1);
@@ -96,6 +105,7 @@ namespace MphRead.Mods.Network
                 else if (entity is ItemInstanceEntity item)
                 {
                     writer.Write((int)item.Type); writer.Write((int)item.ItemType); Write(writer, item.Position);
+                    writer.Write(item.TokenId); writer.Write(item.TokenVictimSlot); writer.Write(item.TokenTeam); writer.Write(item.TokenValue);
                     writer.Write(item.ParentId); writer.Write(item.Owner?.Id ?? -1); writer.Write(item.DespawnTimer);
                 }
             }

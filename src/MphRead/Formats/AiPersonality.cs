@@ -67,12 +67,12 @@ namespace MphRead.Formats
                 aiOffset = 45696;
             }
             else if (mode == GameMode.Capture
-                || mode == GameMode.Bounty || mode == GameMode.BountyTeams)
+                || mode == GameMode.Bounty || mode == GameMode.BountyTeams || mode == GameMode.Relic)
             {
                 aiOffset = 32968;
             }
             else if (mode == GameMode.Nodes || mode == GameMode.NodesTeams
-                || mode == GameMode.Defender || mode == GameMode.DefenderTeams)
+                || mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.Hardpoint || mode == GameMode.HardpointTeams)
             {
                 aiOffset = 33012;
             }

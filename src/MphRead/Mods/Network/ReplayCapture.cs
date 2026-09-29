@@ -46,6 +46,7 @@ namespace MphRead.Mods.Network
             using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Capture);
             DemoClip.Tick(scene.Size);
             if (DemoPlayback.IsActive || !NetSession.Active || !scene.GameState.Multiplayer) return;
+            if (LatestAuthorityWorld is { } receivedWorld) NetObjectiveSync.Apply(scene, receivedWorld);
             uint historyFrames = (uint)Math.Max(45, DemoClip.Seconds + DemoClip.PostRollSeconds) * 60;
             if (historyFrames != _historyFrames)
             {
@@ -205,9 +206,32 @@ namespace MphRead.Mods.Network
                 => Recorder.Marker(NetSession.NetFrame, world.Tick, new(kind, (byte)actor, (byte)target, value));
             if (old != null)
             {
+                foreach (var token in world.Tokens.AsSpan(0, world.TokenCount < 0 ? world.Tokens.Length : world.TokenCount))
+                    if (token.Id >= old.NextTokenId) Marker(ReplayMarkerKind.TokenSpawn, token.Victim, value: token.Value);
+                if (world.ActiveHardpointId != old.ActiveHardpointId)
+                    Marker(ReplayMarkerKind.HardpointChanged, value: world.ActiveHardpointId);
+                if (NetSession.ServerMatch?.Mode is (byte)GameMode.Hardpoint or (byte)GameMode.HardpointTeams)
+                    foreach (var node in world.Nodes)
+                        foreach (var previous in old.Nodes)
+                            if (node.Id == world.ActiveHardpointId && node.Id == previous.Id
+                                && node.Team >= 0 && node.Team != previous.Team)
+                                Marker(ReplayMarkerKind.HardpointCaptured, node.Capturer.Slot, value: node.Id);
+                if (NetSession.ServerMatch?.Mode == (byte)GameMode.Relic)
+                    foreach (var flag in world.Flags)
+                        foreach (var previous in old.Flags)
+                            if (flag.Id == previous.Id && flag.Carrier != previous.Carrier)
+                            {
+                                if (previous.Carrier.Slot < 8) Marker(ReplayMarkerKind.RelicDrop, previous.Carrier.Slot, value: flag.Id);
+                                if (flag.Carrier.Slot < 8) Marker(ReplayMarkerKind.RelicPickup, flag.Carrier.Slot, value: flag.Id);
+                            }
                 if (world.Prime != old.Prime) Marker(ReplayMarkerKind.PrimeChange, world.Prime.Slot, old.Prime.Slot);
                 for (int i = 0; i < 8; i++)
                 {
+                    if (world.TokenStats[8+i] > old.TokenStats[8+i]) Marker(ReplayMarkerKind.TokenConfirmed, i, value: world.TokenStats[8+i]);
+                    if (world.TokenStats[16+i] > old.TokenStats[16+i]) Marker(ReplayMarkerKind.TokenDenied, i, value: world.TokenStats[16+i]);
+                    if (world.TokenStats[32+i] > old.TokenStats[32+i]) Marker(ReplayMarkerKind.TokenBanked, i, value: world.TokenStats[32+i] - old.TokenStats[32+i]);
+                    if (NetSession.ServerMatch?.Mode == (byte)GameMode.GunGame && world.TeamPoints[i] > old.TeamPoints[i])
+                        Marker(ReplayMarkerKind.GunGameAdvance, i, value: world.TeamPoints[i]);
                     if (world.FlagScores[i] > old.FlagScores[i]) Marker(ReplayMarkerKind.FlagCapture, i, value: world.FlagScores[i]);
                     if (world.NodesCaptured[i] > old.NodesCaptured[i]) Marker(ReplayMarkerKind.NodeCapture, i, value: world.NodesCaptured[i]);
                     int goal = NetSession.ServerMatch?.PointGoal ?? 0;

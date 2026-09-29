@@ -11,7 +11,8 @@ namespace MphRead.Mods.Network
         public const int AvailabilityOffset = LegacySize + 6 + NetworkMapIdentity.Size;
         public const int DownloadSourceOffset = AvailabilityOffset + 8;
         public const int MaxDownloadSourceBytes = 192;
-        public const int Size = DownloadSourceOffset + MaxDownloadSourceBytes + 2;
+        public const int Protocol28Size = DownloadSourceOffset + MaxDownloadSourceBytes + 2;
+        public const int Size = Protocol28Size + 4;
         public ushort MapGeneration;
         public string? MapDownloadSource;
         public MapAvailabilityState[]? MapAvailability;
@@ -23,17 +24,18 @@ namespace MphRead.Mods.Network
         public ushort Revision, MatchId;
         public byte OwnerSlot, MaxPlayers, ExpectedParticipants, LoadedParticipants, WorldReadyParticipants;
         public ushort StartCountdownMilliseconds;
-        public SessionRules RuleFlags;
+        public LobbyRuleFlags RuleFlags;
         public MatchDefinition Match;
         public MatchWorldProfile WorldProfile;
-        public bool LockTeams => RuleFlags.HasFlag(SessionRules.LockTeams);
-        public bool RequireReady => RuleFlags.HasFlag(SessionRules.RequireReady);
-        public bool AllowJoinInProgress => RuleFlags.HasFlag(SessionRules.AllowJoinInProgress);
+        public bool LockTeams => RuleFlags.HasFlag(LobbyRuleFlags.LockTeams);
+        public bool RequireReady => RuleFlags.HasFlag(LobbyRuleFlags.RequireReady);
+        public bool AllowJoinInProgress => RuleFlags.HasFlag(LobbyRuleFlags.AllowJoinInProgress);
 
         public void Write(Span<byte> dest)
         {
             dest[..Size].Clear();
-            BinaryPrimitives.WriteUInt16LittleEndian(dest[(Size-2)..],MapGeneration);
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[Protocol28Size..], (uint)Match.Rules);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[(Protocol28Size-2)..],MapGeneration);
             Match.MapIdentity.Write(dest[(LegacySize + 6)..]);
             NetText.Write(dest.Slice(DownloadSourceOffset, MaxDownloadSourceBytes), MapDownloadSource ?? "");
             for (int i = 0; i < 8; i++) dest[AvailabilityOffset + i] = MapAvailability != null && i < MapAvailability.Length ? (byte)MapAvailability[i] : (byte)0;
@@ -47,7 +49,7 @@ namespace MphRead.Mods.Network
             dest[8] = (byte)Match.Format; dest[9] = (byte)Match.Mode;
             BinaryPrimitives.WriteUInt16LittleEndian(dest[10..], Match.TimeLimitSeconds);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[12..], Match.PointGoal);
-            BinaryPrimitives.WriteUInt16LittleEndian(dest[14..], (ushort)(RuleFlags | Match.Rules));
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[14..], (ushort)(RuleFlags | (Match.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0)));
             dest[16] = ExpectedParticipants; dest[17] = LoadedParticipants;
             BinaryPrimitives.WriteUInt16LittleEndian(dest[18..], StartCountdownMilliseconds);
             dest[20] = Match.CustomTeams.TeamCount; dest[21] = Match.CustomTeams.TeamA;
@@ -66,8 +68,9 @@ namespace MphRead.Mods.Network
                 || (src[16] & ~((1 << src[7]) - 1)) != 0 || (src[17] & ~src[16]) != 0
                 || src[8] > (byte)MatchFormat.Custom
                 || !Enum.IsDefined(typeof(GameMode), src[9])) return false;
-            var flags = (SessionRules)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
-            if (((ushort)flags & ~8191) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
+            var flags = (LobbyRuleFlags)BinaryPrimitives.ReadUInt16LittleEndian(src[14..]);
+            var modifiers = (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[Protocol28Size..]);
+            if (((uint)modifiers & ~7167u) != 0 || ((ushort)flags & ~15) != 0 || !NetworkMapIdentity.TryRead(src.Slice(LegacySize + 6, NetworkMapIdentity.Size), out var mapIdentity)) return false;
             var availability = new MapAvailabilityState[8];
             for (int i = 0; i < 8; i++)
             {
@@ -77,7 +80,7 @@ namespace MphRead.Mods.Network
             state = new SessionStatePacket
             {
                 MapAvailability = availability,
-                MapGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[(Size-2)..]),
+                MapGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[(Protocol28Size-2)..]),
                 MapDownloadSource = NetText.Read(src.Slice(DownloadSourceOffset, MaxDownloadSourceBytes)),
                 StartGeneration = BinaryPrimitives.ReadUInt32LittleEndian(src[LegacySize..]),
                 StartStage = (StartStage)src[LegacySize + 4],
@@ -97,16 +100,19 @@ namespace MphRead.Mods.Network
                     TimeLimitSeconds = BinaryPrimitives.ReadUInt16LittleEndian(src[10..]),
                     PointGoal = BinaryPrimitives.ReadUInt16LittleEndian(src[12..]),
                     RoomKey = NetText.Read(src.Slice(27, HostRequestPacket.MaxRoomBytes)),
-                    FriendlyFire = flags.HasFlag(SessionRules.FriendlyFire),
-                    AffinityWeapons = flags.HasFlag(SessionRules.AffinityWeapons),
-                    ShadowFreeze = flags.HasFlag(SessionRules.ShadowFreeze),
-                    HideOpponentHealth = flags.HasFlag(SessionRules.HideOpponentHealth),
-                    DisablePowerups = flags.HasFlag(SessionRules.DisablePowerups),
-                    SpawnProtection = flags.HasFlag(SessionRules.SpawnProtection),
-                    VanillaDuelResources = flags.HasFlag(SessionRules.VanillaDuelResources),
-                    InstaGib = flags.HasFlag(SessionRules.InstaGib),
-                    LowTier = flags.HasFlag(SessionRules.LowTier),
-                    NoImperialist = flags.HasFlag(SessionRules.NoImperialist)
+                    FriendlyFire = modifiers.HasFlag(MatchModifierFlags.FriendlyFire),
+                    AffinityWeapons = modifiers.HasFlag(MatchModifierFlags.AffinityWeapons),
+                    ShadowFreeze = modifiers.HasFlag(MatchModifierFlags.ShadowFreeze),
+                    HideOpponentHealth = flags.HasFlag(LobbyRuleFlags.HideOpponentHealth),
+                    DisablePowerups = modifiers.HasFlag(MatchModifierFlags.DisablePowerups),
+                    SpawnProtection = modifiers.HasFlag(MatchModifierFlags.SpawnProtection),
+                    VanillaDuelResources = modifiers.HasFlag(MatchModifierFlags.VanillaDuelResources),
+                    Fiesta = modifiers.HasFlag(MatchModifierFlags.Fiesta),
+                    OneInTheChamber = modifiers.HasFlag(MatchModifierFlags.OneInTheChamber),
+                    InstaGib = modifiers.HasFlag(MatchModifierFlags.InstaGib),
+                    LowTier = modifiers.HasFlag(MatchModifierFlags.LowTier),
+                    OctolithAutoReset = modifiers.HasFlag(MatchModifierFlags.OctolithAutoReset),
+                    NoImperialist = modifiers.HasFlag(MatchModifierFlags.NoImperialist)
                 }.NormalizeLegacy()
             };
             return (!validateDefinition || LobbyRules.ValidateDefinition(state.Match, out _) == LobbyResultCode.Ok)

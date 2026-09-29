@@ -47,7 +47,8 @@ namespace MphRead.Mods.Network
             PointGoal = (ushort)Math.Clamp(entry.PointGoal, 0, ushort.MaxValue),
             FriendlyFire = FriendlyFire, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
             HideOpponentHealth = true, DisablePowerups = true, SpawnProtection = SpawnProtection,
-            InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
+            Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist,
+            OctolithAutoReset = Mods.Multiplayer.MatchModifierRules.UsesOctolith(entry.Mode) && OctolithAutoReset
         }.NormalizeLegacy();
 
         private void InvalidateLobbyReady()
@@ -82,9 +83,9 @@ namespace MphRead.Mods.Network
                 && peer.PreparedMap == CurrentDefinition.MapIdentity ? peer.MapAvailability : MapAvailabilityState.Unknown).ToArray(),
             WorldProfile = SessionPolicy == ServerSessionPolicy.Lobby && _phase != SessionPhase.Lobby
                 ? _frozenWorldProfile : LobbyRules.ResolveWorldProfile(CurrentDefinition, _maxPlayers),
-            RuleFlags = CurrentDefinition.Rules | (RequireReady ? SessionRules.RequireReady : 0)
-                | (AllowJoinInProgress ? SessionRules.AllowJoinInProgress : 0)
-                | (LockTeams ? SessionRules.LockTeams : 0),
+            RuleFlags = (CurrentDefinition.HideOpponentHealth ? LobbyRuleFlags.HideOpponentHealth : 0) | (RequireReady ? LobbyRuleFlags.RequireReady : 0)
+                | (AllowJoinInProgress ? LobbyRuleFlags.AllowJoinInProgress : 0)
+                | (LockTeams ? LobbyRuleFlags.LockTeams : 0),
             ExpectedParticipants = _start.Expected, LoadedParticipants = _start.Loaded,
             StartGeneration = _start.Identity.StartGeneration, StartStage = _start.Stage, WorldReadyParticipants = _start.WorldReady,
             StartCountdownMilliseconds = _start.RemainingMilliseconds(_now)
@@ -309,6 +310,12 @@ namespace MphRead.Mods.Network
                 if (waiting != null) { reason = $"Waiting for {waiting.Name} to prepare {match.RoomKey} ({waiting.MapAvailability})."; return false; }
                 if (!MapGen.CustomRooms.Installed.HasExact(match.MapIdentity.Content(match.RoomKey)))
                 { reason = "The server's installed map package changed."; return false; }
+            }
+            if (!_controlPlaneOnlyForTests)
+            {
+                MapGen.CustomRooms.GenerateMissing(match.RoomKey);
+                if (!Mods.Multiplayer.MapModeCapabilities.Supports(match.RoomKey, match.Mode,
+                    LobbyRules.ResolveWorldProfile(match, _maxPlayers), out reason)) return false;
             }
             StopLobbyMatchRuntime(matchEnded: false);
             _botAssistedMatch = _bots.Count > 0;

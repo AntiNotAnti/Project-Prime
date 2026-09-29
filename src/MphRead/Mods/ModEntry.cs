@@ -46,6 +46,23 @@ namespace MphRead.Mods
                 MapGen.MapCommunityServer.Run(hubPrefix, ValueAfter(args, "maphubstorage") ?? System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory, "community"));
                 return true;
             }
+            if (HasFlag(args, "advancedrulescheck"))
+            {
+                Environment.ExitCode = Network.NetLobbyTest.RunAdvancedRules();
+                return true;
+            }
+            if (HasFlag(args, "matchrulescheck"))
+            {
+                int lifecycle = Network.GameModeCheck.Run();
+                int rules = Network.NetLobbyTest.RunAdvancedRules();
+                Environment.ExitCode = lifecycle == 0 && rules == 0 ? 0 : 1;
+                return true;
+            }
+            if (HasFlag(args, "gamemodecheck"))
+            {
+                Environment.ExitCode = Network.GameModeCheck.Run();
+                return true;
+            }
             if (HasFlag(args, "replayformatcheck"))
             {
                 Environment.ExitCode = Network.ReplayFormatCheck.Run();
@@ -963,7 +980,10 @@ namespace MphRead.Mods
                 AffinityWeapons = HasFlag(args, "affinityweapons"),
                 // Spawn protection is the default match rule; the negative
                 // flag is useful for fixed competitive servers that opt out.
+                Fiesta = HasFlag(args, "fiesta"),
+                OneInTheChamber = HasFlag(args, "oneinthechamber"),
                 InstaGib = HasFlag(args, "instagib"),
+                OctolithAutoReset = HasFlag(args, "octolithautoreset"),
                 LowTier = HasFlag(args, "lowtier"),
                 NoImperialist = HasFlag(args, "noimp"),
                 SpawnProtection = HasFlag(args, "spawnprotection") && !HasFlag(args, "nospawnprotection"),
@@ -1314,6 +1334,16 @@ namespace MphRead.Mods
 
             // The multiplayer room list, one per line, so a shell loop can
             // walk every map without hard-coding the names.
+            if (HasFlag(args, "gamemodecheckscene"))
+            {
+                Environment.ExitCode = Network.GameModeSceneCheck.Run();
+                return true;
+            }
+            if (HasFlag(args, "advancedrulesscene"))
+            {
+                Environment.ExitCode = Network.NetLobbyTest.RunAdvancedRulesScene();
+                return true;
+            }
             if (HasFlag(args, "resourceaudit"))
             {
                 Environment.ExitCode = Multiplayer.ResourceAudit.Run();

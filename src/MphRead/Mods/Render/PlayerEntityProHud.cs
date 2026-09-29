@@ -359,7 +359,7 @@ namespace MphRead.Entities
         /// </summary>
         private void ProScore(float x, float y, Align align, float scale)
         {
-            string label = Strings.GetHudMessage(ProScoreMessageId());
+            string label = GameState.Mode == GameMode.Headhunter ? "TOKENS BANKED / CARRIED" : _scene.GameState.IsTokenMode ? "CONFIRMS" : GameState.Mode == GameMode.GunGame ? "WEAPON STAGE" : _scene.GameState.IsHardpoint ? "HARDPOINT TIME" : GameState.Mode == GameMode.Relic ? "RELIC TIME" : Strings.GetHudMessage(ProScoreMessageId());
             ProNumber(x, y, align, label, ProHudDim, 0.55f);
             Span<char> score=stackalloc char[96];
             int slot=_scene.Players.MainPlayerIndex;

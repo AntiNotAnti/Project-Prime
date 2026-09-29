@@ -28,6 +28,19 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
+            if (args.Length > 1 && args[0] == "--gamemodecheck-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return GameModeSceneCheck.Run();
+            }
+            if (args.Length > 1 && args[0] == "--resourceaudit")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return Mods.Multiplayer.ResourceAudit.Run();
+            }
             if (args.Length > 1 && args[0] == "--advanced-rules-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
@@ -113,7 +126,8 @@ namespace MphRead.NetTest
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
-                return NetBootstrapCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
+                return args.Length > 2 && args[2] == "all" ? NetBootstrapCheck.RunAllModes()
+                    : NetBootstrapCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
             if (args.Length > 1 && args[0] == "--combat-scene")
             {

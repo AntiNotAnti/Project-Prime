@@ -21,6 +21,11 @@ namespace MphRead.Mods.Multiplayer
                 ("1v1", GameMode.BattleTeams, 2), ("2v2", GameMode.BattleTeams, 4),
                 ("3v3", GameMode.BattleTeams, 6), ("4v4", GameMode.BattleTeams, 8),
                 ("4v2", GameMode.BattleTeams, 6), ("2v2v2v2", GameMode.BattleTeams, 8),
+                ("KillConfirmed2", GameMode.KillConfirmed, 2), ("KillConfirmedTeams8", GameMode.KillConfirmedTeams, 8),
+                ("Headhunter8", GameMode.Headhunter, 8),
+                ("GunGame2", GameMode.GunGame, 2), ("GunGame8", GameMode.GunGame, 8),
+                ("HardpointFFA8", GameMode.Hardpoint, 8), ("HardpointTeams8", GameMode.HardpointTeams, 8),
+                ("RelicFFA2", GameMode.Relic, 2), ("RelicFFA4", GameMode.Relic, 4), ("RelicFFA8", GameMode.Relic, 8),
                 ("BountyFFA4", GameMode.Bounty, 4), ("BountyTeams8", GameMode.BountyTeams, 8),
                 ("NodesFFA8", GameMode.Nodes, 8), ("NodesTeams8", GameMode.NodesTeams, 8),
                 ("DefenderFFA8", GameMode.Defender, 8), ("DefenderTeams8", GameMode.DefenderTeams, 8),
@@ -37,11 +42,20 @@ namespace MphRead.Mods.Multiplayer
                     try
                     {
                         MatchWorldProfile profile = MatchWorldProfile.Resolve(scenario.Players);
-                        int layer = Metadata.GetMultiplayerEntityLayer(scenario.Mode, profile.EntityLayerPlayers);
+                        int layer = SceneSetup.GetMultiplayerEntityLayer(scenario.Mode, profile.EntityLayerPlayers, profile.Resources);
                         IReadOnlyList<Entity> original = Read.GetEntities(room.EntityPath, layer, false, allowHook: true);
                         IReadOnlyList<Entity> actual = MapResourceRules.Resolve(room, profile.Resources, original);
                         var spawns = actual.OfType<Entity<PlayerSpawnEntityData>>().Where(e => e.Data.Active != 0).ToArray();
                         if (spawns.Length == 0) missingLayers++;
+                        bool supported = MapModeCapabilities.SupportsEntities(key, scenario.Mode, actual, out string reason);
+                        bool hasObjective = scenario.Mode is GameMode.Capture or GameMode.Bounty or GameMode.BountyTeams or GameMode.Relic
+                            ? actual.Any(e => e.Type is EntityType.FlagBase or EntityType.OctolithFlag)
+                            : scenario.Mode is GameMode.Nodes or GameMode.NodesTeams or GameMode.Defender or GameMode.DefenderTeams
+                                && actual.Any(e => e.Type == EntityType.NodeDefense);
+                        bool broken = !supported && hasObjective;
+                        Console.WriteLine($"{key} | {scenario.Mode} | {scenario.Label} | "
+                            + (supported ? "SUPPORTED" : broken ? "BROKEN: " + reason : "UNSUPPORTED: " + reason));
+                        if (broken) failures++;
                         Entity<ItemSpawnEntityData>[] health = Health(actual);
                         int baseHealth = Health(original).Length;
                         var objectives = actual.Where(e => e.Type is EntityType.FlagBase or EntityType.OctolithFlag

@@ -186,7 +186,7 @@ namespace MphRead.Mods.Launcher.Gui
             ButtonToggleRow Toggle(string name) => (ButtonToggleRow)typeof(LobbyScreen).GetField(name, flags)!.GetValue(lobby)!;
             var insta = Toggle("_instaGib"); var noImp = Toggle("_noImperialist"); var low = Toggle("_lowTier");
             Check(new[] { insta, noImp, low }.All(row => row.Children.OfType<PrimeButton>().Count(button => button.Focusable) == 2), "advanced rules support controller focus");
-            var advanced = (Control)insta.Parent!.Parent!;
+            var advanced = (Control)insta.Parent!.Parent!.Parent!;
             typeof(LobbyScreen).GetMethod("ShowSheet", flags)!.Invoke(lobby, new object[] { "LOBBY RULES", advanced });
             Check(overlays.GetLogicalDescendants().Contains(insta) && overlays.GetLogicalDescendants().Contains(noImp)
                 && overlays.GetLogicalDescendants().Contains(low), "advanced rules are in the open rules sheet");
@@ -353,6 +353,14 @@ namespace MphRead.Mods.Launcher.Gui
                         foreach (var toggle in shell.Overlays.GetVisualDescendants().OfType<ButtonToggleRow>().Where(t => t.IsVisible))
                         foreach (var button in toggle.GetVisualDescendants().OfType<PrimeButton>())
                             Check(button.Bounds.Width >= 50 && button.Bounds.Height >= 38, "rule toggle has a readable hit target");
+                        Check(!shell.Overlays.GetVisualDescendants().OfType<ScrollViewer>().Any(), "all lobby rules fit without a scroll container");
+                        Check(UiCapture.Capture(shell, Path.Combine(directory, "prime-lobby-rules-960x540.png"), new Size(960,540)), "compact lobby rules capture");
+                        shell.Overlays.Close();
+                        shell.Router.Navigate(PrimeRoute.Offline);
+                        var offlineRules = ((Control)shell.Workspaces.Content!).GetVisualDescendants().OfType<PrimeButton>().Single(b => b.Label == "ADVANCED MATCH RULES");
+                        offlineRules.Focus(); FocusNavigator.Key(offlineRules, Key.Enter);
+                        Check(UiCapture.Capture(shell, Path.Combine(directory, "prime-offline-rules-1280x720.png"), new Size(1280,720)), "offline rules capture");
+                        Check(!shell.Overlays.GetVisualDescendants().OfType<ScrollViewer>().Any(view => view.Content is StackPanel), "offline rules have no scrolling form");
                         shell.Overlays.Close();
                         shell.Router.Navigate(PrimeRoute.Play);
                         shell.Overlays.Show(new MapCardPicker(new[] { "MP1 SANCTORUS", "MP3 PROVING GROUND" }, "MP1 SANCTORUS"));

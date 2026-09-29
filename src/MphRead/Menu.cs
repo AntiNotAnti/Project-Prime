@@ -85,6 +85,8 @@ namespace MphRead
         public string DamageLevel { get; set; } = "medium";
         public string FriendlyFire { get; set; } = "off";
         public string AffinityWeapons { get; set; } = "off";
+        public string Fiesta { get; set; } = "off";
+        public string OneInTheChamber { get; set; } = "off";
         public string InstaGib { get; set; } = "off";
         public string LowTier { get; set; } = "off";
         public string NoImperialist { get; set; } = "off";
@@ -280,7 +282,7 @@ namespace MphRead
                 {
                     _pointGoal = pointGoal;
                 }
-                _octolithReset = settings.PointGoal != "off";
+                _octolithReset = settings.AutoReset != "off";
                 _teams = settings.TeamPlay != "off";
                 _radarPlayers = settings.HunterRadar != "off";
                 _damageLevel = settings.DamageLevel switch

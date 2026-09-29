@@ -54,6 +54,9 @@ namespace MphRead.Mods.MapGen
         public int[] Light2Color { get; set; } = new[] { 10, 11, 16 };
         public float[] Light2Vector { get; set; } = new[] { -0.3f, 1f, -0.2f };
 
+        /// <summary>Optional Hardpoint rotation order by objective entity ID; unspecified nodes follow by ID.</summary>
+        public List<int> HardpointOrder { get; set; } = new();
+
         public uint BattleTimeLimit { get; set; } = 7 * 60 * 30;
         public short PointLimit { get; set; } = 7;
 

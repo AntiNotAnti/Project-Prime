@@ -35,7 +35,7 @@ namespace MphRead.Mods.Network
 
         public static void Apply()
         {
-            if (!NetSession.Active || NetSession.ServerMatch == null)
+            if (!NetSession.Active || NetSession.ServerMatch == null || !NetRoomChange.GameplayReady)
             {
                 return;
             }

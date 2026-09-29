@@ -80,6 +80,15 @@ internal static class ReplayTimelineArchive
         ReplayMarkerKind.PrimeChange => ReplayEventType.PrimeChanged,
         ReplayMarkerKind.MatchPoint => ReplayEventType.MatchPoint,
         ReplayMarkerKind.Overtime => ReplayEventType.Overtime,
+        ReplayMarkerKind.RelicPickup => ReplayEventType.RelicPickup,
+        ReplayMarkerKind.RelicDrop => ReplayEventType.RelicDrop,
+        ReplayMarkerKind.HardpointChanged => ReplayEventType.HardpointChanged,
+        ReplayMarkerKind.HardpointCaptured => ReplayEventType.HardpointCaptured,
+        ReplayMarkerKind.GunGameAdvance => ReplayEventType.GunGameAdvance,
+        ReplayMarkerKind.TokenSpawn => ReplayEventType.TokenSpawn,
+        ReplayMarkerKind.TokenConfirmed => ReplayEventType.TokenConfirmed,
+        ReplayMarkerKind.TokenDenied => ReplayEventType.TokenDenied,
+        ReplayMarkerKind.TokenBanked => ReplayEventType.TokenBanked,
         _ => null
     };
     // File-only semantic facts retain exact identity even though the legacy
