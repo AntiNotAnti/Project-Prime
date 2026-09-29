@@ -1619,6 +1619,13 @@ namespace MphRead.Entities
                     {
                         DrawEscapeTime();
                     }
+                    // The stock timer is a scoreboard surface. A Custom HUD can
+                    // promote it to a persistent gameplay element; its own
+                    // visibility/context rules still decide whether it is shown.
+                    if (HudProfiles.Runtime.Mode == HudMode.Custom)
+                    {
+                        DrawMatchTime();
+                    }
                     if (Health > 0)
                     {
                         if (!_scene.GameState.DialogPause)
@@ -4121,6 +4128,24 @@ namespace MphRead.Entities
                 int limit=profile.Notifications.Queue==HudNotificationQueue.Latest ? 1 : profile.Notifications.MaxVisible;
                 for (int i=0; i<Math.Max(0,lane.Length-limit); i++) _hudMessageQueue[lane[i]].CombatDeferred=true;
                 lane=lane[Math.Max(0,lane.Length-limit)..];
+
+                // In a Custom HUD the editor owns this lane's placement and
+                // scale. Do not snap medals back into the stock collision
+                // bands before applying combat.notifications: doing that made
+                // X/Y/Scale edits appear ineffective and made scale pivot
+                // around an unrelated automatic lane. 32 is the authored
+                // origin used by UseHudLayout below and by the HUD Studio.
+                float customY = 32;
+                for (int i = 0; i < lane.Length; i++)
+                {
+                    HudMessage message = _hudMessageQueue[lane[i]];
+                    message.CombatDeferred = false;
+                    message.Scale = CombatNotificationScale;
+                    message.Position = new Vector2(128, customY);
+                    message.Alpha = i == lane.Length - 1 ? 1f : 0.62f;
+                    customY += CombatNotificationHeight(message) + HudNotificationGap;
+                }
+                return;
             }
             Span<(float Top,float Bottom)> occupiedBuffer = stackalloc (float,float)[20];
             int occupiedCount=0;
