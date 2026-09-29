@@ -38,6 +38,7 @@ public static class DemoPlayback
     public static double DurationSeconds => Session.DurationSeconds;
     public static bool AtEnd => Session.AtEnd;
     public static string? LastError => Session.LastError;
+    public static string? LastWarning => Session.LastWarning;
     public static bool Join(string path, int timeoutMs = 8000)
     {
         Stop();
@@ -51,7 +52,12 @@ public static class DemoPlayback
         $"{_player.CheckpointSource} restore {_player.SeekRestoreFrame} · {_player.SeekSimulationSteps} steps · {_player.SeekMilliseconds:0.0} ms · {_player.RejectedCheckpoints} rejected";
     internal static void Update(Scene shell)
     {
-        if (!IsActive || _failed) return;
+        if (!IsActive) return;
+        if (_failed)
+        {
+            PollFailedControls(shell);
+            return;
+        }
         try { UpdateCore(shell); }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -62,6 +68,14 @@ public static class DemoPlayback
             Session.Transport.AfterFrame();
         }
     }
+    private static void PollFailedControls(Scene shell)
+    {
+        _shell ??= shell;
+        if (_player?.Current.Scene is not Scene replay) return;
+        replay.UseReplayInput(_shell);
+        replay.PollReplayControls();
+    }
+
     private static void UpdateCore(Scene shell)
     {
         _shell ??= shell;
@@ -158,5 +172,6 @@ public static class DemoPlayback
         { Console.WriteLine("[replay] Cannot create practice branch: " + ex.Message); return false; }
     }
     internal static void FailVerification(string error) => Session.FailVerification(error);
+    internal static void WarnVerification(string warning) => Session.WarnVerification(warning);
     internal static long PlaybackArrivalTicks(uint frame) => ReplayPlaybackSession.PlaybackArrivalTicks(frame);
 }
