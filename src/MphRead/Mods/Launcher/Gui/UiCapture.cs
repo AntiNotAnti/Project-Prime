@@ -180,6 +180,8 @@ namespace MphRead.Mods.Launcher.Gui
                 new PlayScreen(settings, rooms, PlayScreen.Face.Online), _phonePortrait);
             yield return ("play-online-phone-landscape",
                 new PlayScreen(settings, rooms, PlayScreen.Face.Online), _phoneLandscape);
+            yield return ("offline-phone-portrait", new OfflineWorkspace(settings, rooms, new PrimeOverlayHost()), _phonePortrait);
+            yield return ("offline-phone-landscape", new OfflineWorkspace(settings, rooms, new PrimeOverlayHost()), _phoneLandscape);
             yield return ("offline", new OfflineWorkspace(settings, rooms, new PrimeOverlayHost()), _windowSize);
             yield return ("replay-studio", new TheatreWorkspace(manageStorage: false), _windowSize);
             yield return ("replay-studio-phone-landscape",

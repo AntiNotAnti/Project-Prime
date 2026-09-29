@@ -119,6 +119,7 @@ namespace MphRead.Mods.Input.AimAssist
             V3Checks();
             V4Checks();
             StrengthPassChecks();
+            FlickLandingChecks();
             ShadowFreezeChecks();
             AimAssistCameraChecks.Run();
 
@@ -127,6 +128,54 @@ namespace MphRead.Mods.Input.AimAssist
             MeasureCoreAllocations(state, targets, profile);
             long allocated = MeasureCoreAllocations(state, targets, profile);
             Check(allocated == 0, $"steady-state assist core allocates no managed memory ({allocated} bytes)");
+        }
+
+        private static void FlickLandingChecks()
+        {
+            const float dt = 1f / 60;
+            void Check(bool ok, string name) => GamepadChecks.Check(ok, "flick landing: " + name);
+            Check(AimAssistMath.TrajectoryIntersectsRegion(new(.51f, .52f, -.01f, .01f), new(8, 0)),
+                "continuous sweep catches a head between trajectory samples");
+            Check(!AimAssistMath.TrajectoryIntersectsRegion(new(.51f, .52f, .01f, .02f), new(8, 0)),
+                "near miss is not a pass-through intersection");
+            foreach (BeamType weapon in new[] { BeamType.PowerBeam, BeamType.VoltDriver, BeamType.Imperialist })
+            foreach (float scope in new[] { 0f, 1f })
+            foreach (Vector2 direction in new[] { Vector2.UnitX, -Vector2.UnitX,
+                Vector2.UnitY, Vector2.Normalize(new Vector2(1, 1)) })
+            {
+                var profile = AimAssistWeaponProfile.For(weapon, scope);
+                Vector2 center = direction * .3f;
+                var region = new AimAssistRegion(center.X - .08f, center.X + .08f,
+                    center.Y - .08f, center.Y + .08f);
+                Vector2 surface = AimAssistMath.RegionError(region);
+                var target = new AimAssistTarget(1, 1, center, center, 12, true, true,
+                    BodyRegion: region, HeadRegion: region,
+                    BodySurface: new(surface, false), HeadSurface: new(surface, false));
+                var state = new AimAssistState();
+                var result = AimAssist.Apply(state, new[] { target }, direction * 1.2f,
+                    direction * .9f, 0, dt, true, profile);
+                Vector2 output = new(result.X, result.Y);
+                Check(result.TrackingState == AimAssistTrackingState.FlickCapturingHead
+                    && AimAssistMath.RegionError(output, region).Length() < .0001f,
+                    $"{weapon} scope {scope}: fast turn lands inside head ({direction})");
+                Check(result.TurnAccelerationBrake >= .9f,
+                    "capture unwinds outer-stick acceleration");
+            }
+
+            var pending = new AimAssistState();
+            var standard = AimAssistWeaponProfile.For(BeamType.PowerBeam);
+            AimAssist.Apply(pending, ReadOnlySpan<AimAssistTarget>.Empty,
+                new Vector2(.6f, 0), new Vector2(.9f, 0), 0, dt, true, standard);
+            Check(pending.PreviousDeltaTime == dt && pending.CameraVelocity0.X > 0,
+                "empty-space flick preserves usable camera history");
+            for (int i = 0; i < 3; i++)
+                AimAssist.Apply(pending, ReadOnlySpan<AimAssistTarget>.Empty,
+                    new Vector2(.6f, 0), new Vector2(.9f, 0), 0, dt, true, standard);
+            Check(pending.FlickActive && !pending.FlickBraking,
+                "constant held stick is not classified as braking");
+            AimAssist.Apply(pending, ReadOnlySpan<AimAssistTarget>.Empty,
+                new Vector2(.2f, 0), new Vector2(.4f, 0), 0, dt, true, standard);
+            Check(pending.FlickBraking, "actual stick release enters braking");
         }
 
         private static void RegionAndIntentChecks()

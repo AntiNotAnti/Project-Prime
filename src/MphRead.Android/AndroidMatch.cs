@@ -66,6 +66,8 @@ namespace MphRead.Droid
                 MphRead.Mods.GameSettings.ApplyMatchRules(scene.GameState);
                 plan.MatchRules.ApplyModifiers(scene.GameState);
             }
+            if (plan.Kind == LaunchKind.AimTrainer)
+                MphRead.Mods.Training.AimTrainerSession.Attach(scene, plan);
             return scene;
         }
 

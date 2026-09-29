@@ -212,11 +212,31 @@ namespace MphRead.Mods.Input.AimAssist
             return baseRadius * scale * (scoped ? .65f : 1f);
         }
 
+        public static bool TrajectoryIntersectsRegion(AimAssistRegion region, Vector2 travel)
+        {
+            if (!Finite(region.Center) || !Finite(travel)
+                || region.Width < 0 || region.Height < 0) return false;
+            float enter = 0, exit = 1;
+            return ClipTrajectoryAxis(region.MinYaw, region.MaxYaw, travel.X, ref enter, ref exit)
+                && ClipTrajectoryAxis(region.MinPitch, region.MaxPitch, travel.Y, ref enter, ref exit);
+        }
+
+        private static bool ClipTrajectoryAxis(float min, float max, float travel,
+            ref float enter, ref float exit)
+        {
+            if (Math.Abs(travel) < .000001f) return min <= 0 && max >= 0;
+            float a = min / travel, b = max / travel;
+            enter = Math.Max(enter, Math.Min(a, b));
+            exit = Math.Min(exit, Math.Max(a, b));
+            return enter <= exit;
+        }
+
         public static float TrajectoryRegionScore(AimAssistRegion region, Vector2 travel)
         {
             if (!Finite(region.Center) || !Finite(travel)) return 0;
-            // Fixed samples are deterministic and allocation-free; an intersection
-            // with the rectangle scores one, otherwise score closest approach.
+            // Exact segment intersection cannot skip a narrow distant head.
+            if (TrajectoryIntersectsRegion(region, travel)) return 1;
+            // Samples are sufficient for the soft proximity ranking of misses.
             float best = float.MaxValue;
             for (int i = 0; i <= 8; i++)
             {

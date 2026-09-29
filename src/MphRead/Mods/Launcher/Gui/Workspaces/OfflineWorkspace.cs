@@ -48,7 +48,7 @@ namespace MphRead.Mods.Launcher.Gui
             _saveDetail = PrimeChrome.Text("", 13, PrimeTheme.TextSecondaryBrush);
             _resume = new PrimeButton("▷ RESUME", () => Adventure(false), true);
             ControllerNav.Identify(_resume, "offline.adventure.resume");
-            var adventureBody = PrimeChrome.Stack(new PrimeBadge("MODE 02 // NARRATIVE CAMPAIGN", PrimeTheme.GreenBrush),
+            var adventureBody = PrimeChrome.Stack(new PrimeBadge("MODE 03 // NARRATIVE CAMPAIGN", PrimeTheme.GreenBrush),
                 PrimeChrome.Title("ADVENTURE RUNS"), PrimeChrome.Text("Explore the Alimbic Cluster and recover the Octoliths.", 14, PrimeTheme.TextSecondaryBrush));
             for (byte i = 1; i <= AdventureSave.SlotCount; i++)
             {
@@ -67,11 +67,63 @@ namespace MphRead.Mods.Launcher.Gui
             var avatar = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("SIMULACRUM SPEC"), PrimeChrome.Title("OFFLINE AVATAR"),
                 stand, _hunter, _suit, PrimeChrome.Text("LOCAL RIG // READY\nSimulation: 60 Hz", 12, PrimeTheme.GreenBrush, true)));
             var root = new Grid { Margin = PrimeMetrics.PageMargin, RowDefinitions = new("Auto,*"), RowSpacing = 20 };
-            root.Children.Add(HubChrome.Header("OPERATIONS // OFFLINE ARCHIVE", "OFFLINE COMBAT MATRIX",
+            root.Children.Add(HubChrome.Header("OPERATIONS // OFFLINE ARCHIVE", "OFFLINE",
                 "Local combat simulations and Adventure save data.", "STANDALONE"));
-            var body = PrimeChrome.Columns("1.2*,1.05*,.8*", bot, adventure, avatar);
-            Grid.SetRow(body, 1); root.Children.Add(body); Content = root;
+            var cards = new Control[] { bot, TrainingCard(), adventure, avatar };
+            var body = new Grid { ColumnSpacing = 16, RowSpacing = 16 };
+            foreach (var card in cards) body.Children.Add(card);
+            void LayoutCards(double width)
+            {
+                int columns = width >= 1300 ? 4 : width >= 650 ? 2 : 1;
+                double height = Math.Max(130, root.Bounds.Height - root.Children[0].Bounds.Height - root.RowSpacing);
+                foreach (var card in cards) card.Height = height;
+                body.ColumnDefinitions = new(string.Join(",", Enumerable.Repeat("*", columns)));
+                body.RowDefinitions = new(string.Join(",", Enumerable.Repeat("Auto", (4 + columns - 1) / columns)));
+                for (int i = 0; i < cards.Length; i++) { Grid.SetColumn(cards[i], i % columns); Grid.SetRow(cards[i], i / columns); }
+            }
+            LayoutCards(1200);
+            root.SizeChanged += (_, _) => LayoutCards(root.Bounds.Width);
+            root.Children[0].SizeChanged += (_, _) => LayoutCards(root.Bounds.Width);
+            var scroll = new ScrollViewer { Content = body, HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled };
+            Grid.SetRow(scroll, 1); root.Children.Add(scroll); Content = root;
             Refresh();
+        }
+        private Control TrainingCard()
+        {
+            var saved = LauncherPrefs.Training.Sanitize();
+            var hunterNames = Enumerable.Range(0, Hunters.Playable).Select(i => ((Hunter)i).ToString()).Append("Random").ToArray();
+            var trainerHunter = new ChoiceRow("Hunter", hunterNames, Math.Max(0, Array.IndexOf(hunterNames, LauncherPrefs.LastHunter.ToString())));
+            var drill = new ChoiceRow("Drill", Enum.GetNames<Mods.Training.AimTrainerDrill>().Select(Mods.Training.TrainingLabels.Display).ToArray(), (int)saved.Drill);
+            var weapon = new ChoiceRow("Weapon", Enumerable.Range(0, 8).Select(i => Mods.Training.TrainingLabels.Display(((BeamType)i).ToString())).ToArray(), (int)saved.Weapon);
+            var duration = new ChoiceRow("Duration", new[] { "30", "60", "120", "300" }, saved.DurationSeconds == 30 ? 0 : saved.DurationSeconds == 120 ? 2 : saved.DurationSeconds == 300 ? 3 : 1);
+            var targets = new ChoiceRow("Targets", Enumerable.Range(1, 7).Select(i => i.ToString()).ToArray(), saved.TargetCount - 1);
+            var movement = new ChoiceRow("Movement", Enum.GetNames<Mods.Training.AimTrainerMovement>().Select(Mods.Training.TrainingLabels.Display).ToArray(), (int)saved.Movement);
+            var difficulty = new ChoiceRow("Difficulty", Enum.GetNames<Mods.Training.TrainingDifficulty>(), (int)saved.Difficulty);
+            var distance = new ChoiceRow("Target distance", Enum.GetNames<Mods.Training.TrainingDistance>(), (int)saved.Distance);
+            var scope = new ChoiceRow("Imperialist scope", Enum.GetNames<Mods.Training.TrainingScope>(), (int)saved.Scope);
+            var heads = new ToggleRow("Headshots only", saved.HeadshotsOnly);
+            var ammo = new ToggleRow("Infinite ammo", saved.InfiniteAmmo);
+            var reload = new ToggleRow("Reload on hit", saved.ReloadOnHit);
+            var seed = new ToggleRow("Fixed seed", saved.FixedSeed);
+            var advancedView = new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("TRAINING OPTIONS"), difficulty, scope, distance, heads, ammo, reload, seed,
+                new PrimeButton("DONE", _overlays.Close)));
+            var advanced = new PrimeButton("ADVANCED TRAINING OPTIONS", () => _overlays.Show(advancedView, PrimeModalSize.Medium));
+            var start = new PrimeButton("▷ INITIATE TRAINING", () => Launched?.Invoke(this,
+                AimTrainerLaunch.Create(new Mods.Training.AimTrainerDefinition
+                {
+                    Drill = (Mods.Training.AimTrainerDrill)drill.Index, Weapon = (BeamType)weapon.Index,
+                    DurationSeconds = int.Parse(duration.Value), TargetCount = targets.Index + 1,
+                    Movement = (Mods.Training.AimTrainerMovement)movement.Index,
+                    Difficulty = (Mods.Training.TrainingDifficulty)difficulty.Index,
+                    Distance = (Mods.Training.TrainingDistance)distance.Index,
+                    Scope = (Mods.Training.TrainingScope)scope.Index, HeadshotsOnly = heads.On,
+                    InfiniteAmmo = ammo.On, ReloadOnHit = reload.On, FixedSeed = seed.On,
+                    Seed = seed.On ? saved.Seed : (uint)Random.Shared.Next(1, int.MaxValue)
+                }, Enum.Parse<Hunter>(trainerHunter.Value), _suit.Index)), true) { IsEnabled = GameFiles.Ready };
+            ControllerNav.Identify(start, "offline.training.start");
+            return WithAction(PrimeChrome.Stack(new PrimeBadge("MODE 02 // TARGETING SIMULATION"),
+                PrimeChrome.Title("AIM TRAINER"), PrimeChrome.Text("Train tracking, flicks, headshots and weapon accuracy."),
+                trainerHunter, drill, weapon, duration, targets, movement, advanced), start);
         }
         private static Control WithAction(Control content, Control action)
         {
@@ -130,6 +182,7 @@ namespace MphRead.Mods.Launcher.Gui
             var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal);
             var fire = new ToggleRow("Friendly fire", _settings.FriendlyFire == "on");
             var affinity = new ToggleRow("Affinity weapons", _settings.AffinityWeapons == "on");
+            var enhancedHunters = new ToggleRow("Enhanced Hunters", _settings.EnhancedHunters == "on");
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
@@ -141,7 +194,7 @@ namespace MphRead.Mods.Launcher.Gui
             var damage = new ChoiceRow("Damage", new[] { "low", "medium", "high" }, _settings.DamageLevel == "low" ? 0 : _settings.DamageLevel == "high" ? 2 : 1);
             var error = PrimeChrome.Text("", 12, PrimeTheme.DangerBrush);
             _overlays.Show(new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("ENGAGEMENT PROTOCOL"),
-                score, time, objective, damage, fire, instaGib, lowTier, noImperialist, affinity, freeze, spawnProtection, radar, error,
+                score, time, objective, damage, fire, instaGib, lowTier, noImperialist, affinity, enhancedHunters, freeze, spawnProtection, radar, error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
@@ -161,6 +214,7 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldTimeGoal = _settings.TimeGoal;
                     string oldFriendlyFire = _settings.FriendlyFire;
                     string oldAffinityWeapons = _settings.AffinityWeapons;
+                    string oldEnhancedHunters = _settings.EnhancedHunters;
                     string oldShadowFreeze = _settings.ShadowFreeze;
                     string oldSpawnProtection = _settings.SpawnProtection;
                     string oldHunterRadar = _settings.HunterRadar;
@@ -173,6 +227,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _settings.TimeGoal = objective.Value;
                     _settings.FriendlyFire = fire.On ? "on" : "off";
                     _settings.AffinityWeapons = affinity.On ? "on" : "off";
+                    _settings.EnhancedHunters = enhancedHunters.On ? "on" : "off";
                     _settings.ShadowFreeze = freeze.On ? "on" : "off";
                     _settings.SpawnProtection = spawnProtection.On ? "on" : "off";
                     _settings.HunterRadar = radar.On ? "on" : "off";
@@ -194,6 +249,7 @@ namespace MphRead.Mods.Launcher.Gui
                         _settings.TimeGoal = oldTimeGoal;
                         _settings.FriendlyFire = oldFriendlyFire;
                         _settings.AffinityWeapons = oldAffinityWeapons;
+                        _settings.EnhancedHunters = oldEnhancedHunters;
                         _settings.ShadowFreeze = oldShadowFreeze;
                         _settings.SpawnProtection = oldSpawnProtection;
                         _settings.HunterRadar = oldHunterRadar;
