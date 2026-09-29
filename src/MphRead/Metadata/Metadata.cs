@@ -422,6 +422,7 @@ namespace MphRead
         [
             new (GameMode.Battle, new List<int>() { 0, 1, 2 }),
             new (GameMode.BattleTeams, new List<int>() { 3 }),
+            new (GameMode.OneInTheChamber, new List<int>() { 15 }),
             new (GameMode.Survival, new List<int>() { 15 }),
             new (GameMode.SurvivalTeams, new List<int>() { 15 }),
             new (GameMode.Capture, new List<int>() { 12 }),

@@ -51,7 +51,7 @@ namespace MphRead.Mods.Network
             var result = ValidateDefinition(match, out reason);
             if (result != LobbyResultCode.Ok) return result;
             TeamLayout layout = ResolveTeamLayout(match);
-            int required = layout.TeamCount > 0
+            int required = match.Mode == GameMode.OneInTheChamber || layout.TeamCount > 0
                 ? 2
                 : match.Format == MatchFormat.FreeForAll ? 2 : 1;
             if (roster.Count < required)

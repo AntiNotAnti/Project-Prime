@@ -89,6 +89,7 @@ namespace MphRead.Mods.Launcher.Gui
             ("Hardpoint", GameMode.Hardpoint),
                 ("Hardpoint teams", GameMode.HardpointTeams),
                 ("Gun Game", GameMode.GunGame),
+                ("One in the Chamber", GameMode.OneInTheChamber),
                 ("Kill Confirmed", GameMode.KillConfirmed),
                 ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
                 ("Headhunter", GameMode.Headhunter),

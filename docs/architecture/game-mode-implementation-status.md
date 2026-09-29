@@ -126,3 +126,19 @@ protocols 24–30. Verified 2,030 game-mode contracts, 789 asset-backed gameplay
 Desktop, dedicated-server and Android builds pass. The UDP lobby suite passes 6,888 assertions.
 Architecture, replication packet budgets, asset guards and shipped-map checks pass.
 The lobby test fixture uses explicit native rooms so installed custom maps cannot change its inputs.
+
+## One in the Chamber mode (protocol 32)
+
+One in the Chamber is selectable in offline, hosted and persistent-lobby mode menus.
+It is free-for-all with exactly three lives (two spare lives), no match timer, and
+last-survivor victory. Its Imperialist spawns with one lethal shot, each kill grants
+one shot, and the normal-damage Power Beam remains the empty-ammo backup.
+Weapon/ammo pickups and owner-reported ammo cannot bypass its loadout.
+Survival elimination, score ranking, HUD lives, bot navigation and causal replay endings
+include the mode. The modifier toggle is removed; the old wire field remains readable
+for historical recordings. `-oneinthechamber` selects the mode on dedicated servers.
+
+Validation: 2,192 lifecycle contracts, 843 asset-backed authority checks including actual
+three-death elimination and kill ammo, 121 advanced-rule checks, 2,738 replay format checks,
+18,886 UI checks, and all 20 mode bootstrap/replay restoration scenarios pass. Desktop and
+dedicated-server builds pass. Rendered live multiplayer playtesting remains unverified.

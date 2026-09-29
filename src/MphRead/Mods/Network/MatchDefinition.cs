@@ -16,7 +16,7 @@ namespace MphRead.Mods.Network
     public static class MatchGoalRules
     {
         public static bool UsesLives(GameMode mode) =>
-            mode is GameMode.Survival or GameMode.SurvivalTeams;
+            mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber;
 
         public static bool UsesTimeTarget(GameMode mode) =>
             mode is GameMode.Defender or GameMode.DefenderTeams or GameMode.PrimeHunter or GameMode.Relic or GameMode.Hardpoint or GameMode.HardpointTeams;
@@ -24,7 +24,7 @@ namespace MphRead.Mods.Network
         public static ushort DefaultValue(GameMode mode) => mode switch
         {
             GameMode.Battle or GameMode.BattleTeams or GameMode.GunGame => 7,
-            GameMode.Survival or GameMode.SurvivalTeams => 2, // two spare lives = three total
+            GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber => 2, // two spare lives = three total
             GameMode.Bounty or GameMode.BountyTeams => 3,
             GameMode.Capture => 5,
             GameMode.KillConfirmed or GameMode.KillConfirmedTeams or GameMode.Headhunter => 25,
@@ -75,13 +75,15 @@ namespace MphRead.Mods.Network
         public bool NoImperialist { get; init; }
         public bool OctolithAutoReset { get; init; }
         public MatchDefinition NormalizeLegacy() => Mode == GameMode.InstaGib
-            ? this with { Mode = GameMode.Battle, InstaGib = true } : this;
+            ? this with { Mode = GameMode.Battle, InstaGib = true }
+            : Mode == GameMode.OneInTheChamber ? this with { PointGoal = 2, TimeLimitSeconds = 0 } : this;
 
         public void ApplyModifiers(SceneGameState state)
         {
             state.FriendlyFire = FriendlyFire;
             state.AffinityWeapons = AffinityWeapons;
-            state.Fiesta = Fiesta; state.OneInTheChamber = OneInTheChamber;
+            state.Fiesta = Fiesta; state.OneInTheChamber = OneInTheChamber || Mode == GameMode.OneInTheChamber;
+            if (Mode == GameMode.OneInTheChamber) state.PointGoal = 2;
             state.EnhancedHunters = EnhancedHunters;
             state.InstaGib = InstaGib || Mode == GameMode.InstaGib;
             state.LowTier = LowTier;
@@ -92,7 +94,7 @@ namespace MphRead.Mods.Network
         }
 
         public string ModifierSummary => String.Join(" • ", new[] {
-            Fiesta ? "Fiesta" : null, OneInTheChamber ? "One in the Chamber" : null, InstaGib ? "Insta-Gib" : null, LowTier ? "Low Tier" : null,
+            Fiesta ? "Fiesta" : null, OneInTheChamber && Mode != GameMode.OneInTheChamber ? "One in the Chamber" : null, InstaGib ? "Insta-Gib" : null, LowTier ? "Low Tier" : null,
             NoImperialist ? "No Imp" : null }.Where(value => value != null));
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)

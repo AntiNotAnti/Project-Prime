@@ -29,7 +29,7 @@ public static class GameModeSceneCheck
                 var profile = MatchWorldProfile.Resolve(count);
                 string room = ThumbnailGenerator.MultiplayerRooms().First(key => MapModeCapabilities.Supports(key, mode, profile, out _));
                 var match = new MatchDefinition { RoomKey = room, Mode = mode,
-                    PointGoal = MatchGoalRules.DefaultValue(mode), TimeLimitSeconds = 600 };
+                    PointGoal = MatchGoalRules.DefaultValue(mode), TimeLimitSeconds = 600 }.NormalizeLegacy();
                 var session = new SessionStatePacket { MatchId = 1, AuthorityEpoch = 1,
                     MaxPlayers = (byte)count, Phase = SessionPhase.InMatch, Match = match, WorldProfile = profile };
                 var roster = RosterPacket.Create(); roster.Count = (byte)count;
@@ -160,10 +160,46 @@ public static class GameModeSceneCheck
                         players[0].TakeDamage(500, DamageFlags.IgnoreInvuln, null, null);
                         Check(state.Points[0] == GunGameRules.StageCount, $"{mode}/{count}: suicide cannot erase stage");
                     }
-                    else if (mode is GameMode.Survival or GameMode.SurvivalTeams)
+                    else if (mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber)
                     {
                         float previous = state.Time[0]; state.ModeState(scene);
                         Check(state.Time[0] > previous, $"{mode}/{count}: survival clock");
+                        if (mode == GameMode.OneInTheChamber)
+                        {
+                            int cost = Math.Max(1, (int)scene.WeaponRules[(int)BeamType.Imperialist].AmmoCost);
+                            Check(state.OneInTheChamber && state.PointGoal == 2 && state.MatchTime < 0,
+                                $"{mode}/{count}: three lives with no clock");
+                            players[0].Spawn(players[0].Position, Vector3.UnitZ, Vector3.UnitY, players[0].NodeRef, respawn: true);
+                            Check(players[0].CurrentWeapon == BeamType.Imperialist && players[0].ModAmmo.Ua == cost,
+                                $"{mode}/{count}: one shot at spawn");
+                            players[1].Spawn(players[1].Position, Vector3.UnitZ, Vector3.UnitY, players[1].NodeRef, respawn: true);
+                            for (int death = 1; death <= 3; death++)
+                            {
+                                if (death == 1)
+                                {
+                                    players[0].ApplyChamberAmmo(0, NetSession.NetFrame);
+                                    var shot = new BeamProjectileEntity(scene) { Owner = players[0], Beam = BeamType.Imperialist, BeamKind = BeamType.Imperialist };
+                                    NetPlayerLifecycle.StampProjectile(shot);
+                                    players[1].TakeDamage(1, DamageFlags.IgnoreInvuln, null, shot);
+                                    Check(players[1].Health == 0 && players[0].ModAmmo.Ua == cost,
+                                        $"{mode}/{count}: lethal shot earns exactly one replacement round (health {players[1].Health}, ammo {players[0].ModAmmo.Ua}, cost {cost})");
+                                }
+                                else players[1].TakeDamage(500, DamageFlags.IgnoreInvuln, null, null);
+                                state.UpdateState();
+                                Check(state.Deaths[1] == death, $"{mode}/{count}: death consumes life {death}");
+                                if (death < 3)
+                                {
+                                    state.ModeState(scene);
+                                    Check(state.MatchTime < 0, $"{mode}/{count}: spare lives prevent early victory");
+                                    players[1].Spawn(players[1].Position, Vector3.UnitZ, Vector3.UnitY, players[1].NodeRef, respawn: true);
+                                    Check(players[1].ModAmmo.Ua == cost, $"{mode}/{count}: respawn resets to one shot");
+                                }
+                            }
+                            ushort life = NetPlayerLifecycle.Get(1);
+                            for (int frame = 0; frame < 360; frame++) players[1].Process();
+                            Check(players[1].Health == 0 && NetPlayerLifecycle.Get(1) == life,
+                                $"{mode}/{count}: eliminated player cannot respawn");
+                        }
                         for (int i = 1; i < count; i++)
                         {
                             if (state.Teams && players[i].TeamIndex == players[0].TeamIndex) continue;

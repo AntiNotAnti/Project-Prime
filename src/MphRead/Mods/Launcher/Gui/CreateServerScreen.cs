@@ -74,6 +74,7 @@ namespace MphRead.Mods.Launcher.Gui
             ("Hardpoint", GameMode.Hardpoint),
                 ("Hardpoint teams", GameMode.HardpointTeams),
                 ("Gun Game", GameMode.GunGame),
+                ("One in the Chamber", GameMode.OneInTheChamber),
                 ("Kill Confirmed", GameMode.KillConfirmed),
                 ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
                 ("Headhunter", GameMode.Headhunter),
@@ -803,6 +804,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         internal static (int TimeLimit, ushort PointGoal) InitialMatchLimits(GameMode mode)
         {
+            if (mode == GameMode.OneInTheChamber) return (0, 2);
             int timeLimit = mode is (GameMode.Relic or GameMode.Hardpoint or GameMode.HardpointTeams or GameMode.GunGame) && mode != LauncherPrefs.LastLobbyMode ? 600
                 : Math.Clamp(LauncherPrefs.LastLobbyTimeLimitSeconds, 0, UInt16.MaxValue);
             ushort pointGoal = mode == LauncherPrefs.LastLobbyMode

@@ -188,7 +188,8 @@ namespace MphRead.Mods.Launcher.Gui
             var time = new FieldRow("Time limit (m:ss)", _settings.TimeLimit, boxWidth: 88);
             var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal, boxWidth: 88);
             GameMode selectedMode = OfflineLaunch.Modes[_mode.Index].Mode;
-            score.IsVisible = !Network.MatchGoalRules.UsesTimeTarget(selectedMode) && selectedMode != GameMode.GunGame;
+            score.IsVisible = !Network.MatchGoalRules.UsesTimeTarget(selectedMode) && selectedMode is not (GameMode.GunGame or GameMode.OneInTheChamber);
+            time.IsVisible = selectedMode != GameMode.OneInTheChamber;
             objective.IsVisible = Network.MatchGoalRules.UsesTimeTarget(selectedMode);
             var autoReset = new ToggleRow("Octolith auto reset", _settings.AutoReset == "on")
             { IsVisible = Multiplayer.MatchModifierRules.UsesOctolith(selectedMode) };
@@ -199,7 +200,6 @@ namespace MphRead.Mods.Launcher.Gui
             var freeze = new ToggleRow("Shadow freeze", _settings.ShadowFreeze == "on");
             var spawnProtection = new ToggleRow("Spawn protection (3s)", _settings.SpawnProtection == "on");
             var fiesta = new ToggleRow("Fiesta", _settings.Fiesta == "on");
-            var chamber = new ToggleRow("One in the Chamber", _settings.OneInTheChamber == "on");
             var instaGib = new ToggleRow("Insta-Gib", _settings.InstaGib == "on");
             var lowTier = new ToggleRow("Low Tier", _settings.LowTier == "on");
             var noImperialist = new ToggleRow("No Imp", _settings.NoImperialist == "on");
@@ -217,9 +217,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             var body = PrimeChrome.Stack(PrimeChrome.Title("MATCH RULES"),
                 PrimeChrome.Columns("*,*,*",
-                    Section("MATCH", score, time, objective, damage),
+                    Section("MATCH", PrimeChrome.Text(selectedMode == GameMode.OneInTheChamber ? "3 lives • Last player standing\nOne lethal shot • Kills earn ammo" : "", 12, PrimeTheme.TextSecondaryBrush), score, time, objective, damage),
                     Section("GAMEPLAY", fire, affinity, enhancedHunters, freeze, spawnProtection, radar),
-                    Section("ADVANCED", fiesta, chamber, instaGib, lowTier, noImperialist, autoReset)), error,
+                    Section("ADVANCED", fiesta, instaGib, lowTier, noImperialist, autoReset)), error,
                 PrimeChrome.Columns("*,*", new PrimeButton("CANCEL", _overlays.Close), new PrimeButton("APPLY RULES", () =>
                 {
                     bool Duration(string value) => TimeSpan.TryParseExact(value, @"m\:ss", null, out _)
@@ -232,7 +232,7 @@ namespace MphRead.Mods.Launcher.Gui
                     // Treat APPLY RULES like the main settings screen: persist first, then
                     // keep the runtime settings facade in sync with the committed values.
                     var rules = new Network.MatchDefinition { Mode = OfflineLaunch.Modes[_mode.Index].Mode,
-                        InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On, OneInTheChamber = chamber.On };
+                        InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;
                     string oldFiesta = _settings.Fiesta, oldChamber = _settings.OneInTheChamber;
@@ -251,7 +251,7 @@ namespace MphRead.Mods.Launcher.Gui
                     string oldDamageLevel = _settings.DamageLevel;
                     _settings.AutoReset = autoReset.On ? "on" : "off";
                     _settings.Fiesta = fiesta.On ? "on" : "off";
-                    _settings.OneInTheChamber = chamber.On ? "on" : "off";
+                    _settings.OneInTheChamber = "off";
                     _settings.InstaGib = instaGib.On ? "on" : "off";
                     _settings.LowTier = lowTier.On ? "on" : "off";
                     _settings.NoImperialist = noImperialist.On ? "on" : "off";

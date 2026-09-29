@@ -2352,7 +2352,7 @@ namespace MphRead.Mods.Network
         // Protocol 28 adds Insta-Gib, Low Tier and No Imp session rules and positive,
         // default-off Shadow Freeze / Spawn Protection flags. Gameplay packet sizes
         // stay unchanged; status replies append the rule mask for browser presentation.
-        public const int ProtocolVersion = 31;
+        public const int ProtocolVersion = 32;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

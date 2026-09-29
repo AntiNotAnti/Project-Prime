@@ -24,7 +24,7 @@ public static class GameModeCheck
             GameMode[] modes = { GameMode.Battle, GameMode.BattleTeams, GameMode.Survival,
                 GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty, GameMode.BountyTeams,
                 GameMode.Nodes, GameMode.NodesTeams, GameMode.Defender, GameMode.DefenderTeams,
-                GameMode.PrimeHunter, GameMode.Relic, GameMode.Hardpoint, GameMode.HardpointTeams, GameMode.GunGame, GameMode.KillConfirmed, GameMode.KillConfirmedTeams, GameMode.Headhunter };
+                GameMode.PrimeHunter, GameMode.Relic, GameMode.Hardpoint, GameMode.HardpointTeams, GameMode.GunGame, GameMode.KillConfirmed, GameMode.KillConfirmedTeams, GameMode.Headhunter, GameMode.OneInTheChamber };
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, null, -1) == 1, "Hardpoint starts at smallest entity ID");
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, null, 9) == 1, "Hardpoint ID order wraps");
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, new[] { 5, 9 }, -1) == 5, "custom Hardpoint order overrides IDs");
@@ -65,6 +65,18 @@ public static class GameModeCheck
                     && historical.Names[0] == "OBJECTIVE" && historical.ObjectiveA[0] == 0,
                     $"protocol {protocol} report supplies neutral objective defaults");
             }
+            var chamberMode = new MatchDefinition { RoomKey = "MP1 SANCTORUS", Mode = GameMode.OneInTheChamber,
+                PointGoal = 99, TimeLimitSeconds = 600 }.NormalizeLegacy();
+            Check(chamberMode.PointGoal == 2 && chamberMode.TimeLimitSeconds == 0, "Chamber fixes three lives and last-survivor victory");
+            chamberMode.ApplyModifiers(state);
+            Check(state.OneInTheChamber && state.PointGoal == 2, "Chamber mode implies its weapon rules");
+            Check(!MatchModifierRules.Validate(chamberMode with { Fiesta = true }, out _), "Chamber mode rejects Fiesta");
+            Check(!MatchModifierRules.Validate(chamberMode with { InstaGib = true }, out _), "Chamber mode rejects Insta-Gib");
+            Check(!MatchModifierRules.Validate(chamberMode with { NoImperialist = true }, out _), "Chamber mode requires Imperialist");
+            var chamberSession = new SessionStatePacket { Match = chamberMode, MaxPlayers = 8 };
+            byte[] chamberBytes = new byte[SessionStatePacket.Size]; chamberSession.Write(chamberBytes);
+            Check(SessionStatePacket.TryRead(chamberBytes, out var chamberRead) && chamberRead.Match.Mode == GameMode.OneInTheChamber,
+                "Chamber mode roundtrips through session state");
             state.ConfigureMatchMode(GameMode.InstaGib, true);
             Check(state.Mode == GameMode.Battle && state.InstaGib && state.ModeState.Method.Name == "ModeStateBattle",
                 "legacy Insta-Gib normalizes to Battle plus modifier");

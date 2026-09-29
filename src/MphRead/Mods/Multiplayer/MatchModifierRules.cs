@@ -10,7 +10,7 @@ public static class MatchModifierRules
     {
         match = match.NormalizeLegacy();
         reason = "";
-        if (match.OneInTheChamber && (match.InstaGib || match.NoImperialist || match.Fiesta))
+        if ((match.OneInTheChamber || match.Mode == GameMode.OneInTheChamber) && (match.InstaGib || match.NoImperialist || match.Fiesta))
             reason = "One in the Chamber cannot be combined with Insta-Gib, No Imp or Fiesta.";
         else if (match.Fiesta && match.InstaGib)
             reason = "Fiesta and Insta-Gib require different spawn loadouts.";

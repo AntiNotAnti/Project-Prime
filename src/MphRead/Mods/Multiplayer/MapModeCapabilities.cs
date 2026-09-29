@@ -64,7 +64,7 @@ public static class MapModeCapabilities
         if (mode is GameMode.BattleTeams or GameMode.SurvivalTeams or GameMode.KillConfirmedTeams
             && (!map.Spawns.Any(s => s.Team == 0) || !map.Spawns.Any(s => s.Team == 1)))
         { reason = $"{map.Name} requires spawns for both teams."; return false; }
-        if (mode is GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams)
+        if (mode is GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.OneInTheChamber or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams)
         { reason = ""; return true; }
         reason = $"{map.Name} does not supply {mode} objective entities.";
         return false;
@@ -105,7 +105,7 @@ public static class MapModeCapabilities
         {
             if (!entities.Any(e => e.Type == EntityType.NodeDefense)) missing = "NodeDefense objectives";
         }
-        else if (mode is not (GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams))
+        else if (mode is not (GameMode.Battle or GameMode.BattleTeams or GameMode.Survival or GameMode.SurvivalTeams or GameMode.PrimeHunter or GameMode.OneInTheChamber or GameMode.GunGame or GameMode.KillConfirmed or GameMode.KillConfirmedTeams))
             missing = "a supported multiplayer mode";
         reason = missing == null ? "" : $"{name} cannot run {mode}: missing {missing}.";
         return missing == null;

@@ -706,7 +706,7 @@ namespace MphRead.Mods.Launcher
                 GameMode.Battle, GameMode.BattleTeams, GameMode.Survival,
                 GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty,
                 GameMode.BountyTeams, GameMode.Defender, GameMode.DefenderTeams,
-                GameMode.Nodes, GameMode.NodesTeams, GameMode.PrimeHunter
+                GameMode.Nodes, GameMode.NodesTeams, GameMode.PrimeHunter, GameMode.OneInTheChamber
             };
             Console.WriteLine();
             for (int i = 0; i < modes.Length; i++)

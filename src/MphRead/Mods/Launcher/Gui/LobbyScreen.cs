@@ -30,6 +30,7 @@ namespace MphRead.Mods.Launcher.Gui
             ("Capture", GameMode.Capture, GameMode.Capture, true, false),
             ("Hardpoint", GameMode.Hardpoint, GameMode.HardpointTeams, false, false),
             ("Gun Game", GameMode.GunGame, GameMode.GunGame, false, true),
+            ("One in the Chamber", GameMode.OneInTheChamber, GameMode.OneInTheChamber, false, true),
             ("Kill Confirmed", GameMode.KillConfirmed, GameMode.KillConfirmedTeams, true, true),
             ("Headhunter", GameMode.Headhunter, GameMode.Headhunter, false, true),
             ("Relic", GameMode.Relic, GameMode.Relic, false, true),
@@ -70,7 +71,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly PickRow _map, _customTeams;
         private readonly ButtonToggleRow _fire, _affinity, _enhancedHunters, _freeze, _requireReady, _join;
         private readonly ButtonToggleRow _lockTeams, _opponentHealth, _disablePowerups, _spawnProtection;
-        private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset;
+        private readonly ButtonToggleRow _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset;
         private Hunter[] _allowedHunters = Enumerable.Range(0, Hunters.Playable).Select(i => (Hunter)i).ToArray();
         private readonly Note _layoutSummary = new("");
         private readonly Note _teamSummary = new("", lines: 1);
@@ -161,7 +162,6 @@ namespace MphRead.Mods.Launcher.Gui
             _disablePowerups = Toggle("Disable powerups", on: true);
             _spawnProtection = Toggle("Spawn protection (3s)");
             _fiesta = Toggle("Fiesta");
-            _oneInTheChamber = Toggle("One in the Chamber");
             _instaGib = Toggle("Insta-Gib");
             _lowTier = Toggle("Low Tier");
             _noImperialist = Toggle("No Imp");
@@ -173,7 +173,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (ButtonToggleRow toggle in new[]
             {
                 _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams,
-                _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection
+                _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection
             })
                 toggle.Changed += (_, _) => DraftChanged();
             _vanillaDuelResources.Changed += (_, _) =>
@@ -216,7 +216,7 @@ namespace MphRead.Mods.Launcher.Gui
             var matchRules = RuleSection("MATCH", _requireReady, _join, _lockTeams);
             var gameplayRules = RuleSection("GAMEPLAY", _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth,
                 _disablePowerups, _spawnProtection, _octolithAutoReset);
-            var advancedRules = RuleSection("ADVANCED", _vanillaDuelResources, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist);
+            var advancedRules = RuleSection("ADVANCED", _vanillaDuelResources, _fiesta, _instaGib, _lowTier, _noImperialist);
 
             _target = new ChoiceRow("Player", Array.Empty<string>());
 
@@ -746,7 +746,6 @@ namespace MphRead.Mods.Launcher.Gui
                 _spawnProtection.On = session.Match.SpawnProtection;
                 _vanillaDuelResources.On = session.Match.VanillaDuelResources;
                 _fiesta.On = session.Match.Fiesta;
-                _oneInTheChamber.On = session.Match.OneInTheChamber;
                 _instaGib.On = session.Match.InstaGib;
                 _lowTier.On = session.Match.LowTier;
                 _noImperialist.On = session.Match.NoImperialist;
@@ -765,7 +764,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _ownerControls.IsEnabled = NetSession.CanEditLobby && !NetSession.LobbyCommandPending;
-            foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _oneInTheChamber, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
+            foreach (var toggle in new[] { _fire, _affinity, _enhancedHunters, _freeze, _opponentHealth, _requireReady, _join, _lockTeams, _fiesta, _instaGib, _lowTier, _noImperialist, _octolithAutoReset, _disablePowerups, _spawnProtection, _vanillaDuelResources })
                 toggle.IsEnabled = _ownerControls.IsEnabled;
             bool vanillaDuelAvailable = session.Match.Format == MatchFormat.OneVsOne
                 && session.Match.Mode == GameMode.BattleTeams;
@@ -1079,6 +1078,9 @@ namespace MphRead.Mods.Launcher.Gui
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
             _goal.IsVisible = draft.Mode != GameMode.GunGame;
+            _goal.Box.IsReadOnly = draft.Mode == GameMode.OneInTheChamber;
+            _time.IsVisible = draft.Mode != GameMode.OneInTheChamber;
+            if (draft.Mode == GameMode.OneInTheChamber) _goal.Value = "3";
             _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(draft.Mode);
             bool sameGoalKind = MatchGoalRules.UsesLives(previousGoalMode) == MatchGoalRules.UsesLives(draft.Mode)
                 && MatchGoalRules.UsesTimeTarget(previousGoalMode) == MatchGoalRules.UsesTimeTarget(draft.Mode);
@@ -1125,6 +1127,9 @@ namespace MphRead.Mods.Launcher.Gui
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
             _goal.IsVisible = draft.Mode != GameMode.GunGame;
+            _goal.Box.IsReadOnly = draft.Mode == GameMode.OneInTheChamber;
+            _time.IsVisible = draft.Mode != GameMode.OneInTheChamber;
+            if (draft.Mode == GameMode.OneInTheChamber) _goal.Value = "3";
             _octolithAutoReset.IsVisible = MatchModifierRules.UsesOctolith(draft.Mode);
             _goal.Box.PlaceholderText = MatchGoalRules.UsesTimeTarget(draft.Mode)
                 ? "1:30"
@@ -1190,7 +1195,7 @@ namespace MphRead.Mods.Launcher.Gui
                 && match.Mode == GameMode.BattleTeams && _vanillaDuelResources.On;
             match = match with
             {
-                TimeLimitSeconds = seconds,
+                TimeLimitSeconds = match.Mode == GameMode.OneInTheChamber ? (ushort)0 : seconds,
                 PointGoal = goal,
                 FriendlyFire = _fire.On,
                 AffinityWeapons = _affinity.On,
@@ -1199,7 +1204,7 @@ namespace MphRead.Mods.Launcher.Gui
                 HideOpponentHealth = !_opponentHealth.On,
                 DisablePowerups = _disablePowerups.On,
                 SpawnProtection = _spawnProtection.On,
-                Fiesta = _fiesta.On, OneInTheChamber = _oneInTheChamber.On,
+                Fiesta = _fiesta.On, OneInTheChamber = false,
                 InstaGib = _instaGib.On, LowTier = _lowTier.On, NoImperialist = _noImperialist.On,
                 OctolithAutoReset = MatchModifierRules.UsesOctolith(match.Mode) && _octolithAutoReset.On,
                 VanillaDuelResources = vanillaDuelResources
@@ -1440,7 +1445,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private static string GoalLabel(GameMode mode) => mode switch
         {
-            GameMode.Survival or GameMode.SurvivalTeams => "Lives",
+            GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber => "Lives",
             GameMode.Bounty or GameMode.BountyTeams => "Bounty goal",
             GameMode.Capture => "Captures",
             GameMode.Defender or GameMode.DefenderTeams => "Hold time",
@@ -1462,6 +1467,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private bool TryGoalValue(GameMode mode, out ushort value, out string reason)
         {
+            if (mode == GameMode.OneInTheChamber) { value = 2; reason = ""; return true; }
             if (mode == GameMode.GunGame) { value = Multiplayer.GunGameRules.StageCount; reason = ""; return true; }
             value = 0;
             reason = "";

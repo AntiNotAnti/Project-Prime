@@ -1304,7 +1304,8 @@ namespace MphRead
         GunGame = 19,
         KillConfirmed = 20,
         KillConfirmedTeams = 21,
-        Headhunter = 22
+        Headhunter = 22,
+        OneInTheChamber = 23
     }
 
     [Flags]

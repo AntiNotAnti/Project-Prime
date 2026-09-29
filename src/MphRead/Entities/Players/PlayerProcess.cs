@@ -170,7 +170,7 @@ namespace MphRead.Entities
             if (_respawnTimer > 0)
             {
                 _respawnTimer--;
-                if ((_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams)
+                if ((_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.OneInTheChamber)
                     && _scene.GameState.TeamDeaths[SlotIndex] > _scene.GameState.PointGoal)
                 {
                     if (IsMainPlayer)
@@ -253,7 +253,7 @@ namespace MphRead.Entities
                             // press FIRE to begin / press FIRE to respawn
                             int messageId = _scene.CameraSequences.Current?.IsIntro == true ? 245 : 244;
                             if (!Bugfixes.NoStrayRespawnText || time > 0
-                                || _scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams)
+                                || _scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams && _scene.GameState.Mode != GameMode.OneInTheChamber)
                             {
                                 QueueHudMessage(128, 162, 1 / 1000f, 0, messageId);
                                 if (time < 150 * 2) // todo: FPS stuff
@@ -323,7 +323,7 @@ namespace MphRead.Entities
             {
                 _disruptedTimer--;
             }
-            if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams)
+            if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.OneInTheChamber)
             {
                 if (Flags2.TestFlag(PlayerFlags2.RadarReveal))
                 {
@@ -2340,7 +2340,7 @@ namespace MphRead.Entities
         {
             // todo: FPS stuff
             int count = 0;
-            if (_scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams)
+            if (_scene.GameState.Mode != GameMode.Survival && _scene.GameState.Mode != GameMode.SurvivalTeams && _scene.GameState.Mode != GameMode.OneInTheChamber)
             {
                 if (_scene.Players.PlayerCount > 3)
                 {

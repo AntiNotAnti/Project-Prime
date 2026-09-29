@@ -301,6 +301,7 @@ namespace MphRead
                 InstaGib = true;
             }
             Mode = mode;
+            OneInTheChamber = mode == GameMode.OneInTheChamber;
             Teams = IsTeamMode(mode);
             if (applyDefaults)
             {
@@ -315,11 +316,12 @@ namespace MphRead
                 if (applyDefaults) { MatchTime = 7 * 60; }
                 ModeState = ModeStateBattle;
             }
-            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
             {
                 if (applyDefaults) { PointGoal = 2; } // spare lives
                 if (applyDefaults) { MatchTime = 15 * 60; }
-                ModeState = ModeStateSurvival;
+                ModeState = Mode == GameMode.OneInTheChamber ? ModeStateOneInTheChamber : ModeStateSurvival;
+                if (Mode == GameMode.OneInTheChamber && applyDefaults) MatchTime = -1;
             }
             else if (Mode == GameMode.Bounty || Mode == GameMode.BountyTeams)
             {
@@ -640,7 +642,7 @@ namespace MphRead
                 else
                 {
                     _players.Main.HudEndDisrupted();
-                    if ((Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams) && !ForceEndGame)
+                    if ((Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber) && !ForceEndGame)
                     {
                         for (int i = 0; i < PlayerEntity.SlotCapacity; i++)
                         {
@@ -870,6 +872,8 @@ namespace MphRead
         {
             EndIfPointGoalReached();
         }
+
+        public void ModeStateOneInTheChamber(Scene scene) => UpdateSurvival(scene.FrameTime);
 
         public void ModeStateSurvival(Scene scene)
         {
@@ -1418,7 +1422,7 @@ namespace MphRead
                 TeamPoints[i] = 0;
                 TeamDeaths[i] = 0;
                 TeamKills[i] = 0;
-                if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+                if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
                 {
                     TeamTime[i] = 0;
                 }
@@ -1433,7 +1437,7 @@ namespace MphRead
                 TeamPoints[player.TeamIndex] += Points[i];
                 TeamDeaths[player.TeamIndex] += Deaths[i];
                 TeamKills[player.TeamIndex] += Kills[i];
-                if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+                if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
                 {
                     if (Time[i] == -1 || TeamTime[player.TeamIndex] != -1 && TeamTime[player.TeamIndex] < Time[i])
                     {
@@ -1457,7 +1461,7 @@ namespace MphRead
                         _players.Main.QueueHudMessage(128, 133, 3, 1, cue.Text);
                 }
             }
-            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            else if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
             {
                 int opponents = 0;
                 int lastTeam = -1;
@@ -1503,7 +1507,7 @@ namespace MphRead
             int points2 = Points[slot2];
             float time1 = Time[slot1];
             float time2 = Time[slot2];
-            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
             {
                 if (time1 == -1)
                 {
@@ -1530,7 +1534,7 @@ namespace MphRead
                 }
                 return 1;
             }
-            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
             {
                 if (time1 == time2 && deaths1 == deaths2)
                 {
@@ -1588,7 +1592,7 @@ namespace MphRead
             int points2 = TeamPoints[slot2];
             float time1 = TeamTime[slot1];
             float time2 = TeamTime[slot2];
-            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams)
+            if (Mode == GameMode.Survival || Mode == GameMode.SurvivalTeams || Mode == GameMode.OneInTheChamber)
             {
                 if (time1 == -1)
                 {

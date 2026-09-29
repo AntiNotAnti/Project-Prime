@@ -370,9 +370,9 @@ namespace MphRead.Entities
                 int points=_scene.GameState.Teams ? _scene.GameState.TeamPoints[_scene.Players.Items[slot].TeamIndex] : _scene.GameState.Points[slot];
                 if(score.TryWrite($"{points} / {_scene.GameState.PointGoal}",out length)) ProNumber(x,y+8,align,score[..length],ProHudInk,scale);
             }
-            else if(mode is GameMode.Survival or GameMode.SurvivalTeams)
+            else if(mode is GameMode.Survival or GameMode.SurvivalTeams or GameMode.OneInTheChamber)
             {
-                int lives=Math.Max(_scene.GameState.PointGoal-_scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex],0);
+                int lives=Math.Max(_scene.GameState.PointGoal+(mode == GameMode.OneInTheChamber ? 1 : 0)-_scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex],0);
                 if(lives.TryFormat(score,out length)) ProNumber(x,y+8,align,score[..length],ProHudInk,scale);
             }
             else ProNumber(x, y + 8, align, FormatModeScore(slot), ProHudInk, scale);
@@ -388,6 +388,7 @@ namespace MphRead.Entities
         {
             switch (GameState.Mode)
             {
+                case GameMode.OneInTheChamber:
                 case GameMode.Survival:
                 case GameMode.SurvivalTeams:
                     return 213; // lives left

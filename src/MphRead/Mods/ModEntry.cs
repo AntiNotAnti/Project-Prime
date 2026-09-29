@@ -966,6 +966,8 @@ namespace MphRead.Mods
                 ownerToken = Guid.Empty;
             }
 
+            if (HasFlag(args, "oneinthechamber"))
+                rotation = Network.MapRotation.SingleMatch(rotation.Current.RoomKey, GameMode.OneInTheChamber, 0, 2);
             var server = new Network.DedicatedServer(port, maxPlayers, rotation)
             {
                 ServerName = ValueAfter(args, "servername") ?? ValueAfter(args, "name")
@@ -990,7 +992,7 @@ namespace MphRead.Mods
                 // Spawn protection is the default match rule; the negative
                 // flag is useful for fixed competitive servers that opt out.
                 Fiesta = HasFlag(args, "fiesta"),
-                OneInTheChamber = HasFlag(args, "oneinthechamber"),
+
                 InstaGib = HasFlag(args, "instagib"),
                 OctolithAutoReset = HasFlag(args, "octolithautoreset"),
                 LowTier = HasFlag(args, "lowtier"),

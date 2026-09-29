@@ -62,7 +62,7 @@ namespace MphRead.Formats
                     player.AiData.Flags1 = true;
                 }
             }
-            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber)
             {
                 aiOffset = 45696;
             }

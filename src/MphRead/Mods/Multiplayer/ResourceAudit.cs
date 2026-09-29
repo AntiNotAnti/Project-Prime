@@ -23,6 +23,7 @@ namespace MphRead.Mods.Multiplayer
                 ("4v2", GameMode.BattleTeams, 6), ("2v2v2v2", GameMode.BattleTeams, 8),
                 ("KillConfirmed2", GameMode.KillConfirmed, 2), ("KillConfirmedTeams8", GameMode.KillConfirmedTeams, 8),
                 ("Headhunter8", GameMode.Headhunter, 8),
+                ("OneInTheChamber2", GameMode.OneInTheChamber, 2), ("OneInTheChamber8", GameMode.OneInTheChamber, 8),
                 ("GunGame2", GameMode.GunGame, 2), ("GunGame8", GameMode.GunGame, 8),
                 ("HardpointFFA8", GameMode.Hardpoint, 8), ("HardpointTeams8", GameMode.HardpointTeams, 8),
                 ("RelicFFA2", GameMode.Relic, 2), ("RelicFFA4", GameMode.Relic, 4), ("RelicFFA8", GameMode.Relic, 8),

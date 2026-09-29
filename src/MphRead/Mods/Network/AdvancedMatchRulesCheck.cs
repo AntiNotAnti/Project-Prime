@@ -22,10 +22,10 @@ namespace MphRead.Mods.Network
             {
                 foreach (var option in Launcher.OfflineLaunch.Modes)
                 {
-                    if (option.Mode == GameMode.GunGame)
+                    if (option.Mode is GameMode.GunGame or GameMode.OneInTheChamber)
                     {
                         Check(!MatchModifierRules.Validate(new MatchDefinition { Mode = option.Mode, InstaGib = true }, out _),
-                            "Gun Game rejects a modifier that would replace its ladder");
+                            option.Label + " rejects a modifier that would replace its loadout");
                         continue;
                     }
                     string room = ThumbnailGenerator.MultiplayerRooms().First(key =>
@@ -141,7 +141,7 @@ namespace MphRead.Mods.Network
             foreach (var mode in Launcher.OfflineLaunch.Modes.Select(m => m.Mode))
             {
                 var match = new MatchDefinition { RoomKey = Rooms()[0], Mode = mode, InstaGib = true };
-                Check(LobbyRules.ValidateDefinition(match, out _) == (mode == GameMode.GunGame ? LobbyResultCode.InvalidConfiguration : LobbyResultCode.Ok), $"{mode} validates Insta-Gib compatibility");
+                Check(LobbyRules.ValidateDefinition(match, out _) == (mode is GameMode.GunGame or GameMode.OneInTheChamber ? LobbyResultCode.InvalidConfiguration : LobbyResultCode.Ok), $"{mode} validates Insta-Gib compatibility");
                 Check(LobbyRules.ValidateDefinition(match with { NoImperialist = true }, out _) == LobbyResultCode.InvalidConfiguration, $"{mode} rejects conflicting weapons");
             }
             foreach (Hunter hunter in Enum.GetValues<Hunter>())

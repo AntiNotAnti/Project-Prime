@@ -628,7 +628,7 @@ namespace MphRead.Entities
             {
                 _rulesInfo = HudElements.RulesInfo[0];
             }
-            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber)
             {
                 _rulesInfo = HudElements.RulesInfo[1];
             }
@@ -2036,7 +2036,7 @@ namespace MphRead.Entities
                 header1 = Strings.GetHudMessage(224); // time
             }
             if (mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode
-                || mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+                || mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber)
             {
                 header2 = Strings.GetHudMessage(223); // deaths
             }
@@ -2052,7 +2052,7 @@ namespace MphRead.Entities
 
             string ChooseValue1(float time, int points)
             {
-                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.Defender
+                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber || mode == GameMode.Defender
                     || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter || mode == GameMode.Relic || _scene.GameState.IsHardpoint)
                 {
                     // time should only be -1 to indicate max in survival/teams
@@ -2064,7 +2064,7 @@ namespace MphRead.Entities
 
             string ChooseValue2(int deaths, int kills)
             {
-                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams
+                if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber
                     || mode == GameMode.Battle || mode == GameMode.BattleTeams || mode == GameMode.GunGame || _scene.GameState.IsTokenMode)
                 {
                     return deaths.ToString();
@@ -2599,7 +2599,7 @@ namespace MphRead.Entities
             _locatorInfo.Clear();
             ProcessOpponent();
             if (_scene.GameState.IsTokenMode) ProcessHudTokens();
-            if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams)
+            if (_scene.GameState.Mode == GameMode.Survival || _scene.GameState.Mode == GameMode.SurvivalTeams || _scene.GameState.Mode == GameMode.OneInTheChamber)
             {
                 ProcessHudSurvival();
             }
@@ -2969,7 +2969,7 @@ namespace MphRead.Entities
                 {
                     DrawHudBattle();
                 }
-                else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+                else if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber)
                 {
                     DrawHudSurvival();
                 }
@@ -3053,9 +3053,9 @@ namespace MphRead.Entities
                 }
                 return $"{_scene.GameState.Points[slot]} / {_scene.GameState.PointGoal}";
             }
-            if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams)
+            if (mode == GameMode.Survival || mode == GameMode.SurvivalTeams || mode == GameMode.OneInTheChamber)
             {
-                int lives = Math.Max(_scene.GameState.PointGoal - _scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex], 0);
+                int lives = Math.Max(_scene.GameState.PointGoal + (mode == GameMode.OneInTheChamber ? 1 : 0) - _scene.GameState.TeamDeaths[_scene.Players.Items[slot].TeamIndex], 0);
                 return lives.ToString();
             }
             if (mode == GameMode.Defender || mode == GameMode.DefenderTeams || mode == GameMode.PrimeHunter || mode == GameMode.Relic || _scene.GameState.IsHardpoint)
