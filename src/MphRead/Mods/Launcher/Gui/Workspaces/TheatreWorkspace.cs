@@ -954,11 +954,12 @@ namespace MphRead.Mods.Launcher.Gui
             if (reader == null)
                 return new(result, $"Cannot open replay: {result}.");
 
-            if (reader.ProtocolVersion != NetConfig.ProtocolVersion)
+            if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion))
             {
                 return new(ReplayOpenResult.ProtocolMismatch,
                     $"This replay uses network protocol {reader.ProtocolVersion}. "
-                    + $"This build uses protocol {NetConfig.ProtocolVersion}.");
+                    + $"This build can replay archived protocols "
+                    + $"{ReplayIdentityCompatibility.OldestReplayProtocol}-{NetConfig.ProtocolVersion}.");
             }
 
             if (reader.Metadata is ReplayMetadata metadata)
@@ -1130,7 +1131,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     new FilePickerFileType($"{Branding.Name} replay")
                     {
-                        Patterns = new[] { $"*{DemoFile.Extension}" }
+                        Patterns = new[] { $"*{DemoFile.Extension}", $"*{DemoFile.LegacyExtension}" }
                     },
                     new FilePickerFileType("Every file")
                     {
