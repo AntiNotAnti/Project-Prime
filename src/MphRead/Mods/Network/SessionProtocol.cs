@@ -136,7 +136,24 @@ namespace MphRead.Mods.Network
             String.Equals(roomKey, ReturnToLobbyKey, StringComparison.OrdinalIgnoreCase);
     }
 
-    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot }
+    public static class PlayerHandicap
+    {
+        public const byte Step = 10;
+        public const byte MaxDamageReduction = 50;
+
+        public static bool IsValid(byte reduction) =>
+            reduction <= MaxDamageReduction && reduction % Step == 0;
+
+        public static uint ScaleDamage(uint damage, byte reduction)
+        {
+            if (damage == 0 || reduction == 0) return damage;
+            if (!IsValid(reduction)) reduction = MaxDamageReduction;
+            uint scaled = (uint)((ulong)damage * (100u - reduction) / 100u);
+            return scaled == 0 ? 1u : scaled;
+        }
+    }
+
+    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot, SetHandicap }
     public enum LobbyResultCode : byte
     {
         Ok, NotOwner, InvalidPhase, StaleRevision, InvalidConfiguration, InvalidTeam,
@@ -145,7 +162,7 @@ namespace MphRead.Mods.Network
 
     public struct LobbyCommandPacket
     {
-        public const int Size = 13 + SessionStatePacket.Size;
+        public const int Size = 14 + SessionStatePacket.Size;
         public uint CommandId;
         public ushort ExpectedRevision;
         public LobbyCommandType Type;
@@ -153,6 +170,7 @@ namespace MphRead.Mods.Network
         public sbyte TeamIndex;
         public bool Ready;
         public byte Hunter, Color, BotLevel;
+        public byte DamageReduction;
         public SessionStatePacket Configuration;
         public void Write(Span<byte> dest)
         {
@@ -161,23 +179,24 @@ namespace MphRead.Mods.Network
             BinaryPrimitives.WriteUInt16LittleEndian(dest[4..], ExpectedRevision);
             dest[6] = (byte)Type; dest[7] = TargetSlot;
             dest[8] = unchecked((byte)TeamIndex); dest[9] = Ready ? (byte)1 : (byte)0;
-            dest[10] = Hunter; dest[11] = Color; dest[12] = BotLevel;
-            Configuration.Write(dest[13..]);
+            dest[10] = Hunter; dest[11] = Color; dest[12] = BotLevel; dest[13] = DamageReduction;
+            Configuration.Write(dest[14..]);
         }
         public static bool TryRead(ReadOnlySpan<byte> src, out LobbyCommandPacket command)
         {
             command = default;
-            if (src.Length != Size || src[6] > (byte)LobbyCommandType.UpdateBot || src[9] > 1) return false;
+            if (src.Length != Size || src[6] > (byte)LobbyCommandType.SetHandicap || src[9] > 1
+                || !PlayerHandicap.IsValid(src[13])) return false;
             SessionStatePacket config = default;
             if (src[6] == (byte)LobbyCommandType.UpdateMatch
-                && !SessionStatePacket.TryRead(src[13..], out config, validateDefinition: false)) return false;
+                && !SessionStatePacket.TryRead(src[14..], out config, validateDefinition: false)) return false;
             command = new LobbyCommandPacket
             {
                 CommandId = BinaryPrimitives.ReadUInt32LittleEndian(src),
                 ExpectedRevision = BinaryPrimitives.ReadUInt16LittleEndian(src[4..]),
                 Type = (LobbyCommandType)src[6], TargetSlot = src[7],
                 TeamIndex = unchecked((sbyte)src[8]), Ready = src[9] != 0, Configuration = config,
-                Hunter = src[10], Color = src[11], BotLevel = src[12]
+                Hunter = src[10], Color = src[11], BotLevel = src[12], DamageReduction = src[13]
             };
             return command.CommandId != 0;
         }
