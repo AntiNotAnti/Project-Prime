@@ -237,6 +237,18 @@ namespace MphRead.Mods.Launcher.Gui
                 StartMatch(window, plan);
             }
 
+            // A replay error must never strand the player behind a hidden shell.
+            // Restore the already-open Theatre editor automatically so Escape is
+            // not the only recovery path from a frozen fullscreen frame.
+            if (window.HasScene && _played?.Kind == LaunchKind.Demo
+                && DemoPlayback.IsActive && DemoPlayback.LastResult != ReplayOpenResult.Success
+                && _front != null && UiSurface.Ensure() is { } replaySurface
+                && !replaySurface.Visible)
+            {
+                _front.ShowReplayEditor(RequestEndMatch, () => replaySurface.Hide());
+                replaySurface.Show(_front);
+            }
+
             if (_matchLoading && window.HasScene)
             {
                 if (!NetSession.FreezeGameplay)
