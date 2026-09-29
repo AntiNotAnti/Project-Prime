@@ -79,6 +79,13 @@ namespace MphRead.Utility
             RoomMetadata meta = Metadata.RoomMetadata[room];
             CollisionInstance collision = Collision.GetCollision(meta, roomLayerMask: -1);
             List<CollisionDataEditor> editors = GetEditors(collision);
+            // wc02 is Project Prime's extended custom-map representation. Keep
+            // the original round-trip packer for retail wc01 rooms, but never
+            // squeeze an extended room back through 16-bit indices.
+            if (collision.Info is PrimeCollisionInfo)
+            {
+                return MphRead.Mods.MapGen.MapCollisionPacker.Pack(editors, collision.Info.Portals);
+            }
             // todo: once portal editing is supported, calculate planes etc. instead of preserving values
             return RepackMphCollision(editors, collision.Info.Portals);
         }
@@ -142,7 +149,7 @@ namespace MphRead.Utility
 
         private static List<CollisionDataEditor> GetEditors(CollisionInstance collision)
         {
-            if (collision.Info is MphCollisionInfo mphInfo)
+            if (collision.Info is MphCollisionInfoBase mphInfo)
             {
                 return GetEditors(mphInfo);
             }
@@ -165,10 +172,10 @@ namespace MphRead.Utility
             return 0;
         }
 
-        private static List<CollisionDataEditor> GetEditors(MphCollisionInfo info)
+        private static List<CollisionDataEditor> GetEditors(MphCollisionInfoBase info)
         {
             var editors = new List<CollisionDataEditor>();
-            foreach (CollisionData data in info.Data)
+            foreach (CollisionFace data in info.RuntimeData)
             {
                 Vector4 plane = info.Planes[data.PlaneIndex];
                 Vector3 normal = plane.Xyz;
@@ -180,7 +187,7 @@ namespace MphRead.Utility
                 };
                 for (int i = 0; i < data.PointIndexCount; i++)
                 {
-                    editor.Points.Add(info.Points[info.PointIndices[data.PointStartIndex + i]]);
+                    editor.Points.Add(info.Points[info.RuntimePointIndices[data.PointStartIndex + i]]);
                 }
                 editors.Add(editor);
             }

@@ -7,9 +7,10 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.MapGen;
 
 /// <summary>
-/// Lossless collision compaction for the MPH 16-bit collision format.
-/// Removes redundant polygon vertices first, then greedily merges adjacent
-/// coplanar convex polygons that carry identical collision behavior.
+/// Lossless collision compaction for custom-map collision.
+/// Removes redundant polygon vertices first, then optionally merges adjacent
+/// coplanar convex polygons that carry identical collision behavior when a
+/// caller supplies a point-index target.
 /// </summary>
 public static class MapCollisionOptimizer
 {
@@ -58,7 +59,7 @@ public static class MapCollisionOptimizer
         return editors;
     }
 
-    public static Result Optimize(IReadOnlyList<CollisionDataEditor> input,int maxPointIndices=ushort.MaxValue-1)
+    public static Result Optimize(IReadOnlyList<CollisionDataEditor> input,int maxPointIndices=int.MaxValue)
     {
         int originalFaces=input.Count;
         int originalIndices=input.Sum(e=>e.Points.Count);
