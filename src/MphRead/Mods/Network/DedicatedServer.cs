@@ -549,7 +549,7 @@ namespace MphRead.Mods.Network
                     // that ended on Tuesday is a port nobody can use until
                     // somebody notices.
                     Hosts.Reap(now);
-                    _hostMapRequests.Pump(now, (request, sender, time, package) => Hosts.Start(request, sender, time, package), SendHostReply);
+                    _hostMapRequests.Pump(now, (request, sender, time, packages) => Hosts.Start(request, sender, time, packages), SendHostReply);
                     // Newest release, checked on a timer and applied the
                     // moment there is nobody to interrupt. It says yes at most
                     // once, and only with an empty server, so a busy one keeps
@@ -1958,7 +1958,7 @@ namespace MphRead.Mods.Network
                 }
                 else
                 {
-                    if (request.MapIdentity.IsCustom)
+                    if (request.RequiresMapPreparation)
                     {
                         _hostMapRequests.Enqueue(request, packet.Sender, now, SendHostReply);
                         return;
