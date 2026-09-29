@@ -508,13 +508,17 @@ namespace MphRead.Mods.Network
             {
                 reply.Reason = "malformed request";
             }
+            else if (packet.Payload[0] != NetConfig.ProtocolVersion)
+            {
+                reply.Reason = $"this directory speaks protocol {NetConfig.ProtocolVersion}, "
+                    + $"your build speaks {packet.Payload[0]}";
+            }
             else
             {
                 HostRequestPacket request = HostRequestPacket.Read(packet.Payload);
                 if (request.Protocol != NetConfig.ProtocolVersion)
                 {
-                    reply.Reason = $"this directory speaks protocol {NetConfig.ProtocolVersion}, "
-                        + $"your build speaks {request.Protocol}";
+                    reply.Reason = "malformed request";
                 }
                 else if (!CanHost)
                 {
