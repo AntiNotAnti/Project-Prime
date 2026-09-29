@@ -48,7 +48,7 @@ Check(MphRead.Entities.PlayerEntity.DrawCustomMatchTimerDuringGameplay,
 // Regression: custom combat notifications must start at the same authored
 // origin that combat.notifications moves/scales around. Stock collision lanes
 // must not rewrite that origin before the custom element transform is applied.
-var notificationQueue=new List<MphRead.Entities.PlayerEntity.HudMessage>
+var notificationQueue=new MphRead.Entities.PlayerEntity.HudMessage[]
 {
     new() { CombatLines=1 },
     new() { CombatLines=1 }
