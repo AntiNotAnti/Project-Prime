@@ -3,8 +3,8 @@ namespace MphRead.Mods.Network;
 public static partial class NetSession
 {
     private static readonly NetReplicationReceiver _laneReceiver = new();
+    private static readonly byte[] _laneCanonical = new byte[4097]; // bootstrap/offline canonical assembly
     private static readonly NetReplicationLanes _hostLanes = new();
-    private static readonly byte[] _laneCanonical = new byte[NetConfig.MaxPacketSize + 1];
     private static void HandleLane(ReceivedPacket packet)
     {
         if (packet.Type != PacketType.SnapshotFast)
@@ -13,10 +13,7 @@ public static partial class NetSession
             return;
         }
         if (FreezeGameplay) return;
-        int length = _laneReceiver.Assemble(packet.Payload, _laneCanonical.AsSpan(1), CurrentMatchId, AuthorityEpoch);
-        if (length == 0) return;
-        _laneCanonical[0] = (byte)PacketType.Snapshot;
-        HandleSnapshot(new ReceivedPacket(packet.Sender, _laneCanonical, length + 1, packet.ArrivedAt));
+        HandleSnapshot(packet);
     }
     private static void SendHostLanes(System.Net.IPEndPoint endpoint)
     {

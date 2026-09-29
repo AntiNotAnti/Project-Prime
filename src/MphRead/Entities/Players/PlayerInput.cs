@@ -1013,7 +1013,8 @@ namespace MphRead.Entities
                             CameraInfo.Fov = currentFov;
                         }
                     }
-                    if (Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
+                    if (NetFireEvents.HasPending(this) && !Controls.Shoot.IsReleased
+                        || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
                         || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
                         && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
                     {
@@ -1104,6 +1105,13 @@ namespace MphRead.Entities
 
         private bool TryFireWeapon()
         {
+            if (!NetFireEvents.CanFire(this)) return false;
+            if (_scene.AimTrainer is { } trainer)
+            {
+                if (trainer.OwnsTarget(this) || trainer.Completed) return false;
+                if (CurrentWeapon != trainer.Definition.Weapon) ModArmWeapon(trainer.Definition.Weapon);
+            }
+            ModEnhancedBeforeShot();
             if (!Flags2.TestFlag(PlayerFlags2.Cloaking))
             {
                 _cloakTimer = 0;
@@ -1178,13 +1186,17 @@ namespace MphRead.Entities
             // the present. A no-op except on the machine simulating a match,
             // and there only for players who are not on it. Mods.Network.NetUnlagged.
             BeamResultFlags result;
+            _scene.AimTrainer?.BeginShot(this);
             try
             {
+                NetFireEvents.Begin(this);
                 Mods.Network.NetUnlagged.BeginShot(this, shotOrigin, shotVec);
                 result = BeamProjectileEntity.Spawn(this, EquipInfo, shotOrigin, shotVec, flags, NodeRef, _scene);
+                if (result != BeamResultFlags.NoSpawn) NetFireEvents.Commit(this);
                 Mods.Network.NetUnlagged.EndShot(this);
             }
             finally { Mods.Network.NetUnlagged.AbortShot(); }
+            _scene.AimTrainer?.EndShot(result != BeamResultFlags.NoSpawn);
             if (result == BeamResultFlags.NoSpawn)
             {
                 EquipInfo.Weapon = curWeapon;
@@ -1886,7 +1898,8 @@ namespace MphRead.Entities
                         else if (Controls.AltAttack.IsPressed)
                         {
                             Flags2 |= PlayerFlags2.AltAttack;
-                            float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed);
+                            float attackHSpeed = Fixed.ToFloat(Values.LungeHSpeed)
+                                * Mods.EnhancedHunters.TraceEnhancement.LaunchScale(this);
                             float attackVSpeed = Fixed.ToFloat(Values.LungeVSpeed);
                             float accelX = _field70 * attackHSpeed;
                             float accelZ = _field74 * attackHSpeed;
@@ -2379,6 +2392,12 @@ namespace MphRead.Entities
                 if (IsAltForm)
                 {
                     float altMin = Fixed.ToFloat(Values.AltMinHSpeed); // todo: FPS stuff?
+                    if (Hunter == Hunter.Spire && Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
+                        foreach (var zone in _scene.EnhancedWorld.Zones)
+                            if (zone.Type == Mods.EnhancedHunters.EnhancedZoneType.MagmaPool
+                                && Mods.EnhancedHunters.EnhancedHunterWorld.Owned(this, zone)
+                                && Mods.EnhancedHunters.EnhancedHunterWorld.Contains(zone, Position))
+                            { altMin *= 1.2f; break; }
                     if (_hSpeedCap <= altMin)
                     {
                         _hSpeedCap = altMin;
@@ -2724,6 +2743,7 @@ namespace MphRead.Entities
             for (int i = 0; i < players.Items.Count; i++)
             {
                 PlayerEntity player = players.Items[i];
+                if (player.OwningScene.AimTrainer?.TryDriveTarget(player) == true) continue;
                 if (player.IsBot && !player.SceneServices.IsReplica
                     && (!Mods.Network.NetSession.Active || Mods.Network.NetSession.IsAuthority))
                 {

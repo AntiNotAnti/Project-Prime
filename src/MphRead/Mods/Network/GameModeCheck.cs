@@ -53,7 +53,7 @@ public static class GameModeCheck
             byte[] reportBytes = new byte[PostMatchReportPacket.Size]; report.Write(reportBytes);
             Check(reportBytes.Length <= NetConfig.MaxPayloadSize && PostMatchReportPacket.TryRead(reportBytes, out var reportRoundtrip)
                 && reportRoundtrip.ObjectiveA[0]==3 && reportRoundtrip.ObjectiveD[0]==6, "objective report fits transport and retains statistics");
-            foreach (int protocol in new[] { 27, 28 })
+            foreach (int protocol in new[] { 27, 28, 29, 30 })
             {
                 byte[] oldReport = new byte[4 + 8 * PostMatchReportPacket.LegacyEntrySize]; oldReport[0] = (byte)PacketType.PostMatchReport;
                 reportBytes.AsSpan(0, 3).CopyTo(oldReport.AsSpan(1));
@@ -128,7 +128,7 @@ public static class GameModeCheck
             byte[] bytes = new byte[SessionStatePacket.Size]; session.Write(bytes);
             Check(SessionStatePacket.TryRead(bytes, out var restored) && restored.Match == match
                 && restored.RequireReady && restored.LockTeams, "separate lobby/modifier wire fields round trip");
-            foreach (var modifierMatch in new[] { match with { Fiesta = true }, match with { OneInTheChamber = true } })
+            foreach (var modifierMatch in new[] { match with { Fiesta = true, EnhancedHunters = true }, match with { OneInTheChamber = true, EnhancedHunters = true } })
             {
                 var modifierSession = session; modifierSession.Match = modifierMatch; modifierSession.Write(bytes);
                 Check(SessionStatePacket.TryRead(bytes, out var modRead) && modRead.Match == modifierMatch, "spawn modifier roundtrips session wire");
@@ -145,6 +145,18 @@ public static class GameModeCheck
                 && restored.RequireReady && restored.LockTeams && restored.AllowJoinInProgress
                 && restored.Match.LowTier && restored.Match.HideOpponentHealth && !restored.Match.OctolithAutoReset,
                 "protocol 28 recordings translate independent lobby and modifier bits");
+            foreach (int protocol in new[] { 29, 30 })
+            {
+                BinaryPrimitives.WriteUInt16LittleEndian(old.AsSpan(15), 8 | 16 | 32 | 64 | 2048 | 8192);
+                Check(SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(old, protocol)[1..], out restored)
+                    && restored.Match.EnhancedHunters && restored.Match.LowTier && restored.RequireReady,
+                    $"protocol {protocol} retains Enhanced Hunters with separated rule bits");
+                var oldMatch = new MatchStatePacket { RuleBits = 8192, RoomKey = "MP1 SANCTORUS", NextRoomKey = "" };
+                byte[] oldMatchBytes = new byte[1 + MatchStatePacket.Size]; oldMatchBytes[0] = (byte)PacketType.MatchState;
+                oldMatch.Write(oldMatchBytes.AsSpan(1));
+                Check(MatchStatePacket.Read(ReplayIdentityCompatibility.Convert(oldMatchBytes, protocol)[1..]).EnhancedHunters,
+                    $"protocol {protocol} match state translates Enhanced Hunters");
+            }
             byte[] packet = new byte[1 + SessionStatePacket.Size]; packet[0] = (byte)PacketType.SessionState;
             session.Write(packet.AsSpan(1));
             var replica = new ReplayReplicaState(); replica.Accept(packet, 0);

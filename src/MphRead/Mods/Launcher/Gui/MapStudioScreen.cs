@@ -104,9 +104,9 @@ namespace MphRead.Mods.Launcher.Gui
                 foreach(var command in commands) { var item=new MenuItem { Header=command.Name };item.Click+=(_,_)=>command.Run();group.Items.Add(item); }
                 menus.Items.Add(group);
             }
-            MenuGroup("File",("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
+            MenuGroup("File",("Source changes…",ShowSourceChanges),("Library",ShowLibrary),("New",NewMap),("Clone built-in",CloneBuiltIn),
                 ("Open…",()=>Browse("Open project",false,Open,".json",".ppmap")),("Import Q3…",Import),("Import 3D Model…",ImportModel),("Model Sources / Reimport…",ManageModelSources),
-                ("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
+                ("Export project folder…",()=>Browse("Export project folder (choose map.json destination)",true,path=>{try{if(_document!=null){string exported=MapProjectFolder.Export(_document.Project.Definition,Path.Combine(Path.GetDirectoryName(path)!,Path.GetFileNameWithoutExtension(path)));_status.Text="Exported "+exported;}}catch(Exception ex){Failure(ex);}},".json")),("Save",Save),("Save as…",()=>Browse("Save project",true,SaveTo,".json")),("Back to launcher",Close));
             MenuGroup("Edit",("Undo",()=>_document?.History.Undo()),("Redo",()=>_document?.History.Redo()),
                 ("Copy",()=>_document?.CopySelection()),("Paste",()=>_document?.PasteClipboard()),
                 ("Duplicate",()=>EditSelection("Duplicate",MapObjects.Duplicate)),("Delete",()=>EditSelection("Delete",MapObjects.Delete)),
@@ -150,6 +150,11 @@ namespace MphRead.Mods.Launcher.Gui
             }
             Choice(new[]{"Move","Rotate","Scale"},name=>{if(_viewport!=null)_viewport.Tool=name;});
             Choice(new[]{"Object","Face","Edge","Vertex"},name=>{if(_viewport!=null){_viewport.ElementMode=name;_viewport.ClearSubSelection();ShowInspectorPage(_inspectorPage,false);}});
+            foreach(string action in new[]{"Extrude region","Inset region","Bevel","Snap to surface","Merge center","Delete"})
+            {
+                var modelingButton=new Avalonia.Controls.Button{Content=action,Margin=new Thickness(2)};
+                modelingButton.Click+=(_,_)=>_viewport?.RunModeling(action);tools.Children.Add(modelingButton);
+            }
             Choice(new[]{"Free","X","Y","Z","XY","XZ","YZ"},name=>{if(_viewport!=null)_viewport.Axes=name;});
             Choice(new[]{"Perspective","Top","Front","Side"},name=>_viewport?.SetView(name));
             Choice(new[]{"Place: Cursor","Place: Camera target","Place: Surface"},name=>
@@ -249,12 +254,12 @@ namespace MphRead.Mods.Launcher.Gui
 #if MPHREAD_SHELL
                 Shell.FilesDropped-=OnFilesDropped;
 #endif
-                _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();DisposePreviewCaches();};
+                _detached=true;_editorGeneration++;_idle.Stop();_work?.Cancel();_autosave.Dispose();_sourceWatch?.Dispose();_sourceWatch=null;DisposePreviewCaches();};
             if (preview) Load(MapTemplates.Create("Studio example", true)); else ShowLibrary();
         }
         public void Dispose()
         {
-            _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _autosave.Dispose();
+            _detached=true; _editorGeneration++; _idle.Stop(); _work?.Cancel(); _autosave.Dispose(); _sourceWatch?.Dispose(); _sourceWatch=null;
             if (_document != null) _document.Changed -= Changed;
             ReleaseViews();
             DisposePreviewCaches();
@@ -335,6 +340,7 @@ namespace MphRead.Mods.Launcher.Gui
             _lastBuild = null; _hierarchySignature = ""; _pickedMaterialHit=null;
             foreach(var preview in _materialPreviewCache.Values)preview.Bitmap.Dispose();_materialPreviewCache.Clear();
             if(_document!=null)_document.Changed-=Changed;
+            _sourceWatch?.Dispose();_sourceWatch=null;_sourceWatchSignature="";_changedSources.Clear();
             _document=new(project,path);_document.Changed+=Changed;
             _importWarnings = project.Definition.Import != null && project.Definition.BaseDirectory is {} importRoot
                 ? Q3ImportManifest.Load(importRoot)?.GameplayWarnings?.ToArray() ?? Array.Empty<MapDiagnostic>()
@@ -343,6 +349,7 @@ namespace MphRead.Mods.Launcher.Gui
             _studioState=MapStudioStateStore.Load(project.Definition);MapStudioStateStore.Prune(project.Definition,_studioState);
             ReleaseViews();
             _viewport=new(_document);
+            _viewport.ModelingError += message => _status.Text=message;
             _views.Add(_viewport);
             _viewport.SelectionChanged+=()=>{RefreshHierarchy();ShowInspectorPage(_inspectorPage,false);};
             _viewport.MaterialPicked+=hit=>
@@ -396,10 +403,11 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Changed()
         {
+            try { RefreshSourceWatch(); } catch (IOException ex) { _status.Text="Source watch: "+ex.Message; }
             RefreshHierarchy();
             ShowInspectorPage(_inspectorPage, remember:false);
             _status.Text=(_document?.IsDirty==true?"Unsaved changes · ":"")
-                +"RMB orbit · MMB pan · WASD/QE fly · F focus · 1–4 element modes · G/R/T tools · M measure · Ctrl+Shift+P commands";
+                +"RMB orbit · MMB pan · WASD/QE fly · 1–4 modes · G/R/S transforms · E/I/B model · M merge · F fill (object mode: F focus, M measure) · Ctrl+Shift+P commands";
         }
         private void RefreshHierarchy(bool force=false)
         {
@@ -1207,7 +1215,7 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         MapGeometry source=d.Geometry[i];
                         if(!ids.Contains(source.Id)||source is MapMesh)continue;
-                        d.Geometry[i]=MapMeshEditing.Convert(source,d.Materials[source.Material].TexScale);
+                        d.Geometry[i]=MapMeshEditing.Convert(source,_document.Project.Definition.Materials[source.Material].TexScale);
                     }
                 });ModelingInspector();
             });
@@ -1235,6 +1243,19 @@ namespace MphRead.Mods.Launcher.Gui
                         });ModelingInspector();
                     }
                     catch(Exception ex){Failure(ex);}
+                }
+                if(_viewport!=null)
+                {
+                    _inspector.Children.Add(Text("Selected elements · amount above; bevel segments 1–8"));
+                    var segments=new TextBox{Text="1"};_inspector.Children.Add(segments);
+                    foreach(string command in new[]{"Extrude region","Extrude individual","Inset region","Bevel","Split edge","Dissolve edge","Collapse edge","Collapse to A","Collapse to B","Collapse to cursor","Slide edge","Merge center","Merge first","Merge last","Merge by distance","Connect vertices","Rip vertex","Slide vertex","Flatten X","Flatten Y","Flatten Z","Snap to surface","Duplicate faces","Duplicate to object","Separate","Join meshes","Select boundary","Fill","Triangulate","Dissolve triangles","Flip normals","Recalculate winding","Clean unused vertices","Select linked","Grow","Shrink"})
+                        AddButton(_inspector,command,()=>{try{_viewport.RunModeling(command,Number(amount.Text??".25"),int.Parse(segments.Text??"1",CultureInfo.InvariantCulture));}catch(Exception ex){Failure(ex);}});
+                    foreach(var problem in MapMeshValidator.Validate(mesh).Take(30))
+                    {
+                        _inspector.Children.Add(Text(problem.Severity+" · "+problem.Message));
+                        if(problem.Edge is {} selectedEdge)AddButton(_inspector,"Select edge",()=>{_viewport.ElementMode="Edge";_viewport.SubSelection.Bind(mesh.Id);_viewport.SubSelection.Edges.Add(selectedEdge);_viewport.InvalidateVisual();});
+                        if(problem.Face is {} selectedFace)AddButton(_inspector,"Focus face",()=>{_viewport.ElementMode="Face";_viewport.SubSelection.Bind(mesh.Id);_viewport.SubSelection.Faces.Add(selectedFace);_viewport.FocusWorld(mesh.Faces[selectedFace].Select(v=>MapMeshEditing.VertexWorld(mesh,v)));});
+                    }
                 }
                 AddButton(_inspector,"Extrude face",()=>FaceEdit("Extrude face",(m,i,v)=>MapMeshEditing.ExtrudeFace(m,i,v)));
                 AddButton(_inspector,"Inset face",()=>FaceEdit("Inset face",(m,i,v)=>MapMeshEditing.InsetFace(m,i,v)));
@@ -1286,10 +1307,10 @@ namespace MphRead.Mods.Launcher.Gui
                 });
             }
 
-            var boxes=selected.Where(o=>o.Value is MapBox).ToArray();
+            var boxes=selected.Where(o=>o.Value is MapBox or MapWedge or MapPrism or MapConvexBrush).ToArray();
             if(boxes.Length==2)
             {
-                _inspector.Children.Add(Text("BOX CSG · axis-aligned boxes"));
+                _inspector.Children.Add(Text("AUTHORED BRUSH CSG"));
                 void Csg(string mode)
                 {
                     try
@@ -1297,17 +1318,15 @@ namespace MphRead.Mods.Launcher.Gui
                         Guid aId=boxes[0].Id,bId=boxes[1].Id;
                         _document.Edit("Box CSG "+mode,d=>
                         {
-                            var a=(MapBox)MapObjects.Find(d,aId)!.Value;var b=(MapBox)MapObjects.Find(d,bId)!.Value;
+                            var a=(MapGeometry)MapObjects.Find(d,aId)!.Value;var b=(MapGeometry)MapObjects.Find(d,bId)!.Value;
                             d.Geometry.RemoveAll(g=>g.Id==aId||g.Id==bId);
-                            if(mode=="Union")d.Geometry.Add(MapBoxCsg.UnionBounds(a,b));
-                            else if(mode=="Intersect"){var result=MapBoxCsg.Intersect(a,b);if(result!=null)d.Geometry.Add(result);}
-                            else d.Geometry.AddRange(MapBoxCsg.Subtract(a,b));
+                            d.Geometry.AddRange(MapCsgService.Execute(a,b,mode,d.Materials[a.Material].TexScale,d.Materials[b.Material].TexScale));
                         },MapChangeDomain.Geometry);
                         _document.Selection.Clear();_document.SelectionChanged();ModelingInspector();
                     }
                     catch(Exception ex){Failure(ex);}
                 }
-                AddButton(_inspector,"Union bounds",()=>Csg("Union"));
+                AddButton(_inspector,"Union",()=>Csg("Union"));
                 AddButton(_inspector,"Intersect",()=>Csg("Intersect"));
                 AddButton(_inspector,"Subtract second from first",()=>Csg("Subtract"));
             }

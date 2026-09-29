@@ -38,7 +38,7 @@ public static partial class NetSession
     private static int _bootstrapFastLength;
     private static byte _bootstrapMask;
     private static readonly WorldBootstrapObjectives _bootstrapObjectives = new();
-    private static readonly byte[] _bootstrapSlow = new byte[256], _bootstrapWorld = new byte[512];
+    private static readonly byte[] _bootstrapSlow = new byte[256], _bootstrapWorld = new byte[1200];
     private static int _bootstrapSlowLength, _bootstrapWorldLength;
     internal static bool ObjectiveTickIsCurrent(uint tick) => _appliedBootstrap is not { } baseline
         || tick == baseline.AuthorityFrame || NetLifecycleTracker.Newer(tick, baseline.AuthorityFrame);

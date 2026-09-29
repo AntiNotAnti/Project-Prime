@@ -496,10 +496,16 @@ namespace MphRead.Mods.Network
                         "nested range retains world/warmup and normalizes visible events");
                 Require(ReplayArchive.Validate(v4Range) == ReplayOpenResult.Success, "world range CRC validation");
                 var exactKill = new ReplayMarker(ReplayMarkerKind.Kill, 2, 3, Kill:
-                    new ReplayKillIdentity(4, 5, 987, 22, 2, 10, 3, 11, 12), Weapon: 6, DamageFlags: 7);
+                    new ReplayKillIdentity(4, 5, 987, 22, 2, 10, 3, 11, 12, 13), Weapon: 6, DamageFlags: 7);
                 var semantic = ReplayTimelineArchive.DecodeMarker(123, ReplayTimelineArchive.EncodeMarker(987, exactKill));
                 Require(semantic.RecordingFrame == 123 && semantic.ServerTick == 987 && semantic.Marker == exactKill,
-                    "durable semantic kill retains epoch, server tick, generations, life, weapon and classification");
+                    "durable semantic kill retains epoch, server tick, both actor lives, weapon and classification");
+                byte[] legacySemantic = ReplayTimelineArchive.EncodeMarker(987, exactKill);
+                Array.Resize(ref legacySemantic, legacySemantic.Length - sizeof(ushort));
+                legacySemantic[1] = 1;
+                var legacyKill = ReplayTimelineArchive.DecodeMarker(123, legacySemantic).Marker!.Value.Kill!.Value;
+                Require(legacyKill.KillerLifeId == 0 && legacyKill.VictimLifeId == 12,
+                    "legacy semantic kill did not use generation-only killer compatibility");
                 Console.WriteLine($"[replayformat] PASS {checks} checks (v2/v3/v4, order, metadata, CRC, recovery, extraction, malformed files)");
                 return 0;
             }

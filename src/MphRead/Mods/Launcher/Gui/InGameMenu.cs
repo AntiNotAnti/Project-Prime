@@ -109,15 +109,7 @@ namespace MphRead.Mods.Launcher.Gui
             view.RejoinRequested += (_, _) => { SpectatorMode.Rejoin(); Pop(); };
             view.RecordToggleRequested += (_, _) =>
             {
-                if (DemoRecorder.IsRecording)
-                {
-                    Console.WriteLine($"[demo] recording saved to {DemoRecorder.CurrentPath}");
-                    DemoRecorder.Stop();
-                }
-                else
-                {
-                    DemoRecorder.Start();
-                }
+                DemoRecorder.ToggleWithFeedback();
                 Pop();
             };
             view.LeaveRequested += (_, _) => { PauseMenu.RequestLeave(); Pop(); };

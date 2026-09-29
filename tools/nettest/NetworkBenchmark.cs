@@ -44,10 +44,11 @@ internal static class NetworkBenchmark
         long[] gaps = new long[4], duplicate = new long[4], reorder = new long[4];
         long sent = 0, received = 0, bytesSent = 0, bytesReceived = 0;
         int high = 0, maxPacket = 0;
-        var timings = new List<double>(ticks * s.Players * 3);
+        var timings = new List<double>((ticks + 120) * s.Players * 5);
         byte[] buffer = new byte[NetConfig.MaxPacketSize];
         byte[] canonical = new byte[NetConfig.MaxPacketSize];
         var lanes = new NetReplicationLanes();
+        var livePlayers = new PlayerState[8];
         var receivers = Enumerable.Range(0, s.Players).Select(_ => new NetReplicationReceiver()).ToArray();
         int Canonical(uint frame)
         {
@@ -101,13 +102,9 @@ internal static class NetworkBenchmark
                 {
                     int size = Canonical(packet.Frame);
                     int fast = SnapshotFast.Write(canonical.AsSpan(0, size), buffer);
-                    int assembled = receivers[packet.Peer].Assemble(buffer.AsSpan(0, fast), canonical, 1, 1);
-                    NetArchitectureTests.Check(assembled > 0, "independent fast decode");
+                    NetArchitectureTests.Check(receivers[packet.Peer].TryDecodeLive(buffer.AsSpan(0, fast), livePlayers, 1, 1, out _), "independent fast decode");
                     for (int slot = 0; slot < s.Players; slot++)
-                    {
-                        var decoded = PlayerState.Read(canonical.AsSpan(SnapshotHeader.Size + slot * PlayerState.Size));
-                        NetArchitectureTests.Check(decoded.SlotIndex == slot && decoded.Position == state.Position, "benchmark snapshot mismatch");
-                    }
+                        NetArchitectureTests.Check(livePlayers[slot].SlotIndex == slot && livePlayers[slot].Position == state.Position, "benchmark snapshot mismatch");
                     bytesReceived += PacketLength(kind);
                 }
                 else
@@ -140,7 +137,8 @@ internal static class NetworkBenchmark
         return new { telemetry = telemetry.Capture(), scenario = s, durationSeconds = 10, packetsSent = sent, packetsReceived = received, bytesSent, bytesReceived,
             intentPackets = ticks * s.Players, snapshotPackets = ticks * s.Players, slowPackets = ticks / 6 * s.Players, worldPackets = ticks / 15 * s.Players, controlPackets = 0,
             transportQueueHighWater = high, injectedDrops = queue.Dropped, transportDrops = 0, coalescedPackets = 0,
-            meanProcessingMicroseconds = timings.Average(), p95ProcessingMicroseconds = timings[(int)(timings.Count * .95)],
+            meanProcessingMicroseconds = timings.Average(), p50ProcessingMicroseconds = timings[(int)(timings.Count * .50)],
+            worstProcessingMicroseconds = timings[^1], p95ProcessingMicroseconds = timings[(int)(timings.Count * .95)],
             p99ProcessingMicroseconds = timings[(int)(timings.Count * .99)],
             schedulerTicksDue = ticks, schedulerTicksCompleted = ticks, schedulerTicksDropped = 0,
             intentFrameGaps = gaps[0], intentDuplicates = duplicate[0], intentReordered = reorder[0],
@@ -148,6 +146,20 @@ internal static class NetworkBenchmark
             managedAllocations = allocationBytes, gen0 = GC.CollectionCount(0) - g0, gen1 = GC.CollectionCount(1) - g1,
             gen2 = GC.CollectionCount(2) - g2, elapsedMilliseconds = clock.Elapsed.TotalMilliseconds, maxPacketBytes = maxPacket,
             unavailable = new[] { "asset-backed simulation ticks", "smoothing", "rewind", "CPU process time" } };
+    }
+
+    internal static string CpuDescription()
+    {
+        if (OperatingSystem.IsMacOS())
+        {
+            using var cpu = Process.Start(new ProcessStartInfo("/usr/sbin/sysctl", "-n machdep.cpu.brand_string")
+                { RedirectStandardOutput = true, UseShellExecute = false });
+            if (cpu != null) { string value = cpu.StandardOutput.ReadToEnd().Trim(); cpu.WaitForExit(); if (cpu.ExitCode == 0) return value; }
+        }
+        if (OperatingSystem.IsLinux() && File.Exists("/proc/cpuinfo"))
+            foreach (string line in File.ReadLines("/proc/cpuinfo"))
+                if (line.StartsWith("model name")) return line[(line.IndexOf(':') + 1)..].Trim();
+        return Environment.GetEnvironmentVariable("PROCESSOR_IDENTIFIER") ?? "unavailable";
     }
 
     public static int Run(string[] args)
@@ -163,7 +175,11 @@ internal static class NetworkBenchmark
                 var start = new ProcessStartInfo("git", "rev-parse HEAD") { RedirectStandardOutput = true };
                 using var git = Process.Start(start)!; string commit = git.StandardOutput.ReadToEnd().Trim(); git.WaitForExit();
                 File.WriteAllText(path, JsonSerializer.Serialize(new { commit, protocol = NetConfig.ProtocolVersion,
-                    runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription, seed = 8128,
+                    runtime = System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription,
+                    environment = new { machine = Environment.MachineName, processors = Environment.ProcessorCount,
+                        os = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                        architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+                        cpu = CpuDescription(), stopwatchFrequency = Stopwatch.Frequency }, seed = 8128,
                     scope = "virtual-time production codec and impairment queue; timings are machine dependent", scenarios },
                     new JsonSerializerOptions { WriteIndented = true }));
             }

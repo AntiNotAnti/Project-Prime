@@ -83,6 +83,7 @@ namespace MphRead.Mods.Launcher
         public static int Bots { get; set; } = 3;
         /// <summary>0 easy, 1 normal, 2 hard, 3 insane -- PlayerEntity.BotLevel.</summary>
         public static int BotLevel { get; set; } = 1;
+        public static Training.AimTrainerDefinition Training { get; set; } = Mods.Training.AimTrainerDefinition.Default;
         public static int HostPort { get; set; } = Network.NetConfig.DefaultPort;
 
         /// <summary>The last lobby mode whose time/goal rules were accepted by the server.</summary>
@@ -347,6 +348,10 @@ namespace MphRead.Mods.Launcher
                             {
                                 Bots = bots;
                             }
+                            break;
+                        case "aim_trainer":
+                            try { Training = System.Text.Json.JsonSerializer.Deserialize<Mods.Training.AimTrainerDefinition>(value).Sanitize(); }
+                            catch (System.Text.Json.JsonException) { Training = Mods.Training.AimTrainerDefinition.Default; }
                             break;
                         case "bot_level":
                             if (Int32.TryParse(value, NumberStyles.Integer,
@@ -614,6 +619,7 @@ namespace MphRead.Mods.Launcher
                     $"hunter={LastHunter}",
                     $"color={LastColor.ToString(CultureInfo.InvariantCulture)}",
                     $"bots={Bots.ToString(CultureInfo.InvariantCulture)}",
+                    $"aim_trainer={System.Text.Json.JsonSerializer.Serialize(Training)}",
                     $"bot_level={BotLevel.ToString(CultureInfo.InvariantCulture)}",
                     $"host_port={HostPort.ToString(CultureInfo.InvariantCulture)}",
                     $"lobby_mode={LastLobbyMode}",

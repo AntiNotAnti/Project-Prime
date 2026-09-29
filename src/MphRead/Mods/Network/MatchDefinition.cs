@@ -62,6 +62,7 @@ namespace MphRead.Mods.Network
         public ushort PointGoal { get; init; }
         public bool FriendlyFire { get; init; }
         public bool AffinityWeapons { get; init; }
+        public bool EnhancedHunters { get; init; }
         public bool ShadowFreeze { get; init; }
         public bool HideOpponentHealth { get; init; }
         public bool DisablePowerups { get; init; }
@@ -81,6 +82,7 @@ namespace MphRead.Mods.Network
             state.FriendlyFire = FriendlyFire;
             state.AffinityWeapons = AffinityWeapons;
             state.Fiesta = Fiesta; state.OneInTheChamber = OneInTheChamber;
+            state.EnhancedHunters = EnhancedHunters;
             state.InstaGib = InstaGib || Mode == GameMode.InstaGib;
             state.LowTier = LowTier;
             state.NoImperialist = NoImperialist;
@@ -95,6 +97,7 @@ namespace MphRead.Mods.Network
 
         public MatchModifierFlags Rules => (FriendlyFire ? MatchModifierFlags.FriendlyFire : 0)
             | (AffinityWeapons ? MatchModifierFlags.AffinityWeapons : 0)
+            | (EnhancedHunters ? MatchModifierFlags.EnhancedHunters : 0)
             | (ShadowFreeze ? MatchModifierFlags.ShadowFreeze : 0)
             | (DisablePowerups ? MatchModifierFlags.DisablePowerups : 0)
             | (SpawnProtection ? MatchModifierFlags.SpawnProtection : 0)

@@ -58,7 +58,31 @@ public static class NetHistoricalTrace
         !player.ModCollisionIsAltForm ? HistoricalBodyType.BipedCylinder : player.Hunter == Hunter.Kanden
             ? HistoricalBodyType.KandenChain : HistoricalBodyType.AltSphere, player.ModCaptureAltPose());
 
+    private struct BodyCacheEntry
+    {
+        public uint Token;
+        public HistoricalPlayerPose Pose;
+        public HistoricalBody Body;
+    }
+    private static readonly BodyCacheEntry[,] _bodyCache = new BodyCacheEntry[8, NetUnlagged.HistoryFrames];
+    internal static void ClearCache() => Array.Clear(_bodyCache);
     internal static HistoricalBody Body(PlayerEntity player, in HistoricalPlayerPose pose)
+    {
+        if (!NetUnlagged.CollisionCacheActive) return BuildBody(player, pose);
+        uint bits = BitConverter.SingleToUInt32Bits(pose.Position.X)
+            ^ BitConverter.SingleToUInt32Bits(pose.Position.Y) ^ BitConverter.SingleToUInt32Bits(pose.Position.Z);
+        ref var entry = ref _bodyCache[player.SlotIndex, bits % NetUnlagged.HistoryFrames];
+        NetUnlagged.HistoricalCollisionQueries++;
+        if (entry.Token == NetUnlagged.CollisionCacheToken && entry.Pose == pose)
+        { NetUnlagged.HistoricalCollisionCacheHits++; return entry.Body; }
+        NetUnlagged.HistoricalCollisionCacheMisses++;
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        entry.Token = NetUnlagged.CollisionCacheToken; entry.Pose = pose; entry.Body = BuildBody(player, pose);
+        NetUnlagged.HistoricalCollisionBuildTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start;
+        return entry.Body;
+    }
+
+    private static HistoricalBody BuildBody(PlayerEntity player, in HistoricalPlayerPose pose)
     {
         var volume = PlayerEntity.PlayerVolumes[(int)player.Hunter, pose.AltForm ? 2 : 0];
         return new(player.SlotIndex, pose.Position + (pose.AltForm ? volume.SpherePosition : Vector3.Zero),

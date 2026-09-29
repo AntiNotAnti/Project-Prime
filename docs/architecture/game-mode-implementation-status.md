@@ -2,8 +2,8 @@
 
 This branch implements the supplied game-mode architecture and all requested new modes and modifiers.
 The automated checks below cover gameplay, lifecycle contracts, frozen joins, replay restoration,
-map resources, UI, and platform compilation. Live rendered multiplayer playtesting and integration
-with the separate Enhanced Hunters branch remain release acceptance work.
+map resources, UI, and platform compilation. Live rendered multiplayer playtesting remains
+release acceptance work. Enhanced Hunters and protocol-30 shot identity are integrated.
 
 ## Implemented
 
@@ -12,7 +12,7 @@ with the separate Enhanced Hunters branch remain release acceptance work.
 - Room rotation captures the server definition and changes rules at the synchronous load boundary.
   Incoming packets cannot apply the next round's rules to the fading old room.
 - AutoReset settings no longer read PointGoal. Offline, lobby and dedicated server paths carry the rule.
-- Protocol 29 separates ushort lobby flags from uint match modifiers. Session and status packets,
+- Protocol 31 separates ushort lobby flags from uint match modifiers. Session and status packets,
   lobby commands, recorded-session conversion and decoder checkpoint sizing are updated.
 - Central modifier validation is shared by the lobby UI and server.
 - MapModeCapabilities inspects the selected native layer and validates custom source capabilities.
@@ -112,6 +112,16 @@ cases still need dedicated acceptance coverage.
 - Compiling Windows/Linux/Android does not constitute native gameplay acceptance on those devices.
 - Automated frozen joins and replay fixtures are not a substitute for a rendered multiplayer soak
   covering every map-to-map transition, spectator preference transition and custom package transfer.
-- EnhancedHunters is reserved in this branch; its separate implementation in the original checkout
-  must be integrated before enabling that modifier. Both branches changed protocol 29, so their
-  contracts must be reconciled before integration; equal version numbers do not imply compatibility.
+- Enhanced Hunters uses modifier bit 1024 in protocol 31. Recorded protocols 29/30 translate
+  their previous bit 8192 at playback boundaries. Protocol 30 shot identity and retained fire events
+  are preserved; One in the Chamber validates funded ShotIds rather than timing metadata.
+
+## Integration verification (2026-09-28)
+
+Merged with main's Enhanced Hunters, protocol-30 shot identities, Map Studio, aim training
+and Replay Studio updates. Protocol 31 rejects incompatible live peers and adapts recorded
+protocols 24–30. Verified 2,030 game-mode contracts, 789 asset-backed gameplay checks, all
+19 frozen join and replay restoration scenarios, 2,738 replay format checks, 18,888 UI checks,
+37 Enhanced Hunters contracts, 31 Enhanced Hunters scene checks, and 277 loadout checks.
+Desktop and dedicated-server builds pass. Architecture and replication packet-budget checks pass.
+The lobby test fixture uses explicit native rooms so installed custom maps cannot change its inputs.

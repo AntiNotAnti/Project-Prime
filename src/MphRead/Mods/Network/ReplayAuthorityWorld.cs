@@ -126,7 +126,7 @@ internal sealed class ReplayAuthorityWorld
         if (EndingKill is { } kill)
         {
             w.Write(kill.MatchId); w.Write(kill.AuthorityEpoch); w.Write(kill.ServerTick); w.Write(kill.EventId);
-            w.Write(kill.KillerSlot); w.Write(kill.KillerGeneration); w.Write(kill.VictimSlot); w.Write(kill.VictimGeneration); w.Write(kill.VictimLifeId);
+            w.Write(kill.KillerSlot); w.Write(kill.KillerGeneration); w.Write(kill.VictimSlot); w.Write(kill.VictimGeneration); w.Write(kill.VictimLifeId); w.Write(kill.KillerLifeId);
         }
         Scores(TeamPoints); Scores(FlagScores); Scores(NodesCaptured);
         Count(FlagCount < 0 ? Flags.Length : FlagCount); foreach (var v in Flags.AsSpan(0, FlagCount < 0 ? Flags.Length : FlagCount))
@@ -167,7 +167,15 @@ internal sealed class ReplayAuthorityWorld
             ushort match = r.ReadUInt16(); ulong epoch = r.ReadUInt64(); uint tick = r.ReadUInt32();
             var prime = Actor(); var phase = (MatchState)r.ReadByte(); float time = Float();
             var cause = (ReplayEndCause)r.ReadByte(); ReplayKillIdentity? kill = null;
-            if (Bool()) kill = new(r.ReadUInt16(), r.ReadUInt64(), r.ReadUInt32(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadByte(), r.ReadUInt16(), r.ReadUInt16());
+            if (Bool())
+            {
+                ushort killMatch = r.ReadUInt16(); ulong killEpoch = r.ReadUInt64(); uint killTick = r.ReadUInt32();
+                ushort eventId = r.ReadUInt16(); byte killer = r.ReadByte(); ushort killerGeneration = r.ReadUInt16();
+                byte victim = r.ReadByte(); ushort victimGeneration = r.ReadUInt16(); ushort victimLife = r.ReadUInt16();
+                ushort killerLife = version >= 3 ? r.ReadUInt16() : (ushort)0;
+                kill = new(killMatch, killEpoch, killTick, eventId, killer, killerGeneration,
+                    victim, victimGeneration, victimLife, killerLife);
+            }
             if (!Enum.IsDefined(phase) || !Enum.IsDefined(cause) || match == 0
                 || (cause == ReplayEndCause.Kill) != kill.HasValue
                 || kill is { } k && (k.MatchId != match || k.AuthorityEpoch != epoch || k.KillerSlot >= 8 || k.VictimSlot >= 8
@@ -195,10 +203,10 @@ internal sealed class ReplayAuthorityWorld
             }
             var doors = new ReplayDoorState[Count()]; ids.Clear();
             for (int i = 0; i < doors.Length; i++) doors[i] = new(Id(ids), (DoorFlags)r.ReadUInt32(), Bool(), Bool(), Bool());
-            int hardpoint = version >= 3 ? r.ReadInt32() : -1;
-            int hardpointTicks = version >= 3 ? r.ReadInt32() : 0;
+            int hardpoint = version >= 4 ? r.ReadInt32() : -1;
+            int hardpointTicks = version >= 4 ? r.ReadInt32() : 0;
             var chamber = EmptyChamber();
-            if (version >= 3)
+            if (version >= 4)
                 for (int slot = 0; slot < 8; slot++)
                 {
                     chamber[slot] = new(Actor(), r.ReadUInt16(), r.ReadUInt32());

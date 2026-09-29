@@ -85,12 +85,12 @@ public partial class PlayerEntity
         _lastChamberLocalShotFrame = _scene.Services.PlayerReplication.Frame;
         if (_scene.Services.PlayerReplication.IsAuthority)
         {
-            _chamberShots[_chamberShotCursor] = NetUnlagged.LaunchFrameFor(this);
+            _chamberShots[_chamberShotCursor] = NetFireEvents.ActiveShotId(this);
             _chamberShotCursor = (_chamberShotCursor + 1) % _chamberShots.Length;
         }
     }
 
-    internal bool KnowsChamberShot(uint frame) => frame != 0 && Array.IndexOf(_chamberShots, frame) >= 0;
+    internal bool KnowsChamberShot(uint shotId) => shotId != 0 && Array.IndexOf(_chamberShots, shotId) >= 0;
 
     internal void ApplyChamberAmmo(ushort ammo, uint acknowledgedFrame)
     {

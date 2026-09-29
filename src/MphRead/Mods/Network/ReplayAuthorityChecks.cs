@@ -26,9 +26,9 @@ internal static class ReplayAuthorityChecks
         var decoded = ReplayAuthorityWorld.Decode(bytes);
         check(decoded.Encode().AsSpan().SequenceEqual(bytes), "world value codec roundtrip");
         check(decoded.ActiveHardpointId == 12 && decoded.HardpointTicksRemaining == 1234, "Hardpoint state codec roundtrip");
-        byte[] legacyWorld = bytes[..^ReplayAuthorityWorld.ModeTailSize]; legacyWorld[0] = 2;
+        byte[] legacyWorld = bytes[..^ReplayAuthorityWorld.ModeTailSize]; legacyWorld[0] = 3;
         var legacyDecoded = ReplayAuthorityWorld.Decode(legacyWorld);
-        check(legacyDecoded.ActiveHardpointId == -1 && legacyDecoded.HardpointTicksRemaining == 0, "version 2 world supplies inactive Hardpoint defaults");
+        check(legacyDecoded.ActiveHardpointId == -1 && legacyDecoded.HardpointTicksRemaining == 0, "version 3 world supplies inactive Hardpoint defaults");
         var tokenWorld = new ReplayAuthorityWorld { MatchId = 7, Epoch = 9, Tick = 120, NextTokenId = 3,
             Tokens = [new(2, 1, 1, 4, new(1,2,3), 1200)] };
         tokenWorld.TokenStats[0] = 5;

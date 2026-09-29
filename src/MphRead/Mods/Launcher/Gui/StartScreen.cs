@@ -248,6 +248,16 @@ namespace MphRead.Mods.Launcher.Gui
             if (_prime.Router.Current == PrimeRoute.Lobby) _prime.Router.Navigate(PrimeRoute.Play);
             if (!GameFiles.Ready) OpenSetup();
         }
+        public void OpenTraining(bool focusTrainer = true)
+        {
+            _prime.Router.Navigate(PrimeRoute.Offline);
+            if (focusTrainer) Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                var workspace = _prime.Workspaces.Get(PrimeRoute.Offline);
+                var start = ControllerNav.Find(workspace, "offline.training.start");
+                start?.BringIntoView(); start?.Focus();
+            });
+        }
         public bool GoBack() { if (_startup == null) _prime.Back(); return true; }
         public void Dispose() { _startup?.Dispose(); _startup = null; Content = null; _session.Dispose(); _updateWatcher.Dispose(); _prime.Overlays.Clear(); _prime.Dispose(); }
         private void ShowGround(bool show)
@@ -393,15 +403,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             view.RecordToggleRequested += (_, _) =>
             {
-                if (DemoRecorder.IsRecording)
-                {
-                    Console.WriteLine($"[demo] recording saved to {DemoRecorder.CurrentPath}");
-                    DemoRecorder.Stop();
-                }
-                else
-                {
-                    DemoRecorder.Start();
-                }
+                DemoRecorder.ToggleWithFeedback();
                 Pop();
                 onResume();
             };

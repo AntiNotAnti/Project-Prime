@@ -50,7 +50,7 @@ namespace MphRead.Mods.Input.AimAssist
             float previousMagnitude = state.PreviousStick.Length();
             Vector2 stickDelta = physicalStick - state.PreviousStick;
             float directionalSpeed = stickDelta.Length() / dt;
-            float historySpeed = (physicalStick - state.StickHistory2).Length() / Math.Max(2 * dt, .0001f);
+            float historySpeed = (physicalStick - state.StickHistory2).Length() / Math.Max(3 * dt, .0001f);
             float directionDot = previousMagnitude > .0001f && stickIntent > .0001f
                 ? Vector2.Dot(state.PreviousStick, physicalStick) / (previousMagnitude * stickIntent) : 1;
             bool magnitudeFlick = stickIntent >= .65f && (previousMagnitude < .35f
@@ -81,9 +81,14 @@ namespace MphRead.Mods.Input.AimAssist
                 if (state.FlickActive)
                 {
                     float speed = Math.Max(directionalSpeed, historySpeed);
+                    // A steady held stick has zero derivative too; it is not
+                    // braking. Require an actual reduction in stick or turn speed.
                     state.FlickBraking = state.FlickAge >= dt
-                        && state.FlickSpeed > AimAssistTuning.FlickDirectionalSpeed
-                        && speed <= state.FlickSpeed * AimAssistTuning.FlickBrakeRatio;
+                        && (stickIntent < state.FlickPeak * AimAssistTuning.FlickBrakeRatio
+                            || previousCameraSpeed > AimAssistTuning.MotionPhaseSpeed
+                                && cameraVelocity.Length() < previousCameraSpeed
+                                    * AimAssistTuning.FlickBrakeRatio);
+                    state.FlickPeak = Math.Max(state.FlickPeak, stickIntent);
                     state.FlickSpeed = Math.Max(state.FlickSpeed, speed);
                 }
             }
@@ -311,6 +316,7 @@ namespace MphRead.Mods.Input.AimAssist
                 state.CorrectionBudgetUsed = savedBudget;
                 state.ScopeBlend = savedScope;
                 state.PreviousCameraVelocity = cameraVelocity;
+                state.PreviousDeltaTime = dt;
                 state.PushCameraVelocity(cameraVelocity);
                 return new(raw.X, raw.Y, StickIntent: physicalStick, FlickActive: pendingFlick,
                     FlickAge: pendingAge, FlickBraking: pendingBraking, Firing: firing,
@@ -757,8 +763,8 @@ namespace MphRead.Mods.Input.AimAssist
             Vector2 passThroughTargetMotion = state.HeadAngularVelocity * passThroughHorizon
                 + state.HeadAngularAcceleration * (.5f * passThroughHorizon * passThroughHorizon);
             bool predictedHeadCrossing = target.HeadRegion is { } passThroughRegion
-                ? AimAssistMath.TrajectoryRegionScore(passThroughRegion,
-                    passThroughTurn - passThroughTargetMotion) >= .99f
+                ? AimAssistMath.TrajectoryIntersectsRegion(passThroughRegion,
+                    passThroughTurn - passThroughTargetMotion)
                 : naturalLanding;
             bool fastPassThrough = predictedHeadCrossing
                 && (state.FlickSpeed >= AimAssistTuning.FlickPassThroughStickSpeed
@@ -774,9 +780,21 @@ namespace MphRead.Mods.Input.AimAssist
                 && headAlignment >= requiredHeadAlignment;
             if (capture)
             {
-                Vector2 safe = target.HeadRegion is { } r
+                // Prefer the proven hittable surface to a rectangle corner.
+                Vector2 safe = target.HeadSurface is { } surface ? surface.Error
+                    : target.HeadRegion is { } r
                     ? AimAssistMath.MotionSafeRegionError(r, state.HeadAngularVelocity) : headError;
-                Vector2 flickCorrection = safe
+                // Capture controls this frame's landing, including the player's
+                // turn. Brake only travel past the landing plane, preserving the
+                // stick direction; then finish the residual with bounded snap.
+                float travelSquared = adjusted.LengthSquared();
+                if (travelSquared > .000001f)
+                {
+                    float landingFraction = Vector2.Dot(safe, adjusted) / travelSquared;
+                    if (landingFraction > 0 && landingFraction < 1)
+                        adjusted *= landingFraction;
+                }
+                Vector2 flickCorrection = (safe - adjusted)
                     * (1 - MathF.Exp(-AimAssistTuning.HeadFlickSnapGain * dt));
                 float dedicatedSnapSpeed = AimAssistTuning.FlickSnapMaxSpeed
                     + (AimAssistTuning.FlickSnapScopedMaxSpeed
@@ -787,6 +805,13 @@ namespace MphRead.Mods.Input.AimAssist
                 tracking = Vector2.Zero;
                 state.ServoVelocity = Vector2.Zero;
                 error = safe; state.HeadBlend = 1;
+                activeRegion = target.HeadRegion;
+                activeInside = headInside;
+                targetServoVelocity = state.HeadAngularVelocity;
+                normalizedError = AimAssistMath.NormalizedHeadError(target).Length();
+                visibilityCoverage = headCoverage;
+                friction = raw.LengthSquared() > .000001f
+                    ? Math.Clamp(adjusted.Length() / raw.Length(), 0, 1) : 1;
                 state.HeadTrackingConfidence = Math.Max(state.HeadTrackingConfidence, .85f);
             }
             if (headInside) state.FlickConsumed = true;
@@ -818,7 +843,7 @@ namespace MphRead.Mods.Input.AimAssist
                 AimAssistMotionPhase.Escaping => 0,
                 _ => 0
             };
-            if (state.FlickBraking) turnAccelerationBrake = Math.Max(turnAccelerationBrake, .9f);
+            if (state.FlickBraking || capture) turnAccelerationBrake = Math.Max(turnAccelerationBrake, .9f);
             if (shotCommitted) turnAccelerationBrake = Math.Max(turnAccelerationBrake, .85f);
             if (state.HeadBlend > .6f) turnAccelerationBrake = Math.Max(turnAccelerationBrake, .55f);
             turnAccelerationBrake = Math.Max(turnAccelerationBrake, filterRelease * .55f);

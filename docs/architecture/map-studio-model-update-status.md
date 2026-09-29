@@ -1,6 +1,6 @@
 # Map Studio update status
 
-The custom-package runtime, Community distribution, and OBJ authoring paths are implemented. Protocol 25 is incompatible with earlier clients and servers.
+The custom-package runtime, Community distribution, and OBJ/glTF/GLB authoring paths are implemented. Protocol 25 is incompatible with earlier clients and servers.
 
 ## Runtime and multiplayer
 
@@ -32,7 +32,7 @@ The custom-package runtime, Community distribution, and OBJ authoring paths are 
 
 Verified on this macOS development machine:
 
-- Map editor: 343 checks.
+- Map editor: 376 checks after the next-pass update (see the linked next-pass results).
 - Focused model import/reimport/collision: 50 checks (included in the editor suite).
 - Community version/concurrency suite: 12 checks; existing Community suite: 21 checks.
 - Full real-UDP lobby suite: 5,296 assertions, including exact readiness and stale-report rejection.
@@ -58,6 +58,6 @@ dotnet src/MphRead/bin/Debug/net10.0/ProjectPrime.dll -mapviewportcheck /tmp/pri
 
 - Remote hosts use their configured Community service (`PROJECT_PRIME_MAP_COMMUNITY`, saved Community preference, or the default service). A map published to another service must also be available on that configured service. Later custom maps in a multi-map rotation still need to be installed on the host; the request carries exact identity for its initial map.
 - The host archive cache is bounded to approximately 2 GiB plus in-flight downloads. Operators can remove unused files from `hosted-map-packages` under the application user-data directory. Private lobby libraries and generated files are removed when their child is reaped.
-- Full interactive multi-machine gameplay with imported maps, historical replay playback against a live remote Community service, and Windows/Linux validation remain manual acceptance work.
-- Texture reload and source reimport are explicit actions; automatic filesystem watching is not implemented.
-- Community owner accounts, favorites, and reports remain future catalog features. glTF/GLB remains a future importer behind `IModelImporter`.
+- The asset-free multiprocess acceptance runner now covers two clients, rotation, service/server restarts, download failures and historical replay package retrieval. Full interactive gameplay and rendered historical replay still require extracted game assets. Windows/Linux/Android gates are configured but have not been run locally.
+- Filesystem changes produce debounced review notifications. Reimport and texture reload remain explicit actions.
+- Static glTF/GLB, creator ownership, favorites, reports, and source-folder export are implemented. See [next-pass implementation](map-studio-next-pass.md) for controls, service setup, acceptance commands, and limits.

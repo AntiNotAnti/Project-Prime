@@ -42,6 +42,7 @@ namespace MphRead
         public static int DamageLevel { get => Current.DamageLevel; set => Current.DamageLevel = value; }
         public static bool OctolithReset { get => Current.OctolithReset; set => Current.OctolithReset = value; }
         public static bool RadarPlayers { get => Current.RadarPlayers; set => Current.RadarPlayers = value; }
+        public static bool EnhancedHunters { get => Current.EnhancedHunters; set => Current.EnhancedHunters = value; }
         public static bool AffinityWeapons { get => Current.AffinityWeapons; set => Current.AffinityWeapons = value; }
         public static bool InstaGib { get => Current.InstaGib; set => Current.InstaGib = value; }
         public static bool LowTier { get => Current.LowTier; set => Current.LowTier = value; }

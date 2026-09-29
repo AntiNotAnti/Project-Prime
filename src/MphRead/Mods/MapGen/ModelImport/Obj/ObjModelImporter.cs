@@ -145,7 +145,7 @@ public sealed class ObjModelImporter : IModelImporter
             item.Faces = item.Faces.Select(f => f.Select(i => remap[i]).ToArray()).ToList();
             _ = GeometryCompiler.Compile(item, 16);
         }
-        return new(meshes, materials, assets, warnings.ToArray()) { AssetSources = assetSources };
+        return new(meshes, materials, assets, warnings.ToArray()) { AssetSources = assetSources, Dependencies = libraries.Append(path).Concat(assetSources.Values).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray() };
         MapMesh NewMesh()
         {
             var item = new MapMesh { Label = label, Solid = settings.VisualCollision };
@@ -205,7 +205,7 @@ public sealed class ObjModelImporter : IModelImporter
         }
         return candidate;
     }
-    private static void ValidateImage(byte[] bytes)
+    internal static void ValidateImage(byte[] bytes)
     {
         // Inspect dimensions before handing hostile input to the native decoder.
         int width = 0, height = 0;
@@ -236,7 +236,7 @@ public sealed class ObjModelImporter : IModelImporter
             throw new InvalidDataException("Model textures must be PNG or JPEG with dimensions at most 4096×4096.");
     }
 
-    private static byte[] Solid(float r, float g, float b)
+    internal static byte[] Solid(float r, float g, float b)
     {
         using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
         writer.Write(new byte[] { 70, 80, 84, 88 }); writer.Write((ushort)1); writer.Write((ushort)1);

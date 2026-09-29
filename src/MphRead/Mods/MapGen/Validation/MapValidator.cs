@@ -97,6 +97,9 @@ namespace MphRead.Mods.MapGen
             {
                 if (geometry == null) { r.Error("FP-MAP-013", "Null geometry object."); continue; }
                 Id(geometry.Id);
+                if (geometry is MapMesh editable)
+                    foreach (var problem in MphRead.Mods.MapEditor.MapMeshValidator.Validate(editable))
+                        r.Diagnostics.Add(new("FP-MESH-001",problem.Severity,problem.Message,geometry.Id));
                 if (geometry.Material < 0 || geometry.Material >= d.Materials.Count || d.Materials[geometry.Material] == null)
                 { r.Error("FP-MAP-001", "Geometry references a missing material.", geometry.Id); continue; }
                 if (geometry is MapMesh { Slipperiness: < 0 or > 3 }) r.Error("FP-MAP-013", "Mesh slipperiness must be 0–3.", geometry.Id);

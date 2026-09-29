@@ -106,6 +106,16 @@ fast misses shrink again. The selected head is locked for the short capture wind
 Validated captures use a dedicated short landing-speed allowance so the final snap is
 perceptible instead of being clipped by the ordinary positional-assist speed cap.
 
+Flick landing accounts for the current stick turn before adding correction. During
+a validated capture, travel beyond the landing plane is braked and the bounded snap
+finishes only the remaining error. Production captures use the mechanically hittable
+head surface rather than a corner of its angular envelope. Capture also unwinds
+outer-stick acceleration. Pass-through detection uses exact segment/envelope
+intersection, so narrow heads cannot fall between trajectory samples and a nearby
+miss does not count as a crossing. Braking requires an actual drop in stick magnitude
+or camera speed; simply holding the stick steady does not qualify. Flicks starting
+in empty space retain both camera samples and their timing for subsequent acquisition.
+
 Headshot-oriented controller tuning is also intentionally more permissive now: head
 candidate dwell is shorter, the head acquire/release cone is wider, head confidence rises
 faster, and visible heads receive a modest target-selection preference when physical stick

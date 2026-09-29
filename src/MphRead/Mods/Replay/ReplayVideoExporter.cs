@@ -20,8 +20,9 @@ namespace MphRead.Mods.Replay
         private static ReplayVideoExportManifest? _job;
         private static ReplayVideoSegment[] _segments = Array.Empty<ReplayVideoSegment>();
         private static int _segmentIndex;
-        private static bool _halfCaptured;
-        private static uint _lastFrame = UInt32.MaxValue;
+        private static ReplayExportSampler _sampler;
+        private static long _sampleIndex;
+        private static uint? _stepRequestedAt;
         private static int _written;
         private static int _totalFrames;
         private static string? _directory;
@@ -41,9 +42,12 @@ namespace MphRead.Mods.Replay
         public static float EncodeProgress => _encoder == null ? (_state == ReplayExportState.Completed ? 1 : 0)
             : Math.Clamp(_encoder.Frames / (float)Math.Max(1, _totalFrames), 0, 1);
         public static float RenderProgress => _totalFrames <= 0 ? 0 : Math.Clamp(_written / (float)_totalFrames, 0, 1);
-        internal static float PresentationAlpha => _job is { Fps: 120 }
-            && _segmentIndex < _segments.Length && ReplayController.CurrentFrame > _segments[_segmentIndex].StartFrame
-            && ReplayController.CurrentFrame != _lastFrame && !_halfCaptured ? .5f : 1f;
+        internal static float PresentationAlpha => Rendering && _sampleIndex < _sampler.Count
+            && ReplayController.CurrentFrame == _sampler.At(_sampleIndex).SimulationFrame
+                ? _sampler.At(_sampleIndex).Alpha : 1;
+        internal static double PresentationFrame => Rendering && _sampleIndex < _sampler.Count
+            && ReplayController.CurrentFrame == _sampler.At(_sampleIndex).SimulationFrame
+                ? _sampler.At(_sampleIndex).Frame : ReplayController.CurrentFrame;
         internal static OpenTK.Mathematics.Vector2i? OutputSize => _job == null ? null : new(_job.Width, _job.Height);
         public static int FramesWritten => _written;
         public static float Progress => State == ReplayExportState.Encoding ? EncodeProgress : RenderProgress;
@@ -53,7 +57,7 @@ namespace MphRead.Mods.Replay
 
         public static bool Start(ReplayVideoExportManifest job)
         {
-            if (job.Fps is not (30 or 60 or 120) || job.Width is < 64 or > 3840 || job.Height is < 64 or > 2160)
+            if (!ReplayExportRates.IsSupported(job.Fps) || job.Width is < 64 or > 3840 || job.Height is < 64 or > 2160)
             {
                 Status = "Unsupported export dimensions or frame rate."; return false;
             }
@@ -62,9 +66,8 @@ namespace MphRead.Mods.Replay
                 Status = "A video export is already active.";
                 return false;
             }
-            if (!DemoPlayback.IsActive || DemoPlayback.CurrentPath == null
-                || !Path.GetFullPath(DemoPlayback.CurrentPath).Equals(
-                    Path.GetFullPath(job.Replay), StringComparison.OrdinalIgnoreCase))
+            if (!DemoPlayback.IsActive || DemoPlayback.PlaybackPath == null
+                || !ReplayPathComparer.Same(DemoPlayback.PlaybackPath, job.Replay))
             {
                 Status = "Open the replay that belongs to this render job first.";
                 return false;
@@ -111,11 +114,12 @@ namespace MphRead.Mods.Replay
             { Fail(ex.Message); return false; }
             _written = 0;
             _segmentIndex = 0;
-            _lastFrame = UInt32.MaxValue;
-            _halfCaptured = false;
+            _sampleIndex = 0;
+            _stepRequestedAt = null;
             _totalFrames = EstimateFrames(job.Fps, _segments);
             LastOutput = null; LastError = null; _state = ReplayExportState.Seeking;
             Status = "Seeking to render start...";
+            _sampler = new(_segments[0].StartFrame, _segments[0].EndFrame, job.Fps);
             ApplySegmentCamera(_segments[0], job);
             ReplayController.Seek(_segments[0].StartFrame, resume: false);
             return true;
@@ -138,7 +142,10 @@ namespace MphRead.Mods.Replay
             CaptureReplayThumbnails(scene);
 
             if (_job == null)
+            {
                 ReplayExportQueue.Pump();
+                return; // the framebuffer was drawn before the queued job took ownership
+            }
 
             if (_job != null && !DemoPlayback.IsActive)
             {
@@ -156,53 +163,55 @@ namespace MphRead.Mods.Replay
             _state = ReplayExportState.Rendering;
             ReplayVideoSegment segment = _segments[_segmentIndex];
             uint frame = ReplayController.CurrentFrame;
-            if (frame < segment.StartFrame)
+            if (ReplayController.State == ReplayState.Error)
             {
-                ReplayController.Seek(segment.StartFrame, resume: false);
+                Fail(DemoPlayback.LastError ?? "Replay stopped during export.");
                 return;
             }
-            if (frame > segment.EndFrame)
+            ReplayExportSample sample = _sampler.At(_sampleIndex);
+            if (frame < sample.SimulationFrame)
+            {
+                RequestStep(frame);
+                return;
+            }
+            if (frame > sample.SimulationFrame)
+            {
+                Fail("Replay position changed during export. Restart the render job.");
+                return;
+            }
+            // Never capture a framebuffer drawn for a previous sample or seek.
+            if (!double.IsFinite(scene.ReplayPresentationFrame)
+                || Math.Abs(scene.ReplayPresentationFrame - sample.Frame) > 1e-7)
+                return;
+
+            string path = Path.Combine(_directory!, $"frame_{_written:D8}.png");
+            bool saved = job.CleanHud
+                ? MphRead.Mods.ScreenCapture.Save(scene, path)
+                : MphRead.Mods.ScreenCapture.SaveWindow(scene, path);
+            if (!saved)
+            {
+                Fail($"Frame {sample.Frame:0.###} could not be captured; export stopped.");
+                return;
+            }
+            _written++;
+            _sampleIndex++;
+            Status = $"Rendering {_segmentIndex + 1}/{_segments.Length} "
+                + $"{segment.Name} · {ReplayHud.Time(frame)} / "
+                + $"{ReplayHud.Time(segment.EndFrame)} · {_written}/{_totalFrames} frames";
+            if (_sampleIndex == _sampler.Count)
             {
                 AdvanceSegment();
                 return;
             }
-            if (frame == _lastFrame)
-                return;
+            if (_sampler.At(_sampleIndex).SimulationFrame > frame) RequestStep(frame);
+        }
 
-            // Gameplay always advances at 60 Hz. A 120 FPS job renders the
-            // midpoint and exact endpoint of each subsequent simulation interval.
-            int stride = job.Fps <= 30 ? 2 : 1;
-            if ((frame - segment.StartFrame) % stride == 0)
-            {
-                string path = Path.Combine(_directory!,
-                    $"frame_{_written:D8}.png");
-                bool saved = job.CleanHud
-                    ? MphRead.Mods.ScreenCapture.Save(scene, path)
-                    : MphRead.Mods.ScreenCapture.SaveWindow(scene, path);
-                if (!saved)
-                {
-                    Fail($"Frame {frame} could not be captured; export stopped.");
-                    return;
-                }
-                _written++;
-                Status = $"Rendering {_segmentIndex + 1}/{_segments.Length} "
-                    + $"{segment.Name} · {ReplayHud.Time(frame)} / "
-                    + $"{ReplayHud.Time(segment.EndFrame)} · {_written}/{_totalFrames} frames";
-            }
-            if (job.Fps == 120 && frame > segment.StartFrame && !_halfCaptured)
-            {
-                _halfCaptured = true;
-                return; // draw this same world again at its exact endpoint
-            }
-            _halfCaptured = false;
-            _lastFrame = frame;
-
-            if (frame >= segment.EndFrame)
-            {
-                AdvanceSegment();
-                return;
-            }
-
+        private static void RequestStep(uint frame)
+        {
+            // A display may draw repeatedly before the next 60 Hz update.
+            // Queue only one simulation step for each observed world frame.
+            if (_stepRequestedAt == frame) return;
+            _stepRequestedAt = frame;
             ReplayController.StepForward();
         }
 
@@ -213,8 +222,8 @@ namespace MphRead.Mods.Replay
                 return;
 
             _segmentIndex++;
-            _lastFrame = UInt32.MaxValue;
-            _halfCaptured = false;
+            _sampleIndex = 0;
+            _stepRequestedAt = null;
             if (_segmentIndex >= _segments.Length)
             {
                 Finish();
@@ -222,6 +231,7 @@ namespace MphRead.Mods.Replay
             }
 
             ReplayVideoSegment next = _segments[_segmentIndex];
+            _sampler = new(next.StartFrame, next.EndFrame, job.Fps);
             ApplySegmentCamera(next, job);
             Status = $"Seeking reel segment {_segmentIndex + 1}/{_segments.Length}...";
             ReplayController.Seek(next.StartFrame, resume: false);
@@ -265,11 +275,9 @@ namespace MphRead.Mods.Replay
         private static int EstimateFrames(int fps,
             IReadOnlyList<ReplayVideoSegment> segments)
         {
-            int stride = fps <= 30 ? 2 : 1;
             long total = 0;
             foreach (ReplayVideoSegment segment in segments)
-                total += fps == 120 ? (long)(segment.EndFrame - segment.StartFrame) * 2 + 1
-                    : (segment.EndFrame - segment.StartFrame) / (uint)stride + 1;
+                total += new ReplayExportSampler(segment.StartFrame, segment.EndFrame, fps).Count;
             return (int)Math.Min(Int32.MaxValue, total);
         }
 
@@ -341,10 +349,10 @@ namespace MphRead.Mods.Replay
 
         private static void CaptureReplayThumbnails(Scene scene)
         {
-            string? replay = DemoPlayback.CurrentPath;
+            string? replay = DemoPlayback.LogicalPath;
             if (replay == null || ReplayController.IsSeeking)
                 return;
-            if (!String.Equals(_thumbReplay, replay, StringComparison.OrdinalIgnoreCase))
+            if (!ReplayPathComparer.Comparer.Equals(_thumbReplay, replay))
             {
                 _thumbReplay = replay;
                 for (int i = 0; i < _thumbDone.Length; i++)
@@ -374,6 +382,7 @@ namespace MphRead.Mods.Replay
 
         public static string? BestThumbnail(string replay)
         {
+            replay = ReplayVirtualClips.LogicalPath(replay);
             for (int i = 0; i < 3; i++)
             {
                 string path = ThumbnailPath(replay, i);
@@ -384,7 +393,7 @@ namespace MphRead.Mods.Replay
         }
 
         public static string[] Thumbnails(string replay)
-            => Enumerable.Range(0, 3).Select(i => ThumbnailPath(replay, i))
+            => Enumerable.Range(0, 3).Select(i => ThumbnailPath(ReplayVirtualClips.LogicalPath(replay), i))
                 .Where(File.Exists).ToArray();
     }
 }

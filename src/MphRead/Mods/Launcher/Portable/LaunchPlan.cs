@@ -64,7 +64,8 @@ namespace MphRead.Mods.Launcher
         Offline,
         Host,
         Adventure,
-        Demo
+        Demo,
+        AimTrainer
     }
 
     /// <summary>
@@ -82,6 +83,7 @@ namespace MphRead.Mods.Launcher
     public readonly struct LaunchPlan
     {
         public LaunchKind Kind { get; init; }
+        public Training.AimTrainerDefinition? Training { get; init; }
         public Network.MatchDefinition MatchRules { get; init; }
         public LobbyContext? Lobby { get; init; }
         // Enter the existing spectator camera after the joined match has loaded.

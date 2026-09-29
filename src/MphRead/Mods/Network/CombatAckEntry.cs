@@ -23,7 +23,8 @@ public enum CombatAckResult : byte
 /// never a command to replay damage or resurrect a replica.</summary>
 public struct CombatAckEntry
 {
-    public const int Size = 19;
+    public const int Size = 23;
+    public uint ShotId;
     public ushort ClaimId;
     public byte Result;
     public byte VictimSlot;
@@ -34,6 +35,7 @@ public struct CombatAckEntry
     public readonly bool Accepted => Result is 0 or 1 or 13;
     public readonly void Write(Span<byte> b)
     {
+        BinaryPrimitives.WriteUInt32LittleEndian(b[19..], ShotId);
         BinaryPrimitives.WriteUInt16LittleEndian(b, ClaimId); b[2] = Result; b[3] = VictimSlot;
         BinaryPrimitives.WriteUInt16LittleEndian(b[4..], VictimGeneration);
         BinaryPrimitives.WriteUInt16LittleEndian(b[6..], VictimLife);
@@ -44,6 +46,7 @@ public struct CombatAckEntry
     }
     public static CombatAckEntry Read(ReadOnlySpan<byte> b) => new()
     {
+        ShotId = b.Length >= Size ? BinaryPrimitives.ReadUInt32LittleEndian(b[19..]) : 0,
         ClaimId = BinaryPrimitives.ReadUInt16LittleEndian(b), Result = b[2], VictimSlot = b[3],
         VictimGeneration = BinaryPrimitives.ReadUInt16LittleEndian(b[4..]),
         VictimLife = BinaryPrimitives.ReadUInt16LittleEndian(b[6..]),

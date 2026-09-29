@@ -7,7 +7,7 @@ public enum LagCompPlausibility { Off, Shadow, Enforce }
 public enum ShadowOutcome
 {
     SameOutcome, ExistingHit_ShadowMiss, ExistingHead_ShadowBody,
-    ExistingBody_ShadowHead, ExistingMiss_ShadowHit, DifferentVictim, HistoricalDataUnavailable
+    ExistingBody_ShadowHead, ExistingMiss_ShadowHit, DifferentVictim, HistoricalDataUnavailable, NotSampled
 }
 public readonly record struct LagTiming(double? RttMilliseconds, double? JitterMilliseconds,
     double? MinimumRecentRttMilliseconds, double? PresentationDelayFrames);
@@ -112,12 +112,12 @@ public static class LagCompensationPolicy
     // refreshed on accepted intent; captures never mutate gameplay or counters.
     private static readonly LagTiming[] _timing = new LagTiming[8];
     private struct Cell { public long Shots, Clamps, Timed; public double Requested, Hard, Refused, Worst, Allowed; }
-    private const int Weapons = NetShotDiagnostics.WeaponCount, Rtts = 9, Jitters = 6, Delays = 4, Outcomes = 7;
+    private const int Weapons = NetShotDiagnostics.WeaponCount, Rtts = 9, Jitters = 6, Delays = 4, Outcomes = 8;
     private static readonly Cell[] _cells = new Cell[8 * Weapons * Rtts * Jitters * Delays];
     private static readonly long[] _outcomes = new long[_cells.Length * Outcomes];
     public static void SetTiming(int slot, in LagTiming timing) { if ((uint)slot < 8) _timing[slot] = timing; }
     public static LagTiming Timing(int slot) => (uint)slot < 8 ? _timing[slot] : default;
-    public static void Reset() { Array.Clear(_timing); Array.Clear(_cells); Array.Clear(_outcomes); Array.Clear(_shotStudies); Array.Clear(_studyHead); }
+    public static void Reset() { NetShadowSampler.Reset(); Array.Clear(_timing); Array.Clear(_cells); Array.Clear(_outcomes); Array.Clear(_shotStudies); Array.Clear(_studyHead); }
     public static int RttBucket(double? rtt) => rtt is null ? 8 : rtt < 50 ? 0 : rtt < 100 ? 1 : rtt < 150 ? 2 : rtt < 200 ? 3 : rtt < 250 ? 4 : rtt < 300 ? 5 : rtt < 400 ? 6 : 7;
     public static int JitterBucket(double? jitter) => jitter is null ? 5 : jitter < 10 ? 0 : jitter < 25 ? 1 : jitter < 50 ? 2 : jitter < 80 ? 3 : 4;
     public static int DelayBucket(double? delay) => delay is null ? 3 : delay < 3 ? 0 : delay < 6 ? 1 : 2;

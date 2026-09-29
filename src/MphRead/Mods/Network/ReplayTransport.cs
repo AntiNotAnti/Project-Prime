@@ -20,8 +20,14 @@ namespace MphRead.Mods.Network
         public double DurationSeconds => DurationFrames / 60.0;
         public long LastInteraction { get; private set; }
         private float _fraction;
-        internal float PresentationAlpha(double hostAlpha) => IsPaused || AtEnd || IsSeeking ? 1
-            : Math.Clamp(_fraction + (float)hostAlpha * PlaybackRate, 0, 1);
+        private double _presentationStartFrame;
+        private bool _pauseStepPending;
+        internal float PresentationAlpha(double hostAlpha)
+            => (float)Math.Clamp(PresentationFrame(hostAlpha) - (CurrentFrame - 1d), 0, 1);
+        internal double PresentationFrame(double hostAlpha) => AtEnd || IsSeeking
+            ? CurrentFrame : IsPaused ? Math.Clamp(_presentationStartFrame, 0, DurationFrames)
+            : Math.Clamp(_presentationStartFrame
+                + Math.Clamp(hostAlpha, 0, 1) * PlaybackRate, 0, DurationFrames);
         private int _steps;
         private uint? _rebuild;
         private uint? _target;
@@ -55,12 +61,14 @@ namespace MphRead.Mods.Network
             ClipOut = value;
             NoteInput();
         }
-        public System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default)
+        public string? LastSavedSelectionPath { get; private set; }
+        public System.Threading.Tasks.Task<ReplayOpenResult> SaveSelectionAsync(System.Threading.CancellationToken cancellation = default, bool wholeReplay = false)
         {
-            if (!ClipIn.HasValue || !ClipOut.HasValue || _session.CurrentPath == null) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.Empty);
-            string source = _session.CurrentPath; uint start = ClipIn.Value, end = ClipOut.Value;
+            LastSavedSelectionPath = null;
+            if (_session.CurrentPath == null || (!wholeReplay && (!ClipIn.HasValue || !ClipOut.HasValue || ClipIn >= ClipOut))) return System.Threading.Tasks.Task.FromResult(ReplayOpenResult.Empty);
+            string source = _session.CurrentPath; uint start = wholeReplay ? 0 : ClipIn!.Value, end = wholeReplay ? DurationFrames : ClipOut!.Value;
             string output = System.IO.Path.Combine(DemoLibrary.Directory, $"clip_{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{Guid.NewGuid():N}.ppdemo");
-            return ReplayStorageJobs.Run(() => { System.IO.Directory.CreateDirectory(DemoLibrary.Directory); return ReplayArchive.Extract(source, start, end, output, cancellation); }, cancellation);
+            return ReplayStorageJobs.Run(() => { System.IO.Directory.CreateDirectory(DemoLibrary.Directory); var result = ReplayArchive.Extract(source, start, end, output, cancellation); if (result == ReplayOpenResult.Success) LastSavedSelectionPath = output; return result; }, cancellation);
         }
         public void NoteInput() => LastInteraction = Environment.TickCount64;
         internal void ClearSelection() { ClipIn = null; ClipOut = null; }
@@ -69,14 +77,16 @@ namespace MphRead.Mods.Network
             State = ReplayState.Playing;
             PlaybackRate = 1;
             _fraction = 0;
+            _presentationStartFrame = CurrentFrame;
             _steps = 0;
+            _pauseStepPending = false;
             _target = null;
             _rebuild = null;
             NoteInput();
         }
-        internal void Stop() { State = ReplayState.Inactive; _steps = 0; _target = null; _rebuild = null; _fraction = 0; }
-        public void Play() { if (IsPaused) State = ReplayState.Playing; NoteInput(); }
-        public void Pause() { if (State == ReplayState.Playing) State = ReplayState.Paused; NoteInput(); }
+        internal void Stop() { State = ReplayState.Inactive; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
+        public void Play() { if (IsPaused) { State = ReplayState.Playing; } NoteInput(); }
+        public void Pause() { if (State == ReplayState.Playing) { _presentationStartFrame = CurrentFrame + _fraction; State = ReplayState.Paused; } NoteInput(); }
         public void TogglePause()
         {
             // Media-style behavior: play from a finished replay starts it again
@@ -89,6 +99,7 @@ namespace MphRead.Mods.Network
         public void SetPlaybackRate(float rate)
         {
             if (Array.IndexOf(Rates, rate) < 0) throw new ArgumentOutOfRangeException(nameof(rate));
+            _presentationStartFrame = CurrentFrame + _fraction;
             PlaybackRate = rate;
             NoteInput();
         }
@@ -113,6 +124,10 @@ namespace MphRead.Mods.Network
             uint target = Math.Min(frame, DurationFrames);
             _resumeAfterSeek = resume ?? (IsSeeking ? _resumeAfterSeek : State == ReplayState.Playing);
             SeekGeneration++;
+            _steps = 0;
+            _pauseStepPending = false;
+            _presentationStartFrame = target;
+            _fraction = 0;
             if (target == CurrentFrame && _session.HasSimulatedFrame)
             {
                 _target = null;
@@ -138,6 +153,11 @@ namespace MphRead.Mods.Network
 
         internal void RequestFullRebuild(uint frame, bool resume)
         {
+            SeekGeneration++;
+            _steps = 0;
+            _pauseStepPending = false;
+            _presentationStartFrame = CurrentFrame;
+            _fraction = 0;
             _target = null;
             _rebuild = Math.Min(frame, DurationFrames);
             _resumeAfterSeek = resume;
@@ -157,11 +177,13 @@ namespace MphRead.Mods.Network
             _resumeAfterSeek = resume;
             if (CurrentFrame >= frame && _session.HasSimulatedFrame)
             {
+                _presentationStartFrame = CurrentFrame;
                 _target = null;
                 State = resume ? ReplayState.Playing : ReplayState.Paused;
             }
             else
             {
+                _presentationStartFrame = CurrentFrame;
                 _target = frame;
                 State = ReplayState.Seeking;
             }
@@ -175,9 +197,11 @@ namespace MphRead.Mods.Network
             {
                 if (_steps == 0) return 0;
                 _steps--;
+                _pauseStepPending = true;
                 return 1;
             }
             if (State != ReplayState.Playing) return 0;
+            _presentationStartFrame = CurrentFrame + _fraction;
             _fraction += PlaybackRate;
             int frames = (int)_fraction;
             _fraction -= frames;
@@ -185,13 +209,21 @@ namespace MphRead.Mods.Network
         }
         internal void AfterFrame()
         {
+            if (_pauseStepPending)
+            {
+                _presentationStartFrame = CurrentFrame;
+                _fraction = 0;
+                _pauseStepPending = false;
+            }
             if (_session.AtEnd)
             {
+                _presentationStartFrame = CurrentFrame;
                 State = _session.LastResult == ReplayOpenResult.Success ? ReplayState.Ended : ReplayState.Error;
                 _target = null;
             }
             else if (_target.HasValue && CurrentFrame >= _target.Value)
             {
+                _presentationStartFrame = CurrentFrame;
                 _target = null;
                 State = _resumeAfterSeek ? ReplayState.Playing : ReplayState.Paused;
             }

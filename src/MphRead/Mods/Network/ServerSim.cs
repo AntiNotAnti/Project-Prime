@@ -303,6 +303,7 @@ namespace MphRead.Mods.Network
             }
             long allocated = GC.GetAllocatedBytesForCurrentThread();
             long start = Stopwatch.GetTimestamp();
+            bool failed = false;
             try
             {
                 _scene.OnSimulationFrame();
@@ -316,6 +317,7 @@ namespace MphRead.Mods.Network
                 // The first one gets its stack and the rest get a line: a
                 // fault in the step usually repeats sixty times a second, so
                 // printing the trace every time buries the trace.
+                failed = true;
                 StepFailures++;
                 if (StepFailures == 1)
                 {
@@ -328,9 +330,8 @@ namespace MphRead.Mods.Network
                 NetLog.Event($"server simulation step failed: {ex}");
             }
             double elapsed = Stopwatch.GetElapsedTime(start).TotalSeconds;
-            Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.ServerStep, NetSession.NetFrame,
-                A: elapsed * 1000, B: DroppedSteps, C: GC.GetAllocatedBytesForCurrentThread() - allocated,
-                D: GC.CollectionCount(0), E: GC.CollectionCount(1), F: GC.CollectionCount(2)));
+            Telemetry.ProductionTelemetry.RecordServerStep(NetSession.NetFrame, elapsed * 1000,
+                GC.GetAllocatedBytesForCurrentThread() - allocated, DroppedSteps, Stalls, failed);
             elapsed = Stopwatch.GetElapsedTime(start).TotalSeconds;
             StepAllocatedBytes += GC.GetAllocatedBytesForCurrentThread() - allocated;
             _stepHistogram[Math.Min(_stepHistogram.Length - 1, (int)(elapsed * 100000))]++;
@@ -348,6 +349,7 @@ namespace MphRead.Mods.Network
 
         public void Stop(bool preserveRoomPrewarm = false)
         {
+            Telemetry.ProductionTelemetry.FlushServerSteps();
             Telemetry.ProductionTelemetry.End();
             if (_scene == null)
             {

@@ -7,11 +7,24 @@ using System.Threading.Tasks;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
 
+if(args.Contains("--runtime-only"))
+{
+    string folder=Path.Combine(Path.GetTempPath(),"prime-runtime-check-"+Guid.NewGuid().ToString("N"));
+    try{await MapRuntimeCheck.RunAsync(folder);Console.WriteLine("Portable map runtime check passed.");}
+    finally{if(Directory.Exists(folder))Directory.Delete(folder,true);}return;
+}
 int checks = 0;
 MapStorageChecks.Run();
 if (args.Contains("--map-storage-only")) return;
 if (args.Contains("--large-model-benchmark")) { Benchmarks.LargeModels(); return; }
 void Check(bool condition, string label) { if (!condition) throw new Exception(label); checks++; }
+if(args.Contains("--next-pass-only"))
+{
+    string fixture=Path.Combine(Path.GetTempPath(),"prime-next-pass-"+Guid.NewGuid().ToString("N"));Directory.CreateDirectory(fixture);
+    try{NextPassChecks.Modeling(Check);NextPassChecks.Gltf(Check,fixture);}
+    finally{Directory.Delete(fixture,true);}
+    Console.WriteLine($"Next pass: {checks} checks passed.");return;
+}
 if (args.Contains("--community-only"))
 {
     string fixture = Path.Combine(Path.GetTempPath(), "prime-community-" + Guid.NewGuid().ToString("N"));
@@ -104,6 +117,7 @@ try
         CustomRooms.UserMapDirectory = previousUserMaps;
         CustomRooms.Reload();
     }
+    NextPassChecks.Modeling(Check);NextPassChecks.Gltf(Check,root);
     ModelImportChecks.Run(Check, root); ModelReimportChecks.Run(Check, root); ModelCollisionChecks.Run(Check, root);
     CustomCollisionChecks.Run(Check);
     Q3ImportChecks.Run(Check, root);

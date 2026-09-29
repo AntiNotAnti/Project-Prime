@@ -10,13 +10,13 @@ namespace MphRead.Mods.Launcher.Gui;
 
 internal sealed partial class MapStudioScreen
 {
-    private void ImportModel() => Browse("Import Wavefront OBJ model", false, path => ModelImportOptions(path), ".obj");
+    private void ImportModel() => Browse("Import OBJ / glTF / GLB model", false, path => ModelImportOptions(path), ".obj", ".gltf", ".glb");
 
     private void ModelImportOptions(string path, MapModelSource? source = null)
     {
         var panel = new StackPanel { Spacing = 8 };
         panel.Children.Add(Text("3D MODEL · " + Path.GetFileName(path)));
-        panel.Children.Add(Text("OBJ + MTL and textures are resolved inside the model folder. Imported faces retain materials and UVs."));
+        panel.Children.Add(Text("OBJ, glTF and GLB dependencies are resolved inside the model folder. Static geometry retains materials and UV0."));
         var settings = source?.Settings ?? new();
         var scale = new TextBox { Text = settings.Scale.ToString(System.Globalization.CultureInfo.InvariantCulture) };
         panel.Children.Add(Text("Scale")); panel.Children.Add(scale);
@@ -51,7 +51,7 @@ internal sealed partial class MapStudioScreen
             panel.Children.Add(Text(Path.GetFileName(source.Source) + $" · {source.Objects.Count} objects"));
             panel.Children.Add(Text(source.Source));
             AddButton(panel, "Reimport / check external changes", () => ModelImportOptions(source.Source, source));
-            AddButton(panel, "Locate source…", () => Browse("Locate source OBJ", false, path => ModelImportOptions(path, source), ".obj"));
+            AddButton(panel, "Locate source…", () => Browse("Locate source model", false, path => ModelImportOptions(path, source), ".obj", ".gltf", ".glb"));
             AddButton(panel, "Select generated objects", () =>
             {
                 _document.Selection.Clear();
@@ -75,11 +75,11 @@ internal sealed partial class MapStudioScreen
         var state = document.CurrentStateId;
         if (document.Project.Definition.BundlePath != null) throw new IOException("Save this package as an editable project before importing a model.");
         var result = await Task.Run(() => ModelImportService.Import(path, settings, token), token);
-        var hash = await Task.Run(() => MapHash256.HashFile(path).ToString(), token);
+        var hash = await Task.Run(() => MapSourceFingerprint.Hash(result.Dependencies), token);
         GuardJob(token);
         var previous = document.Project.Definition.ModelSources.FirstOrDefault(s => s.Id == sourceId);
         if (previous != null && previous.NormalizedHash == ModelReimport.NormalizedHash(result)
-            && previous.Settings == settings && previous.Source == path)
+            && previous.Settings == settings && previous.Source == path && previous.SourceHash == hash)
         { _status.Text = "Model and referenced materials are unchanged."; return; }
         string root = document.Project.Definition.BaseDirectory ?? Path.GetDirectoryName(Path.GetFullPath(_path.Text!))!;
         foreach (var asset in result.Assets)
@@ -99,6 +99,12 @@ internal sealed partial class MapStudioScreen
             .Where(m => previous?.Objects.Any(o => o.Id == m.Id) == true).ToArray();
         panel.Children.Add(Text($"Objects {oldMeshes.Length} → {result.Meshes.Count} · Vertices {oldMeshes.Sum(m => m.Vertices.Count)} → {result.Meshes.Sum(m => m.Vertices.Count)} · Faces {oldMeshes.Sum(m => m.Faces.Count)} → {result.Meshes.Sum(m => m.Faces.Count)}"));
         panel.Children.Add(Text($"{result.Materials.Count} materials · {result.Assets.Count} baked textures · {result.Meshes.Where(m => m.Solid).Sum(m => m.Faces.Count)} collision triangles"));
+        var diff=ModelReimport.Preview(document.Project.Definition,previous,result);
+        panel.Children.Add(Text($"Materials {previous?.MaterialMappings.Count??0} → {result.Materials.Count}"));
+        foreach(string name in diff.Added)panel.Children.Add(Text("+ "+name));
+        foreach(string name in diff.Changed)panel.Children.Add(Text("~ "+name));
+        foreach(string name in diff.Removed)panel.Children.Add(Text("− "+name));
+        panel.Children.Add(Text($"Preserved edits: {diff.Transforms} transforms · {diff.MaterialOverrides} material overrides · {diff.PaintedFaces} painted faces · {diff.UvOverrides} UV overrides"));
         var collisionPreview = new CheckBox {Content="Show collision preview"};
         collisionPreview.IsCheckedChanged += (_,_) => {preview.Collision=collisionPreview.IsChecked==true;preview.InvalidateVisual();};
         panel.Children.Add(collisionPreview);
@@ -115,6 +121,7 @@ internal sealed partial class MapStudioScreen
                     definition.BaseDirectory = root;
                     ModelReimport.Apply(definition, result, path, hash, settings, sourceId);
                 }, MapChangeDomain.Geometry | MapChangeDomain.Material);
+                foreach(string dependency in result.Dependencies)_changedSources.Remove(dependency);
                 Dismiss(); _viewport?.FrameAll(); _status.Text = "Model applied. Undo restores the previous import.";
             }
             catch (Exception ex) { Failure(ex); }

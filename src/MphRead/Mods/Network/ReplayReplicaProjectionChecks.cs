@@ -33,7 +33,7 @@ internal static class ReplayReplicaProjectionChecks
             packet[0] = (byte)PacketType.Snapshot;
             new SnapshotHeader { MatchId = 7, AuthorityEpoch = 9, Frame = frame, PlayerCount = 1 }.Write(packet.AsSpan(1));
             new PlayerState { SlotIndex = 0, SlotGeneration = 2, LifeId = life, Health = 99,
-                Flags = PlayerState.FlagSpawned }.Write(packet.AsSpan(1 + SnapshotHeader.Size));
+                Flags = PlayerState.FlagActive | PlayerState.FlagSpawned }.Write(packet.AsSpan(1 + SnapshotHeader.Size));
             BinaryPrimitives.WriteUInt16LittleEndian(packet.AsSpan(healthOffset), 7);
             return packet;
         }
@@ -82,6 +82,16 @@ internal static class ReplayReplicaProjectionChecks
         require(restored.Match == null && restored.AcceptedPackets == 0, "empty decoder checkpoint restores");
         restored.RestoreCheckpoint(checkpoint);
         require(restored.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "decoder checkpoint roundtrip is exact");
+        var killIdentity = new ReplayKillIdentity(7, 9, 2, 1, 0, 2, 1, 1, 1, 1);
+        require(Replay.KillcamController.ResolveAttackerSlot(killIdentity, restored) == 0,
+            "killcam resolves the exact recorded attacker life");
+        require(Replay.KillcamController.ResolveAttackerSlot(killIdentity with { KillerLifeId = 2 }, restored) == -1,
+            "killcam rejects a different life in the same attacker slot");
+        var rosterOnly = new ReplayReplicaState();
+        rosterOnly.RestoreCheckpoint(checkpoint);
+        rosterOnly.Rewind();
+        require(Replay.KillcamController.ResolveAttackerSlot(killIdentity with { KillerLifeId = 0 }, rosterOnly) == -1,
+            "legacy attacker identity cannot use a roster entry without a pose snapshot");
         require(restored.IntentAge(0) == 18 && restored.Occupant(0).Generation == 2
             && restored.Configuration?.Match.DisablePowerups == true
             && restored.TryGetIntent(0, out var restoredIntent)

@@ -322,7 +322,7 @@ namespace MphRead.Entities
         protected Matrix4 ModDrawTransform()
         {
             Matrix4 transform = SimulationDrawTransform();
-            if (this is PlayerEntity player && _scene.ReplayPoses?.Sample(player.SlotIndex,
+            if (this is PlayerEntity player && _scene.ReplayPoses?.SamplePresented(player.SlotIndex,
                 _scene.ReplayRenderAlpha, out Vector3 position, out _) == true)
                 transform.Row3.Xyz = position;
             return transform;

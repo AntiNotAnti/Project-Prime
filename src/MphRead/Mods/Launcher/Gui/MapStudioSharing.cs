@@ -123,7 +123,7 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text("Connect to your community library to share maps. Lobbies prepare the exact required package automatically."));
         var address=new TextBox { Text=MapCommunityClient.DefaultAddress, PlaceholderText="Community address · https://maps.example.com/" };
         try { if(File.Exists(CommunitySettingsPath)) address.Text=File.ReadAllText(CommunitySettingsPath).Trim(); } catch(IOException) { }
-        var credential=new TextBox { PlaceholderText="Upload token (only needed to publish; not saved)", PasswordChar='●' };
+        var credential=new TextBox { PlaceholderText="Creator token (My Maps, favorites, reports, publishing; not saved)", PasswordChar='●' };
         panel.Children.Add(address); panel.Children.Add(credential);
         var search=new TextBox { PlaceholderText="Search map, author, or version" }; panel.Children.Add(search);
         var list=new ListBox { Height=230 }; panel.Children.Add(list);
@@ -138,12 +138,19 @@ internal sealed partial class MapStudioScreen
                 ? local.Identity.PackageHash.ToString()==chosen.Hash ? "Exact version installed" : "Different version installed · install this version to update" : "Not installed";
             details.Text=$"{chosen.DisplayName ?? chosen.Name} · v{chosen.Version ?? "1"}\n{chosen.Author ?? "Unknown author"} · {chosen.MinPlayers}–{chosen.MaxPlayers} players · {chosen.Bytes/1024:N0} KiB\n"
                 + (chosen.SupportedModes.Length==0 ? "" : string.Join(", ",chosen.SupportedModes)+"\n")
+                + $"Owner: {chosen.OwnerId} · {chosen.FavoriteCount} favorites · {(chosen.Favorited?"★ Favorited":"☆")} · {(chosen.Draft?"Draft":chosen.Listed?"Published":"Unlisted")}\n"
                 + installed + (chosen.MinimumProtocol>Network.NetConfig.ProtocolVersion ? "\nRequires a newer Project Prime version." : "");
         };
         var message=Text("Enter a library address and select Refresh.");panel.Children.Add(message);
         var buttons=new WrapPanel();panel.Children.Add(buttons);
+        var scope=new ComboBox{ItemsSource=new[]{"Community","My Maps","My favorites"},SelectedIndex=0};panel.Children.Insert(4,scope);
+        var visibility=new ComboBox{ItemsSource=new[]{"All","Published","Unlisted","Draft"},SelectedIndex=0};panel.Children.Insert(5,visibility);
+        var sorting=new ComboBox{ItemsSource=new[]{"Name","Favorites","Newest"},SelectedIndex=0};panel.Children.Insert(6,sorting);
         CommunityMap[] entries=Array.Empty<CommunityMap>();
-        void Filter() => list.ItemsSource=entries.Where(m=>m.ToString().Contains(search.Text??"",StringComparison.OrdinalIgnoreCase)).ToArray();
+        void Filter() => list.ItemsSource=entries.Where(m=>m.ToString().Contains(search.Text??"",StringComparison.OrdinalIgnoreCase))
+            .Where(m=>visibility.SelectedIndex==0||visibility.SelectedIndex==1&&m.Listed&&!m.Draft||visibility.SelectedIndex==2&&!m.Listed&&!m.Draft||visibility.SelectedIndex==3&&m.Draft).ToArray();
+        visibility.SelectionChanged+=(_,_)=>Filter();
+        System.Threading.Tasks.Task<CommunityMap[]> FetchEntries(MapCommunityClient client,System.Threading.CancellationToken token)=>client.BrowseAsync(token,scope.SelectedIndex==1,scope.SelectedIndex==2,sorting.SelectedIndex==1?"favorites":sorting.SelectedIndex==2?"new":"name");
         search.TextChanged+=(_,_)=>Filter();
         MapCommunityClient Client()
         {
@@ -154,9 +161,26 @@ internal sealed partial class MapStudioScreen
         AddButton(buttons,"Refresh",()=>_=Job("Loading community maps",async token=>
         {
             buttons.IsEnabled=false;message.Text="Loading maps…";
-            try { using var client=Client(); entries=await client.BrowseAsync(token);GuardJob(token);Filter();message.Text=$"{entries.Length} maps available."; }
+            try { using var client=Client(); entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=$"{entries.Length} maps available."; }
             catch(Exception ex) { message.Text=ex.Message; throw; }
             finally { buttons.IsEnabled=true; }
+        }));
+        AddButton(buttons,"Favorite / unfavorite",()=>_=Job("Updating favorite",async token=>
+        {
+            if(list.SelectedItem is not CommunityMap map)throw new InvalidOperationException("Select a map first.");
+            using var client=Client();await client.SetFavoriteAsync(map.MapId,!map.Favorited,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=map.Favorited?"Favorite removed.":"Map favorited.";
+        }));
+        AddButton(buttons,"Report map",()=>
+        {
+            if(list.SelectedItem is not CommunityMap map){message.Text="Select a map first.";return;}
+            var report=new StackPanel{Spacing=8};report.Children.Add(Text("REPORT · "+(map.DisplayName??map.Name)));
+            var reason=new ComboBox{ItemsSource=MapCreatorCatalog.ReportReasons,SelectedIndex=0};var reportDetails=new TextBox{AcceptsReturn=true,Height=100,MaxLength=4000};report.Children.Add(reason);report.Children.Add(reportDetails);
+            AddButton(report,"Submit report",()=>_=Job("Submitting report",async token=>{using var client=Client();await client.ReportAsync(map.MapId,new(map.Version,(string)reason.SelectedItem!,reportDetails.Text??""),token);GuardJob(token);Dismiss();_status.Text="Report submitted for moderation.";}));
+            AddButton(report,"Cancel",Dismiss);Modal(report);
+        });
+        foreach(string state in new[]{"Published","Unlisted","Draft"})AddButton(buttons,"Set "+state,()=>_=Job("Updating visibility",async token=>
+        {
+            if(list.SelectedItem is not CommunityMap map)throw new InvalidOperationException("Select a map first.");using var client=Client();await client.SetVisibilityAsync(map.Hash,state,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text="Visibility updated.";
         }));
         AddButton(buttons,"Upload current",()=>_=Work("Publishing map",async(project,token)=>
         {
@@ -166,8 +190,8 @@ internal sealed partial class MapStudioScreen
             {
                 using var client=Client();
                 await MapBuildScheduler.Shared.PackageAsync(MapBuildSnapshot.Capture(project),temporary,token);GuardJob(token);
-                var published=await client.UploadAsync(temporary,token);GuardJob(token);
-                entries=await client.BrowseAsync(token);GuardJob(token);Filter();list.SelectedItem=entries.FirstOrDefault(e=>e.Hash==published.Hash);
+                var published=await client.UploadAsync(temporary,token,listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,draft:visibility.SelectedIndex==3);GuardJob(token);
+                entries=await FetchEntries(client,token);GuardJob(token);Filter();list.SelectedItem=entries.FirstOrDefault(e=>e.Hash==published.Hash);
                 message.Text="Published. Share this library address and select the same map version on each computer.";
             }
             catch(Exception ex) { message.Text=ex.Message;throw; }

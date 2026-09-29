@@ -105,7 +105,7 @@ namespace MphRead.Mods.Network
             writer.Write((byte)metadata.Bootstrap.Packets.Count);
             foreach (byte[] packet in metadata.Bootstrap.Packets)
             {
-                if (packet.Length is < 1 or > NetConfig.MaxPacketSize) throw new InvalidDataException("Invalid bootstrap packet.");
+                if (packet.Length is < 1 or > NetConfig.MaxSnapshotSize) throw new InvalidDataException("Invalid bootstrap packet.");
                 writer.Write((ushort)packet.Length); writer.Write(packet);
             }
             if (buffer.Length > MaxHeader) throw new InvalidDataException("Metadata too large.");
@@ -158,7 +158,7 @@ namespace MphRead.Mods.Network
             for (int i = 0; i < packetCount; i++)
             {
                 int length = reader.ReadUInt16();
-                if (length is < 1 or > NetConfig.MaxPacketSize) throw new InvalidDataException("Invalid bootstrap packet length.");
+                if (length is < 1 or > NetConfig.MaxSnapshotSize) throw new InvalidDataException("Invalid bootstrap packet length.");
                 byte[] packet = ReadBytes(reader, length);
                 if (!ValidBootstrap(packet, protocol, version)) throw new InvalidDataException("Invalid bootstrap packet.");
                 packets.Add(packet);
@@ -279,7 +279,7 @@ namespace MphRead.Mods.Network
         public void WriteRecord(uint frame, ReadOnlySpan<byte> data)
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
-            if (data.Length is < 1 or > NetConfig.MaxPacketSize || frame < _last || frame > ReplayFormatV3.MaxFrame)
+            if (data.Length is < 1 or > NetConfig.MaxSnapshotSize || frame < _last || frame > ReplayFormatV3.MaxFrame)
                 throw new InvalidDataException("Invalid replay packet/frame.");
             try
             {
@@ -627,7 +627,7 @@ namespace MphRead.Mods.Network
                 if (_remaining == 0 && !ReadChunk()) return null;
                 uint frame = _chunk!.ReadUInt32();
                 int size = _chunk.ReadUInt16();
-                if (frame < _first || frame > _last || frame < _previous || size is < 1 or > NetConfig.MaxPacketSize)
+                if (frame < _first || frame > _last || frame < _previous || size is < 1 or > NetConfig.MaxSnapshotSize)
                     throw new InvalidDataException("Invalid packet record.");
                 byte[] data = ReplayFormatV3.ReadBytes(_chunk, size);
                 _remaining--; _previous = frame;
@@ -687,7 +687,7 @@ namespace MphRead.Mods.Network
                 {
                     uint frame = check.ReadUInt32(); int size = check.ReadUInt16();
                     if (frame < prior || frame > _last || (i == 0 && frame != _first)
-                        || size is < 1 or > NetConfig.MaxPacketSize || size > raw.Length - check.BaseStream.Position)
+                        || size is < 1 or > NetConfig.MaxSnapshotSize || size > raw.Length - check.BaseStream.Position)
                         throw new InvalidDataException("Invalid chunk packet bounds.");
                     if (Metadata.FormatVersion == 4 && raw[check.BaseStream.Position] == 254)
                     {

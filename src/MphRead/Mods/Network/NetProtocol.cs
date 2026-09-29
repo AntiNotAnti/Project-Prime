@@ -570,7 +570,7 @@ namespace MphRead.Mods.Network
     {
         public ulong AuthorityEpoch;
         public const int MaxNameBytes = 40;
-        public const int Size = 1 + 4 + 4 + 1 + 1 + 2 + 2 + MaxNameBytes + MaxNameBytes + 8;
+        public const int Size = 1 + 4 + 4 + 1 + 1 + 2 + 2 + MaxNameBytes + MaxNameBytes + 8 + 2;
 
         public byte Mode;              // GameMode
         public float TimeRemaining;    // seconds left in this match
@@ -654,6 +654,9 @@ namespace MphRead.Mods.Network
         /// <summary>Protocol 28: opt-in three-second spawn protection.</summary>
         public const byte FlagSpawnProtection = 1 << 7;
 
+        public ushort RuleBits;
+        public readonly bool EnhancedHunters => ((MatchModifierFlags)RuleBits & MatchModifierFlags.EnhancedHunters) != 0;
+
         public readonly bool Ending => (Flags & FlagEnding) != 0;
         public readonly bool FriendlyFire => (Flags & FlagFriendlyFire) != 0;
         public readonly bool ShadowFreeze => (Flags & FlagShadowFreeze) != 0;
@@ -697,6 +700,7 @@ namespace MphRead.Mods.Network
         public void Write(Span<byte> dest)
         {
             BinaryPrimitives.WriteUInt64LittleEndian(dest[95..], AuthorityEpoch);
+            BinaryPrimitives.WriteUInt16LittleEndian(dest[103..], RuleBits);
             dest[0] = Mode;
             BinaryPrimitives.WriteSingleLittleEndian(dest[1..], TimeRemaining);
             BinaryPrimitives.WriteSingleLittleEndian(dest[5..], TimeElapsed);
@@ -713,6 +717,7 @@ namespace MphRead.Mods.Network
             return new MatchStatePacket
             {
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[95..]),
+                RuleBits = BinaryPrimitives.ReadUInt16LittleEndian(src[103..]),
                 Mode = src[0],
                 TimeRemaining = BinaryPrimitives.ReadSingleLittleEndian(src[1..]),
                 TimeElapsed = BinaryPrimitives.ReadSingleLittleEndian(src[5..]),
@@ -1309,7 +1314,11 @@ namespace MphRead.Mods.Network
         public const int AnalogStateSize = 2;
         public const int ContinuousTickSize = 4;
         public const int StateSize = ShotStateSize + AnalogStateSize + ContinuousTickSize;
-        public const int FullSize = Size + StateSize;
+        public const int LegacyFullSize = Size + StateSize;
+        public const int FullSize = LegacyFullSize + NetFireEvents.WireSize;
+        public bool HasFireEvents;
+        public byte FireEventCount;
+        public FireEventHistory FireEvents;
 
         /// <summary>
         /// <c>EquipInfo.ChargeLevel</c> as the owner holds it, clamped to a
@@ -1538,9 +1547,14 @@ namespace MphRead.Mods.Network
                 dest[Size + 8] = unchecked((byte)MoveX);
                 dest[Size + 9] = unchecked((byte)MoveY);
             }
+            if (dest.Length >= LegacyFullSize)
+                BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
             if (dest.Length >= FullSize)
             {
-                BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 10)..], ContinuousFireTick);
+                dest[LegacyFullSize] = FireEventCount;
+                dest.Slice(LegacyFullSize + 1, NetFireEvents.Capacity * FireEvent.Size).Clear();
+                for (int i = 0; i < Math.Min((int)FireEventCount, NetFireEvents.Capacity); i++)
+                    FireEvents[i].Write(dest[(LegacyFullSize + 1 + i * FireEvent.Size)..]);
             }
         }
 
@@ -1551,8 +1565,13 @@ namespace MphRead.Mods.Network
             {
                 presses[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(21 + i * 2)..]);
             }
+            FireEventHistory fireEvents = default;
+            byte fireCount = src.Length >= FullSize ? src[LegacyFullSize] : (byte)0;
+            for (int i = 0; i < Math.Min((int)fireCount, NetFireEvents.Capacity); i++)
+                fireEvents[i] = FireEvent.Read(src[(LegacyFullSize + 1 + i * FireEvent.Size)..]);
             return new IntentPacket
             {
+                HasFireEvents = src.Length >= FullSize, FireEventCount = fireCount, FireEvents = fireEvents,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[74..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[76..]),
                 SlotGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[84..]),
@@ -1587,8 +1606,8 @@ namespace MphRead.Mods.Network
                 HasAnalogMove = src.Length >= Size + ShotStateSize + AnalogStateSize,
                 MoveX = src.Length >= Size + ShotStateSize + AnalogStateSize ? unchecked((sbyte)src[Size + 8]) : (sbyte)0,
                 MoveY = src.Length >= Size + ShotStateSize + AnalogStateSize ? unchecked((sbyte)src[Size + 9]) : (sbyte)0,
-                HasContinuousFireTick = src.Length >= FullSize,
-                ContinuousFireTick = src.Length >= FullSize
+                HasContinuousFireTick = src.Length >= LegacyFullSize,
+                ContinuousFireTick = src.Length >= LegacyFullSize
                     ? BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 10)..]) : 0
             };
         }
@@ -1655,7 +1674,9 @@ namespace MphRead.Mods.Network
         private const byte AuxHalfturretActive = 1 << 0;
         private const byte AuxSpawnProtected = 1 << 1;
         private const int JumpPadEventOffset = HalfturretOffset + 3;
-        public const int Size = JumpPadEventOffset + 2;
+        public const int LegacySize = JumpPadEventOffset + 2;
+        public const int Size = LegacySize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
+        public Mods.EnhancedHunters.EnhancedHunterNetState Enhanced;
         public bool HalfturretActive;
         public bool SpawnProtected;
         public ushort HalfturretHealth;
@@ -1781,6 +1802,7 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            Enhanced.Write(dest[LegacySize..]);
             dest[0] = SlotIndex;
             dest[1] = Flags;
             WriteVec(dest[2..], Position);
@@ -1805,33 +1827,37 @@ namespace MphRead.Mods.Network
             }
         }
 
-        public static PlayerState Read(ReadOnlySpan<byte> src)
+        public static PlayerState Read(ReadOnlySpan<byte> src) => ReadFields(src[..41], src.Slice(41, 7), src[48..]);
+        internal static PlayerState ReadFast(ReadOnlySpan<byte> fast, ReadOnlySpan<byte> slow)
+            => ReadFields(fast[..41], slow, fast[41..]);
+        private static PlayerState ReadFields(ReadOnlySpan<byte> prefix, ReadOnlySpan<byte> slow, ReadOnlySpan<byte> suffix)
         {
-            byte auxiliary = src[HalfturretOffset];
+            byte auxiliary = suffix[HalfturretOffset - 48];
             var state = new PlayerState
             {
-                SlotIndex = src[0],
-                Flags = src[1],
-                Position = ReadVec(src[2..]),
-                Speed = ReadVec(src[14..]),
-                Facing = ReadVec(src[26..]),
-                Health = BinaryPrimitives.ReadUInt16LittleEndian(src[38..]),
-                CurrentWeapon = src[40],
-                Team = src[41],
-                Points = BinaryPrimitives.ReadInt16LittleEndian(src[42..]),
-                Kills = BinaryPrimitives.ReadUInt16LittleEndian(src[44..]),
-                Deaths = BinaryPrimitives.ReadUInt16LittleEndian(src[46..]),
-                SlotGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[48..]),
-                LifeId = BinaryPrimitives.ReadUInt16LittleEndian(src[50..]),
-                DamageEventId = BinaryPrimitives.ReadUInt16LittleEndian(src[52..]),
+                Enhanced = Mods.EnhancedHunters.EnhancedHunterNetState.Read(suffix[(LegacySize - 48)..]),
+                SlotIndex = prefix[0],
+                Flags = prefix[1],
+                Position = ReadVec(prefix[2..]),
+                Speed = ReadVec(prefix[14..]),
+                Facing = ReadVec(prefix[26..]),
+                Health = BinaryPrimitives.ReadUInt16LittleEndian(prefix[38..]),
+                CurrentWeapon = prefix[40],
+                Team = slow[0],
+                Points = BinaryPrimitives.ReadInt16LittleEndian(slow[1..]),
+                Kills = BinaryPrimitives.ReadUInt16LittleEndian(slow[3..]),
+                Deaths = BinaryPrimitives.ReadUInt16LittleEndian(slow[5..]),
+                SlotGeneration = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(48 - 48)..]),
+                LifeId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(50 - 48)..]),
+                DamageEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(52 - 48)..]),
                 HalfturretActive = (auxiliary & AuxHalfturretActive) != 0,
                 SpawnProtected = (auxiliary & AuxSpawnProtected) != 0,
-                HalfturretHealth = BinaryPrimitives.ReadUInt16LittleEndian(src[(HalfturretOffset + 1)..]),
-                JumpPadEventId = BinaryPrimitives.ReadUInt16LittleEndian(src[JumpPadEventOffset..]),
-                Damage0 = DamageEvent.Read(src[54..]),
-                Damage1 = DamageEvent.Read(src[(54 + DamageEvent.Size)..]),
-                Damage2 = DamageEvent.Read(src[(54 + 2 * DamageEvent.Size)..]),
-                Damage3 = DamageEvent.Read(src[(54 + 3 * DamageEvent.Size)..])
+                HalfturretHealth = BinaryPrimitives.ReadUInt16LittleEndian(suffix[((HalfturretOffset + 1) - 48)..]),
+                JumpPadEventId = BinaryPrimitives.ReadUInt16LittleEndian(suffix[(JumpPadEventOffset - 48)..]),
+                Damage0 = DamageEvent.Read(suffix[(54 - 48)..]),
+                Damage1 = DamageEvent.Read(suffix[((54 + DamageEvent.Size) - 48)..]),
+                Damage2 = DamageEvent.Read(suffix[((54 + 2 * DamageEvent.Size) - 48)..]),
+                Damage3 = DamageEvent.Read(suffix[((54 + 3 * DamageEvent.Size) - 48)..])
             };
 
             // Keep the existing in-memory convenience fields without paying
@@ -1952,7 +1978,8 @@ namespace MphRead.Mods.Network
         public ushort ShooterLifeId;
         public ushort VictimGeneration;
         public ushort VictimLifeId;
-        public const int Size = 2 + 4 + 4 + 4 + 1 + 1 + 2 + 1 + 12 + 18 + 6;
+        public const int Size = 59;
+        public uint ShotId;
         private const float DirectionScale = 16384f;
 
         /// <summary>How many claims one datagram may carry.</summary>
@@ -1975,6 +2002,7 @@ namespace MphRead.Mods.Network
         // Frame names the logical firing tick for a synchronized Shock Coil.
         // AckFrame and LaunchFrame retain historical-world/arbitration semantics.
         public const byte FlagContinuousTick = 1 << 6;
+        public const byte FlagDirect = 1 << 7;
 
         /// <summary>
         /// Rolling, per shooter, so a verdict can name a claim and a repeat
@@ -1993,24 +2021,10 @@ namespace MphRead.Mods.Network
         /// </summary>
         public uint AckFrame;
         /// <summary>
-        /// The world-frame the shot that caused this hit was <b>launched</b>
-        /// in -- <c>BeamProjectileEntity.ModLaunchFrame</c>, stamped on every
-        /// machine that spawns a beam.
-        ///
-        /// <b>This is what identifies the shot, and nothing else can.</b>
-        /// Pairing a claim with the authority's own resolution of the same
-        /// shot by *when they arrived* cannot be made exact: the two are
-        /// separated by a round trip, and for anything that travels by however
-        /// far the two copies of the projectile drifted apart over its flight
-        /// as well -- which grows with range. Measured, a window sized to the
-        /// round trip still let one hit in thirty through at zero latency and
-        /// applied it on top of the authority's: the victim took the damage,
-        /// then took it again when the shot they could see arrived. The launch
-        /// frame is the same number on both machines by construction and does
-        /// not care how far the shot flew.
-        ///
-        /// Zero for a hit with no beam behind it -- an alt form's attack, a
-        /// bomb, the void -- which fall back to the time window.
+        /// The original fire event's world ACK, retained for historical timing
+        /// validation. ShotId together with the shooter lifecycle identifies a
+        /// beam; launch frames must never pair distinct protocol-30 shots.
+        /// Zero is permitted for non-projectile attacks.
         /// </summary>
         public uint LaunchFrame;
         public byte VictimSlot;
@@ -2043,6 +2057,7 @@ namespace MphRead.Mods.Network
 
         public void Write(Span<byte> dest)
         {
+            BinaryPrimitives.WriteUInt32LittleEndian(dest[55..], ShotId);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[31..], MatchId);
             BinaryPrimitives.WriteUInt64LittleEndian(dest[33..], AuthorityEpoch);
             BinaryPrimitives.WriteUInt16LittleEndian(dest[41..], ShooterGeneration);
@@ -2069,6 +2084,7 @@ namespace MphRead.Mods.Network
         {
             return new HitClaimPacket
             {
+                ShotId = src.Length >= Size ? BinaryPrimitives.ReadUInt32LittleEndian(src[55..]) : 0,
                 MatchId = BinaryPrimitives.ReadUInt16LittleEndian(src[31..]),
                 AuthorityEpoch = BinaryPrimitives.ReadUInt64LittleEndian(src[33..]),
                 ShooterGeneration = BinaryPrimitives.ReadUInt16LittleEndian(src[41..]),
@@ -2210,6 +2226,7 @@ namespace MphRead.Mods.Network
         // Keep application datagrams within the IPv6 minimum-MTU budget after
         // UDP/IP headers. Compact PlayerState leaves worst-case 8-player
         // snapshots comfortably below this bound.
+        public const int MaxSnapshotSize = 4096; // In-process/replay canonical state; never one live datagram.
         public const int MaxPacketSize = 1472; // Rare control traffic; realtime lanes are separately bounded at 1200 bytes.
         public const int MaxPayloadSize = MaxPacketSize - NetHeader.Size;
         /// <summary>
@@ -2335,7 +2352,7 @@ namespace MphRead.Mods.Network
         // Protocol 28 adds Insta-Gib, Low Tier and No Imp session rules and positive,
         // default-off Shadow Freeze / Spawn Protection flags. Gameplay packet sizes
         // stay unchanged; status replies append the rule mask for browser presentation.
-        public const int ProtocolVersion = 29;
+        public const int ProtocolVersion = 31;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

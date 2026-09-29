@@ -39,7 +39,7 @@ namespace MphRead.Entities
                 }
 
                 Vector3 position;
-                if (_scene.ReplayPoses?.Sample(slot, _scene.ReplayRenderAlpha,
+                if (_scene.ReplayPoses?.SamplePresented(slot, _scene.ReplayRenderAlpha,
                     out Vector3 replayPosition, out _) == true)
                 {
                     position = replayPosition;

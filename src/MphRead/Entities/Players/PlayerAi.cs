@@ -14,7 +14,7 @@ namespace MphRead.Entities
         public NodeData3? ClosestNode { get; set; } = null;
         public int BotLevel { get; set; } = 0;
 
-        public class PlayerAiData
+        public partial class PlayerAiData
         {
             private readonly PlayerEntity _player;
             private readonly Scene _scene;
@@ -847,6 +847,7 @@ namespace MphRead.Entities
                 Func2148ABC();
                 Execute(_executionTree[0]);
                 ApplyCombatEnhancements();
+                ApplyEnhancedHunterChoices();
                 Array.Fill(_slotHits, 0);
                 Array.Fill(_slotDamage, 0);
                 DamageFromHalfturret = 0;

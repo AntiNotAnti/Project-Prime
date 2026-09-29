@@ -40,10 +40,22 @@ internal sealed class ReplayPoseStream : IDisposable
         { LastError=ex.Message; _failed=true; return false; }
     }
     internal bool Sample(int slot, float alpha, out Vector3 position, out Vector3 facing)
+        => SampleAt(slot, Math.Max(0, _world.Session.RecordingFrame - 1d + alpha),
+            out position, out facing);
+
+    internal bool SamplePresented(int slot, float alpha, out Vector3 position, out Vector3 facing)
+    {
+        double frame = double.IsFinite(_world.Scene.ReplayPresentationFrame)
+            ? _world.Session.RecordingPresentationFrame(_world.Scene.ReplayPresentationFrame)
+            : Math.Max(0, _world.Session.RecordingFrame - 1d + alpha);
+        return SampleAt(slot, frame, out position, out facing);
+    }
+
+    internal bool SampleAt(int slot, double frame, out Vector3 position, out Vector3 facing)
     {
         position = facing = default;
         if ((uint)slot >= 8 || !Prepare()) return false;
-        double frame = Math.Max(0, _world.Session.RecordingFrame - 1d + alpha);
+        frame = Math.Clamp(frame, 0, _world.Session.RecordingPresentationFrame(_world.Session.LastFrame));
         var samples = _poses[slot];
         if (samples.Count == 0) return false;
         int left = 0;

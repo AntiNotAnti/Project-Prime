@@ -118,17 +118,32 @@ namespace MphRead.Mods.Launcher.Gui
             GamepadChecks.Check(placeholderClosed == 1,
                 "Map Editor placeholder Back accepts a pointer click");
 
+            var offlineOverlays = new PrimeOverlayHost();
             var offlineView = new OfflineWorkspace(new MenuSettings { RoomKey = "MP3 PROVING GROUND" },
-                new[] { "MP3 PROVING GROUND" }, new PrimeOverlayHost());
+                new[] { "MP3 PROVING GROUND" }, offlineOverlays);
             LaunchPlan? offlinePlan = null;
             offlineView.Launched += (_, plan) => offlinePlan = plan;
-            window.Content = offlineView; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+            var offlineRoot = new Grid(); offlineRoot.Children.Add(offlineView); offlineRoot.Children.Add(offlineOverlays);
+            window.Content = offlineRoot; window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             Click(window, ControllerNav.Find(offlineView, "offline.start")!);
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Offline, RoomKey: "MP3 PROVING GROUND" },
                 "Offline launches its selected local arena");
 
+            var trainingStart = ControllerNav.Find(offlineView, "offline.training.start");
+            GamepadChecks.Check(trainingStart != null, "Offline trainer has a controller-addressable launch action");
+            if (trainingStart!.IsEnabled)
+            {
+                Click(window, trainingStart);
+                GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.AimTrainer, Mode: GameMode.Battle, Training: not null },
+                    "Aim Trainer launches a local Battle with separate configuration");
+            }
             offlinePlan = null;
             Click(window, ControllerNav.Find(offlineView, "offline.adventure.new")!);
+            if (AdventureSave.Read(1).Used)
+            {
+                window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
+                Click(window, offlineOverlays.GetVisualDescendants().OfType<PrimeButton>().Single(b => b.Label == "START NEW RUN"));
+            }
             GamepadChecks.Check(offlinePlan is { Kind: LaunchKind.Adventure, SaveSlot: 1, NewGame: true },
                 "Adventure NEW RUN launches a fresh selected save slot");
 
@@ -398,6 +413,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static void Click(Window window, Control control,
             double xFraction = 0.5, double yFraction = 0.5)
         {
+            control.BringIntoView(); window.UpdateLayout(); Dispatcher.UIThread.RunJobs();
             Point? origin = control.TranslatePoint(new Point(), window);
             GamepadChecks.Check(origin.HasValue,
                 $"{control.GetType().Name} has a window-space pointer target");

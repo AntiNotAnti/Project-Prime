@@ -81,8 +81,10 @@ public static class NetContinuousTargetDiagnostics
         if (!evaluation.Authority) return;
         Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.ContinuousTarget, evaluation.Frame,
             Player: (byte)evaluation.Owner, Victim: (byte)(evaluation.Selected.HasPlayer ? evaluation.Selected.Slot : 255),
+            Weapon: (byte)BeamType.ShockCoil, Generation: evaluation.Selected.Generation, Life: evaluation.Selected.LifeId,
             Result: (int)evaluation.Rejection, A: evaluation.Reported.EncodedSlot, B: evaluation.Selected.EncodedSlot,
-            C: evaluation.Phase, D: evaluation.Dot, E: evaluation.Threshold));
+            C: evaluation.Phase, D: evaluation.Dot, E: evaluation.Threshold,
+            F: evaluation.Reported.Generation, G: evaluation.Reported.LifeId));
         Reports++;
         if (evaluation.Rejection == ContinuousTargetRejection.ExplicitNone) ExplicitNone++;
         else if (evaluation.Rejection == ContinuousTargetRejection.None) Accepted++;
@@ -117,7 +119,9 @@ public static class NetContinuousTargetDiagnostics
             if (item.Authority) Telemetry.ProductionTelemetry.Emit(new(Telemetry.TelemetryEventType.ContinuousTarget, item.Frame,
                 Player: (byte)item.Owner, Victim: (byte)target.SlotIndex, Result: (int)item.Rejection,
                 Flags: (overlap ? 1 : 0) | (damage > 0 ? 2 : 0), A: item.Reported.EncodedSlot,
-                B: item.Selected.EncodedSlot, C: item.Phase, D: damage));
+                B: item.Selected.EncodedSlot, C: item.Phase, D: damage,
+                Weapon: (byte)BeamType.ShockCoil, Generation: item.CollisionTarget.Generation, Life: item.CollisionTarget.LifeId,
+                F: item.Reported.Generation, G: item.Reported.LifeId));
             return;
         }
     }

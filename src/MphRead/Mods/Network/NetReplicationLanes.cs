@@ -25,7 +25,7 @@ public static class SnapshotFast
 public sealed class NetReplicationLanes
 {
     public const int LaneHeader = 14, SlowEntry = 10;
-    public readonly byte[] Fast = new byte[1200], Slow = new byte[256], World = new byte[512];
+    public readonly byte[] Fast = new byte[1200], Slow = new byte[256], World = new byte[1200];
     public int FastLength { get; private set; }
     public int SlowLength { get; private set; }
     public int WorldLength { get; private set; }
@@ -73,9 +73,19 @@ public sealed class NetReplicationLanes
         var health = canonical[(timeAt + NetMatchTimeSync.Size)..];
         bool changed = WorldLength != LaneHeader + health.Length;
         if (!changed)
-            for (int i = NetHealthSync.HeaderSize; i < health.Length; i += NetHealthSync.EntrySize)
+            for (int i = NetHealthSync.HeaderSize; i < NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize; i += NetHealthSync.EntrySize)
                 if (!health.Slice(i, 3).SequenceEqual(World.AsSpan(LaneHeader + i, 3))
                     || !health.Slice(i + 5, 2).SequenceEqual(World.AsSpan(LaneHeader + i + 5, 2))) { changed = true; break; }
+        int zonesAt = NetHealthSync.HeaderSize + health[2] * NetHealthSync.EntrySize;
+        if (!changed && zonesAt < health.Length)
+        {
+            var zones = health[zonesAt..];
+            var old = World.AsSpan(LaneHeader + zonesAt, zones.Length);
+            changed = zones[0] != old[0];
+            for (int i = 1; !changed && i < zones.Length; i += Mods.EnhancedHunters.EnhancedHunterWorld.ZoneSize)
+                changed = !zones.Slice(i, 20).SequenceEqual(old.Slice(i, 20))
+                    || !zones.Slice(i + 22, 2).SequenceEqual(old.Slice(i + 22, 2));
+        }
         SendWorld = reset || WorldRevision == 0 || changed || header.Frame - _worldFrame >= 15;
         if (SendWorld)
         {
@@ -95,42 +105,90 @@ public sealed class NetReplicationLanes
 /// <summary>Revision fencing and full-state assembly, with no decode allocations.</summary>
 public sealed class NetReplicationReceiver
 {
-    private readonly byte[] _slow = new byte[256], _world = new byte[512];
+    private readonly byte[] _slow = new byte[256], _world = new byte[1200];
     private int _slowLength, _worldLength;
+    private readonly short[] _slowOffsetBySlot = new short[8];
+    private readonly byte[] _emptySlow = new byte[7], _emptyTime = new byte[NetMatchTimeSync.Size], _emptyWorld = new byte[NetHealthSync.HeaderSize];
+    public static long SnapshotAssemblyBytesCopied, FastDecodeTicks, FastDecodeCount;
+    public NetReplicationReceiver() => Array.Fill(_slowOffsetBySlot, (short)-1);
+    internal ReadOnlySpan<byte> TimeState => _slowLength == 0 ? _emptyTime : _slow.AsSpan(_slowLength - NetMatchTimeSync.Size, NetMatchTimeSync.Size);
+    internal ReadOnlySpan<byte> WorldState => _worldLength == 0 ? _emptyWorld : _world.AsSpan(14, _worldLength - 14);
     private ushort _match;
     private ulong _epoch;
     public uint SlowRevision { get; private set; }
     public uint WorldRevision { get; private set; }
     public void Reset(ushort match, ulong epoch)
-    { _match = match; _epoch = epoch; _slowLength = _worldLength = 0; SlowRevision = WorldRevision = 0; }
+    {
+        _match = match; _epoch = epoch; _slowLength = _worldLength = 0; SlowRevision = WorldRevision = 0;
+        Array.Fill(_slowOffsetBySlot, (short)-1);
+        Array.Clear(_emptyWorld); BinaryPrimitives.WriteUInt16LittleEndian(_emptyWorld, match);
+    }
     public bool Receive(PacketType type, ReadOnlySpan<byte> data, ushort match, ulong epoch)
     {
         if (data.Length < NetReplicationLanes.LaneHeader || BinaryPrimitives.ReadUInt16LittleEndian(data) != match
             || BinaryPrimitives.ReadUInt64LittleEndian(data[2..]) != epoch) return false;
-        if (_match != match || _epoch != epoch) Reset(match, epoch);
+        bool sameStream = _match == match && _epoch == epoch;
         uint revision = BinaryPrimitives.ReadUInt32LittleEndian(data[10..]);
         if (revision == 0) return false;
         if (type == PacketType.PlayerSlowState)
         {
             if (data.Length < 15 || data[14] > 8 || data.Length != 15 + data[14] * 10 + NetMatchTimeSync.Size
-                || SlowRevision != 0 && !NetLifecycleTracker.Newer(revision, SlowRevision)
+                || sameStream && SlowRevision != 0 && !NetLifecycleTracker.Newer(revision, SlowRevision)
                 || !NetMatchTimeSync.Validate(data[(15 + data[14] * 10)..])) return false;
             int seen = 0;
             for (int i = 0; i < data[14]; i++)
             { int slot = data[15 + i * 10]; if (slot >= 8 || (seen & (1 << slot)) != 0) return false; seen |= 1 << slot; }
+            if (!sameStream) Reset(match, epoch);
+            Array.Fill(_slowOffsetBySlot, (short)-1);
+            for (int i = 0; i < data[14]; i++) _slowOffsetBySlot[data[15 + i * 10]] = (short)(15 + i * 10);
             data.CopyTo(_slow); _slowLength = data.Length; SlowRevision = revision; return true;
         }
         if (type != PacketType.WorldState || data.Length > _world.Length
-            || WorldRevision != 0 && !NetLifecycleTracker.Newer(revision, WorldRevision)
+            || sameStream && WorldRevision != 0 && !NetLifecycleTracker.Newer(revision, WorldRevision)
             || !NetHealthSync.Validate(data[14..]) || BinaryPrimitives.ReadUInt16LittleEndian(data[14..]) != match) return false;
+        if (!sameStream) Reset(match, epoch);
         data.CopyTo(_world); _worldLength = data.Length; WorldRevision = revision; return true;
     }
+    public static bool ValidateFast(ReadOnlySpan<byte> fast, ushort match, ulong epoch, out SnapshotHeader header)
+    {
+        header = default;
+        if (fast.Length < SnapshotHeader.Size) return false;
+        header = SnapshotHeader.Read(fast);
+        if (header.MatchId != match || header.AuthorityEpoch != epoch || header.PlayerCount > 8
+            || fast.Length != SnapshotHeader.Size + header.PlayerCount * SnapshotFast.PlayerSize) return false;
+        int seen = 0;
+        for (int i = 0; i < header.PlayerCount; i++)
+        {
+            int slot = fast[SnapshotHeader.Size + i * SnapshotFast.PlayerSize];
+            if (slot >= 8 || (seen & (1 << slot)) != 0) return false;
+            seen |= 1 << slot;
+        }
+        return true;
+    }
+    private ReadOnlySpan<byte> SlowPlayer(ReadOnlySpan<byte> fastPlayer)
+    {
+        int at = _slowOffsetBySlot[fastPlayer[0]];
+        return at >= 0 && BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + 1))
+            == BinaryPrimitives.ReadUInt16LittleEndian(fastPlayer[41..]) ? _slow.AsSpan(at + 3, 7) : _emptySlow;
+    }
+    internal PlayerState DecodeValidatedPlayer(ReadOnlySpan<byte> fast, int index)
+    {
+        var player = fast.Slice(SnapshotHeader.Size + index * SnapshotFast.PlayerSize, SnapshotFast.PlayerSize);
+        return PlayerState.ReadFast(player, SlowPlayer(player));
+    }
+    public bool TryDecodeLive(ReadOnlySpan<byte> fast, Span<PlayerState> players, ushort match, ulong epoch, out SnapshotHeader header)
+    {
+        if (!ValidateFast(fast, match, epoch, out header) || players.Length < header.PlayerCount) return false;
+        if (_match != match || _epoch != epoch) Reset(match, epoch);
+        long start = System.Diagnostics.Stopwatch.GetTimestamp();
+        for (int i = 0; i < header.PlayerCount; i++) players[i] = DecodeValidatedPlayer(fast, i);
+        FastDecodeTicks += System.Diagnostics.Stopwatch.GetTimestamp() - start; FastDecodeCount++;
+        return true;
+    }
+
     public int Assemble(ReadOnlySpan<byte> fast, Span<byte> canonical, ushort match, ulong epoch)
     {
-        if (fast.Length < SnapshotHeader.Size) return 0;
-        var header = SnapshotHeader.Read(fast);
-        if (header.MatchId != match || header.AuthorityEpoch != epoch || header.PlayerCount > 8
-            || fast.Length != SnapshotHeader.Size + header.PlayerCount * SnapshotFast.PlayerSize) return 0;
+        if (!ValidateFast(fast, match, epoch, out var header)) return 0;
         if (_match != match || _epoch != epoch) Reset(match, epoch);
         int length = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size + NetMatchTimeSync.Size
             + (_worldLength == 0 ? NetHealthSync.HeaderSize : _worldLength - 14);
@@ -141,20 +199,14 @@ public sealed class NetReplicationReceiver
             var source = fast.Slice(SnapshotHeader.Size + i * SnapshotFast.PlayerSize, SnapshotFast.PlayerSize);
             var target = canonical.Slice(SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size);
             source[..41].CopyTo(target); source[41..].CopyTo(target[48..]);
-            if (_slowLength != 0)
-                for (int j = 0; j < _slow[14]; j++)
-                {
-                    int at = 15 + j * 10;
-                    if (_slow[at] == source[0] && BinaryPrimitives.ReadUInt16LittleEndian(_slow.AsSpan(at + 1))
-                        == BinaryPrimitives.ReadUInt16LittleEndian(target[48..]))
-                        _slow.AsSpan(at + 3, 7).CopyTo(target[41..]);
-                }
+            SlowPlayer(source).CopyTo(target[41..]);
         }
         int timeAt = SnapshotHeader.Size + header.PlayerCount * PlayerState.Size;
         if (_slowLength != 0) _slow.AsSpan(_slowLength - NetMatchTimeSync.Size, NetMatchTimeSync.Size).CopyTo(canonical[timeAt..]);
         int worldAt = timeAt + NetMatchTimeSync.Size;
         if (_worldLength != 0) _world.AsSpan(14, _worldLength - 14).CopyTo(canonical[worldAt..]);
         else BinaryPrimitives.WriteUInt16LittleEndian(canonical[worldAt..], match);
+        SnapshotAssemblyBytesCopied += length;
         return length;
     }
 }

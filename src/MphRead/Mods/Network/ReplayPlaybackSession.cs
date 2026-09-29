@@ -36,6 +36,9 @@ namespace MphRead.Mods.Network
         private uint LeadInFrames => _reader?.Metadata?.LeadInFrames ?? 0;
         public uint CurrentFrame => _frame >= LeadInFrames ? _frame - LeadInFrames : 0;
         internal uint RecordingFrame => checked(_frame + (_reader?.Metadata?.OriginRecordingFrame ?? 0));
+        internal double RecordingPresentationFrame(double visibleFrame) => _clip != null
+            ? visibleFrame
+            : visibleFrame + LeadInFrames + (_reader?.Metadata?.OriginRecordingFrame ?? 0);
         internal IReadOnlyList<ReplayCheckpointIndex> DurableCheckpoints => _reader?.Checkpoints ?? Array.Empty<ReplayCheckpointIndex>();
         internal uint CheckpointVisibleFrame(ReplayCheckpointIndex index) => index.Frame >= LeadInFrames ? index.Frame - LeadInFrames : 0;
         internal uint SourceFrame => _frame;

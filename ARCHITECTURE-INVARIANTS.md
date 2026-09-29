@@ -6,7 +6,7 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Network protocol
 
-- The current wire protocol is **29** (`NetConfig.ProtocolVersion`).
+- The current wire protocol is **31** (`NetConfig.ProtocolVersion`).
 - Protocol mismatches are refused during the Hello handshake. Do not make incompatible wire or simulation changes without a protocol bump.
 - Dated protocol 6/7/8 measurements in `.claude/` are historical A/B evidence, not the current architecture.
 
@@ -152,13 +152,13 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Replay pose lookahead is bounded and presentation-only; it never advances simulation/RNG or uses live receive jitter. Do not blend across occupant/life, spawn/death, form or teleport boundaries.
 - Export stays at 60 Hz gameplay. A 120 FPS movie renders deterministic half-frame samples, never duplicate-frame conversion or 120 Hz physics. Camera paths and export collision anchors use recorded time. Native-size world/HUD targets belong to the scene and release on its GL owner.
 
-- Packet 42 carries bounded authoritative world facts. Protocol 29 live clients
+- Packet 42 carries bounded authoritative world facts. Protocol 31 live clients
   apply its objective ownership and modifier ammo facts; replay entity reconstruction
   remains restricted to private scenes. Atomic fragment assembly validates before
   publication; actor links fence occupant generation and life. New-server final
   killcams use the confirmed ending cause and exact kill identity.
 
-- World capsules are explicitly versioned (current v2, v1 readable). V4 files may index bounded durable checkpoints; invalid optional entries fall back to valid reconstruction. New capture spools at most 4,096 checkpoints / 256 MiB compressed and never stores live references or native handles.
+- World capsules are explicitly versioned (current v4, v1–v3 readable). V4 files may index bounded durable checkpoints; invalid optional entries fall back to valid reconstruction. New capture spools at most 4,096 checkpoints / 256 MiB compressed and never stores live references or native handles.
 
 ## HUD profiles
 
@@ -187,12 +187,12 @@ This file is the short, machine-oriented source of truth for architectural assum
 
 ## Advanced match rules
 
-- Protocol 29 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
+- Protocol 31 separates `LobbyRuleFlags : ushort` from `MatchModifierFlags : uint`.
   SessionState carries the modifier word after its protocol-28 payload; status
-  replies carry a 32-bit modifier word. Live clients must match protocol 29.
-- Protocols 24–28 recorded session packets convert their combined flags at the
+  replies carry a 32-bit modifier word. Live clients must match protocol 31.
+- Protocols 24–30 recorded session packets convert their combined flags at the
   replay boundary. Decoder checkpoints use the recorded protocol's packet size.
-- Octolith Auto Reset is authoritative and only valid in Capture/Bounty. The
+- Octolith Auto Reset is authoritative and only valid in Capture/Bounty/Relic. The
   offline setting comes from AutoReset, independently of PointGoal.
 - Match mode and modifiers change at the synchronous room-load boundary after
   old entities are torn down and before new actors/entities are constructed.
@@ -204,6 +204,29 @@ This file is the short, machine-oriented source of truth for architectural assum
 - Live objective correction consumes the server's complete ReplayWorld facts after simulation.
   It fences match, authority, loaded room and actor generation/life; clients do not author flag/node
   scoring or Prime/Relic hold time. This does not apply replay object graphs to live scenes or alter
-  player movement. Objective facts currently arrive independently of the three-lane WorldReady barrier.
+  player movement. Objective facts form a fourth frozen lane of the WorldReady barrier.
 - Relic is mode 16 and uses the Bounty entity layer with exactly one Octolith. Its hold time uses the
   existing per-player Time array and its carrier uses the existing flag authority/replay contract.
+## Enhanced Hunters
+
+- Protocol 29 appended MatchState RuleBits with session bit 8192 for Enhanced Hunters.
+  Protocol 31 translates historical packets and uses modifier bit 1024.
+- Enhanced Hunters defaults OFF and is independent of affinity pickup replacement.
+- Accepted authority hits own enhanced damage and status. Owner movement remains owner-reported.
+- Per-player enhanced state fences target life and generation; zones belong to each Scene (maximum 16).
+- Canonical snapshots may reach 4096 bytes internally; realtime fast/world lanes remain at most 1200 bytes.
+- Historical replay protocols 24–28 upgrade at playback boundaries and default Enhanced Hunters OFF.
+
+## Protocol 30 shot identity and performance
+
+- Projectile identity is (match, authority epoch, shooter slot, generation, life,
+  ShotId). LaunchFrame and AckFrame are historical timing metadata only.
+- Repeated fire events preserve the original fire timing, charge and continuous
+  phase across lost or reordered intent carriers. Derived projectiles inherit
+  their parent identity. Live beam claims require a nonzero ShotId.
+- Shadow sampling is diagnostic only. It must never change damage, rewind or
+  projectile state.
+- Geometry revision/equality shortcuts retain live capture whenever the engine
+  cannot prove no intervening collision mutation.
+- Direct live snapshot decoding validates the complete packet before mutation;
+  replay recording and bootstrap retain owned canonical representations.

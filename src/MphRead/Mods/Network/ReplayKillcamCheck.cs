@@ -68,14 +68,22 @@ internal static class ReplayKillcamCheck
             var state = capture.World!.State;
             if (frame < 1800 || state.Match is not { } match || !state.TryGetPlayer(0, out var victim))
                 throw new InvalidDataException("Use the eight-actor world-coverage fixture for killcam lifecycle checks.");
+            int checks = 0;
+            void Require(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
             const uint death = 1602;
             var identity = new ReplayKillIdentity(match.MatchId, match.AuthorityEpoch, death, 2,
                 1, state.Occupant(1).Generation, 0, state.Occupant(0).Generation, 1);
+            if (!state.TryGetPlayer(1, out var attackerState) || attackerState.LifeId == 0)
+                throw new InvalidDataException("Killcam fixture has no attacker snapshot.");
+            var strictIdentity = identity with { KillerLifeId = attackerState.LifeId };
+            Require(KillcamController.ResolveAttackerSlot(strictIdentity, state) == 1,
+                "Exact attacker life did not resolve.");
+            Require(KillcamController.ResolveAttackerSlot(strictIdentity with
+                { KillerLifeId = NetLifecycleTracker.Next(attackerState.LifeId) }, state) == -1,
+                "Respawned attacker slot bypassed its life fence or fell back to victim.");
             var marker = new ReplayMarker(ReplayMarkerKind.Kill, 1, 0, Kill: identity, Weapon: 1, DamageFlags: (byte)DamageFlags.Headshot);
             var context = new KillcamContext(match.MatchId, match.AuthorityEpoch, death, 0,
                 identity.VictimGeneration, 1, false, true, true, true);
-            int checks = 0;
-            void Require(bool value, string message) { if (!value) throw new InvalidDataException(message); checks++; }
             var missingPlayer = live.Players.Values[1]; live.Players.Values[1] = null!;
             Require(!KillcamController.IsValidIdentity(identity, context, live), "Incomplete scene collection admitted for team lookup.");
             live.Players.Values[1] = missingPlayer;

@@ -24,6 +24,11 @@ public static class DemoPlayback
     internal static Scene? Presentation(Scene shell) => ReferenceEquals(_shell, shell) ? PresentationScene : null;
     public static bool IsActive => Session.IsActive;
     public static string? CurrentPath => Session.CurrentPath;
+    /// <summary>The disposable file currently being read by playback.</summary>
+    public static string? PlaybackPath => CurrentPath;
+    /// <summary>Stable user-authored replay identity (for example the .ppclip descriptor).</summary>
+    public static string? LogicalPath => CurrentPath is { } path
+        ? ReplayVirtualClips.LogicalPath(path) : null;
     public static IReadOnlyList<ReplayEvent> Events => Session.Events;
     internal static ReplayMetadata? Metadata => Session.Metadata;
     public static uint CurrentFrame => Session.CurrentFrame;
@@ -111,8 +116,12 @@ public static class DemoPlayback
             ? new Vector2i(bounds.Z, bounds.W) : _shell.Size;
         var size = ReplayVideoExporter.OutputSize ?? viewportSize;
         if (scene.Size != size) { scene.Size = size; scene.OnResize(); }
+        double hostAlpha = Render.FrameTiming.Active ? Render.FrameTiming.PresentationAlpha : 1;
         scene.ReplayRenderAlpha = ReplayVideoExporter.Rendering ? ReplayVideoExporter.PresentationAlpha
-            : Render.FrameTiming.Active ? Session.Transport.PresentationAlpha(Render.FrameTiming.PresentationAlpha) : 1;
+            : Render.FrameTiming.Active ? Session.Transport.PresentationAlpha(hostAlpha) : 1;
+        scene.ReplayPresentationFrame = ReplayVideoExporter.Rendering
+            ? ReplayVideoExporter.PresentationFrame
+            : Render.FrameTiming.Active ? Session.Transport.PresentationFrame(hostAlpha) : CurrentFrame;
         return ReferenceEquals(scene, shell) ? null : scene;
     }
     internal static void Release(Scene shell)

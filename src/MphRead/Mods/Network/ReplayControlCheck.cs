@@ -43,6 +43,33 @@ namespace MphRead.Mods.Network
                     }
                     Require(frames == 960, $"display rate {fps} changed replay timing");
                 }
+                using var clockSession = new ReplayPlaybackSession(new PassiveReplaySessionHost());
+                var sessionFrame = typeof(ReplayPlaybackSession).GetField("_frame",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+                typeof(ReplayPlaybackSession).GetProperty(nameof(ReplayPlaybackSession.LastFrame))!
+                    .SetValue(clockSession, 1000u);
+                foreach (float rate in ReplayTransport.Rates)
+                {
+                    sessionFrame.SetValue(clockSession, 0u);
+                    var transport = clockSession.Transport;
+                    transport.Begin(); transport.SetPlaybackRate(rate);
+                    double expectedFrame = 0;
+                    uint simulatedFrame = 0;
+                    for (int update = 0; update < 3; update++)
+                    {
+                        int due = transport.FramesDue();
+                        Require(Math.Abs(transport.PresentationFrame(0) - expectedFrame) < 1e-9,
+                            $"{rate}x presentation clock did not retain fractional progress");
+                        Require(Math.Abs(transport.PresentationFrame(.5) - (expectedFrame + rate * .5)) < 1e-9,
+                            $"{rate}x midpoint was not sampled in continuous replay time");
+                        expectedFrame += rate;
+                        simulatedFrame += (uint)due;
+                        sessionFrame.SetValue(clockSession, simulatedFrame);
+                    }
+                    transport.Pause();
+                    Require(Math.Abs(transport.PresentationFrame(0) - expectedFrame) < 1e-9,
+                        $"{rate}x pause did not freeze the presentation clock");
+                }
                 long arrival100 = DemoPlayback.PlaybackArrivalTicks(100);
                 long arrival101 = DemoPlayback.PlaybackArrivalTicks(101);
                 double replayStep = arrival101 - arrival100;
@@ -62,6 +89,7 @@ namespace MphRead.Mods.Network
 
                 Console.WriteLine("[replaycheck] timing: rates, presentation independence and deterministic receive clock passed");
                 Replay.ReplayCameraTrackCheck.Run();
+                Replay.ReplayReviewCheck.Run(Require);
                 Replay.ReplayHardeningCheck.Run(Require);
                 var poseA = new PlayerState { SlotGeneration = 1, LifeId = 1, Health = 99,
                     Flags = PlayerState.FlagActive | PlayerState.FlagSpawned, Position = OpenTK.Mathematics.Vector3.Zero };
@@ -133,6 +161,19 @@ namespace MphRead.Mods.Network
                     "stale kill was accepted as final");
                 Require(!MphRead.Mods.KillCam.IsRecentFinalKill(121, 120),
                     "future kill frame was accepted as final");
+                Require(Replay.KillcamController.FinalEligible(1208, 1214, timedEnd: false, causalEnd: true)
+                    && !Replay.KillcamController.FinalEligible(1215, 1214, timedEnd: false, causalEnd: true),
+                    "final kill selection did not use the authoritative match-end frame");
+                Require(Replay.ReplayExportRates.IsSupported(30) && Replay.ReplayExportRates.IsSupported(60)
+                    && Replay.ReplayExportRates.IsSupported(120) && !Replay.ReplayExportRates.IsSupported(45),
+                    "export FPS contract accepted an unsupported rate");
+                bool invalidExportRejected = false;
+                try { Replay.ReplayVideoExport.CreateManifest("unused.ppdemo", 0, 1, fps: 45); }
+                catch (ArgumentOutOfRangeException) { invalidExportRejected = true; }
+                Require(invalidExportRejected, "manifest creation clamped unsupported export FPS");
+                if (OperatingSystem.IsLinux())
+                    Require(!ReplayPathComparer.Same("/tmp/ReplayCase.ppdemo", "/tmp/replaycase.ppdemo"),
+                        "Linux replay paths were compared case-insensitively");
                 Require(MphRead.Mods.KillCam.WeaponName((int)BeamType.Imperialist)
                         == "IMPERIALIST"
                     && MphRead.Mods.KillCam.WeaponName(999) == "",

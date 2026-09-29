@@ -75,7 +75,8 @@ namespace MphRead.Mods.MapGen
             for (int faceIndex = 0; faceIndex < indices.Count; faceIndex++)
             {
                 Vector3[] points = indices[faceIndex].Select(i => vertices[i]).ToArray();
-                Vector3 normal = Vector3.Cross(points[1]-points[0], points[2]-points[0]);
+                Vector3 normal = Vector3.Zero;
+                for (int i = 0; i < points.Length; i++) normal += Vector3.Cross(points[i]-points[0], points[(i+1)%points.Length]-points[0]);
                 if (normal.LengthSquared < 1e-10f) throw new MapAuthoringException("FP-MAP-013", "Degenerate geometry face.");
                 normal.Normalize();
                 // Primitive/convex geometry is authored as a closed volume and

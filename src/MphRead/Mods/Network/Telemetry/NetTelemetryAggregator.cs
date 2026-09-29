@@ -20,7 +20,15 @@ public sealed record TelemetrySummary(TelemetryHeader Header, double DurationSec
     TelemetryDistribution ServerStepMilliseconds, long DroppedTicks, TelemetryLagBucket[] LagComp,
     TelemetryNetworkDetails NetworkDetails, TelemetryLifecycleDetails LifecycleDetails, TelemetryCombatDetails CombatDetails,
     long[] ShadowOutcomes, long[] FormCorrectionReasons, TelemetryCombatAckBucket[] CombatAcks,
-    TelemetryTransportContentionDetails TransportContention);
+    TelemetryTransportContentionDetails TransportContention)
+{
+    public Dictionary<string, long> EnhancedHunters { get; init; } = new();
+    public long ServerAllocationBytes { get; init; }
+    public long ServerMaximumStepAllocation { get; init; }
+    public long ServerOverruns { get; init; }
+    public long ServerStalls { get; init; }
+    public long ContinuousSamples { get; init; }
+}
 public sealed record TelemetryNetworkDetails(TelemetryDistribution RttMilliseconds, TelemetryDistribution JitterMilliseconds,
     TelemetryDistribution RecentMinimumRttMilliseconds, TelemetryDistribution RttVariationMilliseconds,
     long[] RttBuckets, long[] JitterBuckets, long Retransmissions, long EstimatedLost, long QueueHighWater);
@@ -43,11 +51,15 @@ public sealed class NetTelemetryAggregator
             if (!double.IsFinite(value) || value < 0) return;
             _bins[Math.Min(2048, (int)Math.Min(2048, value * _scale))]++; _count++; _sum += value; _max = Math.Max(_max, value);
         }
+        public void AddTotals(long count, double sum, double maximum)
+        { _count += count; _sum += sum; _max = Math.Max(_max, maximum); }
+        public void AddBucket(double value, long count)
+        { if (count > 0) _bins[Math.Min(2048, (int)Math.Min(2048, value * _scale))] += count; }
         private double Quantile(double q)
         {
             if (_count == 0) return 0;
             long n = (long)Math.Ceiling(_count * q), sum = 0;
-            for (int i = 0; i < _bins.Length; i++) { sum += _bins[i]; if (sum >= n) return i / _scale; }
+            for (int i = 0; i < _bins.Length; i++) { sum += _bins[i]; if (sum >= n) return i == _bins.Length - 1 ? _max : i / _scale; }
             return _max;
         }
         public TelemetryDistribution Capture() => new(_count, _count == 0 ? 0 : _sum / _count, Quantile(.5), Quantile(.95), Quantile(.99), _max);
@@ -70,17 +82,25 @@ public sealed class NetTelemetryAggregator
     private long _forced, _dropped, _ready, _lateJoins, _disconnects, _exact, _rejected, _retransmissions, _lost, _queueHigh;
     private readonly Distribution _rtt = new(), _jitter = new(), _minimum = new(), _variation = new();
     private readonly Distribution _join = new(.01), _load = new(.01), _bootstrap = new(.01), _rejoin = new(.01);
-    private readonly long[] _rttBuckets = new long[9], _jitterBuckets = new long[6], _outcomes = new long[7], _formReasons = new long[7];
+    private readonly long[] _rttBuckets = new long[9], _jitterBuckets = new long[6], _outcomes = new long[8], _formReasons = new long[7];
     private readonly long[] _lastRetransmissions = new long[8], _lastLost = new long[8];
     private readonly ushort[] _connectionGeneration = new ushort[8];
     private long _lastLockAcquisitions, _lastLockContended;
     private double _lastLockWait, _lastLockHold, _maxLockWait, _maxLockHold;
     private long _lockAcquisitions, _lockContended;
     private readonly Distribution _lockWait = new(1000), _lockHold = new(1000);
+    private readonly Dictionary<string, long> _enhanced = new();
+    private long _stepAllocations, _stepMaxAllocation, _stepOverruns, _stepStalls, _continuousSamples;
     public void Add(in NetTelemetryEvent e)
     {
         switch (e.Type)
         {
+            case TelemetryEventType.ContinuousTarget: _continuousSamples += e.Samples; break;
+            case TelemetryEventType.EnhancedHunter:
+                string key = $"{e.Weapon}:{e.Id}";
+                if (_enhanced.Count < 512 || _enhanced.ContainsKey(key))
+                { _enhanced.TryGetValue(key, out long value); _enhanced[key] = value + e.Result; }
+                break;
             case TelemetryEventType.Connection:
                 _network[0]++; _network[1] = (long)e.D; _network[2] = (long)e.E; _network[3] = (long)e.F;
                 _rtt.Add(e.A); _minimum.Add(e.B); _jitter.Add(e.C); _queueHigh = Math.Max(_queueHigh, (long)e.H);
@@ -134,6 +154,14 @@ public sealed class NetTelemetryAggregator
                 if ((uint)e.Result < _formReasons.Length && e.Result != 0) _formReasons[e.Result]++;
                 if (e.Result == (int)FormCorrectionReason.ForcedMaximumMismatch) _forced++;
                 break;
+            case TelemetryEventType.ServerStepAggregate:
+                _steps.AddTotals(e.Result, e.A, e.C); _dropped = (long)e.G;
+                _stepAllocations += (long)e.D; _stepMaxAllocation = Math.Max(_stepMaxAllocation, (long)e.E);
+                _stepOverruns += (long)e.F; _stepStalls = (long)e.H; break;
+            case TelemetryEventType.ServerStepHistogram:
+                Span<double> counts = stackalloc double[] { e.A, e.B, e.C, e.D, e.E, e.F, e.G, e.H };
+                for (int i = 0; i < 8; i++) _steps.AddBucket(e.Id + i == 31 ? 20.48 : (e.Id + i) / 4.0, (long)counts[i]);
+                break;
             case TelemetryEventType.ServerStep: _steps.Add(e.A); _dropped = (long)e.B; break;
             case TelemetryEventType.TransportContention:
                 {
@@ -181,6 +209,8 @@ public sealed class NetTelemetryAggregator
             new(_join.Capture(), _load.Capture(), _bootstrap.Capture(), _rejoin.Capture(), _ready, _lateJoins, _disconnects),
             new(_combat[2], _exact, _combat[3], _combat[5], _combat[4], _rejected), _outcomes, _formReasons,
             combatAcks.ToArray(), new(_lockAcquisitions, _lockContended, _lockWait.Capture(), _lockHold.Capture(),
-                _maxLockWait, _maxLockHold));
+                _maxLockWait, _maxLockHold)) { EnhancedHunters = new(_enhanced), ServerAllocationBytes = _stepAllocations,
+                ServerMaximumStepAllocation = _stepMaxAllocation, ServerOverruns = _stepOverruns,
+                ServerStalls = _stepStalls, ContinuousSamples = _continuousSamples };
     }
 }

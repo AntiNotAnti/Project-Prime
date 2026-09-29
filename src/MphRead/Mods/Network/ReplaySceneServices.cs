@@ -38,6 +38,7 @@ namespace MphRead.Mods.Network
             if (!string.Equals(scene.Room?.Meta.Name, match.RoomKey, StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("The replica scene belongs to a different recorded room.");
             ApplyRules(scene, Session.RecordingFrame);
+            scene.EnhancedWorld.Read(State.EnhancedWorldState);
             if (State.AuthorityWorld is { } clock)
             {
                 scene.GameState.MatchState = clock.Phase;
@@ -93,6 +94,7 @@ namespace MphRead.Mods.Network
             scene.GameState.Mode = definition.Mode;
             scene.GameState.FriendlyFire = match.FriendlyFire;
             scene.GameState.ShadowFreeze = match.ShadowFreeze;
+            scene.GameState.EnhancedHunters = match.EnhancedHunters;
             scene.GameState.SpawnProtection = State.Configuration?.Match.SpawnProtection ?? match.SpawnProtection;
             if (match.StatesRules) scene.GameState.AffinityWeapons = match.AffinityWeapons;
         }
@@ -107,6 +109,7 @@ namespace MphRead.Mods.Network
             else scene.GameState.PointGoal = match.PointGoal;
             scene.GameState.FriendlyFire = match.FriendlyFire;
             scene.GameState.ShadowFreeze = match.ShadowFreeze;
+            scene.GameState.EnhancedHunters = match.EnhancedHunters;
             scene.GameState.SpawnProtection = State.Configuration?.Match.SpawnProtection
                 ?? match.SpawnProtection;
             if (match.StatesRules) scene.GameState.AffinityWeapons = match.AffinityWeapons;

@@ -768,7 +768,7 @@ namespace MphRead.Mods.Network
         public static void NoteHit(PlayerEntity victim, PlayerEntity? attacker,
             ref DamageFlags flags, ref uint damage, BeamType beam = BeamType.None,
             uint launchFrame = 0, float flight = 0, Vector3? direction = null,
-            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0)
+            Affliction afflictions = Affliction.None, uint unsplitDamage = 0, uint continuousPhase = 0, bool direct = false, uint shotId = 0, ShotKey? shotKey = null)
         {
             int local = NetHooks.LocalSlot;
             if (local < 0)
@@ -812,7 +812,7 @@ namespace MphRead.Mods.Network
                 NetShotDiagnostics.PredictedDamage[weapon] += damage;
                 if (flags.TestFlag(DamageFlags.Headshot)) NetShotDiagnostics.LocalHeadshots[weapon]++;
                 if (attacker != null && NetLog.Enabled) NetShotDiagnostics.Trace("prediction",
-                    ShotKey.For(attacker.SlotIndex, launchFrame), beam, $"victim={victim.SlotIndex} damage={damage}");
+                    ShotKey.For(attacker.SlotIndex, shotId), beam, $"victim={victim.SlotIndex} damage={damage}");
                 bool claimedLethal = lethal;
                 if (lethal && !self)
                 {
@@ -859,7 +859,7 @@ namespace MphRead.Mods.Network
                 {
                     ushort claimId = NetHitClaims.Declare(victim, attacker, beam, flags.TestFlag(DamageFlags.Halfturret) ? unsplitDamage : claimedDamage,
                         flags, claimedLethal, victim.Position, launchFrame,
-                        direction ?? Vector3.Zero, afflictions, predictedBodyDamage: claimedDamage, continuousPhase: continuousPhase);
+                        direction ?? Vector3.Zero, afflictions, predictedBodyDamage: claimedDamage, continuousPhase: continuousPhase, direct: direct, shotId: shotId, shotKey: shotKey);
                     StampClaim(victim.SlotIndex, at, claimId);
                 }
                 if (headshot && !self)

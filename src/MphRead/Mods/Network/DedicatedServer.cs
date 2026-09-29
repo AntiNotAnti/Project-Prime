@@ -200,7 +200,7 @@ namespace MphRead.Mods.Network
         // Production has no flag or public API that can disable server authority.
         private bool _controlPlaneOnlyForTests = false;
         // Owned by the server loop; Send consumes synchronously, recorder takes its own copy.
-        private readonly byte[] _lastSnapshot = new byte[NetConfig.MaxPacketSize];
+        private readonly byte[] _lastSnapshot = new byte[NetConfig.MaxSnapshotSize];
         private int _lastSnapshotLength;
         private volatile bool _running;
         private double _matchStarted;
@@ -319,6 +319,7 @@ namespace MphRead.Mods.Network
         /// row of the damage table. <c>-affinityweapons</c>.
         /// </summary>
         public bool AffinityWeapons { get; set; }
+        public bool EnhancedHunters { get; set; }
 
         /// <summary>
         /// Whether the shadow freeze glitch is allowed here. Off by default;
@@ -762,6 +763,7 @@ namespace MphRead.Mods.Network
             return new MatchStatePacket
             {
                 Mode = (byte)entry.Mode,
+                RuleBits = (ushort)entry.Rules,
                 TimeRemaining = ending || entry.TimeLimitSeconds <= 0
                     ? 0
                     : Math.Max(0, entry.TimeLimitSeconds - elapsed),
@@ -1146,6 +1148,7 @@ namespace MphRead.Mods.Network
                 return;
             }
             peer.LastSeen = now;
+            if (!NetHitClaims.ValidateWireClaims(packet.Payload)) return;
             NetHitClaims.Receive(peer.SlotIndex, packet.Payload);
         }
 
@@ -2264,6 +2267,7 @@ namespace MphRead.Mods.Network
             if (packet.Payload.Length >= IntentPacket.Size)
             {
                 IntentPacket intent = IntentPacket.Read(packet.Payload);
+                if (!NetFireEvents.Validate(intent)) return;
                 ushort life = NetPlayerLifecycle.Get(peer.SlotIndex);
                 var rejection = intent.MatchId != _matchId ? NetIntentRejection.WrongMatch
                     : intent.AuthorityEpoch != _authorityEpoch ? NetIntentRejection.WrongEpoch

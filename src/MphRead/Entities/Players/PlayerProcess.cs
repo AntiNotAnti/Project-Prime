@@ -54,12 +54,15 @@ namespace MphRead.Entities
         {
             UpdateChamberFallback();
             bool result = ProcessPlayer();
+            Mods.EnhancedHunters.EnhancedHunters.OnPlayerFrame(this);
+            ModEnhancedGhost();
             SetTransform(_facingVector, _upVector, Position);
             return result;
         }
 
         public bool ProcessPlayer()
         {
+            if (_scene.AimTrainer?.Hidden(this) == true) return true;
             // Offline death presentation follows simulation even when the player
             // is off camera. Online clients observe only accepted authority state.
             if (!_scene.Services.IsReplica && !Mods.Network.NetSession.Active)
@@ -523,7 +526,7 @@ namespace MphRead.Entities
                     }
                     else
                     {
-                        _cloakTimer++;
+                        _cloakTimer += (ushort)(Hunter == Hunter.Trace ? Mods.EnhancedHunters.TraceEnhancement.CloakIncrement(this) : 1);
                     }
                 }
                 else
@@ -2087,6 +2090,11 @@ namespace MphRead.Entities
             else
             {
                 Flags1 &= ~PlayerFlags1.AltForm;
+            }
+            if (Mods.EnhancedHunters.EnhancedHunters.Enabled(this))
+            {
+                if (altForm) Mods.EnhancedHunters.EnhancedHunters.OnEnterAlt(this);
+                else Mods.EnhancedHunters.EnhancedHunters.OnExitAlt(this);
             }
             // todo?: update HUD if main player
             UpdateScanIds();

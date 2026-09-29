@@ -381,6 +381,9 @@ tools/hitrig/bin/
 # Anonymous server study output (never source or player data).
 /telemetry/
 
-# OBJ source importers are source code, not MSBuild intermediate output.
+# OBJ is authored importer source, not an MSBuild output directory.
 !src/MphRead/Mods/MapGen/ModelImport/Obj/
 !src/MphRead/Mods/MapGen/ModelImport/Obj/*.cs
+
+# Local document-preview renders are disposable output, not repository source.
+/tmp/pdfs/*.png

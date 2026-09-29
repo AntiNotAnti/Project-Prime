@@ -97,6 +97,7 @@ namespace MphRead.NetTest
             typeof(EntityBase).GetField("_scene", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(player, _scene);
             typeof(PlayerEntity).GetProperty(nameof(PlayerEntity.SlotIndex))!.SetValue(player, slot);
             player.Health = health;
+            Field(player, "<EnhancedState>k__BackingField", new MphRead.Mods.EnhancedHunters.EnhancedHunterState());
             Field(player, "<Controls>k__BackingField", PlayerControls.GetDefault());
             Field(player, "<EquipInfo>k__BackingField", new EquipInfo());
             Field(player, "_ammo", new int[2]); Field(player, "_ammoMax", new[] { 999, 999 });

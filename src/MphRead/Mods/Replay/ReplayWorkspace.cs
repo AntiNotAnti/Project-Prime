@@ -227,11 +227,18 @@ namespace MphRead.Mods.Replay
         public static readonly ReplayExportPreset[] All =
         {
             new("Balanced 1080p60", ReplayVideoResolution.P1080, 60, true),
+            new("Cinema 1080p24", ReplayVideoResolution.P1080, 24, true),
             new("Smooth 1080p120", ReplayVideoResolution.P1080, 120, true),
             new("Broadcast 1440p60", ReplayVideoResolution.P1440, 60, true),
             new("Archive 4K60", ReplayVideoResolution.P2160, 60, true),
             new("HUD 1080p60", ReplayVideoResolution.P1080, 60, false)
         };
+    }
+
+    internal static class ReplayExportRates
+    {
+        public static readonly int[] Supported = { 24, 30, 48, 60, 90, 120, 144 };
+        public static bool IsSupported(int fps) => Array.IndexOf(Supported, fps) >= 0;
     }
 
     internal static class ReplayExportQueue

@@ -47,9 +47,9 @@ namespace MphRead.Mods.Replay
             return true;
         }
 
-        public static bool HandleKey(Keys key)
+        public static bool HandleKey(Keys key, bool editor = false)
         {
-            if (!DemoPlayback.IsActive || PauseMenu.Open) return false;
+            if (!DemoPlayback.IsActive || (PauseMenu.Open && !editor)) return false;
             bool handled = true;
             if (Hit(key, InputSettings.ReplayPlayPauseKey)) ReplayController.TogglePause();
             else if (Hit(key, InputSettings.ReplayStepForwardKey)) ReplayController.StepForward();
@@ -70,6 +70,11 @@ namespace MphRead.Mods.Replay
             {
                 switch (key)
                 {
+                    case Keys.Delete: ReplayCamera.RemoveKeyframe(); break;
+                    case Keys.Minus: ReplayCamera.AdjustLens(-5, 0); break;
+                    case Keys.Equal: ReplayCamera.AdjustLens(5, 0); break;
+                    case Keys.Semicolon: ReplayCamera.AdjustLens(0, -5); break;
+                    case Keys.Apostrophe: ReplayCamera.AdjustLens(0, 5); break;
                     case Keys.F: ReplayCamera.ToggleFree(); break;
                     case Keys.C: ReplayCamera.SetMode(ReplayCamera.Mode == ReplayCameraMode.Chase
                         ? ReplayCameraMode.FirstPerson : ReplayCameraMode.Chase); break;

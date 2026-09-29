@@ -32,7 +32,7 @@ internal static class ReplayExportCheck
             if (!DemoPlayback.Join(path)) throw new InvalidDataException(DemoPlayback.LastError);
             shell.OnSimulationFrame();
             uint start = Math.Min(350, DemoPlayback.LastFrame - 8), end = start + 6;
-            foreach (int fps in new[] { 30, 60, 120 })
+            foreach (int fps in Replay.ReplayExportRates.Supported)
             {
                 string[]? reference = null;
                 for (int pass = 0; pass < 2; pass++)
@@ -61,7 +61,7 @@ internal static class ReplayExportCheck
                         throw new InvalidDataException("Export did not complete: " + ReplayVideoExporter.Status);
                     if (ReplayCamera.Mode != ReplayCameraMode.Orbit || ReplayCamera.Profile != ReplayPresentationProfile.Presentation)
                         throw new InvalidDataException("Export did not restore the replay camera.");
-                    int expected = fps == 120 ? 13 : fps == 60 ? 7 : 4;
+                    int expected = checked((int)new ReplayExportSampler(start, end, fps).Count);
                     if (ReplayVideoExporter.FramesWritten != expected) throw new InvalidDataException("Wrong export sample count.");
                     var files = Directory.GetFiles(directory, "frame_*.png").OrderBy(p => p).ToArray();
                     string[] hashes = files.Select(p => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(p)))).ToArray();
@@ -128,7 +128,7 @@ internal static class ReplayExportCheck
             if (System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(composite.AsSpan(16)) != 3840
                 || System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(composite.AsSpan(20)) != 2160)
                 throw new InvalidDataException("HUD composite did not use the 4K offscreen target.");
-            Console.WriteLine("[replayexport] PASS: native 720p/4K HUD targets, repeated identical 30/60/120 FPS samples, true half-frames, gameplay invariance, seek/cadence independence, serialized three-job queue, multi-segment reel and render cancellation.");
+            Console.WriteLine("[replayexport] PASS: native 720p/4K HUD targets, repeated identical 24/30/48/60/90/120/144 FPS samples, fractional frames, gameplay invariance, seek/cadence independence, serialized three-job queue, multi-segment reel and render cancellation.");
             return 0;
         }
         catch (Exception ex) { Console.WriteLine("[replayexport] FAIL: " + ex); return 1; }

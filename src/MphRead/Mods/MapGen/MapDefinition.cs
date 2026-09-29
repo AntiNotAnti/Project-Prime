@@ -162,12 +162,21 @@ namespace MphRead.Mods.MapGen
                 result.Collision.BaseDirectory = result.BaseDirectory;
                 result.Collision.BundlePath = result.BundlePath;
             }
+            if (result.BundlePath == null)
+            {
+                foreach (var source in result.ModelSources)
+                {
+                    source.Source=Path.GetFullPath(Path.Combine(result.BaseDirectory!,source.Source));
+                    source.Dependencies=source.Dependencies.ConvertAll(d=>d with {Path=Path.GetFullPath(Path.Combine(result.BaseDirectory!,d.Path))});
+                }
+                foreach(var asset in result.Assets)if(!string.IsNullOrEmpty(asset.SourcePath))asset.SourcePath=Path.GetFullPath(Path.Combine(result.BaseDirectory!,asset.SourcePath));
+            }
             return result;
         }
 
         public void Save(string path)
         {
-            AtomicFile.Write(path, System.Text.Encoding.UTF8.GetBytes(Serialize()));
+            AtomicFile.Write(path, System.Text.Encoding.UTF8.GetBytes(MapProjectFolder.Serialize(this)));
         }
 
         /// <summary>The recipe as it would be written, for a bundle to carry.</summary>

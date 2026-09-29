@@ -14,16 +14,19 @@ namespace MphRead.Entities
 {
     public class BeamProjectileEntity : EntityBase
     {
+        internal long TrainingShotId { get; set; }
         public BeamFlags Flags { get; set; }
+        internal bool EnhancedDirectHit;
+        public byte EnhancedBounceCount;
+        public bool EnhancedMicroSeeker;
+        public bool EnhancedFullCharge, EnhancedSiegeRound;
         /// <summary>
-        /// The authority frame the shooter's world was at when this shot was
-        /// launched -- the one thing that identifies a shot across two
-        /// machines. Stamped by Mods.Network.NetUnlagged on every machine that
-        /// spawns it, and read back when it damages somebody so a hit claim
-        /// and the authority's own resolution of the *same* shot can be paired
-        /// without guessing at a time window. Zero for anything nobody aimed.
+        /// The original fire event's world ACK, used only for historical timing.
+        /// ModLaunchKey fences ModShotId by match, epoch and shooter lifecycle.
+        /// Derived projectiles preserve both identity and timing.
         /// </summary>
         public uint ModLaunchFrame { get; set; }
+        public uint ModShotId { get; set; }
         public ShotKey ModLaunchKey { get; internal set; }
         // Spawn's firing phase must survive until a Shock Coil beam tests an enemy.
         public ulong ModContinuousPhase { get; set; }
@@ -291,7 +294,7 @@ namespace MphRead.Entities
                 colRes.Plane = new Vector4(-Direction);
                 colRes.Position = Position;
                 SpawnCollisionEffect(colRes, noSplat: true);
-                OnCollision(colRes, colWith: null);
+                OnCollision(colRes, colWith: null, enhancedImpact: false);
                 if (!Flags.TestFlag(BeamFlags.Continuous) || (Owner?.Type) != EntityType.Player)
                 {
                     // the alternative condition is handled above when the last continuous beam is removed
@@ -615,7 +618,9 @@ namespace MphRead.Entities
                             NetContinuousTargetDiagnostics.CollisionResult(this, player, true, wholeDamage);
                             if (wholeDamage != 0)
                             {
-                                player.TakeDamage(wholeDamage, damageFlags, damageDir, this);
+                                EnhancedDirectHit = true;
+                                try { player.TakeDamage(wholeDamage, damageFlags, damageDir, this); }
+                                finally { EnhancedDirectHit = false; }
                             }
                             if (Flags.TestFlag(BeamFlags.LifeDrain) && Owner.Type == EntityType.Player)
                             {
@@ -832,6 +837,7 @@ namespace MphRead.Entities
 
         private void ProcessRicochet(CollisionResult colRes)
         {
+            Mods.EnhancedHunters.SpireEnhancement.Ricochet(this);
             float dot1 = Vector3.Dot(Velocity, colRes.Plane.Xyz);
             Velocity = new Vector3(
                 (Velocity.X - 2 * colRes.Plane.X * dot1) * RicochetLossH,
@@ -913,8 +919,13 @@ namespace MphRead.Entities
             }
         }
 
-        public void OnCollision(CollisionResult colRes, EntityBase? colWith)
+        public void OnCollision(CollisionResult colRes, EntityBase? colWith, bool enhancedImpact = true)
         {
+            if (!Flags.TestFlag(BeamFlags.Collided))
+            {
+                Mods.EnhancedHunters.EnhancedHunterProjectiles.ScaleExplosion(this);
+                if (enhancedImpact) Mods.EnhancedHunters.EnhancedHunterProjectiles.Impact(this, colRes, colWith);
+            }
             if (Effect != null) // game also checks the HasModel flag, but it's either-or
             {
                 _scene.DetachEffectEntry(Effect, setExpired: true);
@@ -1411,10 +1422,16 @@ namespace MphRead.Entities
         }
 
         public static BeamResultFlags Spawn(EntityBase owner, EquipInfo equip, Vector3 position, Vector3 direction,
-            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null)
+            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null, bool enhancedMicro = false)
         {
             if (!scene.Services.IsReplica && NetSession.Active && parent != null && !NetPlayerLifecycle.CurrentProjectile(parent))
                 return BeamResultFlags.NoSpawn;
+            PlayerEntity? turretOwner = parent == null && !scene.Services.IsReplica ? (owner as HalfturretEntity)?.Owner : null;
+            if (turretOwner != null)
+            {
+                if (!NetFireEvents.CanFireTurret(turretOwner)) return BeamResultFlags.NoSpawn;
+                NetFireEvents.Begin(turretOwner, turret: true);
+            }
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
             bool charged = false;
@@ -1659,7 +1676,7 @@ namespace MphRead.Entities
                     colRes.Position = beam.Position;
                     colRes.Plane = new Vector4(-beam.Direction);
                     beam.RicochetWeapon = null;
-                    beam.OnCollision(colRes, colWith: null);
+                    beam.OnCollision(colRes, colWith: null, enhancedImpact: false);
                 }
                 beam.Destroy();
                 scene.RemoveEntity(beam);
@@ -1673,6 +1690,12 @@ namespace MphRead.Entities
                     }
                 }
                 beam.Owner = owner;
+                beam.TrainingShotId = parent?.TrainingShotId ?? scene.AimTrainer?.CurrentShotId ?? 0;
+                beam.EnhancedDirectHit = false;
+                beam.EnhancedBounceCount = parent?.EnhancedBounceCount ?? 0;
+                beam.EnhancedMicroSeeker = enhancedMicro;
+                beam.EnhancedFullCharge = chargePct >= 1;
+                beam.EnhancedSiegeRound = false;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
                 if (!scene.Services.IsReplica) NetPlayerLifecycle.StampProjectile(beam, parent);
@@ -1703,6 +1726,7 @@ namespace MphRead.Entities
                 beam.Right = rightVec;
                 beam.Up = upVec;
                 beam.Damage = damage;
+                scene.AimTrainer?.NoteProjectile(beam);
                 beam.HeadshotDamage = hsDamage;
                 beam.SplashDamage = splashDmg;
                 beam.SplashRadius = splashRadius;
@@ -1841,7 +1865,9 @@ namespace MphRead.Entities
                     NetShotDiagnostics.Continuous(beam, cost);
                 beam._soundSource.Update(beam.Position, rangeIndex: 0);
                 scene.AddEntity(beam);
+                Mods.EnhancedHunters.EnhancedHunterProjectiles.Spawned(beam, parent);
             }
+            if (turretOwner != null) NetFireEvents.Commit(turretOwner);
             return result;
         }
 
@@ -2122,6 +2148,7 @@ namespace MphRead.Entities
             angle /= 4096f;
             Debug.Assert(angle == 60);
             CheckIceWaveCollision(angle);
+            Mods.EnhancedHunters.EnhancedHunterProjectiles.IceWaveFloor(this);
             Vector3 up = Direction;
             Vector3 facing;
             if (up.X != 0 || up.Z != 0)
@@ -2185,7 +2212,9 @@ namespace MphRead.Entities
                 {
                     flags |= DamageFlags.Halfturret;
                 }
-                player.TakeDamage((int)Damage, flags, dir, this);
+                EnhancedDirectHit = true;
+                try { player.TakeDamage((int)Damage, flags, dir, this); }
+                finally { EnhancedDirectHit = false; }
             }
         }
 

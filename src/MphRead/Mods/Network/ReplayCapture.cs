@@ -9,7 +9,7 @@ namespace MphRead.Mods.Network
     {
         internal static ReplayRecorder Recorder { get; } = new();
         internal static ReplayLiveWorld WorldCapture { get; private set; } = new(Recorder);
-        private static readonly byte[] Snapshot = new byte[NetConfig.MaxPacketSize];
+        private static readonly byte[] Snapshot = new byte[NetConfig.MaxSnapshotSize];
         private static int _snapshotLength;
         private static uint _historyFrames;
         private static string? _room;
@@ -84,6 +84,19 @@ namespace MphRead.Mods.Network
             _snapshotLength = 0; _room = null; _mapHash = 0;
             Array.Clear(Known); AuthorityWire.Reset(); LatestAuthorityWorld = null; _authorityKill = null; _worldCaptureFailed = false;
             Recorder.Reset();
+        }
+
+        internal static void ObserveSnapshot(SnapshotHeader header, ReadOnlySpan<PlayerState> players,
+            ReadOnlySpan<byte> time, ReadOnlySpan<byte> world)
+        {
+            if (DemoPlayback.IsActive) return;
+            int length = 1 + SnapshotHeader.Size + players.Length * PlayerState.Size + time.Length + world.Length;
+            if (length > Snapshot.Length) return;
+            Snapshot[0] = (byte)PacketType.Snapshot; header.Write(Snapshot.AsSpan(1));
+            for (int i = 0; i < players.Length; i++) players[i].Write(Snapshot.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size));
+            int at = 1 + SnapshotHeader.Size + players.Length * PlayerState.Size;
+            time.CopyTo(Snapshot.AsSpan(at)); world.CopyTo(Snapshot.AsSpan(at + time.Length));
+            _snapshotLength = length;
         }
 
         public static void Observe(ReadOnlySpan<byte> packet)
@@ -315,9 +328,10 @@ namespace MphRead.Mods.Network
                         { attackerGeneration = damage.AttackerGeneration; break; }
                     }
                     uint tick = authoritativeFrame ?? NetSession.NetFrame;
+                    ushort attackerLife = NetDamage.ReplayAttackerLife(state, attackerGeneration);
                     var identity = new ReplayKillIdentity(NetSession.CurrentMatchId, NetSession.AuthorityEpoch,
                         tick, state.DamageEventId, state.AttackerSlot, attackerGeneration,
-                        state.SlotIndex, state.SlotGeneration, state.LifeId);
+                        state.SlotIndex, state.SlotGeneration, state.LifeId, attackerLife);
                     // A later-life snapshot or a jump in cumulative deaths does not
                     // identify the exact death. Keep the coarse Studio annotation,
                     // but never advertise it as a fenced killcam candidate.

@@ -34,6 +34,12 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly StackPanel _reelPanel;
         private readonly StackPanel _bookmarkPanel;
         private readonly StackPanel _analyticsPanel;
+        private readonly TextBlock _combatInspection = new()
+        {
+            FontFamily = Deck.Mono, FontSize = 11, Foreground = GuiTheme.TextDimBrush,
+            TextWrapping = TextWrapping.Wrap, Text = "Select a timeline event or find a shot near the playhead."
+        };
+        private ReplayEvent? _inspectedEvent;
         private readonly FieldRow _bookmarkName;
         private readonly FieldRow _clipName;
         private readonly TextBlock _shortcuts;
@@ -93,7 +99,7 @@ namespace MphRead.Mods.Launcher.Gui
             _timelinePlayer = new ChoiceRow("Timeline player", timelineNames, 0);
             _timelineEvents = new ChoiceRow("Timeline events",
                 new[] { "All events", "Combat", "Kills / deaths", "Damage",
-                    "Objectives", "Annotations" }, 0);
+                    "Shots", "Spawns / deaths", "Objectives", "Annotations" }, 0);
             _timelinePlayer.Changed += (_, _) => Refresh();
             _timelineEvents.Changed += (_, _) => Refresh();
             body.Children.Add(_timelinePlayer);
@@ -104,6 +110,9 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 CameraMoved = ReplayCamera.MoveKeyframe,
+                CameraSelected = ReplayCamera.SelectKeyframe,
+                CameraDeleted = ReplayCamera.RemoveKeyframe,
+                EventRequested = InspectCombatEvent,
                 RangeRequested = (start, end) =>
                 {
                     if (start > ReplayController.ClipIn) { ReplayController.SetMarkOut(end); ReplayController.SetMarkIn(start); }
@@ -132,7 +141,8 @@ namespace MphRead.Mods.Launcher.Gui
             };
             body.Children.Add(_timeline);
             body.Children.Add(new Note("Drag to scrub · drag the gold In/Out handles to trim · wheel scrubs · Ctrl+wheel zooms · "
-                + "←/→ nudge one second. Lanes: kills · deaths · damage · objectives · annotations."));
+                + "←/→ nudge one second. Click a marker to inspect it or a camera key to select it. "
+                + "Lanes: kills · deaths · damage · objectives · annotations · spawns · shots."));
 
             body.Children.Add(new Caption("Highlights"));
             _highlightPanel = new StackPanel { Spacing = 4 };
@@ -223,7 +233,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _takeControlArmed = false;
                     action();
                     Refresh();
-                    if (resume)
+                    if (resume && !shell)
                         ResumeRequested?.Invoke(this, EventArgs.Empty);
                 };
                 Grid.SetRow(button, index / 2);
@@ -277,11 +287,14 @@ namespace MphRead.Mods.Launcher.Gui
             body.Children.Add(_clipName);
             AddAction("MARK IN", ReplayController.MarkIn, face: Deck.Face.Brass);
             AddAction("MARK OUT", ReplayController.MarkOut, face: Deck.Face.Brass);
+            body.Children.Add(_saveStatus);
             AddAction("SAVE REPLAY CLIP", SaveSelection, face: Deck.Face.Moss);
+            AddAction("SAVE FULL REPLAY", () => SaveReplay(wholeReplay: true), face: Deck.Face.Moss);
             AddAction("CANCEL CLIP SAVE", () => _clipSave?.Cancel());
             AddAction("SAVE VIRTUAL CLIP", SaveVirtualSelection, face: Deck.Face.Moss);
 
             body.Children.Add(new Caption("Cinematic camera"));
+            body.Children.Add(new Note("Click a camera key or use PREVIOUS/NEXT KEY to select it. Adjust the camera, FOV and roll, then UPDATE SELECTED to save the changes. REMOVE deletes the selected key without aligning the playhead."));
             var cameraGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
             body.Children.Add(cameraGrid);
             int cameraIndex = 0;
@@ -313,14 +326,29 @@ namespace MphRead.Mods.Launcher.Gui
 
             _director = AddCamera("DIRECTOR", ToggleDirector, Deck.Face.Brass);
             _track = AddCamera("CAMERA TRACK", ToggleTrack, Deck.Face.Brass);
-            AddCamera("ADD KEYFRAME", ReplayCamera.Bookmark);
+            AddCamera("ADD KEYFRAME [B]", ReplayCamera.Bookmark);
+            AddCamera("UPDATE SELECTED", ReplayCamera.UpdateSelectedKeyframe);
+            AddCamera("PREVIOUS KEY", () => ReplayCamera.SelectAdjacentKeyframe(-1));
+            AddCamera("NEXT KEY", () => ReplayCamera.SelectAdjacentKeyframe(1));
             AddCamera("REMOVE KEYFRAME", ReplayCamera.RemoveKeyframe);
+            AddCamera("DUPLICATE KEYFRAME", () => ReportCameraEdit(
+                ReplayCamera.DuplicateKeyframeAtCurrentFrame(), "Keyframe duplicated at playhead."));
+            AddCamera("COPY KEYFRAME", () => ReportCameraEdit(
+                ReplayCamera.CopyKeyframeAtCurrentFrame(), "Keyframe copied."));
+            AddCamera("PASTE KEYFRAME", () => ReportCameraEdit(
+                ReplayCamera.PasteKeyframeAtCurrentFrame(), "Keyframe pasted at playhead."));
+            AddCamera("SNAP TO EVENT", () => ReportCameraEdit(
+                ReplayCamera.SnapCurrentKeyframe(_ => true), "Keyframe snapped to nearest event."));
+            AddCamera("SNAP TO KILL", () => ReportCameraEdit(
+                ReplayCamera.SnapCurrentKeyframe(e => e.Type == ReplayEventType.Kill),
+                "Keyframe snapped to nearest kill."));
+            AddCamera("SNAP TO BOOKMARK", SnapCameraToBookmark);
             AddCamera("INTERPOLATION", CycleInterpolation);
             AddCamera("EASING", CycleEase);
-            AddCamera("ROLL -5°", () => ReplayCamera.Roll = Math.Clamp(ReplayCamera.Roll - 5, -180, 180));
-            AddCamera("ROLL +5°", () => ReplayCamera.Roll = Math.Clamp(ReplayCamera.Roll + 5, -180, 180));
-            AddCamera("FOV -5°", () => ReplayCamera.FieldOfView = Math.Clamp(ReplayCamera.FieldOfView - 5, 20, 140));
-            AddCamera("FOV +5°", () => ReplayCamera.FieldOfView = Math.Clamp(ReplayCamera.FieldOfView + 5, 20, 140));
+            AddCamera("ROLL -5°", () => ReplayCamera.AdjustLens(0, -5));
+            AddCamera("ROLL +5°", () => ReplayCamera.AdjustLens(0, 5));
+            AddCamera("FOV -5°", () => ReplayCamera.AdjustLens(-5, 0));
+            AddCamera("FOV +5°", () => ReplayCamera.AdjustLens(5, 0));
             AddCamera("LOOK AT PLAYER", () =>
             {
                 int slot = DemoPlayback.PresentationScene?.Players.MainPlayerIndex ?? PlayerEntity.MainPlayerIndex;
@@ -347,13 +375,14 @@ namespace MphRead.Mods.Launcher.Gui
                 ReplayExportPresets.All.Select(preset => preset.Name).ToArray(), 0);
             _exportResolution = new ChoiceRow("Export resolution",
                 new[] { "720p", "1080p", "1440p", "4K" }, 1);
-            _exportFps = new ChoiceRow("Export FPS", new[] { "30", "60", "120" }, 1);
+            _exportFps = new ChoiceRow("Export FPS", ReplayExportRates.Supported.Select(rate => rate.ToString()).ToArray(),
+                Array.IndexOf(ReplayExportRates.Supported, 60));
             _exportHud = new ToggleRow("Include game/replay HUD", false);
             _exportPreset.Changed += (_, _) =>
             {
                 ReplayExportPreset preset = SelectedPreset();
                 _exportResolution.Index = (int)preset.Resolution;
-                _exportFps.Index = preset.Fps <= 30 ? 0 : preset.Fps >= 120 ? 2 : 1;
+                _exportFps.Index = Array.IndexOf(ReplayExportRates.Supported, preset.Fps);
                 _exportHud.On = !preset.CleanHud;
             };
             body.Children.Add(_exportPreset);
@@ -445,7 +474,7 @@ namespace MphRead.Mods.Launcher.Gui
                 TextWrapping = TextWrapping.Wrap,
                 TextAlignment = TextAlignment.Center
             };
-            body.Children.Add(_shortcuts);
+            body.Children.Insert(1, _shortcuts);
 
             var scroll = new ScrollViewer
             {
@@ -823,6 +852,63 @@ namespace MphRead.Mods.Launcher.Gui
                         first?.Frame ?? 0);
                 }
             }
+
+            _analyticsPanel.Children.Add(new Caption("Combat Inspector"));
+            _analyticsPanel.Children.Add(new Note(
+                "Shot geometry, rewind timing and CombatAck details were not recorded. "
+                + "Nearby events below are a timeline reference; they are not attributed to the selected shot."));
+            _analyticsPanel.Children.Add(_combatInspection);
+            var navigation = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6 };
+            foreach (var option in new[] { ("PREVIOUS SHOT", -1), ("SHOT AT PLAYHEAD", 0), ("NEXT SHOT", 1) })
+            {
+                var button = new DeckButton(option.Item1, Deck.Face.Slate,
+                    sizeEms: .82, padXEms: .55, padYEms: .28, lip: 3);
+                int direction = option.Item2;
+                button.Click += (_, _) => InspectShot(direction);
+                navigation.Children.Add(button);
+            }
+            _analyticsPanel.Children.Add(navigation);
+        }
+
+        private void InspectShot(int direction)
+        {
+            uint anchor = direction == 0 ? ReplayController.CurrentFrame
+                : _inspectedEvent?.Frame ?? ReplayController.CurrentFrame;
+            int actor = _timelinePlayer.Index <= 0 ? -1 : _timelineSlots[_timelinePlayer.Index];
+            var shot = DemoPlayback.Events.Where(e => e.Type == ReplayEventType.WeaponFired
+                    && (actor < 0 || e.ActorSlot == actor)
+                    && (direction == 0 || (direction < 0 ? e.Frame < anchor : e.Frame > anchor)))
+                .OrderBy(e => Math.Abs((long)e.Frame - anchor))
+                .Select(e => (ReplayEvent?)e).FirstOrDefault();
+            if (shot is { } selected) InspectCombatEvent(selected);
+            else { _message = "No shot in that direction for the selected player."; Refresh(); }
+        }
+
+        private void InspectCombatEvent(ReplayEvent selected)
+        {
+            _inspectedEvent = selected;
+            string Name(byte slot) => slot == byte.MaxValue ? "world"
+                : DemoPlayback.Metadata?.Players.FirstOrDefault(p => p.Slot == slot).Name ?? $"P{slot + 1}";
+            string Stamp(uint frame) => $"{Time(frame)}.{(frame % 60) * 1000 / 60:000} (frame {frame})";
+            string weapon = selected.Type == ReplayEventType.WeaponFired
+                ? " · " + (ReplayStudio.TryBeamType(selected.Value, out BeamType beam) ? beam.ToString() : $"Weapon {selected.Value}")
+                : selected.Type == ReplayEventType.Damage ? $" · {selected.Value} damage" : "";
+            var nearby = DemoPlayback.Events.Where(e => e != selected
+                    && e.ActorSlot == selected.ActorSlot && e.Frame >= selected.Frame
+                    && e.Frame - selected.Frame <= 120
+                    && e.Type is ReplayEventType.Damage or ReplayEventType.Kill or ReplayEventType.Headshot)
+                .OrderBy(e => e.Frame).Take(8).Select(e =>
+                    $"{Stamp(e.Frame)} · {e.Type} · {Name(e.ActorSlot)} → {Name(e.TargetSlot)}"
+                    + (e.Type == ReplayEventType.Damage ? $" · {e.Value} damage" : "")).ToArray();
+            _combatInspection.Text = $"{selected.Type} · {Stamp(selected.Frame)}\n"
+                + $"Actor: {Name(selected.ActorSlot)} (slot {selected.ActorSlot}){weapon}\n"
+                + (selected.TargetSlot < 8 ? $"Target: {Name(selected.TargetSlot)} (slot {selected.TargetSlot})\n" : "")
+                + "Nearby events, association unknown:\n"
+                + (nearby.Length == 0 ? "None in the next two seconds." : string.Join("\n", nearby));
+            ReplayController.Seek(selected.Frame, resume: false);
+            if (selected.ActorSlot < PlayerEntity.SlotCapacity) SpectatorMode.Watch(selected.ActorSlot);
+            _message = "Combat Inspector selected " + selected.Type + ".";
+            Refresh();
         }
 
         private static string ShortcutText()
@@ -840,10 +926,13 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 return "unbound";
             }
-            return $"Keyboard: {Key(InputSettings.ReplayPlayPauseKey)} play/pause · "
+            return "Camera: F free camera · C first person/chase · O orbit · 1–8 watch player\n"
+                + "WASD move · E/V up/down · Shift faster · mouse look (drag in preview)\n"
+                + "B add keyframe · N next keyframe · Delete remove selected · -/+ FOV · ;/' roll\n"
+                + $"Keyboard: {Key(InputSettings.ReplayPlayPauseKey)} play/pause · "
                 + $"{Key(InputSettings.ReplayStepBackKey)}/{Key(InputSettings.ReplayStepForwardKey)} step · "
                 + $"{Key(InputSettings.ReplaySlowerKey)}/{Key(InputSettings.ReplayFasterKey)} speed · "
-                + $"{Key(InputSettings.ReplaySeekBackKey)}/{Key(InputSettings.ReplaySeekForwardKey)} seek\n"
+                + $"{Key(InputSettings.ReplaySeekBackKey)}/{Key(InputSettings.ReplaySeekForwardKey)} seek · {Key(InputSettings.ReplayRestartKey)} restart\n"
                 + $"Gamepad: {Pad(Mods.Input.PadAction.ReplayPlayPause)} play/pause · "
                 + $"{Pad(Mods.Input.PadAction.ReplayStep)} step · "
                 + $"{Pad(Mods.Input.PadAction.ReplaySeekBack)}/{Pad(Mods.Input.PadAction.ReplaySeekForward)} seek";
@@ -861,6 +950,22 @@ namespace MphRead.Mods.Launcher.Gui
             ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation);
             ReplayCamera.PlayTrack = !ReplayCamera.PlayTrack;
             if (ReplayCamera.PlayTrack) ReplayCamera.Director = false;
+        }
+
+        private void ReportCameraEdit(bool changed, string success)
+        {
+            _message = changed ? success
+                : ReplayCamera.TrackError ?? "Select a keyframe and an unoccupied destination; duplicate copies the preceding key.";
+        }
+
+        private void SnapCameraToBookmark()
+        {
+            ReplayBookmark? nearest = _bookmarks
+                .OrderBy(bookmark => Math.Abs((long)bookmark.Frame - ReplayController.CurrentFrame))
+                .Select(bookmark => (ReplayBookmark?)bookmark).FirstOrDefault();
+            ReportCameraEdit(nearest is ReplayBookmark bookmark
+                    && ReplayCamera.SnapCurrentKeyframe(bookmark.Frame),
+                "Keyframe snapped to nearest bookmark.");
         }
 
         private static void ToggleNameTags()
@@ -894,33 +999,47 @@ namespace MphRead.Mods.Launcher.Gui
             ReplayCamera.SetMode(next);
         }
 
+        private readonly TextBlock _saveStatus = new() { TextWrapping = TextWrapping.Wrap, Foreground = GuiTheme.TextBrush };
         private bool _savingClip;
         private System.Threading.CancellationTokenSource? _clipSave;
-        private async void SaveSelection()
+        private void SaveSelection() => SaveReplay(wholeReplay: false);
+        private async void SaveReplay(bool wholeReplay)
         {
             if (_savingClip) return;
-            _savingClip = true; _message = "Saving clip...";
+            if (!wholeReplay && !TrySelection(out _, out _))
+            {
+                _saveStatus.Text = _message = "Choose a range first: MARK IN at its start, then MARK OUT at a later frame.";
+                return;
+            }
+            string name = _clipName.Value.Trim();
+            _savingClip = true; _saveStatus.Text = _message = "Saving clip...";
             using var cancellation = new System.Threading.CancellationTokenSource();
             _clipSave = cancellation;
             string? source = DemoPlayback.CurrentPath;
             ReplayOpenResult result;
-            try { result = await ReplayController.SaveSelectionAsync(cancellation.Token); }
-            catch (OperationCanceledException) { _message = "Clip save cancelled."; return; }
-            catch (Exception ex) { _message = "Could not save clip: " + ex.Message; return; }
+            try { result = await ReplayController.SaveSelectionAsync(cancellation.Token, wholeReplay); }
+            catch (OperationCanceledException) { _saveStatus.Text = _message = "Clip save cancelled."; return; }
+            catch (Exception ex) { _saveStatus.Text = _message = "Could not save clip: " + ex.Message; return; }
             finally { _savingClip = false; _clipSave = null; }
             if (source != DemoPlayback.CurrentPath) return;
-            _message = result == ReplayOpenResult.Success
-                ? "Standalone .ppdemo clip saved."
+            if (result == ReplayOpenResult.Success && ReplayController.LastSavedSelectionPath is { } saved && name.Length > 0)
+            {
+                try { DemoLibrary.Rename(saved, name); }
+                catch (Exception ex) { _saveStatus.Text = _message = "Clip saved, but its name could not be saved: " + ex.Message; return; }
+            }
+            _saveStatus.Text = _message = result == ReplayOpenResult.Success
+                ? "Saved replay clip: " + ReplayController.LastSavedSelectionPath
                 : result == ReplayOpenResult.Empty
                     ? "Set both MARK IN and MARK OUT before saving."
                     : $"Could not save selection: {result}.";
+            Refresh();
         }
 
         private void SaveVirtualSelection()
         {
             if (!TrySelection(out uint start, out uint end) || DemoPlayback.CurrentPath == null)
             {
-                _message = "Set both MARK IN and MARK OUT before saving.";
+                _saveStatus.Text = _message = "Set both MARK IN and MARK OUT before saving.";
                 return;
             }
             try
@@ -928,12 +1047,12 @@ namespace MphRead.Mods.Launcher.Gui
                 string? name = String.IsNullOrWhiteSpace(_clipName.Value)
                     ? null : _clipName.Value.Trim();
                 string path = ReplayVirtualClips.Save(DemoPlayback.CurrentPath, start, end, name);
-                _message = "Virtual clip saved: " + Path.GetFileName(path);
+                _saveStatus.Text = _message = "Virtual clip saved: " + path;
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
                 or ArgumentException)
             {
-                _message = "Could not save virtual clip: " + ex.Message;
+                _saveStatus.Text = _message = "Could not save virtual clip: " + ex.Message;
             }
         }
 
@@ -974,12 +1093,8 @@ namespace MphRead.Mods.Launcher.Gui
             ReplayVideoResolution resolution = (ReplayVideoResolution)Math.Clamp(
                 _exportResolution.Index, 0,
                 Enum.GetValues<ReplayVideoResolution>().Length - 1);
-            int fps = _exportFps.Index switch
-            {
-                0 => 30,
-                2 => 120,
-                _ => 60
-            };
+            int fps = ReplayExportRates.Supported[Math.Clamp(_exportFps.Index,
+                0, ReplayExportRates.Supported.Length - 1)];
             return selected with
             {
                 Resolution = resolution,
@@ -1132,6 +1247,7 @@ namespace MphRead.Mods.Launcher.Gui
                 + (_message.Length == 0 ? "" : "\n" + _message);
 
             ReplayCamera.EnsureTrack();
+            _timeline.SelectedCameraFrame = ReplayCamera.SelectedFrame;
             int timelineSlot = _timelinePlayer.Index <= 0
                 ? -1
                 : _timelineSlots[Math.Clamp(_timelinePlayer.Index, 1,
@@ -1151,13 +1267,13 @@ namespace MphRead.Mods.Launcher.Gui
             ToolTip.SetTip(_exportQueueStatus, ReplayExportQueue.RecentFailures.Count == 0 ? null : "Recent failures\n" + string.Join("\n", ReplayExportQueue.RecentFailures));
 
             _cameraStatus.Text =
-                $"{ReplayCamera.KeyframeCount} keys · {ReplayCamera.TrackInterpolation} · "
+                $"Selected: {ReplayCamera.SelectedFrame?.ToString() ?? "none"} · {ReplayCamera.KeyframeCount} keys · {ReplayCamera.TrackInterpolation} · "
                 + $"{ReplayCamera.TrackEase} · {(ReplayCamera.TrackConstantSpeed ? "constant" : "timed")} speed · "
                 + $"FOV {ReplayCamera.FieldOfView:0}° · roll {ReplayCamera.Roll:0}° · "
                 + $"look-at {(ReplayCamera.LookAtSlot < 0 ? "off" : $"P{ReplayCamera.LookAtSlot + 1}")} · "
                 + $"names {(LauncherPrefs.SpectatorNameTags ? "on" : "off")} · "
                 + $"director {ReplayDirector.Reason} ({ReplayDirector.CurrentScore:0}) · "
-                + $"{DemoPlayback.CheckpointCount} world checkpoints";
+                + $"{DemoPlayback.CheckpointCount} world checkpoints\n{ReplayCamera.EditStatus}";
 
             ReplayAnalyticsSnapshot analytics = ReplayStudio.Analytics();
             var names = DemoPlayback.Metadata?.Players.ToDictionary(p => p.Slot, p => p.Name);

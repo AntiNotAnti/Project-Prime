@@ -65,7 +65,7 @@ public static class NetClaimLoadCheck
                             var claim = new HitClaimPacket { MatchId = 1, AuthorityEpoch = 1,
                                 ShooterGeneration = 1, ShooterLifeId = NetPlayerLifecycle.Get(shooter),
                                 VictimSlot = (byte)victim, VictimGeneration = 1, VictimLifeId = NetPlayerLifecycle.Get(victim),
-                                ClaimId = (ushort)(tick / 2), AckFrame = frame, LaunchFrame = frame,
+                                ClaimId = (ushort)(tick / 2), AckFrame = frame, LaunchFrame = frame, ShotId = (uint)(tick / 2),
                                 Damage = 1, Beam = (byte)BeamType.ShockCoil, HitPoint = PlayerEntity.Players[victim].Position };
                             var delivery = new Delivery(shooter, claim);
                             // Six independent attempts, like the bounded client outbox.
@@ -85,9 +85,9 @@ public static class NetClaimLoadCheck
                     while (physical.TryPeek(out _, out int due) && due <= tick)
                     {
                         var delivery = physical.Dequeue(); var claim = delivery.Claim;
-                        var beam = beams[delivery.Shooter]; beam.ModLaunchFrame = claim.LaunchFrame;
-                        beam.ModLaunchKey = ShotKey.For(delivery.Shooter, claim.LaunchFrame);
-                        if (NetHitClaims.AlreadyRescued(delivery.Shooter, claim.VictimSlot, claim.LaunchFrame, beam.ModLaunchKey)) { suppressed++; continue; }
+                        var beam = beams[delivery.Shooter]; beam.ModLaunchFrame = claim.LaunchFrame; beam.ModShotId = claim.ShotId;
+                        beam.ModLaunchKey = ShotKey.For(delivery.Shooter, claim.ShotId);
+                        if (NetHitClaims.AlreadyRescued(delivery.Shooter, claim.VictimSlot, claim.ShotId, beam.ModLaunchKey)) { suppressed++; continue; }
                         var victim = PlayerEntity.Players[claim.VictimSlot]; int before = victim.Health;
                         victim.TakeDamage(1, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, beam);
                         Check(victim.Health == before - 1, "one physical damage application");

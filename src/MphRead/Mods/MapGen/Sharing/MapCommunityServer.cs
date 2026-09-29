@@ -30,6 +30,7 @@ public static class MapCommunityServer
     {
         if (secret.Length < 24) throw new ArgumentException("Upload token must have at least 24 characters.");
         Directory.CreateDirectory(storage);
+        var catalog = new MapCreatorCatalog(storage,secret);
         var maps = new System.Collections.Concurrent.ConcurrentDictionary<string, CommunityMap>(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(storage, "*.ppmap").Take(2000))
         {
@@ -37,7 +38,7 @@ public static class MapCommunityServer
                 if (File.Exists(metadata) && new FileInfo(metadata).Length <= 65536)
                 {
                     var saved = JsonSerializer.Deserialize<CommunityMap>(File.ReadAllText(metadata), MapPackageReader.JsonOptions);
-                    if (saved?.Hash == entry.Hash) entry = entry with { Listed = saved.Listed, PublishedAt = saved.PublishedAt };
+                    if (saved?.Hash == entry.Hash) entry = entry with { Listed = saved.Listed, PublishedAt = saved.PublishedAt, OwnerId = saved.OwnerId, Draft = saved.Draft };
                 }
                 maps.TryAdd(entry.Hash, entry); }
             catch (Exception ex) { Console.Error.WriteLine("[maphub] Skipped package: " + ex.Message); }
@@ -71,16 +72,55 @@ public static class MapCommunityServer
             {
                 string route = context.Request.Url!.AbsolutePath.TrimEnd('/');
                 string root = new Uri(prefix).AbsolutePath.TrimEnd('/');
+                var creator=catalog.Authenticate(context.Request.Headers["Authorization"]);
+                string[] parts=route[(root.Length+1)..].Split('/');
+                async Task<T> Body<T>()
+                {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
+                if (parts.Length==3&&parts[0]=="maps"&&Guid.TryParse(parts[1],out Guid target)&&parts[2] is "favorite" or "reports" or "collaborators")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    var existing=maps.Values.FirstOrDefault(m=>m.MapId==target);if(existing==null){context.Response.StatusCode=404;return;}
+                    if(parts[2]=="favorite"&&context.Request.HttpMethod is "PUT" or "DELETE")catalog.Favorite(creator.CreatorId,target,context.Request.HttpMethod=="PUT");
+                    else if(parts[2]=="reports"&&context.Request.HttpMethod=="POST")
+                    {var report=await Body<MapReportRequest>();if(!maps.Values.Any(m=>m.MapId==target&&m.Version==report.Version)){context.Response.StatusCode=400;return;}await Json(context.Response,catalog.Report(creator.CreatorId,target,report),deadline.Token);return;}
+                    else if(parts[2]=="collaborators"&&context.Request.HttpMethod=="POST")
+                    {if(existing.OwnerId!=creator.CreatorId){context.Response.StatusCode=403;return;}catalog.SetCollaborators(target,await Body<string[]>());}
+                    else{context.Response.StatusCode=405;return;}
+                    context.Response.StatusCode=204;return;
+                }
+                if(parts.Length==3&&parts[0]=="packages"&&parts[2]=="visibility"&&context.Request.HttpMethod=="POST")
+                {
+                    if(creator==null){context.Response.StatusCode=401;return;}
+                    await publication.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if(!maps.TryGetValue(parts[1],out var map)){context.Response.StatusCode=404;return;}
+                        if(!catalog.CanPublish(creator.CreatorId,map)){context.Response.StatusCode=403;return;}
+                        string visibility=await Body<string>();if(visibility is not ("Published" or "Unlisted" or "Draft"))throw new InvalidDataException("Invalid visibility.");
+                        var updated=map with{Listed=visibility=="Published",Draft=visibility=="Draft"};
+                        AtomicFile.Write(Path.Combine(storage,map.Hash+".catalog.json"),JsonSerializer.SerializeToUtf8Bytes(updated,MapPackageReader.JsonOptions));maps[map.Hash]=updated;context.Response.StatusCode=204;
+                    }
+                    finally{publication.Release();}return;
+                }
+                if(parts[0]=="reports")
+                {
+                    if(creator?.Moderator!=true){context.Response.StatusCode=403;return;}
+                    if(parts.Length==1&&context.Request.HttpMethod=="GET")await Json(context.Response,catalog.Reports(),deadline.Token);
+                    else if(parts.Length==2&&Guid.TryParse(parts[1],out var report)&&context.Request.HttpMethod=="POST"){catalog.SetReportStatus(report,await Body<string>());context.Response.StatusCode=204;}
+                    else context.Response.StatusCode=404;return;
+                }
                 if (route == root + "/health" && context.Request.HttpMethod == "GET")
                     await Json(context.Response, new { Status="ok", Service="prime-maps", Maps=maps.Count }, deadline.Token);
                 else if (route == root + "/maps" && context.Request.HttpMethod == "GET")
                     {
                     var query = context.Request.QueryString;
-                    IEnumerable<CommunityMap> found = maps.Values.Where(m => m.Listed);
+                    if((query["mine"]=="true"||query["favorites"]=="true")&&creator==null){context.Response.StatusCode=401;return;}
+                    IEnumerable<CommunityMap> found = maps.Values.Where(m => query["mine"]=="true" ? creator!=null&&catalog.CanPublish(creator.CreatorId,m) : m.Listed&&!m.Draft).Select(m=>catalog.Decorate(m,creator?.CreatorId));
+                    if(query["favorites"]=="true")found=found.Where(m=>m.Favorited);
                     if (query["query"] is { } search) found = found.Where(m => (m.Name + " " + m.DisplayName + " " + m.Author).Contains(search, StringComparison.OrdinalIgnoreCase));
                     if (query["mode"] is { } mode) found = found.Where(m => m.SupportedModes.Length == 0 || m.SupportedModes.Contains(mode, StringComparer.OrdinalIgnoreCase));
                     if (query["author"] is { } author) found = found.Where(m => string.Equals(m.Author, author, StringComparison.OrdinalIgnoreCase));
-                    found = query["sort"] is "new" or "updated" ? found.OrderByDescending(m => m.PublishedAt) : found.OrderBy(m => m.DisplayName ?? m.Name);
+                    found = query["sort"]=="favorites" ? found.OrderByDescending(m=>m.FavoriteCount).ThenBy(m=>m.Name) : query["sort"] is "new" or "updated" ? found.OrderByDescending(m => m.PublishedAt) : found.OrderBy(m => m.DisplayName ?? m.Name);
                     if (query["page"] != null || query["pageSize"] != null)
                     {
                         int page = int.TryParse(query["page"], out int p) ? Math.Clamp(p, 1, 2000) : 1;
@@ -96,7 +136,7 @@ public static class MapCommunityServer
                     string idText = hash.Split('/')[0];
                     if (tail.StartsWith("maps/", StringComparison.Ordinal) && Guid.TryParse(idText, out Guid id))
                     {
-                        var versions = maps.Values.Where(m => m.MapId == id && m.Listed).OrderByDescending(m => m.PublishedAt).ToArray();
+                        var versions = maps.Values.Where(m => m.MapId == id && (m.Listed&&!m.Draft || creator!=null&&catalog.CanPublish(creator.CreatorId,m))).OrderByDescending(m => m.PublishedAt).ToArray();
                         if (versions.Length == 0 || hash != idText && hash != idText + "/versions") { context.Response.StatusCode = 404; return; }
                         await Json(context.Response, hash.EndsWith("/versions", StringComparison.Ordinal) ? (object)versions : versions[0], deadline.Token);
                         return;
@@ -105,9 +145,11 @@ public static class MapCommunityServer
                     {
                         string packageHash = hash[..^9];
                         if (!MapCommunityClient.ValidHash(packageHash) || !maps.TryGetValue(packageHash, out var entry)) { context.Response.StatusCode=404; return; }
-                        await Json(context.Response,entry,deadline.Token); return;
+                        if(entry.Draft&&(creator==null||!catalog.CanPublish(creator.CreatorId,entry))){context.Response.StatusCode=403;return;}
+                        await Json(context.Response,catalog.Decorate(entry,creator?.CreatorId),deadline.Token); return;
                     }
                     if (!MapCommunityClient.ValidHash(hash) || !maps.ContainsKey(hash)) { context.Response.StatusCode = 404; return; }
+                    if(maps[hash].Draft&&(creator==null||!catalog.CanPublish(creator.CreatorId,maps[hash]))){context.Response.StatusCode=403;return;}
                     context.Response.ContentType = "application/octet-stream";
                     context.Response.ContentLength64 = maps[hash].Bytes;
                     await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
@@ -116,9 +158,7 @@ public static class MapCommunityServer
                 else if (context.Request.HttpMethod == "POST" && (route == root + "/maps"
                     || route.StartsWith(root + "/maps/", StringComparison.Ordinal) && route.EndsWith("/versions", StringComparison.Ordinal)))
                 {
-                    byte[] expected = SHA256.HashData(Encoding.UTF8.GetBytes("Bearer " + secret));
-                    byte[] actual = SHA256.HashData(Encoding.UTF8.GetBytes(context.Request.Headers["Authorization"] ?? ""));
-                    if (!CryptographicOperations.FixedTimeEquals(expected, actual)) { context.Response.StatusCode = 401; return; }
+                    if (creator==null) { context.Response.StatusCode = 401; return; }
                     if (context.Request.ContentLength64 > MapPackageReader.MaxArchiveBytes) { context.Response.StatusCode = 413; return; }
                     if (!await publication.WaitAsync(0, deadline.Token)) { context.Response.StatusCode = 429; return; }
                     string temporary = Path.Combine(storage, Guid.NewGuid().ToString("N") + ".upload");
@@ -126,11 +166,14 @@ public static class MapCommunityServer
                     {
                         await using (var file = File.Create(temporary))
                             await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream, file, MapPackageReader.MaxArchiveBytes, deadline.Token);
-                        var entry = Inspect(temporary) with { Listed = context.Request.QueryString["listed"] != "false", PublishedAt = DateTimeOffset.UtcNow };
+                        var entry = Inspect(temporary) with { Listed = context.Request.QueryString["listed"] != "false" && context.Request.QueryString["draft"] != "true", Draft = context.Request.QueryString["draft"] == "true", OwnerId = creator.CreatorId, PublishedAt = DateTimeOffset.UtcNow };
                         if (route != root + "/maps" && (!Guid.TryParse(route[(root.Length + 6)..^9], out Guid mapId) || mapId != entry.MapId))
                         { context.Response.StatusCode=400; return; }
+                        var owner=maps.Values.FirstOrDefault(m=>m.MapId==entry.MapId);
+                        if(owner!=null&&!catalog.CanPublish(creator.CreatorId,owner)){context.Response.StatusCode=403;return;}
+                        if(owner!=null)entry=entry with{OwnerId=owner.OwnerId};
                         if (maps.TryGetValue(entry.Hash, out var existing)) entry = existing;
-                        if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.ContentHash != entry.ContentHash))
+                        if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.Hash != entry.Hash))
                         { context.Response.StatusCode = 409; return; }
                         if (!maps.ContainsKey(entry.Hash) && (maps.Count >= 2000 || maps.Values.Sum(m => m.Bytes) + entry.Bytes > 2L * 1024 * 1024 * 1024))
                         { context.Response.StatusCode=507; return; }

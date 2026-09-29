@@ -52,7 +52,7 @@ namespace MphRead
                 Mode = Mode, Teams = Teams, TeamCount = TeamCount,
                 FriendlyFire = FriendlyFire, PointGoal = PointGoal, TimeGoal = TimeGoal,
                 OctolithReset = OctolithReset, RadarPlayers = RadarPlayers,
-                AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
+                EnhancedHunters = EnhancedHunters, AffinityWeapons = AffinityWeapons, ShadowFreeze = ShadowFreeze,
                 SpawnProtection = SpawnProtection, Fiesta = Fiesta, OneInTheChamber = OneInTheChamber, InstaGib = InstaGib, LowTier = LowTier, NoImperialist = NoImperialist
             };
             Nicknames.CopyTo(state.Nicknames, 0);
@@ -156,6 +156,7 @@ namespace MphRead
         public bool OctolithReset { get; set; } = false;
         public bool RadarPlayers { get; set; } = false;
         public bool AffinityWeapons { get; set; } = false;
+        public bool EnhancedHunters { get; set; } = false;
         /// <summary>
         /// Whether a multiplayer spawn is protected from normal combat damage
         /// for the first three seconds of the life. Firing a real shot clears
@@ -1989,6 +1990,7 @@ namespace MphRead
             OctolithReset = false;
             RadarPlayers = false;
             AffinityWeapons = false;
+            EnhancedHunters = false;
             // Back to the cartridge's behaviour, like every other rule here
             // goes back to its own default: a match that has not said
             // otherwise is the game as the DS played it.

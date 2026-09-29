@@ -573,6 +573,7 @@ namespace MphRead.Mods.Network
                     (intent.ShotFlags & IntentPacket.FlagDoubleDamage) != 0,
                     (intent.ShotFlags & IntentPacket.FlagBoosting) != 0);
             }
+            if (!_host.IsReplica) NetFireEvents.Prepare(player, intent);
         }
 
         /// <summary>
@@ -738,6 +739,10 @@ namespace MphRead.Mods.Network
             // materialized. Replace that guess immediately with the authority's
             // actual answer; this is what fixes join-in-progress false protection.
             player.ModSetSpawnProtectionFromAuthority(state.SpawnProtected);
+            player.EnhancedState.Hunter = player.Hunter;
+            if (isLocal && !fresh && state.Health > 0 && player.OwningScene.GameState.EnhancedHunters)
+                Mods.EnhancedHunters.EnhancedHunterMovement.Apply(player, state.Enhanced.Impulse1, state.Enhanced.Impulse0);
+            state.Enhanced.Apply(player.EnhancedState);
             bool spawned = (state.Flags & PlayerState.FlagSpawned) != 0 && state.Health > 0;
             _formSaid[slot] = (byte)((state.Flags & PlayerState.FlagAltForm) != 0 ? 2 : 1);
             ReplayJumpPadCue(player, state, isLocal, spawned);

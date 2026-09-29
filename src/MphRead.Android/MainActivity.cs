@@ -995,6 +995,19 @@ namespace MphRead.Droid
                 _endPanelTick = null;
                 return;
             }
+            if (_gameView?.Scene?.AimTrainer is { Completed: true, ResultsShown: false } training
+                && AndroidUiSurface.Ensure() is { } trainingSurface)
+            {
+                training.ResultsShown = true;
+                MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
+                MphRead.Mods.Launcher.Gui.Deck.Asleep = false;
+                trainingSurface.Resize(_gameView.Width, _gameView.Height);
+                trainingSurface.Show(new MphRead.Mods.Launcher.Gui.AimTrainerResultsView(training,
+                    () => { var next = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); EndMatch(); StartMatch(next); },
+                    () => { EndMatch(); AndroidApp.Home?.OpenTraining(); },
+                    () => { EndMatch(); AndroidApp.Home?.OpenTraining(false); }));
+                _controls.ReleaseEverything();
+            }
             bool want = MphRead.Mods.EndScreen.PanelAvailable && !_pauseMenuOpen;
             // The panel going up and down mid-results is what "the 3D model
             // appears and disappears" is: the HUD draws its own picker the

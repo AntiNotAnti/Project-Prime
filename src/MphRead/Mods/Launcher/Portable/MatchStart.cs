@@ -65,6 +65,8 @@ namespace MphRead.Mods.Launcher
         public static bool Begin(RenderWindow window, MenuSettings settings, LaunchPlan plan)
         {
             LastError = null;
+            if (plan.Kind == LaunchKind.AimTrainer && NetSession.Active)
+            { LastError = "Disconnect before starting training."; return false; }
             Chat.ChatBox.Clear();
             if (plan.Kind == LaunchKind.Online)
             {
@@ -105,7 +107,7 @@ namespace MphRead.Mods.Launcher
                 }
             }
 
-            string roomKey = plan.Kind == LaunchKind.Offline
+            string roomKey = plan.Kind is LaunchKind.Offline or LaunchKind.AimTrainer
                 ? plan.RoomKey
                 : settings.RoomKey;
             if (roomKey.Length == 0 || roomKey == "none")
@@ -160,7 +162,7 @@ namespace MphRead.Mods.Launcher
             // nobody else on the server is playing to.
             bool teamPlay = NetSession.Active
                 ? GameState.IsTeamMode(mode)
-                : settings.TeamPlay == "on" || GameState.IsTeamMode(plan.Mode);
+                : plan.Kind != LaunchKind.AimTrainer && (settings.TeamPlay == "on" || GameState.IsTeamMode(plan.Mode));
 
             if (NetSession.Active)
             {
@@ -186,6 +188,8 @@ namespace MphRead.Mods.Launcher
                 plan.MatchRules.ApplyModifiers(window.Scene.GameState);
             }
             NetSession.ReportMatchLoadProgress(MatchLoadStage.PresentationLoad);
+            if (plan.Kind == LaunchKind.AimTrainer)
+                Training.AimTrainerSession.Attach(window.Scene, plan);
             window.LoadScene();
             NetSession.ReportMatchLoadProgress(MatchLoadStage.SceneReady);
             // Keep the bounded one-room cache through the match so same-map

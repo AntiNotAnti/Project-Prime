@@ -19,6 +19,8 @@ namespace MphRead.Mods.Launcher.Gui
         Combat,
         KillsDeaths,
         Damage,
+        Shots,
+        SpawnsDeaths,
         Objectives,
         Annotations
     }
@@ -43,6 +45,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly IBrush PlayheadBrush = new SolidColorBrush(Deck.Rgb(0xf0efe8));
         private static readonly IBrush MarkBrush = new SolidColorBrush(Deck.Rgb(0xd8b45d));
         private static readonly IBrush CameraBrush = new SolidColorBrush(Deck.Rgb(0x6fb7c8));
+        private static readonly IBrush SpawnBrush = new SolidColorBrush(Deck.Rgb(0x78b878));
         private static readonly Pen EventPen = new(EventBrush, 1);
         private static readonly Pen KillPen = new(KillBrush, 2);
         private static readonly Pen DeathPen = new(DeathBrush, 2);
@@ -51,10 +54,13 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly Pen PlayheadPen = new(PlayheadBrush, 2);
         private static readonly Pen MarkPen = new(MarkBrush, 2);
         private static readonly Pen CameraPen = new(CameraBrush, 2);
+        private static readonly Pen SpawnPen = new(SpawnBrush, 2);
         private static readonly Pen BookmarkPen = new(BookmarkBrush, 2);
 
         private enum DragTarget { None, Playhead, MarkIn, MarkOut, Range, Camera }
         private (uint First, uint Last)? _dragWindow;
+        private double _cameraPressX;
+        private bool _cameraDragging;
         private uint _dragAnchor, _rangeIn, _rangeOut, _cameraFrame, _cameraDestination;
         private int[] _density = Array.Empty<int>();
         private uint _bucketFrames;
@@ -76,16 +82,20 @@ namespace MphRead.Mods.Launcher.Gui
         private int _playerFilter = -1;
         private ReplayTimelineFilter _filter = ReplayTimelineFilter.All;
 
+        public Action<ReplayEvent>? EventRequested { get; set; }
         public Action<uint>? FrameRequested { get; set; }
         public Action<uint>? MarkInRequested { get; set; }
         public Action<uint>? MarkOutRequested { get; set; }
         public Action<uint, uint>? RangeRequested { get; set; }
+        public Action<uint>? CameraSelected { get; set; }
+        public Action? CameraDeleted { get; set; }
+        public uint? SelectedCameraFrame { get; set; }
         public Action<uint, uint>? CameraMoved { get; set; }
         public double Zoom { get; private set; } = 1;
 
         public ReplayTimeline()
         {
-            MinHeight = 118;
+            MinHeight = 150;
             Focusable = true;
             ClipToBounds = true;
         }
@@ -146,13 +156,17 @@ namespace MphRead.Mods.Launcher.Gui
             double damageY = deathY + laneHeight + laneGap;
             double objectiveY = damageY + laneHeight + laneGap;
             double annotationY = objectiveY + laneHeight + laneGap;
-            double trackY = Math.Max(annotationY + 14, height - 13);
+            double spawnY = annotationY + laneHeight + laneGap;
+            double shotsY = spawnY + laneHeight + laneGap;
+            double trackY = Math.Max(shotsY + 14, height - 13);
 
             DrawLane(context, width, killY, KillBrush);
             DrawLane(context, width, deathY, DeathBrush);
             DrawLane(context, width, damageY, DamageBrush);
             DrawLane(context, width, objectiveY, ObjectiveBrush);
             DrawLane(context, width, annotationY, BookmarkBrush);
+            DrawLane(context, width, spawnY, SpawnBrush);
+            DrawLane(context, width, shotsY, EventBrush);
 
             if (_markIn.HasValue && _markOut.HasValue)
             {
@@ -208,7 +222,9 @@ namespace MphRead.Mods.Launcher.Gui
                     ReplayEventType.Kill => (KillPen, killY),
                     ReplayEventType.PlayerDeath => (DeathPen, deathY),
                     ReplayEventType.Damage => (DamagePen, damageY),
-                    ReplayEventType.WeaponFired => (EventPen, damageY),
+                    ReplayEventType.WeaponFired => (EventPen, shotsY),
+                    ReplayEventType.PlayerSpawn or ReplayEventType.PlayerJoined => (SpawnPen, spawnY),
+                    ReplayEventType.PlayerLeft => (DeathPen, spawnY),
                     ReplayEventType.Objective or ReplayEventType.ScoreChanged
                         => (ObjectivePen, objectiveY),
                     _ => (EventPen, objectiveY)
@@ -237,6 +253,7 @@ namespace MphRead.Mods.Launcher.Gui
                     continue;
                 double x = X(key, first, span, width);
                 context.DrawLine(CameraPen, new Point(x, 2), new Point(x, 10));
+                if (SelectedCameraFrame == original) context.DrawRectangle(CameraPen, new Rect(x - 5, 0, 10, 13));
             }
 
             var track = new Rect(0, trackY - 3, width, 6);
@@ -286,8 +303,13 @@ namespace MphRead.Mods.Launcher.Gui
                 ReplayTimelineFilter.KillsDeaths => marker.Type is ReplayEventType.Kill
                     or ReplayEventType.PlayerDeath,
                 ReplayTimelineFilter.Damage => marker.Type == ReplayEventType.Damage,
+                ReplayTimelineFilter.Shots => marker.Type == ReplayEventType.WeaponFired,
+                ReplayTimelineFilter.SpawnsDeaths => marker.Type is ReplayEventType.PlayerSpawn
+                    or ReplayEventType.PlayerDeath or ReplayEventType.PlayerJoined or ReplayEventType.PlayerLeft,
                 ReplayTimelineFilter.Objectives => marker.Type is ReplayEventType.Objective
-                    or ReplayEventType.ScoreChanged,
+                    or ReplayEventType.ScoreChanged or ReplayEventType.FlagCapture
+                    or ReplayEventType.NodeCapture or ReplayEventType.PrimeChanged
+                    or ReplayEventType.MatchPoint or ReplayEventType.Overtime,
                 ReplayTimelineFilter.Annotations => false,
                 _ => true
             };
@@ -314,6 +336,26 @@ namespace MphRead.Mods.Launcher.Gui
             if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) return;
             Focus();
             double x = e.GetPosition(this).X;
+            double y = e.GetPosition(this).Y;
+            static double EventY(ReplayEvent marker) => 22 + 17 * (marker.Type switch
+            {
+                ReplayEventType.Kill => 0, ReplayEventType.PlayerDeath => 1,
+                ReplayEventType.Damage => 2, ReplayEventType.WeaponFired => 6,
+                ReplayEventType.PlayerSpawn or ReplayEventType.PlayerJoined or ReplayEventType.PlayerLeft => 5,
+                _ => 3
+            });
+            if (e.KeyModifiers == KeyModifiers.None && y >= 14 && y < Bounds.Height - 22)
+            {
+                var marker = _events.Where(EventVisible)
+                    .Where(item => Math.Abs(y - EventY(item)) <= 6 && DistanceTo(item.Frame, x) <= 6)
+                    .OrderBy(item => DistanceTo(item.Frame, x)).Select(item => (ReplayEvent?)item).FirstOrDefault();
+                if (marker is { } selected && EventRequested != null)
+                {
+                    EventRequested(selected);
+                    e.Handled = true;
+                    return;
+                }
+            }
             _dragWindow = Window(); _dragAnchor = FrameAt(x);
             _rangeIn = _markIn ?? 0; _rangeOut = _markOut ?? 0;
             _dragTarget = e.GetPosition(this).Y >= Bounds.Height - 22
@@ -321,13 +363,13 @@ namespace MphRead.Mods.Launcher.Gui
             if (e.GetPosition(this).Y < 14)
             {
                 uint? key = _cameraKeys.Cast<uint?>().OrderBy(k => DistanceTo(k, x)).FirstOrDefault();
-                if (DistanceTo(key, x) <= 10) { _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key!.Value; }
+                if (DistanceTo(key, x) <= 10) { _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key!.Value; _cameraPressX = x; _cameraDragging = false; }
             }
             else if (_dragTarget == DragTarget.Playhead && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
                 && _markIn.HasValue && _markOut.HasValue && _dragAnchor >= _rangeIn && _dragAnchor <= _rangeOut)
                 _dragTarget = DragTarget.Range;
             e.Pointer.Capture(this);
-            Request(_dragTarget, x);
+            if (_dragTarget != DragTarget.Camera) Request(_dragTarget, x);
             e.Handled = true;
         }
 
@@ -340,6 +382,11 @@ namespace MphRead.Mods.Launcher.Gui
                 ShowHover(hover);
                 return;
             }
+            if (_dragTarget == DragTarget.Camera && !_cameraDragging)
+            {
+                if (Math.Abs(e.GetPosition(this).X - _cameraPressX) < 4) return;
+                _cameraDragging = true;
+            }
             Request(_dragTarget, e.GetPosition(this).X);
             e.Handled = true;
         }
@@ -349,9 +396,12 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnPointerReleased(e);
             if (_dragTarget == DragTarget.None)
                 return;
-            Request(_dragTarget, e.GetPosition(this).X);
-            if (_dragTarget == DragTarget.Camera && _cameraFrame != _cameraDestination)
-                CameraMoved?.Invoke(_cameraFrame, _cameraDestination);
+            if (_dragTarget != DragTarget.Camera || _cameraDragging) Request(_dragTarget, e.GetPosition(this).X);
+            if (_dragTarget == DragTarget.Camera)
+            {
+                if (_cameraFrame != _cameraDestination) CameraMoved?.Invoke(_cameraFrame, _cameraDestination);
+                else CameraSelected?.Invoke(_cameraFrame);
+            }
             _dragTarget = DragTarget.None; _dragWindow = null; _scrubFrame = null;
             e.Pointer.Capture(null);
             e.Handled = true;
@@ -384,6 +434,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (e.Key is Key.Delete or Key.Back && SelectedCameraFrame.HasValue)
+            { CameraDeleted?.Invoke(); e.Handled = true; return; }
             if (e.Key is Key.Left or Key.Right)
             {
                 long delta = e.Key == Key.Left ? -60 : 60;
@@ -469,7 +521,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             base.OnAttachedToVisualTree(e);
             long generation = ++_thumbnailGeneration;
-            string? replay = DemoPlayback.CurrentPath;
+            string? replay = DemoPlayback.LogicalPath;
             uint duration = ReplayController.DurationFrames;
             if (replay == null) return;
             var images = await ReplayStorageJobs.Run(() =>
@@ -486,7 +538,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 return loaded;
             });
-            if (generation != _thumbnailGeneration || replay != DemoPlayback.CurrentPath)
+            if (generation != _thumbnailGeneration
+                || !ReplayPathComparer.Comparer.Equals(replay, DemoPlayback.LogicalPath))
             { foreach (var thumbnail in images) thumbnail.Image.Dispose(); return; }
             _scrubThumbnails.AddRange(images);
         }

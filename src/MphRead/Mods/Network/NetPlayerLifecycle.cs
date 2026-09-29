@@ -39,6 +39,7 @@ namespace MphRead.Mods.Network
                 beam.ModLaunchGeneration = parent.ModLaunchGeneration;
                 beam.ModLaunchLife = parent.ModLaunchLife;
                 beam.ModLaunchFrame = parent.ModLaunchFrame;
+                beam.ModShotId = parent.ModShotId;
                 return;
             }
             beam.ModLaunchMatch = NetSession.CurrentMatchId;
@@ -46,8 +47,9 @@ namespace MphRead.Mods.Network
             beam.ModLaunchGeneration = owner == null ? (ushort)0 : Generation(owner.SlotIndex);
             beam.ModLaunchLife = owner == null ? (ushort)0 : Get(owner.SlotIndex);
             beam.ModLaunchFrame = owner == null ? 0 : NetUnlagged.LaunchFrameFor(owner);
+            beam.ModShotId = owner == null ? 0 : NetFireEvents.ActiveShotId(owner);
             beam.ModLaunchKey = new ShotKey(beam.ModLaunchAuthority, beam.ModLaunchMatch,
-                owner?.SlotIndex ?? -1, beam.ModLaunchGeneration, beam.ModLaunchLife, beam.ModLaunchFrame);
+                owner?.SlotIndex ?? -1, beam.ModLaunchGeneration, beam.ModLaunchLife, beam.ModShotId);
         }
 
         public static bool CurrentProjectile(BeamProjectileEntity beam)
@@ -58,7 +60,7 @@ namespace MphRead.Mods.Network
                 && beam.ModLaunchLife != 0
                 && Generation(owner.SlotIndex) == beam.ModLaunchGeneration
                 && beam.ModLaunchKey == new ShotKey(beam.ModLaunchAuthority, beam.ModLaunchMatch,
-                    owner.SlotIndex, beam.ModLaunchGeneration, beam.ModLaunchLife, beam.ModLaunchFrame));
+                    owner.SlotIndex, beam.ModLaunchGeneration, beam.ModLaunchLife, beam.ModShotId));
         }
 
         public static void SetOccupant(int slot, ushort generation)
@@ -163,6 +165,7 @@ namespace MphRead.Mods.Network
 
         public static void Reset()
         {
+            NetFireEvents.Reset();
             foreach (var slot in _slots) slot.SetOccupant(0);
             ApplyingSpawn = false;
             StaleLifeStates = WrongGeneration = InvalidResurrections = Transitions = Spawns = Deaths = 0;

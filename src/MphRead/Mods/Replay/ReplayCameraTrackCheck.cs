@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Replay
@@ -26,6 +27,12 @@ namespace MphRead.Mods.Replay
                 Require((facing - new Vector3(-MathF.Sqrt(0.5f), 0, -MathF.Sqrt(0.5f))).Length < 0.0001f, "spherical orientation");
                 Require(mid.LookAtSlot == -1 && track.Sample(30, out var last) && last.LookAtSlot == 3, "look-at boundary");
                 Require(track.Sample(20, out var paused) && paused == mid, "paused frame stable");
+                var held = new ReplayCameraTrack();
+                Require(held.Put(start with { Interpolation = ReplayCameraInterpolation.Hold })
+                    && held.Put(end) && held.Sample(29, out var heldPose)
+                    && heldPose.Position == start.Position
+                    && held.Sample(30, out heldPose) && heldPose.Position == end.Position,
+                    "hold interpolation remains fixed until the destination key");
                 Require(track.Sample(20, out var constantMid, constantSpeed: true)
                     && float.IsFinite(constantMid.Position.X)
                     && float.IsFinite(constantMid.Position.Y)
@@ -57,6 +64,22 @@ namespace MphRead.Mods.Replay
                 File.WriteAllBytes(replay + ".camera", good);
                 File.AppendAllText(replay, "changed");
                 Require(!loaded.Load(replay), "source binding");
+
+                string virtualClip = Path.Combine(directory, "stable.ppclip");
+                File.WriteAllText(virtualClip, JsonSerializer.Serialize(new ReplayVirtualClipDocument(
+                    1, replay, 10, 30, DateTime.UtcNow, "Stable clip")));
+                var virtualTrack = new ReplayCameraTrack();
+                Require(virtualTrack.Put(start) && virtualTrack.Save(virtualClip), "virtual track save");
+                string disposableCache = Path.Combine(directory, ".virtual-cache", "stable.ppdemo");
+                Directory.CreateDirectory(Path.GetDirectoryName(disposableCache)!);
+                File.WriteAllBytes(disposableCache, new byte[] { 9, 8, 7 });
+                File.Delete(disposableCache);
+                var rebuiltTrack = new ReplayCameraTrack();
+                Require(rebuiltTrack.Load(virtualClip) && rebuiltTrack.Keys.SequenceEqual(virtualTrack.Keys),
+                    "virtual camera sidecar did not survive cache deletion/rebuild");
+                File.WriteAllText(virtualClip, JsonSerializer.Serialize(new ReplayVirtualClipDocument(
+                    1, replay, 11, 30, DateTime.UtcNow, "Changed range")));
+                Require(!rebuiltTrack.Load(virtualClip), "virtual camera track accepted a different clip range");
                 Require(!loaded.Save(Path.Combine(directory, "missing.ppdemo")), "missing source");
                 Require(Directory.GetFiles(directory, "*.tmp").Length == 0, "temporary cleanup");
                 ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation);
@@ -67,8 +90,7 @@ namespace MphRead.Mods.Replay
             }
             finally
             {
-                foreach (string file in Directory.GetFiles(directory)) File.Delete(file);
-                Directory.Delete(directory);
+                Directory.Delete(directory, recursive: true);
             }
         }
         private static void Require(bool condition, string message)

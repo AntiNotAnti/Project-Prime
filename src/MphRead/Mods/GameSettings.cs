@@ -218,6 +218,7 @@ namespace MphRead.Mods
             state.FriendlyFire = settings.FriendlyFire == "on";
             state.RadarPlayers = settings.HunterRadar == "on";
             state.AffinityWeapons = settings.AffinityWeapons == "on";
+            state.EnhancedHunters = settings.EnhancedHunters == "on";
             // Advanced combat rules are opt-in. Explicit saved on values are preserved.
             state.Fiesta = settings.Fiesta == "on"; state.OneInTheChamber = settings.OneInTheChamber == "on";
             state.InstaGib = settings.InstaGib == "on";

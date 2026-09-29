@@ -51,11 +51,12 @@ namespace MphRead.Mods.Launcher.Gui
             Document.PaintFaces(hit.ObjectId, faces, material, _paintStroke);
         }
         public bool UvChecker { get; set; }
-        public HashSet<int> SelectedFaceIndices { get; } = new();
-        public Guid SelectedFaceObjectId => _subObjectId;
-        public int SelectedFaceIndex { get; private set; } = -1;
-        public int SelectedVertexIndex { get; private set; } = -1;
-        public (int A,int B)? SelectedEdge { get; private set; }
+        public MapSubSelection SubSelection { get; } = new();
+        public HashSet<int> SelectedFaceIndices => SubSelection.Faces;
+        public Guid SelectedFaceObjectId => SubSelection.ObjectId;
+        public int SelectedFaceIndex => SubSelection.ActiveFace;
+        public int SelectedVertexIndex => SubSelection.ActiveVertex;
+        public (int A,int B)? SelectedEdge => SubSelection.ActiveEdge is { } edge ? (edge.A,edge.B) : null;
         public string PlacementMode { get; set; } = "Cursor";
         public MapPickHit? LastSurfaceHit { get; private set; }
         public bool MaterialEyedropper { get; set; }
@@ -101,17 +102,24 @@ namespace MphRead.Mods.Launcher.Gui
         private Vector _preview;
         private float _rotation, _scale = 1;
         private Vector? _measureA,_measureB;
-        private Guid _subObjectId=Guid.Empty;
+        private MapSubTransformPreview? _subPreview;
+        private bool _boxToggle;
 
         public MapViewport(MapDocument document)
         {
-            Document=document; Focusable=true; ClipToBounds=true;
+            Document=document; Focusable=true; ClipToBounds=true;InitializeModelingMenu();
             Document.Invalidated += InvalidateDocument;
             InvalidateDocument(new(MapChangeDomain.All));
         }
         private IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> _viewportMaterials = new Dictionary<(bool, int), MapViewportMaterial>();
         private void InvalidateDocument(MapDocumentChange change)
         {
+            if((change.Domains&MapChangeDomain.Geometry)!=0)
+            {
+                if(_subPreview!=null)CancelInteraction();
+                if(SubSelection.ObjectId!=Guid.Empty)
+                {if(MapObjects.Find(Document.Project.Definition,SubSelection.ObjectId)?.Value is MapMesh mesh)SubSelection.Validate(mesh);else SubSelection.Clear();}
+            }
             Cache.Invalidate(Document.Project.Definition, change);
             if ((change.Domains & (MapChangeDomain.Material | MapChangeDomain.Import)) != 0)
                 _viewportMaterials = MapViewportMaterials.Resolve(Document.Project.Definition);
@@ -174,7 +182,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void ClearSubSelection()
         {
-            SelectedFaceIndices.Clear();SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;_subObjectId=Guid.Empty;InvalidateVisual();
+            SubSelection.Clear();InvalidateVisual();
         }
 
         private MapViewportCamera Camera => new(CameraPosition, CameraTarget, View == "Perspective");
@@ -207,63 +215,6 @@ namespace MphRead.Mods.Launcher.Gui
             catch(MapAuthoringException){return Array.Empty<BuiltFace>();}
         }
 
-        private bool PickSubElement(Point point, bool extend = false)
-        {
-            if(ElementMode=="Object")return false;
-            BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);
-            if(mesh==null||faces.Length==0||ActiveSelection is not { } active)return false;
-            if (_subObjectId != active.Id || !extend) SelectedFaceIndices.Clear();
-            _subObjectId=active.Id;
-            SelectedFaceIndex=SelectedVertexIndex=-1;SelectedEdge=null;
-
-            if(ElementMode=="Face")
-            {
-                MapPickHit? hit=MapViewportPicking.PickHit(BuildRenderFrame(Layout),point.X,point.Y,false);
-                if(hit is not { } picked||picked.ObjectId!=active.Id)return false;
-                SelectedFaceIndex=Math.Clamp(picked.FaceIndex,0,faces.Length-1);
-                if (!SelectedFaceIndices.Add(SelectedFaceIndex)) SelectedFaceIndices.Remove(SelectedFaceIndex);
-                return true;
-            }
-
-            double best=ElementMode=="Vertex"?144:100;
-            int bestFace=-1,bestCorner=-1;
-            for(int fi=0;fi<faces.Length&&fi<mesh.Faces.Count;fi++)
-            {
-                BuiltFace face=faces[fi];
-                for(int i=0;i<face.Points.Length;i++)
-                {
-                    var p=Project(new Vector(face.Points[i].X,face.Points[i].Y,face.Points[i].Z));
-                    if(p==null)continue;
-                    if(ElementMode=="Vertex")
-                    {
-                        double sq=Math.Pow(p.Value.Point.X-point.X,2)+Math.Pow(p.Value.Point.Y-point.Y,2);
-                        if(sq<best){best=sq;bestFace=fi;bestCorner=i;}
-                    }
-                    else
-                    {
-                        var q=Project(new Vector(face.Points[(i+1)%face.Points.Length].X,
-                            face.Points[(i+1)%face.Points.Length].Y,face.Points[(i+1)%face.Points.Length].Z));
-                        if(q==null)continue;
-                        double distance=PointSegmentDistance(point,p.Value.Point,q.Value.Point);
-                        if(distance*distance<best){best=distance*distance;bestFace=fi;bestCorner=i;}
-                    }
-                }
-            }
-            if(bestFace<0)return false;
-            if(ElementMode=="Vertex")
-            {
-                int[] source=mesh.Faces[Math.Min(bestFace,mesh.Faces.Count-1)];
-                SelectedVertexIndex=source[Math.Min(bestCorner,source.Length-1)];
-            }
-            else
-            {
-                int[] source=mesh.Faces[Math.Min(bestFace,mesh.Faces.Count-1)];
-                int a=source[Math.Min(bestCorner,source.Length-1)];
-                int b=source[(bestCorner+1)%source.Length];SelectedEdge=(a,b);
-            }
-            return true;
-        }
-
         private static double PointSegmentDistance(Point p,Point a,Point b)
         {
             double dx=b.X-a.X,dy=b.Y-a.Y,length=dx*dx+dy*dy;
@@ -273,48 +224,15 @@ namespace MphRead.Mods.Launcher.Gui
             return Math.Sqrt(Math.Pow(p.X-x,2)+Math.Pow(p.Y-y,2));
         }
 
-        private void DrawSubSelection(DrawingContext context)
-        {
-            if(_subObjectId==Guid.Empty||ActiveSelection?.Id!=_subObjectId)return;
-            BuiltFace[] faces=ActiveMeshFaces(out MapMesh? mesh);if(mesh==null)return;
-            foreach (int selectedFace in SelectedFaceIndices.Where(i=>i>=0&&i<faces.Length))
-            {
-                var projected=faces[selectedFace].Points.Select(p=>Project(new Vector(p.X,p.Y,p.Z))).ToArray();
-                if(projected.All(p=>p!=null))
-                {
-                    Point[] points=projected.Select(p=>p!.Value.Point).ToArray();
-                    context.DrawGeometry(new SolidColorBrush(Color.FromArgb(55,255,196,64)),
-                        new Pen(Brushes.Gold,3),Polygon(points));
-                }
-            }
-            if(SelectedEdge is { } edge&&edge.A>=0&&edge.B>=0&&edge.A<mesh.Vertices.Count&&edge.B<mesh.Vertices.Count)
-            {
-                Vector World(int index)
-                {
-                    // Apply the same geometry transform directly.
-                    var p=new Vector(mesh.Vertices[index][0],mesh.Vertices[index][1],mesh.Vertices[index][2]);
-                    var t=mesh.Transform;var q=new Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]);
-                    p*=new Vector(t.Scale[0],t.Scale[1],t.Scale[2]);p=Vector.Transform(p,q);
-                    return p+new Vector(t.Position[0],t.Position[1],t.Position[2]);
-                }
-                Line(context,World(edge.A),World(edge.B),Brushes.Gold,5);
-            }
-            if(SelectedVertexIndex>=0&&SelectedVertexIndex<mesh.Vertices.Count)
-            {
-                var t=mesh.Transform;Vector p=new(mesh.Vertices[SelectedVertexIndex][0],mesh.Vertices[SelectedVertexIndex][1],mesh.Vertices[SelectedVertexIndex][2]);
-                p*=new Vector(t.Scale[0],t.Scale[1],t.Scale[2]);p=Vector.Transform(p,new Quaternion(t.Rotation[0],t.Rotation[1],t.Rotation[2],t.Rotation[3]));
-                p+=new Vector(t.Position[0],t.Position[1],t.Position[2]);
-                var screen=Project(p);if(screen!=null)context.DrawEllipse(Brushes.Gold,new Pen(Brushes.White,1),screen.Value.Point,6,6);
-            }
-        }
-
         internal MapRenderFrame BuildRenderFrame(MapViewportLayout layout)
         {
             var transforms = new Dictionary<Guid, Matrix4x4>();
-            if (_drag)
+            if (_drag && _subPreview == null)
                 foreach (var item in MapObjects.All(Document.Project.Definition))
                     if (Document.Selection.Contains(item.Id)) transforms[item.Id] = PreviewTransform(item);
-            return new(layout, Camera, Cache.VisibleMeshes(Camera,layout), Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
+            var meshes = Cache.VisibleMeshes(Camera,layout);
+            if (_subPreview != null) meshes = meshes.Select(m => m.ObjectId == _subPreview.ObjectId ? _subPreview.Present(m) : m).ToArray();
+            return new(layout, Camera, meshes, Document.Selection.ToHashSet(), transforms, Wireframe, Collision) { GridView=View, GridStep=VisibleGridStep, Materials=_viewportMaterials, UvChecker=UvChecker };
         }
 #if !MPHREAD_SHELL
         private bool GpuActive => false;
@@ -423,8 +341,9 @@ namespace MphRead.Mods.Launcher.Gui
             if (!GpuActive)
             {
             var projected=new List<(MapViewportFace Face,Point[] Points,double Depth)>();
-            var transforms = BuildRenderFrame(Layout).PreviewTransforms;
-            foreach(var face in VisibleFaces)
+            var frame = BuildRenderFrame(Layout);
+            var transforms = frame.PreviewTransforms;
+            foreach(var face in frame.Meshes.SelectMany(m => Collision ? m.CollisionFaces ?? m.Faces : m.Faces))
             {
                 if(Collision&&!face.Solid)continue;
                 var transform = transforms.GetValueOrDefault(face.ObjectId, Matrix4x4.Identity);
@@ -604,9 +523,9 @@ namespace MphRead.Mods.Launcher.Gui
                 else Label(context,Guid.Empty,"Measurement start",measureA);
             }
             var selectedObject=ActiveSelection;
-            if(selectedObject!=null&&ElementMode=="Object")
+            if(selectedObject!=null&&(ElementMode=="Object" || HasSubSelection))
             {
-                Vector center=MapViewportScene.Vector(selectedObject.Position)+_preview;
+                Vector center=GizmoCenter+_preview;
                 Line(context,center,center+GizmoAxis(selectedObject,0)*3,Brushes.Red,3);Line(context,center,center+GizmoAxis(selectedObject,1)*3,Brushes.Lime,3);Line(context,center,center+GizmoAxis(selectedObject,2)*3,Brushes.DeepSkyBlue,3);
             }
         }
@@ -631,8 +550,11 @@ namespace MphRead.Mods.Launcher.Gui
         }
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
+            if (_keyboardTransform && _subPreview != null) { var preview=_subPreview;_subPreview=null;preview.Commit(Document,Tool);CancelInteraction();e.Handled=true;return; }
             if (_drag || _boxSelect || _orbit || _pan) { e.Handled=true; return; }
             base.OnPointerPressed(e);Focus();_last=_start=e.GetPosition(this);var props=e.GetCurrentPoint(this).Properties;
+            if(props.IsRightButtonPressed&&e.KeyModifiers.HasFlag(KeyModifiers.Shift)&&ElementMode!="Object")
+            {_modelingMenu?.Open(this);e.Handled=true;return;}
             _orbit=props.IsRightButtonPressed;_pan=props.IsMiddleButtonPressed;
             if(props.IsLeftButtonPressed)
             {
@@ -665,10 +587,8 @@ namespace MphRead.Mods.Launcher.Gui
                     else _measureB=point;
                     e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
                 }
-                if(ElementMode!="Object"&&PickSubElement(_last, e.KeyModifiers.HasFlag(KeyModifiers.Control) || e.KeyModifiers.HasFlag(KeyModifiers.Shift)))
-                {
-                    SelectionChanged?.Invoke();e.Pointer.Capture(null);e.Handled=true;InvalidateVisual();return;
-                }
+                if (ElementMode != "Object" && ActiveSelection?.Value is MapMesh)
+                { BeginSubInteraction(e); return; }
 
                 Guid id=Guid.Empty;_axis=-1;
                 var selected=ActiveSelection;
@@ -721,27 +641,36 @@ namespace MphRead.Mods.Launcher.Gui
                 CameraPosition=CameraTarget+offset;
             }
             if(_pan){Vector move=(-right*(float)delta.X+up*(float)delta.Y)*distance/500;CameraPosition+=move;CameraTarget+=move;}
-            if(_drag)
+            if(_drag && (!_keyboardTransform || _numericTransform.Length==0))
             {
                 var full=p-_start;_preview=(right*(float)full.X-up*(float)full.Y)*distance/500;
                 if (LocalAxes && ActiveSelection?.Value is MapGeometry activeGeometry)
                 { var r = activeGeometry.Transform.Rotation; _preview = Vector.Transform(_preview, Quaternion.Inverse(new Quaternion(r[0],r[1],r[2],r[3]))); }
                 if(_axis>=0){float value=_preview[_axis];_preview=Vector.Zero;_preview[_axis]=value;}
                 else if(Axes!="Free"){for(int i=0;i<3;i++)if(!Axes.Contains("XYZ"[i]))_preview[i]=0;}
-                else if(View=="Perspective"||View=="Top")_preview.Y=0;
-                else if(View=="Front")_preview.Z=0;
-                else if(View=="Side")_preview.X=0;
+                else if(_subPreview==null&&(View=="Perspective"||View=="Top"))_preview.Y=0;
+                else if(_subPreview==null&&View=="Front")_preview.Z=0;
+                else if(_subPreview==null&&View=="Side")_preview.X=0;
                 if(Snap>0)for(int i=0;i<3;i++)_preview[i]=MathF.Round(_preview[i]/Snap)*Snap;
                 _rotation=MathF.Round((float)full.X/Math.Max(1,AngleSnap))*Math.Max(1,AngleSnap);
                 float scaleStep=float.IsFinite(ScaleSnap)&&ScaleSnap>0?ScaleSnap:.01f;
                 _scale=Math.Max(scaleStep,1+MathF.Round((float)full.X/100/scaleStep)*scaleStep);
                 if(Tool!="Move")_preview=Vector.Zero;
+                if(_subPreview!=null&&Tool=="Move"&&e.KeyModifiers.HasFlag(KeyModifiers.Control)&&ActiveSelection?.Value is MapMesh snappingMesh)
+                {
+                    var r=snappingMesh.Transform.Rotation;var orientation=new Quaternion(r[0],r[1],r[2],r[3]);
+                    var worldDelta=LocalAxes?Vector.Transform(_preview,orientation):_preview;var desired=_subPreview.Pivot+worldDelta;
+                    var hit=MapLayoutCommands.NearestSurface(desired,Cache.SurfaceNear(desired),new HashSet<Guid>{snappingMesh.Id});
+                    if(hit is {} contact){worldDelta=contact.Point-_subPreview.Pivot;_preview=LocalAxes?Vector.Transform(worldDelta,Quaternion.Inverse(orientation)):worldDelta;}
+                }
+                _subPreview?.Update(Tool,_preview,_rotation,_scale,LocalAxes,TurnAxis,ScaleAxes);
             }
             InvalidateVisual();
         }
         internal void CancelInteraction()
         {
             _paintStroke = null; _paintMesh = Guid.Empty; _painted.Clear();
+            _subPreview=null;_keyboardTransform=false;_numericTransform="";
             _drag=_orbit=_pan=_boxSelect=false;
             _preview=Vector.Zero;_rotation=0;_scale=1;_axis=-1;
             var pointer=_interactionPointer;_interactionPointer=null;
@@ -758,7 +687,9 @@ namespace MphRead.Mods.Launcher.Gui
             var buttons=e.GetCurrentPoint(this).Properties;
             if (((_drag||_boxSelect)&&buttons.IsLeftButtonPressed)
                 ||(_orbit&&buttons.IsRightButtonPressed)||(_pan&&buttons.IsMiddleButtonPressed))return;
-            if (_boxSelect)
+            if (_boxSelect && ElementMode != "Object")
+            { SelectSubBox(SelectionRectangle(_start,_boxCurrent)); }
+            else if (_boxSelect)
             {
                 Rect selection = SelectionRectangle(_start, _boxCurrent);
                 if (!_boxAdditive) Document.Selection.Clear();
@@ -769,6 +700,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _boxSelect = false;
                 Document.SelectionChanged(); SelectionChanged?.Invoke();
             }
+            else if (_drag && _subPreview != null)
+            { var preview = _subPreview; _subPreview = null; preview.Commit(Document,Tool); }
             else if(_drag)
             {
                 var ids=Document.Selection.ToHashSet();Vector move=_preview;float angle=_rotation,scale=_scale;
@@ -789,7 +722,9 @@ namespace MphRead.Mods.Launcher.Gui
             bool shift=e.KeyModifiers.HasFlag(KeyModifiers.Shift);
             bool alt=e.KeyModifiers.HasFlag(KeyModifiers.Alt);
             if(e.Key==Key.Escape&&(_drag||_boxSelect||_orbit||_pan)){CancelInteraction();}
+            else if(TransformKey(e)){e.Handled=true;return;}
             else if(_drag||_boxSelect){e.Handled=true;return;}
+            else if(ElementMode!="Object" && HandleSubKey(e)) { }
             else if(!control&&!alt&&e.Key==Key.F)FrameSelection();
             else if(e.Key==Key.Escape&&MeasureMode){MeasureMode=false;_measureA=_measureB=null;InvalidateVisual();}
             else if(e.Key==Key.Escape&&MaterialPaint){MaterialPaint=false;InvalidateVisual();}
@@ -812,7 +747,7 @@ namespace MphRead.Mods.Launcher.Gui
             else if(e.Key==Key.H)Document.HideSelection();
             else if(!control&&!alt&&e.Key==Key.G){Tool="Move";}
             else if(!control&&!alt&&e.Key==Key.R){Tool="Rotate";}
-            else if(!control&&!alt&&e.Key==Key.T){Tool="Scale";}
+            else if(!control&&!alt&&(e.Key==Key.T||e.Key==Key.S)){Tool="Scale";}
             else
             {
                 if(control||alt){base.OnKeyDown(e);return;}

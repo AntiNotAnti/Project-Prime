@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
         {
             public int Version { get; set; } = ReplayLibraryIndex.Version;
             public Dictionary<string, ReplayLibraryIndexEntry> Entries { get; set; }
-                = new(StringComparer.OrdinalIgnoreCase);
+                = new(ReplayPathComparer.Comparer);
         }
 
         private static Document? _document;
@@ -90,7 +90,7 @@ namespace MphRead.Mods.Network
                     if (loaded is { Version: Version })
                     {
                         loaded.Entries = new Dictionary<string, ReplayLibraryIndexEntry>(
-                            loaded.Entries, StringComparer.OrdinalIgnoreCase);
+                            loaded.Entries, ReplayPathComparer.Comparer);
                         _document = loaded;
                         return loaded;
                     }

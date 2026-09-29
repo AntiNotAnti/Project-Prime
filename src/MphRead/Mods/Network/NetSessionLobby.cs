@@ -201,7 +201,7 @@ namespace MphRead.Mods.Network
                 || ServerMatch.Value.AuthorityEpoch != state.AuthorityEpoch)
             {
                 ApplyMatchState(new MatchStatePacket { RoomKey = state.Match.RoomKey, Mode = (byte)state.Match.Mode,
-                    AuthorityEpoch = state.AuthorityEpoch,
+                    AuthorityEpoch = state.AuthorityEpoch, RuleBits = (ushort)state.Match.Rules,
                     PointGoal = state.Match.PointGoal, TimeRemaining = state.Match.TimeLimitSeconds, MatchId = state.MatchId,
                     Flags = (byte)(MatchStatePacket.FlagInProgress | (state.Match.FriendlyFire ? MatchStatePacket.FlagFriendlyFire : 0)
                         | (state.Match.ShadowFreeze ? MatchStatePacket.FlagShadowFreeze : 0)
