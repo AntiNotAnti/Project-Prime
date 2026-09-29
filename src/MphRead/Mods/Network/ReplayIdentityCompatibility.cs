@@ -27,6 +27,16 @@ internal static class ReplayIdentityCompatibility
         if (converted.IsEmpty) return converted;
 
         PacketType type = (PacketType)converted[0];
+        if (type == PacketType.MapChange)
+        {
+            // Historical live clients fed MapChange through the same MatchState
+            // decoder with a "rotated" flag. The detached replay replica has no
+            // connection lifecycle, so canonicalize it to the state packet it is.
+            byte[] state = converted.ToArray();
+            state[0] = (byte)PacketType.MatchState;
+            converted = state;
+            type = PacketType.MatchState;
+        }
         if (protocol < 24 && type is PacketType.Intent or PacketType.SlotIntent)
         {
             converted = ConvertLegacyIntent(converted, protocol);
