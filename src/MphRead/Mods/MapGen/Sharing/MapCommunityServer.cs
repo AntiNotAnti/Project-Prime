@@ -31,6 +31,7 @@ public static class MapCommunityServer
         if (secret.Length < 24) throw new ArgumentException("Upload token must have at least 24 characters.");
         Directory.CreateDirectory(storage);
         var catalog = new MapCreatorCatalog(storage,secret);
+        using var identities = new MapCommunityIdentityVerifier();
         var maps = new System.Collections.Concurrent.ConcurrentDictionary<string, CommunityMap>(StringComparer.Ordinal);
         foreach (string file in Directory.EnumerateFiles(storage, "*.ppmap").Take(2000))
         {
@@ -72,7 +73,9 @@ public static class MapCommunityServer
             {
                 string route = context.Request.Url!.AbsolutePath.TrimEnd('/');
                 string root = new Uri(prefix).AbsolutePath.TrimEnd('/');
-                var creator=catalog.Authenticate(context.Request.Headers["Authorization"]);
+                string? authorization=context.Request.Headers["Authorization"];
+                var creator=catalog.Authenticate(authorization)
+                    ?? await identities.AuthenticateAsync(authorization,deadline.Token).ConfigureAwait(false);
                 string[] parts=route[(root.Length+1)..].Split('/');
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
