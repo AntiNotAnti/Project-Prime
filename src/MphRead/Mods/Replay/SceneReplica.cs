@@ -64,7 +64,7 @@ namespace MphRead
                 if (entity.Initialized) entity.ModCaptureDrawState();
             foreach (PlayerEntity player in Players.Items)
             {
-                player.CameraInfo.ModCaptureDrawState();
+                player.CameraInfo.ModCaptureDrawState(player.ModNativeCadenceDrawOffset(FrameCount + 1));
                 player.ModCaptureFirstPersonDrawState();
             }
             ProcessEffects(_effectFrame);

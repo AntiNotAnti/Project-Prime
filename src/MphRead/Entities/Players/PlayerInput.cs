@@ -8,6 +8,23 @@ namespace MphRead.Entities
 {
     public partial class PlayerEntity
     {
+        // Explicit versioned checkpoint appendix; reset at spawn/form boundaries.
+        internal bool NativeCadenceJumpPending;
+        internal bool NativeCadenceFirePending;
+
+        // Draw-only midpoint of the completed native operation. The next held
+        // frame presents its endpoint: one 60 Hz frame of translation delay.
+        // PrevPosition is already checkpointed; no new position cache is needed.
+        internal Vector3 ModNativeCadenceDrawOffset(ulong completedFrame)
+        {
+            if (!_scene.UsesNativeCadence60 || (completedFrame & 1) != 0
+                || IsAltForm || IsMorphing || IsUnmorphing || !ModIsInPlay)
+                return Vector3.Zero;
+            Vector3 delta = PrevPosition - Position;
+            // Match the draw-history discontinuity threshold; never smear a warp.
+            return delta.LengthSquared <= 16f ? delta * 0.5f : Vector3.Zero;
+        }
+
         private readonly float[] _pastAimX = new float[8];
         private readonly float[] _pastAimY = new float[8];
         private float _buttonAimX = 0;
@@ -96,6 +113,8 @@ namespace MphRead.Entities
             }
             if (IsAltForm || IsMorphing)
             {
+                NativeCadenceJumpPending = false;
+                NativeCadenceFirePending = false;
                 ProcessAlt();
             }
             else
@@ -559,6 +578,33 @@ namespace MphRead.Entities
 
         private void ProcessBiped()
         {
+            // Remote animation/contact processing still runs, but the native
+            // authority must not publish a second gravity/traction update on
+            // top of velocity derived from the owner's accepted reports.
+            bool preserveReportedSpeed = _scene.UsesNativeMovement && !_scene.Services.IsReplica
+                && Mods.Network.NetSession.Active && Mods.Network.NetRoomChange.GameplayReady
+                && (Mods.Network.NetSession.IsAuthority || Mods.Network.NetSession.IsHost)
+                && !IsBot && SlotIndex != Mods.Network.NetSession.LocalSlot
+                && Mods.Network.NetSession.RemoteIntentValid[SlotIndex];
+            Vector3 reportedSpeed = Speed;
+            bool movementTick = Mods.Physics.NativeKernelDiagnostic.BeginBiped(_scene.NativeMovementMode, ref NativeCadenceJumpPending, _scene.FrameCount,
+                Controls.Jump.IsPressed, out bool jumpPressed);
+            bool nativePowerFire = _scene.UsesNativeCadence60 && CurrentWeapon == BeamType.PowerBeam;
+            bool fireTick = Mods.Physics.NativeKernelDiagnostic.BeginBiped(nativePowerFire
+                ? Mods.Physics.NativeMovementMode.DiagnosticCadence60 : Mods.Physics.NativeMovementMode.Legacy60,
+                ref NativeCadenceFirePending, _scene.FrameCount, Controls.Shoot.IsPressed, out bool firePressed);
+            bool fireHeld = Controls.Shoot.IsDown || nativePowerFire && firePressed;
+            int fireStep = nativePowerFire ? 2 : 1;
+            var audit = movementTick ? Mods.Physics.PhysicsStageCapture.Begin(this, _scene.UsesNativeMovement) : null;
+            if (audit != null)
+            {
+                int moveX = Controls.MoveRight.IsDown ? 1 : Controls.MoveLeft.IsDown ? -1 : 0;
+                int moveY = Controls.MoveUp.IsDown ? 1 : Controls.MoveDown.IsDown ? -1 : 0;
+                // Consumed axes are set below only if the movement branch runs.
+                audit.AnalogScaleX = moveX == 0 ? 0 : Controls.AnalogScaleX(moveX);
+                audit.AnalogScaleY = moveY == 0 ? 0 : Controls.AnalogScaleY(moveY);
+                audit.JumpPressed = jumpPressed;
+            }
             if (IsMainPlayer && _scene.GameState.SinglePlayer && _scene.CameraSequences.Current != null)
             {
                 _timeIdle = 0;
@@ -704,6 +750,7 @@ namespace MphRead.Entities
                         {
                             traction *= Metadata.TractionFactors[_slipperiness];
                         }
+                        if (audit != null) { audit.MoveX = sign; audit.TractionX = traction; }
                         speedDelta.X -= _field78 * traction * sign;
                         speedDelta.Z -= _field7C * traction * sign;
                         if (!Controls.MoveUp.IsDown && !Controls.MoveDown.IsDown
@@ -739,6 +786,7 @@ namespace MphRead.Entities
                         {
                             traction *= Metadata.TractionFactors[_slipperiness];
                         }
+                        if (audit != null) { audit.MoveY = sign; audit.TractionY = traction; }
                         speedDelta.X += _field70 * traction * sign;
                         speedDelta.Z += _field74 * traction * sign;
                         if (Flags1.TestFlag(PlayerFlags1.Grounded) && _timeSinceJumpPad > 7 * 2) // todo: FPS stuff
@@ -790,10 +838,11 @@ namespace MphRead.Entities
                     }
                     // unimpl-controls: in the up/down code path, the game processes aim reset if that flag is off
                     // unimpl-controls: the aim input disable flag is also checked by the game
-                    if (_jumpPadControlLockMin == 0 && Controls.Jump.IsPressed && !Flags1.TestFlag(PlayerFlags1.UsedJump))
+                    if (movementTick && _jumpPadControlLockMin == 0 && jumpPressed && !Flags1.TestFlag(PlayerFlags1.UsedJump))
                     {
                         // unimpl-controls: double tap jump is hard coded as an alternate condition to the jump input
                         jumping = true;
+                        if (audit != null) audit.JumpApplied = true;
                         if (!Flags1.TestFlag(PlayerFlags1.Standing) || !_abilities.TestFlag(AbilityFlags.SpaceJump))
                         {
                             Flags1 |= PlayerFlags1.UsedJump;
@@ -837,7 +886,8 @@ namespace MphRead.Entities
                     }
                 }
             }
-            ProcessMovement();
+            if (audit != null) audit.SpeedDelta = new(speedDelta.X, speedDelta.Y, speedDelta.Z);
+            if (movementTick) ProcessMovement(audit);
             Mods.Network.NetHooks.AfterRemoteMovement(this);
             // Refresh replicated facing before building the camera and weapon.
             // Doing this after UpdateCamera mixed two aim samples in one POV.
@@ -872,76 +922,79 @@ namespace MphRead.Entities
                 }
                 if (!scanInput && !IsUnmorphing)
                 {
-                    if (!Controls.Shoot.IsDown)
+                    if (fireTick)
                     {
-                        Flags2 &= ~PlayerFlags2.Shooting;
-                    }
-                    else if (Controls.Shoot.IsPressed || !Flags2.TestFlag(PlayerFlags2.NoShotsFired))
-                    {
-                        Flags2 |= PlayerFlags2.Shooting;
-                        Flags2 &= ~PlayerFlags2.NoShotsFired;
-                    }
-                    if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
-                    {
-                        EquipInfo.ChargeLevel = 0;
-                    }
-                    else
-                    {
-                        bool releaseCharge = false;
-                        if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
+                        if (!fireHeld)
                         {
-                            releaseCharge = true; // charge released/insufficient
+                            Flags2 &= ~PlayerFlags2.Shooting;
+                        }
+                        else if (firePressed || !Flags2.TestFlag(PlayerFlags2.NoShotsFired))
+                        {
+                            Flags2 |= PlayerFlags2.Shooting;
+                            Flags2 &= ~PlayerFlags2.NoShotsFired;
+                        }
+                        if (!_availableCharges[CurrentWeapon] || !EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge))
+                        {
+                            EquipInfo.ChargeLevel = 0;
                         }
                         else
                         {
-                            if (EquipInfo.ChargeLevel > 0 && GunAnimation != GunAnimation.MissileClose)
+                            bool releaseCharge = false;
+                            if (!Flags2.TestFlag(PlayerFlags2.Shooting) || EquipInfo.Ammo < EquipWeapon.ChargeCost)
                             {
-                                // the game doesn't need this condition, but we do because "the next frame will
-                                // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
-                                if (CurrentWeapon != BeamType.PowerBeam
-                                    || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
-                                {
-                                    PlayBeamChargeSfx(CurrentWeapon);
-                                }
-                                if (Biped2Flags.TestFlag(AnimFlags.Ended) || Biped2Anim == PlayerAnimation.Charge
-                                    || Biped2Anim == PlayerAnimation.Shoot && Biped2Frame > 8)
-                                {
-                                    anim2 = PlayerAnimation.Charge;
-                                }
-                            }
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
-                            {
-                                EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
-                                EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
+                                releaseCharge = true; // charge released/insufficient
                             }
                             else
                             {
-                                EquipInfo.ChargeLevel++;
-                                int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
-                                if (EquipInfo.ChargeLevel > minCharge)
+                                if (EquipInfo.ChargeLevel > 0 && GunAnimation != GunAnimation.MissileClose)
                                 {
-                                    int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
-                                    int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
-                                    int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
-                                    int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
-                                    if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
+                                    // the game doesn't need this condition, but we do because "the next frame will
+                                    // overwrite it" type stuff isn't guaranteed to get in ahead of the audio system
+                                    if (CurrentWeapon != BeamType.PowerBeam
+                                        || EquipInfo.ChargeLevel >= EquipInfo.Weapon.MinCharge * 2) // todo: FPS stuff
                                     {
-                                        EquipInfo.ChargeLevel--;
+                                        PlayBeamChargeSfx(CurrentWeapon);
+                                    }
+                                    if (Biped2Flags.TestFlag(AnimFlags.Ended) || Biped2Anim == PlayerAnimation.Charge
+                                        || Biped2Anim == PlayerAnimation.Shoot && Biped2Frame > 8)
+                                    {
+                                        anim2 = PlayerAnimation.Charge;
                                     }
                                 }
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.FullCharge * 2) // todo: FPS stuff
+                                {
+                                    EquipInfo.SmokeLevel += EquipWeapon.SmokeChargeAmount;
+                                    EquipInfo.SmokeLevel = (ushort)Math.Min(EquipInfo.SmokeLevel, EquipWeapon.SmokeStart * 2); // todo: FPS stuff
+                                }
+                                else
+                                {
+                                    EquipInfo.ChargeLevel += (ushort)fireStep;
+                                    int minCharge = EquipWeapon.MinCharge * 2; // todo: FPS stuff
+                                    if (EquipInfo.ChargeLevel > minCharge)
+                                    {
+                                        int fullCharge = EquipWeapon.FullCharge * 2; // todo: FPS stuff
+                                        int chargeCost = EquipWeapon.ChargeCost * 2; // todo: FPS stuff
+                                        int minCost = EquipWeapon.MinChargeCost * 2; // todo: FPS stuff
+                                        int cost = minCost + (chargeCost - minCost) * (EquipInfo.ChargeLevel - minCharge) / (fullCharge - minCharge);
+                                        if (EquipInfo.Ammo < cost / 2) // todo: FPS stuff
+                                        {
+                                            EquipInfo.ChargeLevel -= (ushort)fireStep;
+                                        }
+                                    }
+                                }
+                                // todo?: auto release
                             }
-                            // todo?: auto release
-                        }
-                        if (releaseCharge)
-                        {
-                            StopBeamChargeSfx(CurrentWeapon);
-                            if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                            if (releaseCharge)
                             {
-                                TryFireWeapon();
-                                anim2 = PlayerAnimation.ChargeShoot;
-                                animFlags2 = AnimFlags.NoLoop;
+                                StopBeamChargeSfx(CurrentWeapon);
+                                if (EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2) // todo: FPS stuff
+                                {
+                                    TryFireWeapon(firePressed);
+                                    anim2 = PlayerAnimation.ChargeShoot;
+                                    animFlags2 = AnimFlags.NoLoop;
+                                }
+                                EquipInfo.ChargeLevel = 0;
                             }
-                            EquipInfo.ChargeLevel = 0;
                         }
                     }
                     if (EquipWeapon.Flags.TestFlag(WeaponFlags.CanZoom))
@@ -1013,12 +1066,12 @@ namespace MphRead.Entities
                             CameraInfo.Fov = currentFov;
                         }
                     }
-                    if (NetFireEvents.HasPending(this) && !Controls.Shoot.IsReleased
-                        || Controls.Shoot.IsPressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
+                    if (fireTick && (NetFireEvents.HasPending(this) && !Controls.Shoot.IsReleased
+                        || firePressed && EquipInfo.ChargeLevel <= 1 * 2 // todo: FPS stuff
                         || EquipWeapon.Flags.TestFlag(WeaponFlags.RepeatFire) && Flags2.TestFlag(PlayerFlags2.Shooting)
-                        && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2)) // todo: FPS stuff
+                        && (!EquipWeapon.Flags.TestFlag(WeaponFlags.CanCharge) || EquipInfo.ChargeLevel < EquipWeapon.MinCharge * 2))) // todo: FPS stuff
                     {
-                        if (TryFireWeapon())
+                        if (TryFireWeapon(firePressed))
                         {
                             anim2 = PlayerAnimation.Shoot;
                             animFlags2 |= AnimFlags.NoLoop;
@@ -1043,21 +1096,27 @@ namespace MphRead.Entities
                         anim2 = PlayerAnimation.Morph;
                     }
                 }
-                float magBefore = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
-                Speed += speedDelta; // todo: FPS stuff?
-                float magAfter = MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                bool nativeKernel = _scene.UsesNativeMovement;
+                float magBefore = nativeKernel ? Mods.Physics.NativeFixedMath.HorizontalMagnitude(Speed.X, Speed.Z)
+                    : MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
+                if (movementTick) Speed += speedDelta; // Traction belongs to the same operator as collision.
+                float magAfter = nativeKernel ? Mods.Physics.NativeFixedMath.HorizontalMagnitude(Speed.X, Speed.Z)
+                    : MathF.Sqrt(Speed.X * Speed.X + Speed.Z * Speed.Z);
                 if (magAfter > magBefore && magAfter > _hSpeedCap)
                 {
                     float factor;
                     if (magBefore <= _hSpeedCap)
                     {
-                        factor = _hSpeedCap / magAfter;
+                        factor = nativeKernel ? Mods.Physics.NativeFixedMath.DivideRound(_hSpeedCap, magAfter) : _hSpeedCap / magAfter;
                     }
                     else
                     {
-                        factor = magBefore / magAfter;
+                        factor = nativeKernel ? Mods.Physics.NativeFixedMath.DivideRound(magBefore, magAfter) : magBefore / magAfter;
                     }
-                    Speed = Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
+                    Speed = nativeKernel
+                        ? Speed.WithX(Mods.Physics.NativeFixedMath.MultiplyRound(Speed.X, factor))
+                            .WithZ(Mods.Physics.NativeFixedMath.MultiplyRound(Speed.Z, factor))
+                        : Speed.WithX(Speed.X * factor).WithZ(Speed.Z * factor);
                 }
                 if (EquipInfo.Zoomed)
                 {
@@ -1101,9 +1160,21 @@ namespace MphRead.Entities
                     SetBiped2Animation(anim2, animFlags2);
                 }
             }
+            if (preserveReportedSpeed) Speed = reportedSpeed;
+            if (audit?.Pending is { } sample)
+            {
+                audit.AfterTraction = new(Speed.X, Speed.Y, Speed.Z);
+                audit.SpeedCapAfter = _hSpeedCap;
+                audit.Pending = sample with
+                {
+                    SchemaVersion = 2, Stages = audit,
+                    PositionActual = new(Position.X, Position.Y, Position.Z),
+                    VelocityActual = new(Speed.X, Speed.Y, Speed.Z)
+                };
+            }
         }
 
-        private bool TryFireWeapon()
+        private bool TryFireWeapon(bool? pressedOverride = null)
         {
             if (!NetFireEvents.CanFire(this)) return false;
             if (_scene.AimTrainer is { } trainer)
@@ -1120,7 +1191,7 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            bool pressed = Controls.Shoot.IsPressed;
+            bool pressed = pressedOverride ?? Controls.Shoot.IsPressed;
             if (pressed || CurrentWeapon != BeamType.PowerBeam)
             {
                 _autofireCooldown = (ushort)(EquipWeapon.AutofireCooldown * 2); // todo: FPS stuff
@@ -1130,7 +1201,8 @@ namespace MphRead.Entities
             {
                 if (_powerBeamAutofire < UInt16.MaxValue)
                 {
-                    _powerBeamAutofire++;
+                    _powerBeamAutofire = (ushort)Math.Min(UInt16.MaxValue, _powerBeamAutofire
+                        + (_scene.UsesNativeCadence60 && CurrentWeapon == BeamType.PowerBeam ? 2 : 1));
                 }
                 // basically adds 0, 1, or 2 to the base autofire cooldown depending on how long the PB has repeated fire
                 // --> could add more, but the min charge is reaached quickly
@@ -2353,13 +2425,49 @@ namespace MphRead.Entities
             Flags2 &= ~PlayerFlags2.AltAttack;
         }
 
-        private void ProcessMovement()
+        internal ushort ModDiagnosticFreezeTimer => _frozenTimer;
+        internal void ModSetDiagnosticFreeze(int nativeTicks)
         {
+            if (!Mods.Headless.Active || Mods.Network.NetSession.Active)
+                throw new InvalidOperationException("Freeze setup requires an offline headless scenario.");
+            _frozenTimer = checked((ushort)(nativeTicks * 2));
+        }
+
+        // Scenario setup only; this supplies the state at the start of a
+        // knockback response, not a substitute for the damage/weapon path.
+        internal void ModSetDiagnosticImpulse(Vector3 velocity, Vector3 acceleration, int nativeTicks)
+        {
+            if (!Mods.Headless.Active || Mods.Network.NetSession.Active)
+                throw new InvalidOperationException("Impulse setup requires an offline headless scenario.");
+            Speed = velocity;
+            Acceleration = acceleration;
+            _accelerationTimer = checked((ushort)(nativeTicks * 2));
+        }
+
+        private void ProcessMovement(Mods.Physics.PhysicsStages? audit = null)
+        {
+            // The diagnostic runner advances one native movement operation per sample.
+            // Normal gameplay retains the current 60 Hz path until paired acceptance.
+            float movementStep = _scene.UsesNativeMovement ? 1f : 0.5f;
+            int timerStep = _scene.UsesNativeMovement ? 2 : 1;
+            Vector3 auditPositionBefore = default;
+            Vector3 auditVelocityBefore = default;
+            if (Mods.Physics.PhysicsTrace.Enabled)
+            {
+                auditPositionBefore = Position;
+                auditVelocityBefore = Speed;
+            }
+            if (audit != null)
+            {
+                audit.PreMovement = new(Speed.X, Speed.Y, Speed.Z);
+                audit.SpeedCapBefore = _hSpeedCap;
+            }
             if (_accelerationTimer > 0)
             {
-                _accelerationTimer--;
-                Speed += Acceleration / 2; // todo: FPS stuff
+                _accelerationTimer = (ushort)Math.Max(0, _accelerationTimer - timerStep);
+                Speed += Acceleration * movementStep; // todo: FPS stuff
             }
+            if (audit != null) audit.AfterAcceleration = new(Speed.X, Speed.Y, Speed.Z);
             var hSpeed = new Vector3(Speed.X, 0, Speed.Z);
             float hSpeedMag = hSpeed.Length;
             if (hSpeedMag == 0)
@@ -2437,7 +2545,11 @@ namespace MphRead.Entities
                 _field84 = _field74;
             }
             _aimPosition = _gunVec1 * Fixed.ToFloat(Values.AimDistance);
-            _aimPosition += CameraInfo.Position;
+            // The held half updates the camera for presentation. Native aim
+            // construction still reads the previous native camera, retained by
+            // that update in PrevPosition, before this operation moves it.
+            _aimPosition += _scene.UsesNativeCadence60 && !IsAltForm
+                ? CameraInfo.PrevPosition : CameraInfo.Position;
             // unimpl-controls: this calculation is different when exact aim is not set
             hMag = MathF.Sqrt(_gunVec1.X * _gunVec1.X + _gunVec1.Z * _gunVec1.Z);
             _aimY = MathHelper.RadiansToDegrees(MathF.Atan2(_gunVec1.Y, hMag));
@@ -2509,12 +2621,16 @@ namespace MphRead.Entities
             }
             UpdateSlidingSfx(slideSfxAmount);
             Vector3 speedMul = Speed.WithX(Speed.X * speedFactor).WithZ(Speed.Z * speedFactor);
-            Speed += (speedMul - Speed) / 2; // todo: FPS stuff
+            Speed = _scene.UsesNativeMovement
+                ? Speed.WithX(Mods.Physics.NativeFixedMath.MultiplyTruncate(Speed.X, speedFactor))
+                    .WithZ(Mods.Physics.NativeFixedMath.MultiplyTruncate(Speed.Z, speedFactor))
+                : Speed + (speedMul - Speed) * movementStep; // todo: FPS stuff
             if (Flags1.TestFlag(PlayerFlags1.UsedJumpPad))
             {
                 Speed = Speed.AddX(_jumpPadAccel.X);
                 Speed = Speed.AddZ(_jumpPadAccel.Z);
             }
+            if (audit != null) audit.AfterDamping = new(Speed.X, Speed.Y, Speed.Z);
             if (Flags1.TestFlag(PlayerFlags1.Standing) && _timeSinceJumpPad > 5 * 2) // todo: FPS stuff
             {
                 _lastJumpPad = null;
@@ -2564,15 +2680,18 @@ namespace MphRead.Entities
                             _gravity = Fixed.ToFloat(Values.BipedGravity);
                         }
                     }
-                    Speed = Speed.AddY(_gravity / 2); // todo: FPS stuff
+                    Speed = Speed.AddY(_gravity * movementStep); // todo: FPS stuff
                 }
-                Vector3 position = Position + Speed / 2; // todo: FPS stuff
+                if (audit != null) audit.AfterGravity = new(Speed.X, Speed.Y, Speed.Z);
+                Vector3 position = Position + Speed * movementStep; // todo: FPS stuff
+                if (audit != null) audit.PredictedPosition = new(position.X, position.Y, position.Z);
                 if (AttachedEnemy?.EnemyType == EnemyType.Quadtroid)
                 {
                     position.X = Position.X;
                     position.Z = Position.Z;
                 }
                 Position = position;
+                if (audit != null) audit.AfterIntegration = new(Position.X, Position.Y, Position.Z);
                 // unimpl-controls: the game does more calculation here if exact aim is off
                 // --> does so outside of the _health > 0 condition, before the player collision check (which is inside another _health > 0)
                 CheckPlayerCollision();
@@ -2624,6 +2743,7 @@ namespace MphRead.Entities
             _fieldC0 = Vector3.Zero;
             CheckCollision();
             ModUpdateSpireLedgeCrest(spireClimbingPrev);
+            if (audit != null) audit.AfterCollision = new(Speed.X, Speed.Y, Speed.Z);
             if (_field449 > 0 && _field449 < 30 * 2) // todo: FPS stuff
             {
                 _fieldC0 = prevC0;
@@ -2685,7 +2805,7 @@ namespace MphRead.Entities
             }
             else if (_timeSinceGrounded < 90 * 2) // todo: FPS stuff
             {
-                _timeSinceGrounded++;
+                _timeSinceGrounded = (ushort)Math.Min(90 * 2, _timeSinceGrounded + timerStep);
                 if (_timeSinceGrounded >= 8 * 2) // todo: FPS stuff
                 {
                     Flags1 &= ~PlayerFlags1.Grounded;
@@ -2703,6 +2823,32 @@ namespace MphRead.Entities
             if ((!IsAltForm || Hunter == Hunter.Weavel) && Flags1.TestFlag(PlayerFlags1.Grounded))
             {
                 UpdateWalkingSfx();
+            }
+            if (Mods.Physics.PhysicsTrace.Enabled)
+            {
+                var sample = new Mods.Physics.PhysicsSample
+                {
+                    Frame = (_scene.FrameCount + 1) * (ulong)(_scene.UsesNativeCadence60 ? 1 : timerStep),
+                    Player = SlotIndex,
+                    Hunter = Hunter.ToString(),
+                    Form = IsMorphing || IsUnmorphing ? "Transform" : IsAltForm ? "Alt" : "Biped",
+                    PositionBefore = new(auditPositionBefore.X, auditPositionBefore.Y, auditPositionBefore.Z),
+                    VelocityBefore = new(auditVelocityBefore.X, auditVelocityBefore.Y, auditVelocityBefore.Z),
+                    PositionActual = new(Position.X, Position.Y, Position.Z),
+                    VelocityActual = new(Speed.X, Speed.Y, Speed.Z),
+                    Heading = MathHelper.RadiansToDegrees(MathF.Atan2(_facingVector.X, _facingVector.Z)),
+                    Standing = Flags1.TestFlag(PlayerFlags1.Standing),
+                    Grounded = Flags1.TestFlag(PlayerFlags1.Grounded),
+                    CollisionFlags = (uint)(Flags1 & (PlayerFlags1.CollidingLateral | PlayerFlags1.CollidingEntity)),
+                    TimeSinceGrounded = _timeSinceGrounded,
+                    JumpPadActive = Flags1.TestFlag(PlayerFlags1.UsedJumpPad),
+                    Acceleration = new(Acceleration.X, Acceleration.Y, Acceleration.Z),
+                    SpeedCap = _hSpeedCap,
+                    SpeedFactor = speedFactor,
+                    Gravity = _gravity
+                };
+                if (audit != null) audit.Pending = sample;
+                else Mods.Physics.PhysicsTrace.Write(sample);
             }
         }
 

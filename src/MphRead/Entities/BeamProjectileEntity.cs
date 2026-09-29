@@ -158,12 +158,15 @@ namespace MphRead.Entities
 
         public override bool Process()
         {
+            bool nativePower = _scene.UsesNativeCadence60 && Beam == BeamType.PowerBeam;
+            if (nativePower && (_scene.FrameCount & 1) == 0) return Lifespan > 0;
             ValidateHomingTarget();
             if (Lifespan <= 0)
             {
                 return false;
             }
-            Lifespan -= _scene.FrameTime;
+            Lifespan = nativePower ? Math.Max(0, (MathF.Round(Lifespan * 30) - 1) / 30f)
+                : Lifespan - _scene.FrameTime;
             if (Flags.TestFlag(BeamFlags.Collided))
             {
                 return true;
@@ -182,14 +185,14 @@ namespace MphRead.Entities
                 }
                 return false;
             }
-            Age += _scene.FrameTime;
+            Age = nativePower ? (MathF.Round(Age * 30) + 1) / 30f : Age + _scene.FrameTime;
             BackPosition = Position;
             // the game does this every other frame at 30 fps and keeps 5 past positions; we do it every other frame at 60 fps and keep 10,
             // and use only every other position to draw each trail segment, which results in the beam trail updating at the same frequency
             // (relative to the projectile) and having the same amount of smear as in the game
             // todo?: might need to revisit
             // --> observed homing missile trail flickering(?) when curved, and judicator trail getting more opaque on final collision
-            if (_scene.FrameCount % 2 == 0)
+            if (nativePower || _scene.FrameCount % 2 == 0)
             {
                 for (int i = 9; i > 0; i--)
                 {
@@ -211,8 +214,8 @@ namespace MphRead.Entities
             }
             else
             {
-                Position += Velocity;
-                Velocity += Acceleration / 2; // todo: FPS stuff
+                Position += Velocity * (nativePower ? 2 : 1);
+                Velocity += Acceleration / (nativePower ? 1 : 2); // todo: FPS stuff
                 Debug.Assert(SpeedDecayTime >= 0);
                 if (SpeedDecayTime > 0 && Age <= SpeedDecayTime)
                 {
@@ -347,7 +350,8 @@ namespace MphRead.Entities
             if (Flags.TestFlag(BeamFlags.SurfaceCollision))
             {
                 CollisionResult colRes = default;
-                if (CollisionDetection.CheckBetweenPoints(BackPosition, Position, TestFlags.Beams, _scene, ref colRes)
+                if (CollisionDetection.CheckBetweenPoints(BackPosition, Position, TestFlags.Beams, _scene, ref colRes,
+                    nativeMath: _scene.UsesNativeCadence60 && Beam == BeamType.PowerBeam)
                     && colRes.Distance < minDist)
                 {
                     float dot = Vector3.Dot(BackPosition, colRes.Plane.Xyz) - colRes.Plane.W;
@@ -530,6 +534,10 @@ namespace MphRead.Entities
                     anyRes.Position.Y + anyRes.Plane.Y * amt,
                     anyRes.Position.Z + anyRes.Plane.Z * amt
                 );
+                if (_scene.UsesNativeCadence60 && Beam == BeamType.PowerBeam)
+                    Position = new(anyRes.Position.X + Mods.Physics.NativeFixedMath.MultiplyRound(anyRes.Plane.X, amt),
+                        anyRes.Position.Y + Mods.Physics.NativeFixedMath.MultiplyRound(anyRes.Plane.Y, amt),
+                        anyRes.Position.Z + Mods.Physics.NativeFixedMath.MultiplyRound(anyRes.Plane.Z, amt));
                 bool ricochet = true;
                 if (DrawFuncId == 12)
                 {
@@ -1129,12 +1137,24 @@ namespace MphRead.Entities
             }
         }
 
+        internal Vector3 ModNativePowerDrawPosition(double alpha)
+        {
+            if (!_scene.UsesNativeCadence60 || Beam != BeamType.PowerBeam || Age == 0
+                || Flags.TestFlag(BeamFlags.Collided)) return Position;
+            float fraction = (float)Math.Clamp(alpha, 0, 1) * 0.5f;
+            if ((_scene.FrameCount & 1) != 0) fraction += 0.5f;
+            return Vector3.Lerp(BackPosition, Position, fraction);
+        }
+
+        private Vector3 PowerDrawPosition => ModNativePowerDrawPosition(_scene.Services.IsReplica
+            ? _scene.ReplayRenderAlpha : Mods.Render.FrameTiming.Active ? Mods.Render.FrameTiming.PresentationAlpha : 1);
+
         // Power Beam
         private void Draw00()
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
             {
-                _scene.AddSingleParticle(SingleType.Fuzzball, Position, Color, alpha: 1, scale: 1 / 4f);
+                _scene.AddSingleParticle(SingleType.Fuzzball, PowerDrawPosition, Color, alpha: 1, scale: 1 / 4f);
             }
             DrawTrail1(Fixed.ToFloat(122));
         }
@@ -1230,7 +1250,9 @@ namespace MphRead.Entities
             Material material = _trailModel.Model.Materials[0];
             float alpha = Math.Clamp(Lifespan * 30 * 8, 0, 31) / 31;
             _scene.AddRenderItem(RenderItemType.TrailSingle, alpha, _scene.GetNextPolygonId(), Color, material.XRepeat, material.YRepeat,
-                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(BackPosition), uvsAndVerts, _bindingId);
+                material.ScaleS, material.ScaleT, Matrix4.CreateTranslation(BackPosition
+                    + (_scene.UsesNativeCadence60 && Beam == BeamType.PowerBeam ? PowerDrawPosition - Position : Vector3.Zero)),
+                uvsAndVerts, _bindingId);
         }
 
         private void DrawTrail2(float height, int segments)
@@ -1431,6 +1453,16 @@ namespace MphRead.Entities
             {
                 if (!NetFireEvents.CanFireTurret(turretOwner)) return BeamResultFlags.NoSpawn;
                 NetFireEvents.Begin(turretOwner, turret: true);
+            }
+            // Native Power Beam experiment: begin with the cartridge's Q12
+            // launch quantities, then advance on native boundaries.
+            // Other weapons remain outside this measured launch cohort.
+            bool nativePowerLaunch = scene.UsesNativeCadence60 && equip.Weapon.Beam == BeamType.PowerBeam;
+            static float NativeLaunchValue(float value) => Mods.Physics.NativeFixedMath.Float(Mods.Physics.NativeFixedMath.Raw(value));
+            if (nativePowerLaunch)
+            {
+                position = new(NativeLaunchValue(position.X), NativeLaunchValue(position.Y), NativeLaunchValue(position.Z));
+                direction = new(NativeLaunchValue(direction.X), NativeLaunchValue(direction.Y), NativeLaunchValue(direction.Z));
             }
             BeamResultFlags result = BeamResultFlags.Spawned;
             WeaponInfo weapon = equip.Weapon;
@@ -1767,6 +1799,10 @@ namespace MphRead.Entities
                     velocity.Z = direction.Z * cos1 + (beam.Up.Z * cos2 + beam.Right.Z * sin2) * sin1;
                     velocity *= beam.Speed;
                 }
+                if (nativePowerLaunch && maxSpread <= 0)
+                    velocity = new(Mods.Physics.NativeFixedMath.MultiplyRound(direction.X, speed * 2) / 2,
+                        Mods.Physics.NativeFixedMath.MultiplyRound(direction.Y, speed * 2) / 2,
+                        Mods.Physics.NativeFixedMath.MultiplyRound(direction.Z, speed * 2) / 2);
                 beam.Velocity = velocity;
                 beam.Acceleration = acceleration;
                 // A beam comes off a free list and keeps whatever transform the

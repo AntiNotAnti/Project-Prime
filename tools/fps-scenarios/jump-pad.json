@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "name": "jump-pad",
+  "room": "MP3 PROVING GROUND",
+  "hunter": "Samus",
+  "form": "Biped",
+  "spawn": [
+    -2.140869140625,
+    1.5,
+    -25.554931640625
+  ],
+  "facing": [
+    -0.50390625,
+    0.0,
+    -0.863525390625
+  ],
+  "nativeTicks": 40,
+  "settleNativeTicks": 0,
+  "seed1": 12345,
+  "seed2": 67890,
+  "inputs": [
+    {
+      "tick": 0,
+      "moveX": 0,
+      "moveY": 0,
+      "jump": false
+    }
+  ]
+}

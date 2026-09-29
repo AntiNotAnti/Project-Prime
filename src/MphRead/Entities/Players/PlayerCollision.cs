@@ -637,6 +637,29 @@ namespace MphRead.Entities
 
         public void HandleCollision(CollisionResult result)
         {
+            var audit = Mods.Physics.PhysicsStageCapture.Get(this);
+            Vector3 auditBefore = audit == null ? default : Position;
+            bool nativeKernel = _scene.UsesNativeMovement;
+            float Dot(Vector3 left, Vector3 right) => nativeKernel
+                ? Mods.Physics.NativeFixedMath.DotRound(left.X, left.Y, left.Z, right.X, right.Y, right.Z)
+                : Vector3.Dot(left, right);
+            float Multiply(float left, float right) => nativeKernel
+                ? Mods.Physics.NativeFixedMath.MultiplyTruncate(left, right) : left * right;
+            float RoundMultiply(float left, float right) => nativeKernel
+                ? Mods.Physics.NativeFixedMath.MultiplyRound(left, right) : left * right;
+            float Divide(float left, float right) => nativeKernel
+                ? Mods.Physics.NativeFixedMath.DivideRound(left, right) : left / right;
+            float SquareRoot(float value) => nativeKernel
+                ? Mods.Physics.NativeFixedMath.SquareRoot(value) : MathF.Sqrt(value);
+            Vector3 DivideVector(Vector3 value, float divisor) => nativeKernel
+                ? new(Divide(value.X, divisor), Divide(value.Y, divisor), Divide(value.Z, divisor))
+                : value / divisor;
+            // AMHE1 projects static planes through their normal, including the
+            // fixed-point loss for normals whose length is not exactly one.
+            // The diagnostic corpus currently contains untranslated static rooms.
+            if (nativeKernel && result.EntityCollision == null)
+                result.Plane.W = Mods.Physics.NativeFixedMath.ProjectPlaneDistance(
+                    result.Plane.X, result.Plane.Y, result.Plane.Z, result.Plane.W);
             bool v163 = false;
             bool v164 = false;
             bool v165 = false;
@@ -694,8 +717,8 @@ namespace MphRead.Entities
                 float radius = Fixed.ToFloat(Values.BipedColRadius);
                 Vector3 vec1 = Position.AddY(Fixed.ToFloat(Values.MaxPickupHeight) - radius);
                 Vector3 vec2 = Position.AddY(Fixed.ToFloat(Values.MinPickupHeight) + radius);
-                float dot1 = radius + result.Plane.W - Vector3.Dot(vec1, result.Plane.Xyz);
-                float dot2 = radius + result.Plane.W - Vector3.Dot(vec2, result.Plane.Xyz);
+                float dot1 = radius + result.Plane.W - Dot(vec1, result.Plane.Xyz);
+                float dot2 = radius + result.Plane.W - Dot(vec2, result.Plane.Xyz);
                 if (dot2 <= dot1)
                 {
                     v2 = dot1;
@@ -728,13 +751,13 @@ namespace MphRead.Entities
                         {
                             return;
                         }
-                        v11 = (yTop - result.EdgePoint1.Y) / edge.Y;
+                        v11 = Divide((yTop - result.EdgePoint1.Y), edge.Y);
                     }
                     v2 = 0; // gets assigned later
                 }
                 else if (edge.Y != 0)
                 {
-                    v11 = (yBot - result.EdgePoint1.Y) / edge.Y;
+                    v11 = Divide((yBot - result.EdgePoint1.Y), edge.Y);
                     v2 = 0; // gets assigned later
                 }
                 else
@@ -752,13 +775,13 @@ namespace MphRead.Entities
                         yBotAdd - result.EdgePoint1.Y,
                         Position.Z - result.EdgePoint1.Z + edge.Z * div
                     );
-                    float magSqr = between.LengthSquared;
+                    float magSqr = Dot(between, between);
                     if (magSqr >= 0.25f)
                     {
                         return;
                     }
-                    float mag = MathF.Sqrt(magSqr);
-                    result.Plane.Xyz = between / mag;
+                    float mag = SquareRoot(magSqr);
+                    result.Plane.Xyz = DivideVector(between, mag);
                     v2 = 0.5f - mag;
                     v169 = true;
                 }
@@ -768,12 +791,12 @@ namespace MphRead.Entities
                     {
                         if (result.EdgePoint2.Y > yTop)
                         {
-                            v162 = (yTop - result.EdgePoint1.Y) / edge.Y;
+                            v162 = Divide((yTop - result.EdgePoint1.Y), edge.Y);
                         }
                     }
                     else
                     {
-                        v162 = (yBot - result.EdgePoint1.Y) / edge.Y;
+                        v162 = Divide((yBot - result.EdgePoint1.Y), edge.Y);
                     }
                     if (MathF.Abs(v11 - v162) < 1 / 4096f)
                     {
@@ -784,9 +807,9 @@ namespace MphRead.Entities
                         yTop - result.EdgePoint1.Y,
                         Position.Z - result.EdgePoint1.Z
                     );
-                    float dot1 = Vector3.Dot(between, edge);
-                    float dot2 = Vector3.Dot(edge, edge);
-                    float div = dot1 / dot2;
+                    float dot1 = Dot(between, edge);
+                    float dot2 = Dot(edge, edge);
+                    float div = Divide(dot1, dot2);
                     if (div >= v11)
                     {
                         if (div <= v162)
@@ -798,7 +821,7 @@ namespace MphRead.Entities
                             v11 = v162;
                         }
                     }
-                    float betweenY = result.EdgePoint1.Y + edge.Y * v11;
+                    float betweenY = result.EdgePoint1.Y + RoundMultiply(edge.Y, v11);
                     if (betweenY > yTop + Fixed.ToFloat(2) || betweenY < yBot - Fixed.ToFloat(2))
                     {
                         return;
@@ -806,31 +829,31 @@ namespace MphRead.Entities
                     if (betweenY <= yBotAdd)
                     {
                         between = new Vector3(
-                            Position.X - (result.EdgePoint1.X + edge.X * v11),
+                            Position.X - (result.EdgePoint1.X + RoundMultiply(edge.X, v11)),
                             yBotAdd - betweenY,
-                            Position.Z - (result.EdgePoint1.Z + edge.Z * v11)
+                            Position.Z - (result.EdgePoint1.Z + RoundMultiply(edge.Z, v11))
                         );
-                        float magSqr = between.LengthSquared;
+                        float magSqr = Dot(between, between);
                         if (magSqr >= 0.25f)
                         {
                             return;
                         }
-                        float mag = MathF.Sqrt(magSqr);
-                        result.Plane.Xyz = between / mag;
+                        float mag = SquareRoot(magSqr);
+                        result.Plane.Xyz = DivideVector(between, mag);
                         v2 = 0.5f - mag;
                     }
                     else
                     {
                         float radius = Fixed.ToFloat(Values.BipedColRadius);
-                        float betweenX = Position.X - (result.EdgePoint1.X + edge.X * v11);
-                        float betweenZ = Position.Z - (result.EdgePoint1.Z + edge.Z * v11);
-                        float v31 = betweenX * betweenX + betweenZ * betweenZ;
+                        float betweenX = Position.X - (result.EdgePoint1.X + RoundMultiply(edge.X, v11));
+                        float betweenZ = Position.Z - (result.EdgePoint1.Z + RoundMultiply(edge.Z, v11));
+                        float v31 = RoundMultiply(betweenX, betweenX) + RoundMultiply(betweenZ, betweenZ);
                         if (v31 >= radius * radius)
                         {
                             return;
                         }
-                        float v32 = MathF.Sqrt(v31);
-                        result.Plane.Xyz = new Vector3(betweenX / v32, 0, betweenZ / v32);
+                        float v32 = SquareRoot(v31);
+                        result.Plane.Xyz = new Vector3(Divide(betweenX, v32), 0, Divide(betweenZ, v32));
                         v2 = radius - v32;
                         if (betweenY > Position.Y)
                         {
@@ -856,8 +879,8 @@ namespace MphRead.Entities
                     Flags1 |= PlayerFlags1.CollidingLateral;
                 }
                 // walking into a wall, jumping into a wall/ceiling, or landing/slopes/etc. -- update x/z
-                position.X += result.Plane.X * v2;
-                position.Z += result.Plane.Z * v2;
+                position.X += Multiply(result.Plane.X, v2);
+                position.Z += Multiply(result.Plane.Z, v2);
                 if (!v163 || !Flags1.TestFlag(PlayerFlags1.StandingPrevious))
                 {
                     // jumping into a wall/ceiling or landing/slopes/etc. -- update y
@@ -867,20 +890,20 @@ namespace MphRead.Entities
                     // todo?: the response when moving into walls laterally is also not accurate ("wall sliding")
                     // --> needs a hack; just doubling it results in jittering
                     float factor = 1;
-                    if (result.Plane.Y > 0 && result.Plane.Y < 0.9f)
+                    if (!_scene.UsesNativeMovement && result.Plane.Y > 0 && result.Plane.Y < 0.9f)
                     {
                         factor = 0.5f / 2; // todo: FPS stuff
                     }
-                    else if (result.Plane.Y < 0)
+                    else if (!_scene.UsesNativeMovement && result.Plane.Y < 0)
                     {
                         factor = 2 * 2; // todo: FPS stuff
                     }
-                    float step = result.Plane.Y * v2 * factor;
+                    float step = Multiply(result.Plane.Y, v2) * factor;
                     float reach = MathF.Max(0, Fixed.ToFloat(
                         IsAltForm ? Values.AltColRadius : Values.BipedColRadius));
-                    position.Y += Math.Clamp(step, -reach, reach);
+                    position.Y += nativeKernel ? step : Math.Clamp(step, -reach, reach);
                 }
-                float dot = Vector3.Dot(Speed, result.Plane.Xyz);
+                float dot = Dot(Speed, result.Plane.Xyz);
                 if (dot < 0)
                 {
                     // floor collision
@@ -912,16 +935,16 @@ namespace MphRead.Entities
                             Speed = Speed.AddX(axis.X * (-magSqr / 2)).AddZ(axis.Z * (-magSqr / 2));
                         }
                     }
-                    Speed += result.Plane.Xyz * -dot;
+                    Speed += new Vector3(Multiply(result.Plane.X, -dot), Multiply(result.Plane.Y, -dot), Multiply(result.Plane.Z, -dot));
                     if (!v163 && !IsAltForm && result.Field0 != 1)
                     {
-                        float hMagSqr = Speed.X * Speed.X + Speed.Z * Speed.Z;
+                        float hMagSqr = RoundMultiply(Speed.X, Speed.X) + RoundMultiply(Speed.Z, Speed.Z);
                         if (hMagSqr > 0)
                         {
-                            float div = (result.Plane.X * Speed.X + result.Plane.Z * Speed.Z) / MathF.Sqrt(hMagSqr);
+                            float div = Divide(RoundMultiply(result.Plane.X, Speed.X) + RoundMultiply(result.Plane.Z, Speed.Z), SquareRoot(hMagSqr));
                             if (div < 0)
                             {
-                                Speed *= div + 1;
+                                Speed = new Vector3(RoundMultiply(Speed.X, div + 1), RoundMultiply(Speed.Y, div + 1), RoundMultiply(Speed.Z, div + 1));
                             }
                         }
                     }
@@ -1135,6 +1158,12 @@ namespace MphRead.Entities
                 Flags2 |= PlayerFlags2.SpireClimbing;
             }
             Position = position;
+            if (audit != null)
+            {
+                Vector3 pushout = Position - auditBefore;
+                audit.Contacts.Add(new(new(result.Plane.X, result.Plane.Y, result.Plane.Z, result.Plane.W),
+                    v2, new(pushout.X, pushout.Y, pushout.Z)));
+            }
             _volume = CollisionVolume.Move(_volumeUnxf, Position);
         }
     }

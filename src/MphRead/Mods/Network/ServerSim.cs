@@ -52,6 +52,9 @@ namespace MphRead.Mods.Network
     /// </summary>
     public sealed class ServerSim
     {
+        // Explicit test-harness policy; never selected by ordinary server startup.
+        internal Mods.Physics.NativeMovementMode DiagnosticNativeMovementMode { get; set; }
+        internal Action<Scene>? DiagnosticBeforeStep { get; set; }
         private Scene? _scene;
         private string _room = "";
         private GameMode _mode = GameMode.Battle;
@@ -249,6 +252,7 @@ namespace MphRead.Mods.Network
                 var scene = new Scene(new Vector2i(256, 192),
                     SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
                     _ => { }, () => { });
+                scene.NativeMovementMode = DiagnosticNativeMovementMode;
                 // Samus for every unoccupied slot, as a placeholder only: each
                 // slot's real hunter arrives on the roster and PlayerColors
                 // settles it every frame thereafter, the same as on a client.
@@ -306,6 +310,7 @@ namespace MphRead.Mods.Network
             bool failed = false;
             try
             {
+                DiagnosticBeforeStep?.Invoke(_scene);
                 _scene.OnSimulationFrame();
             }
             catch (Exception ex)

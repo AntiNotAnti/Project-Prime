@@ -22,13 +22,14 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal const int MaximumBytes = 8 * 1024 * 1024;
     private const int MaximumObjects = 32768;
     private const uint Magic = 0x43575050; // PPWC
-    private const ushort Version = 3;
+    private const ushort Version = 4;
     private readonly ReplayPayload _data;
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
     internal uint Frame { get; }
     private readonly string _sourceContract;
-    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; }
+    private readonly ReadSchema _readSchema;
+    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; _readSchema = SchemaForContract(_sourceContract); }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
@@ -83,7 +84,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     // the product version (e.g. ValueTuple<ChatLine, float>).
     private static readonly string Contract = ComputeContract(stable: true);
     private static readonly string LegacyContract = ComputeContract(stable: false);
-    internal static string ComputeContract(bool stable, string? producerBuild = null)
+    internal static string ComputeContract(bool stable)
     {
         string TypeName(Type type) => stable ? type.ToString() : type.FullName!;
         string schema = "world-codec-1|" + string.Join('|', Fields.OrderBy(p => p.Key.FullName, StringComparer.Ordinal)
@@ -92,20 +93,55 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             + string.Join('|', Types.Values.Where(t => t.IsValueType && !t.IsPrimitive && !t.IsEnum)
                 .OrderBy(t => t.FullName, StringComparer.Ordinal).Select(t => TypeName(t) + ":" +
                     string.Join(',', ValueFields(t).Select(f => f.Name + ":" + f.FieldType))));
-        if (!stable && producerBuild != null)
-        {
-            string versionText = producerBuild.Split('+')[0].TrimStart('v');
-            if (!System.Version.TryParse(versionText, out var version)) return "";
-            var normalized = new System.Version(version.Major, version.Minor, Math.Max(0, version.Build), Math.Max(0, version.Revision));
-            var assembly = typeof(Scene).Assembly.GetName();
-            schema = schema.Replace(assembly.Name + ", Version=" + assembly.Version,
-                assembly.Name + ", Version=" + normalized, StringComparison.Ordinal);
-        }
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(schema)));
     }
     internal static bool SupportsContract(string contract, string? producerBuild = null)
         => contract.Length == 64 && (contract == Contract || contract == LegacyContract
-            || (producerBuild != null && contract == ComputeContract(stable: false, producerBuild)));
+            || contract == ReplayCheckpointSchemaV134.Contract);
+
+    // A producer version is metadata, never permission to reinterpret bytes
+    // using today's field or type-ID order. Unknown contracts fail closed.
+    private sealed record ReadSchema(Dictionary<Type, FieldInfo[]> Fields,
+        Dictionary<string, Type> Types, Type[] ObjectTypes, Func<Type, FieldInfo[]> ValueFields);
+    private static readonly Lazy<ReadSchema> HistoricalV134 = new(() =>
+    {
+        var fields = new Dictionary<Type, FieldInfo[]>();
+        foreach (var pair in ReplayCheckpointSchemaV134.Fields)
+        {
+            Type type = typeof(Scene).Assembly.GetType(pair.Key, throwOnError: true)!;
+            var ordered = new List<FieldInfo>();
+            for (Type? parent = type; parent != null; parent = parent.BaseType)
+                if (ReplayCheckpointSchemaV134.Fields.TryGetValue(parent.FullName!, out var names))
+                    foreach (string name in names)
+                        ordered.Add(parent.GetField(name, InstanceFields | BindingFlags.DeclaredOnly)
+                            ?? throw new InvalidDataException($"Missing v0.1.34 field {parent}.{name}."));
+            fields.Add(type, ordered.ToArray());
+        }
+        var valueFields = ReplayCheckpointSchemaV134.ValueFields.ToDictionary(pair => Types[pair.Key],
+            pair => pair.Value.Select(name => Types[pair.Key].GetField(name, InstanceFields)
+                ?? throw new InvalidDataException($"Missing v0.1.34 value field {pair.Key}.{name}.")).ToArray());
+        var types = new Dictionary<string, Type>(StringComparer.Ordinal);
+        void Add(Type type)
+        {
+            if (!types.TryAdd(type.ToString(), type)) return;
+            if (Collection(type)) Add(Element(type));
+            else if (Nullable.GetUnderlyingType(type) is Type underlying) Add(underlying);
+            else if (type.IsValueType && !type.IsPrimitive && !type.IsEnum)
+                foreach (var field in valueFields[type]) Add(field.FieldType);
+        }
+        foreach (var pair in fields) { Add(pair.Key); foreach (var field in pair.Value) Add(field.FieldType); }
+        foreach (Type type in new[] { typeof(ModelInstance), typeof(WeaponInfo), typeof(int), typeof(uint),
+            typeof(float), typeof(bool), typeof(string), typeof(Vector3), typeof(EntityBase) }) Add(type);
+        return new(fields, types, ReplayCheckpointSchemaV134.ObjectTypes.Select(name => types[name]).ToArray(),
+            type => valueFields.TryGetValue(type, out var result) ? result
+                : throw new InvalidDataException($"Unknown v0.1.34 value layout: {type}."));
+    });
+    private static ReadSchema SchemaForContract(string contract)
+    {
+        if (contract == Contract || contract == LegacyContract) return new(Fields, Types, ObjectTypes, ValueFields);
+        if (contract == ReplayCheckpointSchemaV134.Contract) return HistoricalV134.Value;
+        throw new InvalidDataException("Unknown replay saved-world contract.");
+    }
     private static Dictionary<Type, FieldInfo[]> CreateFields()
     {
         var result = new Dictionary<Type, FieldInfo[]>();
@@ -187,7 +223,14 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Checkpoint);
         using var stream = new ReplayCheckpointWriter();
         using var writer = new BinaryWriter(stream);
-        writer.Write(Magic); writer.Write(Version); writer.Write(Contract);
+        // Preserve byte-for-byte v3 output for ordinary worlds. Native policy and
+        // pending edges require v4, which old readers reject instead of ignoring.
+        var cadence = new Physics.NativeCadenceCheckpoint(replay.Scene.NativeMovementMode,
+            replay.Scene.Players.Items.Select(player => player.NativeCadenceJumpPending).ToArray(),
+            replay.Scene.Players.Items.Select(player => player.NativeCadenceFirePending).ToArray());
+        byte[] cadenceBytes = cadence.Encode();
+        ushort version = cadence.Mode == Physics.NativeMovementMode.Legacy60 ? (ushort)3 : Version;
+        writer.Write(Magic); writer.Write(version); writer.Write(Contract);
         writer.Write(replay.Scene.Room!.Meta.Name); writer.Write((int)replay.Scene.GameState.Mode); writer.Write(replay.MapHash);
         uint frame = recordingFrame ?? replay.Session.CurrentFrame;
         writer.Write(frame); writer.Write(replay.Scene.Random.Rng1); writer.Write(replay.Scene.Random.Rng2);
@@ -208,6 +251,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             long cosmetics = ReplayCheckpointWriter.BeginComponent(writer);
             foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Write(writer);
             ReplayCheckpointWriter.EndComponent(writer, cosmetics);
+            if (version >= 4) WriteBytes(writer, cadenceBytes);
             ReplayPerfTelemetry.CheckpointBytes = stream.Length;
             return new(stream.Detach(), frame);
         }
@@ -323,12 +367,16 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         for (int i = 0; i < count; i++)
         {
             ushort typeId = reader.ReadUInt16(); ulong anchor = reader.ReadUInt64();
-            if (typeId >= ObjectTypes.Length)
+            if (typeId >= _readSchema.ObjectTypes.Length)
                 throw new InvalidDataException("Unknown replay object contract.");
-            nodes[i] = new(typeId, anchor, ReadBytes(reader, MaximumBytes)); types[i] = ObjectTypes[typeId];
+            nodes[i] = new(typeId, anchor, ReadBytes(reader, MaximumBytes)); types[i] = _readSchema.ObjectTypes[typeId];
         }
         byte[]? assets = version >= 2 ? ReadBytes(reader, MaximumBytes) : null;
         byte[]? cosmetics = version >= 3 ? ReadBytes(reader, 4096) : null;
+        var cadence = version >= 4
+            ? Physics.NativeCadenceCheckpoint.Decode(ReadBytes(reader, 128), replay.Scene.Players.Items.Count)
+            : new Physics.NativeCadenceCheckpoint(Physics.NativeMovementMode.Legacy60,
+                new bool[replay.Scene.Players.Items.Count]);
         if (stream.Position != stream.Length || frame != Frame) throw new InvalidDataException("Invalid replay world capsule length/frame.");
         // Allocate and bind every object before following any link. Only this new
         // replica is modified; its caller disposes it if any validation fails.
@@ -382,7 +430,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                     var add = type.IsArray || target is IList ? null : type.GetMethod(type.GetGenericTypeDefinition() == typeof(Queue<>) ? "Enqueue" : "AddLast", [Element(type)]);
                     for (int n = 0; n < length; n++)
                     {
-                        object? value = ReadValue(input, Element(type), Resolve);
+                        object? value = ReadValue(input, Element(type), Resolve, _readSchema);
                         if (target is Array array)
                         {
                             var indices = new int[rank]; int remainder = n;
@@ -393,7 +441,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                         else add!.Invoke(target, [value]);
                     }
                 }
-                else foreach (var field in Fields[type]) field.SetValue(target, ReadValue(input, field.FieldType, Resolve));
+                else foreach (var field in _readSchema.Fields[type]) field.SetValue(target, ReadValue(input, field.FieldType, Resolve, _readSchema));
             }
             if (data.Position != data.Length) throw new InvalidDataException($"Trailing replay fields in {type.Name}.");
         }
@@ -409,6 +457,12 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
             using var cosmeticReader = new BinaryReader(cosmeticStream);
             foreach (var player in replay.Scene.Players.Items) player.CosmeticDeathState.Read(cosmeticReader);
             if (cosmeticStream.Position != cosmeticStream.Length) throw new InvalidDataException("Invalid cosmetics appendix.");
+        }
+        replay.Scene.NativeMovementMode = cadence.Mode;
+        for (int slot = 0; slot < cadence.Pending.Length; slot++)
+        {
+            replay.Scene.Players.Items[slot].NativeCadenceJumpPending = cadence.Pending[slot];
+            replay.Scene.Players.Items[slot].NativeCadenceFirePending = cadence.FirePending?[slot] ?? false;
         }
         replay.Scene.Random.SetRng1(rng1); replay.Scene.Random.SetRng2(rng2);
     }
@@ -479,17 +533,17 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         else if (type.IsValueType) foreach (var field in ValueFields(type)) WriteValue(writer, field.FieldType, field.GetValue(value), reference);
         else writer.Write(reference(value));
     }
-    private static object? ReadValue(BinaryReader reader, Type type, Func<int, Type, object?> reference)
+    private static object? ReadValue(BinaryReader reader, Type type, Func<int, Type, object?> reference, ReadSchema schema)
     {
         if (type == typeof(object))
         {
-            if (!Types.TryGetValue(reader.ReadString(), out Type? actual) || actual == typeof(object))
+            if (!schema.Types.TryGetValue(reader.ReadString(), out Type? actual) || actual == typeof(object))
                 throw new InvalidDataException("Unsupported replay message parameter.");
-            return ReadValue(reader, actual, reference);
+            return ReadValue(reader, actual, reference, schema);
         }
-        if (Nullable.GetUnderlyingType(type) is Type underlying) return reader.ReadBoolean() ? ReadValue(reader, underlying, reference) : null;
+        if (Nullable.GetUnderlyingType(type) is Type underlying) return reader.ReadBoolean() ? ReadValue(reader, underlying, reference, schema) : null;
         if (type == typeof(string)) return reader.ReadBoolean() ? reader.ReadString() : null;
-        if (type.IsEnum) return Enum.ToObject(type, ReadValue(reader, Enum.GetUnderlyingType(type), reference)!);
+        if (type.IsEnum) return Enum.ToObject(type, ReadValue(reader, Enum.GetUnderlyingType(type), reference, schema)!);
         if (type == typeof(bool)) return reader.ReadBoolean();
         if (type == typeof(byte)) return reader.ReadByte();
         if (type == typeof(sbyte)) return reader.ReadSByte();
@@ -504,7 +558,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         if (type == typeof(char)) return (char)reader.ReadUInt16();
         if (!type.IsValueType) return reference(reader.ReadInt32(), type);
         object value = Activator.CreateInstance(type)!;
-        foreach (var field in ValueFields(type)) field.SetValue(value, ReadValue(reader, field.FieldType, reference));
+        foreach (var field in schema.ValueFields(type)) field.SetValue(value, ReadValue(reader, field.FieldType, reference, schema));
         return value;
     }
     private static int Count(BinaryReader reader, int limit)

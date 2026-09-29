@@ -620,52 +620,59 @@ namespace MphRead.Entities
             // is walking whatever the local ground check makes of it. Only
             // the bob reads this -- everything else the flag drives is about
             // simulating a player, which a puppet is not doing.
-            bool bobWalking = Flags1.TestFlag(PlayerFlags1.Walking);
-            if (Mods.Network.NetHooks.IsPuppet(this))
+            // Camera bob consumes the native walking decision once per operation.
+            // Updating one half before the movement transition loses half of its
+            // first/last increment and changes the actual muzzle position.
+            if (!_scene.UsesNativeCadence60 || (_scene.FrameCount & 1) != 0)
             {
-                bobWalking = !IsAltForm && !IsMorphing && !IsUnmorphing
-                    && Speed.X * Speed.X + Speed.Z * Speed.Z > BobWalkSpeedSquared;
-            }
-            if (bobWalking)
-            {
-                _gunViewBob += 14 / 2f; // todo: FPS stuff
-                if (_gunViewBob > 450)
+                float bobDivisor = _scene.UsesNativeMovement ? 1 : 2;
+                bool bobWalking = Flags1.TestFlag(PlayerFlags1.Walking);
+                if (Mods.Network.NetHooks.IsPuppet(this))
                 {
-                    _gunViewBob -= 180;
+                    bobWalking = !IsAltForm && !IsMorphing && !IsUnmorphing
+                        && Speed.X * Speed.X + Speed.Z * Speed.Z > BobWalkSpeedSquared;
                 }
-                if (_walkViewBob < Fixed.ToFloat(Values.WalkBobMax))
+                if (bobWalking)
                 {
-                    _walkViewBob += 1 / 2f; // todo: FPS stuff
-                    if (_walkViewBob > Fixed.ToFloat(Values.WalkBobMax))
-                    {
-                        _walkViewBob = Fixed.ToFloat(Values.WalkBobMax);
-                    }
-                }
-            }
-            else
-            {
-                if (_walkViewBob > 0)
-                {
-                    _walkViewBob -= Fixed.ToFloat(Values.WalkBobMax) / 32 / 2f; // todo: FPS stuff
-                    if (_walkViewBob < 0)
-                    {
-                        _walkViewBob = 0;
-                    }
-                }
-                if (_gunViewBob >= 360)
-                {
-                    _gunViewBob += 14 / 2f; // todo: FPS stuff
+                    _gunViewBob += 14 / bobDivisor; // todo: FPS stuff
                     if (_gunViewBob > 450)
                     {
-                        _gunViewBob = 450;
+                        _gunViewBob -= 180;
+                    }
+                    if (_walkViewBob < Fixed.ToFloat(Values.WalkBobMax))
+                    {
+                        _walkViewBob += 1 / bobDivisor; // todo: FPS stuff
+                        if (_walkViewBob > Fixed.ToFloat(Values.WalkBobMax))
+                        {
+                            _walkViewBob = Fixed.ToFloat(Values.WalkBobMax);
+                        }
                     }
                 }
                 else
                 {
-                    _gunViewBob -= 14 / 2f; // todo: FPS stuff
-                    if (_gunViewBob < 270)
+                    if (_walkViewBob > 0)
                     {
-                        _gunViewBob = 270;
+                        _walkViewBob -= Fixed.ToFloat(Values.WalkBobMax) / 32 / bobDivisor; // todo: FPS stuff
+                        if (_walkViewBob < 0)
+                        {
+                            _walkViewBob = 0;
+                        }
+                    }
+                    if (_gunViewBob >= 360)
+                    {
+                        _gunViewBob += 14 / bobDivisor; // todo: FPS stuff
+                        if (_gunViewBob > 450)
+                        {
+                            _gunViewBob = 450;
+                        }
+                    }
+                    else
+                    {
+                        _gunViewBob -= 14 / bobDivisor; // todo: FPS stuff
+                        if (_gunViewBob < 270)
+                        {
+                            _gunViewBob = 270;
+                        }
                     }
                 }
             }
@@ -904,12 +911,13 @@ namespace MphRead.Entities
             }
             else
             {
-                _timeSinceInput++;
+                _timeSinceInput = unchecked((ushort)(_timeSinceInput + (_scene.UsesNativeMovement && !_scene.UsesNativeCadence60 ? 2 : 1)));
             }
-            if (_aimY < 60 && _aimY > -60 && !EquipInfo.Zoomed && _health > 0 && !Features.NoIdleSway)
+            if (_aimY < 60 && _aimY > -60 && !EquipInfo.Zoomed && _health > 0 && !Features.NoIdleSway
+                && (!_scene.UsesNativeCadence60 || (_scene.FrameCount & 1) != 0))
             {
                 int swayStart = Values.SwayStartTime * 2; // todo: FPS stuff
-                if (Features.DelayedIdleSway)
+                if (Features.DelayedIdleSway && !_scene.UsesNativeMovement)
                 {
                     swayStart *= 4;
                 }
@@ -921,11 +929,14 @@ namespace MphRead.Entities
                     _field410 = _facingVector;
                     _field41C = _field410;
                     _field428 = _field410;
-                    _field41C += _gunVec2 * factor1 + _upVector * factor2;
+                    _field41C += _scene.UsesNativeMovement
+                        ? NativeSwayOffset(factor1, factor2) : _gunVec2 * factor1 + _upVector * factor2;
                 }
                 else if (_timeSinceInput > swayStart)
                 {
-                    _field40C += 1f / Values.SwayIncrement / 2; // todo: FPS stuff
+                    _field40C += _scene.UsesNativeMovement
+                        ? Mods.Physics.NativeFixedMath.Float(4096 / Values.SwayIncrement)
+                        : 1f / Values.SwayIncrement / 2;
                     if (_field40C >= 1)
                     {
                         _field40C = 0;
@@ -933,13 +944,33 @@ namespace MphRead.Entities
                         float factor2 = (_scene.Random.GetRandomInt2(Values.SwayLimit) - Values.SwayLimit / 2) / 4096f;
                         _field410 = _field41C;
                         _field41C = _field428;
-                        _field41C += _gunVec2 * factor1 + _upVector * factor2;
+                        _field41C += _scene.UsesNativeMovement
+                        ? NativeSwayOffset(factor1, factor2) : _gunVec2 * factor1 + _upVector * factor2;
                     }
                     float angle = 180 * _field40C + 180;
-                    float factor = (MathF.Cos(MathHelper.DegreesToRadians(angle)) + 1) / 2;
-                    _facingVector = _field410 + (_field41C - _field410) * factor;
-                    _facingVector = _facingVector.Normalized();
+                    float factor = _scene.UsesNativeMovement ? Mods.Physics.NativeFixedMath.SwayFactor(_field40C)
+                        : (MathF.Cos(MathHelper.DegreesToRadians(angle)) + 1) / 2;
+                    var delta = _field41C - _field410;
+                    if (_scene.UsesNativeMovement)
+                    {
+                        _facingVector = _field410 + new Vector3(
+                            Mods.Physics.NativeFixedMath.MultiplyRound(delta.X, factor),
+                            Mods.Physics.NativeFixedMath.MultiplyRound(delta.Y, factor),
+                            Mods.Physics.NativeFixedMath.MultiplyRound(delta.Z, factor));
+                        var normalized = Mods.Physics.NativeFixedMath.Normalize(_facingVector.X, _facingVector.Y, _facingVector.Z);
+                        _facingVector = new Vector3(normalized.X, normalized.Y, normalized.Z);
+                    }
+                    else _facingVector = (_field410 + delta * factor).Normalized();
                 }
+            }
+            // The ROM boundary is after idle sway, which can change heading after movement.
+            if (Mods.Physics.PhysicsStageCapture.Get(this)?.Pending is { } movementSample)
+            {
+                Mods.Physics.PhysicsTrace.Write(movementSample with
+                {
+                    Heading = MathHelper.RadiansToDegrees(MathF.Atan2(_facingVector.X, _facingVector.Z))
+                });
+                Mods.Physics.PhysicsStageCapture.End(this);
             }
             if (AttachedEnemy != null && !IsAltForm && (_bipedModel2.AnimInfo.Index[0] != (int)PlayerAnimation.Unmorph
                 || _bipedModel2.AnimInfo.Flags[0].TestFlag(AnimFlags.Ended)))
@@ -1279,6 +1310,12 @@ namespace MphRead.Entities
             // todo?: something for wifi
             return true;
         }
+
+        private Vector3 NativeSwayOffset(float right, float up)
+            => new Vector3(
+                Mods.Physics.NativeFixedMath.MultiplyRound(_gunVec2.X, right) + Mods.Physics.NativeFixedMath.MultiplyRound(_upVector.X, up),
+                Mods.Physics.NativeFixedMath.MultiplyRound(_gunVec2.Y, right) + Mods.Physics.NativeFixedMath.MultiplyRound(_upVector.Y, up),
+                Mods.Physics.NativeFixedMath.MultiplyRound(_gunVec2.Z, right) + Mods.Physics.NativeFixedMath.MultiplyRound(_upVector.Z, up));
 
         // Authoritative launch sequence carried in PlayerState. It is deliberately
         // independent of the pad's own cooldown: a receiver only needs to know

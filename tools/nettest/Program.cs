@@ -28,6 +28,34 @@ namespace MphRead.NetTest
 
         private static int Main(string[] args)
         {
+            if (args.Length is 8 or 9 && args[0] == "--fps-client-worker") return FpsClientParity.Worker(args);
+            if (args.Length == 5 && args[0] == "--fps-client-parity-native")
+                return FpsClientParity.Run(args[1], args[2], args[3], nativeCadence: true, reference: args[4]);
+            if (args.Length == 4 && args[0] == "--fps-client-parity") return FpsClientParity.Run(args[1], args[2], args[3]);
+            if (args.Length == 3 && args[0] == "--fps-cadence-replay")
+            {
+                string fixture = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MphRead.Mods.Replay.NativeCadenceReplayCheck.Run(fixture);
+            }
+            if (args.Length == 3 && args[0] == "--replay-v134")
+            {
+                string fixture = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MphRead.Mods.Replay.ReplayV134Check.Run(fixture);
+            }
+            if (args.Length == 3 && args[0] == "--fps-bot-baseline")
+            {
+                string data = System.IO.Path.GetFullPath(args[1]);
+                string trace = System.IO.Path.GetFullPath(args[2]);
+                System.IO.Directory.SetCurrentDirectory(data);
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                MphRead.Mods.Physics.PhysicsTrace.Start(trace);
+                try { return NetBotCheck.Run("MP1 SANCTORUS", 3); }
+                finally { MphRead.Mods.Physics.PhysicsTrace.Stop(); }
+            }
             if (args.Length > 0 && args[0] == "--gamemodecheck") return GameModeCheck.Run();
             if (args.Length > 1 && args[0] == "--gamemodecheck-scene")
             {
