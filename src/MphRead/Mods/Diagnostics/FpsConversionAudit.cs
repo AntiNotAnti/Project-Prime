@@ -51,7 +51,7 @@ namespace MphRead.Mods.Diagnostics
                         continue;
                     }
 
-                    string context = string.Join(' ', lines.Skip(Math.Max(0, i - 1)).Take(Math.Min(3, lines.Length - Math.Max(0, i - 1))));
+                    string context = string.Join(" ", lines.Skip(Math.Max(0, i - 1)).Take(Math.Min(3, lines.Length - Math.Max(0, i - 1))));
                     (string category, string risk) = Classify(relative, lines[i], context);
                     string priority = P0Files.Contains(relative) ? "P0" : PriorityFor(relative, category, risk);
                     sites.Add(new Site(relative, i + 1, category, risk, priority, lines[i].Trim()));
@@ -200,7 +200,7 @@ namespace MphRead.Mods.Diagnostics
         {
             const float nativeLerp = 0.3f;
             float exactLerp = 1 - MathF.Sqrt(1 - nativeLerp);
-            float naiveEffectiveLerp = 1 - MathF.Pow(1 - nativeLerp / 2, 2);
+            float naiveHalf = 1 - nativeLerp / 2;\n            float naiveEffectiveLerp = 1 - naiveHalf * naiveHalf;
             const float altAirGravity = -245 / 4096f;
             float currentPairDisplacement = altAirGravity * 0.75f;
             float nativePairDisplacement = altAirGravity;
