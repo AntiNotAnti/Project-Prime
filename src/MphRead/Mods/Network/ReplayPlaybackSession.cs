@@ -65,7 +65,7 @@ namespace MphRead.Mods.Network
             Stop(); _host.Start(); passive.State.RestoreCheckpoint(construction);
             _frame = frame; _live = true; _started = false; IsActive = true; LastFrame = frame;
             _liveMetadata = new ReplayMetadata { MapHash = mapHash, RoomKey = passive.State.Match?.RoomKey ?? "" };
-            LastResult = ReplayOpenResult.Success; LastError = null;
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
         }
 
         internal void AdvanceLive(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
@@ -85,7 +85,7 @@ namespace MphRead.Mods.Network
             _host.Start(); passive.State.RestoreCheckpoint(construction);
             _clip = clip; _clipIndex = 0; _frame = clip.RestorePoint.RecordingFrame; CurrentPath = null;
             LastFrame = clip.EndRecordingFrame; IsActive = true; _started = false;
-            LastResult = ReplayOpenResult.Success; LastError = null;
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
             Transport.Begin();
         }
 
@@ -96,6 +96,8 @@ namespace MphRead.Mods.Network
         /// typed command.
         /// </summary>
         public string? LastError { get; private set; }
+        public string? LastWarning { get; private set; }
+        public int CompatibilityDrops { get; private set; }
 
         /// <summary>
         /// How far into the recording <see cref="Join"/> will look for the
@@ -160,6 +162,8 @@ namespace MphRead.Mods.Network
             _ = timeoutMs; // kept for the call site; nothing here waits on a clock
             Stop();
             LastError = null;
+            LastWarning = null;
+            CompatibilityDrops = 0;
             _reader = DemoReader.Open(path, out ReplayOpenResult result);
             LastResult = result;
             if (_reader == null)
@@ -172,8 +176,8 @@ namespace MphRead.Mods.Network
             {
                 LastResult = ReplayOpenResult.ProtocolMismatch;
                 LastError = $"This replay uses network protocol {_reader.ProtocolVersion}. "
-                    + $"This build uses protocol {NetConfig.ProtocolVersion}. "
-                    + "This replay cannot be safely played by this build.";
+                    + $"This build can replay archived protocols {ReplayIdentityCompatibility.OldestReplayProtocol}-"
+                    + $"{NetConfig.ProtocolVersion}.";
                 _reader.Dispose();
                 _reader = null;
                 return false;
@@ -194,6 +198,14 @@ namespace MphRead.Mods.Network
                 if (metadata.ExpectedHashes.Count > 0 && (metadata.HashSchema != ReplayStateHash.Schema || metadata.HashBuildId != ReplayStateHash.BuildId))
                     Console.WriteLine("[replay] Expected state hashes belong to a different engine build/schema; packet playback remains available, hash verification is skipped.");
                 LastResult = ReplayMapIdentity.Validate(metadata);
+                if (LastResult == ReplayOpenResult.MapHashMismatch
+                    && metadata.CustomMapIdentity == null
+                    && _reader.ProtocolVersion < NetConfig.ProtocolVersion)
+                {
+                    LastWarning = "Built-in map data differs from the recording; using the installed map for best-effort playback.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    LastResult = ReplayOpenResult.Success;
+                }
                 if (LastResult != ReplayOpenResult.Success)
                 {
                     LastError = $"Cannot load replay map: {LastResult}.";
@@ -202,42 +214,65 @@ namespace MphRead.Mods.Network
                 }
                 if (metadata.WorldCheckpoint.Length > 0)
                 {
-                    if (_host is not PassiveReplaySessionHost passive)
-                        throw new InvalidDataException("This replay requires the isolated world player.");
-                    using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
-                    if (world.Frame != metadata.OriginRecordingFrame)
-                        throw new InvalidDataException("Replay origin differs from its initial world.");
-                    passive.State.RestoreCheckpoint(world.ConstructionState());
-                    _pending = _reader.ReadNext();
-                    if (_pending == null) throw new InvalidDataException("Replay contains no completed frames.");
-                    Transport.Begin();
-                    return true;
+                    try
+                    {
+                        if (_host is not PassiveReplaySessionHost passive)
+                            throw new InvalidDataException("This replay requires the isolated world player.");
+                        using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
+                        if (world.Frame != metadata.OriginRecordingFrame)
+                            throw new InvalidDataException("Replay origin differs from its initial world.");
+                        passive.State.RestoreCheckpoint(world.ConstructionState());
+                        _pending = _reader.ReadNext();
+                        if (_pending == null) throw new InvalidDataException("Replay contains no completed frames.");
+                        Transport.Begin();
+                        return true;
+                    }
+                    catch (InvalidDataException ex)
+                    {
+                        // Checkpoints are accelerators, not the replay itself. A schema from
+                        // an older build falls back to bootstrap/linear reconstruction.
+                        LastWarning = "Initial replay checkpoint was skipped: " + ex.Message;
+                        Console.WriteLine("[replay] " + LastWarning);
+                        _host.Start();
+                        _host.ResetDiagnostics();
+                        _frame = 0;
+                        _started = false;
+                    }
                 }
                 if (metadata.Bootstrap.Packets.Count > 0)
                 {
-                foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    _host.Inject(ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion), 0);
-                _host.Advance(0);
-                if (_host.Match?.RoomKey.Length is not > 0)
-                {
-                    LastResult = ReplayOpenResult.MissingMatchState;
-                    LastError = "Replay bootstrap has no match state.";
-                    Stop();
-                    return false;
-                }
-                _host.Rewind();
-                foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    _host.Inject(ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion), 0);
-                _pending = _reader.ReadNext();
-                if (_pending == null)
-                {
-                    LastResult = _reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : _reader.LastResult;
-                    LastError = $"Cannot play replay: {LastResult}.";
-                    Stop();
-                    return false;
-                }
-                Transport.Begin();
-                return true;
+                    foreach (byte[] packet in metadata.Bootstrap.Packets)
+                        InjectConverted(packet, 0);
+                    _host.Advance(0);
+                    if (_host.Match?.RoomKey.Length is > 0)
+                    {
+                        _host.Rewind();
+                        foreach (byte[] packet in metadata.Bootstrap.Packets)
+                            InjectConverted(packet, 0);
+                        _pending = _reader.ReadNext();
+                        if (_pending == null)
+                        {
+                            LastResult = _reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : _reader.LastResult;
+                            LastError = $"Cannot play replay: {LastResult}.";
+                            Stop();
+                            return false;
+                        }
+                        Transport.Begin();
+                        return true;
+                    }
+                    if (!ReplayIdentityCompatibility.BestEffort(_reader.ProtocolVersion))
+                    {
+                        LastResult = ReplayOpenResult.MissingMatchState;
+                        LastError = "Replay bootstrap has no match state.";
+                        Stop();
+                        return false;
+                    }
+                    LastWarning = "Historical replay bootstrap was incomplete; reconstructing from the packet stream.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    _host.Start();
+                    _host.ResetDiagnostics();
+                    _frame = 0;
+                    _started = false;
                 }
             }
             _pending = _reader.ReadNext();
@@ -392,7 +427,8 @@ namespace MphRead.Mods.Network
             {
                 while (_pending is DemoRecord record && record.Frame <= _frame)
                 {
-                    _host.Inject(ReplayIdentityCompatibility.Convert(record.Data, _reader!.ProtocolVersion), checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
+                    InjectConverted(record.Data,
+                        checked(record.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0)));
                     FactRead?.Invoke(record.Frame >= LeadInFrames ? record.Frame - LeadInFrames : 0, record.Data);
                     _pending = _reader.ReadNext();
                 }
@@ -411,6 +447,28 @@ namespace MphRead.Mods.Network
             }
         }
 
+
+        private void InjectConverted(ReadOnlySpan<byte> packet, uint frame)
+        {
+            try
+            {
+                ReadOnlySpan<byte> converted = ReplayIdentityCompatibility.Convert(packet, _reader!.ProtocolVersion);
+                if (!converted.IsEmpty) _host.Inject(converted, frame);
+            }
+            catch (InvalidDataException ex) when (ReplayIdentityCompatibility.BestEffort(_reader!.ProtocolVersion))
+            {
+                CompatibilityDrops++;
+                LastWarning = $"Legacy compatibility skipped a record at frame {frame}: {ex.Message}";
+                if (CompatibilityDrops <= 5)
+                    Console.WriteLine("[replay] " + LastWarning);
+            }
+        }
+
+        internal void WarnVerification(string warning)
+        {
+            LastWarning = warning;
+            Console.WriteLine("[replay] " + warning);
+        }
 
         public void Stop()
         {

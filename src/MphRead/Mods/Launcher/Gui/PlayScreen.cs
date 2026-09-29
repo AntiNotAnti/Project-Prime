@@ -2242,7 +2242,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     new FilePickerFileType($"{Branding.Name} replay")
                     {
-                        Patterns = new[] { $"*{DemoFile.Extension}" }
+                        Patterns = new[] { $"*{DemoFile.Extension}", $"*{DemoFile.LegacyExtension}" }
                     },
                     new FilePickerFileType("Every file") { Patterns = new[] { "*" } }
                 };

@@ -56,16 +56,18 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class DemoFile
     {
-        // "PPDM" -- Project Prime DeMo.
+        // "PPDM" -- Project Prime DeMo. "FPDM" is the original Fruity Prime
+        // replay magic and remains readable for permanent archive compatibility.
         public static readonly byte[] Magic = { (byte)'P', (byte)'P', (byte)'D', (byte)'M' };
+        public static readonly byte[] LegacyMagic = { (byte)'F', (byte)'P', (byte)'D', (byte)'M' };
         /// <summary>
-        /// 2: frame-stamped records over a deflate stream. Version 1 files
-        /// are refused rather than read -- their timestamps mean something
-        /// else and their body is not compressed, so there is nothing here
-        /// that could read one by accident.
+        /// 1: wall-clock millisecond records, uncompressed (original Fruity Prime).
+        /// 2: frame-stamped records over a deflate stream.
+        /// 3/4: indexed Project Prime replay containers.
         /// </summary>
         public const byte FormatVersion = 2;
         public const string Extension = ".ppdemo";
+        public const string LegacyExtension = ".fpdemo";
 
         /// <summary>Magic, format version, protocol version. Never compressed: it says how to read the rest.</summary>
         public const int HeaderSize = 4 + 1 + 1;
@@ -181,14 +183,16 @@ namespace MphRead.Mods.Network
     {
         private readonly FileStream _stream;
         private readonly DeflateStream? _deflate;
+        private readonly BinaryReader? _legacyReader;
         private readonly ReplayReaderV3? _v3;
+        private readonly byte _formatVersion;
         private readonly byte[] _header = new byte[7];
         private uint _frame;
         private bool _ended;
         private ReplayOpenResult _result;
 
         public byte ProtocolVersion { get; }
-        public byte FormatVersion => _v3?.Metadata.FormatVersion ?? (byte)2;
+        public byte FormatVersion => _v3?.Metadata.FormatVersion ?? _formatVersion;
         public ReplayMetadata? Metadata => _v3?.Metadata;
         public uint DurationFrames => _v3?.DurationFrames ?? _frame;
         public ReplayOpenResult LastResult => _v3?.LastResult ?? _result;
@@ -211,13 +215,15 @@ namespace MphRead.Mods.Network
                     result = ReplayOpenResult.Truncated;
                     return null;
                 }
-                if (!header[..DemoFile.Magic.Length].SequenceEqual(DemoFile.Magic))
+                bool projectPrime = header[..DemoFile.Magic.Length].SequenceEqual(DemoFile.Magic);
+                bool fruityPrime = header[..DemoFile.LegacyMagic.Length].SequenceEqual(DemoFile.LegacyMagic);
+                if (!projectPrime && !fruityPrime)
                 {
                     stream.Dispose();
                     result = ReplayOpenResult.InvalidMagic;
                     return null;
                 }
-                if (header[4] is not (2 or 3 or 4))
+                if (header[4] is not (1 or 2 or 3 or 4))
                 {
                     stream.Dispose();
                     result = ReplayOpenResult.UnsupportedFormat;
@@ -237,9 +243,11 @@ namespace MphRead.Mods.Network
         private DemoReader(FileStream stream, byte protocolVersion, byte version, bool metadataOnly)
         {
             _stream = stream;
+            _formatVersion = version;
             ProtocolVersion = protocolVersion;
             if (version >= 3) _v3 = new ReplayReaderV3(stream, protocolVersion, metadataOnly, version);
-            else _deflate = new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: true);
+            else if (version == 2) _deflate = new DeflateStream(stream, CompressionMode.Decompress, leaveOpen: true);
+            else _legacyReader = new BinaryReader(stream, System.Text.Encoding.UTF8, leaveOpen: true);
         }
 
         /// <summary>
@@ -269,6 +277,29 @@ namespace MphRead.Mods.Network
             if (_ended) return null;
             try
             {
+                if (_formatVersion == 1)
+                {
+                    if (_stream.Position >= _stream.Length)
+                    {
+                        _ended = true;
+                        return null;
+                    }
+                    uint elapsedMs = _legacyReader!.ReadUInt32();
+                    int v1Length = _legacyReader.ReadUInt16();
+                    if (v1Length == 0 || v1Length > ushort.MaxValue)
+                        throw new InvalidDataException("Invalid v1 replay packet.");
+                    byte[] v1Data = _legacyReader.ReadBytes(v1Length);
+                    if (v1Data.Length != v1Length)
+                        throw new EndOfStreamException();
+                    ulong rounded = ((ulong)elapsedMs * 60 + 500) / 1000;
+                    if (rounded > ReplayFormatV3.MaxFrame)
+                        throw new InvalidDataException("Invalid v1 replay timestamp.");
+                    uint frame = (uint)rounded;
+                    if (frame < _frame) frame = _frame;
+                    _frame = frame;
+                    return new DemoRecord(frame, v1Data);
+                }
+
                 int first = _deflate!.ReadByte();
                 if (first < 0)
                 {
@@ -301,9 +332,6 @@ namespace MphRead.Mods.Network
             }
             catch (InvalidDataException)
             {
-                // The deflate stream stops mid-block: the process that wrote
-                // it did not get to close it. Everything up to the last flush
-                // has already been handed over; treat the rest as the end.
                 _result = ReplayOpenResult.Corrupt;
                 _ended = true;
                 return null;
@@ -327,6 +355,7 @@ namespace MphRead.Mods.Network
         {
             _v3?.Dispose();
             _deflate?.Dispose();
+            _legacyReader?.Dispose();
             _stream.Dispose();
         }
     }

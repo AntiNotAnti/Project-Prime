@@ -112,7 +112,12 @@ internal sealed partial class ReplayReplicaState
                 upgraded[PlayerState.LegacySize + 1] = byte.MaxValue;
                 return PlayerState.Read(upgraded);
             }
-            if (version is < 1 or > CheckpointVersion || !ReplayIdentityCompatibility.Supports(protocol)) throw new InvalidDataException("Incompatible replica checkpoint.");
+            // Replay packet compatibility reaches back to protocol 4, but this
+            // detached checkpoint schema was introduced much later. Do not confuse
+            // permissive packet playback with binary checkpoint compatibility.
+            if (version is < 1 or > CheckpointVersion || protocol < 24
+                || !ReplayIdentityCompatibility.Supports(protocol))
+                throw new InvalidDataException("Incompatible replica checkpoint.");
             restored.RecordingFrame = reader.ReadUInt32(); restored.MatchRecordingFrame = reader.ReadUInt32();
             restored.ServerTick = reader.ReadUInt32(); restored.Rng1 = reader.ReadUInt32(); restored.Rng2 = reader.ReadUInt32();
             restored.AcceptedPackets = reader.ReadInt64(); restored.IgnoredPackets = reader.ReadInt64();

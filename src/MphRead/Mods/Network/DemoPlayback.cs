@@ -17,6 +17,7 @@ public static class DemoPlayback
     private static Scene? _lab;
     private static ulong _audio;
     private static bool _failed;
+    private static bool _presentationFailed;
     internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
     internal static Scene? ReplicaScene => _player?.Current.Scene;
     internal static Scene? PresentationScene => _lab ?? (_player?.Ready == true ? _player.Current.Scene : null);
@@ -38,10 +39,12 @@ public static class DemoPlayback
     public static double DurationSeconds => Session.DurationSeconds;
     public static bool AtEnd => Session.AtEnd;
     public static string? LastError => Session.LastError;
+    public static string? LastWarning => Session.LastWarning;
     public static bool Join(string path, int timeoutMs = 8000)
     {
         Stop();
         _prepared = new(new PassiveReplaySessionHost());
+        _failed = false; _presentationFailed = false;
         bool opened = _prepared.Join(path, timeoutMs);
         if (opened) { ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset(); ReplayHud.Reset(); ReplayStudio.ResetCache(); }
         return opened;
@@ -51,7 +54,12 @@ public static class DemoPlayback
         $"{_player.CheckpointSource} restore {_player.SeekRestoreFrame} · {_player.SeekSimulationSteps} steps · {_player.SeekMilliseconds:0.0} ms · {_player.RejectedCheckpoints} rejected";
     internal static void Update(Scene shell)
     {
-        if (!IsActive || _failed) return;
+        if (!IsActive) return;
+        if (_failed)
+        {
+            PollFailedControls(shell);
+            return;
+        }
         try { UpdateCore(shell); }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
@@ -59,9 +67,18 @@ public static class DemoPlayback
             ReplayInput.CancelScrub();
             ReplayAudioOwner.Release(_audio); _audio = 0;
             Session.FailVerification("Replay playback stopped: " + ex.Message);
+            MphRead.Mods.DebugLog.Exception("replay", ex);
             Session.Transport.AfterFrame();
         }
     }
+    private static void PollFailedControls(Scene shell)
+    {
+        _shell ??= shell;
+        if (_player?.Current.Scene is not Scene replay) return;
+        replay.UseReplayInput(_shell);
+        replay.PollReplayControls();
+    }
+
     private static void UpdateCore(Scene shell)
     {
         _shell ??= shell;
@@ -93,13 +110,23 @@ public static class DemoPlayback
         if (silent) { ReplayAudioOwner.Release(_audio); _audio = 0; }
         _player.Update();
         Scene current = _player.Current.Scene;
-        if (_player.Ready)
+        if (_player.Ready && !_presentationFailed)
         {
-            if (_audio == 0 && !silent) _audio = ReplayAudioOwner.Acquire(current, _shell);
-            SpectatorMode.Start(watchSomeone: true);
-            var main = current.Players.Main;
-            if (!Headless.Active && main.LoadFlags.TestFlag(LoadFlags.Active) && !main.HudReady) main.SetUpHud();
-            if (!Headless.Active && !silent) MphRead.Sound.Sfx.Update(1f / 60);
+            try
+            {
+                if (_audio == 0 && !silent) _audio = ReplayAudioOwner.Acquire(current, _shell);
+                SpectatorMode.Start(watchSomeone: true);
+                var main = current.Players.Main;
+                if (!Headless.Active && main.LoadFlags.TestFlag(LoadFlags.Active) && !main.HudReady) main.SetUpHud();
+                if (!Headless.Active && !silent) MphRead.Sound.Sfx.Update(1f / 60);
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                _presentationFailed = true;
+                ReplayAudioOwner.Release(_audio); _audio = 0;
+                Session.WarnVerification("Replay presentation degraded: " + ex.Message);
+                MphRead.Mods.DebugLog.Exception("replay", ex);
+            }
         }
     }
     internal static Scene? PreparePresentation(Scene shell)
@@ -134,7 +161,7 @@ public static class DemoPlayback
         _player?.Dispose(); _player = null;
         Scene? lab = _lab; _lab = null;
         lab?.DoCleanup(); lab?.UnloadGl(); _shell = null;
-        _prepared.Stop(); _failed = false;
+        _prepared.Stop(); _failed = false; _presentationFailed = false;
     }
     public static bool TakeControl(int slot, out string? branchPath)
     {
@@ -158,5 +185,6 @@ public static class DemoPlayback
         { Console.WriteLine("[replay] Cannot create practice branch: " + ex.Message); return false; }
     }
     internal static void FailVerification(string error) => Session.FailVerification(error);
+    internal static void WarnVerification(string warning) => Session.WarnVerification(warning);
     internal static long PlaybackArrivalTicks(uint frame) => ReplayPlaybackSession.PlaybackArrivalTicks(frame);
 }

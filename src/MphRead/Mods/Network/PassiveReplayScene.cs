@@ -27,8 +27,18 @@ namespace MphRead.Mods.Network
             {
                 if (Session.Metadata?.WorldCheckpoint is { Length: > 0 } bytes)
                 {
-                    using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
-                    checkpoint.Restore(this, playbackFrame: 0);
+                    try
+                    {
+                        using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
+                        checkpoint.Restore(this, playbackFrame: 0);
+                    }
+                    catch (InvalidDataException ex)
+                    {
+                        // The session has already reconstructed a usable decoder from
+                        // bootstrap/packets. An old world capsule is only an acceleration
+                        // hint and must not make the replay unwatchable.
+                        Session.WarnVerification("World checkpoint compatibility fallback: " + ex.Message);
+                    }
                 }
                 Scene.ReplayPoses = new(this, path);
             }

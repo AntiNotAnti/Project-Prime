@@ -88,7 +88,7 @@ namespace MphRead.Mods.Network
             if (reader == null) return result;
             if (!ReplayIdentityCompatibility.Supports(reader.ProtocolVersion)) return ReplayOpenResult.ProtocolMismatch;
             ReplayMetadata metadata = reader.Metadata ?? new ReplayMetadata();
-            if (reader.FormatVersion == 2)
+            if (reader.FormatVersion <= 2)
             {
                 using var probe = new ReplayPlaybackSession(new PassiveReplaySessionHost());
                 if (!probe.Join(source)) return probe.LastResult;
@@ -100,8 +100,9 @@ namespace MphRead.Mods.Network
                     var occupant = state.Occupant(slot);
                     if (occupant.Generation != 0) players.Add(new((byte)slot, (byte)occupant.Hunter, occupant.Team, occupant.Name, occupant.IsBot, occupant.BotLevel));
                 }
-                metadata = new ReplayMetadata { FormatVersion = 4, RoomKey = match.RoomKey,
-                    Mode = (GameMode)match.Mode, MapHash = ReplayMapIdentity.Compute(match.RoomKey), Players = players,
+                metadata = new ReplayMetadata { FormatVersion = 4, ProtocolVersion = reader.ProtocolVersion,
+                    RoomKey = match.RoomKey, Mode = (GameMode)match.Mode,
+                    MapHash = ReplayMapIdentity.Compute(match.RoomKey), Players = players,
                     Bootstrap = new ReplayBootstrap { Packets = new[] { ReplayTimelineArchive.Construction(state) } } };
                 return ExtractRange(reader, metadata, start, end, output, probe.LastFrame, cancellation);
             }

@@ -391,6 +391,75 @@ namespace MphRead.Mods.Network
                 Require(!DemoPlayback.Join(corrupt) && DemoPlayback.LastResult == ReplayOpenResult.ProtocolMismatch, "protocol refuses before playback");
                 Require(DemoReader.Open(Path.Combine(directory, "missing"), out var missing) == null
                     && missing == ReplayOpenResult.FileMissing, "missing file");
+                Require(ReplayIdentityCompatibility.Supports(ReplayIdentityCompatibility.OldestReplayProtocol)
+                    && ReplayIdentityCompatibility.Supports(NetConfig.ProtocolVersion)
+                    && !ReplayIdentityCompatibility.Supports(NetConfig.ProtocolVersion + 1),
+                    "replay protocol compatibility range");
+
+                // Original Fruity Prime v1 was FPDM + elapsed milliseconds +
+                // uncompressed length-prefixed packets. Preserve it forever by
+                // rounding its wall clock onto the 60 Hz replay timeline.
+                string v1 = Path.Combine(directory, "legacy-v1.fpdemo");
+                using (var stream = File.Create(v1))
+                using (var writer = new BinaryWriter(stream))
+                {
+                    writer.Write(DemoFile.LegacyMagic); writer.Write((byte)1); writer.Write((byte)4);
+                    writer.Write((uint)0); writer.Write((ushort)1); writer.Write((byte)PacketType.Welcome);
+                    writer.Write((uint)15000); writer.Write((ushort)1); writer.Write((byte)PacketType.Welcome);
+                }
+                using (var reader = DemoReader.Open(v1))
+                {
+                    Require(reader?.FormatVersion == 1 && reader.ProtocolVersion == 4
+                        && reader.ReadNext()?.Frame == 0 && reader.ReadNext()?.Frame == 900,
+                        "v1 Fruity Prime millisecond replay compatibility");
+                    Require(reader!.ReadNext() == null && reader.LastResult == ReplayOpenResult.Success,
+                        "v1 replay EOF");
+                }
+
+                // Protocol 4 predates authority epochs, lifecycle identities and
+                // modern snapshot tails. The adapter supplies conservative
+                // defaults rather than refusing an otherwise watchable recording.
+                byte[] p4Match = matchBytes[..96].ToArray();
+                MatchStatePacket p4MatchRead = MatchStatePacket.Read(
+                    ReplayIdentityCompatibility.Convert(p4Match, 4)[1..]);
+                Require(p4MatchRead.RoomKey == match.RoomKey && p4MatchRead.MatchId == 0
+                    && p4MatchRead.AuthorityEpoch == 0,
+                    "protocol 4 match state upgrades to canonical identity");
+
+                const int p4RosterEntry = 20;
+                byte[] p4Roster = new byte[1 + 1 + RosterPacket.MaxSlots * p4RosterEntry];
+                p4Roster[0] = (byte)PacketType.Roster; p4Roster[1] = 1;
+                int p4Row = 2; p4Roster[p4Row] = 0; p4Roster[p4Row + 1] = (byte)Hunter.Samus;
+                BinaryPrimitives.WriteUInt16LittleEndian(p4Roster.AsSpan(p4Row + 2), 25);
+                System.Text.Encoding.ASCII.GetBytes("LEGACY").AsSpan().CopyTo(p4Roster.AsSpan(p4Row + 4, 16));
+                ReadOnlySpan<byte> p4RosterConverted = ReplayIdentityCompatibility.Convert(p4Roster, 4);
+                Require(RosterPacket.TryRead(p4RosterConverted[1..], out var p4RosterRead)
+                    && p4RosterRead.Count == 1 && p4RosterRead.Slots[0] == 0
+                    && p4RosterRead.Generations[0] == 1 && p4RosterRead.Names[0] == "LEGACY",
+                    "protocol 4 roster synthesizes lifecycle identity");
+
+                const int p4Header = 13, p4Player = 64;
+                byte[] p4Snapshot = new byte[1 + p4Header + p4Player];
+                p4Snapshot[0] = (byte)PacketType.Snapshot;
+                BinaryPrimitives.WriteUInt32LittleEndian(p4Snapshot.AsSpan(1), 30);
+                BinaryPrimitives.WriteUInt32LittleEndian(p4Snapshot.AsSpan(5), 1);
+                BinaryPrimitives.WriteUInt32LittleEndian(p4Snapshot.AsSpan(9), 2);
+                p4Snapshot[13] = 1;
+                int p4PlayerAt = 1 + p4Header;
+                p4Snapshot[p4PlayerAt] = 0;
+                p4Snapshot[p4PlayerAt + 1] = PlayerState.FlagActive | PlayerState.FlagSpawned;
+                BinaryPrimitives.WriteUInt16LittleEndian(p4Snapshot.AsSpan(p4PlayerAt + 38), 99);
+                ReadOnlySpan<byte> p4SnapshotConverted = ReplayIdentityCompatibility.Convert(p4Snapshot, 4);
+                SnapshotHeader p4HeaderRead = SnapshotHeader.Read(p4SnapshotConverted[1..]);
+                PlayerState p4PlayerRead = PlayerState.Read(p4SnapshotConverted[(1 + SnapshotHeader.Size)..]);
+                int p4Tail = 1 + SnapshotHeader.Size + PlayerState.Size;
+                Require(p4HeaderRead.PlayerCount == 1 && p4HeaderRead.MatchId == 0
+                    && p4PlayerRead.SlotGeneration == 1 && p4PlayerRead.LifeId == 1
+                    && p4PlayerRead.Health == 99
+                    && NetMatchTimeSync.Validate(p4SnapshotConverted.Slice(p4Tail, NetMatchTimeSync.Size))
+                    && NetHealthSync.Validate(p4SnapshotConverted[(p4Tail + NetMatchTimeSync.Size)..]),
+                    "protocol 4 snapshot gains canonical lifecycle and world tail");
+
                 string legacy = Path.Combine(directory, "v2.ppdemo");
                 using (var writer = new DemoWriter(legacy)) { writer.WriteRecord(0, packet); writer.WriteRecord(900, packet); }
                 using (var reader = DemoReader.Open(legacy))
