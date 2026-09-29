@@ -113,14 +113,45 @@ namespace MphRead.Mods.Launcher.Gui
             var duration = new ChoiceRow("Duration", new[] { "30", "60", "120", "300" }, saved.DurationSeconds == 30 ? 0 : saved.DurationSeconds == 120 ? 2 : saved.DurationSeconds == 300 ? 3 : 1);
             var targets = new ChoiceRow("Targets", Enumerable.Range(1, 7).Select(i => i.ToString()).ToArray(), saved.TargetCount - 1);
             var movement = new ChoiceRow("Movement", Enum.GetNames<Mods.Training.AimTrainerMovement>().Select(Mods.Training.TrainingLabels.Display).ToArray(), (int)saved.Movement);
+            void ConfigureDrill(bool changed)
+            {
+                var selected = (Mods.Training.AimTrainerDrill)drill.Index;
+                if (changed)
+                {
+                    if (selected == Mods.Training.AimTrainerDrill.StrafeTracking) movement.Index = (int)Mods.Training.AimTrainerMovement.HorizontalStrafe;
+                    else if (selected == Mods.Training.AimTrainerDrill.JumpTracking) movement.Index = (int)Mods.Training.AimTrainerMovement.JumpStrafe;
+                    else if (selected is Mods.Training.AimTrainerDrill.TimedFlick or Mods.Training.AimTrainerDrill.MultiTargetFlick) movement.Index = 0;
+                    if (selected == Mods.Training.AimTrainerDrill.MultiTargetFlick) targets.Index = 4;
+                    if (selected == Mods.Training.AimTrainerDrill.ImperialistPrecision) weapon.Index = (int)BeamType.Imperialist;
+                }
+                if (selected == Mods.Training.AimTrainerDrill.TimedFlick) targets.Index = 0;
+                if (selected == Mods.Training.AimTrainerDrill.MultiTargetFlick) targets.Index = Math.Clamp(targets.Index, 3, 4);
+                targets.IsEnabled = selected != Mods.Training.AimTrainerDrill.TimedFlick;
+                weapon.IsEnabled = selected != Mods.Training.AimTrainerDrill.ImperialistPrecision;
+            }
+            drill.Changed += (_, _) => ConfigureDrill(true);
+            targets.Changed += (_, _) => ConfigureDrill(false);
+            ConfigureDrill(false);
+            ControllerNav.Identify(drill, "offline.training.drill");
+            ControllerNav.Identify(targets, "offline.training.targets");
+            ControllerNav.Identify(movement, "offline.training.movement");
             var difficulty = new ChoiceRow("Difficulty", Enum.GetNames<Mods.Training.TrainingDifficulty>(), (int)saved.Difficulty);
             var distance = new ChoiceRow("Target distance", Enum.GetNames<Mods.Training.TrainingDistance>(), (int)saved.Distance);
             var scope = new ChoiceRow("Imperialist scope", Enum.GetNames<Mods.Training.TrainingScope>(), (int)saved.Scope);
             var heads = new ToggleRow("Headshots only", saved.HeadshotsOnly);
+            void ConfigureHeadshots()
+            {
+                bool required = (Mods.Training.AimTrainerDrill)drill.Index == Mods.Training.AimTrainerDrill.HeadshotPrecision;
+                if (required) heads.On = true;
+                heads.IsEnabled = !required;
+            }
+            drill.Changed += (_, _) => ConfigureHeadshots();
+            ConfigureHeadshots();
             var ammo = new ToggleRow("Infinite ammo", saved.InfiniteAmmo);
-            var reload = new ToggleRow("Reload on hit", saved.ReloadOnHit);
+            var reload = new ToggleRow("Refill ammo on hit", saved.ReloadOnHit);
+            var clickReload = new ToggleRow("Imperialist: click skips reload", !saved.NormalImperialistReload);
             var seed = new ToggleRow("Fixed seed", saved.FixedSeed);
-            var advancedView = new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("TRAINING OPTIONS"), difficulty, scope, distance, heads, ammo, reload, seed,
+            var advancedView = new PrimePanel(PrimeChrome.Stack(PrimeChrome.Title("TRAINING OPTIONS"), difficulty, scope, distance, heads, ammo, reload, clickReload, seed,
                 new PrimeButton("DONE", _overlays.Close)));
             var advanced = new PrimeButton("ADVANCED TRAINING OPTIONS", () => _overlays.Show(advancedView, PrimeModalSize.Medium));
             var start = new PrimeButton("▷ INITIATE TRAINING", () => Launched?.Invoke(this,
@@ -132,12 +163,12 @@ namespace MphRead.Mods.Launcher.Gui
                     Difficulty = (Mods.Training.TrainingDifficulty)difficulty.Index,
                     Distance = (Mods.Training.TrainingDistance)distance.Index,
                     Scope = (Mods.Training.TrainingScope)scope.Index, HeadshotsOnly = heads.On,
-                    InfiniteAmmo = ammo.On, ReloadOnHit = reload.On, FixedSeed = seed.On,
+                    InfiniteAmmo = ammo.On, ReloadOnHit = reload.On, NormalImperialistReload = !clickReload.On, FixedSeed = seed.On,
                     Seed = seed.On ? saved.Seed : (uint)Random.Shared.Next(1, int.MaxValue)
                 }, Enum.Parse<Hunter>(trainerHunter.Value), _suit.Index)), true) { IsEnabled = GameFiles.Ready };
             ControllerNav.Identify(start, "offline.training.start");
             return WithAction(PrimeChrome.Stack(new PrimeBadge("MODE 02 // TARGETING SIMULATION"),
-                PrimeChrome.Title("AIM TRAINER"), PrimeChrome.Text("Train tracking, flicks, headshots and weapon accuracy."),
+                PrimeChrome.Title("AIM TRAINER"), PrimeChrome.Text("Timed Flick: hit before 1.5 seconds. Multi Target Flick: 4–5 targets across ground and elevated platforms. Imperialist reload can be skipped with each new click; holding fire keeps normal timing."),
                 trainerHunter, drill, weapon, duration, targets, movement, advanced), start);
         }
         private static Control WithAction(Control content, Control action)

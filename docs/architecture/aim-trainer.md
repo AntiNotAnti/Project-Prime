@@ -2,9 +2,28 @@
 
 Offline → Aim Trainer launches PRIME AIM LAB using an ordinary local Battle scene.
 The scene owns the session, target controllers, fixed-step clock and shot ledger.
-The seven launch drills use actual hunter entities and the normal weapon collision
+The nine launch drills use actual hunter entities and the normal weapon collision
 and controller aim-assist paths. No training game mode, packet, match-rule field,
 protocol version or Hunter License submission is introduced.
+
+## Speed drills and settings
+
+- Timed Flick uses one target with a 90-frame (1.5-second) lifetime and an
+  18-frame acquisition gap after a hit or timeout. Expired targets are counted.
+- Multi Target Flick presents four or five distinct targets at once, including
+  two elevated targets (at least one on a high platform). Each hit target returns
+  in a different available position after the acquisition gap. This drill does
+  not time targets out, so score and throughput reward switching speed.
+- The arena has platforms at heights 4, 8, 12 and 16. Moving targets use ground
+  lanes outside Multi Target Flick; elevated movers have tighter bounds.
+- Every explicit movement choice is honored. Tracking presets visibly select
+  strafe or jump-strafe; ordinary precision/flick drills preserve target count.
+- Imperialist ignores its shot cooldown only on a fresh fire press in training,
+  by default. Holding fire retains normal timing. Advanced options can restore
+  ordinary reload timing. “Refill ammo on hit” is separate from shot cooldown.
+- Multi-target hits score and hide each contacted target independently while
+  shot accuracy counts each shot once. Personal-best keys are versioned so scores
+  using the new timing/scoring rules do not compete with old records.
 
 ## Runtime boundaries
 
@@ -44,6 +63,15 @@ flick positions, long-distance lanes, elevated platforms and a separate jump-pad
 lane. Motion uses normal movement/jump controls, including difficulty speed and
 cadence; tracking targets are not teleported during active segments.
 
+## Audit regression coverage
+
+The trainer suite checks every movement pattern in real scene simulation,
+seven-target respawn exhaustion, exact target lifetime boundaries, multi-target
+platform support and distinct positions, splash scoring, held versus fresh-click
+Imperialist fire, normal reload timing, and launcher preset visibility. The real
+OpenGL startup check accepts `-trainingdrill TimedFlick` or
+`-trainingdrill MultiTargetFlick`, with optional `-trainingcapture /path/image.png`.
+
 ## Verification
 
 Run from a build configured with the user's extracted game files:
@@ -79,3 +107,13 @@ and compiler fingerprint 7 rebuilds older output. The simulation check decodes
 the generated arena's textures; the window check loads it through `MatchStart`,
 verifies rendered frames and an advancing trainer timer, and closes cleanly.
 Both checks passed on Apple M4 Pro OpenGL on 2026-09-28 (29 trainer assertions).
+
+Audit on 2026-09-29: removed silent movement/count overrides, added timed and
+multi-target flick drills, corrected multi-target projectile scoring, bounded
+elevated movement and circular lanes, handled exhausted seven-target lanes, and
+added trainer-only fresh-press Imperialist cooldown bypass. Compact HUD placement
+keeps the central and elevated target field clear. The expanded trainer suite
+passed 80 simulation/configuration/UI checks; launcher UI passed 113 checks.
+Both new drills passed real OpenGL startup/readback and timer checks on macOS.
+Desktop and Android builds passed with existing warnings; Android device testing
+and physical controller/touch verification were not performed in this audit.

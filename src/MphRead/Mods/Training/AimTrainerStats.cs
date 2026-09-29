@@ -29,6 +29,7 @@ public sealed class AimTrainerStats
     public Dictionary<BeamType, AimTrainerStats> PerWeaponStats { get; } = new();
     public double DamageConnected { get; internal set; }
     public int TargetsSpawned { get; internal set; }
+    public int TargetsExpired { get; internal set; }
     public int TargetsHit { get; internal set; }
     public List<float> AngularTransitions { get; } = new();
     public List<int> ReactionSamples { get; } = new();

@@ -15,16 +15,16 @@ internal sealed class AimTrainerHud
     internal void Draw(AimTrainerSession session)
     {
         var s = session.Stats;
-        _scene.DrawHudFlatBox(4, 30, 85, 94, new Vector4(.04f,.09f,.15f,.8f));
+        _scene.DrawHudFlatBox(4, 153, 176, 188, new Vector4(.04f,.09f,.15f,.65f));
         string[] lines = { "AIM TRAINER", $"SCORE {s.Score}", session.Tracking ? $"TRACK {s.TrackingPercent:F1}%" : $"ACCURACY {s.Accuracy:F1}%",
             $"HEAD {s.HeadshotPercent:F1}%", $"STREAK {s.CurrentHitStreak}", session.Tracking ? $"LOCK {s.LongestContinuousTrack / 60.0:F2}S" : $"REACTION {s.AverageReactionMs:F0}MS",
-            $"TIME {session.Definition.DurationSeconds - (int)s.ElapsedTime}", session.Feedback };
-        float y = 33;
-        foreach (string line in lines) { Text(7, y, line); y += 7; }
+            $"TIME {session.Definition.DurationSeconds - (int)s.ElapsedTime}", $"EXPIRED {s.TargetsExpired}", session.Feedback };
+        for (int i = 0; i < lines.Length; i++)
+            Text(7 + (i % 2) * 85, 156 + (i / 2) * 6, lines[i]);
     }
     private void Text(float x, float y, string text)
     {
-        const float scale = .5f;
+        const float scale = .4f;
         _font.Alpha = 1;
         foreach (char ch in text)
         {

@@ -1138,7 +1138,8 @@ namespace MphRead.Entities
                 pbAuto = (int)(pbAuto * 15 / 90f);
                 _autofireCooldown = (ushort)((pbAuto + EquipWeapon.AutofireCooldown) * 2); // todo: FPS stuff
             }
-            if ((_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
+            if (_scene.AimTrainer?.SkipImperialistReload(this) != true
+                && (_timeSinceShot < EquipWeapon.ShotCooldown * 2 // todo: FPS stuff
                 || !pressed && _timeSinceShot < _autofireCooldown)
                 && (!IsBot || !AiData.Flags2.TestFlag(AiFlags2.Bit20)))
             {

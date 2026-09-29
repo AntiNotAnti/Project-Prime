@@ -15,6 +15,8 @@ namespace MphRead.Mods.Diagnostics
         private static bool _audio;
         private static bool _match;
         private static bool _training;
+        private static Training.AimTrainerDefinition _trainingDefinition;
+        private static string? _trainingCapture;
         private static Scene? _closingScene;
 
         public static int Run()
@@ -25,6 +27,15 @@ namespace MphRead.Mods.Diagnostics
             _closingScene = null;
             _audio = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-audiocheck");
             _training = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-trainingwindowcheck");
+            var args = Environment.GetCommandLineArgs();
+            int drillIndex = Array.IndexOf(args, "-trainingdrill");
+            var drill = drillIndex >= 0 && drillIndex + 1 < args.Length
+                && Enum.TryParse<Training.AimTrainerDrill>(args[drillIndex + 1], out var selected)
+                ? selected : Training.AimTrainerDrill.StaticPrecision;
+            _trainingDefinition = (Training.AimTrainerDefinition.Default with { Drill = drill, TargetCount = 5,
+                Weapon = BeamType.Imperialist }).Sanitize();
+            int captureIndex = Array.IndexOf(args, "-trainingcapture");
+            _trainingCapture = captureIndex >= 0 && captureIndex + 1 < args.Length ? args[captureIndex + 1] : null;
             _match = _training || Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-matchclosecheck");
             if (_match && !Launcher.GameFiles.Ready)
             {
@@ -61,7 +72,7 @@ namespace MphRead.Mods.Diagnostics
         // Called before buffer swap, after the same UI path used on first launch.
         internal static void AfterDraw(RenderWindow window)
         {
-            if (!_active || (++_frames != 20 && _frames != 40)) return;
+            if (!_active || (++_frames != 20 && _frames != (_training ? 180 : 40))) return;
             try
             {
                 if (_frames == 20)
@@ -106,8 +117,8 @@ namespace MphRead.Mods.Diagnostics
                         {
                             Kind = _training ? Launcher.LaunchKind.AimTrainer : Launcher.LaunchKind.Offline,
                             RoomKey = _training ? Launcher.AimTrainerLaunch.Room : "MP3 PROVING GROUND",
-                            Training = _training ? Training.AimTrainerDefinition.Default : null,
-                            Bots = _training ? 1 : 0,
+                            Training = _training ? _trainingDefinition : null,
+                            Bots = _training ? _trainingDefinition.TargetCount : 0,
                             Mode = GameMode.Battle, Hunter = Hunter.Samus, PlayerName = "Close check"
                         })) throw new InvalidOperationException("Match close check could not load its room.");
                         UiSurface.Current?.Hide();
@@ -119,6 +130,11 @@ namespace MphRead.Mods.Diagnostics
                     if (_match && !window.HasScene) throw new InvalidOperationException("Match ended before close check.");
                     if (_training && window.Scene.AimTrainer?.Stats.ElapsedFrames is not > 0)
                         throw new InvalidOperationException("Trainer did not advance after launch.");
+                    if (_training && window.Scene.Players.Main.CurrentWeapon != _trainingDefinition.Weapon)
+                        throw new InvalidOperationException("Trainer did not equip the selected weapon.");
+                    if (_training && _trainingCapture != null
+                        && !ScreenCapture.SaveWindow(width, height, _trainingCapture))
+                        throw new InvalidOperationException("Trainer capture failed.");
                     if (_match) _closingScene = window.Scene;
                     _passed = true;
                     window.Close();

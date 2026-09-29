@@ -13,7 +13,7 @@ public sealed class AimTrainerSession
     private sealed class Shot
     {
         internal int Frame;
-        internal bool Hit, Scored, Scoped, Charged;
+        internal bool Hit, Scoped, Charged;
         internal Vector3 Direction;
         internal readonly Dictionary<int, int> TargetAttempts = new();
         internal readonly HashSet<int> HitTargets = new();
@@ -38,7 +38,12 @@ public sealed class AimTrainerSession
     public string Feedback { get; private set; } = "READY";
     public TrainingInputSource DominantInput => (TrainingInputSource)Array.IndexOf(_inputFrames, _inputFrames.Max());
     internal long CurrentShotId { get; private set; }
-    public bool Tracking => Definition.Drill is AimTrainerDrill.StrafeTracking or AimTrainerDrill.JumpTracking || Definition.Weapon == BeamType.ShockCoil;
+    public int TargetLifetimeFrames => Definition.Drill == AimTrainerDrill.TimedFlick ? 90
+        : Definition.Drill == AimTrainerDrill.MultiTargetFlick ? 0 : 480 - (int)Definition.Difficulty * 120;
+    internal bool SkipImperialistReload(PlayerEntity player) => Running && !Completed
+        && player == _scene.Players.Main && !Definition.NormalImperialistReload
+        && Definition.Weapon == BeamType.Imperialist && player.Controls.Shoot.IsPressed;
+    public bool Tracking => Definition.Drill is AimTrainerDrill.StrafeTracking or AimTrainerDrill.JumpTracking || Definition.Weapon == BeamType.ShockCoil && Definition.Drill is not (AimTrainerDrill.TimedFlick or AimTrainerDrill.MultiTargetFlick);
     private AimTrainerSession(Scene scene, LaunchPlan plan)
     {
         _scene = scene; Plan = plan; Definition = (plan.Training ?? AimTrainerDefinition.Default).Sanitize();
@@ -69,10 +74,14 @@ public sealed class AimTrainerSession
     {
         int previous = target.Anchor;
         Vector3 origin = _scene.Players.Main.Position;
+        bool elevated = Definition.Drill == AimTrainerDrill.MultiTargetFlick && target.Player.SlotIndex <= 2;
+        bool SuitableHeight(int i) => Definition.Drill == AimTrainerDrill.MultiTargetFlick
+            ? elevated ? TrainingTargetMotion.Anchors[i].Y > (target.Player.SlotIndex == 1 ? 7 : 1) : TrainingTargetMotion.Anchors[i].Y < 1
+            : Definition.Movement == AimTrainerMovement.Static || TrainingTargetMotion.Anchors[i].Y < 1;
         var candidates = new List<int>();
         for (int i = 0; i < TrainingTargetMotion.Anchors.Length; i++)
         {
-            if (i == previous || _targets.Values.Any(other => other != target && other.Anchor == i)) continue;
+            if (i == previous || !SuitableHeight(i) || _targets.Values.Any(other => other != target && other.Anchor == i)) continue;
             var direction = TrainingTargetMotion.Anchors[i] - origin;
             float range = direction.Length;
             if (Definition.Distance == TrainingDistance.Short && range > 28
@@ -84,8 +93,14 @@ public sealed class AimTrainerSession
             candidates.Add(i);
         }
         if (candidates.Count == 0)
-            for (int i = 0; i < TrainingTargetMotion.Anchors.Length; i++)
-                if (!_targets.Values.Any(other => other != target && other.Anchor == i)) candidates.Add(i);
+        {
+            var available = Enumerable.Range(0, TrainingTargetMotion.Anchors.Length)
+                .Where(i => SuitableHeight(i) && !_targets.Values.Any(other => other != target && other.Anchor == i)).ToList();
+            candidates.AddRange(available.Where(i => i != previous));
+            // Seven movers can occupy every ground lane. Reuse a lane only
+            // when there is genuinely no unoccupied alternative.
+            if (candidates.Count == 0) candidates.AddRange(available);
+        }
         target.Anchor = candidates[_random.Next(candidates.Count)];
         if (previous >= 0)
         {
@@ -122,11 +137,11 @@ public sealed class AimTrainerSession
         foreach (var target in _targets.Values)
         {
             if (target.WakeFrame > 0 && Stats.ElapsedFrames >= target.WakeFrame) Appear(target);
-            else if (!Tracking && target.WakeFrame == 0 && Stats.ElapsedFrames - target.Appeared >= 480 - (int)Definition.Difficulty * 120)
+            else if (!Tracking && TargetLifetimeFrames > 0 && target.WakeFrame == 0 && Stats.ElapsedFrames - target.Appeared >= TargetLifetimeFrames)
             {
                 target.WakeFrame = Stats.ElapsedFrames + 18;
                 target.Player.ModTrainingHide(true);
-                Stats.CurrentHitStreak = 0; Feedback = "TARGET TIMEOUT";
+                Stats.TargetsExpired++; Stats.CurrentHitStreak = 0; Feedback = "TARGET TIMEOUT";
                 if (Definition.HeadshotsOnly) Stats.Score -= 10;
             }
         }
@@ -152,7 +167,7 @@ public sealed class AimTrainerSession
         _shots.Add(CurrentShotId, shot);
         if (shot.Charged) Stats.ChargedShots++;
         Stats.ShotsFired++;
-        if (shot.TargetAttempts.Values.Contains(1)) Stats.FirstShotAttempts++;
+        Stats.FirstShotAttempts += shot.TargetAttempts.Values.Count(attempt => attempt == 1);
         if (player.EquipInfo.Zoomed) Stats.ScopedShots++;
     }
     internal void NoteProjectile(BeamProjectileEntity beam)
@@ -165,7 +180,7 @@ public sealed class AimTrainerSession
         if (!spawned && _shots.Remove(CurrentShotId, out var shot))
         {
             Stats.ShotsFired--; if (shot.Charged) Stats.ChargedShots--; if (shot.Scoped) Stats.ScopedShots--;
-            if (shot.TargetAttempts.Values.Contains(1)) Stats.FirstShotAttempts--;
+            Stats.FirstShotAttempts -= shot.TargetAttempts.Values.Count(attempt => attempt == 1);
             foreach (int slot in shot.TargetAttempts.Keys) _targets[slot].Attempts--;
         }
         CurrentShotId = 0;
@@ -203,9 +218,7 @@ public sealed class AimTrainerSession
         if (!shot.Hit) { shot.Hit = true; Stats.ShotsHit++; if (shot.Scoped) Stats.ScopedHits++; }
         if (Definition.HeadshotsOnly && !head) return true;
         _lastConnected = Stats.ElapsedFrames;
-        if (!shot.Scored)
         {
-            shot.Scored = true;
             bool firstShot = shot.TargetAttempts[victim.SlotIndex] == 1;
             if (firstShot) Stats.FirstShotHits++;
             Stats.TargetsHit++; Stats.CurrentHitStreak++; Stats.LongestHitStreak = Math.Max(Stats.LongestHitStreak, Stats.CurrentHitStreak);
@@ -238,6 +251,7 @@ public sealed class AimTrainerSession
         weaponStats.TrackingFrames = Stats.TrackingFrames; weaponStats.TrackingHitFrames = Stats.TrackingHitFrames;
         weaponStats.DamagePotential = Stats.DamagePotential; weaponStats.DamageConnected = Stats.DamageConnected;
         weaponStats.FreezeHits = Stats.FreezeHits; weaponStats.ElapsedFrames = Stats.ElapsedFrames; weaponStats.Score = Stats.Score;
+        weaponStats.TargetsExpired = Stats.TargetsExpired;
         weaponStats.TargetsSpawned = Stats.TargetsSpawned; weaponStats.TargetsHit = Stats.TargetsHit;
         weaponStats.ScopedShots = Stats.ScopedShots; weaponStats.ScopedHits = Stats.ScopedHits;
         weaponStats.FirstShotAttempts = Stats.FirstShotAttempts; weaponStats.FirstShotHits = Stats.FirstShotHits;

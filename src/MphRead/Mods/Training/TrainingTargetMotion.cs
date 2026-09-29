@@ -13,7 +13,7 @@ public sealed class TrainingTargetMotion
     private uint _state;
     public TrainingTargetMotion(uint seed) => _state = seed == 0 ? 1u : seed;
     public int Next(int count) { _state ^= _state << 13; _state ^= _state >> 17; _state ^= _state << 5; return (int)(_state % (uint)count); }
-    public static readonly Vector3[] Anchors = { new(-14, .1f, -8), new(-7, .1f, -18), new(7, .1f, -18), new(14, .1f, -8), new(-12, .1f, -30), new(12, .1f, -30), new(0, .1f, -38), new(-18, 4.1f, -20), new(18, 4.1f, -20) };
+    public static readonly Vector3[] Anchors = { new(-14, .1f, -8), new(-7, .1f, -18), new(7, .1f, -18), new(14, .1f, -8), new(-12, .1f, -30), new(12, .1f, -30), new(0, .1f, -38), new(-18, 4.1f, -20), new(18, 4.1f, -20), new(-9, 8.1f, -29), new(9, 12.1f, -34), new(0, 16.1f, -43) };
 }
 internal sealed class AimTrainerTargetController
 {
@@ -38,7 +38,7 @@ internal sealed class AimTrainerTargetController
             int phase = (frame + Player.SlotIndex * 17 + (int)(definition.Seed % 97)) / period;
             bool right = (phase & 1) == 0;
             var anchor = TrainingTargetMotion.Anchors[Anchor];
-            float width = definition.Movement == AimTrainerMovement.WideStrafe ? 9 : 5;
+            float width = anchor.Y > 1 ? 1.5f : definition.Movement == AimTrainerMovement.WideStrafe ? 9 : 5;
             if (Player.Position.X > anchor.X + width) right = false;
             if (Player.Position.X < anchor.X - width) right = true;
             // Targets face +Z, so their local right points toward world -X.
@@ -46,7 +46,13 @@ internal sealed class AimTrainerTargetController
             if (definition.Movement == AimTrainerMovement.Jump) c.MoveRight.IsDown = c.MoveLeft.IsDown = false;
             if (definition.Difficulty == TrainingDifficulty.Beginner && frame % 4 == 0) c.MoveRight.IsDown = c.MoveLeft.IsDown = false;
             if (definition.Movement is AimTrainerMovement.Jump or AimTrainerMovement.JumpStrafe or AimTrainerMovement.AirborneCrossing) c.Jump.IsDown = frame % (definition.Movement == AimTrainerMovement.AirborneCrossing ? 45 : 75) < 3;
-            if (definition.Movement == AimTrainerMovement.Circular) { c.MoveUp.IsDown = phase % 4 == 0; c.MoveDown.IsDown = phase % 4 == 2; }
+            if (definition.Movement == AimTrainerMovement.Circular)
+            {
+                c.MoveUp.IsDown = phase % 4 == 0;
+                c.MoveDown.IsDown = phase % 4 == 2;
+                if (Player.Position.Z > anchor.Z + width) { c.MoveUp.IsDown = false; c.MoveDown.IsDown = true; }
+                if (Player.Position.Z < anchor.Z - width) { c.MoveUp.IsDown = true; c.MoveDown.IsDown = false; }
+            }
             if (definition.Movement == AimTrainerMovement.RandomBurst && frame % 90 > 60) c.MoveLeft.IsDown = c.MoveRight.IsDown = false;
         }
         if (running && WakeFrame == 0 && definition.Movement != AimTrainerMovement.Static)

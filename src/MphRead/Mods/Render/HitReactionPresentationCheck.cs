@@ -13,6 +13,7 @@ internal static class HitReactionPresentationCheck
     {
         int priorCap = FrameTiming.FrameRateCap;
         bool priorPro = Features.ProHud, priorFixed = Features.FixedCrosshair;
+        bool priorWeapon = Features.FixedWeapon, priorProWeapon = Features.ProHudFixedWeapon;
         var priorGame = GameState.Current;
         var priorPlayers = PlayerEntity.LegacyRegistry;
         var priorRandom = Rng.Current;
@@ -26,6 +27,7 @@ internal static class HitReactionPresentationCheck
         {
             Features.ProHud = false;
             Features.FixedCrosshair = true;
+            Features.FixedWeapon = true;
             var scene = new Scene(new Vector2i(256, 192), SyntheticInput.CreateKeyboard(),
                 SyntheticInput.CreateMouse(), _ => { }, () => { }, initializeRuntime: false);
             scene.SetFreeCamera(false);
@@ -92,6 +94,19 @@ internal static class HitReactionPresentationCheck
                 var turn = Render(0);
                 Check(Near(turn.Camera, -Vector3.UnitX) && Near(turn.Cannon, before),
                     $"{rate} Hz camera and cannon turn immediately together");
+
+                Features.ProHud = true;
+                Features.ProHudFixedWeapon = false;
+                var dynamicStart = Render(0);
+                var dynamicMiddle = Render(.5);
+                var dynamicEnd = Render(1);
+                Check(Near(dynamicStart.Camera, forward)
+                    && Near(dynamicMiddle.Camera, (forward - Vector3.UnitX).Normalized())
+                    && Near(dynamicEnd.Camera, -Vector3.UnitX),
+                    $"{rate} Hz Pro HUD Dynamic interpolates camera through completed samples");
+                Check(Near(Render(.5, 10).Camera, dynamicMiddle.Camera),
+                    $"{rate} Hz Pro HUD Dynamic preserves easing with pending aim input");
+                Features.ProHud = false;
             }
             // Spectator/replay POV does not late-latch local input, but its
             // arm cannon must still consume the same fractional camera pose.
@@ -188,6 +203,7 @@ internal static class HitReactionPresentationCheck
         finally
         {
             Features.ProHud = priorPro; Features.FixedCrosshair = priorFixed;
+            Features.FixedWeapon = priorWeapon; Features.ProHudFixedWeapon = priorProWeapon;
             FrameTiming.FrameRateCap = priorCap;
             FrameTiming.Reset(); FrameTiming.ResetDiagnostics();
             GameState.Current = priorGame; PlayerEntity.LegacyRegistry = priorPlayers; Rng.Current = priorRandom;
