@@ -15,7 +15,8 @@ internal static class ReplayIdentityCompatibility
     internal const int OldestReplayProtocol = 4;
     internal static bool Supports(int protocol)
         => protocol >= OldestReplayProtocol && protocol <= NetConfig.ProtocolVersion;
-    internal static bool BestEffort(int protocol) => protocol < 24;
+    internal static bool BestEffort(int protocol)
+        => protocol >= OldestReplayProtocol && protocol < NetConfig.ProtocolVersion;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
     {
