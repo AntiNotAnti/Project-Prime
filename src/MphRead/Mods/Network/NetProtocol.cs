@@ -280,10 +280,9 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// The tail, or null when the sender is an older launcher that wrote
-        /// none. Every length is checked rather than trusted: the count byte
-        /// is the asker's and a truncated datagram must not read past the end
-        /// of what arrived.
+        /// Decode the protocol-34 rotation tail. Every length is checked rather
+        /// than trusted: the count byte is the asker's and a truncated datagram
+        /// must not read past the end of what arrived.
         /// </summary>
         private static List<HostRotationEntry>? ReadRotation(ReadOnlySpan<byte> src)
         {
