@@ -141,7 +141,7 @@ namespace MphRead.Mods.MapGen
                     throw new InvalidDataException("Unsafe package path: " + name);
                 // Windows recognizes device names before the first dot, even
                 // when the path has multiple extensions (CON.backup.tex).
-                string stem=part.Split('.')[0].ToUpperInvariant();
+                string stem=part.Split('.')[0].TrimEnd(' ','.').ToUpperInvariant();
                 if (stem is "CON" or "PRN" or "AUX" or "NUL"
                     || stem.Length==4 && (stem.StartsWith("COM",StringComparison.Ordinal)
                         || stem.StartsWith("LPT",StringComparison.Ordinal)) && stem[3] is >= '1' and <= '9')

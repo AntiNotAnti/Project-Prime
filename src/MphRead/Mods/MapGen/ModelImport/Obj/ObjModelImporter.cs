@@ -196,8 +196,15 @@ public sealed class ObjModelImporter : IModelImporter
             ||relative.Contains(':')||relative.Any(ch=>ch<32||"<>\"|?*".Contains(ch)))
             throw new InvalidDataException("Unsafe model asset path.");
         foreach(string part in relative.Split('/'))
-            if(part is "" or "." or ".."||part.EndsWith('.')||part.EndsWith(' '))
+        {
+            if(part is "" or "." or ".."||part.Trim()!=part||part.EndsWith('.'))
                 throw new InvalidDataException("Unsafe model asset path.");
+            string stem=part.Split('.')[0].TrimEnd(' ','.').ToUpperInvariant();
+            if(stem is "CON" or "PRN" or "AUX" or "NUL"
+                ||stem.Length==4&&(stem.StartsWith("COM",StringComparison.Ordinal)
+                    ||stem.StartsWith("LPT",StringComparison.Ordinal))&&stem[3] is >= '1' and <= '9')
+                throw new InvalidDataException("Unsafe model asset path.");
+        }
         return relative;
     }
 
