@@ -230,6 +230,14 @@ internal static class ReplayIdentityCompatibility
                 return protocol < 24 ? ReadOnlySpan<byte>.Empty : throw Malformed();
             return Expand(type, source, 1 + VoteStatePacket.MaxRoomBytes, 6);
         }
+        if (type == PacketType.SessionState && protocol < 24)
+        {
+            // SessionState evolved substantially before protocol 24. The replay's
+            // core world is still reconstructible from MatchState/Roster/Snapshot,
+            // so treat the old lobby/config packet as optional rather than parsing
+            // future fields out of historical bytes.
+            return ReadOnlySpan<byte>.Empty;
+        }
         if (type == PacketType.PostMatchReport)
         {
             if (source.Length != 3 + PostMatchReportPacket.MaxEntries * 44)
