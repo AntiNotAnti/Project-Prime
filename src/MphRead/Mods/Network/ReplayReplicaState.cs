@@ -8,7 +8,8 @@ using OpenTK.Mathematics;
 namespace MphRead.Mods.Network
 {
     internal readonly record struct ReplayOccupant(ushort Generation, Hunter Hunter,
-        byte Color, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0);
+        byte Color, sbyte Team, string Name, bool IsBot = false, byte BotLevel = 0,
+        byte DamageReduction = 0);
 
     /// <summary>Packet-visible replica values, with private lifecycle/order tracking.
     /// This decoder deliberately has no NetSession or NetPlayerLifecycle dependency.</summary>
@@ -132,7 +133,8 @@ namespace MphRead.Mods.Network
                         int slot = roster.Slots[i];
                         present[slot] = true;
                         SetOccupant(slot, new(roster.Generations[i], (Hunter)roster.Hunters[i],
-                            roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i]));
+                            roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
+                            roster.DamageReductions[i]));
                     }
                     for (int i = 0; i < present.Length; i++) if (!present[i]) SetOccupant(i, default);
                     accepted = true;
