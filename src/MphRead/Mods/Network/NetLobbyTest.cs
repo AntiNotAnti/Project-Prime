@@ -333,6 +333,29 @@ namespace MphRead.Mods.Network
                     Check(!answer.Started && starts==1,
                         "unknown later rotation package cannot launch a server");
                 }
+
+                string builtIn=Metadata.RoomMetadata.First(pair=>pair.Value.Multiplayer).Key;
+                var mixedRequest=new HostRequestPacket
+                {
+                    Protocol=NetConfig.ProtocolVersion,RoomKey=builtIn,
+                    MapIdentity=default,Policy=ServerSessionPolicy.Lobby,
+                    Rotation=new[]
+                    {
+                        new HostRotationEntry(builtIn,GameMode.Battle,default),
+                        new HostRotationEntry(secondDefinition.Name,GameMode.Battle,secondIdentity.PackageHash)
+                    }
+                };
+                Check(mixedRequest.RequiresMapPreparation,
+                    "built-in first map still prepares a later custom rotation entry");
+                HostedMapPreparation mixedPrepared=HostedMapRequests.PrepareArchivesAsync(
+                    mixedRequest,address,Path.Combine(root,"mixed-host-cache"),null,default)
+                    .GetAwaiter().GetResult();
+                HostedMapArchive? mixedLater=mixedPrepared.Find(
+                    secondDefinition.Name,secondIdentity.PackageHash);
+                Check(mixedLater!=null
+                    && MapContentIdentity.FromPackage(mixedLater.PackagePath).Matches(secondIdentity),
+                    "built-in-first remote rotation downloads its later exact custom package");
+
                 string cached=Path.Combine(root,"host-cache",identity.PackageHash+".ppmap");
                 string reused=HostedMapRequests.PrepareArchiveAsync(hostRequest,"https://unused.invalid/",Path.Combine(root,"host-cache"),null,default).GetAwaiter().GetResult();
                 Check(reused==cached,"verified host cache works without network");
