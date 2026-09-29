@@ -76,8 +76,39 @@ namespace MphRead.Mods.Render
         /// </summary>
         public static bool Drawn { get; private set; }
 
-        private static bool _failed;
         private static bool _said;
+        private static int _failureCount;
+        private static long _retryAfter;
+
+        private static int RetryDelay()
+        {
+            // 250, 500, 1000, then 2000 ms. A preview is decoration, so a
+            // broken driver/resource path must not turn the menu into a hot
+            // retry loop, but one bad frame must not disable it for the rest
+            // of the process either.
+            int shift = Math.Min(_failureCount, 3);
+            _failureCount++;
+            return Math.Min(250 << shift, 2000);
+        }
+
+        private static void DropSideScene()
+        {
+            Scene? scene = _scene;
+            _scene = null;
+            if (scene == null)
+            {
+                return;
+            }
+            try
+            {
+                scene.UnloadGl();
+            }
+            catch (Exception cleanup)
+            {
+                Mods.DebugLog.Line("ui",
+                    $"the failed hunter preview scene could not be released: {cleanup.Message}");
+            }
+        }
 
         /// <summary>
         /// The scene this owns. Kept for the life of the process rather than
@@ -96,7 +127,10 @@ namespace MphRead.Mods.Render
             Wanted = false;
             CanPresent = null;
             Drawn = false;
+            _failureCount = 0;
+            _retryAfter = 0;
             Scene.LauncherPreview = false;
+            Scene.PreviewDrawnLastFrame = false;
         }
 
         /// <summary>
@@ -109,12 +143,18 @@ namespace MphRead.Mods.Render
         public static void Draw(RenderWindow window, int width, int height)
         {
             Drawn = false;
-            if (_failed || !Wanted || CanPresent?.Invoke() == false || width <= 0 || height <= 0)
+            Scene.PreviewDrawnLastFrame = false;
+            if (!Wanted || CanPresent?.Invoke() == false || width <= 0 || height <= 0)
             {
                 Scene.LauncherPreview = false;
                 return;
             }
             if (Right - Left <= 0.001f || Bottom - Top <= 0.001f)
+            {
+                Scene.LauncherPreview = false;
+                return;
+            }
+            if (Environment.TickCount64 < _retryAfter)
             {
                 Scene.LauncherPreview = false;
                 return;
@@ -153,6 +193,11 @@ namespace MphRead.Mods.Render
                 Scene.PreviewRight = Right;
                 Scene.PreviewBottom = Bottom;
                 Drawn = scene!.ModDrawPreviewAlone(new Vector2i(width, height));
+                if (Drawn)
+                {
+                    _failureCount = 0;
+                    _retryAfter = 0;
+                }
                 if (Drawn && !_said)
                 {
                     // Once, when it first works. The rectangle is on the line
@@ -168,11 +213,21 @@ namespace MphRead.Mods.Render
             }
             catch (Exception ex)
             {
-                _failed = true;
                 Drawn = false;
                 Scene.LauncherPreview = false;
+                Scene.PreviewDrawnLastFrame = false;
+                // A side-scene failure used to latch _failed forever, which
+                // made HunterStand render its block fallback until restart.
+                // Throw away only our private scene. A live match scene is
+                // owned by the window and must never be torn down here.
+                if (!window.HasScene)
+                {
+                    DropSideScene();
+                }
+                int delay = RetryDelay();
+                _retryAfter = Environment.TickCount64 + delay;
                 Mods.DebugLog.Line("ui",
-                    $"the hunter preview could not be set up: {ex.Message}");
+                    $"the hunter preview failed; retrying in {delay} ms: {ex.Message}");
             }
         }
     }
