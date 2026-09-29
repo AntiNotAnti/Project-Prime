@@ -784,13 +784,13 @@ try
     }
     // Editor analysis keeps compiled geometry visible when a runtime
     // post-compile budget is exceeded, while runtime publication stays blocked.
-    var oversizedDefinition=new MapDefinition{Name="OVERSIZED_PREVIEW_CHECK",ScaleFactor=7};
+    var oversizedDefinition=new MapDefinition{Name="OVERSIZED_PREVIEW_CHECK",ScaleFactor=10};
     oversizedDefinition.Materials.Add(new(){TexScale=1});
-    oversizedDefinition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,0,0},Scale=new[]{1024f,1,1024f}}});
+    oversizedDefinition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,0,0},Scale=new[]{6000f,1,6000f}}});
     oversizedDefinition.Spawns.Add(new(){Position=new[]{0f,2,0}});
     var oversizedCompilation=MapCompiler.Compile(oversizedDefinition);
     Check(oversizedCompilation.Map!=null&&!oversizedCompilation.Validation.IsValid
-        && oversizedCompilation.Validation.Diagnostics.Any(d=>d.Message.Contains("Collision references")),
+        && oversizedCompilation.Validation.Diagnostics.Any(d=>d.Message.Contains("Collision grid cells")),
         "oversized map retains editor geometry with runtime budget errors");
 
     var oversizedScheduler=new MapBuildScheduler(Path.Combine(root,"oversized-cache"));
