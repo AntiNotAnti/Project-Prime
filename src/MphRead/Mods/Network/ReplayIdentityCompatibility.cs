@@ -4,15 +4,35 @@ using System.Buffers.Binary;
 
 namespace MphRead.Mods.Network;
 
-/// <summary>Upgrade recorded packets at playback boundaries, never on a live connection.</summary>
+/// <summary>
+/// Upgrades recorded packets at playback boundaries, never on a live connection.
+/// Historical replays are deliberately best-effort: missing fields get historical
+/// defaults and optional packet families may be ignored, while live peers still
+/// have to match <see cref="NetConfig.ProtocolVersion"/> exactly.
+/// </summary>
 internal static class ReplayIdentityCompatibility
 {
-    internal static bool Supports(int protocol) => protocol >= 24 && protocol <= NetConfig.ProtocolVersion;
+    internal const int OldestReplayProtocol = 4;
+    internal static bool Supports(int protocol)
+        => protocol >= OldestReplayProtocol && protocol <= NetConfig.ProtocolVersion;
+    internal static bool BestEffort(int protocol) => protocol < 24;
 
     internal static ReadOnlySpan<byte> Convert(ReadOnlySpan<byte> packet, int protocol)
     {
+        if (packet.IsEmpty) return packet;
+        if (!Supports(protocol)) throw new InvalidDataException("Unsupported replay protocol.");
+
         var converted = ConvertIdentity(packet, protocol);
-        if (protocol < 33 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.Roster
+        if (converted.IsEmpty) return converted;
+
+        PacketType type = (PacketType)converted[0];
+        if (protocol < 24 && type is PacketType.Intent or PacketType.SlotIntent)
+        {
+            converted = ConvertLegacyIntent(converted, protocol);
+            type = (PacketType)converted[0];
+        }
+
+        if (protocol < 33 && type == PacketType.Roster
             && converted.Length == 1 + RosterPacket.LegacySize)
         {
             byte[] expanded = New(PacketType.Roster, RosterPacket.Size);
@@ -25,28 +45,46 @@ internal static class ReplayIdentityCompatibility
             }
             converted = expanded; // new handicap byte remains zero for legacy recordings
         }
-        if (protocol < 30 && !converted.IsEmpty && (PacketType)converted[0] is PacketType.Intent or PacketType.SlotIntent)
+
+        if (protocol < 30 && type is PacketType.Intent or PacketType.SlotIntent)
         {
-            int prefix = (PacketType)converted[0] == PacketType.SlotIntent ? 2 : 1;
-            Require(converted.Length == prefix + IntentPacket.LegacyFullSize);
-            byte[] expanded = new byte[prefix + IntentPacket.FullSize];
-            converted.CopyTo(expanded); converted = expanded;
+            int prefix = type == PacketType.SlotIntent ? 2 : 1;
+            if (converted.Length == prefix + IntentPacket.LegacyFullSize)
+            {
+                byte[] expanded = new byte[prefix + IntentPacket.FullSize];
+                converted.CopyTo(expanded);
+                converted = expanded;
+            }
+            else
+            {
+                Require(converted.Length == prefix + IntentPacket.FullSize);
+            }
         }
-        if (protocol < 29 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.MatchState
-            && converted.Length == 104)
+
+        if (protocol < 29 && type == PacketType.MatchState
+            && converted.Length != 1 + MatchStatePacket.Size)
         {
+            Require(converted.Length is 96 or 104);
             byte[] expanded = new byte[1 + MatchStatePacket.Size];
             converted.CopyTo(expanded);
+            // Protocols before 12 had no stream identity on roster/snapshots/intents.
+            // Normalize the whole replay to the zero identity instead of inventing one.
+            if (protocol < 12)
+                BinaryPrimitives.WriteUInt16LittleEndian(expanded.AsSpan(14), 0);
             converted = expanded;
         }
-        if (protocol < 28 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.MatchState)
+
+        if (protocol < 28 && type == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
             byte[] result = converted.ToArray();
+            // Historical bits were negative ("disable X"). Current replay state stores
+            // the positive rule so a zero-filled old packet retains the old defaults.
             result[11] ^= MatchStatePacket.FlagShadowFreeze | MatchStatePacket.FlagSpawnProtection;
-            return result;
+            converted = result;
         }
-        if (protocol < 31 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.SessionState)
+
+        if (protocol is >= 24 and < 31 && type == PacketType.SessionState)
         {
             Require(converted.Length == 1 + SessionStatePacket.Protocol28Size);
             byte[] result = new byte[1 + SessionStatePacket.Size];
@@ -59,7 +97,8 @@ internal static class ReplayIdentityCompatibility
             BinaryPrimitives.WriteUInt32LittleEndian(result.AsSpan(1 + SessionStatePacket.Protocol28Size), modifiers);
             return result;
         }
-        if (protocol is >= 27 and < 31 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.PostMatchReport)
+
+        if (protocol is >= 27 and < 31 && type == PacketType.PostMatchReport)
         {
             Require(converted.Length == 1 + PostMatchReportPacket.HeaderSize + 8 * PostMatchReportPacket.LegacyEntrySize);
             byte[] result = New(PacketType.PostMatchReport, PostMatchReportPacket.Size);
@@ -69,13 +108,17 @@ internal static class ReplayIdentityCompatibility
                     .CopyTo(result.AsSpan(4 + i * PostMatchReportPacket.EntrySize));
             return result;
         }
-        if (protocol < 29 && !converted.IsEmpty && (PacketType)converted[0] is PacketType.Snapshot or PacketType.SnapshotFast)
+
+        if (protocol < 24 && type == PacketType.Snapshot)
+            return ConvertLegacySnapshot(converted, protocol);
+
+        if (protocol is >= 24 and < 29 && type is PacketType.Snapshot or PacketType.SnapshotFast)
         {
             var body = converted[1..];
             Require(body.Length >= SnapshotHeader.Size);
             var header = SnapshotHeader.Read(body);
             Require(header.PlayerCount <= 8);
-            bool fast = (PacketType)converted[0] == PacketType.SnapshotFast;
+            bool fast = type == PacketType.SnapshotFast;
             int oldSize = PlayerState.LegacySize - (fast ? 7 : 0);
             int newSize = oldSize + Mods.EnhancedHunters.EnhancedHunterNetState.Size;
             int oldTail = SnapshotHeader.Size + header.PlayerCount * oldSize;
@@ -91,7 +134,8 @@ internal static class ReplayIdentityCompatibility
             body[oldTail..].CopyTo(expanded.AsSpan(1 + SnapshotHeader.Size + header.PlayerCount * newSize));
             return expanded;
         }
-        if (protocol is 29 or 30 && !converted.IsEmpty && (PacketType)converted[0] == PacketType.MatchState)
+
+        if (protocol is 29 or 30 && type == PacketType.MatchState)
         {
             Require(converted.Length == 1 + MatchStatePacket.Size);
             byte[] result = converted.ToArray();
@@ -105,33 +149,91 @@ internal static class ReplayIdentityCompatibility
     private static ReadOnlySpan<byte> ConvertIdentity(ReadOnlySpan<byte> packet, int protocol)
     {
         if (protocol >= 27 || packet.IsEmpty) return packet;
-        if (!Supports(protocol)) throw new InvalidDataException("Unsupported replay protocol.");
         PacketType type = (PacketType)packet[0];
         ReadOnlySpan<byte> source = packet[1..];
+
         if (type == PacketType.Roster)
         {
-            int header = protocol >= 26 ? 18 : 17;
-            int entry = protocol >= 26 ? 27 : 25;
-            Require(source.Length == header + RosterPacket.MaxSlots * entry);
-            byte[] result = New(type, RosterPacket.Size);
-            source[..header].CopyTo(result.AsSpan(1));
+            if (protocol >= 13)
+            {
+                int header = protocol >= 26 ? 18 : 17;
+                int entry = protocol >= 26 ? 27 : 25;
+                Require(source.Length == header + RosterPacket.MaxSlots * entry);
+                byte[] result = New(type, RosterPacket.Size);
+                source[..header].CopyTo(result.AsSpan(1));
+                for (int i = 0; i < RosterPacket.MaxSlots; i++)
+                {
+                    var old = source.Slice(header + i * entry, entry);
+                    var row = result.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize);
+                    old[..5].CopyTo(row);
+                    CopyName(old.Slice(5, 16), row.Slice(5, PlayerNameCodec.MaxWireBytes));
+                    old[21..].CopyTo(row[(5 + PlayerNameCodec.MaxWireBytes)..]);
+                }
+                return result;
+            }
+
+            if (protocol == 12)
+            {
+                const int header = 15, entry = 23;
+                Require(source.Length == header + RosterPacket.MaxSlots * entry);
+                byte[] result = New(type, RosterPacket.Size);
+                source[..header].CopyTo(result.AsSpan(1));
+                for (int i = 0; i < RosterPacket.MaxSlots; i++)
+                {
+                    var old = source.Slice(header + i * entry, entry);
+                    var row = result.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize);
+                    old[..5].CopyTo(row);
+                    CopyName(old.Slice(5, 16), row.Slice(5, PlayerNameCodec.MaxWireBytes));
+                    old.Slice(21, 2).CopyTo(row[(5 + PlayerNameCodec.MaxWireBytes)..]);
+                }
+                return result;
+            }
+
+            int oldEntry = protocol >= 6 ? 21 : 20;
+            Require(source.Length == 1 + RosterPacket.MaxSlots * oldEntry);
+            byte[] legacy = New(type, RosterPacket.Size);
+            byte count = Math.Min(source[0], (byte)RosterPacket.MaxSlots);
+            legacy[1] = count;
             for (int i = 0; i < RosterPacket.MaxSlots; i++)
             {
-                var old = source.Slice(header + i * entry, entry);
-                var row = result.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize);
-                old[..5].CopyTo(row);
-                CopyName(old.Slice(5, 16), row.Slice(5, PlayerNameCodec.MaxWireBytes));
-                old[21..].CopyTo(row[(5 + PlayerNameCodec.MaxWireBytes)..]);
+                var old = source.Slice(1 + i * oldEntry, oldEntry);
+                var row = legacy.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.EntrySize);
+                row[0] = old[0];
+                row[1] = old[1];
+                int pingAt, nameAt;
+                if (protocol >= 6)
+                {
+                    row[2] = old[2];
+                    pingAt = 3; nameAt = 5;
+                }
+                else
+                {
+                    pingAt = 2; nameAt = 4;
+                }
+                old.Slice(pingAt, 2).CopyTo(row[3..]);
+                CopyName(old.Slice(nameAt, 16), row.Slice(5, PlayerNameCodec.MaxWireBytes));
+                if (i < count)
+                    BinaryPrimitives.WriteUInt16LittleEndian(row[(5 + PlayerNameCodec.MaxWireBytes)..], 1);
             }
-            return result;
+            return legacy;
         }
+
         if (type == PacketType.Chat)
+        {
+            if (source.Length != 2 + 16 + ChatPacket.MaxTextBytes)
+                return protocol < 24 ? ReadOnlySpan<byte>.Empty : throw Malformed();
             return Expand(type, source, 2, ChatPacket.MaxTextBytes);
+        }
         if (type == PacketType.VoteState)
+        {
+            if (source.Length != 1 + VoteStatePacket.MaxRoomBytes + 16 + 6)
+                return protocol < 24 ? ReadOnlySpan<byte>.Empty : throw Malformed();
             return Expand(type, source, 1 + VoteStatePacket.MaxRoomBytes, 6);
+        }
         if (type == PacketType.PostMatchReport)
         {
-            Require(source.Length == 3 + PostMatchReportPacket.MaxEntries * 44);
+            if (source.Length != 3 + PostMatchReportPacket.MaxEntries * 44)
+                return protocol < 24 ? ReadOnlySpan<byte>.Empty : throw Malformed();
             byte[] result = New(type, PostMatchReportPacket.Size);
             source[..3].CopyTo(result.AsSpan(1));
             for (int i = 0; i < PostMatchReportPacket.MaxEntries; i++)
@@ -153,6 +255,139 @@ internal static class ReplayIdentityCompatibility
         return packet;
     }
 
+    private static ReadOnlySpan<byte> ConvertLegacyIntent(ReadOnlySpan<byte> packet, int protocol)
+    {
+        PacketType type = (PacketType)packet[0];
+        int prefix = type == PacketType.SlotIntent ? 2 : 1;
+        Require(packet.Length >= prefix);
+        ReadOnlySpan<byte> source = packet[prefix..];
+
+        int oldCore = protocol <= 4 ? 69 : protocol <= 6 ? 73 : protocol <= 11 ? 74 : 88;
+        int oldState = protocol <= 6 ? 0 : protocol <= 18 ? 4 : protocol == 19 ? 8 : protocol == 20 ? 10 : 14;
+        Require(source.Length == oldCore || source.Length == oldCore + oldState);
+
+        byte[] result = new byte[prefix + IntentPacket.LegacyFullSize];
+        packet[..prefix].CopyTo(result);
+        Span<byte> destination = result.AsSpan(prefix);
+        source[..oldCore].CopyTo(destination);
+
+        if (protocol < 12)
+        {
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[74..], 0);
+            BinaryPrimitives.WriteUInt64LittleEndian(destination[76..], 0);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[84..], 1);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[86..], 1);
+            if (source.Length > oldCore)
+                source[oldCore..].CopyTo(destination[IntentPacket.Size..]);
+        }
+        else if (source.Length > oldCore)
+        {
+            source[oldCore..].CopyTo(destination[IntentPacket.Size..]);
+        }
+
+        // Protocol 18 replaced eight uint press masks with sixteen sequenced
+        // ushort edges in the same 32 bytes. Interpreting the older masks as
+        // edge records can create phantom repeated shots, so keep level buttons
+        // and omit those optional historical edges.
+        if (protocol < 18)
+            destination.Slice(21, IntentPacket.EdgeHistoryBytes).Clear();
+
+        return result;
+    }
+
+    private static ReadOnlySpan<byte> ConvertLegacySnapshot(ReadOnlySpan<byte> packet, int protocol)
+    {
+        ReadOnlySpan<byte> body = packet[1..];
+        int oldHeader = protocol < 12 ? 13 : SnapshotHeader.Size;
+        Require(body.Length >= oldHeader);
+        int count = protocol < 12 ? body[12] : SnapshotHeader.Read(body).PlayerCount;
+        Require(count is >= 0 and <= RosterPacket.MaxSlots);
+
+        int oldPlayer = protocol < 12 ? 64 : protocol == 12 ? 130 : protocol < 19 ? 114 : 117;
+        int oldTail = oldHeader + count * oldPlayer;
+        Require(body.Length >= oldTail);
+
+        int tailBytes = protocol < 12
+            ? NetMatchTimeSync.Size + NetHealthSync.HeaderSize
+            : body.Length - oldTail;
+        if (protocol >= 12)
+            Require(tailBytes >= NetMatchTimeSync.Size + NetHealthSync.HeaderSize);
+
+        byte[] result = new byte[1 + SnapshotHeader.Size + count * PlayerState.Size + tailBytes];
+        result[0] = (byte)PacketType.Snapshot;
+        if (protocol < 12)
+        {
+            body[..oldHeader].CopyTo(result.AsSpan(1));
+            // Stream identity did not exist yet. Zero is shared with the
+            // converted match/roster/intent packets for this replay.
+            result.AsSpan(1 + 13, SnapshotHeader.Size - 13).Clear();
+        }
+        else
+        {
+            body[..SnapshotHeader.Size].CopyTo(result.AsSpan(1));
+        }
+
+        for (int i = 0; i < count; i++)
+        {
+            ReadOnlySpan<byte> old = body.Slice(oldHeader + i * oldPlayer, oldPlayer);
+            Span<byte> current = result.AsSpan(1 + SnapshotHeader.Size + i * PlayerState.Size, PlayerState.Size);
+            ConvertLegacyPlayer(old, current, protocol);
+        }
+
+        Span<byte> tail = result.AsSpan(1 + SnapshotHeader.Size + count * PlayerState.Size);
+        if (protocol < 12)
+        {
+            tail.Clear();
+            // Empty health state for normalized match identity zero.
+            BinaryPrimitives.WriteUInt16LittleEndian(tail[NetMatchTimeSync.Size..], 0);
+        }
+        else
+        {
+            body[oldTail..].CopyTo(tail);
+        }
+        return result;
+    }
+
+    private static void ConvertLegacyPlayer(ReadOnlySpan<byte> source, Span<byte> destination, int protocol)
+    {
+        destination.Clear();
+        // Enhanced Hunter state did not exist. Its target slot uses FF as "none".
+        destination[PlayerState.LegacySize + 1] = byte.MaxValue;
+
+        if (protocol < 12)
+        {
+            Require(source.Length == 64);
+            source[..42].CopyTo(destination);
+            source.Slice(58, 6).CopyTo(destination[42..]);
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[48..], 1);
+            bool spawned = (source[1] & PlayerState.FlagSpawned) != 0;
+            BinaryPrimitives.WriteUInt16LittleEndian(destination[50..], spawned ? (ushort)1 : (ushort)0);
+            // Old single damage metadata has no generation/damage amount and
+            // cannot be reconstructed safely into the modern event history.
+            return;
+        }
+
+        if (protocol == 12)
+        {
+            Require(source.Length == 130);
+            source[..42].CopyTo(destination);
+            source.Slice(58, 6).CopyTo(destination[42..]);
+            source.Slice(64, 6).CopyTo(destination[48..]);
+            source.Slice(70, 4 * DamageEvent.Size).CopyTo(destination[54..]);
+            return;
+        }
+
+        if (protocol < 19)
+        {
+            Require(source.Length == 114);
+            source.CopyTo(destination);
+            return;
+        }
+
+        Require(source.Length == 117);
+        source.CopyTo(destination);
+    }
+
     private static byte[] Expand(PacketType type, ReadOnlySpan<byte> source, int before, int after)
     {
         Require(source.Length == before + 16 + after);
@@ -165,10 +400,21 @@ internal static class ReplayIdentityCompatibility
 
     private static void CopyName(ReadOnlySpan<byte> source, Span<byte> destination)
     {
-        // Legacy fields were ASCII with zero padding, independent of the native glyph codec.
         string name = ChatPacket.ReadAscii(source);
         PlayerNameCodec.TryEncode(PlayerNameCodec.Clamp(name), destination, out _);
     }
-    private static byte[] New(PacketType type, int size) { var result = new byte[size + 1]; result[0] = (byte)type; return result; }
-    private static void Require(bool valid) { if (!valid) throw new InvalidDataException("Malformed legacy identity packet."); }
+
+    private static byte[] New(PacketType type, int size)
+    {
+        var result = new byte[size + 1];
+        result[0] = (byte)type;
+        return result;
+    }
+
+    private static InvalidDataException Malformed()
+        => new("Malformed legacy replay packet.");
+    private static void Require(bool valid)
+    {
+        if (!valid) throw Malformed();
+    }
 }
