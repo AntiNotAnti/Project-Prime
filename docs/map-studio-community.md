@@ -21,7 +21,7 @@ available through the inspector and command palette.
 
 1. Open **Online → Community maps** and refresh. The default library address is
    `https://maps.rebooty.xyz/`; a different address can be entered and is remembered.
-   Upload credentials are never saved.
+   Publishing identity comes from Hunter License, so there is no creator secret to copy into Map Studio.
 2. Authors choose **Upload current**. Project Prime obtains a short-lived Community
    publishing ticket from the author's Hunter License automatically; no creator
    token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
