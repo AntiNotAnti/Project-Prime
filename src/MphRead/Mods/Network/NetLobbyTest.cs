@@ -464,6 +464,10 @@ namespace MphRead.Mods.Network
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
+            Check(1 + HostRequestPacket.Size + 1
+                + HostRequestPacket.MaxRotation * HostRequestPacket.RotationEntrySize
+                + 4 + NetworkMapIdentity.Size <= NetConfig.MaxPacketSize,
+                "full exact-identity hosted rotation fits one UDP datagram");
             var state = new SessionStatePacket { Phase = SessionPhase.Starting, Policy = ServerSessionPolicy.Lobby,
                 OwnerSlot = 7, MaxPlayers = 8, Revision = ushort.MaxValue, MatchId = 19,
                 RuleFlags = LobbyRuleFlags.RequireReady | LobbyRuleFlags.AllowJoinInProgress | LobbyRuleFlags.LockTeams,
