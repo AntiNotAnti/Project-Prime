@@ -80,7 +80,7 @@ namespace MphRead.Mods.Network
                 return cached.Frames;
             using var reader = DemoReader.Open(path);
             uint frames = reader?.DurationFrames ?? 0;
-            if (reader != null && reader.FormatVersion == 2)
+            if (reader != null && reader.FormatVersion <= 2)
                 while (reader.ReadNext() is DemoRecord record) frames = record.Frame;
             Durations[path] = (info.Length, info.LastWriteTimeUtc, frames);
             return frames;
@@ -108,12 +108,13 @@ namespace MphRead.Mods.Network
                 {
                     return found;
                 }
-                foreach (string path in System.IO.Directory
-                    .EnumerateFiles(directory, "*" + DemoFile.Extension + "*"))
+                foreach (string path in System.IO.Directory.EnumerateFiles(directory))
                 {
-                    if (!path.EndsWith(DemoFile.Extension, StringComparison.OrdinalIgnoreCase)
-                        && !path.EndsWith(DemoFile.Extension + ".part", StringComparison.OrdinalIgnoreCase))
-                        continue;
+                    bool prime = path.EndsWith(DemoFile.Extension, StringComparison.OrdinalIgnoreCase)
+                        || path.EndsWith(DemoFile.Extension + ".part", StringComparison.OrdinalIgnoreCase);
+                    bool fruity = path.EndsWith(DemoFile.LegacyExtension, StringComparison.OrdinalIgnoreCase)
+                        || path.EndsWith(DemoFile.LegacyExtension + ".part", StringComparison.OrdinalIgnoreCase);
+                    if (!prime && !fruity) continue;
 
                     var info = new FileInfo(path);
                     present.Add(info.Name);
@@ -129,7 +130,7 @@ namespace MphRead.Mods.Network
                     ReplayMetadata? metadata = reader?.Metadata;
                     if (reader != null && !ReplayIdentityCompatibility.Supports(reader.ProtocolVersion))
                         result = ReplayOpenResult.ProtocolMismatch;
-                    uint duration = reader?.FormatVersion == 2
+                    uint duration = reader?.FormatVersion <= 2
                         && Durations.TryGetValue(path, out var cached)
                         && cached.Bytes == info.Length
                         && cached.Modified == info.LastWriteTimeUtc
