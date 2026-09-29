@@ -431,7 +431,7 @@ namespace MphRead.Mods.Network
                 p4Roster[0] = (byte)PacketType.Roster; p4Roster[1] = 1;
                 int p4Row = 2; p4Roster[p4Row] = 0; p4Roster[p4Row + 1] = (byte)Hunter.Samus;
                 BinaryPrimitives.WriteUInt16LittleEndian(p4Roster.AsSpan(p4Row + 2), 25);
-                System.Text.Encoding.ASCII.GetBytes("LEGACY").CopyTo(p4Roster.AsSpan(p4Row + 4, 16));
+                System.Text.Encoding.ASCII.GetBytes("LEGACY").AsSpan().CopyTo(p4Roster.AsSpan(p4Row + 4, 16));
                 ReadOnlySpan<byte> p4RosterConverted = ReplayIdentityCompatibility.Convert(p4Roster, 4);
                 Require(RosterPacket.TryRead(p4RosterConverted[1..], out var p4RosterRead)
                     && p4RosterRead.Count == 1 && p4RosterRead.Slots[0] == 0
