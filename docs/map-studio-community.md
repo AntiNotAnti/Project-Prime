@@ -31,7 +31,8 @@ available through the inspector and command palette.
    installs, builds and registers that exact immutable version.
 4. **Online → Host current map** packages and installs the editor snapshot, then
    opens normal lobby creation with that map selected. Remote directory-managed
-   hosts can also fetch the first exact Community package before spawning a lobby.
+   hosts carry an exact package hash for every custom rotation entry and download
+   every missing package before spawning the isolated lobby server.
 5. Joining players do not need to pre-install a published map. The lobby advertises
    the exact package identity and Community source; clients download, verify, build,
    prewarm and report Ready before the server's normal start barrier releases.
