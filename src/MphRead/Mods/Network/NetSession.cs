@@ -1550,7 +1550,7 @@ namespace MphRead.Mods.Network
                     Array.Clear(SlotOccupied);
                     Array.Clear(SlotIsBot);
                     Array.Clear(SlotBotLevel);
-            Array.Clear(SlotDamageReduction);
+                    Array.Clear(SlotDamageReduction);
                     IsAuthority = false;
                     if (!_playback && Role == NetRole.Client)
                     {
