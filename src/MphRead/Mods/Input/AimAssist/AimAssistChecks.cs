@@ -818,6 +818,33 @@ namespace MphRead.Mods.Input.AimAssist
             const float dt = 1f / 60;
             var profile = AimAssistWeaponProfile.For(BeamType.PowerBeam);
 
+            // Compare actual camera output to the previous strength, including
+            // scoped profiles, rather than merely checking tuning constants.
+            foreach (BeamType weapon in new[] { BeamType.PowerBeam, BeamType.Imperialist,
+                BeamType.ShockCoil, BeamType.Missile })
+            foreach (float scope in new[] { 0f, 1f })
+            {
+                var stronger = AimAssistWeaponProfile.For(weapon, scope);
+                var previous = stronger with
+                {
+                    PositionGain = stronger.PositionGain / 2,
+                    TrackingGain = stronger.TrackingGain / 2,
+                    MaxPositionSpeed = stronger.MaxPositionSpeed / 2,
+                    MaxTrackingSpeed = stronger.MaxTrackingSpeed / 2,
+                    CorrectionBudgetDegrees = stronger.CorrectionBudgetDegrees / 2,
+                    CorrectionBudgetRecovery = stronger.CorrectionBudgetRecovery / 2
+                };
+                var target = new AimAssistTarget(1, 1, new(.2f, 0), new(0, 3),
+                    12, true, false);
+                var boosted = AimAssist.Apply(new AimAssistState(), new[] { target },
+                    Vector2.Zero, new Vector2(.4f, 0), 0, dt, true, stronger);
+                var baseline = AimAssist.Apply(new AimAssistState(), new[] { target },
+                    Vector2.Zero, new Vector2(.4f, 0), 0, dt, true, previous);
+                Check(baseline.X > 0 && boosted.X >= baseline.X * 1.95f
+                    && boosted.X <= .2f,
+                    $"{weapon} scope {scope}: doubled pull remains bounded by target");
+            }
+
             Check(profile.NormalizedAcquire > 2.9f
                 && profile.NormalizedRelease > 3.7f
                 && profile.TrackingGain > 1.20f

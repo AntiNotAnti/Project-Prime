@@ -14,6 +14,18 @@ clear history. A zoom transition does not: camera FOV is already the common angu
 unit, so the retained target, body/head confidence and target-motion history survive
 scope-in/out while transient flick and shot-commit state is cleared.
 
+The current strength pass doubles positional and tracking gains, their speed limits,
+and the correction budget and recovery relative to the previous profiles. The
+retained-follow scale ceiling also doubles, while its frequency stays unchanged.
+Friction strength increases by 50%, with up to 60% slowdown near precision edges.
+Validated head-flick capture has 2.5 times the previous snap-speed allowance (60
+degrees/second hip, 45 scoped), a 120 ms capture window, and faster settling.
+Intentional head refinement starts after 20 ms of candidate dwell; ordinary head
+refinement uses 50 ms. Head confidence and blending rise faster. Acquisition cones,
+weapon headshot ranges, visibility requirements and opposing-input release remain
+unchanged. These are strength limits, not a promise of a fixed multiplier on every
+camera sample: target distance, visibility and overshoot bounds still constrain output.
+
 ## Geometry and intent
 
 `AimAssistWorld` projects the presented player's collision cylinder into angular

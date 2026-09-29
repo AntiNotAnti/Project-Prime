@@ -3,15 +3,15 @@ namespace MphRead.Mods.Input.AimAssist
     // Deliberately not player preferences. Changes require regression and balance validation.
     public static class AimAssistTuning
     {
-        public const float HeadFlickCaptureSeconds = .090f, HeadFlickSnapGain = 75f;
+        public const float HeadFlickCaptureSeconds = .120f, HeadFlickSnapGain = 100f;
         // Flick capture already passed trajectory/alignment/visibility gates, so
         // it may settle a little faster than ordinary positional magnetism.
         // Keep the envelope unchanged; this only strengthens the final landing.
         public const float FlickSnapSpeedScale = 1.20f;
         // Ordinary aim correction is deliberately slow, but a flick that has
         // already passed all trajectory/LOS/target gates needs enough velocity
-        // to be perceptible before the 90 ms capture window ends.
-        public const float FlickSnapMaxSpeed = 24f, FlickSnapScopedMaxSpeed = 18f;
+        // to be perceptible before the 120 ms capture window ends.
+        public const float FlickSnapMaxSpeed = 60f, FlickSnapScopedMaxSpeed = 45f;
         public const float FlickDirectionalSpeed = 14f, FlickDirectionalMinMagnitude = .45f;
         // A fast same-direction turn may not change stick magnitude/direction
         // enough to trip the ordinary flick detectors, so arm on camera-speed
@@ -29,10 +29,10 @@ namespace MphRead.Mods.Input.AimAssist
         public const float HeadHorizontalPositionGain = 1.08f, HeadVerticalPositionGain = 1.95f;
         public const float HeadHorizontalTrackingGain = 1.08f, HeadVerticalTrackingGain = 1.38f;
         public const float AcquireCone = 8.25f, ReleaseCone = 10.5f, InnerCone = 2.6f;
-        public const float MinimumFriction = .60f;
+        public const float MinimumFriction = .40f;
         public const float RotationAssistMultiplier = 4.25f;
         public const float ChallengerRatio = 1.28f, InputAlignmentWeight = .16f;
-        public const float HeadDelay = .080f, IntentionalHeadDelay = .025f;
+        public const float HeadDelay = .050f, IntentionalHeadDelay = .020f;
         public const float MaxHeadBlend = .90f, IntentionalMaxHeadBlend = 1f;
         public const float HeadAcquireCone = 1.90f, HeadReleaseCone = 2.90f;
         public const float HeadIntentStick = .12f, HeadIntentAlignment = .30f;
@@ -42,7 +42,7 @@ namespace MphRead.Mods.Input.AimAssist
         public const float OcclusionGrace = .060f;
         public const float TrackingConfidenceMin = .26f, TrackingConfidenceRiseRate = 10f;
         public const float TrackingConfidenceDecayRate = 1.8f, TrackingConfidenceStrafeDecayRate = .50f;
-        public const float HeadConfidenceRiseRate = 14f, HeadConfidenceDecayRate = 3f;
+        public const float HeadConfidenceRiseRate = 20f, HeadConfidenceDecayRate = 3f;
         public const float StrafeTrackingMinimum = .24f, StrafeTrackingMaximum = .46f;
         public const float OccludedMotionDecayRate = 7f;
         public const float ShotCommitSeconds = .060f, ShotCommitFrictionScale = 1.24f;
@@ -50,7 +50,7 @@ namespace MphRead.Mods.Input.AimAssist
         public const float TrajectoryAcquireThreshold = .92f;
         public const float FreshTargetVisibility = .12f;
         public const float RetainedServoDelay = .050f;
-        public const float ServoScaleMax = 1.35f;
+        public const float ServoScaleMax = 2.70f;
         public const float PrecisionFilterReleaseRate = 2.5f;
         public const float VelocityFilterRate = 12f, HeadVelocityFilterRate = 16f;
         public const float MotionAccelerationRate = 18f, MaxTrackedAcceleration = 900f;
@@ -59,7 +59,7 @@ namespace MphRead.Mods.Input.AimAssist
         public const float MotionTransitionVelocityDelta = 22f;
         public const float MotionTransitionSeconds = .080f;
         public const float VisibilityRiseRate = 12f, VisibilityDecayRate = 20f;
-        public const float HeadBlendRate = 14f, HeadFallbackRate = 14f;
+        public const float HeadBlendRate = 20f, HeadFallbackRate = 14f;
         public const float IntentStart = .04f, IntentFull = .20f;
         public const float MaxTrackedSpeed = 120f, MotionDiscontinuity = 12f;
         public const float ScopeTransitionEpsilon = .015f;
@@ -218,22 +218,25 @@ namespace MphRead.Mods.Input.AimAssist
             };
         }
 
+        // Twice the previous correction gains, speed limits and sustained budget.
+        // Keep acquisition geometry and servo frequency stable: strength should
+        // improve following without acquiring unrelated targets or adding ringing.
         private static AimAssistWeaponProfile Strengthen(AimAssistWeaponProfile p)
             => p with
             {
                 Cone = p.Cone * 1.08f,
                 ReleaseCone = p.ReleaseCone * 1.10f,
-                FrictionStrength = System.Math.Min(.52f, p.FrictionStrength * 1.08f),
-                PositionGain = p.PositionGain * 1.08f,
-                TrackingGain = p.TrackingGain * 1.18f,
-                MaxPositionSpeed = p.MaxPositionSpeed * 1.10f,
-                MaxTrackingSpeed = p.MaxTrackingSpeed * 1.18f,
+                FrictionStrength = System.Math.Min(.70f, p.FrictionStrength * 1.62f),
+                PositionGain = p.PositionGain * 2.16f,
+                TrackingGain = p.TrackingGain * 2.36f,
+                MaxPositionSpeed = p.MaxPositionSpeed * 2.20f,
+                MaxTrackingSpeed = p.MaxTrackingSpeed * 2.36f,
                 NormalizedAcquire = p.NormalizedAcquire * 1.16f,
                 NormalizedRelease = p.NormalizedRelease * 1.14f,
                 NormalizedInner = p.NormalizedInner * 1.06f,
                 ServoFrequency = p.ServoFrequency * 1.14f,
-                CorrectionBudgetDegrees = p.CorrectionBudgetDegrees * 1.18f,
-                CorrectionBudgetRecovery = p.CorrectionBudgetRecovery * 1.08f
+                CorrectionBudgetDegrees = p.CorrectionBudgetDegrees * 2.36f,
+                CorrectionBudgetRecovery = p.CorrectionBudgetRecovery * 2.16f
             };
 
         private static AimAssistWeaponProfile Blend(AimAssistWeaponProfile a,
