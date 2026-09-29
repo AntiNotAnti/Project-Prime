@@ -269,7 +269,7 @@ namespace MphRead.Mods.Network
             // not into a log, and the rest of the launcher separates the same
             // way.
             string message = room.Length > 0
-                ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {players}"
+                ? $"{room} \u00B7 {ModeName(mode)} \u00B7 {MatchTypeCatalog.MatchupLabel(mode, status.Format)} \u00B7 {players}"
                 : players;
             string modifiers = new MatchDefinition { InstaGib = status.Rules.HasFlag(MatchModifierFlags.InstaGib),
                 LowTier = status.Rules.HasFlag(MatchModifierFlags.LowTier), NoImperialist = status.Rules.HasFlag(MatchModifierFlags.NoImperialist) }.ModifierSummary;
@@ -299,18 +299,7 @@ namespace MphRead.Mods.Network
             };
         }
 
-        /// <summary>"BattleTeams" -> "Battle Teams", for a screen rather than a log.</summary>
-        public static string ModeName(GameMode mode)
-        {
-            if (mode == GameMode.InstaGib) return "Battle";
-            string name = mode.ToString();
-            var builder = new System.Text.StringBuilder(name.Length + 4);
-            for (int i = 0; i < name.Length; i++)
-            {
-                if (i > 0 && Char.IsUpper(name[i])) builder.Append(' ');
-                builder.Append(name[i]);
-            }
-            return builder.ToString();
-        }
+        /// <summary>Player-facing game type name. Team organization is displayed separately.</summary>
+        public static string ModeName(GameMode mode) => MatchTypeCatalog.BaseLabel(mode);
     }
 }

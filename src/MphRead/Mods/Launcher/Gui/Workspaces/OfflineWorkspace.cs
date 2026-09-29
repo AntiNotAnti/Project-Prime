@@ -7,6 +7,7 @@ using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
 using MphRead.Entities;
+using MphRead.Mods.Network;
 namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed class OfflineWorkspace : UserControl, IPrimeWorkspace
@@ -15,7 +16,7 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly MenuSettings _settings;
         private readonly IReadOnlyList<string> _rooms;
         private readonly PrimeOverlayHost _overlays;
-        private readonly ChoiceRow _hunter, _suit, _mode, _bots, _skill;
+        private readonly ChoiceRow _hunter, _suit, _mode, _format, _bots, _skill;
         private readonly PrimeButton _map, _resume, _newRun, _start;
         private readonly TextBlock _saveDetail;
         private readonly PrimeButton[] _slots = new PrimeButton[AdventureSave.SlotCount];
@@ -29,7 +30,12 @@ namespace MphRead.Mods.Launcher.Gui
             var names = Multiplayer.HunterRules.Pool(settings.LowTier == "on").Select(h => h.ToString()).Append("Random").ToArray();
             _hunter = new ChoiceRow("Hunter", names, Math.Max(0, Array.IndexOf(names, LauncherPrefs.LastHunter.ToString())));
             _suit = new ChoiceRow("Suit", new[] { "1", "2", "3", "4" }, Math.Clamp(LauncherPrefs.LastColor, 0, 3));
-            _mode = new ChoiceRow("Mode", OfflineLaunch.Modes.Select(m => m.Label).ToArray());
+            _mode = new ChoiceRow("Game type", MatchTypeCatalog.GameTypes.Select(m => m.Label).ToArray());
+            _format = new ChoiceRow("Matchup", MatchTypeCatalog.BasicMatchups.Select(m => m.Label).ToArray(),
+                settings.TeamPlay == "on" ? MatchTypeCatalog.BasicMatchupIndex(MatchFormat.Auto) : 0);
+            _mode.Changed += (_, _) => SyncMatchup();
+            _format.Changed += (_, _) => SyncMatchup();
+            SyncMatchup();
             _bots = new ChoiceRow("Combatants", Enumerable.Range(0, PlayerEntity.SlotCapacity).Select(i => i + " BOTS").ToArray(), Math.Clamp(LauncherPrefs.Bots, 0, 7));
             _skill = new ChoiceRow("Difficulty", new[] { "Easy", "Normal", "Hard", "Insane" }, Math.Clamp(LauncherPrefs.BotLevel, 0, 3));
             _map = new PrimeButton("SELECT ARENA", PickMap);
@@ -37,7 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
             var start = _start = new PrimeButton("▷ INITIATE BOT SIMULATION", () =>
             {
                 if (_room.Length == 0) return;
-                var plan = OfflineLaunch.Create(settings, _room, OfflineLaunch.Modes[_mode.Index].Mode,
+                var plan = OfflineLaunch.Create(settings, _room, SelectedMode(),
                     SelectedHunter(), _suit.Index, _bots.Index, _skill.Index);
                 if (!Multiplayer.MapModeCapabilities.Supports(_room, plan.Mode,
                     Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1)
@@ -52,7 +58,7 @@ namespace MphRead.Mods.Launcher.Gui
             ControllerNav.Identify(start, "offline.start");
             var botBody = PrimeChrome.Stack(new PrimeBadge("MODE 01 // TACTICAL SIMULATION"), PrimeChrome.Title("BOT SKIRMISH"),
                 PrimeChrome.Text("Configure a local arena match with Hunter bots.", 14, PrimeTheme.TextSecondaryBrush),
-                _bots, _skill, _map, _preview, _mode, new PrimeButton("ADVANCED MATCH RULES", Rules));
+                _bots, _skill, _map, _preview, _mode, _format, new PrimeButton("ADVANCED MATCH RULES", Rules));
             var bot = WithAction(botBody, start);
             _saveDetail = PrimeChrome.Text("", 13, PrimeTheme.TextSecondaryBrush);
             _resume = new PrimeButton("▷ RESUME", () => Adventure(false), true);
@@ -173,10 +179,27 @@ namespace MphRead.Mods.Launcher.Gui
             }
             else Launch();
         }
+        private GameMode SelectedMode()
+        {
+            MatchTypeDefinition type = MatchTypeCatalog.GameTypes[Math.Clamp(_mode.Index, 0, MatchTypeCatalog.GameTypes.Length - 1)];
+            MatchFormat format = MatchTypeCatalog.BasicMatchups[Math.Clamp(_format.Index, 0, MatchTypeCatalog.BasicMatchups.Length - 1)].Format;
+            return type.Resolve(MatchTypeCatalog.NormalizeFormat(type, format));
+        }
+
+        private void SyncMatchup()
+        {
+            MatchTypeDefinition type = MatchTypeCatalog.GameTypes[Math.Clamp(_mode.Index, 0, MatchTypeCatalog.GameTypes.Length - 1)];
+            MatchFormat normalized = MatchTypeCatalog.NormalizeFormat(type,
+                MatchTypeCatalog.BasicMatchups[Math.Clamp(_format.Index, 0, MatchTypeCatalog.BasicMatchups.Length - 1)].Format);
+            int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
+            if (_format.Index != index) _format.Index = index;
+            _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
+        }
+
         private void PickMap()
         {
             var picker = new MapCardPicker(_rooms, _room, room =>
-                Multiplayer.MapModeCapabilities.Supports(room, OfflineLaunch.Modes[_mode.Index].Mode,
+                Multiplayer.MapModeCapabilities.Supports(room, SelectedMode(),
                     Multiplayer.MatchWorldProfile.Resolve(_bots.Index + 1), out string reason, _bots.Index + 1) ? null : reason);
             picker.Done += (_, room) => { _room = room; Refresh(); _overlays.Close(); };
             picker.Cancelled += (_, _) => _overlays.Close();
@@ -187,7 +210,7 @@ namespace MphRead.Mods.Launcher.Gui
             var score = new FieldRow("Point goal", _settings.PointGoal, boxWidth: 88);
             var time = new FieldRow("Time limit (m:ss)", _settings.TimeLimit, boxWidth: 88);
             var objective = new FieldRow("Time goal (m:ss)", _settings.TimeGoal, boxWidth: 88);
-            GameMode selectedMode = OfflineLaunch.Modes[_mode.Index].Mode;
+            GameMode selectedMode = SelectedMode();
             score.IsVisible = !Network.MatchGoalRules.UsesTimeTarget(selectedMode) && selectedMode is not (GameMode.GunGame or GameMode.OneInTheChamber);
             time.IsVisible = selectedMode != GameMode.OneInTheChamber;
             objective.IsVisible = Network.MatchGoalRules.UsesTimeTarget(selectedMode);
@@ -231,7 +254,7 @@ namespace MphRead.Mods.Launcher.Gui
                     // so the first match saw the edit and the next reload restored 7:00/7.
                     // Treat APPLY RULES like the main settings screen: persist first, then
                     // keep the runtime settings facade in sync with the committed values.
-                    var rules = new Network.MatchDefinition { Mode = OfflineLaunch.Modes[_mode.Index].Mode,
+                    var rules = new Network.MatchDefinition { Mode = SelectedMode(),
                         InstaGib = instaGib.On, NoImperialist = noImperialist.On, Fiesta = fiesta.On };
                     if (!Multiplayer.MatchModifierRules.Validate(rules, out string reason)) { error.Text = reason; return; }
                     string oldAutoReset = _settings.AutoReset;

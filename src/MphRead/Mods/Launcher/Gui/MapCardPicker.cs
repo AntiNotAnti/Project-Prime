@@ -1,6 +1,7 @@
 #if MPHREAD_AVALONIA
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -48,9 +49,10 @@ namespace MphRead.Mods.Launcher.Gui
         public MapCardPicker(IReadOnlyList<string> rooms, string? selected, Func<string, string?>? incompatibility = null)
         {
             foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
+            string[] compatibleRooms = rooms.Where(room => Incompatibility(room) == null).ToArray();
             Background = Brushes.Transparent;
             Focusable = true;
-            _selected = selected != null && System.Linq.Enumerable.Contains(rooms, selected) ? selected : null;
+            _selected = selected != null && compatibleRooms.Contains(selected, StringComparer.OrdinalIgnoreCase) ? selected : null;
 
             var back = new PrimeButton("CANCEL", () => Cancelled?.Invoke(this, EventArgs.Empty));
             _use = new PrimeButton("USE MAP", () =>
@@ -90,22 +92,19 @@ namespace MphRead.Mods.Launcher.Gui
             Grid.SetRow(actions, 2); frame.Children.Add(actions);
             Content = frame;
 
-            if (rooms.Count == 0)
+            if (compatibleRooms.Length == 0)
             {
-                _note.Text = "No multiplayer rooms were found. Set the game files up from Settings.";
+                _note.Text = rooms.Count == 0
+                    ? "No multiplayer rooms were found. Set the game files up from Settings."
+                    : "No maps support the selected game type and matchup.";
                 _note.Foreground = GuiTheme.WarmBrush;
                 _use.IsEnabled = false;
                 return;
             }
 
-            foreach (string room in rooms)
+            foreach (string room in compatibleRooms)
             {
                 DeckTile tile = MapCardFactory.Create(room);
-                if (Incompatibility(room) is string reason)
-                {
-                    tile.Verb = "UNAVAILABLE";
-                    ToolTip.SetTip(tile, reason);
-                }
                 tile.Chosen = String.Equals(room, _selected, StringComparison.OrdinalIgnoreCase);
                 tile.Click += (_, _) => Select(tile);
                 _grid.Children.Add(tile);

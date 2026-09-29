@@ -73,29 +73,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         public event EventHandler? CreateRequested;
 
-        private static readonly (string Label, GameMode Mode)[] _modes =
-        {
-            ("Battle", GameMode.Battle),
-            ("Battle teams", GameMode.BattleTeams),
-            ("Survival", GameMode.Survival),
-            ("Survival teams", GameMode.SurvivalTeams),
-            ("Capture", GameMode.Capture),
-            ("Bounty", GameMode.Bounty),
-            ("Bounty teams", GameMode.BountyTeams),
-            ("Defender", GameMode.Defender),
-            ("Defender teams", GameMode.DefenderTeams),
-            ("Nodes", GameMode.Nodes),
-            ("Nodes teams", GameMode.NodesTeams),
-            ("Hardpoint", GameMode.Hardpoint),
-                ("Hardpoint teams", GameMode.HardpointTeams),
-                ("Gun Game", GameMode.GunGame),
-                ("One in the Chamber", GameMode.OneInTheChamber),
-                ("Kill Confirmed", GameMode.KillConfirmed),
-                ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
-                ("Headhunter", GameMode.Headhunter),
-                ("Relic", GameMode.Relic),
-                ("Prime hunter", GameMode.PrimeHunter)
-        };
+        private static readonly MatchTypeDefinition[] _modes = MatchTypeCatalog.GameTypes;
+        private static readonly MatchupDefinition[] _matchups = MatchTypeCatalog.BasicMatchups;
 
         private static readonly string[] _hunters =
             Enumerable.Range(0, Hunters.Playable).Select(i => ((Hunter)i).ToString())
@@ -151,6 +130,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private ChoiceRow? _hunter;
         private ChoiceRow? _mode;
+        private ChoiceRow? _format;
         private ChoiceRow? _bots;
         private ChoiceRow? _skill;
         private ChoiceRow? _resume;
@@ -1431,7 +1411,11 @@ namespace MphRead.Mods.Launcher.Gui
             // about not being online, offering a choice whose two halves have
             // different settings under them. Running a server is its own act
             // and it moved to Online, beside the servers it joins.
-            _mode = new ChoiceRow("Match type", _modes.Select(m => m.Label).ToArray());
+            _mode = new ChoiceRow("Game type", _modes.Select(m => m.Label).ToArray());
+            _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray());
+            _mode.Changed += (_, _) => SyncOfflineMatchup();
+            _format.Changed += (_, _) => SyncOfflineMatchup();
+            SyncOfflineMatchup();
             MakeHunterRows();
             _bots = new ChoiceRow("Bots",
                 Enumerable.Range(0, PlayerEntity.SlotCapacity)
@@ -1443,6 +1427,7 @@ namespace MphRead.Mods.Launcher.Gui
             // and they keep whatever the player set the last time it was up.
             _offlineRows.Clear();
             _offlineRows.Add(_mode);
+            _offlineRows.Add(_format);
             _offlineRows.Add(_hunter!);
             _offlineRows.Add(_suit!);
             _offlineRows.Add(_bots);
@@ -1539,6 +1524,24 @@ namespace MphRead.Mods.Launcher.Gui
             _list.SelectTag(current);
         }
 
+        private GameMode SelectedOfflineMode()
+        {
+            MatchTypeDefinition type = _modes[Math.Clamp(_mode?.Index ?? 0, 0, _modes.Length - 1)];
+            MatchFormat format = _matchups[Math.Clamp(_format?.Index ?? 0, 0, _matchups.Length - 1)].Format;
+            return type.Resolve(MatchTypeCatalog.NormalizeFormat(type, format));
+        }
+
+        private void SyncOfflineMatchup()
+        {
+            if (_mode == null || _format == null) return;
+            MatchTypeDefinition type = _modes[Math.Clamp(_mode.Index, 0, _modes.Length - 1)];
+            MatchFormat normalized = MatchTypeCatalog.NormalizeFormat(type,
+                _matchups[Math.Clamp(_format.Index, 0, _matchups.Length - 1)].Format);
+            int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
+            if (_format.Index != index) _format.Index = index;
+            _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
+        }
+
         private void StartMatch()
         {
             if (SelectedRoom() is not string roomKey)
@@ -1547,7 +1550,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _note.Foreground = GuiTheme.WarmBrush;
                 return;
             }
-            GameMode mode = _modes[_mode!.Index].Mode;
+            GameMode mode = SelectedOfflineMode();
             bool supported = Multiplayer.MapModeCapabilities.Supports(roomKey, mode,
                 Multiplayer.MatchWorldProfile.Resolve(1 + _bots!.Index), out string reason, 1 + _bots.Index);
             string? unsupported = supported ? null : reason;
