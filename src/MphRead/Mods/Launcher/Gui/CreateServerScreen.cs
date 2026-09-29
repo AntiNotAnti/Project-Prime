@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -1507,6 +1508,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 using var client = new MapCommunityClient(NetworkMapIdentity.ConfiguredDownloadSource());
                 _community = await client.BrowseAsync(_communityLifetime.Token, sort: "favorites");
+                _communityLoading = false;
                 if (_source.Index == 3) Fill();
             }
             catch (OperationCanceledException) when (_communityLifetime.IsCancellationRequested) { }
