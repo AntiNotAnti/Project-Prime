@@ -96,10 +96,14 @@ namespace MphRead.Mods.Network
             Check(owner.Roster.Count == 3 && rig.Server.PeerCount == 2 && owner.Roster.LobbyReady[at], "bot is a ready occupant, never a peer");
             rig.Expect(other, other.Command(LobbyCommandType.RemoveBot, target: slot), LobbyResultCode.NotOwner);
             rig.Expect(owner, owner.Command(LobbyCommandType.TransferOwner, target: slot), LobbyResultCode.TargetNotFound);
+            rig.Expect(owner, owner.Command(LobbyCommandType.SetHandicap, target: slot, reduction: 40), LobbyResultCode.Ok);
+            at = Array.IndexOf(owner.Roster.Slots, slot, 0, owner.Roster.Count);
+            Check(at >= 0 && owner.Roster.DamageReductions[at] == 40, "owner can handicap a bot");
             rig.Expect(owner, owner.Command(LobbyCommandType.UpdateBot, target: slot, hunter: (byte)Hunter.Random, level: 3), LobbyResultCode.Ok);
             at = Array.IndexOf(owner.Roster.Slots, slot, 0, owner.Roster.Count);
             Check(owner.Roster.Hunters[at] < 7 && owner.Roster.BotLevels[at] == 3
-                && owner.Roster.Generations[at] != generation, "bot update resolves random and advances generation");
+                && owner.Roster.DamageReductions[at] == 40
+                && owner.Roster.Generations[at] != generation, "bot update preserves handicap and advances generation");
             rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, level: 4), LobbyResultCode.InvalidConfiguration);
             rig.ReadyAll();
             rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
@@ -497,6 +501,17 @@ namespace MphRead.Mods.Network
             rosterBytes[RosterPacket.HeaderSize + 11 + RosterPacket.MaxNameBytes] = 15;
             Check(!RosterPacket.TryRead(rosterBytes, out _), "invalid roster handicap rejected");
             roster.Write(rosterBytes);
+            byte[] legacyRosterPacket = new byte[1 + RosterPacket.LegacySize];
+            legacyRosterPacket[0] = (byte)PacketType.Roster;
+            rosterBytes.AsSpan(0, RosterPacket.HeaderSize).CopyTo(legacyRosterPacket.AsSpan(1));
+            for (int i = 0; i < RosterPacket.MaxSlots; i++)
+                rosterBytes.AsSpan(RosterPacket.HeaderSize + i * RosterPacket.EntrySize, RosterPacket.LegacyEntrySize)
+                    .CopyTo(legacyRosterPacket.AsSpan(1 + RosterPacket.HeaderSize + i * RosterPacket.LegacyEntrySize));
+            ReadOnlySpan<byte> upgradedRosterPacket = ReplayIdentityCompatibility.Convert(legacyRosterPacket, 32);
+            Check(upgradedRosterPacket.Length == 1 + RosterPacket.Size
+                && RosterPacket.TryRead(upgradedRosterPacket[1..], out var upgradedRoster)
+                && upgradedRoster.DamageReductions.Take(upgradedRoster.Count).All(value => value == 0),
+                "protocol 32 roster upgrades with handicap disabled");
             for (int length = 0; length < rosterBytes.Length; length++) Check(!RosterPacket.TryRead(rosterBytes.AsSpan(0, length), out _), "truncated roster");
             Check(!new HostRequestPacket().RequireReady, "host requests default ready off");
             var host = new HostRequestPacket { Protocol = NetConfig.ProtocolVersion, MaxPlayers = 8, RoomKey = "room", ServerName = "test",
@@ -1001,6 +1016,11 @@ namespace MphRead.Mods.Network
             b.Loaded();
             rig.Wait(() => a.State.Value.Phase == SessionPhase.InMatch,
                 "barrier releases after ready countdown");
+            rig.Expect(a, a.Command(LobbyCommandType.SetHandicap, target: (byte)b.Slot, reduction: 0),
+                LobbyResultCode.InvalidPhase);
+            handicapIndex = Array.IndexOf(a.Roster.Slots, (byte)b.Slot, 0, a.Roster.Count);
+            Check(handicapIndex >= 0 && a.Roster.DamageReductions[handicapIndex] == 30,
+                "handicap is frozen while the match is active");
             rig.EndMatchForTest();
             rig.Wait(() => a.State.Value.Phase == SessionPhase.PostMatch, "results entered");
             Check(rig.Clients.All(c => c.OpenMapChoices == 0),
@@ -1010,6 +1030,9 @@ namespace MphRead.Mods.Network
             rig.Wait(() => a.State.Value.Phase == SessionPhase.Lobby,
                 "results return directly to lobby without ready/vote input", PostMatchWaitMilliseconds);
             rig.Stable();
+            handicapIndex = Array.IndexOf(a.Roster.Slots, (byte)b.Slot, 0, a.Roster.Count);
+            Check(handicapIndex >= 0 && a.Roster.DamageReductions[handicapIndex] == 30,
+                "handicap persists across the match-to-lobby cycle");
             Check(rig.Clients.All(c => c.State!.Value.Match.TimeLimitSeconds == 600
                     && c.State.Value.Match.PointGoal == 25),
                 "custom time and point limits survive the match-to-lobby cycle");
