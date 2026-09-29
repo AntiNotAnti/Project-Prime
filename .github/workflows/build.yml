@@ -39,10 +39,32 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
-  map-editor-checks:
-    name: map editor regressions
+  enhanced-hunter-checks:
+    name: enhanced hunter regressions
     needs: assets
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: enhanced rules, state and maximum packet budgets
+        run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: replication lane round trip
+        run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
+      - name: mixed-quality eight-player transport
+        run: dotnet run --project tools/nettest -c Release --no-build -- --transport-stress
+      - name: replay format compatibility
+        run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -replayformatcheck
+
+  map-editor-checks:
+    name: map editor regressions (${{ matrix.os }})
+    needs: assets
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v7
 
@@ -52,6 +74,37 @@ jobs:
 
       - name: map editor history and PK3 import regressions
         run: dotnet run --project tools/map-editor-check -c Release
+
+      - name: model import, collision and community focused checks
+        shell: bash
+        run: |
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --model-import-only
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --collision-only
+          dotnet run --no-build --project tools/map-editor-check -c Release -- --community-only
+
+      - name: isolated multiplayer and historical package acceptance
+        run: dotnet run --project tools/map-multiplayer-check -c Release -- "${{ runner.temp }}/map-multiplayer-check"
+
+      - name: Linux viewport with real GL
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0
+          xvfb-run -a --server-args="-screen 0 3840x2160x24" dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "$RUNNER_TEMP/mapviewportcheck"
+
+      - name: Windows and macOS viewport with real GL
+        if: runner.os != 'Linux'
+        run: dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -mapviewportcheck "${{ runner.temp }}/mapviewportcheck"
+
+      - name: map acceptance logs and viewport captures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-acceptance-${{ matrix.os }}
+          path: |
+            ${{ runner.temp }}/map-multiplayer-check
+            ${{ runner.temp }}/mapviewportcheck
+          if-no-files-found: warn
 
   controller-checks:
     name: input regressions (${{ matrix.os }})
@@ -145,6 +198,7 @@ jobs:
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --claim-stress
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --input-edges
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --dynamic-geometry
+          dotnet run --project tools/nettest/nettest.csproj -c Release -- --netcode-performance
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --reliable
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --queue-budget
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --load-lifecycle
@@ -413,6 +467,17 @@ jobs:
           -p:AndroidSdkDirectory="$ANDROID_HOME"
           -p:JavaSdkDirectory="$JAVA_HOME"
           -p:AcceptAndroidSDKLicenses=True
+
+      - name: Android custom-map package, download and runtime acceptance
+        run: bash tools/map-multiplayer-check/android-check.sh
+
+      - name: Android map acceptance logs
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: map-acceptance-android
+          path: ${{ runner.temp }}/map-android-*.txt
+          if-no-files-found: warn
 
       # The same check, on the head it was written for: this is the project
       # whose asset list drifted from the desktop's, and the APK builds and
