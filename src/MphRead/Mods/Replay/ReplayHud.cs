@@ -134,8 +134,12 @@ namespace MphRead.Mods.Replay
             }
             else if (ReplayController.State == ReplayState.Error)
             {
-                Text(scene, 49, 183, "Replay playback error", controlsAlpha, 207);
-                Text(scene, 49, 188, "Esc: menu, then Replay Studio", controlsAlpha, 207);
+                string reason = DemoPlayback.LastError ?? "Replay playback error";
+                const string prefix = "Replay playback stopped: ";
+                if (reason.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    reason = reason[prefix.Length..];
+                Text(scene, 49, 183, reason, controlsAlpha, 207);
+                Text(scene, 49, 188, "Replay Studio restored for recovery", controlsAlpha, 207);
             }
             else if (InputSourceTracker.Current == InputSource.Gamepad)
             {
