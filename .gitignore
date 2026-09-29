@@ -384,3 +384,6 @@ tools/hitrig/bin/
 # OBJ is authored importer source, not an MSBuild output directory.
 !src/MphRead/Mods/MapGen/ModelImport/Obj/
 !src/MphRead/Mods/MapGen/ModelImport/Obj/*.cs
+
+# Local document-preview renders are disposable output, not repository source.
+/tmp/pdfs/*.png
