@@ -246,6 +246,7 @@ namespace MphRead.Mods.Network
         private FileStream? _checkpointSpool;
         private readonly byte _version;
         private readonly uint _origin;
+        private readonly string _producerBuild;
         private readonly List<ReplayExpectedHash> _hashes = new();
         private ushort _hashSchema;
         private string _hashBuildId = "";
@@ -255,7 +256,7 @@ namespace MphRead.Mods.Network
 
         public ReplayWriterV3(string path, ReplayMetadata metadata)
         {
-            _version = metadata.FormatVersion; _origin = metadata.OriginRecordingFrame;
+            _version = metadata.FormatVersion; _origin = metadata.OriginRecordingFrame; _producerBuild = metadata.BuildId;
             _path = Path.GetFullPath(path);
             Directory.CreateDirectory(Path.GetDirectoryName(_path)!);
             // Never truncate an existing recording, including an orphan from a previous crash.
@@ -298,7 +299,7 @@ namespace MphRead.Mods.Network
             if (_version != 4 || bytes.Length is < 1 or > Replay.ReplayWorldCheckpoint.MaximumBytes
                 || frame > ReplayFormatV3.MaxFrame)
                 throw new InvalidDataException("Invalid durable replay checkpoint.");
-            using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes);
+            using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, _producerBuild);
             if (checkpoint.Frame != (ulong)frame + _origin) throw new InvalidDataException("Invalid durable replay checkpoint clock.");
             if (_checkpoints.Count > 0 && frame <= _checkpoints[^1].Frame) return;
             if (_checkpoints.Count >= ReplayFormatV3.MaxCheckpoints) return;

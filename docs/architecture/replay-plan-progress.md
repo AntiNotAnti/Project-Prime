@@ -54,3 +54,9 @@ No recorded `.ppdemo` fixture or extracted game assets were found in the checkou
 - Camera shortcuts are shown near the top of the editor. Free camera applies live FOV and roll, with a fullscreen readout. B adds a key; N selects the next; minus/equal change FOV; semicolon/apostrophe change roll. Brackets retain playback-speed bindings.
 - Save controls display progress, range errors and the saved path locally, honor the entered name, and offer a full-replay save without range marks. Recording completion feedback waits for the asynchronous writer and reports failures.
 - Desktop compilation completed with no errors and the same 21 warnings. These UI changes have not been exercised with a rendered replay or real input; the earlier automated-check results above predate this follow-up.
+
+## Replay Studio launch compatibility
+
+Fixed an unintended dependency between world-checkpoint fingerprints and the product assembly version. Generic type full names embedded `ProjectPrime, Version=...`, so v0.1.34 recordings were rejected by a local build despite identical field layouts. New fingerprints use version-independent type names. Legacy fingerprints are accepted only when recomputing the current schema with the recorded producer version yields an exact match; unknown layouts remain rejected. This applies to initial worlds, seeks and copied durable checkpoints.
+
+The actual MP3 Proving Ground recording that failed now passes 421 isolated playback frames, player/camera changes, four seeks and pause checks. Studio UI open/close/reopen and nine replay layout captures also pass. Added regressions for release-version compatibility and malformed fingerprints.

@@ -11,6 +11,15 @@ internal static class ReplayReviewCheck
 {
     internal static void Run(Action<bool, string> check)
     {
+        const string releaseContract = "455910DAF1D71841346B1B2692A3ACC3A4B742660CC34A485CCFF66999C2E273";
+        check(ReplayWorldCheckpoint.SupportsContract(releaseContract, "0.1.34+f0e01e09"),
+            "unchanged v0.1.34 replay layout rejected because of assembly version");
+        check(!ReplayWorldCheckpoint.SupportsContract(new string('0', 64), "0.1.34+f0e01e09"),
+            "unknown replay layout bypassed schema validation");
+        check(!ReplayWorldCheckpoint.SupportsContract("", "unknown"),
+            "invalid producer version accepted an empty checkpoint contract");
+        check(ReplayWorldCheckpoint.ComputeContract(true, "0.1.34") == ReplayWorldCheckpoint.ComputeContract(true, "9.8.7"),
+            "stable checkpoint contract depends on product version");
         foreach (int fps in ReplayExportRates.Supported)
         {
             var samples = new ReplayExportSampler(10000, 10060, fps);

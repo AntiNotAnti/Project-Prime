@@ -82,6 +82,13 @@ namespace MphRead.Mods
                 Environment.ExitCode = recovered ? 0 : 1;
                 return true;
             }
+#if MPHREAD_SHELL
+            if (HasFlag(args, "replayuicheck"))
+            {
+                Environment.ExitCode = Launcher.Gui.ReplayUiCheck.Run();
+                return true;
+            }
+#endif
             if (HasFlag(args, "replaycontrolcheck"))
             {
                 Environment.ExitCode = Network.ReplayControlCheck.Run();

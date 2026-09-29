@@ -89,7 +89,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (EditorActive) return;
             _libraryRoot = Content as Control;
-            EditorActive = true;
             var editor = new ReplayControlsView(shell: true);
             editor.Closed += (_, _) => close();
             editor.ResumeRequested += (_, _) => fullscreen();
@@ -101,6 +100,7 @@ namespace MphRead.Mods.Launcher.Gui
                 new PrimeButton("FULLSCREEN PLAYBACK", fullscreen));
             Grid.SetRow(actions, 2); viewport.Children.Add(actions);
             Content = PrimeChrome.Columns("1.7*,1*", viewport, new PrimePanel(editor));
+            EditorActive = true;
             EditorChanged?.Invoke();
         }
         public void CloseEditor()

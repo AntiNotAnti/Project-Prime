@@ -27,21 +27,25 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
     internal ReadOnlySpan<byte> Bytes => _data.Span;
     internal ReplayPayload Payload => _data;
     internal uint Frame { get; }
-    private ReplayWorldCheckpoint(ReplayPayload data, uint frame) { _data = data; Frame = frame; }
+    private readonly string _sourceContract;
+    private ReplayWorldCheckpoint(ReplayPayload data, uint frame, string? sourceContract = null) { _data = data; Frame = frame; _sourceContract = sourceContract ?? Contract; }
     private bool _disposed;
     public void Dispose() { if (!_disposed) { _disposed = true; _data.Release(); GC.SuppressFinalize(this); } }
     ~ReplayWorldCheckpoint() => Dispose();
-    internal static ReplayWorldCheckpoint FromBytes(ReadOnlySpan<byte> bytes)
+    internal static ReplayWorldCheckpoint FromBytes(ReadOnlySpan<byte> bytes, string? producerBuild = null)
     {
         if (bytes.Length > MaximumBytes) throw new InvalidDataException("Replay world exceeds its checkpoint budget.");
         var data = ReplayPayload.Copy(bytes);
         try
         {
             using var stream = data.OpenRead(); using var reader = new BinaryReader(stream);
-            if (reader.ReadUInt32() != Magic || reader.ReadUInt16() is < 1 or > Version || reader.ReadString() != Contract)
-                throw new InvalidDataException("Replay world checkpoint contract differs.");
+            if (reader.ReadUInt32() != Magic || reader.ReadUInt16() is < 1 or > Version)
+                throw new InvalidDataException("Unsupported replay world checkpoint format.");
+            string sourceContract = reader.ReadString();
+            if (!SupportsContract(sourceContract, producerBuild))
+                throw new InvalidDataException("This replay uses a different saved-world layout. Open it with the game version that recorded it.");
             reader.ReadString(); reader.ReadInt32(); reader.ReadUInt64();
-            return new(data, reader.ReadUInt32());
+            return new(data, reader.ReadUInt32(), sourceContract);
         }
         catch { data.Release(); throw; }
     }
@@ -74,13 +78,34 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         .OrderBy(t => t.ToString(), StringComparer.Ordinal).ToArray();
     private static readonly Dictionary<Type, ushort> TypeIds = ObjectTypes.Select((type, index) => (type, index))
         .ToDictionary(pair => pair.type, pair => checked((ushort)pair.index));
-    private static readonly string Contract = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-        // Explicit codec revision plus field/asset contract, not the git SHA.
-        // Unrelated commits must not invalidate durable clips.
-        "world-codec-1|" + string.Join('|', Fields.OrderBy(p => p.Key.FullName, StringComparer.Ordinal).Select(p => p.Key.FullName + ":" +
-            string.Join(',', p.Value.Select(f => f.DeclaringType!.FullName + "." + f.Name + ":" + f.FieldType))))
-        + string.Join('|', Types.Values.Where(t => t.IsValueType && !t.IsPrimitive && !t.IsEnum).OrderBy(t => t.FullName, StringComparer.Ordinal)
-            .Select(t => t.FullName + ":" + string.Join(',', ValueFields(t).Select(f => f.Name + ":" + f.FieldType)))))));
+    // FullName of a constructed generic embeds assembly versions for its
+    // arguments. Type.ToString preserves type identity without tying saves to
+    // the product version (e.g. ValueTuple<ChatLine, float>).
+    private static readonly string Contract = ComputeContract(stable: true);
+    private static readonly string LegacyContract = ComputeContract(stable: false);
+    internal static string ComputeContract(bool stable, string? producerBuild = null)
+    {
+        string TypeName(Type type) => stable ? type.ToString() : type.FullName!;
+        string schema = "world-codec-1|" + string.Join('|', Fields.OrderBy(p => p.Key.FullName, StringComparer.Ordinal)
+            .Select(p => TypeName(p.Key) + ":" + string.Join(',', p.Value.Select(f =>
+                TypeName(f.DeclaringType!) + "." + f.Name + ":" + f.FieldType))))
+            + string.Join('|', Types.Values.Where(t => t.IsValueType && !t.IsPrimitive && !t.IsEnum)
+                .OrderBy(t => t.FullName, StringComparer.Ordinal).Select(t => TypeName(t) + ":" +
+                    string.Join(',', ValueFields(t).Select(f => f.Name + ":" + f.FieldType))));
+        if (!stable && producerBuild != null)
+        {
+            string versionText = producerBuild.Split('+')[0].TrimStart('v');
+            if (!System.Version.TryParse(versionText, out var version)) return "";
+            var normalized = new System.Version(version.Major, version.Minor, Math.Max(0, version.Build), Math.Max(0, version.Revision));
+            var assembly = typeof(Scene).Assembly.GetName();
+            schema = schema.Replace(assembly.Name + ", Version=" + assembly.Version,
+                assembly.Name + ", Version=" + normalized, StringComparison.Ordinal);
+        }
+        return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(schema)));
+    }
+    internal static bool SupportsContract(string contract, string? producerBuild = null)
+        => contract.Length == 64 && (contract == Contract || contract == LegacyContract
+            || (producerBuild != null && contract == ComputeContract(stable: false, producerBuild)));
     private static Dictionary<Type, FieldInfo[]> CreateFields()
     {
         var result = new Dictionary<Type, FieldInfo[]>();
@@ -226,7 +251,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
                     if (value is ItemInstanceEntity item) writer.Write((int)item.ItemType);
                     if (value is HalfturretEntity turret) writer.Write(turret.Owner.SlotIndex);
                     if (value is SingleParticle single) writer.Write(SingleIdentity(single.ParticleDefinition));
-                    if (boundAccessors && ReplayCheckpointAccessors.Contract == Contract && ReplayCheckpointAccessors.Write(writer, value, _reference)) { }
+                    if (boundAccessors && (ReplayCheckpointAccessors.Contract == Contract || ReplayCheckpointAccessors.Contract == LegacyContract) && ReplayCheckpointAccessors.Write(writer, value, _reference)) { }
                     else if (Collection(type))
                     {
                         if (value is Array array)
@@ -272,7 +297,7 @@ internal sealed class ReplayWorldCheckpoint : IDisposable
         if (Bytes.Length > MaximumBytes || reader.ReadUInt32() != Magic) throw new InvalidDataException("Invalid replay world capsule.");
         ushort version = reader.ReadUInt16();
         if (version is < 1 or > Version
-            || reader.ReadString() != Contract || reader.ReadString() != replay.Scene.Room!.Meta.Name
+            || reader.ReadString() != _sourceContract || reader.ReadString() != replay.Scene.Room!.Meta.Name
             || reader.ReadInt32() != (int)replay.Scene.GameState.Mode || reader.ReadUInt64() != replay.MapHash)
             throw new InvalidDataException("Replay world checkpoint contract or room differs.");
         uint frame = reader.ReadUInt32(), rng1 = reader.ReadUInt32(), rng2 = reader.ReadUInt32();

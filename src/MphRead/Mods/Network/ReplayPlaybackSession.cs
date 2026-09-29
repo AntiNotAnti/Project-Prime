@@ -44,7 +44,7 @@ namespace MphRead.Mods.Network
         internal uint SourceFrame => _frame;
         internal Replay.ReplayWorldCheckpoint LoadCheckpoint(ReplayCheckpointIndex index)
         {
-            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index));
+            var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(_reader!.ReadCheckpoint(index), _reader.Metadata?.BuildId);
             if (checkpoint.Frame != (ulong)index.Frame + (_reader.Metadata?.OriginRecordingFrame ?? 0))
             { checkpoint.Dispose(); throw new InvalidDataException("Durable checkpoint clock differs from its index."); }
             return checkpoint;
@@ -204,7 +204,7 @@ namespace MphRead.Mods.Network
                 {
                     if (_host is not PassiveReplaySessionHost passive)
                         throw new InvalidDataException("This replay requires the isolated world player.");
-                    using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint);
+                    using var world = Replay.ReplayWorldCheckpoint.FromBytes(metadata.WorldCheckpoint, metadata.BuildId);
                     if (world.Frame != metadata.OriginRecordingFrame)
                         throw new InvalidDataException("Replay origin differs from its initial world.");
                     passive.State.RestoreCheckpoint(world.ConstructionState());

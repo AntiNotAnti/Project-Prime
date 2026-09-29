@@ -27,7 +27,7 @@ namespace MphRead.Mods.Network
             {
                 if (Session.Metadata?.WorldCheckpoint is { Length: > 0 } bytes)
                 {
-                    using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes);
+                    using var checkpoint = Replay.ReplayWorldCheckpoint.FromBytes(bytes, Session.Metadata?.BuildId);
                     checkpoint.Restore(this, playbackFrame: 0);
                 }
                 Scene.ReplayPoses = new(this, path);
