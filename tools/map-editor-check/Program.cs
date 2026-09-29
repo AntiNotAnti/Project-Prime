@@ -785,7 +785,7 @@ try
     // Editor analysis keeps compiled geometry visible when a runtime
     // post-compile budget is exceeded, while runtime publication stays blocked.
     var oversizedDefinition=new MapDefinition{Name="OVERSIZED_PREVIEW_CHECK",ScaleFactor=10};
-    oversizedDefinition.Materials.Add(new(){TexScale=1});
+    oversizedDefinition.Materials.Add(new(){TexScale=.1f});
     oversizedDefinition.Geometry.Add(new MapBox{Transform=new(){Position=new[]{0f,0,0},Scale=new[]{6000f,1,6000f}}});
     oversizedDefinition.Spawns.Add(new(){Position=new[]{0f,2,0}});
     var oversizedCompilation=MapCompiler.Compile(oversizedDefinition);
