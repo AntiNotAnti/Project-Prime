@@ -66,7 +66,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     internal static class ReplayLibraryIndex
     {
-        private const int Version = 3; // Re-evaluate legacy protocol compatibility after the identity codec upgrade.
+        private const int Version = 4; // Re-evaluate the universal legacy replay compatibility range.
         private sealed class Document
         {
             public int Version { get; set; } = ReplayLibraryIndex.Version;
