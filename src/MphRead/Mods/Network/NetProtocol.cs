@@ -1031,8 +1031,10 @@ namespace MphRead.Mods.Network
         // rides along for the same reason: it is a property of who is in the
         // slot, the server is the only party that can measure it for
         // everybody, and it already sends this packet every second.
-        public const int EntrySize = 1 + 1 + 1 + 2 + MaxNameBytes + 6;
+        public const int LegacyEntrySize = 1 + 1 + 1 + 2 + MaxNameBytes + 6;
+        public const int EntrySize = LegacyEntrySize + 1;
         public const int HeaderSize = 18;
+        public const int LegacySize = HeaderSize + MaxSlots * LegacyEntrySize;
         public const int Size = HeaderSize + MaxSlots * EntrySize;
         public ushort SessionRevision;
         public ushort MatchId;
@@ -1048,6 +1050,7 @@ namespace MphRead.Mods.Network
         public byte[] Colors;     // suit palette asked for, 0-3
         public byte[] Flags;
         public byte[] BotLevels;
+        public byte[] DamageReductions; // incoming damage reduction percent, server-authoritative
         public bool ContainsBots; // Sticky for the entire round, including late join bootstrap.
         public bool IsBot(int index) => Flags != null && (Flags[index] & 1) != 0;
         public ushort[] Pings;    // round trip to the server, milliseconds
@@ -1066,6 +1069,7 @@ namespace MphRead.Mods.Network
                 Colors = new byte[MaxSlots],
                 Flags = new byte[MaxSlots],
                 BotLevels = new byte[MaxSlots],
+                DamageReductions = new byte[MaxSlots],
                 Pings = new ushort[MaxSlots],
                 Names = new string[MaxSlots]
             };
@@ -1093,6 +1097,7 @@ namespace MphRead.Mods.Network
                 BinaryPrimitives.WriteUInt16LittleEndian(dest[(offset + 5 + MaxNameBytes)..], Generations[i]);
                 dest[offset + 9 + MaxNameBytes] = Flags?[i] ?? 0;
                 dest[offset + 10 + MaxNameBytes] = BotLevels?[i] ?? 0;
+                dest[offset + 11 + MaxNameBytes] = DamageReductions?[i] ?? 0;
                 offset += EntrySize;
             }
         }
@@ -1110,7 +1115,8 @@ namespace MphRead.Mods.Network
                 if (slot >= MaxSlots || (seen & (1 << slot)) != 0 || src[offset + 1] >= 7
                     || src[offset + 9 + MaxNameBytes] > 1 || src[offset + 10 + MaxNameBytes] > 3
                     || (src[offset + 9 + MaxNameBytes] == 0 && src[offset + 10 + MaxNameBytes] != 0)
-                    || src[offset + 2] > 3 || team < -1 || team > 3 || src[offset + 8 + MaxNameBytes] > 1)
+                    || src[offset + 2] > 3 || team < -1 || team > 3 || src[offset + 8 + MaxNameBytes] > 1
+                    || !PlayerHandicap.IsValid(src[offset + 11 + MaxNameBytes]))
                     return false;
                 seen |= 1 << slot;
             }
@@ -1135,6 +1141,7 @@ namespace MphRead.Mods.Network
                 roster.Colors[i] = src[offset + 2];
                 roster.Flags[i] = src[offset + 9 + MaxNameBytes];
                 roster.BotLevels[i] = src[offset + 10 + MaxNameBytes];
+                roster.DamageReductions[i] = src[offset + 11 + MaxNameBytes];
                 roster.Pings[i] = BinaryPrimitives.ReadUInt16LittleEndian(src[(offset + 3)..]);
                 roster.Names[i] = ReadName(src.Slice(offset + 5, MaxNameBytes));
                 roster.Teams[i] = unchecked((sbyte)src[offset + 7 + MaxNameBytes]);
@@ -2352,7 +2359,10 @@ namespace MphRead.Mods.Network
         // Protocol 28 adds Insta-Gib, Low Tier and No Imp session rules and positive,
         // default-off Shadow Freeze / Spawn Protection flags. Gameplay packet sizes
         // stay unchanged; status replies append the rule mask for browser presentation.
-        public const int ProtocolVersion = 32;
+        // Protocol 33 appends one authoritative per-slot damage-reduction byte to each
+        // roster entry. Older peers would stride the roster at the wrong width, so
+        // mixed builds must be refused at Hello.
+        public const int ProtocolVersion = 33;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
