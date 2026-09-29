@@ -930,6 +930,38 @@ namespace MphRead.Mods.Launcher.Gui
             return false;
         }
 
+        private ScrollViewer? WheelScroller(Point point)
+        {
+            if (_view == null) return null;
+            static bool CanScroll(ScrollViewer scroll) =>
+                scroll.IsVisible && scroll.Extent.Height > scroll.Viewport.Height + 1;
+
+            IInputElement? hit = _window.InputHitTest(point);
+            for (Visual? visual = hit as Visual; visual != null; visual = visual.GetVisualParent())
+            {
+                if (visual is ScrollViewer scroll && CanScroll(scroll))
+                    return scroll;
+            }
+
+            // A menu often has a fixed header/footer outside its scrolling body.
+            // When the pointer is over that chrome, use the largest visible
+            // vertical scroller on the page instead of making the wheel inert.
+            ScrollViewer? best = _view as ScrollViewer;
+            if (best != null && !CanScroll(best)) best = null;
+            double bestArea = best == null ? 0 : best.Bounds.Width * best.Bounds.Height;
+            foreach (Visual visual in _view.GetVisualDescendants())
+            {
+                if (visual is not ScrollViewer scroll || !CanScroll(scroll)) continue;
+                double area = scroll.Bounds.Width * scroll.Bounds.Height;
+                if (area > bestArea)
+                {
+                    best = scroll;
+                    bestArea = area;
+                }
+            }
+            return best;
+        }
+
         public void PointerWheel(double deltaX, double deltaY)
         {
             Deck.DrivingByPointer();
@@ -938,7 +970,22 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
-            _impl.MouseWheel(_pointer, new Vector(deltaX, deltaY), _modifiers);
+            // Native ScrollViewer handling and wheel-specific controls get
+            // first refusal. Map zoom, hunter preview zoom, replay timeline
+            // gestures and keybind capture therefore keep their existing wheel
+            // semantics. The fallback only covers an otherwise-unhandled menu.
+            if (_impl.MouseWheel(_pointer, new Vector(deltaX, deltaY), _modifiers) || deltaY == 0)
+                return;
+
+            ScrollViewer? scroll = WheelScroller(_pointer);
+            if (scroll == null) return;
+            double limit = Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height);
+            if (limit <= 0) return;
+            double step = Math.Clamp(scroll.Viewport.Height * 0.12, 32, 96);
+            double y = Math.Clamp(scroll.Offset.Y - deltaY * step, 0, limit);
+            if (Math.Abs(y - scroll.Offset.Y) < 0.01) return;
+            scroll.Offset = new Vector(scroll.Offset.X, y);
+            Invalidate();
         }
 
         public void KeyDown(Keys key, RawInputModifiers modifiers)
