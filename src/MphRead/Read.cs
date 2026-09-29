@@ -151,14 +151,23 @@ namespace MphRead
 
         internal static Model PrepareRoomModel(RoomMetadata meta) => GetRoomModel(meta);
 
-        private static Model GetRoomModel(RoomMetadata meta)
+        // Export must decode texels even in a server/check process. Do not reuse
+        // the simulation cache, whose models intentionally omit pixel data.
+        internal static Model GetRoomModelForExport(string name)
+        {
+            var (meta, _) = Metadata.GetRoomByName(name);
+            if (meta == null) throw new ProgramException("No room with this name is known.");
+            return GetRoomModel(meta, decodeTextures: true);
+        }
+
+        private static Model GetRoomModel(RoomMetadata meta, bool decodeTextures = false)
         {
             var recolors = new List<RecolorMetadata>()
             {
                 new RecolorMetadata("default", meta.ModelPath, meta.TexturePath ?? meta.ModelPath)
             };
             return ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, animationShare: null, recolors,
-                firstHunt: meta.FirstHunt || meta.Hybrid);
+                firstHunt: meta.FirstHunt || meta.Hybrid, decodeTextures: decodeTextures);
         }
 
         public static void RemoveModel(string name, bool firstHunt = false)
@@ -231,7 +240,7 @@ namespace MphRead
         }
 
         private static Model ReadModel(string name, string modelPath, string? animationPath, string? animationShare,
-            IReadOnlyList<RecolorMetadata> recolorMeta, bool firstHunt)
+            IReadOnlyList<RecolorMetadata> recolorMeta, bool firstHunt, bool decodeTextures = false)
         {
             string root = firstHunt ? Paths.FhFileSystem : Paths.FileSystem;
             string path = Paths.Combine(root, modelPath);
@@ -388,7 +397,7 @@ namespace MphRead
                     // asserts one entry per Texture and the fix-ups below
                     // index it -- what is dropped is the pixels, which on a
                     // full room are the single largest thing a load reads.
-                    textureData.Add(Mods.Headless.Active
+                    textureData.Add(Mods.Headless.Active && !decodeTextures
                         ? Array.Empty<TextureData>()
                         : GetTextureData(texture, textureBytes));
                 }

@@ -188,6 +188,15 @@ namespace MphRead.Mods.Launcher.Gui
             UpdateReplayBackground();
         }
 
+        internal void ShowTrainingLaunchFailure(string message)
+        {
+            _finished = false;
+            OpenTraining(true);
+            _prime.Overlays.Show(new PrimePanel(PrimeChrome.Stack(
+                PrimeChrome.Title("TRAINING COULD NOT START"), PrimeChrome.Text(message),
+                new PrimeButton("CLOSE", Pop))), PrimeModalSize.Small);
+        }
+
         internal void ShowReplayLaunchFailure(string message)
         {
             _finished = false;

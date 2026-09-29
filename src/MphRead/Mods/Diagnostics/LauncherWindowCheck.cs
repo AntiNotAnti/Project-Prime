@@ -14,6 +14,7 @@ namespace MphRead.Mods.Diagnostics
         private static int _frames;
         private static bool _audio;
         private static bool _match;
+        private static bool _training;
         private static Scene? _closingScene;
 
         public static int Run()
@@ -23,7 +24,8 @@ namespace MphRead.Mods.Diagnostics
             _frames = 0;
             _closingScene = null;
             _audio = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-audiocheck");
-            _match = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-matchclosecheck");
+            _training = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-trainingwindowcheck");
+            _match = _training || Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-matchclosecheck");
             if (_match && !Launcher.GameFiles.Ready)
             {
                 Console.Error.WriteLine("Match close check requires extracted game files.");
@@ -102,7 +104,10 @@ namespace MphRead.Mods.Diagnostics
                     {
                         if (!Launcher.MatchStart.Begin(window, GameState.LoadSettings(), new Launcher.LaunchPlan
                         {
-                            Kind = Launcher.LaunchKind.Offline, RoomKey = "MP3 PROVING GROUND",
+                            Kind = _training ? Launcher.LaunchKind.AimTrainer : Launcher.LaunchKind.Offline,
+                            RoomKey = _training ? Launcher.AimTrainerLaunch.Room : "MP3 PROVING GROUND",
+                            Training = _training ? Training.AimTrainerDefinition.Default : null,
+                            Bots = _training ? 1 : 0,
                             Mode = GameMode.Battle, Hunter = Hunter.Samus, PlayerName = "Close check"
                         })) throw new InvalidOperationException("Match close check could not load its room.");
                         UiSurface.Current?.Hide();
@@ -112,6 +117,8 @@ namespace MphRead.Mods.Diagnostics
                 else
                 {
                     if (_match && !window.HasScene) throw new InvalidOperationException("Match ended before close check.");
+                    if (_training && window.Scene.AimTrainer?.Stats.ElapsedFrames is not > 0)
+                        throw new InvalidOperationException("Trainer did not advance after launch.");
                     if (_match) _closingScene = window.Scene;
                     _passed = true;
                     window.Close();

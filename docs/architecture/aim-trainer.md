@@ -51,6 +51,7 @@ Run from a build configured with the user's extracted game files:
 ```
 ProjectPrime -trainingcheck
 ProjectPrime -trainingcheck -simulation -shots /path/to/captures
+ProjectPrime -windowcheck -trainingwindowcheck
 ProjectPrime -primeuicheck -shots /path/to/ui-captures
 ProjectPrime -gamepadcheck
 ```
@@ -70,3 +71,11 @@ Verification on 2026-09-28: desktop and Android builds succeeded. The trainer's
 and 909 controller checks. Desktop and both phone orientations were captured and
 inspected. The signed Android APK contains `assets/maps/aimlab.json`. Existing
 compiler/platform warnings remain; no new build errors were accepted.
+
+Startup regression: headless map generation previously omitted source texture
+pixels, then cached an arena that simulation could load but rendering could not.
+Map export now explicitly decodes textures outside the simulation model cache,
+and compiler fingerprint 7 rebuilds older output. The simulation check decodes
+the generated arena's textures; the window check loads it through `MatchStart`,
+verifies rendered frames and an advancing trainer timer, and closes cleanly.
+Both checks passed on Apple M4 Pro OpenGL on 2026-09-28 (29 trainer assertions).

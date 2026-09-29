@@ -505,6 +505,7 @@ namespace MphRead.Mods.Launcher.Gui
                     {
                         _front?.ShowReplayLaunchFailure(failure);
                     }
+                    else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(failure);
                     return;
                 }
 
@@ -547,6 +548,7 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     _front?.ShowReplayLaunchFailure("Could not open replay: " + ex.Message);
                 }
+                else if (plan.Kind == LaunchKind.AimTrainer) _front?.ShowTrainingLaunchFailure(ex.Message);
             }
         }
 

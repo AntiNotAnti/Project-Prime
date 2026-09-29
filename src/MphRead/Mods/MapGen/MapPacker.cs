@@ -114,7 +114,7 @@ namespace MphRead.Mods.MapGen
             {
                 return BuildModel(map, own);
             }
-            Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelInstance(def.TextureSource).Model : null;
+            Model? source = def.Materials.Any(m=>m.Texture==null) ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source?.Recolors[0];
             // copy only the textures the map asks for, remapping the IDs as we
             // go -- the texture and its palette are copied as a pair, so a
@@ -335,7 +335,7 @@ namespace MphRead.Mods.MapGen
             // geometry is compiled with an offset and uses these materials
             // appended after the BSP set.
             Model? source = def.Materials.Any(m => m.Texture == null)
-                ? Read.GetRoomModelInstance(def.TextureSource).Model : null;
+                ? Read.GetRoomModelForExport(def.TextureSource) : null;
             Recolor? recolor = source?.Recolors[0];
             var sourceTextures = new Dictionary<int, int>();
             var sourcePalettes = new Dictionary<int, int>();

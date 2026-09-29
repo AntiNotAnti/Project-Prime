@@ -67,6 +67,9 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     foreach (var (name, size) in new[] { ("desktop", new Size(1280, 720)), ("phone", new Size(960, 540)), ("short", new Size(800, 400)) })
                     {
+                        using var theatre = new TheatreWorkspace(manageStorage: false);
+                        theatre.ShowEditor(() => { }, () => { });
+                        if (Capture(theatre, Path.Combine(directory, "replay-editor-" + name + ".png"), size)) written++;
                         if (Capture(new PauseMenuView(offerWindowMode: true), Path.Combine(directory, "replay-controls-" + name + ".png"), size)) written++;
                         if (Capture(new PlayScreen(new MenuSettings(), RoomList(), PlayScreen.Face.Clips), Path.Combine(directory, "replay-library-" + name + ".png"), size)) written++;
                     }
@@ -74,7 +77,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             finally { DemoPlayback.Stop(); NetSession.Stop(); }
             Console.WriteLine($"[replayshot] {written} layouts written to {directory}");
-            return written == 6 ? 0 : 1;
+            return written == 9 ? 0 : 1;
         }
 
         public static int Run(string directory)

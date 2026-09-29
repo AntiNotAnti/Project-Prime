@@ -135,6 +135,7 @@ namespace MphRead.Mods.Launcher
             string? unplayable = MapGen.CustomRooms.WhyUnplayable(roomKey);
             if (unplayable != null)
             {
+                LastError = unplayable;
                 Console.WriteLine($"[launcher] {unplayable}");
                 return false;
             }

@@ -53,6 +53,11 @@ public static class AimTrainerChecks
         if (!GameFiles.Ready) { check(false, "simulation requires extracted game files"); return; }
         Headless.Enter(); GameFiles.ApplyPaths();
         MapGen.CustomRooms.GenerateMissing(AimTrainerLaunch.Room);
+        var exported = Read.GetRoomModelForExport(AimTrainerLaunch.Room).Recolors[0];
+        check(exported.TextureData.Count > 0 && System.Linq.Enumerable.All(
+            System.Linq.Enumerable.Range(0, exported.Textures.Count), i =>
+                exported.TextureData[i].Count == exported.Textures[i].Width * exported.Textures[i].Height),
+            "headless-generated arena retains complete renderable textures");
         var scene = new Scene(new Vector2i(256,192), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => {}, () => {});
         try
         {

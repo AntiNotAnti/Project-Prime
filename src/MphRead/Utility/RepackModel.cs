@@ -1565,6 +1565,8 @@ namespace MphRead.Utility
 
         public static TextureInfo ConvertData(Texture texture, IReadOnlyList<TextureData> data)
         {
+            if (data.Count != texture.Width * texture.Height)
+                throw new ProgramException("Cannot repack a texture without its complete pixel data.");
             var imageData = new List<byte>();
 
             if (texture.Format == TextureFormat.DirectRgb)
