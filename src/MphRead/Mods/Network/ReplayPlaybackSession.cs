@@ -65,7 +65,7 @@ namespace MphRead.Mods.Network
             Stop(); _host.Start(); passive.State.RestoreCheckpoint(construction);
             _frame = frame; _live = true; _started = false; IsActive = true; LastFrame = frame;
             _liveMetadata = new ReplayMetadata { MapHash = mapHash, RoomKey = passive.State.Match?.RoomKey ?? "" };
-            LastResult = ReplayOpenResult.Success; LastError = null;
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
         }
 
         internal void AdvanceLive(uint frame, IReadOnlyList<ReplayTimelineRecord> records)
@@ -85,7 +85,7 @@ namespace MphRead.Mods.Network
             _host.Start(); passive.State.RestoreCheckpoint(construction);
             _clip = clip; _clipIndex = 0; _frame = clip.RestorePoint.RecordingFrame; CurrentPath = null;
             LastFrame = clip.EndRecordingFrame; IsActive = true; _started = false;
-            LastResult = ReplayOpenResult.Success; LastError = null;
+            LastResult = ReplayOpenResult.Success; LastError = null; LastWarning = null; CompatibilityDrops = 0;
             Transport.Begin();
         }
 
@@ -241,29 +241,38 @@ namespace MphRead.Mods.Network
                 }
                 if (metadata.Bootstrap.Packets.Count > 0)
                 {
-                foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    InjectConverted(packet, 0);
-                _host.Advance(0);
-                if (_host.Match?.RoomKey.Length is not > 0)
-                {
-                    LastResult = ReplayOpenResult.MissingMatchState;
-                    LastError = "Replay bootstrap has no match state.";
-                    Stop();
-                    return false;
-                }
-                _host.Rewind();
-                foreach (byte[] packet in metadata.Bootstrap.Packets)
-                    InjectConverted(packet, 0);
-                _pending = _reader.ReadNext();
-                if (_pending == null)
-                {
-                    LastResult = _reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : _reader.LastResult;
-                    LastError = $"Cannot play replay: {LastResult}.";
-                    Stop();
-                    return false;
-                }
-                Transport.Begin();
-                return true;
+                    foreach (byte[] packet in metadata.Bootstrap.Packets)
+                        InjectConverted(packet, 0);
+                    _host.Advance(0);
+                    if (_host.Match?.RoomKey.Length is > 0)
+                    {
+                        _host.Rewind();
+                        foreach (byte[] packet in metadata.Bootstrap.Packets)
+                            InjectConverted(packet, 0);
+                        _pending = _reader.ReadNext();
+                        if (_pending == null)
+                        {
+                            LastResult = _reader.LastResult == ReplayOpenResult.Success ? ReplayOpenResult.Empty : _reader.LastResult;
+                            LastError = $"Cannot play replay: {LastResult}.";
+                            Stop();
+                            return false;
+                        }
+                        Transport.Begin();
+                        return true;
+                    }
+                    if (!ReplayIdentityCompatibility.BestEffort(_reader.ProtocolVersion))
+                    {
+                        LastResult = ReplayOpenResult.MissingMatchState;
+                        LastError = "Replay bootstrap has no match state.";
+                        Stop();
+                        return false;
+                    }
+                    LastWarning = "Historical replay bootstrap was incomplete; reconstructing from the packet stream.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    _host.Start();
+                    _host.ResetDiagnostics();
+                    _frame = 0;
+                    _started = false;
                 }
             }
             _pending = _reader.ReadNext();
