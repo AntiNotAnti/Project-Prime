@@ -50,7 +50,7 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         private static readonly string[] _skySuffixes = new[] { "_1", "_2", "_ft", "_bk", "_lf", "_rt", "_up" };
 
-        private static readonly string[] _extensions = new[] { ".tga", ".jpg", ".jpeg", ".png" };
+        private static readonly string[] _extensions = new[] { ".tga", ".jpg", ".jpeg", ".png", ".bmp" };
 
         public sealed record Resolution(string Shader,string Image,string? Archive,bool ViaShader,bool Fallback);
 
@@ -283,7 +283,8 @@ namespace MphRead.Mods.MapGen
                         if (token == "}") { depth--; continue; }
                         if (depth <= 0 || candidate != null) continue;
                         string key = token.ToLowerInvariant();
-                        if (key is "qer_editorimage" or "map" or "clampmap")
+                        if (key is "qer_editorimage" or "q3map_lightimage" or "map" or "clampmap"
+                            or "implicitmap" or "implicitmask" or "implicitblend")
                         {
                             if (i < tokens.Count)
                             {
@@ -379,13 +380,18 @@ namespace MphRead.Mods.MapGen
             bool hasAlias=aliases.TryGetValue(name,out string? alias);
             foreach (string candidate in hasAlias ? new[] { name, alias! } : new[] { name })
             {
-                string normalized = candidate.TrimStart('/').Replace('\\', '/');
-                foreach (string suffix in _skySuffixes.Prepend(""))
-                    foreach (string extension in _extensions)
-                        if (files.TryGetValue(normalized + suffix + extension, out var entry))
-                            return new(entry,normalized+suffix+extension,hasAlias&&!candidate.Equals(name,StringComparison.OrdinalIgnoreCase));
+                string normalized = candidate.Replace('\\', '/').TrimStart('/');
+                bool viaShader=hasAlias&&!candidate.Equals(name,StringComparison.OrdinalIgnoreCase);
                 if (files.TryGetValue(normalized, out var exact))
-                    return new(exact,normalized,hasAlias&&!candidate.Equals(name,StringComparison.OrdinalIgnoreCase));
+                    return new(exact,normalized,viaShader);
+                string stem=normalized;
+                string extension=Path.GetExtension(normalized);
+                if (_extensions.Contains(extension,StringComparer.OrdinalIgnoreCase))
+                    stem=normalized[..^extension.Length];
+                foreach (string suffix in _skySuffixes.Prepend(""))
+                    foreach (string imageExtension in _extensions)
+                        if (files.TryGetValue(stem + suffix + imageExtension, out var entry))
+                            return new(entry,stem+suffix+imageExtension,viaShader);
             }
             return null;
         }

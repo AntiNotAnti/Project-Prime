@@ -67,6 +67,34 @@ public sealed class Q3ImportManifest
         }
     }
 
+    public IReadOnlyList<string> DependencyArchives()
+    {
+        return Archives.Select(a=>a.Path)
+            .Where(path=>!String.IsNullOrWhiteSpace(path)
+                && !path.Equals(Source,StringComparison.OrdinalIgnoreCase)
+                && File.Exists(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    public void UpdateTextureBake(MapTextureBake.Result result)
+    {
+        Textures=result.Resolutions.ToList();
+        Archives.Clear();
+        foreach(string path in result.Archives.Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            try
+            {
+                var info=new FileInfo(path);
+                Archives.Add(new(Path.GetFullPath(path),info.Exists?info.Length:0,
+                    info.Exists?info.LastWriteTimeUtc.Ticks:0));
+            }
+            catch(Exception ex) when(ex is IOException or UnauthorizedAccessException or ArgumentException)
+            {
+                Archives.Add(new(path,0,0));
+            }
+        }
+    }
+
     public void Save(string projectDirectory)
     {
         Directory.CreateDirectory(projectDirectory);

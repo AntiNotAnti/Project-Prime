@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using MphRead.Mods.MapGen;
@@ -27,6 +28,27 @@ static class Q3ImportChecks
             catch (ArgumentOutOfRangeException) { rejected = true; }
             check(rejected, "Q3 preflight rejects invalid scale " + invalid);
         }
+        string texturedPk3 = Path.Combine(root, "prime-textured.pk3");
+        WritePk3(texturedPk3, source);
+        var texturedAnalysis = Q3ImportService.Analyze(texturedPk3, "prime-fixture", scale:16);
+        check(texturedAnalysis.Textures.Resolved == 1 && texturedAnalysis.Textures.Missing.Count == 0,
+            "Q3 PK3 preflight resolves an embedded source texture");
+        string texturedDestination = Path.Combine(root, "q3-textured");
+        var texturedImport = Q3ImportService.Import(new(texturedPk3, "prime-fixture", "Q3_TEXTURED",
+            texturedDestination, UnitsPerUnit:16, AutoHealCollision:false));
+        check(texturedImport.Succeeded && texturedImport.ProjectPath != null,
+            "Q3 PK3 with embedded textures imports transactionally");
+        var texturedMap = MapDefinition.Load(texturedImport.ProjectPath!);
+        MapTexturePack? texturedPack = texturedMap.Import!.LoadTexturePack();
+        check(texturedPack != null && texturedPack.Entries.Count == 1
+            && texturedPack.BySourceIndex.ContainsKey(0),
+            "Q3 imported project persists its baked source texture pack");
+        string texturedBundle = Path.Combine(root, "q3-textured.ppmap");
+        MapPackageBuilder.Build(texturedMap, texturedBundle);
+        var bundledTexturedMap = MapDefinition.Load(texturedBundle);
+        check(bundledTexturedMap.Import!.LoadTexturePack()?.Entries.Count == 1,
+            "Q3 package carries its baked source texture pack");
+
         string destination = Path.Combine(root, "q3-imported");
         var imported = Q3ImportService.Import(new(source, null, "Q3_RELIABLE", destination,
             UnitsPerUnit:16, AutoHealCollision:false));
@@ -85,6 +107,31 @@ static class Q3ImportChecks
         var noMaterialResult = MapCompiler.Compile(noMaterials);
         check(!noMaterialResult.Validation.IsValid && noMaterialResult.Validation.Diagnostics.Any(d => d.Message.Contains("no materials")),
             "Q3 missing all materials reports an error without accessing unavailable game files");
+    }
+
+    private static void WritePk3(string path,string bspPath)
+    {
+        using var stream=File.Create(path);
+        using var archive=new ZipArchive(stream,ZipArchiveMode.Create);
+        var level=archive.CreateEntry("maps/prime-fixture.bsp");
+        using(var target=level.Open())target.Write(File.ReadAllBytes(bspPath));
+        var texture=archive.CreateEntry("textures/prime/test.tga");
+        using(var target=texture.Open())target.Write(TestTga());
+    }
+
+    private static byte[] TestTga()
+    {
+        using var stream=new MemoryStream();
+        using var writer=new BinaryWriter(stream);
+        writer.Write((byte)0); // image ID length
+        writer.Write((byte)0); // no color map
+        writer.Write((byte)2); // uncompressed true-color
+        writer.Write((ushort)0);writer.Write((ushort)0);writer.Write((byte)0);
+        writer.Write((ushort)0);writer.Write((ushort)0);
+        writer.Write((ushort)2);writer.Write((ushort)2);
+        writer.Write((byte)24);writer.Write((byte)0x20); // top-left origin
+        for(int i=0;i<4;i++){writer.Write((byte)16);writer.Write((byte)32);writer.Write((byte)240);}
+        return stream.ToArray();
     }
 
     // Pure synthetic IBSP 46: one solid floor, its drawn top, and one push-trigger model.

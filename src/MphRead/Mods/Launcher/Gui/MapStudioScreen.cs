@@ -2344,10 +2344,13 @@ namespace MphRead.Mods.Launcher.Gui
             string textureName=String.IsNullOrWhiteSpace(import.Textures)
                 ? definition.Name.ToLowerInvariant()+".tex" : import.Textures!;
             string target=Path.Combine(import.BaseDirectory??definition.BaseDirectory??CustomRooms.MapDirectory,textureName);
+            string provenanceRoot=definition.BaseDirectory??Path.GetDirectoryName(definition.SourcePath??"")??CustomRooms.MapDirectory;
+            Q3ImportManifest? provenance=Q3ImportManifest.Load(provenanceRoot);
             var bsp=await Task.Run(()=>Q3Bsp.Load(level,import.MapName,token),token);
-            var archives=MapTextureBake.DiscoverArchives(level);
+            var archives=MapTextureBake.DiscoverArchives(level,provenance?.DependencyArchives());
             var result=await Task.Run(()=>MapTextureBake.Bake(bsp,archives,target,MapTextureBake.DefaultSize,cancellation:token),token);
             GuardJob(token);
+            if(provenance!=null){provenance.UpdateTextureBake(result);provenance.Save(provenanceRoot);}
             if(String.IsNullOrWhiteSpace(import.Textures))
                 _document.Edit("Set Q3 texture pack",d=>d.Import!.Textures=textureName,MapChangeDomain.Import);
             _validatedState=null;
