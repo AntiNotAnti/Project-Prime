@@ -656,9 +656,9 @@ try
             new[]{OpenTK.Mathematics.Vector2.Zero,OpenTK.Mathematics.Vector2.Zero,OpenTK.Mathematics.Vector2.Zero},
             OpenTK.Mathematics.Vector3.UnitY,0,1);
         Check(MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,10000)),
-            "collision fit accepts representable point-index load");
-        Check(!MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,22000)),
-            "collision fit rejects 16-bit point-index overflow");
+            "collision fit accepts ordinary point-index load");
+        Check(MapBudgetValidator.CollisionFits(Enumerable.Repeat(collisionTriangle,22000)),
+            "collision fit accepts extended 32-bit point-index load");
         var strip=new System.Collections.Generic.List<MphRead.Utility.CollisionDataEditor>();
         for(int x=0;x<1000;x++)
         {

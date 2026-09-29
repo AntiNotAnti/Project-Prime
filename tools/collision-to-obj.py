@@ -61,21 +61,22 @@ _TERRAIN = [
 
 
 class CollisionFile:
-    """The parts of `wc01` this needs: the points, the planes and the faces."""
+    """The parts of `wc01`/Project Prime `wc02` this needs."""
 
     def __init__(self, data: bytes, name: str):
         if len(data) < _HEADER_SIZE:
             raise ValueError(f"{name} is too short to be a collision file.")
         fields = struct.unpack_from(_HEADER, data, 0)
-        if fields[0] != b"wc01":
+        if fields[0] not in (b"wc01", b"wc02"):
             # First Hunt rooms use a different layout entirely, and the game
             # reads them down a separate path. Say so rather than producing
             # nonsense out of the wrong offsets.
             raise ValueError(
-                f"{name} is not an MPH collision file (type tag "
-                f"{fields[0]!r}, expected b'wc01'). A First Hunt room uses "
-                "another format, which this does not read."
+                f"{name} is not an MPH/Project Prime collision file (type tag "
+                f"{fields[0]!r}, expected b'wc01' or b'wc02'). A First Hunt "
+                "room uses another format, which this does not read."
             )
+        self.extended = fields[0] == b"wc02"
         (_, point_count, point_offset, plane_count, plane_offset,
          index_count, index_offset, data_count, data_offset,
          data_index_count, data_index_offset,
@@ -93,16 +94,28 @@ class CollisionFile:
             tuple(v / _FX for v in struct.unpack_from("<4i", data, plane_offset + i * 16))
             for i in range(plane_count)
         ]
-        self.point_indices = [
-            struct.unpack_from("<H", data, index_offset + i * 2)[0]
-            for i in range(index_count)
-        ]
-        # 16 bytes each: counter (run time only), plane, flags, layer mask,
-        # padding, how many points, where they start.
-        self.faces = [
-            struct.unpack_from("<iHHHHHH", data, data_offset + i * 16)
-            for i in range(data_count)
-        ]
+        if self.extended:
+            self.point_indices = [
+                struct.unpack_from("<I", data, index_offset + i * 4)[0]
+                for i in range(index_count)
+            ]
+            self.faces = []
+            for i in range(data_count):
+                counter, plane, flags, layer, count, start = struct.unpack_from(
+                    "<iIHHII", data, data_offset + i * 20
+                )
+                self.faces.append((counter, plane, flags, layer, 0, count, start))
+        else:
+            self.point_indices = [
+                struct.unpack_from("<H", data, index_offset + i * 2)[0]
+                for i in range(index_count)
+            ]
+            # 16 bytes each: counter (run time only), plane, flags, layer mask,
+            # padding, how many points, where they start.
+            self.faces = [
+                struct.unpack_from("<iHHHHHH", data, data_offset + i * 16)
+                for i in range(data_count)
+            ]
         self.data_index_count = data_index_count
 
     @classmethod
@@ -110,13 +123,7 @@ class CollisionFile:
         return cls(path.read_bytes(), path.name)
 
     def face_points(self, face):
-        """A face's own points, without the copy of the first that follows them.
-
-        The format repeats each face's opening index after its last one,
-        because the run-time edge test reads `index + 1` and relies on finding
-        it. It is the same point, and a polygon that states it twice is a
-        polygon most tools will not thank you for.
-        """
+        """A face's own points, excluding any legacy closing-index duplicate."""
         count, start = face[5], face[6]
         return [self.points[self.point_indices[start + k]] for k in range(count)]
 

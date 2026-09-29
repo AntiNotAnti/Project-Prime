@@ -55,7 +55,7 @@ static class CustomCollisionChecks
         {
             var instance = new CollisionInstance("fixture", info, false) { Translation = translation };
             collisions.Clear(); collisions.Add(instance);
-            var candidates = info.Entries.Where(e => e.DataCount > 0)
+            var candidates = info.RuntimeEntries.Where(e => e.DataCount > 0)
                 .Select(e => new CollisionCandidate(instance, e)).ToArray();
             var results = new CollisionResult[8];
             foreach (int x in new[] { 0, 8 })
@@ -75,5 +75,27 @@ static class CustomCollisionChecks
                 check((overlap > 0) == expected, $"radius floor/closing-edge contact x={x}, z={z}");
             }
         }
+
+        var wideFaces = new List<CollisionDataEditor>(22000);
+        for (int i = 0; i < 22000; i++)
+        {
+            float y = i / 4096f;
+            var face = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, y), LayerMask = 5 };
+            face.Points.AddRange(new[]
+            {
+                new Vector3(-1, y, -1), new Vector3(0, y, 1), new Vector3(1, y, -1)
+            });
+            wideFaces.Add(face);
+        }
+        byte[] wideBytes = MapCollisionPacker.Pack(wideFaces);
+        var wideHeader = Read.ReadStruct<CollisionHeader>(wideBytes);
+        check(wideHeader.Type.MarshalString() == "wc02", "large custom collision selects wc02");
+        PrimeCollisionInfo wide = Collision.ReadPrimeCollision(wideHeader, wideBytes, -1);
+        check(wide.RuntimeData.Count == wideFaces.Count && wide.RuntimePointIndices.Count > ushort.MaxValue,
+            "wc02 preserves more than 65,535 collision point indices");
+        CollisionFace last = wide.RuntimeData[^1];
+        check(last.PointStartIndex > ushort.MaxValue
+            && wide.RuntimePointIndices[last.PointStartIndex] > ushort.MaxValue,
+            "wc02 preserves 32-bit face starts and point indices");
     }
 }

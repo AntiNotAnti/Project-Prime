@@ -148,14 +148,14 @@ public static class NativeRoomImport
 
     private static void AddCollision(BuiltMap map,CollisionInstance collision)
     {
-        if(collision.Info is MphCollisionInfo mph)
+        if(collision.Info is MphCollisionInfoBase mph)
         {
-            foreach(CollisionData data in mph.Data)
+            foreach(CollisionFace data in mph.RuntimeData)
             {
                 if(data.PointIndexCount<3)continue;
                 Vector3[] points=new Vector3[data.PointIndexCount];
                 for(int i=0;i<points.Length;i++)
-                    points[i]=mph.Points[mph.PointIndices[data.PointStartIndex+i]]+collision.Translation;
+                    points[i]=mph.Points[mph.RuntimePointIndices[data.PointStartIndex+i]]+collision.Translation;
                 Vector3 normal=mph.Planes[data.PlaneIndex].Xyz;
                 map.Solid.Add(new BuiltFace(points,new Vector2[points.Length],normal,0,1)
                 {

@@ -11,9 +11,9 @@ namespace MphRead.Formats
     {
         public EntityCollision? EntityCollision { get; set; }
         public CollisionInstance Collision { get; set; }
-        public CollisionEntry Entry { get; set; }
+        public CollisionGridEntry Entry { get; set; }
 
-        public CollisionCandidate(CollisionInstance collision, CollisionEntry entry)
+        public CollisionCandidate(CollisionInstance collision, CollisionGridEntry entry)
         {
             Collision = collision;
             Entry = entry;
@@ -109,7 +109,7 @@ namespace MphRead.Formats
                 CollisionCandidate candidate = candidates[i];
                 CollisionInstance inst = candidate.Collision;
                 // sktodo: handle FH collision
-                var info = (MphCollisionInfo)inst.Info;
+                var info = (MphCollisionInfoBase)inst.Info;
                 Debug.Assert(candidate.Entry.DataCount > 0);
                 transPoint1 = point1 - inst.Translation;
                 transPoint2 = point2 - inst.Translation;
@@ -121,7 +121,7 @@ namespace MphRead.Formats
                 for (int j = 0; j < candidate.Entry.DataCount; j++)
                 {
                     // todo: counter
-                    CollisionData data = info.Data[info.DataIndices[candidate.Entry.DataStartIndex + j]];
+                    CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
                     if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
                     {
                         continue;
@@ -193,14 +193,14 @@ namespace MphRead.Formats
             return collided;
         }
 
-        private static bool CheckPointOnFace(Vector3 point, MphCollisionInfo info, CollisionData data)
+        private static bool CheckPointOnFace(Vector3 point, MphCollisionInfoBase info, CollisionFace data)
         {
             int axis = data.LayerMask & 3;
             Debug.Assert(axis >= 0 && axis <= 2);
             if (axis == 0)
             {
                 // normal is majority x axis
-                Vector3 curVert = info.Points[info.PointIndices[data.PointStartIndex]];
+                Vector3 curVert = info.Points[info.RuntimePointIndices[data.PointStartIndex]];
                 Vector3 firstVert = curVert;
                 int v8 = 0;
                 int v1 = curVert.Y <= point.Y
@@ -214,7 +214,7 @@ namespace MphRead.Formats
                     {
                         v8 = 0;
                     }
-                    nextVert = info.Points[info.PointIndices[data.PointStartIndex + v8]];
+                    nextVert = info.Points[info.RuntimePointIndices[data.PointStartIndex + v8]];
                     int v13 = nextVert.Y <= point.Y
                         ? nextVert.Z <= point.Z ? 2 : 1
                         : nextVert.Z <= point.Z ? 3 : 0;
@@ -249,7 +249,7 @@ namespace MphRead.Formats
             else if (axis == 1)
             {
                 // normal is majority y axis
-                Vector3 curVert = info.Points[info.PointIndices[data.PointStartIndex]];
+                Vector3 curVert = info.Points[info.RuntimePointIndices[data.PointStartIndex]];
                 Vector3 firstVert = curVert;
                 int v8 = 0;
                 int v1 = curVert.X <= point.X
@@ -263,7 +263,7 @@ namespace MphRead.Formats
                     {
                         v8 = 0;
                     }
-                    nextVert = info.Points[info.PointIndices[data.PointStartIndex + v8]];
+                    nextVert = info.Points[info.RuntimePointIndices[data.PointStartIndex + v8]];
                     int v13 = nextVert.X <= point.X
                         ? nextVert.Z <= point.Z ? 2 : 1
                         : nextVert.Z <= point.Z ? 3 : 0;
@@ -298,7 +298,7 @@ namespace MphRead.Formats
             else // if (axis == 2)
             {
                 // normal is majority z axis
-                Vector3 curVert = info.Points[info.PointIndices[data.PointStartIndex]];
+                Vector3 curVert = info.Points[info.RuntimePointIndices[data.PointStartIndex]];
                 Vector3 firstVert = curVert;
                 int v8 = 0;
                 int v1 = curVert.X <= point.X
@@ -312,7 +312,7 @@ namespace MphRead.Formats
                     {
                         v8 = 0;
                     }
-                    nextVert = info.Points[info.PointIndices[data.PointStartIndex + v8]];
+                    nextVert = info.Points[info.RuntimePointIndices[data.PointStartIndex + v8]];
                     int v13 = nextVert.X <= point.X
                         ? nextVert.Y <= point.Y ? 2 : 1
                         : nextVert.Y <= point.Y ? 3 : 0;
@@ -370,7 +370,7 @@ namespace MphRead.Formats
         }
 
         // todo: revisit this approach
-        private static readonly HashSet<CollisionData> _seenData = new HashSet<CollisionData>(64);
+        private static readonly HashSet<CollisionFace> _seenData = new HashSet<CollisionFace>(64);
 
         private static int CheckSphereBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2, float radius,
             int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results, bool hasCandidates)
@@ -400,7 +400,7 @@ namespace MphRead.Formats
                 CollisionCandidate candidate = candidates[i];
                 CollisionInstance inst = candidate.Collision;
                 // sktodo: handle FH collision
-                var info = (MphCollisionInfo)inst.Info;
+                var info = (MphCollisionInfoBase)inst.Info;
                 Debug.Assert(candidate.Entry.DataCount > 0);
                 transPoint1 = point1 - inst.Translation;
                 transPoint2 = point2 - inst.Translation;
@@ -415,7 +415,7 @@ namespace MphRead.Formats
                     {
                         break;
                     }
-                    CollisionData data = info.Data[info.DataIndices[candidate.Entry.DataStartIndex + j]];
+                    CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
                     if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
                     {
                         continue;
@@ -447,10 +447,10 @@ namespace MphRead.Formats
                     float GetEdgeDotDifference(int pIndex)
                     {
                         int index = data.PointStartIndex + pIndex;
-                        Vector3 dataPoint1 = info.Points[info.PointIndices[index]];
+                        Vector3 dataPoint1 = info.Points[info.RuntimePointIndices[index]];
                         // Custom maps omit the legacy closing index; wrap within this face.
                         int nextIndex = data.PointStartIndex + (pIndex + 1 == data.PointIndexCount ? 0 : pIndex + 1);
-                        Vector3 dataPoint2 = info.Points[info.PointIndices[nextIndex]];
+                        Vector3 dataPoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
                         Vector3 edgeDir = (dataPoint1 - dataPoint2).Normalized();
                         var cross = Vector3.Cross(edgeDir, plane.Xyz);
                         float crossDot1 = Vector3.Dot(cross, dataPoint2);
@@ -474,9 +474,9 @@ namespace MphRead.Formats
                             {
                                 // unimpl-collision: see note below
                                 int epIndex = data.PointStartIndex + p1;
-                                Vector3 edgePoint1 = info.Points[info.PointIndices[epIndex]];
+                                Vector3 edgePoint1 = info.Points[info.RuntimePointIndices[epIndex]];
                                 int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
-                                Vector3 edgePoint2 = info.Points[info.PointIndices[nextIndex]];
+                                Vector3 edgePoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
                                 CollisionResult result = results[count];
                                 result.Field0 = 1;
                                 result.EntityCollision = candidate.EntityCollision;
@@ -622,7 +622,7 @@ namespace MphRead.Formats
                 CollisionCandidate candidate = candidates[i];
                 CollisionInstance inst = candidate.Collision;
                 // sktodo: handle FH collision
-                var info = (MphCollisionInfo)inst.Info;
+                var info = (MphCollisionInfoBase)inst.Info;
                 Vector3 transPoint = point - inst.Translation;
                 Debug.Assert(candidate.Entry.DataCount > 0);
                 for (int j = 0; j < candidate.Entry.DataCount; j++)
@@ -632,7 +632,7 @@ namespace MphRead.Formats
                         break;
                     }
                     // todo: counter
-                    CollisionData data = info.Data[info.DataIndices[candidate.Entry.DataStartIndex + j]];
+                    CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + j]];
                     if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
                     {
                         continue;
@@ -652,10 +652,10 @@ namespace MphRead.Formats
                     float GetEdgeDotDifference(int pIndex)
                     {
                         int index = data.PointStartIndex + pIndex;
-                        Vector3 point1 = info.Points[info.PointIndices[index]];
+                        Vector3 point1 = info.Points[info.RuntimePointIndices[index]];
                         // Custom maps omit the legacy closing index; wrap within this face.
                         int nextIndex = data.PointStartIndex + (pIndex + 1 == data.PointIndexCount ? 0 : pIndex + 1);
-                        Vector3 point2 = info.Points[info.PointIndices[nextIndex]];
+                        Vector3 point2 = info.Points[info.RuntimePointIndices[nextIndex]];
                         Vector3 edgeDir = (point1 - point2).Normalized();
                         var cross = Vector3.Cross(edgeDir, plane.Xyz);
                         float dot1 = Vector3.Dot(cross, point2);
@@ -694,10 +694,10 @@ namespace MphRead.Formats
                             for (int p2 = 0; p2 < data.PointIndexCount; p2++)
                             {
                                 int index = data.PointStartIndex + p2;
-                                Vector3 point1 = info.Points[info.PointIndices[index]];
+                                Vector3 point1 = info.Points[info.RuntimePointIndices[index]];
                                 // Custom maps omit the legacy closing index; wrap within this face.
                                 int nextIndex = data.PointStartIndex + (p2 + 1 == data.PointIndexCount ? 0 : p2 + 1);
-                                Vector3 point2 = info.Points[info.PointIndices[nextIndex]];
+                                Vector3 point2 = info.Points[info.RuntimePointIndices[nextIndex]];
                                 Vector3 edge = point2 - point1;
                                 float dot1 = Vector3.Dot(edge, edge);
                                 float dot2 = Vector3.Dot(edge, transPoint - point1);
@@ -800,7 +800,7 @@ namespace MphRead.Formats
                 {
                     continue;
                 }
-                var info = (MphCollisionInfo)inst.Info;
+                var info = (MphCollisionInfoBase)inst.Info;
                 float size = 4;
                 int partsX = info.Header.PartsX;
                 int partsY = info.Header.PartsY;
@@ -830,7 +830,7 @@ namespace MphRead.Formats
                             while (xIndex <= maxXPart)
                             {
                                 int entryIndex = yIndex * partsX * partsZ + zIndex * partsX + xIndex;
-                                CollisionEntry entry = info.Entries[entryIndex++];
+                                CollisionGridEntry entry = info.RuntimeEntries[entryIndex++];
                                 if (entry.DataCount > 0)
                                 {
                                     // The pool is finite (2048). Draining it
@@ -923,7 +923,7 @@ namespace MphRead.Formats
                         && entMax.Y >= limitMin.Y && entMin.Z <= limitMax.Z && entMax.Z >= limitMin.Z)
                     {
                         CollisionInstance inst = entCol.Collision;
-                        var info = (MphCollisionInfo)inst.Info;
+                        var info = (MphCollisionInfoBase)inst.Info;
                         int entryIndex = 0;
                         int xIndex = 0;
                         int yIndex = 0;
@@ -934,7 +934,7 @@ namespace MphRead.Formats
                             {
                                 while (xIndex < info.Header.PartsX)
                                 {
-                                    CollisionEntry entry = info.Entries[entryIndex++];
+                                    CollisionGridEntry entry = info.RuntimeEntries[entryIndex++];
                                     if (entry.DataCount > 0)
                                     {
                                         CollisionCandidate item = _inactiveItems.Dequeue();
@@ -975,7 +975,7 @@ namespace MphRead.Formats
                 {
                     continue;
                 }
-                var info = (MphCollisionInfo)inst.Info;
+                var info = (MphCollisionInfoBase)inst.Info;
                 float size = 4;
                 int partsX = info.Header.PartsX;
                 int partsY = info.Header.PartsY;
@@ -1193,7 +1193,7 @@ namespace MphRead.Formats
                     if (curX >= 0 && curX < partsX && curY >= 0 && curY < partsY && curZ >= 0 && curZ < partsZ)
                     {
                         int entryIndex = curX + partsX * (curZ + curY * partsZ);
-                        CollisionEntry entry = info.Entries[entryIndex];
+                        CollisionGridEntry entry = info.RuntimeEntries[entryIndex];
                         if (entry.DataCount > 0)
                         {
                             CollisionCandidate item = _inactiveItems.Dequeue();
