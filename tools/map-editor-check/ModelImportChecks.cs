@@ -73,7 +73,6 @@ internal static class ModelImportChecks
         System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 5000);
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/tile.png\n");
-        File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         bool oversizedImage = false;
         try { ModelImportService.Import(path, new()); } catch (InvalidDataException) { oversizedImage = true; }
         check(oversizedImage, "oversized image rejected before native decode");
