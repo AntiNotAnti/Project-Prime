@@ -123,5 +123,6 @@ and Replay Studio updates. Protocol 31 rejects incompatible live peers and adapt
 protocols 24–30. Verified 2,030 game-mode contracts, 789 asset-backed gameplay checks, all
 19 frozen join and replay restoration scenarios, 2,738 replay format checks, 18,888 UI checks,
 37 Enhanced Hunters contracts, 31 Enhanced Hunters scene checks, and 277 loadout checks.
-Desktop and dedicated-server builds pass. Architecture and replication packet-budget checks pass.
+Desktop, dedicated-server and Android builds pass. The UDP lobby suite passes 6,888 assertions.
+Architecture, replication packet budgets, asset guards and shipped-map checks pass.
 The lobby test fixture uses explicit native rooms so installed custom maps cannot change its inputs.
