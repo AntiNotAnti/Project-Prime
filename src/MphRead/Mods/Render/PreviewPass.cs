@@ -80,7 +80,7 @@ namespace MphRead
         /// their own boxes. Static because the control asking is in the
         /// launcher's tree and has no scene to ask.
         /// </summary>
-        public static bool PreviewDrawnLastFrame { get; private set; }
+        public static bool PreviewDrawnLastFrame { get; internal set; }
 
         /// <summary>Who that frame actually had in it. See HunterPreviewEntity.Shown.</summary>
         public static Hunter PreviewDrawnHunter { get; private set; } = Hunter.Random;
@@ -134,10 +134,15 @@ namespace MphRead
             // palette up by an id that was never registered.
             if (_previewInited != want || modelChanged)
             {
-                _previewInited = want;
                 if (_preview.Ready)
                 {
+                    // Publish the initialized hunter only after InitEntity
+                    // succeeds. Previously this assignment happened first, so
+                    // one transient display-list/texture failure poisoned the
+                    // preview: the next frame believed the model was already
+                    // initialized and HunterStand stayed on its block fallback.
                     InitEntity(_preview);
+                    _previewInited = want;
                 }
             }
             _preview.Step();
@@ -300,7 +305,12 @@ namespace MphRead
         /// </summary>
         public bool ModDrawPreviewAlone(Vector2i windowSize)
         {
+            PreviewDrawnLastFrame = false;
             if (!LauncherPreview || windowSize.X <= 0 || windowSize.Y <= 0)
+            {
+                return false;
+            }
+            if (Environment.TickCount64 < _previewRetryAfter)
             {
                 return false;
             }
@@ -318,23 +328,47 @@ namespace MphRead
                 GL.UseProgram(_shaderProgramId);
                 ModDrawPreview();
                 GL.UseProgram(0);
+                _previewFailureCount = 0;
+                _previewRetryAfter = 0;
+                _previewComplained = false;
                 return true;
             }
             catch (Exception ex)
             {
                 // A preview that will not draw is the launcher's boxes again,
                 // not a dead launcher. Said once: this is a per-frame path.
+                int shift = Math.Min(_previewFailureCount, 3);
+                _previewFailureCount++;
+                int delay = Math.Min(250 << shift, 2000);
+                _previewRetryAfter = Environment.TickCount64 + delay;
                 if (!_previewComplained)
                 {
                     _previewComplained = true;
-                    Mods.DebugLog.Line("ui", $"the hunter preview could not be drawn: {ex.Message}");
+                    Mods.DebugLog.Line("ui",
+                        $"the hunter preview could not be drawn; retrying in {delay} ms: {ex.Message}");
                 }
                 LauncherPreview = false;
+                // A failure may happen after the preview enabled scissoring
+                // or bound its shader. Restore the state the overlay expects
+                // so the fallback frame is not itself clipped/corrupted.
+                try
+                {
+                    GL.Disable(EnableCap.ScissorTest);
+                    GL.Viewport(0, 0, windowSize.X, windowSize.Y);
+                    GL.UseProgram(0);
+                }
+                catch
+                {
+                    // The context itself may be the failing resource. The
+                    // caller will fall back while this pass cools down.
+                }
                 return false;
             }
         }
 
         private bool _previewComplained;
+        private int _previewFailureCount;
+        private long _previewRetryAfter;
 
         private void ModDrawPreview()
         {

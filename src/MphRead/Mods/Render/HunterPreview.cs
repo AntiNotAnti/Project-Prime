@@ -70,10 +70,33 @@ namespace MphRead.Mods.Render
         private Hunter _cosmeticHunter = Hunter.Random;
         private Hunter _hunter = Hunter.Random;
 
-        /// <summary>The hunter whose model is not on this machine. See SetUp.</summary>
+        /// <summary>The model form currently shown by the preview.</summary>
         public Mods.Cosmetics.SkinContext Mode { get; private set; }
-        private Mods.Cosmetics.SkinContext _missingMode;
-        private Hunter _missing = Hunter.Random;
+
+        // Metadata absence is deterministic for this process, but a model read
+        // can fail transiently while paths/resources are settling. Keep those
+        // cases separate so one bad attempt cannot pin the block fallback
+        // until restart.
+        private Mods.Cosmetics.SkinContext _unavailableMode;
+        private Hunter _unavailable = Hunter.Random;
+        private Mods.Cosmetics.SkinContext _retryMode;
+        private Hunter _retryHunter = Hunter.Random;
+        private int _loadFailures;
+        private long _retryAfter;
+
+        private int LoadRetryDelay()
+        {
+            int shift = Math.Min(_loadFailures, 3);
+            _loadFailures++;
+            return Math.Min(250 << shift, 2000);
+        }
+
+        private void ClearLoadRetry()
+        {
+            _retryHunter = Hunter.Random;
+            _loadFailures = 0;
+            _retryAfter = 0;
+        }
         private int _recolor = -1;
         private ModelInstance? _model;
         private Vector3 _displayCenter;
@@ -109,14 +132,13 @@ namespace MphRead.Mods.Render
             {
                 return;
             }
-            if (_missing == hunter && _missingMode == mode)
+            if (_unavailable == hunter && _unavailableMode == mode)
             {
-                // Already tried and it is not there. Asking again is asking
-                // the disk the same question sixty times a second: on the
-                // results screen that was ten seconds of it, and on the
-                // launcher -- where this screen can sit open for as long as
-                // somebody likes -- it is a log growing by two lines a frame
-                // for ever, which is what a player's first report of it was.
+                return;
+            }
+            if (_retryHunter == hunter && _retryMode == mode
+                && Environment.TickCount64 < _retryAfter)
+            {
                 return;
             }
             if (hunter != _hunter || _model == null || Mode != mode)
@@ -126,12 +148,24 @@ namespace MphRead.Mods.Render
                     if (!Metadata.HunterModels.TryGetValue(hunter, out IReadOnlyList<string>? models)
                         || models.Count == 0)
                     {
+                        _unavailable = hunter;
+                        _unavailableMode = mode;
+                        _model = null;
                         return;
                     }
                     // The first LOD, which is the one the game draws for a
                     // player you are standing next to.
                     int modelIndex = mode == Mods.Cosmetics.SkinContext.ViewModel ? 3
                         : mode == Mods.Cosmetics.SkinContext.AltForm ? 2 : 0;
+                    if (modelIndex >= models.Count)
+                    {
+                        _unavailable = hunter;
+                        _unavailableMode = mode;
+                        _model = null;
+                        Mods.DebugLog.Line("ui",
+                            $"hunter preview has no {mode} model slot for {hunter}");
+                        return;
+                    }
                     ModelInstance inst = Read.GetModelInstance(models[modelIndex]);
                     _models.Clear();
                     _models.Add(inst);
@@ -150,15 +184,29 @@ namespace MphRead.Mods.Render
                     inst.SetAnimation(mode == Mods.Cosmetics.SkinContext.Biped ? (int)PlayerAnimation.Idle : 0,
                         mode == Mods.Cosmetics.SkinContext.Biped ? AnimFlags.None : AnimFlags.Paused);
                     FitDisplayModel(inst);
+                    ClearLoadRetry();
+                    if (_unavailable == hunter && _unavailableMode == mode)
+                    {
+                        _unavailable = Hunter.Random;
+                    }
                 }
                 catch (Exception ex)
                 {
-                    // A preview is not worth a match. The panel falls back to
-                    // the portrait sprite when this never becomes ready.
-                    // Once per hunter, not once per frame. See the guard above.
-                    Console.WriteLine($"[endscreen] no model for {hunter}: {ex.Message}");
-                    _missing = hunter; _missingMode = mode;
+                    // A preview is not worth a match. Fall back immediately,
+                    // but do not classify every I/O/decoder hiccup as a model
+                    // that can never load. Retry with bounded backoff instead.
                     _model = null;
+                    if (_retryHunter != hunter || _retryMode != mode)
+                    {
+                        _loadFailures = 0;
+                    }
+                    _retryHunter = hunter;
+                    _retryMode = mode;
+                    int delay = LoadRetryDelay();
+                    _retryAfter = Environment.TickCount64 + delay;
+                    Mods.DebugLog.Line("ui",
+                        $"hunter preview model load failed for {hunter}/{mode}; "
+                        + $"retrying in {delay} ms: {ex.Message}");
                     return;
                 }
             }
