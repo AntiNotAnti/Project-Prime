@@ -60,6 +60,7 @@ internal sealed partial class ReplayReplicaState
             roster.Hunters[index] = (byte)occupant.Hunter; roster.Colors[index] = occupant.Color;
             roster.Teams[index] = occupant.Team; roster.Names[index] = occupant.Name;
             roster.Flags[index] = occupant.IsBot ? (byte)1 : (byte)0; roster.BotLevels[index] = occupant.BotLevel;
+            roster.DamageReductions[index] = occupant.DamageReduction;
         }
         Span<byte> rosterBytes = stackalloc byte[RosterPacket.Size]; roster.Write(rosterBytes); writer.Write(rosterBytes);
         Span<byte> playerBytes = stackalloc byte[PlayerState.Size];
@@ -131,7 +132,9 @@ internal sealed partial class ReplayReplicaState
                 if (!SessionStatePacket.TryRead(ReplayIdentityCompatibility.Convert(packet, protocol)[1..], out var configuration)) throw Malformed();
                 restored.Configuration = configuration;
             }
-            int rosterSize = protocol >= 27 ? RosterPacket.Size : protocol == 26 ? 18 + 27 * RosterPacket.MaxSlots : 17 + 25 * RosterPacket.MaxSlots;
+            int rosterSize = protocol >= 33 ? RosterPacket.Size
+                : protocol >= 27 ? RosterPacket.LegacySize
+                : protocol == 26 ? 18 + 27 * RosterPacket.MaxSlots : 17 + 25 * RosterPacket.MaxSlots;
             byte[] rosterPacket = new byte[rosterSize + 1]; rosterPacket[0] = (byte)PacketType.Roster;
             Read(rosterSize).CopyTo(rosterPacket, 1);
             if (!RosterPacket.TryRead(ReplayIdentityCompatibility.Convert(rosterPacket, protocol)[1..], out var roster)) throw Malformed();
@@ -143,7 +146,8 @@ internal sealed partial class ReplayReplicaState
             restored.ContainsBots = roster.ContainsBots;
             for (int i = 0; i < roster.Count; i++)
                 restored._roster[roster.Slots[i]] = new(roster.Generations[i], (Hunter)roster.Hunters[i],
-                    roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i]);
+                    roster.Colors[i], roster.Teams[i], roster.Names[i], roster.IsBot(i), roster.BotLevels[i],
+                    roster.DamageReductions[i]);
             for (int i = 0; i < _roster.Length; i++)
             {
                 restored._lives[i].Restore(new(reader.ReadUInt16(), reader.ReadUInt16(),
