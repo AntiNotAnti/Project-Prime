@@ -55,22 +55,34 @@ punching or alternate gameplay transport.
 | `MphRead -hostgame "ROOM" [-mode M] [-maprotation "A,B,C"]` | same thing from a command line — the only way to host with no launcher |
 | `HostedIdleSeconds` (180) | an unjoined game is shut down and its port returned. Generous, since the usual reason one's empty is that the requester is still loading the map |
 
-### The two additive fields, and why the directory has to be redeployed
+### Hosted rotation wire and directory deployment
 
-Both were appended **past the fixed block** rather than inserted into it, so
-`NetConfig.ProtocolVersion` did not move and no deployed client or server was
-invalidated. Both are also therefore inert until a directory is redeployed,
-which is the thing to check first when either looks broken.
+The directory capability flag remains an additive `MasterList` tail: an older
+launcher can stop before that byte, and silence remains a third state rather than
+an explicit refusal.
 
-| Field | Where | Old peer does what |
+Protocol 34 deliberately changes the `HostRequest` rotation tail. Every entry is
+`40-byte room key + 1-byte mode + 32-byte package hash`. Built-in maps write an
+all-zero package hash; custom maps write the SHA-256 of the exact immutable
+`.ppmap`. Entry zero still names the same first map as `RoomKey`, whose complete
+`NetworkMapIdentity` remains in the request tail. A host resolves later custom
+entries by exact package hash, verifies the returned metadata/archive, caches all
+required packages, then stages them into the child lobby's private library before
+the process starts.
+
+This layout is not backward compatible with the older 41-byte rotation stride, so
+protocol 34 is refused against older launchers/directories/servers rather than
+allowing them to misread the following policy and identity fields.
+
+| Field | Where | Contract |
 |---|---|---|
-| The asker's whole map cycle — `[count][count × (40-byte room key + 1-byte mode)]` after `HostRequestPacket.Size` | `HostRequest`, launcher → directory | length-checks against `Size`, reads exactly that, and plays `RoomKey` on a loop — the behaviour it always had. Entry 0 **is** `RoomKey`, so the two halves can never disagree about what starts |
-| One flags byte after the entries, bit 0 = "this directory starts games" (`MasterFlags.CanHost`) | `MasterList`, directory → launcher | a launcher from before stops reading once it has taken `count` entries and never sees it. A launcher that reads it and finds **nothing** treats that as a *third* state, not as a no — see below |
+| Whole map cycle — `[count][count × (room key + mode + package hash)]` | `HostRequest`, launcher → host service | every custom entry identifies its exact Community archive; built-ins carry zero |
+| Host capability bit (`MasterFlags.CanHost`) | `MasterList`, directory → launcher | additive tri-state capability advertisement; absence is unknown, not no |
 
 `NetMasterConfig.EntriesPerPacket` is derived from
-`NetConfig.MaxPacketSize` and `MasterEntryPacket.Size`; do not copy a packet
-budget into this document. `HostRequestPacket.MaxRotation` is likewise bounded
-so its fixed block, rotation entries and session-policy tail fit one datagram.
+`NetConfig.MaxPacketSize` and `MasterEntryPacket.Size`. `HostRequestPacket.MaxRotation`
+remains bounded so sixteen 73-byte entries plus the fixed request, policy and
+first-map identity still fit in one datagram.
 
 **Silence is not a no**, and getting that backwards made the whole feature
 dead on arrival. `MasterListResult.CanHost` is `bool?`: true or false when the
