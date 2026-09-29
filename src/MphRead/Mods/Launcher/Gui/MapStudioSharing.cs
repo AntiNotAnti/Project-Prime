@@ -58,15 +58,14 @@ internal sealed partial class MapStudioScreen
     {
         var panel = new StackPanel { Spacing = 8, MinWidth = 540 };
         panel.Children.Add(Text("CUSTOM MAP ONLINE PLAY"));
-        panel.Children.Add(Text("Joining players need this exact package in their configured Community library."));
+        panel.Children.Add(Text("Published maps download automatically for joining players. Publishing uses your Hunter License; no creator token is required."));
         var address = new TextBox { Text = MapCommunityClient.DefaultAddress };
         if (File.Exists(CommunitySettingsPath)) address.Text = File.ReadAllText(CommunitySettingsPath).Trim();
-        var uploadToken = new TextBox { PlaceholderText = "Upload token (not saved)", PasswordChar = '●' };
-        panel.Children.Add(address); panel.Children.Add(uploadToken);
+        panel.Children.Add(address);
         void Start(bool publish, bool listed)
         {
-            string endpoint = address.Text ?? ""; string? credential = uploadToken.Text;
-            Dismiss(); _ = PreparePublishedOnline(publish, listed, endpoint, credential);
+            string endpoint = address.Text ?? "";
+            Dismiss(); _ = PreparePublishedOnline(publish, listed, endpoint);
         }
         AddButton(panel, "Host published version", () => Start(false, true));
         AddButton(panel, "Publish & Host", () => Start(true, true));
@@ -75,7 +74,7 @@ internal sealed partial class MapStudioScreen
         return Task.CompletedTask;
     }
 
-    private Task PreparePublishedOnline(bool publish, bool listed, string address, string? uploadToken) => Work("Preparing map for online play", async (project, token) =>
+    private Task PreparePublishedOnline(bool publish, bool listed, string address) => Work("Preparing map for online play", async (project, token) =>
     {
         if (!GameFiles.Ready) throw new IOException("Set up game files before hosting a map.");
         GameFiles.ApplyPaths();
@@ -88,7 +87,10 @@ internal sealed partial class MapStudioScreen
             using var package = new MapPackageReader(path);
             var manifest = package.Manifest!;
             string hash = MapBuildFingerprint.HashFile(path);
-            using var community = new MapCommunityClient(address, uploadToken);
+            string? credential = publish
+                ? await HunterLicenseClient.GetCommunityMapTicketAsync(token)
+                : null;
+            using var community = new MapCommunityClient(address, credential);
             if (publish)
                 await community.UploadAsync(path, token, listed);
             else
@@ -123,8 +125,8 @@ internal sealed partial class MapStudioScreen
         panel.Children.Add(Text("Connect to your community library to share maps. Lobbies prepare the exact required package automatically."));
         var address=new TextBox { Text=MapCommunityClient.DefaultAddress, PlaceholderText="Community address · https://maps.example.com/" };
         try { if(File.Exists(CommunitySettingsPath)) address.Text=File.ReadAllText(CommunitySettingsPath).Trim(); } catch(IOException) { }
-        var credential=new TextBox { PlaceholderText="Creator token (My Maps, favorites, reports, publishing; not saved)", PasswordChar='●' };
-        panel.Children.Add(address); panel.Children.Add(credential);
+        panel.Children.Add(address);
+        panel.Children.Add(Text("Hunter License signs publishing, favorites, reports, and My Maps automatically."));
         var search=new TextBox { PlaceholderText="Search map, author, or version" }; panel.Children.Add(search);
         var list=new ListBox { Height=230 }; panel.Children.Add(list);
         var shareLink=new TextBox { IsReadOnly=true,PlaceholderText="Select a map for its downloadable package link" };
@@ -143,44 +145,46 @@ internal sealed partial class MapStudioScreen
         };
         var message=Text("Enter a library address and select Refresh.");panel.Children.Add(message);
         var buttons=new WrapPanel();panel.Children.Add(buttons);
-        var scope=new ComboBox{ItemsSource=new[]{"Community","My Maps","My favorites"},SelectedIndex=0};panel.Children.Insert(4,scope);
-        var visibility=new ComboBox{ItemsSource=new[]{"All","Published","Unlisted","Draft"},SelectedIndex=0};panel.Children.Insert(5,visibility);
-        var sorting=new ComboBox{ItemsSource=new[]{"Name","Favorites","Newest"},SelectedIndex=0};panel.Children.Insert(6,sorting);
+        var scope=new ComboBox{ItemsSource=new[]{"Community","My Maps","My favorites"},SelectedIndex=0};panel.Children.Insert(5,scope);
+        var visibility=new ComboBox{ItemsSource=new[]{"All","Published","Unlisted","Draft"},SelectedIndex=0};panel.Children.Insert(6,visibility);
+        var sorting=new ComboBox{ItemsSource=new[]{"Name","Favorites","Newest"},SelectedIndex=0};panel.Children.Insert(7,sorting);
         CommunityMap[] entries=Array.Empty<CommunityMap>();
         void Filter() => list.ItemsSource=entries.Where(m=>m.ToString().Contains(search.Text??"",StringComparison.OrdinalIgnoreCase))
             .Where(m=>visibility.SelectedIndex==0||visibility.SelectedIndex==1&&m.Listed&&!m.Draft||visibility.SelectedIndex==2&&!m.Listed&&!m.Draft||visibility.SelectedIndex==3&&m.Draft).ToArray();
         visibility.SelectionChanged+=(_,_)=>Filter();
         System.Threading.Tasks.Task<CommunityMap[]> FetchEntries(MapCommunityClient client,System.Threading.CancellationToken token)=>client.BrowseAsync(token,scope.SelectedIndex==1,scope.SelectedIndex==2,sorting.SelectedIndex==1?"favorites":sorting.SelectedIndex==2?"new":"name");
         search.TextChanged+=(_,_)=>Filter();
-        MapCommunityClient Client()
+        async System.Threading.Tasks.Task<MapCommunityClient> Client(bool authenticated,System.Threading.CancellationToken token)
         {
-            var client=new MapCommunityClient(address.Text??"",credential.Text);
+            string endpoint=(address.Text??"").Trim();
+            string? ticket=authenticated?await HunterLicenseClient.GetCommunityMapTicketAsync(token):null;
             Directory.CreateDirectory(LauncherPrefs.Directory);
-            File.WriteAllText(CommunitySettingsPath,address.Text!.Trim());return client;
+            File.WriteAllText(CommunitySettingsPath,endpoint);
+            return new MapCommunityClient(endpoint,ticket);
         }
         AddButton(buttons,"Refresh",()=>_=Job("Loading community maps",async token=>
         {
             buttons.IsEnabled=false;message.Text="Loading maps…";
-            try { using var client=Client(); entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=$"{entries.Length} maps available."; }
+            try { using var client=await Client(scope.SelectedIndex!=0,token); entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=$"{entries.Length} maps available."; }
             catch(Exception ex) { message.Text=ex.Message; throw; }
             finally { buttons.IsEnabled=true; }
         }));
         AddButton(buttons,"Favorite / unfavorite",()=>_=Job("Updating favorite",async token=>
         {
             if(list.SelectedItem is not CommunityMap map)throw new InvalidOperationException("Select a map first.");
-            using var client=Client();await client.SetFavoriteAsync(map.MapId,!map.Favorited,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=map.Favorited?"Favorite removed.":"Map favorited.";
+            using var client=await Client(true,token);await client.SetFavoriteAsync(map.MapId,!map.Favorited,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text=map.Favorited?"Favorite removed.":"Map favorited.";
         }));
         AddButton(buttons,"Report map",()=>
         {
             if(list.SelectedItem is not CommunityMap map){message.Text="Select a map first.";return;}
             var report=new StackPanel{Spacing=8};report.Children.Add(Text("REPORT · "+(map.DisplayName??map.Name)));
             var reason=new ComboBox{ItemsSource=MapCreatorCatalog.ReportReasons,SelectedIndex=0};var reportDetails=new TextBox{AcceptsReturn=true,Height=100,MaxLength=4000};report.Children.Add(reason);report.Children.Add(reportDetails);
-            AddButton(report,"Submit report",()=>_=Job("Submitting report",async token=>{using var client=Client();await client.ReportAsync(map.MapId,new(map.Version,(string)reason.SelectedItem!,reportDetails.Text??""),token);GuardJob(token);Dismiss();_status.Text="Report submitted for moderation.";}));
+            AddButton(report,"Submit report",()=>_=Job("Submitting report",async token=>{using var client=await Client(true,token);await client.ReportAsync(map.MapId,new(map.Version,(string)reason.SelectedItem!,reportDetails.Text??""),token);GuardJob(token);Dismiss();_status.Text="Report submitted for moderation.";}));
             AddButton(report,"Cancel",Dismiss);Modal(report);
         });
         foreach(string state in new[]{"Published","Unlisted","Draft"})AddButton(buttons,"Set "+state,()=>_=Job("Updating visibility",async token=>
         {
-            if(list.SelectedItem is not CommunityMap map)throw new InvalidOperationException("Select a map first.");using var client=Client();await client.SetVisibilityAsync(map.Hash,state,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text="Visibility updated.";
+            if(list.SelectedItem is not CommunityMap map)throw new InvalidOperationException("Select a map first.");using var client=await Client(true,token);await client.SetVisibilityAsync(map.Hash,state,token);entries=await FetchEntries(client,token);GuardJob(token);Filter();message.Text="Visibility updated.";
         }));
         AddButton(buttons,"Upload current",()=>_=Work("Publishing map",async(project,token)=>
         {
@@ -188,11 +192,11 @@ internal sealed partial class MapStudioScreen
             string temporary=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString("N")+".ppmap");
             try
             {
-                using var client=Client();
+                using var client=await Client(true,token);
                 await MapBuildScheduler.Shared.PackageAsync(MapBuildSnapshot.Capture(project),temporary,token);GuardJob(token);
                 var published=await client.UploadAsync(temporary,token,listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,draft:visibility.SelectedIndex==3);GuardJob(token);
                 entries=await FetchEntries(client,token);GuardJob(token);Filter();list.SelectedItem=entries.FirstOrDefault(e=>e.Hash==published.Hash);
-                message.Text="Published. Share this library address and select the same map version on each computer.";
+                message.Text="Published under your Hunter License. Lobbies can download this exact version automatically.";
             }
             catch(Exception ex) { message.Text=ex.Message;throw; }
             finally { buttons.IsEnabled=true;if(File.Exists(temporary))File.Delete(temporary); }
@@ -206,7 +210,7 @@ internal sealed partial class MapStudioScreen
                 try
                 {
                     if(!GameFiles.Ready)throw new IOException("Set up game files before installing playable maps.");
-                    EnsureMapInstallationAllowed();GameFiles.ApplyPaths();using var client=Client();
+                    EnsureMapInstallationAllowed();GameFiles.ApplyPaths();using var client=await Client(map.Draft,token);
                     var installed=await client.InstallAsync(map,UserMapLibrary,token);GuardJob(token);
                     Metadata.RegisterDownloadedMap(installed);message.Text="Installed. This map is available in the map picker.";
                     if(host){Dismiss();HostRequested?.Invoke(this,installed);}
