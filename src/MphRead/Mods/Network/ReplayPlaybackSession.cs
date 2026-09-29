@@ -198,6 +198,14 @@ namespace MphRead.Mods.Network
                 if (metadata.ExpectedHashes.Count > 0 && (metadata.HashSchema != ReplayStateHash.Schema || metadata.HashBuildId != ReplayStateHash.BuildId))
                     Console.WriteLine("[replay] Expected state hashes belong to a different engine build/schema; packet playback remains available, hash verification is skipped.");
                 LastResult = ReplayMapIdentity.Validate(metadata);
+                if (LastResult == ReplayOpenResult.MapHashMismatch
+                    && metadata.CustomMapIdentity == null
+                    && _reader.ProtocolVersion < NetConfig.ProtocolVersion)
+                {
+                    LastWarning = "Built-in map data differs from the recording; using the installed map for best-effort playback.";
+                    Console.WriteLine("[replay] " + LastWarning);
+                    LastResult = ReplayOpenResult.Success;
+                }
                 if (LastResult != ReplayOpenResult.Success)
                 {
                     LastError = $"Cannot load replay map: {LastResult}.";
