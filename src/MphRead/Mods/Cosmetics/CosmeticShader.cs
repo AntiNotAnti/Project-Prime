@@ -30,6 +30,23 @@ void apply_cosmetics(inout vec4 col) {
         col.rgb = mix(col.rgb, vec3(0.76, 0.58, 0.28) * (0.45 + lum), 0.82);
         col.rgb += etch * vec3(0.08, 0.32, 0.28);
     }
+    if (cosmetic_skin == 3) {
+        vec2 panel = fract(texcoord * 12.0);
+        float seam = step(0.06, panel.x) * step(0.06, panel.y);
+        col.rgb = mix(vec3(0.10, 0.14, 0.19), vec3(0.88, 0.90, 0.85), seam) * (0.5 + lum * 0.6);
+    } else if (cosmetic_skin == 4) {
+        vec2 grid = fract(texcoord * 18.0);
+        float trace = 1.0 - step(0.08, min(grid.x, grid.y));
+        float node = 1.0 - step(0.17, length(grid - vec2(0.15)));
+        col.rgb = vec3(0.09, 0.14, 0.18) * (0.6 + lum) + vec3(0.05, 0.65, 0.55) * max(trace * 0.55, node);
+    } else if (cosmetic_skin == 5) {
+        float stripe = smoothstep(0.35, 0.45, sin(texcoord.x * 65.0 + texcoord.y * 38.0 + sin(texcoord.y * 25.0) * 2.0));
+        col.rgb = mix(vec3(0.85, 0.40, 0.07), vec3(0.08, 0.07, 0.09), stripe) * (0.55 + lum);
+    } else if (cosmetic_skin == 6) {
+        float cloud = 0.5 + 0.5 * sin(texcoord.x * 17.0 + sin(texcoord.y * 23.0) * 2.0);
+        float star = step(0.985, cosmetic_noise(floor(texcoord * 100.0)));
+        col.rgb = mix(vec3(0.10, 0.12, 0.32), vec3(0.48, 0.16, 0.56), cloud) * (0.5 + lum) + star * 0.65;
+    }
     if (cosmetic_preserve_palette != 0 && cosmetic_skin != 0) {
         float chroma = max(nativeColor.r, max(nativeColor.g, nativeColor.b)) - min(nativeColor.r, min(nativeColor.g, nativeColor.b));
         // Keep saturated native team/suit panels; neutral armor carries the skin.

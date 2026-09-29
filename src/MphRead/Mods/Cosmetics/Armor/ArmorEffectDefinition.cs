@@ -1,9 +1,11 @@
 using OpenTK.Mathematics;
 namespace MphRead.Mods.Cosmetics.Armor
 {
+    public enum ArmorMotion { Lightning, Pestilence, Eclipse, Inferno, Glacial, Void, Radiant, Phase, Spectral, Spike, Solar, Lumen, Corruption, Aurora, Quantum, Thunderstorm, Orbit, Helix, Warp, Rain }
     public sealed record ArmorEffectDefinition(string Key, ushort WireId, string DisplayName)
         : CosmeticDefinition(Key, WireId, DisplayName)
     {
+        public ArmorMotion Motion { get; init; }
         public SurfaceStyle ShaderStyle { get; init; }
         public Vector3 PrimaryColor { get; init; }
         public Vector3 SecondaryColor { get; init; }

@@ -32,6 +32,16 @@ namespace MphRead.Mods.Cosmetics
                     Check(CosmeticCatalog.FromWire(Hunter.Samus, 0, armor.WireId, 0).ArmorEffectKey == armor.Key, "armor round trip");
                 foreach (var death in CosmeticCatalog.DeathPresentations)
                     Check(CosmeticCatalog.FromWire(Hunter.Samus, 0, 0, death.WireId).DeathEffectKey == death.Key, "death round trip");
+                foreach (var skin in CosmeticCatalog.Skins.Where(s => s.Hunter != null))
+                    Check(CosmeticCatalog.FromWire(skin.Hunter!.Value, skin.WireId, 0, 0).SkinKey == skin.Key, "skin wire round trip");
+                foreach (var effect in CosmeticCatalog.ArmorEffects.Where(e => e.WireId > 0))
+                    for (int frame = 0; frame < 120; frame++)
+                        for (int sample = 0; sample < 6; sample++)
+                        {
+                            var point = Armor.ArmorEffectParticles.Sample(effect.Motion, frame / 30f, 17, frame % 10, sample / 5f);
+                            Check(float.IsFinite(point.X) && float.IsFinite(point.Y) && float.IsFinite(point.Z)
+                                && point.Length < 4, "bounded finite armor path");
+                        }
                 var loadout = new CosmeticLoadout("skin.samus.obsidian", "armor.inferno", "death.quantum");
                 Check(JsonSerializer.Deserialize<CosmeticLoadout>(JsonSerializer.Serialize(loadout)) == loadout, "JSON round trip");
                 LauncherPrefs.Directory = temp; CosmeticPersistence.ResetCache();

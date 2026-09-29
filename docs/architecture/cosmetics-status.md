@@ -159,3 +159,23 @@ exercise repeated model selection and License detach/re-entry. Weapon and
 alternate-form captures were visually inspected; Spire's shell gap is also
 present in the native model comparison. Android and live two-client visual
 acceptance remain unverified.
+
+## Expanded customization (2026-09-29)
+
+Added Ceramic (panel seams), Circuit (traces and nodes), Tiger (warped stripes),
+and Nebula (clouds and stars) for all seven hunters. Existing wire IDs stay intact;
+new skin IDs are 15–42. Added Orbital, Double Helix, Warp Drive and Starfall armor
+IDs 17–20. The catalog now offers seven skins per hunter and 20 armor effects plus None.
+
+All armor effects have separate analytic trajectories. Pooled translucent ribbons
+form arcs, rings, quills, crystal outlines and trails, with one sprite per trail.
+Quality/distance gates remain in place; maximum submission is 16 sprites and 80
+quads per visible hunter. Positions use the hunter/form envelope and shared preview
+transform. No simulation state or RNG is consumed. Thumbnail cache is now v4.
+
+Validation: desktop build, 14,745 cosmetics checks, endpoint catalog checks,
+252 real-model catalog captures, 63 model-mode captures and preview quality/lifecycle
+checks passed. Circuit, Inferno, Lightning and Orbital captures were visually inspected.
+Device performance and live multiplayer acceptance remain unverified. The updated
+online allowlist is checked in; deploying the hunter-cosmetics function is required
+before the live service will accept the newly added keys.
