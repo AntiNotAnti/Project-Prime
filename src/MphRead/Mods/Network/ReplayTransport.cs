@@ -85,13 +85,18 @@ namespace MphRead.Mods.Network
             NoteInput();
         }
         internal void Stop() { State = ReplayState.Inactive; _steps = 0; _target = null; _rebuild = null; _fraction = 0; _presentationStartFrame = CurrentFrame; }
-        public void Play() { if (IsPaused) { State = ReplayState.Playing; } NoteInput(); }
+        public void Play()
+        {
+            if (State == ReplayState.Error) Restart();
+            else if (IsPaused) State = ReplayState.Playing;
+            NoteInput();
+        }
         public void Pause() { if (State == ReplayState.Playing) { _presentationStartFrame = CurrentFrame + _fraction; State = ReplayState.Paused; } NoteInput(); }
         public void TogglePause()
         {
             // Media-style behavior: play from a finished replay starts it again
             // instead of silently doing nothing at the end frame.
-            if (AtEnd) Restart();
+            if (AtEnd || State == ReplayState.Error) Restart();
             else if (IsPaused) Play();
             else Pause();
         }
