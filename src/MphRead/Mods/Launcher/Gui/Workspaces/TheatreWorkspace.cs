@@ -965,6 +965,10 @@ namespace MphRead.Mods.Launcher.Gui
             if (reader.Metadata is ReplayMetadata metadata)
             {
                 result = ReplayMapIdentity.Validate(metadata);
+                if (result == ReplayOpenResult.MapHashMismatch
+                    && metadata.CustomMapIdentity == null
+                    && reader.ProtocolVersion < NetConfig.ProtocolVersion)
+                    result = ReplayOpenResult.Success;
                 if (result != ReplayOpenResult.Success)
                     return new(result, $"Cannot load replay map: {result}.");
             }
