@@ -1619,6 +1619,13 @@ namespace MphRead.Entities
                     {
                         DrawEscapeTime();
                     }
+                    // The stock timer is a scoreboard surface. A Custom HUD can
+                    // promote it to a persistent gameplay element; its own
+                    // visibility/context rules still decide whether it is shown.
+                    if (DrawCustomMatchTimerDuringGameplay)
+                    {
+                        DrawMatchTime();
+                    }
                     if (Health > 0)
                     {
                         if (!_scene.GameState.DialogPause)
@@ -4013,6 +4020,10 @@ namespace MphRead.Entities
         }
 
         private const byte CombatNotificationCategory = 8;
+        internal const float CombatNotificationLayoutX = 128;
+        internal const float CombatNotificationLayoutY = 32;
+        internal static bool DrawCustomMatchTimerDuringGameplay
+            => HudProfiles.Runtime.Mode == HudMode.Custom;
         private const float CombatNotificationLineSpacing = 10;
         private const float CombatNotificationGlyphHeight = 8;
         private const float CombatNotificationGap = 4;
@@ -4121,6 +4132,14 @@ namespace MphRead.Entities
                 int limit=profile.Notifications.Queue==HudNotificationQueue.Latest ? 1 : profile.Notifications.MaxVisible;
                 for (int i=0; i<Math.Max(0,lane.Length-limit); i++) _hudMessageQueue[lane[i]].CombatDeferred=true;
                 lane=lane[Math.Max(0,lane.Length-limit)..];
+
+                // In a Custom HUD the editor owns this lane's placement and
+                // scale. Do not snap medals back into the stock collision
+                // bands before applying combat.notifications: doing that made
+                // X/Y/Scale edits appear ineffective and made scale pivot
+                // around an unrelated automatic lane.
+                LayoutCustomCombatNotifications(_hudMessageQueue, lane);
+                return;
             }
             Span<(float Top,float Bottom)> occupiedBuffer = stackalloc (float,float)[20];
             int occupiedCount=0;
@@ -4187,6 +4206,21 @@ namespace MphRead.Entities
                 message.CombatDeferred = false;
                 message.Scale = CombatNotificationScale;
                 message.Position = new Vector2(128, y);
+                message.Alpha = i == lane.Length - 1 ? 1f : 0.62f;
+                y += CombatNotificationHeight(message) + HudNotificationGap;
+            }
+        }
+
+        internal static void LayoutCustomCombatNotifications(
+            IReadOnlyList<HudMessage> queue, ReadOnlySpan<int> lane)
+        {
+            float y = CombatNotificationLayoutY;
+            for (int i = 0; i < lane.Length; i++)
+            {
+                HudMessage message = queue[lane[i]];
+                message.CombatDeferred = false;
+                message.Scale = CombatNotificationScale;
+                message.Position = new Vector2(CombatNotificationLayoutX, y);
                 message.Alpha = i == lane.Length - 1 ? 1f : 0.62f;
                 y += CombatNotificationHeight(message) + HudNotificationGap;
             }
@@ -4517,7 +4551,8 @@ namespace MphRead.Entities
                             alpha *= Math.Clamp(
                                 message.Lifetime / CombatNotificationFadeSeconds, 0, 1);
                         }
-                        using var layout = UseHudLayout(message.IsCombatNotification ? 8 : -1, 128, 32);
+                        using var layout = UseHudLayout(message.IsCombatNotification ? 8 : -1,
+                            CombatNotificationLayoutX, CombatNotificationLayoutY);
                         DrawText2D(message.Position.X, message.Position.Y, message.Align, palette: 0,
                             message.Text, message.Color, alpha, fontSpacing: message.FontSize,
                             scale: message.Scale <= 0 ? 1 : message.Scale);

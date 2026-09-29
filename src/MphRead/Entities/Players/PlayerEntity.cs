@@ -2548,7 +2548,19 @@ namespace MphRead.Entities
                                             message = Strings.GetHudMessage(255); // %s KILLED 5 IN A ROW!
                                             message = message.Replace("%s", nickname);
                                         }
-                                        QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
+                                        if (attacker.IsMainPlayer
+                                            && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom)
+                                        {
+                                            // The native five-kill fallback is still a local
+                                            // streak notification. Route it through the same
+                                            // editable lane so combat.notifications movement,
+                                            // scale, opacity and visibility remain authoritative.
+                                            attacker.QueueCombatNotifications(new[] { message });
+                                        }
+                                        else
+                                        {
+                                            QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
+                                        }
                                     }
                                 }
                                 attacker.AwardChamberShot();

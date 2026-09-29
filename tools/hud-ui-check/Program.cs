@@ -34,6 +34,33 @@ if(Environment.GetEnvironmentVariable("HUD_NATIVE_ASSET_ROOT") is {} nativeRoot)
 string directory=Path.Combine(Path.GetTempPath(),"prime-hud-ui-"+Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(directory); HudProfiles.Load(directory);
 var original=HudProfiles.CopyCurrent();
+
+// Regression: the stock HUD keeps the match timer tied to the scoreboard,
+// while a Custom HUD may promote match.timer into the normal gameplay pass.
+var timerPolicy=original.DeepClone();
+timerPolicy.Mode=HudMode.ProjectPrime; HudProfiles.Publish(timerPolicy);
+Check(!MphRead.Entities.PlayerEntity.DrawCustomMatchTimerDuringGameplay,
+    "stock HUD does not persist match timer");
+timerPolicy.Mode=HudMode.Custom; timerPolicy.Notifications.Spacing=7; HudProfiles.Publish(timerPolicy);
+Check(MphRead.Entities.PlayerEntity.DrawCustomMatchTimerDuringGameplay,
+    "custom HUD persists match timer");
+
+// Regression: custom combat notifications must start at the same authored
+// origin that combat.notifications moves/scales around. Stock collision lanes
+// must not rewrite that origin before the custom element transform is applied.
+var notificationQueue=new MphRead.Entities.PlayerEntity.HudMessage[]
+{
+    new() { CombatLines=1 },
+    new() { CombatLines=1 }
+};
+MphRead.Entities.PlayerEntity.LayoutCustomCombatNotifications(notificationQueue,new[]{0,1});
+Check(notificationQueue[0].Position.X==MphRead.Entities.PlayerEntity.CombatNotificationLayoutX
+    && notificationQueue[0].Position.Y==MphRead.Entities.PlayerEntity.CombatNotificationLayoutY,
+    "custom streak lane uses HUD editor origin");
+Check(notificationQueue[0].Scale>0 && notificationQueue[1].Position.Y>notificationQueue[0].Position.Y,
+    "custom streak lane keeps scale and spacing");
+HudProfiles.Publish(original);
+
 var dynamicAim=original.DeepClone(); dynamicAim.Mode=HudMode.ProjectPrime; dynamicAim.FixedWeapon=false; HudProfiles.Publish(dynamicAim);
 Check(Features.FixedCrosshair && !Features.FixedAimCamera,"Pro HUD dynamic weapon keeps eased aim camera");
 dynamicAim.FixedWeapon=true; HudProfiles.Publish(dynamicAim);
