@@ -58,29 +58,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>The server is up and this player is in it.</summary>
         public event EventHandler<LaunchPlan>? Launched;
 
-        private static readonly (string Label, GameMode Mode)[] _modes =
-        {
-            ("Battle", GameMode.Battle),
-            ("Battle teams", GameMode.BattleTeams),
-            ("Survival", GameMode.Survival),
-            ("Survival teams", GameMode.SurvivalTeams),
-            ("Capture", GameMode.Capture),
-            ("Bounty", GameMode.Bounty),
-            ("Bounty teams", GameMode.BountyTeams),
-            ("Defender", GameMode.Defender),
-            ("Defender teams", GameMode.DefenderTeams),
-            ("Nodes", GameMode.Nodes),
-            ("Nodes teams", GameMode.NodesTeams),
-            ("Hardpoint", GameMode.Hardpoint),
-                ("Hardpoint teams", GameMode.HardpointTeams),
-                ("Gun Game", GameMode.GunGame),
-                ("One in the Chamber", GameMode.OneInTheChamber),
-                ("Kill Confirmed", GameMode.KillConfirmed),
-                ("Kill Confirmed Teams", GameMode.KillConfirmedTeams),
-                ("Headhunter", GameMode.Headhunter),
-                ("Relic", GameMode.Relic),
-                ("Prime hunter", GameMode.PrimeHunter)
-        };
+        private static readonly MatchTypeDefinition[] _modes = MatchTypeCatalog.GameTypes;
+        private static readonly MatchupDefinition[] _matchups = MatchTypeCatalog.BasicMatchups;
 
         private static readonly string[] _hunters =
             Enumerable.Range(0, Hunters.Playable).Select(i => ((Hunter)i).ToString())
@@ -119,6 +98,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private readonly FieldRow _name;
         private readonly ChoiceRow _mode;
+        private readonly ChoiceRow _format;
         private readonly ChoiceRow _hunter;
         private readonly ChoiceRow _kind;
         private readonly PickRow _host;
@@ -174,9 +154,14 @@ namespace MphRead.Mods.Launcher.Gui
             string player = LauncherPrefs.PlayerName.Trim();
             _name = new FieldRow("Lobby name",
                 (player.Length > 0 ? player : "Player") + "'s lobby", boxWidth: 230);
-            int lastMode = Array.FindIndex(_modes, option => option.Mode == LauncherPrefs.LastLobbyMode);
+            int lastMode = MatchTypeCatalog.BaseModeIndex(LauncherPrefs.LastLobbyMode);
             _mode = new ChoiceRow("Game type", _modes.Select(m => m.Label).ToArray(),
                 Math.Max(0, lastMode));
+            _format = new ChoiceRow("Matchup", _matchups.Select(m => m.Label).ToArray(),
+                MatchTypeCatalog.BasicMatchupIndex(MatchTypeCatalog.FormatForMode(LauncherPrefs.LastLobbyMode)));
+            _mode.Changed += (_, _) => SyncMatchup();
+            _format.Changed += (_, _) => SyncMatchup();
+            SyncMatchup();
             _hunter = new ChoiceRow("Your hunter", _hunters,
                 Math.Max(0, Array.IndexOf(_hunters, LauncherPrefs.LastHunter.ToString())));
             _host = new PickRow("Host on");
@@ -190,6 +175,7 @@ namespace MphRead.Mods.Launcher.Gui
             var identity = new StackPanel { Spacing = 3 };
             identity.Children.Add(_name);
             identity.Children.Add(_mode);
+            identity.Children.Add(_format);
             identity.Children.Add(_hunter);
 
             var rotation = new StackPanel { Spacing = 5 };
@@ -641,6 +627,25 @@ namespace MphRead.Mods.Launcher.Gui
             OpenPage(picker);
         }
 
+        private MatchFormat SelectedFormat() =>
+            _matchups[Math.Clamp(_format.Index, 0, _matchups.Length - 1)].Format;
+
+        private GameMode SelectedMode()
+        {
+            MatchTypeDefinition type = _modes[Math.Clamp(_mode.Index, 0, _modes.Length - 1)];
+            MatchFormat format = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
+            return type.Resolve(format);
+        }
+
+        private void SyncMatchup()
+        {
+            MatchTypeDefinition type = _modes[Math.Clamp(_mode.Index, 0, _modes.Length - 1)];
+            MatchFormat normalized = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
+            int index = MatchTypeCatalog.BasicMatchupIndex(normalized);
+            if (_format.Index != index) _format.Index = index;
+            _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
+        }
+
         // ------------------------------------------------------- the rotation
 
         /// <summary>
@@ -653,7 +658,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         private string? MapIncompatibility(string room)
         {
-            var match = new MatchDefinition { RoomKey = room, Mode = _modes[_mode.Index].Mode };
+            var match = new MatchDefinition { RoomKey = room, Mode = SelectedMode(), Format = SelectedFormat() };
             return Multiplayer.MapModeCapabilities.Supports(room, match.Mode,
                 LobbyRules.ResolveWorldProfile(match, PlayerEntity.SlotCapacity), out string reason, PlayerEntity.SlotCapacity) ? null : reason;
         }
@@ -774,7 +779,7 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 name = "Project Prime lobby";
             }
-            GameMode mode = _modes[_mode.Index].Mode;
+            GameMode mode = SelectedMode();
             var hunter = (Hunter)Enum.Parse(typeof(Hunter), _hunter.Value);
             var maps = _rotation.Select(room => (room, mode)).ToList();
             string player = LauncherPrefs.PlayerName.Trim();
@@ -1338,10 +1343,10 @@ namespace MphRead.Mods.Launcher.Gui
         public MapRotationPicker(IReadOnlyList<string> rooms, IReadOnlyList<string> picked,
             bool single = false, Func<string, string?>? incompatibility = null)
         {
-            _rooms = new List<string>(rooms);
-            _picked = new List<string>(picked);
             _single = single;
             foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
+            _rooms = rooms.Where(room => Incompatibility(room) == null).ToList();
+            _picked = picked.Where(room => _rooms.Contains(room)).ToList();
             Background = Brushes.Transparent;
             Focusable = true;
 
@@ -1437,8 +1442,7 @@ namespace MphRead.Mods.Launcher.Gui
             _byRoom.Clear();
             if (_rooms.Count == 0)
             {
-                _list.AddNote("No multiplayer rooms were found. Set the game files up "
-                    + "from Settings.", GuiTheme.Warm);
+                _list.AddNote("No maps support the selected game type and matchup.", GuiTheme.Warm);
                 return;
             }
             foreach (string room in _rooms)

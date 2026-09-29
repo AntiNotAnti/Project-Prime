@@ -20,34 +20,8 @@ namespace MphRead.Mods.Launcher.Gui
 {
     internal sealed class LobbyScreen : UserControl
     {
-        private static readonly (string Label, GameMode Free, GameMode Team, bool TeamOnly, bool FfaOnly)[] _gameTypes =
-        {
-            ("Battle", GameMode.Battle, GameMode.BattleTeams, false, false),
-            ("Survival", GameMode.Survival, GameMode.SurvivalTeams, false, false),
-            ("Bounty", GameMode.Bounty, GameMode.BountyTeams, false, false),
-            ("Defender", GameMode.Defender, GameMode.DefenderTeams, false, false),
-            ("Nodes", GameMode.Nodes, GameMode.NodesTeams, false, false),
-            ("Capture", GameMode.Capture, GameMode.Capture, true, false),
-            ("Hardpoint", GameMode.Hardpoint, GameMode.HardpointTeams, false, false),
-            ("Gun Game", GameMode.GunGame, GameMode.GunGame, false, true),
-            ("One in the Chamber", GameMode.OneInTheChamber, GameMode.OneInTheChamber, false, true),
-            ("Kill Confirmed", GameMode.KillConfirmed, GameMode.KillConfirmedTeams, true, true),
-            ("Headhunter", GameMode.Headhunter, GameMode.Headhunter, false, true),
-            ("Relic", GameMode.Relic, GameMode.Relic, false, true),
-            ("Prime Hunter", GameMode.PrimeHunter, GameMode.PrimeHunter, false, true)
-        };
-
-        private static readonly (string Label, MatchFormat Format)[] _matchups =
-        {
-            ("FFA", MatchFormat.FreeForAll),
-            ("Teams", MatchFormat.Auto),
-            ("1v1", MatchFormat.OneVsOne),
-            ("2v2", MatchFormat.TwoVsTwo),
-            ("3v3", MatchFormat.ThreeVsThree),
-            ("4v4", MatchFormat.FourVsFour),
-            ("2v2v2v2", MatchFormat.TwoVsTwoVsTwoVsTwo),
-            ("Custom", MatchFormat.Custom)
-        };
+        private static readonly MatchTypeDefinition[] _gameTypes = MatchTypeCatalog.GameTypes;
+        private static readonly MatchupDefinition[] _matchups = MatchTypeCatalog.Matchups;
 
         public event EventHandler<LaunchPlan>? MatchRequested;
         public event EventHandler? HubRequested;
@@ -59,8 +33,8 @@ namespace MphRead.Mods.Launcher.Gui
         private bool _rosterTeams;
         private string[] _targetNames = Array.Empty<string>();
         private readonly StackPanel _ownerControls = new() { Spacing = 2 };
-        private readonly Note _status = new("");
-        private readonly Note _chat = new("", lines: 0);
+        private readonly Note _status = new("", scale: 0.90);
+        private readonly Note _chat = new("", lines: 0, scale: 0.95);
         public PrimeOverlayHost? Overlays { get; set; }
         private readonly Border _startOverlay;
         private readonly TextBlock _startCountdown;
@@ -80,10 +54,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             PlaceholderText = "Message",
             MaxLength = ChatPacket.MaxTextBytes,
-            Height = 28,
-            MinHeight = 28,
+            Height = 34,
+            MinHeight = 34,
             FontFamily = HubTheme.Ui,
-            FontSize = 11,
+            FontSize = 13,
             Foreground = HubTheme.TextBrush,
             Background = HubTheme.PanelBrush,
             BorderBrush = HubTheme.EdgeBrush,
@@ -301,7 +275,7 @@ namespace MphRead.Mods.Launcher.Gui
             };
             var chatBody = new Grid
             {
-                RowDefinitions = new RowDefinitions("32,28"),
+                RowDefinitions = new RowDefinitions("40,34"),
                 RowSpacing = 4
             };
             chatBody.Children.Add(_chatHistory);
@@ -1066,15 +1040,11 @@ namespace MphRead.Mods.Launcher.Gui
             GameMode previousGoalMode = _goalMode;
             bool preserveCustomGoal = _goalCustomized;
             _syncing = true;
-            (string _, GameMode _, GameMode _, bool teamOnly, bool ffaOnly) = _gameTypes[_mode.Index];
-            MatchFormat format = SelectedFormat();
-            int target = _format.Index;
-            if (ffaOnly && format != MatchFormat.FreeForAll)
-                target = MatchupIndex(MatchFormat.FreeForAll);
-            else if (teamOnly && (format == MatchFormat.FreeForAll
-                || format == MatchFormat.TwoVsTwoVsTwoVsTwo))
-                target = MatchupIndex(MatchFormat.Auto);
+            MatchTypeDefinition type = _gameTypes[_mode.Index];
+            MatchFormat format = MatchTypeCatalog.NormalizeFormat(type, SelectedFormat());
+            int target = MatchupIndex(format);
             if (target != _format.Index) _format.Index = target;
+            _format.IsEnabled = !type.TeamOnly && !type.FfaOnly;
             MatchDefinition draft = DraftMatch();
             _goal.Label = GoalLabel(draft.Mode);
             _goal.IsVisible = draft.Mode != GameMode.GunGame;
@@ -1098,10 +1068,7 @@ namespace MphRead.Mods.Launcher.Gui
         {
             MatchFormat format = SelectedFormat();
             var type = _gameTypes[Math.Clamp(_mode.Index, 0, _gameTypes.Length - 1)];
-            bool teams = format != MatchFormat.FreeForAll;
-            GameMode mode = type.FfaOnly ? type.Free
-                : type.TeamOnly ? type.Team
-                : teams ? type.Team : type.Free;
+            GameMode mode = type.Resolve(format);
             return new MatchDefinition
             {
                 RoomKey = _draftRoom,
@@ -1505,11 +1472,8 @@ namespace MphRead.Mods.Launcher.Gui
             return _matchups[Math.Clamp(_format.Index, 0, _matchups.Length - 1)].Format;
         }
 
-        private static int MatchupIndex(MatchFormat format)
-        {
-            int index = Array.FindIndex(_matchups, m => m.Format == format);
-            return index < 0 ? 0 : index;
-        }
+        private static int MatchupIndex(MatchFormat format) =>
+            MatchTypeCatalog.MatchupIndex(format);
 
         private static int MatchupIndex(MatchDefinition match)
         {
@@ -1518,11 +1482,8 @@ namespace MphRead.Mods.Launcher.Gui
             return MatchupIndex(match.Format);
         }
 
-        private static int BaseModeIndex(GameMode mode)
-        {
-            int index = Array.FindIndex(_gameTypes, m => m.Free == mode || m.Team == mode);
-            return index < 0 ? 0 : index;
-        }
+        private static int BaseModeIndex(GameMode mode) =>
+            MatchTypeCatalog.BaseModeIndex(mode);
     }
 
     /// <summary>

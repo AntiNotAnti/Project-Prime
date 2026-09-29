@@ -3,6 +3,7 @@ using System.Linq;
 using System.Buffers.Binary;
 using MphRead.Mods.Multiplayer;
 using MphRead.Entities;
+using MphRead.Mods.Chat;
 
 namespace MphRead.Mods.Network;
 
@@ -25,6 +26,25 @@ public static class GameModeCheck
                 GameMode.SurvivalTeams, GameMode.Capture, GameMode.Bounty, GameMode.BountyTeams,
                 GameMode.Nodes, GameMode.NodesTeams, GameMode.Defender, GameMode.DefenderTeams,
                 GameMode.PrimeHunter, GameMode.Relic, GameMode.Hardpoint, GameMode.HardpointTeams, GameMode.GunGame, GameMode.KillConfirmed, GameMode.KillConfirmedTeams, GameMode.Headhunter, GameMode.OneInTheChamber };
+            Check(MatchTypeCatalog.GameTypes.All(type => !type.Label.Contains("teams", StringComparison.OrdinalIgnoreCase)),
+                "player-facing game types do not duplicate team variants");
+            MatchTypeDefinition battleType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.Battle)];
+            Check(battleType.Resolve(MatchFormat.FreeForAll) == GameMode.Battle
+                && battleType.Resolve(MatchFormat.Auto) == GameMode.BattleTeams,
+                "Battle resolves FFA and Teams through matchup");
+            MatchTypeDefinition nodesType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.NodesTeams)];
+            Check(nodesType.Resolve(MatchFormat.TwoVsTwo) == GameMode.NodesTeams, "Nodes team matchup resolves legacy internal mode");
+            MatchTypeDefinition confirmedType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.KillConfirmed)];
+            Check(confirmedType.Resolve(MatchFormat.FreeForAll) == GameMode.KillConfirmed
+                && confirmedType.Resolve(MatchFormat.Auto) == GameMode.KillConfirmedTeams,
+                "Kill Confirmed supports both FFA and Teams");
+            MatchTypeDefinition captureType = MatchTypeCatalog.GameTypes[MatchTypeCatalog.BaseModeIndex(GameMode.Capture)];
+            Check(MatchTypeCatalog.NormalizeFormat(captureType, MatchFormat.FreeForAll) == MatchFormat.Auto,
+                "Capture coerces invalid FFA matchup to Teams");
+            NetChat.Clear();
+            NetChat.Remember(new ChatPacket { Kind = ChatPacket.KindSystem, Name = "TRACE", Text = "joined" });
+            Check(NetChat.History[^1] == "TRACE joined", "named system chat retains player name");
+            NetChat.Clear();
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, null, -1) == 1, "Hardpoint starts at smallest entity ID");
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, null, 9) == 1, "Hardpoint ID order wraps");
             Check(HardpointRules.Next(new[] { 9, 1, 5 }, new[] { 5, 9 }, -1) == 5, "custom Hardpoint order overrides IDs");

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using MphRead.Mods.Network;
 
@@ -19,7 +20,10 @@ namespace MphRead.Mods.Chat
         public static void Remember(ChatPacket packet)
         {
             if (_history.Count == 64) { _history.RemoveAt(0); _entries.RemoveAt(0); }
-            _history.Add(packet.Kind == ChatPacket.KindSystem ? packet.Text : $"{(packet.Kind == ChatPacket.KindTeam ? "[Team] " : "")}{packet.Name}: {packet.Text}");
+            string line = packet.Kind == ChatPacket.KindSystem
+                ? (string.IsNullOrWhiteSpace(packet.Name) ? packet.Text : $"{packet.Name} {packet.Text}")
+                : $"{(packet.Kind == ChatPacket.KindTeam ? "[Team] " : "")}{packet.Name}: {packet.Text}";
+            _history.Add(line);
             _entries.Add((_history[^1], packet.Kind == ChatPacket.KindSystem));
             Revision++;
         }

@@ -578,6 +578,7 @@ namespace MphRead.Mods.Launcher.Gui
     {
         /// <summary>How many lines it is held to, or 0 for as many as it takes.</summary>
         private readonly int _lines;
+        private readonly double _scale;
 
         /// <param name="lines">
         /// Two by default -- see <see cref="MeasureOverride"/>. Zero for a
@@ -587,9 +588,10 @@ namespace MphRead.Mods.Launcher.Gui
         /// own log is the same shape, and was showing two lines of an
         /// extraction inside a box 160 points tall.
         /// </param>
-        public Note(string text, Color? color = null, int lines = 2)
+        public Note(string text, Color? color = null, int lines = 2, double scale = 0.76)
         {
             _lines = lines;
+            _scale = Math.Clamp(scale, 0.5, 1.5);
             Text = text;
             // The body face, not the display one. This is the one string on
             // the screen that is a *sentence* -- "12 of 13 answered. Click one
@@ -617,7 +619,7 @@ namespace MphRead.Mods.Launcher.Gui
         protected override Size MeasureOverride(Size availableSize)
         {
             double em = Deck.GetEm(this);
-            double size = em * 0.76;
+            double size = em * _scale;
             if (Math.Abs(size - FontSize) > 0.01)
             {
                 FontSize = size;
