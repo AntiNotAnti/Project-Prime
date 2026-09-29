@@ -37,7 +37,7 @@ namespace MphRead.Mods.Replay
 
         public static IReadOnlyList<ReplayBookmark> Bookmarks(string? replay = null)
         {
-            ReplayAnnotationDocument document = Load(replay ?? DemoPlayback.CurrentPath);
+            ReplayAnnotationDocument document = Load(replay ?? DemoPlayback.LogicalPath);
             return document.Bookmarks
                 .OrderBy(bookmark => bookmark.Frame)
                 .ToArray();
@@ -45,17 +45,17 @@ namespace MphRead.Mods.Replay
 
         public static IReadOnlyList<ReplayNamedHighlight> Highlights(string? replay = null)
         {
-            ReplayAnnotationDocument document = Load(replay ?? DemoPlayback.CurrentPath);
+            ReplayAnnotationDocument document = Load(replay ?? DemoPlayback.LogicalPath);
             return document.Highlights
                 .OrderBy(highlight => highlight.StartFrame)
                 .ToArray();
         }
 
         public static IReadOnlyList<string> Tags(string? replay = null)
-            => Load(replay ?? DemoPlayback.CurrentPath).Tags.ToArray();
+            => Load(replay ?? DemoPlayback.LogicalPath).Tags.ToArray();
 
         public static IReadOnlyList<string> Collections(string? replay = null)
-            => Load(replay ?? DemoPlayback.CurrentPath).Collections.ToArray();
+            => Load(replay ?? DemoPlayback.LogicalPath).Collections.ToArray();
 
         public static void SetOrganization(string replay,
             IEnumerable<string> tags, IEnumerable<string> collections)

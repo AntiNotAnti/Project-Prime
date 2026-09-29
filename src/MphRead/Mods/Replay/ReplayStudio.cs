@@ -98,14 +98,14 @@ namespace MphRead.Mods.Replay
         }
 
         private static bool DefaultCacheValid(int eventCount, uint duration)
-            => String.Equals(_cachePath, DemoPlayback.CurrentPath, StringComparison.OrdinalIgnoreCase)
+            => ReplayPathComparer.Comparer.Equals(_cachePath, DemoPlayback.LogicalPath)
                 && _cacheEventCount == eventCount
                 && _cacheDuration == duration;
 
         private static void NoteDefaultCache(int eventCount, uint duration)
         {
-            string? path = DemoPlayback.CurrentPath;
-            if (!String.Equals(_cachePath, path, StringComparison.OrdinalIgnoreCase)
+            string? path = DemoPlayback.LogicalPath;
+            if (!ReplayPathComparer.Comparer.Equals(_cachePath, path)
                 || _cacheEventCount != eventCount || _cacheDuration != duration)
             {
                 _cachePath = path;
@@ -477,12 +477,7 @@ namespace MphRead.Mods.Replay
 
         public static void Delete(string path)
         {
-            File.Delete(path);
-            File.Delete(path + ".favorite");
-            ReplayAnnotations.DeleteFor(path);
-            ReplayReels.DeleteFor(path);
-            string cache = CachePath(path);
-            File.Delete(cache);
+            ReplayArtifacts.DeleteAll(path);
         }
 
         public static string? ResolveForPlayback(string path, out ReplayOpenResult result)
@@ -510,7 +505,7 @@ namespace MphRead.Mods.Replay
                     return output;
                 }
 
-                File.Delete(output);
+                ReplayArtifacts.DeleteCache(output);
                 result = ReplayArchive.Extract(clip.SourceReplay,
                     clip.StartFrame, clip.EndFrame, output);
                 return result == ReplayOpenResult.Success ? output : null;
@@ -525,23 +520,21 @@ namespace MphRead.Mods.Replay
         public static string LogicalPath(string playbackPath)
         {
             string full = Path.GetFullPath(playbackPath);
-            string cacheDirectory = Path.GetFullPath(
-                Path.Combine(DemoLibrary.Directory, ".virtual-cache"));
             string? directory = Path.GetDirectoryName(full);
-            if (directory != null
-                && String.Equals(Path.GetFullPath(directory), cacheDirectory,
-                    StringComparison.OrdinalIgnoreCase))
+            if (directory != null && ReplayPathComparer.Comparer.Equals(
+                Path.GetFileName(directory), ".virtual-cache")
+                && Path.GetDirectoryName(directory) is { } ownerDirectory)
             {
-                string descriptor = Path.Combine(DemoLibrary.Directory,
+                string descriptor = Path.Combine(ownerDirectory,
                     Path.GetFileNameWithoutExtension(full) + Extension);
                 if (File.Exists(descriptor)) return Path.GetFullPath(descriptor);
             }
             return full;
         }
 
-        private static string CachePath(string path)
+        internal static string CachePath(string path)
         {
-            string directory = Path.Combine(DemoLibrary.Directory, ".virtual-cache");
+            string directory = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(path))!, ".virtual-cache");
             string file = Path.GetFileNameWithoutExtension(path) + DemoFile.Extension;
             return Path.Combine(directory, file);
         }
@@ -580,17 +573,11 @@ namespace MphRead.Mods.Replay
                     .ToArray()
                 : Array.Empty<FileInfo>();
 
-            var protectedSources = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            foreach (string virtualClip in ReplayVirtualClips.List())
-            {
-                if (ReplayVirtualClips.TryLoad(virtualClip, out ReplayVirtualClipDocument? clip)
-                    && clip != null)
-                {
-                    protectedSources.Add(Path.GetFullPath(clip.SourceReplay));
-                }
-            }
+            var protectedSources = ProtectedSources();
+            string[] virtualClips = ReplayVirtualClips.List().ToArray();
+            long virtualBytes = virtualClips.Sum(path => { try { return new FileInfo(path).Length; } catch { return 0; } });
 
-            long before = files.Sum(f => f.Length) + cacheFiles.Sum(f => f.Length);
+            long before = files.Sum(f => f.Length) + cacheFiles.Sum(f => f.Length) + virtualBytes;
             long total = before;
             int deleted = 0;
 
@@ -599,20 +586,16 @@ namespace MphRead.Mods.Replay
             foreach (FileInfo cache in cacheFiles)
             {
                 if (total <= policy.MaxBytes) break;
-                if (DemoPlayback.IsActive && DemoPlayback.CurrentPath != null
-                    && String.Equals(Path.GetFullPath(cache.FullName),
-                        Path.GetFullPath(DemoPlayback.CurrentPath),
-                        StringComparison.OrdinalIgnoreCase))
+                if (DemoPlayback.IsActive && DemoPlayback.PlaybackPath != null
+                    && ReplayPathComparer.Same(cache.FullName, DemoPlayback.PlaybackPath))
                 {
-                    // A virtual clip plays from this materialized cache file.
-                    // Deleting an open file is legal on Unix, but a later
-                    // checkpoint fallback/rebuild has to reopen CurrentPath.
+                    // The active player must be able to reopen its materialized file.
                     continue;
                 }
                 try
                 {
                     long bytes = cache.Length;
-                    cache.Delete();
+                    ReplayArtifacts.DeleteCache(cache.FullName);
                     total = Math.Max(0, total - bytes);
                     deleted++;
                 }
@@ -622,17 +605,35 @@ namespace MphRead.Mods.Replay
                 }
             }
 
+            if (policy.DeleteVirtualClips && total > policy.MaxBytes)
+            {
+                foreach (string path in virtualClips.OrderBy(File.GetLastWriteTimeUtc))
+                {
+                    if (total <= policy.MaxBytes) break;
+                    if (File.Exists(path + ".favorite")
+                        || DemoPlayback.LogicalPath is { } active && ReplayPathComparer.Same(path, active))
+                        continue;
+                    try
+                    {
+                        long bytes = new FileInfo(path).Length;
+                        ReplayVirtualClips.Delete(path);
+                        total = Math.Max(0, total - bytes);
+                        deleted++;
+                        protectedSources = ProtectedSources();
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
+                }
+            }
+
             foreach (FileInfo file in files)
             {
                 if (total <= policy.MaxBytes) break;
                 string path = file.FullName;
                 if (File.Exists(path + ".favorite")) continue;
-                if (DemoPlayback.IsActive && DemoPlayback.CurrentPath != null
-                    && String.Equals(Path.GetFullPath(path),
-                        Path.GetFullPath(DemoPlayback.CurrentPath),
-                        StringComparison.OrdinalIgnoreCase))
+                if (DemoPlayback.IsActive && DemoPlayback.PlaybackPath != null
+                    && ReplayPathComparer.Same(path, DemoPlayback.PlaybackPath))
                     continue;
-                if (protectedSources.Contains(Path.GetFullPath(path))) continue;
+                if (protectedSources.Contains(ReplayPathComparer.Normalize(path))) continue;
                 using DemoReader? reader = DemoReader.Open(path, out _, metadataOnly: true);
                 ReplayType type = reader?.Metadata?.Type ?? ReplayType.FullMatch;
                 if (type == ReplayType.FullMatch && !policy.DeleteFullMatches) continue;
@@ -640,10 +641,7 @@ namespace MphRead.Mods.Replay
                 try
                 {
                     long bytes = file.Length;
-                    DemoLibrary.Delete(path);
-                    TryDelete(path + ".camera");
-                    TryDelete(path + ".analytics.json");
-                    TryDelete(path + ".thumb.png");
+                    ReplayArtifacts.DeleteAll(path, deleteVirtualCache: false);
                     total = Math.Max(0, total - bytes);
                     deleted++;
                 }
@@ -653,20 +651,22 @@ namespace MphRead.Mods.Replay
                 }
             }
 
-            if (policy.DeleteVirtualClips && total > policy.MaxBytes)
-            {
-                foreach (string path in ReplayVirtualClips.List().OrderBy(File.GetLastWriteTimeUtc))
-                {
-                    if (total <= policy.MaxBytes) break;
-                    try { File.Delete(path); deleted++; } catch (IOException) { } catch (UnauthorizedAccessException) { }
-                }
-            }
             return new ReplayStorageResult(before, total, deleted);
         }
 
         private static void TryDelete(string path)
         {
             try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+        }
+
+        private static HashSet<string> ProtectedSources()
+        {
+            var result = new HashSet<string>(ReplayPathComparer.Comparer);
+            foreach (string virtualClip in ReplayVirtualClips.List())
+                if (ReplayVirtualClips.TryLoad(virtualClip, out ReplayVirtualClipDocument? clip)
+                    && clip != null)
+                    result.Add(ReplayPathComparer.Normalize(clip.SourceReplay));
+            return result;
         }
     }
 
@@ -702,6 +702,9 @@ namespace MphRead.Mods.Replay
             bool cleanHud = true, bool director = false, bool cameraTrack = true)
         {
             if (startFrame >= endFrame) throw new ArgumentOutOfRangeException(nameof(endFrame));
+            if (!ReplayExportRates.IsSupported(fps))
+                throw new ArgumentOutOfRangeException(nameof(fps), fps,
+                    $"Supported replay export rates are {String.Join(", ", ReplayExportRates.Supported)} FPS.");
             (int width, int height) = resolution switch
             {
                 ReplayVideoResolution.P720 => (1280, 720),
@@ -709,7 +712,6 @@ namespace MphRead.Mods.Replay
                 ReplayVideoResolution.P2160 => (3840, 2160),
                 _ => (1920, 1080)
             };
-            fps = Math.Clamp(fps, 30, 120);
             string root = Path.Combine(DemoLibrary.Directory, "exports",
                 $"render_{DateTime.Now:yyyy-MM-dd_HH-mm-ss-fff}_{Guid.NewGuid():N}");
             Directory.CreateDirectory(root);

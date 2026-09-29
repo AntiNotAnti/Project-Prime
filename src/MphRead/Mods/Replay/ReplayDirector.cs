@@ -13,17 +13,26 @@ namespace MphRead.Mods.Replay
     internal static class ReplayDirector
     {
         private const uint MinimumHoldFrames = 3 * 60;
+        private const uint MajorEventHoldFrames = 60;
         private const uint EventLookbackFrames = 4 * 60;
         private const float SwitchMargin = 12;
+        private const float MajorEventSwitchMargin = 20;
+
+        private readonly record struct ReplayDirectorCandidate(int Slot, float Score,
+            string Reason, bool MajorEvent);
 
         private static uint _lastSwitchFrame;
         private static uint _lastFrame;
+        private static long _seekGeneration = -1;
         private static int _eventStart;
         private static int _eventEnd;
         private static int _currentSlot = -1;
         private static float _currentScore;
+        private static int _previousSlot = -1;
+        private static uint _previousSwitchFrame;
         private static readonly float[] EventScores = new float[RosterPacket.MaxSlots];
         private static readonly string?[] EventReasons = new string?[RosterPacket.MaxSlots];
+        private static readonly bool[] EventMajor = new bool[RosterPacket.MaxSlots];
 
         public static int CurrentSlot => _currentSlot;
         public static float CurrentScore => _currentScore;
@@ -33,12 +42,16 @@ namespace MphRead.Mods.Replay
         {
             _lastSwitchFrame = 0;
             _lastFrame = 0;
+            _seekGeneration = -1;
             _eventStart = 0;
             _eventEnd = 0;
             _currentSlot = -1;
             _currentScore = 0;
+            _previousSlot = -1;
+            _previousSwitchFrame = 0;
             Array.Clear(EventScores);
             Array.Clear(EventReasons);
+            Array.Clear(EventMajor);
             Reason = "idle";
         }
 
@@ -48,6 +61,9 @@ namespace MphRead.Mods.Replay
                 return;
 
             uint frame = ReplayController.CurrentFrame;
+            long seekGeneration = DemoPlayback.Session.Transport.SeekGeneration;
+            if (_seekGeneration != seekGeneration || frame < _lastFrame) Reset();
+            _seekGeneration = seekGeneration;
             IReadOnlyList<ReplayEvent> events = DemoPlayback.Events;
             if (frame < _lastFrame || _eventEnd > events.Count)
             {
@@ -63,6 +79,7 @@ namespace MphRead.Mods.Replay
 
             Array.Clear(EventScores);
             Array.Clear(EventReasons);
+            Array.Clear(EventMajor);
             for (int i = _eventStart; i < _eventEnd; i++)
             {
                 ReplayEvent e = events[i];
@@ -80,12 +97,14 @@ namespace MphRead.Mods.Replay
                     case ReplayEventType.Kill:
                         Add(e.ActorSlot, 70 * age, "recent kill");
                         Add(e.TargetSlot, 34 * age, "kill aftermath");
+                        if (e.ActorSlot < EventMajor.Length) EventMajor[e.ActorSlot] = true;
                         break;
                     case ReplayEventType.FlagCapture:
                         case ReplayEventType.NodeCapture:
                         case ReplayEventType.PrimeChanged:
                         case ReplayEventType.Objective:
                         Add(e.ActorSlot, 78 * age, "objective pressure");
+                        if (e.ActorSlot < EventMajor.Length) EventMajor[e.ActorSlot] = true;
                         break;
                     case ReplayEventType.Damage:
                         float damage = Math.Min(26, Math.Max(0, e.Value) * 0.22f) * age;
@@ -101,6 +120,10 @@ namespace MphRead.Mods.Replay
             int bestSlot = -1;
             float bestScore = float.MinValue;
             string bestReason = "quiet";
+            bool bestMajor = false;
+            ReplayDirectorCandidate current = default;
+            var candidates = new ReplayDirectorCandidate[RosterPacket.MaxSlots];
+            Array.Fill(candidates, new ReplayDirectorCandidate(-1, float.MinValue, "unavailable", false));
 
             foreach (PlayerEntity player in scene.GetPlayerEntities())
             {
@@ -146,27 +169,42 @@ namespace MphRead.Mods.Replay
                 if (DemoPlayback.LastFrame > frame && DemoPlayback.LastFrame - frame <= 60 * 60)
                     score *= 1.12f;
 
-                if (score > bestScore)
+                float selectionScore = score;
+                if (player.SlotIndex == _previousSlot && frame >= _previousSwitchFrame
+                    && frame - _previousSwitchFrame < 120) selectionScore -= 8;
+                if (selectionScore > bestScore)
                 {
-                    bestScore = score;
+                    bestScore = selectionScore;
                     bestSlot = player.SlotIndex;
                     bestReason = reason;
+                    bestMajor = player.SlotIndex >= 0 && player.SlotIndex < EventMajor.Length
+                        && EventMajor[player.SlotIndex];
                 }
+                if ((uint)player.SlotIndex < (uint)candidates.Length)
+                    candidates[player.SlotIndex] = new(player.SlotIndex, score, reason, EventMajor[player.SlotIndex]);
             }
 
-            if (bestSlot < 0)
-                return;
+            if ((uint)_currentSlot < (uint)candidates.Length)
+            {
+                current = candidates[_currentSlot];
+                if (current.Slot >= 0) { _currentScore = current.Score; Reason = current.Reason; }
+            }
 
-            bool currentValid = _currentSlot >= 0 && _currentSlot < scene.Players.Items.Count
-                && scene.Players.Items[_currentSlot].LoadFlags.TestFlag(LoadFlags.Spawned)
-                && scene.Players.Items[_currentSlot].Health > 0;
-            bool holdExpired = frame < _lastSwitchFrame || frame - _lastSwitchFrame >= MinimumHoldFrames;
+            if (bestSlot < 0) { _currentSlot = -1; _currentScore = 0; Reason = "unavailable"; return; }
+
+            bool currentValid = _currentSlot >= 0 && current.Slot == _currentSlot;
+            uint hold = frame < _lastSwitchFrame ? uint.MaxValue : frame - _lastSwitchFrame;
+            bool majorOverride = bestSlot != _currentSlot && bestMajor && hold >= MajorEventHoldFrames
+                && bestScore >= _currentScore + MajorEventSwitchMargin;
+            bool holdExpired = hold >= MinimumHoldFrames;
             bool clearlyBetter = bestSlot != _currentSlot && bestScore >= _currentScore + SwitchMargin;
 
-            if (_currentSlot < 0 || !currentValid || (holdExpired && clearlyBetter))
+            if (_currentSlot < 0 || !currentValid || majorOverride || (holdExpired && clearlyBetter))
             {
+                _previousSlot = _currentSlot;
+                _previousSwitchFrame = frame;
                 _currentSlot = bestSlot;
-                _currentScore = bestScore;
+                _currentScore = candidates[bestSlot].Score;
                 _lastSwitchFrame = frame;
                 Reason = bestReason;
                 SpectatorMode.Watch(bestSlot);
@@ -184,7 +222,7 @@ namespace MphRead.Mods.Replay
             }
             else if (bestSlot == _currentSlot)
             {
-                _currentScore = bestScore;
+                _currentScore = candidates[bestSlot].Score;
                 Reason = bestReason;
             }
         }

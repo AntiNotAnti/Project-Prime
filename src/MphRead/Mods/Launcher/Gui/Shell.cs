@@ -209,6 +209,14 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 return;
             }
+            if (window.HasScene && window.Scene.AimTrainer is { Completed: true, ResultsShown: false } training
+                && UiSurface.Ensure() is { } trainingSurface)
+            {
+                training.ResultsShown = true;
+                trainingSurface.Show(new AimTrainerResultsView(training,
+                    () => { _endMatch = true; _pending = AimTrainerLaunch.Create(training.Definition.Retry(), training.Plan.Hunter, LauncherPrefs.LastColor); },
+                    () => { _focusTrainingOnReturn = true; RequestEndMatch(); }, RequestEndMatch));
+            }
             if (_quit)
             {
                 _quit = false;
@@ -441,6 +449,7 @@ namespace MphRead.Mods.Launcher.Gui
         /// like it. See <see cref="PlayAnother"/>.
         /// </summary>
         private static LaunchPlan? _played;
+        private static bool _focusTrainingOnReturn;
 
         /// <summary>
         /// Whether "play the map the results screen picked" means anything
@@ -560,6 +569,8 @@ namespace MphRead.Mods.Launcher.Gui
             NetHostSession.Stop();
             MatchStart.AfterMatch();
             ShowFrontScreen();
+            if (_played?.Kind == LaunchKind.AimTrainer) _front?.OpenTraining(_focusTrainingOnReturn);
+            _focusTrainingOnReturn = false;
         }
 
         /// <summary>The match is over; the launcher comes back.</summary>

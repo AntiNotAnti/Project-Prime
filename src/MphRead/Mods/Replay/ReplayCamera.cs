@@ -24,12 +24,53 @@ namespace MphRead.Mods.Replay
         internal static readonly ReplayCameraTrack Track = new();
         private static string? _trackPath;
         private static int _bookmarkIndex;
+        private static ReplayCameraKeyframe? _copiedKeyframe;
         public static ReplayPresentationProfile Profile { get; private set; } = ReplayPresentationProfile.Faithful;
         private static bool _playTrack;
         public static bool PlayTrack { get => _playTrack; set { _playTrack = value; Changed = true; } }
         public static int LookAtSlot { get; set; } = -1;
         public static string? TrackError => Track.LastError;
+        public static string EditStatus { get; private set; } = "";
         public static int KeyframeCount => Track.Keys.Count;
+        public static uint? SelectedFrame { get; private set; }
+        private static uint EditFrame => SelectedFrame ?? ReplayController.CurrentFrame;
+        private static ReplayCameraKeyframe? _restoreKey;
+        public static void SelectKeyframe(uint frame)
+        {
+            EnsureTrack();
+            var key = Track.Keys.Where(k => k.Frame == frame).Select(k => (ReplayCameraKeyframe?)k).FirstOrDefault();
+            if (key is not { } saved) return;
+            SelectedFrame = frame; EditStatus = $"Editing keyframe {frame}. Use UPDATE SELECTED to save changes.";
+            FieldOfView = MathHelper.RadiansToDegrees(saved.Fov);
+            Roll = MathHelper.RadiansToDegrees(saved.Roll);
+            LookAtSlot = saved.LookAtSlot;
+            TrackInterpolation = saved.Interpolation; TrackEase = saved.Ease;
+            Director = false;
+            SetMode(ReplayCameraMode.Free);
+            _restoreKey = saved; RestoreRequested = true;
+            ReplayController.Seek(frame, resume: false);
+        }
+        public static void SelectAdjacentKeyframe(int direction)
+        {
+            EnsureTrack();
+            if (Track.Keys.Count == 0) return;
+            int index = Track.Keys.ToList().FindIndex(k => k.Frame == EditFrame);
+            SelectKeyframe(Track.Keys[Math.Clamp(index + direction, 0, Track.Keys.Count - 1)].Frame);
+        }
+        public static void AdjustLens(float fov, float roll)
+        {
+            Director = false;
+            if (Mode != ReplayCameraMode.Free || PlayTrack) SetMode(ReplayCameraMode.Free);
+            SetProfile(ReplayPresentationProfile.Presentation);
+            FieldOfView = Math.Clamp(FieldOfView + fov, 20, 140);
+            Roll = Math.Clamp(Roll + roll, -180, 180);
+        }
+        public static void UpdateSelectedKeyframe()
+        {
+            if (SelectedFrame.HasValue) { _updateSelected = true; Bookmark(); }
+            else EditStatus = "Select a keyframe before updating it.";
+        }
+        private static bool _updateSelected;
         public static void SetProfile(ReplayPresentationProfile profile)
         {
             Profile = profile;
@@ -40,45 +81,99 @@ namespace MphRead.Mods.Replay
         internal static void ClearBookmarks()
         {
             Track.Clear(); _trackPath = null; _bookmarkIndex = 0;
+            EditStatus = "";
+            _copiedKeyframe = null; SelectedFrame = null; _restoreKey = null; _updateSelected = false;
             Profile = ReplayPresentationProfile.Faithful; PlayTrack = false; LookAtSlot = -1;
         }
         internal static void EnsureTrack()
         {
-            string? path = DemoPlayback.CurrentPath;
-            if (path == null || path == _trackPath) return;
+            string? playbackPath = DemoPlayback.PlaybackPath;
+            string? path = DemoPlayback.LogicalPath;
+            if (path == null || ReplayPathComparer.Comparer.Equals(path, _trackPath)) return;
             _trackPath = path;
+            // New sidecars belong to the durable replay identity. Read an old
+            // cache-owned v1/v2 sidecar when no logical sidecar exists, then
+            // save the next edit beside the logical replay.
             Track.Load(path);
+            if (!System.IO.File.Exists(path + ".camera") && playbackPath != null
+                && !String.Equals(path, playbackPath, StringComparison.Ordinal))
+            {
+                if (Track.Load(playbackPath) && System.IO.File.Exists(playbackPath + ".camera"))
+                    Track.Save(path); // migrate before disposable cache cleanup can remove authored work
+            }
             _bookmarkIndex = 0;
+        }
+        private static bool EditTrack(Func<ReplayCameraTrack, bool> edit)
+        {
+            EnsureTrack();
+            return _trackPath != null && Track.EditAndSave(_trackPath, edit);
         }
         internal static void SaveKeyframe(Vector3 position, Vector3 facing, float fov)
         {
-            EnsureTrack();
-            if (Track.Put(new ReplayCameraKeyframe(ReplayController.CurrentFrame, position,
-                ReplayCameraTrack.FacingRotation(facing), fov, (sbyte)Math.Clamp(LookAtSlot, -1, 7),
-                MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase))
-                && _trackPath != null)
-                Track.Save(_trackPath);
-            Chat.ChatBox.System(Track.LastError == null ? "Camera keyframe saved" : "Camera track: " + Track.LastError);
+            bool saved = EditTrack(track => track.Put(new ReplayCameraKeyframe(
+                _updateSelected ? EditFrame : ReplayController.CurrentFrame, position, ReplayCameraTrack.FacingRotation(facing),
+                fov, (sbyte)Math.Clamp(LookAtSlot, -1, 7),
+                MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase)));
+            if (saved) SelectedFrame = _updateSelected ? EditFrame : ReplayController.CurrentFrame;
+            _updateSelected = false;
+            EditStatus = saved ? "Camera keyframe saved." : "Camera track: " + (Track.LastError ?? "No replay is open.");
+            Chat.ChatBox.System(EditStatus);
         }
-        internal static void MoveKeyframe(uint from, uint to)
+        internal static bool DuplicateKeyframeAtCurrentFrame()
         {
             EnsureTrack();
-            if (Track.Keys.Any(key => key.Frame == to)) return;
-            var key = Track.Keys.FirstOrDefault(key => key.Frame == from);
-            if (!Track.Remove(from)) return;
-            Track.Put(key with { Frame = to });
-            if (_trackPath != null) Track.Save(_trackPath);
+            uint frame = ReplayController.CurrentFrame;
+            var source = Track.Keys.Where(key => key.Frame < frame)
+                .Select(key => (ReplayCameraKeyframe?)key).LastOrDefault();
+            return source is { } key && !Track.Keys.Any(other => other.Frame == frame)
+                && EditTrack(track => track.Put(key with { Frame = frame }));
         }
+        internal static bool CopyKeyframeAtCurrentFrame()
+        {
+            EnsureTrack();
+            _copiedKeyframe = Track.Keys.Where(key => key.Frame == EditFrame)
+                .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
+            return _copiedKeyframe.HasValue;
+        }
+        internal static bool PasteKeyframeAtCurrentFrame()
+            => _copiedKeyframe is { } key
+                && EditTrack(track => track.Put(key with { Frame = ReplayController.CurrentFrame }));
+
+        internal static bool SnapCurrentKeyframe(Func<ReplayEvent, bool> predicate)
+        {
+            uint frame = ReplayController.CurrentFrame;
+            var target = DemoPlayback.Events.Where(predicate)
+                .OrderBy(e => Math.Abs((long)e.Frame - frame)).Select(e => (ReplayEvent?)e)
+                .FirstOrDefault();
+            return target is { } marker && SnapCurrentKeyframe(marker.Frame);
+        }
+        internal static bool SnapCurrentKeyframe(uint frame)
+            => MoveKeyframeTo(EditFrame, frame);
+
+        private static bool MoveKeyframeTo(uint from, uint to)
+        {
+            EnsureTrack();
+            if (to > ReplayController.DurationFrames || Track.Keys.Any(key => key.Frame == to)) return false;
+            var key = Track.Keys.Where(key => key.Frame == from)
+                .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
+            bool moved = key is { } current && EditTrack(track =>
+                track.Remove(from) && track.Put(current with { Frame = to }));
+            if (moved) SelectedFrame = to;
+            return moved;
+        }
+        internal static void MoveKeyframe(uint from, uint to) => MoveKeyframeTo(from, to);
         public static void RemoveKeyframe()
         {
-            EnsureTrack();
-            if (!Track.Remove(ReplayController.CurrentFrame)) { Chat.ChatBox.System("No camera keyframe at this frame"); return; }
-            if (_trackPath != null) Track.Save(_trackPath);
-            Chat.ChatBox.System(Track.LastError == null ? "Camera keyframe removed" : "Camera track: " + Track.LastError);
+            bool saved = EditTrack(track => track.Remove(EditFrame));
+            if (saved) SelectedFrame = null;
+            EditStatus = saved ? "Camera keyframe removed."
+                : "Camera track: " + (Track.LastError ?? "Select a keyframe to remove it.");
+            Chat.ChatBox.System(EditStatus);
         }
         internal static bool NextKeyframe(out ReplayCameraKeyframe key)
         {
             EnsureTrack(); key = default;
+            if (_restoreKey is { } selected) { key = selected; _restoreKey = null; return true; }
             if (Track.Keys.Count == 0) return false;
             key = Track.Keys[_bookmarkIndex++ % Track.Keys.Count];
             return true;
@@ -90,6 +185,7 @@ namespace MphRead.Mods.Replay
         {
             PlayTrack = false;
             Mode = mode;
+            if (mode != ReplayCameraMode.FirstPerson) Profile = ReplayPresentationProfile.Presentation;
             Changed = true;
             ReplayController.NoteInput();
         }
@@ -101,7 +197,7 @@ namespace MphRead.Mods.Replay
         }
         public static void ToggleFree() => SetMode(Mode == ReplayCameraMode.Free ? ReplayCameraMode.FirstPerson : ReplayCameraMode.Free);
         public static void Bookmark() { BookmarkRequested = true; ReplayController.NoteInput(); }
-        public static void RestoreBookmark() { RestoreRequested = true; ReplayController.NoteInput(); }
+        public static void RestoreBookmark() { if (NextKeyframe(out var key)) SelectKeyframe(key.Frame); ReplayController.NoteInput(); }
         internal static void Reset()
         {
             Mode = ReplayCameraMode.FirstPerson;
@@ -128,11 +224,15 @@ namespace MphRead
 {
     public partial class Scene
     {
-        private long _replayCameraTime;
+        private double _previousReplayPresentationFrame = double.NaN;
+        private long _replaySeekGeneration = -1;
+        private int _replayCameraSubject = -1;
         private float _replayOrbit;
         private Vector3? _replayFollowPosition;
 
-        private double ReplayPresentationTime => Math.Max(0, Mods.Network.ReplayController.CurrentFrame - 1d + ReplayRenderAlpha);
+        private double ReplayPresentationTime => double.IsFinite(ReplayPresentationFrame)
+            ? ReplayPresentationFrame
+            : Math.Max(0, Mods.Network.ReplayController.CurrentFrame - 1d + ReplayRenderAlpha);
 
         private void ModReplayCamera()
         {
@@ -140,15 +240,32 @@ namespace MphRead
             Mods.Replay.ReplayCamera.EnsureTrack();
             Mods.Replay.ReplayCamera.TickDirector(this);
             var mode = Mods.Replay.ReplayCamera.Mode;
+            double presentationFrame = ReplayPresentationTime;
+            long seekGeneration = Mods.Network.DemoPlayback.Session.Transport.SeekGeneration;
+            int subject = Mods.Replay.ReplayCamera.Director
+                ? Mods.Replay.ReplayDirector.CurrentSlot : this.Players.Main.SlotIndex;
+            bool resetHistory = Mods.Network.ReplayController.IsSeeking
+                || presentationFrame < _previousReplayPresentationFrame
+                || seekGeneration != _replaySeekGeneration
+                || subject != _replayCameraSubject;
+            if (resetHistory)
+            {
+                _replayFollowPosition = null;
+                _previousReplayPresentationFrame = double.NaN;
+            }
+            float delta = double.IsNaN(_previousReplayPresentationFrame)
+                || (Mods.Network.ReplayController.IsPaused && !Mods.Replay.ReplayVideoExporter.Rendering) ? 0
+                : (float)Math.Max(0, (presentationFrame - _previousReplayPresentationFrame) / 60.0);
+            _previousReplayPresentationFrame = presentationFrame;
+            _replaySeekGeneration = seekGeneration;
+            _replayCameraSubject = subject;
             if (Mods.Replay.ReplayCamera.Changed)
             {
                 SetFreeCamera(mode != Mods.Replay.ReplayCameraMode.FirstPerson);
                 Mods.Replay.ReplayCamera.Changed = false;
                 _replayFollowPosition = null;
+                delta = 0;
             }
-            long now = Environment.TickCount64;
-            float delta = _replayCameraTime == 0 ? 0 : Math.Clamp((now - _replayCameraTime) / 1000f, 0, 0.1f);
-            _replayCameraTime = now;
             if (Mods.Replay.ReplayCamera.BookmarkRequested)
             {
                 Mods.Replay.ReplayCamera.BookmarkRequested = false;
@@ -156,7 +273,7 @@ namespace MphRead
                 // the camera actually shown, without writing back into the hunter.
                 Mods.Replay.ReplayCamera.SaveKeyframe(_freeCam ? _cameraPosition : this.Players.Main.CameraInfo.Position,
                     _freeCam ? _cameraFacing : this.Players.Main.CameraInfo.Facing,
-                    _freeCam ? _cameraFov : MathHelper.DegreesToRadians(
+                    _freeCam ? MathHelper.DegreesToRadians(Mods.Replay.ReplayCamera.FieldOfView) : MathHelper.DegreesToRadians(
                         Mods.RenderOptions.ScaleCameraFov(
                             this.Players.Main.CameraInfo.Fov > 0
                                 ? this.Players.Main.CameraInfo.Fov
@@ -188,6 +305,10 @@ namespace MphRead
             {
                 _cameraFov = MathHelper.DegreesToRadians(Math.Clamp(
                     Mods.Replay.ReplayCamera.FieldOfView, 20, 140));
+                Vector3 right = Vector3.Cross(_cameraFacing, Vector3.UnitY).Normalized();
+                _cameraUp = Vector3.Transform(Vector3.Cross(right, _cameraFacing).Normalized(),
+                    Quaternion.FromAxisAngle(_cameraFacing, MathHelper.DegreesToRadians(Mods.Replay.ReplayCamera.Roll)));
+                _cameraRight = Vector3.Cross(_cameraFacing, _cameraUp).Normalized();
             }
             if (mode is not (Mods.Replay.ReplayCameraMode.Chase or Mods.Replay.ReplayCameraMode.Orbit)) return;
             var player = this.Players.Main;
@@ -196,7 +317,7 @@ namespace MphRead
 
             Vector3 playerPosition = Services.IsReplica ? player.ReplayDrawTransform.Row3.Xyz : player.Position;
             Vector3 facing = player.CameraInfo.Facing;
-            if (ReplayPoses?.Sample(player.SlotIndex, ReplayRenderAlpha, out _, out var replicaFacing) == true)
+            if (ReplayPoses?.SamplePresented(player.SlotIndex, ReplayRenderAlpha, out _, out var replicaFacing) == true)
                 facing = replicaFacing;
 
             Vector3 target = playerPosition

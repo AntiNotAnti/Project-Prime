@@ -78,7 +78,7 @@ namespace MphRead.Mods.Replay
                 _state = ReplayController.State;
                 _textAt = Environment.TickCount64;
                 string state = _state == ReplayState.Ended ? "Replay finished"
-                    : _state == ReplayState.Error ? "Replay damaged"
+                    : _state == ReplayState.Error ? $"Stopped at {Time(ReplayController.CurrentFrame)}"
                     : _state.ToString();
                 _status = $"{state}   {Time(ReplayController.CurrentFrame)} / "
                     + $"{Time(ReplayController.DurationFrames)}   "
@@ -93,6 +93,12 @@ namespace MphRead.Mods.Replay
             }
 
             Text(scene, 49, 163, _status, alpha, 207);
+            if (_state == ReplayState.Error)
+            {
+                string reason = DemoPlayback.LastError ?? "Replay validation failed.";
+                if (reason.Length > 39) reason = reason[..39];
+                Text(scene, 49, 187, "Reason: " + reason, alpha, 254);
+            }
             float progress = ReplayController.DurationFrames == 0 ? 0
                 : ReplayController.TimelineFrame / (float)ReplayController.DurationFrames;
             scene.DrawHudFlatBox(51, 173, 205, 175,
@@ -162,6 +168,13 @@ namespace MphRead.Mods.Replay
             if (ShowAnalytics || ShowNetworkDebug)
                 RefreshDiagnostics();
 
+            if (ReplayCamera.Mode == ReplayCameraMode.Free)
+            {
+                scene.DrawHudFlatBox(4, 132, 252, 154, new Vector4(0, 0, 0, .72f));
+                Text(scene, 7, 135, $"CAMERA  FOV {ReplayCamera.FieldOfView:0}  ROLL {ReplayCamera.Roll:0}  KEYS {ReplayCamera.KeyframeCount}", 1, 248);
+                Text(scene, 7, 142, "B add key  N next key  Del remove  -/+ FOV  ;/' roll", 1, 248);
+                Text(scene, 7, 149, "WASD move  E/V vertical  Shift fast  Esc studio", 1, 248);
+            }
             float nextY = 6;
             if (ShowAnalytics && _analyticsLines.Length > 0)
             {
