@@ -56,6 +56,9 @@ namespace MphRead.Mods.Launcher
         private static DateTimeOffset _careerTicketExpiresAt;
         private static DateTimeOffset _careerTicketRetryAt;
         private static Task? _careerTicketTask;
+        private static readonly object CommunityMapTicketLock = new();
+        private static string _communityMapTicket = "";
+        private static DateTimeOffset _communityMapTicketExpiresAt;
 
         /// <summary>
         /// Non-blocking network identity lookup. Join/respawn paths call this
@@ -159,6 +162,84 @@ namespace MphRead.Mods.Launcher
                 _careerTicketClientId = 0;
                 _careerTicketExpiresAt = default;
                 _careerTicketRetryAt = default;
+            }
+        }
+
+        /// <summary>
+        /// Get a narrow Community credential. The map service sees only this
+        /// short-lived ticket, never the Supabase access or refresh token.
+        /// </summary>
+        internal static async Task<string> GetCommunityMapTicketAsync(
+            CancellationToken cancellationToken)
+        {
+            lock (CommunityMapTicketLock)
+            {
+                if (_communityMapTicket.Length > 0
+                    && _communityMapTicketExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1))
+                {
+                    return _communityMapTicket;
+                }
+            }
+
+            await Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                lock (CommunityMapTicketLock)
+                {
+                    if (_communityMapTicket.Length > 0
+                        && _communityMapTicketExpiresAt > DateTimeOffset.UtcNow.AddMinutes(1))
+                    {
+                        return _communityMapTicket;
+                    }
+                }
+
+                AuthSession session = await AuthenticateAsync(cancellationToken)
+                    .ConfigureAwait(false);
+                string name = LauncherPrefs.PlayerName.Trim();
+                if (name.Length == 0) name = "Player";
+                Hunter preferred = Hunters.Resolve(LauncherPrefs.LastHunter);
+                int hunter = Math.Clamp((int)preferred, 0, 6);
+                _ = await FunctionAsync<JsonElement>(
+                    session.AccessToken,
+                    "hunter-license",
+                    new Dictionary<string, object?>
+                    {
+                        ["display_name"] = name,
+                        ["favorite_hunter"] = hunter
+                    },
+                    cancellationToken).ConfigureAwait(false);
+
+                CommunityMapTicketResponse result =
+                    await FunctionAsync<CommunityMapTicketResponse>(
+                        session.AccessToken,
+                        "community-map-ticket",
+                        new Dictionary<string, object?> { ["action"] = "mint" },
+                        cancellationToken).ConfigureAwait(false);
+                if (!result.Ticket.StartsWith("ppm1.", StringComparison.Ordinal)
+                    || result.ExpiresAt <= DateTimeOffset.UtcNow.AddMinutes(1))
+                {
+                    throw new InvalidOperationException(
+                        "Community identity service returned an invalid publishing ticket.");
+                }
+                lock (CommunityMapTicketLock)
+                {
+                    _communityMapTicket = result.Ticket;
+                    _communityMapTicketExpiresAt = result.ExpiresAt;
+                }
+                return result.Ticket;
+            }
+            finally
+            {
+                Gate.Release();
+            }
+        }
+
+        private static void InvalidateCommunityMapTicket()
+        {
+            lock (CommunityMapTicketLock)
+            {
+                _communityMapTicket = "";
+                _communityMapTicketExpiresAt = default;
             }
         }
 
@@ -388,6 +469,7 @@ namespace MphRead.Mods.Launcher
                 // Same process, different Supabase UUID. A ticket issued for
                 // the empty guest must never follow the recovered license.
                 InvalidateCareerTicket();
+                InvalidateCommunityMapTicket();
                 return HunterLicenseActionResult.Ok(
                     $"Recovered {user.Email ?? email}. Loading its Hunter License now.");
             }
@@ -736,6 +818,14 @@ namespace MphRead.Mods.Launcher
         }
 
         private sealed class CareerTicketResponse
+        {
+            [JsonPropertyName("ticket")]
+            public string Ticket { get; set; } = "";
+            [JsonPropertyName("expires_at")]
+            public DateTimeOffset ExpiresAt { get; set; }
+        }
+
+        private sealed class CommunityMapTicketResponse
         {
             [JsonPropertyName("ticket")]
             public string Ticket { get; set; } = "";
