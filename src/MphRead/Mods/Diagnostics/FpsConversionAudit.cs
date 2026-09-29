@@ -199,7 +199,8 @@ namespace MphRead.Mods.Diagnostics
         {
             const float nativeLerp = 0.3f;
             float exactLerp = 1 - MathF.Sqrt(1 - nativeLerp);
-            float naiveHalf = 1 - nativeLerp / 2;\n            float naiveEffectiveLerp = 1 - naiveHalf * naiveHalf;
+            float naiveHalf = 1 - nativeLerp / 2;
+            float naiveEffectiveLerp = 1 - naiveHalf * naiveHalf;
             const float altAirGravity = -245 / 4096f;
             float currentPairDisplacement = altAirGravity * 0.75f;
             float nativePairDisplacement = altAirGravity;
