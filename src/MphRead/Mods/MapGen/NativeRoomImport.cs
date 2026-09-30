@@ -16,7 +16,7 @@ namespace MphRead.Mods.MapGen;
 /// </summary>
 public static class NativeRoomImport
 {
-    private readonly record struct Vtx(Vector3 Position,Vector2 Uv,Vector3 Normal,float Shade);
+    private readonly record struct Vtx(Vector3 Position,Vector2 Uv,Vector3 Normal,Vector3 Color);
 
     public static BuiltMap Build(MapDefinition definition,CancellationToken cancellation=default)
     {
@@ -191,7 +191,7 @@ public static class NativeRoomImport
         var vertices=new List<Vtx>();
         Vector3 position=Vector3.Zero,normal=Vector3.UnitY;
         Vector2 uv=Vector2.Zero;
-        float shade=1;
+        Vector3 color=Vector3.One;
         int primitive=-1;
         float scale=model.Scale.X;
 
@@ -201,17 +201,18 @@ public static class NativeRoomImport
             BuiltFace? Face(Vtx a,Vtx b,Vtx c)
             {
                 Vector3[] points={a.Position*scale,b.Position*scale,c.Position*scale};
-                Vector3 n=Vector3.Cross(points[1]-points[0],points[2]-points[0]);
-                if(n.LengthSquared<1e-10f)return null;
-                n.Normalize();
+                Vector3 geometric=Vector3.Cross(points[1]-points[0],points[2]-points[0]);
+                if(geometric.LengthSquared<1e-10f)return null;
+                geometric.Normalize();
+                // Primitive order is authoritative for native front/back culling.
+                // Do not flip triangles to agree with authored normals: several
+                // shipped room materials deliberately use the opposite cull side.
                 Vector3 authored=a.Normal+b.Normal+c.Normal;
-                if(authored.LengthSquared>1e-8f&&Vector3.Dot(n,authored)<0)
-                {
-                    (points[1],points[2])=(points[2],points[1]);
-                    (b,c)=(c,b);n=-n;
-                }
+                Vector3 n=authored.LengthSquared>1e-8f?authored.Normalized():geometric;
+                Vector3 rgb=(a.Color+b.Color+c.Color)/3f;
+                rgb=new Vector3(Math.Clamp(rgb.X,0,1),Math.Clamp(rgb.Y,0,1),Math.Clamp(rgb.Z,0,1));
                 return new BuiltFace(points,new[]{a.Uv,b.Uv,c.Uv},n,mesh.MaterialId,
-                    Math.Clamp((a.Shade+b.Shade+c.Shade)/3f,0,1));
+                    Math.Clamp((rgb.X+rgb.Y+rgb.Z)/3f,0,1)) { VertexColor=rgb };
             }
             if(primitive==0)
             {
@@ -246,7 +247,7 @@ public static class NativeRoomImport
             }
         }
 
-        void AddVertex()=>vertices.Add(new(position,uv,normal,shade));
+        void AddVertex()=>vertices.Add(new(position,uv,normal,color));
         static int S16(uint value)=>unchecked((short)(value&0xFFFF));
         static int S10(uint value)
         {
@@ -269,7 +270,7 @@ public static class NativeRoomImport
                     {
                         uint rgb=instruction.Arguments[0];
                         float r=(rgb&31)/31f,g=((rgb>>5)&31)/31f,b=((rgb>>10)&31)/31f;
-                        shade=(r+g+b)/3f;
+                        color=new Vector3(r,g,b);
                     }
                     break;
                 case InstructionCode.NORMAL:
