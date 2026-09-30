@@ -1708,7 +1708,7 @@ namespace MphRead.Mods.Launcher.Gui
                 + "Normal gameplay and player POV cameras are unchanged.");
 
             Heading(page, "Replay keyboard");
-            Explain(page, "These keys control replay playback directly while the match is on screen.");
+            Explain(page, "These keys control replay playback and cinematic camera authoring directly while the replay is on screen.");
             _keyRows.Add(Add(page, new KeyRow("Play / pause",
                 () => InputSettings.ReplayPlayPauseKey, k => InputSettings.ReplayPlayPauseKey = k)));
             _keyRows.Add(Add(page, new KeyRow("Step backward",
@@ -1725,6 +1725,14 @@ namespace MphRead.Mods.Launcher.Gui
                 () => InputSettings.ReplayFasterKey, k => InputSettings.ReplayFasterKey = k)));
             _keyRows.Add(Add(page, new KeyRow("Restart replay",
                 () => InputSettings.ReplayRestartKey, k => InputSettings.ReplayRestartKey = k)));
+            _keyRows.Add(Add(page, new KeyRow("Camera track on / off",
+                () => InputSettings.ReplayCameraTrackKey, k => InputSettings.ReplayCameraTrackKey = k)));
+            _keyRows.Add(Add(page, new KeyRow("Constant-speed camera path",
+                () => InputSettings.ReplayConstantSpeedKey, k => InputSettings.ReplayConstantSpeedKey = k)));
+            _keyRows.Add(Add(page, new KeyRow("Cycle camera interpolation",
+                () => InputSettings.ReplayInterpolationKey, k => InputSettings.ReplayInterpolationKey = k)));
+            _keyRows.Add(Add(page, new KeyRow("Cycle camera easing",
+                () => InputSettings.ReplayEasingKey, k => InputSettings.ReplayEasingKey = k)));
 
             Heading(page, "Replay controller");
             Explain(page, "Replay controller bindings are separate from gameplay bindings, so A can "
