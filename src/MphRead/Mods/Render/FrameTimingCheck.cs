@@ -196,9 +196,9 @@ namespace MphRead.Mods.Render
 
         /// <summary>
         /// Pro HUD freezes the native reticle fire animation in both weapon
-        /// styles, but only Static/Quake may weld camera facing to raw aim.
-        /// Dynamic/Metroid needs the eased camera-to-aim delta or its projected
-        /// crosshair is mathematically forced back to screen center.
+        /// styles. Dynamic/Metroid retains an eased simulation basis for its
+        /// drifting weapon/reticle, but both weapon styles must expose the
+        /// responsive raw-aim camera to the local player.
         /// </summary>
         private static bool RunDynamicCrosshairCameraPolicyCase()
         {
@@ -210,17 +210,19 @@ namespace MphRead.Mods.Render
                 Features.ProHudFixedWeapon = false;
                 bool dynamicOk = Features.FixedCrosshair
                     && !Features.FixedWeapon
-                    && !Features.FixedAimCamera;
+                    && !Features.FixedAimCamera
+                    && Features.ResponsiveAimCamera;
 
                 Features.ProHudFixedWeapon = true;
                 bool staticOk = Features.FixedCrosshair
                     && Features.FixedWeapon
-                    && Features.FixedAimCamera;
+                    && Features.FixedAimCamera
+                    && Features.ResponsiveAimCamera;
 
                 bool ok = dynamicOk && staticOk;
                 Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
-                    + $" | dynamic={(dynamicOk ? "eased" : "welded")}"
-                    + $" | static={(staticOk ? "welded" : "eased")}");
+                    + $" | dynamic={(dynamicOk ? "responsive / eased visual state" : "wrong policy")}"
+                    + $" | static={(staticOk ? "responsive / welded visual state" : "wrong policy")}");
                 return ok;
             }
             finally
