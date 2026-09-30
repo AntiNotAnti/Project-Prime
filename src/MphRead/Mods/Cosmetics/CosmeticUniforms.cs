@@ -15,6 +15,17 @@ namespace MphRead.Mods.Cosmetics
         }
         private CosmeticSurface _last;
         private bool _hasLast;
+
+        public void Reset()
+        {
+            // Render passes can replay player geometry after the ordinary world pass.
+            // Treat a pass boundary as authoritative instead of trusting the cached
+            // last value, otherwise a remote player's surface can survive into the
+            // next world draw when the real program state no longer matches _last.
+            _hasLast = false;
+            Apply(default);
+        }
+
         public void Apply(CosmeticSurface surface)
         {
             // Uniform values belong to the program and survive program switches.
