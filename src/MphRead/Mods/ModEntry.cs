@@ -34,6 +34,18 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "renderbackendcheck"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
+                return true;
+            }
+#if !MPHREAD_SERVER
+            if (HasFlag(args, "renderbackendprobe"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
+                return true;
+            }
+#endif
             if (ValueAfter(args, "fpsscenario") is string scenarioPath)
             {
                 Environment.ExitCode = Physics.FpsScenarioRunner.Run(scenarioPath,

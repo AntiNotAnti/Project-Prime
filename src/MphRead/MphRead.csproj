@@ -192,6 +192,27 @@
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
   </ItemGroup>
 
+  <!-- Modern renderer bindings. Silk 2.23.0 and wgpu-native commit
+       33133da4ec5a0174cb21539ef2d3346f75200411 are an ABI pair; update them
+       together. Windows/Linux use Silk's matching native package. macOS uses
+       the repository-built native below so Vulkan portability is compiled in. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0"
+                      Condition="!$(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" Version="2.23.0"
+                      Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+    <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.23.0"
+                      Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">
+    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib"
+          Link="libwgpu_native.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
   <!-- OpenAL Soft, for the sound effects.
 
        OpenTK ships the bindings only: opentk.audio.openal has no runtimes/

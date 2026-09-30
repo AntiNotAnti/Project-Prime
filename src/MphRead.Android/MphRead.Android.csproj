@@ -127,6 +127,11 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- Same managed WebGPU ABI as desktop. Android's wgpu-native .so is built
+         by tools/wgpu/build-native.sh so it can target the NDK/16 KB page-size
+         contract instead of importing desktop natives into the APK. -->
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
     <!-- The managed binding only. The package's natives are built for Linux and
          Windows, so they are dead weight in an APK and the only thing they do
          there is make the build warn that they are not 16 KB page aligned.
@@ -182,6 +187,15 @@
          it is shipped by the same rule rather than by remembering. -->
     <AvaloniaResource Include="..\MphRead\Assets\Geo\*.gz"
                       Link="Assets\Geo\%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so"
+                          Link="lib\arm64-v8a\libwgpu_native.so" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so"
+                          Link="lib\x86_64\libwgpu_native.so" />
   </ItemGroup>
 
   <ItemGroup>
