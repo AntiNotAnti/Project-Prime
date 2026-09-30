@@ -62,9 +62,11 @@ Check(notificationQueue[0].Scale>0 && notificationQueue[1].Position.Y>notificati
 HudProfiles.Publish(original);
 
 var dynamicAim=original.DeepClone(); dynamicAim.Mode=HudMode.ProjectPrime; dynamicAim.FixedWeapon=false; HudProfiles.Publish(dynamicAim);
-Check(Features.FixedCrosshair && !Features.FixedAimCamera,"Pro HUD dynamic weapon keeps eased aim camera");
+Check(Features.FixedCrosshair && !Features.FixedAimCamera && Features.ResponsiveAimCamera,
+    "Pro HUD dynamic weapon keeps eased visual state with responsive aim camera");
 dynamicAim.FixedWeapon=true; HudProfiles.Publish(dynamicAim);
-Check(Features.FixedAimCamera,"Pro HUD static weapon welds aim camera");
+Check(Features.FixedAimCamera && Features.ResponsiveAimCamera,
+    "Pro HUD static weapon welds visual state and keeps responsive aim camera");
 HudProfiles.Publish(original);
 HudProfile? accepted=null; bool closed=false;
 var view=new HudStudioView(original,p=>{accepted=p;closed=true;});
