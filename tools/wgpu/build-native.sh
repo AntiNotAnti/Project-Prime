@@ -32,6 +32,11 @@ if [[ ! -d "$src/.git" ]]; then
 fi
 git -C "$src" fetch --depth 1 origin "$commit"
 git -C "$src" checkout --detach "$commit"
+# wgpu-native's C ABI headers are a git submodule at this revision. A shallow
+# checkout of the parent alone leaves ffi/webgpu-headers empty and bindgen
+# fails on '#include "webgpu.h"' on every target.
+git -C "$src" submodule sync --recursive
+git -C "$src" submodule update --init --recursive --depth 1
 
 export CARGO_TARGET_DIR="$target"
 features=wgsl,glsl

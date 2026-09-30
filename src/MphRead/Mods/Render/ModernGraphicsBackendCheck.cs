@@ -37,6 +37,7 @@ namespace MphRead.Mods.Render
             CheckGeometry(ref failures);
 #if !MPHREAD_SERVER
             CheckUniformCompatibility(ref failures);
+            CheckResourceCompatibility(ref failures);
 #endif
 
             Console.WriteLine(failures == 0
@@ -141,9 +142,70 @@ namespace MphRead.Mods.Render
             state.GetUniform(program, mode, out int stored);
             Check(stored == 7, "compat uniform writes remain program-local and readable", ref failures);
         }
+
+        private static void CheckResourceCompatibility(ref int failures)
+        {
+            var state = new ModernGraphicsResourceState();
+
+            int texture = state.GenTexture();
+            state.ActiveTexture(OpenTK.Graphics.OpenGL.TextureUnit.Texture0);
+            state.BindTexture(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, texture);
+            byte[] pixels =
+            {
+                1, 2, 3, 4,   5, 6, 7, 8,
+                9, 10, 11, 12, 13, 14, 15, 16
+            };
+            state.TexImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                OpenTK.Graphics.OpenGL.PixelInternalFormat.Rgba, 2, 2,
+                OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
+                OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, pixels);
+            state.GetTexLevelParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0,
+                OpenTK.Graphics.OpenGL.GetTextureParameter.TextureWidth, out int width);
+            state.GetTexLevelParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D, 0,
+                OpenTK.Graphics.OpenGL.GetTextureParameter.TextureHeight, out int height);
+            Check(width == 2 && height == 2 && state.IsTexture(texture),
+                "compat texture allocation preserves size and object identity", ref failures);
+
+            byte[] replacement = { 101, 102, 103, 104 };
+            state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                1, 0, 1, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
+                OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, replacement);
+            byte[]? stored = state.Texture(texture).Pixels;
+            Check(stored != null && stored.Length == 16
+                && stored[4] == 101 && stored[5] == 102
+                && stored[6] == 103 && stored[7] == 104,
+                "compat texture sub-image updates the addressed texel", ref failures);
+
+            int framebuffer = state.GenFramebuffer();
+            state.BindFramebuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer, framebuffer);
+            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
+            Check(state.CheckFramebufferStatus(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer)
+                    == OpenTK.Graphics.OpenGL.FramebufferErrorCode.FramebufferComplete,
+                "compat framebuffer completes with color attachment", ref failures);
+
+            int renderbuffer = state.GenRenderbuffer();
+            state.BindRenderbuffer(OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer, renderbuffer);
+            state.RenderbufferStorage(OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer,
+                OpenTK.Graphics.OpenGL.RenderbufferStorage.Depth24Stencil8, 2, 2);
+            state.FramebufferRenderbuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.DepthStencilAttachment,
+                OpenTK.Graphics.OpenGL.RenderbufferTarget.Renderbuffer, renderbuffer);
+            state.GetFramebufferAttachmentParameter(
+                OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.DepthStencilAttachment,
+                OpenTK.Graphics.OpenGL.FramebufferParameterName.FramebufferAttachmentDepthSize,
+                out int depthBits);
+            Check(depthBits == 24,
+                "compat depth/stencil attachment reports 24 depth bits", ref failures);
+
+            state.DeleteTexture(texture);
+            Check(!state.IsTexture(texture) && state.Framebuffer(framebuffer).ColorTexture == 0,
+                "deleting texture clears framebuffer attachment references", ref failures);
+        }
 #endif
 
-                private static void Check(bool success, string name, ref int failures)
+        private static void Check(bool success, string name, ref int failures)
         {
             Console.WriteLine($"RENDERBACKENDS {(success ? "PASS" : "FAIL")} {name}");
             if (!success) failures++;
