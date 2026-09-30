@@ -30,6 +30,9 @@ namespace MphRead.Mods
     /// </summary>
     public sealed class ThumbnailCapture : GameWindow
     {
+#if !ANDROID && !MPHREAD_SERVER
+        private Render.DesktopGraphicsSession? _graphics;
+#endif
         private readonly string _roomKey;
         private int _settleFrames;
         private bool _captured;
@@ -74,6 +77,9 @@ namespace MphRead.Mods
         private ThumbnailCapture(string roomKey, int width, int height)
             : base(GameSettings(), WindowSettings(width, height))
         {
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = new Render.DesktopGraphicsSession(this);
+#endif
             _asked = new Vector2i(width, height);
             _roomKey = roomKey;
             _settleFrames = SettleFrames;
@@ -93,6 +99,9 @@ namespace MphRead.Mods
             // render target would then be larger than the framebuffer being
             // drawn into, leaving unwritten black bands on two edges. Adopt
             // the size the window actually got before anything is allocated.
+#if !ANDROID && !MPHREAD_SERVER
+            Render.DesktopGraphicsSession.Resize(this);
+#endif
             Scene.Size = ClientSize;
             // Before the scene builds anything, so the driver's complaint
             // about the first refused call is caught rather than inferred.
@@ -212,7 +221,11 @@ namespace MphRead.Mods
                 _settleFrames = RetryFrames;
                 giveUp = ++_attempts >= MaxAttempts;
             }
+#if !ANDROID && !MPHREAD_SERVER
+            Render.DesktopGraphicsSession.Present(this);
+#else
             SwapBuffers();
+#endif
             Scene.AfterRenderFrame();
             base.OnRenderFrame(args);
             if (_captured || giveUp)
@@ -224,6 +237,12 @@ namespace MphRead.Mods
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             Scene.DoCleanup();
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics?.Dispose();
+#endif
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = null;
+#endif
             base.OnClosing(e);
         }
 

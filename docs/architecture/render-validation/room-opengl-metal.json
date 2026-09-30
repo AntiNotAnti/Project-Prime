@@ -1,0 +1,178 @@
+{
+  "passed": true,
+  "reference": "OpenGL",
+  "candidate": "Metal",
+  "meanLimit": 0.06,
+  "structuralLimit": 0.08,
+  "changedLimit": 0.1,
+  "images": [
+    {
+      "image": "bloom.png",
+      "mean": 0.0014144401073186478,
+      "structural": 0.001163577410130719,
+      "fractionOver10Percent": 0.001558641975308642,
+      "passed": true
+    },
+    {
+      "image": "cel.png",
+      "mean": 0.0009136458081174857,
+      "structural": 0.0008983736723856209,
+      "fractionOver10Percent": 0.004114583333333333,
+      "passed": true
+    },
+    {
+      "image": "contact-shadows.png",
+      "mean": 0.0013894940692326314,
+      "structural": 0.0011476205065359478,
+      "fractionOver10Percent": 0.0015258487654320988,
+      "passed": true
+    },
+    {
+      "image": "dynamic-glow.png",
+      "mean": 0.0014563337166142178,
+      "structural": 0.0012066610498366011,
+      "fractionOver10Percent": 0.0016203703703703703,
+      "passed": true
+    },
+    {
+      "image": "extreme.png",
+      "mean": 0.0010617132655531348,
+      "structural": 0.000984860089869281,
+      "fractionOver10Percent": 0.0008314043209876543,
+      "passed": true
+    },
+    {
+      "image": "filtering.png",
+      "mean": 0.004183664669571532,
+      "structural": 0.0041733685661764705,
+      "fractionOver10Percent": 0.02044945987654321,
+      "passed": true
+    },
+    {
+      "image": "fog.png",
+      "mean": 0.0013993736383442264,
+      "structural": 0.0011495353349673203,
+      "fractionOver10Percent": 0.001548996913580247,
+      "passed": true
+    },
+    {
+      "image": "fxaa-high.png",
+      "mean": 0.0024091876462519167,
+      "structural": 0.0014306959763071894,
+      "fractionOver10Percent": 0.0022665895061728396,
+      "passed": true
+    },
+    {
+      "image": "fxaa.png",
+      "mean": 0.0025761115145646733,
+      "structural": 0.0014578227124183007,
+      "fractionOver10Percent": 0.0029880401234567903,
+      "passed": true
+    },
+    {
+      "image": "hdr.png",
+      "mean": 0.0026561768740417974,
+      "structural": 0.0017252604166666666,
+      "fractionOver10Percent": 0.001109182098765432,
+      "passed": true
+    },
+    {
+      "image": "pbr-albedo.png",
+      "mean": 0.0018960829702251271,
+      "structural": 0.001452078227124183,
+      "fractionOver10Percent": 0.002496141975308642,
+      "passed": true
+    },
+    {
+      "image": "pbr-material.png",
+      "mean": 0.0,
+      "structural": 0.0,
+      "fractionOver10Percent": 0.0,
+      "passed": true
+    },
+    {
+      "image": "pbr-normal.png",
+      "mean": 0.0,
+      "structural": 0.0,
+      "fractionOver10Percent": 0.0,
+      "passed": true
+    },
+    {
+      "image": "pbr.png",
+      "mean": 0.0010322964576777213,
+      "structural": 0.0008686938316993464,
+      "fractionOver10Percent": 0.0003742283950617284,
+      "passed": true
+    },
+    {
+      "image": "reflections.png",
+      "mean": 0.0013989323610102476,
+      "structural": 0.0011488970588235295,
+      "fractionOver10Percent": 0.001541280864197531,
+      "passed": true
+    },
+    {
+      "image": "shadow-high.png",
+      "mean": 0.0011943713184862422,
+      "structural": 0.0009928385416666666,
+      "fractionOver10Percent": 0.0012808641975308641,
+      "passed": true
+    },
+    {
+      "image": "shadow-low.png",
+      "mean": 0.0011995506535947712,
+      "structural": 0.000987094056372549,
+      "fractionOver10Percent": 0.0012210648148148148,
+      "passed": true
+    },
+    {
+      "image": "shadow-ultra.png",
+      "mean": 0.0011928659323811829,
+      "structural": 0.000985817504084967,
+      "fractionOver10Percent": 0.0012789351851851853,
+      "passed": true
+    },
+    {
+      "image": "sharpen.png",
+      "mean": 0.0017897830428467683,
+      "structural": 0.001173470690359477,
+      "fractionOver10Percent": 0.0025308641975308644,
+      "passed": true
+    },
+    {
+      "image": "smaa.png",
+      "mean": 0.0030231784071653354,
+      "structural": 0.001738345077614379,
+      "fractionOver10Percent": 0.0026195987654320987,
+      "passed": true
+    },
+    {
+      "image": "ssao.png",
+      "mean": 0.001329422355361898,
+      "structural": 0.0010927287581699344,
+      "fractionOver10Percent": 0.0011998456790123456,
+      "passed": true
+    },
+    {
+      "image": "taa.png",
+      "mean": 0.0013993736383442264,
+      "structural": 0.0011495353349673203,
+      "fractionOver10Percent": 0.001548996913580247,
+      "passed": true
+    },
+    {
+      "image": "volumetric-fog.png",
+      "mean": 0.0013927746510126685,
+      "structural": 0.001136450674019608,
+      "fractionOver10Percent": 0.001547067901234568,
+      "passed": true
+    },
+    {
+      "image": "world-hud.png",
+      "mean": 0.00432475742354555,
+      "structural": 0.004143050449346405,
+      "fractionOver10Percent": 0.020484182098765433,
+      "passed": true
+    }
+  ]
+}

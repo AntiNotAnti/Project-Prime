@@ -253,6 +253,13 @@ namespace MphRead.Mods
         /// </summary>
         public static void EnableDebugOutput(Action<string> report)
         {
+#if !MPHREAD_SERVER
+            if (Render.ModernGraphicsCompat.Active)
+            {
+                report("WebGPU validation and device-loss callbacks are enabled.");
+                return;
+            }
+#endif
             try
             {
                 // OpenTK can call a null native function pointer for an absent

@@ -176,7 +176,7 @@ namespace MphRead.Mods.Cosmetics
                 Paths.UpdatePaths(); Paths.ChooseMphPath();
                 Directory.CreateDirectory(output);
                 using var window = new GameWindow(new GameWindowSettings(), ThumbnailCapture.WindowSettings(640, 640));
-                window.MakeCurrent();
+                using var graphics = new Render.DesktopGraphicsSession(window);
                 var scene = new Scene(new Vector2i(640, 640), window.KeyboardState, window.MouseState, _ => { }, () => { }) { SideScene = true };
                 try
                 {

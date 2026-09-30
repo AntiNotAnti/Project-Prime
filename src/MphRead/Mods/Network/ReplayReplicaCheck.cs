@@ -24,8 +24,7 @@ namespace MphRead.Mods.Network
                 var settings = Render.DesktopGlContext.Settings(background: true);
                 settings.ClientSize = new Vector2i(640, 480);
                 window = new NativeWindow(settings);
-                window.Context.MakeCurrent();
-                GL.LoadBindings(new GLFWBindingsContext());
+                using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
             }
             else
 #endif

@@ -1,0 +1,670 @@
+#if !MPHREAD_SERVER
+namespace MphRead.Mods.Render
+{
+    /// <summary>
+    /// WGSL equivalents of Project Prime's core/original renderer. Uniforms
+    /// live in a 16-byte-slot compatibility block populated from the existing
+    /// GL.Uniform* calls; this keeps the engine-facing API stable while DX12,
+    /// Vulkan and Metal receive WebGPU-native shaders.
+    /// </summary>
+    internal static class ModernGraphicsShaders
+    {
+        internal const int UniformSlots = 320;
+
+        internal const int ImmColor = 0;
+        internal const int Flags0 = 1;
+        internal const int Light1Vector = 2;
+        internal const int Light1Color = 3;
+        internal const int Light2Vector = 4;
+        internal const int Light2Color = 5;
+        internal const int Diffuse = 6;
+        internal const int Ambient = 7;
+        internal const int Specular = 8;
+        internal const int Emission = 9;
+        internal const int FogColor = 10;
+        internal const int Scalars0 = 11;
+        internal const int Projection = 12;
+        internal const int View = 16;
+        internal const int ViewInverse = 20;
+        internal const int TextureMatrix = 24;
+        internal const int MatrixStack = 28; // 32 mat4 = 128 slots, through 155.
+        internal const int FragmentFlags0 = 156;
+        internal const int OverrideColor = 157;
+        internal const int PaletteOverrideColor = 158;
+        internal const int FragmentFlags1 = 159;
+        internal const int FlatColor = 160;
+        internal const int PlayerOutlineColor = 161;
+        internal const int FragmentFlags2 = 162;
+        internal const int FragmentFlags3 = 163;
+        internal const int ToonTable = 164; // 32 vec3 slots, through 195.
+        internal const int RttScalars = 196;
+        internal const int FadeColor = 197;
+        internal const int ShiftTable = 198; // 64 scalars packed four per slot: 198..213.
+        internal const int WhiteTable = 214; // 192 scalars packed four per slot: 214..261.
+        internal const int ShiftParams = 262; // idx, shift factor, lerp factor, white factor.
+        internal const int CelParams0 = 263; // texel_w, texel_h, outline, near plane.
+        internal const int CelParams1 = 264; // far plane, depth quantum, probe, reserved.
+        internal const int OutlineParams = 265; // step x, step y, reserved, reserved.
+
+        private const string Common = @"
+struct LegacyUniforms {
+    data: array<vec4<u32>, 320>,
+};
+@group(0) @binding(0) var<uniform> u: LegacyUniforms;
+
+fn uf4(slot: u32) -> vec4<f32> {
+    return bitcast<vec4<f32>>(u.data[slot]);
+}
+fn uf3(slot: u32) -> vec3<f32> {
+    return uf4(slot).xyz;
+}
+fn uf1(slot: u32) -> f32 {
+    return bitcast<f32>(u.data[slot].x);
+}
+fn ui(slot: u32, component: u32) -> i32 {
+    return bitcast<i32>(u.data[slot][component]);
+}
+fn ub(slot: u32, component: u32) -> bool {
+    return u.data[slot][component] != 0u;
+}
+fn uf_at(base: u32, index: u32) -> f32 {
+    let slot = base + index / 4u;
+    let component = index % 4u;
+    return bitcast<f32>(u.data[slot][component]);
+}
+fn umat4(slot: u32) -> mat4x4<f32> {
+    return mat4x4<f32>(uf4(slot), uf4(slot + 1u), uf4(slot + 2u), uf4(slot + 3u));
+}
+";
+
+        internal static string World { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) normal: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+    @location(4) color_set: f32,
+};
+
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) surface_normal: vec3<f32>,
+    @location(3) surface_position: vec3<f32>,
+};
+
+fn light_calc(light_vec: vec3<f32>, light_col: vec3<f32>, normal_vec: vec3<f32>,
+              dif_col: vec3<f32>, amb_col: vec3<f32>, spe_col: vec3<f32>) -> vec3<f32> {
+    let sight_vec = vec3<f32>(0.0, 0.0, -1.0);
+    let dif_factor = max(0.0, -dot(light_vec, normal_vec));
+    let half_vec = (light_vec + sight_vec) / 2.0;
+    var spe_factor = max(0.0, dot(-half_vec, normal_vec));
+    spe_factor = spe_factor * spe_factor;
+    let spe_out = spe_col * light_col * spe_factor;
+    let dif_out = dif_col * light_col * dif_factor;
+    let amb_out = amb_col * light_col;
+    return spe_out + dif_out + amb_out;
+}
+
+fn stack_matrix(index: i32) -> mat4x4<f32> {
+    let safe = u32(clamp(index, 0, 31));
+    return umat4(28u + safe * 4u);
+}
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    let use_light = ub(1u, 0u);
+    let use_texture = ub(1u, 1u);
+    let show_colors = ub(1u, 2u);
+    let imm_color = uf4(0u);
+    var vtx_in_color = imm_color;
+    if (input.color_set > 0.5) {
+        vtx_in_color = input.color;
+    }
+
+    let stack_mtx = stack_matrix(i32(clamp(input.texcoord.z, 0.0, 31.0)));
+    let model_mtx = stack_mtx * umat4(20u);
+    output.position = umat4(12u) * umat4(16u) * model_mtx * vec4<f32>(input.position, 1.0);
+    // Project Prime's projection matrices are OpenGL-style (-W..W depth).
+    // WebGPU uses 0..W, so keep the exact projection and remap clip Z here.
+    output.position.z = (output.position.z + output.position.w) * 0.5;
+
+    var vtx_color = vec4<f32>(1.0);
+    if (show_colors) {
+        vtx_color = vtx_in_color;
+    }
+    let normal_matrix = mat3x3<f32>(model_mtx[0].xyz, model_mtx[1].xyz, model_mtx[2].xyz);
+    let normal = normalize(normal_matrix * input.normal);
+    output.surface_normal = normal;
+    output.surface_position = (model_mtx * vec4<f32>(input.position, 1.0)).xyz;
+
+    if (use_light) {
+        var dif_current = uf3(6u);
+        var amb_current = uf3(7u);
+        if (vtx_in_color.a == 0.0) {
+            dif_current = vtx_color.rgb;
+            amb_current = vec3<f32>(0.0);
+        }
+        let col1 = light_calc(uf3(2u), uf3(3u), normal, dif_current, amb_current, uf3(8u));
+        let col2 = light_calc(uf3(4u), uf3(5u), normal, dif_current, amb_current, uf3(8u));
+        output.color = vec4<f32>(min(col1 + col2 + uf3(9u), vec3<f32>(1.0)), 1.0);
+    }
+    else {
+        output.color = vec4<f32>(vtx_color.rgb, 1.0);
+    }
+
+    output.texcoord = vec2<f32>(0.0);
+    if (use_texture) {
+        let tex_mtx = umat4(24u);
+        let texgen_mode = ui(11u, 3u);
+        if (texgen_mode == 0 || texgen_mode == 1) {
+            output.texcoord = (tex_mtx * vec4<f32>(input.texcoord.xy, 0.0, 1.0)).xy;
+        }
+        else {
+            var tex_mul = tex_mtx;
+            if (texgen_mode == 2) {
+                var base = mat4x4<f32>(
+                    vec4<f32>(1.0, 0.0, 0.0, 0.0),
+                    vec4<f32>(0.0, 1.0, 0.0, 0.0),
+                    vec4<f32>(0.0, 0.0, 1.0, 0.0),
+                    vec4<f32>(0.0, 0.0, 0.0, 1.0));
+                if (use_light) {
+                    base = umat4(16u);
+                }
+                let stack3 = mat3x3<f32>(stack_mtx[0].xyz, stack_mtx[1].xyz, stack_mtx[2].xyz);
+                let stack4 = mat4x4<f32>(
+                    vec4<f32>(stack3[0], 0.0),
+                    vec4<f32>(stack3[1], 0.0),
+                    vec4<f32>(stack3[2], 0.0),
+                    vec4<f32>(0.0, 0.0, 0.0, 1.0));
+                tex_mul = transpose(tex_mtx * base * stack4);
+            }
+            let c0 = vec4<f32>(tex_mul[0].xyz, input.texcoord.x);
+            let c1 = vec4<f32>(tex_mul[1].xyz, input.texcoord.y);
+            var source = vec4<f32>(input.position, 1.0);
+            if (texgen_mode == 2) {
+                source = vec4<f32>(input.normal, 1.0);
+            }
+            output.texcoord = vec2<f32>(dot(source, c0), dot(source, c1));
+        }
+    }
+    return output;
+}
+
+struct FragmentInput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+    @location(1) color: vec4<f32>,
+    @location(2) surface_normal: vec3<f32>,
+    @location(3) surface_position: vec3<f32>,
+};
+
+fn toon_color(input: vec4<f32>) -> vec4<f32> {
+    let index = u32(clamp(i32(input.r * 31.0), 0, 31));
+    return vec4<f32>(uf3(164u + index), input.a);
+}
+
+fn cel_shade(c: vec3<f32>, bands: i32) -> vec3<f32> {
+    let steps = f32(bands);
+    let lum = max(max(c.r, c.g), c.b);
+    if (lum <= 0.0) {
+        return c;
+    }
+    let scaled = lum * steps - 0.5;
+    let lower = floor(scaled);
+    let level = (lower + 0.5 + smoothstep(0.46, 0.54, scaled - lower)) / steps;
+    let banded = c * (level / lum);
+    let grey = dot(banded, vec3<f32>(0.299, 0.587, 0.114));
+    return clamp(mix(vec3<f32>(grey), banded, vec3<f32>(1.35)), vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+@fragment
+fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
+    let use_texture = ub(1u, 1u);
+    let fog_enable = ub(1u, 3u);
+    let mat_alpha = uf4(156u).x;
+    let mat_mode = ui(156u, 1u);
+    let use_override = ub(156u, 2u);
+    let use_pal_override = ub(156u, 3u);
+    let alpha_test = ui(159u, 0u);
+    let cel_bands = ui(159u, 1u);
+    let use_flat = ub(159u, 2u);
+    let textured_player_skin = ui(159u, 3u);
+    let player_outline_mask = ub(162u, 0u);
+
+    var col: vec4<f32>;
+    if (use_texture) {
+        var texcolor = textureSample(base_tex, base_sampler, input.texcoord);
+        if (use_pal_override) {
+            texcolor = vec4<f32>(uf4(158u).xyz, texcolor.a);
+        }
+        if (use_flat && !use_pal_override && textured_player_skin == 0) {
+            texcolor = vec4<f32>(uf3(160u), texcolor.a);
+        }
+
+        if (mat_mode == 1) {
+            col = vec4<f32>(
+                texcolor.r * texcolor.a + input.color.r * (1.0 - texcolor.a),
+                texcolor.g * texcolor.a + input.color.g * (1.0 - texcolor.a),
+                texcolor.b * texcolor.a + input.color.b * (1.0 - texcolor.a),
+                mat_alpha * input.color.a);
+        }
+        else if (mat_mode == 2) {
+            let toon = toon_color(input.color);
+            col = vec4<f32>(texcolor.rgb * input.color.r + toon.rgb,
+                            mat_alpha * texcolor.a * input.color.a);
+        }
+        else {
+            col = input.color * vec4<f32>(texcolor.rgb, mat_alpha * texcolor.a);
+        }
+
+        if (use_override) {
+            let override_color = uf4(157u);
+            if (textured_player_skin > 0) {
+                if (textured_player_skin == 2) {
+                    let detail = smoothstep(0.05, 0.85,
+                        dot(texcolor.rgb, vec3<f32>(0.2126, 0.7152, 0.0722)));
+                    let tinted = override_color.rgb * (0.25 + 0.75 * detail);
+                    col = vec4<f32>(mix(tinted, pow(texcolor.rgb, vec3<f32>(0.7)), vec3<f32>(0.25)), col.a);
+                }
+                else {
+                    col = vec4<f32>(clamp(mix(col.rgb, texcolor.rgb, vec3<f32>(0.8)) * 1.25,
+                                              vec3<f32>(0.0), vec3<f32>(1.0)), col.a);
+                }
+            }
+            else {
+                col = vec4<f32>(override_color.rgb, col.a);
+            }
+            col.a = col.a * override_color.a;
+        }
+    }
+    else if (use_override) {
+        col = uf4(157u);
+    }
+    else {
+        col = input.color;
+        if (mat_mode == 2) {
+            col = toon_color(input.color);
+        }
+        col.a = col.a * mat_alpha;
+    }
+
+    if (player_outline_mask) {
+        if (col.a <= 0.01) {
+            discard;
+        }
+        col = vec4<f32>(uf3(161u), col.a);
+    }
+
+    if (cel_bands > 0) {
+        col = vec4<f32>(cel_shade(col.rgb, cel_bands), col.a);
+    }
+
+    if (fog_enable) {
+        let fog_min = uf4(11u).y;
+        let fog_max = uf4(11u).z;
+        var density = 0.0;
+        if (input.position.z >= fog_max) {
+            density = 1.0;
+        }
+        else if (input.position.z > fog_min) {
+            density = (input.position.z - fog_min) / (fog_max - fog_min) * 124.0 / 128.0;
+        }
+        col = vec4<f32>((col * (1.0 - density) + uf4(10u) * density).xyz, col.a);
+    }
+
+    if (alpha_test == 1 && col.a < 1.0) {
+        discard;
+    }
+    if (alpha_test == 2 && col.a >= 1.0) {
+        discard;
+    }
+    return col;
+}
+";
+
+        internal static string Clear { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+@vertex fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
+    return vec4<f32>(position.xy, 1.0, 1.0);
+}
+@fragment fn fs_main() -> @location(0) vec4<f32> {
+    return textureSample(base_tex, base_sampler, vec2<f32>(0.5)) * uf4(" + ImmColor + @"u);
+}
+";
+
+        internal static string Rtt { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+@group(0) @binding(3) var mask_tex: texture_2d<f32>;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+struct FragmentInput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@fragment
+fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
+    let alpha = uf4(196u).x;
+    let use_mask = ub(196u, 1u);
+    let view_width = uf4(196u).z;
+    let view_height = uf4(196u).w;
+    let fade_color = uf4(197u);
+    if (fade_color.a > 0.0) {
+        return fade_color;
+    }
+
+    var base_uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        // Render-target textures inherit OpenGL's bottom-origin framebuffer
+        // convention. WebGPU stores render attachments top-origin, so flip
+        // only framebuffer-produced textures, never uploaded HUD/art textures.
+        base_uv.y = 1.0 - base_uv.y;
+    }
+    var color = textureSample(base_tex, base_sampler, base_uv);
+    if (use_mask) {
+        // WGSL fragment position is top-origin; emulate gl_FragCoord.y before
+        // applying the original square HUD-mask projection.
+        let gl_frag_y = view_height - input.position.y;
+        let mask_y = gl_frag_y + (view_width - view_height) / 2.0;
+        let mask_uv = vec2<f32>(input.position.x / view_width, 1.0 - mask_y / view_width);
+        let mask_color = textureSample(mask_tex, base_sampler, mask_uv);
+        if (mask_color.a > 0.0) {
+            color.a = 0.0;
+        }
+    }
+    color.a = color.a * alpha;
+    return color;
+}
+";
+
+        internal static string Shift { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    var uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+
+    let shift_idx = ui(262u, 0u);
+    let shift_fac = bitcast<f32>(u.data[262u].y);
+    let lerp_fac = bitcast<f32>(u.data[262u].z);
+    let white_fac = bitcast<f32>(u.data[262u].w);
+
+    let band = i32(clamp((1.0 - uv.y) * 192.0, 0.0, 191.0));
+    var index = (band + shift_idx + (band % 2) * 32) % 64;
+    if (index < 0) {
+        index = index + 64;
+    }
+    let next_index = (index + 1) % 64;
+    let value1 = uf_at(198u, u32(index));
+    let value2 = uf_at(198u, u32(next_index));
+    let amount = mix(value1, value2, lerp_fac) * shift_fac;
+    let shifted = vec2<f32>(uv.x + amount, uv.y);
+
+    var color: vec4<f32>;
+    if (shifted.x < 0.0 || shifted.x > 1.0) {
+        color = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+    else {
+        color = textureSample(base_tex, base_sampler, shifted);
+    }
+
+    if (white_fac != 0.0) {
+        var factor = uf_at(214u, u32(band));
+        if (white_fac < 0.0) {
+            color = vec4<f32>(factor, factor, factor, 1.0);
+        }
+        else {
+            factor = factor * white_fac;
+            if (factor >= 0.0) {
+                color = vec4<f32>(
+                    color.r + (1.0 - color.r) * factor,
+                    color.g + (1.0 - color.g) * factor,
+                    color.b + (1.0 - color.b) * factor,
+                    1.0);
+            }
+            else {
+                factor = -factor;
+                color = vec4<f32>(
+                    color.r - color.r * factor,
+                    color.g - color.g * factor,
+                    color.b - color.b * factor,
+                    1.0);
+            }
+        }
+    }
+    return color;
+}
+";
+
+        internal static string Cel { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+@group(0) @binding(3) var depth_tex: texture_depth_2d;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn clamped_coord(base: vec2<i32>, dx: i32, dy: i32) -> vec2<i32> {
+    let dims = vec2<i32>(textureDimensions(depth_tex));
+    return clamp(base + vec2<i32>(dx, dy), vec2<i32>(0), dims - vec2<i32>(1));
+}
+
+fn raw_depth(base: vec2<i32>, dx: i32, dy: i32) -> f32 {
+    return textureLoad(depth_tex, clamped_coord(base, dx, dy), 0);
+}
+
+fn kink_abs(base: vec2<i32>, d: f32, r: i32) -> f32 {
+    let rf = f32(r);
+    let h = vec2<f32>(raw_depth(base, -r, 0) - d, raw_depth(base, r, 0) - d);
+    let v = vec2<f32>(raw_depth(base, 0, -r) - d, raw_depth(base, 0, r) - d);
+    return max(abs(h.x + h.y), abs(v.x + v.y)) / rf;
+}
+
+fn edge_at(base: vec2<i32>, d: f32, r: i32, unit: f32, depth_quantum: f32) -> f32 {
+    let rf = f32(r);
+    let quantised = depth_quantum * 4.0 / rf / unit;
+    let lo = max(1.1, quantised * 1.5);
+    let hi = max(3.5, quantised * 4.0);
+    let relative = kink_abs(base, d, r) / unit;
+    return smoothstep(lo, hi, relative);
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let color_dims = vec2<f32>(textureDimensions(base_tex));
+    let uv = input.position.xy / color_dims;
+    let base_color = textureSample(base_tex, base_sampler, uv).rgb;
+    let pixel = vec2<i32>(i32(input.position.x), i32(input.position.y));
+    let d = raw_depth(pixel, 0, 0);
+
+    let texel_w = bitcast<f32>(u.data[263u].x);
+    let outline = bitcast<f32>(u.data[263u].z);
+    let near_plane = bitcast<f32>(u.data[263u].w);
+    let far_plane = bitcast<f32>(u.data[264u].x);
+    let depth_quantum = bitcast<f32>(u.data[264u].y);
+    let probe = ui(264u, 2u);
+
+    var ink = 0.0;
+    if (d < 0.9999995) {
+        let scale = far_plane / (far_plane - near_plane) - d;
+        let unit = max(scale, 1e-9) * texel_w;
+
+        if (probe == 1) {
+            let shown = clamp(log2(max(kink_abs(pixel, d, 2), 1e-10)) / 32.0 + 1.0,
+                              0.004, 1.0);
+            return vec4<f32>(shown, shown, shown, 1.0);
+        }
+
+        ink = max(edge_at(pixel, d, 2, unit, depth_quantum),
+                  edge_at(pixel, d, 3, unit, depth_quantum)) * outline;
+    }
+    else if (probe == 1) {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+
+    return vec4<f32>(base_color * (1.0 - ink), 1.0);
+}
+";
+
+        internal static string PlayerOutline { get; } = Common + @"
+@group(0) @binding(1) var mask_tex: texture_2d<f32>;
+@group(0) @binding(2) var mask_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn corrected_uv(input_uv: vec2<f32>) -> vec2<f32> {
+    var uv = input_uv;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+    return uv;
+}
+
+fn coverage(uv: vec2<f32>, offset: vec2<f32>) -> f32 {
+    return textureSample(mask_tex, mask_sampler, uv + offset).a;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = corrected_uv(input.texcoord);
+    let center = textureSample(mask_tex, mask_sampler, uv);
+    if (center.a <= 0.01) {
+        discard;
+    }
+
+    var d = vec2<f32>(bitcast<f32>(u.data[265u].x),
+                      bitcast<f32>(u.data[265u].y));
+    var inside = min(
+        min(coverage(uv, vec2<f32>(d.x, 0.0)),
+            coverage(uv, vec2<f32>(-d.x, 0.0))),
+        min(coverage(uv, vec2<f32>(0.0, d.y)),
+            coverage(uv, vec2<f32>(0.0, -d.y))));
+
+    d = d * 0.70710678;
+    inside = min(inside,
+        min(min(coverage(uv, d), coverage(uv, -d)),
+            min(coverage(uv, vec2<f32>(d.x, -d.y)),
+                coverage(uv, vec2<f32>(-d.x, d.y)))));
+
+    if (inside > 0.01) {
+        discard;
+    }
+    return center;
+}
+";
+
+        internal static string ToneMap { get; } = Common + @"
+@group(0) @binding(1) var hdr_tex: texture_2d<f32>;
+@group(0) @binding(2) var hdr_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn aces(x: vec3<f32>) -> vec3<f32> {
+    return clamp((x * (2.51 * x + vec3<f32>(0.03)))
+        / (x * (2.43 * x + vec3<f32>(0.59)) + vec3<f32>(0.14)),
+        vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    var uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+    let hdr = max(textureSample(hdr_tex, hdr_sampler, uv).rgb, vec3<f32>(0.0));
+    return vec4<f32>(aces(hdr), 1.0);
+}
+";
+
+    }
+}
+#endif

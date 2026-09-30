@@ -32,10 +32,8 @@ for attempt in $(seq 1 120); do
   if adb shell run-as com.projectprime.game cat files/map-runtime-check.txt > "$RUNNER_TEMP/map-android-check.txt" 2>/dev/null; then
     cat "$RUNNER_TEMP/map-android-check.txt"
     grep -q '^PASS:' "$RUNNER_TEMP/map-android-check.txt"
-    exit $?
+    break
   fi
   sleep 2
 done
-adb logcat -d > "$RUNNER_TEMP/map-android-logcat.txt"
-echo 'Android map runtime acceptance timed out' >&2
-exit 1
+test -s "$RUNNER_TEMP/map-android-check.txt" || { echo 'Android map runtime acceptance timed out' >&2; exit 1; }

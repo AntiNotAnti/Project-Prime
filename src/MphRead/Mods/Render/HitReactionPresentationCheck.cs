@@ -97,15 +97,26 @@ internal static class HitReactionPresentationCheck
 
                 Features.ProHud = true;
                 Features.ProHudFixedWeapon = false;
+                // Reproduce the v0.1.34 regression: Dynamic keeps an eased
+                // simulation camera (forward) while raw mouse aim has already
+                // turned left. Presentation must follow raw aim immediately
+                // without destroying the Dynamic simulation state.
+                Pose(forward, forward);
+                Set("_facingVector", forward);
+                Set("_gunVec1", -Vector3.UnitX);
+                Set("_aimVec", -Vector3.UnitX);
                 var dynamicStart = Render(0);
                 var dynamicMiddle = Render(.5);
                 var dynamicEnd = Render(1);
-                Check(Near(dynamicStart.Camera, forward)
-                    && Near(dynamicMiddle.Camera, (forward - Vector3.UnitX).Normalized())
+                Check(Near(dynamicStart.Camera, -Vector3.UnitX)
+                    && Near(dynamicMiddle.Camera, -Vector3.UnitX)
                     && Near(dynamicEnd.Camera, -Vector3.UnitX),
-                    $"{rate} Hz Pro HUD Dynamic interpolates camera through completed samples");
-                Check(Near(Render(.5, 10).Camera, dynamicMiddle.Camera),
-                    $"{rate} Hz Pro HUD Dynamic preserves easing with pending aim input");
+                    $"{rate} Hz Pro HUD Dynamic renders raw aim without legacy camera lag");
+                var dynamicLate = Render(.5, 10);
+                Check(!Near(dynamicLate.Camera, dynamicMiddle.Camera),
+                    $"{rate} Hz Pro HUD Dynamic late-latches pending mouse aim");
+                Check(player.CameraInfo.Facing == forward,
+                    $"{rate} Hz Pro HUD Dynamic leaves eased simulation camera untouched");
                 Features.ProHud = false;
             }
             // Spectator/replay POV does not late-latch local input, but its

@@ -1,0 +1,87 @@
+{
+  "passed": true,
+  "reference": "OpenGL",
+  "candidate": "Metal",
+  "meanLimit": 0.06,
+  "structuralLimit": 0.08,
+  "changedLimit": 0.1,
+  "images": [
+    {
+      "image": "map-library-scaled.png",
+      "mean": 0.0,
+      "structural": 0.0,
+      "fractionOver10Percent": 0.0,
+      "passed": true
+    },
+    {
+      "image": "map-studio-four-gpu.png",
+      "mean": 2.1896823087215003e-06,
+      "structural": 9.574142156862745e-07,
+      "fractionOver10Percent": 2.1936421981548335e-05,
+      "passed": true
+    },
+    {
+      "image": "map-studio-renderer.png",
+      "mean": 3.3508857480684474e-06,
+      "structural": 1.2765522875816993e-06,
+      "fractionOver10Percent": 3.384476534296029e-05,
+      "passed": true
+    },
+    {
+      "image": "overlay-order.png",
+      "mean": 0.0,
+      "structural": 0.0,
+      "fractionOver10Percent": 0.0,
+      "passed": true
+    },
+    {
+      "image": "preview-1440.png",
+      "mean": 0.0,
+      "structural": 0.0,
+      "fractionOver10Percent": 0.0,
+      "passed": true
+    },
+    {
+      "image": "preview-2880.png",
+      "mean": 3.4651063787658283e-07,
+      "structural": 0.0,
+      "fractionOver10Percent": 2.2275683863494608e-06,
+      "passed": true
+    },
+    {
+      "image": "preview-960.png",
+      "mean": 2.2769252628587666e-06,
+      "structural": 1.2765522875816993e-06,
+      "fractionOver10Percent": 2.173913043478261e-05,
+      "passed": true
+    },
+    {
+      "image": "textured-material.png",
+      "mean": 1.237009850309438e-06,
+      "structural": 6.382761437908496e-07,
+      "fractionOver10Percent": 1.2617500473156268e-05,
+      "passed": true
+    },
+    {
+      "image": "viewport-1440.png",
+      "mean": 4.436714740270579e-06,
+      "structural": 2.8722426470588235e-06,
+      "fractionOver10Percent": 4.4917435486027546e-05,
+      "passed": true
+    },
+    {
+      "image": "viewport-2880.png",
+      "mean": 1.7486325545951321e-06,
+      "structural": 6.382761437908496e-07,
+      "fractionOver10Percent": 1.7340219280652494e-05,
+      "passed": true
+    },
+    {
+      "image": "viewport-960.png",
+      "mean": 5.6917211328976034e-06,
+      "structural": 3.1913807189542485e-06,
+      "fractionOver10Percent": 5.772569444444445e-05,
+      "passed": true
+    }
+  ]
+}

@@ -109,6 +109,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _anisotropyRow = null!;
         private ChoiceRow _textureUpscaleRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
+        private ChoiceRow _rendererRow = null!;
+        private readonly GraphicsBackend[] _rendererChoices = GraphicsBackendPolicy.RendererChoices();
         private ChoiceRow _antiAliasingRow = null!;
         private SliderRow _sharpenRow = null!;
         private ToggleRow _bloomRow = null!;
@@ -1059,20 +1061,12 @@ namespace MphRead.Mods.Launcher.Gui
             _crosshairSizeRow.Changed += (_, _) => _crosshairStyleRow.InvalidateVisual();
             // Where the gun sits, which is the one Pro-mode question with two
             // real answers rather than a right one. Static is Quake's: the
-            // weapon is welded to the camera, the crosshair sits dead centre
-            // and the HUD stops sliding around under the mouse. Dynamic is the
-            // DS game's: the gun lags behind the aim point and settles after
-            // it, and the crosshair moves around the screen with the aim while
-            // the camera follows. Pro mode has always drawn the first, so that
-            // stays the default -- this only makes the second reachable
-            // without giving up the rest of the HUD.
-            //
-            // The crosshair is the half that used not to move. It was drawn
-            // wherever Features.FixedCrosshair said, which Pro mode forces on
-            // for a different reason -- the DS reticle animates as you fire
-            // and a crosshair must not -- so answering Dynamic moved the gun
-            // and left the thing the player is actually looking at welded to
-            // the middle of the screen. See PlayerHud.UpdateReticle.
+            // weapon is welded to the camera. Dynamic keeps the DS-style
+            // drifting weapon pose and settle motion, but not the DS camera
+            // latency: both styles use the same responsive raw-aim camera and
+            // keep the crosshair on the actual firing ray. Pro mode has always
+            // drawn Static by default; Dynamic remains an optional presentation
+            // choice without changing mouse/controller response.
             _weaponStyleRow = Add(page, new ChoiceRow("Weapon",
                 new[] { "Static (Quake)", "Dynamic (Metroid)" },
                 Features.ProHudFixedWeapon ? 0 : 1));
@@ -1123,6 +1117,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildGraphics(StackPanel page)
         {
+            Heading(page, "Renderer");
+            GraphicsBackendPolicy.TryParse(_settings.Renderer, out var selectedRenderer);
+            _rendererRow = Add(page, new ChoiceRow("Renderer", _rendererChoices.Select(backend =>
+                backend == GraphicsBackend.OpenGL && OperatingSystem.IsAndroid() ? "OpenGL ES"
+                : GraphicsBackendPolicy.DisplayName(backend)).ToArray(),
+                Math.Max(0, Array.IndexOf(_rendererChoices, selectedRenderer))));
+            Explain(page, "Renderer changes take effect after restarting Project Prime. Modern backends are experimental; OpenGL remains the compatibility default.");
             Heading(page, "Quality preset");
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
@@ -2463,6 +2464,7 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
+            _settings.Renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
             _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))

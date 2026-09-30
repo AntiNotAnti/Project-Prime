@@ -28,12 +28,12 @@ internal static class ReplayTheatreCheck
         }
 #if !ANDROID
         NativeWindow? window = null;
+        Render.DesktopGraphicsSession? graphics = null;
         if (shots != null)
         {
             var settings = Render.DesktopGlContext.Settings(background: true);
             settings.ClientSize = new Vector2i(640, 480);
-            window = new NativeWindow(settings); window.Context.MakeCurrent();
-            GL.LoadBindings(new GLFWBindingsContext());
+            window = new NativeWindow(settings); graphics = new Render.DesktopGraphicsSession(window);
         }
         else
 #endif
@@ -126,6 +126,7 @@ internal static class ReplayTheatreCheck
         {
             DemoPlayback.Stop(); shell.DoCleanup(); shell.UnloadGl(); NetSession.Stop();
 #if !ANDROID
+            graphics?.Dispose();
             window?.Dispose();
 #endif
         }

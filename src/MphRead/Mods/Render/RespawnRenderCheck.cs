@@ -1,5 +1,5 @@
 using System;
-#if !ANDROID
+#if !ANDROID && !MPHREAD_SERVER
 using System.Diagnostics;
 using System.IO;
 using MphRead.Entities;
@@ -19,7 +19,7 @@ namespace MphRead.Mods.Render
     {
         public static int Run(string? room, string? cyclesText, string? timeoutText)
         {
-#if ANDROID
+#if ANDROID || MPHREAD_SERVER
             Console.WriteLine("RESPAWNRENDER unsupported: this harness needs a desktop GL window.");
             return 2;
 #else
@@ -73,7 +73,7 @@ namespace MphRead.Mods.Render
 #endif
         }
 
-#if !ANDROID
+#if !ANDROID && !MPHREAD_SERVER
         // Like MapAudit, drive Scene directly: RenderWindow's normal loop
         // applies user window/focus/cursor settings and wall-clock pacing.
         private sealed class CheckWindow : GameWindow
@@ -90,6 +90,8 @@ namespace MphRead.Mods.Render
             private int _requested;
             private int _timeout;
             private readonly Stopwatch _wall = Stopwatch.StartNew();
+            private bool _advanced;
+            private int _advancedFrames;
             private Phase _phase;
             private int _age;
             private int _frames;
@@ -125,19 +127,24 @@ namespace MphRead.Mods.Render
             private bool Disruption => Scenario == "disruption" || Scenario == "combined";
             private bool Scoreboard => Scenario == "scoreboard" || Scenario == "combined";
 
-            public CheckWindow() : base(new GameWindowSettings { UpdateFrequency = 0 },
-                new NativeWindowSettings
-                {
-                    ClientSize = new Vector2i(640, 480),
-                    Title = "Project Prime respawn render check",
-                    Profile = ContextProfile.Compatability,
-                    Flags = ContextFlags.Default,
-                    APIVersion = new Version(3, 2),
-                    StartVisible = true,
-                    StartFocused = false
-                })
+            private static NativeWindowSettings CheckSettings()
             {
-                VSync = VSyncMode.Off;
+                var settings = DesktopGlContext.Settings();
+                settings.ClientSize = new Vector2i(640, 480);
+                settings.Title = "Project Prime respawn render check";
+                settings.StartVisible = true;
+                settings.StartFocused = false;
+                return settings;
+            }
+
+            public CheckWindow() : base(new GameWindowSettings { UpdateFrequency = 0 }, CheckSettings())
+            {
+                if (GraphicsBackendPolicy.ModernGameplayRequested)
+                {
+                    ModernGraphicsCompat.Initialize(this, GraphicsBackendPolicy.Resolved);
+                    ModernGraphicsCompat.SetVSync(false);
+                }
+                else VSync = VSyncMode.Off;
                 CursorState = CursorState.Normal;
             }
 
@@ -151,6 +158,20 @@ namespace MphRead.Mods.Render
                 RenderOptions.ResolutionScale = 100;
                 RenderOptions.CelShading = false;
                 RenderOptions.CelEdge = 0.5f;
+                _advanced = Array.Exists(Environment.GetCommandLineArgs(), arg => arg == "-renderadvanced");
+                if (_advanced)
+                {
+                    RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
+                    RenderOptions.InternalHdr = true;
+                    RenderOptions.DeferredPbr = true;
+                    RenderOptions.AntiAliasing = AntiAliasingMode.Taa;
+                    RenderOptions.AmbientOcclusion = AmbientOcclusionQuality.High;
+                    RenderOptions.ContactShadows = true;
+                    RenderOptions.EnhancedFog = true;
+                    RenderOptions.VolumetricFog = true;
+                    RenderOptions.Reflections = true;
+                    RenderOptions.DynamicGlow = true;
+                }
                 RenderOptions.ShowFps = false; // Wall-clock FPS text cannot be a frozen-view baseline.
                 // Frozen input snapshots prevent later keyboard/mouse activity
                 // from driving the diagnostic even if someone focuses it.
@@ -211,6 +232,8 @@ namespace MphRead.Mods.Render
                 _scene.OnSimulationFrame();
                 ObserveSpawn();
                 ulong simulatedFrame = _scene.FrameCount;
+                if (_advanced && _scene.ValidateModernAdvancedRendering()) _advancedFrames++;
+                if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Resize(FramebufferSize.X, FramebufferSize.Y);
                 _scene.OnDrawFrame();
                 if (!_scene.OnRenderFrame())
                 {
@@ -238,7 +261,8 @@ namespace MphRead.Mods.Render
                     CheckPassBoundaries();
                     _controlDone = true;
                 }
-                SwapBuffers();
+                if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Present();
+                else SwapBuffers();
                 _scene.AfterRenderFrame();
                 PollErrors("swap/after-frame");
                 AdvancePhase();
@@ -650,6 +674,8 @@ namespace MphRead.Mods.Render
                     && _controlDone && _controlComparisons == 14
                     && rendererErrors == 0 && _respawns == expectedDeaths && _deaths == expectedDeaths
                     && _resizes >= _requested * 2 && _scales >= _requested * 2 && _celToggles >= _requested * 2;
+                if (_advanced && _advancedFrames == 0) pass = false;
+                Console.WriteLine($"RESPAWNRENDER advancedFrames={_advancedFrames}");
                 Console.WriteLine($"RESPAWNRENDER {(pass ? "PASS" : "FAIL")} room={_room}"
                     + $" cycles={_completed}/{_requested} deaths={_deaths} respawns={_respawns}"
                     + $" frames={_frames} checked={_checkedFrames} black={_blackFrames} fadeExcluded={_fadeExcluded}"
@@ -688,6 +714,7 @@ namespace MphRead.Mods.Render
                 finally
                 {
                     if (_loaded) _scene.UnloadGl();
+                    if (ModernGraphicsCompat.Active) ModernGraphicsCompat.Shutdown();
                 }
             }
 

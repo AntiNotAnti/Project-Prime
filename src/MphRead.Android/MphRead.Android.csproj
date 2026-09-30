@@ -119,6 +119,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\MphRead\Mods\Render\Generated\*.wgsl"
+                      LogicalName="MphRead.Mods.Render.Generated.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\MphRead\Assets\Fonts\Roboto-Bold.ttf" Link="Assets\Fonts\Roboto-Bold.ttf" />
     <EmbeddedResource Include="..\MphRead\Assets\Sounds\Combat\*.wav"
                       Link="Assets\Sounds\Combat\%(Filename)%(Extension)" />
@@ -127,6 +129,11 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="12.1.2" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="12.1.2" />
     <PackageReference Include="OpenTK" Version="4.9.4" />
+    <!-- Same managed WebGPU ABI as desktop. Android's wgpu-native .so is built
+         by tools/wgpu/build-native.sh so it can target the NDK/16 KB page-size
+         contract instead of importing desktop natives into the APK. -->
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
     <!-- The managed binding only. The package's natives are built for Linux and
          Windows, so they are dead weight in an APK and the only thing they do
          there is make the build warn that they are not 16 KB page aligned.
@@ -184,6 +191,15 @@
                       Link="Assets\Geo\%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\arm64-v8a\libwgpu_native.so"
+                          Link="lib\arm64-v8a\libwgpu_native.so" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so"
+                          Link="lib\x86_64\libwgpu_native.so" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- The whole of the ES port, in one line.
 
@@ -195,7 +211,7 @@
          so the call sites do not change and the desktop build does not see
          any of it. The enum types they pass are still the desktop ones:
          the same GL constants, which GlEs casts across. -->
-    <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
+    <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
     <!-- And the whole of the sound effects, in two more.
 
          Same problem, same shape of answer. Every sound effect the engine

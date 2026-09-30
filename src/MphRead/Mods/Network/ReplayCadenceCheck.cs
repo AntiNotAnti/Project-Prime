@@ -16,13 +16,24 @@ internal static class ReplayCadenceCheck
 {
     internal static int Run(string path)
     {
+        if (path == "synthetic")
+        {
+            string fixture = Path.Combine(Path.GetTempPath(), "prime-render-replay-" + Guid.NewGuid().ToString("N") + ".ppdemo");
+            try
+            {
+                ReplayWorldCoverageCheck.Write(fixture, "MP3 PROVING GROUND", GameMode.Battle, new Vector3(0, 1, 0));
+                return Run(fixture);
+            }
+            finally { File.Delete(fixture); }
+        }
+
 #if ANDROID
         return 1;
 #else
         var settings = DesktopGlContext.Settings(background: true);
         settings.ClientSize = new Vector2i(400, 300);
         using var window = new NativeWindow(settings);
-        window.Context.MakeCurrent(); GL.LoadBindings(new GLFWBindingsContext());
+        using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
         int oldCap = FrameTiming.FrameRateCap;
         const int steps = 600;
         var reference = new string[steps + 1];

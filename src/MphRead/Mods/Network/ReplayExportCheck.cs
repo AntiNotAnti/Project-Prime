@@ -18,13 +18,24 @@ internal static class ReplayExportCheck
 {
     internal static int Run(string path, string output)
     {
+        if (path == "synthetic")
+        {
+            string fixture = Path.Combine(Path.GetTempPath(), "prime-render-replay-" + Guid.NewGuid().ToString("N") + ".ppdemo");
+            try
+            {
+                ReplayWorldCoverageCheck.Write(fixture, "MP3 PROVING GROUND", GameMode.Battle, new Vector3(0, 1, 0));
+                return Run(fixture, output);
+            }
+            finally { File.Delete(fixture); }
+        }
+
 #if ANDROID
         return 1;
 #else
         Directory.CreateDirectory(output);
         var settings = Render.DesktopGlContext.Settings(background: true);
         settings.ClientSize = new Vector2i(640, 480);
-        using var window = new NativeWindow(settings); window.Context.MakeCurrent(); GL.LoadBindings(new GLFWBindingsContext());
+        using var window = new NativeWindow(settings); using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
         var shell = new Scene(settings.ClientSize, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(),
             _ => { }, () => { }, initializeRuntime: false);
         try
