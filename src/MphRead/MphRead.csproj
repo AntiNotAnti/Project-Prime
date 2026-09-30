@@ -201,12 +201,11 @@
     <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
     <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0"
                       Condition="!$(RuntimeIdentifier.StartsWith('osx')) or !Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')" />
-    <!-- Vulkan.Loader.Native uses its own dated package train rather than the
-         Silk managed-version train. Pin the actual published package instead
-         of accepting NuGet's NU1603 fallback on every Mac restore. -->
-    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" Version="2021.12.20"
-                      Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+    <!-- MoltenVK itself exports the Vulkan loader ABI. Ship it under its
+         canonical name and libvulkan.dylib so arm64 does not depend on the
+         old x64-only Silk Vulkan-loader package. -->
     <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.23.0"
+                      GeneratePathProperty="true" ExcludeAssets="all"
                       Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
   </ItemGroup>
 
@@ -221,6 +220,18 @@
   <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">
     <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib"
           Link="libwgpu_native.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx'))">
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\libMoltenVK.dylib"
+          Link="libMoltenVK.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\libMoltenVK.dylib"
+          Link="libvulkan.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\MoltenVK_icd.json"
+          Link="MoltenVK_icd.json" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 

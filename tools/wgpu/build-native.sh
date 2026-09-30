@@ -57,6 +57,10 @@ case "$requested" in
         [[ -x "$linker" ]] || { echo "error: Android linker not found: $linker" >&2; exit 1; }
         rustup target add "$triple"
         export CARGO_TARGET_AARCH64_LINUX_ANDROID_LINKER="$linker"
+        # bindgen is a host process. Point clang at the Android sysroot too,
+        # otherwise it follows /usr/include/stdint.h into host glibc headers
+        # and dies on bits/libc-header-start.h while cross-compiling.
+        export BINDGEN_EXTRA_CLANG_ARGS_aarch64_linux_android="--target=aarch64-linux-android${api} --sysroot=$host/sysroot"
         export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
         cargo build --manifest-path "$src/Cargo.toml" --locked --release --target "$triple"             --no-default-features --features "$features"
         mkdir -p "$out"
@@ -77,6 +81,7 @@ case "$requested" in
         [[ -x "$linker" ]] || { echo "error: Android linker not found: $linker" >&2; exit 1; }
         rustup target add "$triple"
         export CARGO_TARGET_X86_64_LINUX_ANDROID_LINKER="$linker"
+        export BINDGEN_EXTRA_CLANG_ARGS_x86_64_linux_android="--target=x86_64-linux-android${api} --sysroot=$host/sysroot"
         export RUSTFLAGS="-C link-arg=-Wl,-z,max-page-size=16384 -C link-arg=-Wl,-z,common-page-size=16384"
         cargo build --manifest-path "$src/Cargo.toml" --locked --release --target "$triple"             --no-default-features --features "$features"
         mkdir -p "$out"

@@ -144,6 +144,7 @@ namespace MphRead.Mods.Render
         {
             Drawn = false;
             Scene.PreviewDrawnLastFrame = false;
+#if !MPHREAD_SERVER
             if (ModernGraphicsCompat.Active && !window.HasScene)
             {
                 // The first modern-renderer slice deliberately proves the
@@ -153,6 +154,7 @@ namespace MphRead.Mods.Render
                 Scene.LauncherPreview = false;
                 return;
             }
+#endif
             if (!Wanted || CanPresent?.Invoke() == false || width <= 0 || height <= 0)
             {
                 Scene.LauncherPreview = false;

@@ -177,7 +177,8 @@ namespace MphRead.Mods.Render
                     if (adapter != null) api.AdapterRelease(adapter);
                     if (surface != null) api.SurfaceRelease(surface);
                     if (instance != null) api.InstanceRelease(instance);
-                    native?.Dispose();
+                    // The Wgpu extension shares WebGPU's native context. Disposing
+                    // both wrappers double-disposes that context on Vulkan/Unix.
                     api.Dispose();
                     throw;
                 }
@@ -214,7 +215,7 @@ namespace MphRead.Mods.Render
                 _api.InstanceRelease(_instance);
                 _instance = null;
             }
-            _native.Dispose();
+            // _native is an extension view over _api.Context, not a second owner.
             _api.Dispose();
         }
 

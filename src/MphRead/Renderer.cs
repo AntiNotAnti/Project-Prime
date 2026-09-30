@@ -7750,11 +7750,13 @@ localCenter *= _profileHudScale;
             // IgnoreUnavailableGlfwFeatures for why a throw here is fatal
             // rather than catchable.
             IgnoreUnavailableGlfwFeatures();
+#if !MPHREAD_SERVER
             if (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
             {
                 Mods.Render.ModernGraphicsCompat.Initialize(this,
                     Mods.Render.GraphicsBackendPolicy.Resolved);
             }
+#endif
             // The mark, on this window: it is the only one the program has
             // now, so it is the only one that can carry it. Set here rather
             // than in the settings above because those are static and shared
@@ -8089,7 +8091,9 @@ localCenter *= _profileHudScale;
             finally
             {
                 if (_shell) Sound.AudioLifetime.Shutdown();
+#if !MPHREAD_SERVER
                 Mods.Render.ModernGraphicsCompat.Shutdown();
+#endif
                 base.OnUnload();
             }
         }
@@ -8168,6 +8172,7 @@ localCenter *= _profileHudScale;
                 return;
             }
             _appliedFrameRateCap = cap;
+#if !MPHREAD_SERVER
             if (Mods.Render.ModernGraphicsCompat.Active)
             {
                 // A NoAPI GLFW window has no GL swap interval. The modern
@@ -8176,6 +8181,7 @@ localCenter *= _profileHudScale;
                 UpdateFrequency = cap == Mods.Render.FrameTiming.DisplayRate ? 0 : cap;
                 return;
             }
+#endif
             if (cap == Mods.Render.FrameTiming.DisplayRate)
             {
                 VSync = VSyncMode.On;
@@ -8190,10 +8196,14 @@ localCenter *= _profileHudScale;
 
         private void PresentFrame()
         {
+#if !MPHREAD_SERVER
             if (Mods.Render.ModernGraphicsCompat.Active)
+            {
                 Mods.Render.ModernGraphicsCompat.Present();
-            else
-                PresentFrame();
+                return;
+            }
+#endif
+            SwapBuffers();
         }
 
         protected override void OnRenderFrame(FrameEventArgs args)
@@ -8498,7 +8508,9 @@ localCenter *= _profileHudScale;
             {
                 return;
             }
+#if !MPHREAD_SERVER
             Mods.Render.ModernGraphicsCompat.Resize(size.X, size.Y);
+#endif
             GL.Viewport(0, 0, size.X, size.Y);
             if (_scene != null && _scene.Size != size)
             {
