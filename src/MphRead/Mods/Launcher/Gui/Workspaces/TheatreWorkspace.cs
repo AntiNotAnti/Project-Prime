@@ -57,6 +57,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly List<ReplayLibraryEntry> _entries = new();
         private readonly DispatcherTimer _searchTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
         private long _libraryGeneration;
+        private long _selectionGeneration;
+        private bool _launching;
+        private bool _populating;
 
         private Bitmap? _bitmap;
         private string[] _previewPaths = Array.Empty<string>();
@@ -158,17 +161,17 @@ namespace MphRead.Mods.Launcher.Gui
                 var row = new UiListRow((entry.Favorite ? "★ " : "") + entry.Title, entry.Detail)
                     { Choice = entry.Path, Focusable = false };
                 row.Clicked += (_, _) => _list.SelectedItem = entry;
-                row.Activated += (_, _) => { _list.SelectedItem = entry; Select(entry.Path); _ = WatchAsync(); };
+                row.Activated += (_, _) => { _list.SelectedItem = entry; _ = WatchAsync(); };
                 return row;
             });
             _list.SelectionChanged += (_, _) =>
             {
-                if (_list.SelectedItem is ReplayLibraryEntry entry) Select(entry.Path);
+                if (!_populating && _list.SelectedItem is ReplayLibraryEntry entry) Select(entry.Path);
             };
             _list.KeyDown += (_, e) =>
             {
                 if (e.Key is Key.Enter or Key.Space && _list.SelectedItem is ReplayLibraryEntry entry)
-                { Select(entry.Path); _ = WatchAsync(); e.Handled = true; }
+                { _ = WatchAsync(); e.Handled = true; }
             };
 
             var libraryControls = new Grid
@@ -371,7 +374,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Dispose()
         {
-            _searchTimer.Stop(); _libraryGeneration++; _recoveryCancellation?.Cancel();
+            _searchTimer.Stop(); _libraryGeneration++; _selectionGeneration++; _recoveryCancellation?.Cancel();
             // A retained launcher view can be measured again on return from
             // playback. Detach the image before releasing its native bitmap.
             _preview.Source = null;
@@ -447,6 +450,7 @@ namespace MphRead.Mods.Launcher.Gui
         private async void Reload(string? preserve = null)
         {
             long generation = ++_libraryGeneration;
+            long selectionGeneration = _selectionGeneration;
             string? selection = preserve ?? _selected;
             _summary.Text = "SCANNING LIBRARY...";
             try
@@ -456,7 +460,8 @@ namespace MphRead.Mods.Launcher.Gui
                 _recordings.Clear(); foreach (var pair in snapshot.Recordings) _recordings.Add(pair.Key, pair.Value);
                 _virtual.Clear(); foreach (var pair in snapshot.Clips) _virtual.Add(pair.Key, pair.Value);
                 _entries.Clear(); _entries.AddRange(snapshot.Entries);
-                Populate(preserve ?? _selected ?? selection);
+                Populate(selectionGeneration == _selectionGeneration
+                    ? preserve ?? _selected ?? selection : _selected);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
             { if (generation == _libraryGeneration) Fail("Could not load replay library: " + ex.Message); }
@@ -580,7 +585,9 @@ namespace MphRead.Mods.Launcher.Gui
             };
             ReplayLibraryEntry[] shown = filtered.ToArray();
 
+            _populating = true;
             _list.ItemsSource = shown;
+            _populating = false;
 
             if (shown.Length == 0)
             {
@@ -597,7 +604,9 @@ namespace MphRead.Mods.Launcher.Gui
                     ? preserve : shown[0].Path;
             _summary.Text = $"{shown.Length} OF {_entries.Count} ITEMS  /  "
                 + $"{shown.Count(entry => entry.Favorite)} FAVORITES";
+            _populating = true;
             _list.SelectedItem = shown.First(entry => entry.Path == selected);
+            _populating = false;
             _list.ScrollIntoView(_list.SelectedItem);
             Select(selected);
         }
@@ -646,6 +655,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Select(string? path)
         {
+            if (_selected != path) _selectionGeneration++;
             _selected = path;
             _deleteArmed = null;
             _delete.Label = "DELETE";
@@ -665,7 +675,7 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            _watch.IsEnabled = !path.EndsWith(".part",
+            _watch.IsEnabled = !_launching && !path.EndsWith(".part",
                 StringComparison.OrdinalIgnoreCase);
             bool interrupted = path.EndsWith(".part",
                 StringComparison.OrdinalIgnoreCase);
@@ -720,7 +730,7 @@ namespace MphRead.Mods.Launcher.Gui
             _favorite.IsEnabled = selected && !interrupted;
             _tags.IsEnabled = selected && !interrupted;
             _collections.IsEnabled = selected && !interrupted;
-            _validate.IsEnabled = selected;
+            _validate.IsEnabled = selected && !_validating;
             _recover.IsVisible = interrupted;
             _recover.IsEnabled = interrupted;
             _export.IsEnabled = selected && !interrupted;
@@ -853,38 +863,46 @@ namespace MphRead.Mods.Launcher.Gui
             }
         }
 
+        private bool _validating;
         private async Task ValidateAsync()
         {
-            if (_selected is not string path)
-                return;
+            if (_validating || _selected is not string path) return;
+            long generation = _selectionGeneration;
+            _validating = true;
+            _validate.IsEnabled = false;
             _status.Text = "CHECKING INTEGRITY";
-            string target = path;
             bool virtualClip = _virtual.ContainsKey(path);
-            if (virtualClip)
+            try
             {
-                (string? resolved, ReplayOpenResult openResult) =
-                    await ReplayStorageJobs.Run(() =>
-                    {
-                        string? output = ReplayVirtualClips.ResolveForPlayback(
-                            path, out ReplayOpenResult result);
-                        return (output, result);
-                    });
-                if (resolved == null)
+                var result = await ReplayStorageJobs.Run(() =>
                 {
-                    Fail($"Integrity check failed: {openResult}");
-                    return;
-                }
-                target = resolved;
+                    string target = path;
+                    if (virtualClip)
+                    {
+                        string? resolved = ReplayVirtualClips.ResolveForPlayback(path, out var open);
+                        if (resolved == null) return open;
+                        target = resolved;
+                    }
+                    var validation = ReplayArchive.Validate(target);
+                    if (!virtualClip) DemoLibrary.NoteValidation(path, validation);
+                    return validation;
+                });
+                if (generation != _selectionGeneration || _selected != path) return;
+                _status.Text = $"INTEGRITY  {result}".ToUpperInvariant();
+                _status.Foreground = result == ReplayOpenResult.Success
+                    ? HubTheme.GoodBrush : HubTheme.WarmBrush;
+                Reload(path);
             }
-
-            ReplayOpenResult result =
-                await ReplayStorageJobs.Run(() => ReplayArchive.Validate(target));
-            if (!virtualClip)
-                DemoLibrary.NoteValidation(path, result);
-            _status.Text = $"INTEGRITY  {result}".ToUpperInvariant();
-            _status.Foreground = result == ReplayOpenResult.Success
-                ? HubTheme.GoodBrush : HubTheme.WarmBrush;
-            Reload(path);
+            catch (Exception ex)
+            {
+                if (generation == _selectionGeneration && _selected == path)
+                    Fail("Integrity check failed: " + ex.Message);
+            }
+            finally
+            {
+                _validating = false;
+                _validate.IsEnabled = _selected != null;
+            }
         }
 
         private bool _recovering;
@@ -978,8 +996,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private async Task WatchAsync()
         {
-            if (CanLaunch?.Invoke() == false) return;
-            if (_selected is not string path)
+            // Disabled buttons do not guard row activation or keyboard shortcuts.
+            if (_launching || CanLaunch?.Invoke() == false || _selected is not string path)
                 return;
             if (path.EndsWith(".part", StringComparison.OrdinalIgnoreCase))
             {
@@ -987,51 +1005,67 @@ namespace MphRead.Mods.Launcher.Gui
                 return;
             }
 
-            string source = path;
-            if (_virtual.ContainsKey(path))
+            long generation = _selectionGeneration;
+            bool Current() => generation == _selectionGeneration && _selected == path;
+            _launching = true;
+            _watch.IsEnabled = false;
+            try
             {
-                _watch.IsEnabled = false;
-                _watch.Label = "PREPARING";
-                (string? resolved, ReplayOpenResult openResult) =
-                    await ReplayStorageJobs.Run(() =>
+                string source = path;
+                if (_virtual.ContainsKey(path))
+                {
+                    _watch.Label = "PREPARING";
+                    var (resolved, openResult) = await ReplayStorageJobs.Run(() =>
                     {
-                        string? output = ReplayVirtualClips.ResolveForPlayback(
-                            path, out ReplayOpenResult result);
+                        string? output = ReplayVirtualClips.ResolveForPlayback(path, out var result);
                         return (output, result);
                     });
-                _watch.Label = "LAUNCH CINEMATIC EDITOR";
-                _watch.IsEnabled = true;
-                if (resolved == null)
+                    if (!Current()) return;
+                    if (resolved == null)
+                    {
+                        Fail($"Could not prepare virtual clip: {openResult}");
+                        return;
+                    }
+                    source = resolved;
+                }
+
+                _watch.Label = "CHECKING";
+                ReplayLaunchProbe probe = await ReplayStorageJobs.Run(() => ProbeReplayLaunch(source));
+                if (!Current()) return;
+                if (probe.Result != ReplayOpenResult.Success)
                 {
-                    Fail($"Could not prepare virtual clip: {openResult}");
+                    Fail(probe.Error ?? $"That replay cannot be opened: {probe.Result}.");
                     return;
                 }
-                source = resolved;
+                if (CanLaunch?.Invoke() == false) return;
+                _status.Text = "OPENING CINEMATIC EDITOR";
+                _status.Foreground = HubTheme.GoodBrush;
+                Launched?.Invoke(this, new LaunchPlan
+                {
+                    Kind = LaunchKind.Demo, DemoPath = source,
+                    Hunter = Hunter.Samus, PlayerName = "", RoomKey = ""
+                });
             }
-
-            _watch.IsEnabled = false;
-            _watch.Label = "CHECKING";
-            ReplayLaunchProbe probe =
-                await ReplayStorageJobs.Run(() => ProbeReplayLaunch(source));
-            _watch.Label = "LAUNCH CINEMATIC EDITOR";
-            _watch.IsEnabled = true;
-            if (probe.Result != ReplayOpenResult.Success)
+            catch (Exception ex)
             {
-                Fail(probe.Error
-                    ?? $"That replay cannot be opened: {probe.Result}.");
-                return;
+                if (Current()) Fail("Could not open replay: " + ex.Message);
+                Console.WriteLine($"[replay] launch failed: {ex}");
             }
-
-            _status.Text = "OPENING CINEMATIC EDITOR";
-            _status.Foreground = HubTheme.GoodBrush;
-            Launched?.Invoke(this, new LaunchPlan
+            finally
             {
-                Kind = LaunchKind.Demo,
-                DemoPath = source,
-                Hunter = Hunter.Samus,
-                PlayerName = "",
-                RoomKey = ""
-            });
+                _launching = false;
+                _watch.Label = "LAUNCH CINEMATIC EDITOR";
+                _watch.IsEnabled = _selected != null
+                    && !_selected.EndsWith(".part", StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            // Navigating away must not launch a replay when disk work finishes later.
+            _selectionGeneration++;
+            _searchTimer.Stop();
+            base.OnDetachedFromVisualTree(e);
         }
 
         private async Task ExportAsync()
