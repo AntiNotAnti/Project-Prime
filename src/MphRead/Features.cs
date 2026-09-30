@@ -222,7 +222,7 @@ namespace MphRead
         /// <summary>
         /// Whether the simulation camera itself should be welded to raw aim.
         /// Dynamic/Metroid keeps the legacy eased simulation basis because its
-        /// drifting weapon and reticle are authored from that visual state.
+        /// drifting weapon presentation is authored from that visual state.
         /// The local rendered camera is governed separately by
         /// <see cref="ResponsiveAimCamera"/> so visual drift never adds mouse
         /// latency.
