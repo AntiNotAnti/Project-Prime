@@ -579,6 +579,20 @@ namespace MphRead.Mods.Network
                     && NetSession.LocalSlot < PlayerEntity.Players.Count)
                 {
                     var owner = PlayerEntity.Players[NetSession.LocalSlot];
+                    // CaptureIntent runs before this simulation step, while
+                    // UpdateZoom runs during it. Refresh the absolute zoom
+                    // state after the step so a Zoom+Fire frame reaches the
+                    // authority with the same scope state that spawned the
+                    // owner's shot. Camera FOV interpolation is presentation
+                    // only and must not change Imperialist damage.
+                    if (owner.EquipInfo.Zoomed)
+                    {
+                        _continuousIntent.Buttons |= IntentButtons.ZoomedState;
+                    }
+                    else
+                    {
+                        _continuousIntent.Buttons &= ~IntentButtons.ZoomedState;
+                    }
                     if (owner.CurrentWeapon == BeamType.ShockCoil)
                     {
                         _continuousIntent.Target = owner.ModContinuousNetworkTarget;
