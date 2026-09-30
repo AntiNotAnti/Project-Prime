@@ -524,18 +524,52 @@ namespace MphRead.Entities
             y = pointerAim.Y + controllerY;
         }
 
-        private Vector3 ModLateLatchedFacing(float x, float y)
+        private void ModResponsiveCameraBasis(out Vector3 facing, out Vector3 up)
+        {
+            facing = CameraInfo.Facing;
+            up = ModCameraUpHint();
+            if (!Features.ResponsiveAimCamera || Features.FixedAimCamera)
+            {
+                return;
+            }
+
+            // Dynamic/Metroid deliberately keeps an eased simulation-facing
+            // vector for its drifting weapon/reticle. Rotate the completed
+            // camera pose from that legacy basis onto the current raw aim for
+            // presentation only. This preserves camera-local shake/tilt while
+            // removing the legacy aim easing from what the player actually
+            // sees. Gameplay fields and the Dynamic visual state are untouched.
+            if (ModRotatePresentationVector(facing,
+                    _facingVector, Vector3.UnitY, _gunVec1, Vector3.UnitY,
+                    out Vector3 responsiveFacing)
+                && ModRotatePresentationVector(up,
+                    _facingVector, Vector3.UnitY, _gunVec1, Vector3.UnitY,
+                    out Vector3 responsiveUp)
+                && responsiveFacing.LengthSquared > 0.000001f
+                && responsiveUp.LengthSquared > 0.000001f)
+            {
+                facing = responsiveFacing.Normalized();
+                up = responsiveUp.Normalized();
+            }
+            else
+            {
+                facing = _gunVec1;
+                up = Vector3.UnitY;
+            }
+        }
+
+        private Vector3 ModLateLatchedFacing(Vector3 baseFacing, float x, float y)
         {
             if (x == 0 && y == 0)
             {
-                return CameraInfo.Facing;
+                return baseFacing;
             }
 
             // Continue from the same camera used when the delta is zero.
             // Starting from the firing ray discarded damage shake/view tilt
             // as soon as any unsimulated input arrived, then restored it at
             // the next simulation step when that input was consumed.
-            Vector3 aim = CameraInfo.Facing;
+            Vector3 aim = baseFacing;
             float targetAimY = Math.Clamp(_aimY + y,
                 IsAltForm ? -25f : -85f, IsAltForm ? 5f : 85f);
             float pitch = MathHelper.DegreesToRadians(targetAimY - _aimY);
@@ -583,19 +617,17 @@ namespace MphRead.Entities
 
             Vector3 renderFacing;
             Vector3 upHint;
-            // Dynamic/Metroid camera presentation intentionally eases toward
-            // raw aim. Late-latching raw _gunVec1 on top of that smoothed
-            // camera bypasses the easing on extra draw frames and then snaps
-            // back at the next simulation step. In that mode, interpolate the
-            // camera history at the same timestamp as the viewmodel/world.
-            // FixedCrosshair cannot decide this by itself because Pro HUD
-            // freezes reticle animation in both Static and Dynamic modes.
+            // Classic moving-reticle presentation intentionally keeps the
+            // legacy eased camera. Pro HUD is different: Dynamic/Metroid may
+            // keep that eased simulation state for weapon/reticle drift, but
+            // its local rendered camera must still use the responsive raw-aim
+            // path so changing weapon style cannot add mouse latency.
             Vector3 drawCameraPosition = default;
             Vector3 drawCameraTarget = default;
             Vector3 drawCameraUp = default;
             float drawCameraFov = CameraInfo.Fov;
             bool smoothLegacyCamera = false;
-            if (!Features.FixedAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
+            if (!Features.ResponsiveAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
             {
                 smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
                     out drawCameraPosition, out drawCameraTarget,
@@ -615,24 +647,24 @@ namespace MphRead.Entities
             }
             else
             {
-                // Keep Static/Quake aiming low latency in orientation, but keep
-                // camera translation on the same previous/current presentation
-                // timeline as the world. Forward-extrapolating body motion made
-                // each 60 Hz correction visible as a tiny positional hitch while
-                // walking, strafing, jumping or landing.
-                if (Features.FixedAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
+                // Keep responsive local aiming low latency in orientation, but
+                // keep camera translation on the same previous/current
+                // presentation timeline as the world. Forward-extrapolating body
+                // motion made each 60 Hz correction visible as a tiny positional
+                // hitch while walking, strafing, jumping or landing.
+                if (Features.ResponsiveAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
                 {
                     cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha);
                 }
 
-                // Static/Quake first-person aiming is intentionally low latency.
-                // Apply only unsimulated input on top of the current simulation
-                // pose and attach the gun to the exact same basis.
+                // Static/Quake and Pro HUD Dynamic/Metroid both use a
+                // low-latency rendered camera. Dynamic retains its eased
+                // simulation basis only for weapon/reticle presentation.
+                ModResponsiveCameraBasis(out Vector3 baseFacing, out upHint);
                 ModRenderAimDelta(presentationAlpha,
                     pointerX, pointerY, controllerX, controllerY,
                     out float x, out float y);
-                renderFacing = ModLateLatchedFacing(x, y);
-                upHint = ModCameraUpHint();
+                renderFacing = ModLateLatchedFacing(baseFacing, x, y);
             }
 
             if (!ModPresentationBasis(renderFacing, upHint,
