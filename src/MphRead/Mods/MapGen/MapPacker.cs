@@ -413,7 +413,7 @@ namespace MphRead.Mods.MapGen
             instructions.Add(new RenderInstruction(InstructionCode.BEGIN_VTXS, primitiveType));
             foreach (BuiltFace face in list)
             {
-                instructions.Add(new RenderInstruction(InstructionCode.COLOR, PackColor(face.Shade)));
+                instructions.Add(new RenderInstruction(InstructionCode.COLOR, PackColor(face.VertexColor ?? new Vector3(face.Shade))));
                 instructions.Add(new RenderInstruction(InstructionCode.NORMAL, PackNormal(face.Normal)));
                 for (int i = 0; i < face.Points.Length; i++)
                 {
@@ -427,10 +427,13 @@ namespace MphRead.Mods.MapGen
             return vertexCount;
         }
 
-        private static uint PackColor(float shade)
+        private static uint PackColor(Vector3 color)
         {
-            uint value = (uint)Math.Clamp((int)MathF.Round(31 * shade), 0, 31);
-            return value | (value << 5) | (value << 10);
+            static uint Component(float value) => (uint)Math.Clamp((int)MathF.Round(31 * value), 0, 31);
+            uint red = Component(color.X);
+            uint green = Component(color.Y);
+            uint blue = Component(color.Z);
+            return red | (green << 5) | (blue << 10);
         }
 
         private static uint PackNormal(Vector3 normal)
