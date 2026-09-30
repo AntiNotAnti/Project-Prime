@@ -22,7 +22,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             else
             {
-                var model=Read.GetRoomModelInstance(definition.TextureSource).Model;
+                var model=Read.GetRoomModelForExport(definition.TextureSource);
                 if(material.SourceMaterial<0||material.SourceMaterial>=model.Materials.Count)throw new ArgumentException("Choose an existing source material.");
                 var source=model.Materials[material.SourceMaterial];
                 if(source.TextureId<0||source.PaletteId<0)
