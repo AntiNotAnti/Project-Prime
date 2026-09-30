@@ -5,6 +5,9 @@ using System.Runtime.InteropServices;
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using Silk.NET.WebGPU.Extensions.WGPU;
+#if !ANDROID
+using OpenTK.Windowing.Desktop;
+#endif
 
 namespace MphRead.Mods.Render
 {
@@ -27,16 +30,20 @@ namespace MphRead.Mods.Render
         private Instance* _instance;
         private Adapter* _adapter;
         private Device* _device;
+        private Surface* _surface;
         private bool _disposed;
 
+        private unsafe delegate Surface* SurfaceFactory(WebGPU api, Instance* instance);
+
         private ModernGraphicsDevice(WebGPU api, Wgpu native, Instance* instance, Adapter* adapter, Device* device,
-            GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription)
+            Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription)
         {
             _api = api;
             _native = native;
             _instance = instance;
             _adapter = adapter;
             _device = device;
+            _surface = surface;
             Backend = backend;
             NativeVersion = nativeVersion;
             AdapterName = adapterName;
@@ -51,8 +58,23 @@ namespace MphRead.Mods.Render
         internal WebGPU Api => _api;
         internal Wgpu Native => _native;
         internal Device* Device => _device;
+        internal Surface* Surface => _surface;
 
         public static ModernGraphicsDevice Create(GraphicsBackend requested = GraphicsBackend.Auto)
+        {
+            return CreateCore(requested, null);
+        }
+
+#if !ANDROID
+        internal static ModernGraphicsDevice CreateForWindow(NativeWindow window,
+            GraphicsBackend requested = GraphicsBackend.Auto)
+        {
+            return CreateCore(requested, (api, instance) =>
+                ModernGraphicsSurface.Create(window, api, instance));
+        }
+#endif
+
+        private static ModernGraphicsDevice CreateCore(GraphicsBackend requested, SurfaceFactory? surfaceFactory)
         {
             GraphicsPlatform platform = GraphicsBackendPolicy.CurrentPlatform;
             GraphicsBackend backend = GraphicsBackendPolicy.Resolve(platform, requested);
@@ -74,6 +96,7 @@ namespace MphRead.Mods.Render
                 Instance* instance = null;
                 Adapter* adapter = null;
                 Device* device = null;
+                Surface* surface = null;
                 try
                 {
                     if (!api.TryGetDeviceExtension(null, out Wgpu nativeExtension))
@@ -97,7 +120,13 @@ namespace MphRead.Mods.Render
                             $"wgpu-native could not create a {GraphicsBackendPolicy.DisplayName(backend)} instance.");
                     }
 
+                    if (surfaceFactory != null)
+                    {
+                        surface = surfaceFactory(api, instance);
+                    }
+
                     RequestAdapterOptions adapterOptions = default;
+                    adapterOptions.CompatibleSurface = surface;
                     adapterOptions.BackendType = ToBackendType(backend);
                     adapterOptions.PowerPreference = PowerPreference.HighPerformance;
 
@@ -138,13 +167,14 @@ namespace MphRead.Mods.Render
 
                     string name = PtrString(properties.Name, "Unknown GPU");
                     string driver = PtrString(properties.DriverDescription, "Unknown driver");
-                    return new ModernGraphicsDevice(api, native, instance, adapter, device, backend,
+                    return new ModernGraphicsDevice(api, native, instance, adapter, device, surface, backend,
                         native.GetVersion(), name, driver);
                 }
                 catch
                 {
                     if (device != null) api.DeviceRelease(device);
                     if (adapter != null) api.AdapterRelease(adapter);
+                    if (surface != null) api.SurfaceRelease(surface);
                     if (instance != null) api.InstanceRelease(instance);
                     native?.Dispose();
                     api.Dispose();
@@ -172,6 +202,11 @@ namespace MphRead.Mods.Render
             {
                 _api.AdapterRelease(_adapter);
                 _adapter = null;
+            }
+            if (_surface != null)
+            {
+                _api.SurfaceRelease(_surface);
+                _surface = null;
             }
             if (_instance != null)
             {

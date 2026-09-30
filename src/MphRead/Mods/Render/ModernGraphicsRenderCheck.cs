@@ -4,6 +4,8 @@ using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using WgpuBuffer = Silk.NET.WebGPU.Buffer;
 using WgpuColor = Silk.NET.WebGPU.Color;
+using WgpuTexture = Silk.NET.WebGPU.Texture;
+using WgpuTextureFormat = Silk.NET.WebGPU.TextureFormat;
 
 namespace MphRead.Mods.Render
 {
@@ -52,7 +54,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
             WgpuBuffer* vertexBuffer = null;
             WgpuBuffer* indexBuffer = null;
             WgpuBuffer* readback = null;
-            Texture* texture = null;
+            WgpuTexture* texture = null;
             TextureView* view = null;
             CommandEncoder* encoder = null;
             RenderPassEncoder* pass = null;
@@ -110,7 +112,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
                 var colorTarget = new ColorTargetState
                 {
-                    Format = TextureFormat.Rgba8Unorm,
+                    Format = WgpuTextureFormat.Rgba8Unorm,
                     Blend = null,
                     WriteMask = ColorWriteMask.All
                 };
@@ -176,7 +178,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
                 var textureDescriptor = new TextureDescriptor
                 {
                     Size = new Extent3D(Width, Height, 1),
-                    Format = TextureFormat.Rgba8Unorm,
+                    Format = WgpuTextureFormat.Rgba8Unorm,
                     Usage = TextureUsage.RenderAttachment | TextureUsage.CopySrc,
                     MipLevelCount = 1,
                     SampleCount = 1,

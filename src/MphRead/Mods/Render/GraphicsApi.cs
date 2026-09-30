@@ -62,6 +62,9 @@ namespace MphRead.Mods.Render
         public static void TexSubImage2D<T>(TextureTarget target, int level, int xoffset, int yoffset,
             int width, int height, PixelFormat format, PixelType type, T[] pixels) where T : struct
             => DesktopGL.TexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
+        public static void TexSubImage2D(TextureTarget target, int level, int xoffset, int yoffset,
+            int width, int height, PixelFormat format, PixelType type, IntPtr pixels)
+            => DesktopGL.TexSubImage2D(target, level, xoffset, yoffset, width, height, format, type, pixels);
         public static void CopyTexSubImage2D(TextureTarget target, int level, int xoffset, int yoffset,
             int x, int y, int width, int height)
             => DesktopGL.CopyTexSubImage2D(target, level, xoffset, yoffset, x, y, width, height);
@@ -137,7 +140,8 @@ namespace MphRead.Mods.Render
         public static void Disable(EnableCap cap) => DesktopGL.Disable(cap);
         public static bool IsEnabled(EnableCap cap) => DesktopGL.IsEnabled(cap);
         public static void AlphaFunc(AlphaFunction function, float reference) => DesktopGL.AlphaFunc(function, reference);
-        public static void PolygonMode(TriangleFace face, PolygonMode mode) => DesktopGL.PolygonMode(face, mode);
+        public static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode)
+            => DesktopGL.PolygonMode((MaterialFace)(int)face, mode);
         public static void LineWidth(float width) => DesktopGL.LineWidth(width);
         public static void Clear(ClearBufferMask mask) => DesktopGL.Clear(mask);
         public static void ClearColor(Color4 color) => DesktopGL.ClearColor(color);
@@ -167,6 +171,7 @@ namespace MphRead.Mods.Render
         public static ErrorCode GetError() => DesktopGL.GetError();
         public static string GetString(StringName name) => DesktopGL.GetString(name);
         public static int GetInteger(GetPName name) => DesktopGL.GetInteger(name);
+        public static void GetInteger(GetPName name, out int value) => DesktopGL.GetInteger(name, out value);
         public static void GetInteger(GetPName name, int[] values) => DesktopGL.GetInteger(name, values);
         public static void DebugMessageCallback(DebugProc callback, IntPtr userParam)
             => DesktopGL.DebugMessageCallback(callback, userParam);
