@@ -75,14 +75,13 @@ namespace MphRead.Formats
             return CheckBetweenPoints(candidates, point1, point2, flags, scene, ref result, hasCandidates: true);
         }
 
-        public static bool CheckBetweenPoints(Vector3 point1, Vector3 point2, TestFlags flags, Scene scene, ref CollisionResult result,
-            bool nativeMath = false)
+        public static bool CheckBetweenPoints(Vector3 point1, Vector3 point2, TestFlags flags, Scene scene, ref CollisionResult result)
         {
-            return CheckBetweenPoints(null, point1, point2, flags, scene, ref result, hasCandidates: false, nativeMath: nativeMath);
+            return CheckBetweenPoints(null, point1, point2, flags, scene, ref result, hasCandidates: false);
         }
 
         private static bool CheckBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2,
-            TestFlags flags, Scene scene, ref CollisionResult result, bool hasCandidates, bool nativeMath = false)
+            TestFlags flags, Scene scene, ref CollisionResult result, bool hasCandidates)
         {
             _seenData.Clear();
             bool collided = false;
@@ -132,19 +131,13 @@ namespace MphRead.Formats
                         _seenData.Add(data);
                     }
                     Vector4 plane = info.Planes[data.PlaneIndex];
-                    bool nativeStatic = nativeMath && candidate.EntityCollision == null;
-                    if (nativeStatic)
-                        plane.W = Mods.Physics.NativeFixedMath.ProjectPlaneDistance(plane.X, plane.Y, plane.Z, plane.W);
-                    float PlaneDot(Vector3 point) => nativeStatic
-                        ? Mods.Physics.NativeFixedMath.DotRound(point.X, point.Y, point.Z, plane.X, plane.Y, plane.Z)
-                        : Vector3.Dot(point, plane.Xyz);
-                    float dot1 = PlaneDot(transPoint1) - plane.W;
+                    float dot1 = Vector3.Dot(transPoint1, plane.Xyz) - plane.W;
                     if (dot1 > 0)
                     {
-                        float dot2 = PlaneDot(transPoint2) - plane.W;
+                        float dot2 = Vector3.Dot(transPoint2, plane.Xyz) - plane.W;
                         if (dot2 <= 0)
                         {
-                            float dist = nativeStatic ? Mods.Physics.NativeFixedMath.DivideRound(dot1, dot1 - dot2) : dot1 / (dot1 - dot2);
+                            float dist = dot1 / (dot1 - dot2);
                             if (dist > 1)
                             {
                                 dist = 1;
@@ -161,10 +154,6 @@ namespace MphRead.Formats
                                     transPoint1.Y + (transPoint2.Y - transPoint1.Y) * dist,
                                     transPoint1.Z + (transPoint2.Z - transPoint1.Z) * dist
                                 );
-                                if (nativeStatic)
-                                    pos = new(transPoint1.X + Mods.Physics.NativeFixedMath.MultiplyRound(transPoint2.X - transPoint1.X, dist),
-                                        transPoint1.Y + Mods.Physics.NativeFixedMath.MultiplyRound(transPoint2.Y - transPoint1.Y, dist),
-                                        transPoint1.Z + Mods.Physics.NativeFixedMath.MultiplyRound(transPoint2.Z - transPoint1.Z, dist));
                                 if (CheckPointOnFace(pos, info, data))
                                 {
                                     if (candidate.EntityCollision != null)

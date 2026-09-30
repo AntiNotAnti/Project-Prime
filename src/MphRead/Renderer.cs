@@ -2042,7 +2042,7 @@ namespace MphRead
                 for (int i = 0; i < this.Players.Items.Count; i++)
                 {
                     PlayerEntity player = this.Players.Items[i];
-                    player.CameraInfo.ModCaptureDrawState(player.ModNativeCadenceDrawOffset(FrameCount + 1));
+                    player.CameraInfo.ModCaptureDrawState();
                     player.ModCaptureFirstPersonDrawState();
                 }
 

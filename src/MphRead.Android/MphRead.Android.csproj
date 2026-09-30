@@ -24,11 +24,6 @@
        did it. -->
 
   <PropertyGroup>
-    <!-- Android owns its ABI list. SDK host-RID inference for trimmed Release
-         apps would append osx-arm64/win-x64 here and request a nonexistent
-         desktop Mono runtime. Keep Android's Mono runtime; suppress only the
-         desktop publish default (Microsoft.NET.RuntimeIdentifierInference). -->
-    <UseDefaultPublishRuntimeIdentifier>false</UseDefaultPublishRuntimeIdentifier>
     <TargetFramework>net10.0-android36.0</TargetFramework>
     <SupportedOSPlatformVersion>24</SupportedOSPlatformVersion>
     <OutputType>Exe</OutputType>

@@ -13,10 +13,6 @@ namespace MphRead
 {
     public partial class Scene
     {
-        // Explicit versioned checkpoint appendix; not part of the reflection graph.
-        internal Mods.Physics.NativeMovementMode NativeMovementMode { get; set; }
-        internal bool UsesNativeMovement => NativeMovementMode != Mods.Physics.NativeMovementMode.Legacy60;
-        internal bool UsesNativeCadence60 => NativeMovementMode == Mods.Physics.NativeMovementMode.DiagnosticCadence60;
         public Mods.Training.AimTrainerSession? AimTrainer { get; internal set; }
         private readonly Sound.SfxInstanceBase _silentAudio = new();
         internal Sound.SfxInstanceBase Audio => Mods.Replay.ReplayAudioOwner.MayPlay(this)

@@ -25,7 +25,7 @@ namespace MphRead.Entities
         // the generic draw interpolation; the local view uses render-time
         // late latching below.
         protected override bool InterpolateDrawTransform
-            => _scene.UsesNativeCadence60 || _scene.Services.IsReplica
+            => _scene.Services.IsReplica
                 || (!NetSession.Active && (!IsMainPlayer || Mods.SpectatorMode.IsSpectating));
 
         internal bool ModReplayPresentationCamera(double alpha, out Matrix4 view,
@@ -627,7 +627,7 @@ namespace MphRead.Entities
             Vector3 drawCameraUp = default;
             float drawCameraFov = CameraInfo.Fov;
             bool smoothLegacyCamera = false;
-            if (!Features.ResponsiveAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
+            if (!Features.ResponsiveAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
             {
                 smoothLegacyCamera = CameraInfo.ModGetFirstPersonDrawPose(presentationAlpha,
                     out drawCameraPosition, out drawCameraTarget,
@@ -652,7 +652,7 @@ namespace MphRead.Entities
                 // presentation timeline as the world. Forward-extrapolating body
                 // motion made each 60 Hz correction visible as a tiny positional
                 // hitch while walking, strafing, jumping or landing.
-                if (Features.ResponsiveAimCamera && (Mods.Render.FrameTiming.HighRefreshPresentation || _scene.UsesNativeCadence60))
+                if (Features.ResponsiveAimCamera && Mods.Render.FrameTiming.HighRefreshPresentation)
                 {
                     cameraPosition = CameraInfo.ModGetDrawPosition(presentationAlpha);
                 }

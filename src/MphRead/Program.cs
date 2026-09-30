@@ -34,7 +34,6 @@ namespace MphRead
             }
             finally
             {
-                Mods.Physics.PhysicsTrace.Stop();
                 Sound.AudioLifetime.Shutdown();
             }
         }

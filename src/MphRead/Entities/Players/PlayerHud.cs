@@ -1089,7 +1089,7 @@ namespace MphRead.Entities
             if (!_smallReticle && !_sniperReticle)
             {
                 _smallReticle = true;
-                _targetCircleInst?.SetAnimation(start: 0, target: 3, frames: 4);
+                _targetCircleInst.SetAnimation(start: 0, target: 3, frames: 4);
             }
             _smallReticleTimer = 60 * 2; // todo: FPS stuff
         }

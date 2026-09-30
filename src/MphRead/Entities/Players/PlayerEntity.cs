@@ -715,10 +715,6 @@ namespace MphRead.Entities
         {
             Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
-            NativeCadenceJumpPending = false;
-            NativeCadenceFirePending = false;
-            // A new native life starts without airborne history from its predecessor.
-            if (_scene.UsesNativeMovement) _timeSinceGrounded = 0;
             _scene.Services.PlayerReplication.OnSpawn(this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
             if (IsMainPlayer)
@@ -1239,15 +1235,8 @@ namespace MphRead.Entities
 
         public void Teleport(Vector3 position, Vector3 facing, NodeRef nodeRef)
         {
-            NativeCadenceJumpPending = false;
-            NativeCadenceFirePending = false;
             _soundSource.PlaySfx(SfxId.TELEPORT_OUT, noUpdate: true);
             Reposition(position, facing, nodeRef);
-            if (_scene.UsesNativeCadence60)
-            {
-                PrevPosition = Position;
-                ModResetDrawState();
-            }
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
                 ResumeOwnCamera();

@@ -41,7 +41,7 @@ namespace MphRead.Entities
                     SlotIndex, out presentedPosition, out presentedAlt);
             Vector3 drawPosition = networkPresented
                 ? Mods.Network.NetPlayerBridge.InFormFor(this, presentedPosition, presentedAlt)
-                : _scene.UsesNativeCadence60 || _scene.Services.IsReplica || (!Mods.Network.NetSession.Active && Mods.SpectatorMode.IsSpectating)
+                : _scene.Services.IsReplica || (!Mods.Network.NetSession.Active && Mods.SpectatorMode.IsSpectating)
                     ? ReplayDrawTransform.Row3.Xyz : Position;
             bool drawAltForm = IsAltForm;
             bool drawAlive = _health > 0;

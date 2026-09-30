@@ -299,11 +299,6 @@ namespace MphRead.Entities
         {
             if (this is PlayerEntity radarPlayer) radarPlayer.ModCaptureRadarHistory();
             Matrix4 current = _transform;
-            if (this is PlayerEntity cadencePlayer)
-            {
-                Vector3 offset = cadencePlayer.ModNativeCadenceDrawOffset(_scene.FrameCount + 1);
-                if (offset != Vector3.Zero) current.Row3.Xyz += offset;
-            }
             if (!_drawStateValid
                 || (current.Row3.Xyz - _drawCurrent.Row3.Xyz).LengthSquared > 16f)
             {
@@ -334,9 +329,6 @@ namespace MphRead.Entities
         }
         private Matrix4 SimulationDrawTransform()
         {
-            if (this is PlayerEntity && _scene.UsesNativeCadence60
-                && !_scene.Services.IsReplica && !Mods.Render.FrameTiming.Active && _drawStateValid)
-                return _drawCurrent;
             if (!InterpolateDrawTransform || !_scene.Services.IsReplica && !Mods.Render.FrameTiming.Active || !_drawStateValid)
             {
                 return _transform;

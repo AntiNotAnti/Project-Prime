@@ -72,30 +72,7 @@ namespace MphRead.Mods
             }
 #endif
 #endif
-            if (ValueAfter(args, "fpsscenario") is string scenarioPath)
-            {
-                Environment.ExitCode = Physics.FpsScenarioRunner.Run(scenarioPath,
-                    ValueAfter(args, "fpsoutput") ?? System.IO.Path.GetFullPath("prime-trace.jsonl"),
-                    nativeKernel: HasFlag(args, "fpsnativekernel"), cadence60: HasFlag(args, "fpsnativecadence60"),
-                    inputPhase: int.Parse(ValueAfter(args, "fpsinputphase") ?? "0"));
-                return true;
-            }
-            if (HasFlag(args, "fpsconvertaudit"))
-            {
-                string root = ValueAfter(args, "fpsroot") ?? Physics.FpsConversionAudit.FindRoot();
-                Environment.ExitCode = Physics.FpsConversionAudit.Run(
-                    root, ValueAfter(args, "fpsoutput") ?? System.IO.Path.Combine(root, "artifacts", "fps-audit"));
-                return true;
-            }
-            if (HasFlag(args, "fpsphysicscheck") || HasFlag(args, "nativealtcheck"))
-            {
-                Environment.ExitCode = Physics.PhysicsTrace.Check(ValueAfter(args, "fpsreference"),
-                    ValueAfter(args, "fpsactual"), ValueAfter(args, "fpsoutput") ?? "artifacts/fps-audit",
-                    HasFlag(args, "nativealtcheck"));
-                return true;
-            }
-            if (ValueAfter(args, "fpsphysicstrace") is string physicsTracePath)
-                Physics.PhysicsTrace.Start(physicsTracePath);
+
             if (ValueAfter(args, "customruntimenamespace") is { } runtimeNamespace)
             {
                 if (!Guid.TryParseExact(runtimeNamespace, "N", out _)) throw new ArgumentException("Invalid custom runtime namespace.");

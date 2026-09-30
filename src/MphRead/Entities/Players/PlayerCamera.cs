@@ -957,7 +957,7 @@ namespace MphRead.Entities
             _drawStateValid = true;
         }
 
-        internal void ModCaptureDrawState(Vector3 presentationOffset = default)
+        internal void ModCaptureDrawState()
         {
             if (!_drawStateValid || (Position - _drawCurrentPosition).LengthSquared > 16f)
             {
@@ -968,8 +968,8 @@ namespace MphRead.Entities
             _drawPreviousTarget = _drawCurrentTarget;
             _drawPreviousUp = _drawCurrentUp;
             _drawPreviousFov = _drawCurrentFov;
-            _drawCurrentPosition = presentationOffset == Vector3.Zero ? Position : Position + presentationOffset;
-            _drawCurrentTarget = presentationOffset == Vector3.Zero ? Target : Target + presentationOffset;
+            _drawCurrentPosition = Position;
+            _drawCurrentTarget = Target;
             _drawCurrentUp = UpVector;
             _drawCurrentFov = Fov;
         }

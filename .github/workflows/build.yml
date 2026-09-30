@@ -184,34 +184,6 @@ jobs:
 
       - name: modern renderer policy and geometry bridge
         run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -renderbackendcheck
-
-      - name: FPS math, trace validation and scanner regressions
-        run: dotnet run --project tools/fps-check -c Release
-
-      - name: combat timeline comparison rejects incomplete or divergent evidence
-        run: python3 -m unittest discover -s tools/fps-scenarios -p 'test_*.py'
-
-      - name: FPS source inventory
-        run: dotnet run --project src/MphRead/MphRead.csproj -c Release --no-build -- -fpsconvertaudit -fpsroot "${{ github.workspace }}" -fpsoutput "${{ github.workspace }}/artifacts/fps-audit"
-
-      - name: missing native evidence must remain unverified
-        shell: bash
-        run: |
-          python3 - <<'PY'
-          import subprocess
-          from pathlib import Path
-          output = str(Path('artifacts/fps-audit').resolve())
-          for command in ('-fpsphysicscheck', '-nativealtcheck'):
-              result = subprocess.run(['dotnet', 'src/MphRead/bin/Release/net10.0/ProjectPrime.dll', command, '-fpsoutput', output])
-              if result.returncode != 2:
-                  raise SystemExit(f'{command}: expected unverified exit 2, got {result.returncode}')
-          PY
-
-      - uses: actions/upload-artifact@v7
-        with:
-          name: fps-conversion-inventory
-          path: artifacts/fps-audit/
-
   map-editor-checks:
     name: map editor regressions (${{ matrix.os }})
     needs: assets

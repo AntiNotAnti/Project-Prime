@@ -259,8 +259,6 @@ namespace MphRead.Mods.Network
         /// than a dull one.
         /// </summary>
         public string ServerName { get; set; } = Environment.MachineName;
-        internal Mods.Physics.NativeMovementMode DiagnosticNativeMovementMode { get; set; }
-        internal Action<Scene>? DiagnosticBeforeStep { get; set; }
 
         /// <summary>
         /// How many peers are connected, for a pool deciding whether a game it
@@ -915,7 +913,7 @@ namespace MphRead.Mods.Network
                     + "the binary -- see SERVER.md");
                 throw new ProgramException($"the server cannot run the match: {why}");
             }
-            var sim = new ServerSim { DiagnosticNativeMovementMode = DiagnosticNativeMovementMode, DiagnosticBeforeStep = DiagnosticBeforeStep };
+            var sim = new ServerSim();
             MatchDefinition entry = CurrentDefinition;
             // Join the lobby's in-flight prewarm before the authoritative scene
             // opens custom-map outputs. A fast START used to race the compiler,
