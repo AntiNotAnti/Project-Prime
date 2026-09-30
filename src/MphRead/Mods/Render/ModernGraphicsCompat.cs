@@ -921,7 +921,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 || kind == ModernProgramKind.World
                 || kind == ModernProgramKind.Rtt
                 || kind == ModernProgramKind.Shift
-                || kind == ModernProgramKind.Cel;
+                || kind == ModernProgramKind.Cel
+                || kind == ModernProgramKind.PlayerOutline;
             if (triangles.Length > 0)
             {
                 if (core) DrawCoreIndexed(vertices, triangles, PrimitiveTopology.TriangleList, kind);

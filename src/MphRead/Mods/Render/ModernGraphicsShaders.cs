@@ -44,6 +44,7 @@ namespace MphRead.Mods.Render
         internal const int ShiftParams = 262; // idx, shift factor, lerp factor, white factor.
         internal const int CelParams0 = 263; // texel_w, texel_h, outline, near plane.
         internal const int CelParams1 = 264; // far plane, depth quantum, probe, reserved.
+        internal const int OutlineParams = 265; // step x, step y, reserved, reserved.
 
         private const string Common = @"
 struct LegacyUniforms {
@@ -550,6 +551,68 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     }
 
     return vec4<f32>(base_color * (1.0 - ink), 1.0);
+}
+";
+
+        internal static string PlayerOutline { get; } = Common + @"
+@group(0) @binding(1) var mask_tex: texture_2d<f32>;
+@group(0) @binding(2) var mask_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn corrected_uv(input_uv: vec2<f32>) -> vec2<f32> {
+    var uv = input_uv;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+    return uv;
+}
+
+fn coverage(uv: vec2<f32>, offset: vec2<f32>) -> f32 {
+    return textureSample(mask_tex, mask_sampler, uv + offset).a;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let uv = corrected_uv(input.texcoord);
+    let center = textureSample(mask_tex, mask_sampler, uv);
+    if (center.a <= 0.01) {
+        discard;
+    }
+
+    var d = vec2<f32>(bitcast<f32>(u.data[265u].x),
+                      bitcast<f32>(u.data[265u].y));
+    var inside = min(
+        min(coverage(uv, vec2<f32>(d.x, 0.0)),
+            coverage(uv, vec2<f32>(-d.x, 0.0))),
+        min(coverage(uv, vec2<f32>(0.0, d.y)),
+            coverage(uv, vec2<f32>(0.0, -d.y))));
+
+    d = d * 0.70710678;
+    inside = min(inside,
+        min(min(coverage(uv, d), coverage(uv, -d)),
+            min(coverage(uv, vec2<f32>(d.x, -d.y)),
+                coverage(uv, vec2<f32>(-d.x, d.y)))));
+
+    if (inside > 0.01) {
+        discard;
+    }
+    return center;
 }
 ";
 

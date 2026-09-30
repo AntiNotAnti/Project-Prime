@@ -144,6 +144,7 @@ namespace MphRead.Mods.Render
             int rtt = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.RttFragmentShader);
             int shift = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.ShiftFragmentShader);
             int cel = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.CelFragmentShader);
+            int playerOutline = Link(PlayerOutlineShader.VertexSource, PlayerOutlineShader.Source);
 
             int color = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
@@ -415,6 +416,66 @@ namespace MphRead.Mods.Render
             Array.Copy(linearBlendPixel, 0, pixels, 16, 4);
             ModernGraphicsCompat.Present();
 
+            // Fourth frame: execute the custom player-outline program, not the
+            // world fallback. The second opaque mask column borders a
+            // transparent third column, so its interior-facing texel must
+            // survive as an inward outline.
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            int outlineMask = GraphicsApi.GenTexture();
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, outlineMask);
+            byte[] outlinePixels = new byte[4 * 4 * 4];
+            for (int y = 0; y < 4; y++)
+            {
+                for (int x = 0; x < 4; x++)
+                {
+                    int p = (y * 4 + x) * 4;
+                    bool opaque = x != 2;
+                    outlinePixels[p + 0] = opaque ? (byte)255 : (byte)0;
+                    outlinePixels[p + 1] = 0;
+                    outlinePixels[p + 2] = 0;
+                    outlinePixels[p + 3] = opaque ? (byte)255 : (byte)0;
+                }
+            }
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                4, 4, 0, PixelFormat.Rgba, PixelType.UnsignedByte, outlinePixels);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            GraphicsApi.UseProgram(playerOutline);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(playerOutline, "mask_tex"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(playerOutline, "outline_step_x"), 0.25f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(playerOutline, "outline_step_y"), 0.25f);
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Disable(EnableCap.Blend);
+            GraphicsApi.Disable(EnableCap.CullFace);
+            GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+            GraphicsApi.TexCoord3(1, 1, 0); GraphicsApi.Vertex3( 1,  1, 0);
+            GraphicsApi.TexCoord3(0, 1, 0); GraphicsApi.Vertex3(-1,  1, 0);
+            GraphicsApi.TexCoord3(1, 0, 0); GraphicsApi.Vertex3( 1, -1, 0);
+            GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.End();
+            byte[] outlineEdge = new byte[4];
+            GraphicsApi.ReadPixels(36, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, outlineEdge);
+            if (outlineEdge[0] < 220 || outlineEdge[1] > 20
+                || outlineEdge[2] > 20 || outlineEdge[3] < 220)
+            {
+                throw new InvalidOperationException(
+                    $"Player-outline compatibility pass missed edge rgba({outlineEdge[0]},{outlineEdge[1]},{outlineEdge[2]},{outlineEdge[3]}).");
+            }
+            ModernGraphicsCompat.Present();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+            GraphicsApi.DeleteTexture(outlineMask);
+
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteFramebuffer(framebuffer);
             GraphicsApi.DeleteTexture(depth);
@@ -423,6 +484,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteProgram(rtt);
             GraphicsApi.DeleteProgram(shift);
             GraphicsApi.DeleteProgram(cel);
+            GraphicsApi.DeleteProgram(playerOutline);
             return pixels;
         }
 

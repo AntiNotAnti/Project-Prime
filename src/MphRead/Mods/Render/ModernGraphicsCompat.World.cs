@@ -84,6 +84,7 @@ namespace MphRead.Mods.Render
         private ShaderModule* _rttShader;
         private ShaderModule* _shiftShader;
         private ShaderModule* _celShader;
+        private ShaderModule* _playerOutlineShader;
         private WgpuBuffer* _uniformBuffer;
 
         private bool _depthWrite = true;
@@ -109,6 +110,7 @@ namespace MphRead.Mods.Render
             _rttShader = CreateWgslModule(ModernGraphicsShaders.Rtt);
             _shiftShader = CreateWgslModule(ModernGraphicsShaders.Shift);
             _celShader = CreateWgslModule(ModernGraphicsShaders.Cel);
+            _playerOutlineShader = CreateWgslModule(ModernGraphicsShaders.PlayerOutline);
             _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             {
                 Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
@@ -142,6 +144,11 @@ namespace MphRead.Mods.Render
             {
                 _api.BufferRelease(_uniformBuffer);
                 _uniformBuffer = null;
+            }
+            if (_playerOutlineShader != null)
+            {
+                _api.ShaderModuleRelease(_playerOutlineShader);
+                _playerOutlineShader = null;
             }
             if (_celShader != null)
             {
@@ -303,6 +310,7 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
                 ModernProgramKind.Cel => ModernProgramKind.Cel,
+                ModernProgramKind.PlayerOutline => ModernProgramKind.PlayerOutline,
                 ModernProgramKind.Rtt => ModernProgramKind.Rtt,
                 _ => _resources.DrawFramebuffer != 0
                     ? ModernProgramKind.World : ModernProgramKind.Rtt
@@ -495,6 +503,7 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.World => _worldShader,
                 ModernProgramKind.Shift => _shiftShader,
                 ModernProgramKind.Cel => _celShader,
+                ModernProgramKind.PlayerOutline => _playerOutlineShader,
                 _ => _rttShader
             };
             var attributes = stackalloc VertexAttribute[5];
@@ -732,6 +741,15 @@ namespace MphRead.Mods.Render
                     Float(program, "depth_quantum"));
                 WriteInt(words, ModernGraphicsShaders.CelParams1, 2,
                     Int(program, "probe"));
+            }
+            else if (kind == ModernProgramKind.PlayerOutline && program != null)
+            {
+                WriteFloat(words, ModernGraphicsShaders.OutlineParams, 0,
+                    Float(program, "outline_step_x"));
+                WriteFloat(words, ModernGraphicsShaders.OutlineParams, 1,
+                    Float(program, "outline_step_y"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
+                    _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
             else if (program != null)
             {
