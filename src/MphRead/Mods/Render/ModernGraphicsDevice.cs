@@ -23,15 +23,17 @@ namespace MphRead.Mods.Render
         private static nint _macVulkanLoader;
 
         private readonly WebGPU _api;
+        private readonly Wgpu _native;
         private Instance* _instance;
         private Adapter* _adapter;
         private Device* _device;
         private bool _disposed;
 
-        private ModernGraphicsDevice(WebGPU api, Instance* instance, Adapter* adapter, Device* device,
+        private ModernGraphicsDevice(WebGPU api, Wgpu native, Instance* instance, Adapter* adapter, Device* device,
             GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription)
         {
             _api = api;
+            _native = native;
             _instance = instance;
             _adapter = adapter;
             _device = device;
@@ -45,6 +47,10 @@ namespace MphRead.Mods.Render
         public uint NativeVersion { get; }
         public string AdapterName { get; }
         public string DriverDescription { get; }
+
+        internal WebGPU Api => _api;
+        internal Wgpu Native => _native;
+        internal Device* Device => _device;
 
         public static ModernGraphicsDevice Create(GraphicsBackend requested = GraphicsBackend.Auto)
         {
@@ -64,16 +70,18 @@ namespace MphRead.Mods.Render
                 }
 
                 WebGPU api = WebGPU.GetApi();
+                Wgpu? native = null;
                 Instance* instance = null;
                 Adapter* adapter = null;
                 Device* device = null;
                 try
                 {
-                    if (!api.TryGetDeviceExtension(null, out Wgpu native))
+                    if (!api.TryGetDeviceExtension(null, out Wgpu nativeExtension))
                     {
                         throw new DllNotFoundException(
                             "Silk.NET loaded WebGPU without the wgpu-native extension.");
                     }
+                    native = nativeExtension;
 
                     InstanceExtras extras = default;
                     extras.Chain.SType = (SType)NativeSType.STypeInstanceExtras;
@@ -130,7 +138,7 @@ namespace MphRead.Mods.Render
 
                     string name = PtrString(properties.Name, "Unknown GPU");
                     string driver = PtrString(properties.DriverDescription, "Unknown driver");
-                    return new ModernGraphicsDevice(api, instance, adapter, device, backend,
+                    return new ModernGraphicsDevice(api, native, instance, adapter, device, backend,
                         native.GetVersion(), name, driver);
                 }
                 catch
@@ -138,6 +146,7 @@ namespace MphRead.Mods.Render
                     if (device != null) api.DeviceRelease(device);
                     if (adapter != null) api.AdapterRelease(adapter);
                     if (instance != null) api.InstanceRelease(instance);
+                    native?.Dispose();
                     api.Dispose();
                     throw;
                 }
@@ -169,6 +178,7 @@ namespace MphRead.Mods.Render
                 _api.InstanceRelease(_instance);
                 _instance = null;
             }
+            _native.Dispose();
             _api.Dispose();
         }
 
@@ -285,10 +295,11 @@ namespace MphRead.Mods.Render
                 }
 
                 using ModernGraphicsDevice device = ModernGraphicsDevice.Create(backend);
+                string renderProof = ModernGraphicsRenderCheck.Run(device);
                 Console.WriteLine(
                     $"[renderbackendprobe] PASS backend={GraphicsBackendPolicy.DisplayName(device.Backend)} "
                     + $"adapter=\"{device.AdapterName}\" driver=\"{device.DriverDescription}\" "
-                    + $"wgpu=0x{device.NativeVersion:X8}");
+                    + $"wgpu=0x{device.NativeVersion:X8} {renderProof}");
                 return 0;
             }
             catch (Exception ex)

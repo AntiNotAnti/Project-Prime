@@ -1,5 +1,6 @@
-#if !ANDROID
+#if !ANDROID && !MPHREAD_SERVER
 using System;
+using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
