@@ -1641,12 +1641,11 @@ namespace MphRead.Entities
             }
             if (Features.HalfDamageUnscoped && weapon.Beam == BeamType.Imperialist && !equip.Zoomed)
             {
-                // The optional unscoped penalty is a body-shot rule. An
-                // Imperialist headshot is always the weapon's full headshot
-                // damage, zoomed or not; halving hsDamage turns a valid
-                // unscoped headshot into a survivable hit for some targets.
+                // Vanilla Imperialist: firing without the scope halves both
+                // ordinary and headshot damage. Zoomed shots keep the weapon's
+                // full values regardless of how far the camera FOV has blended.
                 damage /= 2;
-                splashDmg /= 2;
+                hsDamage /= 2;
             }
             // todo?: it's kind of lame that double damage doesn't affect Shock Coil
             if (weapon.Flags.TestFlag(WeaponFlags.Continuous))
