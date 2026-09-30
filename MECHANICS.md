@@ -50,7 +50,7 @@ Affinity weapon per hunter (the one whose enhanced version it uses):
 | Beam effectiveness vs the target | x0 / x0.5 / x1 / x2 | `PlayerEntity.TakeDamage`, from `BeamEffectiveness[beam]`. Players are set to Normal for every beam in `Spawn()`; **a player that never spawned has x0 for everything and cannot be hurt at all** |
 | Double damage pickup | x2, and *not* applied to Shock Coil | `BeamProjectileEntity` |
 | Prime Hunter | x1.5 | `BeamProjectileEntity` |
-| **Imperialist without zoom** | **/2** | `BeamProjectileEntity`: `if (weapon.Beam == Imperialist && !equip.Zoomed) damage /= 2` |
+| **Imperialist without zoom** | **/2** | `BeamProjectileEntity`: halves both body and headshot damage; zoom state is binary, independent of FOV blend |
 | Quadruple Damage cheat | x4 | `BeamProjectileEntity`, from settings.json. Disabled automatically while connected to a server |
 | Match damage level | x0.75 low / x1 medium / x1.25 high | `PlayerEntity.TakeDamage` |
 | Headshot | uses the weapon's headshot damage instead | `BeamProjectileEntity` |

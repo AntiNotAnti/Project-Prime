@@ -138,7 +138,7 @@ namespace MphRead.Mods.Network
                 + "`BeamProjectileEntity` |");
             text.AppendLine("| Prime Hunter | x1.5 | `BeamProjectileEntity` |");
             text.AppendLine("| **Imperialist without zoom** | **/2** | "
-                + "`BeamProjectileEntity`: `if (weapon.Beam == Imperialist && !equip.Zoomed) damage /= 2` |");
+                + "`BeamProjectileEntity`: halves both body and headshot damage; zoom state is binary, independent of FOV blend |");
             text.AppendLine("| Quadruple Damage cheat | x4 | `BeamProjectileEntity`, from settings.json. "
                 + "Disabled automatically while connected to a server |");
             text.AppendLine("| Match damage level | "
