@@ -96,6 +96,10 @@ namespace MphRead.Mods.Network
             MapHash = Session.Metadata?.MapHash is > 0 ? Session.Metadata.MapHash : ReplayMapIdentity.Compute(match.RoomKey);
             Scene = new Scene(size, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { },
                 new ReplaySceneServices(Session, State));
+            // Replay worlds use the network slot contract, not the retail four-player cap.
+            // Every placeholder must exist before AddRoom/OnLoad so later roster activation
+            // cannot turn an unregistered PlayerEntity into a half-constructed actor.
+            Scene.Players.MaxPlayers = PlayerEntity.SlotCapacity;
             try
             {
                 Scene.GameState.Mode = (GameMode)match.Mode;
@@ -107,6 +111,8 @@ namespace MphRead.Mods.Network
                     Scene.AddPlayer(occupant.Generation == 0 ? Hunter.Samus : occupant.Hunter, occupant.Color);
                     Scene.Players.Items[slot].IsBot = false;
                 }
+                if (Scene.Players.PlayersCreated != PlayerEntity.SlotCapacity)
+                    throw new InvalidDataException("Replay failed to construct all network player slots before room load.");
                 Scene.AddRoom(match.RoomKey, (GameMode)match.Mode,
                     playerCount: Scene.Services.NetworkWorldProfile?.EntityLayerPlayers ?? match.PlayerCount);
                 ((ReplaySceneServices)Scene.Services).ApplyRules(Scene, 0);

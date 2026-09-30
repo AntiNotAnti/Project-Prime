@@ -41,7 +41,7 @@ internal static class ReplayWorldCoverageCheck
                 GameMode mode = option.Mode;
                 string path = Path.Combine(directory, mode + ".ppdemo");
                 Write(path, room, mode, origin);
-                Console.WriteLine($"[replayworld] {mode}: eight actors, all hunters, weapon/alt/affliction/death/respawn transitions");
+                Console.WriteLine($"[replayworld] {mode}: eight actors (seven bots), all hunters, weapon/alt/affliction/death/respawn transitions");
                 if (ReplayReplicaCheck.Run(path) != 0) return 1;
             }
             Console.WriteLine("[replayworld] PASS: all selectable multiplayer modes with detached restore, continuation and file/frozen-clip seeks.");
@@ -70,10 +70,18 @@ internal static class ReplayWorldCoverageCheck
         };
         var roster = Network.RosterPacket.Create();
         roster.MatchId = matchId; roster.AuthorityEpoch = epoch; roster.Revision = 1; roster.Count = 8;
+        roster.ContainsBots = true;
         for (byte slot = 0; slot < 8; slot++)
         {
             roster.Slots[slot] = slot; roster.Hunters[slot] = (byte)(slot % 7); roster.Colors[slot] = (byte)(slot % 4);
-            roster.Teams[slot] = (sbyte)(slot % 2); roster.Generations[slot] = 1; roster.Names[slot] = "Actor " + slot;
+            roster.Teams[slot] = (sbyte)(slot % 2); roster.Generations[slot] = 1;
+            if (slot == 0) roster.Names[slot] = "Actor 0";
+            else
+            {
+                roster.Names[slot] = "BOT " + slot;
+                roster.Flags[slot] = 1;
+                roster.BotLevels[slot] = (byte)((slot - 1) % 4);
+            }
         }
         byte[] MatchPacket()
         { byte[] p = new byte[1 + MatchStatePacket.Size]; p[0] = (byte)PacketType.MatchState; match.Write(p.AsSpan(1)); return p; }
@@ -159,6 +167,7 @@ internal static class ReplayWorldCoverageCheck
                 var intent = new IntentPacket { MatchId = matchId, AuthorityEpoch = epoch, SlotGeneration = 1, LifeId = life,
                     Frame = frame, Buttons = buttons, Presses = presses, HasState = true, AmmoUa = 999, AmmoMissiles = 99,
                     WeaponSelect = slot, Aim = slot < 4 ? Vector3.UnitZ : -Vector3.UnitZ, Position = Position(slot),
+                    AckFrame = slot == 0 ? frame : 0,
                     ChargeLevel = (byte)(frame % 90 == 0 ? 60 : 0), HomingTarget = IntentPacket.HomingTargetValid };
                 byte[] packet = new byte[2 + IntentPacket.FullSize]; packet[0] = (byte)PacketType.SlotIntent; packet[1] = slot;
                 intent.Write(packet.AsSpan(2)); writer.WriteRecord(frame, packet);

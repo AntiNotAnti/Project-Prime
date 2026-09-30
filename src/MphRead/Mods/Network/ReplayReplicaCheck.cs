@@ -44,6 +44,8 @@ namespace MphRead.Mods.Network
                 Vector2i size = screenshots != null ? new(640, 480) : new(256, 192);
                 using var first = new PassiveReplayScene(path, size);
                 using var second = new PassiveReplayScene(path, size);
+                AssertNetworkSlotsConstructed(first);
+                AssertNetworkSlotsConstructed(second);
                 ReplayAssetChecks.Run(first, second, path, size);
                 var hashes = new Queue<(string Gameplay, string Presentation, ReplayReplicaCheckpoint Decoder)>();
                 var drawnCheckpointFrames = new HashSet<uint>();
@@ -166,6 +168,23 @@ namespace MphRead.Mods.Network
 #if !ANDROID
                 window?.Dispose();
 #endif
+            }
+        }
+
+        private static void AssertNetworkSlotsConstructed(PassiveReplayScene replay)
+        {
+            if (replay.Scene.Players.MaxPlayers != PlayerEntity.SlotCapacity
+                || replay.Scene.Players.PlayersCreated != PlayerEntity.SlotCapacity)
+                throw new InvalidDataException("Replay did not construct the full network slot capacity.");
+            for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
+            {
+                PlayerEntity player = replay.Scene.Players.Items[slot];
+                if (!player.LoadFlags.TestFlag(LoadFlags.SlotActive)
+                    || !replay.Scene.Entities.Any(entity => ReferenceEquals(entity, player))
+                    || player.Halfturret == null)
+                    throw new InvalidDataException($"Replay slot {slot} was not fully registered before playback.");
+                if (replay.State.Occupant(slot).IsBot && player.IsBot)
+                    throw new InvalidDataException($"Replay slot {slot} incorrectly re-enabled recorded bot AI.");
             }
         }
 
