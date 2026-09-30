@@ -200,11 +200,22 @@
     <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
     <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
     <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0"
-                      Condition="!$(RuntimeIdentifier.StartsWith('osx'))" />
-    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" Version="2.23.0"
+                      Condition="!$(RuntimeIdentifier.StartsWith('osx')) or !Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')" />
+    <!-- Vulkan.Loader.Native uses its own dated package train rather than the
+         Silk managed-version train. Pin the actual published package instead
+         of accepting NuGet's NU1603 fallback on every Mac restore. -->
+    <PackageReference Include="Silk.NET.Vulkan.Loader.Native" Version="2021.12.20"
                       Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
     <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.23.0"
                       Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+  </ItemGroup>
+
+  <!-- Same alias trick Android already uses. From this point desktop renderer
+       code calls Project Prime's compatibility front-end, not OpenTK.GL
+       directly. GraphicsApi is initially an exact pass-through; WebGPU
+       operations replace it incrementally behind this seam. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
   </ItemGroup>
 
   <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">

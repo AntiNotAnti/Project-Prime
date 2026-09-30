@@ -34,6 +34,7 @@ namespace MphRead.Mods.Render
             CheckAlias("moltenvk", GraphicsBackend.Vulkan, ref failures);
             CheckAlias("metal", GraphicsBackend.Metal, ref failures);
             CheckAlias("opengl", GraphicsBackend.OpenGL, ref failures);
+            CheckGeometry(ref failures);
 
             Console.WriteLine(failures == 0
                 ? "RENDERBACKENDS all policy cases pass"
@@ -58,6 +59,53 @@ namespace MphRead.Mods.Render
         {
             bool parsed = GraphicsBackendPolicy.TryParse(value, out GraphicsBackend actual);
             Check(parsed && actual == expected, $"'{value}' parses as {expected}", ref failures);
+        }
+
+        private static void CheckGeometry(ref int failures)
+        {
+            var batch = new LegacyGeometryBatch();
+            batch.Begin(OpenTK.Graphics.OpenGL.PrimitiveType.Quads);
+            for (int i = 0; i < 4; i++)
+            {
+                batch.AddVertex(new OpenTK.Mathematics.Vector3(i, 0, 0),
+                    OpenTK.Mathematics.Vector4.One, OpenTK.Mathematics.Vector3.UnitZ,
+                    OpenTK.Mathematics.Vector3.Zero, hasOwnColor: true);
+            }
+            batch.End();
+            Check(batch.VertexCount == 4
+                && batch.TriIndices.Count == 6
+                && batch.TriIndices[0] == 0 && batch.TriIndices[1] == 1 && batch.TriIndices[2] == 2
+                && batch.TriIndices[3] == 0 && batch.TriIndices[4] == 2 && batch.TriIndices[5] == 3,
+                "legacy quad becomes two indexed triangles", ref failures);
+            Check(batch.Vertices.Count == 4 * LegacyGeometryBatch.FloatsPerVertex,
+                "legacy vertex layout is stable", ref failures);
+
+            batch.Clear();
+            batch.Begin(OpenTK.Graphics.OpenGL.PrimitiveType.TriangleStrip);
+            for (int i = 0; i < 4; i++)
+            {
+                batch.AddVertex(new OpenTK.Mathematics.Vector3(i, 0, 0),
+                    OpenTK.Mathematics.Vector4.One, OpenTK.Mathematics.Vector3.UnitZ,
+                    OpenTK.Mathematics.Vector3.Zero, hasOwnColor: false);
+            }
+            batch.End();
+            Check(batch.TriIndices.Count == 6
+                && batch.TriIndices[0] == 0 && batch.TriIndices[1] == 1 && batch.TriIndices[2] == 2
+                && batch.TriIndices[3] == 2 && batch.TriIndices[4] == 1 && batch.TriIndices[5] == 3,
+                "triangle strip preserves alternating winding", ref failures);
+
+            batch.Clear();
+            batch.Begin(OpenTK.Graphics.OpenGL.PrimitiveType.LineLoop);
+            for (int i = 0; i < 3; i++)
+            {
+                batch.AddVertex(new OpenTK.Mathematics.Vector3(i, 0, 0),
+                    OpenTK.Mathematics.Vector4.One, OpenTK.Mathematics.Vector3.UnitZ,
+                    OpenTK.Mathematics.Vector3.Zero, hasOwnColor: false);
+            }
+            batch.End();
+            Check(batch.LineIndices.Count == 6
+                && batch.LineIndices[4] == 2 && batch.LineIndices[5] == 0,
+                "line loop closes explicitly", ref failures);
         }
 
         private static void Check(bool success, string name, ref int failures)

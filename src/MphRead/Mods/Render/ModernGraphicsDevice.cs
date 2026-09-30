@@ -237,9 +237,16 @@ namespace MphRead.Mods.Render
         private static void PrepareMoltenVK()
         {
             string root = AppContext.BaseDirectory;
-            string loader = Path.Combine(root, "libvulkan.1.dylib");
+            string loader = Path.Combine(root, "libvulkan.dylib");
             string driver = Path.Combine(root, "libMoltenVK.dylib");
             string manifest = Path.Combine(root, "MoltenVK_icd.json");
+            if (!File.Exists(manifest))
+            {
+                // Inside a .app, non-code resources cannot live in Contents/MacOS
+                // without upsetting the bundle's code seal. package-macos.sh
+                // moves the ICD manifest to Contents/Resources.
+                manifest = Path.GetFullPath(Path.Combine(root, "..", "Resources", "MoltenVK_icd.json"));
+            }
             if (!File.Exists(loader) || !File.Exists(driver) || !File.Exists(manifest))
             {
                 throw new DllNotFoundException(
