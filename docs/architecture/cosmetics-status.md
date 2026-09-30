@@ -179,3 +179,29 @@ checks passed. Circuit, Inferno, Lightning and Orbital captures were visually in
 Device performance and live multiplayer acceptance remain unverified. The updated
 online allowlist is checked in; deploying the hunter-cosmetics function is required
 before the live service will accept the newly added keys.
+
+## Material and motion polish (2026-09-30)
+
+- Replaced per-segment armor quads with camera-facing continuous strips, each with
+  a broad translucent halo and narrow bright core. Near High uses 12 subdivisions;
+  other qualities use six. Maximum is 32 ribbon draws plus 16 sprite submissions,
+  compared with the previous 80 quad draws. This is a submission-count improvement,
+  not a measured frame-time claim.
+- Orbit/Eclipse/Warp rings close at reduced particle budgets. Rising/falling effects
+  fade through their cycle boundary; fire and storm trails no longer wrap halfway
+  through a strip. Spike extension uses a smooth pulse.
+- Skin finishes now have distinct metalness/roughness in the deferred pass, while
+  optional authored specular maps retain priority. Forward rendering/previews use
+  a restrained view-dependent sheen. Circuit traces carry moving energy; Nebula
+  clouds and noise-based armor motion use continuous spatial noise.
+- Death fall/collapse/ascension transforms use easing. These are presentation-only
+  changes to existing poses, not new skeletal walk/run animation assets.
+- Preview effects retain depth testing against the hunter but no longer write
+  depth over subsequent transparent glow layers. Thumbnail cache is v5.
+- Shared GLSL changes regenerated the World and DeferredPbr WGSL shaders.
+
+Validation on this host: desktop Debug build (zero errors), 14,916 cosmetics checks,
+Metal renderer window checks including six material-buffer readbacks, and 252
+catalog captures / 63 model-mode captures / 600 looping death frames on each of
+OpenGL and Metal. Orbital, Inferno and Circuit captures were inspected. Vulkan,
+DX12, physical Android and gameplay performance were not measured for this change.

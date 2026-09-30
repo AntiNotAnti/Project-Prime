@@ -435,8 +435,12 @@ namespace MphRead
             GL.Disable(EnableCap.AlphaTest);
             for (int i = 0; i < _previewItems.Count; i++)
             {
+                // FX test against the hunter, but must not occlude later glow
+                // layers with their transparent footprint. Match the world FX pass.
+                GL.DepthMask(_previewItems[i].Type == RenderItemType.Mesh);
                 RenderItem(_previewItems[i]);
             }
+            GL.DepthMask(true);
             if (_preview != null && _preview.Mode == Mods.Cosmetics.SkinContext.Biped
                 && Mods.Cosmetics.CosmeticPreview.Loadout != null)
                 Mods.ScreenCapture.QueueCosmeticThumbnail(x, y, width, height,

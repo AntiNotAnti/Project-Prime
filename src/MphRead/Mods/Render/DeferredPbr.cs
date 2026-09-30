@@ -508,6 +508,12 @@ void main() {
         vec3 e = SAMPLE(emissive_tex, texcoord).rgb;
         emissive = max(emissive, dot(e, vec3(0.2126, 0.7152, 0.0722)));
     }
+    if (cosmetic_skin != 0 && !use_specular_map) {
+        vec2 finish = cosmetic_finish();
+        // Authored material maps remain authoritative when supplied.
+        metallic = finish.x; roughness = finish.y;
+    }
+    if (cosmetic_skin == 4) emissive = max(emissive, cosmetic_circuit() * 0.55);
     OUTPUT = vec4(metallic, roughness, clamp(emissive, 0.0, 1.0), 1.0);
 }
 ";

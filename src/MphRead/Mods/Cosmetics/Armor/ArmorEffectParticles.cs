@@ -23,48 +23,66 @@ namespace MphRead.Mods.Cosmetics.Armor
             var silhouette = CosmeticSilhouette.For(hunter, alt);
             Matrix4 transform = previewTransform ?? Matrix4.Identity;
             float scale = transform.Row0.Xyz.Length;
-            // Six analytic samples form ribbons or angular shapes.
-            // At most 16 sprites plus 80 pooled quads; no simulation RNG/state.
+            int steps = RenderOptions.CosmeticQuality == CosmeticEffectQuality.High ? 12 : 6;
+            // Trails are two continuous strips (soft halo + bright core), rather
+            // than a draw call per segment. All buffers use the scene's pool lifecycle.
+            Vector3 eyeDirection = previewTransform.HasValue ? new Vector3(0, 0.026f, 1)
+                : scene.ViewMatrix.Inverted().Row2.Xyz.Normalized();
             for (int i = 0; i < count; i++)
-                for (int j = 0; j < 6; j++)
+            {
+                bool cloud = effect.Motion == ArmorMotion.Pestilence;
+                bool loop = effect.Motion is ArmorMotion.Orbit or ArmorMotion.Eclipse or ArmorMotion.Warp or ArmorMotion.Helix;
+                float phase = (time * 0.6f + Unit(seed + (uint)i * 17)) % 1;
+                bool cycling = effect.Motion is ArmorMotion.Inferno or ArmorMotion.Thunderstorm
+                    or ArmorMotion.Void or ArmorMotion.Rain or ArmorMotion.Pestilence or ArmorMotion.Radiant;
+                float envelope = effect.Motion == ArmorMotion.Warp ? MathF.Sin((time * 0.7f % 1) * MathF.PI)
+                    : cycling ? MathF.Sin(phase * MathF.PI) : 1;
+                Vector3 Position(float u)
                 {
-                    float u = j / 5f;
-                    Vector3 point = Sample(effect.Motion, time, seed, i, u);
-                    var offset = new Vector3(point.X * silhouette.Radius,
-                        silhouette.Base + point.Y * silhouette.Height, point.Z * silhouette.Radius);
-                    bool cloud = effect.Motion == ArmorMotion.Pestilence;
-                    float size = cloud ? 0.10f + u * 0.09f : 0.035f + (1 - u) * 0.025f;
-                    if (effect.Motion == ArmorMotion.Inferno) size = 0.095f * (1 - u * 0.8f);
-                    float alpha = cloud ? 0.16f : 0.72f - u * 0.35f;
-                    Vector3 position = origin + Vector3.TransformPosition(offset, transform);
-                    Vector3 color = Vector3.Lerp(effect.PrimaryColor, effect.SecondaryColor, u);
-                    if (j == 0)
-                        scene.AddSingleParticle(cloud ? SingleType.Fuzzball : SingleType.Death,
-                            position, color, alpha, size * silhouette.ParticleScale * scale, cosmeticTint: true);
-                    if (j > 0)
-                    {
-                        Vector3 previous = Sample(effect.Motion, time, seed, i, (j - 1) / 5f);
-                        previous = origin + Vector3.TransformPosition(new Vector3(previous.X * silhouette.Radius,
-                            silhouette.Base + previous.Y * silhouette.Height, previous.Z * silhouette.Radius), transform);
-                        Vector3 direction = position - previous;
-                        // Skip wrapped/discontinuous samples rather than drawing a body-spanning streak.
-                        if (direction.LengthSquared > 0.000001f && direction.LengthSquared < scale * scale * 0.8f)
-                        {
-                            Vector3 side = Vector3.Cross(direction, Vector3.UnitZ);
-                            if (side.LengthSquared < 0.000001f) side = Vector3.Cross(direction, Vector3.UnitY);
-                            side = side.Normalized() * size * scale * (cloud ? 1.5f : 0.6f);
-                            Vector3[] points = ArrayPool<Vector3>.Shared.Rent(4);
-                            points[0] = previous - side; points[1] = previous + side;
-                            points[2] = position + side; points[3] = position - side;
-                            scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(),
-                                new Vector4(color, alpha), RenderItemType.Quad, points, noLines: true);
-                        }
-                    }
+                    Vector3 point = Sample(effect.Motion, time, seed, i, u, count);
+                    return origin + Vector3.TransformPosition(new Vector3(point.X * silhouette.Radius,
+                        silhouette.Base + point.Y * silhouette.Height, point.Z * silhouette.Radius), transform);
                 }
+                scene.AddSingleParticle(cloud ? SingleType.Fuzzball : SingleType.Death,
+                    Position(0), effect.SecondaryColor, envelope * (cloud ? 0.32f : 0.55f),
+                    (cloud ? 0.22f : 0.045f) * silhouette.ParticleScale * scale, cosmeticTint: true);
+                if (cloud) continue;
+                for (int layer = 0; layer < 2; layer++)
+                {
+                    Vector3[] points = ArrayPool<Vector3>.Shared.Rent((steps + 1) * 4);
+                    for (int j = 0; j <= steps; j++)
+                    {
+                        float u = j / (float)steps;
+                        Vector3 position = Position(u);
+                        Vector3 tangent = Position(u + 0.01f) - Position(u - 0.01f);
+                        Vector3 side = RibbonSide(tangent, eyeDirection);
+                        float taper = loop ? 1 : 0.15f + 0.85f * MathF.Sin(u * MathF.PI);
+                        float width = effect.Motion == ArmorMotion.Inferno ? 0.05f * (1 - u * 0.8f) : 0.018f;
+                        side *= width * scale * taper * (layer == 0 ? 2.8f : 0.65f);
+                        points[j * 4] = new Vector3(0, u, 0);
+                        points[j * 4 + 1] = position - side;
+                        points[j * 4 + 2] = new Vector3(1, u, 0);
+                        points[j * 4 + 3] = position + side;
+                    }
+                    Vector3 color = layer == 0 ? effect.PrimaryColor
+                        : Vector3.Lerp(effect.SecondaryColor, Vector3.One, 0.25f);
+                    scene.AddRenderItem(CullingMode.Neither, scene.GetNextPolygonId(),
+                        new Vector4(color, envelope * (layer == 0 ? 0.16f : 0.8f)),
+                        RenderItemType.TrailMulti, points, (steps + 1) * 4, noLines: true);
+                }
+            }
+        }
+
+        internal static Vector3 RibbonSide(Vector3 tangent, Vector3 viewDirection)
+        {
+            Vector3 side = Vector3.Cross(tangent, viewDirection);
+            if (side.LengthSquared < 0.000001f) side = Vector3.Cross(tangent, Vector3.UnitY);
+            if (side.LengthSquared < 0.000001f) side = Vector3.UnitX;
+            return side.Normalized();
         }
 
         // Normalized hunter-local envelope, shared by previews, gameplay and replay.
-        internal static Vector3 Sample(ArmorMotion motion, float time, uint seed, int i, float u)
+        internal static Vector3 Sample(ArmorMotion motion, float time, uint seed, int i, float u, int strandCount = 10)
         {
             float random = Unit(seed + (uint)i * 37);
             float phase = (time * 0.6f + Unit(seed + (uint)i * 17)) % 1;
@@ -78,14 +96,14 @@ namespace MphRead.Mods.Cosmetics.Armor
                     return Polar(angle + u * 0.65f, 1.05f + jitter, y + u * 0.25f);
                 case ArmorMotion.Thunderstorm:
                     return Polar(angle + MathF.Sin(u * 25 + MathF.Floor(time * 9)) * 0.12f,
-                        1.1f, 1.3f - ((phase + u * 0.5f) % 1) * 1.4f);
+                        1.1f, 1.3f - (phase + u * 0.5f) * 1.1f);
                 case ArmorMotion.Pestilence:
                     return Polar(angle + phase + u, 0.9f + phase * 0.5f + u * 0.2f, phase + u * 0.2f);
                 case ArmorMotion.Inferno:
                     return Polar(angle + MathF.Sin(time * 4 + u * 5) * u * 0.18f,
-                        1.05f - u * 0.25f, (phase + u * 0.5f) % 1.25f);
+                        1.05f - u * 0.25f, phase + u * 0.5f);
                 case ArmorMotion.Eclipse:
-                    float halo = time * 0.5f + (i + u) * MathF.Tau / 10;
+                    float halo = time * 0.5f + (i + u) * MathF.Tau / strandCount;
                     return new(MathF.Cos(halo) * 1.35f, 0.55f + MathF.Sin(halo) * 0.65f, MathF.Sin(time * 0.4f) * MathF.Cos(halo) * 0.5f);
                 case ArmorMotion.Glacial:
                     float corner = u * MathF.Tau;
@@ -100,7 +118,7 @@ namespace MphRead.Mods.Cosmetics.Armor
                 case ArmorMotion.Spectral:
                     return Polar(angle + time + u * 1.8f, 1.15f + u * 0.3f, y + MathF.Sin(time + u * 3) * 0.2f);
                 case ArmorMotion.Spike:
-                    return Polar(angle, 0.95f + u * (0.35f + phase * 0.3f), y + u * (y - 0.5f) * 0.4f);
+                    return Polar(angle, 0.95f + u * (0.5f + MathF.Sin(time * 2) * 0.15f), y + u * (y - 0.5f) * 0.4f);
                 case ArmorMotion.Solar:
                     return Polar(angle + u * 0.5f + time * 0.25f, 1 + MathF.Sin(u * MathF.PI) * 0.7f, y + MathF.Sin(u * MathF.Tau) * 0.18f);
                 case ArmorMotion.Lumen:
@@ -113,16 +131,18 @@ namespace MphRead.Mods.Cosmetics.Armor
                 case ArmorMotion.Quantum:
                     return Polar(MathF.Floor((angle + time) * 3) / 3, 1.15f + u * 0.2f, MathF.Floor((y + time * 0.3f) % 1 * 6) / 6);
                 case ArmorMotion.Orbit:
-                    float orbit = time + (i / 3 + u) * MathF.Tau / 4;
+                    int rings = Math.Min(3, strandCount);
+                    int arcs = (strandCount - 1 - i % rings) / rings + 1;
+                    float orbit = time + (i / rings + u) * MathF.Tau / arcs;
                     Vector3 ring = Polar(orbit, 1.35f, 0);
                     return (i % 3) switch { 0 => ring + new Vector3(0, 0.5f, 0),
                         1 => new(ring.X, 0.5f + ring.Z * 0.45f, ring.Z * 0.3f),
                         _ => new(ring.X * 0.3f, 0.5f + ring.X * 0.45f, ring.Z) };
                 case ArmorMotion.Helix:
-                    float h = (i / 2 + u) / 5;
+                    float h = (i / 2 + u) / ((strandCount + 1 - i % 2) / 2);
                     return Polar(h * MathF.Tau + time + (i % 2) * MathF.PI, 1.1f, h);
                 case ArmorMotion.Warp:
-                    return Polar((i + u) * MathF.Tau / 10, 1 + (time * 0.7f % 1) * 0.7f, time * 0.7f % 1);
+                    return Polar((i + u) * MathF.Tau / strandCount, 1 + (time * 0.7f % 1) * 0.7f, time * 0.7f % 1);
                 case ArmorMotion.Rain:
                     return Polar(angle, 1.25f + u * 0.25f, 1.25f - phase * 1.5f + u * 0.3f);
                 default: return Polar(angle, 1, y);

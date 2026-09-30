@@ -64,11 +64,15 @@ namespace MphRead.Mods.Cosmetics.Death
         }
         public static Matrix4 Pose(DeathPresentationDefinition definition, float progress)
         {
+            progress = Math.Clamp(progress, 0, 1);
+            // Anticipation then acceleration for falls; eased departure for ascension.
+            float fall = progress * progress * (2 - progress);
+            float ease = progress * progress * (3 - 2 * progress);
             var transform = definition.PoseStyle switch
             {
-                DeathPoseStyle.Backfall => Matrix4.CreateRotationX(-progress * 1.3f),
-                DeathPoseStyle.KneelCollapse => Matrix4.CreateScale(1 - progress * 0.65f),
-                DeathPoseStyle.Float => Matrix4.CreateTranslation(0, progress * 0.8f, 0),
+                DeathPoseStyle.Backfall => Matrix4.CreateRotationX(-fall * 1.3f),
+                DeathPoseStyle.KneelCollapse => Matrix4.CreateScale(1 - ease * 0.65f),
+                DeathPoseStyle.Float => Matrix4.CreateTranslation(0, ease * 0.8f, 0),
                 _ => Matrix4.Identity
             };
             return transform;

@@ -42,6 +42,23 @@ namespace MphRead.Mods.Cosmetics
                             Check(float.IsFinite(point.X) && float.IsFinite(point.Y) && float.IsFinite(point.Z)
                                 && point.Length < 4, "bounded finite armor path");
                         }
+                foreach (var tangent in new[] { Vector3.Zero, Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ })
+                    foreach (var view in new[] { Vector3.UnitX, Vector3.UnitY, Vector3.UnitZ })
+                    {
+                        var side = Armor.ArmorEffectParticles.RibbonSide(tangent, view);
+                        Check(float.IsFinite(side.LengthSquared) && Math.Abs(side.Length - 1) < 0.001f,
+                            "camera-facing ribbons remain finite at degenerate angles");
+                    }
+                foreach (int strands in new[] { 1, 2, 4, 8, 10, 12, 16 })
+                    foreach (var motion in new[] { Armor.ArmorMotion.Eclipse, Armor.ArmorMotion.Warp, Armor.ArmorMotion.Orbit })
+                        for (int i = 0; i < strands; i++)
+                        {
+                            int rings = motion == Armor.ArmorMotion.Orbit ? Math.Min(3, strands) : 1;
+                            int next = i + rings < strands ? i + rings : i % rings;
+                            var end = Armor.ArmorEffectParticles.Sample(motion, 0.7f, 17, i, 1, strands);
+                            var start = Armor.ArmorEffectParticles.Sample(motion, 0.7f, 17, next, 0, strands);
+                            Check((end - start).Length < 0.001f, "rings remain closed at every quality budget");
+                        }
                 var loadout = new CosmeticLoadout("skin.samus.obsidian", "armor.inferno", "death.quantum");
                 Check(JsonSerializer.Deserialize<CosmeticLoadout>(JsonSerializer.Serialize(loadout)) == loadout, "JSON round trip");
                 LauncherPrefs.Directory = temp; CosmeticPersistence.ResetCache();

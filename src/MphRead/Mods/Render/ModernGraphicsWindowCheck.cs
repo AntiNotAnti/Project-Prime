@@ -363,6 +363,22 @@ namespace MphRead.Mods.Render
                     : pixel[0] < 10 && pixel[1] > 145 && pixel[2] < 10;
                 if (!valid) throw new InvalidOperationException($"PBR target {mode} failed: {string.Join(",", pixel)}.");
             }
+            // Read the actual material target, not just the colored surface:
+            // built-in skins must retain distinct finishes on modern backends.
+            (float Metal, float Rough)[] finishes = { (0.78f, 0.30f), (0.85f, 0.38f),
+                (0.05f, 0.24f), (0.55f, 0.42f), (0.12f, 0.68f), (0.35f, 0.28f) };
+            for (int skin = 1; skin <= finishes.Length; skin++)
+            {
+                GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "cosmetic_skin"), skin);
+                DrawTexturedQuad(-1, -1, 1, 1, 0);
+                byte[] pixel = new byte[4];
+                GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                var expected = finishes[skin - 1];
+                if (Math.Abs(pixel[0] / 255f - expected.Metal) > 0.015f
+                    || Math.Abs(pixel[1] / 255f - expected.Rough) > 0.015f)
+                    throw new InvalidOperationException($"Cosmetic material {skin} lost its PBR finish: {string.Join(",", pixel)}.");
+            }
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "cosmetic_skin"), 0);
             int normalList = GraphicsApi.GenLists(1);
             GraphicsApi.NewList(normalList, ListMode.Compile);
             DrawTexturedQuad(-1, -1, 1, 1, 0);

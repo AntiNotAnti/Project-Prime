@@ -213,6 +213,11 @@ namespace MphRead.Mods.Cosmetics
                             if (expectParticles && !previewItems.Any(item => item.Type == RenderItemType.Particle
                                 && item.Points.Length >= 8 && (item.Points[1] - item.Points[3]).LengthSquared > 0))
                                 throw new InvalidOperationException("Preview particles missing or degenerate: " + definition.Key);
+                            var ribbons = previewItems.Where(item => item.Type == RenderItemType.TrailMulti).ToArray();
+                            if (ribbons.Length > 32 || ribbons.Any(item => item.ItemCount > item.Points.Length
+                                || item.ItemCount < 8 || item.ItemCount % 4 != 0
+                                || (item.Points[1] - item.Points[3]).LengthSquared <= 0))
+                                throw new InvalidOperationException("Invalid or over-budget cosmetic ribbons: " + definition.Key);
                             var used = (System.Collections.Generic.Queue<RenderItem>)typeof(Scene)
                                 .GetField("_usedRenderItems", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)!.GetValue(scene)!;
                             if (used.Count != 0) throw new InvalidOperationException("Standalone preview leaks into the world render-item queue");

@@ -366,24 +366,163 @@ fn cosmetic_noise(p: vec2<f32>) -> f32 {
     return fract((sin(dot(_e363, vec2<f32>(127.1f, 311.7f))) * 43758.547f));
 }
 
-fn apply_cosmetics(col: ptr<function, vec4<f32>>) {
-    var nativeColor: vec3<f32>;
-    var lum: f32;
-    var etch: f32;
-    var panel: vec2<f32>;
-    var seam: f32;
+fn cosmetic_soft_noise(p_2: vec2<f32>) -> f32 {
+    var p_3: vec2<f32>;
+    var cell: vec2<f32>;
+    var f: vec2<f32>;
+
+    p_3 = p_2;
+    let _e330: vec2<f32> = p_3;
+    cell = floor(_e330);
+    let _e334: vec2<f32> = p_3;
+    f = fract(_e334);
+    let _e337: vec2<f32> = f;
+    let _e338: vec2<f32> = f;
+    let _e342: vec2<f32> = f;
+    f = ((_e337 * _e338) * (vec2(3f) - (2f * _e342)));
+    let _e348: vec2<f32> = cell;
+    let _e349: f32 = cosmetic_noise(_e348);
+    let _e350: vec2<f32> = cell;
+    let _e355: vec2<f32> = cell;
+    let _e360: f32 = cosmetic_noise((_e355 + vec2<f32>(1f, 0f)));
+    let _e361: vec2<f32> = f;
+    let _e364: vec2<f32> = cell;
+    let _e365: f32 = cosmetic_noise(_e364);
+    let _e366: vec2<f32> = cell;
+    let _e371: vec2<f32> = cell;
+    let _e376: f32 = cosmetic_noise((_e371 + vec2<f32>(1f, 0f)));
+    let _e377: vec2<f32> = f;
+    let _e380: vec2<f32> = cell;
+    let _e385: vec2<f32> = cell;
+    let _e390: f32 = cosmetic_noise((_e385 + vec2<f32>(0f, 1f)));
+    let _e391: vec2<f32> = cell;
+    let _e395: vec2<f32> = cell;
+    let _e399: f32 = cosmetic_noise((_e395 + vec2(1f)));
+    let _e400: vec2<f32> = f;
+    let _e402: vec2<f32> = cell;
+    let _e407: vec2<f32> = cell;
+    let _e412: f32 = cosmetic_noise((_e407 + vec2<f32>(0f, 1f)));
+    let _e413: vec2<f32> = cell;
+    let _e417: vec2<f32> = cell;
+    let _e421: f32 = cosmetic_noise((_e417 + vec2(1f)));
+    let _e422: vec2<f32> = f;
+    let _e425: vec2<f32> = f;
+    let _e428: vec2<f32> = cell;
+    let _e429: f32 = cosmetic_noise(_e428);
+    let _e430: vec2<f32> = cell;
+    let _e435: vec2<f32> = cell;
+    let _e440: f32 = cosmetic_noise((_e435 + vec2<f32>(1f, 0f)));
+    let _e441: vec2<f32> = f;
+    let _e444: vec2<f32> = cell;
+    let _e445: f32 = cosmetic_noise(_e444);
+    let _e446: vec2<f32> = cell;
+    let _e451: vec2<f32> = cell;
+    let _e456: f32 = cosmetic_noise((_e451 + vec2<f32>(1f, 0f)));
+    let _e457: vec2<f32> = f;
+    let _e460: vec2<f32> = cell;
+    let _e465: vec2<f32> = cell;
+    let _e470: f32 = cosmetic_noise((_e465 + vec2<f32>(0f, 1f)));
+    let _e471: vec2<f32> = cell;
+    let _e475: vec2<f32> = cell;
+    let _e479: f32 = cosmetic_noise((_e475 + vec2(1f)));
+    let _e480: vec2<f32> = f;
+    let _e482: vec2<f32> = cell;
+    let _e487: vec2<f32> = cell;
+    let _e492: f32 = cosmetic_noise((_e487 + vec2<f32>(0f, 1f)));
+    let _e493: vec2<f32> = cell;
+    let _e497: vec2<f32> = cell;
+    let _e501: f32 = cosmetic_noise((_e497 + vec2(1f)));
+    let _e502: vec2<f32> = f;
+    let _e505: vec2<f32> = f;
+    return mix(mix(_e445, _e456, _e457.x), mix(_e492, _e501, _e502.x), _e505.y);
+}
+
+fn cosmetic_finish() -> vec2<f32> {
+    let _e327: i32 = global.cosmetic_skin;
+    if (_e327 == 1i) {
+        return vec2<f32>(0.78f, 0.3f);
+    }
+    let _e333: i32 = global.cosmetic_skin;
+    if (_e333 == 2i) {
+        return vec2<f32>(0.85f, 0.38f);
+    }
+    let _e339: i32 = global.cosmetic_skin;
+    if (_e339 == 3i) {
+        return vec2<f32>(0.05f, 0.24f);
+    }
+    let _e345: i32 = global.cosmetic_skin;
+    if (_e345 == 4i) {
+        return vec2<f32>(0.55f, 0.42f);
+    }
+    let _e351: i32 = global.cosmetic_skin;
+    if (_e351 == 5i) {
+        return vec2<f32>(0.12f, 0.68f);
+    }
+    return vec2<f32>(0.35f, 0.28f);
+}
+
+fn cosmetic_circuit() -> f32 {
     var grid: vec2<f32>;
     var trace: f32;
     var node: f32;
-    var stripe: f32;
-    var cloud: f32;
-    var star: f32;
-    var chroma: f32;
-    var t: f32;
+    var travel: f32;
+
+    let _e327: vec2<f32> = texcoord_1;
+    let _e330: vec2<f32> = texcoord_1;
+    grid = fract((_e330 * 18f));
+    let _e338: vec2<f32> = grid;
+    let _e340: vec2<f32> = grid;
+    let _e342: vec2<f32> = grid;
+    let _e344: vec2<f32> = grid;
+    let _e349: vec2<f32> = grid;
+    let _e351: vec2<f32> = grid;
+    let _e353: vec2<f32> = grid;
+    let _e355: vec2<f32> = grid;
+    trace = (1f - smoothstep(0.035f, 0.09f, min(_e353.x, _e355.y)));
+    let _e364: vec2<f32> = grid;
+    let _e368: vec2<f32> = grid;
+    let _e375: vec2<f32> = grid;
+    let _e379: vec2<f32> = grid;
+    node = (1f - smoothstep(0.08f, 0.16f, length((_e379 - vec2(0.15f)))));
+    let _e389: vec2<f32> = texcoord_1;
+    let _e391: vec2<f32> = texcoord_1;
+    let _e396: f32 = global.cosmetic_time;
+    let _e400: vec2<f32> = texcoord_1;
+    let _e402: vec2<f32> = texcoord_1;
+    let _e407: f32 = global.cosmetic_time;
+    let _e417: vec2<f32> = texcoord_1;
+    let _e419: vec2<f32> = texcoord_1;
+    let _e424: f32 = global.cosmetic_time;
+    let _e428: vec2<f32> = texcoord_1;
+    let _e430: vec2<f32> = texcoord_1;
+    let _e435: f32 = global.cosmetic_time;
+    travel = pow((0.5f + (0.5f * sin((((_e428.x + _e430.y) * 32f) - (_e435 * 1.8f))))), 8f);
+    let _e445: f32 = trace;
+    let _e447: f32 = travel;
+    let _e452: f32 = node;
+    let _e455: f32 = trace;
+    let _e457: f32 = travel;
+    let _e462: f32 = node;
+    return max((_e455 * (0.3f + (_e457 * 0.7f))), (_e462 * 0.75f));
+}
+
+fn apply_cosmetics(col: ptr<function, vec4<f32>>) {
+    var nativeColor: vec3<f32>;
+    var lum: f32;
     var n_1: vec3<f32>;
     var viewNormal: vec3<f32>;
     var toEye: vec3<f32>;
     var rim: f32;
+    var etch: f32;
+    var panel: vec2<f32>;
+    var seam: f32;
+    var stripe: f32;
+    var cloud: f32;
+    var star: f32;
+    var finish: vec2<f32>;
+    var sheen: f32;
+    var chroma: f32;
+    var t: f32;
     var pulse: f32;
     var wave: f32;
     var mask: f32;
@@ -402,418 +541,425 @@ fn apply_cosmetics(col: ptr<function, vec4<f32>>) {
     let _e342: vec4<f32> = (*col);
     let _e348: vec4<f32> = (*col);
     lum = dot(_e348.xyz, vec3<f32>(0.2126f, 0.7152f, 0.0722f));
-    let _e356: i32 = global.cosmetic_skin;
-    if (_e356 == 1i) {
+    let _e356: vec3<f32> = surface_normal_1;
+    let _e359: vec3<f32> = surface_normal_1;
+    let _e360: vec3<f32> = surface_normal_1;
+    let _e365: vec3<f32> = surface_normal_1;
+    let _e366: vec3<f32> = surface_normal_1;
+    let _e372: vec3<f32> = surface_normal_1;
+    let _e373: vec3<f32> = surface_normal_1;
+    let _e378: vec3<f32> = surface_normal_1;
+    let _e379: vec3<f32> = surface_normal_1;
+    n_1 = (_e356 * inverseSqrt(max(dot(_e378, _e379), 0.0001f)));
+    let _e386: mat4x4<f32> = global.view_mtx;
+    let _e396: vec3<f32> = n_1;
+    viewNormal = (mat3x3<f32>(_e386[0].xyz, _e386[1].xyz, _e386[2].xyz) * _e396);
+    let _e399: mat4x4<f32> = global.view_mtx;
+    let _e400: vec3<f32> = surface_position_1;
+    toEye = -((_e399 * vec4<f32>(_e400.x, _e400.y, _e400.z, 1f)).xyz);
+    let _e410: vec3<f32> = toEye;
+    let _e413: vec3<f32> = toEye;
+    let _e414: vec3<f32> = toEye;
+    let _e419: vec3<f32> = toEye;
+    let _e420: vec3<f32> = toEye;
+    let _e426: vec3<f32> = toEye;
+    let _e427: vec3<f32> = toEye;
+    let _e432: vec3<f32> = toEye;
+    let _e433: vec3<f32> = toEye;
+    toEye = (_e410 * inverseSqrt(max(dot(_e432, _e433), 0.0001f)));
+    let _e442: vec3<f32> = viewNormal;
+    let _e443: vec3<f32> = toEye;
+    let _e447: vec3<f32> = viewNormal;
+    let _e448: vec3<f32> = toEye;
+    let _e457: vec3<f32> = viewNormal;
+    let _e458: vec3<f32> = toEye;
+    let _e462: vec3<f32> = viewNormal;
+    let _e463: vec3<f32> = toEye;
+    let _e474: vec3<f32> = viewNormal;
+    let _e475: vec3<f32> = toEye;
+    let _e479: vec3<f32> = viewNormal;
+    let _e480: vec3<f32> = toEye;
+    let _e489: vec3<f32> = viewNormal;
+    let _e490: vec3<f32> = toEye;
+    let _e494: vec3<f32> = viewNormal;
+    let _e495: vec3<f32> = toEye;
+    rim = pow(clamp((1f - abs(dot(_e494, _e495))), 0f, 1f), 2.2f);
+    let _e505: i32 = global.cosmetic_skin;
+    if (_e505 == 1i) {
         {
-            let _e359: vec4<f32> = (*col);
-            let _e361: vec4<f32> = (*col);
-            let _e368: f32 = lum;
-            let _e372: vec4<f32> = (*col);
-            let _e379: f32 = lum;
-            let _e384: vec3<f32> = mix(_e372.xyz, (vec3<f32>(0.2f, 0.23f, 0.28f) * (0.65f + _e379)), vec3(0.88f));
-            (*col).x = _e384.x;
-            (*col).y = _e384.y;
-            (*col).z = _e384.z;
+            let _e508: vec4<f32> = (*col);
+            let _e510: vec4<f32> = (*col);
+            let _e517: f32 = lum;
+            let _e521: vec4<f32> = (*col);
+            let _e528: f32 = lum;
+            let _e533: vec3<f32> = mix(_e521.xyz, (vec3<f32>(0.2f, 0.23f, 0.28f) * (0.65f + _e528)), vec3(0.88f));
+            (*col).x = _e533.x;
+            (*col).y = _e533.y;
+            (*col).z = _e533.z;
         }
     } else {
-        let _e391: i32 = global.cosmetic_skin;
-        if (_e391 == 2i) {
+        let _e540: i32 = global.cosmetic_skin;
+        if (_e540 == 2i) {
             {
-                let _e396: vec2<f32> = texcoord_1;
-                let _e400: vec2<f32> = texcoord_1;
-                let _e405: vec2<f32> = texcoord_1;
-                let _e409: vec2<f32> = texcoord_1;
-                let _e417: vec2<f32> = texcoord_1;
-                let _e421: vec2<f32> = texcoord_1;
-                let _e426: vec2<f32> = texcoord_1;
-                let _e430: vec2<f32> = texcoord_1;
-                etch = smoothstep(0.92f, 0.99f, (sin((_e421.x * 85f)) * sin((_e430.y * 85f))));
-                let _e438: vec4<f32> = (*col);
-                let _e440: vec4<f32> = (*col);
-                let _e447: f32 = lum;
-                let _e451: vec4<f32> = (*col);
-                let _e458: f32 = lum;
-                let _e463: vec3<f32> = mix(_e451.xyz, (vec3<f32>(0.76f, 0.58f, 0.28f) * (0.45f + _e458)), vec3(0.82f));
-                (*col).x = _e463.x;
-                (*col).y = _e463.y;
-                (*col).z = _e463.z;
-                let _e470: vec4<f32> = (*col);
-                let _e472: vec4<f32> = (*col);
-                let _e474: f32 = etch;
-                let _e480: vec3<f32> = (_e472.xyz + (_e474 * vec3<f32>(0.08f, 0.32f, 0.28f)));
-                (*col).x = _e480.x;
-                (*col).y = _e480.y;
-                (*col).z = _e480.z;
+                let _e545: vec2<f32> = texcoord_1;
+                let _e549: vec2<f32> = texcoord_1;
+                let _e554: vec2<f32> = texcoord_1;
+                let _e558: vec2<f32> = texcoord_1;
+                let _e566: vec2<f32> = texcoord_1;
+                let _e570: vec2<f32> = texcoord_1;
+                let _e575: vec2<f32> = texcoord_1;
+                let _e579: vec2<f32> = texcoord_1;
+                etch = smoothstep(0.92f, 0.99f, (sin((_e570.x * 85f)) * sin((_e579.y * 85f))));
+                let _e587: vec4<f32> = (*col);
+                let _e589: vec4<f32> = (*col);
+                let _e596: f32 = lum;
+                let _e600: vec4<f32> = (*col);
+                let _e607: f32 = lum;
+                let _e612: vec3<f32> = mix(_e600.xyz, (vec3<f32>(0.76f, 0.58f, 0.28f) * (0.45f + _e607)), vec3(0.82f));
+                (*col).x = _e612.x;
+                (*col).y = _e612.y;
+                (*col).z = _e612.z;
+                let _e619: vec4<f32> = (*col);
+                let _e621: vec4<f32> = (*col);
+                let _e623: f32 = etch;
+                let _e629: vec3<f32> = (_e621.xyz + (_e623 * vec3<f32>(0.08f, 0.32f, 0.28f)));
+                (*col).x = _e629.x;
+                (*col).y = _e629.y;
+                (*col).z = _e629.z;
             }
         }
     }
-    let _e487: i32 = global.cosmetic_skin;
-    if (_e487 == 3i) {
+    let _e636: i32 = global.cosmetic_skin;
+    if (_e636 == 3i) {
         {
-            let _e490: vec2<f32> = texcoord_1;
-            let _e493: vec2<f32> = texcoord_1;
-            panel = fract((_e493 * 12f));
-            let _e499: vec2<f32> = panel;
-            let _e502: vec2<f32> = panel;
-            let _e506: vec2<f32> = panel;
-            let _e509: vec2<f32> = panel;
-            seam = (step(0.06f, _e502.x) * step(0.06f, _e509.y));
-            let _e514: vec4<f32> = (*col);
-            let _e533: f32 = seam;
-            let _e537: f32 = lum;
-            let _e541: vec3<f32> = (mix(vec3<f32>(0.1f, 0.14f, 0.19f), vec3<f32>(0.88f, 0.9f, 0.85f), vec3(_e533)) * (0.5f + (_e537 * 0.6f)));
-            (*col).x = _e541.x;
-            (*col).y = _e541.y;
-            (*col).z = _e541.z;
+            let _e639: vec2<f32> = texcoord_1;
+            let _e642: vec2<f32> = texcoord_1;
+            panel = fract((_e642 * 12f));
+            let _e649: vec2<f32> = panel;
+            let _e653: vec2<f32> = panel;
+            let _e658: vec2<f32> = panel;
+            let _e662: vec2<f32> = panel;
+            seam = (smoothstep(0.025f, 0.075f, _e653.x) * smoothstep(0.025f, 0.075f, _e662.y));
+            let _e667: vec4<f32> = (*col);
+            let _e686: f32 = seam;
+            let _e690: f32 = lum;
+            let _e694: vec3<f32> = (mix(vec3<f32>(0.1f, 0.14f, 0.19f), vec3<f32>(0.88f, 0.9f, 0.85f), vec3(_e686)) * (0.5f + (_e690 * 0.6f)));
+            (*col).x = _e694.x;
+            (*col).y = _e694.y;
+            (*col).z = _e694.z;
         }
     } else {
-        let _e548: i32 = global.cosmetic_skin;
-        if (_e548 == 4i) {
+        let _e701: i32 = global.cosmetic_skin;
+        if (_e701 == 4i) {
             {
-                let _e551: vec2<f32> = texcoord_1;
-                let _e554: vec2<f32> = texcoord_1;
-                grid = fract((_e554 * 18f));
-                let _e561: vec2<f32> = grid;
-                let _e563: vec2<f32> = grid;
-                let _e565: vec2<f32> = grid;
-                let _e567: vec2<f32> = grid;
-                let _e571: vec2<f32> = grid;
-                let _e573: vec2<f32> = grid;
-                let _e575: vec2<f32> = grid;
-                let _e577: vec2<f32> = grid;
-                trace = (1f - step(0.08f, min(_e575.x, _e577.y)));
-                let _e585: vec2<f32> = grid;
-                let _e589: vec2<f32> = grid;
-                let _e595: vec2<f32> = grid;
-                let _e599: vec2<f32> = grid;
-                node = (1f - step(0.17f, length((_e599 - vec2(0.15f)))));
-                let _e607: vec4<f32> = (*col);
-                let _e614: f32 = lum;
-                let _e621: f32 = trace;
-                let _e625: f32 = trace;
-                let _e628: f32 = node;
-                let _e631: vec3<f32> = ((vec3<f32>(0.09f, 0.14f, 0.18f) * (0.6f + _e614)) + (vec3<f32>(0.05f, 0.65f, 0.55f) * max((_e625 * 0.55f), _e628)));
-                (*col).x = _e631.x;
-                (*col).y = _e631.y;
-                (*col).z = _e631.z;
+                let _e704: vec4<f32> = (*col);
+                let _e711: f32 = lum;
+                let _e718: f32 = cosmetic_circuit();
+                let _e720: vec3<f32> = ((vec3<f32>(0.13f, 0.18f, 0.22f) * (0.6f + _e711)) + (vec3<f32>(0.08f, 0.8f, 0.65f) * _e718));
+                (*col).x = _e720.x;
+                (*col).y = _e720.y;
+                (*col).z = _e720.z;
             }
         } else {
-            let _e638: i32 = global.cosmetic_skin;
-            if (_e638 == 5i) {
+            let _e727: i32 = global.cosmetic_skin;
+            if (_e727 == 5i) {
                 {
-                    let _e643: vec2<f32> = texcoord_1;
-                    let _e647: vec2<f32> = texcoord_1;
-                    let _e652: vec2<f32> = texcoord_1;
-                    let _e656: vec2<f32> = texcoord_1;
-                    let _e664: vec2<f32> = texcoord_1;
-                    let _e668: vec2<f32> = texcoord_1;
-                    let _e673: vec2<f32> = texcoord_1;
-                    let _e677: vec2<f32> = texcoord_1;
-                    let _e688: vec2<f32> = texcoord_1;
-                    let _e692: vec2<f32> = texcoord_1;
-                    let _e697: vec2<f32> = texcoord_1;
-                    let _e701: vec2<f32> = texcoord_1;
-                    let _e709: vec2<f32> = texcoord_1;
-                    let _e713: vec2<f32> = texcoord_1;
-                    let _e718: vec2<f32> = texcoord_1;
-                    let _e722: vec2<f32> = texcoord_1;
-                    stripe = smoothstep(0.35f, 0.45f, sin((((_e709.x * 65f) + (_e713.y * 38f)) + (sin((_e722.y * 25f)) * 2f))));
-                    let _e733: vec4<f32> = (*col);
-                    let _e752: f32 = stripe;
-                    let _e756: f32 = lum;
-                    let _e758: vec3<f32> = (mix(vec3<f32>(0.85f, 0.4f, 0.07f), vec3<f32>(0.08f, 0.07f, 0.09f), vec3(_e752)) * (0.55f + _e756));
-                    (*col).x = _e758.x;
-                    (*col).y = _e758.y;
-                    (*col).z = _e758.z;
+                    let _e732: vec2<f32> = texcoord_1;
+                    let _e736: vec2<f32> = texcoord_1;
+                    let _e741: vec2<f32> = texcoord_1;
+                    let _e745: vec2<f32> = texcoord_1;
+                    let _e753: vec2<f32> = texcoord_1;
+                    let _e757: vec2<f32> = texcoord_1;
+                    let _e762: vec2<f32> = texcoord_1;
+                    let _e766: vec2<f32> = texcoord_1;
+                    let _e777: vec2<f32> = texcoord_1;
+                    let _e781: vec2<f32> = texcoord_1;
+                    let _e786: vec2<f32> = texcoord_1;
+                    let _e790: vec2<f32> = texcoord_1;
+                    let _e798: vec2<f32> = texcoord_1;
+                    let _e802: vec2<f32> = texcoord_1;
+                    let _e807: vec2<f32> = texcoord_1;
+                    let _e811: vec2<f32> = texcoord_1;
+                    stripe = smoothstep(0.35f, 0.45f, sin((((_e798.x * 65f) + (_e802.y * 38f)) + (sin((_e811.y * 25f)) * 2f))));
+                    let _e822: vec4<f32> = (*col);
+                    let _e841: f32 = stripe;
+                    let _e845: f32 = lum;
+                    let _e847: vec3<f32> = (mix(vec3<f32>(0.85f, 0.4f, 0.07f), vec3<f32>(0.08f, 0.07f, 0.09f), vec3(_e841)) * (0.55f + _e845));
+                    (*col).x = _e847.x;
+                    (*col).y = _e847.y;
+                    (*col).z = _e847.z;
                 }
             } else {
-                let _e765: i32 = global.cosmetic_skin;
-                if (_e765 == 6i) {
+                let _e854: i32 = global.cosmetic_skin;
+                if (_e854 == 6i) {
                     {
-                        let _e770: vec2<f32> = texcoord_1;
-                        let _e774: vec2<f32> = texcoord_1;
-                        let _e778: vec2<f32> = texcoord_1;
-                        let _e786: vec2<f32> = texcoord_1;
-                        let _e790: vec2<f32> = texcoord_1;
-                        let _e794: vec2<f32> = texcoord_1;
-                        cloud = (0.5f + (0.5f * sin(((_e786.x * 17f) + (sin((_e794.y * 23f)) * 2f)))));
-                        let _e807: vec2<f32> = texcoord_1;
-                        let _e810: vec2<f32> = texcoord_1;
-                        let _e814: vec2<f32> = texcoord_1;
-                        let _e817: vec2<f32> = texcoord_1;
-                        let _e821: f32 = cosmetic_noise(floor((_e817 * 100f)));
-                        let _e823: vec2<f32> = texcoord_1;
-                        let _e826: vec2<f32> = texcoord_1;
-                        let _e830: vec2<f32> = texcoord_1;
-                        let _e833: vec2<f32> = texcoord_1;
-                        let _e837: f32 = cosmetic_noise(floor((_e833 * 100f)));
-                        star = step(0.985f, _e837);
-                        let _e840: vec4<f32> = (*col);
-                        let _e859: f32 = cloud;
-                        let _e863: f32 = lum;
-                        let _e866: f32 = star;
-                        let _e870: vec3<f32> = ((mix(vec3<f32>(0.1f, 0.12f, 0.32f), vec3<f32>(0.48f, 0.16f, 0.56f), vec3(_e859)) * (0.5f + _e863)) + vec3((_e866 * 0.65f)));
-                        (*col).x = _e870.x;
-                        (*col).y = _e870.y;
-                        (*col).z = _e870.z;
+                        let _e857: vec2<f32> = texcoord_1;
+                        let _e860: f32 = global.cosmetic_time;
+                        let _e866: vec2<f32> = texcoord_1;
+                        let _e869: f32 = global.cosmetic_time;
+                        let _e875: f32 = cosmetic_soft_noise(((_e866 * 9f) + vec2<f32>((_e869 * 0.025f), 0f)));
+                        cloud = _e875;
+                        let _e878: vec2<f32> = texcoord_1;
+                        let _e881: vec2<f32> = texcoord_1;
+                        let _e885: vec2<f32> = texcoord_1;
+                        let _e888: vec2<f32> = texcoord_1;
+                        let _e892: f32 = cosmetic_noise(floor((_e888 * 100f)));
+                        let _e894: vec2<f32> = texcoord_1;
+                        let _e897: vec2<f32> = texcoord_1;
+                        let _e901: vec2<f32> = texcoord_1;
+                        let _e904: vec2<f32> = texcoord_1;
+                        let _e908: f32 = cosmetic_noise(floor((_e904 * 100f)));
+                        star = step(0.985f, _e908);
+                        let _e911: vec4<f32> = (*col);
+                        let _e930: f32 = cloud;
+                        let _e934: f32 = lum;
+                        let _e937: f32 = star;
+                        let _e941: vec3<f32> = ((mix(vec3<f32>(0.1f, 0.12f, 0.32f), vec3<f32>(0.48f, 0.16f, 0.56f), vec3(_e930)) * (0.5f + _e934)) + vec3((_e937 * 0.65f)));
+                        (*col).x = _e941.x;
+                        (*col).y = _e941.y;
+                        (*col).z = _e941.z;
                     }
                 }
             }
         }
     }
-    let _e877: i32 = global.cosmetic_preserve_palette;
-    let _e880: i32 = global.cosmetic_skin;
-    if ((_e877 != 0i) && (_e880 != 0i)) {
+    let _e948: i32 = global.cosmetic_skin;
+    if (_e948 != 0i) {
         {
-            let _e884: vec3<f32> = nativeColor;
-            let _e886: vec3<f32> = nativeColor;
-            let _e888: vec3<f32> = nativeColor;
-            let _e890: vec3<f32> = nativeColor;
-            let _e892: vec3<f32> = nativeColor;
-            let _e895: vec3<f32> = nativeColor;
-            let _e897: vec3<f32> = nativeColor;
-            let _e899: vec3<f32> = nativeColor;
-            let _e901: vec3<f32> = nativeColor;
-            let _e903: vec3<f32> = nativeColor;
-            let _e907: vec3<f32> = nativeColor;
-            let _e909: vec3<f32> = nativeColor;
-            let _e911: vec3<f32> = nativeColor;
-            let _e913: vec3<f32> = nativeColor;
-            let _e915: vec3<f32> = nativeColor;
-            let _e918: vec3<f32> = nativeColor;
-            let _e920: vec3<f32> = nativeColor;
-            let _e922: vec3<f32> = nativeColor;
-            let _e924: vec3<f32> = nativeColor;
-            let _e926: vec3<f32> = nativeColor;
-            chroma = (max(_e895.x, max(_e901.y, _e903.z)) - min(_e918.x, min(_e924.y, _e926.z)));
-            let _e932: vec4<f32> = (*col);
-            let _e934: vec4<f32> = (*col);
-            let _e942: f32 = chroma;
-            let _e946: vec4<f32> = (*col);
-            let _e948: vec3<f32> = nativeColor;
-            let _e954: f32 = chroma;
-            let _e959: vec3<f32> = mix(_e946.xyz, _e948, vec3((smoothstep(0.1f, 0.35f, _e954) * 0.9f)));
-            (*col).x = _e959.x;
-            (*col).y = _e959.y;
-            (*col).z = _e959.z;
+            let _e951: vec2<f32> = cosmetic_finish();
+            finish = _e951;
+            let _e965: vec3<f32> = viewNormal;
+            let _e992: vec3<f32> = viewNormal;
+            let _e1010: vec2<f32> = finish;
+            let _e1014: vec2<f32> = finish;
+            let _e1029: vec3<f32> = viewNormal;
+            let _e1056: vec3<f32> = viewNormal;
+            let _e1074: vec2<f32> = finish;
+            let _e1078: vec2<f32> = finish;
+            sheen = pow(clamp(dot(_e1056, normalize(vec3<f32>(-0.35f, 0.6f, 0.72f))), 0f, 1f), mix(44f, 8f, _e1078.y));
+            let _e1083: vec4<f32> = (*col);
+            let _e1085: vec4<f32> = (*col);
+            let _e1091: f32 = rim;
+            let _e1094: vec2<f32> = finish;
+            let _e1100: vec4<f32> = (*col);
+            let _e1104: vec2<f32> = finish;
+            let _e1108: vec4<f32> = (*col);
+            let _e1112: vec2<f32> = finish;
+            let _e1116: f32 = sheen;
+            let _e1119: vec3<f32> = (_e1085.xyz + (((vec3<f32>(0.12f, 0.16f, 0.2f) * _e1091) * (1f - _e1094.y)) + (mix(vec3(0.12f), (_e1108.xyz * 0.28f), vec3(_e1112.x)) * _e1116)));
+            (*col).x = _e1119.x;
+            (*col).y = _e1119.y;
+            (*col).z = _e1119.z;
         }
     }
-    let _e966: i32 = global.cosmetic_effect;
-    if (_e966 != 0i) {
+    let _e1126: i32 = global.cosmetic_preserve_palette;
+    let _e1129: i32 = global.cosmetic_skin;
+    if ((_e1126 != 0i) && (_e1129 != 0i)) {
         {
-            let _e969: f32 = global.cosmetic_time;
-            let _e970: f32 = global.cosmetic_scroll;
-            t = (_e969 * _e970);
-            let _e973: vec3<f32> = surface_normal_1;
-            let _e976: vec3<f32> = surface_normal_1;
-            let _e977: vec3<f32> = surface_normal_1;
-            let _e982: vec3<f32> = surface_normal_1;
-            let _e983: vec3<f32> = surface_normal_1;
-            let _e989: vec3<f32> = surface_normal_1;
-            let _e990: vec3<f32> = surface_normal_1;
-            let _e995: vec3<f32> = surface_normal_1;
-            let _e996: vec3<f32> = surface_normal_1;
-            n_1 = (_e973 * inverseSqrt(max(dot(_e995, _e996), 0.0001f)));
-            let _e1003: mat4x4<f32> = global.view_mtx;
-            let _e1013: vec3<f32> = n_1;
-            viewNormal = (mat3x3<f32>(_e1003[0].xyz, _e1003[1].xyz, _e1003[2].xyz) * _e1013);
-            let _e1016: mat4x4<f32> = global.view_mtx;
-            let _e1017: vec3<f32> = surface_position_1;
-            toEye = -((_e1016 * vec4<f32>(_e1017.x, _e1017.y, _e1017.z, 1f)).xyz);
-            let _e1027: vec3<f32> = toEye;
-            let _e1030: vec3<f32> = toEye;
-            let _e1031: vec3<f32> = toEye;
-            let _e1036: vec3<f32> = toEye;
-            let _e1037: vec3<f32> = toEye;
-            let _e1043: vec3<f32> = toEye;
-            let _e1044: vec3<f32> = toEye;
-            let _e1049: vec3<f32> = toEye;
-            let _e1050: vec3<f32> = toEye;
-            toEye = (_e1027 * inverseSqrt(max(dot(_e1049, _e1050), 0.0001f)));
-            let _e1059: vec3<f32> = viewNormal;
-            let _e1060: vec3<f32> = toEye;
-            let _e1064: vec3<f32> = viewNormal;
-            let _e1065: vec3<f32> = toEye;
-            let _e1074: vec3<f32> = viewNormal;
-            let _e1075: vec3<f32> = toEye;
-            let _e1079: vec3<f32> = viewNormal;
-            let _e1080: vec3<f32> = toEye;
-            let _e1091: vec3<f32> = viewNormal;
-            let _e1092: vec3<f32> = toEye;
-            let _e1096: vec3<f32> = viewNormal;
-            let _e1097: vec3<f32> = toEye;
-            let _e1106: vec3<f32> = viewNormal;
-            let _e1107: vec3<f32> = toEye;
-            let _e1111: vec3<f32> = viewNormal;
-            let _e1112: vec3<f32> = toEye;
-            rim = pow(clamp((1f - abs(dot(_e1111, _e1112))), 0f, 1f), 1.6f);
-            let _e1124: f32 = global.cosmetic_time;
-            let _e1125: f32 = global.cosmetic_pulse;
-            let _e1127: f32 = global.cosmetic_time;
-            let _e1128: f32 = global.cosmetic_pulse;
-            pulse = (0.82f + (0.18f * sin((_e1127 * _e1128))));
-            let _e1136: vec2<f32> = texcoord_1;
-            let _e1140: f32 = t;
-            let _e1144: vec2<f32> = texcoord_1;
-            let _e1148: f32 = t;
-            wave = (0.5f + (0.5f * sin(((_e1144.y * 30f) - (_e1148 * 2f)))));
-            let _e1157: f32 = rim;
-            mask = (0.28f + (_e1157 * 0.72f));
-            let _e1162: i32 = global.cosmetic_effect;
-            if (_e1162 == 1i) {
-                let _e1167: f32 = pulse;
-                mask = (0.25f + (0.55f * _e1167));
+            let _e1133: vec3<f32> = nativeColor;
+            let _e1135: vec3<f32> = nativeColor;
+            let _e1137: vec3<f32> = nativeColor;
+            let _e1139: vec3<f32> = nativeColor;
+            let _e1141: vec3<f32> = nativeColor;
+            let _e1144: vec3<f32> = nativeColor;
+            let _e1146: vec3<f32> = nativeColor;
+            let _e1148: vec3<f32> = nativeColor;
+            let _e1150: vec3<f32> = nativeColor;
+            let _e1152: vec3<f32> = nativeColor;
+            let _e1156: vec3<f32> = nativeColor;
+            let _e1158: vec3<f32> = nativeColor;
+            let _e1160: vec3<f32> = nativeColor;
+            let _e1162: vec3<f32> = nativeColor;
+            let _e1164: vec3<f32> = nativeColor;
+            let _e1167: vec3<f32> = nativeColor;
+            let _e1169: vec3<f32> = nativeColor;
+            let _e1171: vec3<f32> = nativeColor;
+            let _e1173: vec3<f32> = nativeColor;
+            let _e1175: vec3<f32> = nativeColor;
+            chroma = (max(_e1144.x, max(_e1150.y, _e1152.z)) - min(_e1167.x, min(_e1173.y, _e1175.z)));
+            let _e1181: vec4<f32> = (*col);
+            let _e1183: vec4<f32> = (*col);
+            let _e1191: f32 = chroma;
+            let _e1195: vec4<f32> = (*col);
+            let _e1197: vec3<f32> = nativeColor;
+            let _e1203: f32 = chroma;
+            let _e1208: vec3<f32> = mix(_e1195.xyz, _e1197, vec3((smoothstep(0.1f, 0.35f, _e1203) * 0.9f)));
+            (*col).x = _e1208.x;
+            (*col).y = _e1208.y;
+            (*col).z = _e1208.z;
+        }
+    }
+    let _e1215: i32 = global.cosmetic_effect;
+    if (_e1215 != 0i) {
+        {
+            let _e1218: f32 = global.cosmetic_time;
+            let _e1219: f32 = global.cosmetic_scroll;
+            t = (_e1218 * _e1219);
+            let _e1224: f32 = global.cosmetic_time;
+            let _e1225: f32 = global.cosmetic_pulse;
+            let _e1227: f32 = global.cosmetic_time;
+            let _e1228: f32 = global.cosmetic_pulse;
+            pulse = (0.82f + (0.18f * sin((_e1227 * _e1228))));
+            let _e1236: vec2<f32> = texcoord_1;
+            let _e1240: f32 = t;
+            let _e1244: vec2<f32> = texcoord_1;
+            let _e1248: f32 = t;
+            wave = (0.5f + (0.5f * sin(((_e1244.y * 30f) - (_e1248 * 2f)))));
+            let _e1257: f32 = rim;
+            mask = (0.28f + (_e1257 * 0.72f));
+            let _e1262: i32 = global.cosmetic_effect;
+            if (_e1262 == 1i) {
+                let _e1267: f32 = pulse;
+                mask = (0.25f + (0.55f * _e1267));
             }
-            let _e1170: i32 = global.cosmetic_effect;
-            if (_e1170 == 3i) {
-                let _e1178: f32 = wave;
-                let _e1182: f32 = rim;
-                mask = ((smoothstep(0.78f, 0.95f, _e1178) * 0.5f) + _e1182);
+            let _e1270: i32 = global.cosmetic_effect;
+            if (_e1270 == 3i) {
+                let _e1278: f32 = wave;
+                let _e1282: f32 = rim;
+                mask = ((smoothstep(0.78f, 0.95f, _e1278) * 0.5f) + _e1282);
             }
-            let _e1184: i32 = global.cosmetic_effect;
-            if (_e1184 == 4i) {
-                let _e1187: vec2<f32> = texcoord_1;
-                let _e1190: vec2<f32> = texcoord_1;
-                let _e1194: f32 = t;
-                let _e1197: f32 = t;
-                let _e1203: vec2<f32> = texcoord_1;
-                let _e1206: vec2<f32> = texcoord_1;
-                let _e1210: f32 = t;
-                let _e1213: f32 = t;
-                let _e1219: f32 = cosmetic_noise((floor((_e1206 * 24f)) + vec2(floor((_e1213 * 3f)))));
-                let _e1222: f32 = rim;
-                mask = ((_e1219 * 0.3f) + _e1222);
-            }
-            let _e1224: i32 = global.cosmetic_effect;
-            let _e1227: i32 = global.cosmetic_effect;
-            if ((_e1224 == 5i) || (_e1227 == 7i)) {
-                let _e1237: f32 = wave;
-                let _e1242: f32 = rim;
-                mask = ((0.12f + (smoothstep(0.65f, 0.95f, _e1237) * 0.65f)) + (_e1242 * 0.45f));
-            }
-            let _e1246: i32 = global.cosmetic_effect;
-            if (_e1246 == 6i) {
-                let _e1250: vec2<f32> = texcoord_1;
-                let _e1254: vec2<f32> = texcoord_1;
-                let _e1258: f32 = t;
-                let _e1260: vec2<f32> = texcoord_1;
-                let _e1264: f32 = t;
-                let _e1268: vec2<f32> = texcoord_1;
-                let _e1272: vec2<f32> = texcoord_1;
-                let _e1276: f32 = t;
-                let _e1278: vec2<f32> = texcoord_1;
-                let _e1282: f32 = t;
+            let _e1284: i32 = global.cosmetic_effect;
+            if (_e1284 == 4i) {
                 let _e1287: vec2<f32> = texcoord_1;
-                let _e1291: vec2<f32> = texcoord_1;
-                let _e1295: f32 = t;
-                let _e1297: vec2<f32> = texcoord_1;
-                let _e1301: f32 = t;
-                let _e1305: vec2<f32> = texcoord_1;
-                let _e1309: vec2<f32> = texcoord_1;
-                let _e1313: f32 = t;
-                let _e1315: vec2<f32> = texcoord_1;
-                let _e1319: f32 = t;
-                let _e1326: vec2<f32> = texcoord_1;
-                let _e1330: vec2<f32> = texcoord_1;
-                let _e1334: f32 = t;
-                let _e1336: vec2<f32> = texcoord_1;
-                let _e1340: f32 = t;
+                let _e1290: f32 = t;
+                let _e1293: f32 = t;
+                let _e1299: vec2<f32> = texcoord_1;
+                let _e1302: f32 = t;
+                let _e1305: f32 = t;
+                let _e1311: f32 = cosmetic_soft_noise(((_e1299 * 16f) + vec2<f32>((_e1302 * 0.3f), (-(_e1305) * 0.5f))));
+                let _e1314: f32 = rim;
+                mask = ((_e1311 * 0.45f) + (_e1314 * 0.6f));
+            }
+            let _e1318: i32 = global.cosmetic_effect;
+            let _e1321: i32 = global.cosmetic_effect;
+            if ((_e1318 == 5i) || (_e1321 == 7i)) {
+                let _e1331: f32 = wave;
+                let _e1336: f32 = rim;
+                mask = ((0.12f + (smoothstep(0.65f, 0.95f, _e1331) * 0.65f)) + (_e1336 * 0.45f));
+            }
+            let _e1340: i32 = global.cosmetic_effect;
+            if (_e1340 == 6i) {
                 let _e1344: vec2<f32> = texcoord_1;
                 let _e1348: vec2<f32> = texcoord_1;
                 let _e1352: f32 = t;
                 let _e1354: vec2<f32> = texcoord_1;
                 let _e1358: f32 = t;
-                let _e1363: vec2<f32> = texcoord_1;
-                let _e1367: vec2<f32> = texcoord_1;
-                let _e1371: f32 = t;
-                let _e1373: vec2<f32> = texcoord_1;
-                let _e1377: f32 = t;
+                let _e1362: vec2<f32> = texcoord_1;
+                let _e1366: vec2<f32> = texcoord_1;
+                let _e1370: f32 = t;
+                let _e1372: vec2<f32> = texcoord_1;
+                let _e1376: f32 = t;
                 let _e1381: vec2<f32> = texcoord_1;
                 let _e1385: vec2<f32> = texcoord_1;
                 let _e1389: f32 = t;
                 let _e1391: vec2<f32> = texcoord_1;
                 let _e1395: f32 = t;
-                let _e1404: f32 = rim;
-                mask = ((0.12f + pow(abs(sin(((_e1381.x * 31f) + sin(((_e1391.y * 29f) + _e1395))))), 16f)) + (_e1404 * 0.5f));
+                let _e1399: vec2<f32> = texcoord_1;
+                let _e1403: vec2<f32> = texcoord_1;
+                let _e1407: f32 = t;
+                let _e1409: vec2<f32> = texcoord_1;
+                let _e1413: f32 = t;
+                let _e1420: vec2<f32> = texcoord_1;
+                let _e1424: vec2<f32> = texcoord_1;
+                let _e1428: f32 = t;
+                let _e1430: vec2<f32> = texcoord_1;
+                let _e1434: f32 = t;
+                let _e1438: vec2<f32> = texcoord_1;
+                let _e1442: vec2<f32> = texcoord_1;
+                let _e1446: f32 = t;
+                let _e1448: vec2<f32> = texcoord_1;
+                let _e1452: f32 = t;
+                let _e1457: vec2<f32> = texcoord_1;
+                let _e1461: vec2<f32> = texcoord_1;
+                let _e1465: f32 = t;
+                let _e1467: vec2<f32> = texcoord_1;
+                let _e1471: f32 = t;
+                let _e1475: vec2<f32> = texcoord_1;
+                let _e1479: vec2<f32> = texcoord_1;
+                let _e1483: f32 = t;
+                let _e1485: vec2<f32> = texcoord_1;
+                let _e1489: f32 = t;
+                let _e1498: f32 = rim;
+                mask = ((0.12f + pow(abs(sin(((_e1475.x * 31f) + sin(((_e1485.y * 29f) + _e1489))))), 16f)) + (_e1498 * 0.5f));
             }
-            let _e1408: i32 = global.cosmetic_effect;
-            if (_e1408 == 8i) {
-                let _e1411: f32 = wave;
-                let _e1414: f32 = rim;
-                mask = ((_e1411 * 0.35f) + (_e1414 * 0.7f));
+            let _e1502: i32 = global.cosmetic_effect;
+            if (_e1502 == 8i) {
+                let _e1505: f32 = wave;
+                let _e1508: f32 = rim;
+                mask = ((_e1505 * 0.35f) + (_e1508 * 0.7f));
             }
-            let _e1418: i32 = global.cosmetic_effect;
-            if (_e1418 == 9i) {
-                let _e1423: vec2<f32> = texcoord_1;
-                let _e1427: f32 = t;
-                let _e1429: vec2<f32> = texcoord_1;
-                let _e1433: f32 = t;
-                let _e1438: f32 = rim;
-                mask = ((0.5f + (0.5f * sin(((_e1429.x * 40f) + _e1433)))) * _e1438);
+            let _e1512: i32 = global.cosmetic_effect;
+            if (_e1512 == 9i) {
+                let _e1517: vec2<f32> = texcoord_1;
+                let _e1521: f32 = t;
+                let _e1523: vec2<f32> = texcoord_1;
+                let _e1527: f32 = t;
+                let _e1532: f32 = rim;
+                mask = ((0.5f + (0.5f * sin(((_e1523.x * 40f) + _e1527)))) * _e1532);
             }
-            let _e1443: vec3<f32> = global.cosmetic_primary;
-            let _e1444: vec3<f32> = global.cosmetic_secondary;
-            let _e1445: f32 = wave;
-            energy = mix(_e1443, _e1444, vec3(_e1445));
-            let _e1452: f32 = mask;
-            let _e1456: f32 = global.cosmetic_intensity;
-            let _e1458: f32 = pulse;
-            strength = ((clamp(_e1452, 0f, 1f) * _e1456) * _e1458);
-            let _e1461: i32 = global.cosmetic_preserve_palette;
-            if (_e1461 != 0i) {
-                let _e1464: f32 = strength;
-                strength = (_e1464 * 0.65f);
+            let _e1537: vec3<f32> = global.cosmetic_primary;
+            let _e1538: vec3<f32> = global.cosmetic_secondary;
+            let _e1539: f32 = wave;
+            energy = mix(_e1537, _e1538, vec3(_e1539));
+            let _e1546: f32 = mask;
+            let _e1550: f32 = global.cosmetic_intensity;
+            let _e1552: f32 = pulse;
+            strength = ((clamp(_e1546, 0f, 1f) * _e1550) * _e1552);
+            let _e1555: i32 = global.cosmetic_preserve_palette;
+            if (_e1555 != 0i) {
+                let _e1558: f32 = strength;
+                strength = (_e1558 * 0.65f);
             }
-            let _e1467: vec4<f32> = (*col);
-            let _e1469: vec4<f32> = (*col);
-            let _e1471: vec3<f32> = energy;
-            let _e1473: f32 = lum;
-            let _e1478: f32 = strength;
-            let _e1483: f32 = strength;
-            let _e1489: vec4<f32> = (*col);
-            let _e1491: vec3<f32> = energy;
-            let _e1493: f32 = lum;
-            let _e1498: f32 = strength;
-            let _e1503: f32 = strength;
-            let _e1510: vec3<f32> = mix(_e1489.xyz, (_e1491 * (0.4f + (_e1493 * 0.6f))), vec3(clamp((_e1503 * 0.55f), 0f, 0.65f)));
-            (*col).x = _e1510.x;
-            (*col).y = _e1510.y;
-            (*col).z = _e1510.z;
-            let _e1517: vec4<f32> = (*col);
-            let _e1519: vec4<f32> = (*col);
-            let _e1521: vec3<f32> = energy;
-            let _e1522: f32 = strength;
-            let _e1526: vec3<f32> = (_e1519.xyz + ((_e1521 * _e1522) * 0.45f));
-            (*col).x = _e1526.x;
-            (*col).y = _e1526.y;
-            (*col).z = _e1526.z;
+            let _e1561: vec4<f32> = (*col);
+            let _e1563: vec4<f32> = (*col);
+            let _e1565: vec3<f32> = energy;
+            let _e1567: f32 = lum;
+            let _e1572: f32 = strength;
+            let _e1577: f32 = strength;
+            let _e1583: vec4<f32> = (*col);
+            let _e1585: vec3<f32> = energy;
+            let _e1587: f32 = lum;
+            let _e1592: f32 = strength;
+            let _e1597: f32 = strength;
+            let _e1604: vec3<f32> = mix(_e1583.xyz, (_e1585 * (0.4f + (_e1587 * 0.6f))), vec3(clamp((_e1597 * 0.55f), 0f, 0.65f)));
+            (*col).x = _e1604.x;
+            (*col).y = _e1604.y;
+            (*col).z = _e1604.z;
+            let _e1611: vec4<f32> = (*col);
+            let _e1613: vec4<f32> = (*col);
+            let _e1615: vec3<f32> = energy;
+            let _e1616: f32 = strength;
+            let _e1620: vec3<f32> = (_e1613.xyz + ((_e1615 * _e1616) * 0.45f));
+            (*col).x = _e1620.x;
+            (*col).y = _e1620.y;
+            (*col).z = _e1620.z;
         }
     }
-    let _e1533: f32 = global.cosmetic_dissolve;
-    if (_e1533 > 0f) {
+    let _e1627: f32 = global.cosmetic_dissolve;
+    if (_e1627 > 0f) {
         {
-            let _e1536: vec2<f32> = texcoord_1;
-            let _e1539: vec2<f32> = texcoord_1;
-            let _e1543: vec2<f32> = texcoord_1;
-            let _e1546: vec2<f32> = texcoord_1;
-            let _e1550: f32 = cosmetic_noise(floor((_e1546 * 64f)));
-            n_2 = _e1550;
-            let _e1552: f32 = n_2;
-            let _e1553: f32 = global.cosmetic_dissolve;
-            if (_e1552 < _e1553) {
+            let _e1630: vec2<f32> = texcoord_1;
+            let _e1633: vec2<f32> = texcoord_1;
+            let _e1637: vec2<f32> = texcoord_1;
+            let _e1640: vec2<f32> = texcoord_1;
+            let _e1644: f32 = cosmetic_noise(floor((_e1640 * 64f)));
+            n_2 = _e1644;
+            let _e1646: f32 = n_2;
+            let _e1647: f32 = global.cosmetic_dissolve;
+            if (_e1646 < _e1647) {
                 discard;
             }
-            let _e1555: vec4<f32> = (*col);
-            let _e1557: vec4<f32> = (*col);
-            let _e1559: vec3<f32> = global.cosmetic_primary;
-            let _e1562: f32 = global.cosmetic_dissolve;
-            let _e1566: f32 = global.cosmetic_dissolve;
-            let _e1567: f32 = global.cosmetic_dissolve;
-            let _e1570: f32 = n_2;
-            let _e1576: vec3<f32> = (_e1557.xyz + ((_e1559 * (1f - smoothstep(_e1566, (_e1567 + 0.08f), _e1570))) * 0.3f));
-            (*col).x = _e1576.x;
-            (*col).y = _e1576.y;
-            (*col).z = _e1576.z;
+            let _e1649: vec4<f32> = (*col);
+            let _e1651: vec4<f32> = (*col);
+            let _e1653: vec3<f32> = global.cosmetic_primary;
+            let _e1656: f32 = global.cosmetic_dissolve;
+            let _e1660: f32 = global.cosmetic_dissolve;
+            let _e1661: f32 = global.cosmetic_dissolve;
+            let _e1664: f32 = n_2;
+            let _e1670: vec3<f32> = (_e1651.xyz + ((_e1653 * (1f - smoothstep(_e1660, (_e1661 + 0.08f), _e1664))) * 0.3f));
+            (*col).x = _e1670.x;
+            (*col).y = _e1670.y;
+            (*col).z = _e1670.z;
             return;
         }
     } else {
