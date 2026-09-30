@@ -2227,7 +2227,11 @@ namespace MphRead
             UpdateDepthAttachment(target);
             GL.Viewport(0, 0, target.X, target.Y);
             GL.UseProgram(_shaderProgramId);
-            ApplyCosmeticUniforms(default);
+            // Cosmetic submission values are entity-local. Clear both the shader
+            // surface and texture/material bridge before the room builds this frame,
+            // so a remote player's selected skin cannot seed world RenderItems.
+            ClearCosmeticSubmissionState();
+            ResetCosmeticUniforms();
             LoadAndUnload();
             _decalItems.Clear();
             _nonDecalItems.Clear();
@@ -4623,7 +4627,17 @@ namespace MphRead
                 }
                 if (player.LoadFlags.TestFlag(LoadFlags.Active))
                 {
-                    player.Draw();
+                    try
+                    {
+                        player.Draw();
+                    }
+                    finally
+                    {
+                        // Player rendering temporarily installs per-player albedo
+                        // and surface state. Treat the player boundary as hard so
+                        // remote cosmetics cannot bleed into later world entities.
+                        ClearCosmeticSubmissionState();
+                    }
                     // skdebug
                     player.GetDisplayVolumes();
                 }
