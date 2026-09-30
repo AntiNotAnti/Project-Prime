@@ -219,6 +219,10 @@ namespace MphRead.Mods
         public static Keys ReplaySlowerKey { get; set; } = Keys.LeftBracket;
         public static Keys ReplayFasterKey { get; set; } = Keys.RightBracket;
         public static Keys ReplayRestartKey { get; set; } = Keys.Home;
+        public static Keys ReplayCameraTrackKey { get; set; } = Keys.K;
+        public static Keys ReplayConstantSpeedKey { get; set; } = Keys.J;
+        public static Keys ReplayInterpolationKey { get; set; } = Keys.I;
+        public static Keys ReplayEasingKey { get; set; } = Keys.G;
 
         public static void ResetReplayBindings()
         {
@@ -230,6 +234,10 @@ namespace MphRead.Mods
             ReplaySlowerKey = Keys.LeftBracket;
             ReplayFasterKey = Keys.RightBracket;
             ReplayRestartKey = Keys.Home;
+            ReplayCameraTrackKey = Keys.K;
+            ReplayConstantSpeedKey = Keys.J;
+            ReplayInterpolationKey = Keys.I;
+            ReplayEasingKey = Keys.G;
             foreach (Input.PadAction action in Input.PadBindings.ReplayActions)
                 Input.PadBindings.Set(action, Input.PadBindings.Default(action));
         }
@@ -770,6 +778,10 @@ namespace MphRead.Mods
                 case "replay_slower": ReplaySlowerKey = parsed; return true;
                 case "replay_faster": ReplayFasterKey = parsed; return true;
                 case "replay_restart": ReplayRestartKey = parsed; return true;
+                case "replay_camera_track": ReplayCameraTrackKey = parsed; return true;
+                case "replay_constant_speed": ReplayConstantSpeedKey = parsed; return true;
+                case "replay_interpolation": ReplayInterpolationKey = parsed; return true;
+                case "replay_easing": ReplayEasingKey = parsed; return true;
                 default: return false;
             }
         }
@@ -845,6 +857,10 @@ namespace MphRead.Mods
                     $"replay_slower={SaveKey(ReplaySlowerKey)}",
                     $"replay_faster={SaveKey(ReplayFasterKey)}",
                     $"replay_restart={SaveKey(ReplayRestartKey)}",
+                    $"replay_camera_track={SaveKey(ReplayCameraTrackKey)}",
+                    $"replay_constant_speed={SaveKey(ReplayConstantSpeedKey)}",
+                    $"replay_interpolation={SaveKey(ReplayInterpolationKey)}",
+                    $"replay_easing={SaveKey(ReplayEasingKey)}",
                     $"clip_seconds={Network.DemoClip.Seconds.ToString(CultureInfo.InvariantCulture)}",
                     $"clip_postroll={Network.DemoClip.PostRollSeconds.ToString(CultureInfo.InvariantCulture)}",
                     "gamepad_deadzone=" + GamepadDeadZone.ToString(CultureInfo.InvariantCulture),
@@ -915,6 +931,10 @@ namespace MphRead.Mods
             ReplaySlowerKey = Keys.LeftBracket;
             ReplayFasterKey = Keys.RightBracket;
             ReplayRestartKey = Keys.Home;
+            ReplayCameraTrackKey = Keys.K;
+            ReplayConstantSpeedKey = Keys.J;
+            ReplayInterpolationKey = Keys.I;
+            ReplayEasingKey = Keys.G;
             Network.DemoClip.Seconds = 30;
             Network.DemoClip.PostRollSeconds = 3;
             Input.PadBindings.Reset();

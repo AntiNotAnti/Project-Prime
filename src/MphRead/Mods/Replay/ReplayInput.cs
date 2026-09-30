@@ -66,6 +66,10 @@ namespace MphRead.Mods.Replay
                 ReplayController.Seek((uint)System.Math.Min(
                     (ulong)ReplayController.CurrentFrame + 300,
                     ReplayController.DurationFrames));
+            else if (Hit(key, InputSettings.ReplayCameraTrackKey)) ReplayCamera.ToggleTrackPlayback();
+            else if (Hit(key, InputSettings.ReplayConstantSpeedKey)) ReplayCamera.ToggleConstantSpeed();
+            else if (Hit(key, InputSettings.ReplayInterpolationKey)) ReplayCamera.CycleInterpolation();
+            else if (Hit(key, InputSettings.ReplayEasingKey)) ReplayCamera.CycleEase();
             else
             {
                 switch (key)

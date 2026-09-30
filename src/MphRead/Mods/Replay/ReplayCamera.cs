@@ -78,6 +78,33 @@ namespace MphRead.Mods.Replay
             Changed = true;
             ReplayController.NoteInput();
         }
+        public static void ToggleTrackPlayback()
+        {
+            SetProfile(ReplayPresentationProfile.Presentation);
+            PlayTrack = !PlayTrack;
+            if (PlayTrack) Director = false;
+            EditStatus = $"Camera track: {(PlayTrack ? "ON" : "OFF")}.";
+        }
+        public static void ToggleConstantSpeed()
+        {
+            TrackConstantSpeed = !TrackConstantSpeed;
+            EditStatus = $"Constant speed: {(TrackConstantSpeed ? "ON" : "OFF")}.";
+            ReplayController.NoteInput();
+        }
+        internal static void CycleInterpolation()
+        {
+            int count = Enum.GetValues<ReplayCameraInterpolation>().Length;
+            TrackInterpolation = (ReplayCameraInterpolation)(((int)TrackInterpolation + 1) % count);
+            EditStatus = $"Interpolation: {TrackInterpolation}. Add or update a keyframe to save it.";
+            ReplayController.NoteInput();
+        }
+        internal static void CycleEase()
+        {
+            int count = Enum.GetValues<ReplayCameraEase>().Length;
+            TrackEase = (ReplayCameraEase)(((int)TrackEase + 1) % count);
+            EditStatus = $"Easing: {TrackEase}. Add or update a keyframe to save it.";
+            ReplayController.NoteInput();
+        }
         internal static void ClearBookmarks()
         {
             Track.Clear(); _trackPath = null; _bookmarkIndex = 0;

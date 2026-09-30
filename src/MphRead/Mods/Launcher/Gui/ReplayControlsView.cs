@@ -48,6 +48,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly DeckButton _playPause;
         private readonly DeckButton _director;
         private readonly DeckButton _track;
+        private readonly DeckButton _constantSpeed;
+        private readonly DeckButton _interpolation;
+        private readonly DeckButton _ease;
         private readonly DeckButton _collision;
         private readonly DeckButton _nameTags;
         private readonly DeckButton _first;
@@ -325,7 +328,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
 
             _director = AddCamera("DIRECTOR", ToggleDirector, Deck.Face.Brass);
-            _track = AddCamera("CAMERA TRACK", ToggleTrack, Deck.Face.Brass);
+            _track = AddCamera("CAMERA TRACK", ReplayCamera.ToggleTrackPlayback, Deck.Face.Brass);
             AddCamera("ADD KEYFRAME [B]", ReplayCamera.Bookmark);
             AddCamera("UPDATE SELECTED", ReplayCamera.UpdateSelectedKeyframe);
             AddCamera("PREVIOUS KEY", () => ReplayCamera.SelectAdjacentKeyframe(-1));
@@ -343,8 +346,8 @@ namespace MphRead.Mods.Launcher.Gui
                 ReplayCamera.SnapCurrentKeyframe(e => e.Type == ReplayEventType.Kill),
                 "Keyframe snapped to nearest kill."));
             AddCamera("SNAP TO BOOKMARK", SnapCameraToBookmark);
-            AddCamera("INTERPOLATION", CycleInterpolation);
-            AddCamera("EASING", CycleEase);
+            _interpolation = AddCamera("INTERPOLATION", ReplayCamera.CycleInterpolation);
+            _ease = AddCamera("EASING", ReplayCamera.CycleEase);
             AddCamera("ROLL -5°", () => ReplayCamera.AdjustLens(0, -5));
             AddCamera("ROLL +5°", () => ReplayCamera.AdjustLens(0, 5));
             AddCamera("FOV -5°", () => ReplayCamera.AdjustLens(-5, 0));
@@ -354,8 +357,7 @@ namespace MphRead.Mods.Launcher.Gui
                 int slot = DemoPlayback.PresentationScene?.Players.MainPlayerIndex ?? PlayerEntity.MainPlayerIndex;
                 ReplayCamera.LookAtSlot = ReplayCamera.LookAtSlot == slot ? -1 : slot;
             });
-            AddCamera("CONSTANT SPEED", () =>
-                ReplayCamera.TrackConstantSpeed = !ReplayCamera.TrackConstantSpeed);
+            _constantSpeed = AddCamera("CONSTANT SPEED", ReplayCamera.ToggleConstantSpeed);
             _collision = AddCamera("PATH COLLISION", () =>
                 ReplayCamera.TrackCollisionAvoidance = !ReplayCamera.TrackCollisionAvoidance);
             _nameTags = AddCamera("PLAYER NAMES", ToggleNameTags);
@@ -911,11 +913,13 @@ namespace MphRead.Mods.Launcher.Gui
             Refresh();
         }
 
+        private static string ShortcutKey(OpenTK.Windowing.GraphicsLibraryFramework.Keys key)
+            => key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.Unknown
+                ? "unbound" : InputSettings.KeyName(key);
+
         private static string ShortcutText()
         {
-            string Key(OpenTK.Windowing.GraphicsLibraryFramework.Keys key)
-                => key == OpenTK.Windowing.GraphicsLibraryFramework.Keys.Unknown
-                    ? "unbound" : InputSettings.KeyName(key);
+            string Key(OpenTK.Windowing.GraphicsLibraryFramework.Keys key) => ShortcutKey(key);
             string Pad(Mods.Input.PadAction action)
             {
                 for (int slot = 0; slot < 2; slot++)
@@ -929,6 +933,10 @@ namespace MphRead.Mods.Launcher.Gui
             return "Camera: F free camera · C first person/chase · O orbit · 1–8 watch player\n"
                 + "WASD move · E/V up/down · Shift faster · mouse look (drag in preview)\n"
                 + "B add keyframe · N next keyframe · Delete remove selected · -/+ FOV · ;/' roll\n"
+                + $"Camera track: {Key(InputSettings.ReplayCameraTrackKey)} on/off · "
+                + $"{Key(InputSettings.ReplayConstantSpeedKey)} constant speed · "
+                + $"{Key(InputSettings.ReplayInterpolationKey)} interpolation · "
+                + $"{Key(InputSettings.ReplayEasingKey)} easing\n"
                 + $"Keyboard: {Key(InputSettings.ReplayPlayPauseKey)} play/pause · "
                 + $"{Key(InputSettings.ReplayStepBackKey)}/{Key(InputSettings.ReplayStepForwardKey)} step · "
                 + $"{Key(InputSettings.ReplaySlowerKey)}/{Key(InputSettings.ReplayFasterKey)} speed · "
@@ -943,13 +951,6 @@ namespace MphRead.Mods.Launcher.Gui
             ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation);
             ReplayCamera.Director = !ReplayCamera.Director;
             if (ReplayCamera.Director) ReplayCamera.PlayTrack = false;
-        }
-
-        private void ToggleTrack()
-        {
-            ReplayCamera.SetProfile(ReplayPresentationProfile.Presentation);
-            ReplayCamera.PlayTrack = !ReplayCamera.PlayTrack;
-            if (ReplayCamera.PlayTrack) ReplayCamera.Director = false;
         }
 
         private void ReportCameraEdit(bool changed, string success)
@@ -972,19 +973,6 @@ namespace MphRead.Mods.Launcher.Gui
         {
             LauncherPrefs.SpectatorNameTags = !LauncherPrefs.SpectatorNameTags;
             LauncherPrefs.Save();
-        }
-
-        private static void CycleInterpolation()
-        {
-            int count = Enum.GetValues<ReplayCameraInterpolation>().Length;
-            ReplayCamera.TrackInterpolation = (ReplayCameraInterpolation)
-                (((int)ReplayCamera.TrackInterpolation + 1) % count);
-        }
-
-        private static void CycleEase()
-        {
-            int count = Enum.GetValues<ReplayCameraEase>().Length;
-            ReplayCamera.TrackEase = (ReplayCameraEase)(((int)ReplayCamera.TrackEase + 1) % count);
         }
 
         private void CycleCamera()
@@ -1233,7 +1221,14 @@ namespace MphRead.Mods.Launcher.Gui
             _playPause.Text = ReplayController.AtEnd ? "RESTART"
                 : ReplayController.IsPaused ? "PLAY" : "PAUSE";
             _director.Text = ReplayCamera.Director ? "DIRECTOR: ON" : "DIRECTOR: OFF";
-            _track.Text = ReplayCamera.PlayTrack ? "CAMERA TRACK: ON" : "CAMERA TRACK: OFF";
+            _track.Text = $"CAMERA TRACK [{ShortcutKey(InputSettings.ReplayCameraTrackKey)}]: "
+                + (ReplayCamera.PlayTrack ? "ON" : "OFF");
+            _constantSpeed.Text = $"CONSTANT SPEED [{ShortcutKey(InputSettings.ReplayConstantSpeedKey)}]: "
+                + (ReplayCamera.TrackConstantSpeed ? "ON" : "OFF");
+            _interpolation.Text = $"INTERPOLATION [{ShortcutKey(InputSettings.ReplayInterpolationKey)}]: "
+                + ReplayCamera.TrackInterpolation.ToString().ToUpperInvariant();
+            _ease.Text = $"EASING [{ShortcutKey(InputSettings.ReplayEasingKey)}]: "
+                + ReplayCamera.TrackEase.ToString().ToUpperInvariant();
             _collision.Text = ReplayCamera.TrackCollisionAvoidance
                 ? "PATH COLLISION: ON" : "PATH COLLISION: OFF";
             _nameTags.Text = LauncherPrefs.SpectatorNameTags
@@ -1327,7 +1322,37 @@ namespace MphRead.Mods.Launcher.Gui
                 e.Handled = true;
                 return;
             }
+            if (e.Source is not TextBox && TryReplayKey(e.Key, out var key)
+                && (key == InputSettings.ReplayCameraTrackKey
+                    || key == InputSettings.ReplayConstantSpeedKey
+                    || key == InputSettings.ReplayInterpolationKey
+                    || key == InputSettings.ReplayEasingKey)
+                && ReplayInput.HandleKey(key, editor: true))
+            {
+                _message = "";
+                Refresh();
+                e.Handled = true;
+                return;
+            }
             base.OnKeyDown(e);
+        }
+
+        private static bool TryReplayKey(Key key,
+            out OpenTK.Windowing.GraphicsLibraryFramework.Keys replayKey)
+        {
+            string name = key switch
+            {
+                Key.OemOpenBrackets => "LeftBracket",
+                Key.OemCloseBrackets => "RightBracket",
+                Key.OemSemicolon => "Semicolon",
+                Key.OemQuotes => "Apostrophe",
+                Key.OemComma => "Comma",
+                Key.OemPeriod => "Period",
+                Key.OemPlus => "Equal",
+                Key.OemMinus => "Minus",
+                _ => key.ToString()
+            };
+            return Enum.TryParse(name, out replayKey);
         }
     }
 }
