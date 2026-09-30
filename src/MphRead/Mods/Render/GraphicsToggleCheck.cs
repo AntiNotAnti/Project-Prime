@@ -19,15 +19,33 @@ namespace MphRead
                 GL.UseProgram(_shaderProgramId);
                 var active = new Mods.Cosmetics.CosmeticSurface(1, 6, 1, OpenTK.Mathematics.Vector3.One,
                     OpenTK.Mathematics.Vector3.One, 0.3f, 2, 1);
+                int cosmeticEffect = GL.GetUniformLocation(_shaderProgramId, "cosmetic_effect");
                 for (int cycle = 0; cycle < 2; cycle++)
                 {
                     ApplyCosmeticUniforms(active);
-                    GL.GetUniform(_shaderProgramId, GL.GetUniformLocation(_shaderProgramId, "cosmetic_effect"), out int effect);
+                    GL.GetUniform(_shaderProgramId, cosmeticEffect, out int effect);
                     if (effect != 6) throw new InvalidOperationException("Cosmetic uniforms did not enable");
                     ApplyCosmeticUniforms(default); ApplyCosmeticUniforms(default);
-                    GL.GetUniform(_shaderProgramId, GL.GetUniformLocation(_shaderProgramId, "cosmetic_effect"), out effect);
+                    GL.GetUniform(_shaderProgramId, cosmeticEffect, out effect);
                     if (effect != 0) throw new InvalidOperationException("Cosmetic uniforms remained active after Off");
                 }
+
+                // Reproduce the failure mode the world-pass boundary protects:
+                // the cache says neutral while the actual program contains a
+                // remote player's cosmetic value. A forced reset must repair it.
+                ApplyCosmeticUniforms(default);
+                GL.Uniform1(cosmeticEffect, 6);
+                ResetCosmeticUniforms();
+                GL.GetUniform(_shaderProgramId, cosmeticEffect, out int resetEffect);
+                if (resetEffect != 0)
+                    throw new InvalidOperationException("Cosmetic boundary reset retained a remote surface effect");
+
+                CosmeticSubmission = active;
+                CosmeticMaterialSubmission = new Mods.Cosmetics.Skins.RenderMaterialOverride(11, 12, 13, 14);
+                ClearCosmeticSubmissionState();
+                if (CosmeticSubmission != default || CosmeticMaterialSubmission != default)
+                    throw new InvalidOperationException("Cosmetic submission state leaked across an entity boundary");
+
                 GL.UseProgram(0);
                 var sources = _textureSources.ToArray();
                 int owned = _ownedTextures.Count;

@@ -42,6 +42,10 @@ namespace MphRead
             GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
             GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
             GL.UseProgram(_shaderProgramId);
+            // A secondary pass can finish on a skinned remote player. Start every
+            // world pass from a hard neutral cosmetic state so room geometry can
+            // never inherit that player's shader surface.
+            ResetCosmeticUniforms();
             ClearRenderTextures();
             GL.Enable(EnableCap.DepthTest);
             GL.DepthMask(true);
