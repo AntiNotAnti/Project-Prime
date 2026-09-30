@@ -51,6 +51,13 @@ namespace MphRead.Mods
                 Environment.ExitCode = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
                 return true;
             }
+#if !ANDROID
+            if (HasFlag(args, "renderwindowcheck"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsWindowCheck.Run(ValueAfter(args, "renderer"));
+                return true;
+            }
+#endif
 #endif
             if (ValueAfter(args, "fpsscenario") is string scenarioPath)
             {

@@ -478,7 +478,6 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 GetPName.CurrentProgram => self._programs.CurrentProgram,
                 GetPName.DrawFramebufferBinding => self._resources.DrawFramebuffer,
                 GetPName.ReadFramebufferBinding => self._resources.ReadFramebuffer,
-                GetPName.FramebufferBinding => self._resources.DrawFramebuffer,
                 GetPName.RenderbufferBinding => self._resources.BoundRenderbuffer,
                 GetPName.ActiveTexture => (int)TextureUnit.Texture0 + self._resources.ActiveTextureUnit,
                 GetPName.TextureBinding2D => self._resources.BoundTexture(self._resources.ActiveTextureUnit),
@@ -630,7 +629,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_width == 0 || _height == 0) return false;
 
             _surfaceTexture = default;
-            _api.SurfaceGetCurrentTexture(_device.Surface, &_surfaceTexture);
+            SurfaceTexture acquired = default;
+            _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
+            _surfaceTexture = acquired;
             if (_surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success
                 || _surfaceTexture.Texture == null)
             {
@@ -647,7 +648,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                     PresentMode = PresentMode.Fifo
                 };
                 _api.SurfaceConfigure(_device.Surface, config);
-                _api.SurfaceGetCurrentTexture(_device.Surface, &_surfaceTexture);
+                acquired = default;
+                _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
+                _surfaceTexture = acquired;
             }
             if (_surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success
                 || _surfaceTexture.Texture == null)

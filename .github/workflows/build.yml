@@ -39,6 +39,91 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+  modern-renderer-windows:
+    name: modern renderer DX12 smoke
+    needs: assets
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: publish focused renderer build
+        shell: pwsh
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -o publish/modern-win
+      - name: backend policy, device, draw and window present
+        shell: pwsh
+        run: |
+          publish/modern-win/ProjectPrime.exe -renderbackendcheck
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          publish/modern-win/ProjectPrime.exe -renderbackendprobe -renderer dx12
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          publish/modern-win/ProjectPrime.exe -renderwindowcheck -renderer dx12
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+  modern-renderer-linux:
+    name: modern renderer Vulkan smoke
+    needs: assets
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: install software Vulkan and X11
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y xvfb xauth mesa-vulkan-drivers libx11-6 libxrandr2 libxi6 libxcursor1 libxinerama1
+      - name: publish focused renderer build
+        run: >
+          dotnet publish src/MphRead/MphRead.csproj
+          -c Release -r linux-x64 --self-contained true
+          -p:PublishSingleFile=true -o publish/modern-linux
+      - name: backend policy and Vulkan device/draw
+        run: |
+          publish/modern-linux/ProjectPrime -renderbackendcheck
+          publish/modern-linux/ProjectPrime -renderbackendprobe -renderer vulkan
+      - name: Vulkan window present through GLFW
+        run: |
+          xvfb-run -a --server-args="-screen 0 640x480x24" \
+            publish/modern-linux/ProjectPrime -renderwindowcheck -renderer vulkan
+
+  modern-renderer-macos:
+    name: modern renderer macOS ${{ matrix.rid }}
+    needs: assets
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: osx-arm64
+            runner: macos-latest
+          - rid: osx-x64
+            runner: macos-15-intel
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: build pinned wgpu-native with Metal and Vulkan portability
+        run: tools/wgpu/build-native.sh "${{ matrix.rid }}"
+      - name: publish focused renderer build
+        run: |
+          dotnet publish src/MphRead/MphRead.csproj -c Release -r "${{ matrix.rid }}" \
+            --self-contained true -p:PublishSingleFile=true -o "publish/modern-${{ matrix.rid }}"
+          chmod +x "publish/modern-${{ matrix.rid }}/ProjectPrime"
+      - name: Metal device, draw and window present
+        run: |
+          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderbackendprobe -renderer metal
+          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderwindowcheck -renderer metal
+      - name: MoltenVK device, draw and window present
+        run: |
+          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderbackendprobe -renderer vulkan
+          "publish/modern-${{ matrix.rid }}/ProjectPrime" -renderwindowcheck -renderer vulkan
+
   enhanced-hunter-checks:
     name: enhanced hunter regressions
     needs: assets
