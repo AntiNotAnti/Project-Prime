@@ -1,10 +1,14 @@
-#if !ANDROID && !MPHREAD_SERVER
+#if !MPHREAD_SERVER
 using System;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Common;
+#if ANDROID
+using DesktopGL = MphRead.Mods.Render.GlEs;
+#else
 using DesktopGL = OpenTK.Graphics.OpenGL.GL;
+#endif
 
 namespace MphRead.Mods.Render
 {
@@ -19,7 +23,9 @@ namespace MphRead.Mods.Render
 
         public static void LoadBindings(IBindingsContext context)
         {
+#if !ANDROID
             if (!Modern) DesktopGL.LoadBindings(context);
+#endif
         }
 
         public static void Begin(PrimitiveType mode) { if (Modern) ModernGraphicsCompat.Begin(mode); else DesktopGL.Begin(mode); }
@@ -160,7 +166,7 @@ namespace MphRead.Mods.Render
         public static bool IsEnabled(EnableCap cap) => Modern ? ModernGraphicsCompat.IsEnabled(cap) : DesktopGL.IsEnabled(cap);
         public static void AlphaFunc(AlphaFunction function, float reference) { if (Modern) ModernGraphicsCompat.AlphaFunc(function, reference); else DesktopGL.AlphaFunc(function, reference); }
         public static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode)
-        { if (Modern) ModernGraphicsCompat.PolygonMode(face, mode); else DesktopGL.PolygonMode((MaterialFace)(int)face, mode); }
+        { if (Modern) ModernGraphicsCompat.PolygonMode(face, mode); else DesktopGL.PolygonMode(face, mode); }
         public static void LineWidth(float width) { if (Modern) ModernGraphicsCompat.LineWidth(width); else DesktopGL.LineWidth(width); }
         public static void Clear(ClearBufferMask mask) { if (Modern) ModernGraphicsCompat.Clear(mask); else DesktopGL.Clear(mask); }
         public static void ClearColor(Color4 color) { if (Modern) ModernGraphicsCompat.ClearColor(color); else DesktopGL.ClearColor(color); }

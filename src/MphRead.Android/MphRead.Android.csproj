@@ -119,6 +119,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\MphRead\Mods\Render\Generated\*.wgsl"
+                      LogicalName="MphRead.Mods.Render.Generated.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\MphRead\Assets\Fonts\Roboto-Bold.ttf" Link="Assets\Fonts\Roboto-Bold.ttf" />
     <EmbeddedResource Include="..\MphRead\Assets\Sounds\Combat\*.wav"
                       Link="Assets\Sounds\Combat\%(Filename)%(Extension)" />
@@ -209,7 +211,7 @@
          so the call sites do not change and the desktop build does not see
          any of it. The enum types they pass are still the desktop ones:
          the same GL constants, which GlEs casts across. -->
-    <Using Include="MphRead.Mods.Render.GlEs" Alias="GL" />
+    <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
     <!-- And the whole of the sound effects, in two more.
 
          Same problem, same shape of answer. Every sound effect the engine

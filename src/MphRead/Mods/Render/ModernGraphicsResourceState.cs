@@ -25,7 +25,12 @@ namespace MphRead.Mods.Render
             internal int MagFilter = (int)TextureMagFilter.Nearest;
             internal int WrapS = (int)TextureWrapMode.Repeat;
             internal int WrapT = (int)TextureWrapMode.Repeat;
+            internal bool FramebufferOrigin;
             internal bool HasMipmaps;
+            internal int NativeMipCount = 1;
+            internal bool MipmapsDirty;
+            internal int Anisotropy = 1;
+            internal bool SamplerDirty = true;
             internal bool Dirty = true;
         }
 
@@ -60,6 +65,16 @@ namespace MphRead.Mods.Render
         internal int DrawFramebuffer { get; private set; }
         internal int ReadFramebuffer { get; private set; }
         internal int BoundRenderbuffer { get; private set; }
+
+        internal void InvalidateNativeResources()
+        {
+            foreach (var texture in _textures.Values)
+            {
+                texture.Dirty = texture.SamplerDirty = true;
+                texture.MipmapsDirty = texture.HasMipmaps;
+            }
+            foreach (var renderbuffer in _renderbuffers.Values) renderbuffer.Dirty = true;
+        }
 
         internal int GenTexture()
         {
@@ -115,23 +130,30 @@ namespace MphRead.Mods.Render
             switch (name)
             {
             case TextureParameterName.TextureMinFilter:
+                if (record.MinFilter == value) return;
                 record.MinFilter = value;
                 break;
             case TextureParameterName.TextureMagFilter:
+                if (record.MagFilter == value) return;
                 record.MagFilter = value;
                 break;
             case TextureParameterName.TextureWrapS:
+                if (record.WrapS == value) return;
                 record.WrapS = value;
                 break;
             case TextureParameterName.TextureWrapT:
+                if (record.WrapT == value) return;
                 record.WrapT = value;
                 break;
-            default:
-                // Anisotropy and other optional hints are handled by the GPU
-                // sampler builder; retaining the texture itself is sufficient.
+            case (TextureParameterName)0x84FE: // GL_TEXTURE_MAX_ANISOTROPY_EXT
+                value = Math.Clamp(value, 1, 16);
+                if (record.Anisotropy == value) return;
+                record.Anisotropy = value;
                 break;
+            default:
+                return;
             }
-            record.Dirty = true;
+            record.SamplerDirty = true;
         }
 
         internal void GenerateMipmap(GenerateMipmapTarget target)
@@ -140,7 +162,8 @@ namespace MphRead.Mods.Render
                 throw new NotSupportedException($"Mipmap target {target} is not supported.");
             TextureRecord record = BoundTextureRecord(TextureTarget.Texture2D);
             record.HasMipmaps = true;
-            record.Dirty = true;
+            record.MipmapsDirty = true;
+            record.SamplerDirty = true;
         }
 
         internal void TexImage2D(TextureTarget target, PixelInternalFormat internalFormat,
@@ -241,6 +264,7 @@ namespace MphRead.Mods.Render
         internal bool IsFramebufferTexture(int texture)
         {
             if (texture == 0) return false;
+            if (_textures.TryGetValue(texture, out var record) && record.FramebufferOrigin) return true;
             foreach (FramebufferRecord framebuffer in _framebuffers.Values)
             {
                 if (framebuffer.ColorTexture == texture
@@ -265,7 +289,13 @@ namespace MphRead.Mods.Render
             int framebuffer = BoundFramebuffer(target);
             if (framebuffer == 0)
                 throw new InvalidOperationException("Cannot attach a texture to the default framebuffer.");
-            if (texture != 0) EnsureTexture(texture);
+            if (texture != 0)
+            {
+                EnsureTexture(texture);
+                // Attachment rotation (for example the three PBR targets) must
+                // not forget the image's origin when it is later sampled.
+                _textures[texture].FramebufferOrigin = true;
+            }
             FramebufferRecord record = Framebuffer(framebuffer);
             switch (attachment)
             {
@@ -429,6 +459,7 @@ namespace MphRead.Mods.Render
             record.InternalFormat = internalFormat;
             record.Format = format;
             record.Type = type;
+            record.FramebufferOrigin = false;
             record.HasMipmaps = false;
             record.Dirty = true;
         }
@@ -443,7 +474,16 @@ namespace MphRead.Mods.Render
                 // paths use the same source format they allocated with.
                 throw new NotSupportedException("Texture sub-image format conversion is not required by Project Prime.");
             }
+            // Validate the entire rectangle before mutating CPU storage. A row
+            // that spills into the next row is still outside the texture.
+            if (x < 0 || y < 0 || width < 0 || height < 0
+                || x > record.Width || y > record.Height
+                || width > record.Width - x || height > record.Height - y)
+                throw new ArgumentOutOfRangeException(nameof(width), "Texture sub-image exceeds its allocation.");
             int pixelBytes = BytesPerPixel(format, type);
+            if (source.Length < checked(width * height * pixelBytes))
+                throw new ArgumentException("Texture sub-image source is too short.", nameof(source));
+            if (width == 0 || height == 0) return;
             int destinationBytes = checked(record.Width * record.Height * pixelBytes);
             record.Pixels ??= new byte[destinationBytes];
             if (record.Pixels.Length < destinationBytes)
@@ -484,7 +524,7 @@ namespace MphRead.Mods.Render
             return checked(Math.Max(0, width) * Math.Max(0, height) * BytesPerPixel(format, type));
         }
 
-        private static int BytesPerPixel(PixelFormat format, PixelType type)
+        internal static int BytesPerPixel(PixelFormat format, PixelType type)
         {
             if (format == PixelFormat.DepthStencil && type == PixelType.UnsignedInt248) return 4;
             int components = format switch
@@ -503,6 +543,7 @@ namespace MphRead.Mods.Render
                 PixelType.Byte => 1,
                 PixelType.UnsignedShort => 2,
                 PixelType.Short => 2,
+                PixelType.HalfFloat => 2,
                 PixelType.UnsignedInt => 4,
                 PixelType.Int => 4,
                 PixelType.Float => 4,

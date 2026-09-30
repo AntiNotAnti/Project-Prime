@@ -15,7 +15,7 @@ namespace MphRead.Mods.Render
     internal static unsafe class ModernGraphicsSurface
     {
         private static nint _quartzCore;
-        internal static Surface* Create(NativeWindow window, WebGPU api, Instance* instance)
+        internal static Surface* Create(NativeWindow window, WebGPU api, Instance* instance, GraphicsBackend backend)
         {
             var descriptor = new SurfaceDescriptor();
             OpenTK.Windowing.GraphicsLibraryFramework.Platform platform = GLFW.GetPlatform();
@@ -72,6 +72,8 @@ namespace MphRead.Mods.Render
 
             case OpenTK.Windowing.GraphicsLibraryFramework.Platform.Cocoa:
                 {
+                    if (backend == GraphicsBackend.Vulkan)
+                        return Require(CreateAppKitSurface(instance, GLFW.GetCocoaView(window.WindowPtr)), platform);
                     IntPtr layer = AttachMetalLayer(window);
                     var native = new SurfaceDescriptorFromMetalLayer
                     {
@@ -123,7 +125,10 @@ namespace MphRead.Mods.Render
             return layer;
         }
 
-                private static Surface* Require(Surface* surface,
+        [DllImport("libwgpu_native.dylib", EntryPoint = "primeInstanceCreateSurfaceAppKit")]
+        private static extern Surface* CreateAppKitSurface(Instance* instance, nint view);
+
+        private static Surface* Require(Surface* surface,
             OpenTK.Windowing.GraphicsLibraryFramework.Platform platform)
         {
             if (surface == null)

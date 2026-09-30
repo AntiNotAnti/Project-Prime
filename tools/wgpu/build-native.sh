@@ -38,6 +38,13 @@ git -C "$src" checkout --detach "$commit"
 git -C "$src" submodule sync --recursive
 git -C "$src" submodule update --init --recursive --depth 1
 
+# Keep the ABI pin, adding only the AppKit-view surface entry point required
+# by Vulkan portability. The upstream MetalLayer entry point is Metal-only.
+cp "$repo/tools/wgpu/prime-appkit-surface.rs" "$src/prime-appkit-surface.rs"
+if ! grep -Fq 'prime-appkit-surface.rs' "$src/src/lib.rs"; then
+    printf '\ninclude!(concat!(env!("CARGO_MANIFEST_DIR"), "/prime-appkit-surface.rs"));\n' >> "$src/src/lib.rs"
+fi
+
 export CARGO_TARGET_DIR="$target"
 features=wgsl,glsl
 

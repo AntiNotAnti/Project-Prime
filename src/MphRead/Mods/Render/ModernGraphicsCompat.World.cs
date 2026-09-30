@@ -1,4 +1,4 @@
-#if !ANDROID && !MPHREAD_SERVER
+#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using OpenTK.Graphics.OpenGL;
@@ -25,6 +25,7 @@ namespace MphRead.Mods.Render
             PrimitiveTopology Topology,
             WgpuTextureFormat ColorFormat,
             bool HasDepth,
+            WgpuTextureFormat DepthFormat,
             bool DepthTest,
             bool DepthWrite,
             DepthFunction DepthFunction,
@@ -57,12 +58,14 @@ namespace MphRead.Mods.Render
         private readonly struct CoreTarget
         {
             internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
-                WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height)
+                WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
+                WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8)
             {
                 ColorTexture = colorTexture;
                 ColorView = colorView;
                 ColorFormat = colorFormat;
                 DepthView = depthView;
+                DepthFormat = depthFormat;
                 Width = width;
                 Height = height;
             }
@@ -71,6 +74,8 @@ namespace MphRead.Mods.Render
             internal TextureView* ColorView { get; }
             internal WgpuTextureFormat ColorFormat { get; }
             internal TextureView* DepthView { get; }
+            internal WgpuTextureFormat DepthFormat { get; }
+            internal bool HasStencil => HasDepth && DepthFormat == WgpuTextureFormat.Depth24PlusStencil8;
             internal int Width { get; }
             internal int Height { get; }
             internal bool HasDepth => DepthView != null;
@@ -107,19 +112,13 @@ namespace MphRead.Mods.Render
 
         private void CreateCoreShaders()
         {
-            _worldShader = CreateWgslModule(ModernGraphicsShaders.World);
-            _rttShader = CreateWgslModule(ModernGraphicsShaders.Rtt);
-            _shiftShader = CreateWgslModule(ModernGraphicsShaders.Shift);
-            _celShader = CreateWgslModule(ModernGraphicsShaders.Cel);
-            _playerOutlineShader = CreateWgslModule(ModernGraphicsShaders.PlayerOutline);
-            _toneMapShader = CreateWgslModule(ModernGraphicsShaders.ToneMap);
-            _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
-                Usage = BufferUsage.Uniform | BufferUsage.CopyDst
-            });
-            if (_uniformBuffer == null)
-                throw new InvalidOperationException("Could not allocate modern compatibility uniform buffer.");
+            _worldShader = CreateViewportShader(ModernGraphicsShaders.World);
+            _rttShader = CreateViewportShader(ModernGraphicsShaders.Rtt);
+            _shiftShader = CreateViewportShader(ModernGraphicsShaders.Shift);
+            _celShader = CreateViewportShader(ModernGraphicsShaders.Cel);
+            _playerOutlineShader = CreateViewportShader(ModernGraphicsShaders.PlayerOutline);
+            _toneMapShader = CreateViewportShader(ModernGraphicsShaders.ToneMap);
+
         }
 
         private void DisposeCoreShaders()
@@ -142,11 +141,6 @@ namespace MphRead.Mods.Render
             }
             _blitPipelines.Clear();
 
-            if (_uniformBuffer != null)
-            {
-                _api.BufferRelease(_uniformBuffer);
-                _uniformBuffer = null;
-            }
             if (_toneMapShader != null)
             {
                 _api.ShaderModuleRelease(_toneMapShader);
@@ -178,6 +172,15 @@ namespace MphRead.Mods.Render
                 _worldShader = null;
             }
         }
+
+        private OpenTK.Mathematics.Vector4 ViewportTransform(int width, int height) => new(
+            _viewportWidth / (float)width, _viewportHeight / (float)height,
+            (2f * _viewportX + _viewportWidth) / width - 1f,
+            (2f * _viewportY + _viewportHeight) / height - 1f);
+
+        private ShaderModule* CreateViewportShader(string source) => CreateWgslModule(source.Replace(
+            "return output;", "let vp = bitcast<vec4<f32>>(u.data[319]); "
+            + "output.position = vec4<f32>(output.position.xy * vp.xy + vp.zw * output.position.w, output.position.zw); return output;"));
 
         private ShaderModule* CreateWgslModule(string source)
         {
@@ -227,7 +230,7 @@ namespace MphRead.Mods.Render
                 if (!AcquireSurfaceTexture())
                     throw new InvalidOperationException("No WebGPU surface texture is available.");
                 return new CoreTarget(_surfaceTexture.Texture, _surfaceView, _surfaceFormat,
-                    null, (int)_width, (int)_height);
+                    EnsureSurfaceDepth(), (int)_width, (int)_height);
             }
 
             ModernGraphicsResourceState.FramebufferRecord framebuffer = _resources.Framebuffer(framebufferId);
@@ -237,12 +240,15 @@ namespace MphRead.Mods.Render
             NativeTexture color = EnsureTexture(framebuffer.ColorTexture);
             ModernGraphicsResourceState.TextureRecord colorRecord = _resources.Texture(framebuffer.ColorTexture);
             TextureView* depth = null;
+            WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8;
 
             int depthTexture = framebuffer.DepthStencilTexture != 0
                 ? framebuffer.DepthStencilTexture : framebuffer.DepthTexture;
             if (depthTexture != 0)
             {
-                depth = EnsureTexture(depthTexture).View;
+                NativeTexture nativeDepth = EnsureTexture(depthTexture);
+                depth = nativeDepth.View;
+                depthFormat = nativeDepth.Format;
             }
             else
             {
@@ -255,7 +261,7 @@ namespace MphRead.Mods.Render
             }
 
             return new CoreTarget(color.Texture, color.View, ColorFormat(colorRecord), depth,
-                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height));
+                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat);
         }
 
         private NativeRenderbuffer EnsureRenderbuffer(int id)
@@ -308,12 +314,43 @@ namespace MphRead.Mods.Render
             return NativeTextureFormat(record);
         }
 
+        // Every compatibility operation records, ends and submits its own pass.
+        // Validate before allocating draw resources: inactive GL bindings must
+        // never enter a WebGPU usage scope, even behind a uniform shader branch.
+        private int ValidateRenderPassResources(int unit, bool required, CoreTarget target)
+        {
+            int id = required ? _resources.BoundTexture(unit) : 0;
+            if (id == 0) return 0;
+            NativeTexture texture = EnsureTexture(id);
+            string? attachment = texture.Texture == target.ColorTexture ? "ColorAttachment" : null;
+            if (_resources.DrawFramebuffer != 0)
+            {
+                var framebuffer = _resources.Framebuffer(_resources.DrawFramebuffer);
+                if (id == framebuffer.DepthTexture || id == framebuffer.DepthStencilTexture)
+                    attachment = "DepthAttachment";
+            }
+            if (attachment != null)
+            {
+                string message = $"WebGPU feedback hazard: texture={id} native=0x{(nuint)texture.Texture:x} "
+                    + $"framebuffer={_resources.DrawFramebuffer} program={_programs.CurrentProgram} "
+                    + $"unit={unit} usage=SampledTexture attachment={attachment}";
+                Mods.DebugLog.Line("render", message);
+                throw new InvalidOperationException(message);
+            }
+            return id;
+        }
+
         private void DrawCoreIndexed(float[] vertices, int[] indices,
             PrimitiveTopology topology, ModernProgramKind kind)
         {
+            if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture()) return;
+            _device.ThrowIfFailed();
             CoreTarget target = ResolveDrawTarget();
             ModernProgramKind effective = kind switch
             {
+                ModernProgramKind.Clear => ModernProgramKind.Clear,
+                ModernProgramKind.DeferredPbr => ModernProgramKind.DeferredPbr,
+                ModernProgramKind.PostProcess => ModernProgramKind.PostProcess,
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
                 ModernProgramKind.Cel => ModernProgramKind.Cel,
@@ -321,43 +358,44 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.ToneMap => ModernProgramKind.ToneMap,
                 ModernProgramKind.Rtt => ModernProgramKind.Rtt,
                 _ => _resources.DrawFramebuffer != 0
-                    ? ModernProgramKind.World : ModernProgramKind.Rtt
+                    ? ModernProgramKind.FixedFunction : ModernProgramKind.Rtt
             };
 
+            bool generated = UsesGeneratedShader(effective);
+            if (generated) PrepareGeneratedResources(effective, target);
+            var program = _programs.CurrentProgram == 0 ? null : _programs.Program(_programs.CurrentProgram);
+            int texture0 = ValidateRenderPassResources(0,
+                !generated && effective != ModernProgramKind.Clear
+                    && (effective == ModernProgramKind.FixedFunction ? _enabled.Contains(EnableCap.Texture2D)
+                        : effective != ModernProgramKind.World || (program != null && Int(program, "use_texture") != 0)), target);
+            int texture1 = ValidateRenderPassResources(1,
+                effective == ModernProgramKind.Cel
+                    || (effective == ModernProgramKind.Rtt && program != null && Int(program, "use_mask") != 0), target);
+            if (effective == ModernProgramKind.Cel && texture1 == 0)
+                throw new InvalidOperationException("Cel pass requires the depth texture on unit 1.");
+
             CorePipelineRecord pipeline = CorePipeline(effective, topology, target);
-            WriteCompatibilityUniforms(effective);
+            if (!generated) WriteCompatibilityUniforms(effective, target);
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            WgpuBuffer* vertex = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = vertexBytes,
-                Usage = BufferUsage.Vertex | BufferUsage.CopyDst
-            });
-            WgpuBuffer* index = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = indexBytes,
-                Usage = BufferUsage.Index | BufferUsage.CopyDst
-            });
-            fixed (float* vertexPtr = vertices)
-                _api.QueueWriteBuffer(_queue, vertex, 0, vertexPtr, (nuint)vertexBytes);
-            fixed (int* indexPtr = indices)
-                _api.QueueWriteBuffer(_queue, index, 0, indexPtr, (nuint)indexBytes);
+            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
+            WgpuBuffer* vertex = geometryBuffers.Vertex;
+            WgpuBuffer* index = geometryBuffers.Index;
 
-            int texture0 = _resources.BoundTexture(0);
             TextureView* baseView = _whiteView;
             Silk.NET.WebGPU.Sampler* baseSampler = _whiteSampler;
             if (texture0 != 0)
             {
                 NativeTexture baseTexture = EnsureTexture(texture0);
-                baseView = baseTexture.View;
+                baseView = baseTexture.SampleView;
                 baseSampler = baseTexture.Sampler;
             }
 
             BindGroup* bindGroup;
-            if (pipeline.DepthTexture)
+            if (generated) bindGroup = GeneratedBindGroup(effective, pipeline.Layout);
+            else if (pipeline.DepthTexture)
             {
-                int texture1 = _resources.BoundTexture(1);
                 if (texture1 == 0)
                     throw new InvalidOperationException("Cel pass requires the depth texture on unit 1.");
                 NativeTexture depthTexture = EnsureTexture(texture1);
@@ -379,7 +417,7 @@ namespace MphRead.Mods.Render
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = depthTexture.SampleView };
-                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
@@ -389,8 +427,7 @@ namespace MphRead.Mods.Render
             else if (pipeline.MaskTexture)
             {
                 TextureView* maskView = _whiteView;
-                int texture1 = _resources.BoundTexture(1);
-                if (texture1 != 0) maskView = EnsureTexture(texture1).View;
+                if (texture1 != 0) maskView = EnsureTexture(texture1).SampleView;
                 var entries = stackalloc BindGroupEntry[4];
                 entries[0] = new BindGroupEntry
                 {
@@ -402,7 +439,7 @@ namespace MphRead.Mods.Render
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = maskView };
-                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
@@ -421,7 +458,7 @@ namespace MphRead.Mods.Render
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
-                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
@@ -429,8 +466,7 @@ namespace MphRead.Mods.Render
                 });
             }
 
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
-                new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
                 View = target.ColorView,
@@ -448,9 +484,9 @@ namespace MphRead.Mods.Render
                     DepthLoadOp = LoadOp.Load,
                     DepthStoreOp = StoreOp.Store,
                     DepthReadOnly = false,
-                    StencilLoadOp = LoadOp.Load,
-                    StencilStoreOp = StoreOp.Store,
-                    StencilReadOnly = false
+                    StencilLoadOp = target.HasStencil ? LoadOp.Load : LoadOp.Undefined,
+                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
+                    StencilReadOnly = !target.HasStencil
                 };
                 depthPtr = &depth;
             }
@@ -465,10 +501,7 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
-            float viewportY = Math.Clamp(target.Height - (_viewportY + _viewportHeight),
-                0, Math.Max(0, target.Height - 1));
-            _api.RenderPassEncoderSetViewport(pass, _viewportX, viewportY,
-                Math.Max(1, _viewportWidth), Math.Max(1, _viewportHeight), 0, 1);
+            _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
             if (_enabled.Contains(EnableCap.ScissorTest))
             {
                 uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, target.Width - 1));
@@ -482,21 +515,17 @@ namespace MphRead.Mods.Render
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
+            EndCommands();
 
-            _api.CommandBufferRelease(commands);
             _api.RenderPassEncoderRelease(pass);
-            _api.CommandEncoderRelease(encoder);
-            _api.BindGroupRelease(bindGroup);
-            _api.BufferRelease(index);
-            _api.BufferRelease(vertex);
+
+            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
             PrimitiveTopology topology, CoreTarget target)
         {
-            var key = new CorePipelineKey(program, topology, target.ColorFormat, target.HasDepth,
+            var key = new CorePipelineKey(program, topology, target.ColorFormat, target.HasDepth, target.DepthFormat,
                 _enabled.Contains(EnableCap.DepthTest), _depthWrite, _depthFunction,
                 _enabled.Contains(EnableCap.StencilTest), _stencilFunction,
                 _stencilFail, _stencilDepthFail, _stencilPass, _stencilReadMask, _stencilWriteMask,
@@ -505,26 +534,30 @@ namespace MphRead.Mods.Render
                 CurrentWriteMask(), _enabled.Contains(EnableCap.PolygonOffsetFill),
                 _polygonOffsetFactor, _polygonOffsetUnits);
             if (_corePipelines.TryGetValue(key, out CorePipelineRecord? cached)) return cached;
+            long pipelineStart = PerformanceStart();
 
+            GeneratedProgram? generated = UsesGeneratedShader(program) ? GeneratedShader(program) : null;
             ShaderModule* shader = program switch
             {
-                ModernProgramKind.World => _worldShader,
+                ModernProgramKind.Clear => _clearShader != null ? _clearShader : (_clearShader = CreateWgslModule(ModernGraphicsShaders.Clear)),
+                ModernProgramKind.World or ModernProgramKind.FixedFunction => _worldShader,
                 ModernProgramKind.Shift => _shiftShader,
                 ModernProgramKind.Cel => _celShader,
                 ModernProgramKind.PlayerOutline => _playerOutlineShader,
                 ModernProgramKind.ToneMap => _toneMapShader,
                 _ => _rttShader
             };
-            var attributes = stackalloc VertexAttribute[5];
+            var attributes = stackalloc VertexAttribute[6];
             attributes[0] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 0, ShaderLocation = 0 };
             attributes[1] = new VertexAttribute { Format = VertexFormat.Float32x4, Offset = 3u * sizeof(float), ShaderLocation = 1 };
             attributes[2] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 7u * sizeof(float), ShaderLocation = 2 };
             attributes[3] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 10u * sizeof(float), ShaderLocation = 3 };
             attributes[4] = new VertexAttribute { Format = VertexFormat.Float32, Offset = 13u * sizeof(float), ShaderLocation = 4 };
+            attributes[5] = new VertexAttribute { Format = VertexFormat.Float32, Offset = 14u * sizeof(float), ShaderLocation = 5 };
             var vertexLayout = new VertexBufferLayout
             {
                 Attributes = attributes,
-                AttributeCount = 5,
+                AttributeCount = 6,
                 StepMode = VertexStepMode.Vertex,
                 ArrayStride = (ulong)(LegacyGeometryBatch.FloatsPerVertex * sizeof(float))
             };
@@ -571,7 +604,7 @@ namespace MphRead.Mods.Render
                 };
                 depthStencil = new DepthStencilState
                 {
-                    Format = WgpuTextureFormat.Depth24PlusStencil8,
+                    Format = key.DepthFormat,
                     DepthWriteEnabled = key.DepthTest && key.DepthWrite,
                     DepthCompare = key.DepthTest ? ToCompare(key.DepthFunction) : CompareFunction.Always,
                     StencilFront = stencil,
@@ -585,13 +618,13 @@ namespace MphRead.Mods.Render
                 depthPtr = &depthStencil;
             }
 
-            nint vs = SilkMarshal.StringToPtr("vs_main");
-            nint fs = SilkMarshal.StringToPtr("fs_main");
+            nint vs = SilkMarshal.StringToPtr(generated != null ? "main" : "vs_main");
+            nint fs = SilkMarshal.StringToPtr(generated != null ? "main" : "fs_main");
             try
             {
                 var fragment = new FragmentState
                 {
-                    Module = shader,
+                    Module = generated != null ? generated.Fragment : shader,
                     EntryPoint = (byte*)fs,
                     Targets = &targetState,
                     TargetCount = 1
@@ -600,7 +633,7 @@ namespace MphRead.Mods.Render
                 {
                     Vertex = new VertexState
                     {
-                        Module = shader,
+                        Module = generated != null ? generated.Vertex : shader,
                         EntryPoint = (byte*)vs,
                         Buffers = &vertexLayout,
                         BufferCount = 1
@@ -633,6 +666,7 @@ namespace MphRead.Mods.Render
                     DepthTexture = program == ModernProgramKind.Cel
                 };
                 _corePipelines.Add(key, result);
+                RecordPipelineCreation(pipelineStart);
                 return result;
             }
             finally
@@ -642,9 +676,17 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private void WriteCompatibilityUniforms(ModernProgramKind kind)
+        private readonly uint[] _compatibilityWords = new uint[ModernGraphicsShaders.UniformSlots * 4];
+
+        private void WriteCompatibilityUniforms(ModernProgramKind kind, CoreTarget target)
         {
-            uint[] words = new uint[ModernGraphicsShaders.UniformSlots * 4];
+            uint[] words = _compatibilityWords;
+            Array.Clear(words);
+            var viewport = ViewportTransform(target.Width, target.Height);
+            WriteFloat(words, 319, 0, viewport.X);
+            WriteFloat(words, 319, 1, viewport.Y);
+            WriteFloat(words, 319, 2, viewport.Z);
+            WriteFloat(words, 319, 3, viewport.W);
             WriteIdentity(words, ModernGraphicsShaders.Projection);
             WriteIdentity(words, ModernGraphicsShaders.View);
             WriteIdentity(words, ModernGraphicsShaders.ViewInverse);
@@ -665,7 +707,12 @@ namespace MphRead.Mods.Render
             ModernGraphicsCompatState.ProgramRecord? program =
                 programId == 0 ? null : _programs.Program(programId);
 
-            if (kind == ModernProgramKind.World && program != null)
+            if (kind == ModernProgramKind.FixedFunction)
+            {
+                WriteBool(words, ModernGraphicsShaders.Flags0, 1, _enabled.Contains(EnableCap.Texture2D));
+                WriteBool(words, ModernGraphicsShaders.Flags0, 2, true);
+            }
+            else if (kind == ModernProgramKind.World && program != null)
             {
                 WriteBool(words, ModernGraphicsShaders.Flags0, 0, Int(program, "use_light") != 0);
                 WriteBool(words, ModernGraphicsShaders.Flags0, 1, Int(program, "use_texture") != 0);
@@ -778,6 +825,7 @@ namespace MphRead.Mods.Render
                     _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
 
+            _uniformBuffer = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
             fixed (uint* ptr = words)
             {
                 _api.QueueWriteBuffer(_queue, _uniformBuffer, 0, ptr,
@@ -787,13 +835,13 @@ namespace MphRead.Mods.Render
 
         private void ClearOffscreenCore(ClearBufferMask mask)
         {
+            if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture()) return;
             CoreTarget target = ResolveDrawTarget();
             bool clearColor = (mask & ClearBufferMask.ColorBufferBit) != 0;
             bool clearDepth = (mask & ClearBufferMask.DepthBufferBit) != 0;
             bool clearStencil = (mask & ClearBufferMask.StencilBufferBit) != 0;
 
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
-                new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
                 View = target.ColorView,
@@ -819,10 +867,10 @@ namespace MphRead.Mods.Render
                     DepthStoreOp = StoreOp.Store,
                     DepthClearValue = 1f,
                     DepthReadOnly = false,
-                    StencilLoadOp = clearStencil ? LoadOp.Clear : LoadOp.Load,
-                    StencilStoreOp = StoreOp.Store,
+                    StencilLoadOp = target.HasStencil ? (clearStencil ? LoadOp.Clear : LoadOp.Load) : LoadOp.Undefined,
+                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
                     StencilClearValue = unchecked((uint)_clearStencil),
-                    StencilReadOnly = false
+                    StencilReadOnly = !target.HasStencil
                 };
                 depthPtr = &depth;
             }
@@ -834,11 +882,9 @@ namespace MphRead.Mods.Render
             };
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
             _api.RenderPassEncoderEnd(pass);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
-            _api.CommandBufferRelease(commands);
+            EndCommands();
             _api.RenderPassEncoderRelease(pass);
-            _api.CommandEncoderRelease(encoder);
+
         }
 
         private void ReadOffscreenPixelsCore<T>(int x, int y, int width, int height,
@@ -859,7 +905,9 @@ namespace MphRead.Mods.Render
         {
             uint copyWidth = (uint)Math.Max(0, width);
             uint copyHeight = (uint)Math.Max(0, height);
-            uint rowBytes = copyWidth * 4;
+            bool halfFloat = textureFormat == WgpuTextureFormat.Rgba16float;
+            int sourcePixelBytes = halfFloat ? 8 : 4;
+            uint rowBytes = copyWidth * (uint)sourcePixelBytes;
             uint paddedRow = (rowBytes + 255u) & ~255u;
             ulong total = (ulong)paddedRow * copyHeight;
             WgpuBuffer* readback = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
@@ -867,8 +915,7 @@ namespace MphRead.Mods.Render
                 Size = total,
                 Usage = BufferUsage.CopyDst | BufferUsage.MapRead
             });
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
-                new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var source = new ImageCopyTexture
             {
                 Texture = texture,
@@ -888,47 +935,64 @@ namespace MphRead.Mods.Render
             };
             var extent = new Extent3D(copyWidth, copyHeight, 1);
             _api.CommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &extent);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
+            EndCommands();
 
-            _mapStatus = BufferMapAsyncStatus.Unknown;
-            _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
-                new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
-            _device.Native.DevicePoll(_device.Device, true, null);
-            if (_mapStatus != BufferMapAsyncStatus.Success)
-                throw new InvalidOperationException($"Modern offscreen readback map failed: {_mapStatus}.");
-
-            byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
-            int components = format == PixelFormat.Rgb ? 3 : 4;
-            bool bgra = textureFormat == WgpuTextureFormat.Bgra8Unorm
-                || textureFormat == WgpuTextureFormat.Bgra8UnormSrgb;
-            int outputLength = Math.Min(pixels.Length, checked(width * height * components));
-            int written = 0;
-            for (int row = 0; row < height && written < outputLength; row++)
+            bool mappedSuccessfully = false;
+            try
             {
-                byte* src = mapped + row * paddedRow;
-                for (int col = 0; col < width && written < outputLength; col++)
+                FlushCommands();
+                ResetFrameBuffers();
+                _mapStatus = BufferMapAsyncStatus.Unknown;
+                _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
+                    new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
+                _device.Native.DevicePoll(_device.Device, true, null);
+                if (_mapStatus != BufferMapAsyncStatus.Success)
+                    throw new InvalidOperationException($"Modern offscreen readback map failed: {_mapStatus}.");
+
+                mappedSuccessfully = true;
+                byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
+                int components = format == PixelFormat.Rgb ? 3 : 4;
+                bool bgra = textureFormat == WgpuTextureFormat.Bgra8Unorm
+                    || textureFormat == WgpuTextureFormat.Bgra8UnormSrgb;
+                int outputLength = Math.Min(pixels.Length, checked(width * height * components));
+                int written = 0;
+                for (int row = 0; row < height && written < outputLength; row++)
                 {
-                    byte b0 = src[col * 4 + 0];
-                    byte b1 = src[col * 4 + 1];
-                    byte b2 = src[col * 4 + 2];
-                    byte b3 = src[col * 4 + 3];
-                    pixels[written++] = bgra ? b2 : b0;
-                    if (written < outputLength) pixels[written++] = b1;
-                    if (written < outputLength) pixels[written++] = bgra ? b0 : b2;
-                    if (components == 4 && written < outputLength) pixels[written++] = b3;
+                    byte* src = mapped + (height - 1 - row) * paddedRow;
+                    for (int col = 0; col < width && written < outputLength; col++)
+                    {
+                        byte* texel = src + col * sourcePixelBytes;
+                        byte b0 = halfFloat ? ReadHalfByte(texel) : texel[0];
+                        byte b1 = halfFloat ? ReadHalfByte(texel + 2) : texel[1];
+                        byte b2 = halfFloat ? ReadHalfByte(texel + 4) : texel[2];
+                        byte b3 = halfFloat ? ReadHalfByte(texel + 6) : texel[3];
+                        pixels[written++] = bgra ? b2 : b0;
+                        if (written < outputLength) pixels[written++] = b1;
+                        if (written < outputLength) pixels[written++] = bgra ? b0 : b2;
+                        if (components == 4 && written < outputLength) pixels[written++] = b3;
+                    }
                 }
             }
-            _api.BufferUnmap(readback);
-            _api.CommandBufferRelease(commands);
-            _api.CommandEncoderRelease(encoder);
-            _api.BufferRelease(readback);
+            finally
+            {
+                if (mappedSuccessfully) _api.BufferUnmap(readback);
+
+                _api.BufferRelease(readback);
+            }
+        }
+
+        private static byte ReadHalfByte(byte* source)
+        {
+            float value = (float)BitConverter.UInt16BitsToHalf(*(ushort*)source);
+            return float.IsNaN(value) ? (byte)0 : (byte)Math.Clamp(MathF.Round(value * 255f), 0f, 255f);
         }
 
         private void BlitFramebufferCore(int sourceX0, int sourceY0, int sourceX1, int sourceY1,
             int destinationX0, int destinationY0, int destinationX1, int destinationY1,
             ClearBufferMask mask, BlitFramebufferFilter filter)
         {
+            if ((_resources.ReadFramebuffer == 0 || _resources.DrawFramebuffer == 0)
+                && !AcquireSurfaceTexture()) return;
             if ((mask & ClearBufferMask.ColorBufferBit) == 0)
             {
                 return;
@@ -941,6 +1005,17 @@ namespace MphRead.Mods.Render
 
             CoreTarget sourceTarget = ResolveReadTarget();
             CoreTarget destinationTarget = ResolveDrawTarget();
+            if (sourceTarget.ColorTexture == destinationTarget.ColorTexture)
+                throw new InvalidOperationException("WebGPU blit source and destination must be different textures.");
+            BlitTargets(sourceTarget, destinationTarget, sourceX0, sourceY0, sourceX1, sourceY1,
+                destinationX0, destinationY0, destinationX1, destinationY1, filter);
+        }
+
+        private void BlitTargets(CoreTarget sourceTarget, CoreTarget destinationTarget,
+            int sourceX0, int sourceY0, int sourceX1, int sourceY1,
+            int destinationX0, int destinationY0, int destinationX1, int destinationY1,
+            BlitFramebufferFilter filter)
+        {
             PipelineRecord pipeline = BlitPipeline(destinationTarget.ColorFormat);
 
             float dx0 = destinationX0 / (float)destinationTarget.Width * 2f - 1f;
@@ -973,20 +1048,9 @@ namespace MphRead.Mods.Render
             int[] indices = geometry.TriIndices.ToArray();
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            WgpuBuffer* vertex = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = vertexBytes,
-                Usage = BufferUsage.Vertex | BufferUsage.CopyDst
-            });
-            WgpuBuffer* index = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = indexBytes,
-                Usage = BufferUsage.Index | BufferUsage.CopyDst
-            });
-            fixed (float* ptr = vertices)
-                _api.QueueWriteBuffer(_queue, vertex, 0, ptr, (nuint)vertexBytes);
-            fixed (int* ptr = indices)
-                _api.QueueWriteBuffer(_queue, index, 0, ptr, (nuint)indexBytes);
+            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices, cache: false);
+            WgpuBuffer* vertex = geometryBuffers.Vertex;
+            WgpuBuffer* index = geometryBuffers.Index;
 
             FilterMode sampleFilter = filter == BlitFramebufferFilter.Linear
                 ? FilterMode.Linear : FilterMode.Nearest;
@@ -1002,19 +1066,22 @@ namespace MphRead.Mods.Render
                     MaxAnisotropy = 1
                 });
 
-            var entries = stackalloc BindGroupEntry[2];
+            _uiViewportBuffer = RentUniformBuffer(16);
+            var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
+            _api.QueueWriteBuffer(_queue, _uiViewportBuffer, 0, &viewport, 16);
+            var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            BindGroup* bindGroup = _api.DeviceCreateBindGroup(_device.Device,
+            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
+            BindGroup* bindGroup = CreateTrackedBindGroup(
                 new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
-                    EntryCount = 2
+                    EntryCount = 3
                 });
 
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
-                new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
                 View = destinationTarget.ColorView,
@@ -1036,21 +1103,18 @@ namespace MphRead.Mods.Render
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
+            EndCommands();
 
-            _api.CommandBufferRelease(commands);
             _api.RenderPassEncoderRelease(pass);
-            _api.CommandEncoderRelease(encoder);
-            _api.BindGroupRelease(bindGroup);
+
+            ReleaseTrackedBindGroup(bindGroup);
             _api.SamplerRelease(sampler);
-            _api.BufferRelease(index);
-            _api.BufferRelease(vertex);
         }
 
         private PipelineRecord BlitPipeline(WgpuTextureFormat format)
         {
             if (_blitPipelines.TryGetValue(format, out PipelineRecord? cached)) return cached;
+            long pipelineStart = PerformanceStart();
 
             var attributes = stackalloc VertexAttribute[3];
             attributes[0] = new VertexAttribute
@@ -1125,6 +1189,7 @@ namespace MphRead.Mods.Render
                 BindGroupLayout* layout = _api.RenderPipelineGetBindGroupLayout(native, 0);
                 var result = new PipelineRecord { Pipeline = native, Layout = layout };
                 _blitPipelines.Add(format, result);
+                RecordPipelineCreation(pipelineStart);
                 return result;
             }
             finally
@@ -1137,6 +1202,7 @@ namespace MphRead.Mods.Render
         private void CopyTexSubImage2DCore(TextureTarget target, int level, int xoffset, int yoffset,
             int x, int y, int width, int height)
         {
+            if (_resources.ReadFramebuffer == 0 && !AcquireSurfaceTexture()) return;
             if (target != TextureTarget.Texture2D || level != 0)
                 throw new NotSupportedException("Modern copy-to-texture supports base-level Texture2D.");
 
@@ -1144,7 +1210,10 @@ namespace MphRead.Mods.Render
             if (destinationId == 0) throw new InvalidOperationException("No destination texture is bound.");
             NativeTexture destination = EnsureTexture(destinationId);
             CoreTarget sourceTarget = ResolveReadTarget();
+            if (sourceTarget.ColorTexture == destination.Texture)
+                throw new InvalidOperationException("WebGPU copy source and destination must be different textures.");
 
+            _resources.Texture(destinationId).FramebufferOrigin = true;
             var source = new ImageCopyTexture
             {
                 Texture = sourceTarget.ColorTexture,
@@ -1157,17 +1226,14 @@ namespace MphRead.Mods.Render
             {
                 Texture = destination.Texture,
                 MipLevel = 0,
-                Origin = new Origin3D((uint)xoffset, (uint)yoffset, 0),
+                Origin = new Origin3D((uint)xoffset, (uint)(destination.Height - yoffset - height), 0),
                 Aspect = TextureAspect.All
             };
             var extent = new Extent3D((uint)width, (uint)height, 1);
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
-                new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             _api.CommandEncoderCopyTextureToTexture(encoder, &source, &dest, &extent);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
-            _api.CommandBufferRelease(commands);
-            _api.CommandEncoderRelease(encoder);
+            EndCommands();
+
         }
 
         private static int Int(ModernGraphicsCompatState.ProgramRecord program, string name, int fallback = 0)

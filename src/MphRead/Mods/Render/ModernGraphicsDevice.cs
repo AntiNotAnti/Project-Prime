@@ -32,12 +32,63 @@ namespace MphRead.Mods.Render
         private Device* _device;
         private Surface* _surface;
         private bool _disposed;
+        private SurfaceFactory? _surfaceFactory;
+        private readonly DeviceErrors _errors;
+
+        // Native callbacks cannot throw into Rust/C. Keep delegates rooted for
+        // the device lifetime and surface errors at managed submission boundaries.
+        private sealed class DeviceErrors
+        {
+            internal readonly ErrorCallback Error;
+            internal readonly DeviceLostCallback Lost;
+            private string? _failure;
+            internal volatile bool DeviceLost;
+
+            internal DeviceErrors()
+            {
+                Error = (type, message, _) => Record($"WebGPU {type}: {PtrString(message, "no detail")}");
+                Lost = (reason, message, _) =>
+                {
+                    DeviceLost = true;
+                    Record($"WebGPU device lost ({reason}): {PtrString(message, "no detail")}");
+                };
+            }
+
+            private void Record(string message)
+            {
+                System.Threading.Interlocked.CompareExchange(ref _failure, message, null);
+                try
+                {
+                    Console.Error.WriteLine($"[render] {message}");
+                    Mods.DebugLog.Line("render", message);
+                }
+                catch { /* Never unwind across a native callback boundary. */ }
+            }
+
+            internal void ThrowIfFailed()
+            {
+                string? failure = System.Threading.Volatile.Read(ref _failure);
+                if (failure != null) throw new InvalidOperationException(failure);
+            }
+        }
+
+        internal void ThrowIfFailed() => _errors.ThrowIfFailed();
+        internal bool IsLost => _errors.DeviceLost;
+        internal void DestroyForCheck()
+        {
+            _api.DeviceDestroy(_device);
+            _native.DevicePoll(_device, true, null);
+            // Explicit destruction need not deliver an unexpected-loss callback.
+            _errors.DeviceLost = true;
+        }
+        internal ModernGraphicsDevice CreateReplacement() => CreateCore(Backend, _surfaceFactory);
 
         private unsafe delegate Surface* SurfaceFactory(WebGPU api, Instance* instance);
 
         private ModernGraphicsDevice(WebGPU api, Wgpu native, Instance* instance, Adapter* adapter, Device* device,
-            Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription)
+            Surface* surface, GraphicsBackend backend, uint nativeVersion, string adapterName, string driverDescription, DeviceErrors errors)
         {
+            _errors = errors;
             _api = api;
             _native = native;
             _instance = instance;
@@ -71,7 +122,25 @@ namespace MphRead.Mods.Render
             GraphicsBackend requested = GraphicsBackend.Auto)
         {
             return CreateCore(requested, (api, instance) =>
-                ModernGraphicsSurface.Create(window, api, instance));
+                ModernGraphicsSurface.Create(window, api, instance,
+                    GraphicsBackendPolicy.Resolve(GraphicsBackendPolicy.CurrentPlatform, requested)));
+        }
+#endif
+
+#if ANDROID
+        internal static ModernGraphicsDevice CreateForAndroidWindow(nint window) =>
+            CreateCore(GraphicsBackend.Vulkan, (api, instance) => ModernGraphicsAndroidSurface.Create(api, instance, window));
+
+        internal void SetAndroidWindow(nint window)
+        {
+            if (_surface != null)
+            {
+                _api.SurfaceUnconfigure(_surface);
+                _api.SurfaceRelease(_surface);
+                _surface = null;
+            }
+            _surfaceFactory = window == 0 ? null : (api, instance) => ModernGraphicsAndroidSurface.Create(api, instance, window);
+            if (_surfaceFactory != null) _surface = _surfaceFactory(_api, _instance);
         }
 #endif
 
@@ -166,7 +235,12 @@ namespace MphRead.Mods.Render
 
                     _requestedDevice = null;
                     _requestError = null;
-                    api.AdapterRequestDevice(adapter, null,
+                    var errors = new DeviceErrors();
+                    var deviceDescriptor = new DeviceDescriptor
+                    {
+                        DeviceLostCallback = new PfnDeviceLostCallback(errors.Lost)
+                    };
+                    api.AdapterRequestDevice(adapter, &deviceDescriptor,
                         new PfnRequestDeviceCallback(OnDeviceRequested), null);
                     PumpCallbacks(api, instance, () => _requestedDevice != null || _requestError != null);
                     device = _requestedDevice;
@@ -177,6 +251,8 @@ namespace MphRead.Mods.Render
                             + (string.IsNullOrWhiteSpace(_requestError) ? "." : $": {_requestError}"));
                     }
 
+                    api.DeviceSetUncapturedErrorCallback(device, new PfnErrorCallback(errors.Error), null);
+                    errors.ThrowIfFailed();
                     AdapterProperties properties = default;
                     api.AdapterGetProperties(adapter, &properties);
                     if (properties.BackendType != ToBackendType(backend))
@@ -189,7 +265,7 @@ namespace MphRead.Mods.Render
                     string name = PtrString(properties.Name, "Unknown GPU");
                     string driver = PtrString(properties.DriverDescription, "Unknown driver");
                     return new ModernGraphicsDevice(api, native, instance, adapter, device, surface, backend,
-                        native.GetVersion(), name, driver);
+                        native.GetVersion(), name, driver, errors) { _surfaceFactory = surfaceFactory };
                 }
                 catch
                 {
@@ -209,6 +285,19 @@ namespace MphRead.Mods.Render
                     _requestError = null;
                 }
             }
+        }
+
+        internal void RecreateSurface()
+        {
+            if (_surface != null)
+            {
+                _api.SurfaceUnconfigure(_surface);
+                _api.SurfaceRelease(_surface);
+                _surface = null;
+            }
+            if (_surfaceFactory == null) throw new InvalidOperationException("No presentation surface factory is available.");
+            _surface = _surfaceFactory(_api, _instance);
+            if (_surface == null) throw new InvalidOperationException("Could not recreate the presentation surface.");
         }
 
         public void Dispose()
@@ -237,6 +326,7 @@ namespace MphRead.Mods.Render
             }
             // _native is an extension view over _api.Context, not a second owner.
             _api.Dispose();
+            GC.KeepAlive(_errors);
         }
 
         private static Adapter* TryEnumeratedAdapter(WebGPU api, Wgpu native,

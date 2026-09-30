@@ -29,6 +29,7 @@ internal sealed partial class MapViewport
         catch (Exception ex)
         {
             _rendererFailed = true;
+            Console.Error.WriteLine("[map] Editor renderer unavailable: " + ex);
             Mods.DebugLog.Line("map", "Editor renderer unavailable: " + ex.Message);
         }
     }
@@ -52,6 +53,7 @@ internal sealed partial class MapViewport
         {
             _rendererFailed = true;
             ReleaseRenderer(); UiSurface.Current?.Invalidate();
+            Console.Error.WriteLine("[map] Editor renderer failed: " + ex);
             Mods.DebugLog.Line("map", "Editor renderer failed: " + ex.Message);
         }
     }

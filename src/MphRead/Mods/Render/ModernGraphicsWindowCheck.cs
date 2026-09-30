@@ -34,6 +34,7 @@ namespace MphRead.Mods.Render
                 try
                 {
                     ModernGraphicsCompat.Resize(96, 64);
+                    ModernGraphicsCompat.ValidateGeneratedShaders();
                     GraphicsApi.Viewport(0, 0, 96, 64);
                     GraphicsApi.ClearColor(0f, 0f, 0f, 1f);
                     GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
@@ -81,11 +82,27 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    RunDeviceRecoveryCheck();
+                    RunMipmapCheck();
+                    RunReadbackOrientationCheck();
+                    ModernGraphicsCompat.BeginPerformanceSample();
+                    TextureUpdateCheck.Verify();
+                    var uploads = ModernGraphicsCompat.EndPerformanceSample();
+                    if (uploads.TextureUploadBytes <= 0 || uploads.TextureUploadSubmissionMs < 0)
+                        throw new InvalidOperationException("Texture upload performance counters failed.");
+                    RunAdvancedShaderCheck();
+                    ModernGraphicsCompat.BeginPerformanceSample();
+                    RunWireframeCheck();
+                    var pipelines = ModernGraphicsCompat.EndPerformanceSample();
+                    if (pipelines.PipelinesCreated <= 0 || pipelines.LongestPipelineCreationMs <= 0)
+                        throw new InvalidOperationException("Pipeline performance counters failed.");
+                    RunLifetimeCheck();
                     byte[] worldPixels = RunWorldCompositeCheck();
                     bool topLeftGreen = worldPixels[0] <= 30 && worldPixels[1] >= 220
                         && worldPixels[2] <= 30 && worldPixels[3] >= 220;
-                    bool topRightBlend = worldPixels[4] >= 170 && worldPixels[4] <= 205
-                        && worldPixels[5] >= 170 && worldPixels[5] <= 205
+                    int blend = ModernGraphicsCompat.SurfaceUsesSrgb ? 188 : 128;
+                    bool topRightBlend = Math.Abs(worldPixels[4] - blend) < 18
+                        && Math.Abs(worldPixels[5] - blend) < 18
                         && worldPixels[6] <= 35 && worldPixels[7] >= 220;
                     bool bottomBlue = worldPixels[8] <= 30 && worldPixels[9] <= 30
                         && worldPixels[10] >= 220 && worldPixels[11] >= 220;
@@ -113,6 +130,7 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    RunFailedRecoveryFallbackCheck();
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
@@ -136,6 +154,274 @@ namespace MphRead.Mods.Render
                     $"[renderwindowcheck] FAIL {ex.GetType().Name}: {ex.Message}");
                 return 1;
             }
+        }
+
+        private static void RunWireframeCheck()
+        {
+            int texture = GraphicsApi.GenTexture(), framebuffer = GraphicsApi.GenFramebuffer();
+            int list = GraphicsApi.GenLists(1);
+            GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
+            try
+            {
+                GraphicsApi.UseProgram(0);
+                GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                    32, 32, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, texture, 0);
+                GraphicsApi.Viewport(0, 0, 32, 32);
+                foreach (var cap in new[] { EnableCap.DepthTest, EnableCap.CullFace, EnableCap.Blend,
+                    EnableCap.Texture2D, EnableCap.ScissorTest, EnableCap.StencilTest, EnableCap.AlphaTest })
+                    GraphicsApi.Disable(cap);
+                GraphicsApi.ColorMask(true, true, true, true);
+                GraphicsApi.Color4(1f, 1f, 1f, 1f);
+                GraphicsApi.NewList(list, ListMode.Compile);
+                GraphicsApi.Begin(PrimitiveType.Triangles);
+                GraphicsApi.Vertex3(-.8f, -.8f, 0); GraphicsApi.Vertex3(.8f, -.8f, 0); GraphicsApi.Vertex3(0, .8f, 0);
+                GraphicsApi.End(); GraphicsApi.EndList();
+                foreach (var mode in new[] { OpenTK.Graphics.OpenGL.PolygonMode.Line, OpenTK.Graphics.OpenGL.PolygonMode.Fill, OpenTK.Graphics.OpenGL.PolygonMode.Line })
+                {
+                    GraphicsApi.ClearColor(0, 0, 0, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.PolygonMode(TriangleFace.FrontAndBack, mode);
+                    GraphicsApi.CallList(list);
+                    byte[] pixels = new byte[32 * 32 * 4];
+                    GraphicsApi.ReadPixels(0, 0, 32, 32, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                    int lit = 0;
+                    for (int at = 0; at < pixels.Length; at += 4) if (pixels[at] > 200) lit++;
+                    bool center = pixels[(12 * 32 + 16) * 4] > 200;
+                    if (mode == OpenTK.Graphics.OpenGL.PolygonMode.Line ? center || lit < 20 || lit > 150 : !center || lit < 200)
+                        throw new InvalidOperationException($"Wireframe/fill mismatch: {mode} lit={lit} center={center}");
+                }
+            }
+            finally
+            {
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                GraphicsApi.DeleteLists(list, 1);
+                GraphicsApi.DeleteFramebuffer(framebuffer);
+                GraphicsApi.DeleteTexture(texture);
+                GraphicsApi.PopAttrib();
+            }
+            Console.WriteLine("[renderwindowcheck] wireframe/fill display-list switching PASS");
+        }
+
+        private static void RunFailedRecoveryFallbackCheck()
+        {
+            // The successful-reconstruction case above has already used the
+            // one retry. A second loss must stay controlled and permit GL.
+            ModernGraphicsCompat.DestroyDeviceForCheck();
+            try { GraphicsApi.Viewport(0, 0, 96, 64); }
+            catch (InvalidOperationException) when (ModernGraphicsCompat.RecoveryFailure != null) { }
+            if (ModernGraphicsCompat.RecoveryFailure == null)
+                throw new InvalidOperationException("Repeated device loss did not enter controlled fallback.");
+            ModernGraphicsCompat.Shutdown();
+            GraphicsBackendPolicy.UseCompatibilityFallback("forced repeated device loss acceptance check");
+            var settings = DesktopGlContext.Settings(background: true);
+            settings.ClientSize = new(96, 64);
+            using var window = new NativeWindow(settings);
+            using var graphics = new DesktopGraphicsSession(window);
+            GraphicsApi.ClearColor(0, 1, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(1, 1, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            if (pixel[0] > 10 || pixel[1] < 245 || pixel[2] > 10)
+                throw new InvalidOperationException("Fresh OpenGL context failed after device recovery failure.");
+            DesktopGraphicsSession.Present(window);
+            Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
+        }
+
+        private static void RunReadbackOrientationCheck()
+        {
+            int texture = GraphicsApi.GenTexture(), framebuffer = GraphicsApi.GenFramebuffer();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 4, 4, 0,
+                PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+            GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                TextureTarget.Texture2D, texture, 0);
+            GraphicsApi.Disable(EnableCap.ScissorTest);
+            GraphicsApi.ColorMask(true, true, true, true);
+            GraphicsApi.ClearColor(0, 0, 1, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.Enable(EnableCap.ScissorTest);
+            GraphicsApi.Scissor(1, 0, 2, 2);
+            GraphicsApi.ClearColor(1, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            byte[] pixels = new byte[64];
+            GraphicsApi.ReadPixels(0, 0, 4, 4, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+            for (int y = 0; y < 4; y++)
+            for (int x = 0; x < 4; x++)
+            {
+                int at = (y * 4 + x) * 4;
+                bool red = y < 2 && x is 1 or 2;
+                if (pixels[at] != (red ? 255 : 0) || pixels[at + 2] != (red ? 0 : 255))
+                    throw new InvalidOperationException($"Scissored clear/bottom-up readback mismatch at {x},{y}.");
+            }
+            GraphicsApi.Disable(EnableCap.ScissorTest);
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GraphicsApi.DeleteFramebuffer(framebuffer);
+            GraphicsApi.DeleteTexture(texture);
+            Console.WriteLine("[renderwindowcheck] scissored clear and bottom-up readback PASS");
+        }
+
+        private static void RunLifetimeCheck()
+        {
+            // Warm caches before measuring: bounded pipeline retention is intentional.
+            RunMipmapCheck();
+            var baseline = ModernGraphicsCompat.LiveResources;
+            for (int i = 0; i < 12; i++)
+            {
+                ModernGraphicsCompat.Resize(96 + i, 64 + i);
+                RunMipmapCheck();
+                var after = ModernGraphicsCompat.LiveResources;
+                if (after.Textures > baseline.Textures || after.Renderbuffers > baseline.Renderbuffers
+                    || after.Geometry > baseline.Geometry || after.Pipelines > baseline.Pipelines
+                    || after.Programs > baseline.Programs || after.Lists > baseline.Lists
+                    || after.Views > baseline.Views || after.Samplers > baseline.Samplers
+                    || after.Buffers > baseline.Buffers || after.ShaderModules > baseline.ShaderModules
+                    || after.Surfaces > baseline.Surfaces)
+                    throw new InvalidOperationException($"Resource growth after iteration {i}: {baseline} -> {after}");
+            }
+            ModernGraphicsCompat.Resize(96, 64);
+            Console.WriteLine($"[renderwindowcheck] resize/resource lifetime PASS {baseline}");
+        }
+
+        private static void RunDeviceRecoveryCheck()
+        {
+            int texture = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                1, 1, 0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[] { 0, 255, 0, 255 });
+            int list = GraphicsApi.GenLists(1);
+            GraphicsApi.NewList(list, ListMode.Compile);
+            GraphicsApi.Begin(PrimitiveType.Triangles);
+            GraphicsApi.TexCoord2(0, 0);
+            GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.Vertex3(3, -1, 0);
+            GraphicsApi.Vertex3(-1, 3, 0);
+            GraphicsApi.End();
+            GraphicsApi.EndList();
+            GraphicsApi.CallList(list);
+            ModernGraphicsCompat.Present();
+            int generation = ModernGraphicsCompat.DeviceGeneration;
+            ModernGraphicsCompat.DestroyDeviceForCheck();
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.CallList(list);
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            if (ModernGraphicsCompat.DeviceGeneration != generation + 1 || pixel[1] < 220 || pixel[0] > 24)
+                throw new InvalidOperationException("Device reconstruction did not restore texture/display-list contents.");
+            ModernGraphicsCompat.Present();
+            GraphicsApi.DeleteLists(list, 1);
+            GraphicsApi.DeleteTexture(texture);
+            Console.WriteLine("[renderwindowcheck] device reconstruction and resource restoration PASS");
+        }
+
+        private static void RunAdvancedShaderCheck()
+        {
+            int texture = GraphicsApi.GenTexture();
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                1, 1, 0, PixelFormat.Rgba, PixelType.UnsignedByte, new byte[] { 255, 0, 0, 255 });
+            int post = Link(GraphicsPipelineShader.VertexSource, GraphicsPipelineShader.FragmentSource);
+            GraphicsApi.UseProgram(post);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "tex"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "gamma_value"), 1f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "contrast_value"), 1f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "saturation_value"), 1f);
+            GraphicsApi.Uniform2(GraphicsApi.GetUniformLocation(post, "texel"), 1f / 96, 1f / 64);
+            for (int aa = 0; aa <= 4; aa++)
+            {
+                GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(post, "aa_mode"), aa);
+                DrawTexturedQuad(-1, -1, 1, 1, 0);
+                byte[] pixel = new byte[4];
+                GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                if (pixel[0] < 245 || pixel[1] > 10 || pixel[2] > 10)
+                    throw new InvalidOperationException($"Post-process AA mode {aa} changed a flat red field: {string.Join(",", pixel)}.");
+            }
+            int pbr = Link(DeferredPbrShader.VertexSource, DeferredPbrShader.FragmentSource);
+            GraphicsApi.UseProgram(pbr);
+            Matrix4 identity = Matrix4.Identity;
+            foreach (string name in new[] { "proj_mtx", "view_mtx", "view_inv_mtx", "tex_mtx" })
+                GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(pbr, name), false, ref identity);
+            GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(pbr, "mtx_stack"), 32, false, IdentityStack());
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "use_override"), 1);
+            GraphicsApi.Uniform4(GraphicsApi.GetUniformLocation(pbr, "override_color"), 1f, 0f, 0f, 1f);
+            GraphicsApi.Normal3(0, 0, 1);
+            GraphicsApi.Color4(1f, 1f, 1f, 1f);
+            for (int mode = 1; mode <= 3; mode++)
+            {
+                GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), mode);
+                DrawTexturedQuad(-1, -1, 1, 1, 0);
+                byte[] pixel = new byte[4];
+                GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                bool valid = mode == 1 ? pixel[0] > 245 && pixel[1] < 10 && pixel[2] < 10
+                    : mode == 2 ? pixel[0] > 120 && pixel[1] > 120 && pixel[2] > 245
+                    : pixel[0] < 10 && pixel[1] > 145 && pixel[2] < 10;
+                if (!valid) throw new InvalidOperationException($"PBR target {mode} failed: {string.Join(",", pixel)}.");
+            }
+            int normalList = GraphicsApi.GenLists(1);
+            GraphicsApi.NewList(normalList, ListMode.Compile);
+            DrawTexturedQuad(-1, -1, 1, 1, 0);
+            GraphicsApi.EndList();
+            GraphicsApi.Normal3(1, 0, 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(pbr, "gbuffer_mode"), 2);
+            GraphicsApi.CallList(normalList);
+            byte[] inheritedNormal = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, inheritedNormal);
+            if (inheritedNormal[0] < 245 || inheritedNormal[1] < 120 || inheritedNormal[2] is < 120 or > 135)
+                throw new InvalidOperationException("Display list did not inherit its draw-time normal.");
+            GraphicsApi.DeleteLists(normalList, 1);
+            GraphicsApi.Normal3(0, 0, 1);
+            ModernGraphicsCompat.Resize(0, 0);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+            DrawTexturedQuad(-1, -1, 1, 1, 0);
+            ModernGraphicsCompat.Present();
+            ModernGraphicsCompat.Resize(96, 64);
+            ModernGraphicsCompat.Present();
+            GraphicsApi.UseProgram(0);
+            GraphicsApi.DeleteProgram(pbr);
+            GraphicsApi.DeleteProgram(post);
+            GraphicsApi.DeleteTexture(texture);
+        }
+
+        private static void RunMipmapCheck()
+        {
+            int texture = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+            byte[] checker = new byte[8 * 8 * 4];
+            for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++)
+            {
+                int offset = (y * 8 + x) * 4;
+                checker[offset + ((x + y) % 2 == 0 ? 0 : 2)] = 255;
+                checker[offset + 3] = 255;
+            }
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+                8, 8, 0, PixelFormat.Rgba, PixelType.UnsignedByte, checker);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                (int)TextureMinFilter.LinearMipmapLinear);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                (int)TextureMagFilter.Linear);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D, (TextureParameterName)0x84FE, 16);
+            GraphicsApi.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+            GraphicsApi.TexCoord2(128, 0); GraphicsApi.Vertex3(1, 1, 0);
+            GraphicsApi.TexCoord2(0, 0); GraphicsApi.Vertex3(-1, 1, 0);
+            GraphicsApi.TexCoord2(128, 128); GraphicsApi.Vertex3(1, -1, 0);
+            GraphicsApi.TexCoord2(0, 128); GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.End();
+            byte[] pixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1, PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            int expected = 128; // UI sampling preserves encoded UI colors on an sRGB surface.
+            if (Math.Abs(pixel[0] - expected) > 8 || pixel[1] > 8
+                || Math.Abs(pixel[2] - expected) > 8 || pixel[3] < 245)
+                throw new InvalidOperationException($"Mipmap minification failed: {string.Join(",", pixel)}.");
+            ModernGraphicsCompat.Present();
+            GraphicsApi.DeleteTexture(texture);
         }
 
         private static byte[] RunWorldCompositeCheck()
@@ -498,11 +784,21 @@ namespace MphRead.Mods.Render
             if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
                 != FramebufferErrorCode.FramebufferComplete)
                 throw new InvalidOperationException("HDR compatibility framebuffer did not complete.");
+            int plainDepth = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, plainDepth);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.DepthComponent24,
+                32, 32, 0, PixelFormat.DepthComponent, PixelType.Float, IntPtr.Zero);
+            GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                FramebufferAttachment.DepthAttachment, TextureTarget.Texture2D, plainDepth, 0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, hdrTexture);
             GraphicsApi.Viewport(0, 0, 32, 32);
+            GraphicsApi.DepthMask(true);
+            GraphicsApi.Disable(EnableCap.StencilTest);
             GraphicsApi.ClearColor(0, 0, 0, 1);
-            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
             GraphicsApi.UseProgram(world);
-            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Enable(EnableCap.DepthTest);
+            GraphicsApi.DepthMask(true);
             GraphicsApi.Disable(EnableCap.Blend);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_light"), 0);
             GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 0);
@@ -514,13 +810,31 @@ namespace MphRead.Mods.Render
             GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "view_mtx"), false, ref hdrIdentity);
             GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "view_inv_mtx"), false, ref hdrIdentity);
             GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "mtx_stack"), false, ref hdrIdentity);
+            // The attachment remains bound on unit 0. Active feedback must fail
+            // before native submission; switching sampling off must render safely.
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 1);
+            bool feedbackRejected = false;
+            try { DrawQuad(-1, -1, 1, 1, 0); }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("WebGPU feedback hazard"))
+            {
+                feedbackRejected = ex.Message.Contains("unit=0") && ex.Message.Contains("ColorAttachment");
+            }
+            if (!feedbackRejected) throw new InvalidOperationException("Active attachment feedback was not rejected.");
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 0);
             GraphicsApi.Color4(4f, 1f, 0.25f, 1f);
             DrawQuad(-1, -1, 1, 1, 0);
+            // Sampler edits and expansion to a mip chain must retain GPU-only
+            // HDR contents, including values above one.
+            GraphicsApi.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
+                (int)TextureWrapMode.Repeat);
+            GraphicsApi.GenerateMipmap(GenerateMipmapTarget.Texture2D);
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GraphicsApi.Viewport(0, 0, 96, 64);
             GraphicsApi.ClearColor(0, 0, 0, 1);
             GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Disable(EnableCap.StencilTest);
             GraphicsApi.UseProgram(toneMap);
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, hdrTexture);
@@ -535,8 +849,9 @@ namespace MphRead.Mods.Render
             byte[] hdrResolved = new byte[4];
             GraphicsApi.ReadPixels(48, 32, 1, 1,
                 PixelFormat.Rgba, PixelType.UnsignedByte, hdrResolved);
-            if (hdrResolved[0] < 235 || hdrResolved[1] < 175 || hdrResolved[1] > 235
-                || hdrResolved[2] < 60 || hdrResolved[2] > 140 || hdrResolved[3] < 220)
+            bool srgb = ModernGraphicsCompat.SurfaceUsesSrgb;
+            if (hdrResolved[0] < 235 || hdrResolved[1] < (srgb ? 220 : 175) || hdrResolved[1] > (srgb ? 245 : 220)
+                || hdrResolved[2] < (srgb ? 150 : 80) || hdrResolved[2] > (srgb ? 180 : 120) || hdrResolved[3] < 220)
             {
                 throw new InvalidOperationException(
                     $"HDR tone-map compatibility resolve unexpected rgba({hdrResolved[0]},{hdrResolved[1]},{hdrResolved[2]},{hdrResolved[3]}).");
@@ -544,6 +859,7 @@ namespace MphRead.Mods.Render
             ModernGraphicsCompat.Present();
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteFramebuffer(hdrFramebuffer);
+            GraphicsApi.DeleteTexture(plainDepth);
             GraphicsApi.DeleteTexture(hdrTexture);
 
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);

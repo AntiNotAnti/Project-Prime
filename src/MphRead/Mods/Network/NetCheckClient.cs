@@ -144,8 +144,15 @@ namespace MphRead.Mods.Network
             Scene.AddRoom(roomKey, mode, playerCount: NetLaunch.RoomPlayerCount);
         }
 
+#if !ANDROID && !MPHREAD_SERVER
+        private Render.DesktopGraphicsSession? _graphics;
+#endif
+
         protected override void OnLoad()
         {
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = new Render.DesktopGraphicsSession(this);
+#endif
             Scene.Size = ClientSize;
             Scene.OnLoad();
             NetSession.MarkMatchLoaded();
@@ -222,7 +229,11 @@ namespace MphRead.Mods.Network
                     _lastDuelShotFrame = _frame;
                 }
             }
+#if !ANDROID && !MPHREAD_SERVER
+            Render.DesktopGraphicsSession.Present(this);
+#else
             SwapBuffers();
+#endif
             Scene.AfterRenderFrame();
             base.OnRenderFrame(args);
             if (Environment.GetEnvironmentVariable("MPHREAD_CLIP_TEST") != null && _clipTests < 2
@@ -605,6 +616,12 @@ namespace MphRead.Mods.Network
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             Scene.DoCleanup();
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics?.Dispose();
+#endif
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = null;
+#endif
             base.OnClosing(e);
         }
 

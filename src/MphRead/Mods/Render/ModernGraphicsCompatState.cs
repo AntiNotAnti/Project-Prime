@@ -10,13 +10,17 @@ namespace MphRead.Mods.Render
     internal enum ModernProgramKind
     {
         Unknown,
+        Clear,
+        FixedFunction,
         World,
         Rtt,
         Shift,
         Cel,
         PlayerOutline,
         ToneMap,
-        Backdrop
+        Backdrop,
+        DeferredPbr,
+        PostProcess
     }
 
     /// <summary>
@@ -211,47 +215,47 @@ namespace MphRead.Mods.Render
 
         internal void Uniform1(int location, float value)
         {
-            Set(location, new UniformValue(new[] { value }));
+            SetFloats(location, stackalloc float[] { value });
         }
 
         internal void Uniform1(int location, int count, float[] values)
         {
-            Set(location, new UniformValue(Copy(values, count)));
+            SetFloats(location, values.AsSpan(0, Math.Min(values.Length, count)));
         }
 
         internal void Uniform2(int location, float x, float y)
         {
-            Set(location, new UniformValue(new[] { x, y }));
+            SetFloats(location, stackalloc float[] { x, y });
         }
 
         internal void Uniform3(int location, Vector3 value)
         {
-            Set(location, new UniformValue(new[] { value.X, value.Y, value.Z }));
+            SetFloats(location, stackalloc float[] { value.X, value.Y, value.Z });
         }
 
         internal void Uniform3(int location, int count, float[] values)
         {
-            Set(location, new UniformValue(Copy(values, checked(count * 3))));
+            SetFloats(location, values.AsSpan(0, Math.Min(values.Length, checked(count * 3))));
         }
 
         internal void Uniform4(int location, Vector4 value)
         {
-            Set(location, new UniformValue(new[] { value.X, value.Y, value.Z, value.W }));
+            SetFloats(location, stackalloc float[] { value.X, value.Y, value.Z, value.W });
         }
 
         internal void Uniform4(int location, float x, float y, float z, float w)
         {
-            Set(location, new UniformValue(new[] { x, y, z, w }));
+            SetFloats(location, stackalloc float[] { x, y, z, w });
         }
 
         internal void Uniform4(int location, int x, int y, int z, int w)
         {
-            Set(location, new UniformValue(new[] { (float)x, (float)y, (float)z, (float)w }));
+            SetFloats(location, stackalloc float[] { x, y, z, w });
         }
 
         internal void UniformMatrix4(int location, bool transpose, Matrix4 value)
         {
-            float[] data =
+            Span<float> data = stackalloc float[]
             {
                 value.M11, value.M12, value.M13, value.M14,
                 value.M21, value.M22, value.M23, value.M24,
@@ -259,14 +263,19 @@ namespace MphRead.Mods.Render
                 value.M41, value.M42, value.M43, value.M44
             };
             if (transpose) TransposeInPlace(data, 1);
-            Set(location, new UniformValue(data));
+            SetFloats(location, data);
         }
 
         internal void UniformMatrix4(int location, int count, bool transpose, float[] values)
         {
+            if (!transpose)
+            {
+                SetFloats(location, values.AsSpan(0, Math.Min(values.Length, checked(count * 16))));
+                return;
+            }
             float[] data = Copy(values, checked(count * 16));
-            if (transpose) TransposeInPlace(data, count);
-            Set(location, new UniformValue(data));
+            TransposeInPlace(data, count);
+            SetFloats(location, data);
         }
 
         internal void GetUniform(int program, int location, out int value)
@@ -281,6 +290,17 @@ namespace MphRead.Mods.Render
         }
 
         internal ProgramRecord Program(int id) => RequireProgram(id);
+
+        private void SetFloats(int location, ReadOnlySpan<float> values)
+        {
+            if (location < 0) return;
+            if (!_locations.TryGetValue(location, out var slot) || CurrentProgram != slot.Program)
+                throw new InvalidOperationException($"Invalid uniform location {location} for program {CurrentProgram}.");
+            var record = RequireProgram(slot.Program);
+            if (record.Uniforms.TryGetValue(slot.Name, out var existing) && existing.Data?.Length == values.Length)
+                values.CopyTo(existing.Data);
+            else record.Uniforms[slot.Name] = new UniformValue(values.ToArray());
+        }
 
         private void Set(int location, UniformValue value)
         {
@@ -319,7 +339,7 @@ namespace MphRead.Mods.Render
             return result;
         }
 
-        private static void TransposeInPlace(float[] values, int matrices)
+        private static void TransposeInPlace(Span<float> values, int matrices)
         {
             for (int m = 0; m < matrices; m++)
             {
@@ -333,7 +353,7 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static void Swap(float[] values, int a, int b)
+        private static void Swap(Span<float> values, int a, int b)
         {
             (values[a], values[b]) = (values[b], values[a]);
         }
@@ -343,14 +363,22 @@ namespace MphRead.Mods.Render
             string withoutComments = Regex.Replace(source,
                 @"//.*?$|/\*.*?\*/", "", RegexOptions.Multiline | RegexOptions.Singleline);
             foreach (Match match in Regex.Matches(withoutComments,
-                @"\buniform\s+[^;]*?\b([A-Za-z_]\w*)\s*(?:\[[^\]]*\])?\s*;"))
+                @"\buniform\s+(?:highp\s+)?\w+(?:\[(\d+)\])?\s+(\w+)(?:\[(\d+)\])?\s*;"))
             {
-                output.Add(match.Groups[1].Value);
+                string name = match.Groups[2].Value;
+                output.Add(name);
+                string countText = match.Groups[1].Success ? match.Groups[1].Value : match.Groups[3].Value;
+                if (int.TryParse(countText, out int count))
+                    for (int i = 0; i < count; i++) output.Add($"{name}[{i}]");
             }
         }
 
         private static ModernProgramKind Identify(string vertex, string fragment)
         {
+            if (vertex == DeferredPbrShader.VertexSource && fragment == DeferredPbrShader.FragmentSource)
+                return ModernProgramKind.DeferredPbr;
+            if (vertex == GraphicsPipelineShader.VertexSource && fragment == GraphicsPipelineShader.FragmentSource)
+                return ModernProgramKind.PostProcess;
             if (vertex == Shaders.VertexShader && fragment == Shaders.FragmentShader)
                 return ModernProgramKind.World;
             if (vertex == Shaders.RttVertexShader && fragment == Shaders.RttFragmentShader)

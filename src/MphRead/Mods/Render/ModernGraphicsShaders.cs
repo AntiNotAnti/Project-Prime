@@ -328,6 +328,17 @@ fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
 }
 ";
 
+        internal static string Clear { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+@vertex fn vs_main(@location(0) position: vec3<f32>) -> @builtin(position) vec4<f32> {
+    return vec4<f32>(position.xy, 1.0, 1.0);
+}
+@fragment fn fs_main() -> @location(0) vec4<f32> {
+    return textureSample(base_tex, base_sampler, vec2<f32>(0.5)) * uf4(" + ImmColor + @"u);
+}
+";
+
         internal static string Rtt { get; } = Common + @"
 @group(0) @binding(1) var base_tex: texture_2d<f32>;
 @group(0) @binding(2) var base_sampler: sampler;

@@ -117,6 +117,17 @@ namespace MphRead.Mods.Launcher.Gui
 
         public static bool Run()
         {
+            bool result = RunSession();
+#if !MPHREAD_SERVER
+            if (GraphicsBackendPolicy.Requested == GraphicsBackend.Auto
+                && ModernGraphicsCompat.RecoveryFailure is Exception failure)
+                return RendererCompatibilityRestart.Start(failure.Message);
+#endif
+            return result;
+        }
+
+        private static bool RunSession()
+        {
             if (UiSurface.Ensure() == null)
             {
                 return false;
@@ -149,7 +160,7 @@ namespace MphRead.Mods.Launcher.Gui
             RenderWindow? window = null;
             try
             {
-                window = new RenderWindow(shell: true);
+                window = RenderWindow.Create(shell: true);
                 if (StudioWindow) { window.Title = "Project Prime · Map Studio"; window.WindowState = OpenTK.Windowing.Common.WindowState.Maximized; }
                 window.FileDrop += OnFilesDropped;
                 PublishNativeHandle(window);
@@ -186,13 +197,22 @@ namespace MphRead.Mods.Launcher.Gui
                 if (window != null)
                 {
                     window.FileDrop -= OnFilesDropped;
-                    window.Context.MakeCurrent();
-                    UiSurface.Current?.ReleaseMapRenderer();
+                    if (!Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
+                    {
+                        window.Context.MakeCurrent();
+                        UiSurface.Current?.ReleaseMapRenderer();
+                    }
                 }
                 _front?.Dispose();
                 _front = null;
                 Mods.DebugLog.Line("shutdown", "disposing native window");
-                window?.Dispose();
+                try { window?.Dispose(); }
+                finally
+                {
+#if !MPHREAD_SERVER
+                    ModernGraphicsCompat.Shutdown();
+#endif
+                }
                 Mods.DebugLog.Line("shutdown", "native window disposed");
             }
         }
@@ -973,8 +993,8 @@ namespace MphRead.Mods.Launcher.Gui
                 // press on a card picks it and starts nothing. A picture of a
                 // room here is the regression.
                 Shot(w, "shell-play-selected");
-                ClickIfReady(c => c is UiListRow);
-                if (GameFiles.Ready) Key(Keys.Enter);
+                ClickIfReady(c => c is DeckTile);
+                ClickIfReady(c => c.GetValue(ControllerNav.NavIdProperty) == "map-picker.use");
                 ClickIfReady(c => c.GetValue(ControllerNav.NavIdProperty) == "offline.start");
                 Wait(40);
             },

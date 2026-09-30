@@ -1,10 +1,12 @@
-#if !ANDROID && !MPHREAD_SERVER
+#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
+#if !ANDROID
 using OpenTK.Windowing.Desktop;
+#endif
 using Silk.NET.Core.Native;
 using Silk.NET.WebGPU;
 using WgpuBuffer = Silk.NET.WebGPU.Buffer;
@@ -16,7 +18,7 @@ using WgpuTextureFormat = Silk.NET.WebGPU.TextureFormat;
 namespace MphRead.Mods.Render
 {
     /// <summary>
-    /// First live slice of the desktop WebGPU compatibility renderer.
+    /// Shared desktop and Android WebGPU compatibility renderer.
     ///
     /// It owns the selected DX12/Vulkan/Metal surface and implements enough of
     /// the historical GL state machine to draw the launcher/Avalonia surface
@@ -26,6 +28,9 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal sealed unsafe partial class ModernGraphicsCompat : IDisposable
     {
+        internal static bool SurfaceUsesSrgb => Current._surfaceFormat == WgpuTextureFormat.Bgra8UnormSrgb
+            || Current._surfaceFormat == WgpuTextureFormat.Rgba8UnormSrgb;
+
         private sealed class NativeTexture
         {
             internal WgpuTexture* Texture;
@@ -33,6 +38,9 @@ namespace MphRead.Mods.Render
             internal TextureView* SampleView;
             internal WgpuSampler* Sampler;
             internal WgpuTextureFormat Format;
+            internal int Width;
+            internal int Height;
+            internal int MipCount;
         }
 
         private sealed class GeometryList
@@ -40,14 +48,17 @@ namespace MphRead.Mods.Render
             internal float[] Vertices = Array.Empty<float>();
             internal int[] Triangles = Array.Empty<int>();
             internal int[] Lines = Array.Empty<int>();
+            internal Vector3? EndNormal;
+            internal Vector4? EndColor;
         }
 
         private readonly record struct PipelineKey(
             PrimitiveTopology Topology,
+            WgpuTextureFormat ColorFormat,
             bool Blend,
             BlendingFactor Source,
             BlendingFactor Destination,
-            ColorWriteMask WriteMask);
+            ColorWriteMask WriteMask, BlendEquationMode Equation);
 
         private sealed class PipelineRecord
         {
@@ -68,11 +79,13 @@ struct VertexOutput {
 };
 @group(0) @binding(0) var picture: texture_2d<f32>;
 @group(0) @binding(1) var picture_sampler: sampler;
+@group(0) @binding(2) var<uniform> viewport: vec4<f32>;
 
 @vertex
 fn vs_main(input: VertexInput) -> VertexOutput {
     var output: VertexOutput;
-    output.position = vec4<f32>(input.position, 1.0);
+    output.position = vec4<f32>(input.position.xy * viewport.xy + viewport.zw,
+        input.position.z * 0.5 + 0.5, 1.0);
     output.color = input.color;
     output.texcoord = input.texcoord.xy;
     return output;
@@ -81,8 +94,17 @@ fn vs_main(input: VertexInput) -> VertexOutput {
 fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(picture, picture_sampler, input.texcoord) * input.color;
 }
+@fragment
+fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
+    let c = textureSample(picture, picture_sampler, input.texcoord) * input.color;
+    let straight = c.rgb / max(c.a, 0.00001);
+    let linear = select(pow((straight + vec3<f32>(0.055)) / 1.055, vec3<f32>(2.4)),
+        straight / 12.92, straight <= vec3<f32>(0.04045));
+    return vec4<f32>(linear * c.a, c.a);
+}
 ";
 
+        private WgpuBuffer* _uiViewportBuffer;
         private static ModernGraphicsCompat? _current;
         private static BufferMapAsyncStatus _mapStatus = BufferMapAsyncStatus.Unknown;
 
@@ -112,6 +134,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private Vector4 _currentColor = Vector4.One;
         private Vector3 _currentNormal = Vector3.UnitZ;
+        private bool _normalSet;
+        private Vector3 _listInitialNormal, _listInitialTexcoord;
+        private Vector4 _listInitialColor;
         private Vector3 _currentTexcoord;
         private bool _colorSet;
         private bool _recording;
@@ -133,30 +158,163 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         private int _scissorY;
         private int _scissorWidth = 1;
         private int _scissorHeight = 1;
+        private bool _vsync = true;
+        private PresentMode _presentMode = PresentMode.Fifo;
+        private readonly HashSet<PresentMode> _presentModes = new();
+
+        internal static void SetVSync(bool enabled)
+        {
+            var self = Current;
+            if (self._vsync == enabled) return;
+            self._vsync = enabled;
+            self.ReleaseSurfaceTexture();
+            self.SelectPresentMode();
+            self.ConfigureSurface();
+        }
+
+        private void SelectPresentMode()
+        {
+            _presentMode = !_vsync && _presentModes.Contains(PresentMode.Immediate) ? PresentMode.Immediate
+                : !_vsync && _presentModes.Contains(PresentMode.Mailbox) ? PresentMode.Mailbox : PresentMode.Fifo;
+        }
+
+        private void ConfigureSurface()
+        {
+            if (_width == 0 || _height == 0 || _device.Surface == null) return;
+            _api.SurfaceConfigure(_device.Surface, new SurfaceConfiguration
+            {
+                Device = _device.Device, Format = _surfaceFormat,
+                Usage = TextureUsage.RenderAttachment | TextureUsage.CopySrc,
+                AlphaMode = _alphaMode, Width = _width, Height = _height, PresentMode = _presentMode
+            });
+        }
+
         private bool _disposed;
 
-        private ModernGraphicsCompat(NativeWindow window, GraphicsBackend backend)
+        private ModernGraphicsCompat(ModernGraphicsDevice device, int width, int height,
+            ModernGraphicsCompat? previous = null)
         {
-            _device = ModernGraphicsDevice.CreateForWindow(window, backend);
+            _device = device;
+            if (previous != null)
+            {
+                _programs = previous._programs;
+                _resources = previous._resources;
+                _batch = previous._batch;
+                _lists = previous._lists;
+                _enabled = previous._enabled;
+                _resources.InvalidateNativeResources();
+            }
             _api = _device.Api;
             _queue = _api.DeviceGetQueue(_device.Device);
-            QuerySurfaceFormat();
-            CreateUiShader();
-            CreateCoreShaders();
-            CreateWhiteTexture();
-            ResizeCore(window.FramebufferSize.X, window.FramebufferSize.Y);
-            Mods.DebugLog.Line("render",
-                $"modern compatibility renderer active: {GraphicsBackendPolicy.DisplayName(backend)} "
-                + $"on {_device.AdapterName}");
+            try
+            {
+                QuerySurfaceFormat();
+                CreateUiShader();
+                CreateCoreShaders();
+                CreateWhiteTexture();
+                ResizeCore(width, height);
+                if (previous != null)
+                {
+                    _wireframe = previous._wireframe;
+                    _currentColor = previous._currentColor;
+                    _currentNormal = previous._currentNormal;
+                    _currentTexcoord = previous._currentTexcoord;
+                    _colorSet = previous._colorSet;
+                    _recording = previous._recording;
+                    _recordingList = previous._recordingList;
+                    _listHighWater = previous._listHighWater;
+                    _clearColor = previous._clearColor;
+                    _blendSource = previous._blendSource;
+                    _blendDestination = previous._blendDestination;
+                    _maskRed = previous._maskRed;
+                    _maskGreen = previous._maskGreen;
+                    _maskBlue = previous._maskBlue;
+                    _maskAlpha = previous._maskAlpha;
+                    _viewportX = previous._viewportX;
+                    _viewportY = previous._viewportY;
+                    _viewportWidth = previous._viewportWidth;
+                    _viewportHeight = previous._viewportHeight;
+                    _scissorX = previous._scissorX;
+                    _scissorY = previous._scissorY;
+                    _scissorWidth = previous._scissorWidth;
+                    _scissorHeight = previous._scissorHeight;
+                    _vsync = previous._vsync;
+                    _depthWrite = previous._depthWrite;
+                    _depthFunction = previous._depthFunction;
+                    _cullFace = previous._cullFace;
+                    _alphaFunction = previous._alphaFunction;
+                    _alphaReference = previous._alphaReference;
+                    _blendEquation = previous._blendEquation;
+                    _clearStencil = previous._clearStencil;
+                    _stencilFunction = previous._stencilFunction;
+                    _stencilReference = previous._stencilReference;
+                    _stencilReadMask = previous._stencilReadMask;
+                    _stencilWriteMask = previous._stencilWriteMask;
+                    _stencilFail = previous._stencilFail;
+                    _stencilDepthFail = previous._stencilDepthFail;
+                    _stencilPass = previous._stencilPass;
+                    _polygonOffsetFactor = previous._polygonOffsetFactor;
+                    _polygonOffsetUnits = previous._polygonOffsetUnits;
+                    SelectPresentMode();
+                    ConfigureSurface();
+                }
+                _device.ThrowIfFailed();
+                LogCapabilities();
+                Mods.DebugLog.Line("render",
+                    $"modern compatibility renderer active: {GraphicsBackendPolicy.DisplayName(_device.Backend)} "
+                    + $"on {_device.AdapterName}");
+            }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
 
         internal static bool Active => _current != null;
 
+#if !ANDROID
         internal static void Initialize(NativeWindow window, GraphicsBackend backend)
         {
-            _current?.Dispose();
-            _current = new ModernGraphicsCompat(window, backend);
+            Shutdown();
+            _deviceRecoveryAttempts = 0;
+            _deviceRecoveryFailure = null;
+            DeviceGeneration++;
+            _current = new ModernGraphicsCompat(ModernGraphicsDevice.CreateForWindow(window, backend),
+                window.FramebufferSize.X, window.FramebufferSize.Y);
         }
+#else
+        internal static void AttachAndroidWindow(nint window, int width, int height)
+        {
+            if (_current == null)
+            {
+                _deviceRecoveryAttempts = 0;
+                _deviceRecoveryFailure = null;
+                DeviceGeneration++;
+                _current = new ModernGraphicsCompat(ModernGraphicsDevice.CreateForAndroidWindow(window), width, height);
+            }
+            else
+            {
+                var self = Current;
+                self.ReleaseSurfaceTexture();
+                self._device.SetAndroidWindow(window);
+                self.QuerySurfaceFormat();
+                self._width = self._height = 0;
+                self.ResizeCore(width, height);
+            }
+        }
+
+        internal static void DetachAndroidWindow()
+        {
+            // Teardown must not try to reconstruct a lost device, especially
+            // after reconstruction itself failed.
+            var current = _current;
+            if (current == null || current._disposed) return;
+            current.ReleaseSurfaceTexture();
+            current._device.SetAndroidWindow(0);
+            current._width = current._height = 0;
+        }
+#endif
 
         internal static void Shutdown()
         {
@@ -165,13 +323,64 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             current?.Dispose();
         }
 
-        private static ModernGraphicsCompat Current =>
-            _current ?? throw new InvalidOperationException("Modern graphics compatibility renderer is not active.");
+        private static int _deviceGeneration;
+        internal static int DeviceGeneration
+        {
+            get
+            {
+                // Scene history must observe reconstruction before the first draw.
+                if (_current != null && _deviceRecoveryFailure == null && _current._device.IsLost)
+                    _ = Current;
+                return _deviceGeneration;
+            }
+            private set => _deviceGeneration = value;
+        }
+        private static int _deviceRecoveryAttempts;
+        private static Exception? _deviceRecoveryFailure;
+        internal static Exception? RecoveryFailure => _deviceRecoveryFailure;
+        private static ModernGraphicsCompat Current
+        {
+            get
+            {
+                if (_deviceRecoveryFailure != null)
+                    throw new InvalidOperationException("WebGPU device reconstruction failed; restart with OpenGL.", _deviceRecoveryFailure);
+                var current = _current ?? throw new InvalidOperationException("Modern graphics compatibility renderer is not active.");
+                if (current._device.IsLost && current._device.Surface != null)
+                {
+                    if (_deviceRecoveryAttempts++ != 0)
+                    {
+                        _deviceRecoveryFailure = new InvalidOperationException("WebGPU device was lost again after reconstruction.");
+                        throw _deviceRecoveryFailure;
+                    }
+                    Console.Error.WriteLine("[render] Reconstructing the lost WebGPU device and renderer resources.");
+                    try
+                    {
+                        _current = new ModernGraphicsCompat(current._device.CreateReplacement(),
+                            (int)current._width, (int)current._height, current);
+                        DeviceGeneration++;
+                    }
+                    catch (Exception ex)
+                    {
+                        _deviceRecoveryFailure = ex;
+                        throw;
+                    }
+                    finally { current.Dispose(); }
+                    current = _current;
+                }
+                return current;
+            }
+        }
 
         internal static void Resize(int width, int height)
         {
             if (_current == null) return;
             Current.ResizeCore(width, height);
+        }
+
+        internal static void DestroyDeviceForCheck()
+        {
+            var self = Current;
+            self._device.DestroyForCheck();
         }
 
         internal static void Present()
@@ -206,7 +415,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             ModernGraphicsCompat self = Current;
             self._batch.AddVertex(new Vector3(x, y, z), self._currentColor,
-                self._currentNormal, self._currentTexcoord, self._colorSet);
+                self._currentNormal, self._currentTexcoord, self._colorSet, !self._recording || self._normalSet);
         }
 
         internal static void Vertex3(Vector3 value) => Vertex3(value.X, value.Y, value.Z);
@@ -231,7 +440,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         internal static void Normal3(float x, float y, float z)
         {
-            Current._currentNormal = new Vector3(x, y, z);
+            var self = Current;
+            self._currentNormal = new Vector3(x, y, z);
+            self._normalSet = true;
         }
 
         internal static void TexCoord2(float s, float t)
@@ -271,19 +482,28 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             self._batch.Clear();
             self._recording = true;
             self._recordingList = list;
-            self._colorSet = false;
+            self._listInitialColor = self._currentColor;
+            self._listInitialNormal = self._currentNormal;
+            self._listInitialTexcoord = self._currentTexcoord;
+            self._colorSet = self._normalSet = false;
         }
 
         internal static void EndList()
         {
             ModernGraphicsCompat self = Current;
             self._recording = false;
+            self.ReleaseListGeometry(self._recordingList);
             self._lists[self._recordingList] = new GeometryList
             {
                 Vertices = self._batch.Vertices.ToArray(),
                 Triangles = self._batch.TriIndices.ToArray(),
-                Lines = self._batch.LineIndices.ToArray()
+                Lines = self._batch.LineIndices.ToArray(),
+                EndNormal = self._normalSet ? self._currentNormal : null,
+                EndColor = self._colorSet ? self._currentColor : null
             };
+            self._currentNormal = self._listInitialNormal;
+            self._currentColor = self._listInitialColor;
+            self._currentTexcoord = self._listInitialTexcoord;
             self._batch.Clear();
         }
 
@@ -292,14 +512,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             if (self._lists.TryGetValue(list, out GeometryList? geometry))
             {
-                self.DrawBatch(geometry.Vertices, geometry.Triangles, geometry.Lines);
+                self._drawingList = true;
+                try { self.DrawBatch(geometry.Vertices, geometry.Triangles, geometry.Lines); }
+                finally { self._drawingList = false; }
+                if (geometry.EndNormal is Vector3 normal) self._currentNormal = normal;
+                if (geometry.EndColor is Vector4 color) self._currentColor = color;
             }
         }
 
         internal static void DeleteLists(int list, int range)
         {
             ModernGraphicsCompat self = Current;
-            for (int i = 0; i < range; i++) self._lists.Remove(list + i);
+            for (int i = 0; i < range; i++)
+            {
+                self.ReleaseListGeometry(list + i);
+                self._lists.Remove(list + i);
+            }
         }
 
         internal static int GenTexture() => Current._resources.GenTexture();
@@ -324,8 +552,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void TexParameter(TextureTarget target, TextureParameterName name, int value) =>
             Current._resources.TexParameter(target, name, value);
 
-        internal static void GenerateMipmap(GenerateMipmapTarget target) =>
-            Current._resources.GenerateMipmap(target);
+        internal static void GenerateMipmap(GenerateMipmapTarget target)
+        {
+            var self = Current;
+            self._resources.GenerateMipmap(target);
+            self.EnsureTexture(self._resources.BoundTexture(self._resources.ActiveTextureUnit));
+        }
 
         internal static void TexImage2D(TextureTarget target, PixelInternalFormat internalFormat,
             int width, int height, PixelFormat format, PixelType type, IntPtr pixels) =>
@@ -336,12 +568,24 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             Current._resources.TexImage2D(target, internalFormat, width, height, format, type, pixels);
 
         internal static void TexSubImage2D(TextureTarget target, int x, int y, int width, int height,
-            PixelFormat format, PixelType type, IntPtr pixels) =>
-            Current._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
+            PixelFormat format, PixelType type, IntPtr pixels)
+        {
+            var self = Current;
+            int id = self._resources.BoundTexture(self._resources.ActiveTextureUnit);
+            var native = self.EnsureTexture(id);
+            self._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
+            self.UploadSubImage(id, native, x, y, width, height);
+        }
 
         internal static void TexSubImage2D<T>(TextureTarget target, int x, int y, int width, int height,
-            PixelFormat format, PixelType type, T[] pixels) where T : struct =>
-            Current._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
+            PixelFormat format, PixelType type, T[] pixels) where T : struct
+        {
+            var self = Current;
+            int id = self._resources.BoundTexture(self._resources.ActiveTextureUnit);
+            var native = self.EnsureTexture(id);
+            self._resources.TexSubImage2D(target, x, y, width, height, format, type, pixels);
+            self.UploadSubImage(id, native, x, y, width, height);
+        }
 
         internal static void GetTexLevelParameter(TextureTarget target, int level,
             GetTextureParameter name, out int value) =>
@@ -471,6 +715,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             return name switch
             {
+                StringName.Extensions => "GL_EXT_texture_filter_anisotropic",
                 StringName.Vendor => "wgpu-native",
                 StringName.Renderer => self._device.AdapterName,
                 StringName.Version => $"WebGPU 1.0 / {GraphicsBackendPolicy.DisplayName(self._device.Backend)}",
@@ -484,6 +729,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             return name switch
             {
+                (GetPName)0x84FF => 16,
                 GetPName.CurrentProgram => self._programs.CurrentProgram,
                 GetPName.DrawFramebufferBinding => self._resources.DrawFramebuffer,
                 GetPName.ReadFramebufferBinding => self._resources.ReadFramebuffer,
@@ -525,7 +771,14 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void DrawBuffer(DrawBufferMode mode) { }
         internal static void TexEnv(TextureEnvTarget target, TextureEnvParameter name, int value) { }
         internal static void AlphaFunc(AlphaFunction function, float reference) { Current._alphaFunction = function; Current._alphaReference = reference; }
-        internal static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode) { }
+        internal static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode)
+        {
+            if (face != TriangleFace.FrontAndBack || mode is not (OpenTK.Graphics.OpenGL.PolygonMode.Fill or OpenTK.Graphics.OpenGL.PolygonMode.Line))
+                throw new NotSupportedException("Modern polygon mode supports Fill/Line for both faces.");
+            Current._wireframe = mode == OpenTK.Graphics.OpenGL.PolygonMode.Line;
+        }
+        // Portable WebGPU line primitives have a fixed one-pixel width.
+        // Retain the GL facade call; wireframe topology is implemented above.
         internal static void LineWidth(float width) { }
         internal static void ClearStencil(int value) { Current._clearStencil = value; }
         internal static void DepthMask(bool enabled) { Current._depthWrite = enabled; }
@@ -542,13 +795,16 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void PushMatrix() { }
         internal static void PopMatrix() { }
         internal static void LoadIdentity() { }
-        internal static void PushAttrib(AttribMask mask) { }
-        internal static void PopAttrib() { }
+        internal static void PushAttrib(AttribMask mask) => Current.SaveAttributes(mask);
+        internal static void PopAttrib() => Current.RestoreAttributes();
         internal static void DebugMessageCallback(DebugProc callback, IntPtr userParam) { }
 
         internal static void Finish()
         {
-            Current._device.Native.DevicePoll(Current._device.Device, true, null);
+            var current = Current;
+            current.FlushCommands();
+            current.ResetFrameBuffers();
+            current._device.Native.DevicePoll(current._device.Device, true, null);
         }
 
         internal static void ReadPixels<T>(int x, int y, int width, int height,
@@ -575,6 +831,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             if (_disposed) return;
             _disposed = true;
+            DiscardCommands();
             ReleaseSurfaceTexture();
             foreach (NativeTexture texture in _nativeTextures.Values) ReleaseNativeTexture(texture);
             _nativeTextures.Clear();
@@ -587,10 +844,30 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_whiteSampler != null) _api.SamplerRelease(_whiteSampler);
             if (_whiteView != null) _api.TextureViewRelease(_whiteView);
             if (_whiteTexture != null) _api.TextureRelease(_whiteTexture);
+            ReleaseSurfaceDepth();
+            if (_clearShader != null) _api.ShaderModuleRelease(_clearShader);
+            DisposeGeometry();
+            DisposeGeneratedShaders();
             DisposeCoreShaders();
+            DisposeUniformBuffers();
             if (_uiShader != null) _api.ShaderModuleRelease(_uiShader);
             if (_queue != null) _api.QueueRelease(_queue);
             _device.Dispose();
+        }
+
+        private void LogCapabilities()
+        {
+            SupportedLimits limits = default;
+            _api.DeviceGetLimits(_device.Device, &limits);
+            bool timestamp = _api.AdapterHasFeature(_device.Adapter, FeatureName.TimestampQuery);
+            string capabilities = $"backend={_device.Backend} adapter=\"{_device.AdapterName}\" "
+                + $"driver=\"{_device.DriverDescription}\" wgpu=0x{_device.NativeVersion:x8} "
+                + $"surface={_surfaceFormat} maxTexture2D={limits.Limits.MaxTextureDimension2D} "
+                + $"anisotropy=16 presentModes={string.Join(',', _presentModes)} "
+                + $"internalHdr=RGBA16Float outputHdr=false depth=Depth24Plus,Depth24PlusStencil8 "
+                + $"adapterTimestampQuery={timestamp} gpuTimingEnabled=false";
+            Console.WriteLine("[render] " + capabilities);
+            Mods.DebugLog.Line("render", capabilities);
         }
 
         private void QuerySurfaceFormat()
@@ -601,7 +878,15 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 if (capabilities.FormatCount == 0)
                     throw new InvalidOperationException("WebGPU surface reports no presentation formats.");
+                _presentModes.Clear();
+                for (nuint i = 0; i < capabilities.PresentModeCount; i++) _presentModes.Add(capabilities.PresentModes[i]);
+                SelectPresentMode();
                 _surfaceFormat = capabilities.Formats[0];
+                // Shared GL shaders already produce display-encoded colors. Match
+                // the legacy non-sRGB framebuffer instead of encoding them twice.
+                for (nuint i = 0; i < capabilities.FormatCount; i++)
+                    if (capabilities.Formats[i] is WgpuTextureFormat.Bgra8Unorm or WgpuTextureFormat.Rgba8Unorm)
+                    { _surfaceFormat = capabilities.Formats[i]; break; }
                 _alphaMode = capabilities.AlphaModeCount > 0
                     ? capabilities.AlphaModes[0] : CompositeAlphaMode.Auto;
             }
@@ -613,11 +898,17 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ResizeCore(int width, int height)
         {
-            if (width <= 0 || height <= 0) return;
+            if (width <= 0 || height <= 0)
+            {
+                ReleaseSurfaceTexture();
+                _width = _height = 0;
+                return;
+            }
             uint newWidth = (uint)width;
             uint newHeight = (uint)height;
             if (_width == newWidth && _height == newHeight) return;
             ReleaseSurfaceTexture();
+            ReleaseSurfaceDepth();
             _width = newWidth;
             _height = newHeight;
             _viewportX = 0;
@@ -628,61 +919,47 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             _scissorY = 0;
             _scissorWidth = width;
             _scissorHeight = height;
-            var config = new SurfaceConfiguration
-            {
-                Device = _device.Device,
-                Format = _surfaceFormat,
-                Usage = TextureUsage.RenderAttachment | TextureUsage.CopySrc,
-                AlphaMode = _alphaMode,
-                Width = _width,
-                Height = _height,
-                PresentMode = PresentMode.Fifo
-            };
-            _api.SurfaceConfigure(_device.Surface, config);
+            ConfigureSurface();
         }
 
         private bool AcquireSurfaceTexture()
         {
+            _device.ThrowIfFailed();
             if (_surfaceAcquired) return true;
             if (_width == 0 || _height == 0) return false;
 
-            _surfaceTexture = default;
-            SurfaceTexture acquired = default;
-            _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
-            _surfaceTexture = acquired;
-            if (_surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success
-                || _surfaceTexture.Texture == null)
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                if (_surfaceTexture.Texture != null) _api.TextureRelease(_surfaceTexture.Texture);
-                _surfaceTexture = default;
-                var config = new SurfaceConfiguration
-                {
-                    Device = _device.Device,
-                    Format = _surfaceFormat,
-                    Usage = TextureUsage.RenderAttachment | TextureUsage.CopySrc,
-                    AlphaMode = _alphaMode,
-                    Width = _width,
-                    Height = _height,
-                    PresentMode = PresentMode.Fifo
-                };
-                _api.SurfaceConfigure(_device.Surface, config);
-                acquired = default;
+                SurfaceTexture acquired = default;
                 _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
                 _surfaceTexture = acquired;
+                if (acquired.Status == SurfaceGetCurrentTextureStatus.Success && acquired.Texture != null)
+                {
+                    _surfaceView = _api.TextureCreateView(acquired.Texture, null);
+                    _surfaceAcquired = _surfaceView != null;
+                    if (!_surfaceAcquired) ReleaseSurfaceTexture();
+                    return _surfaceAcquired;
+                }
+                ReleaseSurfaceTexture();
+                if (acquired.Status == SurfaceGetCurrentTextureStatus.Timeout) return false;
+                if (acquired.Status is SurfaceGetCurrentTextureStatus.Outdated or SurfaceGetCurrentTextureStatus.Lost)
+                {
+                    if (attempt != 0) break;
+                    if (acquired.Status == SurfaceGetCurrentTextureStatus.Lost) _device.RecreateSurface();
+                    QuerySurfaceFormat();
+                    ConfigureSurface();
+                    continue;
+                }
+                throw new InvalidOperationException($"WebGPU presentation failed: {acquired.Status}.");
             }
-            if (_surfaceTexture.Status != SurfaceGetCurrentTextureStatus.Success
-                || _surfaceTexture.Texture == null)
-            {
-                return false;
-            }
-
-            _surfaceView = _api.TextureCreateView(_surfaceTexture.Texture, null);
-            _surfaceAcquired = _surfaceView != null;
-            return _surfaceAcquired;
+            throw new InvalidOperationException("WebGPU surface could not be recovered after reconfiguration.");
         }
 
         private void PresentCore()
         {
+            _device.ThrowIfFailed();
+            FlushCommands();
+            ResetFrameBuffers();
             if (!_surfaceAcquired) return;
             _api.SurfacePresent(_device.Surface);
             ReleaseSurfaceTexture();
@@ -690,6 +967,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ReleaseSurfaceTexture()
         {
+            if (!_disposed) FlushCommands();
             if (_surfaceView != null)
             {
                 _api.TextureViewRelease(_surfaceView);
@@ -766,38 +1044,49 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             if (id == 0) throw new InvalidOperationException("Texture zero is the default object.");
             ModernGraphicsResourceState.TextureRecord record = _resources.Texture(id);
-            if (_nativeTextures.TryGetValue(id, out NativeTexture? existing) && !record.Dirty)
-                return existing;
-
-            if (existing != null)
-            {
-                ReleaseNativeTexture(existing);
-                _nativeTextures.Remove(id);
-            }
-
+            _nativeTextures.TryGetValue(id, out NativeTexture? existing);
             WgpuTextureFormat format = NativeTextureFormat(record);
-            byte[] data = ConvertPixels(record, ref format);
+            byte[] data = record.Dirty ? ConvertPixels(record, ref format) : Array.Empty<byte>();
             int width = Math.Max(1, record.Width);
             int height = Math.Max(1, record.Height);
+            bool depth = format == WgpuTextureFormat.Depth24Plus || format == WgpuTextureFormat.Depth24PlusStencil8;
+            int mipCount = record.HasMipmaps && !depth
+                ? 1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))) : 1;
+            if (existing != null && existing.Width == width && existing.Height == height
+                && existing.Format == format && existing.MipCount == mipCount)
+            {
+                if (record.Dirty && data.Length > 0) UploadTexture(existing, data);
+                if (record.SamplerDirty) UpdateSampler(existing, record);
+                if (mipCount > 1 && (record.Dirty || record.MipmapsDirty)) GenerateNativeMipmaps(existing);
+                record.Dirty = record.MipmapsDirty = false;
+                return existing;
+            }
+            // Expanding a render target's mip chain must preserve its GPU base
+            // level; the CPU image may be absent or older than the rendered image.
+            bool preserveBase = existing != null && !record.Dirty
+                && existing.Width == width && existing.Height == height && existing.Format == format;
             var descriptor = new TextureDescriptor
             {
                 Size = new Extent3D((uint)width, (uint)height, 1),
                 Format = format,
                 Usage = TextureUsage.CopyDst | TextureUsage.TextureBinding
                     | TextureUsage.RenderAttachment | TextureUsage.CopySrc,
-                MipLevelCount = 1,
+                MipLevelCount = (uint)mipCount,
                 SampleCount = 1,
                 Dimension = TextureDimension.Dimension2D
             };
             var native = new NativeTexture
             {
                 Texture = _api.DeviceCreateTexture(_device.Device, descriptor),
-                Format = format
+                Format = format,
+                Width = width,
+                Height = height,
+                MipCount = mipCount
             };
             if (native.Texture == null)
                 throw new InvalidOperationException($"Could not allocate modern texture {id}.");
 
-            native.View = _api.TextureCreateView(native.Texture, null);
+            native.View = CreateMipView(native, 0);
             if (format == WgpuTextureFormat.Depth24PlusStencil8)
             {
                 var depthViewDescriptor = new TextureViewDescriptor
@@ -820,28 +1109,111 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             }
             else
             {
-                native.SampleView = native.View;
+                native.SampleView = mipCount > 1 ? _api.TextureCreateView(native.Texture, null) : native.View;
             }
+            UpdateSampler(native, record);
+            if (preserveBase)
+            {
+                var encoder = BeginCommands();
+                var source = new ImageCopyTexture { Texture = existing!.Texture, Aspect = TextureAspect.All };
+                var destination = new ImageCopyTexture { Texture = native.Texture, Aspect = TextureAspect.All };
+                var extent = new Extent3D((uint)width, (uint)height, 1);
+                _api.CommandEncoderCopyTextureToTexture(encoder, &source, &destination, &extent);
+                EndCommands();
+
+            }
+            else if (data.Length > 0) UploadTexture(native, data);
+            if (mipCount > 1) GenerateNativeMipmaps(native);
+            if (depth && record.MipmapsDirty)
+                Mods.DebugLog.Line("render", $"Texture {id}: mipmaps unavailable for {format}; using base level.");
+            if (existing != null) ReleaseNativeTexture(existing);
+            record.NativeMipCount = mipCount;
+            record.Dirty = record.MipmapsDirty = false;
+            _nativeTextures[id] = native;
+            return native;
+        }
+
+        private void UpdateSampler(NativeTexture native, ModernGraphicsResourceState.TextureRecord record)
+        {
+            if (native.Sampler != null) _api.SamplerRelease(native.Sampler);
+            bool linearMip = record.MinFilter == (int)TextureMinFilter.NearestMipmapLinear
+                || record.MinFilter == (int)TextureMinFilter.LinearMipmapLinear;
+            bool useMips = record.MinFilter != (int)TextureMinFilter.Nearest
+                && record.MinFilter != (int)TextureMinFilter.Linear;
+            // WebGPU requires all three filters to be linear for anisotropy.
+            ushort anisotropy = (ushort)(ToFilter(record.MinFilter) == FilterMode.Linear
+                && ToFilter(record.MagFilter) == FilterMode.Linear && linearMip ? record.Anisotropy : 1);
             native.Sampler = _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
             {
                 MinFilter = ToFilter(record.MinFilter),
                 MagFilter = ToFilter(record.MagFilter),
-                MipmapFilter = MipmapFilterMode.Nearest,
+                MipmapFilter = linearMip ? MipmapFilterMode.Linear : MipmapFilterMode.Nearest,
+                LodMinClamp = 0,
+                LodMaxClamp = useMips ? native.MipCount - 1 : 0,
                 AddressModeU = ToAddress(record.WrapS),
                 AddressModeV = ToAddress(record.WrapT),
                 AddressModeW = AddressMode.ClampToEdge,
-                MaxAnisotropy = 1
+                MaxAnisotropy = anisotropy
             });
+            record.SamplerDirty = false;
+        }
 
+        private void UploadSubImage(int id, NativeTexture native, int x, int y, int width, int height)
+        {
+            if (width == 0 || height == 0) return;
+            var record = _resources.Texture(id);
+            // CPU storage is a recovery image, not an authoritative copy of a
+            // rendered texture. Upload only the patch; preserve all other GPU pixels.
+            int pixelBytes = ModernGraphicsResourceState.BytesPerPixel(record.Format, record.Type);
+            int stride = checked(width * pixelBytes);
+            byte[] patch;
+            if (!record.FramebufferOrigin && x == 0 && y == 0
+                && width == record.Width && height == record.Height)
+            {
+                // Video/UI producers replace the whole image. Reuse their CPU
+                // storage instead of allocating another full-frame staging copy.
+                patch = record.Pixels!;
+            }
+            else
+            {
+                patch = new byte[checked(stride * height)];
+                for (int row = 0; row < height; row++)
+                    System.Buffer.BlockCopy(record.Pixels!, ((y + row) * record.Width + x) * pixelBytes,
+                        patch, (record.FramebufferOrigin ? height - 1 - row : row) * stride, stride);
+            }
+            var patchRecord = new ModernGraphicsResourceState.TextureRecord
+            {
+                Width = width, Height = height, Pixels = patch,
+                Format = record.Format, Type = record.Type, InternalFormat = record.InternalFormat
+            };
+            var format = native.Format;
+            byte[] data = ConvertPixels(patchRecord, ref format);
+            if (format != native.Format)
+                throw new NotSupportedException("Texture sub-image changed the native format.");
+            UploadTexture(native, data, x, record.FramebufferOrigin ? record.Height - y - height : y,
+                width, height);
+            record.Dirty = false;
+            record.MipmapsDirty = record.HasMipmaps;
+        }
+
+        private void UploadTexture(NativeTexture native, byte[] data, int x = 0, int y = 0,
+            int width = 0, int height = 0)
+        {
+            long uploadStart = PerformanceStart();
+            // Texture updates must follow earlier draws sampling the same image.
+            FlushCommands();
+            if (width == 0) width = native.Width;
+            if (height == 0) height = native.Height;
             if (data.Length > 0)
             {
                 var destination = new ImageCopyTexture
                 {
                     Texture = native.Texture,
+                    Origin = new Origin3D((uint)x, (uint)y, 0),
                     Aspect = TextureAspect.All,
                     MipLevel = 0
                 };
-                uint bytesPerRow = checked((uint)(width * 4));
+                uint bytesPerRow = checked((uint)(width * (native.Format == WgpuTextureFormat.Rgba16float ? 8 : 4)));
                 var layout = new TextureDataLayout
                 {
                     BytesPerRow = bytesPerRow,
@@ -853,10 +1225,47 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                     _api.QueueWriteTexture(_queue, destination, ptr, (nuint)data.Length, layout, extent);
                 }
             }
+            if (uploadStart != 0)
+            {
+                _textureUploadBytes += checked((long)width * height *
+                    (native.Format == WgpuTextureFormat.Rgba16float ? 8 : 4));
+                _textureUploadMs += System.Diagnostics.Stopwatch.GetElapsedTime(uploadStart).TotalMilliseconds;
+            }
+        }
 
-            record.Dirty = false;
-            _nativeTextures[id] = native;
-            return native;
+        private TextureView* CreateMipView(NativeTexture native, int level)
+        {
+            return _api.TextureCreateView(native.Texture, new TextureViewDescriptor
+            {
+                Format = native.Format, Dimension = TextureViewDimension.Dimension2D,
+                Aspect = TextureAspect.All, BaseMipLevel = (uint)level, MipLevelCount = 1,
+                BaseArrayLayer = 0, ArrayLayerCount = 1
+            });
+        }
+
+        private void GenerateNativeMipmaps(NativeTexture native)
+        {
+            for (int level = 1; level < native.MipCount; level++)
+            {
+                TextureView* source = CreateMipView(native, level - 1);
+                TextureView* destination = CreateMipView(native, level);
+                try
+                {
+                    int sw = Math.Max(1, native.Width >> (level - 1));
+                    int sh = Math.Max(1, native.Height >> (level - 1));
+                    int dw = Math.Max(1, native.Width >> level);
+                    int dh = Math.Max(1, native.Height >> level);
+                    // Disjoint mip subresources are legal in the same pass.
+                    BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
+                        new CoreTarget(native.Texture, destination, native.Format, null, dw, dh),
+                        0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
+                }
+                finally
+                {
+                    _api.TextureViewRelease(destination);
+                    _api.TextureViewRelease(source);
+                }
+            }
         }
 
         private static WgpuTextureFormat NativeTextureFormat(
@@ -865,6 +1274,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             return record.InternalFormat switch
             {
                 PixelInternalFormat.Depth24Stencil8 => WgpuTextureFormat.Depth24PlusStencil8,
+                PixelInternalFormat.DepthComponent => WgpuTextureFormat.Depth24Plus,
                 PixelInternalFormat.DepthComponent24 => WgpuTextureFormat.Depth24Plus,
                 PixelInternalFormat.Rgba16f => WgpuTextureFormat.Rgba16float,
                 PixelInternalFormat.Rgba8 => WgpuTextureFormat.Rgba8Unorm,
@@ -879,6 +1289,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         {
             if (record.Width <= 0 || record.Height <= 0 || record.Pixels == null)
                 return Array.Empty<byte>();
+            if (format == WgpuTextureFormat.Rgba16float && record.Format == PixelFormat.Rgba)
+            {
+                int count = checked(record.Width * record.Height * 4);
+                if (record.Type == PixelType.HalfFloat) return record.Pixels;
+                var halves = new byte[checked(count * 2)];
+                for (int i = 0; i < count; i++)
+                {
+                    float value = record.Type == PixelType.Float ? BitConverter.ToSingle(record.Pixels, i * 4)
+                        : record.Type == PixelType.UnsignedByte ? record.Pixels[i] / 255f
+                        : throw new NotSupportedException($"HDR upload type {record.Type} is unsupported.");
+                    BitConverter.TryWriteBytes(halves.AsSpan(i * 2, 2), BitConverter.HalfToUInt16Bits((System.Half)value));
+                }
+                return halves;
+            }
             if (record.Type != PixelType.UnsignedByte)
                 throw new NotSupportedException($"Modern launcher texture type {record.Type} is not supported yet.");
 
@@ -918,6 +1342,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (vertices.Length == 0) return;
             ModernProgramKind kind = CurrentProgramKind();
             bool core = _resources.DrawFramebuffer != 0
+                || UsesGeneratedShader(kind)
                 || kind == ModernProgramKind.World
                 || kind == ModernProgramKind.Rtt
                 || kind == ModernProgramKind.Shift
@@ -926,8 +1351,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 || kind == ModernProgramKind.ToneMap;
             if (triangles.Length > 0)
             {
-                if (core) DrawCoreIndexed(vertices, triangles, PrimitiveTopology.TriangleList, kind);
-                else DrawIndexed(vertices, triangles, PrimitiveTopology.TriangleList);
+                int[] indices = _wireframe ? WireframeIndices(triangles) : triangles;
+                var topology = _wireframe ? PrimitiveTopology.LineList : PrimitiveTopology.TriangleList;
+                if (core) DrawCoreIndexed(vertices, indices, topology, kind);
+                else DrawIndexed(vertices, indices, topology);
             }
             if (lines.Length > 0)
             {
@@ -943,20 +1370,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            WgpuBuffer* vertex = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = vertexBytes,
-                Usage = BufferUsage.Vertex | BufferUsage.CopyDst
-            });
-            WgpuBuffer* index = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
-            {
-                Size = indexBytes,
-                Usage = BufferUsage.Index | BufferUsage.CopyDst
-            });
-            fixed (float* vertexPtr = vertices)
-                _api.QueueWriteBuffer(_queue, vertex, 0, vertexPtr, (nuint)vertexBytes);
-            fixed (int* indexPtr = indices)
-                _api.QueueWriteBuffer(_queue, index, 0, indexPtr, (nuint)indexBytes);
+            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
+            WgpuBuffer* vertex = geometryBuffers.Vertex;
+            WgpuBuffer* index = geometryBuffers.Index;
 
             TextureView* textureView = _whiteView;
             WgpuSampler* sampler = _whiteSampler;
@@ -964,21 +1380,25 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_enabled.Contains(EnableCap.Texture2D) && bound != 0)
             {
                 NativeTexture texture = EnsureTexture(bound);
-                textureView = texture.View;
+                textureView = texture.SampleView;
                 sampler = texture.Sampler;
             }
 
-            var entries = stackalloc BindGroupEntry[2];
+            _uiViewportBuffer = RentUniformBuffer(16);
+            var viewport = ViewportTransform((int)_width, (int)_height);
+            _api.QueueWriteBuffer(_queue, _uiViewportBuffer, 0, &viewport, 16);
+            var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = textureView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            BindGroup* bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
+            BindGroup* bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
             {
                 Layout = pipeline.Layout,
                 Entries = entries,
-                EntryCount = 2
+                EntryCount = 3
             });
 
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device, new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var attachment = new RenderPassColorAttachment
             {
                 View = _surfaceView,
@@ -996,10 +1416,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
-            float viewportY = Math.Clamp((int)_height - (_viewportY + _viewportHeight),
-                0, Math.Max(0, (int)_height - 1));
-            _api.RenderPassEncoderSetViewport(pass, _viewportX, viewportY,
-                (float)_viewportWidth, (float)_viewportHeight, 0, 1);
+            _api.RenderPassEncoderSetViewport(pass, 0, 0, _width, _height, 0, 1);
             if (_enabled.Contains(EnableCap.ScissorTest))
             {
                 uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, (int)_width - 1));
@@ -1011,22 +1428,19 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             }
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
+            EndCommands();
 
-            _api.CommandBufferRelease(commands);
             _api.RenderPassEncoderRelease(pass);
-            _api.CommandEncoderRelease(encoder);
-            _api.BindGroupRelease(bindGroup);
-            _api.BufferRelease(index);
-            _api.BufferRelease(vertex);
+
+            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private PipelineRecord Pipeline(PrimitiveTopology topology)
         {
-            var key = new PipelineKey(topology, _enabled.Contains(EnableCap.Blend),
-                _blendSource, _blendDestination, CurrentWriteMask());
+            var key = new PipelineKey(topology, _surfaceFormat, _enabled.Contains(EnableCap.Blend),
+                _blendSource, _blendDestination, CurrentWriteMask(), _blendEquation);
             if (_pipelines.TryGetValue(key, out PipelineRecord? existing)) return existing;
+            long pipelineStart = PerformanceStart();
 
             var attributes = stackalloc VertexAttribute[3];
             attributes[0] = new VertexAttribute
@@ -1065,13 +1479,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                     {
                         SrcFactor = ToBlend(key.Source),
                         DstFactor = ToBlend(key.Destination),
-                        Operation = BlendOperation.Add
+                        Operation = ToBlendOperation(key.Equation)
                     },
                     Alpha = new BlendComponent
                     {
                         SrcFactor = ToBlend(key.Source),
                         DstFactor = ToBlend(key.Destination),
-                        Operation = BlendOperation.Add
+                        Operation = ToBlendOperation(key.Equation)
                     }
                 };
                 blendPtr = &blend;
@@ -1084,7 +1498,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 WriteMask = key.WriteMask
             };
             nint vertexEntry = SilkMarshal.StringToPtr("vs_main");
-            nint fragmentEntry = SilkMarshal.StringToPtr("fs_main");
+            nint fragmentEntry = SilkMarshal.StringToPtr(
+                _surfaceFormat is WgpuTextureFormat.Bgra8UnormSrgb or WgpuTextureFormat.Rgba8UnormSrgb
+                ? "fs_ui_srgb" : "fs_main");
             try
             {
                 var fragment = new FragmentState
@@ -1123,6 +1539,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 BindGroupLayout* layout = _api.RenderPipelineGetBindGroupLayout(pipeline, 0);
                 var created = new PipelineRecord { Pipeline = pipeline, Layout = layout };
                 _pipelines.Add(key, created);
+                RecordPipelineCreation(pipelineStart);
                 return created;
             }
             finally
@@ -1134,41 +1551,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void ClearCore(ClearBufferMask mask)
         {
-            if (_resources.DrawFramebuffer != 0)
-            {
-                ClearOffscreenCore(mask);
-                return;
-            }
-            if ((mask & ClearBufferMask.ColorBufferBit) == 0) return;
-            if (!AcquireSurfaceTexture()) return;
-
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device, new CommandEncoderDescriptor());
-            var attachment = new RenderPassColorAttachment
-            {
-                View = _surfaceView,
-                ResolveTarget = null,
-                LoadOp = LoadOp.Clear,
-                StoreOp = StoreOp.Store,
-                ClearValue = new WgpuColor
-                {
-                    R = _clearColor.X,
-                    G = _clearColor.Y,
-                    B = _clearColor.Z,
-                    A = _clearColor.W
-                }
-            };
-            var descriptor = new RenderPassDescriptor
-            {
-                ColorAttachments = &attachment,
-                ColorAttachmentCount = 1
-            };
-            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
-            _api.RenderPassEncoderEnd(pass);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
-            _api.CommandBufferRelease(commands);
-            _api.RenderPassEncoderRelease(pass);
-            _api.CommandEncoderRelease(encoder);
+            if (_enabled.Contains(EnableCap.ScissorTest) || CurrentWriteMask() != ColorWriteMask.All
+                || !_depthWrite || _stencilWriteMask != -1)
+                ClearPartial(mask);
+            else ClearOffscreenCore(mask);
         }
 
         private void ReadPixelsCore<T>(int x, int y, int width, int height,
@@ -1193,7 +1579,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 Size = total,
                 Usage = BufferUsage.CopyDst | BufferUsage.MapRead
             });
-            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device, new CommandEncoderDescriptor());
+            CommandEncoder* encoder = BeginCommands();
             var source = new ImageCopyTexture
             {
                 Texture = _surfaceTexture.Texture,
@@ -1213,46 +1599,53 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             };
             var extent = new Extent3D(copyWidth, copyHeight, 1);
             _api.CommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &extent);
-            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
-            _api.QueueSubmit(_queue, 1, &commands);
+            EndCommands();
 
-            _mapStatus = BufferMapAsyncStatus.Unknown;
-            _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
-                new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
-            _device.Native.DevicePoll(_device.Device, true, null);
-            if (_mapStatus != BufferMapAsyncStatus.Success)
-                throw new InvalidOperationException($"Modern readback map failed: {_mapStatus}.");
-
-            byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
-            int components = format == PixelFormat.Rgb ? 3 : 4;
-            byte[] output = new byte[checked(width * height * components)];
-            bool bgra = _surfaceFormat == WgpuTextureFormat.Bgra8Unorm
-                || _surfaceFormat == WgpuTextureFormat.Bgra8UnormSrgb;
-            for (int row = 0; row < height; row++)
+            bool mappedSuccessfully = false;
+            try
             {
-                byte* src = mapped + row * paddedRow;
-                int dst = row * width * components;
-                for (int col = 0; col < width; col++)
+                FlushCommands();
+                ResetFrameBuffers();
+                _mapStatus = BufferMapAsyncStatus.Unknown;
+                _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
+                    new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
+                _device.Native.DevicePoll(_device.Device, true, null);
+                if (_mapStatus != BufferMapAsyncStatus.Success)
+                    throw new InvalidOperationException($"Modern readback map failed: {_mapStatus}.");
+
+                mappedSuccessfully = true;
+                byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
+                int components = format == PixelFormat.Rgb ? 3 : 4;
+                byte[] output = new byte[checked(width * height * components)];
+                bool bgra = _surfaceFormat == WgpuTextureFormat.Bgra8Unorm
+                    || _surfaceFormat == WgpuTextureFormat.Bgra8UnormSrgb;
+                for (int row = 0; row < height; row++)
                 {
-                    byte b0 = src[col * 4 + 0];
-                    byte b1 = src[col * 4 + 1];
-                    byte b2 = src[col * 4 + 2];
-                    byte b3 = src[col * 4 + 3];
-                    output[dst++] = bgra ? b2 : b0;
-                    output[dst++] = b1;
-                    output[dst++] = bgra ? b0 : b2;
-                    if (components == 4) output[dst++] = b3;
+                    byte* src = mapped + (height - 1 - row) * paddedRow;
+                    int dst = row * width * components;
+                    for (int col = 0; col < width; col++)
+                    {
+                        byte b0 = src[col * 4 + 0];
+                        byte b1 = src[col * 4 + 1];
+                        byte b2 = src[col * 4 + 2];
+                        byte b3 = src[col * 4 + 3];
+                        output[dst++] = bgra ? b2 : b0;
+                        output[dst++] = b1;
+                        output[dst++] = bgra ? b0 : b2;
+                        if (components == 4) output[dst++] = b3;
+                    }
                 }
+
+                if (typeof(T) != typeof(byte))
+                    throw new NotSupportedException("Modern launcher readback currently targets byte arrays.");
+                Array.Copy(output, (byte[])(object)pixels, Math.Min(output.Length, pixels.Length));
             }
-            _api.BufferUnmap(readback);
+            finally
+            {
+                if (mappedSuccessfully) _api.BufferUnmap(readback);
 
-            if (typeof(T) != typeof(byte))
-                throw new NotSupportedException("Modern launcher readback currently targets byte arrays.");
-            Array.Copy(output, (byte[])(object)pixels, Math.Min(output.Length, pixels.Length));
-
-            _api.CommandBufferRelease(commands);
-            _api.CommandEncoderRelease(encoder);
-            _api.BufferRelease(readback);
+                _api.BufferRelease(readback);
+            }
         }
 
         private void ReleaseNativeTexture(NativeTexture texture)

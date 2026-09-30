@@ -29,8 +29,7 @@ internal static class MapViewportCheck
         settings.StartFocused = false;
         settings.ClientSize = new(960, 600);
         using var window = new NativeWindow(settings);
-        window.Context.MakeCurrent();
-        GL.LoadBindings(new GLFWBindingsContext());
+        using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
         var surface = UiSurface.Ensure() ?? throw new InvalidOperationException("No UI surface.");
         int checks = 0;
         var foregroundPlayers = MphRead.Entities.PlayerEntity.LegacyRegistry;
@@ -69,7 +68,8 @@ internal static class MapViewportCheck
             {
                 window.ClientSize = size;
                 NativeWindow.ProcessWindowEvents(false);
-                window.Context.SwapBuffers(); // GLX commits the resized drawable at swap.
+                MphRead.Mods.Render.DesktopGraphicsSession.Resize(window);
+                MphRead.Mods.Render.DesktopGraphicsSession.Present(window); // GLX commits the resized drawable at swap.
                 NativeWindow.ProcessWindowEvents(false);
                 // The UI and rendering consume framebuffer pixels, including Retina.
                 var target = window.FramebufferSize;
@@ -161,7 +161,8 @@ internal static class MapViewportCheck
             Check(viewport.GpuMeshUploads == 0 && GL.GetError() == ErrorCode.NoError, "leaving editor releases renderer");
             window.ClientSize = new(1440, 900);
             NativeWindow.ProcessWindowEvents(false);
-            window.Context.SwapBuffers();
+            MphRead.Mods.Render.DesktopGraphicsSession.Resize(window);
+                MphRead.Mods.Render.DesktopGraphicsSession.Present(window);
             NativeWindow.ProcessWindowEvents(false);
             surface.Resize(window.FramebufferSize.X, window.FramebufferSize.Y);
             var studio = new MapStudioScreen(); studio.Load(MapTemplates.Create("Renderer check", false));

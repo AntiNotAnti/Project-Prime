@@ -563,6 +563,10 @@ namespace MphRead
 
         public void OnLoad()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active)
+                Mods.Render.ModernGraphicsCompat.PrewarmCommonPipelines();
+#endif
             // What the driver calls itself, once, at the only moment there is
             // certainly a context current. Everything about a picture being
             // wrong on somebody else's machine starts with these three lines,
@@ -736,6 +740,19 @@ namespace MphRead
         /// </summary>
         public bool SideScene { get; set; }
 
+        private PixelInternalFormat _sceneColorFormat;
+        private static PixelInternalFormat SceneColorFormat
+        {
+            get
+            {
+#if !MPHREAD_SERVER
+                if (Mods.Render.ModernGraphicsCompat.Active && Mods.RenderOptions.InternalHdr)
+                    return PixelInternalFormat.Rgba16f;
+#endif
+                return PixelInternalFormat.Rgb;
+            }
+        }
+
         public void OnResize()
         {
             if (_screenTexture != 0 && Size.X > 0 && Size.Y > 0)
@@ -747,7 +764,7 @@ namespace MphRead
                 try
                 {
                     GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, target.X, target.Y, 0,
+                    GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, target.X, target.Y, 0,
                         PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
                     // Nearest is the native DS look at exactly 100%. Any scaled
                     // target needs linear sampling: below 100% it is upscaling,
@@ -761,7 +778,7 @@ namespace MphRead
                     if (_celTexture != 0)
                     {
                         GL.BindTexture(TextureTarget.Texture2D, _celTexture);
-                        GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, target.X, target.Y, 0,
+                        GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, target.X, target.Y, 0,
                             PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
                         GL.BindTexture(TextureTarget.Texture2D, 0);
                     }
@@ -785,6 +802,8 @@ namespace MphRead
                     }
                     // Publish only after all attachments agree on the new size.
                     _targetSize = target;
+                    _sceneColorFormat = SceneColorFormat;
+                    _graphicsHistoryValid = false;
                 }
                 finally
                 {
@@ -915,7 +934,7 @@ namespace MphRead
             Vector2i renderTarget = RenderSize;
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, _screenTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, renderTarget.X, renderTarget.Y, 0,
+            GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, renderTarget.X, renderTarget.Y, 0,
                 PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
             // Native scale keeps the DS's nearest presentation. A non-native
             // target uses linear sampling both for upscaling and for resolving
@@ -934,7 +953,7 @@ namespace MphRead
             _celTexture = GL.GenTexture();
 
             GL.BindTexture(TextureTarget.Texture2D, _celTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, renderTarget.X, renderTarget.Y, 0,
+            GL.TexImage2D(TextureTarget.Texture2D, 0, SceneColorFormat, renderTarget.X, renderTarget.Y, 0,
                 PixelFormat.Rgb, PixelType.UnsignedByte, IntPtr.Zero);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
@@ -2139,8 +2158,18 @@ namespace MphRead
         /// would make the game run differently on a fast monitor, which is the
         /// one failure this split must not have.
         /// </summary>
+#if !MPHREAD_SERVER
+        private int _modernDeviceGeneration;
+#endif
         public void OnDrawFrame()
         {
+#if !MPHREAD_SERVER
+            if (_modernDeviceGeneration != Mods.Render.ModernGraphicsCompat.DeviceGeneration)
+            {
+                _modernDeviceGeneration = Mods.Render.ModernGraphicsCompat.DeviceGeneration;
+                _graphicsHistoryValid = false;
+            }
+#endif
             if (Mods.Network.DemoPlayback.PreparePresentation(this) is { } theatre)
             { theatre.OnDrawFrame(); return; }
             if (Mods.KillCam.Presentation(this) is { } historical)
@@ -2188,7 +2217,7 @@ namespace MphRead
             // smaller than the window. Reallocated here rather than only on a
             // window resize, so moving the slider during a match is seen.
             Vector2i target = RenderSize;
-            if (target != _targetSize)
+            if (target != _targetSize || _sceneColorFormat != SceneColorFormat)
             {
                 OnResize();
                 target = _targetSize;
@@ -2446,9 +2475,6 @@ namespace MphRead
         private void UpdateDepthAttachment(Vector2i target)
         {
             bool want =
-#if !MPHREAD_SERVER
-                !Mods.Render.ModernGraphicsCompat.Active &&
-#endif
                 !_depthTextureRefused
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
                     || Mods.RenderOptions.NeedsReadableDepth);
@@ -7649,7 +7675,7 @@ localCenter *= _profileHudScale;
             UpdateFrequency = 0
         };
 
-        private static readonly NativeWindowSettings _nativeWindowSettings = Mods.Render.DesktopGlContext.Settings();
+        private static NativeWindowSettings _nativeWindowSettings => Mods.Render.DesktopGlContext.Settings();
 
         /// <summary>
         /// The match, while there is one.
@@ -7742,6 +7768,16 @@ localCenter *= _profileHudScale;
                 + (Mods.WindowMode.StartupForced ? ", from the command line" : "") + ")");
         }
 
+        public static RenderWindow Create(bool shell = false)
+        {
+            try { return new RenderWindow(shell); }
+            catch (Exception ex) when (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
+            {
+                Mods.Render.GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
+                return new RenderWindow(shell);
+            }
+        }
+
         public RenderWindow(bool shell = false) : base(_gameWindowSettings, _nativeWindowSettings)
         {
             _shell = shell;
@@ -7754,11 +7790,19 @@ localCenter *= _profileHudScale;
             // IgnoreUnavailableGlfwFeatures for why a throw here is fatal
             // rather than catchable.
             IgnoreUnavailableGlfwFeatures();
-#if !MPHREAD_SERVER
+#if !ANDROID && !MPHREAD_SERVER
             if (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
             {
-                Mods.Render.ModernGraphicsCompat.Initialize(this,
-                    Mods.Render.GraphicsBackendPolicy.Resolved);
+                try
+                {
+                    Mods.Render.ModernGraphicsCompat.Initialize(this,
+                        Mods.Render.GraphicsBackendPolicy.Resolved);
+                }
+                catch
+                {
+                    Dispose();
+                    throw;
+                }
             }
 #endif
             // The mark, on this window: it is the only one the program has
@@ -8096,6 +8140,12 @@ localCenter *= _profileHudScale;
             {
                 if (_shell) Sound.AudioLifetime.Shutdown();
 #if !MPHREAD_SERVER
+#if MPHREAD_SHELL
+                // Map Studio owns GPU resources too. Release them before the
+                // modern facade is detached from this NoAPI window.
+                if (Mods.Render.ModernGraphicsCompat.RecoveryFailure == null)
+                    Mods.Launcher.Gui.UiSurface.Current?.ReleaseMapRenderer();
+#endif
                 Mods.Render.ModernGraphicsCompat.Shutdown();
 #endif
                 base.OnUnload();
@@ -8182,6 +8232,7 @@ localCenter *= _profileHudScale;
                 // A NoAPI GLFW window has no GL swap interval. The modern
                 // surface owns presentation cadence; explicit caps still use
                 // OpenTK's frame scheduler while display-rate mode runs free.
+                Mods.Render.ModernGraphicsCompat.SetVSync(cap == Mods.Render.FrameTiming.DisplayRate);
                 UpdateFrequency = cap == Mods.Render.FrameTiming.DisplayRate ? 0 : cap;
                 return;
             }

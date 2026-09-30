@@ -20,7 +20,7 @@ namespace MphRead.Mods.Diagnostics
                     settings.Profile = OpenTK.Windowing.Common.ContextProfile.Any;
                 }
                 using var window = new GameWindow(new GameWindowSettings(), settings);
-                window.MakeCurrent();
+                using var graphics = new MphRead.Mods.Render.DesktopGraphicsSession(window);
                 bool debugSkipped = false;
                 ScreenCapture.EnableDebugOutput(line =>
                 {

@@ -110,6 +110,14 @@ namespace MphRead.Mods.Render
             Check(batch.LineIndices.Count == 6
                 && batch.LineIndices[4] == 2 && batch.LineIndices[5] == 0,
                 "line loop closes explicitly", ref failures);
+            batch.Clear();
+            batch.Begin(OpenTK.Graphics.OpenGL.PrimitiveType.Lines);
+            for (int i = 0; i < 5; i++) batch.AddVertex(new(i, 0, 0),
+                OpenTK.Mathematics.Vector4.One, OpenTK.Mathematics.Vector3.UnitZ,
+                OpenTK.Mathematics.Vector3.Zero, true);
+            batch.End();
+            Check(batch.LineIndices.Count == 4 && batch.LineIndices[3] == 3,
+                "independent lines ignore incomplete trailing vertex", ref failures);
         }
 
 #if !MPHREAD_SERVER
@@ -176,6 +184,45 @@ namespace MphRead.Mods.Render
                 && stored[6] == 103 && stored[7] == 104,
                 "compat texture sub-image updates the addressed texel", ref failures);
 
+            byte[] beforeInvalidUpdate = (byte[])state.Texture(texture).Pixels!.Clone();
+            bool rejectedRowOverflow = false, rejectedShortSource = false;
+            try
+            {
+                state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                    1, 0, 2, 1, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
+                    OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, new byte[8]);
+            }
+            catch (ArgumentOutOfRangeException) { rejectedRowOverflow = true; }
+            try
+            {
+                state.TexSubImage2D(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                    0, 0, 1, 2, OpenTK.Graphics.OpenGL.PixelFormat.Rgba,
+                    OpenTK.Graphics.OpenGL.PixelType.UnsignedByte, new byte[4]);
+            }
+            catch (ArgumentException) { rejectedShortSource = true; }
+            Check(rejectedRowOverflow && rejectedShortSource
+                && beforeInvalidUpdate.AsSpan().SequenceEqual(state.Texture(texture).Pixels),
+                "invalid sub-images fail before changing any texels", ref failures);
+
+            state.Texture(texture).Dirty = false; // Simulate a completed upload.
+            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                (OpenTK.Graphics.OpenGL.TextureParameterName)0x84FE, 64);
+            Check(state.Texture(texture).Anisotropy == 16 && !state.Texture(texture).Dirty
+                && state.Texture(texture).SamplerDirty,
+                "sampler edits clamp anisotropy without invalidating texture contents", ref failures);
+            state.GenerateMipmap(OpenTK.Graphics.OpenGL.GenerateMipmapTarget.Texture2D);
+            Check(state.Texture(texture).HasMipmaps && state.Texture(texture).MipmapsDirty
+                && !state.Texture(texture).Dirty,
+                "mipmap requests preserve the uploaded base level", ref failures);
+
+            state.Texture(texture).SamplerDirty = false;
+            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                (OpenTK.Graphics.OpenGL.TextureParameterName)0x84FE, 64);
+            state.TexParameter(OpenTK.Graphics.OpenGL.TextureTarget.Texture2D,
+                OpenTK.Graphics.OpenGL.TextureParameterName.TextureMinFilter, state.Texture(texture).MinFilter);
+            Check(!state.Texture(texture).SamplerDirty,
+                "unchanged effective sampler settings preserve the native sampler", ref failures);
+
             int framebuffer = state.GenFramebuffer();
             state.BindFramebuffer(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer, framebuffer);
             state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
@@ -198,6 +245,13 @@ namespace MphRead.Mods.Render
                 out int depthBits);
             Check(depthBits == 24,
                 "compat depth/stencil attachment reports 24 depth bits", ref failures);
+
+            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, 0);
+            Check(state.IsFramebufferTexture(texture),
+                "detached render targets retain their sampling origin", ref failures);
+            state.FramebufferTexture2D(OpenTK.Graphics.OpenGL.FramebufferTarget.Framebuffer,
+                OpenTK.Graphics.OpenGL.FramebufferAttachment.ColorAttachment0, texture);
 
             state.DeleteTexture(texture);
             Check(!state.IsTexture(texture) && state.Framebuffer(framebuffer).ColorTexture == 0,

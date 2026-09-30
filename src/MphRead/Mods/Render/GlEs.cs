@@ -45,10 +45,10 @@ namespace MphRead.Mods.Render
     /// What is lost: <c>glPolygonMode</c>, so the wireframe and collision-volume
     /// debug views draw solid. Nothing a player sees uses it.
     /// </summary>
-    internal static class GlEs
+    internal static partial class GlEs
     {
         // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id, 13 "had its own colour"
-        private const int FloatsPerVertex = 14;
+        private const int FloatsPerVertex = LegacyGeometryBatch.FloatsPerVertex;
         private const int Stride = FloatsPerVertex * sizeof(float);
 
         private sealed class CompiledList

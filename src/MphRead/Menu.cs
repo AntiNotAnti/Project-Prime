@@ -36,6 +36,8 @@ namespace MphRead
         public string NotificationVolume { get; set; } = "1";
         public string EffectsVolume { get; set; } = "1";
         public string MusicVolume { get; set; } = "0.50";
+        // Preserve the compatibility backend for existing and new installs until release gates pass.
+        public string Renderer { get; set; } = "OpenGL";
         public string ResolutionScale { get; set; } = "100";
         public string FieldOfView { get; set; } = "78";
         public string Lighting { get; set; } = "on";
@@ -590,6 +592,7 @@ namespace MphRead
                 };
                 GameState.CommitSettings(new MenuSettings()
                 {
+                    Renderer = menuSettings.Renderer,
                     RoomKey = roomKey,
                     Mode = _mode,
                     Player1 = FormatHunter(0),
@@ -1324,7 +1327,7 @@ namespace MphRead
                     }
                 }
                 _applySettings = true;
-                using var renderer = new RenderWindow();
+                using var renderer = RenderWindow.Create();
                 if (_movieId != -1)
                 {
                     renderer.QueueMovie(_movieId);

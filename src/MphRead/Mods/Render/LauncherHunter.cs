@@ -144,17 +144,6 @@ namespace MphRead.Mods.Render
         {
             Drawn = false;
             Scene.PreviewDrawnLastFrame = false;
-#if !MPHREAD_SERVER
-            if (ModernGraphicsCompat.Active && !window.HasScene)
-            {
-                // The first modern-renderer slice deliberately proves the
-                // launcher/presentation path before standing up a private
-                // world/FBO scene. HunterStand sees Drawn=false and keeps its
-                // existing fallback instead of opening the unfinished pass.
-                Scene.LauncherPreview = false;
-                return;
-            }
-#endif
             if (!Wanted || CanPresent?.Invoke() == false || width <= 0 || height <= 0)
             {
                 Scene.LauncherPreview = false;

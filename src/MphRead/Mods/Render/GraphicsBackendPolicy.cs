@@ -49,6 +49,46 @@ namespace MphRead.Mods.Render
             }
         }
 
+        public static GraphicsBackend[] RendererChoices()
+        {
+            var modern = ModernBackendsFor(CurrentPlatform);
+            var choices = new GraphicsBackend[modern.Count + 2];
+            choices[0] = GraphicsBackend.Auto;
+            for (int i = 0; i < modern.Count; i++) choices[i + 1] = modern[i];
+            choices[^1] = GraphicsBackend.OpenGL;
+            return choices;
+        }
+
+        private static bool _preferenceRead;
+        public static void LoadPreference()
+        {
+            if (Configured || _preferenceRead) return;
+            _preferenceRead = true;
+            try
+            {
+                string path = System.IO.Path.Combine("Savedata", "settings.json");
+                if (!System.IO.File.Exists(path)) return;
+                using var document = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(path));
+                if (document.RootElement.TryGetProperty("MenuSettings", out var menu)
+                    && menu.TryGetProperty("Renderer", out var renderer)
+                    && renderer.ValueKind == System.Text.Json.JsonValueKind.String)
+                    Configure(renderer.GetString());
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or System.Text.Json.JsonException
+                or ArgumentException or PlatformNotSupportedException)
+            {
+                Console.Error.WriteLine($"[render] Ignoring renderer preference: {ex.Message}");
+                Configure("opengl");
+            }
+        }
+
+        public static void UseCompatibilityFallback(string reason)
+        {
+            Console.Error.WriteLine($"[render] {DisplayName(Resolved)} failed; using OpenGL compatibility: {reason}");
+            Requested = GraphicsBackend.OpenGL;
+            Configured = true;
+        }
+
         public static GraphicsBackend Resolved => Resolve(CurrentPlatform, Requested);
 
         /// <summary>

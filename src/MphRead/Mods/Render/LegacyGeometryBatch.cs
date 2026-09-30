@@ -16,7 +16,7 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal sealed class LegacyGeometryBatch
     {
-        internal const int FloatsPerVertex = 14;
+        internal const int FloatsPerVertex = 15;
 
         internal readonly List<float> Vertices = new(4096);
         internal readonly List<int> TriIndices = new(4096);
@@ -43,7 +43,7 @@ namespace MphRead.Mods.Render
         }
 
         internal void AddVertex(Vector3 position, Vector4 color, Vector3 normal,
-            Vector3 texcoord, bool hasOwnColor)
+            Vector3 texcoord, bool hasOwnColor, bool hasOwnNormal = true)
         {
             Vertices.Add(position.X);
             Vertices.Add(position.Y);
@@ -59,6 +59,7 @@ namespace MphRead.Mods.Render
             Vertices.Add(texcoord.Y);
             Vertices.Add(texcoord.Z);
             Vertices.Add(hasOwnColor ? 1f : 0f);
+            Vertices.Add(hasOwnNormal ? 1f : 0f);
             VertexCount++;
         }
 
@@ -116,6 +117,22 @@ namespace MphRead.Mods.Render
                 for (int i = 1; i + 1 < count; i++)
                 {
                     Triangle(first, first + i, first + i + 1);
+                }
+                break;
+
+            case PrimitiveType.Lines:
+                for (int i = 0; i + 1 < count; i += 2)
+                {
+                    LineIndices.Add(first + i);
+                    LineIndices.Add(first + i + 1);
+                }
+                break;
+
+            case PrimitiveType.LineStrip:
+                for (int i = 0; i + 1 < count; i++)
+                {
+                    LineIndices.Add(first + i);
+                    LineIndices.Add(first + i + 1);
                 }
                 break;
 

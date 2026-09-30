@@ -25,6 +25,7 @@ namespace MphRead
         private int _graphicsHdrFramebuffer;
         private int _graphicsHistoryTexture;
         private Vector2i _graphicsHistorySize;
+        private PixelInternalFormat _graphicsHistoryFormat;
         private bool _graphicsHistoryValid;
         private Matrix4 _graphicsPreviousViewProjection = Matrix4.Identity;
         private Vector2i _graphicsOutputSize;
@@ -57,9 +58,6 @@ namespace MphRead
 
         private void ApplyGraphicsPostProcess()
         {
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active) { _graphicsOutputReady = false; return; }
-#endif
             _graphicsOutputReady = false;
             if (!RenderOptions.PostProcessingEnabled || _graphicsPipelineRefused)
             {
@@ -433,10 +431,14 @@ namespace MphRead
             {
                 _graphicsHistoryTexture = GL.GenTexture();
             }
-            if (_graphicsHistorySize == target) return;
+            PixelInternalFormat historyFormat = PixelInternalFormat.Rgba8;
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active && RenderOptions.InternalHdr) historyFormat = PixelInternalFormat.Rgba16f;
+#endif
+            if (_graphicsHistorySize == target && _graphicsHistoryFormat == historyFormat) return;
             GL.ActiveTexture(TextureUnit.Texture3);
             GL.BindTexture(TextureTarget.Texture2D, _graphicsHistoryTexture);
-            GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
+            GL.TexImage2D(TextureTarget.Texture2D, 0, historyFormat,
                 target.X, target.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                 (int)TextureMinFilter.Linear);
@@ -448,6 +450,7 @@ namespace MphRead
                 (int)TextureWrapMode.ClampToEdge);
             GL.ActiveTexture(TextureUnit.Texture0);
             _graphicsHistorySize = target;
+            _graphicsHistoryFormat = historyFormat;
             _graphicsHistoryValid = false;
         }
 

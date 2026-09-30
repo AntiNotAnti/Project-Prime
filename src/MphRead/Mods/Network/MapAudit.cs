@@ -351,8 +351,15 @@ namespace MphRead.Mods.Network
             Scene.AddRoom(room, mode, playerCount: NetLaunch.RoomPlayerCount);
         }
 
+#if !ANDROID && !MPHREAD_SERVER
+        private Render.DesktopGraphicsSession? _graphics;
+#endif
+
         protected override void OnLoad()
         {
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = new Render.DesktopGraphicsSession(this);
+#endif
             Scene.Size = ClientSize;
             Scene.OnLoad();
             base.OnLoad();
@@ -418,7 +425,11 @@ namespace MphRead.Mods.Network
                     // Every picture but the last is finished and thrown away:
                     // what is being measured is that making it changed nothing,
                     // and the last one is the one the samplers below read.
-                    SwapBuffers();
+#if !ANDROID && !MPHREAD_SERVER
+                    Render.DesktopGraphicsSession.Present(this);
+#else
+            SwapBuffers();
+#endif
                     Scene.AfterRenderFrame();
                 }
             }
@@ -435,13 +446,21 @@ namespace MphRead.Mods.Network
             {
                 if (!StepItemShots())
                 {
-                    SwapBuffers();
+#if !ANDROID && !MPHREAD_SERVER
+                    Render.DesktopGraphicsSession.Present(this);
+#else
+            SwapBuffers();
+#endif
                     Scene.AfterRenderFrame();
                     base.OnRenderFrame(args);
                     Close();
                     return;
                 }
-                SwapBuffers();
+#if !ANDROID && !MPHREAD_SERVER
+                Render.DesktopGraphicsSession.Present(this);
+#else
+            SwapBuffers();
+#endif
                 Scene.AfterRenderFrame();
                 base.OnRenderFrame(args);
                 return;
@@ -450,13 +469,21 @@ namespace MphRead.Mods.Network
             {
                 if (!StepSpawnRender())
                 {
-                    SwapBuffers();
+#if !ANDROID && !MPHREAD_SERVER
+                    Render.DesktopGraphicsSession.Present(this);
+#else
+            SwapBuffers();
+#endif
                     Scene.AfterRenderFrame();
                     base.OnRenderFrame(args);
                     Close();
                     return;
                 }
-                SwapBuffers();
+#if !ANDROID && !MPHREAD_SERVER
+                Render.DesktopGraphicsSession.Present(this);
+#else
+            SwapBuffers();
+#endif
                 Scene.AfterRenderFrame();
                 base.OnRenderFrame(args);
                 return;
@@ -465,7 +492,11 @@ namespace MphRead.Mods.Network
             StepScoreboard();
             Observe();
             if (!PerformanceMode) SampleRender();
+#if !ANDROID && !MPHREAD_SERVER
+            Render.DesktopGraphicsSession.Present(this);
+#else
             SwapBuffers();
+#endif
             Scene.AfterRenderFrame();
             base.OnRenderFrame(args);
             if (_frame >= _seconds * 60 && (_bots || (!StepProbe() && !StepAfflictionProbe())))
@@ -1326,6 +1357,12 @@ namespace MphRead.Mods.Network
         protected override void OnClosing(System.ComponentModel.CancelEventArgs e)
         {
             Scene.DoCleanup();
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics?.Dispose();
+#endif
+#if !ANDROID && !MPHREAD_SERVER
+            _graphics = null;
+#endif
             base.OnClosing(e);
         }
 

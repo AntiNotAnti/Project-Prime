@@ -23,9 +23,6 @@ namespace MphRead
 
         private void DrawWorldOutlines()
         {
-#if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active) return;
-#endif
             // Cel's black silhouette can completely cover a colored inward rim at low
             // render scales. Composite player edges last, before preview/HUD layers.
             DrawCelOutline();
