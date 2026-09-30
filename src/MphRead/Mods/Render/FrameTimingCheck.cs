@@ -197,7 +197,7 @@ namespace MphRead.Mods.Render
         /// <summary>
         /// Pro HUD freezes the native reticle fire animation in both weapon
         /// styles. Dynamic/Metroid retains an eased simulation basis for its
-        /// drifting weapon/reticle, but both weapon styles must expose the
+        /// drifting weapon, but both weapon styles must expose the
         /// responsive raw-aim camera to the local player.
         /// </summary>
         private static bool RunDynamicCrosshairCameraPolicyCase()
@@ -221,7 +221,7 @@ namespace MphRead.Mods.Render
 
                 bool ok = dynamicOk && staticOk;
                 Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
-                    + $" | dynamic={(dynamicOk ? "responsive / eased visual state" : "wrong policy")}"
+                    + $" | dynamic={(dynamicOk ? "responsive / eased weapon state" : "wrong policy")}"
                     + $" | static={(staticOk ? "responsive / welded visual state" : "wrong policy")}");
                 return ok;
             }
