@@ -160,14 +160,14 @@ aiming now uses `CameraInfo.ModGetDrawPose(PresentationAlpha)` instead, so its
 camera, viewmodel and ordinary presentation interpolation advance on one
 timestamp rather than fighting the simulation's easing.
 
-The moving reticle has the same simulation/presentation separation. Its
-authoritative screen position is sampled only by the 60 Hz HUD update, and that
-update projects through `CameraInfo.ViewMatrix`, never the draw pass's prepared
-view matrix. Legacy moving-reticle aim interpolates the previous/current reticle
-at the same `PresentationAlpha` as its eased camera. Modern fixed-camera aiming
-keeps the latency-oriented forward presentation: it extends only the fractional
-remainder of stable motion, reduces prediction while decelerating, and stops it
-on direction reversal. Static/Quake crosshairs remain exactly screen-centre.
+The reticle has the same simulation/presentation separation. Its authoritative
+screen position is sampled only by the 60 Hz HUD update, and that update never
+feeds a draw-only late-latched view back into gameplay. Classic/eased aiming
+interpolates the previous/current moving reticle at the same `PresentationAlpha`
+as its camera. Pro HUD uses a responsive raw-aim camera in both weapon styles:
+Static/Quake welds the weapon to that camera, while Dynamic/Metroid retains only
+the weapon's eased visual drift. Because the firing ray follows the responsive
+camera, both Pro styles keep the crosshair exactly screen-centre.
 
 The first-person gun smoke is emitted directly from the prepared viewmodel
 transform. Linked charge and muzzle `EffectEntry` particles use a per-draw

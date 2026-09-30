@@ -220,13 +220,22 @@ namespace MphRead
         private static bool _fixedWeapon = false;
 
         /// <summary>
-        /// Whether first-person camera orientation should be welded to the raw
-        /// aim direction. Reticle animation and weapon presentation are
-        /// separate choices: Pro HUD freezes the fire animation, but Dynamic
-        /// (Metroid) weapon mode still needs the original eased camera so the
-        /// moving reticle has a real camera-to-aim delta to display.
+        /// Whether the simulation camera itself should be welded to raw aim.
+        /// Dynamic/Metroid keeps the legacy eased simulation basis because its
+        /// drifting weapon presentation is authored from that visual state.
+        /// The local rendered camera is governed separately by
+        /// <see cref="ResponsiveAimCamera"/> so visual drift never adds mouse
+        /// latency.
         /// </summary>
         public static bool FixedAimCamera => FixedCrosshair && FixedWeapon;
+
+        /// <summary>
+        /// Whether local first-person presentation should follow raw aim and
+        /// late-latched pointer/controller input immediately. A fixed Pro
+        /// crosshair opts into the modern low-latency camera even when the
+        /// weapon presentation remains Dynamic/Metroid.
+        /// </summary>
+        public static bool ResponsiveAimCamera => FixedCrosshair;
 
         /// <summary>
         /// Static (true) or dynamic (false) weapon while <see cref="ProHud"/>
