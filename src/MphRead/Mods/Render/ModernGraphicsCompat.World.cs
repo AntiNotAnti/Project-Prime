@@ -85,6 +85,7 @@ namespace MphRead.Mods.Render
         private ShaderModule* _shiftShader;
         private ShaderModule* _celShader;
         private ShaderModule* _playerOutlineShader;
+        private ShaderModule* _toneMapShader;
         private WgpuBuffer* _uniformBuffer;
 
         private bool _depthWrite = true;
@@ -111,6 +112,7 @@ namespace MphRead.Mods.Render
             _shiftShader = CreateWgslModule(ModernGraphicsShaders.Shift);
             _celShader = CreateWgslModule(ModernGraphicsShaders.Cel);
             _playerOutlineShader = CreateWgslModule(ModernGraphicsShaders.PlayerOutline);
+            _toneMapShader = CreateWgslModule(ModernGraphicsShaders.ToneMap);
             _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             {
                 Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
@@ -144,6 +146,11 @@ namespace MphRead.Mods.Render
             {
                 _api.BufferRelease(_uniformBuffer);
                 _uniformBuffer = null;
+            }
+            if (_toneMapShader != null)
+            {
+                _api.ShaderModuleRelease(_toneMapShader);
+                _toneMapShader = null;
             }
             if (_playerOutlineShader != null)
             {
@@ -311,6 +318,7 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
                 ModernProgramKind.Cel => ModernProgramKind.Cel,
                 ModernProgramKind.PlayerOutline => ModernProgramKind.PlayerOutline,
+                ModernProgramKind.ToneMap => ModernProgramKind.ToneMap,
                 ModernProgramKind.Rtt => ModernProgramKind.Rtt,
                 _ => _resources.DrawFramebuffer != 0
                     ? ModernProgramKind.World : ModernProgramKind.Rtt
@@ -504,6 +512,7 @@ namespace MphRead.Mods.Render
                 ModernProgramKind.Shift => _shiftShader,
                 ModernProgramKind.Cel => _celShader,
                 ModernProgramKind.PlayerOutline => _playerOutlineShader,
+                ModernProgramKind.ToneMap => _toneMapShader,
                 _ => _rttShader
             };
             var attributes = stackalloc VertexAttribute[5];
@@ -748,6 +757,11 @@ namespace MphRead.Mods.Render
                     Float(program, "outline_step_x"));
                 WriteFloat(words, ModernGraphicsShaders.OutlineParams, 1,
                     Float(program, "outline_step_y"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
+                    _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
+            }
+            else if (kind == ModernProgramKind.ToneMap && program != null)
+            {
                 WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
                     _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }

@@ -145,6 +145,7 @@ namespace MphRead.Mods.Render
             int shift = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.ShiftFragmentShader);
             int cel = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.CelFragmentShader);
             int playerOutline = Link(PlayerOutlineShader.VertexSource, PlayerOutlineShader.Source);
+            int toneMap = Link(GraphicsToneMapShader.VertexSource, GraphicsToneMapShader.FragmentSource);
 
             int color = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
@@ -476,6 +477,75 @@ namespace MphRead.Mods.Render
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteTexture(outlineMask);
 
+            // Fifth frame: render a genuinely overbright scene into RGBA16F,
+            // then resolve it through the dedicated ACES tone-map program.
+            int hdrTexture = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, hdrTexture);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
+                32, 32, 0, PixelFormat.Rgba, PixelType.Float, IntPtr.Zero);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
+            int hdrFramebuffer = GraphicsApi.GenFramebuffer();
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, hdrFramebuffer);
+            GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, hdrTexture, 0);
+            if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
+                != FramebufferErrorCode.FramebufferComplete)
+                throw new InvalidOperationException("HDR compatibility framebuffer did not complete.");
+            GraphicsApi.Viewport(0, 0, 32, 32);
+            GraphicsApi.ClearColor(0, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.UseProgram(world);
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Disable(EnableCap.Blend);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_light"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "show_colors"), 1);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "fog_enable"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "mat_alpha"), 1f);
+            Matrix4 hdrIdentity = Matrix4.Identity;
+            GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "proj_mtx"), false, ref hdrIdentity);
+            GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "view_mtx"), false, ref hdrIdentity);
+            GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "view_inv_mtx"), false, ref hdrIdentity);
+            GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "mtx_stack"), false, ref hdrIdentity);
+            GraphicsApi.Color4(4f, 1f, 0.25f, 1f);
+            DrawQuad(-1, -1, 1, 1, 0);
+
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.UseProgram(toneMap);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, hdrTexture);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(toneMap, "hdr_tex"), 0);
+            GraphicsApi.Color4(1, 1, 1, 1);
+            GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+            GraphicsApi.TexCoord3(1, 1, 0); GraphicsApi.Vertex3( 1,  1, 0);
+            GraphicsApi.TexCoord3(0, 1, 0); GraphicsApi.Vertex3(-1,  1, 0);
+            GraphicsApi.TexCoord3(1, 0, 0); GraphicsApi.Vertex3( 1, -1, 0);
+            GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.End();
+            byte[] hdrResolved = new byte[4];
+            GraphicsApi.ReadPixels(48, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, hdrResolved);
+            if (hdrResolved[0] < 235 || hdrResolved[1] < 175 || hdrResolved[1] > 235
+                || hdrResolved[2] < 60 || hdrResolved[2] > 140 || hdrResolved[3] < 220)
+            {
+                throw new InvalidOperationException(
+                    $"HDR tone-map compatibility resolve unexpected rgba({hdrResolved[0]},{hdrResolved[1]},{hdrResolved[2]},{hdrResolved[3]}).");
+            }
+            ModernGraphicsCompat.Present();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+            GraphicsApi.DeleteFramebuffer(hdrFramebuffer);
+            GraphicsApi.DeleteTexture(hdrTexture);
+
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteFramebuffer(framebuffer);
             GraphicsApi.DeleteTexture(depth);
@@ -485,6 +555,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteProgram(shift);
             GraphicsApi.DeleteProgram(cel);
             GraphicsApi.DeleteProgram(playerOutline);
+            GraphicsApi.DeleteProgram(toneMap);
             return pixels;
         }
 

@@ -15,6 +15,7 @@ namespace MphRead.Mods.Render
         Shift,
         Cel,
         PlayerOutline,
+        ToneMap,
         Backdrop
     }
 
@@ -360,6 +361,8 @@ namespace MphRead.Mods.Render
                 return ModernProgramKind.Cel;
             if (vertex == PlayerOutlineShader.VertexSource && fragment == PlayerOutlineShader.Source)
                 return ModernProgramKind.PlayerOutline;
+            if (vertex == GraphicsToneMapShader.VertexSource && fragment == GraphicsToneMapShader.FragmentSource)
+                return ModernProgramKind.ToneMap;
             if (vertex == Shaders.BackdropVertexShader && fragment == Shaders.BackdropFragmentShader)
                 return ModernProgramKind.Backdrop;
             return ModernProgramKind.Unknown;

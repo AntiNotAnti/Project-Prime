@@ -616,6 +616,44 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 }
 ";
 
+        internal static string ToneMap { get; } = Common + @"
+@group(0) @binding(1) var hdr_tex: texture_2d<f32>;
+@group(0) @binding(2) var hdr_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn aces(x: vec3<f32>) -> vec3<f32> {
+    return clamp((x * (2.51 * x + vec3<f32>(0.03)))
+        / (x * (2.43 * x + vec3<f32>(0.59)) + vec3<f32>(0.14)),
+        vec3<f32>(0.0), vec3<f32>(1.0));
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    var uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+    let hdr = max(textureSample(hdr_tex, hdr_sampler, uv).rgb, vec3<f32>(0.0));
+    return vec4<f32>(aces(hdr), 1.0);
+}
+";
+
     }
 }
 #endif
