@@ -1156,11 +1156,11 @@ namespace MphRead.Entities
             float alpha = (float)Math.Clamp(Mods.Render.FrameTiming.Alpha, 0.0, 1.0);
             Vector2 step = _reticleCurrentPosition - _reticlePreviousPosition;
 
-            // Dynamic/Metroid keeps its own visual history even though the
-            // local first-person camera is now responsive. Interpolate the
-            // drifting reticle between completed simulation samples instead of
-            // tying its presentation policy back to camera latency.
-            if (!Features.FixedWeapon)
+            // Only a genuinely legacy/eased camera needs its moving reticle on
+            // the same previous/current timeline. Responsive local aiming keeps
+            // the reticle on the real firing ray instead of manufacturing
+            // visible latency for presentation.
+            if (!Features.ResponsiveAimCamera)
             {
                 return _reticlePreviousPosition + step * alpha;
             }
@@ -1208,25 +1208,14 @@ namespace MphRead.Entities
                 }
             }
             Vector2 reticlePosition;
-            if (Features.FixedWeapon)
+            if (Features.FixedWeapon || Features.ResponsiveAimCamera)
             {
-                // Screen-dead-centre, not reprojected from _aimPosition: aim
-                // and camera facing are smoothed at different rates (see
-                // UpdateAimVecs), so the reprojected point visibly drifts
-                // off-centre on its own even with the fire animation off.
-                // Quake's crosshair doesn't do that.
-                //
-                // FixedWeapon and not FixedCrosshair, which is what this used
-                // to ask. The two are different questions and Pro mode answers
-                // them differently: it forces FixedCrosshair, because a
-                // reticle that shrinks and expands as you fire is not a
-                // crosshair, but it only *defaults* FixedWeapon -- where the
-                // gun sits is the one Pro-mode setting with two real answers.
-                // Asking the wrong one welded the reticle to the middle of the
-                // screen whatever the Weapon row said, which is the whole of
-                // what "Dynamic (Metroid) does nothing under Pro mode" was:
-                // the gun drifted, and the thing the player actually looks at
-                // did not.
+                // A responsive first-person camera points where the firing ray
+                // points, so its crosshair belongs dead centre even when the
+                // weapon model uses Dynamic/Metroid drift. Keeping the old
+                // off-centre reticle here would make presentation disagree with
+                // actual shot direction. Classic/eased aiming below retains the
+                // original moving-reticle behavior.
                 reticlePosition = new Vector2(0.5f, 0.5f);
             }
             else
