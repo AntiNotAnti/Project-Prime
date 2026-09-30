@@ -417,7 +417,7 @@ namespace MphRead.Mods.Render
                 int dst = checked((y + row) * destinationStride + x * pixelBytes);
                 if (src + sourceStride > source.Length || dst + sourceStride > record.Pixels.Length)
                     throw new ArgumentOutOfRangeException(nameof(source), "Texture sub-image exceeds its allocation.");
-                Buffer.BlockCopy(source, src, record.Pixels, dst, sourceStride);
+                System.Buffer.BlockCopy(source, src, record.Pixels, dst, sourceStride);
             }
             record.Dirty = true;
         }

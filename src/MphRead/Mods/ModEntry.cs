@@ -34,6 +34,12 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+#if !MPHREAD_SERVER
+            if (ValueAfter(args, "renderer") is string renderer)
+            {
+                Render.GraphicsBackendPolicy.Configure(renderer);
+            }
+#endif
             if (HasFlag(args, "renderbackendcheck"))
             {
                 Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();

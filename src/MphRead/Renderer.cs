@@ -7750,6 +7750,11 @@ localCenter *= _profileHudScale;
             // IgnoreUnavailableGlfwFeatures for why a throw here is fatal
             // rather than catchable.
             IgnoreUnavailableGlfwFeatures();
+            if (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
+            {
+                Mods.Render.ModernGraphicsCompat.Initialize(this,
+                    Mods.Render.GraphicsBackendPolicy.Resolved);
+            }
             // The mark, on this window: it is the only one the program has
             // now, so it is the only one that can carry it. Set here rather
             // than in the settings above because those are static and shared
@@ -8084,6 +8089,7 @@ localCenter *= _profileHudScale;
             finally
             {
                 if (_shell) Sound.AudioLifetime.Shutdown();
+                Mods.Render.ModernGraphicsCompat.Shutdown();
                 base.OnUnload();
             }
         }
@@ -8162,6 +8168,14 @@ localCenter *= _profileHudScale;
                 return;
             }
             _appliedFrameRateCap = cap;
+            if (Mods.Render.ModernGraphicsCompat.Active)
+            {
+                // A NoAPI GLFW window has no GL swap interval. The modern
+                // surface owns presentation cadence; explicit caps still use
+                // OpenTK's frame scheduler while display-rate mode runs free.
+                UpdateFrequency = cap == Mods.Render.FrameTiming.DisplayRate ? 0 : cap;
+                return;
+            }
             if (cap == Mods.Render.FrameTiming.DisplayRate)
             {
                 VSync = VSyncMode.On;
@@ -8174,6 +8188,14 @@ localCenter *= _profileHudScale;
             }
         }
 
+        private void PresentFrame()
+        {
+            if (Mods.Render.ModernGraphicsCompat.Active)
+                Mods.Render.ModernGraphicsCompat.Present();
+            else
+                PresentFrame();
+        }
+
         protected override void OnRenderFrame(FrameEventArgs args)
         {
             Mods.Network.DemoRecorder.PollSaves();
@@ -8181,7 +8203,7 @@ localCenter *= _profileHudScale;
             if (Mods.Network.NetLaunch.TickTerminalLobby(this))
             {
                 GL.Clear(ClearBufferMask.ColorBufferBit);
-                SwapBuffers();
+                PresentFrame();
                 base.OnRenderFrame(args);
                 return;
             }
@@ -8208,7 +8230,7 @@ localCenter *= _profileHudScale;
                 // Before the swap: the back buffer holds this frame and
                 // nothing else does. Only -shellshot asks.
                 Mods.Launcher.Gui.Shell.AfterDraw(this);
-                SwapBuffers();
+                PresentFrame();
                 Reveal();
                 // The window work, on the front screen too. It used to run
                 // only while a match was loaded, which is how a fullscreen
@@ -8357,7 +8379,7 @@ localCenter *= _profileHudScale;
             // Before the swap, for the reason the sceneless branch gives.
             Mods.Launcher.Gui.Shell.AfterDraw(this);
 #endif
-            SwapBuffers();
+            PresentFrame();
             Reveal();
             // What the pause menu asked for, done on the thread that owns the
             // window: closing it and changing its border belong here.
@@ -8476,6 +8498,7 @@ localCenter *= _profileHudScale;
             {
                 return;
             }
+            Mods.Render.ModernGraphicsCompat.Resize(size.X, size.Y);
             GL.Viewport(0, 0, size.X, size.Y);
             if (_scene != null && _scene.Size != size)
             {

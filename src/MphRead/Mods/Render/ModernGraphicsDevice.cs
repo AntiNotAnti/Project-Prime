@@ -57,6 +57,7 @@ namespace MphRead.Mods.Render
 
         internal WebGPU Api => _api;
         internal Wgpu Native => _native;
+        internal Adapter* Adapter => _adapter;
         internal Device* Device => _device;
         internal Surface* Surface => _surface;
 

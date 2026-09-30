@@ -35,6 +35,7 @@ namespace MphRead.Mods.Render
         private static readonly GraphicsBackend[] _none = Array.Empty<GraphicsBackend>();
 
         public static GraphicsBackend Requested { get; private set; } = GraphicsBackend.Auto;
+        public static bool Configured { get; private set; }
 
         public static GraphicsPlatform CurrentPlatform
         {
@@ -50,8 +51,16 @@ namespace MphRead.Mods.Render
 
         public static GraphicsBackend Resolved => Resolve(CurrentPlatform, Requested);
 
+        /// <summary>
+        /// True only when the user/diagnostic explicitly selected a modern backend.
+        /// Until the compatibility renderer reaches full scene parity, an omitted
+        /// renderer option deliberately keeps the proven OpenGL path.
+        /// </summary>
+        public static bool ModernGameplayRequested => Configured && IsModern(Resolved);
+
         public static void Configure(string? value)
         {
+            Configured = true;
             if (string.IsNullOrWhiteSpace(value))
             {
                 Requested = GraphicsBackend.Auto;

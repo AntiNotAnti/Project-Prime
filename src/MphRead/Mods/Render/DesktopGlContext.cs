@@ -27,6 +27,22 @@ namespace MphRead.Mods.Render
             PreserveWorkingDirectory();
             if (background && OperatingSystem.IsMacOS())
                 GLFW.InitHint(InitHintBool.CocoaMenubar, false);
+
+            if (GraphicsBackendPolicy.ModernGameplayRequested)
+            {
+                // Vulkan surfaces cannot be created for a GLFW window that
+                // already owns an OpenGL client API. Metal/DX12 follow the same
+                // path so one window contract covers every modern backend.
+                return new NativeWindowSettings
+                {
+                    ClientSize = new Vector2i(1280, 768),
+                    Title = Branding.Name,
+                    API = ContextAPI.NoAPI,
+                    AutoLoadBindings = false,
+                    StartVisible = false
+                };
+            }
+
             return new NativeWindowSettings
             {
                 ClientSize = new Vector2i(1280, 768),
