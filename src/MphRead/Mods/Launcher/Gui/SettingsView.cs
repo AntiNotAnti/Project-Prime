@@ -109,6 +109,8 @@ namespace MphRead.Mods.Launcher.Gui
         private ChoiceRow _anisotropyRow = null!;
         private ChoiceRow _textureUpscaleRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
+        private ChoiceRow _rendererRow = null!;
+        private readonly GraphicsBackend[] _rendererChoices = GraphicsBackendPolicy.RendererChoices();
         private ChoiceRow _antiAliasingRow = null!;
         private SliderRow _sharpenRow = null!;
         private ToggleRow _bloomRow = null!;
@@ -1115,6 +1117,13 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void BuildGraphics(StackPanel page)
         {
+            Heading(page, "Renderer");
+            GraphicsBackendPolicy.TryParse(_settings.Renderer, out var selectedRenderer);
+            _rendererRow = Add(page, new ChoiceRow("Renderer", _rendererChoices.Select(backend =>
+                backend == GraphicsBackend.OpenGL && OperatingSystem.IsAndroid() ? "OpenGL ES"
+                : GraphicsBackendPolicy.DisplayName(backend)).ToArray(),
+                Math.Max(0, Array.IndexOf(_rendererChoices, selectedRenderer))));
+            Explain(page, "Renderer changes take effect after restarting Project Prime. Modern backends are experimental; OpenGL remains the compatibility default.");
             Heading(page, "Quality preset");
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
@@ -2455,6 +2464,7 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
+            _settings.Renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
             _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))

@@ -1,0 +1,86 @@
+{
+  "backend": "Metal",
+  "room": "MP3 PROVING GROUND",
+  "preset": "Extreme",
+  "notes": "Frozen scene; 20 warmup \u002B 120 samples. Completed time includes synchronous GPU completion, excludes present. GPU timestamp timing unavailable. 0.1% uses the single worst sample; longer hardware runs required for release acceptance.",
+  "results": [
+    {
+      "width": 1920,
+      "height": 1080,
+      "scale": 75,
+      "samples": 120,
+      "averageCompletedMs": 19.334701666666664,
+      "cpuSubmissionMs": 17.690256666666663,
+      "p99CompletedMs": 26.6404,
+      "p999CompletedMs": 26.907,
+      "onePercentLowFps": 37.35008609194845,
+      "pointOnePercentLowFps": 37.16504998699223,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    },
+    {
+      "width": 1920,
+      "height": 1080,
+      "scale": 100,
+      "samples": 120,
+      "averageCompletedMs": 17.71874083333333,
+      "cpuSubmissionMs": 15.803554999999996,
+      "p99CompletedMs": 21.8101,
+      "p999CompletedMs": 22.768,
+      "onePercentLowFps": 44.865079489704584,
+      "pointOnePercentLowFps": 43.921293042867184,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "scale": 75,
+      "samples": 120,
+      "averageCompletedMs": 18.160801666666668,
+      "cpuSubmissionMs": 16.299422499999995,
+      "p99CompletedMs": 27.6069,
+      "p999CompletedMs": 28.027,
+      "onePercentLowFps": 35.94930429108871,
+      "pointOnePercentLowFps": 35.67988011560281,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    },
+    {
+      "width": 2560,
+      "height": 1440,
+      "scale": 100,
+      "samples": 120,
+      "averageCompletedMs": 19.32542333333334,
+      "cpuSubmissionMs": 16.264904166666668,
+      "p99CompletedMs": 23.0441,
+      "p999CompletedMs": 24.1658,
+      "onePercentLowFps": 42.36399568734524,
+      "pointOnePercentLowFps": 41.38079434572826,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    },
+    {
+      "width": 3840,
+      "height": 2160,
+      "scale": 75,
+      "samples": 120,
+      "averageCompletedMs": 21.25030916666667,
+      "cpuSubmissionMs": 17.669745833333344,
+      "p99CompletedMs": 26.0812,
+      "p999CompletedMs": 27.3919,
+      "onePercentLowFps": 37.40198342718114,
+      "pointOnePercentLowFps": 36.50714262245408,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    },
+    {
+      "width": 3840,
+      "height": 2160,
+      "scale": 100,
+      "samples": 120,
+      "averageCompletedMs": 25.817188333333338,
+      "cpuSubmissionMs": 19.82108416666667,
+      "p99CompletedMs": 30.0304,
+      "p999CompletedMs": 40.6487,
+      "onePercentLowFps": 28.296908138332263,
+      "pointOnePercentLowFps": 24.601032751354904,
+      "resources": "ResourceCounts { Textures = 52, Renderbuffers = 0, Geometry = 108, Pipelines = 41, Programs = 3, Lists = 224, Views = 90, Samplers = 51, Buffers = 1471, ShaderModules = 14, Surfaces = 1 }"
+    }
+  ]
+}

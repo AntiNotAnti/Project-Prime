@@ -27,6 +27,19 @@ for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
         mv "$contents/MacOS/$resource" "$contents/Resources/$resource"
     fi
 done
+# An ICD manifest is data, not executable code. Leaving it beside the apphost
+# makes codesign treat it as an unsealed subcomponent of Contents/MacOS.
+# Move it to Resources and point its relative library path back at the dylib.
+if [[ -f "$contents/MacOS/MoltenVK_icd.json" ]]; then
+    mv "$contents/MacOS/MoltenVK_icd.json" "$contents/Resources/MoltenVK_icd.json"
+    /usr/bin/python3 - "$contents/Resources/MoltenVK_icd.json" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+data = json.loads(path.read_text())
+data["ICD"]["library_path"] = "../MacOS/libMoltenVK.dylib"
+path.write_text(json.dumps(data, indent=4) + "\n")
+PY
+fi
 cp "$repo/src/MphRead/Platforms/macOS/Info.plist" "$contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleShortVersionString string $version" "$contents/Info.plist"
 /usr/libexec/PlistBuddy -c "Add :CFBundleVersion string $version" "$contents/Info.plist"

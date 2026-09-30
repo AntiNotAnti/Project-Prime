@@ -180,21 +180,16 @@ for a zero-pixel window -- and it says so on screen instead of starting
 something the player can neither see nor leave. Every decision logs one
 `[android]` line with the sizes involved.
 
-The order is the desktop's: `GameState.ApplyPause()`, `Scene.OnUpdateFrame()`,
-`Scene.OnRenderFrame()`, `Scene.AfterRenderFrame()`, then `eglSwapBuffers`.
-
-The pacing is not. `RenderWindow` asks OpenTK for 60 updates a second; here the
-buffer swaps at the display's rate, which on a modern phone is 90 or 120, and
-**the update is the frame**: the render item lists are built during the update
-and cleared after the draw, so a render with no update in front of it draws
-nothing. Rendering more often than the game ticks is therefore not an option --
-the thread waits for the next 60 Hz tick instead.
+The match loop applies pause state, advances zero or more fixed 60 Hz
+`OnSimulationFrame` steps, builds the picture with `OnDrawFrame`, renders,
+runs `AfterRenderFrame`, composites UI and presents. Presentation can run
+between simulation ticks without advancing gameplay.
 
 ## Frame rate
 
 The match loop is decoupled the way the desktop's is: the simulation runs at
 exactly 60 Hz on `FrameTiming`'s accumulator and the picture runs at the FPS
-limit, up to 240. `GameView.RenderLoop` used to sleep to a hard `1.0 / 60.0`
+limit, up to 500. `GameView.RenderLoop` used to sleep to a hard `1.0 / 60.0`
 around one `OnUpdateFrame`, which is why a 120 Hz phone drew 60.
 
 Three things are specific to this head:
@@ -202,15 +197,49 @@ Three things are specific to this head:
 - **Input goes inside the step loop**, not beside it. `ApplyInput` works out
   this step's rising edges from the touch state, so running it once per
   *picture* would turn one tap on FIRE into two presses at 120 Hz.
-- **In display mode the loop does not sleep.** `eglSwapBuffers` blocks until
-  the panel is ready; sleeping as well is double pacing and would halve the
-  rate. `MinFrameSeconds` is only a floor, so a driver that does not block (an
-  emulator, a surface with no vsync) spins at 500 Hz rather than flat out.
+- **Display mode uses presentation-driven pacing.** `AndroidFramePacer`
+  applies only a 500 Hz safety ceiling for nonblocking drivers, rather than
+  adding a second display-rate timer to VSync. Numeric caps retain their
+  software deadline with swap interval zero. Cap changes reset the render
+  deadline; surface resume resets elapsed time before simulation resumes.
 - **`Surface.SetFrameRate`** (API 30+, guarded and caught) tells SurfaceFlinger
   what the surface intends, because a 120 Hz phone often sits at 60 until
   something asks. Below API 30 the FPS limit still caps the loop; it just
   cannot raise the panel. Best-effort throughout -- a device that refuses is
   not a reason to end a match.
+
+### Pacing investigation, 2026-09-30
+
+Code review confirmed three issues already present before the modern-backend
+work: Display mode's software timer contradicted its VSync-only policy;
+the adaptive governor counted presentation waits as rendering workload;
+and refresh-mode discovery reflected a nonexistent `SupportedModes` property
+instead of calling the Android binding's `GetSupportedModes()` method.
+All three are corrected. These are plausible contributors to reported
+choppiness, not a reproduced explanation for every affected phone.
+
+The governor now uses the active panel rate (refreshed once per second), capped
+by a lower numeric FPS limit. The maximum supported mode remains a separate
+request to `Surface.SetFrameRate`; a request is not proof the panel switched.
+Present wait alone no longer triggers quality reductions. Present time still
+counts conservatively when deciding whether to increase quality, because it
+can also contain GPU back-pressure. Simulation stays fixed at 60 Hz.
+
+`androidperf` reports include limiter wait p95, GC collection deltas and active
+versus maximum display rate alongside simulation/render/UI/swap times, scale,
+thermal state and allocation totals. Use these to separate timer/compositor
+issues from CPU work, GC and thermal throttling on affected devices.
+
+`dotnet run --project tools/android-pacing-check -c Release` exercises the
+production pacing/governor policy at 59.94–144 Hz, numeric 30–500 FPS limits,
+early presentation returns, stalls, cap changes and resume. CI runs this without
+an Android SDK. Physical-device frame traces and sustained match testing remain
+required; emulator timing does not establish phone frame-pacing quality.
+
+Numeric caps still use a software timer and are not phase-locked to the
+compositor. Android's [Frame Pacing library](https://developer.android.com/games/sdk/frame-pacing)
+addresses presentation timestamps, fences and buffer stuffing; integrating it
+is a separate follow-up if device traces show remaining compositor jitter.
 
 The setting is the launcher's own **FPS limit** row, shared with the desktop,
 so it needs nothing of its own here.

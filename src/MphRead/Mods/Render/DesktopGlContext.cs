@@ -18,6 +18,7 @@ namespace MphRead.Mods.Render
 
         public static NativeWindowSettings Settings(bool background = false)
         {
+            GraphicsBackendPolicy.LoadPreference();
             // Install before NativeWindowSettings initializes GLFW/monitors.
             // OpenTK's default handler throws across native frames and aborts
             // on macOS; NativeWindow checks a failed CreateWindow itself and
@@ -27,6 +28,27 @@ namespace MphRead.Mods.Render
             PreserveWorkingDirectory();
             if (background && OperatingSystem.IsMacOS())
                 GLFW.InitHint(InitHintBool.CocoaMenubar, false);
+            GLFWProvider.EnsureInitialized();
+            // GLFW hints survive window destruction. In particular a previous
+            // NoAPI/core window must not leave ForwardCompat set on GL 2.1.
+            GLFW.DefaultWindowHints();
+
+            if (GraphicsBackendPolicy.ModernGameplayRequested)
+            {
+                // Vulkan surfaces cannot be created for a GLFW window that
+                // already owns an OpenGL client API. Metal/DX12 follow the same
+                // path so one window contract covers every modern backend.
+                return new NativeWindowSettings
+                {
+                    ClientSize = new Vector2i(1280, 768),
+                    Title = Branding.Name,
+                    API = ContextAPI.NoAPI,
+                    Flags = ContextFlags.Default,
+                    AutoLoadBindings = false,
+                    StartVisible = false
+                };
+            }
+
             return new NativeWindowSettings
             {
                 ClientSize = new Vector2i(1280, 768),

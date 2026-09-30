@@ -34,6 +34,44 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+#if !MPHREAD_SERVER
+            if (ValueAfter(args, "renderer") is string renderer)
+            {
+                Render.GraphicsBackendPolicy.Configure(renderer);
+            }
+#endif
+            if (HasFlag(args, "renderbackendcheck"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsBackendCheck.Run();
+                return true;
+            }
+#if !MPHREAD_SERVER
+            if (HasFlag(args, "renderbackendprobe"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
+                return true;
+            }
+#if !ANDROID
+            if (HasFlag(args, "textureupdatecheck"))
+            {
+                Environment.ExitCode = Render.TextureUpdateCheck.Run(ValueAfter(args, "renderer"));
+                return true;
+            }
+            if (HasFlag(args, "renderfullcheck"))
+            {
+                int result = Render.ModernGraphicsBackendCheck.Run();
+                if (result == 0) result = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
+                if (result == 0) result = Render.ModernGraphicsWindowCheck.Run(ValueAfter(args, "renderer"));
+                Environment.ExitCode = result;
+                return true;
+            }
+            if (HasFlag(args, "renderwindowcheck"))
+            {
+                Environment.ExitCode = Render.ModernGraphicsWindowCheck.Run(ValueAfter(args, "renderer"));
+                return true;
+            }
+#endif
+#endif
             if (ValueAfter(args, "fpsscenario") is string scenarioPath)
             {
                 Environment.ExitCode = Physics.FpsScenarioRunner.Run(scenarioPath,
@@ -1192,7 +1230,7 @@ namespace MphRead.Mods
                 Launcher.LauncherPrefs.WindowX = 60;
                 Launcher.LauncherPrefs.WindowY = 48;
                 Launcher.LauncherPrefs.WindowMaximized = false;
-                using var window = new RenderWindow(shell: true);
+                using var window = RenderWindow.Create(shell: true);
                 Console.WriteLine($"[window] opened at {window.ClientSize.X}x"
                     + $"{window.ClientSize.Y}");
                 if (window.ClientSize.X != 1442 || window.ClientSize.Y != 906)
@@ -1301,6 +1339,21 @@ namespace MphRead.Mods
 
         public static bool TryHandle(string[] args)
         {
+#if !ANDROID && !MPHREAD_SERVER
+            if (ValueAfter(args, "renderparitycheck") is string parityRoom)
+            {
+                Environment.ExitCode = Render.ModernRenderParityCheck.Run(parityRoom,
+                    ValueAfter(args, "output") ?? "render-parity");
+                return true;
+            }
+            if (ValueAfter(args, "renderbenchmark") is string benchmarkRoom)
+            {
+                Environment.ExitCode = Render.ModernRenderBenchmark.Run(benchmarkRoom,
+                    ValueAfter(args, "output") ?? "render-benchmark.json",
+                    int.TryParse(ValueAfter(args, "samples"), out int benchmarkSamples) ? benchmarkSamples : 1200);
+                return true;
+            }
+#endif
             if (HasFlag(args, "respawnrendercheck"))
             {
                 Environment.ExitCode = Render.RespawnRenderCheck.Run(

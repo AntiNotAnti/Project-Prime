@@ -45,27 +45,11 @@ namespace MphRead.Mods.Render
     /// What is lost: <c>glPolygonMode</c>, so the wireframe and collision-volume
     /// debug views draw solid. Nothing a player sees uses it.
     /// </summary>
-    internal static class GlEs
+    internal static partial class GlEs
     {
         // 0..2 position, 3..6 colour, 7..9 normal, 10..12 texcoord + matrix id, 13 "had its own colour"
-        private const int FloatsPerVertex = 14;
+        private const int FloatsPerVertex = LegacyGeometryBatch.FloatsPerVertex;
         private const int Stride = FloatsPerVertex * sizeof(float);
-
-        private sealed class Batch
-        {
-            public readonly List<float> Vertices = new List<float>(4096);
-            public readonly List<int> TriIndices = new List<int>(4096);
-            public readonly List<int> LineIndices = new List<int>();
-            public int VertexCount;
-
-            public void Clear()
-            {
-                Vertices.Clear();
-                TriIndices.Clear();
-                LineIndices.Clear();
-                VertexCount = 0;
-            }
-        }
 
         private sealed class CompiledList
         {
@@ -82,10 +66,7 @@ namespace MphRead.Mods.Render
         private static Vector3 _curTexCoord = Vector3.Zero;
         private static bool _colorSet = false;
 
-        private static OpenTK.Graphics.OpenGL.PrimitiveType _primMode;
-        private static int _primStart;
-
-        private static readonly Batch _batch = new Batch();
+        private static readonly LegacyGeometryBatch _batch = new LegacyGeometryBatch();
         private static bool _recording;
         private static int _recordListId;
 
@@ -140,14 +121,12 @@ namespace MphRead.Mods.Render
                 // no colour of its own reads the uniform, which is this colour.
                 _colorSet = false;
             }
-            _primMode = mode;
-            _primStart = _batch.VertexCount;
+            _batch.Begin(mode);
         }
 
         public static void End()
         {
-            int count = _batch.VertexCount - _primStart;
-            EmitIndices(_primMode, _primStart, count);
+            _batch.End();
             if (!_recording)
             {
                 FlushDynamic();
@@ -156,22 +135,7 @@ namespace MphRead.Mods.Render
 
         public static void Vertex3(float x, float y, float z)
         {
-            List<float> v = _batch.Vertices;
-            v.Add(x);
-            v.Add(y);
-            v.Add(z);
-            v.Add(_curColor.X);
-            v.Add(_curColor.Y);
-            v.Add(_curColor.Z);
-            v.Add(_curColor.W);
-            v.Add(_curNormal.X);
-            v.Add(_curNormal.Y);
-            v.Add(_curNormal.Z);
-            v.Add(_curTexCoord.X);
-            v.Add(_curTexCoord.Y);
-            v.Add(_curTexCoord.Z);
-            v.Add(_colorSet ? 1f : 0f);
-            _batch.VertexCount++;
+            _batch.AddVertex(new Vector3(x, y, z), _curColor, _curNormal, _curTexCoord, _colorSet);
         }
 
         public static void Vertex3(Vector3 vector)
@@ -211,83 +175,6 @@ namespace MphRead.Mods.Render
             _curTexCoord = texcoord;
         }
 
-        private static void EmitIndices(OpenTK.Graphics.OpenGL.PrimitiveType mode, int b, int n)
-        {
-            List<int> tris = _batch.TriIndices;
-            switch (mode)
-            {
-            case OpenTK.Graphics.OpenGL.PrimitiveType.Triangles:
-                for (int i = 0; i + 2 < n; i += 3)
-                {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 2);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.Quads:
-                for (int i = 0; i + 3 < n; i += 4)
-                {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 2);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 2);
-                    tris.Add(b + i + 3);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.TriangleStrip:
-                // every other triangle is wound the other way, which the strip
-                // primitive does for you and independent triangles do not
-                for (int i = 0; i + 2 < n; i++)
-                {
-                    if ((i & 1) == 0)
-                    {
-                        tris.Add(b + i);
-                        tris.Add(b + i + 1);
-                        tris.Add(b + i + 2);
-                    }
-                    else
-                    {
-                        tris.Add(b + i + 1);
-                        tris.Add(b + i);
-                        tris.Add(b + i + 2);
-                    }
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.QuadStrip:
-                // vertices arrive in pairs: quad k is (2k, 2k+1, 2k+3, 2k+2)
-                for (int i = 0; i + 3 < n; i += 2)
-                {
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                    tris.Add(b + i + 3);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 3);
-                    tris.Add(b + i + 2);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.TriangleFan:
-                for (int i = 1; i + 1 < n; i++)
-                {
-                    tris.Add(b);
-                    tris.Add(b + i);
-                    tris.Add(b + i + 1);
-                }
-                break;
-            case OpenTK.Graphics.OpenGL.PrimitiveType.LineLoop:
-                {
-                    List<int> lines = _batch.LineIndices;
-                    for (int i = 0; i < n; i++)
-                    {
-                        lines.Add(b + i);
-                        lines.Add(b + (i + 1) % n);
-                    }
-                }
-                break;
-            default:
-                throw new ProgramException($"No ES translation for primitive type {mode}.");
-            }
-        }
 
         #endregion
 
@@ -335,7 +222,7 @@ namespace MphRead.Mods.Render
                     (IntPtr)verts, ES.BufferUsageHint.StaticDraw);
             }
             ES.GL.BindBuffer(ES.BufferTarget.ElementArrayBuffer, compiled.Ibo);
-            int[] indices = BuildIndexArray();
+            int[] indices = _batch.BuildIndexArray();
             fixed (int* idx = indices)
             {
                 ES.GL.BufferData(ES.BufferTarget.ElementArrayBuffer, indices.Length * sizeof(int),
@@ -384,14 +271,6 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static int[] BuildIndexArray()
-        {
-            var indices = new int[_batch.TriIndices.Count + _batch.LineIndices.Count];
-            _batch.TriIndices.CopyTo(indices, 0);
-            _batch.LineIndices.CopyTo(indices, _batch.TriIndices.Count);
-            return indices;
-        }
-
         private static unsafe void FlushDynamic()
         {
             int triCount = _batch.TriIndices.Count;
@@ -435,7 +314,7 @@ namespace MphRead.Mods.Render
                     ES.GL.BufferSubData(ES.BufferTarget.ArrayBuffer, IntPtr.Zero, vertexBytes, (IntPtr)verts);
                 }
             }
-            int[] indices = BuildIndexArray();
+            int[] indices = _batch.BuildIndexArray();
             int indexBytes = indices.Length * sizeof(int);
             fixed (int* idx = indices)
             {

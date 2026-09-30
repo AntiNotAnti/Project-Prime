@@ -32,11 +32,12 @@ internal static class ReplayKillcamCheck
     {
 #if !ANDROID
         NativeWindow? window = null;
+        Render.DesktopGraphicsSession? graphics = null;
         if (shots != null)
         {
             Directory.CreateDirectory(shots);
             var settings = Render.DesktopGlContext.Settings(background: true); settings.ClientSize = new(640, 480);
-            window = new NativeWindow(settings); window.Context.MakeCurrent(); GL.LoadBindings(new GLFWBindingsContext());
+            window = new NativeWindow(settings); graphics = new Render.DesktopGraphicsSession(window);
         }
         else
 #endif
@@ -242,6 +243,7 @@ internal static class ReplayKillcamCheck
             GamepadManager.RemoveDevice("killcam-check");
             controller.Dispose(); capture.Dispose(); live.DoCleanup(); live.UnloadGl();
 #if !ANDROID
+            graphics?.Dispose();
             window?.Dispose();
 #endif
         }

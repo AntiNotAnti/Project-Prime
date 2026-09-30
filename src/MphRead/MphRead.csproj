@@ -192,6 +192,62 @@
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
   </ItemGroup>
 
+  <!-- Modern renderer bindings. Silk 2.23.0 and wgpu-native commit
+       33133da4ec5a0174cb21539ef2d3346f75200411 are an ABI pair; update them
+       together. Windows/Linux use Silk's matching native package. macOS uses
+       the repository-built native below so Vulkan portability is compiled in. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <PackageReference Include="Silk.NET.WebGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Extensions.WGPU" Version="2.23.0" />
+    <PackageReference Include="Silk.NET.WebGPU.Native.WGPU" Version="2.23.0"
+                      Condition="!$(RuntimeIdentifier.StartsWith('osx')) or !Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')" />
+    <!-- MoltenVK itself exports the Vulkan loader ABI. Ship it under its
+         canonical name and libvulkan.dylib so arm64 does not depend on the
+         old x64-only Silk Vulkan-loader package. -->
+    <PackageReference Include="Silk.NET.MoltenVK.Native" Version="2.23.0"
+                      GeneratePathProperty="true" ExcludeAssets="all"
+                      Condition="$(RuntimeIdentifier.StartsWith('osx'))" />
+  </ItemGroup>
+
+  <!-- Same alias trick Android already uses. From this point desktop renderer
+       code calls Project Prime's compatibility front-end, not OpenTK.GL
+       directly. GraphicsApi is initially an exact pass-through; WebGPU
+       operations replace it incrementally behind this seam. -->
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
+    <Using Include="MphRead.Mods.Render.GraphicsApi" Alias="GL" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">
+    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib"
+          Link="libwgpu_native.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx'))">
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\libMoltenVK.dylib"
+          Link="libMoltenVK.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\libMoltenVK.dylib"
+          Link="libvulkan.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+    <None Include="$(PkgSilk_NET_MoltenVK_Native)\runtimes\osx\native\MoltenVK_icd.json"
+          Link="MoltenVK_icd.json" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <!-- ash dlopens libvulkan.dylib by name. MoltenVK's original install name
+       does not identify that alias, even after an absolute-path preload.
+       Set the copied loader's identity so packaged apps need no DYLD override. -->
+  <Target Name="IdentifyMacVulkanLoader" AfterTargets="CopyFilesToOutputDirectory;Publish"
+          Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and $([MSBuild]::IsOSPlatform('OSX'))">
+    <ItemGroup>
+      <_PrimeVulkanLoader Include="$(TargetDir)libvulkan.dylib" Condition="Exists('$(TargetDir)libvulkan.dylib')" />
+      <_PrimeVulkanLoader Include="$(PublishDir)libvulkan.dylib" Condition="'$(PublishDir)' != '' and Exists('$(PublishDir)libvulkan.dylib')" />
+    </ItemGroup>
+    <Exec Command="install_name_tool -id libvulkan.dylib &quot;%(_PrimeVulkanLoader.Identity)&quot;" />
+    <Exec Command="codesign --force --sign - &quot;%(_PrimeVulkanLoader.Identity)&quot;" />
+  </Target>
+
   <!-- OpenAL Soft, for the sound effects.
 
        OpenTK ships the bindings only: opentk.audio.openal has no runtimes/
@@ -321,5 +377,8 @@
     <EmbeddedResource Include="Assets/Cosmetics/**/*.png">
       <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Mods/Render/Generated/*.wgsl" />
   </ItemGroup>
 </Project>

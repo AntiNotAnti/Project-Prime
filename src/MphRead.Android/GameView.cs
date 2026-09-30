@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using System.Runtime.InteropServices;
 using Android.Content;
 using Android.Graphics;
 using Android.Opengl;
@@ -309,19 +310,6 @@ namespace MphRead.Droid
         private sealed class RenderLoop
         {
             /// <summary>
-            /// The shortest frame this loop will pace itself to when the
-            /// player has asked for the display's own rate.
-            ///
-            /// In that mode the pacing is <c>eglSwapBuffers</c>, which blocks
-            /// until the panel is ready -- sleeping as well would be double
-            /// pacing and would halve the rate on a phone whose swap already
-            /// blocks. This is only a floor so that a driver which does *not*
-            /// block (an emulator, a surface with no vsync) spins at 500 Hz
-            /// instead of as fast as the CPU will go.
-            /// </summary>
-            private const double MinFrameSeconds = 1.0 / FrameTiming.MaxCap;
-
-            /// <summary>
             /// Density-independent pixels of drag per unit of mouse movement.
             /// One means a swipe turns as far as a mouse moved the same
             /// distance would, which the player's own sensitivity setting then
@@ -390,14 +378,18 @@ namespace MphRead.Droid
             private bool _clipWasHeld;
             private bool _keyboardShown;
 
+            private bool _modern;
+            private nint _nativeWindow;
+            [DllImport("android")] private static extern nint ANativeWindow_fromSurface(nint env, nint surface);
+            [DllImport("android")] private static extern void ANativeWindow_release(nint window);
+
             private EGLDisplay? _display;
             private EGLConfig? _config;
             private EGLSurface? _eglSurface;
             private EGLContext? _context;
             private ISurfaceHolder? _boundTo;
             private Vector2i _size;
-            private double _nextFrame;
-            private double _lastFrameStart;
+            private readonly AndroidFramePacer _framePacer = new(FrameTiming.MaxCap);
             private int _requestedFrameRate = -1;
             private int _appliedSwapInterval = -1;
 
@@ -408,6 +400,8 @@ namespace MphRead.Droid
                 Func<AndroidInput, Vector2i, Scene> build, Action onEnd, Action onLoaded,
                 Action<string> onError, Action onPauseMenu, Action<bool> onSoftKeyboard)
             {
+                GraphicsBackendPolicy.LoadPreference();
+                _modern = GraphicsBackendPolicy.ModernGameplayRequested;
                 _onPauseMenu = onPauseMenu;
                 _onSoftKeyboard = onSoftKeyboard;
                 _controls = controls;
@@ -503,6 +497,9 @@ namespace MphRead.Droid
                 catch (Exception ex)
                 {
                     Console.WriteLine($"[android] the render thread stopped: {ex}");
+                    if (GraphicsBackendPolicy.Requested == GraphicsBackend.Auto
+                        && ModernGraphicsCompat.RecoveryFailure != null)
+                        GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
                     if (!_ended)
                     {
                         _ended = true;
@@ -511,8 +508,8 @@ namespace MphRead.Droid
                 }
                 finally
                 {
-                    ReleaseSurface();
-                    DestroyContext();
+                    try { ReleaseSurface(); }
+                    finally { DestroyContext(); }
                 }
             }
 
@@ -569,8 +566,7 @@ namespace MphRead.Droid
                         // Do not feed time spent in the background into either
                         // the render deadline or the 60 Hz accumulator.
                         double now = _clock.Elapsed.TotalSeconds;
-                        _nextFrame = now;
-                        _lastFrameStart = now;
+                        _framePacer.Reset(now);
                         FrameTiming.Reset();
                         Scene?.ModSetLateAim(0, 0);
                         lock (_lock)
@@ -605,6 +601,35 @@ namespace MphRead.Droid
             /// </summary>
             private bool BindSurface(ISurfaceHolder holder, Vector2i wanted)
             {
+                if (_modern)
+                {
+                    if (!ReferenceEquals(_boundTo, holder) || _nativeWindow == 0)
+                    {
+                        ReleaseSurface();
+                        if (holder.Surface == null || !holder.Surface.IsValid) return false;
+                        _nativeWindow = ANativeWindow_fromSurface(Android.Runtime.JNIEnv.Handle, holder.Surface.Handle);
+                        if (_nativeWindow == 0) return false;
+                        try { ModernGraphicsCompat.AttachAndroidWindow(_nativeWindow, wanted.X, wanted.Y); }
+                        catch (Exception ex) when (!ModernGraphicsCompat.Active)
+                        {
+                            ANativeWindow_release(_nativeWindow);
+                            _nativeWindow = 0;
+                            GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
+                            _modern = false;
+                            return BindSurface(holder, wanted);
+                        }
+                        lock (_lock) { _boundTo = holder; _holdingSurface = true; }
+                    }
+                    if (wanted != _size)
+                    {
+                        _size = wanted;
+                        ModernGraphicsCompat.Resize(wanted.X, wanted.Y);
+                        GL.Viewport(0, 0, wanted.X, wanted.Y);
+                        if (Scene != null) { Scene.Size = wanted; Scene.OnResize(); }
+                    }
+                    ModernGraphicsCompat.SetVSync(FrameTiming.FrameRateCap == FrameTiming.DisplayRate);
+                    return true;
+                }
                 if (_display == null && !CreateContext())
                 {
                     return false;
@@ -785,6 +810,12 @@ namespace MphRead.Droid
                     _appliedSwapInterval = -1;
                     Monitor.PulseAll(_lock);
                 }
+                if (_nativeWindow != 0)
+                {
+                    ModernGraphicsCompat.DetachAndroidWindow();
+                    ANativeWindow_release(_nativeWindow);
+                    _nativeWindow = 0;
+                }
                 if (_display == null || surface == null)
                 {
                     return;
@@ -803,6 +834,7 @@ namespace MphRead.Droid
 
             private void DestroyContext()
             {
+                if (_modern) ModernGraphicsCompat.Shutdown();
                 if (_display == null)
                 {
                     return;
@@ -891,8 +923,7 @@ namespace MphRead.Droid
                     return;
                 }
                 _clock.Start();
-                _nextFrame = _clock.Elapsed.TotalSeconds;
-                _lastFrameStart = _nextFrame;
+                _framePacer.Reset(_clock.Elapsed.TotalSeconds);
                 FrameTiming.Reset();
                 _onLoaded();
             }
@@ -940,6 +971,7 @@ namespace MphRead.Droid
                 Scene scene = Scene!;
                 RequestFrameRate();
                 ApplySwapInterval();
+                long limiterStart = Stopwatch.GetTimestamp();
                 double elapsed = WaitForTick();
                 long workStart = Stopwatch.GetTimestamp();
                 long allocatedStart = GC.GetAllocatedBytesForCurrentThread();
@@ -1007,7 +1039,8 @@ namespace MphRead.Droid
                 DrawUi();
                 long uiEnd = Stopwatch.GetTimestamp();
                 long swapStart = uiEnd;
-                if (_display != null && _eglSurface != null
+                if (_modern) ModernGraphicsCompat.Present();
+                else if (_display != null && _eglSurface != null
                     && !EGL14.EglSwapBuffers(_display, _eglSurface))
                 {
                     // The framework took the surface back. Let go of it and
@@ -1017,7 +1050,7 @@ namespace MphRead.Droid
                     ReleaseSurface();
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
-                AndroidPerformance.RecordFrame(elapsed,
+                AndroidPerformance.RecordFrame(elapsed, Milliseconds(limiterStart, workStart),
                     Milliseconds(workStart, simulationEnd),
                     Milliseconds(simulationEnd, renderEnd),
                     Milliseconds(renderEnd, uiEnd),
@@ -1169,7 +1202,14 @@ namespace MphRead.Droid
             private void ApplySwapInterval()
             {
                 int wanted = FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? 1 : 0;
-                if (_appliedSwapInterval == wanted || _display == null)
+                if (_appliedSwapInterval == wanted) return;
+                if (_modern)
+                {
+                    ModernGraphicsCompat.SetVSync(wanted == 1);
+                    _appliedSwapInterval = wanted;
+                    return;
+                }
+                if (_display == null)
                 {
                     return;
                 }
@@ -1224,10 +1264,8 @@ namespace MphRead.Droid
             {
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
-                double interval = cap == FrameTiming.DisplayRate
-                    ? Math.Max(MinFrameSeconds, 1.0 / AndroidPerformance.DisplayRefreshRate)
-                    : Math.Max(MinFrameSeconds, 1.0 / cap);
-                double wait = _nextFrame - now;
+                double deadline = _framePacer.Deadline(now, cap);
+                double wait = deadline - now;
                 if (wait > 0)
                 {
                     // Sleep for the coarse part, then use only a very short
@@ -1242,24 +1280,13 @@ namespace MphRead.Droid
                         Thread.Sleep(sleepMs);
                         now = _clock.Elapsed.TotalSeconds;
                     }
-                    while (now < _nextFrame)
+                    while (now < deadline)
                     {
                         Thread.SpinWait(16);
                         now = _clock.Elapsed.TotalSeconds;
                     }
                 }
-                _nextFrame += interval;
-                if (_nextFrame < now)
-                {
-                    // A stall (a load, a garbage collection, the app coming
-                    // back) must not leave the game owing frames it would then
-                    // run flat out to catch up on. The simulation's own debt is
-                    // handled separately and properly, by FrameTiming.
-                    _nextFrame = now + interval;
-                }
-                double elapsed = now - _lastFrameStart;
-                _lastFrameStart = now;
-                return elapsed;
+                return _framePacer.BeginFrame(now);
             }
 
             private static double Milliseconds(long start, long end)

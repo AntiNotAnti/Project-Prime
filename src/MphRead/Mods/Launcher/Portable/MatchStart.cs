@@ -38,7 +38,7 @@ namespace MphRead.Mods.Launcher
             // other mode must never inherit a previous story session's slot.
             Menu.SaveSlot = 0;
             RenderWindow.LogCreatingWindow();
-            using var renderer = new RenderWindow();
+            using var renderer = RenderWindow.Create();
             if (!Begin(renderer, settings, plan))
             {
                 return;

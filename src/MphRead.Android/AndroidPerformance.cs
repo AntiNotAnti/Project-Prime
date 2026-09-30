@@ -1,7 +1,5 @@
 using System;
-using System.Collections;
 using System.Diagnostics;
-using System.Reflection;
 using Android.App;
 using Activity = Android.App.Activity;
 using Environment = System.Environment;
@@ -33,6 +31,8 @@ namespace MphRead.Droid
         private const long ScaleDownCooldownMs = 1500;
         private const long ScaleUpCooldownMs = 7000;
 
+        private static readonly double[] _limiterMs = new double[SampleCapacity];
+        private static readonly int[] _lastGcCounts = new int[3];
         private static readonly double[] _frameMs = new double[SampleCapacity];
         private static readonly double[] _simulationMs = new double[SampleCapacity];
         private static readonly double[] _renderMs = new double[SampleCapacity];
@@ -61,6 +61,9 @@ namespace MphRead.Droid
 
         /// <summary>Highest refresh mode reported by the current Android display.</summary>
         public static float DisplayRefreshRate { get; private set; } = 60f;
+
+        /// <summary>Currently active rate, which can differ from the requested/max mode.</summary>
+        public static float ActiveDisplayRefreshRate { get; private set; } = 60f;
 
         /// <summary>
         /// Give old Android installs a sustainable starting point once. A marker
@@ -141,7 +144,7 @@ namespace MphRead.Droid
                 $"device {Build.Manufacturer} {Build.Model}, display max {DisplayRefreshRate:0.#} Hz");
         }
 
-        public static void RefreshDisplayRate()
+        public static void RefreshDisplayRate(bool refreshModes = true)
         {
             if (_activity == null || !_activity.TryGetTarget(out Activity? activity))
             {
@@ -151,24 +154,20 @@ namespace MphRead.Droid
             try
             {
 #pragma warning disable CS0618
-                object? display = activity.WindowManager?.DefaultDisplay;
+                var display = activity.WindowManager?.DefaultDisplay;
 #pragma warning restore CS0618
                 if (display == null)
                 {
                     return;
                 }
 
-                float best = ReadFloatProperty(display, "RefreshRate", 60f);
-                PropertyInfo? supportedModes = display.GetType().GetProperty("SupportedModes");
-                if (supportedModes?.GetValue(display) is IEnumerable modes)
+                ActiveDisplayRefreshRate = Math.Clamp(display.RefreshRate,
+                    30f, FrameTiming.MaxCap);
+                if (!refreshModes) return;
+                float best = ActiveDisplayRefreshRate;
+                foreach (var mode in display.GetSupportedModes() ?? Array.Empty<Android.Views.Display.Mode>())
                 {
-                    foreach (object? mode in modes)
-                    {
-                        if (mode != null)
-                        {
-                            best = Math.Max(best, ReadFloatProperty(mode, "RefreshRate", best));
-                        }
-                    }
+                    best = Math.Max(best, mode.RefreshRate);
                 }
                 DisplayRefreshRate = Math.Clamp(best, 30f, FrameTiming.MaxCap);
             }
@@ -206,6 +205,8 @@ namespace MphRead.Droid
             _pixelBudgetApplied = false;
             _budgetWidth = 0;
             _budgetHeight = 0;
+            for (int generation = 0; generation < 3; generation++)
+                _lastGcCounts[generation] = GC.CollectionCount(generation);
             _lastReport = Environment.TickCount64;
             _lastThermalPoll = 0;
             _lastScaleChange = 0;
@@ -241,7 +242,7 @@ namespace MphRead.Droid
         /// Record one presented frame. All arrays are allocated once so this is
         /// safe to leave enabled in production builds.
         /// </summary>
-        public static void RecordFrame(double elapsedSeconds, double simulationMs,
+        public static void RecordFrame(double elapsedSeconds, double limiterMs, double simulationMs,
             double renderMs, double uiMs, double swapMs, long allocatedBytes,
             int width, int height)
         {
@@ -253,6 +254,7 @@ namespace MphRead.Droid
             double frameMs = Math.Max(0, elapsedSeconds * 1000.0);
             int index = _sampleIndex;
             _frameMs[index] = frameMs;
+            _limiterMs[index] = limiterMs;
             _simulationMs[index] = simulationMs;
             _renderMs[index] = renderMs;
             _uiMs[index] = uiMs;
@@ -263,7 +265,7 @@ namespace MphRead.Droid
 
             PollThermal(force: false);
             ApplyPixelBudget(width, height);
-            UpdateGovernor(frameMs, simulationMs + renderMs + uiMs + swapMs);
+            UpdateGovernor(frameMs, simulationMs + renderMs + uiMs, swapMs);
 
             long now = Environment.TickCount64;
             if (now - _lastReport >= ReportEveryMs)
@@ -308,7 +310,7 @@ namespace MphRead.Droid
             ApplyScale(wanted, "pixel budget");
         }
 
-        private static void UpdateGovernor(double frameMs, double workMs)
+        private static void UpdateGovernor(double frameMs, double workMs, double presentMs)
         {
             if (!_adaptive)
             {
@@ -316,8 +318,8 @@ namespace MphRead.Droid
             }
 
             double budgetMs = 1000.0 / EffectiveRefreshRate();
-            bool missed = frameMs > budgetMs * 1.12 || workMs > budgetMs * 0.96;
-            bool comfortable = frameMs <= budgetMs * 1.08 && workMs < budgetMs * 0.72;
+            bool missed = AndroidFramePacer.Behind(frameMs, workMs, budgetMs);
+            bool comfortable = AndroidFramePacer.HasHeadroom(frameMs, workMs, presentMs, budgetMs);
 
             if (missed)
             {
@@ -382,6 +384,9 @@ namespace MphRead.Droid
                 return;
             }
             _lastThermalPoll = now;
+            // Surface.SetFrameRate is a request. Battery policy/thermal state
+            // can leave the panel at a lower rate or switch it during a match.
+            RefreshDisplayRate(refreshModes: false);
 
             int status = ReadThermalStatus();
             if (status == _thermalStatus)
@@ -445,7 +450,7 @@ namespace MphRead.Droid
         private static double EffectiveRefreshRate()
         {
             int cap = EffectiveCap();
-            double hz = cap == FrameTiming.DisplayRate ? DisplayRefreshRate : cap;
+            double hz = AndroidFramePacer.BudgetRate(cap, ActiveDisplayRefreshRate);
             return Math.Clamp(hz, FrameTiming.MinCap, FrameTiming.MaxCap);
         }
 
@@ -500,19 +505,6 @@ namespace MphRead.Droid
             }
         }
 
-        private static float ReadFloatProperty(object value, string name, float fallback)
-        {
-            try
-            {
-                object? result = value.GetType().GetProperty(name)?.GetValue(value);
-                return result == null ? fallback : Convert.ToSingle(result);
-            }
-            catch
-            {
-                return fallback;
-            }
-        }
-
         private static void Report(int width, int height)
         {
             int count = _sampleCount;
@@ -529,6 +521,8 @@ namespace MphRead.Droid
             double render95 = Percentile(_renderMs, count, 0.95);
             double ui95 = Percentile(_uiMs, count, 0.95);
             double swap95 = Percentile(_swapMs, count, 0.95);
+            double limiter95 = Percentile(_limiterMs, count, 0.95);
+            int gc0 = GC.CollectionCount(0), gc1 = GC.CollectionCount(1), gc2 = GC.CollectionCount(2);
             int over20 = 0, over33 = 0, over50 = 0;
             for (int i = 0; i < count; i++)
             {
@@ -541,11 +535,13 @@ namespace MphRead.Droid
             DebugLog.Line("androidperf",
                 $"frame ms p50/p90/p95/p99 {p50:0.00}/{p90:0.00}/{p95:0.00}/{p99:0.00}; "
                 + $"stage p95 sim/render/ui/swap {sim95:0.00}/{render95:0.00}/{ui95:0.00}/{swap95:0.00}; "
+                + $"limiter p95 {limiter95:0.00}; GC delta {gc0 - _lastGcCounts[0]}/{gc1 - _lastGcCounts[1]}/{gc2 - _lastGcCounts[2]}; "
                 + $">20/33/50 {over20}/{over33}/{over50} of {count}; "
                 + $"alloc {_allocatedBytes / 1024.0:0.0} KiB; "
                 + $"{width}x{height} world {_currentScale}% cap "
                 + $"{(FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? "display" : FrameTiming.FrameRateCap.ToString())} "
-                + $"display {DisplayRefreshRate:0.#} Hz thermal {_thermalStatus}");
+                + $"display active/max {ActiveDisplayRefreshRate:0.#}/{DisplayRefreshRate:0.#} Hz thermal {_thermalStatus}");
+            _lastGcCounts[0] = gc0; _lastGcCounts[1] = gc1; _lastGcCounts[2] = gc2;
             _allocatedBytes = 0;
         }
 
