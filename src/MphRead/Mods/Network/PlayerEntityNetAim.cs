@@ -534,7 +534,7 @@ namespace MphRead.Entities
             }
 
             // Dynamic/Metroid deliberately keeps an eased simulation-facing
-            // vector for its drifting weapon/reticle. Rotate the completed
+            // vector for its drifting weapon presentation. Rotate the completed
             // camera pose from that legacy basis onto the current raw aim for
             // presentation only. This preserves camera-local shake/tilt while
             // removing the legacy aim easing from what the player actually
@@ -619,7 +619,7 @@ namespace MphRead.Entities
             Vector3 upHint;
             // Classic moving-reticle presentation intentionally keeps the
             // legacy eased camera. Pro HUD is different: Dynamic/Metroid may
-            // keep that eased simulation state for weapon/reticle drift, but
+            // keep that eased simulation state for weapon drift, but
             // its local rendered camera must still use the responsive raw-aim
             // path so changing weapon style cannot add mouse latency.
             Vector3 drawCameraPosition = default;
@@ -659,7 +659,7 @@ namespace MphRead.Entities
 
                 // Static/Quake and Pro HUD Dynamic/Metroid both use a
                 // low-latency rendered camera. Dynamic retains its eased
-                // simulation basis only for weapon/reticle presentation.
+                // simulation basis only for weapon presentation.
                 ModResponsiveCameraBasis(out Vector3 baseFacing, out upHint);
                 ModRenderAimDelta(presentationAlpha,
                     pointerX, pointerY, controllerX, controllerY,
