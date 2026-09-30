@@ -112,6 +112,9 @@ namespace MphRead
                 _drawingPlayerOutlineMask = false;
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _frameBuffer);
                 GL.UseProgram(_shaderProgramId);
+                // The mask replay can finish on any outlined remote player.
+                // Restore the shared world program before preview/HUD work.
+                ResetCosmeticUniforms();
                 GL.Uniform1(_playerOutlineMaskUniform, 0);
                 GL.Uniform1(_texturedPlayerSkinUniform, 0);
                 GL.ActiveTexture(TextureUnit.Texture0);
