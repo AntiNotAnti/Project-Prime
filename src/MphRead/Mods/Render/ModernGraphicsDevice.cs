@@ -139,6 +139,24 @@ namespace MphRead.Mods.Render
                         new PfnRequestAdapterCallback(OnAdapterRequested), null);
                     PumpCallbacks(api, instance, () => _requestedAdapter != null || _requestError != null);
                     adapter = _requestedAdapter;
+                    if (adapter == null && platform == GraphicsPlatform.MacOS
+                        && backend == GraphicsBackend.Vulkan)
+                    {
+                        adapter = TryEnumeratedAdapter(api, native, instance, surface, backend,
+                            out string enumeration);
+                        if (adapter != null)
+                        {
+                            Mods.DebugLog.Line("render",
+                                "wgpu-native requestAdapter rejected MoltenVK; "
+                                + $"using enumerated portability adapter ({enumeration})");
+                            _requestError = null;
+                        }
+                        else if (!string.IsNullOrWhiteSpace(enumeration))
+                        {
+                            _requestError = string.IsNullOrWhiteSpace(_requestError)
+                                ? enumeration : $"{_requestError}; {enumeration}";
+                        }
+                    }
                     if (adapter == null)
                     {
                         throw new InvalidOperationException(
@@ -219,6 +237,56 @@ namespace MphRead.Mods.Render
             }
             // _native is an extension view over _api.Context, not a second owner.
             _api.Dispose();
+        }
+
+        private static Adapter* TryEnumeratedAdapter(WebGPU api, Wgpu native,
+            Instance* instance, Surface* surface, GraphicsBackend backend, out string description)
+        {
+            description = "";
+            nuint count = native.InstanceEnumerateAdapters(instance, null, null);
+            if (count == 0)
+            {
+                description = "Vulkan instance enumerated zero adapters";
+                return null;
+            }
+
+            Adapter** adapters = stackalloc Adapter*[(int)count];
+            nuint written = native.InstanceEnumerateAdapters(instance, null, adapters);
+            Adapter* selected = null;
+            var seen = new System.Text.StringBuilder();
+            for (nuint i = 0; i < written; i++)
+            {
+                Adapter* candidate = adapters[i];
+                if (candidate == null) continue;
+
+                AdapterProperties properties = default;
+                api.AdapterGetProperties(candidate, &properties);
+                string name = PtrString(properties.Name, "Unknown GPU");
+                if (seen.Length != 0) seen.Append(", ");
+                seen.Append(name).Append('/').Append(properties.BackendType);
+
+                bool backendMatches = properties.BackendType == ToBackendType(backend);
+                bool surfaceMatches = true;
+                if (backendMatches && surface != null)
+                {
+                    SurfaceCapabilities capabilities = default;
+                    api.SurfaceGetCapabilities(surface, candidate, ref capabilities);
+                    surfaceMatches = capabilities.FormatCount > 0;
+                    api.SurfaceCapabilitiesFreeMembers(capabilities);
+                }
+
+                if (selected == null && backendMatches && surfaceMatches)
+                {
+                    selected = candidate;
+                    continue;
+                }
+                api.AdapterRelease(candidate);
+            }
+
+            description = selected != null
+                ? $"selected {seen}"
+                : $"enumerated {written} adapter(s): {seen}";
+            return selected;
         }
 
         private static void PumpCallbacks(WebGPU api, Instance* instance, Func<bool> complete)
