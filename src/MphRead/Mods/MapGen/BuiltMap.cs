@@ -49,6 +49,12 @@ namespace MphRead.Mods.MapGen
         public Vector3 Normal { get; }
         public int Material { get; internal set; }
         public float Shade { get; }
+        /// <summary>
+        /// Optional source vertex color collapsed to this face. Native-room imports
+        /// retain RGB modulation here instead of flattening it to grayscale.
+        /// Null keeps the historical authored/imported-map Shade behavior.
+        /// </summary>
+        public Vector3? VertexColor { get; set; }
         public bool Damaging { get; set; }
         public Terrain Terrain { get; set; } = Terrain.Metal;
 

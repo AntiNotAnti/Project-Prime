@@ -2,6 +2,9 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
 using MphRead.Mods.MapGen;
@@ -13,6 +16,30 @@ internal sealed partial class MapStudioScreen
     private bool _poppedOut;
     private static string CommunitySettingsPath => Path.Combine(LauncherPrefs.Directory, "map-community.txt");
     private static string UserMapLibrary => CustomRooms.UserMapDirectory;
+
+    private static async Task<T> WithCommunityAuthentication<T>(string address,
+        CancellationToken token, Func<MapCommunityClient, Task<T>> action)
+    {
+        string credential = await HunterLicenseClient.GetCommunityMapTicketAsync(token);
+        using (var client = new MapCommunityClient(address, credential))
+        {
+            try { return await action(client); }
+            catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized) { }
+        }
+
+        // A 401 cannot be repaired by simply pressing the button again if the
+        // cached ticket is still alive. Force a mint and retry the operation once.
+        credential = await HunterLicenseClient.RefreshCommunityMapTicketAsync(token);
+        using var retry = new MapCommunityClient(address, credential);
+        try { return await action(retry); }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            throw new HttpRequestException(
+                "The Community service rejected a freshly minted Hunter License credential. "
+                + "Redeploy/restart the map service so it includes Hunter License ticket verification.",
+                ex, HttpStatusCode.Unauthorized);
+        }
+    }
 
     private async Task PopOut()
     {
@@ -87,14 +114,14 @@ internal sealed partial class MapStudioScreen
             using var package = new MapPackageReader(path);
             var manifest = package.Manifest!;
             string hash = MapBuildFingerprint.HashFile(path);
-            string? credential = publish
-                ? await HunterLicenseClient.GetCommunityMapTicketAsync(token)
-                : null;
-            using var community = new MapCommunityClient(address, credential);
             if (publish)
-                await community.UploadAsync(path, token, listed);
+            {
+                await WithCommunityAuthentication(address, token,
+                    client => client.UploadAsync(path, token, listed));
+            }
             else
             {
+                using var community = new MapCommunityClient(address);
                 var published = await community.GetPackageAsync(hash,token);
                 if (published == null || published.MapId != manifest.MapId || published.ContentHash != manifest.ContentHash)
                     throw new IOException("This exact version is not published. Choose Publish & Host or Host Unlisted.");
@@ -192,10 +219,16 @@ internal sealed partial class MapStudioScreen
             string temporary=Path.Combine(Path.GetTempPath(),Guid.NewGuid().ToString("N")+".ppmap");
             try
             {
-                using var client=await Client(true,token);
+                string endpoint=(address.Text??"").Trim();
+                Directory.CreateDirectory(LauncherPrefs.Directory);File.WriteAllText(CommunitySettingsPath,endpoint);
                 await MapBuildScheduler.Shared.PackageAsync(MapBuildSnapshot.Capture(project),temporary,token);GuardJob(token);
-                var published=await client.UploadAsync(temporary,token,listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,draft:visibility.SelectedIndex==3);GuardJob(token);
-                entries=await FetchEntries(client,token);GuardJob(token);Filter();list.SelectedItem=entries.FirstOrDefault(e=>e.Hash==published.Hash);
+                var result=await WithCommunityAuthentication(endpoint,token,async client=>
+                {
+                    var published=await client.UploadAsync(temporary,token,listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,draft:visibility.SelectedIndex==3);
+                    var refreshed=await FetchEntries(client,token);
+                    return (Published:published,Entries:refreshed);
+                });
+                GuardJob(token);entries=result.Entries;Filter();list.SelectedItem=entries.FirstOrDefault(e=>e.Hash==result.Published.Hash);
                 message.Text="Published under your Hunter License. Lobbies can download this exact version automatically.";
             }
             catch(Exception ex) { message.Text=ex.Message;throw; }

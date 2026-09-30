@@ -52,6 +52,8 @@ public static class MapViewportMaterials
             }
             catch (Exception ex) when (ex is System.IO.IOException or ProgramException or ArgumentException) { }
         }
+        Model? nativeModel = null;
+        Model NativeModel() => nativeModel ??= Read.GetRoomModelForExport(definition.TextureSource);
         for (int i = 0; i < definition.Materials.Count; i++)
         {
             var material = definition.Materials[i];
@@ -65,7 +67,7 @@ public static class MapViewportMaterials
                 }
                 else
                 {
-                    var model = Read.GetRoomModelInstance(definition.TextureSource).Model;
+                    var model = NativeModel();
                     if (material.SourceMaterial < 0 || material.SourceMaterial >= model.Materials.Count) continue;
                     var source = model.Materials[material.SourceMaterial];
                     if (source.TextureId < 0 || source.PaletteId < 0)
