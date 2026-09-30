@@ -230,6 +230,21 @@ namespace MphRead.Mods.Render
             }
         }
 
+        internal bool IsFramebufferTexture(int texture)
+        {
+            if (texture == 0) return false;
+            foreach (FramebufferRecord framebuffer in _framebuffers.Values)
+            {
+                if (framebuffer.ColorTexture == texture
+                    || framebuffer.DepthTexture == texture
+                    || framebuffer.DepthStencilTexture == texture)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         internal FramebufferRecord Framebuffer(int id)
         {
             return _framebuffers.TryGetValue(id, out FramebufferRecord? record)

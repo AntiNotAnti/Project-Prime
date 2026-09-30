@@ -81,20 +81,30 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
-                    byte[] worldPixel = RunWorldCompositeCheck();
-                    bool greenPixel = worldPixel[0] <= 24 && worldPixel[1] >= 220
-                        && worldPixel[2] <= 24 && worldPixel[3] >= 220;
-                    if (!greenPixel)
+                    byte[] worldPixels = RunWorldCompositeCheck();
+                    bool topLeftGreen = worldPixels[0] <= 30 && worldPixels[1] >= 220
+                        && worldPixels[2] <= 30 && worldPixels[3] >= 220;
+                    bool topRightBlend = worldPixels[4] >= 90 && worldPixels[4] <= 170
+                        && worldPixels[5] >= 90 && worldPixels[5] <= 170
+                        && worldPixels[6] <= 35 && worldPixels[7] >= 220;
+                    bool bottomBlue = worldPixels[8] <= 30 && worldPixels[9] <= 30
+                        && worldPixels[10] >= 220 && worldPixels[11] >= 220;
+                    if (!topLeftGreen || !topRightBlend || !bottomBlue)
                     {
                         Console.Error.WriteLine(
-                            $"[renderwindowcheck] FAIL world/rtt rgba({worldPixel[0]},{worldPixel[1]},{worldPixel[2]},{worldPixel[3]})");
+                            $"[renderwindowcheck] FAIL world/rtt "
+                            + $"topLeft=rgba({worldPixels[0]},{worldPixels[1]},{worldPixels[2]},{worldPixels[3]}) "
+                            + $"topRight=rgba({worldPixels[4]},{worldPixels[5]},{worldPixels[6]},{worldPixels[7]}) "
+                            + $"bottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]})");
                         return 1;
                     }
 
                     Console.WriteLine(
                         $"[renderwindowcheck] PASS backend={GraphicsBackendPolicy.DisplayName(backend)} "
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
-                        + $"world=rgba({worldPixel[0]},{worldPixel[1]},{worldPixel[2]},{worldPixel[3]})");
+                        + $"worldTop=rgba({worldPixels[0]},{worldPixels[1]},{worldPixels[2]},{worldPixels[3]}) "
+                        + $"worldBlend=rgba({worldPixels[4]},{worldPixels[5]},{worldPixels[6]},{worldPixels[7]}) "
+                        + $"worldBottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]})");
                     return 0;
                 }
                 finally
@@ -173,13 +183,55 @@ namespace MphRead.Mods.Render
             GraphicsApi.UniformMatrix4(GraphicsApi.GetUniformLocation(world, "mtx_stack"),
                 32, false, stack);
 
-            GraphicsApi.Color4(0, 1, 0, 1);
-            GraphicsApi.Begin(PrimitiveType.Quads);
-            GraphicsApi.Vertex3(-0.7f, -0.7f, 0);
-            GraphicsApi.Vertex3( 0.7f, -0.7f, 0);
-            GraphicsApi.Vertex3( 0.7f,  0.7f, 0);
-            GraphicsApi.Vertex3(-0.7f,  0.7f, 0);
-            GraphicsApi.End();
+            // Far red control surface. Everything below should beat this in
+            // the depth buffer; the later yellow surface should not.
+            GraphicsApi.Color4(1, 0, 0, 1);
+            DrawQuad(-0.9f, -0.9f, 0.9f, 0.9f, 0.55f);
+
+            // Top half: a real sampled world texture, not just vertex colour.
+            int greenTexture = GraphicsApi.GenTexture();
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, greenTexture);
+            byte[] green =
+            {
+                0, 255, 0, 255, 0, 255, 0, 255,
+                0, 255, 0, 255, 0, 255, 0, 255
+            };
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                2, 2, 0, PixelFormat.Rgba, PixelType.UnsignedByte, green);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+            GraphicsApi.Enable(EnableCap.Texture2D);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 1);
+            GraphicsApi.Color4(1, 1, 1, 1);
+            DrawTexturedQuad(-0.9f, 0.0f, 0.9f, 0.9f, -0.45f);
+
+            // Bottom half: untextured blue.
+            GraphicsApi.Disable(EnableCap.Texture2D);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "use_texture"), 0);
+            GraphicsApi.Color4(0, 0, 1, 1);
+            DrawQuad(-0.9f, -0.9f, 0.9f, 0.0f, -0.45f);
+
+            // This is farther than both near halves and must fail depth.
+            GraphicsApi.Color4(1, 1, 0, 1);
+            DrawQuad(-0.9f, -0.9f, 0.9f, 0.9f, 0.75f);
+
+            // Blend 50% red over only the top-right quadrant. Preserve target
+            // alpha with ColorMask, matching several game overlay paths.
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Enable(EnableCap.Blend);
+            GraphicsApi.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
+            GraphicsApi.ColorMask(true, true, true, false);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "mat_alpha"), 0.5f);
+            GraphicsApi.Color4(1, 0, 0, 1);
+            DrawQuad(0.0f, 0.0f, 0.9f, 0.9f, -0.7f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(world, "mat_alpha"), 1f);
+            GraphicsApi.ColorMask(true, true, true, true);
+            GraphicsApi.Disable(EnableCap.Blend);
+            GraphicsApi.Enable(EnableCap.DepthTest);
+            GraphicsApi.DeleteTexture(greenTexture);
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GraphicsApi.Viewport(0, 0, 96, 64);
@@ -207,9 +259,17 @@ namespace MphRead.Mods.Render
             GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
             GraphicsApi.End();
 
-            byte[] pixel = new byte[4];
-            GraphicsApi.ReadPixels(48, 32, 1, 1,
-                PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+            byte[] pixels = new byte[12];
+            byte[] sample = new byte[4];
+            GraphicsApi.ReadPixels(24, 48, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 0, 4);
+            GraphicsApi.ReadPixels(72, 48, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 4, 4);
+            GraphicsApi.ReadPixels(48, 16, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 8, 4);
             ModernGraphicsCompat.Present();
 
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
@@ -218,7 +278,27 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteTexture(color);
             GraphicsApi.DeleteProgram(world);
             GraphicsApi.DeleteProgram(rtt);
-            return pixel;
+            return pixels;
+        }
+
+        private static void DrawQuad(float left, float bottom, float right, float top, float z)
+        {
+            GraphicsApi.Begin(PrimitiveType.Quads);
+            GraphicsApi.Vertex3(left, bottom, z);
+            GraphicsApi.Vertex3(right, bottom, z);
+            GraphicsApi.Vertex3(right, top, z);
+            GraphicsApi.Vertex3(left, top, z);
+            GraphicsApi.End();
+        }
+
+        private static void DrawTexturedQuad(float left, float bottom, float right, float top, float z)
+        {
+            GraphicsApi.Begin(PrimitiveType.Quads);
+            GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(left, bottom, z);
+            GraphicsApi.TexCoord3(1, 0, 0); GraphicsApi.Vertex3(right, bottom, z);
+            GraphicsApi.TexCoord3(1, 1, 0); GraphicsApi.Vertex3(right, top, z);
+            GraphicsApi.TexCoord3(0, 1, 0); GraphicsApi.Vertex3(left, top, z);
+            GraphicsApi.End();
         }
 
         private static int Link(string vertexSource, string fragmentSource)

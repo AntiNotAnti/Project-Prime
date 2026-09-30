@@ -355,9 +355,19 @@ fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
         return fade_color;
     }
 
-    var color = textureSample(base_tex, base_sampler, input.texcoord);
+    var base_uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        // Render-target textures inherit OpenGL's bottom-origin framebuffer
+        // convention. WebGPU stores render attachments top-origin, so flip
+        // only framebuffer-produced textures, never uploaded HUD/art textures.
+        base_uv.y = 1.0 - base_uv.y;
+    }
+    var color = textureSample(base_tex, base_sampler, base_uv);
     if (use_mask) {
-        let mask_y = input.position.y + (view_width - view_height) / 2.0;
+        // WGSL fragment position is top-origin; emulate gl_FragCoord.y before
+        // applying the original square HUD-mask projection.
+        let gl_frag_y = view_height - input.position.y;
+        let mask_y = gl_frag_y + (view_width - view_height) / 2.0;
         let mask_uv = vec2<f32>(input.position.x / view_width, 1.0 - mask_y / view_width);
         let mask_color = textureSample(mask_tex, base_sampler, mask_uv);
         if (mask_color.a > 0.0) {

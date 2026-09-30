@@ -951,12 +951,18 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
-            _api.RenderPassEncoderSetViewport(pass, _viewportX, _viewportY,
+            float viewportY = Math.Clamp((int)_height - (_viewportY + _viewportHeight),
+                0, Math.Max(0, (int)_height - 1));
+            _api.RenderPassEncoderSetViewport(pass, _viewportX, viewportY,
                 (float)_viewportWidth, (float)_viewportHeight, 0, 1);
             if (_enabled.Contains(EnableCap.ScissorTest))
             {
-                _api.RenderPassEncoderSetScissorRect(pass, (uint)Math.Max(0, _scissorX),
-                    (uint)Math.Max(0, _scissorY), (uint)_scissorWidth, (uint)_scissorHeight);
+                uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, (int)_width - 1));
+                int glTop = _scissorY + _scissorHeight;
+                uint sy = (uint)Math.Clamp((int)_height - glTop, 0, Math.Max(0, (int)_height - 1));
+                uint sw = (uint)Math.Clamp(_scissorWidth, 1, (int)_width - (int)sx);
+                uint sh = (uint)Math.Clamp(_scissorHeight, 1, (int)_height - (int)sy);
+                _api.RenderPassEncoderSetScissorRect(pass, sx, sy, sw, sh);
             }
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
@@ -1147,7 +1153,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 Texture = _surfaceTexture.Texture,
                 MipLevel = 0,
-                Origin = new Origin3D((uint)Math.Max(0, x), (uint)Math.Max(0, y), 0),
+                Origin = new Origin3D((uint)Math.Max(0, x),
+                    (uint)Math.Max(0, (int)_height - y - height), 0),
                 Aspect = TextureAspect.All
             };
             var destination = new ImageCopyBuffer

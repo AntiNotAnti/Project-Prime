@@ -387,12 +387,15 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
-            _api.RenderPassEncoderSetViewport(pass, _viewportX, _viewportY,
+            float viewportY = Math.Clamp(target.Height - (_viewportY + _viewportHeight),
+                0, Math.Max(0, target.Height - 1));
+            _api.RenderPassEncoderSetViewport(pass, _viewportX, viewportY,
                 Math.Max(1, _viewportWidth), Math.Max(1, _viewportHeight), 0, 1);
             if (_enabled.Contains(EnableCap.ScissorTest))
             {
                 uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, target.Width - 1));
-                uint sy = (uint)Math.Clamp(_scissorY, 0, Math.Max(0, target.Height - 1));
+                int glTop = _scissorY + _scissorHeight;
+                uint sy = (uint)Math.Clamp(target.Height - glTop, 0, Math.Max(0, target.Height - 1));
                 uint sw = (uint)Math.Clamp(_scissorWidth, 1, target.Width - (int)sx);
                 uint sh = (uint)Math.Clamp(_scissorHeight, 1, target.Height - (int)sy);
                 _api.RenderPassEncoderSetScissorRect(pass, sx, sy, sw, sh);
@@ -636,6 +639,8 @@ namespace MphRead.Mods.Render
                 WriteFloat(words, ModernGraphicsShaders.RttScalars, 3,
                     Float(program, "view_height", _height));
                 WriteVec(words, ModernGraphicsShaders.FadeColor, Data(program, "fade_color"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
+                    _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
 
             fixed (uint* ptr = words)
@@ -710,12 +715,12 @@ namespace MphRead.Mods.Render
                 throw new NotSupportedException("Modern offscreen readback currently targets byte arrays.");
 
             CoreTarget target = ResolveReadTarget();
-            ReadTexturePixels(target.ColorTexture, target.ColorFormat, x, y, width, height,
-                format, (byte[])(object)pixels);
+            ReadTexturePixels(target.ColorTexture, target.ColorFormat, target.Height,
+                x, y, width, height, format, (byte[])(object)pixels);
         }
 
         private void ReadTexturePixels(WgpuTexture* texture, WgpuTextureFormat textureFormat,
-            int x, int y, int width, int height, PixelFormat format, byte[] pixels)
+            int textureHeight, int x, int y, int width, int height, PixelFormat format, byte[] pixels)
         {
             uint copyWidth = (uint)Math.Max(0, width);
             uint copyHeight = (uint)Math.Max(0, height);
@@ -733,7 +738,8 @@ namespace MphRead.Mods.Render
             {
                 Texture = texture,
                 MipLevel = 0,
-                Origin = new Origin3D((uint)Math.Max(0, x), (uint)Math.Max(0, y), 0),
+                Origin = new Origin3D((uint)Math.Max(0, x),
+                    (uint)Math.Max(0, textureHeight - y - height), 0),
                 Aspect = TextureAspect.All
             };
             var destination = new ImageCopyBuffer
@@ -799,7 +805,8 @@ namespace MphRead.Mods.Render
             {
                 Texture = sourceTarget.ColorTexture,
                 MipLevel = 0,
-                Origin = new Origin3D((uint)x, (uint)y, 0),
+                Origin = new Origin3D((uint)x,
+                    (uint)Math.Max(0, sourceTarget.Height - y - height), 0),
                 Aspect = TextureAspect.All
             };
             var dest = new ImageCopyTexture
