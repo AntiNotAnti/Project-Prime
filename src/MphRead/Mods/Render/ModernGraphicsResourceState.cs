@@ -148,8 +148,16 @@ namespace MphRead.Mods.Render
         {
             TextureRecord record = BoundTextureRecord(target);
             SetImageMetadata(record, internalFormat, width, height, format, type);
+            if (pixels == IntPtr.Zero)
+            {
+                // Render targets and depth textures allocate storage without a
+                // CPU upload. Do not force their pixel format through the
+                // upload-byte calculator just to represent an empty image.
+                record.Pixels = null;
+                return;
+            }
             int bytes = ImageByteCount(width, height, format, type);
-            if (pixels == IntPtr.Zero || bytes == 0)
+            if (bytes == 0)
             {
                 record.Pixels = null;
                 return;

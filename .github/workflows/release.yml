@@ -581,7 +581,7 @@ jobs:
             --self-contained true -p:PublishSingleFile=true -o "publish/$RID"
           chmod +x "publish/$RID/ProjectPrime"
           "publish/$RID/ProjectPrime" -renderbackendprobe -renderer metal
-          "publish/$RID/ProjectPrime" -renderbackendprobe -renderer vulkan
+          tools/check-macos-modern-vulkan.sh "publish/$RID/ProjectPrime"
           tools/sign-macos.sh "publish/$RID"
           tools/check-macos-build.sh "publish/$RID" "$RID"
           tools/run-macos-smoke.sh "publish/$RID" "$RID"

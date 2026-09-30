@@ -155,19 +155,24 @@ namespace MphRead.Mods.Render
                 TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
 
-            int depth = GraphicsApi.GenRenderbuffer();
-            GraphicsApi.BindRenderbuffer(RenderbufferTarget.Renderbuffer, depth);
-            GraphicsApi.RenderbufferStorage(RenderbufferTarget.Renderbuffer,
-                RenderbufferStorage.Depth24Stencil8, 64, 64);
-            GraphicsApi.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+            int depth = GraphicsApi.GenTexture();
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, depth);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0,
+                PixelInternalFormat.Depth24Stencil8, 64, 64, 0,
+                PixelFormat.DepthStencil, PixelType.UnsignedInt248, IntPtr.Zero);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
 
             int framebuffer = GraphicsApi.GenFramebuffer();
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
             GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                 FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, color, 0);
-            GraphicsApi.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
+            GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                 FramebufferAttachment.DepthStencilAttachment,
-                RenderbufferTarget.Renderbuffer, depth);
+                TextureTarget.Texture2D, depth, 0);
             if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
                 != FramebufferErrorCode.FramebufferComplete)
             {
@@ -350,7 +355,7 @@ namespace MphRead.Mods.Render
 
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteFramebuffer(framebuffer);
-            GraphicsApi.DeleteRenderbuffer(depth);
+            GraphicsApi.DeleteTexture(depth);
             GraphicsApi.DeleteTexture(color);
             GraphicsApi.DeleteProgram(world);
             GraphicsApi.DeleteProgram(rtt);

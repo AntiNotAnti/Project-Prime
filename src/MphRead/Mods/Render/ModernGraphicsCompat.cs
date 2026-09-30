@@ -30,7 +30,9 @@ namespace MphRead.Mods.Render
         {
             internal WgpuTexture* Texture;
             internal TextureView* View;
+            internal TextureView* SampleView;
             internal WgpuSampler* Sampler;
+            internal WgpuTextureFormat Format;
         }
 
         private sealed class GeometryList
@@ -773,7 +775,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 _nativeTextures.Remove(id);
             }
 
-            WgpuTextureFormat format = WgpuTextureFormat.Rgba8Unorm;
+            WgpuTextureFormat format = NativeTextureFormat(record);
             byte[] data = ConvertPixels(record, ref format);
             int width = Math.Max(1, record.Width);
             int height = Math.Max(1, record.Height);
@@ -789,12 +791,35 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             };
             var native = new NativeTexture
             {
-                Texture = _api.DeviceCreateTexture(_device.Device, descriptor)
+                Texture = _api.DeviceCreateTexture(_device.Device, descriptor),
+                Format = format
             };
             if (native.Texture == null)
                 throw new InvalidOperationException($"Could not allocate modern texture {id}.");
 
             native.View = _api.TextureCreateView(native.Texture, null);
+            if (format == WgpuTextureFormat.Depth24PlusStencil8)
+            {
+                var depthViewDescriptor = new TextureViewDescriptor
+                {
+                    Format = format,
+                    Dimension = TextureViewDimension.Dimension2D,
+                    Aspect = TextureAspect.DepthOnly,
+                    BaseMipLevel = 0,
+                    MipLevelCount = 1,
+                    BaseArrayLayer = 0,
+                    ArrayLayerCount = 1
+                };
+                native.SampleView = _api.TextureCreateView(native.Texture, depthViewDescriptor);
+            }
+            else if (format == WgpuTextureFormat.Depth24Plus)
+            {
+                native.SampleView = native.View;
+            }
+            else
+            {
+                native.SampleView = native.View;
+            }
             native.Sampler = _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
             {
                 MinFilter = ToFilter(record.MinFilter),
@@ -832,7 +857,22 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             return native;
         }
 
-        private static byte[] ConvertPixels(ModernGraphicsResourceState.TextureRecord record,
+        private static WgpuTextureFormat NativeTextureFormat(
+            ModernGraphicsResourceState.TextureRecord record)
+        {
+            return record.InternalFormat switch
+            {
+                PixelInternalFormat.Depth24Stencil8 => WgpuTextureFormat.Depth24PlusStencil8,
+                PixelInternalFormat.DepthComponent24 => WgpuTextureFormat.Depth24Plus,
+                PixelInternalFormat.Rgba16f => WgpuTextureFormat.Rgba16float,
+                PixelInternalFormat.Rgba8 => WgpuTextureFormat.Rgba8Unorm,
+                _ => record.Format == PixelFormat.Bgra
+                    ? WgpuTextureFormat.Bgra8Unorm
+                    : WgpuTextureFormat.Rgba8Unorm
+            };
+        }
+
+                private static byte[] ConvertPixels(ModernGraphicsResourceState.TextureRecord record,
             ref WgpuTextureFormat format)
         {
             if (record.Width <= 0 || record.Height <= 0 || record.Pixels == null)
@@ -1214,6 +1254,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         private void ReleaseNativeTexture(NativeTexture texture)
         {
             if (texture.Sampler != null) _api.SamplerRelease(texture.Sampler);
+            if (texture.SampleView != null && texture.SampleView != texture.View)
+                _api.TextureViewRelease(texture.SampleView);
             if (texture.View != null) _api.TextureViewRelease(texture.View);
             if (texture.Texture != null) _api.TextureRelease(texture.Texture);
         }

@@ -216,11 +216,20 @@ namespace MphRead.Mods.Render
             ModernGraphicsResourceState.TextureRecord colorRecord = _resources.Texture(framebuffer.ColorTexture);
             TextureView* depth = null;
 
-            int depthRenderbuffer = framebuffer.DepthStencilRenderbuffer != 0
-                ? framebuffer.DepthStencilRenderbuffer : framebuffer.DepthRenderbuffer;
-            if (depthRenderbuffer != 0)
+            int depthTexture = framebuffer.DepthStencilTexture != 0
+                ? framebuffer.DepthStencilTexture : framebuffer.DepthTexture;
+            if (depthTexture != 0)
             {
-                depth = EnsureRenderbuffer(depthRenderbuffer).View;
+                depth = EnsureTexture(depthTexture).View;
+            }
+            else
+            {
+                int depthRenderbuffer = framebuffer.DepthStencilRenderbuffer != 0
+                    ? framebuffer.DepthStencilRenderbuffer : framebuffer.DepthRenderbuffer;
+                if (depthRenderbuffer != 0)
+                {
+                    depth = EnsureRenderbuffer(depthRenderbuffer).View;
+                }
             }
 
             return new CoreTarget(color.Texture, color.View, ColorFormat(colorRecord), depth,
@@ -274,9 +283,7 @@ namespace MphRead.Mods.Render
 
         private static WgpuTextureFormat ColorFormat(ModernGraphicsResourceState.TextureRecord record)
         {
-            // The first world slice uses the scene's RGB/RGBA8 target. HDR
-            // post-process targets remain gated until their pipelines land.
-            return WgpuTextureFormat.Rgba8Unorm;
+            return NativeTextureFormat(record);
         }
 
         private void DrawCoreIndexed(float[] vertices, int[] indices,
