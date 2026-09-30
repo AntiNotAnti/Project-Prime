@@ -2445,7 +2445,11 @@ namespace MphRead
         /// </summary>
         private void UpdateDepthAttachment(Vector2i target)
         {
-            bool want = !_depthTextureRefused
+            bool want =
+#if !MPHREAD_SERVER
+                !Mods.Render.ModernGraphicsCompat.Active &&
+#endif
+                !_depthTextureRefused
                 && ((Mods.RenderOptions.CelShading && Mods.RenderOptions.CelEdge > 0)
                     || Mods.RenderOptions.NeedsReadableDepth);
             if (want == (_depthTexture != 0))

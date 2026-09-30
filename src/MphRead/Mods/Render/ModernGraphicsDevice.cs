@@ -128,7 +128,9 @@ namespace MphRead.Mods.Render
 
                     RequestAdapterOptions adapterOptions = default;
                     adapterOptions.CompatibleSurface = surface;
-                    adapterOptions.BackendType = ToBackendType(backend);
+                    // wgpu-native 33133da rejects backendType here and explicitly
+                    // asks callers to restrict backends through InstanceExtras.
+                    // The instance above is already DX12/Vulkan/Metal-only.
                     adapterOptions.PowerPreference = PowerPreference.HighPerformance;
 
                     _requestedAdapter = null;

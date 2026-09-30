@@ -24,7 +24,7 @@ namespace MphRead.Mods.Render
     /// World/display-list state is recorded too; its full material pipeline is
     /// layered onto this executor in the next pass.
     /// </summary>
-    internal sealed unsafe class ModernGraphicsCompat : IDisposable
+    internal sealed unsafe partial class ModernGraphicsCompat : IDisposable
     {
         private sealed class NativeTexture
         {
@@ -140,6 +140,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             _queue = _api.DeviceGetQueue(_device.Device);
             QuerySurfaceFormat();
             CreateUiShader();
+            CreateCoreShaders();
             CreateWhiteTexture();
             ResizeCore(window.FramebufferSize.X, window.FramebufferSize.Y);
             Mods.DebugLog.Line("render",
@@ -443,7 +444,13 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             Current._resources.CheckFramebufferStatus(target);
 
         internal static int GenRenderbuffer() => Current._resources.GenRenderbuffer();
-        internal static void DeleteRenderbuffer(int renderbuffer) => Current._resources.DeleteRenderbuffer(renderbuffer);
+        internal static void DeleteRenderbuffer(int renderbuffer)
+        {
+            ModernGraphicsCompat self = Current;
+            self._resources.DeleteRenderbuffer(renderbuffer);
+            if (self._nativeRenderbuffers.Remove(renderbuffer, out NativeRenderbuffer? native))
+                self.ReleaseNativeRenderbuffer(native);
+        }
         internal static void BindRenderbuffer(RenderbufferTarget target, int renderbuffer) =>
             Current._resources.BindRenderbuffer(target, renderbuffer);
         internal static void RenderbufferStorage(RenderbufferTarget target, RenderbufferStorage format,
@@ -484,6 +491,12 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
                 GetPName.PackAlignment => 4,
                 GetPName.UnpackAlignment => 4,
                 GetPName.MaxTextureSize => 8192,
+                GetPName.MaxRenderbufferSize => 8192,
+                GetPName.DepthWritemask => self._depthWrite ? 1 : 0,
+                GetPName.BlendSrcRgb => (int)self._blendSource,
+                GetPName.BlendDstRgb => (int)self._blendDestination,
+                GetPName.CullFaceMode => (int)self._cullFace,
+                GetPName.DepthFunc => (int)self._depthFunction,
                 _ => 0
             };
         }
@@ -509,19 +522,20 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void ReadBuffer(ReadBufferMode mode) { }
         internal static void DrawBuffer(DrawBufferMode mode) { }
         internal static void TexEnv(TextureEnvTarget target, TextureEnvParameter name, int value) { }
-        internal static void AlphaFunc(AlphaFunction function, float reference) { }
+        internal static void AlphaFunc(AlphaFunction function, float reference) { Current._alphaFunction = function; Current._alphaReference = reference; }
         internal static void PolygonMode(TriangleFace face, OpenTK.Graphics.OpenGL.PolygonMode mode) { }
         internal static void LineWidth(float width) { }
-        internal static void ClearStencil(int value) { }
-        internal static void DepthMask(bool enabled) { }
-        internal static void DepthFunc(DepthFunction function) { }
-        internal static void CullFace(TriangleFace face) { }
-        internal static void BlendEquation(BlendEquationMode mode) { }
-        internal static void StencilFunc(StencilFunction function, int reference, int mask) { }
+        internal static void ClearStencil(int value) { Current._clearStencil = value; }
+        internal static void DepthMask(bool enabled) { Current._depthWrite = enabled; }
+        internal static void DepthFunc(DepthFunction function) { Current._depthFunction = function; }
+        internal static void CullFace(TriangleFace face) { Current._cullFace = face; }
+        internal static void BlendEquation(BlendEquationMode mode) { Current._blendEquation = mode; }
+        internal static void StencilFunc(StencilFunction function, int reference, int mask) { Current._stencilFunction = function; Current._stencilReference = reference; Current._stencilReadMask = mask; }
         internal static void StencilOp(OpenTK.Graphics.OpenGL.StencilOp fail,
-            OpenTK.Graphics.OpenGL.StencilOp zfail, OpenTK.Graphics.OpenGL.StencilOp zpass) { }
-        internal static void StencilMask(int mask) { }
-        internal static void PolygonOffset(float factor, float units) { }
+            OpenTK.Graphics.OpenGL.StencilOp zfail, OpenTK.Graphics.OpenGL.StencilOp zpass)
+        { Current._stencilFail = fail; Current._stencilDepthFail = zfail; Current._stencilPass = zpass; }
+        internal static void StencilMask(int mask) { Current._stencilWriteMask = mask; }
+        internal static void PolygonOffset(float factor, float units) { Current._polygonOffsetFactor = factor; Current._polygonOffsetUnits = units; }
         internal static void MatrixMode(MatrixMode mode) { }
         internal static void PushMatrix() { }
         internal static void PopMatrix() { }
@@ -544,7 +558,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         internal static void CopyTexSubImage2D(TextureTarget target, int level, int xoffset, int yoffset,
             int x, int y, int width, int height)
         {
-            throw new NotSupportedException("Modern scene copy-to-texture lands with the world/FBO pass.");
+            Current.CopyTexSubImage2DCore(target, level, xoffset, yoffset, x, y, width, height);
         }
 
         internal static void BlitFramebuffer(int sourceX0, int sourceY0, int sourceX1, int sourceY1,
@@ -570,6 +584,7 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_whiteSampler != null) _api.SamplerRelease(_whiteSampler);
             if (_whiteView != null) _api.TextureViewRelease(_whiteView);
             if (_whiteTexture != null) _api.TextureRelease(_whiteTexture);
+            DisposeCoreShaders();
             if (_uiShader != null) _api.ShaderModuleRelease(_uiShader);
             if (_queue != null) _api.QueueRelease(_queue);
             _device.Dispose();
@@ -857,13 +872,23 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void DrawBatch(float[] vertices, int[] triangles, int[] lines)
         {
-            if (_resources.DrawFramebuffer != 0)
-                throw new NotSupportedException("Modern offscreen framebuffer drawing lands with the world pass.");
             if (vertices.Length == 0) return;
+            ModernProgramKind kind = CurrentProgramKind();
+            bool core = _resources.DrawFramebuffer != 0
+                || kind == ModernProgramKind.World
+                || kind == ModernProgramKind.Rtt
+                || kind == ModernProgramKind.Shift
+                || kind == ModernProgramKind.Cel;
             if (triangles.Length > 0)
-                DrawIndexed(vertices, triangles, PrimitiveTopology.TriangleList);
+            {
+                if (core) DrawCoreIndexed(vertices, triangles, PrimitiveTopology.TriangleList, kind);
+                else DrawIndexed(vertices, triangles, PrimitiveTopology.TriangleList);
+            }
             if (lines.Length > 0)
-                DrawIndexed(vertices, lines, PrimitiveTopology.LineList);
+            {
+                if (core) DrawCoreIndexed(vertices, lines, PrimitiveTopology.LineList, kind);
+                else DrawIndexed(vertices, lines, PrimitiveTopology.LineList);
+            }
         }
 
         private void DrawIndexed(float[] vertices, int[] indices, PrimitiveTopology topology)
@@ -1059,7 +1084,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         private void ClearCore(ClearBufferMask mask)
         {
             if (_resources.DrawFramebuffer != 0)
-                throw new NotSupportedException("Modern offscreen framebuffer clears land with the world pass.");
+            {
+                ClearOffscreenCore(mask);
+                return;
+            }
             if ((mask & ClearBufferMask.ColorBufferBit) == 0) return;
             if (!AcquireSurfaceTexture()) return;
 
@@ -1098,7 +1126,10 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             if (type != PixelType.UnsignedByte || (format != PixelFormat.Rgb && format != PixelFormat.Rgba))
                 throw new NotSupportedException("Modern launcher readback currently supports RGB/RGBA unsigned-byte.");
             if (_resources.ReadFramebuffer != 0)
-                throw new NotSupportedException("Modern offscreen framebuffer readback lands with the world pass.");
+            {
+                ReadOffscreenPixelsCore(x, y, width, height, format, type, pixels);
+                return;
+            }
             if (!AcquireSurfaceTexture()) return;
 
             uint copyWidth = (uint)Math.Max(0, width);

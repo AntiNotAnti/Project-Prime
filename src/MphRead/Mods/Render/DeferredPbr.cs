@@ -57,6 +57,9 @@ namespace MphRead
 
         private void RenderDeferredPbrGBuffer()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active) { _pbrReady = false; return; }
+#endif
             _pbrReady = false;
             if (!RenderOptions.DeferredPbr || _pbrRefused || _depthTexture == 0)
             {

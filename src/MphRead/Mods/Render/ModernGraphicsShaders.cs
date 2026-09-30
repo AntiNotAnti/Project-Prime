@@ -111,13 +111,22 @@ fn vs_main(input: VertexInput) -> VertexOutput {
     let use_texture = ub(1u, 1u);
     let show_colors = ub(1u, 2u);
     let imm_color = uf4(0u);
-    let vtx_in_color = select(imm_color, input.color, input.color_set > 0.5);
+    var vtx_in_color = imm_color;
+    if (input.color_set > 0.5) {
+        vtx_in_color = input.color;
+    }
 
     let stack_mtx = stack_matrix(i32(clamp(input.texcoord.z, 0.0, 31.0)));
     let model_mtx = stack_mtx * umat4(20u);
     output.position = umat4(12u) * umat4(16u) * model_mtx * vec4<f32>(input.position, 1.0);
+    // Project Prime's projection matrices are OpenGL-style (-W..W depth).
+    // WebGPU uses 0..W, so keep the exact projection and remap clip Z here.
+    output.position.z = (output.position.z + output.position.w) * 0.5;
 
-    let vtx_color = select(vec4<f32>(1.0), vtx_in_color, show_colors);
+    var vtx_color = vec4<f32>(1.0);
+    if (show_colors) {
+        vtx_color = vtx_in_color;
+    }
     let normal_matrix = mat3x3<f32>(model_mtx[0].xyz, model_mtx[1].xyz, model_mtx[2].xyz);
     let normal = normalize(normal_matrix * input.normal);
     output.surface_normal = normal;
@@ -148,7 +157,14 @@ fn vs_main(input: VertexInput) -> VertexOutput {
         else {
             var tex_mul = tex_mtx;
             if (texgen_mode == 2) {
-                let base = select(mat4x4<f32>(), umat4(16u), use_light);
+                var base = mat4x4<f32>(
+                    vec4<f32>(1.0, 0.0, 0.0, 0.0),
+                    vec4<f32>(0.0, 1.0, 0.0, 0.0),
+                    vec4<f32>(0.0, 0.0, 1.0, 0.0),
+                    vec4<f32>(0.0, 0.0, 0.0, 1.0));
+                if (use_light) {
+                    base = umat4(16u);
+                }
                 let stack3 = mat3x3<f32>(stack_mtx[0].xyz, stack_mtx[1].xyz, stack_mtx[2].xyz);
                 let stack4 = mat4x4<f32>(
                     vec4<f32>(stack3[0], 0.0),
@@ -159,8 +175,10 @@ fn vs_main(input: VertexInput) -> VertexOutput {
             }
             let c0 = vec4<f32>(tex_mul[0].xyz, input.texcoord.x);
             let c1 = vec4<f32>(tex_mul[1].xyz, input.texcoord.y);
-            let source = select(vec4<f32>(input.position, 1.0),
-                                vec4<f32>(input.normal, 1.0), texgen_mode == 2);
+            var source = vec4<f32>(input.position, 1.0);
+            if (texgen_mode == 2) {
+                source = vec4<f32>(input.normal, 1.0);
+            }
             output.texcoord = vec2<f32>(dot(source, c0), dot(source, c1));
         }
     }
@@ -258,7 +276,10 @@ fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
         col = uf4(157u);
     }
     else {
-        col = select(input.color, toon_color(input.color), mat_mode == 2);
+        col = input.color;
+        if (mat_mode == 2) {
+            col = toon_color(input.color);
+        }
         col.a = col.a * mat_alpha;
     }
 

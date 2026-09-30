@@ -32,6 +32,9 @@ namespace MphRead
 
         private void RenderShadowMap()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active) return;
+#endif
             _shadowReady = false;
             if (Mods.RenderOptions.Shadows == Mods.ShadowQuality.Off || _shadowRefused
                 || _nonDecalItems.Count == 0)

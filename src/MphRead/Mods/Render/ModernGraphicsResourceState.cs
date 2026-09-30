@@ -251,9 +251,11 @@ namespace MphRead.Mods.Render
                 break;
             case FramebufferAttachment.DepthAttachment:
                 record.DepthTexture = texture;
+                record.DepthRenderbuffer = 0;
                 break;
             case FramebufferAttachment.DepthStencilAttachment:
                 record.DepthStencilTexture = texture;
+                record.DepthStencilRenderbuffer = 0;
                 break;
             default:
                 throw new NotSupportedException($"Framebuffer attachment {attachment} is not supported.");
@@ -271,6 +273,19 @@ namespace MphRead.Mods.Render
         {
             _renderbuffers.Remove(id);
             if (BoundRenderbuffer == id) BoundRenderbuffer = 0;
+            foreach (FramebufferRecord framebuffer in _framebuffers.Values)
+            {
+                if (framebuffer.DepthRenderbuffer == id) framebuffer.DepthRenderbuffer = 0;
+                if (framebuffer.StencilRenderbuffer == id) framebuffer.StencilRenderbuffer = 0;
+                if (framebuffer.DepthStencilRenderbuffer == id) framebuffer.DepthStencilRenderbuffer = 0;
+            }
+        }
+
+        internal RenderbufferRecord Renderbuffer(int id)
+        {
+            return _renderbuffers.TryGetValue(id, out RenderbufferRecord? record)
+                ? record
+                : throw new InvalidOperationException($"Unknown renderbuffer {id}.");
         }
 
         internal void BindRenderbuffer(RenderbufferTarget target, int id)
@@ -309,12 +324,14 @@ namespace MphRead.Mods.Render
             {
             case FramebufferAttachment.DepthAttachment:
                 record.DepthRenderbuffer = renderbuffer;
+                record.DepthTexture = 0;
                 break;
             case FramebufferAttachment.StencilAttachment:
                 record.StencilRenderbuffer = renderbuffer;
                 break;
             case FramebufferAttachment.DepthStencilAttachment:
                 record.DepthStencilRenderbuffer = renderbuffer;
+                record.DepthStencilTexture = 0;
                 break;
             default:
                 throw new NotSupportedException($"Framebuffer attachment {attachment} is not supported.");

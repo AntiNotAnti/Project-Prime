@@ -57,6 +57,9 @@ namespace MphRead
 
         private void ApplyGraphicsPostProcess()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active) { _graphicsOutputReady = false; return; }
+#endif
             _graphicsOutputReady = false;
             if (!RenderOptions.PostProcessingEnabled || _graphicsPipelineRefused)
             {

@@ -1,0 +1,959 @@
+#if !ANDROID && !MPHREAD_SERVER
+using System;
+using System.Collections.Generic;
+using OpenTK.Graphics.OpenGL;
+using Silk.NET.Core;
+using Silk.NET.Core.Native;
+using Silk.NET.WebGPU;
+using WgpuBuffer = Silk.NET.WebGPU.Buffer;
+using WgpuColor = Silk.NET.WebGPU.Color;
+using WgpuTexture = Silk.NET.WebGPU.Texture;
+using WgpuTextureFormat = Silk.NET.WebGPU.TextureFormat;
+
+namespace MphRead.Mods.Render
+{
+    internal sealed unsafe partial class ModernGraphicsCompat
+    {
+        private sealed class NativeRenderbuffer
+        {
+            internal WgpuTexture* Texture;
+            internal TextureView* View;
+        }
+
+        private readonly record struct CorePipelineKey(
+            ModernProgramKind Program,
+            PrimitiveTopology Topology,
+            WgpuTextureFormat ColorFormat,
+            bool HasDepth,
+            bool DepthTest,
+            bool DepthWrite,
+            DepthFunction DepthFunction,
+            bool StencilTest,
+            StencilFunction StencilFunction,
+            OpenTK.Graphics.OpenGL.StencilOp StencilFail,
+            OpenTK.Graphics.OpenGL.StencilOp StencilDepthFail,
+            OpenTK.Graphics.OpenGL.StencilOp StencilPass,
+            int StencilReadMask,
+            int StencilWriteMask,
+            bool Cull,
+            TriangleFace CullFace,
+            bool Blend,
+            BlendingFactor BlendSource,
+            BlendingFactor BlendDestination,
+            BlendEquationMode BlendEquation,
+            ColorWriteMask WriteMask,
+            bool PolygonOffset,
+            float PolygonOffsetFactor,
+            float PolygonOffsetUnits);
+
+        private sealed class CorePipelineRecord
+        {
+            internal RenderPipeline* Pipeline;
+            internal BindGroupLayout* Layout;
+            internal bool Rtt;
+        }
+
+        private readonly struct CoreTarget
+        {
+            internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
+                WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height)
+            {
+                ColorTexture = colorTexture;
+                ColorView = colorView;
+                ColorFormat = colorFormat;
+                DepthView = depthView;
+                Width = width;
+                Height = height;
+            }
+
+            internal WgpuTexture* ColorTexture { get; }
+            internal TextureView* ColorView { get; }
+            internal WgpuTextureFormat ColorFormat { get; }
+            internal TextureView* DepthView { get; }
+            internal int Width { get; }
+            internal int Height { get; }
+            internal bool HasDepth => DepthView != null;
+        }
+
+        private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
+        private readonly Dictionary<CorePipelineKey, CorePipelineRecord> _corePipelines = new();
+
+        private ShaderModule* _worldShader;
+        private ShaderModule* _rttShader;
+        private WgpuBuffer* _uniformBuffer;
+
+        private bool _depthWrite = true;
+        private DepthFunction _depthFunction = DepthFunction.Less;
+        private TriangleFace _cullFace = TriangleFace.Back;
+        private AlphaFunction _alphaFunction = AlphaFunction.Always;
+        private float _alphaReference;
+        private BlendEquationMode _blendEquation = BlendEquationMode.FuncAdd;
+        private int _clearStencil;
+        private StencilFunction _stencilFunction = StencilFunction.Always;
+        private int _stencilReference;
+        private int _stencilReadMask = unchecked((int)0xFFFFFFFF);
+        private int _stencilWriteMask = unchecked((int)0xFFFFFFFF);
+        private OpenTK.Graphics.OpenGL.StencilOp _stencilFail = OpenTK.Graphics.OpenGL.StencilOp.Keep;
+        private OpenTK.Graphics.OpenGL.StencilOp _stencilDepthFail = OpenTK.Graphics.OpenGL.StencilOp.Keep;
+        private OpenTK.Graphics.OpenGL.StencilOp _stencilPass = OpenTK.Graphics.OpenGL.StencilOp.Keep;
+        private float _polygonOffsetFactor;
+        private float _polygonOffsetUnits;
+
+        private void CreateCoreShaders()
+        {
+            _worldShader = CreateWgslModule(ModernGraphicsShaders.World);
+            _rttShader = CreateWgslModule(ModernGraphicsShaders.Rtt);
+            _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
+                Usage = BufferUsage.Uniform | BufferUsage.CopyDst
+            });
+            if (_uniformBuffer == null)
+                throw new InvalidOperationException("Could not allocate modern compatibility uniform buffer.");
+        }
+
+        private void DisposeCoreShaders()
+        {
+            foreach (NativeRenderbuffer renderbuffer in _nativeRenderbuffers.Values)
+                ReleaseNativeRenderbuffer(renderbuffer);
+            _nativeRenderbuffers.Clear();
+
+            foreach (CorePipelineRecord pipeline in _corePipelines.Values)
+            {
+                if (pipeline.Layout != null) _api.BindGroupLayoutRelease(pipeline.Layout);
+                if (pipeline.Pipeline != null) _api.RenderPipelineRelease(pipeline.Pipeline);
+            }
+            _corePipelines.Clear();
+
+            if (_uniformBuffer != null)
+            {
+                _api.BufferRelease(_uniformBuffer);
+                _uniformBuffer = null;
+            }
+            if (_rttShader != null)
+            {
+                _api.ShaderModuleRelease(_rttShader);
+                _rttShader = null;
+            }
+            if (_worldShader != null)
+            {
+                _api.ShaderModuleRelease(_worldShader);
+                _worldShader = null;
+            }
+        }
+
+        private ShaderModule* CreateWgslModule(string source)
+        {
+            nint code = SilkMarshal.StringToPtr(source);
+            try
+            {
+                var wgsl = new ShaderModuleWGSLDescriptor
+                {
+                    Code = (byte*)code,
+                    Chain = new ChainedStruct { SType = SType.ShaderModuleWgslDescriptor }
+                };
+                var descriptor = new ShaderModuleDescriptor
+                {
+                    NextInChain = (ChainedStruct*)&wgsl
+                };
+                ShaderModule* shader = _api.DeviceCreateShaderModule(_device.Device, descriptor);
+                if (shader == null) throw new InvalidOperationException("Could not create WGSL shader module.");
+                return shader;
+            }
+            finally
+            {
+                SilkMarshal.Free(code);
+            }
+        }
+
+        private ModernProgramKind CurrentProgramKind()
+        {
+            int program = _programs.CurrentProgram;
+            if (program == 0) return ModernProgramKind.Unknown;
+            return _programs.Program(program).Kind;
+        }
+
+        private CoreTarget ResolveDrawTarget()
+        {
+            return ResolveTarget(_resources.DrawFramebuffer, forDraw: true);
+        }
+
+        private CoreTarget ResolveReadTarget()
+        {
+            return ResolveTarget(_resources.ReadFramebuffer, forDraw: false);
+        }
+
+        private CoreTarget ResolveTarget(int framebufferId, bool forDraw)
+        {
+            if (framebufferId == 0)
+            {
+                if (!AcquireSurfaceTexture())
+                    throw new InvalidOperationException("No WebGPU surface texture is available.");
+                return new CoreTarget(_surfaceTexture.Texture, _surfaceView, _surfaceFormat,
+                    null, (int)_width, (int)_height);
+            }
+
+            ModernGraphicsResourceState.FramebufferRecord framebuffer = _resources.Framebuffer(framebufferId);
+            if (framebuffer.ColorTexture == 0)
+                throw new InvalidOperationException($"Framebuffer {framebufferId} has no color attachment.");
+
+            NativeTexture color = EnsureTexture(framebuffer.ColorTexture);
+            ModernGraphicsResourceState.TextureRecord colorRecord = _resources.Texture(framebuffer.ColorTexture);
+            TextureView* depth = null;
+
+            int depthRenderbuffer = framebuffer.DepthStencilRenderbuffer != 0
+                ? framebuffer.DepthStencilRenderbuffer : framebuffer.DepthRenderbuffer;
+            if (depthRenderbuffer != 0)
+            {
+                depth = EnsureRenderbuffer(depthRenderbuffer).View;
+            }
+
+            return new CoreTarget(color.Texture, color.View, ColorFormat(colorRecord), depth,
+                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height));
+        }
+
+        private NativeRenderbuffer EnsureRenderbuffer(int id)
+        {
+            ModernGraphicsResourceState.RenderbufferRecord record = _resources.Renderbuffer(id);
+            if (_nativeRenderbuffers.TryGetValue(id, out NativeRenderbuffer? existing) && !record.Dirty)
+                return existing;
+            if (existing != null)
+            {
+                ReleaseNativeRenderbuffer(existing);
+                _nativeRenderbuffers.Remove(id);
+            }
+
+            WgpuTextureFormat format = WgpuTextureFormat.Depth24PlusStencil8;
+            var descriptor = new TextureDescriptor
+            {
+                Size = new Extent3D((uint)Math.Max(1, record.Width),
+                    (uint)Math.Max(1, record.Height), 1),
+                Format = format,
+                Usage = TextureUsage.RenderAttachment,
+                MipLevelCount = 1,
+                SampleCount = 1,
+                Dimension = TextureDimension.Dimension2D
+            };
+            var native = new NativeRenderbuffer
+            {
+                Texture = _api.DeviceCreateTexture(_device.Device, descriptor)
+            };
+            if (native.Texture == null)
+                throw new InvalidOperationException($"Could not allocate modern renderbuffer {id}.");
+            native.View = _api.TextureCreateView(native.Texture, null);
+            if (native.View == null)
+            {
+                _api.TextureRelease(native.Texture);
+                throw new InvalidOperationException($"Could not create modern renderbuffer view {id}.");
+            }
+            record.Dirty = false;
+            _nativeRenderbuffers[id] = native;
+            return native;
+        }
+
+        private void ReleaseNativeRenderbuffer(NativeRenderbuffer renderbuffer)
+        {
+            if (renderbuffer.View != null) _api.TextureViewRelease(renderbuffer.View);
+            if (renderbuffer.Texture != null) _api.TextureRelease(renderbuffer.Texture);
+        }
+
+        private static WgpuTextureFormat ColorFormat(ModernGraphicsResourceState.TextureRecord record)
+        {
+            // The first world slice uses the scene's RGB/RGBA8 target. HDR
+            // post-process targets remain gated until their pipelines land.
+            return WgpuTextureFormat.Rgba8Unorm;
+        }
+
+        private void DrawCoreIndexed(float[] vertices, int[] indices,
+            PrimitiveTopology topology, ModernProgramKind kind)
+        {
+            CoreTarget target = ResolveDrawTarget();
+            ModernProgramKind effective = kind switch
+            {
+                ModernProgramKind.World => ModernProgramKind.World,
+                ModernProgramKind.Rtt or ModernProgramKind.Shift or ModernProgramKind.Cel
+                    => ModernProgramKind.Rtt,
+                _ => _resources.DrawFramebuffer != 0
+                    ? ModernProgramKind.World : ModernProgramKind.Rtt
+            };
+
+            CorePipelineRecord pipeline = CorePipeline(effective, topology, target);
+            WriteCompatibilityUniforms(effective);
+
+            ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
+            ulong indexBytes = (ulong)(indices.Length * sizeof(int));
+            WgpuBuffer* vertex = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = vertexBytes,
+                Usage = BufferUsage.Vertex | BufferUsage.CopyDst
+            });
+            WgpuBuffer* index = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = indexBytes,
+                Usage = BufferUsage.Index | BufferUsage.CopyDst
+            });
+            fixed (float* vertexPtr = vertices)
+                _api.QueueWriteBuffer(_queue, vertex, 0, vertexPtr, (nuint)vertexBytes);
+            fixed (int* indexPtr = indices)
+                _api.QueueWriteBuffer(_queue, index, 0, indexPtr, (nuint)indexBytes);
+
+            int texture0 = _resources.BoundTexture(0);
+            TextureView* baseView = _whiteView;
+            Silk.NET.WebGPU.Sampler* baseSampler = _whiteSampler;
+            if (texture0 != 0)
+            {
+                NativeTexture baseTexture = EnsureTexture(texture0);
+                baseView = baseTexture.View;
+                baseSampler = baseTexture.Sampler;
+            }
+
+            BindGroup* bindGroup;
+            if (pipeline.Rtt)
+            {
+                TextureView* maskView = _whiteView;
+                int texture1 = _resources.BoundTexture(1);
+                if (texture1 != 0) maskView = EnsureTexture(texture1).View;
+                var entries = stackalloc BindGroupEntry[4];
+                entries[0] = new BindGroupEntry
+                {
+                    Binding = 0,
+                    Buffer = _uniformBuffer,
+                    Offset = 0,
+                    Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
+                };
+                entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
+                entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
+                entries[3] = new BindGroupEntry { Binding = 3, TextureView = maskView };
+                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                {
+                    Layout = pipeline.Layout,
+                    Entries = entries,
+                    EntryCount = 4
+                });
+            }
+            else
+            {
+                var entries = stackalloc BindGroupEntry[3];
+                entries[0] = new BindGroupEntry
+                {
+                    Binding = 0,
+                    Buffer = _uniformBuffer,
+                    Offset = 0,
+                    Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
+                };
+                entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
+                entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
+                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                {
+                    Layout = pipeline.Layout,
+                    Entries = entries,
+                    EntryCount = 3
+                });
+            }
+
+            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
+                new CommandEncoderDescriptor());
+            var color = new RenderPassColorAttachment
+            {
+                View = target.ColorView,
+                ResolveTarget = null,
+                LoadOp = LoadOp.Load,
+                StoreOp = StoreOp.Store
+            };
+            RenderPassDepthStencilAttachment depth = default;
+            RenderPassDepthStencilAttachment* depthPtr = null;
+            if (target.HasDepth)
+            {
+                depth = new RenderPassDepthStencilAttachment
+                {
+                    View = target.DepthView,
+                    DepthLoadOp = LoadOp.Load,
+                    DepthStoreOp = StoreOp.Store,
+                    DepthReadOnly = false,
+                    StencilLoadOp = LoadOp.Load,
+                    StencilStoreOp = StoreOp.Store,
+                    StencilReadOnly = false
+                };
+                depthPtr = &depth;
+            }
+            var passDescriptor = new RenderPassDescriptor
+            {
+                ColorAttachments = &color,
+                ColorAttachmentCount = 1,
+                DepthStencilAttachment = depthPtr
+            };
+            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
+            _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
+            _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetViewport(pass, _viewportX, _viewportY,
+                Math.Max(1, _viewportWidth), Math.Max(1, _viewportHeight), 0, 1);
+            if (_enabled.Contains(EnableCap.ScissorTest))
+            {
+                uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, target.Width - 1));
+                uint sy = (uint)Math.Clamp(_scissorY, 0, Math.Max(0, target.Height - 1));
+                uint sw = (uint)Math.Clamp(_scissorWidth, 1, target.Width - (int)sx);
+                uint sh = (uint)Math.Clamp(_scissorHeight, 1, target.Height - (int)sy);
+                _api.RenderPassEncoderSetScissorRect(pass, sx, sy, sw, sh);
+            }
+            if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
+                _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
+            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            _api.RenderPassEncoderEnd(pass);
+            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
+            _api.QueueSubmit(_queue, 1, &commands);
+
+            _api.CommandBufferRelease(commands);
+            _api.RenderPassEncoderRelease(pass);
+            _api.CommandEncoderRelease(encoder);
+            _api.BindGroupRelease(bindGroup);
+            _api.BufferRelease(index);
+            _api.BufferRelease(vertex);
+        }
+
+        private CorePipelineRecord CorePipeline(ModernProgramKind program,
+            PrimitiveTopology topology, CoreTarget target)
+        {
+            var key = new CorePipelineKey(program, topology, target.ColorFormat, target.HasDepth,
+                _enabled.Contains(EnableCap.DepthTest), _depthWrite, _depthFunction,
+                _enabled.Contains(EnableCap.StencilTest), _stencilFunction,
+                _stencilFail, _stencilDepthFail, _stencilPass, _stencilReadMask, _stencilWriteMask,
+                _enabled.Contains(EnableCap.CullFace), _cullFace,
+                _enabled.Contains(EnableCap.Blend), _blendSource, _blendDestination, _blendEquation,
+                CurrentWriteMask(), _enabled.Contains(EnableCap.PolygonOffsetFill),
+                _polygonOffsetFactor, _polygonOffsetUnits);
+            if (_corePipelines.TryGetValue(key, out CorePipelineRecord? cached)) return cached;
+
+            ShaderModule* shader = program == ModernProgramKind.World ? _worldShader : _rttShader;
+            var attributes = stackalloc VertexAttribute[5];
+            attributes[0] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 0, ShaderLocation = 0 };
+            attributes[1] = new VertexAttribute { Format = VertexFormat.Float32x4, Offset = 3u * sizeof(float), ShaderLocation = 1 };
+            attributes[2] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 7u * sizeof(float), ShaderLocation = 2 };
+            attributes[3] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 10u * sizeof(float), ShaderLocation = 3 };
+            attributes[4] = new VertexAttribute { Format = VertexFormat.Float32, Offset = 13u * sizeof(float), ShaderLocation = 4 };
+            var vertexLayout = new VertexBufferLayout
+            {
+                Attributes = attributes,
+                AttributeCount = 5,
+                StepMode = VertexStepMode.Vertex,
+                ArrayStride = (ulong)(LegacyGeometryBatch.FloatsPerVertex * sizeof(float))
+            };
+
+            BlendState blend = default;
+            BlendState* blendPtr = null;
+            if (key.Blend)
+            {
+                blend = new BlendState
+                {
+                    Color = new BlendComponent
+                    {
+                        SrcFactor = ToBlend(key.BlendSource),
+                        DstFactor = ToBlend(key.BlendDestination),
+                        Operation = ToBlendOperation(key.BlendEquation)
+                    },
+                    Alpha = new BlendComponent
+                    {
+                        SrcFactor = ToBlend(key.BlendSource),
+                        DstFactor = ToBlend(key.BlendDestination),
+                        Operation = ToBlendOperation(key.BlendEquation)
+                    }
+                };
+                blendPtr = &blend;
+            }
+
+            var targetState = new ColorTargetState
+            {
+                Format = target.ColorFormat,
+                Blend = blendPtr,
+                WriteMask = key.WriteMask
+            };
+
+            DepthStencilState depthStencil = default;
+            DepthStencilState* depthPtr = null;
+            if (target.HasDepth)
+            {
+                StencilFaceState stencil = new StencilFaceState
+                {
+                    Compare = key.StencilTest ? ToCompare(key.StencilFunction) : CompareFunction.Always,
+                    FailOp = key.StencilTest ? ToStencil(key.StencilFail) : StencilOperation.Keep,
+                    DepthFailOp = key.StencilTest ? ToStencil(key.StencilDepthFail) : StencilOperation.Keep,
+                    PassOp = key.StencilTest ? ToStencil(key.StencilPass) : StencilOperation.Keep
+                };
+                depthStencil = new DepthStencilState
+                {
+                    Format = WgpuTextureFormat.Depth24PlusStencil8,
+                    DepthWriteEnabled = key.DepthTest && key.DepthWrite,
+                    DepthCompare = key.DepthTest ? ToCompare(key.DepthFunction) : CompareFunction.Always,
+                    StencilFront = stencil,
+                    StencilBack = stencil,
+                    StencilReadMask = unchecked((uint)key.StencilReadMask),
+                    StencilWriteMask = unchecked((uint)key.StencilWriteMask),
+                    DepthBias = key.PolygonOffset ? (int)MathF.Round(key.PolygonOffsetUnits) : 0,
+                    DepthBiasSlopeScale = key.PolygonOffset ? key.PolygonOffsetFactor : 0,
+                    DepthBiasClamp = 0
+                };
+                depthPtr = &depthStencil;
+            }
+
+            nint vs = SilkMarshal.StringToPtr("vs_main");
+            nint fs = SilkMarshal.StringToPtr("fs_main");
+            try
+            {
+                var fragment = new FragmentState
+                {
+                    Module = shader,
+                    EntryPoint = (byte*)fs,
+                    Targets = &targetState,
+                    TargetCount = 1
+                };
+                var descriptor = new RenderPipelineDescriptor
+                {
+                    Vertex = new VertexState
+                    {
+                        Module = shader,
+                        EntryPoint = (byte*)vs,
+                        Buffers = &vertexLayout,
+                        BufferCount = 1
+                    },
+                    Primitive = new PrimitiveState
+                    {
+                        Topology = topology,
+                        StripIndexFormat = IndexFormat.Undefined,
+                        FrontFace = FrontFace.Ccw,
+                        CullMode = key.Cull ? ToCull(key.CullFace) : CullMode.None
+                    },
+                    DepthStencil = depthPtr,
+                    Multisample = new MultisampleState
+                    {
+                        Count = 1,
+                        Mask = ~0u,
+                        AlphaToCoverageEnabled = false
+                    },
+                    Fragment = &fragment
+                };
+                RenderPipeline* pipeline = _api.DeviceCreateRenderPipeline(_device.Device, descriptor);
+                if (pipeline == null)
+                    throw new InvalidOperationException($"Could not create modern {program} render pipeline.");
+                BindGroupLayout* layout = _api.RenderPipelineGetBindGroupLayout(pipeline, 0);
+                var result = new CorePipelineRecord
+                {
+                    Pipeline = pipeline,
+                    Layout = layout,
+                    Rtt = program != ModernProgramKind.World
+                };
+                _corePipelines.Add(key, result);
+                return result;
+            }
+            finally
+            {
+                SilkMarshal.Free(vs);
+                SilkMarshal.Free(fs);
+            }
+        }
+
+        private void WriteCompatibilityUniforms(ModernProgramKind kind)
+        {
+            uint[] words = new uint[ModernGraphicsShaders.UniformSlots * 4];
+            WriteIdentity(words, ModernGraphicsShaders.Projection);
+            WriteIdentity(words, ModernGraphicsShaders.View);
+            WriteIdentity(words, ModernGraphicsShaders.ViewInverse);
+            WriteIdentity(words, ModernGraphicsShaders.TextureMatrix);
+            for (int i = 0; i < 32; i++)
+                WriteIdentity(words, ModernGraphicsShaders.MatrixStack + i * 4);
+
+            WriteFloat(words, ModernGraphicsShaders.ImmColor, 0, _currentColor.X);
+            WriteFloat(words, ModernGraphicsShaders.ImmColor, 1, _currentColor.Y);
+            WriteFloat(words, ModernGraphicsShaders.ImmColor, 2, _currentColor.Z);
+            WriteFloat(words, ModernGraphicsShaders.ImmColor, 3, _currentColor.W);
+            WriteFloat(words, ModernGraphicsShaders.FragmentFlags0, 0, 1f);
+            WriteFloat(words, ModernGraphicsShaders.RttScalars, 0, 1f);
+            WriteFloat(words, ModernGraphicsShaders.RttScalars, 2, _width);
+            WriteFloat(words, ModernGraphicsShaders.RttScalars, 3, _height);
+
+            int programId = _programs.CurrentProgram;
+            ModernGraphicsCompatState.ProgramRecord? program =
+                programId == 0 ? null : _programs.Program(programId);
+
+            if (kind == ModernProgramKind.World && program != null)
+            {
+                WriteBool(words, ModernGraphicsShaders.Flags0, 0, Int(program, "use_light") != 0);
+                WriteBool(words, ModernGraphicsShaders.Flags0, 1, Int(program, "use_texture") != 0);
+                WriteBool(words, ModernGraphicsShaders.Flags0, 2, Int(program, "show_colors") != 0);
+                WriteBool(words, ModernGraphicsShaders.Flags0, 3, Int(program, "fog_enable") != 0);
+                WriteVec(words, ModernGraphicsShaders.Light1Vector, Data(program, "light1vec"));
+                WriteVec(words, ModernGraphicsShaders.Light1Color, Data(program, "light1col"));
+                WriteVec(words, ModernGraphicsShaders.Light2Vector, Data(program, "light2vec"));
+                WriteVec(words, ModernGraphicsShaders.Light2Color, Data(program, "light2col"));
+                WriteVec(words, ModernGraphicsShaders.Diffuse, Data(program, "diffuse"));
+                WriteVec(words, ModernGraphicsShaders.Ambient, Data(program, "ambient"));
+                WriteVec(words, ModernGraphicsShaders.Specular, Data(program, "specular"));
+                WriteVec(words, ModernGraphicsShaders.Emission, Data(program, "emission"));
+                WriteVec(words, ModernGraphicsShaders.FogColor, Data(program, "fog_color"));
+                WriteFloat(words, ModernGraphicsShaders.Scalars0, 0, Float(program, "far_plane"));
+                WriteFloat(words, ModernGraphicsShaders.Scalars0, 1, Float(program, "fog_min"));
+                WriteFloat(words, ModernGraphicsShaders.Scalars0, 2, Float(program, "fog_max"));
+                WriteInt(words, ModernGraphicsShaders.Scalars0, 3, Int(program, "texgen_mode"));
+
+                WriteMatrix(words, ModernGraphicsShaders.Projection, Data(program, "proj_mtx"));
+                WriteMatrix(words, ModernGraphicsShaders.View, Data(program, "view_mtx"));
+                WriteMatrix(words, ModernGraphicsShaders.ViewInverse, Data(program, "view_inv_mtx"));
+                WriteMatrix(words, ModernGraphicsShaders.TextureMatrix, Data(program, "tex_mtx"));
+                WriteMatrices(words, ModernGraphicsShaders.MatrixStack, Data(program, "mtx_stack"), 32);
+
+                WriteFloat(words, ModernGraphicsShaders.FragmentFlags0, 0,
+                    Float(program, "mat_alpha", 1f));
+                WriteInt(words, ModernGraphicsShaders.FragmentFlags0, 1, Int(program, "mat_mode"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags0, 2,
+                    Int(program, "use_override") != 0);
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags0, 3,
+                    Int(program, "use_pal_override") != 0);
+                WriteVec(words, ModernGraphicsShaders.OverrideColor, Data(program, "override_color"));
+                WriteVec(words, ModernGraphicsShaders.PaletteOverrideColor, Data(program, "pal_override_color"));
+
+                int alphaTest = 0;
+                if (_enabled.Contains(EnableCap.AlphaTest))
+                {
+                    if (_alphaFunction == AlphaFunction.Equal && _alphaReference >= 0.999f) alphaTest = 1;
+                    else if (_alphaFunction == AlphaFunction.Less && _alphaReference >= 0.999f) alphaTest = 2;
+                }
+                WriteInt(words, ModernGraphicsShaders.FragmentFlags1, 0, alphaTest);
+                WriteInt(words, ModernGraphicsShaders.FragmentFlags1, 1, Int(program, "cel_bands"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags1, 2, Int(program, "use_flat") != 0);
+                WriteInt(words, ModernGraphicsShaders.FragmentFlags1, 3, Int(program, "textured_player_skin"));
+                WriteVec(words, ModernGraphicsShaders.FlatColor, Data(program, "flat_color"));
+                WriteVec(words, ModernGraphicsShaders.PlayerOutlineColor, Data(program, "player_outline_color"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags2, 0,
+                    Int(program, "player_outline_mask") != 0);
+                WriteVecArray(words, ModernGraphicsShaders.ToonTable, Data(program, "toon_table"), 32, 3);
+            }
+            else if (program != null)
+            {
+                WriteFloat(words, ModernGraphicsShaders.RttScalars, 0, Float(program, "alpha", 1f));
+                WriteBool(words, ModernGraphicsShaders.RttScalars, 1, Int(program, "use_mask") != 0);
+                WriteFloat(words, ModernGraphicsShaders.RttScalars, 2,
+                    Float(program, "view_width", _width));
+                WriteFloat(words, ModernGraphicsShaders.RttScalars, 3,
+                    Float(program, "view_height", _height));
+                WriteVec(words, ModernGraphicsShaders.FadeColor, Data(program, "fade_color"));
+            }
+
+            fixed (uint* ptr = words)
+            {
+                _api.QueueWriteBuffer(_queue, _uniformBuffer, 0, ptr,
+                    (nuint)(words.Length * sizeof(uint)));
+            }
+        }
+
+        private void ClearOffscreenCore(ClearBufferMask mask)
+        {
+            CoreTarget target = ResolveDrawTarget();
+            bool clearColor = (mask & ClearBufferMask.ColorBufferBit) != 0;
+            bool clearDepth = (mask & ClearBufferMask.DepthBufferBit) != 0;
+            bool clearStencil = (mask & ClearBufferMask.StencilBufferBit) != 0;
+
+            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
+                new CommandEncoderDescriptor());
+            var color = new RenderPassColorAttachment
+            {
+                View = target.ColorView,
+                ResolveTarget = null,
+                LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
+                StoreOp = StoreOp.Store,
+                ClearValue = new WgpuColor
+                {
+                    R = _clearColor.X,
+                    G = _clearColor.Y,
+                    B = _clearColor.Z,
+                    A = _clearColor.W
+                }
+            };
+            RenderPassDepthStencilAttachment depth = default;
+            RenderPassDepthStencilAttachment* depthPtr = null;
+            if (target.HasDepth)
+            {
+                depth = new RenderPassDepthStencilAttachment
+                {
+                    View = target.DepthView,
+                    DepthLoadOp = clearDepth ? LoadOp.Clear : LoadOp.Load,
+                    DepthStoreOp = StoreOp.Store,
+                    DepthClearValue = 1f,
+                    DepthReadOnly = false,
+                    StencilLoadOp = clearStencil ? LoadOp.Clear : LoadOp.Load,
+                    StencilStoreOp = StoreOp.Store,
+                    StencilClearValue = unchecked((uint)_clearStencil),
+                    StencilReadOnly = false
+                };
+                depthPtr = &depth;
+            }
+            var descriptor = new RenderPassDescriptor
+            {
+                ColorAttachments = &color,
+                ColorAttachmentCount = 1,
+                DepthStencilAttachment = depthPtr
+            };
+            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
+            _api.RenderPassEncoderEnd(pass);
+            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
+            _api.QueueSubmit(_queue, 1, &commands);
+            _api.CommandBufferRelease(commands);
+            _api.RenderPassEncoderRelease(pass);
+            _api.CommandEncoderRelease(encoder);
+        }
+
+        private void ReadOffscreenPixelsCore<T>(int x, int y, int width, int height,
+            PixelFormat format, PixelType type, T[] pixels) where T : struct
+        {
+            if (type != PixelType.UnsignedByte || (format != PixelFormat.Rgb && format != PixelFormat.Rgba))
+                throw new NotSupportedException("Modern offscreen readback supports RGB/RGBA unsigned-byte.");
+            if (typeof(T) != typeof(byte))
+                throw new NotSupportedException("Modern offscreen readback currently targets byte arrays.");
+
+            CoreTarget target = ResolveReadTarget();
+            ReadTexturePixels(target.ColorTexture, target.ColorFormat, x, y, width, height,
+                format, (byte[])(object)pixels);
+        }
+
+        private void ReadTexturePixels(WgpuTexture* texture, WgpuTextureFormat textureFormat,
+            int x, int y, int width, int height, PixelFormat format, byte[] pixels)
+        {
+            uint copyWidth = (uint)Math.Max(0, width);
+            uint copyHeight = (uint)Math.Max(0, height);
+            uint rowBytes = copyWidth * 4;
+            uint paddedRow = (rowBytes + 255u) & ~255u;
+            ulong total = (ulong)paddedRow * copyHeight;
+            WgpuBuffer* readback = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = total,
+                Usage = BufferUsage.CopyDst | BufferUsage.MapRead
+            });
+            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
+                new CommandEncoderDescriptor());
+            var source = new ImageCopyTexture
+            {
+                Texture = texture,
+                MipLevel = 0,
+                Origin = new Origin3D((uint)Math.Max(0, x), (uint)Math.Max(0, y), 0),
+                Aspect = TextureAspect.All
+            };
+            var destination = new ImageCopyBuffer
+            {
+                Buffer = readback,
+                Layout = new TextureDataLayout
+                {
+                    BytesPerRow = paddedRow,
+                    RowsPerImage = copyHeight
+                }
+            };
+            var extent = new Extent3D(copyWidth, copyHeight, 1);
+            _api.CommandEncoderCopyTextureToBuffer(encoder, &source, &destination, &extent);
+            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
+            _api.QueueSubmit(_queue, 1, &commands);
+
+            _mapStatus = BufferMapAsyncStatus.Unknown;
+            _api.BufferMapAsync(readback, MapMode.Read, 0, (nuint)total,
+                new PfnBufferMapCallback((status, _) => _mapStatus = status), null);
+            _device.Native.DevicePoll(_device.Device, true, null);
+            if (_mapStatus != BufferMapAsyncStatus.Success)
+                throw new InvalidOperationException($"Modern offscreen readback map failed: {_mapStatus}.");
+
+            byte* mapped = (byte*)_api.BufferGetConstMappedRange(readback, 0, (nuint)total);
+            int components = format == PixelFormat.Rgb ? 3 : 4;
+            bool bgra = textureFormat == WgpuTextureFormat.Bgra8Unorm
+                || textureFormat == WgpuTextureFormat.Bgra8UnormSrgb;
+            int outputLength = Math.Min(pixels.Length, checked(width * height * components));
+            int written = 0;
+            for (int row = 0; row < height && written < outputLength; row++)
+            {
+                byte* src = mapped + row * paddedRow;
+                for (int col = 0; col < width && written < outputLength; col++)
+                {
+                    byte b0 = src[col * 4 + 0];
+                    byte b1 = src[col * 4 + 1];
+                    byte b2 = src[col * 4 + 2];
+                    byte b3 = src[col * 4 + 3];
+                    pixels[written++] = bgra ? b2 : b0;
+                    if (written < outputLength) pixels[written++] = b1;
+                    if (written < outputLength) pixels[written++] = bgra ? b0 : b2;
+                    if (components == 4 && written < outputLength) pixels[written++] = b3;
+                }
+            }
+            _api.BufferUnmap(readback);
+            _api.CommandBufferRelease(commands);
+            _api.CommandEncoderRelease(encoder);
+            _api.BufferRelease(readback);
+        }
+
+        private void CopyTexSubImage2DCore(TextureTarget target, int level, int xoffset, int yoffset,
+            int x, int y, int width, int height)
+        {
+            if (target != TextureTarget.Texture2D || level != 0)
+                throw new NotSupportedException("Modern copy-to-texture supports base-level Texture2D.");
+
+            int destinationId = _resources.BoundTexture(_resources.ActiveTextureUnit);
+            if (destinationId == 0) throw new InvalidOperationException("No destination texture is bound.");
+            NativeTexture destination = EnsureTexture(destinationId);
+            CoreTarget sourceTarget = ResolveReadTarget();
+
+            var source = new ImageCopyTexture
+            {
+                Texture = sourceTarget.ColorTexture,
+                MipLevel = 0,
+                Origin = new Origin3D((uint)x, (uint)y, 0),
+                Aspect = TextureAspect.All
+            };
+            var dest = new ImageCopyTexture
+            {
+                Texture = destination.Texture,
+                MipLevel = 0,
+                Origin = new Origin3D((uint)xoffset, (uint)yoffset, 0),
+                Aspect = TextureAspect.All
+            };
+            var extent = new Extent3D((uint)width, (uint)height, 1);
+            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
+                new CommandEncoderDescriptor());
+            _api.CommandEncoderCopyTextureToTexture(encoder, &source, &dest, &extent);
+            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
+            _api.QueueSubmit(_queue, 1, &commands);
+            _api.CommandBufferRelease(commands);
+            _api.CommandEncoderRelease(encoder);
+        }
+
+        private static int Int(ModernGraphicsCompatState.ProgramRecord program, string name, int fallback = 0)
+        {
+            if (!program.Uniforms.TryGetValue(name, out ModernGraphicsCompatState.UniformValue value))
+                return fallback;
+            if (value.IsInteger) return value.IntValue;
+            return value.Data is { Length: > 0 } data ? (int)data[0] : fallback;
+        }
+
+        private static float Float(ModernGraphicsCompatState.ProgramRecord program,
+            string name, float fallback = 0)
+        {
+            if (!program.Uniforms.TryGetValue(name, out ModernGraphicsCompatState.UniformValue value))
+                return fallback;
+            if (value.IsInteger) return value.IntValue;
+            return value.Data is { Length: > 0 } data ? data[0] : fallback;
+        }
+
+        private static float[]? Data(ModernGraphicsCompatState.ProgramRecord program, string name)
+        {
+            if (!program.Uniforms.TryGetValue(name, out ModernGraphicsCompatState.UniformValue value))
+                return null;
+            if (value.IsInteger) return new[] { (float)value.IntValue };
+            return value.Data;
+        }
+
+        private static void WriteBool(uint[] words, int slot, int component, bool value)
+            => WriteInt(words, slot, component, value ? 1 : 0);
+
+        private static void WriteInt(uint[] words, int slot, int component, int value)
+            => words[slot * 4 + component] = unchecked((uint)value);
+
+        private static void WriteFloat(uint[] words, int slot, int component, float value)
+            => words[slot * 4 + component] = BitConverter.SingleToUInt32Bits(value);
+
+        private static void WriteVec(uint[] words, int slot, float[]? values)
+        {
+            if (values == null) return;
+            for (int i = 0; i < Math.Min(4, values.Length); i++)
+                WriteFloat(words, slot, i, values[i]);
+        }
+
+        private static void WriteMatrix(uint[] words, int slot, float[]? values)
+        {
+            if (values == null || values.Length < 16) return;
+            for (int i = 0; i < 16; i++)
+                WriteFloat(words, slot + i / 4, i % 4, values[i]);
+        }
+
+        private static void WriteMatrices(uint[] words, int slot, float[]? values, int matrices)
+        {
+            if (values == null) return;
+            int count = Math.Min(values.Length, matrices * 16);
+            for (int i = 0; i < count; i++)
+                WriteFloat(words, slot + i / 4, i % 4, values[i]);
+        }
+
+        private static void WriteVecArray(uint[] words, int slot, float[]? values,
+            int vectors, int components)
+        {
+            if (values == null) return;
+            int count = Math.Min(vectors, values.Length / components);
+            for (int i = 0; i < count; i++)
+                for (int c = 0; c < components; c++)
+                    WriteFloat(words, slot + i, c, values[i * components + c]);
+        }
+
+        private static void WriteIdentity(uint[] words, int slot)
+        {
+            for (int i = 0; i < 4; i++) WriteFloat(words, slot + i, i, 1f);
+        }
+
+        private static CompareFunction ToCompare(DepthFunction value)
+        {
+            return value switch
+            {
+                DepthFunction.Never => CompareFunction.Never,
+                DepthFunction.Less => CompareFunction.Less,
+                DepthFunction.Equal => CompareFunction.Equal,
+                DepthFunction.Lequal => CompareFunction.LessEqual,
+                DepthFunction.Greater => CompareFunction.Greater,
+                DepthFunction.Notequal => CompareFunction.NotEqual,
+                DepthFunction.Gequal => CompareFunction.GreaterEqual,
+                _ => CompareFunction.Always
+            };
+        }
+
+        private static CompareFunction ToCompare(StencilFunction value)
+        {
+            return value switch
+            {
+                StencilFunction.Never => CompareFunction.Never,
+                StencilFunction.Less => CompareFunction.Less,
+                StencilFunction.Equal => CompareFunction.Equal,
+                StencilFunction.Lequal => CompareFunction.LessEqual,
+                StencilFunction.Greater => CompareFunction.Greater,
+                StencilFunction.Notequal => CompareFunction.NotEqual,
+                StencilFunction.Gequal => CompareFunction.GreaterEqual,
+                _ => CompareFunction.Always
+            };
+        }
+
+        private static StencilOperation ToStencil(OpenTK.Graphics.OpenGL.StencilOp value)
+        {
+            return value switch
+            {
+                OpenTK.Graphics.OpenGL.StencilOp.Zero => StencilOperation.Zero,
+                OpenTK.Graphics.OpenGL.StencilOp.Replace => StencilOperation.Replace,
+                OpenTK.Graphics.OpenGL.StencilOp.Incr => StencilOperation.IncrementClamp,
+                OpenTK.Graphics.OpenGL.StencilOp.Decr => StencilOperation.DecrementClamp,
+                OpenTK.Graphics.OpenGL.StencilOp.Invert => StencilOperation.Invert,
+                OpenTK.Graphics.OpenGL.StencilOp.IncrWrap => StencilOperation.IncrementWrap,
+                OpenTK.Graphics.OpenGL.StencilOp.DecrWrap => StencilOperation.DecrementWrap,
+                _ => StencilOperation.Keep
+            };
+        }
+
+        private static CullMode ToCull(TriangleFace value)
+        {
+            return value switch
+            {
+                TriangleFace.Front => CullMode.Front,
+                TriangleFace.Back => CullMode.Back,
+                _ => CullMode.None
+            };
+        }
+
+        private static BlendOperation ToBlendOperation(BlendEquationMode value)
+        {
+            return value switch
+            {
+                BlendEquationMode.FuncSubtract => BlendOperation.Subtract,
+                BlendEquationMode.FuncReverseSubtract => BlendOperation.ReverseSubtract,
+                _ => BlendOperation.Add
+            };
+        }
+    }
+}
+#endif
