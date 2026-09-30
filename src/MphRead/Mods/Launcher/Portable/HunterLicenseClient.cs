@@ -234,6 +234,13 @@ namespace MphRead.Mods.Launcher
             }
         }
 
+        internal static async Task<string> RefreshCommunityMapTicketAsync(
+            CancellationToken cancellationToken)
+        {
+            InvalidateCommunityMapTicket();
+            return await GetCommunityMapTicketAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         private static void InvalidateCommunityMapTicket()
         {
             lock (CommunityMapTicketLock)
