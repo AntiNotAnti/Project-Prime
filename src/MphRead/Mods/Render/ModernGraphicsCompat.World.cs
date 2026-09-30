@@ -51,6 +51,7 @@ namespace MphRead.Mods.Render
             internal RenderPipeline* Pipeline;
             internal BindGroupLayout* Layout;
             internal bool MaskTexture;
+            internal bool DepthTexture;
         }
 
         private readonly struct CoreTarget
@@ -82,6 +83,7 @@ namespace MphRead.Mods.Render
         private ShaderModule* _worldShader;
         private ShaderModule* _rttShader;
         private ShaderModule* _shiftShader;
+        private ShaderModule* _celShader;
         private WgpuBuffer* _uniformBuffer;
 
         private bool _depthWrite = true;
@@ -106,6 +108,7 @@ namespace MphRead.Mods.Render
             _worldShader = CreateWgslModule(ModernGraphicsShaders.World);
             _rttShader = CreateWgslModule(ModernGraphicsShaders.Rtt);
             _shiftShader = CreateWgslModule(ModernGraphicsShaders.Shift);
+            _celShader = CreateWgslModule(ModernGraphicsShaders.Cel);
             _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             {
                 Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
@@ -139,6 +142,11 @@ namespace MphRead.Mods.Render
             {
                 _api.BufferRelease(_uniformBuffer);
                 _uniformBuffer = null;
+            }
+            if (_celShader != null)
+            {
+                _api.ShaderModuleRelease(_celShader);
+                _celShader = null;
             }
             if (_shiftShader != null)
             {
@@ -294,7 +302,8 @@ namespace MphRead.Mods.Render
             {
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
-                ModernProgramKind.Rtt or ModernProgramKind.Cel => ModernProgramKind.Rtt,
+                ModernProgramKind.Cel => ModernProgramKind.Cel,
+                ModernProgramKind.Rtt => ModernProgramKind.Rtt,
                 _ => _resources.DrawFramebuffer != 0
                     ? ModernProgramKind.World : ModernProgramKind.Rtt
             };
@@ -330,7 +339,38 @@ namespace MphRead.Mods.Render
             }
 
             BindGroup* bindGroup;
-            if (pipeline.MaskTexture)
+            if (pipeline.DepthTexture)
+            {
+                int texture1 = _resources.BoundTexture(1);
+                if (texture1 == 0)
+                    throw new InvalidOperationException("Cel pass requires the depth texture on unit 1.");
+                NativeTexture depthTexture = EnsureTexture(texture1);
+                if (depthTexture.Format != WgpuTextureFormat.Depth24PlusStencil8
+                    && depthTexture.Format != WgpuTextureFormat.Depth24Plus)
+                {
+                    throw new InvalidOperationException(
+                        $"Cel depth binding {texture1} is {depthTexture.Format}, not a depth texture.");
+                }
+
+                var entries = stackalloc BindGroupEntry[4];
+                entries[0] = new BindGroupEntry
+                {
+                    Binding = 0,
+                    Buffer = _uniformBuffer,
+                    Offset = 0,
+                    Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint))
+                };
+                entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
+                entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
+                entries[3] = new BindGroupEntry { Binding = 3, TextureView = depthTexture.SampleView };
+                bindGroup = _api.DeviceCreateBindGroup(_device.Device, new BindGroupDescriptor
+                {
+                    Layout = pipeline.Layout,
+                    Entries = entries,
+                    EntryCount = 4
+                });
+            }
+            else if (pipeline.MaskTexture)
             {
                 TextureView* maskView = _whiteView;
                 int texture1 = _resources.BoundTexture(1);
@@ -454,6 +494,7 @@ namespace MphRead.Mods.Render
             {
                 ModernProgramKind.World => _worldShader,
                 ModernProgramKind.Shift => _shiftShader,
+                ModernProgramKind.Cel => _celShader,
                 _ => _rttShader
             };
             var attributes = stackalloc VertexAttribute[5];
@@ -570,7 +611,8 @@ namespace MphRead.Mods.Render
                 {
                     Pipeline = pipeline,
                     Layout = layout,
-                    MaskTexture = program == ModernProgramKind.Rtt
+                    MaskTexture = program == ModernProgramKind.Rtt,
+                    DepthTexture = program == ModernProgramKind.Cel
                 };
                 _corePipelines.Add(key, result);
                 return result;
@@ -673,6 +715,23 @@ namespace MphRead.Mods.Render
                     Float(program, "white_fac"));
                 WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
                     _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
+            }
+            else if (kind == ModernProgramKind.Cel && program != null)
+            {
+                WriteFloat(words, ModernGraphicsShaders.CelParams0, 0,
+                    Float(program, "texel_w"));
+                WriteFloat(words, ModernGraphicsShaders.CelParams0, 1,
+                    Float(program, "texel_h"));
+                WriteFloat(words, ModernGraphicsShaders.CelParams0, 2,
+                    Float(program, "outline"));
+                WriteFloat(words, ModernGraphicsShaders.CelParams0, 3,
+                    Float(program, "near_plane"));
+                WriteFloat(words, ModernGraphicsShaders.CelParams1, 0,
+                    Float(program, "far_plane", 10000f));
+                WriteFloat(words, ModernGraphicsShaders.CelParams1, 1,
+                    Float(program, "depth_quantum"));
+                WriteInt(words, ModernGraphicsShaders.CelParams1, 2,
+                    Int(program, "probe"));
             }
             else if (program != null)
             {

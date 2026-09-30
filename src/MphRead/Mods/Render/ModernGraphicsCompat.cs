@@ -802,7 +802,9 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             {
                 var depthViewDescriptor = new TextureViewDescriptor
                 {
-                    Format = format,
+                    // A depth-only view of Depth24PlusStencil8 resolves to the
+                    // aspect-specific Depth24Plus view format in WebGPU.
+                    Format = WgpuTextureFormat.Depth24Plus,
                     Dimension = TextureViewDimension.Dimension2D,
                     Aspect = TextureAspect.DepthOnly,
                     BaseMipLevel = 0,

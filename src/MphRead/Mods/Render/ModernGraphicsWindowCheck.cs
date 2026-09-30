@@ -143,6 +143,7 @@ namespace MphRead.Mods.Render
             int world = Link(MphRead.Shaders.VertexShader, MphRead.Shaders.FragmentShader);
             int rtt = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.RttFragmentShader);
             int shift = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.ShiftFragmentShader);
+            int cel = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.CelFragmentShader);
 
             int color = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
@@ -260,6 +261,67 @@ namespace MphRead.Mods.Render
                 PixelFormat.Rgba, PixelType.UnsignedByte, linearBlendPixel);
             GraphicsApi.DeleteTexture(greenTexture);
 
+            // Exercise the real cel program with the scene's depth-stencil
+            // texture sampled on unit 1 while writing color through a separate
+            // color-only framebuffer, matching Scene.DrawCelQuad.
+            int celCopy = GraphicsApi.GenTexture();
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, celCopy);
+            GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                64, 64, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
+            GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
+            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, framebuffer);
+            GraphicsApi.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 0, 0, 0, 0, 64, 64);
+
+            int celFramebuffer = GraphicsApi.GenFramebuffer();
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, celFramebuffer);
+            GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D, color, 0);
+            if (GraphicsApi.CheckFramebufferStatus(FramebufferTarget.Framebuffer)
+                != FramebufferErrorCode.FramebufferComplete)
+            {
+                throw new InvalidOperationException("Cel compatibility framebuffer did not complete.");
+            }
+
+            GraphicsApi.UseProgram(cel);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture1);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, depth);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, celCopy);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "tex"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "depth_tex"), 1);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "texel_w"), 1f / 64f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "texel_h"), 1f / 64f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "outline"), 1f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "near_plane"), 0.0625f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "far_plane"), 10000f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "depth_quantum"), 1f / 16777216f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(cel, "probe"), 0);
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Disable(EnableCap.Blend);
+            GraphicsApi.Disable(EnableCap.CullFace);
+            GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+            GraphicsApi.TexCoord3(1, 1, 0); GraphicsApi.Vertex3( 1,  1, 0);
+            GraphicsApi.TexCoord3(0, 1, 0); GraphicsApi.Vertex3(-1,  1, 0);
+            GraphicsApi.TexCoord3(1, 0, 0); GraphicsApi.Vertex3( 1, -1, 0);
+            GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.End();
+            byte[] celCenter = new byte[4];
+            GraphicsApi.ReadPixels(32, 16, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, celCenter);
+            if (celCenter[2] < 200 || celCenter[3] < 220)
+                throw new InvalidOperationException(
+                    $"Cel compatibility pass corrupted interior color rgba({celCenter[0]},{celCenter[1]},{celCenter[2]},{celCenter[3]}).");
+            GraphicsApi.ActiveTexture(TextureUnit.Texture1);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+            GraphicsApi.DeleteFramebuffer(celFramebuffer);
+            GraphicsApi.DeleteTexture(celCopy);
+
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
             GraphicsApi.Viewport(0, 0, 96, 64);
             GraphicsApi.ClearColor(0, 0, 0, 1);
@@ -360,6 +422,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.DeleteProgram(world);
             GraphicsApi.DeleteProgram(rtt);
             GraphicsApi.DeleteProgram(shift);
+            GraphicsApi.DeleteProgram(cel);
             return pixels;
         }
 

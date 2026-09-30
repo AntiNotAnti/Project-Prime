@@ -42,6 +42,8 @@ namespace MphRead.Mods.Render
         internal const int ShiftTable = 198; // 64 scalars packed four per slot: 198..213.
         internal const int WhiteTable = 214; // 192 scalars packed four per slot: 214..261.
         internal const int ShiftParams = 262; // idx, shift factor, lerp factor, white factor.
+        internal const int CelParams0 = 263; // texel_w, texel_h, outline, near plane.
+        internal const int CelParams1 = 264; // far plane, depth quantum, probe, reserved.
 
         private const string Common = @"
 struct LegacyUniforms {
@@ -464,6 +466,90 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
         }
     }
     return color;
+}
+";
+
+        internal static string Cel { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+@group(0) @binding(3) var depth_tex: texture_depth_2d;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+fn clamped_coord(base: vec2<i32>, dx: i32, dy: i32) -> vec2<i32> {
+    let dims = vec2<i32>(textureDimensions(depth_tex));
+    return clamp(base + vec2<i32>(dx, dy), vec2<i32>(0), dims - vec2<i32>(1));
+}
+
+fn raw_depth(base: vec2<i32>, dx: i32, dy: i32) -> f32 {
+    return textureLoad(depth_tex, clamped_coord(base, dx, dy), 0);
+}
+
+fn kink_abs(base: vec2<i32>, d: f32, r: i32) -> f32 {
+    let rf = f32(r);
+    let h = vec2<f32>(raw_depth(base, -r, 0) - d, raw_depth(base, r, 0) - d);
+    let v = vec2<f32>(raw_depth(base, 0, -r) - d, raw_depth(base, 0, r) - d);
+    return max(abs(h.x + h.y), abs(v.x + v.y)) / rf;
+}
+
+fn edge_at(base: vec2<i32>, d: f32, r: i32, unit: f32, depth_quantum: f32) -> f32 {
+    let rf = f32(r);
+    let quantised = depth_quantum * 4.0 / rf / unit;
+    let lo = max(1.1, quantised * 1.5);
+    let hi = max(3.5, quantised * 4.0);
+    let relative = kink_abs(base, d, r) / unit;
+    return smoothstep(lo, hi, relative);
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    let color_dims = vec2<f32>(textureDimensions(base_tex));
+    let uv = input.position.xy / color_dims;
+    let base_color = textureSample(base_tex, base_sampler, uv).rgb;
+    let pixel = vec2<i32>(i32(input.position.x), i32(input.position.y));
+    let d = raw_depth(pixel, 0, 0);
+
+    let texel_w = bitcast<f32>(u.data[263u].x);
+    let outline = bitcast<f32>(u.data[263u].z);
+    let near_plane = bitcast<f32>(u.data[263u].w);
+    let far_plane = bitcast<f32>(u.data[264u].x);
+    let depth_quantum = bitcast<f32>(u.data[264u].y);
+    let probe = ui(264u, 2u);
+
+    var ink = 0.0;
+    if (d < 0.9999995) {
+        let scale = far_plane / (far_plane - near_plane) - d;
+        let unit = max(scale, 1e-9) * texel_w;
+
+        if (probe == 1) {
+            let shown = clamp(log2(max(kink_abs(pixel, d, 2), 1e-10)) / 32.0 + 1.0,
+                              0.004, 1.0);
+            return vec4<f32>(shown, shown, shown, 1.0);
+        }
+
+        ink = max(edge_at(pixel, d, 2, unit, depth_quantum),
+                  edge_at(pixel, d, 3, unit, depth_quantum)) * outline;
+    }
+    else if (probe == 1) {
+        return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+
+    return vec4<f32>(base_color * (1.0 - ink), 1.0);
 }
 ";
 
