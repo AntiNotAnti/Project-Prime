@@ -35,6 +35,9 @@ namespace MphRead.Mods.Render
             CheckAlias("metal", GraphicsBackend.Metal, ref failures);
             CheckAlias("opengl", GraphicsBackend.OpenGL, ref failures);
             CheckGeometry(ref failures);
+#if !MPHREAD_SERVER
+            CheckUniformCompatibility(ref failures);
+#endif
 
             Console.WriteLine(failures == 0
                 ? "RENDERBACKENDS all policy cases pass"
@@ -108,7 +111,39 @@ namespace MphRead.Mods.Render
                 "line loop closes explicitly", ref failures);
         }
 
-        private static void Check(bool success, string name, ref int failures)
+#if !MPHREAD_SERVER
+        private static void CheckUniformCompatibility(ref int failures)
+        {
+            var state = new ModernGraphicsCompatState();
+            int vertex = state.CreateShader(OpenTK.Graphics.OpenGL.ShaderType.VertexShader);
+            state.ShaderSource(vertex, "uniform mat4 proj_mtx; void main() { }");
+            state.CompileShader(vertex);
+            int fragment = state.CreateShader(OpenTK.Graphics.OpenGL.ShaderType.FragmentShader);
+            state.ShaderSource(fragment,
+                "uniform int mat_mode; uniform float shift_table[64]; void main() { }");
+            state.CompileShader(fragment);
+            int program = state.CreateProgram();
+            state.AttachShader(program, vertex);
+            state.AttachShader(program, fragment);
+            state.LinkProgram(program);
+            state.GetProgram(program, OpenTK.Graphics.OpenGL.GetProgramParameterName.LinkStatus,
+                out int linked);
+            Check(linked == 1, "compat shader/program IDs link without GL objects", ref failures);
+
+            int mode = state.GetUniformLocation(program, "mat_mode");
+            int shift = state.GetUniformLocation(program, "shift_table");
+            int missing = state.GetUniformLocation(program, "definitely_missing");
+            Check(mode > 0 && shift > 0 && missing == -1,
+                "compat uniform locations preserve declared/missing behavior", ref failures);
+
+            state.UseProgram(program);
+            state.Uniform1(mode, 7);
+            state.GetUniform(program, mode, out int stored);
+            Check(stored == 7, "compat uniform writes remain program-local and readable", ref failures);
+        }
+#endif
+
+                private static void Check(bool success, string name, ref int failures)
         {
             Console.WriteLine($"RENDERBACKENDS {(success ? "PASS" : "FAIL")} {name}");
             if (!success) failures++;

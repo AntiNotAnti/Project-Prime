@@ -4,7 +4,6 @@ using System.Runtime.InteropServices;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 using Silk.NET.WebGPU;
-using Silk.NET.WebGPU.Platforms.MacOS;
 
 namespace MphRead.Mods.Render
 {
@@ -15,6 +14,7 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static unsafe class ModernGraphicsSurface
     {
+        private static nint _quartzCore;
         internal static Surface* Create(NativeWindow window, WebGPU api, Instance* instance)
         {
             var descriptor = new SurfaceDescriptor();
@@ -72,14 +72,7 @@ namespace MphRead.Mods.Render
 
             case OpenTK.Windowing.GraphicsLibraryFramework.Platform.Cocoa:
                 {
-                    // Same arrangement used by Silk's windowing helper: attach
-                    // a CAMetalLayer to GLFW's existing NSWindow content view.
-                    CAMetalLayer metalLayer = CAMetalLayer.New();
-                    NSWindow nsWindow = new(GLFW.GetCocoaWindow(window.WindowPtr));
-                    var contentView = nsWindow.contentView;
-                    contentView.wantsLayer = true;
-                    contentView.layer = metalLayer.NativePtr;
-
+                    IntPtr layer = AttachMetalLayer(window);
                     var native = new SurfaceDescriptorFromMetalLayer
                     {
                         Chain = new ChainedStruct
@@ -87,7 +80,7 @@ namespace MphRead.Mods.Render
                             Next = null,
                             SType = SType.SurfaceDescriptorFromMetalLayer
                         },
-                        Layer = (void*)metalLayer.NativePtr
+                        Layer = (void*)layer
                     };
                     descriptor.NextInChain = (ChainedStruct*)&native;
                     return Require(api.InstanceCreateSurface(instance, descriptor), platform);
@@ -99,7 +92,38 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static Surface* Require(Surface* surface,
+        private static IntPtr AttachMetalLayer(NativeWindow window)
+        {
+            // Silk.NET's equivalent helper is internal. Reach the two Cocoa
+            // properties directly instead of taking a dependency on its
+            // implementation detail. GLFW exposes the existing NSView.
+            if (_quartzCore == 0)
+            {
+                _quartzCore = NativeLibrary.Load(
+                    "/System/Library/Frameworks/QuartzCore.framework/QuartzCore");
+            }
+
+            IntPtr view = GLFW.GetCocoaView(window.WindowPtr);
+            if (view == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("GLFW returned no Cocoa content view.");
+            }
+            IntPtr layerClass = objc_getClass("CAMetalLayer");
+            if (layerClass == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("CAMetalLayer is unavailable.");
+            }
+            IntPtr layer = objc_msgSend(layerClass, sel_registerName("layer"));
+            if (layer == IntPtr.Zero)
+            {
+                throw new InvalidOperationException("Could not create CAMetalLayer.");
+            }
+            objc_msgSend_bool(view, sel_registerName("setWantsLayer:"), 1);
+            objc_msgSend_ptr(view, sel_registerName("setLayer:"), layer);
+            return layer;
+        }
+
+                private static Surface* Require(Surface* surface,
             OpenTK.Windowing.GraphicsLibraryFramework.Platform platform)
         {
             if (surface == null)
@@ -112,6 +136,21 @@ namespace MphRead.Mods.Render
 
         [DllImport("kernel32", CharSet = CharSet.Unicode, SetLastError = false)]
         private static extern IntPtr GetModuleHandle(string? moduleName);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", CharSet = CharSet.Ansi)]
+        private static extern IntPtr objc_getClass(string name);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", CharSet = CharSet.Ansi)]
+        private static extern IntPtr sel_registerName(string name);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern IntPtr objc_msgSend(IntPtr receiver, IntPtr selector);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern void objc_msgSend_bool(IntPtr receiver, IntPtr selector, byte value);
+
+        [DllImport("/usr/lib/libobjc.A.dylib", EntryPoint = "objc_msgSend")]
+        private static extern void objc_msgSend_ptr(IntPtr receiver, IntPtr selector, IntPtr value);
     }
 }
 #endif
