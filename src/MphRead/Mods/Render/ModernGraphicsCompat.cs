@@ -565,7 +565,8 @@ fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
             int destinationX0, int destinationY0, int destinationX1, int destinationY1,
             ClearBufferMask mask, BlitFramebufferFilter filter)
         {
-            throw new NotSupportedException("Modern framebuffer blits land with replay/export FBO support.");
+            Current.BlitFramebufferCore(sourceX0, sourceY0, sourceX1, sourceY1,
+                destinationX0, destinationY0, destinationX1, destinationY1, mask, filter);
         }
 
         public void Dispose()

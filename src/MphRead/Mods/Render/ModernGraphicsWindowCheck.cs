@@ -84,18 +84,32 @@ namespace MphRead.Mods.Render
                     byte[] worldPixels = RunWorldCompositeCheck();
                     bool topLeftGreen = worldPixels[0] <= 30 && worldPixels[1] >= 220
                         && worldPixels[2] <= 30 && worldPixels[3] >= 220;
-                    bool topRightBlend = worldPixels[4] >= 90 && worldPixels[4] <= 170
-                        && worldPixels[5] >= 90 && worldPixels[5] <= 170
+                    bool topRightBlend = worldPixels[4] >= 170 && worldPixels[4] <= 205
+                        && worldPixels[5] >= 170 && worldPixels[5] <= 205
                         && worldPixels[6] <= 35 && worldPixels[7] >= 220;
                     bool bottomBlue = worldPixels[8] <= 30 && worldPixels[9] <= 30
                         && worldPixels[10] >= 220 && worldPixels[11] >= 220;
-                    if (!topLeftGreen || !topRightBlend || !bottomBlue)
+                    bool whiteout = worldPixels[12] >= 220 && worldPixels[13] >= 220
+                        && worldPixels[14] >= 220 && worldPixels[15] >= 220;
+                    bool linearBlend = worldPixels[16] >= 120 && worldPixels[16] <= 136
+                        && worldPixels[17] >= 120 && worldPixels[17] <= 136
+                        && worldPixels[18] <= 20 && worldPixels[19] >= 220;
+                    bool blitTop = worldPixels[20] <= 30 && worldPixels[21] >= 220
+                        && worldPixels[22] <= 30 && worldPixels[23] >= 220;
+                    bool blitBottom = worldPixels[24] <= 30 && worldPixels[25] <= 30
+                        && worldPixels[26] >= 220 && worldPixels[27] >= 220;
+                    if (!topLeftGreen || !topRightBlend || !bottomBlue || !whiteout
+                        || !linearBlend || !blitTop || !blitBottom)
                     {
                         Console.Error.WriteLine(
                             $"[renderwindowcheck] FAIL world/rtt "
                             + $"topLeft=rgba({worldPixels[0]},{worldPixels[1]},{worldPixels[2]},{worldPixels[3]}) "
                             + $"topRight=rgba({worldPixels[4]},{worldPixels[5]},{worldPixels[6]},{worldPixels[7]}) "
-                            + $"bottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]})");
+                            + $"bottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]}) "
+                            + $"whiteout=rgba({worldPixels[12]},{worldPixels[13]},{worldPixels[14]},{worldPixels[15]}) "
+                            + $"linearBlend=rgba({worldPixels[16]},{worldPixels[17]},{worldPixels[18]},{worldPixels[19]}) "
+                            + $"blitTop=rgba({worldPixels[20]},{worldPixels[21]},{worldPixels[22]},{worldPixels[23]}) "
+                            + $"blitBottom=rgba({worldPixels[24]},{worldPixels[25]},{worldPixels[26]},{worldPixels[27]})");
                         return 1;
                     }
 
@@ -104,7 +118,11 @@ namespace MphRead.Mods.Render
                         + $"launcher=rgba({pixel[0]},{pixel[1]},{pixel[2]},{pixel[3]}) "
                         + $"worldTop=rgba({worldPixels[0]},{worldPixels[1]},{worldPixels[2]},{worldPixels[3]}) "
                         + $"worldBlend=rgba({worldPixels[4]},{worldPixels[5]},{worldPixels[6]},{worldPixels[7]}) "
-                        + $"worldBottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]})");
+                        + $"worldBottom=rgba({worldPixels[8]},{worldPixels[9]},{worldPixels[10]},{worldPixels[11]}) "
+                        + $"whiteout=rgba({worldPixels[12]},{worldPixels[13]},{worldPixels[14]},{worldPixels[15]}) "
+                        + $"linearBlend=rgba({worldPixels[16]},{worldPixels[17]},{worldPixels[18]},{worldPixels[19]}) "
+                        + $"blitTop=rgba({worldPixels[20]},{worldPixels[21]},{worldPixels[22]},{worldPixels[23]}) "
+                        + $"blitBottom=rgba({worldPixels[24]},{worldPixels[25]},{worldPixels[26]},{worldPixels[27]})");
                     return 0;
                 }
                 finally
@@ -124,6 +142,7 @@ namespace MphRead.Mods.Render
         {
             int world = Link(MphRead.Shaders.VertexShader, MphRead.Shaders.FragmentShader);
             int rtt = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.RttFragmentShader);
+            int shift = Link(MphRead.Shaders.RttVertexShader, MphRead.Shaders.ShiftFragmentShader);
 
             int color = GraphicsApi.GenTexture();
             GraphicsApi.ActiveTexture(TextureUnit.Texture0);
@@ -231,6 +250,9 @@ namespace MphRead.Mods.Render
             GraphicsApi.ColorMask(true, true, true, true);
             GraphicsApi.Disable(EnableCap.Blend);
             GraphicsApi.Enable(EnableCap.DepthTest);
+            byte[] linearBlendPixel = new byte[4];
+            GraphicsApi.ReadPixels(48, 48, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, linearBlendPixel);
             GraphicsApi.DeleteTexture(greenTexture);
 
             GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
@@ -259,7 +281,7 @@ namespace MphRead.Mods.Render
             GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
             GraphicsApi.End();
 
-            byte[] pixels = new byte[12];
+            byte[] pixels = new byte[28];
             byte[] sample = new byte[4];
             GraphicsApi.ReadPixels(24, 48, 1, 1,
                 PixelFormat.Rgba, PixelType.UnsignedByte, sample);
@@ -272,12 +294,67 @@ namespace MphRead.Mods.Render
             Array.Copy(sample, 0, pixels, 8, 4);
             ModernGraphicsCompat.Present();
 
+            // Second frame: replay-preview style scaled framebuffer blit using
+            // independent read/draw bindings.
+            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, framebuffer);
+            GraphicsApi.BindFramebuffer(FramebufferTarget.DrawFramebuffer, 0);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.BlitFramebuffer(0, 0, 64, 64,
+                0, 0, 48, 64, ClearBufferMask.ColorBufferBit,
+                BlitFramebufferFilter.Linear);
+            GraphicsApi.ReadPixels(24, 48, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 20, 4);
+            GraphicsApi.ReadPixels(24, 16, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 24, 4);
+            ModernGraphicsCompat.Present();
+
+            // Third frame: run the real disruption/whiteout program through
+            // its array uniforms. A table of ones with white_fac=1 must
+            // produce white regardless of the source scene colour.
+            GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+            GraphicsApi.Viewport(0, 0, 96, 64);
+            GraphicsApi.ClearColor(0, 0, 0, 1);
+            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+            GraphicsApi.UseProgram(shift);
+            GraphicsApi.Disable(EnableCap.DepthTest);
+            GraphicsApi.Disable(EnableCap.Blend);
+            GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+            GraphicsApi.BindTexture(TextureTarget.Texture2D, color);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "tex"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "shift_idx"), 0);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "shift_fac"), 0f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "lerp_fac"), 0f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "shift_table"),
+                64, new float[64]);
+            float[] whiteTable = new float[192];
+            Array.Fill(whiteTable, 1f);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "white_table"),
+                192, whiteTable);
+            GraphicsApi.Uniform1(GraphicsApi.GetUniformLocation(shift, "white_fac"), 1f);
+            GraphicsApi.Color4(1, 1, 1, 1);
+            GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+            GraphicsApi.TexCoord3(1, 1, 0); GraphicsApi.Vertex3( 1,  1, 0);
+            GraphicsApi.TexCoord3(0, 1, 0); GraphicsApi.Vertex3(-1,  1, 0);
+            GraphicsApi.TexCoord3(1, 0, 0); GraphicsApi.Vertex3( 1, -1, 0);
+            GraphicsApi.TexCoord3(0, 0, 0); GraphicsApi.Vertex3(-1, -1, 0);
+            GraphicsApi.End();
+            GraphicsApi.ReadPixels(48, 32, 1, 1,
+                PixelFormat.Rgba, PixelType.UnsignedByte, sample);
+            Array.Copy(sample, 0, pixels, 12, 4);
+            Array.Copy(linearBlendPixel, 0, pixels, 16, 4);
+            ModernGraphicsCompat.Present();
+
             GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
             GraphicsApi.DeleteFramebuffer(framebuffer);
             GraphicsApi.DeleteRenderbuffer(depth);
             GraphicsApi.DeleteTexture(color);
             GraphicsApi.DeleteProgram(world);
             GraphicsApi.DeleteProgram(rtt);
+            GraphicsApi.DeleteProgram(shift);
             return pixels;
         }
 

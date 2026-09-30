@@ -9,7 +9,7 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static class ModernGraphicsShaders
     {
-        internal const int UniformSlots = 256;
+        internal const int UniformSlots = 320;
 
         internal const int ImmColor = 0;
         internal const int Flags0 = 1;
@@ -39,10 +39,13 @@ namespace MphRead.Mods.Render
         internal const int ToonTable = 164; // 32 vec3 slots, through 195.
         internal const int RttScalars = 196;
         internal const int FadeColor = 197;
+        internal const int ShiftTable = 198; // 64 scalars packed four per slot: 198..213.
+        internal const int WhiteTable = 214; // 192 scalars packed four per slot: 214..261.
+        internal const int ShiftParams = 262; // idx, shift factor, lerp factor, white factor.
 
         private const string Common = @"
 struct LegacyUniforms {
-    data: array<vec4<u32>, 256>,
+    data: array<vec4<u32>, 320>,
 };
 @group(0) @binding(0) var<uniform> u: LegacyUniforms;
 
@@ -60,6 +63,11 @@ fn ui(slot: u32, component: u32) -> i32 {
 }
 fn ub(slot: u32, component: u32) -> bool {
     return u.data[slot][component] != 0u;
+}
+fn uf_at(base: u32, index: u32) -> f32 {
+    let slot = base + index / 4u;
+    let component = index % 4u;
+    return bitcast<f32>(u.data[slot][component]);
 }
 fn umat4(slot: u32) -> mat4x4<f32> {
     return mat4x4<f32>(uf4(slot), uf4(slot + 1u), uf4(slot + 2u), uf4(slot + 3u));
@@ -378,6 +386,87 @@ fn fs_main(input: FragmentInput) -> @location(0) vec4<f32> {
     return color;
 }
 ";
+
+        internal static string Shift { get; } = Common + @"
+@group(0) @binding(1) var base_tex: texture_2d<f32>;
+@group(0) @binding(2) var base_sampler: sampler;
+
+struct VertexInput {
+    @location(0) position: vec3<f32>,
+    @location(3) texcoord: vec3<f32>,
+};
+struct VertexOutput {
+    @builtin(position) position: vec4<f32>,
+    @location(0) texcoord: vec2<f32>,
+};
+
+@vertex
+fn vs_main(input: VertexInput) -> VertexOutput {
+    var output: VertexOutput;
+    output.position = vec4<f32>(input.position.xy, 0.0, 1.0);
+    output.texcoord = input.texcoord.xy;
+    return output;
+}
+
+@fragment
+fn fs_main(input: VertexOutput) -> @location(0) vec4<f32> {
+    var uv = input.texcoord;
+    if (ub(163u, 0u)) {
+        uv.y = 1.0 - uv.y;
+    }
+
+    let shift_idx = ui(262u, 0u);
+    let shift_fac = bitcast<f32>(u.data[262u].y);
+    let lerp_fac = bitcast<f32>(u.data[262u].z);
+    let white_fac = bitcast<f32>(u.data[262u].w);
+
+    let band = i32(clamp((1.0 - uv.y) * 192.0, 0.0, 191.0));
+    var index = (band + shift_idx + (band % 2) * 32) % 64;
+    if (index < 0) {
+        index = index + 64;
+    }
+    let next_index = (index + 1) % 64;
+    let value1 = uf_at(198u, u32(index));
+    let value2 = uf_at(198u, u32(next_index));
+    let amount = mix(value1, value2, lerp_fac) * shift_fac;
+    let shifted = vec2<f32>(uv.x + amount, uv.y);
+
+    var color: vec4<f32>;
+    if (shifted.x < 0.0 || shifted.x > 1.0) {
+        color = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    }
+    else {
+        color = textureSample(base_tex, base_sampler, shifted);
+    }
+
+    if (white_fac != 0.0) {
+        var factor = uf_at(214u, u32(band));
+        if (white_fac < 0.0) {
+            color = vec4<f32>(factor, factor, factor, 1.0);
+        }
+        else {
+            factor = factor * white_fac;
+            if (factor >= 0.0) {
+                color = vec4<f32>(
+                    color.r + (1.0 - color.r) * factor,
+                    color.g + (1.0 - color.g) * factor,
+                    color.b + (1.0 - color.b) * factor,
+                    1.0);
+            }
+            else {
+                factor = -factor;
+                color = vec4<f32>(
+                    color.r - color.r * factor,
+                    color.g - color.g * factor,
+                    color.b - color.b * factor,
+                    1.0);
+            }
+        }
+    }
+    return color;
+}
+";
+
     }
 }
 #endif

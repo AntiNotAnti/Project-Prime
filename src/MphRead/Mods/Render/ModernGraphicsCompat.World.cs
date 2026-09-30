@@ -50,7 +50,7 @@ namespace MphRead.Mods.Render
         {
             internal RenderPipeline* Pipeline;
             internal BindGroupLayout* Layout;
-            internal bool Rtt;
+            internal bool MaskTexture;
         }
 
         private readonly struct CoreTarget
@@ -77,9 +77,11 @@ namespace MphRead.Mods.Render
 
         private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
         private readonly Dictionary<CorePipelineKey, CorePipelineRecord> _corePipelines = new();
+        private readonly Dictionary<WgpuTextureFormat, PipelineRecord> _blitPipelines = new();
 
         private ShaderModule* _worldShader;
         private ShaderModule* _rttShader;
+        private ShaderModule* _shiftShader;
         private WgpuBuffer* _uniformBuffer;
 
         private bool _depthWrite = true;
@@ -103,6 +105,7 @@ namespace MphRead.Mods.Render
         {
             _worldShader = CreateWgslModule(ModernGraphicsShaders.World);
             _rttShader = CreateWgslModule(ModernGraphicsShaders.Rtt);
+            _shiftShader = CreateWgslModule(ModernGraphicsShaders.Shift);
             _uniformBuffer = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
             {
                 Size = (ulong)(ModernGraphicsShaders.UniformSlots * 4 * sizeof(uint)),
@@ -125,10 +128,22 @@ namespace MphRead.Mods.Render
             }
             _corePipelines.Clear();
 
+            foreach (PipelineRecord pipeline in _blitPipelines.Values)
+            {
+                if (pipeline.Layout != null) _api.BindGroupLayoutRelease(pipeline.Layout);
+                if (pipeline.Pipeline != null) _api.RenderPipelineRelease(pipeline.Pipeline);
+            }
+            _blitPipelines.Clear();
+
             if (_uniformBuffer != null)
             {
                 _api.BufferRelease(_uniformBuffer);
                 _uniformBuffer = null;
+            }
+            if (_shiftShader != null)
+            {
+                _api.ShaderModuleRelease(_shiftShader);
+                _shiftShader = null;
             }
             if (_rttShader != null)
             {
@@ -271,8 +286,8 @@ namespace MphRead.Mods.Render
             ModernProgramKind effective = kind switch
             {
                 ModernProgramKind.World => ModernProgramKind.World,
-                ModernProgramKind.Rtt or ModernProgramKind.Shift or ModernProgramKind.Cel
-                    => ModernProgramKind.Rtt,
+                ModernProgramKind.Shift => ModernProgramKind.Shift,
+                ModernProgramKind.Rtt or ModernProgramKind.Cel => ModernProgramKind.Rtt,
                 _ => _resources.DrawFramebuffer != 0
                     ? ModernProgramKind.World : ModernProgramKind.Rtt
             };
@@ -308,7 +323,7 @@ namespace MphRead.Mods.Render
             }
 
             BindGroup* bindGroup;
-            if (pipeline.Rtt)
+            if (pipeline.MaskTexture)
             {
                 TextureView* maskView = _whiteView;
                 int texture1 = _resources.BoundTexture(1);
@@ -428,7 +443,12 @@ namespace MphRead.Mods.Render
                 _polygonOffsetFactor, _polygonOffsetUnits);
             if (_corePipelines.TryGetValue(key, out CorePipelineRecord? cached)) return cached;
 
-            ShaderModule* shader = program == ModernProgramKind.World ? _worldShader : _rttShader;
+            ShaderModule* shader = program switch
+            {
+                ModernProgramKind.World => _worldShader,
+                ModernProgramKind.Shift => _shiftShader,
+                _ => _rttShader
+            };
             var attributes = stackalloc VertexAttribute[5];
             attributes[0] = new VertexAttribute { Format = VertexFormat.Float32x3, Offset = 0, ShaderLocation = 0 };
             attributes[1] = new VertexAttribute { Format = VertexFormat.Float32x4, Offset = 3u * sizeof(float), ShaderLocation = 1 };
@@ -543,7 +563,7 @@ namespace MphRead.Mods.Render
                 {
                     Pipeline = pipeline,
                     Layout = layout,
-                    Rtt = program != ModernProgramKind.World
+                    MaskTexture = program == ModernProgramKind.Rtt
                 };
                 _corePipelines.Add(key, result);
                 return result;
@@ -629,6 +649,23 @@ namespace MphRead.Mods.Render
                 WriteBool(words, ModernGraphicsShaders.FragmentFlags2, 0,
                     Int(program, "player_outline_mask") != 0);
                 WriteVecArray(words, ModernGraphicsShaders.ToonTable, Data(program, "toon_table"), 32, 3);
+            }
+            else if (kind == ModernProgramKind.Shift && program != null)
+            {
+                WriteMatrices(words, ModernGraphicsShaders.ShiftTable,
+                    Data(program, "shift_table"), 4);
+                WriteMatrices(words, ModernGraphicsShaders.WhiteTable,
+                    Data(program, "white_table"), 12);
+                WriteInt(words, ModernGraphicsShaders.ShiftParams, 0,
+                    Int(program, "shift_idx"));
+                WriteFloat(words, ModernGraphicsShaders.ShiftParams, 1,
+                    Float(program, "shift_fac"));
+                WriteFloat(words, ModernGraphicsShaders.ShiftParams, 2,
+                    Float(program, "lerp_fac"));
+                WriteFloat(words, ModernGraphicsShaders.ShiftParams, 3,
+                    Float(program, "white_fac"));
+                WriteBool(words, ModernGraphicsShaders.FragmentFlags3, 0,
+                    _resources.IsFramebufferTexture(_resources.BoundTexture(0)));
             }
             else if (program != null)
             {
@@ -788,6 +825,215 @@ namespace MphRead.Mods.Render
             _api.CommandBufferRelease(commands);
             _api.CommandEncoderRelease(encoder);
             _api.BufferRelease(readback);
+        }
+
+        private void BlitFramebufferCore(int sourceX0, int sourceY0, int sourceX1, int sourceY1,
+            int destinationX0, int destinationY0, int destinationX1, int destinationY1,
+            ClearBufferMask mask, BlitFramebufferFilter filter)
+        {
+            if ((mask & ClearBufferMask.ColorBufferBit) == 0)
+            {
+                return;
+            }
+            if ((mask & ~ClearBufferMask.ColorBufferBit) != 0)
+            {
+                throw new NotSupportedException(
+                    "Modern framebuffer blits currently support the color buffer; Project Prime replay preview uses color only.");
+            }
+
+            CoreTarget sourceTarget = ResolveReadTarget();
+            CoreTarget destinationTarget = ResolveDrawTarget();
+            PipelineRecord pipeline = BlitPipeline(destinationTarget.ColorFormat);
+
+            float dx0 = destinationX0 / (float)destinationTarget.Width * 2f - 1f;
+            float dx1 = destinationX1 / (float)destinationTarget.Width * 2f - 1f;
+            float dy0 = destinationY0 / (float)destinationTarget.Height * 2f - 1f;
+            float dy1 = destinationY1 / (float)destinationTarget.Height * 2f - 1f;
+
+            float u0 = sourceX0 / (float)sourceTarget.Width;
+            float u1 = sourceX1 / (float)sourceTarget.Width;
+            // GL source rectangles are bottom-origin; WebGPU texture rows are
+            // top-origin. Convert the logical source rectangle explicitly.
+            float v0 = 1f - sourceY0 / (float)sourceTarget.Height;
+            float v1 = 1f - sourceY1 / (float)sourceTarget.Height;
+
+            var geometry = new LegacyGeometryBatch();
+            geometry.Begin(PrimitiveType.Quads);
+            var white = new OpenTK.Mathematics.Vector4(1, 1, 1, 1);
+            var normal = OpenTK.Mathematics.Vector3.UnitZ;
+            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy0, 0), white, normal,
+                new OpenTK.Mathematics.Vector3(u0, v0, 0), true);
+            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy0, 0), white, normal,
+                new OpenTK.Mathematics.Vector3(u1, v0, 0), true);
+            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy1, 0), white, normal,
+                new OpenTK.Mathematics.Vector3(u1, v1, 0), true);
+            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy1, 0), white, normal,
+                new OpenTK.Mathematics.Vector3(u0, v1, 0), true);
+            geometry.End();
+
+            float[] vertices = geometry.Vertices.ToArray();
+            int[] indices = geometry.TriIndices.ToArray();
+            ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
+            ulong indexBytes = (ulong)(indices.Length * sizeof(int));
+            WgpuBuffer* vertex = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = vertexBytes,
+                Usage = BufferUsage.Vertex | BufferUsage.CopyDst
+            });
+            WgpuBuffer* index = _api.DeviceCreateBuffer(_device.Device, new BufferDescriptor
+            {
+                Size = indexBytes,
+                Usage = BufferUsage.Index | BufferUsage.CopyDst
+            });
+            fixed (float* ptr = vertices)
+                _api.QueueWriteBuffer(_queue, vertex, 0, ptr, (nuint)vertexBytes);
+            fixed (int* ptr = indices)
+                _api.QueueWriteBuffer(_queue, index, 0, ptr, (nuint)indexBytes);
+
+            FilterMode sampleFilter = filter == BlitFramebufferFilter.Linear
+                ? FilterMode.Linear : FilterMode.Nearest;
+            Silk.NET.WebGPU.Sampler* sampler = _api.DeviceCreateSampler(_device.Device,
+                new SamplerDescriptor
+                {
+                    MinFilter = sampleFilter,
+                    MagFilter = sampleFilter,
+                    MipmapFilter = MipmapFilterMode.Nearest,
+                    AddressModeU = AddressMode.ClampToEdge,
+                    AddressModeV = AddressMode.ClampToEdge,
+                    AddressModeW = AddressMode.ClampToEdge,
+                    MaxAnisotropy = 1
+                });
+
+            var entries = stackalloc BindGroupEntry[2];
+            entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
+            entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
+            BindGroup* bindGroup = _api.DeviceCreateBindGroup(_device.Device,
+                new BindGroupDescriptor
+                {
+                    Layout = pipeline.Layout,
+                    Entries = entries,
+                    EntryCount = 2
+                });
+
+            CommandEncoder* encoder = _api.DeviceCreateCommandEncoder(_device.Device,
+                new CommandEncoderDescriptor());
+            var color = new RenderPassColorAttachment
+            {
+                View = destinationTarget.ColorView,
+                ResolveTarget = null,
+                LoadOp = LoadOp.Load,
+                StoreOp = StoreOp.Store
+            };
+            var passDescriptor = new RenderPassDescriptor
+            {
+                ColorAttachments = &color,
+                ColorAttachmentCount = 1
+            };
+            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
+            _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
+            _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetViewport(pass, 0, 0,
+                destinationTarget.Width, destinationTarget.Height, 0, 1);
+            _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            _api.RenderPassEncoderEnd(pass);
+            CommandBuffer* commands = _api.CommandEncoderFinish(encoder, new CommandBufferDescriptor());
+            _api.QueueSubmit(_queue, 1, &commands);
+
+            _api.CommandBufferRelease(commands);
+            _api.RenderPassEncoderRelease(pass);
+            _api.CommandEncoderRelease(encoder);
+            _api.BindGroupRelease(bindGroup);
+            _api.SamplerRelease(sampler);
+            _api.BufferRelease(index);
+            _api.BufferRelease(vertex);
+        }
+
+        private PipelineRecord BlitPipeline(WgpuTextureFormat format)
+        {
+            if (_blitPipelines.TryGetValue(format, out PipelineRecord? cached)) return cached;
+
+            var attributes = stackalloc VertexAttribute[3];
+            attributes[0] = new VertexAttribute
+            {
+                Format = VertexFormat.Float32x3,
+                Offset = 0,
+                ShaderLocation = 0
+            };
+            attributes[1] = new VertexAttribute
+            {
+                Format = VertexFormat.Float32x4,
+                Offset = 3u * sizeof(float),
+                ShaderLocation = 1
+            };
+            attributes[2] = new VertexAttribute
+            {
+                Format = VertexFormat.Float32x3,
+                Offset = 10u * sizeof(float),
+                ShaderLocation = 3
+            };
+            var vertexLayout = new VertexBufferLayout
+            {
+                Attributes = attributes,
+                AttributeCount = 3,
+                StepMode = VertexStepMode.Vertex,
+                ArrayStride = (ulong)(LegacyGeometryBatch.FloatsPerVertex * sizeof(float))
+            };
+            var target = new ColorTargetState
+            {
+                Format = format,
+                Blend = null,
+                WriteMask = ColorWriteMask.All
+            };
+            nint vs = SilkMarshal.StringToPtr("vs_main");
+            nint fs = SilkMarshal.StringToPtr("fs_main");
+            try
+            {
+                var fragment = new FragmentState
+                {
+                    Module = _uiShader,
+                    EntryPoint = (byte*)fs,
+                    Targets = &target,
+                    TargetCount = 1
+                };
+                var descriptor = new RenderPipelineDescriptor
+                {
+                    Vertex = new VertexState
+                    {
+                        Module = _uiShader,
+                        EntryPoint = (byte*)vs,
+                        Buffers = &vertexLayout,
+                        BufferCount = 1
+                    },
+                    Primitive = new PrimitiveState
+                    {
+                        Topology = PrimitiveTopology.TriangleList,
+                        StripIndexFormat = IndexFormat.Undefined,
+                        FrontFace = FrontFace.Ccw,
+                        CullMode = CullMode.None
+                    },
+                    Multisample = new MultisampleState
+                    {
+                        Count = 1,
+                        Mask = ~0u,
+                        AlphaToCoverageEnabled = false
+                    },
+                    Fragment = &fragment
+                };
+                RenderPipeline* native = _api.DeviceCreateRenderPipeline(_device.Device, descriptor);
+                if (native == null)
+                    throw new InvalidOperationException("Could not create modern framebuffer blit pipeline.");
+                BindGroupLayout* layout = _api.RenderPipelineGetBindGroupLayout(native, 0);
+                var result = new PipelineRecord { Pipeline = native, Layout = layout };
+                _blitPipelines.Add(format, result);
+                return result;
+            }
+            finally
+            {
+                SilkMarshal.Free(vs);
+                SilkMarshal.Free(fs);
+            }
         }
 
         private void CopyTexSubImage2DCore(TextureTarget target, int level, int xoffset, int yoffset,
