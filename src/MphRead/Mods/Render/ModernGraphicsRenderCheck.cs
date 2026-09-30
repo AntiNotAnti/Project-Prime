@@ -257,20 +257,58 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
                 byte* pixels = (byte*)api.BufferGetConstMappedRange(readback, 0, (nuint)(BytesPerRow * Height));
                 if (pixels == null) throw new InvalidOperationException("WebGPU returned a null mapped range.");
-                uint centerOffset = (Height / 2) * BytesPerRow + (Width / 2) * BytesPerPixel;
-                byte r = pixels[centerOffset + 0];
-                byte g = pixels[centerOffset + 1];
-                byte b = pixels[centerOffset + 2];
-                byte a = pixels[centerOffset + 3];
+
+                // Do not hinge the backend smoke test on one exact sample. The old
+                // center pixel lands on the quad's 0->2 triangle diagonal, where
+                // Metal and Vulkan/MoltenVK can make different (but valid) edge
+                // ownership/sample decisions. Sample a small interior block instead:
+                // a real failed draw remains black, while rasterization convention
+                // differences cannot create a false negative.
+                const uint SampleRadius = 2;
+                uint sampleCount = 0;
+                uint redCount = 0;
+                byte firstR = 0;
+                byte firstG = 0;
+                byte firstB = 0;
+                byte firstA = 0;
+                bool capturedFirst = false;
+                for (uint y = Height / 2 - SampleRadius; y <= Height / 2 + SampleRadius; y++)
+                {
+                    for (uint x = Width / 2 - SampleRadius; x <= Width / 2 + SampleRadius; x++)
+                    {
+                        uint offset = y * BytesPerRow + x * BytesPerPixel;
+                        byte r = pixels[offset + 0];
+                        byte g = pixels[offset + 1];
+                        byte b = pixels[offset + 2];
+                        byte a = pixels[offset + 3];
+                        if (!capturedFirst)
+                        {
+                            firstR = r;
+                            firstG = g;
+                            firstB = b;
+                            firstA = a;
+                            capturedFirst = true;
+                        }
+                        sampleCount++;
+                        if (r >= 220 && g <= 24 && b <= 24 && a >= 220)
+                        {
+                            redCount++;
+                        }
+                    }
+                }
                 api.BufferUnmap(readback);
 
-                if (r < 220 || g > 24 || b > 24 || a < 220)
+                // The 5x5 block is well inside the +/-0.65 NDC quad. Requiring
+                // most samples to be red still detects missing draws/copies while
+                // tolerating a backend-specific shared-edge sample or two.
+                if (redCount < 20)
                 {
                     throw new InvalidOperationException(
-                        $"WebGPU offscreen draw read back unexpected center pixel rgba({r},{g},{b},{a}).");
+                        $"WebGPU offscreen draw read back only {redCount}/{sampleCount} expected red interior pixels; "
+                        + $"first sample rgba({firstR},{firstG},{firstB},{firstA}).");
                 }
 
-                return $"offscreen=rgba({r},{g},{b},{a}) indices={indices.Length}";
+                return $"offscreen=red({redCount}/{sampleCount}) indices={indices.Length}";
             }
             finally
             {
