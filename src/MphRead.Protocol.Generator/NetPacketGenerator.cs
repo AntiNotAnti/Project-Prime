@@ -126,7 +126,7 @@ public sealed class NetPacketGenerator : IIncrementalGenerator
         b.AppendLine("public bool Validate() { try {");
         foreach (var f in fields)
         {
-            if (f.String) b.Append("if (").Append(f.Name).Append(" is null || __netUtf8.GetByteCount(").Append(f.Name).Append(") > ").Append(f.Bound).AppendLine(") return false;");
+            if (f.String) b.Append("if (").Append(f.Name).Append(" is null || ").Append(f.Name).Append(".Length > ").Append(f.Bound).Append(" || __netUtf8.GetByteCount(").Append(f.Name).Append(") > ").Append(f.Bound).AppendLine(") return false;");
             if (f.Minimum.HasValue) b.Append("if ((decimal)").Append(f.Name).Append(" < ").Append(Literal(f.Minimum.Value)).Append("m || (decimal)").Append(f.Name).Append(" > ").Append(Literal(f.Maximum!.Value)).AppendLine("m) return false;");
             if (f.Enum) b.Append("if (!(").Append(string.Join(" || ", f.EnumValues.Select(value => f.Name + " == (" + f.Type + ")(" + value + ")"))).AppendLine(")) return false;");
         }
