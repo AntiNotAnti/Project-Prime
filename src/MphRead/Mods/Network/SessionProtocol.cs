@@ -153,7 +153,7 @@ namespace MphRead.Mods.Network
         }
     }
 
-    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot, SetHandicap }
+    public enum LobbyCommandType : byte { SetReady, SetTeam, UpdateMatch, StartMatch, KickPlayer, TransferOwner, CloseLobby, AddBot, RemoveBot, UpdateBot, SetHandicap, ReturnToLobby }
     public enum LobbyResultCode : byte
     {
         Ok, NotOwner, InvalidPhase, StaleRevision, InvalidConfiguration, InvalidTeam,
@@ -185,7 +185,7 @@ namespace MphRead.Mods.Network
         public static bool TryRead(ReadOnlySpan<byte> src, out LobbyCommandPacket command)
         {
             command = default;
-            if (src.Length != Size || src[6] > (byte)LobbyCommandType.SetHandicap || src[9] > 1
+            if (src.Length != Size || src[6] > (byte)LobbyCommandType.ReturnToLobby || src[9] > 1
                 || !PlayerHandicap.IsValid(src[13])) return false;
             SessionStatePacket config = default;
             if (src[6] == (byte)LobbyCommandType.UpdateMatch
