@@ -491,7 +491,11 @@ namespace MphRead.Mods
                 float? stylusOutlineOpacity = null;
                 float? stylusButtonOpacity = null;
                 float? stylusCursorOpacity = null;
-                string[] savedLines = File.ReadAllLines(Path);
+                string[] savedLines = File.ReadAllLines(Path).Where(raw =>
+                {
+                    string line = raw.Trim(); int split = line.IndexOf('=');
+                    return split <= 0 || MphRead.Mods.Settings.PreferenceText.IsValid(line[..split].Trim(), line[(split+1)..].Trim(), launcher: false);
+                }).ToArray();
                 foreach (string raw in savedLines)
                 {
                     string line = raw.Trim();
@@ -814,6 +818,8 @@ namespace MphRead.Mods
 
         public static void Save()
         {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return;
             try
             {
                 var lines = new List<string>

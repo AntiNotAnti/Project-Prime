@@ -196,6 +196,8 @@ namespace MphRead.Mods.Input
         }
         internal static void WriteAtomic(string path, string text)
         {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return;
             path = Path.GetFullPath(path);
             string temp = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             try { File.WriteAllText(temp, text); File.Move(temp, path, overwrite: true); }

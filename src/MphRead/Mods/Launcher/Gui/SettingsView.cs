@@ -48,18 +48,17 @@ namespace MphRead.Mods.Launcher.Gui
         private Mods.Render.Hud.HudProfile? _hudDraft;
         private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
         private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
-        private SettingsView? _replacement;
-        public bool IsDirty => _replacement?.IsDirty ?? (_draft?.IsDirty == true || _hudDraft != null);
+        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null);
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
-            if (_replacement != null) return _replacement.ApplyDraft();
+            if (Settings.SettingsPersistence.RestartRequired) return true;
             try { Commit(); _saveError.IsVisible = false; return true; }
             catch (Exception ex) { _saveError.Text = "Could not save: " + ex.Message; _saveError.IsVisible = true; return false; }
         }
         public void DiscardDraft()
         {
-            if (_replacement != null) { _replacement.DiscardDraft(); return; }
+            if (Settings.SettingsPersistence.RestartRequired) return;
             _draft?.Discard();
             _hudDraft = null;
             ShowCrosshairRows();
@@ -447,6 +446,7 @@ namespace MphRead.Mods.Launcher.Gui
             SizeChanged += (_, e) => ApplyShellResponsive(e.NewSize);
             ShowPage(0);
             ApplyShellResponsive(new Size(960, 600));
+            if (Settings.SettingsPersistence.RestartRequired) ShowArchiveRestart();
         }
 
         /// <summary>
@@ -2438,7 +2438,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Commit()
         {
-            if (_replacement != null) { _replacement.Commit(); return; }
+            if (Settings.SettingsPersistence.RestartRequired) return;
             // Display
             if (_windowRow != null)
             {

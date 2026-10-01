@@ -6,6 +6,8 @@ using MphRead.Mods.Render.Hud;
 
 string root = Path.Combine(Environment.CurrentDirectory, ".settings-check-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
+string originalPreferencesDirectory = MphRead.Mods.Launcher.LauncherPrefs.Directory;
+MphRead.Mods.Launcher.LauncherPrefs.Directory = root;
 int passed = 0;
 try
 {
@@ -98,6 +100,93 @@ try
         }
         finally { MphRead.Mods.Launcher.LauncherPrefs.Directory = prior; }
     });
+    Test("detached complete text grammar", () =>
+    {
+        foreach (string text in new[] { "auto_update=maybe", "bright_skin_style=999", "window_size=3xno", "window_mode=unknown", "aim_trainer={oops" })
+            Reject(() => PreferenceText.Parse(text, true));
+        foreach (string text in new[] { "invert_x=maybe", "touch_buttons=no", "touch_button_scale=NaN", "gamepad_preset=unknown", "gamepad_wheel_order=0,1,1,3,4,5", "clip_key=999999" })
+            Reject(() => PreferenceText.Parse(text, false));
+        var values = PreferenceText.Parse("retired_option=old\nretired_option=new\nsensitivity=2", false);
+        Require(values["retired_option"] == "new");
+        Require(PreferenceText.Parse("window_mode=borderless fullscreen\nwindow_size=1280x720", true).Count == 2);
+    });
+    Test("mapping grammar", () =>
+    {
+        const string prefix = "03000000000000000000000000000000,Test,";
+        MphRead.Mods.Input.GamepadMappings.ValidateMapping(prefix + "a:b0,leftx:+a1~,dpup:h0.1,platform:Windows,");
+        foreach (string mapping in new[] { prefix + "a:bNaN,", prefix + "leftx:a-1,", prefix + "dpup:h0.0,", prefix + "a:b0,a:b1," })
+            Reject(() => MphRead.Mods.Input.GamepadMappings.ValidateMapping(mapping));
+    });
+    Test("reset rollback and private files preserved", () =>
+    {
+        File.WriteAllText(Path.Combine(root, "launcher.txt"), "player_name=Keep");
+        File.WriteAllText(Path.Combine(root, "controls.txt"), "sensitivity=2");
+        File.WriteAllText(Path.Combine(root, "Savedata/hud-profiles/orphan.json.bak"), "old layout");
+        var before = Directory.GetFiles(root, "*", SearchOption.AllDirectories).ToDictionary(p => p, File.ReadAllBytes);
+        try { SettingsArchive.Reset(root, i => { if (i == 1) throw new IOException("Injected reset failure"); }); throw new Exception("Expected failure"); } catch (IOException) { }
+        Require(before.All(p => File.ReadAllBytes(p.Key).SequenceEqual(p.Value)));
+        SettingsArchive.Reset(root);
+        Require(!File.Exists(Path.Combine(root, "launcher.txt")) && !File.Exists(Path.Combine(root, "controls.txt")));
+        Require(!File.Exists(Path.Combine(root, "Savedata/hud-profiles/orphan.json.bak")));
+        Require(File.ReadAllText(Path.Combine(root, "career.env")) == "private" && File.ReadAllText(Path.Combine(root, "Savedata/auth.json")) == "private");
+    });
+    if (args.Contains("--ui")) Test("reset confirmation can be cancelled", () =>
+    {
+        Require(MphRead.Mods.Launcher.Gui.GuiLauncher.EnsureSetup(requireDisplay: false));
+        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+        {
+            var view = new MphRead.Mods.Launcher.Gui.SettingsView(new MphRead.MenuSettings());
+            object? previous = view.Content;
+            typeof(MphRead.Mods.Launcher.Gui.SettingsView).GetMethod("ShowResetConfirmation", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.Invoke(view, null);
+            var panel = (Avalonia.Controls.StackPanel)view.Content!;
+            Require(panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().Any(b => b.Label == "CONFIRM RESET"));
+            var cancel = panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().Single(b => b.Label == "CANCEL");
+            MphRead.Mods.Launcher.Gui.FocusNavigator.Key(cancel, Avalonia.Input.Key.Enter);
+            Require(ReferenceEquals(previous, view.Content) && !SettingsPersistence.RestartRequired);
+        });
+    });
+    Test("failed replacement releases write fence", () =>
+    {
+        try { SettingsPersistence.Replace(() => throw new IOException("Before installation")); } catch (IOException) { }
+        Require(!SettingsPersistence.RestartRequired);
+        using var lease = SettingsPersistence.BeginWrite(); Require(lease != null);
+    });
+    Test("restart later fences stale runtime writers", () =>
+    {
+        string prior = MphRead.Mods.Launcher.LauncherPrefs.Directory;
+        try
+        {
+            MphRead.Mods.Launcher.LauncherPrefs.Directory = root;
+            SettingsPersistence.Replace(() => Import(Good()));
+            Require(SettingsPersistence.RestartRequired);
+            MphRead.Mods.InputSettings.Save(); MphRead.Mods.Launcher.LauncherPrefs.Save();
+            MphRead.Mods.Input.GamepadProfiles.WriteAtomic(Path.Combine(root, "gamecontrollerdb.txt"), "stale");
+            Require(File.ReadAllText(Path.Combine(root, "launcher.txt")) == "player_name=Before\n");
+            Require(File.ReadAllText(Path.Combine(root, "controls.txt")) == "sensitivity=1\n");
+            Require(!File.Exists(Path.Combine(root, "gamecontrollerdb.txt")));
+            using var lease = SettingsPersistence.BeginWrite(); Require(lease == null);
+        }
+        finally { MphRead.Mods.Launcher.LauncherPrefs.Directory = prior; }
+    });
+    if (args.Contains("--ui")) Test("reopened editor offers restart now and later", () =>
+    {
+        Avalonia.Threading.Dispatcher.UIThread.Invoke(() =>
+        {
+            var view = new MphRead.Mods.Launcher.Gui.SettingsView(new MphRead.MenuSettings());
+            var panel = (Avalonia.Controls.StackPanel)view.Content!;
+            var buttons = panel.Children.OfType<MphRead.Mods.Launcher.Gui.HubNavButton>().ToArray();
+            bool restarted = false, closed = false;
+            SettingsArchivePlatform.RestartApplication = () => restarted = true;
+            view.Closed += (_, _) => closed = true;
+            try
+            {
+                MphRead.Mods.Launcher.Gui.FocusNavigator.Key(buttons.Single(b => b.Label == "RESTART NOW"), Avalonia.Input.Key.Enter);
+                MphRead.Mods.Launcher.Gui.FocusNavigator.Key(buttons.Single(b => b.Label == "RESTART LATER"), Avalonia.Input.Key.Enter);
+                Require(restarted && closed && !view.IsDirty);
+            }
+            finally { SettingsArchivePlatform.RestartApplication = null; }
+        });
+    });
     Console.WriteLine($"{passed} settings archive checks passed.");
 }
-finally { Directory.Delete(root, true); }
+finally { MphRead.Mods.Launcher.LauncherPrefs.Directory = originalPreferencesDirectory; Directory.Delete(root, true); }
