@@ -78,6 +78,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private void ResetFrameBuffers()
     {
         foreach (var pool in _uniformPools.Values) pool.Cursor = 0;
+        foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         _transientGeometryCursor = 0;
     }
 
