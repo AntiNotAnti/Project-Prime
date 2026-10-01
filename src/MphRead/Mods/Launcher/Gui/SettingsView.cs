@@ -39,7 +39,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// it onto <see cref="StartScreen"/>'s stack or, over a match, onto
     /// <see cref="InGameMenu"/>'s.
     /// </summary>
-    internal sealed class SettingsView : UserControl
+    internal sealed partial class SettingsView : UserControl
     {
         private readonly MenuSettings _settings;
         private readonly bool _inGame;
@@ -48,15 +48,18 @@ namespace MphRead.Mods.Launcher.Gui
         private Mods.Render.Hud.HudProfile? _hudDraft;
         private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
         private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
-        public bool IsDirty => _draft?.IsDirty == true || _hudDraft != null;
+        private SettingsView? _replacement;
+        public bool IsDirty => _replacement?.IsDirty ?? (_draft?.IsDirty == true || _hudDraft != null);
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
+            if (_replacement != null) return _replacement.ApplyDraft();
             try { Commit(); _saveError.IsVisible = false; return true; }
             catch (Exception ex) { _saveError.Text = "Could not save: " + ex.Message; _saveError.IsVisible = true; return false; }
         }
         public void DiscardDraft()
         {
+            if (_replacement != null) { _replacement.DiscardDraft(); return; }
             _draft?.Discard();
             _hudDraft = null;
             ShowCrosshairRows();
@@ -724,6 +727,7 @@ namespace MphRead.Mods.Launcher.Gui
             BuildControls(AddSection("Controls"));
             BuildReplays(AddSection("Replays"));
             BuildLauncher(AddSection("Profile"));
+            BuildSystem(AddSection("System"));
             BuildMaintenance(AddSection("Maintenance"));
             BuildCredits(AddSection("Credits"));
         }
@@ -2434,6 +2438,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Commit()
         {
+            if (_replacement != null) { _replacement.Commit(); return; }
             // Display
             if (_windowRow != null)
             {

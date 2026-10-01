@@ -1870,6 +1870,15 @@ namespace MphRead
             public MenuSettings? MenuSettings { get; set; }
         }
 
+        internal static void ValidateSettingsArchive(string json)
+        {
+            var options = new JsonSerializerOptions { Converters = { new ByteArrayConverter() } };
+            var settings = JsonSerializer.Deserialize<SerializedSettings>(json, options)
+                ?? throw new InvalidDataException("Settings must be an object.");
+            // Run migrations on detached values; validation must not publish Features/HUD state.
+            if (settings.MenuSettings != null) SettingsMigration.Apply(settings.MenuSettings, out _);
+        }
+
         public MenuSettings LoadSettings()
         {
             string path = GetSettingsPath();

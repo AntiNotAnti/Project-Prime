@@ -306,6 +306,7 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
   </ItemGroup>
 

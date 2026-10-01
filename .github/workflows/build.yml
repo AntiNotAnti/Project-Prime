@@ -313,6 +313,7 @@ jobs:
       - name: netcode lifecycle and health/shot regressions
         if: matrix.id == 'linux-x64'
         run: |
+          dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --health-shots
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --architecture

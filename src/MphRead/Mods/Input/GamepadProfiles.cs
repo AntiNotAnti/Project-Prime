@@ -31,23 +31,29 @@ namespace MphRead.Mods.Input
             {
                 if (!File.Exists(LibraryPath)) return;
                 if (new FileInfo(LibraryPath).Length > 1048576) throw new InvalidDataException("Profile library is too large.");
-                var library = JsonSerializer.Deserialize<GamepadProfileLibrary>(File.ReadAllText(LibraryPath));
-                if (library?.Profiles == null || library.Assignments == null || library.Profiles.Count > 32 || library.Assignments.Count > 128)
-                    throw new InvalidDataException("Invalid profile library.");
-                var names = new HashSet<string>(StringComparer.Ordinal);
-                foreach (var profile in library.Profiles)
-                {
-                    BuildRuntime(profile);
-                    if (!names.Add(profile.Name)) throw new InvalidDataException("Duplicate controller profile name.");
-                }
-                foreach (var assignment in library.Assignments)
-                    if (string.IsNullOrWhiteSpace(assignment.Key) || assignment.Key.Length > 512 || !names.Contains(assignment.Value))
-                        throw new InvalidDataException("Invalid controller profile assignment.");
+                var library = ParseLibrary(File.ReadAllText(LibraryPath));
                 _library = library;
             }
             catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException or JsonException or ArgumentException)
             { Status = "Could not load controller profiles: " + ex.Message; }
         }
+        internal static GamepadProfileLibrary ParseLibrary(string json)
+        {
+            var library = JsonSerializer.Deserialize<GamepadProfileLibrary>(json);
+            if (library?.Profiles == null || library.Assignments == null || library.Profiles.Count > 32 || library.Assignments.Count > 128)
+                throw new InvalidDataException("Invalid profile library.");
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var profile in library.Profiles)
+            {
+                BuildRuntime(profile);
+                if (!names.Add(profile.Name)) throw new InvalidDataException("Duplicate controller profile name.");
+            }
+            foreach (var assignment in library.Assignments)
+                if (string.IsNullOrWhiteSpace(assignment.Key) || assignment.Key.Length > 512 || !names.Contains(assignment.Value))
+                    throw new InvalidDataException("Invalid controller profile assignment.");
+            return library;
+        }
+        internal static void Reload() { _directory = ""; Initialize(); }
         public static GamepadProfile Capture(string name)
         {
             var lines = new List<string>();

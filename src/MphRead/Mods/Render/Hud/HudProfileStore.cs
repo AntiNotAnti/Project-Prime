@@ -42,6 +42,11 @@ public sealed class HudProfileStore
     }
     private string PathFor(string name)
     {
+        ValidateName(name);
+        return Path.Combine(DirectoryPath, name + ".json");
+    }
+    internal static void ValidateName(string name)
+    {
         // Names are display labels, never paths, on every platform (including Unix).
         if (string.IsNullOrWhiteSpace(name) || name.Length > 64 || name is "." or ".."
             || name.IndexOfAny("/\\:*?\"<>|".ToCharArray()) >= 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
@@ -51,7 +56,6 @@ public sealed class HudProfileStore
         string stem=name.Split('.')[0].ToUpperInvariant();
         if (stem is "CON" or "PRN" or "AUX" or "NUL" || stem.Length==4 && (stem.StartsWith("COM") || stem.StartsWith("LPT")) && stem[3] is >= '1' and <= '9')
             throw new ArgumentException("This profile name is reserved by Windows.",nameof(name));
-        return Path.Combine(DirectoryPath, name + ".json");
     }
     public HudProfile Load(string name)
     {
