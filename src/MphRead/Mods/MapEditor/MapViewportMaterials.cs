@@ -85,6 +85,22 @@ public static class MapViewportMaterials
                         var recolor = model.Recolors[0]; var entry = recolor.Textures[source.TextureId];
                         texture = new($"native/{definition.TextureSource}/{material.SourceMaterial}", entry.Width, entry.Height,
                             recolor.GetPixels(source.TextureId, source.PaletteId).ToArray());
+                        var replacement = Render.TextureReplacementPack.Resolve(model.Name, source.TextureId, source.PaletteId, 0)?.Albedo;
+                        if (replacement != null)
+                        {
+                            Render.Materials.MaterialPack.ContainedPath(Render.TextureReplacementPack.Root,
+                                System.IO.Path.GetRelativePath(Render.TextureReplacementPack.Root, replacement.Path).Replace(System.IO.Path.DirectorySeparatorChar, '/'));
+                            Render.Materials.MaterialPack.ValidateImage(replacement.Path);
+                            using var stream = System.IO.File.OpenRead(replacement.Path);
+                            using var image = ReFuel.Stb.StbImage.Load(stream, ReFuel.Stb.StbiImageFormat.Rgba);
+                            byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
+                            System.Runtime.InteropServices.Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
+                            var pixels = new ColorRgba[rgba.Length / 4];
+                            for (int pixel = 0; pixel < pixels.Length; pixel++)
+                                pixels[pixel] = new(rgba[pixel*4], rgba[pixel*4+1], rgba[pixel*4+2], rgba[pixel*4+3]);
+                            texture = new("material-pack/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(rgba)),
+                                image.Width, image.Height, pixels);
+                        }
                     }
                 }
                 result[(false, i)] = texture; result[(true, i + offset)] = texture;

@@ -1876,6 +1876,7 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     catch(Exception ex){panel.Children.Add(Text("Source materials unavailable: "+ex.Message));}
                 }
+                EnhancedMaterialControls(panel, definition, m);
                 _inspector.Children.Add(panel);
                 panels.Add((panel,$"{index} {m.Name} {m.Texture} {m.SourceMaterial}"));
             }

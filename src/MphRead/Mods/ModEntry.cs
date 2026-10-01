@@ -44,6 +44,14 @@ namespace MphRead.Mods
                 Environment.ExitCode = Fidelity.FidelityOracleCommand.Run(args);
                 return true;
             }
+#if !MPHREAD_SERVER
+            int materialsIndex = Array.FindIndex(args, value => value.Equals("-materials", StringComparison.OrdinalIgnoreCase));
+            if (materialsIndex >= 0)
+            {
+                Environment.ExitCode = Render.Materials.MaterialPackCommand.Run(args.Skip(materialsIndex + 1).ToArray());
+                return true;
+            }
+#endif
             // Renderer probes return before the normal client logging setup.
             // Honor explicit logging here so native startup failures in those
             // probes retain the same checkpoints as the launcher.

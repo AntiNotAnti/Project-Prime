@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using OpenTK.Graphics.OpenGL;
 using ReFuel.Stb;
+using MphRead.Mods.Render.Materials;
 
 namespace MphRead.Mods.Render
 {
@@ -18,40 +19,45 @@ namespace MphRead.Mods.Render
     /// </summary>
     internal static class TextureReplacementPack
     {
-        private static readonly char[] _invalid = Path.GetInvalidFileNameChars();
-
-        public static bool TryUpload(Model model, int textureId, int paletteId, int recolorId,
-            out int width, out int height, out string? sourcePath)
+        private static MaterialResolver? _resolver;
+        private static bool _loaded;
+        public static string Root => Path.Combine(AppContext.BaseDirectory, "texture-packs", "default");
+        public static int Revision { get; private set; }
+        public static void Reload() { _loaded = false; _resolver = null; Revision++; }
+        public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor)
         {
-            width = height = 0;
-            sourcePath = null;
-            if (!RenderOptions.TextureReplacements || OperatingSystem.IsAndroid()) return false;
-            foreach (string path in Candidates(model, textureId, paletteId, recolorId))
+            if (!_loaded)
             {
-                if (!File.Exists(path)) continue;
-                if (TryUploadBound(path, out width, out height))
-                {
-                    sourcePath = path;
-                    DebugLog.Line("render", $"HD texture {model.Name}:{textureId}/{paletteId}/{recolorId} "
-                        + $"<- {Path.GetFileName(path)} ({width}x{height})");
-                    return true;
-                }
+                _loaded = true;
+                try { _resolver = new MaterialResolver(Root); }
+                catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
+                { DebugLog.Line("render", "Material pack ignored: " + ex.Message); }
             }
-            return false;
+            return _resolver?.Resolve(model, texture, palette, recolor);
         }
 
-        public static MaterialMapBindings UploadCompanions(string albedoPath,
+        public static bool TryUpload(Model model, int textureId, int paletteId, int recolorId,
+            out int width, out int height, out ResolvedMaterial? material)
+        {
+            width = height = 0;
+            material = null;
+            if (!RenderOptions.TextureReplacements || OperatingSystem.IsAndroid()) return false;
+            material = Resolve(model.Name, textureId, paletteId, recolorId);
+            return material?.Albedo is { } albedo && TryUploadBound(albedo.Path, out width, out height);
+        }
+
+        public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,
             Func<int> allocateTexture, Action<int> releaseTexture)
             => OperatingSystem.IsAndroid() ? default : new(
-                UploadCompanion(albedoPath, 'n', allocateTexture, releaseTexture),
-                UploadCompanion(albedoPath, 's', allocateTexture, releaseTexture),
-                UploadCompanion(albedoPath, 'e', allocateTexture, releaseTexture));
+                UploadCompanion(material.Normal, allocateTexture, releaseTexture),
+                UploadCompanion(material.SpecularRoughness, allocateTexture, releaseTexture),
+                UploadCompanion(material.Emissive, allocateTexture, releaseTexture));
 
-        private static int UploadCompanion(string albedoPath, char kind,
+        private static int UploadCompanion(MaterialImage? image,
             Func<int> allocateTexture, Action<int> releaseTexture)
         {
-            string path = CompanionPath(albedoPath, kind);
-            if (!File.Exists(path)) return 0;
+            if (image == null) return 0;
+            string path = image.Path;
             int texture = allocateTexture();
             try
             {
@@ -89,6 +95,8 @@ namespace MphRead.Mods.Render
             width = height = 0;
             try
             {
+                MaterialPack.ContainedPath(Root, Path.GetRelativePath(Root, path).Replace(Path.DirectorySeparatorChar, '/'));
+                MaterialPack.ValidateImage(path);
                 using FileStream stream = File.OpenRead(path);
                 using StbImage image = StbImage.Load(stream, StbiImageFormat.Rgba);
                 if (image.Width <= 0 || image.Height <= 0 || image.ImagePointer == IntPtr.Zero) return false;
@@ -105,29 +113,8 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static string[] Candidates(Model model, int textureId, int paletteId, int recolorId)
-        {
-            string modelName = Safe(model.Name);
-            string root = Path.Combine(AppContext.BaseDirectory, "texture-packs", "default");
-            string folder = Path.Combine(root, modelName);
-            return new[]
-            {
-                Path.Combine(folder, $"{textureId}_{paletteId}_{recolorId}.png"),
-                Path.Combine(folder, $"{textureId}_{paletteId}.png"),
-                Path.Combine(folder, $"{textureId}.png"),
-                Path.Combine(root, $"{modelName}_{textureId}_{paletteId}_{recolorId}.png"),
-                Path.Combine(root, $"{modelName}_{textureId}.png")
-            };
-        }
-
         public static string CompanionPath(string albedoPath, char kind)
             => Path.Combine(Path.GetDirectoryName(albedoPath) ?? "",
                 Path.GetFileNameWithoutExtension(albedoPath) + "_" + kind + ".png");
-
-        private static string Safe(string name)
-        {
-            if (String.IsNullOrWhiteSpace(name)) return "unnamed";
-            return new string(name.Select(c => _invalid.Contains(c) ? '_' : c).ToArray()).Trim();
-        }
     }
 }

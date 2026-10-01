@@ -1513,11 +1513,13 @@ namespace MphRead
         private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor)> _textureSources = new();
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+        private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
             if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
-                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements)) return;
+                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
+                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
             // may refer to them. Reupload only when a source-quality option changes.
@@ -1526,6 +1528,7 @@ namespace MphRead
                     source.Value.Recolor, source.Key);
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+            _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }
 
         private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0)
@@ -1548,9 +1551,12 @@ namespace MphRead
                 average.Add(pixel);
             }
             Texture texture = model.Recolors[recolorId].Textures[textureId];
+            Mods.Render.Materials.MaterialInventory.Observe(
+                Mods.Render.Materials.MaterialAssetKey.Model(model.Name, textureId, paletteId, recolorId),
+                texture.Width, texture.Height, model.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
-                textureId, paletteId, recolorId, out _, out _, out string? replacementPath);
+                textureId, paletteId, recolorId, out _, out _, out Mods.Render.Materials.ResolvedMaterial? replacementMaterial);
             if (!replaced)
             {
                 uint[] uploadPixels = pixels.ToArray();
@@ -1568,11 +1574,11 @@ namespace MphRead
             // time or GPU memory simply because the option exists.
             _mipmappedTextures.Remove(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
-            if (replacementPath != null)
+            if (replacementMaterial != null)
             {
                 Mods.Render.MaterialMapBindings maps =
                     Mods.Render.TextureReplacementPack.UploadCompanions(
-                        replacementPath, AllocateTexture, ReleaseTexture);
+                        replacementMaterial, AllocateTexture, ReleaseTexture);
                 if (maps.Any) _materialMaps[_lastTextureId] = maps;
             }
             _flatColors[_lastTextureId] = average.Result;
@@ -4928,6 +4934,9 @@ namespace MphRead
             _cosmeticTextures.Clear();
             ReleasePreviewItems();
             _materialMaps.Clear();
+            try { Mods.Render.Materials.MaterialInventory.SaveObserved(); }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            { Mods.DebugLog.Line("render", "Material inventory save failed: " + ex.Message); }
             if (_modelLeases != null)
             {
                 foreach (Model model in _modelLeases) Mods.Render.SharedModelResources.Release(model);
