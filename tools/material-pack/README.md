@@ -45,7 +45,7 @@ remain shared. Packs remain local presentation overrides separate from community
 
 Rendering uses one resolved map contract before the existing `GraphicsApi` backend dispatch: normal XYZ, specular in red and roughness in green, emissive RGB. Android uses the same PNG header/chunk/dimension validation, the OS BitmapFactory decoder (unscaled, unpremultiplied), and explicit ARGB-to-RGBA conversion before the shared upload path. The editor albedo decoder uses that same platform-safe byte decoder. It uses the writable pack root and does not load the desktop-only Stb native dependency; physical Android acceptance remains pending. Pack reload changes the renderer material revision and retains main texture bindings while replacing their companion resources. Partial companion allocation failures release all earlier allocations.
 
-Cross-API PBR appearance equivalence still requires rendered reference comparisons and hardware acceptance. The synthetic OpenGL check below proves resource lifetime and shared shader activation, not identical pixels across APIs.
+The local synthetic pixel suite now verifies the shared material shader on actual OpenGL and Metal. Broad scene appearance and unavailable hardware still require acceptance; this bounded suite does not prove every lighting/material combination.
 
 Run synthetic content-free checks:
 
@@ -58,3 +58,36 @@ dotnet run --project tools/material-pack/material-pack.csproj -c Release -- --gp
 The GPU check runs 12 success/failure upload cycles plus a partial-allocation fault (38 allocated / 38 released texture handles), and four lit editor refreshes. It asserts all material shader channels are enabled, the editor scope restores, only one mesh is uploaded, old map textures retire, and scene teardown releases the final set. A synthetic runtime model then proves two authored materials sharing texels retain one original binding when disabled, acquire independent red/original-white textures after a manifest reload, and release every owned texture at teardown.
 
 Limits: 2 MiB manifest, 8,192 materials, 32 MiB per image, 8,192 maximum dimension, 16 million pixels per image, 256 MiB pack, 32,768 filesystem entries. PNG chunk checksums and full decode are validated. Absolute/traversal/backslash paths and linked pack assets are rejected. The local pack should not be mutated concurrently while validation or upload is in progress.
+
+
+Synthetic cross-backend pixel checks (no game assets):
+
+```
+dotnet run --project tools/material-pack -c Release -- --pixels opengl /tmp/material-opengl.json
+dotnet run --project tools/material-pack -c Release -- --pixels metal /tmp/material-metal.json
+dotnet run --project tools/material-pack -c Release -- --compare /tmp/material-opengl.json /tmp/material-metal.json
+```
+
+The Metal run requires the existing `libwgpu_native.dylib` runtime beside the tool's
+output DLL (or in its normal native library search path). The test asserts that the
+requested backend is active; a fallback is a failure. It renders the production
+Scene editor material path into a synthetic 96×96 RGBA/depth target and reads real
+GPU pixels. Alpha is checked in that RGBA target because normal scene capture uses
+RGB and cannot preserve alpha evidence. The editor disables alpha blending/testing,
+so the alpha checks prove channel preservation, not gameplay cutout/blending policy.
+
+Measured on 2026-10-01, Apple M4 Pro: OpenGL reports `2.1 Metal - 91.7`; the modern
+path reports `WebGPU 1.0 / Metal`. All 12 fixtures pass their semantic assertions:
+flat normal, tilted normal, glossy/rough specular, green emission, zero/half alpha,
+nearest/linear UV sampling, repeated UVs, and minified checker with mipmaps off/on.
+Representative RGB samples were flat `(61,61,61)`, tilted normal `(67,67,67)`,
+rough specular `(73,73,73)`, and green emission `(61,157,61)` on both APIs.
+Alpha readback was exactly 0 and 128. The mipmap sample changed from 184 to 134.
+
+The comparison checks a 56×56 interior containing texel transitions and minified
+samples, with a maximum allowed error of 1/255 per channel. **Measured interior
+error was zero for every fixture**, and alpha matched exactly. Full-frame differences
+were 156 RGB components (52 pixels), maximum 28/255, at background grid coverage
+edges outside the tested material surface; these are reported rather than hidden.
+JSON outputs retain complete RGB pixels and backend metadata for independent review.
+Windows DirectX/Vulkan and physical Android pixel acceptance remain unverified.

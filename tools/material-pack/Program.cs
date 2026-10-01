@@ -4,6 +4,9 @@ using System.Linq;
 using System.Text.Json;
 using MphRead.Mods.Render.Materials;
 
+if (args.Length == 3 && args[0] == "--compare") { PixelCheck.Compare(args[1], args[2]); return; }
+if (args.Length == 3 && args[0] == "--pixels") { PixelCheck.Run(args[1], args[2]); return; }
+
 string root = Path.Combine(Path.GetTempPath(), "prime-material-check-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
 int assertions = 0;
