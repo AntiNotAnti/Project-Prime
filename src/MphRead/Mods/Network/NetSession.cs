@@ -1942,7 +1942,7 @@ namespace MphRead.Mods.Network
                 state.Kills = (ushort)Math.Clamp(GameState.Kills[i], 0, UInt16.MaxValue);
                 state.Deaths = (ushort)Math.Clamp(GameState.Deaths[i], 0, UInt16.MaxValue);
                 NetDamage.Write(i, ref state);
-                ReplayCapture.AcceptedState(state, NetFrame);
+                ReplayCapture.AcceptedState(state, NetFrame, player.OwningScene);
                 NetPlayerLifecycle.AcceptState(state, NetFrame);
                 state.Write(_scratch.AsSpan(offset));
                 offset += PlayerState.Size;

@@ -1887,6 +1887,7 @@ namespace MphRead
 
         private void RunSimulationFrame()
         {
+            MatchEvents.ObservePhase(this);
             if (Mods.Network.NetSession.FreezeGameplay)
             {
                 Mods.Network.NetSession.PumpLoading();

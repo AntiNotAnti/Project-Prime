@@ -465,6 +465,7 @@ namespace MphRead
         /// </summary>
         public void ResetMatchProgress()
         {
+            if (Owner != null) Owner.MatchEvents.ResetMatch(Owner);
             MatchState = MatchState.InProgress;
             ForceEndGame = false;
             _tempoChanged = false;
@@ -660,6 +661,7 @@ namespace MphRead
                     }
                     // todo: 1P time up? isn't that handled by death countdown etc.?
                     MatchState = MatchState.GameOver;
+                    scene.MatchEvents.Transition(scene, Mods.MatchEvents.MatchSemanticEventType.MatchEnded);
                     MatchTime = MatchFinalCameraSeconds;
                     scene.SetFade(FadeType.None, length: 0, overwrite: true);
                     _stateChanged = true;
@@ -1024,6 +1026,7 @@ namespace MphRead
             if (!player.LoadFlags.TestFlag(LoadFlags.Active))
             {
                 PrimeHunter = -1;
+                scene.MatchEvents.Transition(scene, Mods.MatchEvents.MatchSemanticEventType.PrimeChanged, target: player);
                 return;
             }
             if (scene.FrameCount % (10 * 2) == 0) // todo: FPS stuff
@@ -1452,6 +1455,10 @@ namespace MphRead
             if (Mode == GameMode.Battle || Mode == GameMode.BattleTeams || Mode == GameMode.GunGame || IsTokenMode || Mode == GameMode.Capture || Mode == GameMode.Bounty
                 || Mode == GameMode.BountyTeams || Mode == GameMode.Nodes || Mode == GameMode.NodesTeams)
             {
+                if (Owner != null && PointGoal > 1)
+                    for (int team = 0; team < TeamPoints.Length; team++)
+                        if (TeamPoints[team] == PointGoal - 1 && prevTeamPoints[team] < PointGoal - 1)
+                            Owner.MatchEvents.Transition(Owner, Mods.MatchEvents.MatchSemanticEventType.MatchPoint, value: team);
                 int teamPoints = TeamPoints[_players.Main.TeamIndex];
                 if (teamPoints != prevTeamPoints[_players.Main.TeamIndex] && teamPoints == PointGoal - 1)
                 {
