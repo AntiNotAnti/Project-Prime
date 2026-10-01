@@ -28,7 +28,9 @@ Check(DesktopFramePacing.LinuxVSyncIgnored(true, 0, 144, 144, true),
 Check(!DesktopFramePacing.LinuxVSyncIgnored(false, 0, 144, 300, false),
     "ignored-VSync fallback is Linux-only");
 Check(!DesktopFramePacing.LinuxVSyncIgnored(true, 120, 144, 300, false),
-    "numeric caps never trigger the Linux display fallback");
+    "non-native numeric caps never trigger the Linux display fallback");
+Check(DesktopFramePacing.LinuxVSyncIgnored(true, 144, 144, 180, false),
+    "native explicit caps inherit the Linux ignored-VSync fallback");
 
 Check(DesktopFramePacing.SoftwareFrequency(120, 144,
         displayPaced: false, modernPresentationBlocks: false,
