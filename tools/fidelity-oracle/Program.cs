@@ -9,6 +9,12 @@ catch (InvalidOperationException) { Check(true, "content scenarios require expli
 var reference = FidelityOracle.Run("simulation.fixed-step", "test", 60);
 foreach (int hz in new[] { 30, 60, 120, 144, 240, 500, 997 })
     Check(FidelityOracle.Compare(reference, FidelityOracle.Run("simulation.fixed-step", "different-revision", hz)) == null, $"clock/RNG normalized values at {hz} presentation Hz");
+var epoch = FidelityOracle.Run("identity.match-epoch", "test").Checkpoints;
+Check(epoch[1].Values["match"] == ushort.MaxValue && epoch[2].Values["match"] == 1
+    && epoch[3].Values["match"] == 1, "actual match admission rejects stale epoch and match while accepting serial wrap");
+Check(epoch[5].Values["ending"] == 1 && epoch[6].Values["ending"] == 0
+    && epoch[6].Values["epochHigh"] == 0x80000000L && epoch[6].Values["epochLow"] == 5,
+    "ended round cannot reopen until a new full-width authority epoch");
 var actual = FidelityOracle.Run("simulation.rng", "test");
 var expected = FidelityOracle.Run("simulation.rng", "test");
 actual.Checkpoints[186].Values["rng1"]++;

@@ -3,7 +3,7 @@
 The default pack captures production clock, random-stream, lifecycle and
 continuous-weapon-phase behavior without game content (F1). An opt-in F2 pack
 runs the actual offline engine with extracted AMHE1 content: walking, jumping,
-air control, all eight weapons, death/respawn and match timer expiration. Passing these packs is never F3–F5 evidence.
+air control, knockback, all eight weapons, aimed hits, a classified headshot and floor-impact splash damage, death/respawn, match timer expiration, five match modes, and the final seven-hunter alt-form matrix. Passing these packs is never F3–F5 evidence.
 
 ```sh
 dotnet run --project tools/fidelity-oracle -c Release
@@ -40,7 +40,7 @@ dotnet run --project tools/fidelity-oracle -c Release -- record simulation.rng \
 
 Recording requires both explicit developer opt-in and a revision, and is disabled
 when `CI` is set. Baseline changes require code review of the normalized diff and
-an explanation of the intended gameplay/infrastructure change. The initial six
+an explanation of the intended gameplay/infrastructure change. The initial content-free
 baselines are proposed references from `e80098f4`, not evidence that the rest of
 the implementation plan has passed gameplay acceptance.
 
@@ -75,16 +75,32 @@ Captured fields include normalized position/velocity, animation, health, RNG,
 ammo, charge and bounded projectile identity/origin/velocity/damage parameters.
 No proprietary bytes are included. Engine loading diagnostics go to stderr.
 
-These are firing/state regression baselines, **not** targeted collision, headshot,
-splash or damage-application acceptance. The presentation-rate argument changes
-clock scheduling without rendering; it is not rendered FPS evidence. Initial
-normalized content references were proposed from the baseline engine `e80098f4`.
+The original `weapon.NAME` probes capture firing state. `weapon.NAME.hit` also
+requires an actual aimed projectile to reduce the victim's health. The Imperialist
+headshot probe requires the production headshot-kill counter to advance. The
+missile splash probe requires the first floor impact to apply the distinct splash
+damage value rather than direct-hit damage; later hits may become direct as the
+victim is knocked away. This is a fixed geometry regression, not exhaustive hitbox coverage.
 
-Lifecycle probes apply actual lethal damage and wait for the engine respawn timer,
-or expire the actual match clock; they fail if the expected transition never occurs.
+The five match packs run actual Battle, Survival, Capture, Nodes and Prime Hunter
+handlers on the first compatible native room in the stable room catalog. They
+capture scoring, objectives, ownership, health, deaths, match state and RNG. Every
+pack must reach its specified objective/ownership transitions and match completion.
+No overtime scenario invents a rule: this engine has no separate overtime mode.
 
-Remaining packs: knockback/slope/platform/corner movement,
-targeted weapon hit/damage scenarios, disconnect/resume and match epoch, all match modes/objectives.
-Comprehensive alternate forms remain the **last** gameplay pack, after these core
-scenarios. Do not substitute invented toy movement or damage calculations for
-production simulation to fill out the scenario list.
+The final seven alternate-form packs each run 840 ticks after warmup. They require
+movement, attack/bomb state, morph/unmorph/remorph, death and respawn; Samus must
+release a charged boost and Weavel must create a live turret. Noxus receives a long
+held attack and 120-tick transition windows, matching its actual startup and
+animation durations. This is deterministic state evidence, not rendered pose or
+hit-volume acceptance.
+
+The presentation-rate argument changes clock scheduling without rendering.
+All 43 current scenarios matched at 30, 60, 120, 144, 240 and 997 Hz against the
+proposed normalized `e80098f4` engine references. The 24 F0/F1 framework checks also
+exercise full-width authority epochs, serial match wrap, and ending-state fences.
+No baseline regeneration occurs during verification.
+
+Remaining dedicated oracle packs: slope/platform/corner movement and network
+connection disconnect/resume (existing real UDP lifecycle tests remain separate).
+Broader rendered/physical acceptance remains F3–F5; do not infer it from this matrix.

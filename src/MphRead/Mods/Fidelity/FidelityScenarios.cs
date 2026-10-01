@@ -14,6 +14,7 @@ internal static class FidelityScenarios
         new("simulation.pause-resume", 1, 8, 0, "none", 1, FidelityTier.F1, "Production clock reset, stalled-frame and catch-up policies; no player simulation."),
         new("identity.spawn-life", 1, 5, 0, "none", 1, FidelityTier.F1, "Production lifecycle tracker rejects resurrection and previous lives."),
         new("identity.slot-reuse", 1, 5, 0, "none", 1, FidelityTier.F1, "Production lifecycle tracker fences occupants and wraps nonzero generations."),
+        new("identity.match-epoch", 1, 7, 0, "none", 1, FidelityTier.F1, "Production match control fences stale epochs, serial match wrap and ended-round reopening; socket-free playback admission."),
         new("weapon.continuous-phase", 1, 12, 0, "none", 1, FidelityTier.F1, "Production continuous firing clock under delayed/repeated intent; not projectile or damage validation.")
     };
     internal static List<FidelityCheckpoint> Capture(FidelityScenario scenario, int presentationHz)
@@ -78,6 +79,27 @@ internal static class FidelityScenarios
                 if (scenario.Id == "identity.slot-reuse") tracker.SetOccupant(NetLifecycleTracker.Next(tracker.Generation));
                 tracker.BeginLife(); Identity(4);
                 rejected = tracker.Accept(ushort.MaxValue, 1, NetworkPlayerState.Alive, out changed); Identity(5, rejected, changed);
+                break;
+            case "identity.match-epoch":
+                if (NetSession.Active) throw new InvalidOperationException("Identity oracle requires a fresh session.");
+                NetSession.StartPlayback();
+                try
+                {
+                    const ulong epoch = (1UL << 63) + 4;
+                    (ushort Match, ulong Epoch, bool Ending)[] controls = { (ushort.MaxValue, epoch, false),
+                        (1, epoch - 1, false), (1, epoch, false), (ushort.MaxValue, epoch, false),
+                        (1, epoch, true), (1, epoch, false), (1, epoch + 1, false) };
+                    for (int i = 0; i < controls.Length; i++)
+                    {
+                        var control = controls[i];
+                        NetSession.ApplyMatchState(new MatchStatePacket { MatchId = control.Match,
+                            AuthorityEpoch = control.Epoch, Flags = control.Ending ? MatchStatePacket.FlagEnding : (byte)0 }, false);
+                        points.Add(FidelityOracle.Point(i + 1, ("match", NetSession.CurrentMatchId),
+                            ("epochHigh", (uint)(NetSession.AuthorityEpoch >> 32)), ("epochLow", (uint)NetSession.AuthorityEpoch),
+                            ("ending", NetSession.ServerMatch?.Ending == true ? 1 : 0)));
+                    }
+                }
+                finally { NetSession.Stop(); }
                 break;
             case "weapon.continuous-phase":
                 var phase = new ContinuousWeaponPhase(1);
