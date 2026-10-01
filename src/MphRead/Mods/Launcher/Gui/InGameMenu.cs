@@ -112,10 +112,30 @@ namespace MphRead.Mods.Launcher.Gui
                 DemoRecorder.ToggleWithFeedback();
                 Pop();
             };
+            view.ReturnToLobbyRequested += (_, _) => ConfirmReturnToLobby();
             view.LeaveRequested += (_, _) => { PauseMenu.RequestLeave(); Pop(); };
             view.QuitRequested += (_, _) => { PauseMenu.RequestQuit(); Pop(); };
             Push(view);
             view.FocusResume();
+        }
+
+        private void ConfirmReturnToLobby()
+        {
+            var confirm = new ConfirmScreen(
+                "Return all connected players to the lobby?",
+                yes: "return all", no: "cancel");
+            confirm.Answered += (_, yes) =>
+            {
+                Pop(); // confirmation
+                if (!yes) return;
+                if (!NetSession.SendLobbyCommand(LobbyCommandType.ReturnToLobby))
+                {
+                    Chat.ChatBox.System("could not request a return to the lobby");
+                    return;
+                }
+                Pop(); // pause menu; session state will tear the scene down
+            };
+            Push(confirm);
         }
 
         private void OpenReplayControls()
