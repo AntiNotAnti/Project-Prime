@@ -21,9 +21,10 @@ namespace MphRead.Droid
     /// </summary>
     internal static class AndroidPerformance
     {
-        private const string BalancedProfile = "balanced-v1";
+        private const string BalancedProfile = "balanced-v2-display";
+        private const string LegacyBalancedProfile = "balanced-v1";
         private const string CustomProfile = "custom-v1";
-        private const int DefaultFrameRate = 60;
+        private const int DefaultFrameRate = FrameTiming.DisplayRate;
         private const int DefaultRenderScale = 90;
         private const int SampleCapacity = 600;
         private const long ReportEveryMs = 5000;
@@ -39,6 +40,7 @@ namespace MphRead.Droid
         private static readonly double[] _uiMs = new double[SampleCapacity];
         private static readonly double[] _swapMs = new double[SampleCapacity];
         private static readonly double[] _scratch = new double[SampleCapacity];
+        private static float[] _supportedRefreshRates = new[] { 60f };
 
         private static WeakReference<Activity>? _activity;
         private static int _sampleIndex;
@@ -72,15 +74,8 @@ namespace MphRead.Droid
         /// </summary>
         public static bool ApplyStartupDefaults(MenuSettings settings)
         {
-            if (!String.IsNullOrWhiteSpace(settings.AndroidPerformanceProfile))
-            {
-                return false;
-            }
-
-            bool untouched = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate)
-                    == FrameTiming.DisplayRate
-                && RenderOptions.ParseScale(settings.ResolutionScale, 100) == 100
-                && String.Equals(settings.GraphicsPreset, "original", StringComparison.OrdinalIgnoreCase)
+            bool baselineGraphics =
+                String.Equals(settings.GraphicsPreset, "original", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.AntiAliasing, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.ShadowQuality, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.AmbientOcclusion, "off", StringComparison.OrdinalIgnoreCase)
@@ -91,11 +86,34 @@ namespace MphRead.Droid
                 && String.Equals(settings.VolumetricFog, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.TextureUpscale, "off", StringComparison.OrdinalIgnoreCase);
 
-            settings.AndroidPerformanceProfile = untouched ? BalancedProfile : CustomProfile;
+            int savedCap = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate);
+            int savedScale = RenderOptions.ParseScale(settings.ResolutionScale, 100);
+            bool legacyBalanced = String.Equals(settings.AndroidPerformanceProfile,
+                    LegacyBalancedProfile, StringComparison.OrdinalIgnoreCase)
+                && savedCap == 60 && savedScale == DefaultRenderScale && baselineGraphics;
+
+            // balanced-v1 was written by Project Prime itself and forced an
+            // otherwise untouched 120 Hz phone to a numeric 60 FPS cap. Migrate
+            // only that exact generated baseline; customized installs stay put.
+            if (!String.IsNullOrWhiteSpace(settings.AndroidPerformanceProfile)
+                && !legacyBalanced)
+            {
+                return false;
+            }
+
+            bool untouched = savedCap == FrameTiming.DisplayRate
+                && savedScale == 100 && baselineGraphics;
+
+            settings.AndroidPerformanceProfile =
+                untouched || legacyBalanced ? BalancedProfile : CustomProfile;
             if (untouched)
             {
-                settings.FrameRateCap = DefaultFrameRate.ToString();
+                settings.FrameRateCap = "display";
                 settings.ResolutionScale = DefaultRenderScale.ToString();
+            }
+            else if (legacyBalanced)
+            {
+                settings.FrameRateCap = "display";
             }
 
             try
@@ -112,9 +130,14 @@ namespace MphRead.Droid
             if (untouched)
             {
                 DebugLog.Line("androidperf",
-                    $"applied mobile defaults: {DefaultFrameRate} fps, {DefaultRenderScale}% base render scale");
+                    $"applied mobile defaults: display-paced, {DefaultRenderScale}% base render scale");
             }
-            return untouched;
+            else if (legacyBalanced)
+            {
+                DebugLog.Line("androidperf",
+                    "migrated legacy 60 FPS Android default back to display pacing");
+            }
+            return untouched || legacyBalanced;
         }
 
         /// <summary>Called by shared GameSettings after it applies the user's values.</summary>
@@ -164,11 +187,17 @@ namespace MphRead.Droid
                 ActiveDisplayRefreshRate = Math.Clamp(display.RefreshRate,
                     30f, FrameTiming.MaxCap);
                 if (!refreshModes) return;
+                var modes = display.GetSupportedModes() ?? Array.Empty<Android.Views.Display.Mode>();
+                var rates = new float[modes.Length + 1];
+                rates[0] = ActiveDisplayRefreshRate;
                 float best = ActiveDisplayRefreshRate;
-                foreach (var mode in display.GetSupportedModes() ?? Array.Empty<Android.Views.Display.Mode>())
+                for (int i = 0; i < modes.Length; i++)
                 {
-                    best = Math.Max(best, mode.RefreshRate);
+                    float rate = Math.Clamp(modes[i].RefreshRate, 30f, FrameTiming.MaxCap);
+                    rates[i + 1] = rate;
+                    best = Math.Max(best, rate);
                 }
+                _supportedRefreshRates = rates;
                 DisplayRefreshRate = Math.Clamp(best, 30f, FrameTiming.MaxCap);
             }
             catch (Exception ex)
@@ -177,11 +206,46 @@ namespace MphRead.Droid
             }
         }
 
+        /// <summary>
+        /// Whether presentation can be paced by SurfaceFlinger instead of the
+        /// managed sleep/spin limiter. Native refresh rates and caps at/above
+        /// the panel maximum are display-paced; odd rates keep software pacing.
+        /// </summary>
+        public static bool UseDisplayPacing(int cap)
+        {
+            if (cap == FrameTiming.DisplayRate)
+            {
+                return true;
+            }
+
+            float requested = Math.Clamp(cap, FrameTiming.MinCap, FrameTiming.MaxCap);
+            if (requested >= DisplayRefreshRate - 0.5f)
+            {
+                return true;
+            }
+            foreach (float rate in _supportedRefreshRates)
+            {
+                if (Math.Abs(rate - requested) <= 0.5f)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool HighRefreshRequested()
+        {
+            int cap = EffectiveCap();
+            double requested = cap == FrameTiming.DisplayRate
+                ? DisplayRefreshRate : Math.Min(cap, DisplayRefreshRate);
+            return requested > FrameTiming.SimulationHz + 0.5;
+        }
+
         public static void SetForeground(bool foreground)
         {
             if (_matchActive)
             {
-                SetSustainedPerformanceMode(foreground);
+                SetSustainedPerformanceMode(foreground && !HighRefreshRequested());
                 if (foreground)
                 {
                     RefreshDisplayRate();
@@ -211,7 +275,7 @@ namespace MphRead.Droid
             _lastThermalPoll = 0;
             _lastScaleChange = 0;
 
-            SetSustainedPerformanceMode(active);
+            SetSustainedPerformanceMode(active && !HighRefreshRequested());
             if (!active)
             {
                 _thermalStatus = 0;
@@ -312,7 +376,12 @@ namespace MphRead.Droid
 
         private static void UpdateGovernor(double frameMs, double workMs, double presentMs)
         {
-            if (!_adaptive)
+            // The one-time pixel budget is applied before scene construction.
+            // Do not resize live render targets while a high-refresh match is
+            // running: target reallocation itself creates the hitch the governor
+            // is trying to cure. Thermal ceilings may still make rare emergency
+            // reductions.
+            if (!_adaptive || HighRefreshRequested())
             {
                 return;
             }
