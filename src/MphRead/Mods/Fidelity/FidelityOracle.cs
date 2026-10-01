@@ -37,11 +37,12 @@ internal static class FidelityOracle
         foreach (var field in fields) values.Add(field.Key, field.Value);
         return new(tick, values);
     }
-    internal static FidelityResult Run(string id, string revision, int presentationHz = 60)
+    internal static FidelityResult Run(string id, string revision, int presentationHz = 60, bool allowContent = false)
     {
-        var scenario = FidelityScenarios.All.SingleOrDefault(s => s.Id == id)
+        var scenario = FidelityScenarios.All.Concat(FidelityContentScenarios.All).SingleOrDefault(s => s.Id == id)
             ?? throw new ArgumentException("Unknown fidelity scenario: " + id);
-        var checkpoints = FidelityScenarios.Capture(scenario, presentationHz);
+        if (scenario.Tier == FidelityTier.F2 && !allowContent) throw new InvalidOperationException("F2 scenarios require explicit -allow-content and local game files.");
+        var checkpoints = scenario.Tier == FidelityTier.F2 ? FidelityContentScenarios.Capture(scenario, presentationHz) : FidelityScenarios.Capture(scenario, presentationHz);
         ValidatePoints(scenario, checkpoints);
         return new(1, scenario, revision, Hash(scenario, checkpoints), checkpoints);
     }

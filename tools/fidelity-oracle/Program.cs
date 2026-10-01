@@ -4,6 +4,8 @@ using System.Globalization;
 if (args.Length != 0) return FidelityOracleCommand.Run(new[] { "-fidelityoracle" }.Concat(args).ToArray());
 int checks = 0;
 void Check(bool value, string name) { if (!value) throw new Exception(name); Console.WriteLine("PASS " + name); checks++; }
+try { FidelityOracle.Run("movement.walk", "test"); throw new Exception("F2 ran without explicit opt-in"); }
+catch (InvalidOperationException) { Check(true, "content scenarios require explicit opt-in before loading assets"); }
 var reference = FidelityOracle.Run("simulation.fixed-step", "test", 60);
 foreach (int hz in new[] { 30, 60, 120, 144, 240, 500, 997 })
     Check(FidelityOracle.Compare(reference, FidelityOracle.Run("simulation.fixed-step", "different-revision", hz)) == null, $"clock/RNG normalized values at {hz} presentation Hz");

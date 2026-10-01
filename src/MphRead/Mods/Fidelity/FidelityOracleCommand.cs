@@ -16,10 +16,12 @@ internal static class FidelityOracleCommand
             string? Option(string name) { int at = Array.IndexOf(args, name); return at < 0 ? null : args.ElementAtOrDefault(at + 1); }
             if (command == "list")
             {
-                Console.WriteLine(JsonSerializer.Serialize(FidelityScenarios.All, FidelityOracle.Json)); return 0;
+                Console.WriteLine(JsonSerializer.Serialize(FidelityScenarios.All.Concat(FidelityContentScenarios.All), FidelityOracle.Json)); return 0;
             }
             string id = args.ElementAtOrDefault(index + 2) ?? throw new ArgumentException("Choose a scenario or all.");
-            var scenarios = id == "all" ? FidelityScenarios.All : FidelityScenarios.All.Where(s => s.Id == id).ToArray();
+            bool allowContent = args.Contains("-allow-content");
+            var catalog = FidelityScenarios.All.Concat(FidelityContentScenarios.All);
+            var scenarios = id == "all" ? catalog.Where(s => allowContent || s.Content == "none").ToArray() : catalog.Where(s => s.Id == id).ToArray();
             if (scenarios.Length == 0) throw new ArgumentException("Unknown scenario.");
             string directory = Option("-baselines") ?? Path.Combine(AppContext.BaseDirectory, "fidelity-baselines");
             string revision = Option("-engine-revision") ?? "working-tree";
@@ -31,7 +33,15 @@ internal static class FidelityOracleCommand
             int failures = 0;
             foreach (var scenario in scenarios)
             {
-                var result = FidelityOracle.Run(scenario.Id, revision, hz);
+                // Asset loading has useful diagnostics, but stdout belongs to machine-readable results.
+                var stdout = Console.Out;
+                FidelityResult result;
+                try
+                {
+                    Console.SetOut(Console.Error);
+                    result = FidelityOracle.Run(scenario.Id, revision, hz, allowContent);
+                }
+                finally { Console.SetOut(stdout); }
                 string baseline = Path.Combine(directory, scenario.Id + ".json");
                 if (command == "record")
                 {

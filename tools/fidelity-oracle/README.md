@@ -1,9 +1,9 @@
 # Fidelity Oracle
 
-This initial pack captures production clock, random-stream, lifecycle and
-continuous-weapon-phase behavior without game content. It does **not** simulate
-player movement, projectiles, damage, objectives, or alternate forms. Those require
-additional engine scenarios; passing this pack is F1 evidence, never F2–F5 evidence.
+The default pack captures production clock, random-stream, lifecycle and
+continuous-weapon-phase behavior without game content (F1). An opt-in F2 pack
+runs the actual offline engine with extracted AMHE1 content: walking, jumping,
+air control and all eight weapons. Passing these packs is never F3–F5 evidence.
 
 ```sh
 dotnet run --project tools/fidelity-oracle -c Release
@@ -14,7 +14,7 @@ dotnet run --project tools/fidelity-oracle -c Release -- run simulation.rng
 
 The game also accepts `-fidelityoracle list|run|verify|record SCENARIO`. Published
 builds copy the public normalized baseline files beside the binary. `-baselines`
-selects another directory. `-presentation-hz` tests the clock scenario at a chosen
+selects another directory. `-presentation-hz` drives the clock and F2 scenarios at a chosen
 30–1000 Hz presentation rate; it never changes the 60 Hz simulation contract.
 
 Each scenario declares a version, seed, tick count, capture interval, content
@@ -55,8 +55,33 @@ Evidence tiers:
 | F4 | Real process/network E2E |
 | F5 | Physical device / real WAN acceptance |
 
-Remaining packs: match transition/respawn, movement, all eight projectile/damage
-weapon scenarios, disconnect/resume and match epoch, all match modes/objectives.
+## Optional actual-engine scenarios
+
+Run through the game entry point so its configured `paths.txt` is loaded:
+
+```sh
+dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -fidelityoracle verify all \
+  -allow-content -presentation-hz 144
+```
+
+`all` excludes content scenarios unless `-allow-content` is supplied. Explicit F2
+scenario IDs also require that flag. Missing extracted files fail clearly; tests
+never download assets or silently replace F2 with a content-free approximation.
+The configured AMHE1 Proving Ground is loaded with two Samus players and a fixed
+seed, followed by 120 warmup ticks and 180 captured ticks. Slot 1 uses scripted
+inputs through production controls; slot 0 is the suppressed headless host lane.
+Weapon probes must create actual projectiles; movement probes must actually move.
+Captured fields include normalized position/velocity, animation, health, RNG,
+ammo, charge and bounded projectile identity/origin/velocity/damage parameters.
+No proprietary bytes are included. Engine loading diagnostics go to stderr.
+
+These are firing/state regression baselines, **not** targeted collision, headshot,
+splash or damage-application acceptance. The presentation-rate argument changes
+clock scheduling without rendering; it is not rendered FPS evidence. Initial
+normalized content references were proposed from the baseline engine `e80098f4`.
+
+Remaining packs: match transition/respawn, knockback/slope/platform/corner movement,
+targeted weapon hit/damage scenarios, disconnect/resume and match epoch, all match modes/objectives.
 Comprehensive alternate forms remain the **last** gameplay pack, after these core
 scenarios. Do not substitute invented toy movement or damage calculations for
 production simulation to fill out the scenario list.
