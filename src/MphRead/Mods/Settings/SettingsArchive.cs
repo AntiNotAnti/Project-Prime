@@ -47,6 +47,8 @@ internal static class SettingsArchive
     internal static void ExportFile(string root, string path, string version)
     {
         string full = Path.GetFullPath(path);
+        if (!string.Equals(Path.GetExtension(full), ".zip", StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Choose a .zip filename for the settings archive.");
         if (SettingsArchiveRegistry.Enumerate(root).Any(s => string.Equals(
             SettingsArchiveRegistry.Destination(root, s.Path), full, StringComparison.OrdinalIgnoreCase)))
             throw new InvalidDataException("The archive cannot replace a settings store.");
