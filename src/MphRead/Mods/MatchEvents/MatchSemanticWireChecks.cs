@@ -49,6 +49,26 @@ internal static class MatchSemanticWireChecks
         var maximum = fact with { MatchId = ushort.MaxValue, AuthorityEpoch = ulong.MaxValue, EventId = uint.MaxValue,
             Tick = uint.MaxValue, ActorGeneration = ushort.MaxValue, ActorLife = ushort.MaxValue,
             TargetGeneration = ushort.MaxValue, TargetLife = ushort.MaxValue, EntityId = int.MaxValue, Value = int.MaxValue };
+        var telemetry = MatchSemanticTelemetry.Convert(maximum);
+        require(telemetry.AuthorityEpoch == ulong.MaxValue && telemetry.Id == uint.MaxValue
+            && telemetry.Generation == ushort.MaxValue && telemetry.VictimGeneration == ushort.MaxValue
+            && telemetry.Life == ushort.MaxValue && telemetry.VictimLife == ushort.MaxValue
+            && telemetry.EntityId == int.MaxValue && telemetry.Value == int.MaxValue,
+            "canonical telemetry preserves exact full-width identities and values");
+        var awardTelemetry = MatchSemanticTelemetry.Convert(award);
+        require(awardTelemetry.SourceEventId == award.SourceEventId && awardTelemetry.Id == award.AwardId
+            && awardTelemetry.Result == (int)award.Kind, "canonical award telemetry preserves causal event identity");
+        var aggregate = new Network.Telemetry.NetTelemetryAggregator();
+        aggregate.Add(telemetry); aggregate.Add(awardTelemetry);
+        aggregate.Add(telemetry with { Result = -1 });
+        var header = new Network.Telemetry.TelemetryHeader(5, 35, "test", "test", "test", "test", "Battle", "test", 8);
+        var summary = aggregate.Capture(header, 1, default);
+        require(summary.SemanticEvents[(int)maximum.Type] == 1 && summary.MatchAwards[(int)award.Kind] == 1
+            && summary.SemanticEvents.Sum() == 1, "canonical telemetry uses bounded taxonomy counters");
+        aggregate.Add(telemetry);
+        require(summary.SemanticEvents.Sum() == 1, "published semantic summary owns its counters");
+        string json = System.Text.Json.JsonSerializer.Serialize(telemetry, Network.Telemetry.TelemetryJsonContext.Default.NetTelemetryEvent);
+        require(json.Contains("\"authorityEpoch\":18446744073709551615"), "telemetry JSON retains ulong epoch exactly");
         maximum.Write(bad = new byte[MatchSemanticEventPacket.Size]);
         require(MatchSemanticEventPacket.TryRead(bad, out var maximumRead) && maximumRead == maximum, "semantic maximum-width boundary");
         bad = (byte[])bytes.Clone(); bad[34] = 128;

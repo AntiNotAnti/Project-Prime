@@ -121,3 +121,10 @@ bandwidth under load; migrate kill feed, announcer, telemetry and post-match
 consumers only once those checks pass. Existing player-facing consumers and their
 legacy replay translation continue unchanged. Overtime still needs an actual
 authorized gameplay rule before an authoritative producer can exist.
+
+Canonical authority telemetry now consumes the published event and award stream.
+Telemetry schema 5 retains integral match/epoch and both actor identities, event
+and award IDs, causal source IDs, objective IDs and values. Fixed 18-event and
+21-award counters feed the match summary without deriving kills from snapshots.
+Transport/claim diagnostics remain separate. The collector accepts bounded
+schema 4/5 summaries through protocol 35 and rejects unknown/private keys.

@@ -24,6 +24,7 @@ internal sealed class MatchSemanticPublisher
             var packet = MatchSemanticEventPacket.From(fact);
             if (!packet.Validate()) { HistoryGaps++; continue; }
             packet.Write(bytes);
+            Network.Telemetry.ProductionTelemetry.Emit(MatchSemanticTelemetry.Convert(packet));
             ReplayCapture.Recorder.AcceptSemantic(bytes, _match, _epoch, fact.Tick, NetSession.NetFrame);
             NetSession.MatchSemanticSink?.Invoke(PacketType.MatchSemanticEvent, bytes[1..]);
             foreach (var award in bus.Awards.Awards)
@@ -33,6 +34,7 @@ internal sealed class MatchSemanticPublisher
                 var awardPacket = new MatchAwardPacket(_match, _epoch, ++_awardId, award.EventId, award.Tick,
                     award.Actor.Slot, award.Actor.SlotGeneration, award.Actor.Life, award.Kind);
                 awardPacket.Write(bytes);
+                Network.Telemetry.ProductionTelemetry.Emit(MatchSemanticTelemetry.Convert(awardPacket));
                 ReplayCapture.Recorder.AcceptSemantic(bytes[..MatchAwardPacket.Size], _match, _epoch, award.Tick, NetSession.NetFrame);
                 NetSession.MatchSemanticSink?.Invoke(PacketType.MatchAward, bytes.Slice(1, MatchAwardPacket.Size - 1));
             }

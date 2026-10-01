@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Network.Telemetry;
 
-public enum TelemetryEventType { Connection, Shot, AuthorityResult, Claim, CombatAck, ContinuousTarget, Form, Lifecycle, ServerStep, LagStudy, ConnectionDetail, TransportContention, EnhancedHunter, ServerStepAggregate, ServerStepHistogram }
+public enum TelemetryEventType { Connection, Shot, AuthorityResult, Claim, CombatAck, ContinuousTarget, Form, Lifecycle, ServerStep, LagStudy, ConnectionDetail, TransportContention, EnhancedHunter, ServerStepAggregate, ServerStepHistogram, MatchSemantic, MatchAward }
 
 [System.Flags]
 public enum CombatCorrectionReason : byte
@@ -15,7 +15,9 @@ public readonly record struct NetTelemetryEvent(
     byte Weapon = 255, ushort Generation = 0, ushort Life = 0, uint Id = 0,
     int Result = 0, int Flags = 0, double A = 0, double B = 0, double C = 0,
     double D = 0, double E = 0, double F = 0, double G = 0, double H = 0,
-    double TimestampMilliseconds = 0, int Samples = 1, uint ShotId = 0);
+    double TimestampMilliseconds = 0, int Samples = 1, uint ShotId = 0,
+    ushort MatchId = 0, ulong AuthorityEpoch = 0, ushort VictimGeneration = 0, ushort VictimLife = 0,
+    int EntityId = -1, int Value = 0, uint SourceEventId = 0);
 
 public sealed record TelemetryHeader(int Schema, int Protocol, string MatchSessionId,
     string BuildCommit, string ServerVersion, string ServerPlatform, string MatchMode, string Map, int PlayerCount);
