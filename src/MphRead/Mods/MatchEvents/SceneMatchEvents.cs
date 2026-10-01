@@ -38,6 +38,8 @@ internal sealed class SceneMatchEvents
             NetSession.Active ? NetSession.AuthorityEpoch : 1UL);
         return true;
     }
+    internal bool SameOccupant(PlayerEntity player, MatchSemanticActor identity)
+        => identity.IsPlayer && Actor(player).SlotGeneration == identity.SlotGeneration && player.SlotIndex == identity.Slot;
     private MatchSemanticActor Actor(PlayerEntity? player)
     {
         if (player == null || (uint)player.SlotIndex >= 8) return MatchSemanticActor.None;
@@ -114,18 +116,23 @@ internal sealed class SceneMatchEvents
         }
         else RejectedEvents++;
     }
-    internal void Death(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, DamageFlags damage, ShotKey? launch = null)
+    internal void Death(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, DamageFlags damage, ShotKey? launch = null, bool bomb = false, bool turret = false)
     {
         if (!Prepare(scene)) return;
         DeathTransitions++;
         var flags = damage.TestFlag(DamageFlags.Headshot) ? MatchSemanticEventFlags.Headshot : MatchSemanticEventFlags.None;
+        if (damage.TestFlag(DamageFlags.FromAlt)) flags |= MatchSemanticEventFlags.AltForm;
+        if (turret) flags |= MatchSemanticEventFlags.Turret;
+        var details = new MatchDeathDetails(MatchDeathDetails.Classify(attacker == null, attacker == victim,
+            damage.TestFlag(DamageFlags.Deathalt), damage.TestFlag(DamageFlags.Burn),
+            weapon >= BeamType.PowerBeam && weapon <= BeamType.OmegaCannon, bomb), attacker?.TeamIndex ?? -1, victim.TeamIndex);
         if (victim.IsPrimeHunter) flags |= MatchSemanticEventFlags.Prime;
         if (victim.OctolithFlag != null) flags |= MatchSemanticEventFlags.Carrier;
         if (attacker == null) flags |= MatchSemanticEventFlags.Environment;
         if (attacker != null && attacker != victim && scene.GameState.Teams
             && Mods.Multiplayer.TeamRules.AreAllies(attacker.TeamIndex, victim.TeamIndex)) flags |= MatchSemanticEventFlags.FriendlyFire;
         if (Bus.TryEmit(Tick(scene), attacker == victim ? MatchSemanticEventType.PlayerSuicide : MatchSemanticEventType.PlayerKilled,
-            attacker == victim ? Actor(victim) : SourceActor(attacker, launch), Actor(victim), (int)weapon, flags))
+            attacker == victim ? Actor(victim) : SourceActor(attacker, launch), Actor(victim), (int)weapon, flags, value: details.Encode()))
         {
             SemanticDeaths++;
             if (NetSession.Active) ParityDiagnostics.Semantic(Bus.LastEvent);

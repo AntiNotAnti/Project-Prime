@@ -10,7 +10,7 @@ namespace MphRead
     }
     internal sealed class Services { internal bool IsReplica { get; set; } }
     internal sealed class State { internal bool Multiplayer { get; set; } = true; internal bool Teams { get; set; } }
-    internal enum BeamType { None = -1, PowerBeam = 0 }
+    internal enum BeamType { None = -1, PowerBeam = 0, OmegaCannon = 8 }
 }
 namespace MphRead.Entities
 {
@@ -22,7 +22,7 @@ namespace MphRead.Entities
         internal bool IsPrimeHunter { get; set; }
         internal object? OctolithFlag { get; set; }
     }
-    internal enum DamageFlags { None, Headshot }
+    internal enum DamageFlags { None = 0, Headshot = 1, FromAlt = 2, Deathalt = 4, Burn = 8 }
     internal static class FlagExtensions { internal static bool TestFlag(this DamageFlags flags, DamageFlags mask) => (flags & mask) != 0; }
 }
 namespace MphRead.Mods.Multiplayer

@@ -8,6 +8,16 @@ internal static class MatchSemanticWireChecks
 {
     internal static void Run(Action<bool, string> require)
     {
+        foreach (MatchDeathKind kind in Enum.GetValues<MatchDeathKind>())
+        {
+            var details = new MatchDeathDetails(kind, kind == MatchDeathKind.Environment ? -1 : 0, 7);
+            require(MatchDeathDetails.TryDecode(details.Encode(), out var decoded) && decoded == details, "death classification " + kind);
+        }
+        require(MatchDeathDetails.Classify(false, false, true, true, true, true) == MatchDeathKind.Deathalt
+            && MatchDeathDetails.Classify(false, false, false, true, true, true) == MatchDeathKind.Burn
+            && MatchDeathDetails.Classify(false, false, false, false, false, true) == MatchDeathKind.Bomb
+            && MatchDeathDetails.Classify(true, true, true, true, true, true) == MatchDeathKind.Environment,
+            "death precedence agrees with legacy presentation");
         var delivery = new NetRetainedDelivery(4);
         var cursor = delivery.Join();
         byte[] source = { 1 };
@@ -28,7 +38,7 @@ internal static class MatchSemanticWireChecks
         var fact = new MatchSemanticEventPacket(1, 2, 3, 4, MatchSemanticEventType.PlayerKilled,
             0, 1, 2, 1, 2, 3, 6, 1, 9, 10);
         byte[] bytes = new byte[MatchSemanticEventPacket.Size]; fact.Write(bytes);
-        require(bytes.AsSpan().SequenceEqual(Convert.FromHexString("3701000200000000000000030000000400000004000100020001020003000600000001090000000A000000")), "semantic event golden bytes");
+        require(bytes.AsSpan().SequenceEqual(Convert.FromHexString("3701000200000000000000030000000400000004000100020001020003000600000001090000000A0000000000000000")), "semantic event golden bytes");
         require(MatchSemanticEventPacket.TryRead(bytes, out var parsed) && parsed == fact, "semantic round trip");
         for (int i = 0; i < bytes.Length; i++) require(!MatchSemanticEventPacket.TryRead(bytes.AsSpan(0, i), out _), "semantic truncation " + i);
         require(!MatchSemanticEventPacket.TryRead(bytes.Concat(new byte[1]).ToArray(), out _), "semantic trailing bytes");
@@ -74,6 +84,30 @@ internal static class MatchSemanticWireChecks
         bad = (byte[])bytes.Clone(); bad[34] = 128;
         require(!MatchSemanticEventPacket.TryRead(bad, out _), "semantic invalid flags range");
         require(ReplayIdentityCompatibility.Convert(bytes, 34).IsEmpty, "historical protocols cannot originate new semantic packets");
+        var ordered = new MatchSemanticReceiver(); ordered.Begin(1, 2, requireBaseline: true);
+        int shown = 0, shownAwards = 0;
+        ordered.Accept(fact); ordered.Accept(award);
+        ordered.DrainPresentation(_ => shown++, _ => shownAwards++);
+        require(shown == 0 && shownAwards == 0, "no announcements before explicit baseline");
+        var baseline = new MatchSemanticEventPacket(1, 2, 1, 0, MatchSemanticEventType.MatchStarted,
+            255, 0, 0, 255, 0, 0, -1, 0, -1, 0, true, 0);
+        byte[] baselineBytes = new byte[MatchSemanticEventPacket.Size]; baseline.Write(baselineBytes);
+        require(MatchSemanticEventPacket.TryRead(baselineBytes, out var baselineRead) && baselineRead == baseline,
+            "explicit frontier baseline round trips through generated wire");
+        require(ordered.Accept(baseline) && !ordered.Accept(baseline), "baseline applies exactly once");
+        ordered.DrainPresentation(_ => shown++, _ => shownAwards++);
+        require(shown == 0, "reordered facts wait for missing predecessor");
+        ordered.Accept(fact with { EventId = 2 });
+        ordered.DrainPresentation(_ => shown++, _ => shownAwards++);
+        require(shown == 2 && shownAwards == 1, "contiguous facts precede dependent authoritative awards");
+        ordered.Accept(fact with { EventId = 1 });
+        ordered.DrainPresentation(_ => shown++, _ => shownAwards++);
+        require(shown == 2, "old baseline history never announces");
+        require(!(baseline with { ActorSlot = 0 }).Validate(), "baseline cannot carry player identity");
+        require(!(fact with { AwardFrontier = 1 }).Validate(), "ordinary fact cannot smuggle baseline frontier");
+        var overrun = new MatchSemanticReceiver(); overrun.Begin(1, 2, requireBaseline: true);
+        overrun.Accept(fact with { EventId = 1025 }); overrun.Accept(baseline with { EventId = 0 });
+        require(overrun.PresentationOverrun, "baseline cannot silently skip a missing fact outside reorder window");
         var receiver = new MatchSemanticReceiver(); receiver.Begin(1, 2);
         require(receiver.Accept(fact) && receiver.Accept(fact with { EventId = 1 }) && receiver.Accept(fact with { EventId = 2 }), "reliable facts can reorder");
         require(!receiver.Accept(fact), "reliable fact duplicate rejected");
@@ -82,12 +116,18 @@ internal static class MatchSemanticWireChecks
         using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
         receiver.WriteCheckpoint(writer); stream.Position = 0;
         var restored = MatchSemanticReceiver.ReadCheckpoint(new BinaryReader(stream), 1, 2);
+        int replayAnnouncements = 0;
+        restored.DrainPresentation(_ => replayAnnouncements++, _ => replayAnnouncements++);
+        require(replayAnnouncements == 0, "checkpoint restore never repeats historical announcements");
         require(restored.Events.SequenceEqual(receiver.Events) && restored.Awards.SequenceEqual(receiver.Awards), "semantic receiver checkpoint retains reorder history and awards");
         require(!restored.Accept(fact) && !restored.Accept(award), "semantic checkpoint preserves dedup");
         for (uint i = 4; i < 2200; i++) receiver.Accept(fact with { EventId = i });
         require(receiver.Events.Count == MatchSemanticReceiver.Window && !receiver.Accept(fact), "bounded receive history and stale rejection");
         stream.SetLength(0); receiver.WriteCheckpoint(writer); stream.Position = 0;
         restored = MatchSemanticReceiver.ReadCheckpoint(new BinaryReader(stream), 1, 2);
+        replayAnnouncements = 0;
+        restored.DrainPresentation(_ => replayAnnouncements++, _ => replayAnnouncements++);
+        require(replayAnnouncements == 0, "checkpoint restore never repeats historical announcements");
         require(restored.Events.SequenceEqual(receiver.Events) && !restored.Accept(fact), "window eviction checkpoint restoration");
         require(NetReliableChannel.IsReliable(PacketType.MatchSemanticEvent) && !NetReliableChannel.IsCritical(PacketType.MatchSemanticEvent)
             && NetPacketQueue.Priority(PacketType.MatchSemanticEvent) == NetPacketPriority.Background, "semantic transport uses ordinary bounded background budget");

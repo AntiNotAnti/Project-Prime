@@ -32,6 +32,7 @@ namespace MphRead.Mods.Network
         private sealed class Peer
         {
             internal NetRetainedDelivery.Cursor? SemanticCursor;
+            internal byte[]? SemanticBaseline;
             public readonly NetPeerTelemetry Telemetry = new();
             public IPEndPoint EndPoint = null!;
             public int SlotIndex = -1;
@@ -953,7 +954,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
-            NetSession.MatchSemanticSink = (type, payload) => _semanticDelivery.Append(type, payload);
+            NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.
             // This server arbitrates its clients' hit claims for as long as it
@@ -2368,8 +2369,18 @@ namespace MphRead.Mods.Network
             for (int i = _peers.Count - 1; i >= 0; i--)
             {
                 var peer = _peers[i];
-                if (!peer.AdmissionReady) { peer.SemanticCursor = null; continue; }
-                peer.SemanticCursor ??= _semanticDelivery.Join();
+                if (!peer.AdmissionReady || !peer.MatchReady) { peer.SemanticCursor = null; peer.SemanticBaseline = null; continue; }
+                if (_semanticMatch == 0) continue;
+                if (peer.SemanticCursor == null)
+                {
+                    peer.SemanticCursor = _semanticDelivery.Join();
+                    peer.SemanticBaseline = SemanticBaseline();
+                }
+                if (peer.SemanticBaseline != null)
+                {
+                    if (_transport?.TrySendSemantic(peer.EndPoint, PacketType.MatchSemanticEvent, peer.SemanticBaseline) != true) continue;
+                    peer.SemanticBaseline = null;
+                }
                 if (!_semanticDelivery.Pump(peer.SemanticCursor,
                     fact => _transport?.TrySendSemantic(peer.EndPoint, fact.Type, fact.Payload) == true))
                 {

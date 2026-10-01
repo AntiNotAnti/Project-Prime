@@ -2085,7 +2085,7 @@ namespace MphRead.Entities
                 {
                     _scene.MatchEvents.Death(_scene, attacker, this,
                         beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
-                        flags, beam?.ModLaunchKey);
+                        flags, beam?.ModLaunchKey, bomb != null, fromHalfturret);
                     _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
                 }
                 _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);

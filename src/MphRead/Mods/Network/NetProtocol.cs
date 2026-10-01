@@ -23,7 +23,7 @@ namespace MphRead.Mods.Network
     /// </summary>
     public enum PacketType : byte
     {
-        // 55/56 are reserved for the coordinated semantic event/award integration.
+        // 55/56 carry canonical semantic events/baselines and authoritative awards.
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         Hello = 1,          // client -> host, join request

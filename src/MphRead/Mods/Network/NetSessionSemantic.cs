@@ -11,11 +11,12 @@ public static partial class NetSession
         if (payload.Length != size - 1 || CurrentMatchId == 0 || AuthorityEpoch == 0) return;
         Span<byte> packet = stackalloc byte[MatchSemanticEventPacket.Size];
         packet[0] = (byte)type; payload.CopyTo(packet[1..]);
-        SemanticReceived.Begin(CurrentMatchId, AuthorityEpoch);
+        SemanticReceived.Begin(CurrentMatchId, AuthorityEpoch, requireBaseline: true);
         uint tick;
         if (type == PacketType.MatchSemanticEvent)
         {
             if (!MatchSemanticEventPacket.TryRead(packet[..size], out var fact) || !SemanticReceived.Accept(fact)) return;
+            if (fact.IsBaseline) return;
             tick = fact.Tick;
         }
         else

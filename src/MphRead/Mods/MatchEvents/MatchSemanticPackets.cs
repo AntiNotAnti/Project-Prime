@@ -5,11 +5,11 @@ namespace MphRead.Mods.MatchEvents;
 internal readonly partial record struct MatchSemanticEventPacket(
     [NetRange(1, ushort.MaxValue)] ushort MatchId,
     ulong AuthorityEpoch,
-    [NetRange(1, uint.MaxValue)] uint EventId, uint Tick, MatchSemanticEventType Type,
+    uint EventId, uint Tick, MatchSemanticEventType Type,
     byte ActorSlot, ushort ActorGeneration, ushort ActorLife,
     byte TargetSlot, ushort TargetGeneration, ushort TargetLife,
     [NetRange(-1, 255)] int Weapon, [NetRange(0, 127)] byte Flags,
-    [NetRange(-1, int.MaxValue)] int EntityId, int Value)
+    [NetRange(-1, int.MaxValue)] int EntityId, int Value, bool IsBaseline = false, uint AwardFrontier = 0)
 {
     internal MatchSemanticEvent ToFact() => new(EventId, MatchId, AuthorityEpoch, Tick, Type,
         new(ActorSlot, ActorGeneration, ActorLife), new(TargetSlot, TargetGeneration, TargetLife),
@@ -19,8 +19,16 @@ internal readonly partial record struct MatchSemanticEventPacket(
         fact.Target.Slot, fact.Target.SlotGeneration, fact.Target.Life, fact.Weapon, (byte)fact.Flags, fact.EntityId, fact.Value);
     partial void ValidateSchema(ref bool valid)
     {
+        if (IsBaseline)
+        {
+            valid = AuthorityEpoch != 0 && Type == MatchSemanticEventType.MatchStarted
+                && ActorSlot == byte.MaxValue && ActorGeneration == 0 && ActorLife == 0
+                && TargetSlot == byte.MaxValue && TargetGeneration == 0 && TargetLife == 0
+                && Weapon == -1 && Flags == 0 && EntityId == -1 && Value == 0;
+            return;
+        }
         var fact = ToFact();
-        valid = AuthorityEpoch != 0 && MatchSemanticEventBus.ValidActor(fact.Actor) && MatchSemanticEventBus.ValidActor(fact.Target)
+        valid = EventId != 0 && AwardFrontier == 0 && AuthorityEpoch != 0 && MatchSemanticEventBus.ValidActor(fact.Actor) && MatchSemanticEventBus.ValidActor(fact.Target)
             && MatchSemanticEventBus.ValidIdentity(fact);
     }
 }
