@@ -105,3 +105,19 @@ They describe observed usage, not a complete installed-content census: omitted o
 unobserved materials are never labeled unused. Legacy single-model inventories
 remain readable. Map Studio counts effective mesh-face assignments and imported
 model sources; Select usages frames those actual objects.
+
+The extended suite contains 22 fixtures. Ten additional fixtures replay the actual
+shared `Scene.RenderItem` used by gameplay, with explicit production sampler,
+`SrcAlpha / OneMinusSrcAlpha` blend, and `AlphaFunction.Equal(1)` opaque-pass state.
+They verify repeat, mirror and clamp at out-of-range positive/negative UVs, including
+expected red/green texel selection. Transparent red over opaque blue produces
+`(0,0,255)`, `(128,0,127)`, and `(255,0,0)` at alpha 0, 128, and 255;
+the destination alpha also matches the source-alpha blend equation. Half-alpha
+fragments fail the opaque pass and full-alpha fragments pass it.
+
+On the same local OpenGL, Metal and Vulkan runtimes, all ten new fixtures matched
+exactly across the **entire frame**, while all 22 material interiors matched exactly.
+The original editor alpha fixtures continue to prove unblended channel preservation.
+The replay tests exercise shared gameplay draw/blend state, not complete scene
+sorting, stencil polygon ordering, or multi-surface transparency interactions.
+No shipping renderer hooks or alternate shader implementations are introduced.

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text.Json;
 using MphRead;
 using MphRead.Mods;
@@ -72,13 +73,39 @@ internal static class PixelCheck
                 var frame = new MapRenderFrame(new(96,96),new(new N.Vector3(0,0,5),N.Vector3.Zero,true),
                     new[] { mesh },new HashSet<Guid>(),new Dictionary<Guid,N.Matrix4x4>(),false,false);
                 void Render(string name, ColorRgba[] pixels, int width, int height, ResolvedMaterial? enhanced,
-                    int uvWidth = 2, int uvHeight = 2, bool filter = false, bool mipmap = false)
+                    int uvWidth = 2, int uvHeight = 2, bool filter = false, bool mipmap = false, RepeatMode? repeat = null, bool blend = false, bool opaquePass = false)
                 {
                     RenderOptions.TextureFiltering = filter; RenderOptions.TextureMipmaps = mipmap;
                     var texture = new MapViewportMaterial(name,width,height,pixels,uvWidth,uvHeight,enhanced);
                     frame = frame with { Materials = new Dictionary<(bool,int),MapViewportMaterial> { [(false,0)] = texture } };
                     G.BindFramebuffer(FramebufferTarget.Framebuffer,target);
                     scene.DrawEditorFrame(frame,new(96,96));
+                    if (repeat != null || blend || opaquePass)
+                    {
+                        // Replay the actual shared gameplay RenderItem with the production
+                        // sampler and blend/opaque-test state. This deliberately does not
+                        // claim to exercise scene sorting or stencil polygon ordering.
+                        const BindingFlags hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+                        var meshes = (System.Collections.IDictionary)typeof(Scene).GetField("_editorMeshes",hidden)!.GetValue(scene)!;
+                        object cached = meshes[id]!;
+                        var parts = (Array)cached.GetType().GetProperty("Parts")!.GetValue(cached)!;
+                        var item = (RenderItem)parts.GetValue(0)!.GetType().GetProperty("Fill")!.GetValue(parts.GetValue(0))!;
+                        if (repeat is { } mode) item.XRepeat = item.YRepeat = mode;
+                        G.PushAttrib(AttribMask.AllAttribBits);
+                        int oldProgram = G.GetInteger(GetPName.CurrentProgram);
+                        try
+                        {
+                            G.UseProgram((int)typeof(Scene).GetField("_shaderProgramId",hidden)!.GetValue(scene)!);
+                            G.Disable(EnableCap.ScissorTest); G.Disable(EnableCap.DepthTest); G.Disable(EnableCap.StencilTest);
+                            G.ClearColor(0,0,1,1); G.Clear(ClearBufferMask.ColorBufferBit);
+                            if (blend) { G.Enable(EnableCap.Blend); G.BlendFunc(BlendingFactor.SrcAlpha,BlendingFactor.OneMinusSrcAlpha); }
+                            else G.Disable(EnableCap.Blend);
+                            if (opaquePass) { G.Enable(EnableCap.AlphaTest); G.AlphaFunc(AlphaFunction.Equal,1); }
+                            else G.Disable(EnableCap.AlphaTest);
+                            typeof(Scene).GetMethod("RenderItem",hidden)!.Invoke(scene,new object[] { item });
+                        }
+                        finally { G.UseProgram(oldProgram); G.PopAttrib(); }
+                    }
                     G.BindFramebuffer(FramebufferTarget.ReadFramebuffer,target);
                     G.PixelStore(PixelStoreParameter.PackAlignment,1);
                     byte[] rgb = new byte[96*96*3]; G.ReadPixels(0,0,96,96,PixelFormat.Rgb,PixelType.UnsignedByte,rgb);
@@ -115,6 +142,36 @@ internal static class PixelCheck
                     !pixels.AsSpan((43*96+x)*3,3).SequenceEqual(pixels.AsSpan((43*96+x-1)*3,3)));
                 Check(Transitions(results["uv-repeat"])>=Transitions(results["uv-nearest"])+2,"UV repeat adds repeated texel transitions");
                 Check(!results["uv-linear"].SequenceEqual(results["uv-nearest"]),"linear sampler changes interpolated UV pixels");
+                void ConstantUv(float u)
+                {
+                    var constant = face with { Texcoords = Enumerable.Repeat(new N.Vector2(u,.25f),4).ToArray() };
+                    frame = frame with { Meshes = new[] { new MapViewportMesh(id,new[] { constant }) } };
+                }
+                ConstantUv(1.75f);
+                Render("sampler-repeat-positive",pattern,2,2,null,uvWidth:1,uvHeight:1,repeat:RepeatMode.Repeat);
+                Render("sampler-mirror-positive",pattern,2,2,null,uvWidth:1,uvHeight:1,repeat:RepeatMode.Mirror);
+                Render("sampler-clamp-positive",pattern,2,2,null,uvWidth:1,uvHeight:1,repeat:RepeatMode.Clamp);
+                ConstantUv(-.25f);
+                Render("sampler-repeat-negative",pattern,2,2,null,uvWidth:1,uvHeight:1,repeat:RepeatMode.Repeat);
+                Render("sampler-clamp-negative",pattern,2,2,null,uvWidth:1,uvHeight:1,repeat:RepeatMode.Clamp);
+                void Expected(string name, params byte[] expected) => Check(Sample(results[name]).Zip(expected)
+                    .All(pair => Math.Abs(pair.First-pair.Second)<=1), "expected RGB "+name);
+                Expected("sampler-repeat-positive",0,255,0);
+                Expected("sampler-mirror-positive",255,0,0);
+                Expected("sampler-clamp-positive",0,255,0);
+                Expected("sampler-repeat-negative",0,255,0);
+                Expected("sampler-clamp-negative",255,0,0);
+                foreach (byte opacity in new byte[] { 0,128,255 })
+                {
+                    string name="blend-"+opacity;
+                    Render(name,new[] { new ColorRgba((byte)255,(byte)0,(byte)0,opacity) },1,1,null,blend:true);
+                    Expected(name,opacity,0,(byte)(255-opacity));
+                    int expectedAlpha = (int)Math.Round(opacity * opacity / 255.0 + 255-opacity);
+                    Check(Math.Abs(alpha[name]-expectedAlpha)<=1,"source-alpha destination-alpha equation "+name);
+                }
+                Render("opaque-reject-half",new[] { new ColorRgba((byte)255,(byte)0,(byte)0,(byte)128) },1,1,null,opaquePass:true);
+                Render("opaque-accept-full",new[] { new ColorRgba((byte)255,(byte)0,(byte)0,(byte)255) },1,1,null,opaquePass:true);
+                Expected("opaque-reject-half",0,0,255); Expected("opaque-accept-full",255,0,0);
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(output))!);
                 File.WriteAllText(output,JsonSerializer.Serialize(new { Backend=backend, Renderer=G.GetString(StringName.Renderer), Version=version, Modern=modern, Width=96,Height=96,Alpha=alpha,Images=results }));
                 Console.WriteLine($"MATERIAL PIXELS PASS actual={G.GetString(StringName.Renderer)} {version} output={output}");
@@ -130,7 +187,8 @@ internal static class PixelCheck
         Check(left.GetProperty("Width").GetInt32()==96 && left.GetProperty("Height").GetInt32()==96
             && right.GetProperty("Width").GetInt32()==96 && right.GetProperty("Height").GetInt32()==96,"matching pixel fixture dimensions");
         Check(left.GetProperty("Backend").GetString()!=right.GetProperty("Backend").GetString(),"different measured backends");
-        string[] expected={"flat","normal","glossy","rough","emissive","alpha-zero","alpha-half","uv-nearest","uv-linear","uv-repeat","mip-off","mip-on"};
+        string[] expected={"flat","normal","glossy","rough","emissive","alpha-zero","alpha-half","uv-nearest","uv-linear","uv-repeat","mip-off","mip-on","sampler-repeat-positive","sampler-mirror-positive","sampler-clamp-positive",
+            "sampler-repeat-negative","sampler-clamp-negative","blend-0","blend-128","blend-255","opaque-reject-half","opaque-accept-full"};
         foreach(string name in expected)
         {
             byte[] x=left.GetProperty("Images").GetProperty(name).GetBytesFromBase64();
@@ -146,7 +204,7 @@ internal static class PixelCheck
             Check(left.GetProperty("Alpha").GetProperty(name).GetInt32()==right.GetProperty("Alpha").GetProperty(name).GetInt32(),"alpha parity "+name);
             Console.WriteLine($"COMPARE {name}: surfaceMax={surface} fullFrameMax={full} differingFullFrameChannels={differing}");
         }
-        Console.WriteLine("MATERIAL PIXEL COMPARISON PASS (12 synthetic fixtures; measured surface tolerance <=1/255)");
+        Console.WriteLine("MATERIAL PIXEL COMPARISON PASS (22 synthetic fixtures; measured surface tolerance <=1/255)");
     }
     private static byte[] Sample(byte[] pixels) => pixels.AsSpan((43*96+43)*3,3).ToArray();
     private static void Check(bool value,string name) { if(!value)throw new Exception(name); Console.WriteLine("PASS "+name); }
