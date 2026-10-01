@@ -5,6 +5,7 @@ using System.Reflection;
 using System.IO;
 using MphRead.Mods.Chat;
 using MphRead.Mods.Network;
+using MphRead.Mods.Render;
 using MphRead.Text;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
@@ -30,6 +31,36 @@ internal static class PlayerNameChatTests
             Check(PlayerNameCodec.TryEncode(glyph, bytes, out _), "table encode " + glyph);
             Check(PlayerNameCodec.Decode(bytes) == PlayerNameCodec.Normalize(glyph), "table round trip " + glyph);
         }
+        foreach (string name in new[] { "JÄRRETT™", "ハンター", "「PRIME」", "PRIME∞" })
+        {
+            string canonical = PlayerNameCodec.Normalize(name);
+            string native = PlayerNameCodec.ToNative(canonical);
+            var expected = new List<int>();
+            foreach (Rune rune in canonical.EnumerateRunes())
+            {
+                Check(PlayerNameCodec.TryMapUnicodeToGlyph(rune, out ushort code),
+                    "native glyph source maps " + name);
+                expected.Add(code);
+            }
+
+            var actual = new List<int>();
+            int steps = 0;
+            for (int i = 0; i < native.Length; i++)
+            {
+                Check(PlayerNameLayout.TryReadNativeGlyph(native, ref i, native.Length,
+                    out int code, out _), "native glyph read " + name);
+                actual.Add(code);
+                Check(++steps <= PlayerNameCodec.MaxGlyphs,
+                    "native glyph walk terminates " + name);
+            }
+            Check(actual.SequenceEqual(expected), "native glyph round trip " + name);
+        }
+        string truncatedNative = PlayerNameCodec.ToNative("™");
+        int truncatedIndex = 0;
+        Check(PlayerNameLayout.TryReadNativeGlyph(truncatedNative, ref truncatedIndex, 1,
+            out int truncatedCode, out _)
+            && truncatedCode == '?' && truncatedIndex == 0,
+            "truncated native glyph falls back without crossing line boundary");
         foreach (string invalid in new[] { "", " ", new string('A', 25), "A\0B", "A\nB", "A\tB", "😀", "A\u200bB", "A\u202eB", "\ud800", "\ue000" })
             Check(!PlayerNameCodec.TryEncode(invalid, bytes, out _), "reject " + invalid);
         foreach (byte[] bad in new[] { new byte[] { 0xc4 }, new byte[] { 0xc4, 0x41 }, new byte[] { 0xc0, 0xa0 },

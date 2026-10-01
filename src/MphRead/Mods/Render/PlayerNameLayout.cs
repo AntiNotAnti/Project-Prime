@@ -37,4 +37,41 @@ internal static class PlayerNameLayout
         }
         return new(PlayerNameCodec.ToNative(text), scale, truncated);
     }
+
+    /// <summary>
+    /// Decode one native MPH glyph emitted by <see cref="PlayerNameCodec.ToNative"/>.
+    /// The caller walks forward; <paramref name="index"/> is advanced once when
+    /// a valid two-byte glyph consumes its continuation byte. Malformed native
+    /// text falls back to '?' instead of reading past the current line.
+    /// </summary>
+    internal static bool TryReadNativeGlyph(ReadOnlySpan<char> text, ref int index, int end,
+        out int glyph, out char original)
+    {
+        glyph = 0;
+        original = '\0';
+        end = Math.Clamp(end, 0, text.Length);
+        if ((uint)index >= (uint)end) return false;
+
+        original = text[index];
+        glyph = original;
+        if ((glyph & 0x80) == 0) return true;
+
+        if (glyph < 0xC2 || glyph > 0xDF || index + 1 >= end)
+        {
+            glyph = '?';
+            return true;
+        }
+
+        int continuation = text[index + 1];
+        if ((continuation & 0xC0) != 0x80)
+        {
+            glyph = '?';
+            return true;
+        }
+
+        glyph = (continuation & 0x3F) | ((glyph & 0x1F) << 6);
+        index++;
+        return true;
+    }
+
 }

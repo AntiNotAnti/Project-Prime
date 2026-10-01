@@ -3131,7 +3131,7 @@ namespace MphRead.Entities
                 {
                     string carrier = relic.Carrier == null ? "RELIC AVAILABLE"
                         : relic.Carrier == this ? "YOU HOLD THE RELIC" : $"RELIC: {_scene.GameState.Nicknames[relic.Carrier.SlotIndex]}";
-                    DrawText2D(128, 150, Align.Center, 0, carrier);
+                    DrawPlayerName(128, 150, Align.Center, 0, carrier, maxWidth: 150);
                     break;
                 }
             }
@@ -3838,15 +3838,8 @@ namespace MphRead.Entities
                 float startX = x;
                 for (int i = 0; i < length; i++)
                 {
-                    int ch = text[i];
-                    int orig = ch;
-                    // The continuation byte, only if there is one: a string
-                    // whose last character has the high bit set ran off the
-                    // end of the span here.
-                    if ((ch & 0x80) != 0 && i + 1 < text.Length)
-                    {
-                        ch = text[++i] & 0x3F | ((ch & 0x1F) << 6);
-                    }
+                    PlayerNameLayout.TryReadNativeGlyph(text, ref i, length,
+                        out int ch, out char orig);
                     if (orig == '\n')
                     {
                         x = startX;
@@ -3890,17 +3883,28 @@ namespace MphRead.Entities
                     {
                         end = length;
                     }
-                    x = startX;
-                    for (int i = end - 1; i >= start; i--)
+
+                    float width = 0;
+                    for (int i = start; i < end; i++)
                     {
-                        int ch = text[i];
-                        int orig = ch;
-                        if ((ch & 0x80) != 0 && i + 1 < text.Length)
-                        {
-                            ch = text[++i] & 0x3F | ((ch & 0x1F) << 6);
-                        }
+                        PlayerNameLayout.TryReadNativeGlyph(text, ref i, end,
+                            out int ch, out _);
                         int index = GlyphIndex(font, ch);
-                        x -= font.Widths[index] * scale * aspectFix;
+                        width += font.Widths[index] * scale;
+                    }
+
+                    // Right alignment used to decode this run backwards. Native
+                    // player names contain two-byte MPH glyph sequences, so the
+                    // reverse loop could step forward to consume a continuation
+                    // byte and then immediately step back onto the same lead
+                    // byte forever. Measure forward, place the pen, then draw
+                    // forward exactly like the other alignments.
+                    x = startX - width * aspectFix;
+                    for (int i = start; i < end; i++)
+                    {
+                        PlayerNameLayout.TryReadNativeGlyph(text, ref i, end,
+                            out int ch, out char orig);
+                        int index = GlyphIndex(font, ch);
                         float offset = font.Offsets[index] * scale + y;
                         if (orig != ' ')
                         {
@@ -3916,6 +3920,7 @@ namespace MphRead.Entities
                             }
                             _scene.DrawHudObject(_textInst, mode: 1, scale: scale, isText: true);
                         }
+                        x += font.Widths[index] * scale * aspectFix;
                     }
                     if (end != length)
                     {
@@ -3950,11 +3955,8 @@ namespace MphRead.Entities
                     float width = 0;
                     for (int i = start; i < end; i++)
                     {
-                        int ch = text[i];
-                        if ((ch & 0x80) != 0 && i + 1 < text.Length)
-                        {
-                            ch = text[++i] & 0x3F | ((ch & 0x1F) << 6);
-                        }
+                        PlayerNameLayout.TryReadNativeGlyph(text, ref i, end,
+                            out int ch, out _);
                         int index = GlyphIndex(font, ch);
                         width += font.Widths[index] * scale;
                     }
@@ -3963,12 +3965,8 @@ namespace MphRead.Entities
                     x = startX - MathF.Floor(width / 2) * aspectFix;
                     for (int i = start; i < end; i++)
                     {
-                        int ch = text[i];
-                        int orig = ch;
-                        if ((ch & 0x80) != 0 && i + 1 < text.Length)
-                        {
-                            ch = text[++i] & 0x3F | ((ch & 0x1F) << 6);
-                        }
+                        PlayerNameLayout.TryReadNativeGlyph(text, ref i, end,
+                            out int ch, out char orig);
                         int index = GlyphIndex(font, ch);
                         float offset = font.Offsets[index] * scale + y;
                         if (orig != ' ')
