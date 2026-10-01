@@ -39,7 +39,12 @@ internal sealed class SceneMatchEvents
         return true;
     }
     internal bool SameOccupant(PlayerEntity player, MatchSemanticActor identity)
-        => identity.IsPlayer && Actor(player).SlotGeneration == identity.SlotGeneration && player.SlotIndex == identity.Slot;
+    {
+        if (!identity.IsPlayer || player.SlotIndex != identity.Slot) return false;
+        // Enrichment is read-only: rendering must never allocate an offline life.
+        return NetSession.Active ? NetPlayerLifecycle.Generation(identity.Slot) == identity.SlotGeneration
+            : _occupants[identity.Slot] == player && _generations[identity.Slot] == identity.SlotGeneration;
+    }
     private MatchSemanticActor Actor(PlayerEntity? player)
     {
         if (player == null || (uint)player.SlotIndex >= 8) return MatchSemanticActor.None;

@@ -109,6 +109,7 @@ Check(local.Bus.Events.Any(e => e.Type == MatchSemanticEventType.PlayerAssisted)
 local.Spawn(scene, victim);
 Check(local.Bus.Events.Last().Actor.Life == 2, "offline respawn life");
 var newVictim = new MphRead.Entities.PlayerEntity { SlotIndex = 1 };
+Check(!local.SameOccupant(newVictim, b), "enrichment rejects replacement before spawn without creating a life");
 local.Spawn(scene, newVictim);
 Check(local.Bus.Events.Last().Actor.SlotGeneration == 2 && local.Bus.Events.Last().Actor.Life == 1, "offline slot reuse");
 local.ResetMatch(scene); scene.FrameCount = 0; local.ObservePhase(scene);
