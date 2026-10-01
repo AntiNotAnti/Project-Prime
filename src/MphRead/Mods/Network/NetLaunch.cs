@@ -30,18 +30,18 @@ namespace MphRead.Mods.Network
             int timeoutMs = 8000, int color = -1, Guid ownerToken = default, CancellationToken cancellationToken = default)
         {
             if (cancellationToken.IsCancellationRequested) { LastJoinError = "Join cancelled."; return false; }
-            NetSession.PlayerName = playerName;
-            // Rolled here as well as in the launch plan, because joining
-            // happens *before* the plan is built: the hunter announced in
-            // Identify is what every other client draws this player as, and
-            // Hunter.Random has no model for anybody to draw.
-            NetSession.LocalHunter = Launcher.Hunters.Resolve(hunter);
-            // The suit travels with the hunter, and for the same reason: it is
-            // announced in Identify, before any launch plan exists. -1 means
-            // "whatever this player last chose", which is every caller but the
-            // command line's -recolor.
-            NetSession.LocalColor = PlayerColors.Clamp(
+            string requestedName = PlayerNameCodec.Clamp(playerName);
+            Hunter requestedHunter = Launcher.Hunters.Resolve(hunter);
+            int requestedColor = PlayerColors.Clamp(
                 color < 0 ? Launcher.LauncherPrefs.LastColor : color);
+            NetSession.PlayerName = requestedName;
+            // Joining happens before a launch plan exists. Keep the requested
+            // identity separately from NetSession's echoed roster values: a
+            // newly admitted peer begins as Samus until Identify reaches the
+            // server, and that provisional roster must not overwrite what the
+            // player actually selected before we have sent it.
+            NetSession.LocalHunter = requestedHunter;
+            NetSession.LocalColor = requestedColor;
             // A networked match is not limited to the four the DS could hold:
             // the server decides how many it admits, and every client has to
             // be able to hold that many slots for it to matter.
@@ -53,7 +53,7 @@ namespace MphRead.Mods.Network
                 return false;
             }
             var clock = Stopwatch.StartNew();
-            int lastIdentify = 0;
+            long lastIdentify = -500;
             while (clock.ElapsedMilliseconds < timeoutMs)
             {
                 if (cancellationToken.IsCancellationRequested)
@@ -69,20 +69,43 @@ namespace MphRead.Mods.Network
                     Console.WriteLine($"[net] {LastJoinError}");
                     return false;
                 }
-                if (NetSession.LocalSlot >= 0 && NetSession.ServerSession != null
-                    && NetSession.SlotOccupied[NetSession.LocalSlot])
+
+                if (NetSession.LocalSlot >= 0)
                 {
-                    Console.WriteLine($"[net] connected in {NetSession.SessionPhase}, slot {NetSession.LocalSlot}");
-                    return true;
-                }
-                // The name is what the roster keys off, and the first
-                // Identify can be lost like any other datagram; a client whose
-                // name never landed shows up on everyone else's scoreboard as
-                // "PlayerN" for the rest of the match.
-                if (clock.ElapsedMilliseconds - lastIdentify > 500)
-                {
-                    lastIdentify = (int)clock.ElapsedMilliseconds;
-                    NetSession.SendIdentify();
+                    // Welcome and the first roster can beat Identify over UDP.
+                    // That roster contains the server's provisional Samus and
+                    // ApplyRoster quite correctly adopts it. Restore the actual
+                    // requested identity before every retry, send immediately
+                    // on admission, and do not let Connect succeed until the
+                    // server has echoed the identity back in its roster.
+                    if (clock.ElapsedMilliseconds - lastIdentify >= 500)
+                    {
+                        lastIdentify = clock.ElapsedMilliseconds;
+                        NetSession.PlayerName = requestedName;
+                        NetSession.LocalHunter = requestedHunter;
+                        NetSession.LocalColor = requestedColor;
+                        NetSession.SendIdentify();
+                    }
+
+                    int slot = NetSession.LocalSlot;
+                    if (NetSession.ServerSession is { } session
+                        && slot < NetSession.SlotOccupied.Length
+                        && NetSession.SlotOccupied[slot])
+                    {
+                        Hunter expectedHunter = HunterRules.Sanitize(
+                            requestedHunter, session.Match.LowTier);
+                        if (NetSession.SlotHunter[slot] == expectedHunter
+                            && PlayerColors.Choice[slot] == requestedColor
+                            && GameState.Nicknames[slot] == requestedName)
+                        {
+                            // Leave the launch path holding the server-accepted
+                            // identity, including rule sanitization such as Low Tier.
+                            NetSession.LocalHunter = expectedHunter;
+                            NetSession.LocalColor = requestedColor;
+                            Console.WriteLine($"[net] connected in {NetSession.SessionPhase}, slot {slot}");
+                            return true;
+                        }
+                    }
                 }
                 Thread.Sleep(20);
             }
@@ -296,18 +319,19 @@ namespace MphRead.Mods.Network
         {
             scene.GameState.TeamCount = teams && NetSession.ActiveMatchDefinition is { } match ? LobbyRules.TeamCount(match) : teams ? 2 : 0;
             int resolvedSlot = localSlot ?? Math.Max(NetSession.LocalSlot, 0);
+            Hunter acknowledgedLocalHunter = NetSession.Active && resolvedSlot >= 0
+                ? NetSession.LocalHunter : localHunter;
             for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
-                // Only this machine's hunter is a local choice. Everyone
-                // else's comes from the server's roster, because it is their
-                // choice, not a row in this client's menu: building slot N
-                // from the menu's "player N" meant a client on slot 1 played
-                // whatever its own P2 row said while announcing its P1 row,
-                // and two clients sharing a settings file both ended up
-                // showing the same hunter for everybody.
+                // A live session builds every occupied slot from the server's
+                // acknowledged identity. Connect has already waited for the
+                // local Identify echo, so this cannot regress to the provisional
+                // Samus admission row and it also honors server-side rule
+                // sanitization. Demo playback passes localSlot = -1 and has no
+                // local identity to substitute here.
                 bool occupied = slot == resolvedSlot
                     || (slot < NetSession.SlotOccupied.Length && NetSession.SlotOccupied[slot]);
-                Hunter hunter = slot == resolvedSlot ? localHunter
+                Hunter hunter = slot == resolvedSlot ? acknowledgedLocalHunter
                     : occupied ? NetSession.SlotHunter[slot] : Hunter.Samus;
                 // Empty slots deliberately use the cheap Samus placeholder.
                 // NetSlotManager prepares an arriving hunter before activation.
