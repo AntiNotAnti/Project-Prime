@@ -12,7 +12,7 @@ internal static class SettingsArchiveCommand
         try
         {
             if (index + 2 >= args.Length) throw new ArgumentException("Usage: -settingsarchive export|import|validate ARCHIVE.zip");
-            string action = args[index + 1], path = args[index + 2];
+            string action = args[index + 1], path = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, args[index + 2]));
             switch (action)
             {
                 case "export": SettingsArchive.ExportFile(Launcher.LauncherPrefs.Directory, path, Program.Version.ToString()); break;

@@ -14,7 +14,7 @@ internal static class SettingsArchive
     internal const int MaximumTotalBytes = 16 * 1024 * 1024;
     internal const int MaximumArchiveBytes = 20 * 1024 * 1024;
     private const string ManifestName = "manifest.json";
-    private static readonly object Gate = new();
+    internal static object Gate => SettingsPersistence.Gate;
 
     internal static void Export(string root, Stream destination, string version)
     {
@@ -129,7 +129,34 @@ internal static class SettingsArchive
         lock (Gate)
         {
             var files = Read(source); // No directories or destination files touched before complete validation.
-            var transaction = new List<(string Destination, string Staged, string Backup, bool Existed)>();
+            Install(root, files.ToDictionary(pair => pair.Key, pair => (byte[]?)pair.Value), beforeInstall);
+        }
+    }
+
+    internal static void Reset(string root, Action<int>? beforeInstall = null)
+    {
+        lock (Gate)
+        {
+            var files = SettingsArchiveRegistry.Enumerate(root).ToDictionary(store => store.Path, _ => (byte[]?)null);
+            // HUD's loader falls back to its normal .json.bak sidecar. Remove those
+            // in the same rollback transaction, including orphaned backups, or reset
+            // could silently resurrect the old layout. Archive recovery files remain.
+            string profiles = SettingsArchiveRegistry.Destination(root, "Savedata/hud-profiles");
+            if (Directory.Exists(profiles))
+                foreach (string backup in Directory.EnumerateFiles(profiles, "*.json.bak"))
+                {
+                    string relative = "Savedata/hud-profiles/" + Path.GetFileName(backup);
+                    SettingsArchiveRegistry.Resolve(relative[..^4]);
+                    files.Add(relative, null);
+                }
+            if (files.Count > MaximumFiles * 2) throw new InvalidDataException("Too many settings stores to reset.");
+            Install(root, files, beforeInstall);
+        }
+    }
+
+    private static void Install(string root, Dictionary<string, byte[]?> files, Action<int>? beforeInstall)
+    {
+            var transaction = new List<(string Destination, string Staged, string Backup, bool Existed, bool Delete)>();
             int installed = 0;
             bool preserveRecovery = false;
             var createdDirectories = new List<string>();
@@ -144,9 +171,9 @@ internal static class SettingsArchive
                     for (string? d = directory; d != null && !Directory.Exists(d); d = Path.GetDirectoryName(d)) missing.Push(d);
                     while (missing.TryPop(out string? d)) { Directory.CreateDirectory(d); createdDirectories.Add(d); }
                     string suffix = ".archive-" + Guid.NewGuid().ToString("N");
-                    var entry = (Destination: destination, Staged: destination + suffix + ".tmp", Backup: destination + suffix + ".bak", Existed: File.Exists(destination));
+                    var entry = (Destination: destination, Staged: destination + suffix + ".tmp", Backup: destination + suffix + ".bak", Existed: File.Exists(destination), Delete: bytes == null);
                     transaction.Add(entry);
-                    WriteDurable(entry.Staged, bytes);
+                    if (bytes != null) WriteDurable(entry.Staged, bytes);
                     if (entry.Existed)
                     {
                         byte[] original = ReadBoundedFile(destination, MaximumTotalBytes);
@@ -159,7 +186,8 @@ internal static class SettingsArchive
                     beforeInstall?.Invoke(installed);
                     // Recheck containment immediately before replacement.
                     SettingsArchiveRegistry.Destination(root, Path.GetRelativePath(root, entry.Destination).Replace('\\', '/'));
-                    File.Move(entry.Staged, entry.Destination, true);
+                    if (!entry.Delete) File.Move(entry.Staged, entry.Destination, true);
+                    else File.Delete(entry.Destination);
                     installed++;
                 }
             }
@@ -171,6 +199,7 @@ internal static class SettingsArchive
                     var entry = transaction[i];
                     try
                     {
+                        SettingsArchiveRegistry.Destination(root, Path.GetRelativePath(root, entry.Destination).Replace('\\', '/'));
                         if (entry.Existed) File.Move(entry.Backup, entry.Destination, true);
                         else File.Delete(entry.Destination);
                     }
@@ -190,8 +219,8 @@ internal static class SettingsArchive
                 for (int i = createdDirectories.Count - 1; i >= 0; i--)
                     try { if (!Directory.EnumerateFileSystemEntries(createdDirectories[i]).Any()) Directory.Delete(createdDirectories[i]); }
                     catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
             }
-        }
     }
     private static void TryDelete(string path) { try { File.Delete(path); } catch (IOException) { } catch (UnauthorizedAccessException) { } }
     private static void WriteDurable(string path, byte[] bytes)

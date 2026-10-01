@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods.Input
@@ -80,8 +81,44 @@ namespace MphRead.Mods.Input
             _loaded = false; ReloadRequested = true;
         }
 
+        internal static void ValidateMapping(string mapping)
+        {
+            if (mapping.Length > 4096 || mapping.Any(char.IsControl)) throw new ArgumentException("Invalid controller mapping line.");
+            string[] parts = mapping.Split(',');
+            if (parts.Length < 3 || parts[0].Length != 32 || !parts[0].All(Uri.IsHexDigit)
+                || string.IsNullOrWhiteSpace(parts[1])) throw new ArgumentException("Invalid controller mapping identity.");
+            const string controls = " a b x y back start guide leftshoulder rightshoulder leftstick rightstick dpup dpright dpdown dpleft leftx lefty rightx righty lefttrigger righttrigger ";
+            var seen = new System.Collections.Generic.HashSet<string>(StringComparer.Ordinal);
+            foreach (string field in parts.Skip(2))
+            {
+                if (field.Length == 0) continue;
+                int colon = field.IndexOf(':');
+                if (colon <= 0 || colon == field.Length - 1) throw new ArgumentException("Invalid controller mapping field.");
+                string name = field[..colon], value = field[(colon + 1)..];
+                if (!seen.Add(name)) throw new ArgumentException("Duplicate controller mapping field.");
+                // SDL metadata is ignored by GLFW. Validate the actual mapped controls.
+                if (!controls.Contains(" " + name + " ", StringComparison.Ordinal)) continue;
+                int offset = value[0] is '+' or '-' ? 1 : 0;
+                if (offset >= value.Length) throw new ArgumentException("Invalid controller input.");
+                char kind = value[offset++];
+                string number = value[offset..];
+                if (kind == 'a' && number.EndsWith('~')) number = number[..^1];
+                if (kind == 'h')
+                {
+                    string[] hat = number.Split('.');
+                    if (offset != 1 || hat.Length != 2 || !Index(hat[0]) || !int.TryParse(hat[1], out int mask) || mask is < 1 or > 15)
+                        throw new ArgumentException("Invalid controller hat input.");
+                }
+                else if (kind is not ('a' or 'b') || kind == 'b' && offset != 1 || !Index(number))
+                    throw new ArgumentException("Invalid controller axis/button input.");
+            }
+            static bool Index(string value) => value.Length > 0 && value.All(char.IsAsciiDigit)
+                && int.TryParse(value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out _);
+        }
+
         internal static string ReplaceOverride(string existing, string mapping)
         {
+            ValidateMapping(mapping);
             static string Key(string line)
             {
                 var parts = line.Split(',');
@@ -187,10 +224,17 @@ namespace MphRead.Mods.Input
             try
             {
                 // The whole file at once: glfwUpdateGamepadMappings takes a
-                // string of newline-separated lines and skips comments itself,
-                // so there is nothing to parse here. It returns false only if
-                // it could not parse *any* of it.
-                bool applied = GLFW.UpdateGamepadMappings(text);
+                // string of newline-separated lines. Apply the same pure grammar
+                // used by archive validation before entering the native parser.
+                var valid = new System.Collections.Generic.List<string>();
+                foreach (string raw in text.Split('\n'))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line.StartsWith('#')) continue;
+                    try { ValidateMapping(line); valid.Add(line); } catch (ArgumentException) { }
+                }
+                text = string.Join("\n", valid);
+                bool applied = valid.Count > 0 && GLFW.UpdateGamepadMappings(text);
                 if (applied) foreach (string line in text.Split('\n'))
                 {
                     var parts = line.Trim().Split(',');

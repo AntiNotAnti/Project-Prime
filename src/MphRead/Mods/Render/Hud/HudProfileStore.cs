@@ -71,6 +71,8 @@ public sealed class HudProfileStore
     internal static bool Recoverable(Exception e) => e is IOException or UnauthorizedAccessException or JsonException or FormatException or ArgumentException;
     public void Save(string name, HudProfile profile)
     {
+        using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+        if (settingsWrite == null) return;
         string path = PathFor(name);
         // Validate the detached serialized value before touching the last good file.
         string json = Serialize(Parse(Serialize(profile)));

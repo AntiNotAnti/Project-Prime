@@ -14,8 +14,8 @@ internal static class SettingsArchiveRegistry
     private static readonly SettingsArchiveStore[] Stores =
     {
         new("Savedata/settings.json", "General", 2 * 1024 * 1024, SceneGameState.ValidateSettingsArchive),
-        new("launcher.txt", "Launcher", 2 * 1024 * 1024, SettingsArchiveValidator.ValidatePreferences),
-        new("controls.txt", "Controls", 2 * 1024 * 1024, SettingsArchiveValidator.ValidatePreferences),
+        new("launcher.txt", "Launcher", 2 * 1024 * 1024, text => SettingsArchiveValidator.ValidatePreferences(text, launcher: true)),
+        new("controls.txt", "Controls", 2 * 1024 * 1024, text => SettingsArchiveValidator.ValidatePreferences(text, launcher: false)),
         new("controller-profiles.json", "Controls", 1024 * 1024, text => Input.GamepadProfiles.ParseLibrary(text)),
         new("gamecontrollerdb.txt", "Controls", 2 * 1024 * 1024, SettingsArchiveValidator.ValidateMappings)
     };

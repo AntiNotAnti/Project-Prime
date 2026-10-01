@@ -56,7 +56,7 @@ namespace MphRead.Droid
         LaunchMode = LaunchMode.SingleTop,
         ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize
             | ConfigChanges.UiMode | ConfigChanges.Density | ConfigChanges.KeyboardHidden)]
-    public class MainActivity : AvaloniaMainActivity,
+    public partial class MainActivity : AvaloniaMainActivity,
         Android.Hardware.Display.DisplayManager.IDisplayListener
     {
         internal static MainActivity? Instance { get; private set; }
@@ -93,6 +93,7 @@ namespace MphRead.Droid
         {
             Instance = this;
             base.OnCreate(savedInstanceState);
+            InstallSettingsArchiveServices();
             AndroidPerformance.Attach(this);
             GamepadBridge.Start(this);
             MphRead.Mods.Input.GamepadContexts.MenuVisible = true;
@@ -474,6 +475,7 @@ namespace MphRead.Droid
 
         protected override void OnDestroy()
         {
+            DisposeSettingsArchiveServices();
             if (Instance == this)
             {
                 Instance = null;

@@ -1925,6 +1925,8 @@ namespace MphRead
 
         public void CommitSettings(MenuSettings menuSettings)
         {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return;
             // sktodo: commit menu options, including save slot
             if (!Directory.Exists(_saveFolder))
             {
