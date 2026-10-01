@@ -13,37 +13,40 @@ as passing results. No branches were pushed and no PRs were published.
 
 ## Where to review
 
-The original workspace is on `codex/settings-backup`. Other implementations are in
-the following worktrees. `/tmp` resolves to `/private/tmp` on this machine; branches
+The repository workspace is on local `main`. Other implementations are in the
+following worktrees. `/tmp` resolves to `/private/tmp` on this machine; branches
 preserve committed work even if temporary checkouts are later removed.
 
 | Work | Branch / tip | Worktree |
 |---|---|---|
-| Settings | `codex/settings-backup`, `6bf9384a` | Original workspace; also `/tmp/prime-settings-archive-completion` |
-| Packet generator | `codex/protocol-generator`, `afede6c9` | `/tmp/prime-protocol-generator` |
-| Fidelity Oracle | `codex/fidelity-oracle`, `3b41b0bc` | `/tmp/prime-fidelity-oracle` |
-| Semantic foundation | `codex/semantic-match-events`, `6b9cbdc3` | `/tmp/prime-semantic-events` |
-| Semantic wire | `codex/semantic-event-consumers`, `ae57673a` | `/tmp/prime-semantic-consumers` |
-| Semantic delivery and consumers | `codex/semantic-delivery`, `a91e94a6` | `/tmp/prime-semantic-delivery` |
-| Renderer capture/lifetime | `codex/render-lifetime-evidence`, `b0eddd61` | `/tmp/prime-render-final-composite` |
-| Renderer performance/Vulkan | `codex/render-performance-investigation`, `853e0472` | `/tmp/prime-render-performance-investigation` |
-| Renderer scene transitions | `codex/render-scene-lifecycle`, `22ae42eb` | `/tmp/prime-render-scene-lifecycle` |
-| Material authoring | `codex/material-authoring`, `c0e608cb` | `/tmp/prime-material-authoring` |
-| Material backend checks | `codex/material-backend-evidence`, `d87417bb` | `/tmp/prime-material-backend-evidence` |
-| Waitlist core | `codex/lobby-waitlist`, `b03e8692` | `/tmp/prime-lobby-waitlist` |
-| Waitlist admission | `codex/lobby-waitlist-admission`, `63f38eb2` | `/tmp/prime-lobby-waitlist-admission` |
-| Waitlist UI | `codex/lobby-waitlist-ui`, `c2714bf6` | `/tmp/prime-lobby-waitlist-ui` |
-| Waitlist hardening | `codex/lobby-waitlist-hardening`, `96498772` | `/tmp/prime-lobby-waitlist-hardening` |
-| Existing test harness namespace repair | `codex/test-harness-build-fix`, `63017a7e` | `/tmp/prime-test-harness-build-fix` |
-| This record | `codex/enhancements-handoff` | `/tmp/prime-enhancements-handoff` |
+| Settings | `feature/settings-backup`, `6bf9384a` | Local branch; also `/tmp/prime-settings-archive-completion` on `feature/settings-archive-completion` |
+| Packet generator | `feature/protocol-generator`, `afede6c9` | `/tmp/prime-protocol-generator` |
+| Fidelity Oracle | `feature/fidelity-oracle`, `3b41b0bc` | `/tmp/prime-fidelity-oracle` |
+| Semantic foundation | `feature/semantic-events-core`, `6b9cbdc3` | `/tmp/prime-semantic-events` |
+| Semantic wire | `feature/semantic-events-wire`, `ae57673a` | `/tmp/prime-semantic-consumers` |
+| Semantic delivery and consumers | `feature/semantic-events-delivery`, `a91e94a6` | `/tmp/prime-semantic-delivery` |
+| Renderer capture/lifetime | `test/render-lifetime-evidence`, `b0eddd61` | `/tmp/prime-render-final-composite` |
+| Renderer performance/Vulkan | `perf/render-performance`, `853e0472` | `/tmp/prime-render-performance-investigation` |
+| Renderer scene transitions | `test/render-scene-lifecycle`, `22ae42eb` | `/tmp/prime-render-scene-lifecycle` |
+| Material authoring | `feature/material-authoring`, `c0e608cb` | `/tmp/prime-material-authoring` |
+| Material backend checks | `test/material-backend-evidence`, `d87417bb` | `/tmp/prime-material-backend-evidence` |
+| Waitlist core | `feature/lobby-waitlist-core`, `b03e8692` | `/tmp/prime-lobby-waitlist` |
+| Waitlist admission | `feature/lobby-waitlist-admission`, `63f38eb2` | `/tmp/prime-lobby-waitlist-admission` |
+| Waitlist UI | `feature/lobby-waitlist-ui`, `c2714bf6` | `/tmp/prime-lobby-waitlist-ui` |
+| Waitlist hardening | `test/lobby-waitlist-hardening`, `96498772` | `/tmp/prime-lobby-waitlist-hardening` |
+| Existing test harness namespace repair | `fix/test-harness-build`, `63017a7e` | `/tmp/prime-test-harness-build-fix` |
+| This record | `docs/reborn-enhancements-handoff` | `/tmp/prime-enhancements-handoff` |
 
 Combined validation: `/tmp/prime-enhancements-validation`, commit `36f18a5d`,
-local tag `codex/reborn-enhancements-validation-20261001`. Its ordered Git history
+local tag `reborn-enhancements-validation-20261001`. The repository's local `main`
+now points to the same commit. Its ordered Git history
 records the actual integration, including small union resolutions to CLI dispatch,
 friend assemblies and protocol comments. Branches are stacked where dependencies
 require it; do not merge every full branch diff independently. The partial
 cross-field generator hook `cbe3d937` is in the semantic stack, after the generator
 foundation. Semantic delivery also includes production admission dependencies.
+Local `main` is 45 commits ahead of `origin/main`; the remote branch has not been
+updated.
 
 ## Delivered behavior
 
