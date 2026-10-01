@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using MphRead.Mods.Platform;
 
 namespace MphRead.Mods.Fidelity;
 
@@ -23,7 +24,7 @@ internal static class FidelityOracleCommand
             var catalog = FidelityScenarios.All.Concat(FidelityContentScenarios.All);
             var scenarios = id == "all" ? catalog.Where(s => allowContent || s.Content == "none").ToArray() : catalog.Where(s => s.Id == id).ToArray();
             if (scenarios.Length == 0) throw new ArgumentException("Unknown scenario.");
-            string directory = Path.GetFullPath(Option("-baselines") ?? Path.Combine(AppContext.BaseDirectory, "fidelity-baselines"), ConsoleSetup.LaunchDirectory);
+            string directory = Path.GetFullPath(Option("-baselines") ?? Path.Combine(AppPaths.ResourceDirectory, "fidelity-baselines"), ConsoleSetup.LaunchDirectory);
             string revision = Option("-engine-revision") ?? "working-tree";
             int hz = int.Parse(Option("-presentation-hz") ?? "60", System.Globalization.CultureInfo.InvariantCulture);
             if (command == "record" && (!args.Contains("--developer-record") || revision == "working-tree"
