@@ -527,7 +527,8 @@ namespace MphRead.Mods.Render
 
             _api.RenderPassEncoderRelease(pass);
 
-            ReleaseTrackedBindGroup(bindGroup);
+            if (!generated)
+                ReleaseTrackedBindGroup(bindGroup);
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
