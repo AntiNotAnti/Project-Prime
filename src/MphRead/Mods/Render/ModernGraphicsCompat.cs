@@ -332,6 +332,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         }
 
         private static int _deviceGeneration;
+        internal static (GraphicsBackend Backend, string Adapter, string Driver) DeviceIdentity
+            => (Current._device.Backend, Current._device.AdapterName, Current._device.DriverDescription);
+
         internal static int DeviceGeneration
         {
             get
