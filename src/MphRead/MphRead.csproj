@@ -308,6 +308,7 @@
     <InternalsVisibleTo Include="nettest" />
     <InternalsVisibleTo Include="settings-archive-check" />
     <InternalsVisibleTo Include="fidelity-oracle" />
+    <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
   </ItemGroup>
 

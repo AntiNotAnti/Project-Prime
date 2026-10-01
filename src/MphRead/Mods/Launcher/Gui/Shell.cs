@@ -1285,6 +1285,10 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"{UiSurface.Current?.Describe()}");
             bool saved = Mods.ScreenCapture.SaveWindow(
                 window.FramebufferSize.X, window.FramebufferSize.Y, path);
+            if (saved)
+                Mods.Render.FinalCompositeCapture.WriteEvidence(path, window.FramebufferSize.X,
+                    window.FramebufferSize.Y, "Application final composite: after scene and shell overlay/hunter, before Present");
+            else ShotMisses++;
             Console.WriteLine(saved
                 ? $"[shellshot] {path}"
                 : $"[shellshot] {name} could not be read from the window");

@@ -45,3 +45,32 @@ python -m unittest discover -s tools/render-parity -v
 
 Cross-platform hardware, long-session lifecycle, full shell composite coverage,
 and performance acceptance remain separate gates.
+
+## Application final-composite contract
+
+`FinalCompositeCapture.Read` reads the default backbuffer on the render owner
+before presentation, after the caller's last pass. It uses the shared backend
+API, returns bottom-up packed RGB, bounds allocation at 64 MiB, and restores the
+read framebuffer and pixel alignment. Replay export keeps its explicit export
+target; scene thumbnails keep their intentional pre-HUD target.
+
+The existing `ProjectPrime -shellshot ABSOLUTE_OUTPUT` sequence captures the
+actual launcher/match/pause/settings/results composite from `Shell.AfterDraw`,
+after shell UI and the launcher hunter. Every successful PNG now has a sibling
+`.png.evidence.json` identifying scope, requested/actual backend, adapter, driver,
+resolution, render scale and available live resources. Failed image readback
+fails the scripted run instead of only printing a warning. Use isolated
+`PROJECT_PRIME_USER_DATA` when running this UI sequence. Its animated frames are
+not frozen cross-backend golden references; it provides lifecycle/scope evidence.
+
+```sh
+dotnet run --project tools/final-composite-check -c Release -- opengl
+dotnet run --project tools/final-composite-check -c Release -- metal
+```
+
+This content-free GPU check draws a synthetic backdrop and final overlay, then
+asserts overlay inclusion, orientation, packed RGB, screenshot delegation and
+state restoration. It requires a real supported graphics session. The backend
+printed in the result is the created device; a missing Metal runtime must not be
+counted as successful Metal evidence. This is a readback contract test, not the
+full scene/material/hardware matrix.

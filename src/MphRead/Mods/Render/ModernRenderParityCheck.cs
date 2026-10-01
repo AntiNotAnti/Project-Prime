@@ -64,7 +64,6 @@ internal static class ModernRenderParityCheck
                     ("hdr", () => RenderOptions.InternalHdr = true),
                     ("extreme", () => RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme))
                 };
-                byte[] pixels = new byte[960 * 540 * 3];
                 foreach (var test in cases)
                 {
                     RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
@@ -80,8 +79,7 @@ internal static class ModernRenderParityCheck
                         if (frame == 11)
                         {
                             if (test.Name == "pbr") scene.CapturePbrBuffers(directory);
-                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-                            GraphicsApi.ReadPixels(0, 0, 960, 540, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
+                            byte[] pixels = FinalCompositeCapture.Read(960, 540);
                             using var file = File.Create(Path.Combine(directory, test.Name + ".png"));
                             StbImage.FlipVerticallyOnSave = true;
                             StbImage.WritePng<byte>(pixels, 960, 540, StbiImageFormat.Rgb, file);

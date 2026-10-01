@@ -2428,6 +2428,7 @@ namespace MphRead
             {
                 return null;
             }
+            if (!ExportingReplay) return Mods.Render.FinalCompositeCapture.Read(width, height);
             byte[] buffer = new byte[width * height * 3];
             int source = ExportingReplay ? ReplayOutputFramebuffer() : 0;
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, source);
