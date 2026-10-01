@@ -169,8 +169,11 @@ namespace MphRead.Mods.Network
         {
             reason = "";
             bool botCommand = command.Type is LobbyCommandType.AddBot or LobbyCommandType.RemoveBot or LobbyCommandType.UpdateBot;
+            bool returnCommand = command.Type == LobbyCommandType.ReturnToLobby
+                && _phase is SessionPhase.Starting or SessionPhase.InMatch or SessionPhase.PostMatch;
             if (SessionPolicy != ServerSessionPolicy.Lobby || (_phase != SessionPhase.Lobby
-                && !(botCommand && _phase == SessionPhase.InMatch && _matchEndedAt < 0)))
+                && !(botCommand && _phase == SessionPhase.InMatch && _matchEndedAt < 0)
+                && !returnCommand))
             { reason = "Wait until the server returns to the lobby."; return LobbyResultCode.InvalidPhase; }
             bool owner = peer.ClientId == _lobbyOwnerClientId && peer.ClientId != 0;
             if (command.Type is not LobbyCommandType.SetReady and not LobbyCommandType.SetTeam && !owner)
@@ -263,6 +266,15 @@ namespace MphRead.Mods.Network
                     if (!BeginLobbyMatch(_lobbyMatch, now, out reason))
                         return LobbyResultCode.MapUnavailable;
                     break;
+                case LobbyCommandType.ReturnToLobby:
+                    if (_phase == SessionPhase.Lobby)
+                    { reason = "The server is already in the lobby."; return LobbyResultCode.InvalidPhase; }
+                    // A persistent lobby is one session-wide phase. There is no
+                    // honest client-only lobby while everyone else remains in
+                    // the same active match, so the owner action deliberately
+                    // unwinds the match for every connected participant.
+                    EnterLobby(_frozenMatch);
+                    return LobbyResultCode.Ok;
                 case LobbyCommandType.CloseLobby:
                     // The actual close runs after the command result is sent.
                     break;
