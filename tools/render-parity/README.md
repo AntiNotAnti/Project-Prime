@@ -115,7 +115,9 @@ playable replay. Metadata rejection, replay failure, incomplete seek, missing
 Forge workspace, retained scene-resource growth, or failed image capture fails
 the run. The Forge library modal is explicitly dismissed before leaving the
 workspace, as a real launch must do. Replay readiness, actor/camera state and
-warnings are logged; inspect the PNGs as well as the state assertions.
+warnings are logged; inspect the PNGs as well as the state assertions. The
+regression also switches Free → FirstPerson after deliberately clearing the
+global camera notification, proving each replica observes its own applied mode.
 
 On a modern backend, the first added match destroys the actual device and
 requires reconstruction without fallback, a generation increment, and nonblack

@@ -1183,6 +1183,21 @@ namespace MphRead.Mods.Launcher.Gui
                     RequireLifecycle(w.HasScene && DemoPlayback.IsActive && DemoPlayback.LastResult == ReplayOpenResult.Success,
                         "replay opened: " + DemoPlayback.LastError);
                     Shot(w, $"lifecycle-{pass}-replay");
+                    // Simulate another presented scene consuming the process-wide
+                    // notification: this replica still must observe the mode itself.
+                    Replay.ReplayCamera.SetMode(Replay.ReplayCameraMode.Free);
+                    Replay.ReplayCamera.Changed = false; Wait(3);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.Scene.IsFreeCam, "replay free camera after consumed global notification");
+                    Replay.ReplayCamera.SetMode(Replay.ReplayCameraMode.FirstPerson);
+                    Replay.ReplayCamera.Changed = false; Wait(3);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.Scene.CameraMode == CameraMode.Player && !w.Scene.IsFreeCam,
+                        "replay first-person camera after consumed global notification");
                     _lifecycleSeekTarget = Math.Min(300u, DemoPlayback.LastFrame);
                     ReplayController.Seek(_lifecycleSeekTarget, resume: false); Wait(90);
                 });
