@@ -105,3 +105,35 @@ a missing runtime or a renderer fallback must never count as Vulkan acceptance.
 A framework-dependent build may resolve `runtimes/osx-arm64/native` ahead of the
 output root, so merely replacing the root library does not prove which native
 library the process loaded. Use the packaged application or verify both paths.
+
+## Content-backed scene lifecycle checks
+
+`-shellshot OUTPUT -shelllifecycle REPLAY` appends two match → spectator → rejoin
+→ launcher → Forge → replay → paused seek → launcher cycles to the existing
+fullscreen/rematch shell sequence. It requires installed game content and a
+playable replay. Metadata rejection, replay failure, incomplete seek, missing
+Forge workspace, retained scene-resource growth, or failed image capture fails
+the run. The Forge library modal is explicitly dismissed before leaving the
+workspace, as a real launch must do. Replay readiness, actor/camera state and
+warnings are logged; inspect the PNGs as well as the state assertions.
+
+On a modern backend, the first added match destroys the actual device and
+requires reconstruction without fallback, a generation increment, and nonblack
+final-composite readback. Add `-renderadvanced` to request Extreme sampling plus
+HDR, deferred PBR and TAA; target/history readiness is checked before and after
+reconstruction. `-shelllifecycleonly` runs the startup steps and added cycles for
+focused reruns; it does **not** cover the omitted fullscreen/rematch sequence.
+
+The repeated boundary assertion covers textures, renderbuffers, geometry,
+programs, lists, views, samplers, shader modules, surfaces and no retained bind
+groups. Buffer pools and pipelines are logged high-water caches and may grow
+when bot draws differ. These counts do not establish bounded native VRAM or
+replace the exact-workload 120-cycle native resource check. This check opens
+Forge, but does not author a map or enter an editor playtest.
+
+`-respawnrendercheck 'MP3 PROVING GROUND' -cycles 9 -timeout 300` exercises the
+existing damage/respawn, overlay, resize and poisoned-render-state controls.
+Requested/actual renderer identity and whiteout state now accompany diagnostics
+for unexpected black frames. Preserve any failed run even when a rerun passes;
+a later pass cannot explain an intermittent failure. The local lifecycle evidence
+records synthetic replay provenance separately from rejected historical inputs.

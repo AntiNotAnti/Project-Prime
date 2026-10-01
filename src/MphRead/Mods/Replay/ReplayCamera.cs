@@ -256,6 +256,7 @@ namespace MphRead
         private int _replayCameraSubject = -1;
         private float _replayOrbit;
         private Vector3? _replayFollowPosition;
+        private bool _replayCameraInitialized;
 
         private double ReplayPresentationTime => double.IsFinite(ReplayPresentationFrame)
             ? ReplayPresentationFrame
@@ -286,9 +287,12 @@ namespace MphRead
             _previousReplayPresentationFrame = presentationFrame;
             _replaySeekGeneration = seekGeneration;
             _replayCameraSubject = subject;
-            if (Mods.Replay.ReplayCamera.Changed)
+            if (!_replayCameraInitialized || Mods.Replay.ReplayCamera.Changed)
             {
+                // A warming shell can consume the global change notification before
+                // this replica first draws. Every scene must establish its own mode.
                 SetFreeCamera(mode != Mods.Replay.ReplayCameraMode.FirstPerson);
+                _replayCameraInitialized = true;
                 Mods.Replay.ReplayCamera.Changed = false;
                 _replayFollowPosition = null;
                 delta = 0;
