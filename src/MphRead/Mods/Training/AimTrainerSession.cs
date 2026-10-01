@@ -26,6 +26,9 @@ public sealed class AimTrainerSession
     private readonly int[] _inputFrames = new int[4];
     private long _sequence;
     private int _lastConnected = -100, _continuous;
+    private const int HitMarkerFrames = 12;
+    private const int HitMarkerFadeFrames = 6;
+    private int _hitMarkerTimer;
     private AimTrainerHud? _hud;
     public AimTrainerDefinition Definition { get; }
     public LaunchPlan Plan { get; }
@@ -36,6 +39,8 @@ public sealed class AimTrainerSession
     public bool NewPersonalBest { get; private set; }
     public string StorageError { get; private set; } = "";
     public string Feedback { get; private set; } = "READY";
+    internal float HitMarkerAlpha => _hitMarkerTimer <= 0 ? 0
+        : _hitMarkerTimer >= HitMarkerFadeFrames ? 1f : _hitMarkerTimer / (float)HitMarkerFadeFrames;
     public TrainingInputSource DominantInput => (TrainingInputSource)Array.IndexOf(_inputFrames, _inputFrames.Max());
     internal long CurrentShotId { get; private set; }
     public int TargetLifetimeFrames => Definition.Drill == AimTrainerDrill.TimedFlick ? 90
@@ -127,6 +132,7 @@ public sealed class AimTrainerSession
         if (!Running) Start();
         _scene.GameState.MatchTime = -1; _scene.GameState.PointGoal = 0;
         Stats.ElapsedFrames++;
+        if (_hitMarkerTimer > 0) _hitMarkerTimer--;
         _inputFrames[PointerDevice.Current.Device == PointerDeviceType.Pen ? 3 : (int)InputSourceTracker.Current]++;
         var main = _scene.Players.Main;
         main.IgnoreItemPickups = true;
@@ -210,6 +216,7 @@ public sealed class AimTrainerSession
             _lastConnected = Stats.ElapsedFrames;
         }
         if (!shot.HitTargets.Add(victim.SlotIndex)) return true;
+        _hitMarkerTimer = HitMarkerFrames;
         if (beam.EnhancedDirectHit) Stats.DirectHits++; else Stats.SplashHits++;
         if (shot.Charged) Stats.ChargedHits++;
         if (beam.Afflictions.TestFlag(Affliction.Freeze)) Stats.FreezeHits++;
@@ -260,7 +267,7 @@ public sealed class AimTrainerSession
         weaponStats.ReactionSamples.AddRange(Stats.ReactionSamples); weaponStats.AcquisitionSamples.AddRange(Stats.AcquisitionSamples);
         weaponStats.LockSamples.AddRange(Stats.LockSamples); weaponStats.ReacquisitionSamples.AddRange(Stats.ReacquisitionSamples);
         weaponStats.AngularTransitions.AddRange(Stats.AngularTransitions);
-        Running = false; Completed = true;
+        Running = false; Completed = true; _hitMarkerTimer = 0;
         _scene.GameState.PauseMenu();
         try { NewPersonalBest = AimTrainerPersonalBests.Save(Definition, DominantInput, Stats); }
         catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException or System.Text.Json.JsonException) { StorageError = "Personal best could not be saved: " + ex.Message; }
