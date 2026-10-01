@@ -57,9 +57,10 @@ internal static class SettingsArchiveRegistry
     {
         ValidatePath(path);
         root = System.IO.Path.GetFullPath(root);
-        // Reject links in both root ancestry and descendants, including dangling links.
-        for (var parent = new DirectoryInfo(root); parent != null; parent = parent.Parent)
-            RejectLink(parent.FullName);
+        // The application chooses the trusted root; platform ancestry (e.g. Android
+        // /data/user/0 or macOS /var) may legitimately contain a system alias.
+        // Archive-controlled descendants must never redirect installation.
+        RejectLink(root);
         string current = root;
         foreach (string part in path.Split('/'))
         {
