@@ -116,7 +116,11 @@ Prime changes to independent production counters across 2/4/8 players (891
 checks). The reliable test exercises real UDP inbox saturation and retries the
 same semantic event after capacity becomes available.
 
-Remaining Stage C–G migration gates: source-claim corrections and delayed/coalesced snapshot parity; measure reliable
+The actual combat scene check covers canonical death counts for rescued claims
+against resolved health, including tied/earlier shots, reversed arrival, 0/1/8-tick
+arrival gaps and duplicate claims (152 total checks).
+
+Remaining Stage C–G migration gates: delayed/coalesced snapshot parity; measure reliable
 bandwidth under load; migrate kill feed, announcer, telemetry and post-match
 consumers only once those checks pass. Existing player-facing consumers and their
 legacy replay translation continue unchanged. Overtime still needs an actual

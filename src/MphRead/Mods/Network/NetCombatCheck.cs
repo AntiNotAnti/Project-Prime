@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Reflection;
 using MphRead.Entities;
@@ -192,6 +193,8 @@ namespace MphRead.Mods.Network
             foreach (int arrivalGap in new[] { 0, 1, 8 })
             {
                 PrepareClaims();
+                var semantic = PlayerEntity.Players[0].OwningScene.MatchEvents.Bus;
+                int killsBefore = semantic.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.PlayerKilled);
                 uint world = NetSession.NetFrame - 1;
                 var a = Claim(0, earlier == 0 ? world - 1 : world);
                 var b = Claim(1, earlier == 1 ? world - 1 : world);
@@ -203,6 +206,12 @@ namespace MphRead.Mods.Network
                 bool aDead = PlayerEntity.Players[0].Health == 0, bDead = PlayerEntity.Players[1].Health == 0;
                 Check(earlier == -1 ? aDead && bDead : earlier == 0 ? !aDead && bDead : aDead && !bDead,
                     $"MutualKillOrdering/earlier={earlier} reversed={reverse} arrivalGap={arrivalGap} ADead={aDead} BDead={bDead}");
+                int canonicalDeaths = semantic.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.PlayerKilled) - killsBefore;
+                Check(canonicalDeaths == (aDead ? 1 : 0) + (bDead ? 1 : 0),
+                    $"CanonicalClaimDeaths/earlier={earlier} reversed={reverse} arrivalGap={arrivalGap}");
+                Receive(0, a); Receive(1, b); NetHitClaims.Tick();
+                Check(semantic.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.PlayerKilled) - killsBefore == canonicalDeaths,
+                    "duplicate claims do not duplicate canonical deaths");
             }
             PrepareClaims();
         }
