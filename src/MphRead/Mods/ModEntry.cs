@@ -39,6 +39,11 @@ namespace MphRead.Mods
                 Environment.ExitCode = Settings.SettingsArchiveCommand.Run(args);
                 return true;
             }
+            if (HasFlag(args, "fidelityoracle"))
+            {
+                Environment.ExitCode = Fidelity.FidelityOracleCommand.Run(args);
+                return true;
+            }
             // Renderer probes return before the normal client logging setup.
             // Honor explicit logging here so native startup failures in those
             // probes retain the same checkpoints as the launcher.

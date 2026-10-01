@@ -307,6 +307,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
     <InternalsVisibleTo Include="settings-archive-check" />
+    <InternalsVisibleTo Include="fidelity-oracle" />
     <InternalsVisibleTo Include="hud-ui-check" />
   </ItemGroup>
 
@@ -384,5 +385,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <None Include="../../tools/fidelity-oracle/baselines/*.json" Link="fidelity-baselines/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

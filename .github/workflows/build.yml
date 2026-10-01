@@ -39,6 +39,19 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+  fidelity-oracle:
+    name: content-free fidelity oracle (F0/F1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: framework and presentation-rate checks
+        run: dotnet run --project tools/fidelity-oracle -c Release
+      - name: verify reviewed normalized baselines
+        run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
+
   modern-renderer-windows:
     name: modern renderer Windows ${{ matrix.renderer }} smoke
     runs-on: windows-latest
