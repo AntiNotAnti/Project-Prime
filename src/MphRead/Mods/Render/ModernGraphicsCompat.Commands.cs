@@ -14,6 +14,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
     }
 
     private readonly Dictionary<ulong, UniformPool> _uniformPools = new();
+    private const int CommandBatchOperations = 256;
+
     private CommandEncoder* _commandEncoder;
     private int _commandOperations;
 
@@ -40,14 +42,22 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void EndCommands()
     {
-        if (++_commandOperations >= 64) FlushCommands();
+        // A frame can contain hundreds of tiny compatibility passes. Retaining
+        // more of them in one encoder cuts QueueSubmit/finish churn while each
+        // draw still owns its pass and its pooled buffers remain distinct until
+        // the frame boundary.
+        if (++_commandOperations >= CommandBatchOperations) FlushCommands();
     }
 
     private void FlushCommands()
     {
         if (_commandEncoder == null) return;
         CommandBuffer* commands = _api.CommandEncoderFinish(_commandEncoder, new CommandBufferDescriptor());
-        try { _api.QueueSubmit(_queue, 1, &commands); }
+        try
+        {
+            _api.QueueSubmit(_queue, 1, &commands);
+            RecordCommandSubmission();
+        }
         finally
         {
             _api.CommandBufferRelease(commands);
