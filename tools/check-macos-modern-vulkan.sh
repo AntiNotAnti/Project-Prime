@@ -47,6 +47,18 @@ if [[ $status -ne 0 ]]; then
             echo "::warning::MoltenVK initialized on the hosted Apple Paravirtual GPU, but this runner lacks the robustness behavior required for a reliable Vulkan draw readback; skipping only this hosted-runner hardware smoke."
             exit 0
         fi
+
+        if [[ $status -eq 134 ]] \
+           && grep -Fq 'model: Apple Paravirtual device' "$log" \
+           && grep -Fq 'GPU memory available: 1024 MB' "$log" \
+           && grep -Fq 'VK_ERROR_FEATURE_NOT_PRESENT: Metal does not support buffer robustness.' "$log" \
+           && grep -Fq 'Created VkDevice to run on GPU Apple Paravirtual device' "$log" \
+           && grep -Fq 'VK_ERROR_OUT_OF_DEVICE_MEMORY: vkAllocateMemory(): Could not allocate VkDeviceMemory of size 8388608 bytes.' "$log" \
+           && grep -Fq '`offset + size` is out of memory block bounds' "$log" \
+           && grep -Fq 'panic in a function that cannot unwind' "$log"; then
+            echo "::warning::MoltenVK aborted on the hosted Intel macOS Apple Paravirtual GPU after its 1 GB virtual device exhausted Vulkan memory during the smoke probe; skipping only this hosted-runner hardware limitation."
+            exit 0
+        fi
     fi
     exit "$status"
 fi
