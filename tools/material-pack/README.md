@@ -45,7 +45,7 @@ remain shared. Packs remain local presentation overrides separate from community
 
 Rendering uses one resolved map contract before the existing `GraphicsApi` backend dispatch: normal XYZ, specular in red and roughness in green, emissive RGB. Android uses the same PNG header/chunk/dimension validation, the OS BitmapFactory decoder (unscaled, unpremultiplied), and explicit ARGB-to-RGBA conversion before the shared upload path. The editor albedo decoder uses that same platform-safe byte decoder. It uses the writable pack root and does not load the desktop-only Stb native dependency; physical Android acceptance remains pending. Pack reload changes the renderer material revision and retains main texture bindings while replacing their companion resources. Partial companion allocation failures release all earlier allocations.
 
-The local synthetic pixel suite now verifies the shared material shader on actual OpenGL and Metal. Broad scene appearance and unavailable hardware still require acceptance; this bounded suite does not prove every lighting/material combination.
+The local synthetic pixel suite now verifies the shared material shader on actual OpenGL, Metal, and Vulkan. Broad scene appearance and unavailable hardware still require acceptance; this bounded suite does not prove every lighting/material combination.
 
 Run synthetic content-free checks:
 
@@ -90,4 +90,11 @@ error was zero for every fixture**, and alpha matched exactly. Full-frame differ
 were 156 RGB components (52 pixels), maximum 28/255, at background grid coverage
 edges outside the tested material surface; these are reported rather than hidden.
 JSON outputs retain complete RGB pixels and backend metadata for independent review.
+The same 12 fixtures also passed on actual `WebGPU 1.0 / Vulkan (MoltenVK)`
+with zero interior error against OpenGL and exact alpha. Vulkan used the packaged
+MoltenVK loader/ICD and native runtime SHA-256
+`5bfdbb661cca97d80a85b854d394d43c530a5b18bf49d4184e2555f3bf39ef60`.
+Use `--pixels vulkan /tmp/material-vulkan.json` and the same comparison command;
+install the native runtime in both the output root and `runtimes/osx-arm64/native`
+after building, with the MoltenVK loader and ICD beside the output DLL.
 Windows DirectX/Vulkan and physical Android pixel acceptance remain unverified.
