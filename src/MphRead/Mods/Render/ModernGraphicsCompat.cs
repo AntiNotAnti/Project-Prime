@@ -172,6 +172,15 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             self.ConfigureSurface();
         }
 
+        /// <summary>
+        /// True when presentation itself owns the display cadence. Immediate
+        /// and Mailbox can be software-paced; FIFO-style fallback cannot.
+        /// </summary>
+        internal static bool PresentationBlocks =>
+            Current._presentMode is not (PresentMode.Immediate or PresentMode.Mailbox);
+
+        internal static string ActivePresentMode => Current._presentMode.ToString();
+
         private void SelectPresentMode()
         {
             _presentMode = !_vsync && _presentModes.Contains(PresentMode.Immediate) ? PresentMode.Immediate
