@@ -33,7 +33,7 @@ namespace MphRead.Mods.Launcher.Gui
                             Mode = GameMode.Battle, Players = 3, MaxPlayers = 8, Latency = 24 }),
                     new ServerBrowserEntry(new MasterListing { Address = "127.0.0.2", Port = 27888, ServerName = "FULL TEST ARENA" },
                         new ServerStatus { Online = true, Protocol = NetConfig.ProtocolVersion, RoomKey = rooms[1],
-                            Mode = GameMode.BattleTeams, Players = 8, MaxPlayers = 8, Latency = 42 })
+                            Mode = GameMode.BattleTeams, Players = 8, MaxPlayers = 8, Latency = 42, WaitlistSupported = true, WaitlistCount = 3 })
                 }) { Overlays = shell!.Overlays },
                 PrimeRoute.HunterLicense => new LicenseWorkspace(loadProfile: false),
                 PrimeRoute.Settings => new SettingsView(settings, shell: true),
@@ -300,6 +300,13 @@ namespace MphRead.Mods.Launcher.Gui
                     finally { Mods.Input.GamepadRuntimeConfig.Current = previousRuntime; }
                     var rows = play.GetVisualDescendants().OfType<ServerRow>().ToArray();
                     Check(rows.Length == 2 && rows[0].CanJoin && !rows[1].CanJoin, "full server cannot be joined");
+                    Check(rows[1].CanQueue && rows[1].WaitingCount == 3, "full compatible server exposes advertised queue");
+                    var queueDialog = LobbyQueueDialog.ShowAsync(shell.Overlays, "127.0.0.1", 27888);
+                    Drain(window);
+                    Check(shell.Overlays.IsOpen && !queueDialog.IsCompleted, "queue requires explicit opt-in");
+                    Check(shell.Overlays.GetVisualDescendants().OfType<PrimeButton>().Single(b => b.Label == "ACCEPT SEAT").IsEnabled == false, "no acceptance before a server offer");
+                    shell.Back(); Drain(window);
+                    Check(!shell.Overlays.IsOpen && queueDialog.IsCompletedSuccessfully && queueDialog.Result == null, "queue cancellation releases modal without admission");
                     shell.Footer.SetStatus("DOWNLOADING 42%"); shell.Refresh();
                     Check(shell.Footer.Version.Label == "DOWNLOADING 42%", "telemetry refresh preserves update progress");
                     shell.Footer.SetStatus("SIM: 60 HZ // BUILD LOCAL");
@@ -332,6 +339,9 @@ namespace MphRead.Mods.Launcher.Gui
                     if (directory != null)
                     {
                         Directory.CreateDirectory(directory);
+                        _ = LobbyQueueDialog.ShowAsync(shell.Overlays, "127.0.0.1", 27888);
+                        Check(UiCapture.Capture(shell, Path.Combine(directory, "prime-player-waitlist-960x540.png"), new Size(960,540)), "queue modal capture");
+                        shell.Overlays.Close();
                         foreach (var size in Sizes)
                         foreach (var route in Enum.GetValues<PrimeRoute>())
                         {

@@ -32,11 +32,15 @@ The production test covers strict generated golden/truncated/malformed bytes,
 full-server FIFO, theft by direct join or another queued peer, forged promotion,
 decline and expiry, bot occupancy, stale offers, JIP transitions, disconnect grace,
 shutdown and the actual same-transport NetLaunch/NetSession identity handoff.
-Standalone policy tests additionally cover simultaneous reservations.
+The live matrix also covers two simultaneous vacancies and reverse-order acceptance.
+The launcher Play workspace offers Join Queue on compatible full servers, displays
+position/count, and requires explicit accept/decline before the deadline. Back,
+Leave and workspace teardown release queue state. PrimeUiChecks validates opt-in,
+disabled acceptance before an offer, cancellation and an offscreen modal capture.
 
 ## Remaining completion gates
 
-Launcher presentation is a follow-up on this admission foundation. Reconnection
+Reconnection
 currently retains only the same established endpoint/connection incarnation;
 reopening a socket or changing address needs an explicit authenticated rebind
 contract. There is no separate server spectator capacity: current SpectatorMode

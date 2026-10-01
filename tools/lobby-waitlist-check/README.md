@@ -44,6 +44,6 @@ They do **not** exercise production NetTransport, DedicatedServer or NetLobbyTes
 
 The live admission layer now provides bounded queue-only transport bootstrap,
 production protocol-35 packets, server reservations, and same-socket normal
-admission handoff. Launcher UI remains a separate follow-up. Resume currently
+admission handoff. The active launcher Play workspace includes queue controls. Resume currently
 requires the same endpoint and connection incarnation. SpectatorMode consumes a
 normal player slot; there is no independent spectator admission pool.

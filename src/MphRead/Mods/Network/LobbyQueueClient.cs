@@ -27,6 +27,7 @@ public sealed class LobbyQueueClient : IDisposable
     internal uint ClientId => _clientId;
     internal IPEndPoint Server => _server;
     public bool Admitted => _welcome.HasValue;
+    public bool Ended => _state?.State is LobbyQueueWireState.Left or LobbyQueueWireState.Expired or LobbyQueueWireState.Rejected;
     public int Position => _state?.Position ?? 0;
     public int QueueLength => _state?.QueueLength ?? 0;
     public bool SeatAvailable => _offer.HasValue && RemainingOfferSeconds > 0 && !Admitted;

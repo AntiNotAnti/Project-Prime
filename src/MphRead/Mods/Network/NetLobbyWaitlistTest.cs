@@ -55,6 +55,7 @@ public static partial class NetLobbyTest
             WaitlistExpiryAndBotScenario();
             WaitlistJipScenario();
             WaitlistSessionHandoffScenario();
+            WaitlistSimultaneousVacanciesScenario();
             Console.WriteLine($"[waitlist] PASS {_checks} assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission.");
             return 0;
         }
@@ -132,6 +133,23 @@ public static partial class NetLobbyTest
         var active = typeof(NetSession).GetField("_transport", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null);
         Check(ReferenceEquals(transport, active) && NetSession.LocalSlot == 1, "game session adopts same socket and reserved player slot");
         NetSession.Stop();
+    }
+
+    private static void WaitlistSimultaneousVacanciesScenario()
+    {
+        using var rig = new Rig(maxPlayers: 3);
+        rig.Add(1401); var guest1 = rig.Add(1402); var guest2 = rig.Add(1403);
+        using var first = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1404);
+        using var second = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1405);
+        using var third = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1406);
+        void Poll() { first.Poll(); second.Poll(); third.Poll(); }
+        rig.Wait(() => { Poll(); return first.Position == 1 && second.Position == 2 && third.Position == 3; }, "three clients enter real FIFO");
+        rig.Clients.Remove(guest1); rig.Clients.Remove(guest2); guest1.Dispose(); guest2.Dispose();
+        rig.Wait(() => { Poll(); return first.SeatAvailable && second.SeatAvailable; }, "two simultaneous vacancies create two offers");
+        Check(!third.SeatAvailable && first.Offer!.Value.OfferId != second.Offer!.Value.OfferId, "only first two receive distinct reservations");
+        second.AcceptSeat(); first.AcceptSeat();
+        rig.Wait(() => { Poll(); return first.Admitted && second.Admitted && rig.Server.PeerCount == 3; }, "reverse acceptance order preserves two reserved seats");
+        Check(first.Offer!.Value.QueueId != second.Offer!.Value.QueueId && !third.Admitted, "capacity cannot over-admit third queued client");
     }
 
     private static void QueuePacketChecks()
