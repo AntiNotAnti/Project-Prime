@@ -40,6 +40,10 @@ protocol version or Hunter License submission is introduced.
   resolve after a ten-second simulation timeout or at the end of the run.
 - Timing is in 60 Hz simulation frames. Rendering cannot advance trainer stats.
   Completion stops simulation and presents dedicated desktop/Android results.
+- Accepted target contacts pulse a training-local 12-frame hit marker with a
+  six-frame fade through the normal HUD renderer. The pulse is presentation-only,
+  respects the global hit-marker switch and HUD marker styling, and does not touch
+  network prediction state.
 - Retry preserves configuration and hunter, with a new seed unless fixed-seed is
   selected. Change Drill returns to the training controls; Exit returns to Offline.
 - `aim-trainer.json` holds local best scores and their summary metrics, separated

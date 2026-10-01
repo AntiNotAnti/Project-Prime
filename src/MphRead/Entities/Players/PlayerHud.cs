@@ -1676,6 +1676,8 @@ namespace MphRead.Entities
                                         _scene.DrawHudObject(_targetCircleInst, scale: nativeScale);
                                     }
                                     float hitMarker = Mods.Network.NetHitPrediction.MarkerAlpha;
+                                    if (Mods.Network.NetHitPrediction.MarkerEnabled && _scene.AimTrainer is { } training)
+                                        hitMarker = Math.Max(hitMarker, training.HitMarkerAlpha);
                                     if (hitMarker > 0)
                                     {
                                         _scene.DrawHitMarker(new Vector4(1f, 1f, 1f, hitMarker),

@@ -85,8 +85,12 @@ public static class AimTrainerChecks
             int health = target.Health;
             target.TakeDamage(10, DamageFlags.Headshot, null, beam); trainer.EndShot(true);
             check(trainer.Stats.Headshots == 1 && trainer.Stats.ShotsHit == 1 && target.Health == health, "central damage consumes genuine headshot flags without death");
+            check(trainer.HitMarkerAlpha == 1f, "accepted target hit pulses Aim Lab hit marker");
             check(trainer.Hidden(target), "scored target enters transition");
-            for (int i = 0; i < 20; i++) trainer.ProcessFrame();
+            for (int i = 0; i < 7; i++) trainer.ProcessFrame();
+            check(trainer.HitMarkerAlpha > 0 && trainer.HitMarkerAlpha < 1f, "Aim Lab hit marker fades over its final frames");
+            for (int i = 7; i < 20; i++) trainer.ProcessFrame();
+            check(trainer.HitMarkerAlpha == 0, "Aim Lab hit marker expires independently of network prediction");
             check(!trainer.Hidden(target) && trainer.Stats.TargetsSpawned == 2, "target reappears on authored anchor");
             int previousHits = trainer.Stats.ShotsHit;
             trainer.BeginShot(shooter);
