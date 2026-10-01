@@ -19,6 +19,10 @@ internal static class FidelityContentScenarios
             "weapon.imperialist", "weapon.judicator", "weapon.magmaul", "weapon.battlehammer", "weapon.voltdriver", "weapon.shockcoil" })
             scenarios.Add(new(id, 1, 180, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
                 "Real offline engine, Samus slot 1, 120 warmup ticks, fixed native room. Movement/firing/ammo/projectile-state regression; not targeted headshot/splash acceptance."));
+        scenarios.Add(new("simulation.respawn", 1, 420, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
+            "Actual lethal damage at tick 10, death timer and scripted respawn request; offline Battle."));
+        scenarios.Add(new("simulation.match-transition", 1, 180, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
+            "Actual Battle timer expiration at tick 10; captures engine match-state transition."));
         return scenarios.ToArray();
     }
     internal static List<FidelityCheckpoint> Capture(FidelityScenario scenario, int presentationHz)
@@ -59,13 +63,20 @@ internal static class FidelityContentScenarios
             var output = new List<FidelityCheckpoint>();
             Render.FrameTiming.Reset(); Render.FrameTiming.ResetDiagnostics();
             int tick = 0, frames = 0;
-            while (tick < scenario.Ticks && frames++ < presentationHz * 5)
+            while (tick < scenario.Ticks && frames++ < presentationHz * (scenario.Ticks / 60 + 2))
             {
                 int steps = Render.FrameTiming.Advance(1.0 / presentationHz);
                 for (int step = 0; step < steps && tick < scenario.Ticks; step++)
                 {
                     tick++;
-                    if (weapon) NetTestScript.HoldFire(actor, tick % 30 < 12);
+                    if (scenario.Id.StartsWith("simulation.", StringComparison.Ordinal))
+                    {
+                        NetTestScript.Rest(actor, wantBiped: true);
+                        if (tick == 10 && scenario.Id == "simulation.respawn")
+                            actor.TakeDamage(500, DamageFlags.IgnoreInvuln, null, scene.Players.Items[0]);
+                        if (tick == 10 && scenario.Id == "simulation.match-transition") scene.GameState.MatchTime = 0.05f;
+                    }
+                    else if (weapon) NetTestScript.HoldFire(actor, tick % 30 < 12);
                     else
                     {
                         if (scenario.Id == "movement.jump") NetTestScript.Rest(actor, wantBiped: true);
@@ -101,16 +112,31 @@ internal static class FidelityContentScenarios
                             Vector(prefix + ".position4096", beam.Position); Vector(prefix + ".velocity4096", beam.Velocity);
                         }
                     point.Values.Add("projectiles", count);
+                    if (scenario.Id.StartsWith("simulation.", StringComparison.Ordinal))
+                    {
+                        point.Values.Add("matchState", (int)scene.GameState.MatchState);
+                        point.Values.Add("deaths", scene.GameState.Deaths[1]);
+                        point.Values.Add("kills", scene.GameState.Kills[0]);
+                    }
                     output.Add(point);
                 }
             }
             if (tick != scenario.Ticks || Render.FrameTiming.Stalls != 0 || Render.FrameTiming.DroppedSteps != 0)
                 throw new InvalidOperationException("F2 clock failed to deliver the scenario ticks.");
-            if (!weapon && output.TrueForAll(p => p.Values["position4096.x"] == output[0].Values["position4096.x"]
+            if (scenario.Id.StartsWith("movement.", StringComparison.Ordinal) && output.TrueForAll(p => p.Values["position4096.x"] == output[0].Values["position4096.x"]
                 && p.Values["position4096.y"] == output[0].Values["position4096.y"] && p.Values["position4096.z"] == output[0].Values["position4096.z"]))
                 throw new InvalidOperationException("F2 movement probe did not move its actor.");
             if (weapon && !output.Exists(p => p.Values["projectiles"] > 0))
                 throw new InvalidOperationException("F2 firing probe did not create a projectile.");
+            if (scenario.Id == "simulation.respawn")
+            {
+                int death = output.FindIndex(p => p.Values["health"] == 0);
+                if (death < 0 || !output.GetRange(death + 1, output.Count - death - 1).Exists(p => p.Values["health"] > 0)
+                    || output[^1].Values["deaths"] != 1)
+                    throw new InvalidOperationException("F2 respawn probe did not observe one death and a subsequent live player.");
+            }
+            if (scenario.Id == "simulation.match-transition" && output.TrueForAll(p => p.Values["matchState"] == output[0].Values["matchState"]))
+                throw new InvalidOperationException("F2 match timer did not cause a state transition.");
             return output;
         }
         finally

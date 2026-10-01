@@ -3,7 +3,7 @@
 The default pack captures production clock, random-stream, lifecycle and
 continuous-weapon-phase behavior without game content (F1). An opt-in F2 pack
 runs the actual offline engine with extracted AMHE1 content: walking, jumping,
-air control and all eight weapons. Passing these packs is never F3–F5 evidence.
+air control, all eight weapons, death/respawn and match timer expiration. Passing these packs is never F3–F5 evidence.
 
 ```sh
 dotnet run --project tools/fidelity-oracle -c Release
@@ -68,7 +68,7 @@ dotnet src/MphRead/bin/Release/net10.0/ProjectPrime.dll -fidelityoracle verify a
 scenario IDs also require that flag. Missing extracted files fail clearly; tests
 never download assets or silently replace F2 with a content-free approximation.
 The configured AMHE1 Proving Ground is loaded with two Samus players and a fixed
-seed, followed by 120 warmup ticks and 180 captured ticks. Slot 1 uses scripted
+seed, followed by 120 warmup ticks and 180 captured ticks (420 for respawn). Slot 1 uses scripted
 inputs through production controls; slot 0 is the suppressed headless host lane.
 Weapon probes must create actual projectiles; movement probes must actually move.
 Captured fields include normalized position/velocity, animation, health, RNG,
@@ -80,7 +80,10 @@ splash or damage-application acceptance. The presentation-rate argument changes
 clock scheduling without rendering; it is not rendered FPS evidence. Initial
 normalized content references were proposed from the baseline engine `e80098f4`.
 
-Remaining packs: match transition/respawn, knockback/slope/platform/corner movement,
+Lifecycle probes apply actual lethal damage and wait for the engine respawn timer,
+or expire the actual match clock; they fail if the expected transition never occurs.
+
+Remaining packs: knockback/slope/platform/corner movement,
 targeted weapon hit/damage scenarios, disconnect/resume and match epoch, all match modes/objectives.
 Comprehensive alternate forms remain the **last** gameplay pack, after these core
 scenarios. Do not substitute invented toy movement or damage calculations for
