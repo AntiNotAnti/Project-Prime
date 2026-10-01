@@ -99,8 +99,14 @@ public sealed class NetPacketGenerator : IIncrementalGenerator
         var ctor = symbol.InstanceConstructors.FirstOrDefault(c => c.Parameters.Length == syntax.ParameterList.Parameters.Count
             && c.DeclaringSyntaxReferences.Any(r => r.GetSyntax() is RecordDeclarationSyntax));
         if (ctor == null) { Error(ctx, 1, symbol, "Cannot resolve positional packet constructor."); return; }
-        string[] reserved = { "Validate", "Write", "TryRead", "EncodedSize", "MinimumSize", "MaximumSize", "Size", "SchemaProtocolVersion", "__netUtf8" };
-        if (symbol.GetMembers().Any(m => reserved.Contains(m.Name)))
+        string[] reserved = { "Validate", "Write", "TryRead", "EncodedSize", "MinimumSize", "MaximumSize", "Size", "SchemaProtocolVersion", "__netUtf8", "ValidateSchema" };
+        if (symbol.GetMembers().Any(m => reserved.Contains(m.Name)
+            && !(m.Name == "ValidateSchema" && m is IMethodSymbol method && !method.IsStatic
+                && method.ReturnsVoid && method.Parameters.Length == 1
+                && method.Parameters[0].RefKind == RefKind.Ref
+                && method.Parameters[0].Type.SpecialType == SpecialType.System_Boolean
+                && method.DeclaringSyntaxReferences.Any(r => r.GetSyntax() is MethodDeclarationSyntax declaration
+                    && declaration.Modifiers.Any(SyntaxKind.PartialKeyword)))))
         { Error(ctx, 1, symbol, "Packet declares a reserved generated member name."); return; }
         var fields = new List<Field>();
         bool valid = true;
@@ -130,7 +136,8 @@ public sealed class NetPacketGenerator : IIncrementalGenerator
             if (f.Minimum.HasValue) b.Append("if ((decimal)").Append(f.Name).Append(" < ").Append(Literal(f.Minimum.Value)).Append("m || (decimal)").Append(f.Name).Append(" > ").Append(Literal(f.Maximum!.Value)).AppendLine("m) return false;");
             if (f.Enum) b.Append("if (!(").Append(string.Join(" || ", f.EnumValues.Select(value => f.Name + " == (" + f.Type + ")(" + value + ")"))).AppendLine(")) return false;");
         }
-        b.AppendLine("return true; } catch (global::System.Text.EncoderFallbackException) { return false; } }");
+        b.AppendLine("bool valid = true; ValidateSchema(ref valid); return valid; } catch (global::System.Text.EncoderFallbackException) { return false; } }");
+        b.AppendLine("partial void ValidateSchema(ref bool valid);");
         b.Append("public int EncodedSize { get { if (!Validate()) throw new global::System.InvalidOperationException(\"Invalid packet values.\"); return MinimumSize");
         foreach (var f in fields.Where(f => f.String)) b.Append(" + __netUtf8.GetByteCount(").Append(f.Name).Append(')');
         b.AppendLine("; } }");

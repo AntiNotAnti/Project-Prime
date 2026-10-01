@@ -63,10 +63,15 @@ namespace Fixtures {
     [NetPacket(203,34)] readonly partial record struct Boundary([NetString(1469)] string Value);
     [NetPacket(204,34)] readonly partial record struct Names(int offset, int size,
         [NetString(4)] string Value, [NetString(4)] string ValueLength);
+    [NetPacket(205,34)] readonly partial record struct Correlated(ushort Slot, ushort Generation) {
+        partial void ValidateSchema(ref bool valid) => valid = Slot < 8 && Generation != 0;
+    }
     public static class WireChecks {
         static int count;
         static void Assert(bool value) { if (!value) throw new Exception("Wire assertion " + count); count++; }
         public static int Run() {
+            Assert(!Correlated.TryRead(new byte[] { 205, 8, 0, 0, 0 }, out _));
+            Assert(new Correlated(1, 2).Validate());
             var packet = new Packet(2, true, Mode.Last, 0x1234, 0x78563412, "é");
             byte[] bytes = new byte[packet.EncodedSize]; packet.Write(bytes);
             byte[] golden = { 201, 2, 1, 3, 0x34, 0x12, 0x12, 0x34, 0x56, 0x78, 2, 0, 0xc3, 0xa9 };
