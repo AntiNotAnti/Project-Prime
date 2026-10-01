@@ -27,7 +27,7 @@ preserve committed work even if temporary checkouts are later removed.
 | Semantic delivery and consumers | `codex/semantic-delivery`, `a91e94a6` | `/tmp/prime-semantic-delivery` |
 | Renderer capture/lifetime | `codex/render-lifetime-evidence`, `b0eddd61` | `/tmp/prime-render-final-composite` |
 | Renderer performance/Vulkan | `codex/render-performance-investigation`, `853e0472` | `/tmp/prime-render-performance-investigation` |
-| Renderer scene transitions | `codex/render-scene-lifecycle`, `bc654546` (plus mode-tracking follow-up) | `/tmp/prime-render-scene-lifecycle` |
+| Renderer scene transitions | `codex/render-scene-lifecycle`, `22ae42eb` | `/tmp/prime-render-scene-lifecycle` |
 | Material authoring | `codex/material-authoring`, `c0e608cb` | `/tmp/prime-material-authoring` |
 | Material backend checks | `codex/material-backend-evidence`, `d87417bb` | `/tmp/prime-material-backend-evidence` |
 | Waitlist core | `codex/lobby-waitlist`, `b03e8692` | `/tmp/prime-lobby-waitlist` |
@@ -37,7 +37,8 @@ preserve committed work even if temporary checkouts are later removed.
 | Existing test harness namespace repair | `codex/test-harness-build-fix`, `63017a7e` | `/tmp/prime-test-harness-build-fix` |
 | This record | `codex/enhancements-handoff` | `/tmp/prime-enhancements-handoff` |
 
-Combined validation: `/tmp/prime-enhancements-validation`. Its ordered Git history
+Combined validation: `/tmp/prime-enhancements-validation`, commit `36f18a5d`,
+local tag `codex/reborn-enhancements-validation-20261001`. Its ordered Git history
 records the actual integration, including small union resolutions to CLI dispatch,
 friend assemblies and protocol comments. Branches are stacked where dependencies
 require it; do not merge every full branch diff independently. The partial
@@ -111,6 +112,7 @@ Counts below describe assertions in their suites, not distinct end-to-end scenar
 | Generator | 35 generator checks, 77 wire assertions, 5,000 malformed datagrams pass |
 | Settings archive | 26 combined checks; 28 including focused UI checks pass |
 | Material schema/resolution | 58 assertions pass |
+| Renderer comparison tooling | 8 content-free tests pass |
 | Map Studio | 388 checks pass |
 | Community-map multiplayer | Download, exact identity, historical versions and restart pass |
 
@@ -133,6 +135,14 @@ targets and recovery during a loaded match. Scene-local replay camera initializa
 fixes a reproduced global-notification race. Nine-cycle respawn checks pass 4,935
 frames each on GL/Metal and on subsequent Vulkan runs; the first Vulkan failure
 remains recorded below. See `macos-m4pro-scene-lifecycle-20261001.json`.
+The follow-up deliberately consumes the global camera notification before each
+Free → FirstPerson switch; both cycles pass on actual Vulkan with scene-local mode
+tracking. Its 15-capture advanced/recovery run is recorded in
+`macos-m4pro-replay-camera-modes-20261001.json`.
+The final combined build also passes both OpenGL lifecycle cycles, including the
+lost-notification camera regression and protocol-34 fixture seek. Its 14 PNG
+captures are in `/tmp/prime-integrated-lifecycle-gl`; the paused replay composite
+was visually inspected. Log: `/tmp/prime-integrated-lifecycle-gl.log`.
 
 Performance measurements are diagnostic: approximately 8.3–10.6 ms OpenGL,
 16.1–22.6 ms Metal and 16.4–18.6 ms MoltenVK in the sampled configurations.
@@ -156,6 +166,8 @@ not GPU timestamp measurements, and are not representative-hardware release gate
   counts are insufficient evidence of native reclamation.
 - Hardware audio/presentation, broad material scenes, long-session and controlled
   performance acceptance remain distinct from the bounded local tests.
+- The shell lifecycle opens Forge and returns; it does not prove authored-map
+  editor playtest transitions. Map editor and imported-material tests are separate.
 
 Keep OpenGL as default until the plan's activation gates pass. Do not silently
 regenerate Oracle baselines to accommodate a failure. Review any intentional
