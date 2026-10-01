@@ -108,6 +108,16 @@ jobs:
           dotnet-version: '10.0.x'
       - run: dotnet run --project tools/android-pacing-check -c Release
 
+  desktop-pacing-policy:
+    name: Desktop frame pacing policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tools/desktop-pacing-check -c Release
+
   modern-renderer-android:
     name: modern renderer Android Vulkan surface and lifecycle
     runs-on: ubuntu-latest

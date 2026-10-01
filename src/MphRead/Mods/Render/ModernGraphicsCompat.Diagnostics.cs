@@ -39,7 +39,9 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 + (s._fallbackDepth != null ? 1 : 0) + s._nativeRenderbuffers.Count;
             int views = (s._whiteView != null ? 1 : 0) + (s._surfaceView != null ? 1 : 0)
                 + (s._surfaceDepth != null ? 1 : 0) + s._nativeRenderbuffers.Count;
-            int samplers = s._whiteSampler != null ? 1 : 0;
+            int samplers = (s._whiteSampler != null ? 1 : 0)
+                + (s._blitNearestSampler != null ? 1 : 0)
+                + (s._blitLinearSampler != null ? 1 : 0);
             foreach (var texture in s._nativeTextures.Values)
             {
                 if (texture.View != null) views++;

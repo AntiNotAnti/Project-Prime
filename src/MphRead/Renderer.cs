@@ -8222,38 +8222,110 @@ localCenter *= _profileHudScale;
         }
 
         private int _appliedFrameRateCap = -1;
+        private double _appliedMonitorRefreshRate = -1;
+        private bool _linuxVSyncFallback;
+        private bool _appliedLinuxVSyncFallback;
+        private bool _reportedModernBlockingFallback;
+
+        private static unsafe double MonitorRefreshRate(NativeWindow window)
+        {
+            try
+            {
+                MonitorInfo monitor = Monitors.GetMonitorFromWindow(window);
+                OpenTK.Windowing.GraphicsLibraryFramework.Monitor* handle =
+                    monitor.Handle.ToUnsafePtr<OpenTK.Windowing.GraphicsLibraryFramework.Monitor>();
+                var video = GLFW.GetVideoMode(handle);
+                return video == null ? 0 : video->RefreshRate;
+            }
+            catch
+            {
+                // A transient monitor detach must not break a frame. Unknown
+                // refresh simply falls back to the explicit-cap behavior.
+                return 0;
+            }
+        }
 
         /// <summary>
-        /// Put the player's frame rate choice on the window, and only when it
-        /// has changed: the settings window opens from the pause menu during a
-        /// match, so this is asked every frame.
-        ///
-        /// A cap of <c>DisplayRate</c> means "whatever the monitor does",
-        /// which is VSync and no cap of ours -- the right default, and the
-        /// only one that produces a tear-free 144. Any explicit number turns
-        /// VSync off, because asking for 120 on a 144 Hz screen with VSync on
-        /// gets 72.
+        /// Apply exactly one presentation clock. Display mode and an explicit
+        /// cap matching the active monitor use the monitor/compositor clock.
+        /// Other numeric caps use OpenTK only when presentation is genuinely
+        /// non-blocking. Linux additionally detects drivers that ignore swap
+        /// interval and latches a software display-rate fallback.
         /// </summary>
         private void ApplyFrameRateSettings()
         {
             int cap = Mods.Render.FrameTiming.FrameRateCap;
-            if (cap == _appliedFrameRateCap)
+            double refreshRate = MonitorRefreshRate(this);
+            bool sourceChanged = cap != _appliedFrameRateCap
+                || Math.Abs(refreshRate - _appliedMonitorRefreshRate)
+                    > Mods.Render.DesktopFramePacing.NativeRefreshToleranceHz;
+            if (sourceChanged)
+            {
+                _linuxVSyncFallback = false;
+                _reportedModernBlockingFallback = false;
+            }
+
+#if !MPHREAD_SERVER
+            bool modern = Mods.Render.ModernGraphicsCompat.Active;
+#else
+            const bool modern = false;
+#endif
+            bool linuxFallback = !modern && Mods.Render.DesktopFramePacing.LinuxVSyncIgnored(
+                OperatingSystem.IsLinux(), cap, refreshRate,
+                Mods.Render.FrameTiming.MeasuredFrameHz, _linuxVSyncFallback);
+            if (linuxFallback && !_linuxVSyncFallback)
+            {
+                Mods.DebugLog.Line("frametiming",
+                    $"Linux swap interval is not pacing the window "
+                    + $"({Mods.Render.FrameTiming.MeasuredFrameHz:0.#} Hz on "
+                    + $"{refreshRate:0.#} Hz); switching to software display pacing.");
+            }
+            _linuxVSyncFallback = linuxFallback;
+
+            if (!sourceChanged && linuxFallback == _appliedLinuxVSyncFallback)
             {
                 return;
             }
             _appliedFrameRateCap = cap;
+            _appliedMonitorRefreshRate = refreshRate;
+            _appliedLinuxVSyncFallback = linuxFallback;
+
+            bool displayPaced = Mods.Render.DesktopFramePacing.UseDisplayPacing(cap, refreshRate);
 #if !MPHREAD_SERVER
-            if (Mods.Render.ModernGraphicsCompat.Active)
+            if (modern)
             {
-                // A NoAPI GLFW window has no GL swap interval. The modern
-                // surface owns presentation cadence; explicit caps still use
-                // OpenTK's frame scheduler while display-rate mode runs free.
-                Mods.Render.ModernGraphicsCompat.SetVSync(cap == Mods.Render.FrameTiming.DisplayRate);
-                UpdateFrequency = cap == Mods.Render.FrameTiming.DisplayRate ? 0 : cap;
+                // A NoAPI GLFW window has no GL swap interval. Ask WebGPU for a
+                // non-blocking mode only when a non-native explicit cap needs
+                // software pacing. If the backend can offer only FIFO, never
+                // stack OpenTK's cap on top of that blocking presentation clock.
+                Mods.Render.ModernGraphicsCompat.SetVSync(displayPaced);
+                bool blocks = Mods.Render.ModernGraphicsCompat.PresentationBlocks;
+                UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
+                    cap, refreshRate, displayPaced, blocks, linuxVSyncFallback: false);
+                if (!displayPaced && blocks && !_reportedModernBlockingFallback)
+                {
+                    _reportedModernBlockingFallback = true;
+                    Mods.DebugLog.Line("frametiming",
+                        $"requested {cap} FPS but "
+                        + $"{Mods.Render.ModernGraphicsCompat.ActivePresentMode} is the only "
+                        + "available modern presentation cadence; using display pacing "
+                        + "instead of double-pacing the frame.");
+                }
                 return;
             }
 #endif
-            if (cap == Mods.Render.FrameTiming.DisplayRate)
+
+            if (linuxFallback)
+            {
+                // The two-second measurement proved swap interval ineffective.
+                // Stop asking the driver to pace and let one software deadline
+                // own the monitor cadence instead.
+                VSync = VSyncMode.Off;
+                UpdateFrequency = Mods.Render.DesktopFramePacing.SoftwareFrequency(
+                    cap, refreshRate, displayPaced: false,
+                    modernPresentationBlocks: false, linuxVSyncFallback: true);
+            }
+            else if (displayPaced)
             {
                 VSync = VSyncMode.On;
                 UpdateFrequency = 0;

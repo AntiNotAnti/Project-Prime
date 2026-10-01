@@ -84,6 +84,8 @@ namespace MphRead.Mods.Render
         private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
         private readonly Dictionary<CorePipelineKey, CorePipelineRecord> _corePipelines = new();
         private readonly Dictionary<WgpuTextureFormat, PipelineRecord> _blitPipelines = new();
+        private Silk.NET.WebGPU.Sampler* _blitNearestSampler;
+        private Silk.NET.WebGPU.Sampler* _blitLinearSampler;
 
         private ShaderModule* _worldShader;
         private ShaderModule* _rttShader;
@@ -140,6 +142,16 @@ namespace MphRead.Mods.Render
                 if (pipeline.Pipeline != null) _api.RenderPipelineRelease(pipeline.Pipeline);
             }
             _blitPipelines.Clear();
+            if (_blitNearestSampler != null)
+            {
+                _api.SamplerRelease(_blitNearestSampler);
+                _blitNearestSampler = null;
+            }
+            if (_blitLinearSampler != null)
+            {
+                _api.SamplerRelease(_blitLinearSampler);
+                _blitLinearSampler = null;
+            }
 
             if (_toneMapShader != null)
             {
@@ -340,8 +352,9 @@ namespace MphRead.Mods.Render
             return id;
         }
 
-        private void DrawCoreIndexed(float[] vertices, int[] indices,
-            PrimitiveTopology topology, ModernProgramKind kind)
+        private void DrawCoreIndexed(ReadOnlySpan<float> vertices, ReadOnlySpan<int> indices,
+            PrimitiveTopology topology, ModernProgramKind kind,
+            float[]? persistentVertices = null, int[]? persistentIndices = null)
         {
             if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture()) return;
             _device.ThrowIfFailed();
@@ -379,7 +392,9 @@ namespace MphRead.Mods.Render
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
+            NativeGeometry geometryBuffers = persistentVertices != null && persistentIndices != null
+                ? PrepareGeometry(persistentVertices, persistentIndices)
+                : PrepareGeometry(vertices, indices);
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 
@@ -512,7 +527,8 @@ namespace MphRead.Mods.Render
 
             _api.RenderPassEncoderRelease(pass);
 
-            ReleaseTrackedBindGroup(bindGroup);
+            if (!generated)
+                ReleaseTrackedBindGroup(bindGroup);
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
@@ -1037,41 +1053,22 @@ namespace MphRead.Mods.Render
             float v0 = 1f - sourceY0 / (float)sourceTarget.Height;
             float v1 = 1f - sourceY1 / (float)sourceTarget.Height;
 
-            var geometry = new LegacyGeometryBatch();
-            geometry.Begin(PrimitiveType.Quads);
-            var white = new OpenTK.Mathematics.Vector4(1, 1, 1, 1);
-            var normal = OpenTK.Mathematics.Vector3.UnitZ;
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy0, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u0, v0, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy0, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u1, v0, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy1, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u1, v1, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy1, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u0, v1, 0), true);
-            geometry.End();
+            Span<float> vertices = stackalloc float[LegacyGeometryBatch.FloatsPerVertex * 4];
+            Span<int> indices = stackalloc int[6] { 0, 1, 2, 0, 2, 3 };
+            WriteBlitVertex(vertices, 0, dx0, dy0, u0, v0);
+            WriteBlitVertex(vertices, 1, dx1, dy0, u1, v0);
+            WriteBlitVertex(vertices, 2, dx1, dy1, u1, v1);
+            WriteBlitVertex(vertices, 3, dx0, dy1, u0, v1);
 
-            float[] vertices = geometry.Vertices.ToArray();
-            int[] indices = geometry.TriIndices.ToArray();
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices, cache: false);
+            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 
             FilterMode sampleFilter = filter == BlitFramebufferFilter.Linear
                 ? FilterMode.Linear : FilterMode.Nearest;
-            Silk.NET.WebGPU.Sampler* sampler = _api.DeviceCreateSampler(_device.Device,
-                new SamplerDescriptor
-                {
-                    MinFilter = sampleFilter,
-                    MagFilter = sampleFilter,
-                    MipmapFilter = MipmapFilterMode.Nearest,
-                    AddressModeU = AddressMode.ClampToEdge,
-                    AddressModeV = AddressMode.ClampToEdge,
-                    AddressModeW = AddressMode.ClampToEdge,
-                    MaxAnisotropy = 1
-                });
+            Silk.NET.WebGPU.Sampler* sampler = BlitSampler(sampleFilter);
 
             _uiViewportBuffer = RentUniformBuffer(16);
             var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
@@ -1117,8 +1114,54 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderRelease(pass);
 
             ReleaseTrackedBindGroup(bindGroup);
-            _api.SamplerRelease(sampler);
         }
+
+        private static void WriteBlitVertex(Span<float> vertices, int vertex,
+            float x, float y, float u, float v)
+        {
+            int at = vertex * LegacyGeometryBatch.FloatsPerVertex;
+            vertices[at + 0] = x;
+            vertices[at + 1] = y;
+            vertices[at + 2] = 0;
+            vertices[at + 3] = 1;
+            vertices[at + 4] = 1;
+            vertices[at + 5] = 1;
+            vertices[at + 6] = 1;
+            vertices[at + 7] = 0;
+            vertices[at + 8] = 0;
+            vertices[at + 9] = 1;
+            vertices[at + 10] = u;
+            vertices[at + 11] = v;
+            vertices[at + 12] = 0;
+            vertices[at + 13] = 1;
+            vertices[at + 14] = 1;
+        }
+
+        private Silk.NET.WebGPU.Sampler* BlitSampler(FilterMode filter)
+        {
+            if (filter == FilterMode.Linear)
+            {
+                if (_blitLinearSampler == null)
+                    _blitLinearSampler = CreateBlitSampler(FilterMode.Linear);
+                return _blitLinearSampler;
+            }
+
+            if (_blitNearestSampler == null)
+                _blitNearestSampler = CreateBlitSampler(FilterMode.Nearest);
+            return _blitNearestSampler;
+        }
+
+        private Silk.NET.WebGPU.Sampler* CreateBlitSampler(FilterMode filter) =>
+            _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
+            {
+                MinFilter = filter,
+                MagFilter = filter,
+                MipmapFilter = MipmapFilterMode.Nearest,
+                AddressModeU = AddressMode.ClampToEdge,
+                AddressModeV = AddressMode.ClampToEdge,
+                AddressModeW = AddressMode.ClampToEdge,
+                MaxAnisotropy = 1
+            });
 
         private PipelineRecord BlitPipeline(WgpuTextureFormat format)
         {
