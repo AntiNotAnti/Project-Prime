@@ -59,6 +59,11 @@ namespace MphRead.Mods.Network
                 var player = PlayerEntity.Players[slot];
                 intent.Target = player.CurrentWeapon == BeamType.ShockCoil ? player.ModContinuousNetworkTarget : intent.Target;
                 intent.ContinuousFireTick = player.ModContinuousFireTick;
+                // Capture fire events here, after the bot's simulation step. Capture() runs before
+                // ProcessInput(), so filling the packet there misses a projectile spawned on this frame.
+                // Clients do not run bot AI and snapshots do not carry projectile entities; they rebuild
+                // the visible shot from this repeated authoritative event history instead.
+                NetFireEvents.Fill(ref intent, slot);
                 // Keep the pre-step firing pose and release charge; snapshots carry the resulting movement.
                 ReplayCapture.AcceptedIntent(slot, intent);
                 Sink?.Invoke(slot, intent);
