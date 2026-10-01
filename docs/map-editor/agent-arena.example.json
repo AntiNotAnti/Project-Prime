@@ -1,0 +1,275 @@
+{
+  "formatVersion": 2,
+  "mapId": "c58a229a-d349-4f90-b96f-23104361bc93",
+  "name": "AGENT ARENA",
+  "inGameName": "Agent Arena",
+  "version": "0.1.0",
+  "description": "Reference blockout; replace IDs for a new map.",
+  "textureSource": "MP3 PROVING GROUND",
+  "scaleFactor": 4,
+  "killHeight": -20,
+  "farClip": 350,
+  "fogEnabled": false,
+  "preview": {
+    "position": [
+      25,
+      22,
+      30
+    ],
+    "target": [
+      0,
+      2,
+      0
+    ]
+  },
+  "materials": [
+    {
+      "id": "5dfc1e26-2682-4e7c-8532-c1a9226c2ee4",
+      "name": "Arena",
+      "sourceMaterial": 2,
+      "texScale": 16
+    }
+  ],
+  "geometry": [
+    {
+      "kind": "box",
+      "id": "4b1755da-62dd-4b99-b1de-ea81532bd6d9",
+      "label": "Floor",
+      "transform": {
+        "position": [
+          0,
+          -0.5,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          32,
+          1,
+          32
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    },
+    {
+      "kind": "box",
+      "id": "3c82dd4a-38b1-4479-83ac-fcf520ddea53",
+      "label": "West wall",
+      "transform": {
+        "position": [
+          -16,
+          4,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          8,
+          32
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    },
+    {
+      "kind": "box",
+      "id": "fcb66364-68ff-4e83-800a-1357b79e78ef",
+      "label": "East wall",
+      "transform": {
+        "position": [
+          16,
+          4,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          1,
+          8,
+          32
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    },
+    {
+      "kind": "box",
+      "id": "28821aae-3076-46dc-9f45-2e10f377abea",
+      "label": "North wall",
+      "transform": {
+        "position": [
+          0,
+          4,
+          -16
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          32,
+          8,
+          1
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    },
+    {
+      "kind": "box",
+      "id": "8bd7c299-970e-4b0c-80c3-000c94bea8ba",
+      "label": "South wall",
+      "transform": {
+        "position": [
+          0,
+          4,
+          16
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          32,
+          8,
+          1
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    },
+    {
+      "kind": "box",
+      "id": "f4020c5f-2709-465c-a159-6ef753fa9352",
+      "label": "Center cover",
+      "transform": {
+        "position": [
+          0,
+          1.25,
+          0
+        ],
+        "rotation": [
+          0,
+          0,
+          0,
+          1
+        ],
+        "scale": [
+          3,
+          2.5,
+          6
+        ]
+      },
+      "material": 0,
+      "solid": true,
+      "terrain": "Metal",
+      "layer": "Architecture"
+    }
+  ],
+  "spawns": [
+    {
+      "id": "c3c9b088-cdaf-4942-8fb3-a7a45c3438cf",
+      "label": "Spawn 1",
+      "position": [
+        -11,
+        0.1,
+        -11
+      ],
+      "yaw": 45,
+      "team": -1
+    },
+    {
+      "id": "7a5c2107-aab6-4f75-b8ff-3c4e9490082b",
+      "label": "Spawn 2",
+      "position": [
+        11,
+        0.1,
+        -11
+      ],
+      "yaw": 315,
+      "team": -1
+    },
+    {
+      "id": "dcd878b0-bd97-4d0b-a00e-5204710db1af",
+      "label": "Spawn 3",
+      "position": [
+        -11,
+        0.1,
+        11
+      ],
+      "yaw": 135,
+      "team": -1
+    },
+    {
+      "id": "00c5c411-ba22-4e20-bf2f-c6e6cd9272b9",
+      "label": "Spawn 4",
+      "position": [
+        11,
+        0.1,
+        11
+      ],
+      "yaw": 225,
+      "team": -1
+    }
+  ],
+  "items": [
+    {
+      "id": "827fa423-a30c-470f-98f6-53288bf7aa81",
+      "type": "HealthMedium",
+      "position": [
+        0,
+        0.1,
+        -8
+      ],
+      "spawnInterval": 300,
+      "hasBase": true
+    },
+    {
+      "id": "af9c357a-13b2-4d7c-8c95-2959bcbe8b97",
+      "type": "UASmall",
+      "position": [
+        0,
+        0.1,
+        8
+      ],
+      "spawnInterval": 300,
+      "hasBase": true
+    }
+  ],
+  "capabilities": {
+    "supportedModes": [
+      "Battle",
+      "Survival"
+    ],
+    "minPlayers": 1,
+    "maxPlayers": 2
+  }
+}
