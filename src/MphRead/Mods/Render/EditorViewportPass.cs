@@ -72,8 +72,10 @@ public partial class Scene
         int previousReadFramebuffer = GL.GetInteger(GetPName.ReadFramebufferBinding);
         int previousProgram = GL.GetInteger(GetPName.CurrentProgram);
         GL.PushAttrib(AttribMask.AllAttribBits);
+        bool previousMaterialPreview = _editorMaterialPreview;
         try
         {
+            _editorMaterialPreview = true;
             var layout = frame.Layout;
             if (capture)
             {
@@ -133,14 +135,34 @@ public partial class Scene
                     if (frame.Collision ? !part.Solid || part.SurfaceOnly : part.CollisionOnly) continue;
                     part.Fill.Transform = part.Edges.Transform = transform;
                     part.Fill.OverrideColor = frame.Collision ? new Vector4(.2f, .6f, .4f, 1) : null;
+                    part.Fill.Lighting = false;
                     part.Fill.HasTexture = !frame.Collision && (frame.UvChecker || frame.Materials.TryGetValue(part.Material, out _));
                     if (part.Fill.HasTexture)
                     {
                         var texture = frame.UvChecker ? MapViewportMaterials.Checker : frame.Materials[part.Material];
                         if (!_editorTextures.TryGetValue(texture.Key, out int binding))
-                        { binding = BindGetTexture(texture.Pixels, texture.Width, texture.Height); _editorTextures.Add(texture.Key, binding); EditorTextureUploads++; }
+                        {
+                            binding = BindGetTexture(texture.Pixels, texture.Width, texture.Height);
+                            try
+                            {
+                                if (texture.Enhanced is { } enhanced)
+                                {
+                                    var companions = Mods.Render.TextureReplacementPack.UploadCompanions(enhanced, AllocateTexture, ReleaseTexture);
+                                    if (companions.Any) _materialMaps[binding] = companions;
+                                }
+                                _editorTextures.Add(texture.Key, binding); EditorTextureUploads++;
+                            }
+                            catch { ReleaseTexture(binding); throw; }
+                        }
                         part.Fill.TextureBindingId = binding;
-                        part.Fill.TexcoordMatrix = Matrix4.CreateScale(1f / texture.Width, 1f / texture.Height, 1);
+                        // Replacement pixel density must not change the source material's UV scale.
+                        int uvWidth = texture.CoordinateWidth > 0 ? texture.CoordinateWidth : texture.Width;
+                        int uvHeight = texture.CoordinateHeight > 0 ? texture.CoordinateHeight : texture.Height;
+                        part.Fill.TexcoordMatrix = Matrix4.CreateScale(1f / uvWidth, 1f / uvHeight, 1);
+                        part.Fill.Lighting = texture.Enhanced != null;
+                        part.Fill.Ambient = new Vector3(.35f);
+                        part.Fill.LightInfo = new LightInfo(Vector3.Normalize(new Vector3(.3f, -1, .2f)),
+                            new Vector3(.85f), Vector3.Normalize(new Vector3(-.3f, .4f, -.2f)), new Vector3(.3f));
                         part.Fill.XRepeat = part.Fill.YRepeat = RepeatMode.Repeat;
                     }
                     if (!frame.Wireframe) RenderItem(part.Fill);
@@ -155,6 +177,7 @@ public partial class Scene
         }
         finally
         {
+            _editorMaterialPreview = previousMaterialPreview;
             GL.UseProgram(previousProgram);
             GL.BindFramebuffer(FramebufferTarget.DrawFramebuffer, previousFramebuffer);
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, previousReadFramebuffer);
@@ -212,6 +235,13 @@ public partial class Scene
         foreach (var face in faces)
         {
             GL.Color3(Math.Clamp(face.Shade, .2f, 1), Math.Clamp(face.Shade, .2f, 1), Math.Clamp(face.Shade, .2f, 1));
+            if (face.Points.Length >= 3)
+            {
+                var normal = Numerics.Vector3.Cross(face.Points[1] - face.Points[0], face.Points[2] - face.Points[0]);
+                if (normal.LengthSquared() > 1e-10f) normal = Numerics.Vector3.Normalize(normal);
+                else normal = Numerics.Vector3.UnitY;
+                GL.Normal3(normal.X, normal.Y, normal.Z);
+            }
             void Vertex(int index)
             {
                 var uv = face.Texcoords is { } coords && index < coords.Length ? coords[index] : Numerics.Vector2.Zero;

@@ -1552,7 +1552,7 @@ namespace MphRead
             }
             Texture texture = model.Recolors[recolorId].Textures[textureId];
             Mods.Render.Materials.MaterialInventory.Observe(
-                Mods.Render.Materials.MaterialAssetKey.Model(model.Name, textureId, paletteId, recolorId),
+                Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
                 texture.Width, texture.Height, model.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
@@ -6227,10 +6227,12 @@ localCenter *= _profileHudScale;
             GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref identity);
         }
 
+        // Scoped to the side-scene editor draw; never changes global graphics preferences.
+        private bool _editorMaterialPreview;
         private void DoMaterial(RenderItem item)
         {
             ApplyCosmeticUniforms(item.Cosmetics);
-            GL.Uniform1(_shaderLocations.UseLight, LightingOn && item.Lighting ? 1 : 0);
+            GL.Uniform1(_shaderLocations.UseLight, (LightingOn || _editorMaterialPreview) && item.Lighting ? 1 : 0);
             // MPH applies the material colors initially by calling DIF_AMB with bit 15 set,
             // so the diffuse color is always set as the vertex color to start
             // (the emission color is set to white if lighting is disabled or black if lighting is enabled; we can just ignore that)
@@ -6282,9 +6284,10 @@ localCenter *= _profileHudScale;
         private void DoTexture(RenderItem item)
         {
             Mods.Render.MaterialMapBindings materialMaps = default;
-            bool advanced = Mods.RenderOptions.AdvancedMaterials && item.HasTexture
+            bool advancedEnabled = Mods.RenderOptions.AdvancedMaterials || _editorMaterialPreview;
+            bool advanced = advancedEnabled && item.HasTexture
                 && _materialMaps.TryGetValue(item.TextureBindingId, out materialMaps);
-            if (Mods.RenderOptions.AdvancedMaterials && item.CosmeticMaterial != default)
+            if (advancedEnabled && item.CosmeticMaterial != default)
             {
                 materialMaps = new(item.CosmeticMaterial.NormalBinding, item.CosmeticMaterial.SpecularBinding, item.CosmeticMaterial.EmissiveBinding);
                 advanced = materialMaps.Any;

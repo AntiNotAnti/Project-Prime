@@ -133,7 +133,8 @@
          Windows, so they are dead weight in an APK and the only thing they do
          there is make the build warn that they are not 16 KB page aligned.
          Nothing on this head calls STB: exporting images and movies is a
-         desktop feature, and preview capture goes through AndroidPng. -->
+         desktop feature, preview capture goes through AndroidPng, and material
+         PNG decoding uses the platform BitmapFactory with unscaled straight RGBA. -->
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" ExcludeAssets="native" />
     <!-- The custom maps. The room binaries they describe are built on the
          device from the player's own extracted files and never travel in the

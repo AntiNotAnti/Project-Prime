@@ -92,6 +92,34 @@ try
     Reject(() => MaterialPack.Load(root), "pack budget includes unreferenced files");
     File.Delete(Path.Combine(root, "unreferenced.bin"));
     Check(MaterialPackCommand.Run(new[] { "inspect", root, "extra" }) == 2, "command argument count");
+    var definition = new MphRead.Mods.MapGen.MapDefinition { Name = "Stable material test", MapId = Guid.NewGuid() };
+    string originalDefinition = JsonSerializer.Serialize(definition);
+    var makeMetadata = typeof(MphRead.Mods.MapGen.CustomRooms).GetMethod("MakeMetadata", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+    var metadata = (MphRead.RoomMetadata)makeMetadata.Invoke(null, new object[] { definition, 9999 })!;
+    Check(MaterialAssetKey.RoomScope(metadata) == "map/" + definition.MapId.ToString("N"), "community metadata uses existing MapId");
+    Check(JsonSerializer.Serialize(definition) == originalDefinition, "presentation identity does not alter package definition");
+    definition.MapId = Guid.Empty;
+    metadata = (MphRead.RoomMetadata)makeMetadata.Invoke(null, new object[] { definition, 9999 })!;
+    Check(MaterialAssetKey.RoomScope(metadata) == "room/" + MaterialAssetKey.Identifier(definition.Name), "legacy room uses known metadata name without invented MapId");
+    var roomKey = MaterialAssetKey.Scoped("room/mp1-sanctorus", 3, 0, 0);
+    var communityKey = MaterialAssetKey.Scoped("map/" + Guid.Parse("e5cf5163-b05a-4c50-a1cc-9919d0738f56").ToString("N"), 3, 0, 0);
+    var effectKey = MaterialAssetKey.Scoped("effect/model/particle", 3, 0, 0);
+    Check(roomKey != key && roomKey != communityKey && communityKey != effectKey, "scope identities cannot alias");
+    Manifest(new MaterialPackEntry { Key = key.Value, Albedo = "pixel.png" });
+    Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0, roomKey).Albedo != null, "old model manifest remains fallback for room identity");
+    Manifest(new MaterialPackEntry { Key = key.Value, Albedo = "pixel.png" }, new MaterialPackEntry { Key = roomKey.Value });
+    Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0, roomKey).Albedo == null, "scoped manifest precedes generic model manifest");
+    foreach (var scoped in new[] { communityKey, effectKey })
+    {
+        Manifest(new MaterialPackEntry { Key = scoped.Value, Albedo = "pixel.png" });
+        Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0, scoped).Albedo != null, "map/effect manifest identity resolves");
+    }
+    var sharedEffectKey = MaterialAssetKey.Scoped(MaterialAssetKey.EffectScope("Samus"), 3, 0, 0);
+    Manifest(new MaterialPackEntry { Key = sharedEffectKey.Value, Albedo = "pixel.png" });
+    Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0).Albedo != null, "shared effect alias resolves independently of particle load order");
+    File.WriteAllText(Path.Combine(root, "materials.json"), "{broken");
+    Check(new MaterialResolver(root, useManifest: false).Resolve("Samus", 3, 0, 0).Albedo != null, "malformed manifest cannot disable legacy filename path");
+    if (args.Contains("--gpu", StringComparer.Ordinal)) GpuCheck.Run(root, key);
     Console.WriteLine($"Material pack checks PASS ({assertions} assertions)");
 }
 finally { Directory.Delete(root, true); }

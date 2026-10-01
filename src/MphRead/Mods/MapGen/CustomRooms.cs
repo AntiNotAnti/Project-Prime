@@ -162,7 +162,7 @@ namespace MphRead.Mods.MapGen
                 // no camera or player limits: a custom map decides its own
                 // extent, and a limit box inherited from someone else's room
                 // is how the camera ends up stuck behind a wall
-                multiplayer: true);
+                multiplayer: true) { MaterialMapId = def.MapId };
         }
 
         private static ColorRgb ToColor(int[] values)

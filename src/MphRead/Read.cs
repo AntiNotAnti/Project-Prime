@@ -166,8 +166,10 @@ namespace MphRead
             {
                 new RecolorMetadata("default", meta.ModelPath, meta.TexturePath ?? meta.ModelPath)
             };
-            return ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, animationShare: null, recolors,
+            Model model = ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, animationShare: null, recolors,
                 firstHunt: meta.FirstHunt || meta.Hybrid, decodeTextures: decodeTextures);
+            model.MaterialAssetScope = Mods.Render.Materials.MaterialAssetKey.RoomScope(meta);
+            return model;
         }
 
         public static void RemoveModel(string name, bool firstHunt = false)
@@ -1105,6 +1107,9 @@ namespace MphRead
             }
             ModelInstance inst = GetModelInstance(modelName);
             Model model = inst.Model;
+            // Particle definitions deliberately share model textures across effect instances.
+            // Use the actual shared particle-model identity, not an ambiguous effect name.
+            model.MaterialAssetScope ??= Mods.Render.Materials.MaterialAssetKey.EffectScope(model.Name);
             Node? node = model.Nodes.FirstOrDefault(n => n.Name == particleName);
             // ptodo: see what the game does here; gib3/gib4 nodes are probably meant to be used for these
             if (modelName == "geo1" && particleName == "gib")
@@ -1114,6 +1119,14 @@ namespace MphRead
             if (node != null && node.MeshCount > 0)
             {
                 int materialId = model.Meshes[node.MeshId / 2].MaterialId;
+                var particleMaterial = model.Materials[materialId];
+                if (!Mods.Headless.Active && particleMaterial.TextureId >= 0 && particleMaterial.PaletteId >= 0)
+                {
+                    var texture = model.Recolors[0].Textures[particleMaterial.TextureId];
+                    Mods.Render.Materials.MaterialInventory.Observe(
+                        Mods.Render.Materials.MaterialAssetKey.Scoped(Mods.Render.Materials.MaterialAssetKey.EffectScope(model.Name),
+                            particleMaterial.TextureId, particleMaterial.PaletteId, 0), texture.Width, texture.Height, model.Name);
+                }
                 var newParticle = new Particle(particleName, inst.Model, node, materialId);
                 _particleDefs.Add((modelName, particleName), newParticle);
                 return newParticle;

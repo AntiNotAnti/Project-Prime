@@ -21,19 +21,23 @@ namespace MphRead.Mods.Render
     {
         private static MaterialResolver? _resolver;
         private static bool _loaded;
-        public static string Root => Path.Combine(AppContext.BaseDirectory, "texture-packs", "default");
+        public static string Root => Path.Combine(OperatingSystem.IsAndroid()
+            ? Launcher.LauncherPrefs.Directory : AppContext.BaseDirectory, "texture-packs", "default");
         public static int Revision { get; private set; }
         public static void Reload() { _loaded = false; _resolver = null; Revision++; }
-        public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor)
+        public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor, MaterialAssetKey? key = null)
         {
             if (!_loaded)
             {
                 _loaded = true;
                 try { _resolver = new MaterialResolver(Root); }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
-                { DebugLog.Line("render", "Material pack ignored: " + ex.Message); }
+                {
+                    DebugLog.Line("render", "Material manifest ignored; preserving legacy lookup: " + ex.Message);
+                    _resolver = new MaterialResolver(Root, useManifest: false);
+                }
             }
-            return _resolver?.Resolve(model, texture, palette, recolor);
+            return _resolver?.Resolve(model, texture, palette, recolor, key);
         }
 
         public static bool TryUpload(Model model, int textureId, int paletteId, int recolorId,
@@ -41,17 +45,31 @@ namespace MphRead.Mods.Render
         {
             width = height = 0;
             material = null;
-            if (!RenderOptions.TextureReplacements || OperatingSystem.IsAndroid()) return false;
-            material = Resolve(model.Name, textureId, paletteId, recolorId);
+            if (!RenderOptions.TextureReplacements) return false;
+            material = Resolve(model.Name, textureId, paletteId, recolorId, MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId));
             return material?.Albedo is { } albedo && TryUploadBound(albedo.Path, out width, out height);
         }
 
         public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,
             Func<int> allocateTexture, Action<int> releaseTexture)
-            => OperatingSystem.IsAndroid() ? default : new(
-                UploadCompanion(material.Normal, allocateTexture, releaseTexture),
-                UploadCompanion(material.SpecularRoughness, allocateTexture, releaseTexture),
-                UploadCompanion(material.Emissive, allocateTexture, releaseTexture));
+        {
+            int normal = 0, specular = 0, emissive = 0;
+            try
+            {
+                normal = UploadCompanion(material.Normal, allocateTexture, releaseTexture);
+                specular = UploadCompanion(material.SpecularRoughness, allocateTexture, releaseTexture);
+                emissive = UploadCompanion(material.Emissive, allocateTexture, releaseTexture);
+                return new(normal, specular, emissive);
+            }
+            catch
+            {
+                // A later allocation may fail after earlier channels succeeded.
+                if (normal != 0) releaseTexture(normal);
+                if (specular != 0) releaseTexture(specular);
+                if (emissive != 0) releaseTexture(emissive);
+                throw;
+            }
+        }
 
         private static int UploadCompanion(MaterialImage? image,
             Func<int> allocateTexture, Action<int> releaseTexture)
@@ -98,12 +116,38 @@ namespace MphRead.Mods.Render
                 MaterialPack.ContainedPath(Root, Path.GetRelativePath(Root, path).Replace(Path.DirectorySeparatorChar, '/'));
                 MaterialPack.ValidateImage(path);
                 using FileStream stream = File.OpenRead(path);
+#if ANDROID
+                // ReFuel has no Android native decoder. BitmapFactory is supplied by the OS;
+                // request straight, unscaled channels and explicitly convert ARGB ints to RGBA.
+                using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
+                using var image = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options);
+                if (image == null) return false;
+                width = image.Width; height = image.Height;
+                if (width <= 0 || height <= 0 || width > MaterialPack.MaximumDimension || height > MaterialPack.MaximumDimension
+                    || (long)width * height > MaterialPack.MaximumPixels) return false;
+                byte[] rgba = new byte[checked(width * height * 4)];
+                int[] row = new int[width];
+                for (int y = 0; y < height; y++)
+                {
+                    image.GetPixels(row, 0, width, 0, y, width, 1);
+                    for (int x = 0; x < width; x++)
+                    {
+                        int pixel = row[x], offset = (y * width + x) * 4;
+                        rgba[offset] = (byte)(pixel >> 16); rgba[offset + 1] = (byte)(pixel >> 8);
+                        rgba[offset + 2] = (byte)pixel; rgba[offset + 3] = (byte)(pixel >> 24);
+                    }
+                }
+                GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
+                    width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
+#else
                 using StbImage image = StbImage.Load(stream, StbiImageFormat.Rgba);
                 if (image.Width <= 0 || image.Height <= 0 || image.ImagePointer == IntPtr.Zero) return false;
                 width = image.Width; height = image.Height;
                 GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                     width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, image.ImagePointer);
+#endif
                 return GL.GetError() == ErrorCode.NoError;
             }
             catch (Exception ex)

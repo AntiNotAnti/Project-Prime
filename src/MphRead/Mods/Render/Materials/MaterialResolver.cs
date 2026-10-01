@@ -9,15 +9,24 @@ public sealed class MaterialResolver
 {
     private readonly string _root;
     private readonly MaterialPack? _pack;
-    public MaterialResolver(string root)
+    public MaterialResolver(string root, bool useManifest = true)
     {
         _root = Path.GetFullPath(root);
-        if (File.Exists(Path.Combine(_root, "materials.json"))) _pack = MaterialPack.Load(_root);
+        if (useManifest && File.Exists(Path.Combine(_root, "materials.json"))) _pack = MaterialPack.Load(_root);
     }
-    public ResolvedMaterial Resolve(string model, int texture, int palette, int recolor)
+    public ResolvedMaterial Resolve(string model, int texture, int palette, int recolor, MaterialAssetKey? scopedKey = null)
     {
-        var key = MaterialAssetKey.Model(model, texture, palette, recolor);
+        var modelKey = MaterialAssetKey.Model(model, texture, palette, recolor);
+        var key = scopedKey ?? modelKey;
         if (_pack != null && _pack.TryResolve(key, out var explicitMaterial)) return explicitMaterial;
+        // Preexisting model manifests remain valid after adding richer room/effect identities.
+        if (_pack != null && key != modelKey && _pack.TryResolve(modelKey, out explicitMaterial))
+            return explicitMaterial with { Key = key };
+        // Particle textures are shared with ordinary model users. Always consider the
+        // shared effect/model alias, avoiding load-order-dependent binding identities.
+        var effectKey = MaterialAssetKey.Scoped(MaterialAssetKey.EffectScope(model), texture, palette, recolor);
+        if (_pack != null && key == modelKey && _pack.TryResolve(effectKey, out explicitMaterial))
+            return explicitMaterial;
         string safe = string.IsNullOrWhiteSpace(model) ? "unnamed" : new string(model.Select(c =>
             Path.GetInvalidFileNameChars().Contains(c) ? '_' : c).ToArray()).Trim();
         foreach (string candidate in new[] { $"{safe}/{texture}_{palette}_{recolor}.png", $"{safe}/{texture}_{palette}.png",

@@ -24,12 +24,28 @@ public readonly record struct MaterialAssetKey
     public static MaterialAssetKey Model(string name, int texture, int palette, int recolor)
     {
         if (texture < 0 || palette < 0 || recolor < 0) throw new ArgumentOutOfRangeException(nameof(texture));
-        // Encode every non-key byte, including '~', rather than collapsing distinct asset names.
-        string slug = string.Concat(System.Text.Encoding.UTF8.GetBytes(name.ToLowerInvariant()).Select(b =>
+        return new($"model/{Identifier(name)}/texture/{texture}/palette/{palette}/recolor/{recolor}");
+    }
+    public static string Identifier(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Missing asset name.");
+        // Escape underscores too so encoded punctuation cannot collide with literal text.
+        return string.Concat(System.Text.Encoding.UTF8.GetBytes(name.ToLowerInvariant()).Select(b =>
             char.IsAsciiLetterOrDigit((char)b) || b is (byte)'-' or (byte)'.'
                 ? ((char)b).ToString() : "_" + b.ToString("x2")));
-        return new($"model/{slug}/texture/{texture}/palette/{palette}/recolor/{recolor}");
     }
+    public static MaterialAssetKey Scoped(string scope, int texture, int palette, int recolor)
+    {
+        if (texture < 0 || palette < 0 || recolor < 0) throw new ArgumentOutOfRangeException(nameof(texture));
+        return new($"{scope}/texture/{texture}/palette/{palette}/recolor/{recolor}");
+    }
+    public static string RoomScope(RoomMetadata metadata) => metadata.MaterialMapId != Guid.Empty
+        ? "map/" + metadata.MaterialMapId.ToString("N") : "room/" + Identifier(metadata.Name);
+    public static string EffectScope(string sharedParticleModel) => "effect/model/" + Identifier(sharedParticleModel);
+    public static MaterialAssetKey ForModel(MphRead.Model model, int texture, int palette, int recolor)
+        => model.MaterialAssetScope is { } scope && !scope.StartsWith("effect/model/", StringComparison.Ordinal)
+            ? Scoped(scope, texture, palette, recolor)
+            : Model(model.Name, texture, palette, recolor);
     public override string ToString() => Value;
 }
 
@@ -178,9 +194,16 @@ public sealed class MaterialPack
             || (long)width * height > MaximumPixels) throw new InvalidDataException("Image dimensions exceed limits.");
         ValidatePngChunks(stream);
         stream.Position = 0;
+#if ANDROID
+        using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
+        using var decoded = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options);
+        if (decoded == null || decoded.Width != width || decoded.Height != height)
+            throw new InvalidDataException("Malformed PNG image.");
+#else
         using StbImage decoded = StbImage.Load(stream, StbiImageFormat.Rgba);
         if (decoded.Width != width || decoded.Height != height || decoded.ImagePointer == IntPtr.Zero)
             throw new InvalidDataException("Malformed PNG image.");
+#endif
         return new(path, width, height);
     }
 
