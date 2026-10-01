@@ -30,11 +30,11 @@ namespace MphRead.Mods.Network
             int timeoutMs = 8000, int color = -1, Guid ownerToken = default, CancellationToken cancellationToken = default)
         {
             if (cancellationToken.IsCancellationRequested) { LastJoinError = "Join cancelled."; return false; }
-            string requestedName = PlayerNameCodec.Clamp(playerName);
+            NetSession.PlayerName = PlayerNameCodec.Clamp(playerName);
+            string requestedName = NetSession.PlayerName;
             Hunter requestedHunter = Launcher.Hunters.Resolve(hunter);
             int requestedColor = PlayerColors.Clamp(
                 color < 0 ? Launcher.LauncherPrefs.LastColor : color);
-            NetSession.PlayerName = requestedName;
             // Joining happens before a launch plan exists. Keep the requested
             // identity separately from NetSession's echoed roster values: a
             // newly admitted peer begins as Samus until Identify reaches the
