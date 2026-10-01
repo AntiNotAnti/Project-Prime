@@ -34,6 +34,32 @@ foreach (double hz in new[] { 59.94, 60, 90, 120, 144 })
     Check(pacer.Deadline(.008, 0) <= .008,
         "early presentation return does not wait for an unrelated 60Hz software phase");
 }
+foreach (int cap in new[] { 60, 90, 120, 144 })
+{
+    var pacer = new AndroidFramePacer(500);
+    pacer.Reset(0);
+    double now = 0, addedWait = 0, elapsed = 0;
+    for (int i = 0; i < 600; i++)
+    {
+        double deadline = pacer.Deadline(now, cap, displayPaced: true);
+        double wait = Math.Max(0, deadline - now);
+        now += wait;
+        addedWait += wait;
+        elapsed += pacer.BeginFrame(now);
+        now += 1.0 / cap; // compositor/native refresh owns the cadence
+    }
+    Check(addedWait < 1e-9 && Math.Abs(elapsed - 599.0 / cap) < 1e-8,
+        $"native explicit {cap} cap adds no second software wait");
+}
+{
+    var pacer = new AndroidFramePacer(500);
+    pacer.Reset(0);
+    pacer.Deadline(0, 120, displayPaced: true);
+    pacer.BeginFrame(0);
+    Check(pacer.Deadline(.008, 120, displayPaced: true) <= .008,
+        "native 120Hz cap follows compositor timing rather than an 8.33ms sleep phase");
+}
+
 foreach (int cap in new[] { 30, 60, 90, 120, 144, 500 })
 {
     var pacer = new AndroidFramePacer(500);
