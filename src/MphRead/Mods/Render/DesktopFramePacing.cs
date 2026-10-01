@@ -20,7 +20,7 @@ internal static class DesktopFramePacing
     internal static bool LinuxVSyncIgnored(bool isLinux, int cap, double refreshRate,
         double measuredFrameRate, bool alreadyLatched)
     {
-        if (!isLinux || cap > 0 || refreshRate <= 0)
+        if (!isLinux || refreshRate <= 0 || !UseDisplayPacing(cap, refreshRate))
         {
             return false;
         }
