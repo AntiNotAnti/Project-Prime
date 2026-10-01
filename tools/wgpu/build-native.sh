@@ -26,17 +26,47 @@ command -v git >/dev/null || { echo "error: git is required" >&2; exit 1; }
 command -v cargo >/dev/null || { echo "error: Rust/cargo is required" >&2; exit 1; }
 command -v rustup >/dev/null || { echo "error: rustup is required" >&2; exit 1; }
 
+retry_git() {
+    local attempt=1
+    local max_attempts=4
+    local delay=5
+
+    until "$@"; do
+        local status=$?
+        if (( attempt >= max_attempts )); then
+            echo "error: git command failed after $attempt attempts: $*" >&2
+            return "$status"
+        fi
+        echo "warning: git command failed (attempt $attempt/$max_attempts); retrying in ${delay}s: $*" >&2
+        sleep "$delay"
+        attempt=$((attempt + 1))
+        delay=$((delay * 2))
+    done
+}
+
 if [[ ! -d "$src/.git" ]]; then
     mkdir -p "$(dirname "$src")"
-    git clone --filter=blob:none --no-checkout https://github.com/gfx-rs/wgpu-native.git "$src"
+    for attempt in 1 2 3 4; do
+        rm -rf "$src"
+        if git clone --filter=blob:none --no-checkout https://github.com/gfx-rs/wgpu-native.git "$src"; then
+            break
+        fi
+        if [[ $attempt -eq 4 ]]; then
+            echo "error: failed to clone wgpu-native after 4 attempts" >&2
+            exit 1
+        fi
+        delay=$((5 * (2 ** (attempt - 1))))
+        echo "warning: wgpu-native clone failed (attempt $attempt/4); retrying in ${delay}s" >&2
+        sleep "$delay"
+    done
 fi
-git -C "$src" fetch --depth 1 origin "$commit"
+retry_git git -C "$src" fetch --depth 1 origin "$commit"
 git -C "$src" checkout --detach "$commit"
 # wgpu-native's C ABI headers are a git submodule at this revision. A shallow
 # checkout of the parent alone leaves ffi/webgpu-headers empty and bindgen
 # fails on '#include "webgpu.h"' on every target.
 git -C "$src" submodule sync --recursive
-git -C "$src" submodule update --init --recursive --depth 1
+retry_git git -C "$src" submodule update --init --recursive --depth 1
 
 # Keep the ABI pin, adding only the AppKit-view surface entry point required
 # by Vulkan portability. The upstream MetalLayer entry point is Metal-only.
