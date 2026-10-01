@@ -8,6 +8,21 @@ namespace MphRead.Mods.Render
 {
     internal static class DesktopGlContext
     {
+        private static readonly GLFWCallbacks.ErrorCallback _errorCallback = (code, description) =>
+        {
+            // Never throw across GLFW's native callback frames. In particular,
+            // a NoAPI window can report NoWindowContext or platform errors that
+            // must not bypass renderer fallback by terminating the process.
+            try
+            {
+                Mods.DebugLog.Checkpoint("window", $"GLFW {code}: {description}");
+                Console.Error.WriteLine($"[window] GLFW {code}: {description}");
+            }
+            catch { /* Logging failures must not unwind into GLFW either. */ }
+        };
+
+        internal static void InstallErrorCallback() => GLFW.SetErrorCallback(_errorCallback);
+
         public static void PreserveWorkingDirectory()
         {
             // GLFW otherwise changes a bundled Mac app to Contents/Resources,
@@ -23,15 +38,16 @@ namespace MphRead.Mods.Render
             // OpenTK's default handler throws across native frames and aborts
             // on macOS; NativeWindow checks a failed CreateWindow itself and
             // throws safely after returning to managed code.
-            GLFWProvider.SetErrorCallback((code, description) =>
-                Console.Error.WriteLine($"[window] GLFW {code}: {description}"));
+            GLFWProvider.SetErrorCallback(_errorCallback);
             PreserveWorkingDirectory();
             if (background && OperatingSystem.IsMacOS())
                 GLFW.InitHint(InitHintBool.CocoaMenubar, false);
+            Mods.DebugLog.Checkpoint("render", $"initializing GLFW for {GraphicsBackendPolicy.Resolved}");
             GLFWProvider.EnsureInitialized();
             // GLFW hints survive window destruction. In particular a previous
             // NoAPI/core window must not leave ForwardCompat set on GL 2.1.
             GLFW.DefaultWindowHints();
+            Mods.DebugLog.Checkpoint("render", $"creating GLFW window for {GraphicsBackendPolicy.Resolved}");
 
             if (GraphicsBackendPolicy.ModernGameplayRequested)
             {

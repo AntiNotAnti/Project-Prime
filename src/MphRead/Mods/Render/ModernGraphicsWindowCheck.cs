@@ -3,6 +3,7 @@ using System;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace MphRead.Mods.Render
 {
@@ -30,6 +31,11 @@ namespace MphRead.Mods.Render
                 settings.StartVisible = false;
                 settings.Title = "Project Prime modern renderer smoke";
                 using var window = new NativeWindow(settings);
+                DesktopGlContext.InstallErrorCallback();
+                GLFW.SwapInterval(1); // A NoAPI window has no current GL context.
+                if (GLFW.GetError(out _) != OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode.NoContext)
+                    throw new InvalidOperationException("Expected GLFW NoContext callback was not delivered.");
+                Console.WriteLine("[renderwindowcheck] native GLFW error returns safely PASS");
                 ModernGraphicsCompat.Initialize(window, backend);
                 try
                 {
@@ -82,6 +88,8 @@ namespace MphRead.Mods.Render
                         return 1;
                     }
 
+                    RunScissorBoundsCheck();
+                    RunCopyFormatCheck();
                     RunDeviceRecoveryCheck();
                     RunMipmapCheck();
                     RunReadbackOrientationCheck();
@@ -230,6 +238,149 @@ namespace MphRead.Mods.Render
                 throw new InvalidOperationException("Fresh OpenGL context failed after device recovery failure.");
             DesktopGraphicsSession.Present(window);
             Console.WriteLine("[renderwindowcheck] failed recovery to fresh OpenGL context PASS");
+        }
+
+        private static void RunScissorBoundsCheck()
+        {
+            int texture = GraphicsApi.GenTexture(), framebuffer = GraphicsApi.GenFramebuffer();
+            GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
+            try
+            {
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 4, 4, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, texture, 0);
+                GraphicsApi.UseProgram(0);
+                GraphicsApi.Disable(EnableCap.Texture2D);
+                GraphicsApi.Disable(EnableCap.DepthTest);
+                GraphicsApi.Disable(EnableCap.Blend);
+                GraphicsApi.Disable(EnableCap.CullFace);
+                GraphicsApi.ColorMask(true, true, true, true);
+                foreach (bool window in new[] { false, true })
+                {
+                    int width = window ? 96 : 4, height = window ? 64 : 4;
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : framebuffer);
+                    GraphicsApi.Viewport(0, 0, width, height);
+                    foreach (bool clear in new[] { false, true })
+                    foreach (var rectangle in new[] { (-1, -1, 2, 2), (0, 0, 0, 4), (width + 1, 0, 4, 4) })
+                    {
+                        GraphicsApi.Disable(EnableCap.ScissorTest);
+                        GraphicsApi.ClearColor(0, 0, 1, 1);
+                        GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                        GraphicsApi.Enable(EnableCap.ScissorTest);
+                        GraphicsApi.Scissor(rectangle.Item1, rectangle.Item2, rectangle.Item3, rectangle.Item4);
+                        if (clear)
+                        {
+                            GraphicsApi.ClearColor(1, 0, 0, 1);
+                            GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                        }
+                        else
+                        {
+                            GraphicsApi.Color4(1f, 0f, 0f, 1f);
+                            GraphicsApi.Begin(PrimitiveType.Quads);
+                            GraphicsApi.Vertex3(-1, -1, 0); GraphicsApi.Vertex3(1, -1, 0);
+                            GraphicsApi.Vertex3(1, 1, 0); GraphicsApi.Vertex3(-1, 1, 0);
+                            GraphicsApi.End();
+                        }
+                        byte[] pixels = new byte[width * height * 4];
+                        GraphicsApi.ReadPixels(0, 0, width, height, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                        for (int i = 0; i < width * height; i++)
+                        {
+                            bool red = rectangle.Item1 == -1 && i == 0;
+                            if (pixels[i * 4] != (red ? 255 : 0) || pixels[i * 4 + 2] != (red ? 0 : 255))
+                                throw new InvalidOperationException($"Scissor clipping failed: window={window} clear={clear} rect={rectangle} pixel={i}.");
+                        }
+                    }
+                }
+                Console.WriteLine("[renderwindowcheck] empty/offscreen scissor draws and clears PASS");
+            }
+            finally
+            {
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                GraphicsApi.DeleteFramebuffer(framebuffer);
+                GraphicsApi.DeleteTexture(texture);
+                GraphicsApi.PopAttrib();
+            }
+        }
+
+        private static void RunCopyFormatCheck()
+        {
+            int source = GraphicsApi.GenTexture(), destination = GraphicsApi.GenTexture();
+            int sourceFbo = GraphicsApi.GenFramebuffer(), destinationFbo = GraphicsApi.GenFramebuffer();
+            GraphicsApi.PushAttrib(AttribMask.AllAttribBits);
+            try
+            {
+                GraphicsApi.Disable(EnableCap.ScissorTest);
+                GraphicsApi.ColorMask(true, true, true, true);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, source);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f, 4, 4, 0,
+                    PixelFormat.Rgba, PixelType.Float, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, sourceFbo);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, source, 0);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, destination);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8, 4, 4, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, destinationFbo);
+                GraphicsApi.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, destination, 0);
+                foreach (bool window in new[] { false, true })
+                {
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, destinationFbo);
+                    GraphicsApi.ClearColor(0, 0, 1, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, window ? 0 : sourceFbo);
+                    GraphicsApi.ClearColor(0.75f, 0.25f, 0, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.BindTexture(TextureTarget.Texture2D, destination);
+                    // Copy-to-texture must ignore draw-state scissor, even
+                    // when a shader is required for format conversion.
+                    GraphicsApi.Enable(EnableCap.ScissorTest);
+                    GraphicsApi.Scissor(0, 0, 0, 0);
+                    GraphicsApi.CopyTexSubImage2D(TextureTarget.Texture2D, 0, 1, 1, 0, 0, 2, 2);
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, destinationFbo);
+                    byte[] pixels = new byte[64];
+                    GraphicsApi.ReadPixels(0, 0, 4, 4, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                    for (int i = 0; i < 16; i++)
+                    {
+                        bool copied = i % 4 is 1 or 2 && i / 4 is 1 or 2;
+                        int red = copied ? 191 : 0, green = copied ? 64 : 0, blue = copied ? 0 : 255;
+                        if (Math.Abs(pixels[i * 4] - red) > 1 || Math.Abs(pixels[i * 4 + 1] - green) > 1
+                            || Math.Abs(pixels[i * 4 + 2] - blue) > 1)
+                            throw new InvalidOperationException($"Copy format conversion failed: window={window} pixel={i}.");
+                    }
+                }
+                foreach (bool window in new[] { false, true })
+                {
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, destinationFbo);
+                    GraphicsApi.Disable(EnableCap.ScissorTest);
+                    GraphicsApi.ClearColor(0, 0, 1, 1);
+                    GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, window ? 0 : sourceFbo);
+                    GraphicsApi.Enable(EnableCap.ScissorTest);
+                    GraphicsApi.Scissor(-1, -1, 2, 2);
+                    GraphicsApi.BlitFramebuffer(0, 0, 4, 4, 0, 0, 4, 4,
+                        ClearBufferMask.ColorBufferBit, BlitFramebufferFilter.Nearest);
+                    GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, destinationFbo);
+                    byte[] blitPixels = new byte[64];
+                    GraphicsApi.ReadPixels(0, 0, 4, 4, PixelFormat.Rgba, PixelType.UnsignedByte, blitPixels);
+                    for (int i = 0; i < 16; i++)
+                        if (Math.Abs(blitPixels[i * 4] - (i == 0 ? 191 : 0)) > 1
+                            || blitPixels[i * 4 + 2] != (i == 0 ? 0 : 255))
+                            throw new InvalidOperationException($"Scissored framebuffer blit failed at pixel {i}.");
+                }
+                Console.WriteLine("[renderwindowcheck] HDR/surface copy conversion and scissored blit PASS");
+            }
+            finally
+            {
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                GraphicsApi.DeleteFramebuffer(sourceFbo); GraphicsApi.DeleteFramebuffer(destinationFbo);
+                GraphicsApi.DeleteTexture(source); GraphicsApi.DeleteTexture(destination);
+                GraphicsApi.PopAttrib();
+            }
         }
 
         private static void RunReadbackOrientationCheck()

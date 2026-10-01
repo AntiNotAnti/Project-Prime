@@ -469,6 +469,7 @@ namespace MphRead.Mods.Render
             CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
+                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
                 View = target.ColorView,
                 ResolveTarget = null,
                 LoadOp = LoadOp.Load,
@@ -502,15 +503,7 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
-            if (_enabled.Contains(EnableCap.ScissorTest))
-            {
-                uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, target.Width - 1));
-                int glTop = _scissorY + _scissorHeight;
-                uint sy = (uint)Math.Clamp(target.Height - glTop, 0, Math.Max(0, target.Height - 1));
-                uint sw = (uint)Math.Clamp(_scissorWidth, 1, target.Width - (int)sx);
-                uint sh = (uint)Math.Clamp(_scissorHeight, 1, target.Height - (int)sy);
-                _api.RenderPassEncoderSetScissorRect(pass, sx, sy, sw, sh);
-            }
+            ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
@@ -844,6 +837,7 @@ namespace MphRead.Mods.Render
             CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
+                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
                 View = target.ColorView,
                 ResolveTarget = null,
                 LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
@@ -1007,14 +1001,27 @@ namespace MphRead.Mods.Render
             CoreTarget destinationTarget = ResolveDrawTarget();
             if (sourceTarget.ColorTexture == destinationTarget.ColorTexture)
                 throw new InvalidOperationException("WebGPU blit source and destination must be different textures.");
-            BlitTargets(sourceTarget, destinationTarget, sourceX0, sourceY0, sourceX1, sourceY1,
-                destinationX0, destinationY0, destinationX1, destinationY1, filter);
+            WgpuTexture* staging = null;
+            TextureView* stagingView = null;
+            try
+            {
+                if (_resources.ReadFramebuffer == 0)
+                    sourceTarget = StageCopySource(sourceTarget, 0, 0, sourceTarget.Width, sourceTarget.Height,
+                        out staging, out stagingView);
+                BlitTargets(sourceTarget, destinationTarget, sourceX0, sourceY0, sourceX1, sourceY1,
+                    destinationX0, destinationY0, destinationX1, destinationY1, filter, applyScissor: true);
+            }
+            finally
+            {
+                if (stagingView != null) _api.TextureViewRelease(stagingView);
+                if (staging != null) _api.TextureRelease(staging);
+            }
         }
 
         private void BlitTargets(CoreTarget sourceTarget, CoreTarget destinationTarget,
             int sourceX0, int sourceY0, int sourceX1, int sourceY1,
             int destinationX0, int destinationY0, int destinationX1, int destinationY1,
-            BlitFramebufferFilter filter)
+            BlitFramebufferFilter filter, bool applyScissor = false)
         {
             PipelineRecord pipeline = BlitPipeline(destinationTarget.ColorFormat);
 
@@ -1084,6 +1091,7 @@ namespace MphRead.Mods.Render
             CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
             {
+                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
                 View = destinationTarget.ColorView,
                 ResolveTarget = null,
                 LoadOp = LoadOp.Load,
@@ -1101,6 +1109,7 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0,
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
+            if (applyScissor) ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
             EndCommands();
@@ -1213,7 +1222,17 @@ namespace MphRead.Mods.Render
             if (sourceTarget.ColorTexture == destination.Texture)
                 throw new InvalidOperationException("WebGPU copy source and destination must be different textures.");
 
+            if (width < 0 || height < 0 || x < 0 || y < 0 || xoffset < 0 || yoffset < 0
+                || (long)x + width > sourceTarget.Width || (long)y + height > sourceTarget.Height
+                || (long)xoffset + width > destination.Width || (long)yoffset + height > destination.Height)
+                throw new ArgumentOutOfRangeException(nameof(width), "Copy rectangle is outside its source or destination.");
+            if (width == 0 || height == 0) return;
             _resources.Texture(destinationId).FramebufferOrigin = true;
+            if (sourceTarget.ColorFormat != destination.Format)
+            {
+                CopyConvertedColor(sourceTarget, destination, x, y, xoffset, yoffset, width, height);
+                return;
+            }
             var source = new ImageCopyTexture
             {
                 Texture = sourceTarget.ColorTexture,
@@ -1234,6 +1253,55 @@ namespace MphRead.Mods.Render
             _api.CommandEncoderCopyTextureToTexture(encoder, &source, &dest, &extent);
             EndCommands();
 
+        }
+
+        private void CopyConvertedColor(CoreTarget source, NativeTexture destination,
+            int x, int y, int xoffset, int yoffset, int width, int height)
+        {
+            WgpuTexture* staging = null;
+            TextureView* stagingView = null;
+            try
+            {
+                if (_resources.ReadFramebuffer == 0)
+                {
+                    source = StageCopySource(source, x, y, width, height, out staging, out stagingView);
+                    x = y = 0;
+                }
+                var target = new CoreTarget(destination.Texture, destination.View, destination.Format,
+                    null, destination.Width, destination.Height);
+                BlitTargets(source, target, x, y, x + width, y + height,
+                    xoffset, yoffset, xoffset + width, yoffset + height, BlitFramebufferFilter.Nearest);
+            }
+            finally
+            {
+                if (stagingView != null) _api.TextureViewRelease(stagingView);
+                if (staging != null) _api.TextureRelease(staging);
+            }
+        }
+
+        private CoreTarget StageCopySource(CoreTarget source, int x, int y, int width, int height,
+            out WgpuTexture* staging, out TextureView* view)
+        {
+            // Swapchain textures need not support sampling. The intermediate
+            // preserves their format; the render pass performs any conversion.
+            staging = _api.DeviceCreateTexture(_device.Device, new TextureDescriptor
+            {
+                Size = new Extent3D((uint)width, (uint)height, 1),
+                Format = source.ColorFormat, Dimension = TextureDimension.Dimension2D,
+                MipLevelCount = 1, SampleCount = 1,
+                Usage = TextureUsage.CopyDst | TextureUsage.TextureBinding
+            });
+            view = _api.TextureCreateView(staging, null);
+            var from = new ImageCopyTexture
+            {
+                Texture = source.ColorTexture, Aspect = TextureAspect.All,
+                Origin = new Origin3D((uint)x, (uint)(source.Height - y - height), 0)
+            };
+            var to = new ImageCopyTexture { Texture = staging, Aspect = TextureAspect.All };
+            var size = new Extent3D((uint)width, (uint)height, 1);
+            _api.CommandEncoderCopyTextureToTexture(BeginCommands(), &from, &to, &size);
+            EndCommands();
+            return new CoreTarget(staging, view, source.ColorFormat, null, width, height);
         }
 
         private static int Int(ModernGraphicsCompatState.ProgramRecord program, string name, int fallback = 0)

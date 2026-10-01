@@ -436,6 +436,20 @@ namespace MphRead.Mods
             }
         }
 
+        /// <summary>
+        /// Persist a boundary before entering native startup code, which can
+        /// abort without running ProcessExit. Ordinary frame logs stay batched.
+        /// </summary>
+        public static void Checkpoint(string category, string message)
+        {
+            lock (_lock)
+            {
+                Line(category, message);
+                _writer?.Flush();
+                _linesSinceFlush = 0;
+            }
+        }
+
         /// <summary>An exception and everything under it, indented.</summary>
         public static void Exception(string category, Exception? ex)
         {

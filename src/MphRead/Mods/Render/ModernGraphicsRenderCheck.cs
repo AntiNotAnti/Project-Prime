@@ -204,6 +204,7 @@ fn fs_main(input: VsOut) -> @location(0) vec4<f32> {
 
                 var attachment = new RenderPassColorAttachment
                 {
+                    DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
                     View = view,
                     ResolveTarget = null,
                     LoadOp = LoadOp.Clear,

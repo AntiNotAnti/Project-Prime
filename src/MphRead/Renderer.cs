@@ -8051,47 +8051,9 @@ localCenter *= _profileHudScale;
             return Environment.GetEnvironmentVariable("OPENTK_4_USE_WAYLAND") != "0";
         }
 
-        /// <summary>
-        /// GLFW's error callback, with the one error Wayland raises as a
-        /// matter of course taken off the fatal list.
-        ///
-        /// OpenTK's own callback throws, and it is called from inside native
-        /// GLFW. On Wayland, asking a monitor where it is answers
-        /// GLFW_FEATURE_UNAVAILABLE -- the protocol does not expose global
-        /// positions to clients at all -- so the throw happens on a native
-        /// frame the runtime cannot unwind, and the process dies with
-        /// "terminate called after throwing an instance of 'pal_sehexception'"
-        /// before any managed catch is reached. That is why the try/catch
-        /// around the work-area lookup below never caught it.
-        ///
-        /// Only that code is swallowed. Everything else still throws, because
-        /// a GLFW that cannot create a window or a context is a real failure
-        /// and silence there would be worse than the crash.
-        /// </summary>
-        private static GLFWCallbacks.ErrorCallback? _glfwErrorCallback;
-
-        private static void IgnoreUnavailableGlfwFeatures()
-        {
-            if (_glfwErrorCallback != null)
-            {
-                return;
-            }
-            // Held in a static: GLFW keeps the pointer, so a delegate that is
-            // only a local is collected and the next error jumps into freed
-            // memory.
-            _glfwErrorCallback = (OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode code,
-                string description) =>
-            {
-                if (code == OpenTK.Windowing.GraphicsLibraryFramework.ErrorCode.FeatureUnavailable)
-                {
-                    Mods.DebugLog.Line("window", $"glfw feature unavailable, ignored: {description}");
-                    return;
-                }
-                Console.Error.WriteLine($"[window] GLFW {code}: {description}");
-                throw new GLFWException(description, code);
-            };
-            GLFW.SetErrorCallback(_glfwErrorCallback);
-        }
+        // Keep the same non-throwing callback through startup, gameplay and
+        // fresh-window fallback; native GLFW frames must never unwind managed exceptions.
+        private static void IgnoreUnavailableGlfwFeatures() => Mods.Render.DesktopGlContext.InstallErrorCallback();
 
         private void FitToScreen()
         {

@@ -181,6 +181,9 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private void ConfigureSurface()
         {
             if (_width == 0 || _height == 0 || _device.Surface == null) return;
+            Mods.DebugLog.Checkpoint("render",
+                $"configuring {_device.Backend} surface: {_width}x{_height} "
+                + $"format={_surfaceFormat} alpha={_alphaMode} present={_presentMode}");
             _api.SurfaceConfigure(_device.Surface, new SurfaceConfiguration
             {
                 Device = _device.Device, Format = _surfaceFormat,
@@ -208,10 +211,15 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             _queue = _api.DeviceGetQueue(_device.Device);
             try
             {
+                Mods.DebugLog.Checkpoint("render", "modern startup: querying surface capabilities");
                 QuerySurfaceFormat();
+                Mods.DebugLog.Checkpoint("render", "modern startup: creating UI shader");
                 CreateUiShader();
+                Mods.DebugLog.Checkpoint("render", "modern startup: creating core shaders");
                 CreateCoreShaders();
+                Mods.DebugLog.Checkpoint("render", "modern startup: creating default texture");
                 CreateWhiteTexture();
+                Mods.DebugLog.Checkpoint("render", $"modern startup: configuring surface {width}x{height}");
                 ResizeCore(width, height);
                 if (previous != null)
                 {
@@ -260,7 +268,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 }
                 _device.ThrowIfFailed();
                 LogCapabilities();
-                Mods.DebugLog.Line("render",
+                Mods.DebugLog.Checkpoint("render",
                     $"modern compatibility renderer active: {GraphicsBackendPolicy.DisplayName(_device.Backend)} "
                     + $"on {_device.AdapterName}");
             }
@@ -670,8 +678,21 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             self._scissorX = x;
             self._scissorY = y;
-            self._scissorWidth = Math.Max(1, width);
-            self._scissorHeight = Math.Max(1, height);
+            self._scissorWidth = Math.Max(0, width);
+            self._scissorHeight = Math.Max(0, height);
+        }
+
+        private void ApplyScissor(RenderPassEncoder* pass, int width, int height)
+        {
+            if (!_enabled.Contains(EnableCap.ScissorTest)) return;
+            // Clip both endpoints, not the origin followed by the old extent.
+            // Zero-area and wholly offscreen rectangles must remain empty.
+            long left = Math.Clamp((long)_scissorX, 0, width);
+            long right = Math.Clamp((long)_scissorX + _scissorWidth, 0, width);
+            long bottom = Math.Clamp((long)_scissorY, 0, height);
+            long top = Math.Clamp((long)_scissorY + _scissorHeight, 0, height);
+            _api.RenderPassEncoderSetScissorRect(pass, (uint)left, (uint)(height - top),
+                (uint)(right - left), (uint)(top - bottom));
         }
 
         internal static int GenFramebuffer() => Current._resources.GenFramebuffer();
@@ -1401,6 +1422,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             CommandEncoder* encoder = BeginCommands();
             var attachment = new RenderPassColorAttachment
             {
+                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
                 View = _surfaceView,
                 ResolveTarget = null,
                 LoadOp = LoadOp.Load,
@@ -1417,15 +1439,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
             _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, _width, _height, 0, 1);
-            if (_enabled.Contains(EnableCap.ScissorTest))
-            {
-                uint sx = (uint)Math.Clamp(_scissorX, 0, Math.Max(0, (int)_width - 1));
-                int glTop = _scissorY + _scissorHeight;
-                uint sy = (uint)Math.Clamp((int)_height - glTop, 0, Math.Max(0, (int)_height - 1));
-                uint sw = (uint)Math.Clamp(_scissorWidth, 1, (int)_width - (int)sx);
-                uint sh = (uint)Math.Clamp(_scissorHeight, 1, (int)_height - (int)sy);
-                _api.RenderPassEncoderSetScissorRect(pass, sx, sy, sw, sh);
-            }
+            ApplyScissor(pass, (int)_width, (int)_height);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
             _api.RenderPassEncoderEnd(pass);
             EndCommands();

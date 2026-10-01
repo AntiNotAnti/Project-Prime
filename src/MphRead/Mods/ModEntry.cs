@@ -34,6 +34,14 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            // Renderer probes return before the normal client logging setup.
+            // Honor explicit logging here so native startup failures in those
+            // probes retain the same checkpoints as the launcher.
+            if (HasFlag(args, "debuglog"))
+            {
+                DebugLog.Force();
+                DebugLog.Attach();
+            }
 #if !MPHREAD_SERVER
             if (ValueAfter(args, "renderer") is string renderer)
             {

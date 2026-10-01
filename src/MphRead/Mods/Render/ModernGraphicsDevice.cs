@@ -24,6 +24,17 @@ namespace MphRead.Mods.Render
         private static Device* _requestedDevice;
         private static string? _requestError;
         private static nint _macVulkanLoader;
+        // wgpu stores this process-wide, including after a device is disposed.
+        private static readonly LogCallback _nativeLog = OnNativeLog;
+
+        private static void OnNativeLog(LogLevel level, byte* message, void* userdata)
+        {
+            try
+            {
+                Mods.DebugLog.Checkpoint("wgpu", $"{level}: {PtrString(message, "no detail")}");
+            }
+            catch { /* Never unwind a logging failure through native frames. */ }
+        }
 
         private readonly WebGPU _api;
         private readonly Wgpu _native;
@@ -60,7 +71,7 @@ namespace MphRead.Mods.Render
                 try
                 {
                     Console.Error.WriteLine($"[render] {message}");
-                    Mods.DebugLog.Line("render", message);
+                    Mods.DebugLog.Checkpoint("render", message);
                 }
                 catch { /* Never unwind across a native callback boundary. */ }
             }
@@ -161,6 +172,7 @@ namespace MphRead.Mods.Render
                     PrepareMoltenVK();
                 }
 
+                Mods.DebugLog.Checkpoint("render", $"{backend} startup: loading wgpu-native");
                 WebGPU api = WebGPU.GetApi();
                 Wgpu? native = null;
                 Instance* instance = null;
@@ -175,6 +187,10 @@ namespace MphRead.Mods.Render
                             "Silk.NET loaded WebGPU without the wgpu-native extension.");
                     }
                     native = nativeExtension;
+                    native.SetLogCallback(new PfnLogCallback(_nativeLog), null);
+                    native.SetLogLevel(Mods.DebugLog.Active ? LogLevel.Info : LogLevel.Error);
+                    Mods.DebugLog.Checkpoint("render",
+                        $"{backend} startup: creating instance (wgpu=0x{native.GetVersion():x8})");
 
                     InstanceExtras extras = default;
                     extras.Chain.SType = (SType)NativeSType.STypeInstanceExtras;
@@ -192,6 +208,7 @@ namespace MphRead.Mods.Render
 
                     if (surfaceFactory != null)
                     {
+                        Mods.DebugLog.Checkpoint("render", $"{backend} startup: creating window surface");
                         surface = surfaceFactory(api, instance);
                     }
 
@@ -204,6 +221,7 @@ namespace MphRead.Mods.Render
 
                     _requestedAdapter = null;
                     _requestError = null;
+                    Mods.DebugLog.Checkpoint("render", $"{backend} startup: requesting compatible adapter");
                     api.InstanceRequestAdapter(instance, &adapterOptions,
                         new PfnRequestAdapterCallback(OnAdapterRequested), null);
                     PumpCallbacks(api, instance, () => _requestedAdapter != null || _requestError != null);
@@ -233,6 +251,11 @@ namespace MphRead.Mods.Render
                             + (string.IsNullOrWhiteSpace(_requestError) ? "." : $": {_requestError}"));
                     }
 
+                    AdapterProperties selected = default;
+                    api.AdapterGetProperties(adapter, &selected);
+                    Mods.DebugLog.Checkpoint("render",
+                        $"{backend} startup: requesting device on {PtrString(selected.Name, "Unknown GPU")} "
+                        + $"(driver={PtrString(selected.DriverDescription, "Unknown driver")})");
                     _requestedDevice = null;
                     _requestError = null;
                     var errors = new DeviceErrors();
@@ -251,6 +274,7 @@ namespace MphRead.Mods.Render
                             + (string.IsNullOrWhiteSpace(_requestError) ? "." : $": {_requestError}"));
                     }
 
+                    Mods.DebugLog.Checkpoint("render", $"{backend} startup: device created");
                     api.DeviceSetUncapturedErrorCallback(device, new PfnErrorCallback(errors.Error), null);
                     errors.ThrowIfFailed();
                     AdapterProperties properties = default;

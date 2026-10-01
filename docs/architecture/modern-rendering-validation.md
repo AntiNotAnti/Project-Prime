@@ -108,3 +108,51 @@ The Android timing policy has 21 passing deterministic checks. The implementatio
 scope audit and explicit limitations are in modern-rendering-backends.md. The PR
 remains experimental with hardware/release acceptance pending; it does not
 change the default renderer.
+
+
+## Renderer bug audit (2026-10-01)
+
+Audited on `main` at b152ffbf with local fixes. The scissor regression failed
+before the fix: `(-1, -1, 2, 2)` colored adjacent pixels instead of only the
+bottom-left pixel. The shared modern renderer now intersects both rectangle
+endpoints with the target, preserves empty rectangles, and applies scissor to
+framebuffer blits. Copy-to-texture and mip generation remain independent of
+scissor state, as required by their GL contracts.
+
+Copies between HDR/BGRA/RGBA formats now convert through a render pass instead
+of submitting an incompatible raw texture copy. Copies and blits that sample a
+window surface first stage its pixels into a sampleable texture: presentation
+textures are only requested with render-attachment/copy-source usage. Regression
+checks compare copied pixels and untouched neighbors, including HDR and window
+sources, and check that blits respect scissor while copies ignore it.
+
+The game window no longer reinstalls a GLFW callback that throws through native
+frames for errors other than FeatureUnavailable. All desktop windows share a
+rooted, non-throwing diagnostic callback. The full check deliberately invokes
+SwapInterval on a NoAPI window and verifies that GLFW's NoContext error returns
+normally. Native window creation still performs OpenTK's managed failure check.
+This removes a native-abort path; it does not prove the cause of a reported
+NVIDIA startup failure without that machine's failing-launch diagnostics.
+
+The earlier diagnostic fixes are retained: flushed native-startup checkpoints,
+wgpu logging, explicit `-debuglog` support for renderer probes, and undefined
+(rather than zero) depth slices for 2D render attachments.
+
+Validation of the final renderer code:
+
+- Full policy/device/window/render/recovery checks pass on Metal and MoltenVK
+  on an Apple M4 Pro.
+- The expanded full check passes on Linux ARM64 with Mesa 25.2.8 llvmpipe,
+  Xvfb/X11 and GLFW 3.4. The isolated test container built GLFW for ARM64;
+  the shipped Linux x64 package uses its normal bundled GLFW.
+- OpenGL texture-update/readback/HDR checks pass on macOS and Linux Mesa.
+- Windows x64 and Linux x64 self-contained publishes pass; Windows GUI subsystem
+  and both packages' no-game-assets checks pass.
+- A supplied Windows Radeon R3 diagnostic log reports exit code 0 on the earlier
+  diagnostic build. This is not runtime verification of these later fixes, the
+  RX 6700 XT, or NVIDIA proprietary drivers/Wayland.
+
+The full check deliberately forces device loss and OpenGL recovery. Its native
+log can therefore contain "forced repeated device loss acceptance check" and,
+with these new checks, an intentional GLFW NoContext error. Judge that test by
+its final PASS and exit code; those injected failures are not game-launch crashes.
