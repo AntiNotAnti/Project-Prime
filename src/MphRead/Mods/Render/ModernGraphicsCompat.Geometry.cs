@@ -58,9 +58,9 @@ namespace MphRead.Mods.Render
             GrowBuffer(ref geometry.Vertex, ref geometry.VertexCapacity, vertexBytes, BufferUsage.Vertex);
             GrowBuffer(ref geometry.Index, ref geometry.IndexCapacity, indexBytes, BufferUsage.Index);
             fixed (float* ptr = vertices)
-                _api.QueueWriteBuffer(_queue, geometry.Vertex, 0, ptr, (nuint)vertexBytes);
+                WriteProfiledBuffer(geometry.Vertex, 0, ptr, (nuint)vertexBytes);
             fixed (int* ptr = indices)
-                _api.QueueWriteBuffer(_queue, geometry.Index, 0, ptr, (nuint)indexBytes);
+                WriteProfiledBuffer(geometry.Index, 0, ptr, (nuint)indexBytes);
             if (persistent) _geometryCache.Add(key, geometry);
             return geometry;
         }

@@ -81,3 +81,27 @@ window for each requested pixel size, then records both the requested size and
 actual framebuffer size; actual adapter/backend metadata accompanies timings.
 Do not compare old benchmark results that changed scene dimensions while leaving
 the native window at its startup size. Render scale remains a separate setting.
+
+## Separating host submission from presentation pacing
+
+Benchmark evidence now records the requested VSync state and actual modern
+present mode, aggregate surface-acquire calls/time, and separate per-frame present
+time. VSync is explicitly requested off for OpenGL too. A modern backend may
+still select FIFO when Immediate/Mailbox is unavailable. Surface acquisition is
+inside the completed-frame and submission measurements, so inspect its time
+before attributing a difference to rendering throughput.
+
+Modern samples also report native queue-submission, buffer-write and bind-group
+creation counts and elapsed host-call time. These counters run only during an
+explicit performance sample; divide their totals by the sample count for a
+per-frame value. Driver calls may block, and their timings are not GPU execution
+or transfer timestamps. Do not add these overlapping diagnostics to the measured
+completed-frame time. The pinned ABI still lacks timestamp-period conversion.
+
+The Vulkan/MoltenVK evidence file records the actual local device, runtime hashes,
+scene comparison, native lifetime checks and diagnostic timing runs. Native Vulkan
+window tests require the AppKit-enabled pinned wgpu build and packaged loader/ICD;
+a missing runtime or a renderer fallback must never count as Vulkan acceptance.
+A framework-dependent build may resolve `runtimes/osx-arm64/native` ahead of the
+output root, so merely replacing the root library does not prove which native
+library the process loaded. Use the packaged application or verify both paths.

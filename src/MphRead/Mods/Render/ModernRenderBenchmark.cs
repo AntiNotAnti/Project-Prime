@@ -28,6 +28,7 @@ internal static class ModernRenderBenchmark
                 : (GraphicsBackend.OpenGL, GraphicsApi.GetString(OpenTK.Graphics.OpenGL.StringName.Renderer),
                     GraphicsApi.GetString(OpenTK.Graphics.OpenGL.StringName.Version));
             if (modern) ModernGraphicsCompat.SetVSync(false);
+            else window.Context.SwapInterval = 0;
             RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
             if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
             ModernGraphicsCompat.PerformanceSample? startup = null;
@@ -57,6 +58,7 @@ internal static class ModernRenderBenchmark
                     scene.OnResize();
                     var frames = new List<double>();
                     var submissions = new List<double>();
+                    var presents = new List<double>();
                     ModernGraphicsCompat.PerformanceSample? warmup = null;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
@@ -75,9 +77,11 @@ internal static class ModernRenderBenchmark
                         double submit = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
                         GraphicsApi.Finish();
                         double completed = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+                        long presentStart = Stopwatch.GetTimestamp();
                         DesktopGraphicsSession.Present(window);
+                        double presentMs = Stopwatch.GetElapsedTime(presentStart).TotalMilliseconds;
                         scene.AfterRenderFrame();
-                        if (i >= 20) { frames.Add(completed); submissions.Add(submit); }
+                        if (i >= 20) { frames.Add(completed); submissions.Add(submit); presents.Add(presentMs); }
                     }
                     ModernGraphicsCompat.PerformanceSample? measurement = ModernGraphicsCompat.Active
                         ? ModernGraphicsCompat.EndPerformanceSample() : null;
@@ -85,6 +89,9 @@ internal static class ModernRenderBenchmark
                     results.Add(new { requestedWidth = size.X, requestedHeight = size.Y, width = scene.Size.X, height = scene.Size.Y, scale, samples = frames.Count,
                         warmup, measurement,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
+                        averagePresentMs = presents.Average(),
+                        averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
+                            ? measurement.Value.SurfaceAcquireMs / measurement.Value.SurfaceAcquisitions : (double?)null,
                         p99CompletedMs = sorted[(int)Math.Ceiling(sorted.Length * .99) - 1],
                         p999CompletedMs = sorted[(int)Math.Ceiling(sorted.Length * .999) - 1],
                         onePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .99)).Average(),
@@ -102,7 +109,7 @@ internal static class ModernRenderBenchmark
                 adapter = identity.Item2, driver = identity.Item3,
                 platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                 room, preset = "Extreme",
-                notes = $"Frozen scene; 20 warmup + {sampleCount} samples. Completed time includes synchronous GPU completion, excludes present. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
+                notes = $"Frozen scene; 20 warmup + {sampleCount} samples. Completed time includes synchronous GPU completion and any surface-acquire pacing; present is measured separately. VSync is requested off on both backends, but modern actual PresentMode may fall back to Fifo. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
                 startup, results
             }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine("RENDERBENCH PASS " + path);

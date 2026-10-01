@@ -12,7 +12,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private int _liveBindGroups;
     private BindGroup* CreateTrackedBindGroup(in BindGroupDescriptor descriptor)
     {
+        long start = PerformanceStart();
         BindGroup* group = _api.DeviceCreateBindGroup(_device.Device, descriptor);
+        if (start != 0)
+        {
+            _bindGroupsCreated++;
+            _bindGroupCreationMs += System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+        }
         if (group != null) _liveBindGroups++;
         return group;
     }

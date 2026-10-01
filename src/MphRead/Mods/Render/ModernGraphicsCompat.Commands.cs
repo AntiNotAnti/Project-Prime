@@ -47,7 +47,16 @@ internal sealed unsafe partial class ModernGraphicsCompat
     {
         if (_commandEncoder == null) return;
         CommandBuffer* commands = _api.CommandEncoderFinish(_commandEncoder, new CommandBufferDescriptor());
-        try { _api.QueueSubmit(_queue, 1, &commands); }
+        try
+        {
+            long start = PerformanceStart();
+            _api.QueueSubmit(_queue, 1, &commands);
+            if (start != 0)
+            {
+                _queueSubmissions++;
+                _queueSubmitMs += System.Diagnostics.Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+            }
+        }
         finally
         {
             _api.CommandBufferRelease(commands);

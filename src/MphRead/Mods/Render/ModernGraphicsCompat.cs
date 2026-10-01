@@ -955,7 +955,14 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 SurfaceTexture acquired = default;
+                long acquireStart = PerformanceStart();
                 _api.SurfaceGetCurrentTexture(_device.Surface, &acquired);
+                if (acquireStart != 0)
+                {
+                    double acquireMs = System.Diagnostics.Stopwatch.GetElapsedTime(acquireStart).TotalMilliseconds;
+                    _surfaceAcquisitions++; _surfaceAcquireMs += acquireMs;
+                    _longestSurfaceAcquireMs = Math.Max(_longestSurfaceAcquireMs, acquireMs);
+                }
                 _surfaceTexture = acquired;
                 if (acquired.Status == SurfaceGetCurrentTextureStatus.Success && acquired.Texture != null)
                 {
@@ -1410,7 +1417,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
             _uiViewportBuffer = RentUniformBuffer(16);
             var viewport = ViewportTransform((int)_width, (int)_height);
-            _api.QueueWriteBuffer(_queue, _uiViewportBuffer, 0, &viewport, 16);
+            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = textureView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };

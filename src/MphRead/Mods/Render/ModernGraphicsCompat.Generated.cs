@@ -146,7 +146,7 @@ namespace MphRead.Mods.Render
             }
             generated.UniformBuffer = RentUniformBuffer((ulong)generated.Layout.Size);
             fixed (uint* words = generated.Words)
-                _api.QueueWriteBuffer(_queue, generated.UniformBuffer, 0, words, (nuint)generated.Layout.Size);
+                WriteProfiledBuffer(generated.UniformBuffer, 0, words, (nuint)generated.Layout.Size);
         }
 
         private BindGroup* GeneratedBindGroup(ModernProgramKind kind, BindGroupLayout* layout)
