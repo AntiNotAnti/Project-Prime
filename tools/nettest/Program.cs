@@ -139,6 +139,12 @@ namespace MphRead.NetTest
                 return args.Length > 2 && args[2] == "all" ? NetBootstrapCheck.RunAllModes()
                     : NetBootstrapCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS");
             }
+            if (args.Length > 1 && args[0] == "--semantic-scene")
+            {
+                System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));
+                Paths.UpdatePaths(); Paths.ChooseMphPath();
+                return MphRead.Mods.MatchEvents.MatchSemanticSceneCheck.Run();
+            }
             if (args.Length > 1 && args[0] == "--combat-scene")
             {
                 System.IO.Directory.SetCurrentDirectory(System.IO.Path.GetFullPath(args[1]));

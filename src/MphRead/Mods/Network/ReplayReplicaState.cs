@@ -16,6 +16,7 @@ namespace MphRead.Mods.Network
     internal sealed partial class ReplayReplicaState
     {
         internal List<(uint Frame, ChatPacket Packet)> ChatLines { get; } = new();
+        internal Mods.MatchEvents.MatchSemanticReceiver SemanticEvents { get; private set; } = new();
         public NetCosmetics Cosmetics { get; private set; } = new();
         private readonly ReplayOccupant[] _roster = new ReplayOccupant[PlayerEntity.SlotCapacity];
         private readonly PlayerState[] _players = new PlayerState[PlayerEntity.SlotCapacity];
@@ -68,6 +69,8 @@ namespace MphRead.Mods.Network
         public void Rewind()
         {
             ChatLines.Clear();
+            SemanticEvents = new();
+            SemanticEvents.Begin(Match?.MatchId ?? 0, Match?.AuthorityEpoch ?? 0);
             Cosmetics.Reset();
             Array.Clear(_players);
             Array.Clear(_intents);
@@ -109,6 +112,7 @@ namespace MphRead.Mods.Network
                         Reset();
                     }
                     Match = match;
+                    SemanticEvents.Begin(match.MatchId, match.AuthorityEpoch);
                     MatchRecordingFrame = frame;
                     if (Configuration is { } rules && !Matches(rules.MatchId, rules.AuthorityEpoch)) Configuration = null;
                     accepted = true;
@@ -147,6 +151,14 @@ namespace MphRead.Mods.Network
                             && Match is { } cosmeticMatch)
                             accepted |= Cosmetics.Accept(cosmetic, cosmeticMatch.MatchId, cosmeticMatch.AuthorityEpoch,
                                 _roster[cosmetic.Slot].Generation);
+                    break;
+                case PacketType.MatchSemanticEvent:
+                    if (!Mods.MatchEvents.MatchSemanticEventPacket.TryRead(packet, out var semantic)) throw Malformed();
+                    accepted = SemanticEvents.Accept(semantic);
+                    break;
+                case PacketType.MatchAward:
+                    if (!Mods.MatchEvents.MatchAwardPacket.TryRead(packet, out var award)) throw Malformed();
+                    accepted = SemanticEvents.Accept(award);
                     break;
                 case PacketType.ReplayWorld:
                     if (Match is { } currentWorld && _authorityWire.Accept(payload, currentWorld.MatchId, currentWorld.AuthorityEpoch, strict: true) is { } world)

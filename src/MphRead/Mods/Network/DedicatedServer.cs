@@ -204,6 +204,9 @@ namespace MphRead.Mods.Network
         private readonly byte[] _lastSnapshot = new byte[NetConfig.MaxSnapshotSize];
         private int _lastSnapshotLength;
         private volatile bool _running;
+        private readonly bool _semanticWireEnabled = Environment.GetEnvironmentVariable("PP_SEMANTIC_EVENT_WIRE") == "1";
+        private long _semanticWireDrops;
+        internal long SemanticWireDrops => _semanticWireDrops;
         private double _matchStarted;
         /// <summary>
         /// When the match ended, or -1 while one is being played.
@@ -940,6 +943,15 @@ namespace MphRead.Mods.Network
             NetSession.ReplayWorldSink = payload =>
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
+            };
+            NetSession.MatchSemanticSink = (type, payload) =>
+            {
+                // Opt-in diagnostic wire until semantic parity and consumer migration gates pass.
+                // Its ordinary reliable budget never exhausts critical gameplay control capacity.
+                if (!_semanticWireEnabled) return;
+                foreach (var peer in _peers)
+                    if (_transport?.TrySendSemanticDiagnostic(peer.EndPoint, type, payload) != true)
+                        _semanticWireDrops++;
             };
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.

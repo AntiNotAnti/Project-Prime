@@ -569,6 +569,21 @@ namespace MphRead.Mods.Network
         /// <param name="immediateCopies">One to three independent datagrams for
         /// a reliable event. Extra copies preserve the event's dedup identity
         /// and are reserved for latency-sensitive startup publication.</param>
+        internal bool TrySendSemanticDiagnostic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
+        {
+            if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward)) return false;
+            long stamp = EnterConnectionLock();
+            try
+            {
+                if (!_connections.TryGetValue(target, out var connection) || connection.RetiredAt.HasValue
+                    || connection.Reliable.Capture(NowMilliseconds).Pending >= 16
+                    || !connection.Reliable.TryQueue(type, payload, NowMilliseconds, out uint eventId)) return false;
+                FlushReliable(connection, NowMilliseconds, eventId, 1);
+                return true;
+            }
+            finally { ExitConnectionLock(stamp); }
+        }
+
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload,
             long extraHoldTicks = 0, int immediateCopies = 1)
         {

@@ -27,6 +27,7 @@ internal static class ReplayIdentityCompatibility
         if (converted.IsEmpty) return converted;
 
         PacketType type = (PacketType)converted[0];
+        if (protocol < 35 && type is PacketType.MatchSemanticEvent or PacketType.MatchAward) return ReadOnlySpan<byte>.Empty;
         if (type == PacketType.MapChange)
         {
             // Historical live clients fed MapChange through the same MatchState

@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 namespace MphRead.Mods.MatchEvents;
-internal enum MatchAwardKind
+internal enum MatchAwardKind : byte
 {
     FirstBlood, DoubleKill, TripleKill, Overkill, Killtacular, Killtrocity, Kilimanjaro,
     Killtastrophe, Killpocalypse, Killionaire, KillingSpree, KillingFrenzy, RunningRiot,

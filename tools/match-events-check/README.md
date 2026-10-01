@@ -66,3 +66,56 @@ exact identities and capture gaps can produce real mismatches. A passing domain
 check does **not** establish production parity. Asset-backed all-weapon/all-mode
 sessions must inspect these diagnostics before any Stage C–G consumer migration.
 No consumer migration or wire extension is included here.
+
+## Protocol 35 staged recording and receiving
+
+Production packet IDs 55 (semantic fact) and 56 (award) use the analyzer-only
+packet generator. `ValidateSchema(ref bool)` extends generated validation for
+cross-field identities and full-width nonzero `ulong` authority epochs. Generated
+TryRead rejects impossible identity combinations, all truncations, trailing bytes,
+unknown enum values and out-of-range fields. Packets carry no display names.
+
+The authority records generated facts and awards into the existing passive replay
+fact stream. Replica decoders retain their own bounded semantic receiver and do
+not recompute awards. Decoder checkpoint version 5 restores facts, authoritative
+awards and reordering/deduplication history; existing checkpoint versions 1–4 and
+protocol 34 recordings remain readable. The recorder seeds semantic history when
+private world capture starts and includes it in ordinary network restore baselines.
+Histories retain 1024 events and 1024 awards; the detached decoder checkpoint limit
+is now 256 KiB to accommodate those bounded histories. This is recent history,
+not an unbounded full-match event archive; complete recordings retain the full
+sequential fact stream separately.
+
+Live network fanout is diagnostic opt-in on the dedicated server:
+`PP_SEMANTIC_EVENT_WIRE=1`. Both packet types use ordinary reliable delivery and
+background processing. `TrySendSemanticDiagnostic` refuses additional facts while
+16 reliable entries are outstanding and never marks a connection failed on queue
+refusal. DedicatedServer.SemanticWireDrops and scene.SemanticPublisher.HistoryGaps
+are explicit diagnostics. The opt-in stream is **not guaranteed complete under
+budget pressure**, so it cannot replace score, replay authority or player-facing
+consumers. Normal canonical server recording is independent of that wire budget.
+
+`ProjectPrime -replayformatcheck` includes generated packet golden bytes,
+malformed-wire boundaries, reordered delivery, bounded history eviction, semantic
+checkpoint restoration, atomic failure and historical protocol34 compatibility.
+The existing protocol-generator tool exercises the optional validation hook.
+
+With user-provided game files, run:
+
+```
+dotnet run --project tools/nettest -c Release -- --semantic-scene /path/to/userData
+```
+
+This F2 check starts the real ServerSim, uses real players and the production
+accepted-damage path, and independently compares exact replay kill/headshot markers
+against semantic facts. It covers health/score invariance, assists, all nine beam
+types and respawn lives. It does not claim projectile trajectory/collision,
+all-mode objective parity, F4 real UDP saturation/reconnect, or F5 WAN evidence.
+
+Remaining Stage C–G migration gates: test all-mode objective/Prime transitions,
+source-claim corrections and delayed/coalesced snapshot parity; measure reliable
+bandwidth under load and define lossless admission/backpressure before enabling
+mandatory delivery; migrate kill feed, announcer, telemetry and post-match
+consumers only once those checks pass. Existing player-facing consumers and their
+legacy replay translation continue unchanged. Overtime still needs an actual
+authorized gameplay rule before an authoritative producer can exist.

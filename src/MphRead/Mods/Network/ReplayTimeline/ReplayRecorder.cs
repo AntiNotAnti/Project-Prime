@@ -13,6 +13,7 @@ internal sealed class ReplayRecorder
     internal event Action? Resetting;
     internal event Action<ReplayTimelineRecord>? CheckpointCaptured;
     private readonly ReplayAuthorityWire _worldWire = new();
+    private readonly Mods.MatchEvents.MatchSemanticReceiver _semantic = new();
     private ReplayTimelineRecord? _match, _roster, _snapshot, _configuration, _cosmetics;
     private readonly ReplayTimelineRecord?[] _intents = new ReplayTimelineRecord?[RosterPacket.MaxSlots];
     private ushort _matchId;
@@ -23,6 +24,7 @@ internal sealed class ReplayRecorder
     {
         Resetting?.Invoke();
         _worldWire.Reset();
+        _semantic.Begin(0, 0);
         Timeline.Reset();
         _cosmetics?.Release(); _cosmetics = null;
         _match?.Release(); _roster?.Release(); _snapshot?.Release(); _configuration?.Release();
@@ -35,11 +37,20 @@ internal sealed class ReplayRecorder
     {
         if (_matchId != match.MatchId || _epoch != match.AuthorityEpoch || _room != match.RoomKey) Reset();
         _matchId = match.MatchId; _epoch = match.AuthorityEpoch; _room = match.RoomKey;
+        _semantic.Begin(_matchId, _epoch);
         Span<byte> bytes = stackalloc byte[1 + MatchStatePacket.Size];
         bytes[0] = (byte)PacketType.MatchState; match.Write(bytes[1..]);
         _match?.Release();
         _match = new(frame, Timeline.LastServerTick ?? frame, ReplayFactKind.Match, bytes);
         Publish(_match.Value);
+    }
+    internal void AcceptSemantic(ReadOnlySpan<byte> packet, ushort match, ulong epoch, uint tick, uint frame)
+    {
+        if (match != _matchId || epoch != _epoch || !HasMatch) return;
+        bool accepted = packet.Length > 0 && packet[0] == (byte)PacketType.MatchSemanticEvent
+            ? Mods.MatchEvents.MatchSemanticEventPacket.TryRead(packet, out var fact) && _semantic.Accept(fact)
+            : Mods.MatchEvents.MatchAwardPacket.TryRead(packet, out var award) && _semantic.Accept(award);
+        if (accepted) PublishTransient(new(frame, tick, ReplayFactKind.Presentation, packet));
     }
     public void AcceptRoster(in RosterPacket roster, uint frame)
     {
@@ -114,8 +125,14 @@ internal sealed class ReplayRecorder
                     if (intent.SlotGeneration == player.SlotGeneration && intent.LifeId == player.LifeId)
                         records.Add(record);
                 }
-                if (Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.NetworkBaseline, records)))
-                    _lastRestore = frame;
+                var semantics = new List<ReplayTimelineRecord>();
+                VisitSemanticBaseline(frame, record => { record.Retain(); semantics.Add(record); });
+                records.AddRange(semantics);
+                try
+                {
+                    if (Timeline.AppendRestorePoint(new(frame, tick, ReplayRestoreKind.NetworkBaseline, records))) _lastRestore = frame;
+                }
+                finally { foreach (var record in semantics) record.Release(); }
             }
         }
         // Keep the snapshot in the sequential stream too: a clip starting from an
@@ -153,6 +170,25 @@ internal sealed class ReplayRecorder
         if (_snapshot is { } snapshot) accept(snapshot);
         if (_cosmetics is { } cosmetics) accept(cosmetics);
         foreach (var intent in _intents) if (intent is { } record) accept(record);
+        VisitSemanticBaseline(_snapshot?.RecordingFrame ?? 0, accept);
+    }
+
+    private void VisitSemanticBaseline(uint frame, Action<ReplayTimelineRecord> accept)
+    {
+        Span<byte> bytes = stackalloc byte[Mods.MatchEvents.MatchSemanticEventPacket.Size];
+        foreach (var fact in _semantic.Events)
+        {
+            fact.Write(bytes);
+            var record = new ReplayTimelineRecord(frame, fact.Tick, ReplayFactKind.Presentation, bytes);
+            try { accept(record); } finally { record.Release(); }
+        }
+        foreach (var award in _semantic.Awards)
+        {
+            award.Write(bytes);
+            var record = new ReplayTimelineRecord(frame, award.Tick, ReplayFactKind.Presentation,
+                bytes[..Mods.MatchEvents.MatchAwardPacket.Size]);
+            try { accept(record); } finally { record.Release(); }
+        }
     }
 
     private void PublishTransient(ReplayTimelineRecord record)

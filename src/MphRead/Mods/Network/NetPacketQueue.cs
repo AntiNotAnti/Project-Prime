@@ -31,6 +31,7 @@ public sealed class NetPacketQueue
     public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
+        PacketType.MatchSemanticEvent or PacketType.MatchAward => NetPacketPriority.Background,
         PacketType.Intent or PacketType.SlotIntent or PacketType.Snapshot or PacketType.SnapshotFast or PacketType.PlayerSlowState or PacketType.WorldState or PacketType.HitClaim or PacketType.HitVerdict
             or PacketType.ReplayWorld or PacketType.MatchStartCommit => NetPacketPriority.Realtime,
         PacketType.Hello or PacketType.Welcome or PacketType.Bye or PacketType.Refused or PacketType.SessionState

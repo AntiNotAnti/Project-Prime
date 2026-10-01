@@ -8,7 +8,7 @@ namespace MphRead.Mods.Network;
 /// supply entity, simulation and presentation state; this is never one by itself.</summary>
 internal sealed class ReplayReplicaCheckpoint
 {
-    internal const int MaximumBytes = 128 * 1024;
+    internal const int MaximumBytes = 256 * 1024;
     private readonly byte[] _bytes;
     internal ReadOnlySpan<byte> Bytes => _bytes;
     internal ReplayReplicaCheckpoint(ReadOnlySpan<byte> bytes)
@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 4;
+    private const ushort CheckpointVersion = 5;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -84,6 +84,7 @@ internal sealed partial class ReplayReplicaState
         writer.Write(ChatLines.Count);
         Span<byte> chatBytes = stackalloc byte[ChatPacket.Size];
         foreach (var line in ChatLines) { writer.Write(line.Frame); line.Packet.Write(chatBytes); writer.Write(chatBytes); }
+        SemanticEvents.WriteCheckpoint(writer);
 
     }
 
@@ -218,11 +219,19 @@ internal sealed partial class ReplayReplicaState
                     restored.ChatLines.Add((frame, ChatPacket.Read(Read(ChatPacket.Size))));
                 }
             }
+            if (version >= 5)
+            {
+                if (protocol < 35) throw Malformed();
+                restored.SemanticEvents = Mods.MatchEvents.MatchSemanticReceiver.ReadCheckpoint(reader,
+                    restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
+            }
+            else restored.SemanticEvents.Begin(restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame
                 || restored.AcceptedPackets < 0 || restored.IgnoredPackets < 0) throw Malformed();
         }
         catch (EndOfStreamException ex) { throw new InvalidDataException("Truncated replica checkpoint.", ex); }
         ChatLines.Clear(); ChatLines.AddRange(restored.ChatLines);
+        SemanticEvents = restored.SemanticEvents;
         ContainsBots = restored.ContainsBots;
         Cosmetics = restored.Cosmetics;
         Match = restored.Match; Configuration = restored.Configuration;

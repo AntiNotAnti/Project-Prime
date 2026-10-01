@@ -45,16 +45,17 @@ internal sealed class MatchSemanticEventBus
         if (_events.Count == Capacity) _events.Dequeue();
         _events.Enqueue(fact); LastEvent = fact; Awards.Observe(fact); return true;
     }
-    private static bool ValidIdentity(in MatchSemanticEvent fact) => fact.Type switch
+    internal static bool ValidIdentity(in MatchSemanticEvent fact) => fact.Type switch
     {
         MatchSemanticEventType.PlayerSpawned or MatchSemanticEventType.WeaponFired
             or MatchSemanticEventType.ObjectivePickedUp or MatchSemanticEventType.ObjectiveDropped
             or MatchSemanticEventType.ObjectiveCaptured or MatchSemanticEventType.ObjectiveDefended
             or MatchSemanticEventType.NodeCaptured => fact.Actor.IsPlayer && fact.Target == MatchSemanticActor.None,
-        MatchSemanticEventType.PlayerKilled => fact.Target.IsPlayer && fact.Actor != fact.Target,
+        MatchSemanticEventType.PlayerKilled => fact.Target.IsPlayer && fact.Actor != fact.Target
+            && (fact.Actor.IsPlayer || (fact.Flags & MatchSemanticEventFlags.Environment) != 0),
         MatchSemanticEventType.PlayerSuicide => fact.Actor.IsPlayer && fact.Actor == fact.Target,
         MatchSemanticEventType.Headshot or MatchSemanticEventType.PlayerAssisted => fact.Actor.IsPlayer && fact.Target.IsPlayer,
         _ => true
     };
-    private static bool ValidActor(MatchSemanticActor actor) => actor.IsPlayer || actor == MatchSemanticActor.None;
+    internal static bool ValidActor(MatchSemanticActor actor) => actor.IsPlayer || actor == MatchSemanticActor.None;
 }

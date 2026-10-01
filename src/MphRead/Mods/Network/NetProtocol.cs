@@ -75,6 +75,7 @@ namespace MphRead.Mods.Network
         WorldBootstrap = 46, WorldReady = 47, SnapshotFast = 48, PlayerSlowState = 49, WorldState = 50,
         ReplayWorld = 42,    // optional authority -> recorder facts; no live gameplay effects
         MapAvailability = 54,
+        MatchSemanticEvent = 55, MatchAward = 56, // protocol35 passive authority facts
         CosmeticState = 53, // optional, catalog IDs only; fixed legacy packets unchanged
         CareerIdentity = 41, // client -> server, short-lived career attribution ticket
         MapDone = 35,        // client -> server, "I have it and it hashes right"
@@ -2398,7 +2399,7 @@ namespace MphRead.Mods.Network
         // map before spawning the child instead of relying on whatever happened to
         // be installed on that region. Older directories would stride this tail at
         // 41 bytes and misread the policy/identity block, so mixed builds are refused.
-        public const int ProtocolVersion = 34;
+        public const int ProtocolVersion = 35;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

@@ -2032,6 +2032,7 @@ namespace MphRead
                 // here is counted in frames. Mods.Network.NetHitClaims.
                 Mods.Network.NetHitClaims.Tick();
                 Mods.Network.NetHooks.AfterSimulation();
+                SemanticPublisher.Publish(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
                 Mods.KillCam.AfterSimulation(this);
 
