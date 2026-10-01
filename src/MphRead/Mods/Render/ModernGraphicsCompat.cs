@@ -422,8 +422,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             self._batch.End();
             if (!self._recording)
             {
-                self.DrawBatch(self._batch.Vertices.ToArray(),
-                    self._batch.TriIndices.ToArray(), self._batch.LineIndices.ToArray());
+                self.DrawTransientBatch();
                 self._batch.Clear();
             }
         }
@@ -1367,7 +1366,20 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             throw new NotSupportedException($"Modern launcher texture format {record.Format} is not supported yet.");
         }
 
-        private void DrawBatch(float[] vertices, int[] triangles, int[] lines)
+        private void DrawTransientBatch()
+        {
+            DrawBatch(CollectionsMarshal.AsSpan(_batch.Vertices),
+                CollectionsMarshal.AsSpan(_batch.TriIndices),
+                CollectionsMarshal.AsSpan(_batch.LineIndices),
+                persistentVertices: null, persistentTriangles: null, persistentLines: null);
+        }
+
+        private void DrawBatch(float[] vertices, int[] triangles, int[] lines) =>
+            DrawBatch(vertices, triangles, lines, vertices, triangles, lines);
+
+        private void DrawBatch(ReadOnlySpan<float> vertices, ReadOnlySpan<int> triangles,
+            ReadOnlySpan<int> lines, float[]? persistentVertices, int[]? persistentTriangles,
+            int[]? persistentLines)
         {
             if (vertices.Length == 0) return;
             ModernProgramKind kind = CurrentProgramKind();
@@ -1381,26 +1393,45 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 || kind == ModernProgramKind.ToneMap;
             if (triangles.Length > 0)
             {
-                int[] indices = _wireframe ? WireframeIndices(triangles) : triangles;
+                ReadOnlySpan<int> indices = triangles;
+                int[]? persistentIndices = persistentTriangles;
+                if (_wireframe)
+                {
+                    // Display lists retain their cached edge array. Dynamic
+                    // wireframe is diagnostic-only; it may materialize here,
+                    // while ordinary gameplay remains allocation-free.
+                    int[] source = persistentTriangles ?? triangles.ToArray();
+                    int[] edges = WireframeIndices(source);
+                    indices = edges;
+                    persistentIndices = persistentTriangles != null ? edges : null;
+                }
                 var topology = _wireframe ? PrimitiveTopology.LineList : PrimitiveTopology.TriangleList;
-                if (core) DrawCoreIndexed(vertices, indices, topology, kind);
-                else DrawIndexed(vertices, indices, topology);
+                if (core) DrawCoreIndexed(vertices, indices, topology, kind,
+                    persistentVertices, persistentIndices);
+                else DrawIndexed(vertices, indices, topology,
+                    persistentVertices, persistentIndices);
             }
             if (lines.Length > 0)
             {
-                if (core) DrawCoreIndexed(vertices, lines, PrimitiveTopology.LineList, kind);
-                else DrawIndexed(vertices, lines, PrimitiveTopology.LineList);
+                if (core) DrawCoreIndexed(vertices, lines, PrimitiveTopology.LineList, kind,
+                    persistentVertices, persistentLines);
+                else DrawIndexed(vertices, lines, PrimitiveTopology.LineList,
+                    persistentVertices, persistentLines);
             }
         }
 
-        private void DrawIndexed(float[] vertices, int[] indices, PrimitiveTopology topology)
+        private void DrawIndexed(ReadOnlySpan<float> vertices, ReadOnlySpan<int> indices,
+            PrimitiveTopology topology, float[]? persistentVertices = null,
+            int[]? persistentIndices = null)
         {
             if (!AcquireSurfaceTexture()) return;
             PipelineRecord pipeline = Pipeline(topology);
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
+            NativeGeometry geometryBuffers = persistentVertices != null && persistentIndices != null
+                ? PrepareGeometry(persistentVertices, persistentIndices)
+                : PrepareGeometry(vertices, indices);
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 
