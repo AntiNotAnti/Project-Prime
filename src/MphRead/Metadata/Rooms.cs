@@ -17,6 +17,7 @@ namespace MphRead
     {
         // Existing community identity carried into presentation metadata, not package bytes.
         internal System.Guid MaterialMapId { get; init; }
+        internal (System.Guid Id, string Name)[]? AuthoredMaterials { get; init; }
         public int Id { get; }
         public string Name { get; }
         public string? InGameName { get; }

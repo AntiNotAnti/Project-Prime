@@ -11,6 +11,8 @@ public static class MaterialPackCommand
     {
         try
         {
+            args = (string[])args.Clone();
+            for (int i = 1; i < args.Length; i++) args[i] = Path.GetFullPath(Path.Combine(ConsoleSetup.LaunchDirectory, args[i]));
             if (args.Length == 2 && args[0] is "inspect" or "validate")
             {
                 var pack = MaterialPack.Load(args[1]);

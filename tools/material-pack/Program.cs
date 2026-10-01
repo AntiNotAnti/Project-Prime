@@ -117,6 +117,32 @@ try
     var sharedEffectKey = MaterialAssetKey.Scoped(MaterialAssetKey.EffectScope("Samus"), 3, 0, 0);
     Manifest(new MaterialPackEntry { Key = sharedEffectKey.Value, Albedo = "pixel.png" });
     Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0).Albedo != null, "shared effect alias resolves independently of particle load order");
+    Guid mapId = Guid.NewGuid(), firstId = Guid.NewGuid(), secondId = Guid.NewGuid();
+    var firstKey = MaterialAssetKey.Authored(mapId, firstId);
+    var secondKey = MaterialAssetKey.Authored(mapId, secondId);
+    Check(firstKey != secondKey && firstKey != MaterialAssetKey.Authored(Guid.NewGuid(), firstId), "authored material identities remain separate across materials and maps");
+    Reject(() => MaterialAssetKey.Authored(mapId, Guid.Empty), "missing authored ID is not invented");
+    MphRead.Material Make(string name) => MphRead.Mods.MapGen.RawStructs.MakeMaterial(name, 0, 0,
+        MphRead.RepeatMode.Repeat, MphRead.RepeatMode.Repeat, false, new MphRead.ColorRgb(31,31,31), new MphRead.ColorRgb(0,0,0));
+    var scopesMethod = typeof(MaterialAssetKey).GetMethod("AuthoredScopes", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+    System.Collections.Generic.IReadOnlyDictionary<int,string> Scopes((Guid,string)[] source, MphRead.Material[] compiled)
+        => (System.Collections.Generic.IReadOnlyDictionary<int,string>)scopesMethod.Invoke(null, new object[] { mapId, source, compiled })!;
+    var scopes = Scopes(new[] { (firstId, "first"), (secondId, "second") }, new[] { Make("imported"), Make("first"), Make("second") });
+    Check(scopes.Count == 2 && scopes[1] + "/recolor/0" == firstKey.Value && scopes[2] + "/recolor/0" == secondKey.Value, "imported offset maps authored GUIDs to compiled slots sharing texels");
+    scopes = Scopes(new[] { (secondId, "second"), (firstId, "first") }, new[] { Make("second"), Make("first") });
+    Check(scopes[0] + "/recolor/0" == secondKey.Value && scopes[1] + "/recolor/0" == firstKey.Value, "authored keys survive reorder");
+    Check(Scopes(new[] { (firstId, "first") }, new[] { Make("stale") }).Count == 0, "mismatched compiled metadata preserves legacy resolution");
+    Manifest(new MaterialPackEntry { Key = firstKey.Value, Albedo = "pixel.png" }, new MaterialPackEntry { Key = secondKey.Value });
+    var authoredResolver = new MaterialResolver(root);
+    Check(authoredResolver.Resolve("generated", 0, 0, 0, firstKey).Albedo != null
+        && authoredResolver.Resolve("generated", 0, 0, 0, secondKey).Albedo == null, "shared compiled texture pair retains separate authored assignments");
+    Check(authoredResolver.ResolveExplicit(key) == null, "editor explicit lookup never guesses a compiled pair");
+    var bindings = new MphRead.TextureMap(); bindings.Add(0, 0, 0, 20, true);
+    var authoredBindings = (System.Collections.IDictionary)typeof(MphRead.TextureMap).GetProperty("Authored", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(bindings)!;
+    authoredBindings.Add((1,0,0,0), (21,true)); authoredBindings.Add((2,0,0,0), (22,true));
+    var getBinding = typeof(MphRead.TextureMap).GetMethod("GetForMaterial", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!;
+    int Binding(int slot) => ((ValueTuple<int,bool>)getBinding.Invoke(bindings, new object[] { slot,0,0,0 })!).Item1;
+    Check(Binding(1) == 21 && Binding(2) == 22 && Binding(0) == 20, "renderer binding lookup separates authored materials and preserves legacy pair binding");
     File.WriteAllText(Path.Combine(root, "materials.json"), "{broken");
     Check(new MaterialResolver(root, useManifest: false).Resolve("Samus", 3, 0, 0).Albedo != null, "malformed manifest cannot disable legacy filename path");
     if (args.Contains("--gpu", StringComparer.Ordinal)) GpuCheck.Run(root, key);

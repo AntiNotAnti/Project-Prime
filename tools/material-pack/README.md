@@ -18,15 +18,32 @@ Stable keys use actual loader metadata:
 - `model/<encoded-name>/texture/<id>/palette/<id>/recolor/<id>` for ordinary models.
 - `room/<encoded-RoomMetadata.Name>/texture/...` for native rooms and legacy custom rooms without a MapId.
 - `map/<existing-MapId-N-format>/texture/...` for community/generated rooms with a persistent MapId.
+- `map/<MapId-N-format>/material/<MapMaterial.Id-N-format>/recolor/<id>` for authored materials, including portable `.tex` images and borrowed source textures.
 - `effect/model/<encoded-particle-model-name>/texture/...` for the actual shared model loaded by particle definitions. This intentionally identifies a shared asset, not individual effect instances that share its texture binding.
 
 Names are invariant lowercase, and punctuation is encoded without collisions. Scene model copies retain their presentation identity. Runtime metadata carries the existing community MapId without changing serialized map definitions, compiled outputs, or content/package hash rules. Texture/palette slots are the actual observed slots in that asset version. Room/community scoped entries win over generic model entries. Shared effect/model aliases follow an explicit generic model entry, and are resolved regardless of effect-load order so reuse of an existing texture binding stays deterministic. Actual particle loading records the effect alias in inventory. Older model manifests and all five legacy filename candidates remain fallback paths.
 
-Map Studio's material browser exposes native source keys, Browse/Clear controls, and downsampled channel images with channel semantics. Selected images are validated and copied into the local default pack under content-addressed names; manifest writes are atomic. Edited thumbnails are disposed promptly. These are local presentation pack changes, separate from map document undo/save and community packages. The viewport feeds normal/specular/roughness/emissive maps into the same material shader as gameplay, under fixed studio lighting. It computes face normals and preserves the original UV coordinate dimensions when albedo resolution changes. Material edits refresh textures and release old companion textures while retaining mesh geometry.
+Map Studio's material browser exposes stable authored map/material keys, Browse/Clear controls, and downsampled channel images with channel semantics. Selected images are validated and copied into the local default pack under content-addressed names; manifest writes are atomic. Edited thumbnails are disposed promptly. These are local presentation pack changes, separate from map document undo/save and community packages. The viewport feeds normal/specular/roughness/emissive maps into the same material shader as gameplay, under fixed studio lighting. It computes face normals and preserves the original UV coordinate dimensions when albedo resolution changes. Material edits refresh textures and release old companion textures while retaining mesh geometry.
 
-Generated maps can remap source texture slots during compilation. Their runtime keys are obtainable through observed inventory; the editor does not guess a source-to-generated slot mapping. Portable authored `.tex` channel assignments and per-effect-instance overrides require an explicit compiler provenance / binding contract and are not implemented here. Packs remain local presentation overrides rather than silently changing community package identities.
+Compiled/community metadata carries the existing authored material GUIDs in memory,
+without changing package bytes or content hashes. The runtime matches the compiler's
+material slot order (including imported texture-pack offsets) and verifies names
+before applying provenance; stale/mismatched metadata retains legacy lookup. Reordering
+materials does not change their keys. Authored surfaces receive separate renderer
+bindings even when compilation deduplicates their texture/palette pair, so clearing
+one assignment cannot override another surface. Binding reload and scene teardown
+retain/release these resources alongside ordinary textures. An explicit authored assignment costs one extra
+texture binding per textured authored material/recolor; disabled/absent authored assignments
+keep the original allocation. Pack reload adds newly assigned bindings. The original pair bindings
+remain available for legacy consumers and animation fallbacks.
 
-Rendering uses one resolved map contract before the existing `GraphicsApi` backend dispatch: normal XYZ, specular in red and roughness in green, emissive RGB. Android uses the same PNG header/chunk/dimension validation, the OS BitmapFactory decoder (unscaled, unpremultiplied), and explicit ARGB-to-RGBA conversion before the shared upload path. It uses the writable pack root and does not load the desktop-only Stb native dependency; physical Android acceptance remains pending. Pack reload changes the renderer material revision and retains main texture bindings while replacing their companion resources. Partial companion allocation failures release all earlier allocations.
+The editor resolves authored assignments directly, without guessing compiled texture
+slots. Existing native source previews remain fallback when no authored assignment
+exists. Imported architecture outside the authored material table and per-effect-instance
+overrides continue to use observed asset keys; shared effect assets intentionally
+remain shared. Packs remain local presentation overrides separate from community packages.
+
+Rendering uses one resolved map contract before the existing `GraphicsApi` backend dispatch: normal XYZ, specular in red and roughness in green, emissive RGB. Android uses the same PNG header/chunk/dimension validation, the OS BitmapFactory decoder (unscaled, unpremultiplied), and explicit ARGB-to-RGBA conversion before the shared upload path. The editor albedo decoder uses that same platform-safe byte decoder. It uses the writable pack root and does not load the desktop-only Stb native dependency; physical Android acceptance remains pending. Pack reload changes the renderer material revision and retains main texture bindings while replacing their companion resources. Partial companion allocation failures release all earlier allocations.
 
 Cross-API PBR appearance equivalence still requires rendered reference comparisons and hardware acceptance. The synthetic OpenGL check below proves resource lifetime and shared shader activation, not identical pixels across APIs.
 
@@ -38,6 +55,6 @@ dotnet run --project tools/material-pack/material-pack.csproj -c Release
 dotnet run --project tools/material-pack/material-pack.csproj -c Release -- --gpu
 ```
 
-The GPU check runs 12 success/failure upload cycles plus a partial-allocation fault (38 allocated / 38 released texture handles), and four lit editor refreshes. It asserts all material shader channels are enabled, the editor scope restores, only one mesh is uploaded, old map textures retire, and scene teardown releases the final set.
+The GPU check runs 12 success/failure upload cycles plus a partial-allocation fault (38 allocated / 38 released texture handles), and four lit editor refreshes. It asserts all material shader channels are enabled, the editor scope restores, only one mesh is uploaded, old map textures retire, and scene teardown releases the final set. A synthetic runtime model then proves two authored materials sharing texels retain one original binding when disabled, acquire independent red/original-white textures after a manifest reload, and release every owned texture at teardown.
 
 Limits: 2 MiB manifest, 8,192 materials, 32 MiB per image, 8,192 maximum dimension, 16 million pixels per image, 256 MiB pack, 32,768 filesystem entries. PNG chunk checksums and full decode are validated. Absolute/traversal/backslash paths and linked pack assets are rejected. The local pack should not be mutated concurrently while validation or upload is in progress.

@@ -41,6 +41,24 @@ public readonly record struct MaterialAssetKey
     }
     public static string RoomScope(RoomMetadata metadata) => metadata.MaterialMapId != Guid.Empty
         ? "map/" + metadata.MaterialMapId.ToString("N") : "room/" + Identifier(metadata.Name);
+    public static MaterialAssetKey Authored(Guid map, Guid material, int recolor = 0)
+    {
+        if (map == Guid.Empty || material == Guid.Empty || recolor < 0) throw new ArgumentException("Missing authored material identity.");
+        return new($"map/{map:N}/material/{material:N}/recolor/{recolor}");
+    }
+    internal static IReadOnlyDictionary<int, string> AuthoredScopes(Guid map, (Guid Id, string Name)[]? authored, IReadOnlyList<Material> compiled)
+    {
+        var result = new Dictionary<int, string>();
+        if (map == Guid.Empty || authored == null || authored.Length > compiled.Count) return result;
+        // The compiler appends authored materials after the imported texture pack.
+        // Match names before trusting the layout, so stale/mismatched generated files
+        // fall back to their original pair keys instead of overriding the wrong surface.
+        int offset = compiled.Count - authored.Length;
+        if (authored.Where((value, i) => value.Name != compiled[offset + i].Name).Any()) return result;
+        for (int i = 0; i < authored.Length; i++)
+            if (authored[i].Id != Guid.Empty) result[offset + i] = $"map/{map:N}/material/{authored[i].Id:N}";
+        return result;
+    }
     public static string EffectScope(string sharedParticleModel) => "effect/model/" + Identifier(sharedParticleModel);
     public static MaterialAssetKey ForModel(MphRead.Model model, int texture, int palette, int recolor)
         => model.MaterialAssetScope is { } scope && !scope.StartsWith("effect/model/", StringComparison.Ordinal)

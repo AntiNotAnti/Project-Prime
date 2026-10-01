@@ -104,9 +104,59 @@ internal static class GpuCheck
                         throw new Exception("Editor preview scope escaped its draw");
                     if (GL.GetError() != ErrorCode.NoError) throw new Exception("Editor material draw GL error");
                 }
+                // Two authored slots deliberately share one original texture/palette.
+                RawMaterial Raw(string name)
+                {
+                    object raw = default(RawMaterial);
+                    var bytes = new byte[64]; System.Text.Encoding.ASCII.GetBytes(name).CopyTo(bytes, 0);
+                    typeof(RawMaterial).GetField("Name")!.SetValue(raw, bytes);
+                    typeof(RawMaterial).GetField("Alpha")!.SetValue(raw, (byte)31);
+                    return (RawMaterial)raw;
+                }
+                var recolor = new Recolor("synthetic", new[] { new Texture(TextureFormat.Palette8Bit, 1, 1) }, new[] { default(Palette) },
+                    new IReadOnlyList<TextureData>[] { new[] { new TextureData(0, 255) } },
+                    new IReadOnlyList<PaletteData>[] { new[] { new PaletteData(32767) } });
+                var model = new Model("synthetic-authored", false, default, Array.Empty<RawNode>(), Array.Empty<RawMesh>(),
+                    new[] { Raw("first"), Raw("second") }, Array.Empty<DisplayList>(), Array.Empty<IReadOnlyList<RenderInstruction>>(),
+                    new AnimationResults(), Array.Empty<Matrix4>(), new[] { recolor }, Array.Empty<int>(),
+                    Array.Empty<Vector3Fx>(), Array.Empty<Vector3Fx>(), Array.Empty<int>(), Array.Empty<Fixed>());
+                Guid mapId = Guid.NewGuid(), firstId = Guid.NewGuid(), secondId = Guid.NewGuid();
+                var firstKey = MaterialAssetKey.Authored(mapId, firstId); var secondKey = MaterialAssetKey.Authored(mapId, secondId);
+                typeof(Model).GetProperty("AuthoredMaterialScopes", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(model,
+                    new Dictionary<int,string> { [0] = firstKey.Value[..firstKey.Value.LastIndexOf("/recolor/", StringComparison.Ordinal)],
+                        [1] = secondKey.Value[..secondKey.Value.LastIndexOf("/recolor/", StringComparison.Ordinal)] });
+                bool priorReplacements = MphRead.Mods.RenderOptions.TextureReplacements;
+                try
+                {
+                    MphRead.Mods.RenderOptions.TextureReplacements = false;
+                    typeof(Scene).GetMethod("InitTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, new object[] { model });
+                    scene.UpdateMaterials(model, 0);
+                    if (model.Materials[0].TextureBindingId != model.Materials[1].TextureBindingId)
+                        throw new Exception("Disabled authored replacements duplicated source bindings");
+                    MaterialInventory.Write(Path.Combine(packRoot, "materials.json"), new MaterialPackManifest { Materials = new()
+                        { new() { Key = firstKey.Value, Albedo = "pixel.png" }, new() { Key = secondKey.Value } } });
+                    uploader.GetMethod("Reload")!.Invoke(null, null);
+                    MphRead.Mods.RenderOptions.TextureReplacements = true;
+                    typeof(Scene).GetMethod("RefreshTextureQuality", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(scene, null);
+                    scene.UpdateMaterials(model, 0);
+                    if (model.Materials[0].TextureBindingId == model.Materials[1].TextureBindingId)
+                        throw new Exception("Shared texels merged independent authored assignments");
+                    foreach (var material in model.Materials)
+                    {
+                        GL.BindTexture(TextureTarget.Texture2D, material.TextureBindingId);
+                        byte[] pixels = new byte[4]; GL.GetTexImage(TextureTarget.Texture2D, 0, PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                        bool red = material == model.Materials[0];
+                        if (pixels[0] != 255 || pixels[1] != (red ? 0 : 255) || pixels[2] != (red ? 0 : 255))
+                            throw new Exception("Authored binding did not preserve independent replacement/original pixels");
+                    }
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                    Console.WriteLine("Material provenance GPU checks PASS: shared original binding, reload creates independent red/original authored textures");
+                }
+                finally { MphRead.Mods.RenderOptions.TextureReplacements = priorReplacements; }
+                int[] allOwned = ((IEnumerable<int>)typeof(Scene).GetField("_ownedTextures", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(scene)!).ToArray();
                 int[] final = Bindings();
                 scene.UnloadGl();
-                if (final.Any(GL.IsTexture) || scene.EditorMeshCount != 0) throw new Exception("Editor teardown retained material resources");
+                if (allOwned.Any(GL.IsTexture) || final.Any(GL.IsTexture) || scene.EditorMeshCount != 0) throw new Exception("Editor teardown retained material resources");
                 Console.WriteLine("Material editor GPU checks PASS: four lit material refreshes preserve one mesh; teardown releases all map textures");
             }
             finally { scene.UnloadGl(); }

@@ -24,21 +24,30 @@ internal sealed partial class MapStudioScreen
 
     private void EnhancedMaterialControls(StackPanel panel, MapDefinition definition, MapMaterial material)
     {
-        // Runtime native textures have an observed model/texture/palette identity.
-        // Authored .tex identities need a package-level contract before overrides are exposed.
-        if (material.Texture != null || !GameFiles.Ready) return;
+        if (definition.MapId == Guid.Empty || material.Id == Guid.Empty) return;
         try
         {
-            var model = Read.GetRoomModelForExport(definition.TextureSource);
-            if (material.SourceMaterial < 0 || material.SourceMaterial >= model.Materials.Count) return;
-            var original = model.Materials[material.SourceMaterial];
-            if (original.TextureId < 0 || original.PaletteId < 0) return;
-            var key = MaterialAssetKey.ForModel(model, original.TextureId, original.PaletteId, 0);
-            var texture = model.Recolors[0].Textures[original.TextureId];
-            MaterialInventory.Observe(key, texture.Width, texture.Height, model.Name);
+            var key = MaterialAssetKey.Authored(definition.MapId, material.Id);
+            int width, height;
+            if (material.Texture is { } path)
+            {
+                var texture = MapTexturePack.Load(MapAssets.Read(definition, path), path).Entries.Single();
+                width = texture.Width; height = texture.Height;
+            }
+            else
+            {
+                if (!GameFiles.Ready) return;
+                var model = Read.GetRoomModelForExport(definition.TextureSource);
+                if (material.SourceMaterial < 0 || material.SourceMaterial >= model.Materials.Count) return;
+                var original = model.Materials[material.SourceMaterial];
+                if (original.TextureId < 0 || original.PaletteId < 0) return;
+                var texture = model.Recolors[0].Textures[original.TextureId];
+                width = texture.Width; height = texture.Height;
+            }
+            MaterialInventory.Observe(key, width, height, definition.Name);
             panel.Children.Add(Text("LOCAL MATERIAL PACK · " + key.Value));
-            panel.Children.Add(Text("Local source-model override. Generated maps may use a different runtime key. Channel images show assignments; the viewport uses the shared material shader with studio lighting."));
-            var resolved = TextureReplacementPack.Resolve(model.Name, original.TextureId, original.PaletteId, 0, key);
+            panel.Children.Add(Text("This map/material identity follows the authored surface into compiled and community maps. Assignments stay local; sharing a map does not include this material pack."));
+            var resolved = TextureReplacementPack.ResolveExplicit(key);
             foreach (var channel in new[] { ("albedo", resolved?.Albedo), ("normal", resolved?.Normal),
                 ("specularRoughness", resolved?.SpecularRoughness), ("emissive", resolved?.Emissive) })
             {

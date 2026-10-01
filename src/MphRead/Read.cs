@@ -169,6 +169,7 @@ namespace MphRead
             Model model = ReadModel(meta.Name, meta.ModelPath, meta.AnimationPath, animationShare: null, recolors,
                 firstHunt: meta.FirstHunt || meta.Hybrid, decodeTextures: decodeTextures);
             model.MaterialAssetScope = Mods.Render.Materials.MaterialAssetKey.RoomScope(meta);
+            model.AuthoredMaterialScopes = Mods.Render.Materials.MaterialAssetKey.AuthoredScopes(meta.MaterialMapId, meta.AuthoredMaterials, model.Materials);
             return model;
         }
 

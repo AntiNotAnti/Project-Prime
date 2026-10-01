@@ -14,11 +14,16 @@ public sealed class MaterialResolver
         _root = Path.GetFullPath(root);
         if (useManifest && File.Exists(Path.Combine(_root, "materials.json"))) _pack = MaterialPack.Load(_root);
     }
-    public ResolvedMaterial Resolve(string model, int texture, int palette, int recolor, MaterialAssetKey? scopedKey = null)
+    public ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
+        => _pack != null && _pack.TryResolve(key, out var material) ? material : null;
+
+    public ResolvedMaterial Resolve(string model, int texture, int palette, int recolor, MaterialAssetKey? scopedKey = null, MaterialAssetKey? fallbackKey = null)
     {
         var modelKey = MaterialAssetKey.Model(model, texture, palette, recolor);
         var key = scopedKey ?? modelKey;
         if (_pack != null && _pack.TryResolve(key, out var explicitMaterial)) return explicitMaterial;
+        if (_pack != null && fallbackKey is { } fallback && _pack.TryResolve(fallback, out explicitMaterial))
+            return explicitMaterial with { Key = key };
         // Preexisting model manifests remain valid after adding richer room/effect identities.
         if (_pack != null && key != modelKey && _pack.TryResolve(modelKey, out explicitMaterial))
             return explicitMaterial with { Key = key };

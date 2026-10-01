@@ -61,6 +61,7 @@ public static class MapViewportMaterials
             try
             {
                 MapViewportMaterial texture;
+                Render.Materials.ResolvedMaterial? sourceEnhanced = null;
                 if (material.Texture is { } path)
                 {
                     byte[] bytes = MapAssets.Read(definition, path);
@@ -86,35 +87,33 @@ public static class MapViewportMaterials
                         var recolor = model.Recolors[0]; var entry = recolor.Textures[source.TextureId];
                         texture = new($"native/{definition.TextureSource}/{material.SourceMaterial}", entry.Width, entry.Height,
                             recolor.GetPixels(source.TextureId, source.PaletteId).ToArray());
-                        var enhanced = Render.TextureReplacementPack.Resolve(model.Name, source.TextureId, source.PaletteId, 0,
+                        sourceEnhanced = Render.TextureReplacementPack.Resolve(model.Name, source.TextureId, source.PaletteId, 0,
                             Render.Materials.MaterialAssetKey.ForModel(model, source.TextureId, source.PaletteId, 0));
-                        var replacement = enhanced?.Albedo;
-                        if (replacement != null)
+                    }
+                }
+                if (definition.MapId != Guid.Empty && material.Id != Guid.Empty)
+                {
+                    var key = Render.Materials.MaterialAssetKey.Authored(definition.MapId, material.Id);
+                    var enhanced = Render.TextureReplacementPack.ResolveExplicit(key) ?? sourceEnhanced;
+                    if (enhanced?.Albedo is { } replacement)
+                    {
+                        try
                         {
-                            try
-                            {
-                            Render.Materials.MaterialPack.ContainedPath(Render.TextureReplacementPack.Root,
-                                System.IO.Path.GetRelativePath(Render.TextureReplacementPack.Root, replacement.Path).Replace(System.IO.Path.DirectorySeparatorChar, '/'));
-                            Render.Materials.MaterialPack.ValidateImage(replacement.Path);
-                            using var stream = System.IO.File.OpenRead(replacement.Path);
-                            using var image = ReFuel.Stb.StbImage.Load(stream, ReFuel.Stb.StbiImageFormat.Rgba);
-                            byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
-                            System.Runtime.InteropServices.Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
+                            byte[] rgba = Render.TextureReplacementPack.ReadRgba(replacement.Path, out int width, out int height);
                             var pixels = new ColorRgba[rgba.Length / 4];
                             for (int pixel = 0; pixel < pixels.Length; pixel++)
                                 pixels[pixel] = new(rgba[pixel*4], rgba[pixel*4+1], rgba[pixel*4+2], rgba[pixel*4+3]);
-                            texture = new("material-pack/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(rgba)) + $"/{image.Width}/{image.Height}",
-                                image.Width, image.Height, pixels, entry.Width, entry.Height);
-                            }
-                            catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException
-                                or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
-                            { /* A concurrently removed/corrupt override must preserve the original. */ }
+                            texture = new("material-pack/" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(rgba)) + $"/{width}/{height}",
+                                width, height, pixels, texture.Width, texture.Height);
                         }
-                        if (enhanced != null && (enhanced.Albedo != null || enhanced.Normal != null
-                            || enhanced.SpecularRoughness != null || enhanced.Emissive != null))
-                            texture = texture with { Enhanced = enhanced,
-                                Key = texture.Key + "/material/" + enhanced.Key.Value + "/pack/" + Render.TextureReplacementPack.Revision };
+                        catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException
+                            or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+                        { /* Preserve the source if a replacement disappears while editing. */ }
                     }
+                    if (enhanced != null && (enhanced.Albedo != null || enhanced.Normal != null
+                        || enhanced.SpecularRoughness != null || enhanced.Emissive != null))
+                        texture = texture with { Enhanced = enhanced,
+                            Key = texture.Key + "/material/" + enhanced.Key.Value + "/pack/" + Render.TextureReplacementPack.Revision };
                 }
                 result[(false, i)] = texture; result[(true, i + offset)] = texture;
             }
