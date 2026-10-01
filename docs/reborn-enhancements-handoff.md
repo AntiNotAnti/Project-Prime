@@ -27,7 +27,7 @@ preserve committed work even if temporary checkouts are later removed.
 | Semantic delivery and consumers | `codex/semantic-delivery`, `a91e94a6` | `/tmp/prime-semantic-delivery` |
 | Renderer capture/lifetime | `codex/render-lifetime-evidence`, `b0eddd61` | `/tmp/prime-render-final-composite` |
 | Renderer performance/Vulkan | `codex/render-performance-investigation`, `853e0472` | `/tmp/prime-render-performance-investigation` |
-| Renderer scene transitions | `codex/render-scene-lifecycle` | `/tmp/prime-render-scene-lifecycle` |
+| Renderer scene transitions | `codex/render-scene-lifecycle`, `bc654546` (plus mode-tracking follow-up) | `/tmp/prime-render-scene-lifecycle` |
 | Material authoring | `codex/material-authoring`, `c0e608cb` | `/tmp/prime-material-authoring` |
 | Material backend checks | `codex/material-backend-evidence`, `d87417bb` | `/tmp/prime-material-backend-evidence` |
 | Waitlist core | `codex/lobby-waitlist`, `b03e8692` | `/tmp/prime-lobby-waitlist` |
@@ -125,6 +125,14 @@ Renderer evidence files reside in `tools/render-parity/evidence/`, including
 Actual Vulkan/Metal tests include 120 native resize/resource cycles, forced device
 loss/reconstruction and fallback, 24 scene parity captures and 31 full-shell captures.
 The managed resource measurements do not prove native driver memory reclamation.
+
+The scene-lifecycle follow-up records actual Vulkan full-sequence 44 captures,
+Metal focused 15 captures, and OpenGL focused 14 captures. Each passes two
+spectator/rejoin/Forge/replay/seek/return cycles. Modern runs verify advanced
+targets and recovery during a loaded match. Scene-local replay camera initialization
+fixes a reproduced global-notification race. Nine-cycle respawn checks pass 4,935
+frames each on GL/Metal and on subsequent Vulkan runs; the first Vulkan failure
+remains recorded below. See `macos-m4pro-scene-lifecycle-20261001.json`.
 
 Performance measurements are diagnostic: approximately 8.3–10.6 ms OpenGL,
 16.1–22.6 ms Metal and 16.4–18.6 ms MoltenVK in the sampled configurations.
