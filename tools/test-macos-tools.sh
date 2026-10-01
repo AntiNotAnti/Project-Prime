@@ -70,18 +70,21 @@ echo 'macOS signing gate regressions passed.'
 # Reproduce the full app layout, including non-code map data. A flat publish
 # can sign and launch successfully while its enclosing app cannot be signed.
 fixture="$temp/package-input"
-mkdir -p "$fixture/maps"
+mkdir -p "$fixture/maps" "$fixture/fidelity-baselines"
 cp "$root/ProjectPrime" "$root/libopenal.1.dylib" "$fixture/"
-# Synthetic data keeps the packaging gate independent of controller feature branches.
+# Synthetic data keeps the packaging gate independent of controller/fidelity feature branches.
 printf '# Controller mapping packaging fixture\n' > "$fixture/gamecontrollerdb.txt"
 printf 'Controller mapping license fixture\n' > "$fixture/gamecontrollerdb.LICENSE"
 printf '{"Name":"PACKAGING TEST"}\n' > "$fixture/maps/fixture.json"
+printf '{"fixture":true}\n' > "$fixture/fidelity-baselines/fixture.json"
 "$repo/tools/package-macos.sh" "$fixture" "$temp/dist" "$rid" 1.2.3
 mkdir "$temp/unpacked"
 tar -xzf "$temp/dist/ProjectPrime-v1.2.3-$rid.tar.gz" -C "$temp/unpacked"
 app="$temp/unpacked/Project Prime.app"
 [[ -f "$app/Contents/Resources/maps/fixture.json" ]] || exit 1
 [[ ! -e "$app/Contents/MacOS/maps" ]] || exit 1
+cmp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
+[[ ! -e "$app/Contents/MacOS/fidelity-baselines" ]] || exit 1
 for resource in gamecontrollerdb.txt gamecontrollerdb.LICENSE; do
     cmp "$fixture/$resource" "$app/Contents/Resources/$resource"
     [[ ! -e "$app/Contents/MacOS/$resource" ]] || exit 1
@@ -93,5 +96,11 @@ cp "$fixture/gamecontrollerdb.txt" "$app/Contents/Resources/gamecontrollerdb.txt
 codesign --verify --deep --strict "$app"
 printf '\n' >> "$app/Contents/Resources/maps/fixture.json"
 expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/maps/fixture.json" "$app/Contents/Resources/maps/fixture.json"
+codesign --verify --deep --strict "$app"
+printf '\n' >> "$app/Contents/Resources/fidelity-baselines/fixture.json"
+expect_failure codesign --verify --deep --strict "$app"
+cp "$fixture/fidelity-baselines/fixture.json" "$app/Contents/Resources/fidelity-baselines/fixture.json"
+codesign --verify --deep --strict "$app"
 dotnet run --project "$repo/tools/platformtest/platformtest.csproj" -c Release
 echo 'macOS bundle resource regressions passed.'
