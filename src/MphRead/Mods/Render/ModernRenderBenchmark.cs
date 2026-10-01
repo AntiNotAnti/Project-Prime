@@ -18,15 +18,20 @@ internal static class ModernRenderBenchmark
         {
             if (sampleCount < 30 || sampleCount > 100000)
                 throw new ArgumentOutOfRangeException(nameof(sampleCount), "Use 30–100000 samples.");
+            var requestedBackend = GraphicsBackendPolicy.Requested;
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(960, 540);
             using var window = new NativeWindow(settings);
             using var graphics = new DesktopGraphicsSession(window);
-            if (ModernGraphicsCompat.Active) ModernGraphicsCompat.SetVSync(false);
+            bool modern = ModernGraphicsCompat.Active;
+            var identity = modern ? ModernGraphicsCompat.DeviceIdentity
+                : (GraphicsBackend.OpenGL, GraphicsApi.GetString(OpenTK.Graphics.OpenGL.StringName.Renderer),
+                    GraphicsApi.GetString(OpenTK.Graphics.OpenGL.StringName.Version));
+            if (modern) ModernGraphicsCompat.SetVSync(false);
             RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
             if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
             ModernGraphicsCompat.PerformanceSample? startup = null;
-            var scene = new Scene(new(1920, 1080), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
+            var scene = new Scene(window.FramebufferSize, SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
             var results = new List<object>();
             try
             {
@@ -40,7 +45,15 @@ internal static class ModernRenderBenchmark
                 foreach (int scale in new[] { 75, 100 })
                 {
                     RenderOptions.ResolutionScale = scale;
-                    scene.Size = size;
+                    // Request the actual pixel size, accounting for a HiDPI window's
+                    // logical-to-framebuffer scale. Always report the device's result.
+                    var logical = window.ClientSize;
+                    var actual = window.FramebufferSize;
+                    window.ClientSize = new Vector2i(Math.Max(1, (int)Math.Round(size.X * logical.X / (double)actual.X)),
+                        Math.Max(1, (int)Math.Round(size.Y * logical.Y / (double)actual.Y)));
+                    NativeWindow.ProcessWindowEvents(false);
+                    DesktopGraphicsSession.Resize(window);
+                    scene.Size = window.FramebufferSize;
                     scene.OnResize();
                     var frames = new List<double>();
                     var submissions = new List<double>();
@@ -69,7 +82,7 @@ internal static class ModernRenderBenchmark
                     ModernGraphicsCompat.PerformanceSample? measurement = ModernGraphicsCompat.Active
                         ? ModernGraphicsCompat.EndPerformanceSample() : null;
                     var sorted = frames.Order().ToArray();
-                    results.Add(new { width = size.X, height = size.Y, scale, samples = frames.Count,
+                    results.Add(new { requestedWidth = size.X, requestedHeight = size.Y, width = scene.Size.X, height = scene.Size.Y, scale, samples = frames.Count,
                         warmup, measurement,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         p99CompletedMs = sorted[(int)Math.Ceiling(sorted.Length * .99) - 1],
@@ -77,7 +90,7 @@ internal static class ModernRenderBenchmark
                         onePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .99)).Average(),
                         pointOnePercentLowFps = 1000 / sorted.Skip((int)(sorted.Length * .999)).Average(),
                         resources = ModernGraphicsCompat.Active ? ModernGraphicsCompat.LiveResources.ToString() : "OpenGL" });
-                    Console.WriteLine($"RENDERBENCH {size.X}x{size.Y} scale={scale} completed={frames.Average():F2}ms submit={submissions.Average():F2}ms");
+                    Console.WriteLine($"RENDERBENCH {scene.Size.X}x{scene.Size.Y} scale={scale} completed={frames.Average():F2}ms submit={submissions.Average():F2}ms");
                 }
             }
             finally { scene.DoCleanup(); scene.UnloadGl(); }
@@ -85,7 +98,10 @@ internal static class ModernRenderBenchmark
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             File.WriteAllText(path, JsonSerializer.Serialize(new
             {
-                backend = GraphicsBackendPolicy.Resolved.ToString(), room, preset = "Extreme",
+                requestedBackend = requestedBackend.ToString(), actualBackend = identity.Item1.ToString(),
+                adapter = identity.Item2, driver = identity.Item3,
+                platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                room, preset = "Extreme",
                 notes = $"Frozen scene; 20 warmup + {sampleCount} samples. Completed time includes synchronous GPU completion, excludes present. Upload submission time includes flushing preceding draws, not GPU transfer duration. Storage estimates cover tracked textures and pooled buffers, not driver VRAM. GPU timestamps unavailable: the pinned native C ABI does not expose timestamp-period conversion. Short runs are smoke checks; longer hardware runs required for release acceptance.",
                 startup, results
             }, new JsonSerializerOptions { WriteIndented = true }));

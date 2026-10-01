@@ -74,3 +74,10 @@ state restoration. It requires a real supported graphics session. The backend
 printed in the result is the created device; a missing Metal runtime must not be
 counted as successful Metal evidence. This is a readback contract test, not the
 full scene/material/hardware matrix.
+
+The parity harness uses the window's actual framebuffer dimensions (including
+HiDPI scaling), not its requested logical size. The benchmark resizes the native
+window for each requested pixel size, then records both the requested size and
+actual framebuffer size; actual adapter/backend metadata accompanies timings.
+Do not compare old benchmark results that changed scene dimensions while leaving
+the native window at its startup size. Render scale remains a separate setting.

@@ -24,6 +24,7 @@ internal static class ModernRenderParityCheck
             settings.ClientSize = new(960, 540);
             using var window = new NativeWindow(settings);
             using var graphics = new DesktopGraphicsSession(window);
+            int width = window.FramebufferSize.X, height = window.FramebufferSize.Y;
             bool modern = ModernGraphicsCompat.Active;
             var identity = modern ? ModernGraphicsCompat.DeviceIdentity
                 : (GraphicsBackend.OpenGL, GraphicsApi.GetString(StringName.Renderer), GraphicsApi.GetString(StringName.Version));
@@ -32,7 +33,7 @@ internal static class ModernRenderParityCheck
             int frames = 0;
             RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
             RenderOptions.ShowFps = false;
-            var scene = new Scene(new(960, 540), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
+            var scene = new Scene(new(width, height), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
             try
             {
                 scene.AddPlayer(Hunter.Samus);
@@ -79,17 +80,17 @@ internal static class ModernRenderParityCheck
                         if (frame == 11)
                         {
                             if (test.Name == "pbr") scene.CapturePbrBuffers(directory);
-                            byte[] pixels = FinalCompositeCapture.Read(960, 540);
+                            byte[] pixels = FinalCompositeCapture.Read(width, height);
                             using var file = File.Create(Path.Combine(directory, test.Name + ".png"));
                             StbImage.FlipVerticallyOnSave = true;
-                            StbImage.WritePng<byte>(pixels, 960, 540, StbiImageFormat.Rgb, file);
+                            StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, file);
                         }
                         frames++;
                         DesktopGraphicsSession.Present(window);
                         scene.AfterRenderFrame();
                     }
                     captures.Add(new { image = test.Name + ".png", preset = test.Name == "extreme" ? "Extreme" : "Original",
-                        configuration = test.Name, width = 960, height = 540,
+                        configuration = test.Name, width, height,
                         renderScale = RenderOptions.ResolutionScale / 100.0,
                         scope = "Scene final backbuffer after world/postprocess/HUD/visor/fade; excludes shell UI, launcher hunter and Shell.AfterDraw" });
                     Console.WriteLine("RENDERPARITY captured " + test.Name);
@@ -102,7 +103,7 @@ internal static class ModernRenderParityCheck
                 actualBackend = identity.Item1.ToString(), adapter = identity.Item2, driver = identity.Item3,
                 platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
                 architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
-                room, frames, width = 960, height = 540,
+                room, frames, width, height,
                 deviceLost = (int?)null,
                 deviceReconstructionCount = modern ? ModernGraphicsCompat.DeviceGeneration - initialGeneration : 0,
                 notes = "Device-loss callbacks are not counted by this harness. Captures are scene-level evidence, not full application composite acceptance. pbr-albedo/normal/material.png are intermediate G-buffer diagnostics.",
