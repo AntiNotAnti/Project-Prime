@@ -155,9 +155,11 @@ namespace MphRead.Mods.Network
             _loadedMatch = _requestedMatch;
             _loadPending = false;
             int localSlot = Math.Max(NetSession.LocalSlot, 0);
+            Hunter acknowledgedLocalHunter = NetSession.Active && NetSession.LocalSlot >= 0
+                ? NetSession.LocalHunter : hunter;
             for (int slot = 0; slot < scene.Players.MaxPlayers; slot++)
             {
-                Hunter slotHunter = slot == localSlot ? hunter : NetSession.SlotHunter[slot];
+                Hunter slotHunter = slot == localSlot ? acknowledgedLocalHunter : NetSession.SlotHunter[slot];
                 PlayerEntity? created = PlayerEntity.Create(slotHunter, slot == localSlot ? recolor : 0);
                 if (created == null)
                 {
