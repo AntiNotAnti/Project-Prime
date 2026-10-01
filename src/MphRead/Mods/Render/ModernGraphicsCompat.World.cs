@@ -84,6 +84,8 @@ namespace MphRead.Mods.Render
         private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
         private readonly Dictionary<CorePipelineKey, CorePipelineRecord> _corePipelines = new();
         private readonly Dictionary<WgpuTextureFormat, PipelineRecord> _blitPipelines = new();
+        private Silk.NET.WebGPU.Sampler* _blitNearestSampler;
+        private Silk.NET.WebGPU.Sampler* _blitLinearSampler;
 
         private ShaderModule* _worldShader;
         private ShaderModule* _rttShader;
@@ -140,6 +142,16 @@ namespace MphRead.Mods.Render
                 if (pipeline.Pipeline != null) _api.RenderPipelineRelease(pipeline.Pipeline);
             }
             _blitPipelines.Clear();
+            if (_blitNearestSampler != null)
+            {
+                _api.SamplerRelease(_blitNearestSampler);
+                _blitNearestSampler = null;
+            }
+            if (_blitLinearSampler != null)
+            {
+                _api.SamplerRelease(_blitLinearSampler);
+                _blitLinearSampler = null;
+            }
 
             if (_toneMapShader != null)
             {
@@ -1061,17 +1073,7 @@ namespace MphRead.Mods.Render
 
             FilterMode sampleFilter = filter == BlitFramebufferFilter.Linear
                 ? FilterMode.Linear : FilterMode.Nearest;
-            Silk.NET.WebGPU.Sampler* sampler = _api.DeviceCreateSampler(_device.Device,
-                new SamplerDescriptor
-                {
-                    MinFilter = sampleFilter,
-                    MagFilter = sampleFilter,
-                    MipmapFilter = MipmapFilterMode.Nearest,
-                    AddressModeU = AddressMode.ClampToEdge,
-                    AddressModeV = AddressMode.ClampToEdge,
-                    AddressModeW = AddressMode.ClampToEdge,
-                    MaxAnisotropy = 1
-                });
+            Silk.NET.WebGPU.Sampler* sampler = BlitSampler(sampleFilter);
 
             _uiViewportBuffer = RentUniformBuffer(16);
             var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
@@ -1117,7 +1119,26 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderRelease(pass);
 
             ReleaseTrackedBindGroup(bindGroup);
-            _api.SamplerRelease(sampler);
+        }
+
+        private Silk.NET.WebGPU.Sampler* BlitSampler(FilterMode filter)
+        {
+            Silk.NET.WebGPU.Sampler** slot = filter == FilterMode.Linear
+                ? &_blitLinearSampler : &_blitNearestSampler;
+            if (*slot == null)
+            {
+                *slot = _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
+                {
+                    MinFilter = filter,
+                    MagFilter = filter,
+                    MipmapFilter = MipmapFilterMode.Nearest,
+                    AddressModeU = AddressMode.ClampToEdge,
+                    AddressModeV = AddressMode.ClampToEdge,
+                    AddressModeW = AddressMode.ClampToEdge,
+                    MaxAnisotropy = 1
+                });
+            }
+            return *slot;
         }
 
         private PipelineRecord BlitPipeline(WgpuTextureFormat format)
