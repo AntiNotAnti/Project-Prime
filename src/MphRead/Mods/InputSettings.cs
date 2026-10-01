@@ -597,6 +597,11 @@ namespace MphRead.Mods
                         Input.StylusZone.NativeUiOpacity = Math.Clamp(nativeUiOpacity, 0, 1);
                         continue;
                     }
+                    if (key == "stylus_zone_color")
+                    {
+                        Input.StylusZone.GuideColor = value;
+                        continue;
+                    }
                     // Three numbers for one rectangle: the height follows the
                     // DS's shape and is not stored, so a hand-edited file
                     // cannot produce a zone the layout does not fit.
@@ -843,6 +848,7 @@ namespace MphRead.Mods
                     $"stylus_native_ui={Input.StylusZone.NativeUi.ToString().ToLowerInvariant()}",
                     "stylus_native_ui_opacity="
                         + Input.StylusZone.NativeUiOpacity.ToString("0.###", CultureInfo.InvariantCulture),
+                    "stylus_zone_color=" + Input.StylusZone.GuideColor,
                     "stylus_cursor_opacity="
                         + Input.StylusZone.CursorOpacity.ToString("0.###", CultureInfo.InvariantCulture),
                     "stylus_zone_outline_opacity="
