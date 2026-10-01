@@ -174,10 +174,11 @@ namespace MphRead.Mods.Network
                 CustomScenario();
                 FourTeamScenario();
                 ContinuousScenario();
+                LateJoinIdentityScenario();
                 ClientSessionScenario();
                 TeamGameplayTest.Run(Check);
                 CustomMapReadinessScenario();
-                Console.WriteLine($"[netlobbytest] PASS: {_checks} assertions; protocol, UDP lifecycle/farewell, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation.");
+                Console.WriteLine($"[netlobbytest] PASS: {_checks} assertions; protocol, UDP lifecycle/farewell, join-in-progress identity, owner lobby return, direct post-match lobby return, abandoned-session cleanup, hosted ownership, teams, rebind and continuous rotation.");
                 return 0;
             }
             catch (Exception ex)
@@ -1132,6 +1133,12 @@ namespace MphRead.Mods.Network
             Check(a.State.Value.MatchId != firstMatch, "new match id on same map");
             Check(a.State.Value.Match.TimeLimitSeconds == 600 && a.State.Value.Match.PointGoal == 25,
                 "second round starts with the persisted custom limits");
+            rig.Expect(b, b.Command(LobbyCommandType.ReturnToLobby), LobbyResultCode.NotOwner);
+            rig.Expect(a, a.Command(LobbyCommandType.ReturnToLobby), LobbyResultCode.Ok);
+            rig.Wait(() => rig.Clients.All(client => client.State?.Phase == SessionPhase.Lobby),
+                "owner returns every connected player to the persistent lobby");
+            Check(ReferenceEquals(originalA, a.Transport) && ReferenceEquals(originalB, b.Transport),
+                "return-to-lobby command preserves client transports");
             a.Dispose(); rig.Clients.Remove(a);
             rig.Wait(() => b.State!.Value.OwnerSlot == b.Slot, "oldest peer becomes owner");
             b.Rebind(); rig.Stable(); Check(b.Slot == slotB && b.State.Value.OwnerSlot == slotB, "same-endpoint admission refresh keeps identity and slot");
@@ -1345,6 +1352,31 @@ namespace MphRead.Mods.Network
             rig.Wait(() => client.State.Value.Phase == SessionPhase.Starting && client.State.Value.MatchId != match, "continuous rotates into load barrier", PostMatchWaitMilliseconds);
             client.Loaded();
             rig.Wait(() => client.State.Value.Phase == SessionPhase.InMatch, "continuous starts after load countdown");
+        }
+
+        private static void LateJoinIdentityScenario()
+        {
+            NetSession.Stop();
+            using var rig = new Rig();
+            Client owner = rig.Add(420);
+            rig.ReadyAll();
+            rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+            owner.Loaded();
+            rig.Wait(() => owner.State!.Value.Phase == SessionPhase.InMatch,
+                "identity regression fixture enters match");
+
+            Check(NetLaunch.Connect("127.0.0.1", rig.Server.BoundPort,
+                    "LateTrace", Hunter.Trace, color: 2),
+                "join-in-progress client connects with selected hunter");
+            int slot = NetSession.LocalSlot;
+            Check(NetSession.IsPlaying && slot >= 0
+                && NetSession.SlotOccupied[slot]
+                && NetSession.SlotHunter[slot] == Hunter.Trace
+                && NetSession.LocalHunter == Hunter.Trace
+                && PlayerColors.Choice[slot] == 2
+                && GameState.Nicknames[slot] == "LateTrace",
+                "join completes only after selected hunter identity is acknowledged");
+            NetSession.Stop();
         }
 
         private static void ClientSessionScenario()
