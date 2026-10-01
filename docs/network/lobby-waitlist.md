@@ -32,7 +32,11 @@ The production test covers strict generated golden/truncated/malformed bytes,
 full-server FIFO, theft by direct join or another queued peer, forged promotion,
 decline and expiry, bot occupancy, stale offers, JIP transitions, disconnect grace,
 shutdown and the actual same-transport NetLaunch/NetSession identity handoff.
-The live matrix also covers two simultaneous vacancies and reverse-order acceptance.
+The live matrix also covers two simultaneous vacancies and reverse-order acceptance,
+64 simultaneous queue clients under 5% packet loss, and 48 burst departures.
+Revision-fenced QueueState and QueueSeatOffer supersede obsolete reliable retries
+to bound publication pressure. Empty continuous servers admit their first player
+with JIP disabled; an occupied continuous match still keeps newcomers queued.
 The launcher Play workspace offers Join Queue on compatible full servers, displays
 position/count, and requires explicit accept/decline before the deadline. Back,
 Leave and workspace teardown release queue state. PrimeUiChecks validates opt-in,

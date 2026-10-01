@@ -2058,7 +2058,8 @@ namespace MphRead.Mods.Network
                     _matchId = NetLifecycleTracker.Next(_matchId);
                     _lastSnapshotLength = 0;
                 }
-                if (_phase == SessionPhase.InMatch && !AllowJoinInProgress)
+                if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
+                    && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
                 { SendRefusal(packet.Sender, RefusedPacket.ReasonInMatch); return; }
                 sbyte team = ChooseTeam(CurrentDefinition);
                 if (LobbyRules.TeamCount(CurrentDefinition) > 0 && team < 0)

@@ -15,14 +15,14 @@ namespace MphRead.Mods.Launcher.Gui;
 /// created until the server offers a seat and the user accepts it.</summary>
 internal static class LobbyQueueDialog
 {
-    internal static Task<LobbyQueueClient?> ShowAsync(PrimeOverlayHost overlays, string host, int port, CancellationToken cancellationToken = default)
+    internal static Task<LobbyQueueClient?> ShowAsync(PrimeOverlayHost overlays, string host, int port, CancellationToken cancellationToken = default, string? occupancy = null)
     {
         var completion = new TaskCompletionSource<LobbyQueueClient?>(TaskCreationOptions.RunContinuationsAsynchronously);
         LobbyQueueClient? client = null;
         CancellationTokenRegistration cancellation = default;
         bool finished = false, connecting = false, accepting = false;
         var status = PrimeChrome.Text("This server is full. Wait for a player slot?", 14);
-        var position = PrimeChrome.Text("Your place is held briefly if the connection is interrupted.", 12);
+        var position = PrimeChrome.Text(occupancy ?? "Your place is held briefly if the connection is interrupted.", 12);
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
         PrimePanel? panel = null;
         void Finish(bool admitted)

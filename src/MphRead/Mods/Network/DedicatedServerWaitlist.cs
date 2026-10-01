@@ -32,7 +32,8 @@ public sealed partial class DedicatedServer
         if (WaitlistEnabled) _waitlist = new LobbyWaitlist(WaitlistCapacity, WaitlistOfferSeconds, WaitlistResumeGraceSeconds);
     }
     private bool QueueAdmissionAllowed => _phase == SessionPhase.Lobby
-        || _phase == SessionPhase.InMatch && AllowJoinInProgress;
+        || _phase == SessionPhase.InMatch && (AllowJoinInProgress
+            || SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0);
     private void RefreshWaitlist(double now)
     {
         if (_waitlist == null) return;

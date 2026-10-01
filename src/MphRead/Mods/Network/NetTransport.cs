@@ -657,7 +657,7 @@ namespace MphRead.Mods.Network
                         // path as critical exhaustion, rather than silently diverge.
                         if (!connection.Reliable.TryQueue(type, payload, NowMilliseconds, out uint eventId,
                             expedite: immediateCopies > 1,
-                            supersedeState: type is PacketType.SessionState or PacketType.Roster))
+                            supersedeState: type is PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
                             connection.Reliable.Fail();
                         FlushReliable(connection, NowMilliseconds, eventId, immediateCopies);
                         return;

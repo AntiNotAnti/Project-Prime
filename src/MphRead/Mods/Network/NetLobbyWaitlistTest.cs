@@ -56,6 +56,8 @@ public static partial class NetLobbyTest
             WaitlistJipScenario();
             WaitlistSessionHandoffScenario();
             WaitlistSimultaneousVacanciesScenario();
+            WaitlistContinuousFirstAdmissionScenario();
+            WaitlistBurstScenario();
             Console.WriteLine($"[waitlist] PASS {_checks} assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission.");
             return 0;
         }
@@ -150,6 +152,44 @@ public static partial class NetLobbyTest
         second.AcceptSeat(); first.AcceptSeat();
         rig.Wait(() => { Poll(); return first.Admitted && second.Admitted && rig.Server.PeerCount == 3; }, "reverse acceptance order preserves two reserved seats");
         Check(first.Offer!.Value.QueueId != second.Offer!.Value.QueueId && !third.Admitted, "capacity cannot over-admit third queued client");
+    }
+
+    private static void WaitlistContinuousFirstAdmissionScenario()
+    {
+        using var rig = new Rig(ServerSessionPolicy.Continuous, maxPlayers: 2, allowJoinInProgress: false);
+        var owner = rig.Add(1501);
+        using var queued = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1502);
+        rig.Wait(() => { queued.Poll(); return queued.Status == "NEXT MATCH"; }, "continuous active match still blocks JIP");
+        rig.Clients.Remove(owner); owner.Dispose();
+        rig.Wait(() => { queued.Poll(); return queued.SeatAvailable; }, "empty continuous server can offer first seat with JIP disabled");
+        queued.AcceptSeat();
+        rig.Wait(() => { queued.Poll(); return queued.Admitted && rig.Server.PeerCount == 1; }, "first queued player starts fresh continuous match with JIP disabled");
+    }
+    private static void WaitlistBurstScenario()
+    {
+        using var rig = new Rig(maxPlayers: 2);
+        rig.Add(1601); rig.Add(1602);
+        var clients = new System.Collections.Generic.List<LobbyQueueClient>();
+        double oldLoss = NetLag.LossPercent;
+        try
+        {
+            NetLag.ConfigureLoss("5");
+            for (uint id = 1700; id < 1764; id++)
+                clients.Add(new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), id));
+            void Poll() { foreach (var client in clients) client.Poll(); }
+            rig.Wait(() => { Poll(); return clients.All(c => c.Position > 0 || c.Error != null); }, "bounded bootstrap resolves 64 simultaneous attempts under loss", 14000);
+            Check(clients.All(c => c.Error == null), "64 queue clients survive bootstrap and revision publication under loss: " + string.Join(";", clients.Where(c => c.Error != null).Select(c => c.Error)));
+            rig.Wait(() => { Poll(); return clients.All(c => c.QueueLength == 64); }, "all 64 queue positions converge under loss", 6000);
+            Check(clients.Select(c => c.Position).Distinct().Count() == 64 && rig.Server.PeerCount == 2, "burst queue remains bounded and occupies no player seats");
+            for (int i = 0; i < 48; i++) clients[i].Dispose();
+            clients.RemoveRange(0,48);
+            rig.Wait(() => { Poll(); return clients.All(c => c.QueueLength == 16 && c.Error == null); }, "burst leaves converge without reliable queue exhaustion", 18000);
+        }
+        finally
+        {
+            NetLag.ConfigureLoss(oldLoss.ToString(System.Globalization.CultureInfo.InvariantCulture));
+            foreach (var client in clients) client.Dispose();
+        }
     }
 
     private static void QueuePacketChecks()

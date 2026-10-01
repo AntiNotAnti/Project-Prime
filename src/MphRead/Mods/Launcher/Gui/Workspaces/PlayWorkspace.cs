@@ -449,6 +449,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _backdropRoom = room;
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer, _backdropRoom);
             }
+            _join.Label = "JOIN";
             _join.IsEnabled = _spectate.IsEnabled = entry.Live && !_joining;
         }
 
@@ -492,7 +493,8 @@ namespace MphRead.Mods.Launcher.Gui
                     && (status.Players >= status.MaxPlayers || status.WaitlistCount > 0))
                 {
                     CloseProgress();
-                    using var queued = await LobbyQueueDialog.ShowAsync(Overlays, host, port, _connect.Token);
+                    using var queued = await LobbyQueueDialog.ShowAsync(Overlays, host, port, _connect.Token,
+                        $"{status.Players}/{status.MaxPlayers} players · {status.WaitlistCount} waiting");
                     if (queued != null)
                     {
                         ShowProgress("Preparing your player slot…");

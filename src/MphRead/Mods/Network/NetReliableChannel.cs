@@ -56,7 +56,7 @@ public sealed class NetReliableChannel
         eventId = 0;
         if (!IsReliable(type) || payload.Length > NetConfig.MaxPayloadSize - 4)
             throw new ArgumentException("Not a bounded reliable control payload");
-        if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster))
+        if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
             throw new ArgumentException("Only revision-fenced full state can supersede pending state");
         bool critical = IsCritical(type);
         if (Failed) return false;
