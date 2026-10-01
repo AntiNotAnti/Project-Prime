@@ -1052,25 +1052,16 @@ namespace MphRead.Mods.Render
             float v0 = 1f - sourceY0 / (float)sourceTarget.Height;
             float v1 = 1f - sourceY1 / (float)sourceTarget.Height;
 
-            var geometry = new LegacyGeometryBatch();
-            geometry.Begin(PrimitiveType.Quads);
-            var white = new OpenTK.Mathematics.Vector4(1, 1, 1, 1);
-            var normal = OpenTK.Mathematics.Vector3.UnitZ;
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy0, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u0, v0, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy0, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u1, v0, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx1, dy1, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u1, v1, 0), true);
-            geometry.AddVertex(new OpenTK.Mathematics.Vector3(dx0, dy1, 0), white, normal,
-                new OpenTK.Mathematics.Vector3(u0, v1, 0), true);
-            geometry.End();
+            Span<float> vertices = stackalloc float[LegacyGeometryBatch.FloatsPerVertex * 4];
+            Span<int> indices = stackalloc int[6] { 0, 1, 2, 0, 2, 3 };
+            WriteBlitVertex(vertices, 0, dx0, dy0, u0, v0);
+            WriteBlitVertex(vertices, 1, dx1, dy0, u1, v0);
+            WriteBlitVertex(vertices, 2, dx1, dy1, u1, v1);
+            WriteBlitVertex(vertices, 3, dx0, dy1, u0, v1);
 
-            float[] vertices = geometry.Vertices.ToArray();
-            int[] indices = geometry.TriIndices.ToArray();
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices, cache: false);
+            NativeGeometry geometryBuffers = PrepareGeometry(vertices, indices);
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 
@@ -1122,6 +1113,27 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderRelease(pass);
 
             ReleaseTrackedBindGroup(bindGroup);
+        }
+
+        private static void WriteBlitVertex(Span<float> vertices, int vertex,
+            float x, float y, float u, float v)
+        {
+            int at = vertex * LegacyGeometryBatch.FloatsPerVertex;
+            vertices[at + 0] = x;
+            vertices[at + 1] = y;
+            vertices[at + 2] = 0;
+            vertices[at + 3] = 1;
+            vertices[at + 4] = 1;
+            vertices[at + 5] = 1;
+            vertices[at + 6] = 1;
+            vertices[at + 7] = 0;
+            vertices[at + 8] = 0;
+            vertices[at + 9] = 1;
+            vertices[at + 10] = u;
+            vertices[at + 11] = v;
+            vertices[at + 12] = 0;
+            vertices[at + 13] = 1;
+            vertices[at + 14] = 1;
         }
 
         private Silk.NET.WebGPU.Sampler* BlitSampler(FilterMode filter)
