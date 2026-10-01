@@ -1181,7 +1181,8 @@ namespace MphRead.Droid
                     return;
                 }
                 float requested = cap == FrameTiming.DisplayRate
-                    ? AndroidPerformance.DisplayRefreshRate : cap;
+                    ? AndroidPerformance.DisplayRefreshRate
+                    : Math.Min(cap, AndroidPerformance.DisplayRefreshRate);
                 try
                 {
                     window.SetFrameRate(requested,
@@ -1195,13 +1196,14 @@ namespace MphRead.Droid
             }
 
             /// <summary>
-            /// EGL and the managed limiter must never pace the same explicit
-            /// cap. Display mode is vsync-driven (interval 1); numeric caps use
-            /// interval 0 and WaitForTick owns the deadline.
+            /// EGL and the managed limiter must never pace the same cadence.
+            /// Display mode and explicit caps that map to native panel refresh
+            /// rates stay vsync-driven. Only non-native numeric caps use
+            /// interval 0 and let WaitForTick own the deadline.
             /// </summary>
             private void ApplySwapInterval()
             {
-                int wanted = FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? 1 : 0;
+                int wanted = AndroidPerformance.UseDisplayPacing(FrameTiming.FrameRateCap) ? 1 : 0;
                 if (_appliedSwapInterval == wanted) return;
                 if (_modern)
                 {
@@ -1264,7 +1266,8 @@ namespace MphRead.Droid
             {
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
-                double deadline = _framePacer.Deadline(now, cap);
+                bool displayPaced = AndroidPerformance.UseDisplayPacing(cap);
+                double deadline = _framePacer.Deadline(now, cap, displayPaced);
                 double wait = deadline - now;
                 if (wait > 0)
                 {
