@@ -15,11 +15,14 @@ internal sealed class AndroidFramePacer(int maximumRate)
         _interval = 0;
     }
 
-    internal double Deadline(double now, int cap)
+    internal double Deadline(double now, int cap, bool displayPaced = false)
     {
-        // Display mode already waits in the presentation driver. Only impose
-        // the runaway-driver safety floor, not a second display-rate clock.
-        double interval = 1.0 / (cap <= 0 ? maximumRate : Math.Clamp(cap, 1, maximumRate));
+        // Display-paced modes already wait in the presentation driver. This is
+        // true for Display and for explicit caps that map to a native panel
+        // refresh (for example 120 on a 120 Hz phone). Only impose the runaway
+        // safety floor in that case, never a second software display clock.
+        double interval = 1.0 / (displayPaced || cap <= 0
+            ? maximumRate : Math.Clamp(cap, 1, maximumRate));
         if (interval != _interval)
         {
             _interval = interval;
