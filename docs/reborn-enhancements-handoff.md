@@ -38,15 +38,14 @@ preserve committed work even if temporary checkouts are later removed.
 | This record | `docs/reborn-enhancements-handoff` | `/tmp/prime-enhancements-handoff` |
 
 Combined validation: `/tmp/prime-enhancements-validation`, commit `36f18a5d`,
-local tag `reborn-enhancements-validation-20261001`. The repository's local `main`
-now points to the same commit. Its ordered Git history
+local tag `reborn-enhancements-validation-20261001`. The `main` branch includes
+that integration plus the handoff documentation merge. Its ordered Git history
 records the actual integration, including small union resolutions to CLI dispatch,
 friend assemblies and protocol comments. Branches are stacked where dependencies
 require it; do not merge every full branch diff independently. The partial
 cross-field generator hook `cbe3d937` is in the semantic stack, after the generator
 foundation. Semantic delivery also includes production admission dependencies.
-Local `main` is 45 commits ahead of `origin/main`; the remote branch has not been
-updated.
+Local `main` is ahead of `origin/main`; the remote branch has not been updated.
 
 ## Delivered behavior
 
