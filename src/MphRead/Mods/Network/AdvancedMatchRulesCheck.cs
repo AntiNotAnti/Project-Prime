@@ -175,6 +175,10 @@ namespace MphRead.Mods.Network
             // Build actual protocol-27 bytes; changing only the version label would
             // leave protocol-29 player extensions in the historical fixture.
             var historicalBytes = historicalCheckpoint.ToList();
+            // Schema 5 adds two empty semantic-history counts and requires protocol 35.
+            // This fixture represents schema 4/protocol 27, not a relabelled current schema.
+            historicalBytes.RemoveRange(historicalBytes.Count - 8, 8);
+            historicalBytes[4] = 4; historicalBytes[5] = 0;
             const int matchStart = 46;
             int rosterStart = matchStart + MatchStatePacket.Size + 1;
             int firstPlayer = rosterStart + RosterPacket.Size;
