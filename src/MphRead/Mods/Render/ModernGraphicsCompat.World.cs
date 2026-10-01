@@ -1123,23 +1123,29 @@ namespace MphRead.Mods.Render
 
         private Silk.NET.WebGPU.Sampler* BlitSampler(FilterMode filter)
         {
-            Silk.NET.WebGPU.Sampler** slot = filter == FilterMode.Linear
-                ? &_blitLinearSampler : &_blitNearestSampler;
-            if (*slot == null)
+            if (filter == FilterMode.Linear)
             {
-                *slot = _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
-                {
-                    MinFilter = filter,
-                    MagFilter = filter,
-                    MipmapFilter = MipmapFilterMode.Nearest,
-                    AddressModeU = AddressMode.ClampToEdge,
-                    AddressModeV = AddressMode.ClampToEdge,
-                    AddressModeW = AddressMode.ClampToEdge,
-                    MaxAnisotropy = 1
-                });
+                if (_blitLinearSampler == null)
+                    _blitLinearSampler = CreateBlitSampler(FilterMode.Linear);
+                return _blitLinearSampler;
             }
-            return *slot;
+
+            if (_blitNearestSampler == null)
+                _blitNearestSampler = CreateBlitSampler(FilterMode.Nearest);
+            return _blitNearestSampler;
         }
+
+        private Silk.NET.WebGPU.Sampler* CreateBlitSampler(FilterMode filter) =>
+            _api.DeviceCreateSampler(_device.Device, new SamplerDescriptor
+            {
+                MinFilter = filter,
+                MagFilter = filter,
+                MipmapFilter = MipmapFilterMode.Nearest,
+                AddressModeU = AddressMode.ClampToEdge,
+                AddressModeV = AddressMode.ClampToEdge,
+                AddressModeW = AddressMode.ClampToEdge,
+                MaxAnisotropy = 1
+            });
 
         private PipelineRecord BlitPipeline(WgpuTextureFormat format)
         {
