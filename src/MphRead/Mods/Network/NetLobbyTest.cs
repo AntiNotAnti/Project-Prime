@@ -71,7 +71,7 @@ namespace MphRead.Mods.Network
             Check(!RosterPacket.TryRead(data, out _), "human cannot carry a bot level");
             roster.Flags[0] = 1; roster.Count = 2; roster.Slots[1] = 3; roster.Teams[1] = -1; roster.Write(data);
             Check(!RosterPacket.TryRead(data, out _), "duplicate bot slot rejected");
-            Check(NetConfig.ProtocolVersion == 34, "bot wire contract supersedes custom map protocol 25");
+            Check(NetConfig.ProtocolVersion == 35, "queue protocol preserves the bot wire contract");
             var metadata = new ReplayMetadata { Players = new[] { new ReplayPlayerInfo(3, (byte)Hunter.Trace, -1, "BOT TRACE", true, 3) } };
             var decoded = ReplayFormatV3.DecodeMetadata(NetConfig.ProtocolVersion, ReplayFormatV3.EncodeMetadata(metadata));
             Check(decoded.Players[0].IsBot && decoded.Players[0].BotLevel == 3, "replay binary metadata retains bot identity");
@@ -484,7 +484,7 @@ namespace MphRead.Mods.Network
                 { Flags = MatchStatePacket.FlagSpawnProtection };
             Check(!defaultMatchState.SpawnProtection && disabledMatchState.SpawnProtection,
                 "match state carries default-off spawn protection without ambiguity");
-            Check(NetConfig.ProtocolVersion == 34 && (byte)PacketType.SessionState == 36
+            Check(NetConfig.ProtocolVersion == 35 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
                 && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
                 "combined protocol and non-overlapping map/lobby/start IDs");
@@ -950,16 +950,16 @@ namespace MphRead.Mods.Network
             private readonly Thread _thread;
             private Exception? _error;
             private readonly bool _simulate;
-            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null)
+            public Rig(ServerSessionPolicy policy = ServerSessionPolicy.Lobby, Guid token = default, bool simulate = false, string? room = null, MapRotation? rotation = null, int maxPlayers = 8, double waitlistOfferSeconds = 15, double waitlistResumeSeconds = 10, bool allowJoinInProgress = true)
             {
                 _simulate = simulate;
-                Server = new DedicatedServer(0, 8, rotation ?? MapRotation.SingleMatch(room ?? Rooms()[0], GameMode.Battle, 0, 0))
-                    { SessionPolicy = policy, OwnerToken = token };
+                Server = new DedicatedServer(0, maxPlayers, rotation ?? MapRotation.SingleMatch(room ?? Rooms()[0], GameMode.Battle, 0, 0))
+                    { SessionPolicy = policy, OwnerToken = token, WaitlistOfferSeconds = waitlistOfferSeconds, WaitlistResumeGraceSeconds = waitlistResumeSeconds };
                 if (simulate) Server.ReplayPolicy = new ServerReplayPolicy(Enabled: false);
                 typeof(DedicatedServer).GetField("_controlPlaneOnlyForTests",
                     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!
                     .SetValue(Server, !simulate);
-                Server.SetSessionOptions(requireReady: true, allowJoinInProgress: true);
+                Server.SetSessionOptions(requireReady: true, allowJoinInProgress: allowJoinInProgress);
                 _thread = new Thread(() => { try { Server.Run(); } catch (Exception ex) { _error = ex; } }) { IsBackground = true };
                 _thread.Start(); Wait(() => Server.Listening, "server listening");
             }

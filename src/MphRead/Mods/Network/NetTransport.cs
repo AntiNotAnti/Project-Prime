@@ -128,7 +128,20 @@ namespace MphRead.Mods.Network
             try { return _connections.TryGetValue(endpoint, out var peer) ? peer.Capture() : null; }
             finally { ExitConnectionLock(stamp); }
         }
-        private readonly IPEndPoint?[] _expiredConnections = new IPEndPoint?[64];
+        internal const int MaximumConnections = 320; // 256 queued + player/pending/retired headroom, still bounded.
+        private readonly Dictionary<IPEndPoint, (uint ClientId, ulong Nonce)> _pendingQueueConnections = new();
+        private readonly IPEndPoint?[] _expiredConnections = new IPEndPoint?[MaximumConnections];
+        internal ulong QueueConnectionId(IPEndPoint endpoint)
+        {
+            long stamp = EnterConnectionLock();
+            try { return _connections.TryGetValue(endpoint, out var peer) && peer.QueueOnly && !peer.RetiredAt.HasValue ? peer.Id : 0; }
+            finally { ExitConnectionLock(stamp); }
+        }
+        private static bool QueueInboundAllowed(NetConnection connection, PacketType type)
+            => type is 0 or PacketType.Ping or PacketType.Pong or PacketType.Bye
+                || (connection.QueueServerSide
+                    ? type is PacketType.QueueJoin or PacketType.QueueLeave or PacketType.QueueAccept or PacketType.QueueDecline
+                    : type is PacketType.QueueWelcome or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.Welcome or PacketType.Refused);
         public void RetireConnection(IPEndPoint endpoint)
         {
             long stamp = EnterConnectionLock();
@@ -138,10 +151,10 @@ namespace MphRead.Mods.Network
         public void ForgetConnection(IPEndPoint endpoint)
         {
             long stamp = EnterConnectionLock();
-            try { _connections.Remove(endpoint); _pendingConnections.Remove(endpoint); }
+            try { _connections.Remove(endpoint); _pendingConnections.Remove(endpoint); _pendingQueueConnections.Remove(endpoint); }
             finally { ExitConnectionLock(stamp); }
         }
-        private static bool Unsequenced(PacketType type) => type is PacketType.Hello or PacketType.StatusQuery
+        private static bool Unsequenced(PacketType type) => type is PacketType.QueueHello or PacketType.Hello or PacketType.StatusQuery
             or PacketType.StatusReply or PacketType.MasterQuery or PacketType.MasterList or PacketType.MasterHeartbeat
             or PacketType.HostRequest or PacketType.HostReply;
         private readonly UdpClient? _socket;
@@ -595,6 +608,21 @@ namespace MphRead.Mods.Network
             long lockStamp = EnterConnectionLock();
             try
             {
+                if (type == PacketType.QueueHello && QueueHelloPacket.TryRead(payload, out var queueHello) && queueHello.ClientNonce != 0)
+                {
+                    if (_pendingQueueConnections.Count < 64 || _pendingQueueConnections.ContainsKey(target))
+                        _pendingQueueConnections[target] = (queueHello.ClientId, queueHello.ClientNonce);
+                }
+                if (type == PacketType.QueueWelcome && QueueWelcomePacket.TryRead(payload, out var queueWelcome) && queueWelcome.ClientNonce != 0)
+                {
+                    if (!_connections.TryGetValue(target, out var queueConnection) || queueConnection.RetiredAt.HasValue)
+                    {
+                        if (_connections.Count >= MaximumConnections) return;
+                        _connections[target] = new NetConnection(target, NetConnection.NewId(), queueWelcome.ClientId)
+                            { QueueOnly = true, QueueServerSide = true };
+                    }
+                    else if (!queueConnection.QueueOnly || !queueConnection.QueueServerSide || queueConnection.ClientId != queueWelcome.ClientId) return;
+                }
                 if (type == PacketType.Hello && payload.Length >= 1 && payload[0] == NetConfig.ProtocolVersion)
                 {
                     uint clientId = payload.Length >= 6 ? BinaryPrimitives.ReadUInt32LittleEndian(payload[2..]) : 0;
@@ -605,9 +633,10 @@ namespace MphRead.Mods.Network
                     uint clientId = BinaryPrimitives.ReadUInt32LittleEndian(payload[1..]);
                     if (!_connections.TryGetValue(target, out var existing) || existing.ClientId != clientId || existing.RetiredAt.HasValue)
                     {
-                        if (_connections.Count >= 64) throw new InvalidOperationException("Connection capacity exceeded");
+                        if (_connections.Count >= MaximumConnections) throw new InvalidOperationException("Connection capacity exceeded");
                         _connections[target] = new NetConnection(target, NetConnection.NewId(), clientId);
                     }
+                    _connections[target].QueueOnly = false;
                 }
                 if (!Unsequenced(type) && _connections.TryGetValue(target, out var connection))
                 {
@@ -676,20 +705,36 @@ namespace MphRead.Mods.Network
                 if (connection == null || connection.Id != header.ConnectionId)
                 {
                     const int bootstrapOffset = NetHeader.Size + 4;
-                    if (header.Type != PacketType.Welcome || (header.Flags & NetHeaderFlags.Reliable) == 0
-                        || length != bootstrapOffset + 17 || _supersededIds.Contains(header.ConnectionId)
-                        || !_pendingConnections.TryGetValue(sender, out uint clientId)
-                        || BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(bootstrapOffset + 1)) != clientId
-                        || connection != null && _supersededIds.Count >= 64)
+                    bool reliableBootstrap = (header.Flags & NetHeaderFlags.Reliable) != 0
+                        && !_supersededIds.Contains(header.ConnectionId) && _connections.Count < MaximumConnections;
+                    uint clientId = 0;
+                    bool queueBootstrap = reliableBootstrap && header.Type == PacketType.QueueWelcome
+                        && length == bootstrapOffset + QueueWelcomePacket.Size
+                        && QueueWelcomePacket.TryRead(data.AsSpan(bootstrapOffset, QueueWelcomePacket.Size), out var welcome)
+                        && welcome.ClientNonce != 0 && _pendingQueueConnections.TryGetValue(sender, out var pendingQueue)
+                        && welcome.ClientId == pendingQueue.ClientId && welcome.ClientNonce == pendingQueue.Nonce;
+                    bool playerBootstrap = reliableBootstrap && header.Type == PacketType.Welcome
+                        && length == bootstrapOffset + 17 && _pendingConnections.TryGetValue(sender, out clientId)
+                        && BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(bootstrapOffset + 1)) == clientId;
+                    if ((!queueBootstrap && !playerBootstrap) || connection != null && _supersededIds.Count >= 64)
                     { Telemetry.Invalid(); return false; }
-                    // A server restart can answer an explicit Hello with a new
-                    // incarnation at the same endpoint. Old incarnations never
-                    // replace it, even while a subsequent Hello is outstanding.
+                    if (queueBootstrap) clientId = _pendingQueueConnections[sender].ClientId;
                     if (connection != null) _supersededIds.Add(connection.Id);
-                    connection = new NetConnection(sender, header.ConnectionId, clientId);
-                    _connections[sender] = connection; _pendingConnections.Remove(sender);
+                    connection = new NetConnection(sender, header.ConnectionId, clientId) { QueueOnly = queueBootstrap };
+                    _connections[sender] = connection;
+                    _pendingConnections.Remove(sender); _pendingQueueConnections.Remove(sender);
                 }
                 else if (header.Type == PacketType.Welcome) _pendingConnections.Remove(sender);
+                if (connection.QueueOnly && !QueueInboundAllowed(connection, header.Type)) { Telemetry.Invalid(); return false; }
+                // Only an existing queue-client connection may receive promotion;
+                // a queued client cannot promote its server-side transport with a forged Welcome.
+                if (connection.QueueOnly && !connection.QueueServerSide && header.Type == PacketType.Welcome)
+                {
+                    if (length != NetHeader.Size + 4 + 17 || (header.Flags & NetHeaderFlags.Reliable) == 0
+                        || BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(NetHeader.Size + 5)) != connection.ClientId)
+                    { Telemetry.Invalid(); return false; }
+                    connection.QueueOnly = false;
+                }
                 if (!connection.Accepts(sender, header)) { Telemetry.Invalid(); return false; }
                 if ((header.Flags & NetHeaderFlags.AckOnly) == 0 && !connection.Allow(header.Type, NowMilliseconds))
                 { Telemetry.Drop(); return false; }

@@ -22,8 +22,8 @@ internal readonly record struct LobbyWaitlistMetrics(ulong Joined, ulong Left, u
     ulong Accepted, ulong Declined, ulong Expired, ulong DisconnectedExpired, double MeanWaitSeconds, int MaximumQueueLength);
 
 /// <summary>Bounded FIFO policy and capacity reservations. All calls belong to one
-/// lobby control thread. This core is intentionally not connected to live admission
-/// until transport can authenticate queue-only sessions without assigning player seats.</summary>
+/// lobby control thread. DedicatedServer supplies established queue-only transport
+/// identities and performs ordinary admission after reserving an available seat.</summary>
 internal sealed class LobbyWaitlist
 {
     internal const int DefaultCapacity = 64, HardMaximumCapacity = 256;

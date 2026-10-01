@@ -42,7 +42,9 @@ public sealed class NetReliableChannel
     }
     public bool HasPending(PacketType type)
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
-    public static bool IsReliable(PacketType type) => type is PacketType.Welcome or PacketType.SessionState
+    public static bool IsReliable(PacketType type) => type is PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
+        or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
+        or PacketType.Welcome or PacketType.SessionState
         or PacketType.Roster or PacketType.MapChange or PacketType.Authority or PacketType.LobbyCommand
         or PacketType.LobbyCommandResult or PacketType.WorldReady or PacketType.WorldBootstrap or PacketType.MatchLoaded or PacketType.MatchLoadFailed or PacketType.Refused
         or PacketType.Bye or PacketType.MatchEnd or PacketType.MatchSemanticEvent or PacketType.MatchAward;

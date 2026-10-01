@@ -192,6 +192,8 @@ jobs:
         run: dotnet run --project tools/lobby-waitlist-check -c Release
       - name: enhanced rules, state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: production waitlist admission and real UDP lifecycle
+        run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
       - name: replication lane round trip
         run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
       - name: mixed-quality eight-player transport

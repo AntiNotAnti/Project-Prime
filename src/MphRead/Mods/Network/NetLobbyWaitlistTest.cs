@@ -1,0 +1,165 @@
+using System;
+using System.Linq;
+using System.Net;
+using System.Threading;
+
+namespace MphRead.Mods.Network;
+
+public static partial class NetLobbyTest
+{
+    public static int RunWaitlist()
+    {
+        try
+        {
+            QueuePacketChecks();
+            {
+            using var rig = new Rig();
+            for (uint id = 910; id < 918; id++) rig.Add(id);
+            using var queued = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1001);
+            using var second = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1002);
+            rig.Wait(() => { queued.Poll(); second.Poll(); return queued.Position == 1 && second.Position == 2; }, "full server queues two proven connections FIFO");
+            Check(rig.Server.PeerCount == 8 && !queued.Admitted && !second.Admitted, "queue-only sessions consume no player slots");
+            using var direct = new Client(rig.Server.BoundPort, 1003);
+            rig.Wait(() => { direct.Drain(); queued.Poll(); second.Poll(); return direct.Refused; }, "full server retains ordinary refusal");
+            var victim = rig.Clients[^1]; rig.Clients.RemoveAt(rig.Clients.Count - 1); victim.Dispose();
+            rig.Wait(() => { queued.Poll(); second.Poll(); return queued.SeatAvailable; }, "departing player offers first queued seat");
+            Check(!second.SeatAvailable, "only FIFO head receives one vacancy");
+            direct.Refused = false; direct.Hello();
+            rig.Wait(() => { direct.Drain(); queued.Poll(); second.Poll(); return direct.Refused; }, "ordinary join cannot steal reserved seat");
+            var offer = queued.Offer!.Value;
+            var stolen = new QueueAcceptPacket(offer.QueueId, offer.OfferId, offer.MatchId, offer.AuthorityEpoch);
+            byte[] bytes = new byte[QueueAcceptPacket.Size]; stolen.Write(bytes);
+            second.Transport.Send(second.Server, PacketType.QueueAccept, bytes);
+            Thread.Sleep(100); second.Poll(); queued.Poll();
+            Check(!second.Admitted && rig.Server.PeerCount == 7, "another authenticated queue connection cannot claim known offer");
+            var stale = new QueueAcceptPacket(offer.QueueId, offer.OfferId + 1, offer.MatchId, offer.AuthorityEpoch);
+            stale.Write(bytes); queued.Transport.Send(queued.Server, PacketType.QueueAccept, bytes);
+            Thread.Sleep(100); queued.Poll();
+            Check(!queued.Admitted, "wrong offer rejected on real server");
+            // A queue transport must never deliver gameplay or forged role promotion to the server.
+            byte[] fakeWelcome = new byte[17]; fakeWelcome[0] = 0;
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(fakeWelcome.AsSpan(1), second.ClientId);
+            second.Transport.Send(second.Server, PacketType.Welcome, fakeWelcome);
+            second.Transport.Send(second.Server, PacketType.Intent, new byte[IntentPacket.FullSize]);
+            Thread.Sleep(100); second.Poll();
+            Check(rig.Server.PeerCount == 7 && !second.Admitted, "queue-only inbound allowlist rejects promotion and gameplay");
+            Check(queued.DeclineSeat(), "decline request sent");
+            rig.Wait(() => { queued.Poll(); second.Poll(); return second.SeatAvailable; }, "decline advances real server reservation FIFO");
+            Check(second.AcceptSeat(), "accept request sent");
+            rig.Wait(() => { second.Poll(); return second.Admitted && rig.Server.PeerCount == 8; }, "normal Welcome promotes queue on the same transport");
+            Check(ReplayIdentityCompatibility.Supports(34), "protocol34 recordings remain supported after protocol35 bump");
+            byte[] match = new byte[1 + MatchStatePacket.Size]; match[0] = (byte)PacketType.MatchState;
+            rig.Clients[0].Match.Write(match.AsSpan(1));
+            Check(ReplayIdentityCompatibility.Convert(match, 34).SequenceEqual(match), "protocol34 gameplay packets retain byte-compatible replay adapter");
+            }
+            WaitlistExpiryAndBotScenario();
+            WaitlistJipScenario();
+            WaitlistSessionHandoffScenario();
+            Console.WriteLine($"[waitlist] PASS {_checks} assertions; real server transport bootstrap, FIFO, refusal/reservation, wrong-owner/offer, decline and same-connection admission.");
+            return 0;
+        }
+        catch (Exception ex) { Console.Error.WriteLine("[waitlist] FAIL " + ex); return 1; }
+        finally { NetSession.Stop(); }
+    }
+    private static void WaitlistExpiryAndBotScenario()
+    {
+        using var rig = new Rig(maxPlayers: 2, waitlistOfferSeconds: .5, waitlistResumeSeconds: .3);
+        var owner = rig.Add(1101);
+        rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, hunter: 0, level: 1), LobbyResultCode.Ok);
+        using var first = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1102);
+        using var second = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1103);
+        rig.Wait(() => { first.Poll(); second.Poll(); return first.Position == 1 && second.Position == 2; }, "bot capacity queues humans without evicting bot");
+        Check(rig.Server.PeerCount == 1 && Enumerable.Range(0, owner.Roster.Count).Any(i => owner.Roster.IsBot(i)) && !first.SeatAvailable, "queued humans never evict bots");
+        first.Transport.Send(first.Server, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+        Thread.Sleep(60); first.Poll();
+        first.Transport.Send(first.Server, PacketType.Ping, ReadOnlySpan<byte>.Empty);
+        rig.Wait(() => { first.Poll(); second.Poll(); return first.State?.State == LobbyQueueWireState.Waiting; }, "same established queue connection resumes after transient disconnect");
+        rig.Expect(owner, owner.Command(LobbyCommandType.RemoveBot, target: 1), LobbyResultCode.Ok);
+        rig.Wait(() => { first.Poll(); second.Poll(); return first.SeatAvailable; }, "explicit bot removal creates ordinary seat offer");
+        rig.Expect(owner, owner.Command(LobbyCommandType.AddBot, hunter: 0, level: 1), LobbyResultCode.ServerBusy);
+        Check(!Enumerable.Range(0, owner.Roster.Count).Any(i => owner.Roster.IsBot(i)), "bot addition cannot steal an outstanding human reservation");
+        var expired = first.Offer!.Value;
+        rig.Wait(() => { first.Poll(); second.Poll(); return second.SeatAvailable && first.State?.State == LobbyQueueWireState.Expired; }, "offer expiry advances FIFO over production UDP");
+        var stale = new QueueAcceptPacket(expired.QueueId, expired.OfferId, expired.MatchId, expired.AuthorityEpoch);
+        byte[] bytes = new byte[QueueAcceptPacket.Size]; stale.Write(bytes);
+        first.Transport.Send(first.Server, PacketType.QueueAccept, bytes);
+        Thread.Sleep(40); first.Poll();
+        Check(!first.Admitted, "expired connection cannot accept stale seat");
+        second.Transport.Send(second.Server, PacketType.QueueAccept, bytes.AsSpan(0, bytes.Length - 1));
+        Thread.Sleep(40); second.Poll();
+        Check(!second.Admitted, "malformed queue packet cannot bypass real admission");
+        second.Dispose();
+        Thread.Sleep(80);
+        using var grace = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1104);
+        rig.Wait(() => { grace.Poll(); return grace.SeatAvailable; }, "leave releases reservation for another connection");
+        grace.Transport.Send(grace.Server, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+        Thread.Sleep(450); grace.Poll();
+        rig.Wait(() => { grace.Poll(); return grace.State?.State == LobbyQueueWireState.Expired; }, "disconnect grace expiry clears live queue entry");
+    }
+
+    private static void WaitlistJipScenario()
+    {
+        using var rig = new Rig(maxPlayers: 2, allowJoinInProgress: false);
+        var owner = rig.Add(1201); var guest = rig.Add(1202);
+        rig.ReadyAll(); rig.Expect(owner, owner.Command(LobbyCommandType.StartMatch), LobbyResultCode.Ok);
+        owner.Loaded(); guest.Loaded();
+        rig.Wait(() => owner.State?.Phase == SessionPhase.InMatch, "waitlist JIP fixture enters a real control-plane match");
+        using var queued = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort), 1203);
+        rig.Wait(() => { queued.Poll(); return queued.State?.State == LobbyQueueWireState.NextMatch; }, "JIP-disabled queue reports NEXT MATCH");
+        rig.Clients.Remove(guest); guest.Dispose();
+        rig.Wait(() => { queued.Poll(); return rig.Server.PeerCount == 1; }, "JIP-disabled player departure observed");
+        Check(!queued.SeatAvailable, "JIP-disabled vacancy is not offered during match");
+        rig.EndMatchForTest();
+        rig.Wait(() => { queued.Poll(); return queued.SeatAvailable && owner.State?.Phase == SessionPhase.Lobby; },
+            "return to lobby offers retained queue entry", PostMatchWaitMilliseconds);
+        rig.Server.Stop();
+        rig.Wait(() => { queued.Poll(); return queued.Error != null; }, "server shutdown closes queue connection");
+    }
+
+    private static void WaitlistSessionHandoffScenario()
+    {
+        using var rig = new Rig(maxPlayers: 2);
+        rig.Add(1301); var guest = rig.Add(1302);
+        using var queued = new LobbyQueueClient(new IPEndPoint(IPAddress.Loopback, rig.Server.BoundPort));
+        rig.Wait(() => { queued.Poll(); return queued.Position == 1; }, "UI queue uses persistent local client identity");
+        var transport = queued.Transport;
+        rig.Clients.Remove(guest); guest.Dispose();
+        rig.Wait(() => { queued.Poll(); return queued.SeatAvailable; }, "UI queue receives offered seat");
+        queued.AcceptSeat();
+        rig.Wait(() => { queued.Poll(); return queued.Admitted; }, "UI queue receives normal Welcome");
+        Check(NetLaunch.Connect("127.0.0.1", rig.Server.BoundPort, "QueuedHero", Hunter.Trace, queuedAdmission: queued),
+            "accepted queue handoff completes normal identity/roster/session admission");
+        var active = typeof(NetSession).GetField("_transport", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.GetValue(null);
+        Check(ReferenceEquals(transport, active) && NetSession.LocalSlot == 1, "game session adopts same socket and reserved player slot");
+        NetSession.Stop();
+    }
+
+    private static void QueuePacketChecks()
+    {
+        void Fixture(int size, Action<byte[]> write, Func<byte[],bool> read, string golden)
+        {
+            byte[] bytes = new byte[size]; write(bytes);
+            Check(bytes.AsSpan().SequenceEqual(Convert.FromHexString(golden)) && read(bytes), "production queue golden wire " + bytes[0]);
+            for (int n = 0; n < size; n++) Check(!read(bytes[..n]), "production queue truncation " + bytes[0] + ":" + n);
+            Check(!read(bytes.Concat(new byte[]{0}).ToArray()), "production queue trailing bytes " + bytes[0]);
+            bytes[0] = 255; Check(!read(bytes), "production queue wrong kind");
+        }
+        Fixture(QueueHelloPacket.Size, b => new QueueHelloPacket(35,1,2).Write(b), b => QueueHelloPacket.TryRead(b,out _), "3923010000000200000000000000");
+        Fixture(QueueWelcomePacket.Size, b => new QueueWelcomePacket(35,1,2).Write(b), b => QueueWelcomePacket.TryRead(b,out _), "3A23010000000200000000000000");
+        Fixture(QueueJoinPacket.Size, b => new QueueJoinPacket(2).Write(b), b => QueueJoinPacket.TryRead(b,out _), "3B0200000000000000");
+        Fixture(QueueLeavePacket.Size, b => new QueueLeavePacket(2).Write(b), b => QueueLeavePacket.TryRead(b,out _), "3C0200000000000000");
+        Fixture(QueueStatePacket.Size, b => new QueueStatePacket(1,2,1,3,LobbyQueueWireState.Waiting).Write(b), b => QueueStatePacket.TryRead(b,out _), "3D0100000002000000000000000100030000");
+        Fixture(QueueSeatOfferPacket.Size, b => new QueueSeatOfferPacket(1,2,3,4,5,60).Write(b), b => QueueSeatOfferPacket.TryRead(b,out _), "3E0100000002000000000000000300000000000000040005000000000000003C000000");
+        Fixture(QueueAcceptPacket.Size, b => new QueueAcceptPacket(2,3,4,5).Write(b), b => QueueAcceptPacket.TryRead(b,out _), "3F0200000000000000030000000000000004000500000000000000");
+        Fixture(QueueDeclinePacket.Size, b => new QueueDeclinePacket(2,3,4,5).Write(b), b => QueueDeclinePacket.TryRead(b,out _), "400200000000000000030000000000000004000500000000000000");
+        Check(!new QueueJoinPacket(0).Validate() && !new QueueAcceptPacket(1,1,1,0).Validate(), "zero nonces and authority identities reject before wire mutation");
+        Check(!new QueueStatePacket(1,1,2,1,LobbyQueueWireState.Waiting).Validate(), "impossible queue position rejects at generated boundary");
+        Check(new QueueSeatOfferPacket(1,ulong.MaxValue,ulong.MaxValue,ushort.MaxValue,ulong.MaxValue,18000).Validate(), "queue identities preserve complete ulong domain");
+        var status = new ServerStatusPacket { WaitlistSupported = true, WaitlistCount = 256 };
+        byte[] statusBytes = new byte[ServerStatusPacket.SizeWithWaitlist]; status.Write(statusBytes);
+        var decoded = ServerStatusPacket.Read(statusBytes);
+        Check(decoded.WaitlistSupported && decoded.WaitlistCount == 256, "bounded discovery queue capability/count round trip");
+        Check(!ServerStatusPacket.Read(statusBytes.AsSpan(0, ServerStatusPacket.SizeWithFlags)).WaitlistSupported, "old discovery reply defaults queue capability off");
+    }
+
+}

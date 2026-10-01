@@ -23,6 +23,9 @@ namespace MphRead.Mods.Network
     /// </summary>
     public enum PacketType : byte
     {
+        // 55/56 are reserved for the coordinated semantic event/award integration.
+        QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
+        QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
@@ -380,6 +383,9 @@ namespace MphRead.Mods.Network
         /// separates the two, and neither side needed a protocol bump.
         /// </summary>
         public const int SizeWithFlags = Size + 9;
+        public const int SizeWithWaitlist = SizeWithFlags + 3;
+        public bool WaitlistSupported;
+        public ushort WaitlistCount;
         public MatchModifierFlags Rules;
 
         /// <summary>Bit 0: this server will open a new match on a port of its own.</summary>
@@ -422,6 +428,11 @@ namespace MphRead.Mods.Network
                 dest[Size + 4] = AllowJoinInProgress ? (byte)1 : (byte)0;
                 BinaryPrimitives.WriteUInt32LittleEndian(dest[(Size + 5)..], (uint)Rules);
             }
+            if (dest.Length >= SizeWithWaitlist)
+            {
+                dest[SizeWithFlags] = WaitlistSupported ? (byte)1 : (byte)0;
+                BinaryPrimitives.WriteUInt16LittleEndian(dest[(SizeWithFlags + 1)..], (ushort)Math.Min(WaitlistCount, (ushort)256));
+            }
         }
 
         public static ServerStatusPacket Read(ReadOnlySpan<byte> src)
@@ -439,6 +450,8 @@ namespace MphRead.Mods.Network
                 Format = src.Length >= Size + 5 ? (MatchFormat)src[Size + 2] : MatchFormat.Auto,
                 LobbyEnabled = src.Length >= Size + 5 && src[Size + 3] != 0,
                 AllowJoinInProgress = src.Length < Size + 5 || src[Size + 4] != 0,
+                WaitlistSupported = src.Length >= SizeWithWaitlist && src[SizeWithFlags] == 1,
+                WaitlistCount = src.Length >= SizeWithWaitlist ? (ushort)Math.Min(BinaryPrimitives.ReadUInt16LittleEndian(src[(SizeWithFlags + 1)..]), (ushort)256) : (ushort)0,
                 Rules = src.Length >= SizeWithFlags ? (MatchModifierFlags)BinaryPrimitives.ReadUInt32LittleEndian(src[(Size + 5)..]) : MatchModifierFlags.None
             };
         }
@@ -2399,6 +2412,8 @@ namespace MphRead.Mods.Network
         // map before spawning the child instead of relying on whatever happened to
         // be installed on that region. Older directories would stride this tail at
         // 41 bytes and misread the policy/identity block, so mixed builds are refused.
+        // Protocol 35 adds semantic events/awards and endpoint-bound queue-only reserved-seat admission.
+        // Gameplay packet layouts remain compatible with recorded protocol 34.
         public const int ProtocolVersion = 35;
         /// <summary>
         /// Frames between intent packets. One, so every frame.

@@ -108,6 +108,7 @@ namespace MphRead.NetTest
                 return NetBotCheck.Run(args.Length > 2 ? args[2] : "MP1 SANCTORUS", args.Length > 3 ? int.Parse(args[3]) : 3);
             }
             if (args.Length > 0 && args[0] == "--bots") return NetLobbyTest.RunBots();
+            if (args.Length > 0 && args[0] == "--waitlist") return NetLobbyTest.RunWaitlist();
             if (args.Length > 0 && args[0] == "--lobby") return NetLobbyTest.Run();
             if (args.Length > 0 && args[0] == "--architecture") return NetArchitectureTests.Run();
             if (Array.IndexOf(args, "--network-benchmark") >= 0 || Array.IndexOf(args, "--network-benchmark-json") >= 0)

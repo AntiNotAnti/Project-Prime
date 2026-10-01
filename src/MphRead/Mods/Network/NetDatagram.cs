@@ -91,6 +91,8 @@ public sealed class NetConnection
         : NetPacketQueue.Priority(type) == NetPacketPriority.Critical ? _controlBudget.Take(nowMs, 60, 128)
         : _backgroundBudget.Take(nowMs, 100, 32);
     public NetReliableChannel Reliable { get; } = new();
+    internal bool QueueOnly { get; set; }
+    internal bool QueueServerSide { get; set; }
     public bool AckPending { get; set; }
     public bool FailureReported { get; set; }
     public double? RetiredAt { get; set; }

@@ -1,4 +1,4 @@
-# Lobby waitlist policy foundation — live admission pending
+# Lobby waitlist policy checks
 
 Run the content-free core and loopback checks:
 
@@ -6,11 +6,10 @@ Run the content-free core and loopback checks:
 dotnet run --project tools/lobby-waitlist-check -c Release
 ```
 
-`LobbyWaitlist` is an inactive server-side foundation. It does not expose a queue
-on existing servers, add live packet types, change protocol 34, or assign player
-or spectator roles. All methods execute on the constructing lobby owner thread.
-No background worker is introduced. The standalone tests compile the actual core
-source and require no game content, graphics context or dedicated simulation.
+`LobbyWaitlist` is the owner-thread policy core used by the production queue
+admission path. The standalone tests below isolate its policy using synthetic
+packets; production bootstrap and server tests are described in
+[the live admission documentation](../../docs/network/lobby-waitlist.md).
 
 Implemented policy:
 
@@ -41,33 +40,10 @@ datagrams between sockets with fixture-established identities, checking FIFO,
 malformed packets, duplicate requests, identity attacks and reserved-seat acceptance.
 They do **not** exercise production NetTransport, DedicatedServer or NetLobbyTest.
 
-## Required live integration before exposing this feature
+## Remaining client work
 
-1. Add an authenticated pre-admission transport bootstrap. Current `NetTransport`
-   only creates connection state when sending/accepting a reliable 17-byte Welcome
-   containing a real player slot. It rejects queue traffic before that point.
-   Do not simply allow unsequenced queue commands: that would remove established
-   endpoint/connection identity fencing. Queue-only welcome/challenge state must
-   carry bounded, server-owned connection identity without claiming a player slot.
-2. Bound bootstrap attempts, pending queue-only connections, retries, bytes and
-   expiry; integrate reliable channel classification and receive budgets. Existing
-   connection storage is bounded at 64 and cannot silently expand to 256 queues.
-3. Define fresh production packet IDs/protocol at integration time, strict semantic
-   ID validation, queue state/offer delivery and request dedup/retransmission.
-   Preserve protocol-34 replay decoding when the live version changes.
-4. Construct this core on the dedicated lobby control owner. Feed humans/bots,
-   capacity, match/epoch/JIP and disconnect state. All normal joins and bot additions
-   must respect reservations. Acceptance must call existing team, lifecycle,
-   custom-map identity and load/readiness validation; consume the reservation only
-   after successful admission. Shutdown clears queue state.
-5. Implement client queue-only lifecycle, discovery capability/count, queue UI and
-   accepted-seat handoff. Current SpectatorMode is presentation state rather than
-   a separate server spectator admission pool; define that role lifecycle before
-   promising Spectate + Queue. Rebinding/resume across new endpoints requires an
-   established authenticated resume contract, not a guessed client/display name.
-6. Extend production NetLobbyTest with actual queued bootstrap, full-server
-   reservation theft attempts, simultaneous offers, expiry/retries, transitions,
-   bots, JIP, spectators, disconnect/resume, shutdown and malformed datagrams.
-
-These are completion gates, not optional polish. This foundation must remain
-inactive until secure production admission and client handling land together.
+The live admission layer now provides bounded queue-only transport bootstrap,
+production protocol-35 packets, server reservations, and same-socket normal
+admission handoff. Launcher UI remains a separate follow-up. Resume currently
+requires the same endpoint and connection incarnation. SpectatorMode consumes a
+normal player slot; there is no independent spectator admission pool.

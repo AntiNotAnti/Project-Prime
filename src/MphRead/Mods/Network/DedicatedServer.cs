@@ -402,6 +402,7 @@ namespace MphRead.Mods.Network
         public void Run(CancellationToken cancel = default)
         {
             Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
+            InitializeWaitlist();
             _transport = new NetTransport(_port);
             _running = true;
             Log($"listening on UDP {_transport.LocalPort}, up to {_maxPlayers} players");
@@ -445,6 +446,7 @@ namespace MphRead.Mods.Network
                 {
                     double now = clock.Elapsed.TotalSeconds;
                     _now = now;
+                    RefreshWaitlist(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.BeforeSimulation))
                     {
                         Handle(packet, now);
@@ -600,6 +602,7 @@ namespace MphRead.Mods.Network
                             }
                         }
                     }
+                    MaintainWaitlist(now);
                     // Pace around the simulation's absolute next deadline.
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
@@ -671,6 +674,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Shutdown(ushort listenPort)
         {
+            foreach (var queued in _queuePeers.Values) _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            _waitlist?.Clear();
+            _queuePeers.Clear();
             Telemetry.ProductionTelemetry.Shutdown();
             Log("shutting down");
             _hostMapRequests.Dispose();
@@ -1067,6 +1073,8 @@ namespace MphRead.Mods.Network
 
         private void Handle(ReceivedPacket packet, double now)
         {
+            if (packet.Type == PacketType.QueueHello) { HandleQueueHello(packet, now); return; }
+            if (HandleQueuePeer(packet, now)) return;
             if (packet.Type is PacketType.Hello or PacketType.MatchLoaded or PacketType.WorldReady)
             {
                 var samplePeer = Find(packet.Sender);
@@ -1920,6 +1928,7 @@ namespace MphRead.Mods.Network
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
+                WaitlistSupported = WaitlistEnabled, WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
                 ServerName = ServerName,
                 // What this box can do besides the match it is running. The
                 // launcher's create-server screen asks every server on the
@@ -1930,7 +1939,7 @@ namespace MphRead.Mods.Network
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
-                _scratch.AsSpan(0, ServerStatusPacket.SizeWithFlags));
+                _scratch.AsSpan(0, ServerStatusPacket.SizeWithWaitlist));
         }
 
         /// <summary>
@@ -1991,7 +2000,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private void HandleHello(ReceivedPacket packet, double now)
+        private void HandleHello(ReceivedPacket packet, double now, int reservedSlot = -1)
         {
             if (packet.Payload.Length < 1 || packet.Payload[0] != NetConfig.ProtocolVersion)
             {
@@ -2008,6 +2017,8 @@ namespace MphRead.Mods.Network
                 Remove(peer, "replaced connection");
                 peer = null;
             }
+            if (peer == null && clientId != 0 && !_queueAdmitting
+                && _queuePeers.Values.Any(queued => queued.ClientId == clientId)) return;
             if (peer == null && clientId != 0)
                 foreach (var connected in _peers)
                     if (connected.ClientId == clientId) return; // a different endpoint cannot claim a live admission
@@ -2017,8 +2028,9 @@ namespace MphRead.Mods.Network
                 // client that says hello again is usually one this server
                 // dropped while it was loading a room, and handing it a
                 // different slot swaps two players' identities mid-match.
-                int slot = -1;
-                if (packet.Payload.Length >= 2 && packet.Payload[1] != 0xFF
+                int slot = reservedSlot >= 0 && reservedSlot < _maxPlayers && PhysicalSlotFree(reservedSlot) ? reservedSlot : -1;
+                if (slot < 0 && reservedSlot >= 0) return;
+                if (slot < 0 && packet.Payload.Length >= 2 && packet.Payload[1] != 0xFF
                     && packet.Payload[1] < _maxPlayers && SlotFree(packet.Payload[1]))
                 {
                     slot = packet.Payload[1];
@@ -2400,7 +2412,9 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        private bool SlotFree(int slot)
+        private bool SlotFree(int slot) => PhysicalSlotFree(slot) && (_queueAdmitting || _waitlist == null || _waitlist.Count == 0 || _waitlist.CanDirectJoin(slot));
+
+        private bool PhysicalSlotFree(int slot)
         {
             if (FindBot(slot) != null) return false;
             for (int i = 0; i < _peers.Count; i++)
@@ -2415,22 +2429,7 @@ namespace MphRead.Mods.Network
 
         private int NextFreeSlot()
         {
-            for (int slot = 0; slot < _maxPlayers; slot++)
-            {
-                bool taken = FindBot(slot) != null;
-                for (int i = 0; i < _peers.Count; i++)
-                {
-                    if (_peers[i].SlotIndex == slot)
-                    {
-                        taken = true;
-                        break;
-                    }
-                }
-                if (!taken)
-                {
-                    return slot;
-                }
-            }
+            for (int slot = 0; slot < _maxPlayers; slot++) if (SlotFree(slot)) return slot;
             return -1;
         }
 
