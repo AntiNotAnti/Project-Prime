@@ -177,6 +177,7 @@ namespace MphRead.Mods.Network
         private static SnapshotSink? _snapshotSink;
         internal static SnapshotSink? ReplayWorldSink { get; set; }
         internal static SemanticSink? MatchSemanticSink { get; set; }
+        internal static bool SemanticLegacyPlayback => _playback;
         internal static Mods.MatchEvents.MatchSemanticReceiver SemanticReceived { get; } = new();
 
         /// <summary>

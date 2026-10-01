@@ -65,7 +65,7 @@ write unmatched observations through Debug. Snapshot coalescing, unavailable
 exact identities and capture gaps can produce real mismatches. A passing domain
 check does **not** establish production parity. Asset-backed all-weapon/all-mode
 sessions must inspect these diagnostics before any Stage C–G consumer migration.
-Player-facing consumer migration remains gated on the broader parity evidence below.
+The production consumer migration and its parity evidence are described below.
 
 ## Protocol 35 staged recording and receiving
 
@@ -120,11 +120,22 @@ The actual combat scene check covers canonical death counts for rescued claims
 against resolved health, including tied/earlier shots, reversed arrival, 0/1/8-tick
 arrival gaps and duplicate claims (152 total checks).
 
-Remaining Stage C–G migration gates: delayed/coalesced snapshot parity; measure reliable
-bandwidth under load; migrate kill feed, announcer, telemetry and post-match
-consumers only once those checks pass. Existing player-facing consumers and their
-legacy replay translation continue unchanged. Overtime still needs an actual
-authorized gameplay rule before an authoritative producer can exist.
+Live multiplayer killfeed, headshot audio and medal announcements now consume
+canonical facts and deterministic authority awards. Single-player and legacy
+playback retain their original adapter. Explicit per-peer event/award baselines
+hold reordered packets until their predecessors arrive; late join never replays
+old announcements. Packet 55 is 48 bytes including its baseline discriminator and
+award frontier (packet 56 remains 29 bytes). Death metadata preserves weapon,
+alt, bomb, burn, Deathalt, suicide and environment classifications plus teams.
+Names resolve only for the recorded occupant generation, otherwise a neutral
+slot label appears. Passive replay consumes the visual feed without live audio;
+checkpoint restore and seek suppress historical announcements.
+
+Remaining external evidence: full-session wire bandwidth/reconnect under load,
+WAN impairment, and audible/visual device checks. Coalesced legacy snapshots can
+lose multiple deaths between publications; the actual damage check verifies the
+canonical stream retains both victim lives and matches both score increments.
+Overtime still needs an actual authorized gameplay rule before a producer exists.
 
 Canonical authority telemetry now consumes the published event and award stream.
 Telemetry schema 5 retains integral match/epoch and both actor identities, event

@@ -1917,6 +1917,7 @@ namespace MphRead
             if (Mods.Network.NetSession.FreezeGameplay)
             {
                 Mods.Network.NetSession.PumpLoading();
+                SemanticPresentation.Update(this);
                 return;
             }
             // Pointer/button debouncing must advance on the same fixed clock that
@@ -2059,6 +2060,7 @@ namespace MphRead
                 Mods.Network.NetHitClaims.Tick();
                 Mods.Network.NetHooks.AfterSimulation();
                 SemanticPublisher.Publish(this);
+                SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
                 Mods.KillCam.AfterSimulation(this);
 

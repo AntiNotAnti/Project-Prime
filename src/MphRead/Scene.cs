@@ -24,6 +24,7 @@ namespace MphRead
         internal Mods.Combat.KillFeed KillFeed { get; } = new();
         internal Mods.MatchEvents.SceneMatchEvents MatchEvents { get; } = new();
         internal Mods.MatchEvents.MatchSemanticPublisher SemanticPublisher { get; } = new();
+        internal Mods.MatchEvents.MatchSemanticPresentation SemanticPresentation { get; } = new();
         public ISceneServices Services { get; private set; }
         internal bool IsReplayLab { get; private set; }
         internal float ReplayRenderAlpha { get; set; } = 1;

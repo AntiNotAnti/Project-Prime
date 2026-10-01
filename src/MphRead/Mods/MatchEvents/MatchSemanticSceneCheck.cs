@@ -62,6 +62,51 @@ public static class MatchSemanticSceneCheck
                     && parity.MissingSemantic == 0 && parity.MissingLegacy == 0 && parity.Pending == 0,
                     $"{weapon} real authority exact-marker parity matched={parity.Matched} missing={parity.MissingSemantic}/{parity.MissingLegacy} pending={parity.Pending}");
             }
+            Require(Sound.CombatFeedbackAudio.OnCanonicalAward(scene, MatchAwardKind.FirstBlood, true) == "First Blood"
+                && Sound.CombatFeedbackAudio.OnCanonicalAward(scene, MatchAwardKind.DoubleKill, true) == "Double Kill"
+                && Sound.CombatFeedbackAudio.OnCanonicalAward(scene, MatchAwardKind.KillingSpree, true) == "Killing Spree",
+                "canonical award identities select existing audio and medal labels");
+            var lastDeath = scene.MatchEvents.Bus.Events.Last(e => e.Type == MatchSemanticEventType.PlayerKilled);
+            Require(MatchDeathDetails.TryDecode(lastDeath.Value, out var details) && details.Kind == MatchDeathKind.Weapon,
+                "authority preserves full weapon death classification");
+            Require(Combat.KillFeed.TryBuildCanonical(scene, lastDeath, out var entry)
+                && entry.Beam == BeamType.OmegaCannon && entry.Kind == Combat.KillFeedKind.Weapon
+                && entry.KillerName == scene.GameState.Nicknames[shooter.SlotIndex], "canonical feed enriches exact current occupant");
+            var oldOccupant = lastDeath with { Actor = lastDeath.Actor with { SlotGeneration = (ushort)(lastDeath.Actor.SlotGeneration + 1) } };
+            Require(Combat.KillFeed.TryBuildCanonical(scene, oldOccupant, out entry) && entry.KillerName == "PLAYER 1",
+                "stale occupant cannot borrow replacement display name");
+            foreach (var classification in new[] { (DamageFlags.Burn, MatchDeathKind.Burn), (DamageFlags.Deathalt, MatchDeathKind.Deathalt) })
+            {
+                victim.Spawn(victim.Position, OpenTK.Mathematics.Vector3.UnitZ, OpenTK.Mathematics.Vector3.UnitY, victim.NodeRef, respawn: true);
+                victim.Health = 99;
+                victim.TakeDamage(500, classification.Item1 | DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, shooter);
+                var death = scene.MatchEvents.Bus.Events.Last(e => e.Type == MatchSemanticEventType.PlayerKilled);
+                Require(MatchDeathDetails.TryDecode(death.Value, out details) && details.Kind == classification.Item2,
+                    "actual accepted damage preserves " + classification.Item2);
+            }
+            var bomb = new BombEntity(scene);
+            typeof(BombEntity).GetProperty(nameof(BombEntity.Owner))!.SetValue(bomb, shooter);
+            foreach (var classification in new (EntityBase? Source, MatchDeathKind Kind)[] {
+                (bomb, MatchDeathKind.Bomb), (shooter, MatchDeathKind.Alt), (victim, MatchDeathKind.Suicide), (null, MatchDeathKind.Environment) })
+            {
+                victim.Spawn(victim.Position, OpenTK.Mathematics.Vector3.UnitZ, OpenTK.Mathematics.Vector3.UnitY, victim.NodeRef, respawn: true);
+                victim.Health = 99;
+                victim.TakeDamage(500, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, classification.Source);
+                var death = scene.MatchEvents.Bus.Events.Last(e => e.Type is MatchSemanticEventType.PlayerKilled or MatchSemanticEventType.PlayerSuicide);
+                Require(MatchDeathDetails.TryDecode(death.Value, out details) && details.Kind == classification.Kind,
+                    "actual accepted damage preserves " + classification.Kind);
+            }
+            int priorDeaths = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PlayerKilled);
+            int priorScore = scene.GameState.Kills[shooter.SlotIndex];
+            for (int life = 0; life < 2; life++)
+            {
+                victim.Spawn(victim.Position, OpenTK.Mathematics.Vector3.UnitZ, OpenTK.Mathematics.Vector3.UnitY, victim.NodeRef, respawn: true);
+                victim.Health = 99;
+                victim.TakeDamage(500, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, shooter);
+            }
+            Require(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PlayerKilled) == priorDeaths + 2
+                && scene.GameState.Kills[shooter.SlotIndex] == priorScore + 2,
+                "two victim lives before snapshot publication retain both facts and exact score outcomes");
             Require(scene.SemanticPublisher.HistoryGaps == 0 && sim.StepFailures == 0, "recording pipeline has no gaps or simulation failures");
             Console.WriteLine($"SEMANTIC F2 PASS {checks} real-authority damage/parity checks");
             return 0;
