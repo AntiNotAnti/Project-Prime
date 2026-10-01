@@ -31,6 +31,8 @@ namespace MphRead.Mods.Network
         private int _studyAdmissionHead;
         private sealed class Peer
         {
+            internal NetRetainedDelivery.Cursor? SemanticCursor;
+            internal byte[]? SemanticBaseline;
             public readonly NetPeerTelemetry Telemetry = new();
             public IPEndPoint EndPoint = null!;
             public int SlotIndex = -1;
@@ -204,6 +206,9 @@ namespace MphRead.Mods.Network
         private readonly byte[] _lastSnapshot = new byte[NetConfig.MaxSnapshotSize];
         private int _lastSnapshotLength;
         private volatile bool _running;
+        private readonly NetRetainedDelivery _semanticDelivery = new();
+        private long _semanticSlowPeerDisconnects;
+        internal long SemanticSlowPeerDisconnects => _semanticSlowPeerDisconnects;
         private double _matchStarted;
         /// <summary>
         /// When the match ended, or -1 while one is being played.
@@ -399,6 +404,7 @@ namespace MphRead.Mods.Network
         public void Run(CancellationToken cancel = default)
         {
             Telemetry.ProductionTelemetry.Configure(Telemetry.NetTelemetryConfig.Load());
+            InitializeWaitlist();
             _transport = new NetTransport(_port);
             _running = true;
             Log($"listening on UDP {_transport.LocalPort}, up to {_maxPlayers} players");
@@ -442,6 +448,7 @@ namespace MphRead.Mods.Network
                 {
                     double now = clock.Elapsed.TotalSeconds;
                     _now = now;
+                    RefreshWaitlist(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.BeforeSimulation))
                     {
                         Handle(packet, now);
@@ -451,12 +458,14 @@ namespace MphRead.Mods.Network
                     // to the steps this pass owes, exactly as a client applies
                     // what arrived before it steps.
                     CheckLoadBarrier(now);
+                    PumpSemanticDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
                     // Pongs and load-progress heartbeats are background control.
                     // After a long synchronous room build they may already be in
                     // the inbox; consume them before deciding a peer was silent.
+                    PumpSemanticDelivery();
                     DropTimedOut(now);
 
                     // The server owns the match clock, not the authority client:
@@ -597,6 +606,7 @@ namespace MphRead.Mods.Network
                             }
                         }
                     }
+                    MaintainWaitlist(now);
                     // Pace around the simulation's absolute next deadline.
                     // Empty non-simulating servers can still sleep deeply; an
                     // active authority sleeps most of the gap, yields near the
@@ -668,6 +678,9 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void Shutdown(ushort listenPort)
         {
+            foreach (var queued in _queuePeers.Values) _transport?.Send(queued.Endpoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+            _waitlist?.Clear();
+            _queuePeers.Clear();
             Telemetry.ProductionTelemetry.Shutdown();
             Log("shutting down");
             _hostMapRequests.Dispose();
@@ -941,6 +954,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
+            NetSession.MatchSemanticSink = AppendSemanticDelivery;
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.
             // This server arbitrates its clients' hit claims for as long as it
@@ -1055,6 +1069,8 @@ namespace MphRead.Mods.Network
 
         private void Handle(ReceivedPacket packet, double now)
         {
+            if (packet.Type == PacketType.QueueHello) { HandleQueueHello(packet, now); return; }
+            if (HandleQueuePeer(packet, now)) return;
             if (packet.Type is PacketType.Hello or PacketType.MatchLoaded or PacketType.WorldReady)
             {
                 var samplePeer = Find(packet.Sender);
@@ -1908,6 +1924,7 @@ namespace MphRead.Mods.Network
                 LobbyEnabled = SessionPolicy == ServerSessionPolicy.Lobby, AllowJoinInProgress = AllowJoinInProgress,
                 MaxPlayers = (byte)_maxPlayers,
                 Protocol = NetConfig.ProtocolVersion,
+                WaitlistSupported = WaitlistEnabled, WaitlistCount = (ushort)(_waitlist?.Count ?? 0),
                 ServerName = ServerName,
                 // What this box can do besides the match it is running. The
                 // launcher's create-server screen asks every server on the
@@ -1918,7 +1935,7 @@ namespace MphRead.Mods.Network
             };
             status.Write(_scratch);
             _transport?.Send(sender, PacketType.StatusReply,
-                _scratch.AsSpan(0, ServerStatusPacket.SizeWithFlags));
+                _scratch.AsSpan(0, ServerStatusPacket.SizeWithWaitlist));
         }
 
         /// <summary>
@@ -1979,7 +1996,7 @@ namespace MphRead.Mods.Network
             }
         }
 
-        private void HandleHello(ReceivedPacket packet, double now)
+        private void HandleHello(ReceivedPacket packet, double now, int reservedSlot = -1)
         {
             if (packet.Payload.Length < 1 || packet.Payload[0] != NetConfig.ProtocolVersion)
             {
@@ -1996,6 +2013,8 @@ namespace MphRead.Mods.Network
                 Remove(peer, "replaced connection");
                 peer = null;
             }
+            if (peer == null && clientId != 0 && !_queueAdmitting
+                && _queuePeers.Values.Any(queued => queued.ClientId == clientId)) return;
             if (peer == null && clientId != 0)
                 foreach (var connected in _peers)
                     if (connected.ClientId == clientId) return; // a different endpoint cannot claim a live admission
@@ -2005,8 +2024,9 @@ namespace MphRead.Mods.Network
                 // client that says hello again is usually one this server
                 // dropped while it was loading a room, and handing it a
                 // different slot swaps two players' identities mid-match.
-                int slot = -1;
-                if (packet.Payload.Length >= 2 && packet.Payload[1] != 0xFF
+                int slot = reservedSlot >= 0 && reservedSlot < _maxPlayers && PhysicalSlotFree(reservedSlot) ? reservedSlot : -1;
+                if (slot < 0 && reservedSlot >= 0) return;
+                if (slot < 0 && packet.Payload.Length >= 2 && packet.Payload[1] != 0xFF
                     && packet.Payload[1] < _maxPlayers && SlotFree(packet.Payload[1]))
                 {
                     slot = packet.Payload[1];
@@ -2039,7 +2059,8 @@ namespace MphRead.Mods.Network
                     _matchId = NetLifecycleTracker.Next(_matchId);
                     _lastSnapshotLength = 0;
                 }
-                if (_phase == SessionPhase.InMatch && !AllowJoinInProgress)
+                if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
+                    && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
                 { SendRefusal(packet.Sender, RefusedPacket.ReasonInMatch); return; }
                 sbyte team = ChooseTeam(CurrentDefinition);
                 if (LobbyRules.TeamCount(CurrentDefinition) > 0 && team < 0)
@@ -2343,6 +2364,33 @@ namespace MphRead.Mods.Network
             }
         }
 
+        private void PumpSemanticDelivery()
+        {
+            for (int i = _peers.Count - 1; i >= 0; i--)
+            {
+                var peer = _peers[i];
+                if (!peer.AdmissionReady || !peer.MatchReady) { peer.SemanticCursor = null; peer.SemanticBaseline = null; continue; }
+                if (_semanticMatch == 0) continue;
+                if (peer.SemanticCursor == null)
+                {
+                    peer.SemanticCursor = _semanticDelivery.Join();
+                    peer.SemanticBaseline = SemanticBaseline();
+                }
+                if (peer.SemanticBaseline != null)
+                {
+                    if (_transport?.TrySendSemantic(peer.EndPoint, PacketType.MatchSemanticEvent, peer.SemanticBaseline) != true) continue;
+                    peer.SemanticBaseline = null;
+                }
+                if (!_semanticDelivery.Pump(peer.SemanticCursor,
+                    fact => _transport?.TrySendSemantic(peer.EndPoint, fact.Type, fact.Payload) == true))
+                {
+                    _semanticSlowPeerDisconnects++;
+                    _transport?.Send(peer.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+                    Remove(peer, "semantic history overrun");
+                }
+            }
+        }
+
         private void DropTimedOut(double now)
         {
             for (int i = _peers.Count - 1; i >= 0; i--)
@@ -2388,7 +2436,9 @@ namespace MphRead.Mods.Network
             return null;
         }
 
-        private bool SlotFree(int slot)
+        private bool SlotFree(int slot) => PhysicalSlotFree(slot) && (_queueAdmitting || _waitlist == null || _waitlist.Count == 0 || _waitlist.CanDirectJoin(slot));
+
+        private bool PhysicalSlotFree(int slot)
         {
             if (FindBot(slot) != null) return false;
             for (int i = 0; i < _peers.Count; i++)
@@ -2403,22 +2453,7 @@ namespace MphRead.Mods.Network
 
         private int NextFreeSlot()
         {
-            for (int slot = 0; slot < _maxPlayers; slot++)
-            {
-                bool taken = FindBot(slot) != null;
-                for (int i = 0; i < _peers.Count; i++)
-                {
-                    if (_peers[i].SlotIndex == slot)
-                    {
-                        taken = true;
-                        break;
-                    }
-                }
-                if (!taken)
-                {
-                    return slot;
-                }
-            }
+            for (int slot = 0; slot < _maxPlayers; slot++) if (SlotFree(slot)) return slot;
             return -1;
         }
 

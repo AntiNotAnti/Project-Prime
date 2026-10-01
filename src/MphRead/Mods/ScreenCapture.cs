@@ -66,12 +66,7 @@ namespace MphRead.Mods
                 {
                     return null;
                 }
-                byte[] buffer = new byte[width * height * 3];
-                GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-                GL.ReadBuffer(ReadBufferMode.Back);
-                GL.PixelStore(PixelStoreParameter.PackAlignment, 1);
-                GL.ReadPixels(0, 0, width, height, PixelFormat.Rgb, PixelType.UnsignedByte, buffer);
-                return buffer;
+                return Render.FinalCompositeCapture.Read(width, height);
             });
         }
 

@@ -118,7 +118,7 @@ namespace MphRead.Mods.Launcher.Gui
             _servers.SelectionChanged += (_, row) => SelectionChanged(row);
             _servers.Activated += (_, row) =>
             {
-                if (row is ServerRow server && server.CanJoin)
+                if (row is ServerRow server && (server.CanJoin || server.CanQueue))
                     _ = JoinAsync();
             };
 
@@ -179,7 +179,7 @@ namespace MphRead.Mods.Launcher.Gui
                     _backdropRoom.Length > 0 ? _backdropRoom : null);
                 if (!_loaded) { _loaded = true; RefreshServers(); }
             };
-            DetachedFromVisualTree += (_, _) => CancelWork();
+            DetachedFromVisualTree += (_, _) => { _connect?.Cancel(); CancelWork(); };
         }
 
         public PrimeOverlayHost? Overlays { get; set; }
@@ -270,7 +270,10 @@ namespace MphRead.Mods.Launcher.Gui
                 _backdropRoom = server.RoomKey;
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer, _backdropRoom);
             }
-            _join.IsEnabled = _spectate.IsEnabled = server.CanJoin && !_joining;
+            _join.IsEnabled = (server.CanJoin || server.CanQueue) && !_joining;
+            _spectate.IsEnabled = server.CanJoin && !_joining;
+            _join.Label = server.CanJoin ? "JOIN" : server.CanQueue ? "JOIN QUEUE" : "JOIN";
+            if (server.CanQueue) _detailMeta.Text += $"\n{server.WaitingCount} WAITING";
         }
 
         private void RefreshFavorite()
@@ -446,6 +449,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _backdropRoom = room;
                 LauncherBackdrop.Set(LauncherBackdropScene.Multiplayer, _backdropRoom);
             }
+            _join.Label = "JOIN";
             _join.IsEnabled = _spectate.IsEnabled = entry.Live && !_joining;
         }
 
@@ -481,6 +485,25 @@ namespace MphRead.Mods.Launcher.Gui
 
             OnlineJoinResult result = await ServerBrowserService.JoinAsync(
                 host, port, player, hunter, suit, _connect.Token);
+
+            if (!result.Joined && !_connect.IsCancellationRequested && Overlays != null && !spectate)
+            {
+                var status = await ServerBrowserService.ProbeAsync(host, port, allowJoinProbe: false);
+                if (!_connect.IsCancellationRequested && status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported
+                    && (status.Players >= status.MaxPlayers || status.WaitlistCount > 0))
+                {
+                    CloseProgress();
+                    using var queued = await LobbyQueueDialog.ShowAsync(Overlays, host, port, _connect.Token,
+                        $"{status.Players}/{status.MaxPlayers} players · {status.WaitlistCount} waiting");
+                    if (queued != null)
+                    {
+                        ShowProgress("Preparing your player slot…");
+                        result = await ServerBrowserService.JoinAsync(host, port, player, hunter, suit,
+                            _connect.Token, queuedAdmission: queued);
+                    }
+                    else result = new OnlineJoinResult(false, default, "Left queue.");
+                }
+            }
 
             bool cancelled = _connect.IsCancellationRequested;
             _connect.Dispose(); _connect = null;

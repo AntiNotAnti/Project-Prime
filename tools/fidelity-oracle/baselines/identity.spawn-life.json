@@ -1,0 +1,67 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "identity.spawn-life",
+    "version": 1,
+    "ticks": 5,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production lifecycle tracker rejects resurrection and previous lives."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "68c3865239f5082dff3240b4ece4674be4a31b5e88af73d642363cad6eef17bb",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 2
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 3
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "generation": 65535,
+        "life": 1,
+        "newLife": 0,
+        "rejection": 3,
+        "state": 3
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "generation": 65535,
+        "life": 2,
+        "newLife": 0,
+        "rejection": 0,
+        "state": 2
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "generation": 65535,
+        "life": 2,
+        "newLife": 0,
+        "rejection": 2,
+        "state": 2
+      }
+    }
+  ]
+}

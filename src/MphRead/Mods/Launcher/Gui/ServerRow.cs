@@ -209,6 +209,8 @@ namespace MphRead.Mods.Launcher.Gui
         /// <summary>Whether this row can be picked at all: it has answered.</summary>
         public bool IsLive => _answered && !_asking;
         public bool CanJoin { get; private set; }
+        public bool CanQueue { get; private set; }
+        public int WaitingCount { get; private set; }
         public bool Tactical { get; set; }
         private string _availability = "CHECKING";
 
@@ -217,8 +219,10 @@ namespace MphRead.Mods.Launcher.Gui
         {
             CanJoin = status.Online && status.Protocol == NetConfig.ProtocolVersion
                 && (status.MaxPlayers <= 0 || status.Players < status.MaxPlayers);
+            CanQueue = status.Online && status.Protocol == NetConfig.ProtocolVersion && status.WaitlistSupported;
+            WaitingCount = status.WaitlistCount;
             _availability = !status.Online ? "OFFLINE" : status.Protocol != NetConfig.ProtocolVersion ? "BUILD MISMATCH"
-                : CanJoin ? "JOINABLE" : "LOBBY FULL";
+                : CanJoin ? "JOINABLE" : CanQueue ? $"{WaitingCount} WAITING" : "LOBBY FULL";
             _asking = false;
             _answered = status.Online;
             if (!status.Online)

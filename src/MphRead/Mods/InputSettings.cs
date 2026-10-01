@@ -491,7 +491,11 @@ namespace MphRead.Mods
                 float? stylusOutlineOpacity = null;
                 float? stylusButtonOpacity = null;
                 float? stylusCursorOpacity = null;
-                string[] savedLines = File.ReadAllLines(Path);
+                string[] savedLines = File.ReadAllLines(Path).Where(raw =>
+                {
+                    string line = raw.Trim(); int split = line.IndexOf('=');
+                    return split <= 0 || MphRead.Mods.Settings.PreferenceText.IsValid(line[..split].Trim(), line[(split+1)..].Trim(), launcher: false);
+                }).ToArray();
                 foreach (string raw in savedLines)
                 {
                     string line = raw.Trim();
@@ -591,6 +595,11 @@ namespace MphRead.Mods
                         CultureInfo.InvariantCulture, out float nativeUiOpacity))
                     {
                         Input.StylusZone.NativeUiOpacity = Math.Clamp(nativeUiOpacity, 0, 1);
+                        continue;
+                    }
+                    if (key == "stylus_zone_color")
+                    {
+                        Input.StylusZone.GuideColor = value;
                         continue;
                     }
                     // Three numbers for one rectangle: the height follows the
@@ -814,6 +823,8 @@ namespace MphRead.Mods
 
         public static void Save()
         {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return;
             try
             {
                 var lines = new List<string>
@@ -837,6 +848,7 @@ namespace MphRead.Mods
                     $"stylus_native_ui={Input.StylusZone.NativeUi.ToString().ToLowerInvariant()}",
                     "stylus_native_ui_opacity="
                         + Input.StylusZone.NativeUiOpacity.ToString("0.###", CultureInfo.InvariantCulture),
+                    "stylus_zone_color=" + Input.StylusZone.GuideColor,
                     "stylus_cursor_opacity="
                         + Input.StylusZone.CursorOpacity.ToString("0.###", CultureInfo.InvariantCulture),
                     "stylus_zone_outline_opacity="

@@ -34,6 +34,24 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "settingsarchive"))
+            {
+                Environment.ExitCode = Settings.SettingsArchiveCommand.Run(args);
+                return true;
+            }
+            if (HasFlag(args, "fidelityoracle"))
+            {
+                Environment.ExitCode = Fidelity.FidelityOracleCommand.Run(args);
+                return true;
+            }
+#if !MPHREAD_SERVER
+            int materialsIndex = Array.FindIndex(args, value => value.Equals("-materials", StringComparison.OrdinalIgnoreCase));
+            if (materialsIndex >= 0)
+            {
+                Environment.ExitCode = Render.Materials.MaterialPackCommand.Run(args.Skip(materialsIndex + 1).ToArray());
+                return true;
+            }
+#endif
             // Renderer probes return before the normal client logging setup.
             // Honor explicit logging here so native startup failures in those
             // probes retain the same checkpoints as the launcher.
@@ -1036,6 +1054,10 @@ namespace MphRead.Mods
                     : Network.ServerSessionPolicy.Continuous,
                 Format = serverFormat,
                 OwnerToken = ownerToken,
+                WaitlistEnabled = !HasFlag(args, "nowaitlist"),
+                WaitlistCapacity = int.TryParse(ValueAfter(args, "waitlistcapacity"), out int queueCapacity) ? Math.Clamp(queueCapacity, 1, 256) : 64,
+                WaitlistOfferSeconds = int.TryParse(ValueAfter(args, "waitlistoffer"), out int queueOfferSeconds) ? Math.Clamp(queueOfferSeconds, 1, 300) : 15,
+                WaitlistResumeGraceSeconds = int.TryParse(ValueAfter(args, "waitlistresume"), out int queueResumeSeconds) ? Math.Clamp(queueResumeSeconds, 1, 300) : 10,
                 FriendlyFire = HasFlag(args, "friendlyfire"),
                 // The one rule here that is a fix rather than a preference:
                 // -noshadowfreeze makes the Judicator's ice wave a cone

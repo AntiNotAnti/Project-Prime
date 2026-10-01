@@ -42,6 +42,11 @@ public sealed class HudProfileStore
     }
     private string PathFor(string name)
     {
+        ValidateName(name);
+        return Path.Combine(DirectoryPath, name + ".json");
+    }
+    internal static void ValidateName(string name)
+    {
         // Names are display labels, never paths, on every platform (including Unix).
         if (string.IsNullOrWhiteSpace(name) || name.Length > 64 || name is "." or ".."
             || name.IndexOfAny("/\\:*?\"<>|".ToCharArray()) >= 0 || name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
@@ -51,7 +56,6 @@ public sealed class HudProfileStore
         string stem=name.Split('.')[0].ToUpperInvariant();
         if (stem is "CON" or "PRN" or "AUX" or "NUL" || stem.Length==4 && (stem.StartsWith("COM") || stem.StartsWith("LPT")) && stem[3] is >= '1' and <= '9')
             throw new ArgumentException("This profile name is reserved by Windows.",nameof(name));
-        return Path.Combine(DirectoryPath, name + ".json");
     }
     public HudProfile Load(string name)
     {
@@ -67,6 +71,8 @@ public sealed class HudProfileStore
     internal static bool Recoverable(Exception e) => e is IOException or UnauthorizedAccessException or JsonException or FormatException or ArgumentException;
     public void Save(string name, HudProfile profile)
     {
+        using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+        if (settingsWrite == null) return;
         string path = PathFor(name);
         // Validate the detached serialized value before touching the last good file.
         string json = Serialize(Parse(Serialize(profile)));

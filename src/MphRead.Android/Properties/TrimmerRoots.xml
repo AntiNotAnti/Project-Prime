@@ -19,6 +19,10 @@
        defaults, so a release APK would list rooms with no name, no geometry
        and no spawns while the debug build was perfect. -->
   <assembly fullname="ProjectPrime">
+    <!-- Local material manifests and observed inventories use System.Text.Json reflection. -->
+    <type fullname="MphRead.Mods.Render.Materials.MaterialPackManifest" preserve="all" />
+    <type fullname="MphRead.Mods.Render.Materials.MaterialPackEntry" preserve="all" />
+    <type fullname="MphRead.Mods.Render.Materials.MaterialObservation" preserve="all" />
     <!-- Detached replay worlds bind explicit private fields by name. Keep the
          construction/field contract in the trimmed release APK as well. -->
     <type fullname="MphRead.Entities.EntityBase" preserve="all" />

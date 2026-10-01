@@ -716,6 +716,7 @@ namespace MphRead.Entities
             Mods.EnhancedHunters.EnhancedHunters.OnPlayerSpawn(this);
             if (!_scene.Services.PlayerReplication.CanSpawn) return;
             _scene.Services.PlayerReplication.OnSpawn(this);
+            _scene.MatchEvents.Spawn(_scene, this);
             _scene.PlayerReplication.NoteSpawn(SlotIndex);
             if (IsMainPlayer)
             {
@@ -2010,6 +2011,8 @@ namespace MphRead.Entities
             Mods.Network.NetDamage.Note(this, attacker, beam?.Beam ?? BeamType.None, flags, direction,
                 damage, bomb != null, beam?.ModLaunchFrame ?? 0, launchKey: beam?.ModLaunchKey, enhancedChild: beam?.EnhancedMicroSeeker == true,
                 continuousPhase: beam is { Beam: BeamType.ShockCoil, ModHasSharedContinuousPhase: true } ? (uint)beam.ModContinuousPhase : 0);
+            if (flags.TestFlag(DamageFlags.Headshot))
+                _scene.MatchEvents.Headshot(_scene, attacker, this, beam?.Beam ?? Mods.Network.NetDamage.ClaimedBeam, beam?.ModLaunchKey);
             // The last point at which the damage is final and the death has
             // not been decided: a hit this machine's own player has landed is
             // marked here, and a predicted one on somebody else is clamped
@@ -2038,6 +2041,7 @@ namespace MphRead.Entities
             Mods.Network.CareerMatchStats.NoteDamage(
                 this, attacker, damage, dead, _scene.FrameCount);
             Mods.Network.MatchReportStats.NoteDamage(this, attacker, beam, damage);
+            _scene.MatchEvents.Damage(_scene, attacker, this, damage, beam?.ModLaunchKey);
             // todo?: something for wifi
             if (attacker != null)
             {
@@ -2079,6 +2083,9 @@ namespace MphRead.Entities
                 }
                 if (_scene.GameState.Multiplayer)
                 {
+                    _scene.MatchEvents.Death(_scene, attacker, this,
+                        beam == null && Mods.Network.NetDamage.ClaimedBeam != BeamType.None ? Mods.Network.NetDamage.ClaimedBeam : beamType,
+                        flags, beam?.ModLaunchKey, bomb != null, fromHalfturret);
                     _scene.KillFeed.Record(_scene, attacker, this, beamType, flags, fromHalfturret, bomb);
                 }
                 _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
@@ -2461,10 +2468,6 @@ namespace MphRead.Entities
                                     string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
                                     QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
                                 }
-                                if (flags.TestFlag(DamageFlags.Headshot))
-                                {
-                                    _scene.GameState.HeadshotKills[attacker.SlotIndex]++;
-                                }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
                                 // todo?: the game also updates another kills stat(?) here
                                 if (attacker.IsPrimeHunter)
@@ -2514,8 +2517,8 @@ namespace MphRead.Entities
                                     }
                                 }
                                 Mods.Network.CareerMatchStats.NoteKill(attacker);
-                                Mods.Network.MatchReportStats.NoteKill(attacker);
-                                if (_scene.GameState.KillStreak[attacker.SlotIndex] == 5)
+                                if (_scene.GameState.KillStreak[attacker.SlotIndex] == 5
+                                    && !Mods.MatchEvents.MatchSemanticPresentation.Enabled(_scene))
                                 {
                                     // Avoid two announcers calling the same local milestone.
                                     // If the Project Prime Killing Spree cue is disabled, preserve
@@ -2573,6 +2576,7 @@ namespace MphRead.Entities
                                     else if (attacker.Health > 0 && (_scene.GameState.PrimeHunter == -1 || IsPrimeHunter))
                                     {
                                         _scene.GameState.PrimeHunter = attacker.SlotIndex;
+                                        _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.PrimeChanged, attacker, this);
                                         _scene.GameState.PrimesKilled[attacker.SlotIndex]++;
                                         if (_scene.Players.Main.IsPrimeHunter)
                                         {
@@ -2643,6 +2647,7 @@ namespace MphRead.Entities
                     if (IsPrimeHunter)
                     {
                         _scene.GameState.PrimeHunter = -1;
+                        _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.PrimeChanged, target: this);
                         QueueHudMessage(128, 70, 140, 90 / 30f, 2, 242); // the prime hunter is dead!
                     }
                 }

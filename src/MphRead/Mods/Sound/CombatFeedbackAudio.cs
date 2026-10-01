@@ -274,19 +274,30 @@ namespace MphRead.Mods.Sound
             }
         }
 
-        public static void OnConfirmedHeadshot(Scene scene, BeamType beam)
+        public static void OnConfirmedHeadshot(Scene scene, BeamType beam, bool canonical = false)
         {
-            if (beam != BeamType.Imperialist || !CanPresent(scene))
+            if ((!canonical && MatchEvents.MatchSemanticPresentation.Enabled(scene)) || beam != BeamType.Imperialist || !CanPresent(scene))
             {
                 return;
             }
             Play(CombatFeedbackCue.ImperialistHeadshot);
         }
 
+        internal static string OnCanonicalAward(Scene scene, MatchEvents.MatchAwardKind kind, bool replaceExisting)
+        {
+            if (kind <= MatchEvents.MatchAwardKind.Invincible)
+            {
+                var cue = (CombatFeedbackCue)((int)kind + 1);
+                if (CanPresent(scene)) Play(cue, replaceExisting: replaceExisting);
+                return Label(cue);
+            }
+            return kind == MatchEvents.MatchAwardKind.PrimeSlayer ? "Prime Slayer" : kind.ToString();
+        }
+
         public static CombatFeedbackAwards OnConfirmedKill(Scene scene, int lifeStreak,
             bool firstBlood = false)
         {
-            if (!CanPresent(scene))
+            if (MatchEvents.MatchSemanticPresentation.Enabled(scene) || !CanPresent(scene))
             {
                 return default;
             }

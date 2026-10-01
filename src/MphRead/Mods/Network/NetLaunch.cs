@@ -27,7 +27,7 @@ namespace MphRead.Mods.Network
         /// roster are required; a running map and a game scene are not.
         /// </summary>
         public static bool Connect(string address, int port, string playerName, Hunter hunter,
-            int timeoutMs = 8000, int color = -1, Guid ownerToken = default, CancellationToken cancellationToken = default)
+            int timeoutMs = 8000, int color = -1, Guid ownerToken = default, CancellationToken cancellationToken = default, LobbyQueueClient? queuedAdmission = null)
         {
             if (cancellationToken.IsCancellationRequested) { LastJoinError = "Join cancelled."; return false; }
             NetSession.PlayerName = PlayerNameCodec.Clamp(playerName);
@@ -46,7 +46,8 @@ namespace MphRead.Mods.Network
             // the server decides how many it admits, and every client has to
             // be able to hold that many slots for it to matter.
             PlayerEntity.MaxPlayers = PlayerEntity.SlotCapacity;
-            NetSession.StartClient(address, port, ownerToken);
+            if (queuedAdmission == null) NetSession.StartClient(address, port, ownerToken);
+            else NetSession.StartQueuedClient(queuedAdmission);
             if (!NetSession.Active)
             {
                 LastJoinError = $"Could not open a socket for {address}:{port}.";

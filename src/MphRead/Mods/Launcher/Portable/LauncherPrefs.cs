@@ -246,6 +246,7 @@ namespace MphRead.Mods.Launcher
                     }
                     string key = line[..split].Trim();
                     string value = line[(split + 1)..].Trim();
+                    if (!MphRead.Mods.Settings.PreferenceText.IsValid(key, value, launcher: true)) continue;
                     switch (key)
                     {
                         case "prefs_schema":
@@ -603,6 +604,8 @@ namespace MphRead.Mods.Launcher
 
         public static void Save()
         {
+            using var settingsWrite = MphRead.Mods.Settings.SettingsPersistence.BeginWrite();
+            if (settingsWrite == null) return;
             try
             {
                 File.WriteAllLines(Path, new[]

@@ -1204,12 +1204,12 @@ namespace MphRead.Entities
                 PlayBeamEmptySfx(EquipInfo.Weapon.Beam);
                 return NetShotDiagnostics.Finish(this, ShotAttemptResult.NoAmmo);
             }
+            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, this, weapon: (int)CurrentWeapon);
             if (!_scene.Services.IsReplica) Mods.Network.ReplayCapture.Event(Mods.Network.ReplayEventType.WeaponFired,
                 SlotIndex, value: (int)CurrentWeapon);
             else _scene.ReplayShotPresented?.Invoke(SlotIndex, (int)CurrentWeapon);
             NetShotDiagnostics.Finish(this, ShotAttemptResult.Spawned, shotVec, _gunVec1);
             NoteChamberShot();
-            Mods.Network.MatchReportStats.NoteShotFired(this);
             ModControllerFeedback(EquipWeapon.MinCharge > 0 && EquipInfo.ChargeLevel >= EquipWeapon.MinCharge * 2
                 ? Mods.Input.GamepadFeedback.ChargedShot : Mods.Input.GamepadFeedback.Fire);
             // A protected player gives up spawn safety as soon as a real shot exists.
@@ -2260,6 +2260,8 @@ namespace MphRead.Entities
             if (bomb != null)
             {
                 if (!_scene.Services.IsReplica) Mods.Network.NetDamage.BombSpawnMade++;
+                _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, this,
+                    entity: bomb.Id, value: (int)bomb.BombType, weapon: (int)BeamType.None, flags: Mods.MatchEvents.MatchSemanticEventFlags.AltForm);
                 if (Hunter == Hunter.Sylux)
                 {
                     SyluxBombs[SyluxBombCount] = bomb;

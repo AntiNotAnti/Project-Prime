@@ -354,6 +354,9 @@ namespace MphRead
         public int Id { get; } = _nextId++;
 
         public string Name { get; }
+        // Presentation asset identity only; never serialized into room packages/replays.
+        internal string? MaterialAssetScope { get; set; }
+        internal IReadOnlyDictionary<int, string> AuthoredMaterialScopes { get; set; } = new Dictionary<int, string>();
         public bool FirstHunt { get; }
         public Header Header { get; }
         public IReadOnlyList<Node> Nodes { get; }
@@ -427,6 +430,8 @@ namespace MphRead
         internal Model CreateSceneCopy() => new Model(this);
         private Model(Model asset)
         {
+            MaterialAssetScope = asset.MaterialAssetScope;
+            AuthoredMaterialScopes = asset.AuthoredMaterialScopes;
             Name = asset.Name; FirstHunt = asset.FirstHunt; Header = asset.Header;
             RawNodes = asset.RawNodes; _rawMeshes = asset._rawMeshes; _rawMaterials = asset._rawMaterials;
             Nodes = RawNodes.Select(n => new Node(n)).ToArray();

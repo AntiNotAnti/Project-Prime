@@ -34,6 +34,8 @@ namespace MphRead.Mods.Network
         public int Players { get; init; }
         /// <summary>0 when the server did not say -- an older build answering the join probe.</summary>
         public int MaxPlayers { get; init; }
+        public bool WaitlistSupported { get; init; }
+        public int WaitlistCount { get; init; }
         public float TimeRemaining { get; init; }
         /// <summary>What the server calls itself, or an empty string.</summary>
         public string ServerName
@@ -288,6 +290,7 @@ namespace MphRead.Mods.Network
                 Mode = mode, Rules = status.Rules,
                 Players = match.PlayerCount,
                 MaxPlayers = status.MaxPlayers,
+                WaitlistSupported = status.WaitlistSupported, WaitlistCount = status.WaitlistCount,
                 TimeRemaining = match.TimeRemaining,
                 Latency = latency,
                 Legacy = legacy,

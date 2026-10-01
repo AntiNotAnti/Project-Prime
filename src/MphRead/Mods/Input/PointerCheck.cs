@@ -882,13 +882,15 @@ namespace MphRead.Mods.Input
                     "stylus_mode=true\nstylus_zone=true\nstylus_zone_opacity=0.4\n"
                     + "stylus_native_ui=false\nstylus_native_ui_opacity=0.65\n"
                     + "stylus_cursor_opacity=0\nstylus_zone_outline_opacity=0\n"
-                    + "stylus_zone_button_opacity=0.75\n");
+                    + "stylus_zone_button_opacity=0.75\n"
+                    + "stylus_zone_color=#33AAFF\n");
                 InputSettings.Load();
                 Require(!StylusZone.NativeUi
                     && Math.Abs(StylusZone.NativeUiOpacity - 0.65f) < 0.0001f
                     && StylusZone.CursorOpacity == 0 && StylusZone.OutlineOpacity == 0
-                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f,
-                    "native UI and per-element opacity settings load");
+                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f
+                    && StylusZone.GuideColor == "#33AAFF",
+                    "native UI, guide color and per-element opacity settings load");
 
                 InputSettings.Save();
                 StylusZone.NativeUi = true;
@@ -896,12 +898,14 @@ namespace MphRead.Mods.Input
                 StylusZone.CursorOpacity = 1;
                 StylusZone.OutlineOpacity = 1;
                 StylusZone.ButtonOpacity = 1;
+                StylusZone.GuideColor = "#FFFFFF";
                 InputSettings.Load();
                 Require(!StylusZone.NativeUi
                     && Math.Abs(StylusZone.NativeUiOpacity - 0.65f) < 0.0001f
                     && StylusZone.CursorOpacity == 0 && StylusZone.OutlineOpacity == 0
-                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f,
-                    "native UI and per-element opacity settings round trip");
+                    && Math.Abs(StylusZone.ButtonOpacity - 0.75f) < 0.0001f
+                    && StylusZone.GuideColor == "#33AAFF",
+                    "native UI, guide color and per-element opacity settings round trip");
 
                 InputSettings.Reset();
                 Require(!PointerInput.StylusMode && PointerInput.GuardJumps && !StylusZone.Enabled,
@@ -916,7 +920,8 @@ namespace MphRead.Mods.Input
                     && Math.Abs(StylusZone.NativeUiOpacity - StylusZone.DefaultNativeUiOpacity) < 0.0001f
                     && Math.Abs(StylusZone.CursorOpacity - StylusZone.DefaultCursorOpacity) < 0.0001f
                     && Math.Abs(StylusZone.OutlineOpacity - StylusZone.DefaultOutlineOpacity) < 0.0001f
-                    && Math.Abs(StylusZone.ButtonOpacity - StylusZone.DefaultButtonOpacity) < 0.0001f,
+                    && Math.Abs(StylusZone.ButtonOpacity - StylusZone.DefaultButtonOpacity) < 0.0001f
+                    && StylusZone.GuideColor == StylusZone.DefaultGuideColor,
                     "reset restores stylus appearance defaults");
             }
             finally

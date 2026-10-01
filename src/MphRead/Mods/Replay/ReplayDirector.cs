@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using MphRead.Entities;
 using MphRead.Mods.Network;
+using MphRead.Mods.MatchEvents;
 
 namespace MphRead.Mods.Replay
 {
@@ -55,6 +56,36 @@ namespace MphRead.Mods.Replay
             Reason = "idle";
         }
 
+        internal static (float Actor, float Target, string Reason, bool Major) SemanticInterest(MatchSemanticEventType type)
+            => type switch
+            {
+                MatchSemanticEventType.PlayerKilled => (70, 34, "recent kill", true),
+                MatchSemanticEventType.ObjectiveCaptured or MatchSemanticEventType.ObjectivePickedUp
+                    or MatchSemanticEventType.ObjectiveDefended or MatchSemanticEventType.NodeCaptured
+                    or MatchSemanticEventType.PrimeChanged => (78, 0, "objective pressure", true),
+                MatchSemanticEventType.Headshot => (40, 15, "headshot exchange", false),
+                MatchSemanticEventType.PlayerAssisted => (24, 0, "recent assist", false),
+                _ => (0, 0, "quiet", false)
+            };
+        private static void AddCanonicalInterest(ReplayReplicaState state)
+        {
+            foreach (var fact in state.SemanticEvents.Events)
+            {
+                if (fact.Tick > state.ServerTick || state.ServerTick - fact.Tick > EventLookbackFrames) continue;
+                var interest = SemanticInterest(fact.Type);
+                float age = 1 - (state.ServerTick - fact.Tick) / (float)EventLookbackFrames;
+                void Add(byte slot, ushort generation, float value, bool major)
+                {
+                    if (slot >= EventScores.Length || value <= 0 || state.Occupant(slot).Generation != generation) return;
+                    value *= age;
+                    if (value >= EventScores[slot]) EventReasons[slot] = interest.Reason;
+                    EventScores[slot] += value; EventMajor[slot] |= major;
+                }
+                Add(fact.ActorSlot, fact.ActorGeneration, interest.Actor, interest.Major);
+                Add(fact.TargetSlot, fact.TargetGeneration, interest.Target, false);
+            }
+        }
+
         public static void Tick(Scene scene)
         {
             if (!ReplayCamera.Director || !DemoPlayback.IsActive)
@@ -80,9 +111,13 @@ namespace MphRead.Mods.Replay
             Array.Clear(EventScores);
             Array.Clear(EventReasons);
             Array.Clear(EventMajor);
+            bool canonical = scene.Services is ReplaySceneServices replica && replica.State.SemanticEvents.LatestEvent != 0;
+            if (canonical) AddCanonicalInterest(((ReplaySceneServices)scene.Services).State);
             for (int i = _eventStart; i < _eventEnd; i++)
             {
                 ReplayEvent e = events[i];
+                if (canonical && e.Type is ReplayEventType.Kill or ReplayEventType.FlagCapture
+                    or ReplayEventType.NodeCapture or ReplayEventType.PrimeChanged or ReplayEventType.Objective) continue;
                 float age = 1 - (frame - e.Frame) / (float)Math.Max(1u, EventLookbackFrames);
                 void Add(byte slot, float value, string reason)
                 {

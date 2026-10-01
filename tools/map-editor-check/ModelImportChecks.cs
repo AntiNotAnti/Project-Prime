@@ -67,12 +67,13 @@ internal static class ModelImportChecks
         byte[] png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=");
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd -s 1 1 1 textures/TILE.png\nnewmtl other\nmap_Kd textures/TILE.png\n");
-        File.WriteAllText(path, source);
+        File.WriteAllText(path, source + "usemtl other\nf 1/1 2/2 4/4\n");
         var textured = ModelImportService.Import(path, new());
-        check(textured.Assets.Count == 1 && textured.Materials[1].Texture == textured.Materials[2].Texture,
+        check(textured.Assets.Count == 1 && textured.Materials.Single(m => m.Name == "red").Texture == textured.Materials.Single(m => m.Name == "other").Texture,
             "PNG texture import resolves case-insensitive names and deduplicates source content");
         check(MapTexturePack.Load(textured.Assets.Single().Value, "image").Entries.Single().Width == 64,
             "source image bakes to runtime texture");
+        File.WriteAllText(path, source);
         byte[] tga=TestTga();
         File.WriteAllBytes(Path.Combine(root,"textures","tile.tga"),tga);
         File.WriteAllText(Path.Combine(root,"model.mtl"),"newmtl red\nmap_Kd -o 0 0 0 textures/tile.tga\n");

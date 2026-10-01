@@ -18,6 +18,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (var node in pages.GetLogicalDescendants().OfType<Control>())
             {
                 if (node.GetLogicalAncestors().OfType<GamepadSettingsPanel>().Any()) continue;
+                if (node.Tag is "settings.archive.path") continue;
                 switch (node)
                 {
                     case ChoiceRow row: Add(() => row.Index, v => row.Index = (int)v!); break;

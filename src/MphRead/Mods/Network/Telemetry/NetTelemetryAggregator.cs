@@ -28,6 +28,8 @@ public sealed record TelemetrySummary(TelemetryHeader Header, double DurationSec
     public long ServerOverruns { get; init; }
     public long ServerStalls { get; init; }
     public long ContinuousSamples { get; init; }
+    public long[] SemanticEvents { get; init; } = new long[18];
+    public long[] MatchAwards { get; init; } = new long[21];
 }
 public sealed record TelemetryNetworkDetails(TelemetryDistribution RttMilliseconds, TelemetryDistribution JitterMilliseconds,
     TelemetryDistribution RecentMinimumRttMilliseconds, TelemetryDistribution RttVariationMilliseconds,
@@ -89,12 +91,19 @@ public sealed class NetTelemetryAggregator
     private double _lastLockWait, _lastLockHold, _maxLockWait, _maxLockHold;
     private long _lockAcquisitions, _lockContended;
     private readonly Distribution _lockWait = new(1000), _lockHold = new(1000);
+    private readonly long[] _semanticEvents = new long[18], _matchAwards = new long[21];
     private readonly Dictionary<string, long> _enhanced = new();
     private long _stepAllocations, _stepMaxAllocation, _stepOverruns, _stepStalls, _continuousSamples;
     public void Add(in NetTelemetryEvent e)
     {
         switch (e.Type)
         {
+            case TelemetryEventType.MatchSemantic:
+                if ((uint)e.Result < _semanticEvents.Length) _semanticEvents[e.Result]++;
+                break;
+            case TelemetryEventType.MatchAward:
+                if ((uint)e.Result < _matchAwards.Length) _matchAwards[e.Result]++;
+                break;
             case TelemetryEventType.ContinuousTarget: _continuousSamples += e.Samples; break;
             case TelemetryEventType.EnhancedHunter:
                 string key = $"{e.Weapon}:{e.Id}";
@@ -211,6 +220,7 @@ public sealed class NetTelemetryAggregator
             combatAcks.ToArray(), new(_lockAcquisitions, _lockContended, _lockWait.Capture(), _lockHold.Capture(),
                 _maxLockWait, _maxLockHold)) { EnhancedHunters = new(_enhanced), ServerAllocationBytes = _stepAllocations,
                 ServerMaximumStepAllocation = _stepMaxAllocation, ServerOverruns = _stepOverruns,
-                ServerStalls = _stepStalls, ContinuousSamples = _continuousSamples };
+                ServerStalls = _stepStalls, ContinuousSamples = _continuousSamples,
+                SemanticEvents = (long[])_semanticEvents.Clone(), MatchAwards = (long[])_matchAwards.Clone() };
     }
 }

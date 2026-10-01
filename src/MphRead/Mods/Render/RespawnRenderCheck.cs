@@ -2,6 +2,7 @@ using System;
 #if !ANDROID && !MPHREAD_SERVER
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using MphRead.Entities;
 using MphRead.Formats;
 using MphRead.Mods.Network;
@@ -193,6 +194,7 @@ namespace MphRead.Mods.Render
                 PlayerEntity.PlayerCount = 2;
                 PlayerEntity.MainPlayerIndex = 0;
                 _scene.AddRoom(room, GameMode.Battle, playerCount: NetLaunch.RoomPlayerCount);
+                Console.WriteLine($"RESPAWNRENDER backend requested={GraphicsBackendPolicy.Requested} actual={(ModernGraphicsCompat.Active ? ModernGraphicsCompat.DeviceIdentity.Item1.ToString() : "OpenGL")}");
                 Console.WriteLine($"RESPAWNRENDER start room={room} cycles={cycles} timeout={timeout}s"
                     + " | visible/unfocused, cursor free, vsync off | accelerated 60 Hz simulation"
                     + " | every step rendered; 300 settling frames per completed cycle"
@@ -439,12 +441,19 @@ namespace MphRead.Mods.Render
                 }
                 ReadFinalPixels();
                 _checkedFrames++;
+                if (Scenario == "combined" && _phase == Phase.Prepare && _age >= 10 && _age <= 15)
+                    Console.WriteLine($"RESPAWNRENDER combined diagnostics age={_age} max={_pixels.Max()} whiteState={PlayerEntity.Main.HudWhiteoutState}"
+                        + $" whiteFactor={PlayerEntity.Main.HudWhiteoutFactor} tableMin={PlayerEntity.HudWhiteoutTable.Min()}"
+                        + $" tableMax={PlayerEntity.HudWhiteoutTable.Max()} time={_scene.GlobalElapsedTime}");
                 if (_phase == Phase.Settle) _settleChecked++;
                 for (int i = 0; i < _pixels.Length; i++)
                 {
                     if (_pixels[i] > 3) return;
                 }
                 _blackFrames++;
+                Console.WriteLine($"RESPAWNRENDER black diagnostics whiteState={PlayerEntity.Main.HudWhiteoutState}"
+                    + $" whiteFactor={PlayerEntity.Main.HudWhiteoutFactor} tableMin={PlayerEntity.HudWhiteoutTable.Min()}"
+                    + $" tableMax={PlayerEntity.HudWhiteoutTable.Max()} time={_scene.GlobalElapsedTime}");
                 Fail("full black final backbuffer outside intended black fade");
             }
 

@@ -132,6 +132,7 @@ namespace MphRead.Mods.Network
         private readonly bool[] _presentationKnown = new bool[PlayerEntity.SlotCapacity];
         public void AfterSimulation(Scene scene)
         {
+            scene.SemanticPresentation.UpdateReplay(scene, State.SemanticEvents, Session.Transport.IsSeeking);
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
                 if (State.TryGetPlayer(slot, out var recorded))
                 {

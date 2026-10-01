@@ -1781,11 +1781,13 @@ namespace MphRead.Mods.Launcher.Gui
             foreach(int i in order)
             {
                 int index=i;var m=definition.Materials[i];
-                int uses=definition.Geometry.Count(g=>g.Material==index || g is MapMesh mesh && mesh.FaceMaterials.Contains(index))+definition.Brushes.Count(b=>b.Material==index);
+                var usageIds=MapMaterialEditing.Usages(definition,index).ToHashSet();
+                int uses=usageIds.Count;
+                int modelUses=definition.ModelSources.Count(source=>source.Objects.Any(o=>usageIds.Contains(o.Id)));
                 int faceUses=definition.Geometry.OfType<MapMesh>().Sum(mesh=>Enumerable.Range(0,mesh.Faces.Count).Count(f=>(f<mesh.FaceMaterials.Count?mesh.FaceMaterials[f]:mesh.Material)==index));
                 bool favorite=_studioState.FavoriteMaterials.Contains(MaterialKey(m),StringComparer.OrdinalIgnoreCase);
                 var panel=new StackPanel{Spacing=4,Margin=new Thickness(0,4,0,8)};
-                panel.Children.Add(Text($"{(favorite?"★ ":"")}{index} · {m.Name} · {uses} objects · {faceUses} mesh faces"));
+                panel.Children.Add(Text($"{(favorite?"★ ":"")}{index} · {m.Name} · {uses} objects · {faceUses} mesh faces · {modelUses} imported models"));
                 try
                 {
                     if(m.Texture!=null||GameFiles.Ready)
@@ -1876,6 +1878,7 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     catch(Exception ex){panel.Children.Add(Text("Source materials unavailable: "+ex.Message));}
                 }
+                EnhancedMaterialControls(panel, definition, m);
                 _inspector.Children.Add(panel);
                 panels.Add((panel,$"{index} {m.Name} {m.Texture} {m.SourceMaterial}"));
             }

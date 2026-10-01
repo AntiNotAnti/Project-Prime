@@ -25,9 +25,20 @@ namespace MphRead.Entities
     /// </summary>
     public partial class PlayerEntity
     {
-        private static readonly Vector4 _stylusInk = new Vector4(0.85f, 0.30f, 0.30f, 1);
-        private static readonly Vector4 _stylusFill = new Vector4(0.55f, 0.16f, 0.16f, 1);
-        private static readonly Vector4 _stylusLit = new Vector4(1f, 0.72f, 0.35f, 1);
+        private static Vector4 StylusGuideColour(float alpha, float brightness = 1f, float lift = 0f)
+        {
+            float red = Math.Clamp(StylusZone.GuideRed * brightness, 0, 1);
+            float green = Math.Clamp(StylusZone.GuideGreen * brightness, 0, 1);
+            float blue = Math.Clamp(StylusZone.GuideBlue * brightness, 0, 1);
+            if (lift > 0)
+            {
+                red += (1 - red) * lift;
+                green += (1 - green) * lift;
+                blue += (1 - blue) * lift;
+            }
+            return new Vector4(red, green, blue, alpha);
+        }
+
         private static readonly StylusZone.Button _stylusAffinityWeaponSlot =
             Array.Find(StylusZone.Buttons, button => button.Region == StylusRegion.Weapons);
 
@@ -166,7 +177,7 @@ namespace MphRead.Entities
 
                     if (outlineAlpha > 0)
                     {
-                        var edge = new Vector4(_stylusInk.Xyz, outlineAlpha);
+                        Vector4 edge = StylusGuideColour(outlineAlpha);
                         _scene.DrawHudFlatBox(left, top, left + width, top + line, edge);
                         _scene.DrawHudFlatBox(left, top + height - line, left + width, top + height, edge);
                         _scene.DrawHudFlatBox(left, top, left + line, top + height, edge);
@@ -183,8 +194,8 @@ namespace MphRead.Entities
                                 && StylusZone.Region == button.Region;
                             float alpha = lit ? Math.Min(1, buttonAlpha * 6) : buttonAlpha;
                             Vector4 colour = lit
-                                ? new Vector4(_stylusLit.Xyz, alpha)
-                                : new Vector4(_stylusFill.Xyz, alpha);
+                                ? StylusGuideColour(alpha, lift: 0.45f)
+                                : StylusGuideColour(alpha, brightness: 0.65f);
                             if (button.Round)
                             {
                                 DrawStylusCircle(left + button.X * scaleX, top + button.Y * scaleY,

@@ -1,0 +1,101 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "weapon.continuous-phase",
+    "version": 1,
+    "ticks": 12,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production continuous firing clock under delayed/repeated intent; not projectile or damage validation."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "b9ad7e6dfd0a46fab743d127fcc9ff711f3452660526fe98abbebf44c2b660e9",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "phase": 100,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "phase": 101,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "phase": 102,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "phase": 103,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "phase": 104,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 6,
+      "values": {
+        "phase": 105,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 7,
+      "values": {
+        "phase": 102,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 8,
+      "values": {
+        "phase": 103,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 9,
+      "values": {
+        "phase": 402,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 10,
+      "values": {
+        "phase": 403,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 11,
+      "values": {
+        "phase": 404,
+        "shared": 1
+      }
+    },
+    {
+      "tick": 12,
+      "values": {
+        "phase": 405,
+        "shared": 1
+      }
+    }
+  ]
+}

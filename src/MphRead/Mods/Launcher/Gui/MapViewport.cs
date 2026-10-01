@@ -111,6 +111,12 @@ namespace MphRead.Mods.Launcher.Gui
             Document.Invalidated += InvalidateDocument;
             InvalidateDocument(new(MapChangeDomain.All));
         }
+        public void RefreshMaterialPreview()
+        {
+            _viewportMaterials = MapViewportMaterials.Resolve(Document.Project.Definition);
+            InvalidateVisual();
+        }
+
         private IReadOnlyDictionary<(bool Imported, int Index), MapViewportMaterial> _viewportMaterials = new Dictionary<(bool, int), MapViewportMaterial>();
         private void InvalidateDocument(MapDocumentChange change)
         {

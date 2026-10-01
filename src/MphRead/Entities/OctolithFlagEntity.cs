@@ -204,6 +204,7 @@ namespace MphRead.Entities
             if (_lastCarrier != null && player.TeamIndex != _lastCarrier.TeamIndex)
             {
                 _scene.GameState.OctolithStops[player.SlotIndex]++;
+                _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.ObjectiveDefended, player, entity: Id);
             }
             if (!_bounty && player.TeamIndex == _data.TeamId)
             {
@@ -222,6 +223,7 @@ namespace MphRead.Entities
                 _carrier.OctolithFlag = null;
             }
             _scene.GameState.ObjectivePickups[player.SlotIndex]++;
+            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.ObjectivePickedUp, player, entity: Id);
             player.OctolithFlag = this;
             _carrier = player;
             _lastCarrier = player;
@@ -260,6 +262,7 @@ namespace MphRead.Entities
         {
             Debug.Assert(_carrier != null);
             _scene.GameState.OctolithDrops[_carrier.SlotIndex]++;
+            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.ObjectiveDropped, _carrier, entity: Id);
             int messageId;
             if (!_bounty)
             {
@@ -352,6 +355,7 @@ namespace MphRead.Entities
             if (_scene.Services.AllowsPresentationSideEffects) Music.PlayRoomMusic(_scene.RoomId, track: 0);
             _scene.GameState.Points[_carrier.SlotIndex]++;
             _scene.GameState.OctolithScores[_carrier.SlotIndex]++;
+            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.ObjectiveCaptured, _carrier, entity: Id);
             if (!_scene.Services.IsReplica) Mods.Network.ReplayCapture.Event(Mods.Network.ReplayEventType.Objective, _carrier.SlotIndex,
                 value: _scene.GameState.OctolithScores[_carrier.SlotIndex]);
             SetAtBase();

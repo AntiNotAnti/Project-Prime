@@ -422,9 +422,9 @@ namespace MphRead.Mods.Render
             // Warm caches before measuring: bounded pipeline retention is intentional.
             RunMipmapCheck();
             var baseline = ModernGraphicsCompat.LiveResources;
-            for (int i = 0; i < 12; i++)
+            for (int i = 0; i < 120; i++)
             {
-                ModernGraphicsCompat.Resize(96 + i, 64 + i);
+                ModernGraphicsCompat.Resize(96 + i % 12, 64 + i % 12);
                 RunMipmapCheck();
                 var after = ModernGraphicsCompat.LiveResources;
                 if (after.Textures > baseline.Textures || after.Renderbuffers > baseline.Renderbuffers
@@ -432,11 +432,11 @@ namespace MphRead.Mods.Render
                     || after.Programs > baseline.Programs || after.Lists > baseline.Lists
                     || after.Views > baseline.Views || after.Samplers > baseline.Samplers
                     || after.Buffers > baseline.Buffers || after.ShaderModules > baseline.ShaderModules
-                    || after.Surfaces > baseline.Surfaces)
+                    || after.Surfaces > baseline.Surfaces || after.BindGroups > baseline.BindGroups)
                     throw new InvalidOperationException($"Resource growth after iteration {i}: {baseline} -> {after}");
             }
             ModernGraphicsCompat.Resize(96, 64);
-            Console.WriteLine($"[renderwindowcheck] resize/resource lifetime PASS {baseline}");
+            Console.WriteLine($"[renderwindowcheck] 120-cycle resize/resource lifetime PASS {baseline}");
         }
 
         private static void RunDeviceRecoveryCheck()

@@ -305,7 +305,7 @@ namespace MphRead.Mods.Network
 
         // Called where authoritative state is accepted, after normal validation. Annotations
         // describe confirmed transitions, never inferred projectile hits or local predictions.
-        public static void AcceptedState(in PlayerState state, uint? authoritativeFrame = null)
+        public static void AcceptedState(in PlayerState state, uint? authoritativeFrame = null, Scene? authorityScene = null)
         {
             int slot = state.SlotIndex;
             if (DemoPlayback.IsActive || slot >= Known.Length) return;
@@ -342,6 +342,11 @@ namespace MphRead.Mods.Network
                         var marker = new ReplayMarker(ReplayMarkerKind.Kill,
                             state.AttackerSlot, state.SlotIndex, Kill: identity,
                             Weapon: state.DamageBeam, DamageFlags: state.DamageFlags);
+                        if (authorityScene != null && !authorityScene.Services.IsReplica && NetSession.IsAuthority)
+                            authorityScene.MatchEvents.ParityDiagnostics.Legacy(tick, Mods.MatchEvents.MatchSemanticEventType.PlayerKilled,
+                                new(state.AttackerSlot, attackerGeneration, attackerLife),
+                                new(state.SlotIndex, state.SlotGeneration, state.LifeId), state.DamageBeam == byte.MaxValue ? (int)BeamType.Platform : state.DamageBeam,
+                                (state.DamageFlags & (byte)MphRead.Entities.DamageFlags.Headshot) != 0);
                         Recorder.Marker(NetSession.NetFrame, tick, marker);
                         if (NetSession.IsAuthority) _authorityKill = identity;
                         Mods.KillCam.NoteKill(marker, NetSession.NetFrame);
@@ -351,9 +356,21 @@ namespace MphRead.Mods.Network
                 {
                     Event(ReplayEventType.Damage, state.AttackerSlot, slot, Math.Max(0, old.Health - state.Health));
                     if ((state.DamageFlags & (byte)MphRead.Entities.DamageFlags.Headshot) != 0 && state.AttackerSlot < 8)
+                    {
+                        if (authorityScene != null && !authorityScene.Services.IsReplica && NetSession.IsAuthority)
+                        {
+                            var damage = state.EventAt(0);
+                            for (int i = 0; i < PlayerState.DamageHistory; i++)
+                                if (state.EventAt(i).EventId == state.DamageEventId) { damage = state.EventAt(i); break; }
+                            authorityScene.MatchEvents.ParityDiagnostics.Legacy(authoritativeFrame ?? NetSession.NetFrame,
+                                Mods.MatchEvents.MatchSemanticEventType.Headshot,
+                                new(state.AttackerSlot, damage.AttackerGeneration, NetDamage.ReplayAttackerLife(state, damage.AttackerGeneration)),
+                                new(state.SlotIndex, state.SlotGeneration, state.LifeId), state.DamageBeam == byte.MaxValue ? (int)BeamType.None : state.DamageBeam, true);
+                        }
                         Recorder.Marker(NetSession.NetFrame, authoritativeFrame ?? NetSession.NetFrame,
                             new(ReplayMarkerKind.Headshot, state.AttackerSlot, state.SlotIndex,
                                 Weapon: state.DamageBeam, DamageFlags: state.DamageFlags));
+                    }
                 }
             }
             Previous[slot] = state; Known[slot] = true;

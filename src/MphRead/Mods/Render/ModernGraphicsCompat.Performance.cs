@@ -9,38 +9,34 @@ internal sealed unsafe partial class ModernGraphicsCompat
 {
     internal readonly record struct PerformanceSample(int PipelinesCreated, double PipelineCreationMs,
         double LongestPipelineCreationMs, long TextureUploadBytes, double TextureUploadSubmissionMs,
-        int CommandSubmissions, int BindGroupsCreated,
-        long TrackedTextureStorageBytes, long PooledBufferStorageBytes);
+        long TrackedTextureStorageBytes, long PooledBufferStorageBytes,
+        int SurfaceAcquisitions, double SurfaceAcquireMs, double LongestSurfaceAcquireMs,
+        bool RequestedVSync, string PresentMode,
+        int QueueSubmissions, double QueueSubmitMs, int BufferWrites, long BufferWriteBytes, double BufferWriteMs,
+        int BindGroupsCreated, double BindGroupCreationMs);
 
     private bool _measurePerformance;
     private int _createdPipelines;
-    private int _commandSubmissions;
-    private int _createdBindGroups;
     private double _pipelineCreationMs, _longestPipelineCreationMs, _textureUploadMs;
     private long _textureUploadBytes;
+    private int _surfaceAcquisitions, _queueSubmissions, _bufferWrites, _bindGroupsCreated;
+    private long _bufferWriteBytes;
+    private double _queueSubmitMs, _bufferWriteMs, _bindGroupCreationMs;
+    private double _surfaceAcquireMs, _longestSurfaceAcquireMs;
 
     internal static void BeginPerformanceSample()
     {
         var s = Current;
         s._measurePerformance = true;
         s._createdPipelines = 0;
-        s._commandSubmissions = 0;
-        s._createdBindGroups = 0;
         s._pipelineCreationMs = s._longestPipelineCreationMs = s._textureUploadMs = 0;
         s._textureUploadBytes = 0;
+        s._queueSubmissions = s._bufferWrites = s._bindGroupsCreated = 0;
+        s._bufferWriteBytes = 0; s._queueSubmitMs = s._bufferWriteMs = s._bindGroupCreationMs = 0;
+        s._surfaceAcquisitions = 0; s._surfaceAcquireMs = s._longestSurfaceAcquireMs = 0;
     }
 
     private long PerformanceStart() => _measurePerformance ? Stopwatch.GetTimestamp() : 0;
-
-    private void RecordCommandSubmission()
-    {
-        if (_measurePerformance) _commandSubmissions++;
-    }
-
-    private void RecordBindGroupCreation()
-    {
-        if (_measurePerformance) _createdBindGroups++;
-    }
 
     private void RecordPipelineCreation(long start)
     {
@@ -49,6 +45,15 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _createdPipelines++;
         _pipelineCreationMs += ms;
         _longestPipelineCreationMs = Math.Max(_longestPipelineCreationMs, ms);
+    }
+
+    private void WriteProfiledBuffer(Silk.NET.WebGPU.Buffer* buffer, ulong offset, void* data, nuint size)
+    {
+        long start = PerformanceStart();
+        _api.QueueWriteBuffer(_queue, buffer, offset, data, size);
+        if (start == 0) return;
+        _bufferWrites++; _bufferWriteBytes += (long)size;
+        _bufferWriteMs += Stopwatch.GetElapsedTime(start).TotalMilliseconds;
     }
 
     internal static PerformanceSample EndPerformanceSample()
@@ -73,8 +78,10 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (var (size, pool) in s._uniformPools)
             bufferBytes += (long)size * pool.Buffers.Count;
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,
-            s._textureUploadBytes, s._textureUploadMs, s._commandSubmissions,
-            s._createdBindGroups, textureBytes, bufferBytes);
+            s._textureUploadBytes, s._textureUploadMs, textureBytes, bufferBytes,
+            s._surfaceAcquisitions, s._surfaceAcquireMs, s._longestSurfaceAcquireMs, s._vsync, s._presentMode.ToString(),
+            s._queueSubmissions, s._queueSubmitMs, s._bufferWrites, s._bufferWriteBytes, s._bufferWriteMs,
+            s._bindGroupsCreated, s._bindGroupCreationMs);
     }
 }
 #endif

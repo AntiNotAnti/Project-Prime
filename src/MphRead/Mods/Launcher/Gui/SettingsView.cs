@@ -39,7 +39,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// it onto <see cref="StartScreen"/>'s stack or, over a match, onto
     /// <see cref="InGameMenu"/>'s.
     /// </summary>
-    internal sealed class SettingsView : UserControl
+    internal sealed partial class SettingsView : UserControl
     {
         private readonly MenuSettings _settings;
         private readonly bool _inGame;
@@ -48,15 +48,17 @@ namespace MphRead.Mods.Launcher.Gui
         private Mods.Render.Hud.HudProfile? _hudDraft;
         private readonly CrosshairStyle _initialCrosshairStyle = Crosshair.Style;
         private readonly CrosshairSize _initialCrosshairSize = Crosshair.Size;
-        public bool IsDirty => _draft?.IsDirty == true || _hudDraft != null;
+        public bool IsDirty => !Settings.SettingsPersistence.RestartRequired && (_draft?.IsDirty == true || _hudDraft != null);
         internal void TrackControllerDraft() => _draft?.TrackController();
         public bool ApplyDraft()
         {
+            if (Settings.SettingsPersistence.RestartRequired) return true;
             try { Commit(); _saveError.IsVisible = false; return true; }
             catch (Exception ex) { _saveError.Text = "Could not save: " + ex.Message; _saveError.IsVisible = true; return false; }
         }
         public void DiscardDraft()
         {
+            if (Settings.SettingsPersistence.RestartRequired) return;
             _draft?.Discard();
             _hudDraft = null;
             ShowCrosshairRows();
@@ -444,6 +446,7 @@ namespace MphRead.Mods.Launcher.Gui
             SizeChanged += (_, e) => ApplyShellResponsive(e.NewSize);
             ShowPage(0);
             ApplyShellResponsive(new Size(960, 600));
+            if (Settings.SettingsPersistence.RestartRequired) ShowArchiveRestart();
         }
 
         /// <summary>
@@ -724,6 +727,7 @@ namespace MphRead.Mods.Launcher.Gui
             BuildControls(AddSection("Controls"));
             BuildReplays(AddSection("Replays"));
             BuildLauncher(AddSection("Profile"));
+            BuildSystem(AddSection("System"));
             BuildMaintenance(AddSection("Maintenance"));
             BuildCredits(AddSection("Credits"));
         }
@@ -1819,6 +1823,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _stylusOutlineOpacity.Value = (int)MathF.Round(Mods.Input.StylusZone.OutlineOpacity * 100);
                 if (_stylusButtonOpacity != null)
                     _stylusButtonOpacity.Value = (int)MathF.Round(Mods.Input.StylusZone.ButtonOpacity * 100);
+                _stylusGuideColor = Mods.Input.StylusZone.GuideColor;
+                _stylusGuideColorEditor?.Apply(_stylusGuideColor);
                 ShowStylusRows();
                 _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
                 _gamepadSettings.Reload();
@@ -1870,6 +1876,8 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow? _stylusCursorOpacity;
         private SliderRow? _stylusOutlineOpacity;
         private SliderRow? _stylusButtonOpacity;
+        private HudColorEditor? _stylusGuideColorEditor;
+        private string _stylusGuideColor = Mods.Input.StylusZone.DefaultGuideColor;
         private readonly List<Control> _stylusRows = new();
 
         private void ShowStylusRows()
@@ -1922,11 +1930,16 @@ namespace MphRead.Mods.Launcher.Gui
             _stylusButtonOpacity = Add(_stylusAdvanced, new SliderRow("Guide button opacity",
                 (int)MathF.Round(Mods.Input.StylusZone.ButtonOpacity * 100),
                 v => $"{v}%", min: 0, max: 100, keyStep: 5));
+            _stylusGuideColor = Mods.Input.StylusZone.GuideColor;
+            _stylusGuideColorEditor = new HudColorEditor("Guide", _stylusGuideColor,
+                color => _stylusGuideColor = color);
+            _stylusAdvanced.Children.Add(_stylusGuideColorEditor);
             _stylusAdvanced.Children.Add(new Note(
                 "Native UI draws the hunter's original DS lower screen and automatically swaps "
                 + "to the alt-form and weapon-select artwork. The guide rectangle and circular "
                 + "buttons are used only when native art is off or unavailable; placement always "
-                + "keeps a visible guide. Cursor opacity remains independent. Stylus movement "
+                + "keeps a visible guide. Guide color tints the fallback rectangle, buttons and "
+                + "pressed highlight. Cursor opacity remains independent. Stylus movement "
                 + "boost controls pen-motion morph boosts, while reposition filtering ignores "
                 + "tablet jumps after lift/re-contact."));
             _stylusAdvancedButton = new HubNavButton("ADVANCED", compact: true)
@@ -2434,6 +2447,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Commit()
         {
+            if (Settings.SettingsPersistence.RestartRequired) return;
             // Display
             if (_windowRow != null)
             {
@@ -2570,6 +2584,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Mods.Input.StylusZone.OutlineOpacity = Math.Clamp(_stylusOutlineOpacity.Value / 100f, 0, 1);
             if (_stylusButtonOpacity != null)
                 Mods.Input.StylusZone.ButtonOpacity = Math.Clamp(_stylusButtonOpacity.Value / 100f, 0, 1);
+            if (_stylusGuideColorEditor != null)
+                Mods.Input.StylusZone.GuideColor = _stylusGuideColor;
             InputSettings.ScrollAllWeapons = _scrollAllWeapons.On;
             if (_clipPostRollRow != null)
                 Mods.Network.DemoClip.PostRollSeconds = Mods.Network.DemoClip.PostRollLengths[

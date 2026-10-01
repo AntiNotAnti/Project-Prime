@@ -1,0 +1,23 @@
+name: semantic event foundation
+on:
+  pull_request:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/match-events-check/**'
+      - '.github/workflows/match-events.yml'
+  push:
+    paths:
+      - 'src/MphRead/**'
+      - 'tools/match-events-check/**'
+      - '.github/workflows/match-events.yml'
+permissions:
+  contents: read
+jobs:
+  content-free:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet run --project tools/match-events-check -c Release

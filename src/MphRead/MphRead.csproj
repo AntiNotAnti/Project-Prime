@@ -306,7 +306,11 @@
        game API. -->
   <ItemGroup>
     <InternalsVisibleTo Include="nettest" />
+    <InternalsVisibleTo Include="settings-archive-check" />
+    <InternalsVisibleTo Include="fidelity-oracle" />
+    <InternalsVisibleTo Include="final-composite-check" />
     <InternalsVisibleTo Include="hud-ui-check" />
+    <InternalsVisibleTo Include="material-pack" />
   </ItemGroup>
 
   <ItemGroup>
@@ -380,5 +384,9 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Mods/Render/Generated/*.wgsl" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+    <None Include="../../tools/fidelity-oracle/baselines/*.json" Link="fidelity-baselines/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

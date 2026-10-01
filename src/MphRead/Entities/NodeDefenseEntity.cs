@@ -87,6 +87,8 @@ namespace MphRead.Entities
             {
                 ProcessNodes();
             }
+            if (_contested && !wasContested)
+                _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.NodeContested, entity: Id);
             if (!_scene.Services.IsReplica)
                 foreach (var player in _scene.GetPlayerEntities())
                     if (player.Health > 0 && player.LoadFlags.TestFlag(LoadFlags.Active)
@@ -342,6 +344,7 @@ namespace MphRead.Entities
                 if (_occupiedBy[i])
                 {
                     _scene.GameState.NodesCaptured[i]++;
+                    _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.NodeCaptured, player, entity: Id);
                     if (!_scene.Services.IsReplica) Mods.Network.ReplayCapture.Event(Mods.Network.ReplayEventType.Objective, i,
                         value: _scene.GameState.NodesCaptured[i]);
                     if (player.LoadFlags.TestFlag(LoadFlags.Active))

@@ -837,7 +837,7 @@ namespace MphRead.Mods.Render
             _uniformBuffer = RentUniformBuffer((ulong)(words.Length * sizeof(uint)));
             fixed (uint* ptr = words)
             {
-                _api.QueueWriteBuffer(_queue, _uniformBuffer, 0, ptr,
+                WriteProfiledBuffer(_uniformBuffer, 0, ptr,
                     (nuint)(words.Length * sizeof(uint)));
             }
         }
@@ -1072,7 +1072,7 @@ namespace MphRead.Mods.Render
 
             _uiViewportBuffer = RentUniformBuffer(16);
             var viewport = new OpenTK.Mathematics.Vector4(1, 1, 0, 0);
-            _api.QueueWriteBuffer(_queue, _uiViewportBuffer, 0, &viewport, 16);
+            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };

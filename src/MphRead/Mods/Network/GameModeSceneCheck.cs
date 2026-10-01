@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reflection;
 using MphRead.Entities;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.MatchEvents;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Network;
@@ -50,6 +51,10 @@ public static class GameModeSceneCheck
                     foreach (var player in players.Take(count))
                     {
                         player.LoadFlags |= LoadFlags.Active;
+                        // Exercise an actual authority life; setting health alone leaves life zero
+                        // during the normal spawn delay and cannot originate canonical facts.
+                        if (NetPlayerLifecycle.Get(player.SlotIndex) == 0)
+                            player.Spawn(player.Position, Vector3.UnitZ, Vector3.UnitY, player.NodeRef, respawn: true);
                         player.Health = 99;
                         player.TeamIndex = state.Teams ? player.SlotIndex % 2 : player.SlotIndex;
                     }
@@ -211,7 +216,9 @@ public static class GameModeSceneCheck
                     }
                     else if (mode == GameMode.PrimeHunter)
                     {
+                        int primeEvents = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PrimeChanged);
                         players[1].TakeDamage(500, DamageFlags.IgnoreInvuln, null, players[0]);
+                        Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PrimeChanged) == primeEvents + 1, $"{mode}/{count}: first Prime transition has one canonical fact");
                         Check(state.PrimeHunter == 0, $"{mode}/{count}: first killer becomes Prime");
                         players[1].Spawn(players[1].Position, Vector3.UnitZ, Vector3.UnitY, players[1].NodeRef, respawn: true);
                         players[0].Health = 20;
@@ -222,6 +229,7 @@ public static class GameModeSceneCheck
                         Check(state.PrimeHunter == 1, $"{mode}/{count}: killing Prime transfers ownership");
                         players[1].TakeDamage(500, DamageFlags.IgnoreInvuln, null, null);
                         Check(state.PrimeHunter == -1, $"{mode}/{count}: environmental death clears Prime");
+                        Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PrimeChanged) == primeEvents + 3, $"{mode}/{count}: transfer and environmental clear each emit once; same Prime does not re-emit");
                         players[0].Spawn(players[0].Position, Vector3.UnitZ, Vector3.UnitY, players[0].NodeRef, respawn: true);
                         state.PrimeHunter = 0; state.Time[0] = state.TimeGoal - scene.FrameTime / 2;
                         state.ModeState(scene);
@@ -308,7 +316,10 @@ public static class GameModeSceneCheck
                             var own = flags.First(flag => flag.Data.TeamId == players[0].TeamIndex);
                             Check(!(bool)touch.Invoke(own, new object[] { players[0] })!, $"{mode}/{count}: own flag cannot be carried");
                         }
+                        int pickups = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.ObjectivePickedUp);
+                        int captures = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.ObjectiveCaptured);
                         Check((bool)touch.Invoke(enemy, new object[] { players[0] })! && enemy.Carrier == players[0], $"{mode}/{count}: pickup");
+                        Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.ObjectivePickedUp) == pickups + 1, $"{mode}/{count}: accepted pickup emits one fact (count={scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.ObjectivePickedUp)} before={pickups}, rejected={scene.MatchEvents.RejectedEvents}, gen={NetPlayerLifecycle.Generation(0)} life={NetPlayerLifecycle.Get(0)}, last={scene.MatchEvents.Bus.LastEvent.Tick}, now={NetSession.NetFrame})");
                         if (mode == GameMode.Capture)
                         {
                             var own = flags.First(flag => flag.Data.TeamId == players[0].TeamIndex);
@@ -333,6 +344,7 @@ public static class GameModeSceneCheck
                         }
                         else enemy.OnCaptured();
                         Check(state.Points[0] == 1 && state.OctolithScores[0] == 1, $"{mode}/{count}: capture scores");
+                        Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.ObjectiveCaptured) == captures + 1, $"{mode}/{count}: canonical capture matches independent score");
                         foreach (bool reset in new[] { false, true })
                         {
                             players[0].Health = 99; touch.Invoke(enemy, new object[] { players[0] });
@@ -366,13 +378,18 @@ public static class GameModeSceneCheck
                         bool defender = MatchGoalRules.UsesTimeTarget(mode);
                         Check(defender ? state.TeamTime[0] > 0 : node.Progress > 0, $"{mode}/{count}: occupancy advances objective");
                         float before = defender ? state.TeamTime[0] : node.Progress;
+                        int contests = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.NodeContested);
                         Place(players[1], center); node.Process();
+                        Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.NodeContested) == contests + 1, $"{mode}/{count}: contested edge emits once");
                         Check(node.Contested && (defender ? state.TeamTime[0] : node.Progress) == before,
                             $"{mode}/{count}: enemy contest pauses scoring/capture");
                         Place(players[1], center + new Vector3(1000, 1000, 1000));
                         if (!defender)
                         {
+                            int capturedNodes = state.NodesCaptured[0];
+                            int nodeEvents = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.NodeCaptured);
                             for (int frame = 0; frame < 610; frame++) node.Process();
+                            Check(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.NodeCaptured) - nodeEvents == state.NodesCaptured[0] - capturedNodes, $"{mode}/{count}: canonical node captures match independent capture counter");
                             Check(node.CurrentTeam == players[0].TeamIndex && state.NodesCaptured[0] > 0,
                                 $"{mode}/{count}: ownership capture");
                         }

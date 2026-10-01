@@ -827,7 +827,10 @@ namespace MphRead.Mods.Launcher.Gui
         /// manager has mapped it comes back black under Mesa), a room loads
         /// into a fade, and a window mode takes a few frames to settle.
         /// </summary>
-        private static Action<RenderWindow>[] Script => new Action<RenderWindow>[]
+        private static Action<RenderWindow>[] Script =>
+            (Environment.GetCommandLineArgs().Contains("-shelllifecycleonly") ? StandardScript.Take(3) : StandardScript)
+            .Concat(_lifecycleTail ??= BuildLifecycleTail()).ToArray();
+        private static Action<RenderWindow>[] StandardScript => new Action<RenderWindow>[]
         {
             _ => Wait(20),
             w =>
@@ -1096,6 +1099,149 @@ namespace MphRead.Mods.Launcher.Gui
             w => { Shot(w, "shell-back"); Wait(5); }
         };
 
+        private static Action<RenderWindow>[]? _lifecycleTail;
+        private static ModernGraphicsCompat.ResourceCounts? _lifecycleResources;
+        private static uint _lifecycleSeekTarget;
+        private static int _lifecycleDeviceGeneration;
+
+        // Optional content-backed acceptance extension. Ordinary shell captures
+        // keep their existing sequence; this path requires a validated recording.
+        private static Action<RenderWindow>[] BuildLifecycleTail()
+        {
+            string[] args = Environment.GetCommandLineArgs();
+            int option = Array.IndexOf(args, "-shelllifecycle");
+            if (option < 0) return Array.Empty<Action<RenderWindow>>();
+            if (option + 1 >= args.Length || args[option + 1].StartsWith('-'))
+                throw new ArgumentException("-shelllifecycle requires a playable replay file.");
+            string replay = args[option + 1];
+            using (var reader = DemoReader.Open(replay, out var result, metadataOnly: true))
+            {
+                if (reader == null) throw new InvalidOperationException($"Lifecycle replay metadata rejected: {result}");
+                Console.WriteLine($"[shelllifecycle] replay format={reader.FormatVersion} protocol={reader.ProtocolVersion} frames={reader.DurationFrames}");
+            }
+            bool advanced = Array.IndexOf(args, "-renderadvanced") >= 0;
+            var steps = new List<Action<RenderWindow>>();
+            for (int cycle = 1; cycle <= 2; cycle++)
+            {
+                int pass = cycle;
+                steps.Add(w => { if (advanced) { RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme);
+                    RenderOptions.InternalHdr = true; RenderOptions.DeferredPbr = true;
+                    RenderOptions.AntiAliasing = AntiAliasingMode.Taa; }
+                    RequireLifecycle(StartShotMatch(), "playable match"); Wait(90); });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.HasScene, "match started");
+                    if (advanced && ModernGraphicsCompat.Active)
+                        RequireLifecycle(w.Scene.ValidateModernAdvancedRendering(), "advanced scene targets and temporal history");
+                    if (pass == 1 && ModernGraphicsCompat.Active)
+                    {
+                        _lifecycleDeviceGeneration = ModernGraphicsCompat.DeviceGeneration;
+                        ModernGraphicsCompat.DestroyDeviceForCheck();
+                    }
+                    Wait(10);
+                });
+                steps.Add(w =>
+                {
+                    if (pass == 1 && _lifecycleDeviceGeneration != 0)
+                    {
+                        RequireLifecycle(ModernGraphicsCompat.Active
+                            && ModernGraphicsCompat.DeviceGeneration == _lifecycleDeviceGeneration + 1,
+                            "actual scene recovered its modern device without fallback");
+                        RequireLifecycle(FinalCompositeCapture.Read(w.FramebufferSize.X, w.FramebufferSize.Y).Any(b => b > 3),
+                            "recovered scene is not fully black");
+                        if (advanced) RequireLifecycle(w.Scene.ValidateModernAdvancedRendering(),
+                            "advanced targets and temporal history restored after device loss");
+                        Shot(w, "lifecycle-device-recovery");
+                    }
+                    SpectatorMode.Start(); Wait(30);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(SpectatorMode.IsSpectating, "spectator transition");
+                    Shot(w, $"lifecycle-{pass}-spectator"); SpectatorMode.Rejoin(); Wait(30);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(!SpectatorMode.IsSpectating, "player rejoin");
+                    Shot(w, $"lifecycle-{pass}-rejoin"); RequestEndMatch(); Wait(90);
+                });
+                steps.Add(w => { RequireLifecycle(!w.HasScene, "match teardown"); _front!.OpenMapStudio(); Wait(45); });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(_front!.Prime.Router.Current == PrimeRoute.Forge
+                        && _front.GetVisualDescendants().OfType<MapStudioScreen>().Any(), "Map Studio opened");
+                    Shot(w, $"lifecycle-{pass}-forge"); _front.Prime.Overlays.Clear();
+                    _front.Prime.Router.Navigate(PrimeRoute.Play); Wait(30);
+                });
+                steps.Add(w =>
+                {
+                    Decided(new LaunchPlan { Kind = LaunchKind.Demo, DemoPath = replay, Hunter = Hunter.Samus });
+                    Wait(90);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.HasScene && DemoPlayback.IsActive && DemoPlayback.LastResult == ReplayOpenResult.Success,
+                        "replay opened: " + DemoPlayback.LastError);
+                    Shot(w, $"lifecycle-{pass}-replay");
+                    // Simulate another presented scene consuming the process-wide
+                    // notification: this replica still must observe the mode itself.
+                    Replay.ReplayCamera.SetMode(Replay.ReplayCameraMode.Free);
+                    Replay.ReplayCamera.Changed = false; Wait(3);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.Scene.IsFreeCam, "replay free camera after consumed global notification");
+                    Replay.ReplayCamera.SetMode(Replay.ReplayCameraMode.FirstPerson);
+                    Replay.ReplayCamera.Changed = false; Wait(3);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(w.Scene.CameraMode == CameraMode.Player && !w.Scene.IsFreeCam,
+                        "replay first-person camera after consumed global notification");
+                    _lifecycleSeekTarget = Math.Min(300u, DemoPlayback.LastFrame);
+                    ReplayController.Seek(_lifecycleSeekTarget, resume: false); Wait(90);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(!ReplayController.IsSeeking && DemoPlayback.CurrentFrame == _lifecycleSeekTarget,
+                        $"replay seek {_lifecycleSeekTarget}, actual {DemoPlayback.CurrentFrame}");
+                    RequireLifecycle(DemoPlayback.PresentationScene != null, "replay replica ready for presentation");
+                    RequireLifecycle(w.Scene.CameraMode == CameraMode.Player && !w.Scene.IsFreeCam,
+                        "first-person replay camera initialized on the presented replica");
+                    Console.WriteLine($"[shelllifecycle] replay camera={w.Scene.CameraPosition} main={w.Scene.Players.MainPlayerIndex} actor={w.Scene.Players.Main.Position} warning={DemoPlayback.LastWarning}");
+                    Shot(w, $"lifecycle-{pass}-replay-seek"); RequestEndMatch(); Wait(90);
+                });
+                steps.Add(w =>
+                {
+                    RequireLifecycle(!w.HasScene && !DemoPlayback.IsActive, "replay teardown");
+                    Shot(w, $"lifecycle-{pass}-return");
+                    if (ModernGraphicsCompat.Active)
+                    {
+                        var now = ModernGraphicsCompat.LiveResources;
+                        RequireLifecycle(now.BindGroups == 0, "no retained bind groups at lifecycle boundary");
+                        if (_lifecycleResources is { } before)
+                            RequireLifecycle(now.Textures <= before.Textures && now.Renderbuffers <= before.Renderbuffers
+                                && now.Programs <= before.Programs && now.Lists <= before.Lists
+                                && now.Views <= before.Views && now.Samplers <= before.Samplers
+                                && now.Geometry <= before.Geometry && now.Surfaces == before.Surfaces
+                                && now.ShaderModules <= before.ShaderModules,
+                                $"retained resources grew: before={before}, after={now}");
+                        // Uniform/transient buffers and pipelines are retained high-water caches.
+                        // Log them rather than treating different bot draw loads as identical workloads.
+                        _lifecycleResources = now;
+                        Console.WriteLine($"[shelllifecycle] pass={pass} resources={now}");
+                    }
+                    Console.WriteLine($"[shelllifecycle] PASS cycle={pass} spectator/rejoin/Forge/replay/seek/return");
+                    Wait(10);
+                });
+            }
+            return steps.ToArray();
+        }
+        private static void RequireLifecycle(bool valid, string message)
+        {
+            if (!valid) { ShotMisses++; throw new InvalidOperationException("Shell lifecycle failed: " + message); }
+        }
+
         private static void Wait(int frames)
         {
             _shotWait = frames;
@@ -1285,6 +1431,10 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"{UiSurface.Current?.Describe()}");
             bool saved = Mods.ScreenCapture.SaveWindow(
                 window.FramebufferSize.X, window.FramebufferSize.Y, path);
+            if (saved)
+                Mods.Render.FinalCompositeCapture.WriteEvidence(path, window.FramebufferSize.X,
+                    window.FramebufferSize.Y, "Application final composite: after scene and shell overlay/hunter, before Present");
+            else ShotMisses++;
             Console.WriteLine(saved
                 ? $"[shellshot] {path}"
                 : $"[shellshot] {name} could not be read from the window");

@@ -1467,7 +1467,31 @@ namespace MphRead
                     bool onlyOpaque = BindTexture(model, textureId, paletteId, recolorId);
                     map.Add(textureId, paletteId, recolorId, _lastTextureId, onlyOpaque);
                 }
+                EnsureAuthoredTextures(model, map);
                 _texPalMap.Add(model.Id, map);
+            }
+        }
+
+        private void EnsureAuthoredTextures(Model model, TextureMap map)
+        {
+            foreach (var (index, scope) in model.AuthoredMaterialScopes)
+            {
+                Material material = model.Materials[index];
+                if (material.TextureId < 0 || material.PaletteId < 0) continue;
+                for (int recolor = 0; recolor < model.Recolors.Count; recolor++)
+                {
+                    var key = new Mods.Render.Materials.MaterialAssetKey(scope + "/recolor/" + recolor);
+                    var texture = model.Recolors[recolor].Textures[material.TextureId];
+                    Mods.Render.Materials.MaterialInventory.Observe(key, texture.Width, texture.Height, model.Name, _room?.Meta.Name);
+                    var slot = (index, material.TextureId, material.PaletteId, recolor);
+                    // Default/legacy users keep the original shared texture allocation.
+                    // Explicit empty entries still need their own binding to suppress a
+                    // broader room/model override for this authored surface only.
+                    if (map.Authored.ContainsKey(slot) || !Mods.RenderOptions.TextureReplacements
+                        || Mods.Render.TextureReplacementPack.ResolveExplicit(key) == null) continue;
+                    bool opaque = BindTexture(model, material.TextureId, material.PaletteId, recolor, authoredKey: key);
+                    map.Authored[slot] = (_lastTextureId, opaque);
+                }
             }
         }
 
@@ -1510,28 +1534,33 @@ namespace MphRead
             if (_ownedTextures.Remove(texture)) GL.DeleteTexture(texture);
         }
 
-        private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor)> _textureSources = new();
+        private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey? Authored)> _textureSources = new();
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+        private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
             if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
-                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements)) return;
+                && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
+                && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
             // may refer to them. Reupload only when a source-quality option changes.
             foreach (var source in _textureSources)
                 BindTexture(source.Value.Model, source.Value.Texture, source.Value.Palette,
-                    source.Value.Recolor, source.Key);
+                    source.Value.Recolor, source.Key, source.Value.Authored);
+            foreach (var model in _textureSources.Values.Select(source => source.Model).Distinct().ToArray())
+                if (_texPalMap.TryGetValue(model.Id, out var map)) EnsureAuthoredTextures(model, map);
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
+            _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }
 
-        private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0)
+        private bool BindTexture(Model model, int textureId, int paletteId, int recolorId, int existingBinding = 0, Mods.Render.Materials.MaterialAssetKey? authoredKey = null)
         {
             _lastTextureId = existingBinding != 0 ? existingBinding : AllocateTexture();
-            if (existingBinding == 0) _textureSources[_lastTextureId] = (model, textureId, paletteId, recolorId);
+            if (existingBinding == 0) _textureSources[_lastTextureId] = (model, textureId, paletteId, recolorId, authoredKey);
             if (_materialMaps.Remove(_lastTextureId, out var previousMaps))
             {
                 if (previousMaps.Normal != 0) ReleaseTexture(previousMaps.Normal);
@@ -1548,9 +1577,12 @@ namespace MphRead
                 average.Add(pixel);
             }
             Texture texture = model.Recolors[recolorId].Textures[textureId];
+            Mods.Render.Materials.MaterialInventory.Observe(
+                authoredKey ?? Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
+                texture.Width, texture.Height, model.Name, _room?.Meta.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
-                textureId, paletteId, recolorId, out _, out _, out string? replacementPath);
+                textureId, paletteId, recolorId, out _, out _, out Mods.Render.Materials.ResolvedMaterial? replacementMaterial, authoredKey);
             if (!replaced)
             {
                 uint[] uploadPixels = pixels.ToArray();
@@ -1568,11 +1600,11 @@ namespace MphRead
             // time or GPU memory simply because the option exists.
             _mipmappedTextures.Remove(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
-            if (replacementPath != null)
+            if (replacementMaterial != null)
             {
                 Mods.Render.MaterialMapBindings maps =
                     Mods.Render.TextureReplacementPack.UploadCompanions(
-                        replacementPath, AllocateTexture, ReleaseTexture);
+                        replacementMaterial, AllocateTexture, ReleaseTexture);
                 if (maps.Any) _materialMaps[_lastTextureId] = maps;
             }
             _flatColors[_lastTextureId] = average.Result;
@@ -1691,7 +1723,7 @@ namespace MphRead
                     continue;
                 }
                 int paletteId = material.CurrentPaletteId;
-                (int bindingId, bool onlyOpaque) = _texPalMap[model.Id].Get(textureId, paletteId, recolorId);
+                (int bindingId, bool onlyOpaque) = _texPalMap[model.Id].GetForMaterial(i, textureId, paletteId, recolorId);
                 material.TextureBindingId = bindingId;
                 material.CurrentTextureId = textureId;
                 material.CurrentPaletteId = paletteId;
@@ -1881,9 +1913,11 @@ namespace MphRead
 
         private void RunSimulationFrame()
         {
+            MatchEvents.ObservePhase(this);
             if (Mods.Network.NetSession.FreezeGameplay)
             {
                 Mods.Network.NetSession.PumpLoading();
+                SemanticPresentation.Update(this);
                 return;
             }
             // Pointer/button debouncing must advance on the same fixed clock that
@@ -2025,6 +2059,8 @@ namespace MphRead
                 // here is counted in frames. Mods.Network.NetHitClaims.
                 Mods.Network.NetHitClaims.Tick();
                 Mods.Network.NetHooks.AfterSimulation();
+                SemanticPublisher.Publish(this);
+                SemanticPresentation.Update(this);
                 Mods.Network.ReplayCapture.AfterSimulation(this);
                 Mods.KillCam.AfterSimulation(this);
 
@@ -2421,6 +2457,7 @@ namespace MphRead
             {
                 return null;
             }
+            if (!ExportingReplay) return Mods.Render.FinalCompositeCapture.Read(width, height);
             byte[] buffer = new byte[width * height * 3];
             int source = ExportingReplay ? ReplayOutputFramebuffer() : 0;
             GL.BindFramebuffer(FramebufferTarget.ReadFramebuffer, source);
@@ -3214,11 +3251,8 @@ namespace MphRead
             {
                 if (_texPalMap.TryGetValue(model.Id, out TextureMap? map))
                 {
-                    foreach (KeyValuePair<int, (int BindingId, bool OnlyOpaque)> kvp in map)
-                    {
-                        ReleaseTexture(kvp.Value.BindingId);
-                        _mipmappedTextures.Remove(kvp.Value.BindingId);
-                    }
+                    foreach (var binding in map.Values.Concat(map.Authored.Values))
+                        ReleaseTexture(binding.BindingId);
                     _texPalMap.Remove(model.Id);
                 }
                 if (_modelLeases.Remove(model)) Mods.Render.SharedModelResources.Release(model);
@@ -4928,6 +4962,9 @@ namespace MphRead
             _cosmeticTextures.Clear();
             ReleasePreviewItems();
             _materialMaps.Clear();
+            try { Mods.Render.Materials.MaterialInventory.SaveObserved(); }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            { Mods.DebugLog.Line("render", "Material inventory save failed: " + ex.Message); }
             if (_modelLeases != null)
             {
                 foreach (Model model in _modelLeases) Mods.Render.SharedModelResources.Release(model);
@@ -6218,10 +6255,12 @@ localCenter *= _profileHudScale;
             GL.UniformMatrix4(_shaderLocations.MatrixStack, transpose: false, ref identity);
         }
 
+        // Scoped to the side-scene editor draw; never changes global graphics preferences.
+        private bool _editorMaterialPreview;
         private void DoMaterial(RenderItem item)
         {
             ApplyCosmeticUniforms(item.Cosmetics);
-            GL.Uniform1(_shaderLocations.UseLight, LightingOn && item.Lighting ? 1 : 0);
+            GL.Uniform1(_shaderLocations.UseLight, (LightingOn || _editorMaterialPreview) && item.Lighting ? 1 : 0);
             // MPH applies the material colors initially by calling DIF_AMB with bit 15 set,
             // so the diffuse color is always set as the vertex color to start
             // (the emission color is set to white if lighting is disabled or black if lighting is enabled; we can just ignore that)
@@ -6273,9 +6312,10 @@ localCenter *= _profileHudScale;
         private void DoTexture(RenderItem item)
         {
             Mods.Render.MaterialMapBindings materialMaps = default;
-            bool advanced = Mods.RenderOptions.AdvancedMaterials && item.HasTexture
+            bool advancedEnabled = Mods.RenderOptions.AdvancedMaterials || _editorMaterialPreview;
+            bool advanced = advancedEnabled && item.HasTexture
                 && _materialMaps.TryGetValue(item.TextureBindingId, out materialMaps);
-            if (Mods.RenderOptions.AdvancedMaterials && item.CosmeticMaterial != default)
+            if (advancedEnabled && item.CosmeticMaterial != default)
             {
                 materialMaps = new(item.CosmeticMaterial.NormalBinding, item.CosmeticMaterial.SpecularBinding, item.CosmeticMaterial.EmissiveBinding);
                 advanced = materialMaps.Any;
@@ -9056,6 +9096,10 @@ localCenter *= _profileHudScale;
 
     public class TextureMap : Dictionary<int, (int BindingId, bool OnlyOpaque)>
     {
+        internal Dictionary<(int Material, int Texture, int Palette, int Recolor), (int BindingId, bool OnlyOpaque)> Authored { get; } = new();
+        internal (int BindingId, bool OnlyOpaque) GetForMaterial(int material, int texture, int palette, int recolor)
+            => Authored.TryGetValue((material, texture, palette, recolor), out var binding) ? binding : Get(texture, palette, recolor);
+
         private int GetKey(int textureId, int paletteId, int recolorId)
         {
             if (paletteId == -1)

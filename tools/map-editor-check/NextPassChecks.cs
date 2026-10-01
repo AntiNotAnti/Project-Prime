@@ -69,7 +69,16 @@ internal static class NextPassChecks
         File.WriteAllText(path,Document("../escape.bin"));bool refused=false;try{ModelImportService.Import(path,new());}catch(InvalidDataException){refused=true;}check(refused,"glTF rejects dependencies outside source folder");
         File.WriteAllText(path,Document("mesh.bin").Replace("\"byteLength\":36","\"byteLength\":360"));refused=false;try{ModelImportService.Import(path,new());}catch(InvalidDataException){refused=true;}check(refused,"glTF rejects out-of-bounds buffer views");
         File.WriteAllText(path,Document("mesh.bin"));model=ModelImportService.Import(path,new());var definition=new MapDefinition{BaseDirectory=folder};ModelReimport.Apply(definition,model,path,MapSourceFingerprint.Hash(model.Dependencies),new());
+        // Apply is deliberately a detached document mutation. Production import persists
+        // generated texture bytes before applying; mirror that boundary in the fixture.
+        foreach(var asset in model.Assets)
+        {
+            string destination=Path.Combine(folder,asset.Key);
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+            File.WriteAllBytes(destination,asset.Value);
+        }
         string export=MapProjectFolder.Export(definition,Path.Combine(root,"exported"));var loaded=MapDefinition.Load(export);check(File.Exists(loaded.ModelSources[0].Source)&&loaded.ModelSources[0].Dependencies.All(d=>File.Exists(d.Path)),"project-folder export carries model dependency graph");
+        check(MapAssets.Read(loaded,loaded.Materials.Single().Texture!).SequenceEqual(model.Assets.Values.Single()),"project export preserves generated default texture bytes");
         check(ModelImportService.Import(loaded.ModelSources[0].Source,new()).Meshes.Count==1,"exported glTF can be reimported");
     }
 }

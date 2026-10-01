@@ -1,0 +1,5 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><OutputType>Exe</OutputType><TargetFramework>net10.0</TargetFramework><Nullable>enable</Nullable></PropertyGroup>
+  <ItemGroup><Compile Include="../../src/MphRead/Mods/MatchEvents/MatchDeathDetails.cs" Link="MatchDeathDetails.cs" />
+    <Compile Include="../../src/MphRead/Mods/MatchEvents/MatchSemanticEvent.cs"/><Compile Include="../../src/MphRead/Mods/MatchEvents/MatchSemanticEventBus.cs"/><Compile Include="../../src/MphRead/Mods/MatchEvents/MatchAwardEngine.cs"/><Compile Include="../../src/MphRead/Mods/MatchEvents/MatchAssistTracker.cs"/><Compile Include="../../src/MphRead/Mods/MatchEvents/MatchSemanticParity.cs"/><Compile Include="../../src/MphRead/Mods/MatchEvents/SceneMatchEvents.cs"/></ItemGroup>
+</Project>

@@ -1,6 +1,7 @@
 #if !ANDROID && !MPHREAD_SERVER
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Collections.Generic;
 using MphRead.Mods.Input;
 using OpenTK.Graphics.OpenGL;
@@ -17,13 +18,22 @@ internal static class ModernRenderParityCheck
         {
             string directory = Path.GetFullPath(output);
             Directory.CreateDirectory(directory);
+            var requestedBackend = GraphicsBackendPolicy.Requested;
+            bool explicitRequest = GraphicsBackendPolicy.Configured;
             var settings = DesktopGlContext.Settings(background: true);
             settings.ClientSize = new(960, 540);
             using var window = new NativeWindow(settings);
             using var graphics = new DesktopGraphicsSession(window);
+            int width = window.FramebufferSize.X, height = window.FramebufferSize.Y;
+            bool modern = ModernGraphicsCompat.Active;
+            var identity = modern ? ModernGraphicsCompat.DeviceIdentity
+                : (GraphicsBackend.OpenGL, GraphicsApi.GetString(StringName.Renderer), GraphicsApi.GetString(StringName.Version));
+            int initialGeneration = modern ? ModernGraphicsCompat.DeviceGeneration : 0;
+            var captures = new List<object>();
+            int frames = 0;
             RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
             RenderOptions.ShowFps = false;
-            var scene = new Scene(new(960, 540), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
+            var scene = new Scene(new(width, height), SyntheticInput.CreateKeyboard(), SyntheticInput.CreateMouse(), _ => { }, () => { });
             try
             {
                 scene.AddPlayer(Hunter.Samus);
@@ -55,7 +65,6 @@ internal static class ModernRenderParityCheck
                     ("hdr", () => RenderOptions.InternalHdr = true),
                     ("extreme", () => RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Extreme))
                 };
-                byte[] pixels = new byte[960 * 540 * 3];
                 foreach (var test in cases)
                 {
                     RenderOptions.ApplyGraphicsPreset(GraphicsPreset.Original);
@@ -71,19 +80,35 @@ internal static class ModernRenderParityCheck
                         if (frame == 11)
                         {
                             if (test.Name == "pbr") scene.CapturePbrBuffers(directory);
-                            GraphicsApi.BindFramebuffer(FramebufferTarget.ReadFramebuffer, 0);
-                            GraphicsApi.ReadPixels(0, 0, 960, 540, PixelFormat.Rgb, PixelType.UnsignedByte, pixels);
+                            byte[] pixels = FinalCompositeCapture.Read(width, height);
                             using var file = File.Create(Path.Combine(directory, test.Name + ".png"));
                             StbImage.FlipVerticallyOnSave = true;
-                            StbImage.WritePng<byte>(pixels, 960, 540, StbiImageFormat.Rgb, file);
+                            StbImage.WritePng<byte>(pixels, width, height, StbiImageFormat.Rgb, file);
                         }
+                        frames++;
                         DesktopGraphicsSession.Present(window);
                         scene.AfterRenderFrame();
                     }
+                    captures.Add(new { image = test.Name + ".png", preset = test.Name == "extreme" ? "Extreme" : "Original",
+                        configuration = test.Name, width, height,
+                        renderScale = RenderOptions.ResolutionScale / 100.0,
+                        scope = "Scene final backbuffer after world/postprocess/HUD/visor/fade; excludes shell UI, launcher hunter and Shell.AfterDraw" });
                     Console.WriteLine("RENDERPARITY captured " + test.Name);
                 }
             }
             finally { scene.DoCleanup(); scene.UnloadGl(); }
+            File.WriteAllText(Path.Combine(directory, "evidence.json"), JsonSerializer.Serialize(new
+            {
+                format = 1, requestedBackend = requestedBackend.ToString(), explicitRequest,
+                actualBackend = identity.Item1.ToString(), adapter = identity.Item2, driver = identity.Item3,
+                platform = System.Runtime.InteropServices.RuntimeInformation.OSDescription,
+                architecture = System.Runtime.InteropServices.RuntimeInformation.ProcessArchitecture.ToString(),
+                room, frames, width, height,
+                deviceLost = (int?)null,
+                deviceReconstructionCount = modern ? ModernGraphicsCompat.DeviceGeneration - initialGeneration : 0,
+                notes = "Device-loss callbacks are not counted by this harness. Captures are scene-level evidence, not full application composite acceptance. pbr-albedo/normal/material.png are intermediate G-buffer diagnostics.",
+                captures
+            }, new JsonSerializerOptions { WriteIndented = true }));
             Console.WriteLine("RENDERPARITY PASS " + directory);
             return 0;
         }

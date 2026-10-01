@@ -42,11 +42,13 @@ public sealed class NetReliableChannel
     }
     public bool HasPending(PacketType type)
     { foreach (var pending in _pending) if (pending?.Type == type) return true; return false; }
-    public static bool IsReliable(PacketType type) => type is PacketType.Welcome or PacketType.SessionState
+    public static bool IsReliable(PacketType type) => type is PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
+        or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
+        or PacketType.Welcome or PacketType.SessionState
         or PacketType.Roster or PacketType.MapChange or PacketType.Authority or PacketType.LobbyCommand
         or PacketType.LobbyCommandResult or PacketType.WorldReady or PacketType.WorldBootstrap or PacketType.MatchLoaded or PacketType.MatchLoadFailed or PacketType.Refused
-        or PacketType.Bye or PacketType.MatchEnd;
-    public static bool IsCritical(PacketType type) => type is not (PacketType.Roster or PacketType.LobbyCommand or PacketType.LobbyCommandResult);
+        or PacketType.Bye or PacketType.MatchEnd or PacketType.MatchSemanticEvent or PacketType.MatchAward;
+    public static bool IsCritical(PacketType type) => type is not (PacketType.Roster or PacketType.LobbyCommand or PacketType.LobbyCommandResult or PacketType.MatchSemanticEvent or PacketType.MatchAward);
 
     public bool TryQueue(PacketType type, ReadOnlySpan<byte> payload, double nowMs, out uint eventId,
         bool expedite = false, bool supersedeState = false)
@@ -54,7 +56,7 @@ public sealed class NetReliableChannel
         eventId = 0;
         if (!IsReliable(type) || payload.Length > NetConfig.MaxPayloadSize - 4)
             throw new ArgumentException("Not a bounded reliable control payload");
-        if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster))
+        if (supersedeState && type is not (PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
             throw new ArgumentException("Only revision-fenced full state can supersede pending state");
         bool critical = IsCritical(type);
         if (Failed) return false;

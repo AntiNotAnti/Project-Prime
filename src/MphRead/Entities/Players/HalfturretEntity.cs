@@ -250,6 +250,8 @@ namespace MphRead.Entities
                         BeamResultFlags result = BeamProjectileEntity.Spawn(this, EquipInfo, muzzlePos, _aimVector, flags, NodeRef, _scene);
                         if (result != BeamResultFlags.NoSpawn)
                         {
+                            _scene.MatchEvents.Transition(_scene, Mods.MatchEvents.MatchSemanticEventType.WeaponFired, Owner,
+                                entity: Id, weapon: (int)EquipInfo.Weapon.Beam, flags: Mods.MatchEvents.MatchSemanticEventFlags.Turret);
                             _models[0].SetAnimation(0, AnimFlags.NoLoop);
                             Owner.TimeSinceShot = 0;
                         }

@@ -13,6 +13,8 @@ MAX_BODY = 1024 * 1024
 SUMMARY_KEYS = {"header", "durationSeconds", "counters", "network", "combat", "claims", "lifecycle", "combatAckLatency", "formDuration", "forcedForms", "serverStepMilliseconds", "droppedTicks", "lagComp"}
 V2_KEYS = {"networkDetails", "lifecycleDetails", "combatDetails", "shadowOutcomes", "formCorrectionReasons"}
 V3_KEYS = {"combatAcks", "transportContention"}
+V4_KEYS = {"enhancedHunters", "serverAllocationBytes", "serverMaximumStepAllocation", "serverOverruns", "serverStalls", "continuousSamples"}
+V5_KEYS = {"semanticEvents", "matchAwards"}
 HEADER_KEYS = {"schema", "protocol", "matchSessionId", "buildCommit", "serverVersion", "serverPlatform", "matchMode", "map", "playerCount"}
 DISTRIBUTION_KEYS = {"count", "mean", "p50", "p95", "p99", "maximum"}
 COUNTER_KEYS = {"eventsQueued", "eventsWritten", "eventsDropped", "queueHighWater", "writerFailures", "uploadFailures"}
@@ -27,9 +29,9 @@ def valid(summary):
     if not isinstance(summary, dict):
         return False
     header = summary.get("header")
-    if not isinstance(header, dict) or set(header) != HEADER_KEYS or header["schema"] not in (1, 2, 3) or header["protocol"] not in (19, 20, 21, 22):
+    if not isinstance(header, dict) or set(header) != HEADER_KEYS or header["schema"] not in (1, 2, 3, 4, 5) or header["protocol"] not in range(19, 36):
         return False
-    expected = SUMMARY_KEYS | (V2_KEYS if header["schema"] >= 2 else set()) | (V3_KEYS if header["schema"] >= 3 else set())
+    expected = SUMMARY_KEYS | (V2_KEYS if header["schema"] >= 2 else set()) | (V3_KEYS if header["schema"] >= 3 else set()) | (V4_KEYS if header["schema"] >= 4 else set()) | (V5_KEYS if header["schema"] >= 5 else set())
     if set(summary) != expected:
         return False
     if type(header["playerCount"]) is not int or not 0 <= header["playerCount"] <= 8:
@@ -102,6 +104,17 @@ def valid(summary):
         for key in ("maximumWaitMilliseconds", "maximumHoldMilliseconds"):
             if type(contention[key]) not in (int, float) or not math.isfinite(contention[key]) or contention[key] < 0:
                 return False
+    if header["schema"] >= 4:
+        if any(type(summary[key]) is not int or summary[key] < 0 for key in V4_KEYS - {"enhancedHunters"}): return False
+        enhanced = summary["enhancedHunters"]
+        if not isinstance(enhanced, dict) or len(enhanced) > 512: return False
+        for key, value in enhanced.items():
+            parts = key.split(":")
+            if len(parts) != 2 or any(not part.isascii() or not part.isdigit() or len(part) > 10 for part in parts): return False
+            if int(parts[0]) > 255 or int(parts[1]) > 4294967295 or type(value) is not int or value < 0: return False
+    if header["schema"] >= 5:
+        for key, length in (("semanticEvents", 18), ("matchAwards", 21)):
+            if not isinstance(summary[key], list) or len(summary[key]) != length or any(type(v) is not int or v < 0 for v in summary[key]): return False
     return all(type(summary[k]) in (int, float) and math.isfinite(summary[k]) and summary[k] >= 0 for k in ("durationSeconds", "forcedForms", "droppedTicks"))
 
 

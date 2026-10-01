@@ -72,6 +72,21 @@ class ReportTests(unittest.TestCase):
         self.assertTrue(valid(x)); summary=summarize([x])
         self.assertEqual(summary['combatAcks'][0]['weapon'],4)
         self.assertEqual(summary['transportContention']['contended'],2)
+        x['header'].update(schema=4, protocol=34)
+        x.update(enhancedHunters={'1:2': 3}, serverAllocationBytes=1, serverMaximumStepAllocation=1,
+            serverOverruns=0, serverStalls=0, continuousSamples=1)
+        self.assertTrue(valid(x))
+        x['header'].update(schema=5, protocol=35)
+        x.update(semanticEvents=[0]*18, matchAwards=[0]*21)
+        self.assertTrue(valid(x))
+        x['semanticEvents'][4] = 2
+        self.assertEqual(summarize([x, x])['semanticEvents'][4], 4)
+        self.assertIsNone(summarize([self.fixture])['semanticEvents'])
+        x['semanticEvents'][0] = -1
+        self.assertFalse(valid(x))
+        x['semanticEvents'][0] = 0
+        x['enhancedHunters']['private:name'] = 1
+        self.assertFalse(valid(x))
 
     def test_legacy_missing_values_and_injection(self):
         s=summarize([self.fixture]);self.assertIsNone(s['rttBuckets']);self.assertIsNone(s['combat'])

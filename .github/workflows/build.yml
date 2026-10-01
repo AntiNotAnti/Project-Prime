@@ -39,6 +39,19 @@ jobs:
       - name: every custom map has the level it converts
         run: tools/check-maps-shipped.sh
 
+  fidelity-oracle:
+    name: content-free fidelity oracle (F0/F1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+      - name: framework and presentation-rate checks
+        run: dotnet run --project tools/fidelity-oracle -c Release
+      - name: verify reviewed normalized baselines
+        run: dotnet run --project tools/fidelity-oracle -c Release --no-build -- verify all -baselines tools/fidelity-oracle/baselines
+
   modern-renderer-windows:
     name: modern renderer Windows ${{ matrix.renderer }} smoke
     runs-on: windows-latest
@@ -183,8 +196,14 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: generated packet schema and malformed wire checks
+        run: dotnet run --project tools/protocol-generator-check -c Release
+      - name: waitlist policy and synthetic UDP wire checks
+        run: dotnet run --project tools/lobby-waitlist-check -c Release
       - name: enhanced rules, state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
+      - name: production waitlist admission and real UDP lifecycle
+        run: dotnet run --project tools/nettest -c Release --no-build -- --waitlist
       - name: replication lane round trip
         run: dotnet run --project tools/nettest -c Release --no-build -- --protocol18
       - name: mixed-quality eight-player transport
@@ -323,6 +342,7 @@ jobs:
       - name: netcode lifecycle and health/shot regressions
         if: matrix.id == 'linux-x64'
         run: |
+          dotnet run --project tools/settings-archive-check -c Release
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --lifecycle
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --health-shots
           dotnet run --project tools/nettest/nettest.csproj -c Release -- --architecture

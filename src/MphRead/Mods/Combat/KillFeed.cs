@@ -37,11 +37,9 @@ namespace MphRead.Mods.Combat
     /// <summary>
     /// Scene-local presentation history for confirmed player deaths.
     ///
-    /// The death itself is already authority-owned by the existing damage
-    /// pipeline. Online clients reach the same PlayerEntity death path through
-    /// NetDamage.ReplayEvent, while predicted remote lethal hits are clamped
-    /// until the authority confirms them. Keeping the feed here therefore
-    /// needs no second kill packet and cannot disagree with the scoreboard.
+    /// Live multiplayer consumes canonical authority facts. Legacy recordings
+    /// retain their original damage-derived adapter; historical generations use
+    /// neutral labels when their occupant is no longer available.
     /// </summary>
     internal sealed class KillFeed
     {
@@ -57,7 +55,7 @@ namespace MphRead.Mods.Combat
         internal void Record(Scene scene, PlayerEntity? attacker, PlayerEntity victim,
             BeamType beam, DamageFlags flags, bool fromHalfturret, BombEntity? bomb)
         {
-            if (!Features.KillFeedEnabled || MphRead.Mods.Headless.Active
+            if (MatchEvents.MatchSemanticPresentation.Enabled(scene) || !Features.KillFeedEnabled || MphRead.Mods.Headless.Active
                 || MphRead.Mods.ThumbnailMode.Active || !scene.GameState.Multiplayer)
             {
                 return;
@@ -128,6 +126,30 @@ namespace MphRead.Mods.Combat
             {
                 _entries.RemoveRange(Capacity, _entries.Count - Capacity);
             }
+        }
+
+        internal void RecordCanonical(Scene scene, MatchEvents.MatchSemanticEvent fact)
+        {
+            if (!Features.KillFeedEnabled || Mods.Headless.Active || Mods.ThumbnailMode.Active || !scene.GameState.Multiplayer
+                || !TryBuildCanonical(scene, fact, out var entry)) return;
+            PruneExpired(); _entries.Insert(0, entry);
+            if (_entries.Count > Capacity) _entries.RemoveRange(Capacity, _entries.Count - Capacity);
+        }
+        internal static bool TryBuildCanonical(Scene scene, MatchEvents.MatchSemanticEvent fact, out KillFeedEntry entry)
+        {
+            entry = default;
+            if (!MatchEvents.MatchDeathDetails.TryDecode(fact.Value, out var details)) return false;
+            var killer = MatchEvents.MatchSemanticPresentation.Resolve(scene, fact.Actor);
+            var victim = MatchEvents.MatchSemanticPresentation.Resolve(scene, fact.Target);
+            // A historical generation never borrows the replacement occupant's name.
+            string Name(MatchEvents.MatchSemanticActor actor, PlayerEntity? player)
+                => !actor.IsPlayer ? "WORLD" : player == null ? $"PLAYER {actor.Slot + 1}" : scene.GameState.Nicknames[actor.Slot];
+            entry = new(fact.Actor.IsPlayer ? fact.Actor.Slot : -1, fact.Target.Slot,
+                details.KillerTeam, details.VictimTeam, Name(fact.Actor, killer), Name(fact.Target, victim),
+                (BeamType)fact.Weapon, (KillFeedKind)details.Kind,
+                (fact.Flags & MatchEvents.MatchSemanticEventFlags.Headshot) != 0,
+                (fact.Flags & MatchEvents.MatchSemanticEventFlags.FriendlyFire) != 0, Stopwatch.GetTimestamp());
+            return true;
         }
 
         internal void PruneExpired()

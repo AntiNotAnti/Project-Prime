@@ -32,6 +32,7 @@ namespace MphRead.Mods.Network
     /// it on. See <see cref="NetSession.StartServerAuthority"/>.
     /// </summary>
     public delegate void SnapshotSink(ReadOnlySpan<byte> payload);
+    internal delegate void SemanticSink(PacketType type, ReadOnlySpan<byte> payload);
 
     internal sealed class RemotePeer
     {
@@ -175,6 +176,9 @@ namespace MphRead.Mods.Network
 
         private static SnapshotSink? _snapshotSink;
         internal static SnapshotSink? ReplayWorldSink { get; set; }
+        internal static SemanticSink? MatchSemanticSink { get; set; }
+        internal static bool SemanticLegacyPlayback => _playback;
+        internal static Mods.MatchEvents.MatchSemanticReceiver SemanticReceived { get; } = new();
 
         /// <summary>
         /// What "the match this process is simulating is over" does when the
@@ -402,7 +406,7 @@ namespace MphRead.Mods.Network
             NetPlayerBridge.Reset();
             Chat.ChatBox.Clear();
             IsAuthority = false;
-            _snapshotSink = null; ReplayWorldSink = null;
+            _snapshotSink = null; ReplayWorldSink = null; MatchSemanticSink = null; SemanticReceived.Begin(0, 0);
             _serverMatchEnded = null;
             if (_transport != null)
             {
@@ -876,6 +880,10 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.SlotIntent when Role == NetRole.Client:
                     HandleSlotIntent(packet);
+                    break;
+                case PacketType.MatchSemanticEvent when Role == NetRole.Client && !IsAuthority && !_playback:
+                case PacketType.MatchAward when Role == NetRole.Client && !IsAuthority && !_playback:
+                    AcceptSemanticPacket(packet.Type, packet.Payload);
                     break;
                 case PacketType.ReplayWorld when Role == NetRole.Client && !IsAuthority && !_playback:
                     ReplayCapture.AcceptWorldPacket(packet.Payload);
@@ -1942,7 +1950,7 @@ namespace MphRead.Mods.Network
                 state.Kills = (ushort)Math.Clamp(GameState.Kills[i], 0, UInt16.MaxValue);
                 state.Deaths = (ushort)Math.Clamp(GameState.Deaths[i], 0, UInt16.MaxValue);
                 NetDamage.Write(i, ref state);
-                ReplayCapture.AcceptedState(state, NetFrame);
+                ReplayCapture.AcceptedState(state, NetFrame, player.OwningScene);
                 NetPlayerLifecycle.AcceptState(state, NetFrame);
                 state.Write(_scratch.AsSpan(offset));
                 offset += PlayerState.Size;
