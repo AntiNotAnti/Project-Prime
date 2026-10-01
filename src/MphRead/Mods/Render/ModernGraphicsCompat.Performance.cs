@@ -9,10 +9,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
 {
     internal readonly record struct PerformanceSample(int PipelinesCreated, double PipelineCreationMs,
         double LongestPipelineCreationMs, long TextureUploadBytes, double TextureUploadSubmissionMs,
-        long TrackedTextureStorageBytes, long PooledBufferStorageBytes);
+        int CommandSubmissions, long TrackedTextureStorageBytes, long PooledBufferStorageBytes);
 
     private bool _measurePerformance;
     private int _createdPipelines;
+    private int _commandSubmissions;
     private double _pipelineCreationMs, _longestPipelineCreationMs, _textureUploadMs;
     private long _textureUploadBytes;
 
@@ -21,11 +22,17 @@ internal sealed unsafe partial class ModernGraphicsCompat
         var s = Current;
         s._measurePerformance = true;
         s._createdPipelines = 0;
+        s._commandSubmissions = 0;
         s._pipelineCreationMs = s._longestPipelineCreationMs = s._textureUploadMs = 0;
         s._textureUploadBytes = 0;
     }
 
     private long PerformanceStart() => _measurePerformance ? Stopwatch.GetTimestamp() : 0;
+
+    private void RecordCommandSubmission()
+    {
+        if (_measurePerformance) _commandSubmissions++;
+    }
 
     private void RecordPipelineCreation(long start)
     {
@@ -58,7 +65,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (var (size, pool) in s._uniformPools)
             bufferBytes += (long)size * pool.Buffers.Count;
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,
-            s._textureUploadBytes, s._textureUploadMs, textureBytes, bufferBytes);
+            s._textureUploadBytes, s._textureUploadMs, s._commandSubmissions,
+            textureBytes, bufferBytes);
     }
 }
 #endif
