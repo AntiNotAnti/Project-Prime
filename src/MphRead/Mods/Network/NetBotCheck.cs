@@ -30,11 +30,12 @@ public static class NetBotCheck
                 roster.BotLevels[slot] = (byte)(slot % 4);
             }
             NetSession.ApplyRoster(roster); NetSlotManager.Sync();
-            int intents = 0, shots = 0; IntentPacket old = default;
+            int intents = 0, shots = 0, fireEvents = 0; IntentPacket old = default;
             NetBotInput.Sink = (slot, intent) =>
             {
                 intents++;
                 if ((intent.Buttons & IntentButtons.Shoot) != 0) shots++;
+                fireEvents += intent.FireEventCount;
                 if (slot == bots) old = intent;
                 if (intent.AckFrame != 0 || intent.SlotGeneration != NetPlayerLifecycle.Generation(slot))
                     throw new InvalidOperationException("bot intent identity/rewind");
@@ -53,6 +54,7 @@ public static class NetBotCheck
             for (int slot = 1; slot <= bots; slot++) if ((PlayerEntity.Players[slot].Position - positions[slot]).Length > 0.1f) moved++;
             Check(moved == bots, "every bot moves");
             Check(intents > 100 && shots > 0, "bot intent stream includes firing");
+            Check(fireEvents > 0, "bot intent stream repeats authoritative fire events for client visuals");
             long damage = 0;
             for (int slot = 0; slot <= bots; slot++) damage += GameState.MatchDamageDealt[slot];
             Check(damage > 0, "bots deal authoritative combat damage");
