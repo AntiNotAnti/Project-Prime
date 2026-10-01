@@ -43,6 +43,7 @@ namespace MphRead.Mods.Launcher.Gui
         public event EventHandler? Resumed;
         public event EventHandler? SettingsRequested;
         public event EventHandler? LeaveRequested;
+        public event EventHandler? ReturnToLobbyRequested;
         public event EventHandler? QuitRequested;
         public event EventHandler? FullscreenRequested;
         public event EventHandler? SpectateRequested;
@@ -133,6 +134,13 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (!DemoPlayback.IsActive && NetSession.LocalIsLobbyOwner)
                 menu.Children.Add(new Expander { Header = "MANAGE BOTS", Content = new ScrollViewer { MaxHeight = 280, Content = new BotManagementView() } });
+            if (!DemoPlayback.IsActive && NetSession.PersistentLobby
+                && NetSession.LocalIsLobbyOwner && !NetSession.IsInLobby)
+            {
+                Add(menu, "RETURN TO LOBBY",
+                    () => ReturnToLobbyRequested?.Invoke(this, EventArgs.Empty),
+                    HubTheme.Warm);
+            }
             Add(menu, "SETTINGS", () => SettingsRequested?.Invoke(this, EventArgs.Empty));
             Add(menu, "LEAVE MATCH", () => LeaveRequested?.Invoke(this, EventArgs.Empty),
                 HubTheme.Warm);

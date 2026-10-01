@@ -417,6 +417,25 @@ namespace MphRead.Mods.Launcher.Gui
                 Pop();
                 onResume();
             };
+            view.ReturnToLobbyRequested += (_, _) =>
+            {
+                var confirm = new ConfirmScreen(
+                    "Return all connected players to the lobby?",
+                    yes: "return all", no: "cancel");
+                confirm.Answered += (_, yes) =>
+                {
+                    Pop(); // confirmation
+                    if (!yes) return;
+                    if (!NetSession.SendLobbyCommand(LobbyCommandType.ReturnToLobby))
+                    {
+                        Chat.ChatBox.System("could not request a return to the lobby");
+                        return;
+                    }
+                    Pop(); // pause menu
+                    onResume();
+                };
+                Push(confirm);
+            };
             view.VoteMapRequested += (_, _) => OpenVote();
             view.ReplayControlsRequested += (_, _) =>
             {
