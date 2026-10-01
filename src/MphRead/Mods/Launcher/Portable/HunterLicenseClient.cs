@@ -195,19 +195,9 @@ namespace MphRead.Mods.Launcher
 
                 AuthSession session = await AuthenticateAsync(cancellationToken)
                     .ConfigureAwait(false);
-                string name = LauncherPrefs.PlayerName.Trim();
-                if (name.Length == 0) name = "Player";
-                Hunter preferred = Hunters.Resolve(LauncherPrefs.LastHunter);
-                int hunter = Math.Clamp((int)preferred, 0, 6);
-                _ = await FunctionAsync<JsonElement>(
-                    session.AccessToken,
-                    "hunter-license",
-                    new Dictionary<string, object?>
-                    {
-                        ["display_name"] = name,
-                        ["favorite_hunter"] = hunter
-                    },
-                    cancellationToken).ConfigureAwait(false);
+                // Guests already have a verified Supabase UUID. Publishing needs
+                // that stable identity, not a registered email or career profile.
+                // Do not make map uploads depend on the profile service.
 
                 CommunityMapTicketResponse result =
                     await FunctionAsync<CommunityMapTicketResponse>(

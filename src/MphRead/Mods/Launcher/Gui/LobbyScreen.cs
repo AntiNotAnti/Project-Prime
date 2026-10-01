@@ -1281,7 +1281,8 @@ namespace MphRead.Mods.Launcher.Gui
         private void OpenMapPicker()
         {
             if (!NetSession.CanEditLobby || NetSession.LobbyCommandPending) return;
-            var picker = new MapCardPicker(_rooms, _draftRoom, room =>
+            var picker = new MapCardPicker(_rooms.Concat(MapGen.CustomRooms.Definitions.Select(d => d.Name))
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray(), _draftRoom, room =>
             {
                 MatchDefinition draft = DraftMatch() with { RoomKey = room,
                     VanillaDuelResources = SelectedFormat() == MatchFormat.OneVsOne && _vanillaDuelResources.On };
@@ -1289,9 +1290,10 @@ namespace MphRead.Mods.Launcher.Gui
                     LobbyRules.ResolveWorldProfile(draft, NetSession.ServerSession?.MaxPlayers ?? 8),
                     out string reason, LobbyRules.ExactTeams(draft) ? LobbyRules.ResolveTeamLayout(draft).TotalPlayers
                         : NetSession.ServerSession?.MaxPlayers ?? 8) ? null : reason;
-            });
+            }, includeCommunity: true);
             picker.Done += (_, room) =>
             {
+                if (!NetSession.CanEditLobby || NetSession.LobbyCommandPending) { ClosePage(); return; }
                 _draftRoom = room;
                 _map.Set(RoomName(_draftRoom));
                 SetPreview(_draftRoom);

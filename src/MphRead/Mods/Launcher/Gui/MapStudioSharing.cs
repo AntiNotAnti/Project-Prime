@@ -85,7 +85,7 @@ internal sealed partial class MapStudioScreen
     {
         var panel = new StackPanel { Spacing = 8, MinWidth = 540 };
         panel.Children.Add(Text("CUSTOM MAP ONLINE PLAY"));
-        panel.Children.Add(Text("Published maps download automatically for joining players. Publishing uses your Hunter License; no creator token is required."));
+        panel.Children.Add(Text("Published maps download automatically for joining players. Guests can publish without registering. Your local guest identity owns the map; link an account to recover ownership on another device."));
         var address = new TextBox { Text = MapCommunityClient.DefaultAddress };
         if (File.Exists(CommunitySettingsPath)) address.Text = File.ReadAllText(CommunitySettingsPath).Trim();
         panel.Children.Add(address);
@@ -153,7 +153,7 @@ internal sealed partial class MapStudioScreen
         var address=new TextBox { Text=MapCommunityClient.DefaultAddress, PlaceholderText="Community address · https://maps.example.com/" };
         try { if(File.Exists(CommunitySettingsPath)) address.Text=File.ReadAllText(CommunitySettingsPath).Trim(); } catch(IOException) { }
         panel.Children.Add(address);
-        panel.Children.Add(Text("Hunter License signs publishing, favorites, reports, and My Maps automatically."));
+        panel.Children.Add(Text("Guests can publish, favorite, report, and manage My Maps without registering. Account linking is optional and enables recovery on another device."));
         var search=new TextBox { PlaceholderText="Search map, author, or version" }; panel.Children.Add(search);
         var list=new ListBox { Height=230 }; panel.Children.Add(list);
         var shareLink=new TextBox { IsReadOnly=true,PlaceholderText="Select a map for its downloadable package link" };

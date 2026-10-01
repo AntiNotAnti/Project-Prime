@@ -31,7 +31,7 @@ namespace MphRead.Mods.Launcher.Gui
     /// One-map picker using the exact same DeckTile/DeckGrid presentation as
     /// Offline. The lobby uses this rather than a second list-style picker.
     /// </summary>
-    internal sealed class MapCardPicker : UserControl
+    internal sealed partial class MapCardPicker : UserControl
     {
         public event EventHandler<string>? Done;
         public event EventHandler? Cancelled;
@@ -46,8 +46,15 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly Dictionary<string, string?> _incompatibilities = new();
         private string? Incompatibility(string room) => _incompatibilities.GetValueOrDefault(room);
 
-        public MapCardPicker(IReadOnlyList<string> rooms, string? selected, Func<string, string?>? incompatibility = null)
+        public MapCardPicker(IReadOnlyList<string> rooms, string? selected, Func<string, string?>? incompatibility = null,
+            bool includeCommunity = false,
+            Func<System.Threading.CancellationToken, System.Threading.Tasks.Task<MphRead.Mods.MapGen.CommunityMap[]>>? browseCommunity = null,
+            Func<MphRead.Mods.MapGen.CommunityMap, System.Threading.CancellationToken, System.Threading.Tasks.Task<string>>? installCommunity = null)
         {
+            _includeCommunity = includeCommunity;
+            _incompatibility = incompatibility;
+            _browseCommunity = browseCommunity ?? BrowseCommunityAsync;
+            _installCommunity = installCommunity ?? InstallCommunityAsync;
             foreach (string room in rooms) _incompatibilities[room] = incompatibility?.Invoke(room);
             string[] compatibleRooms = rooms.Where(room => Incompatibility(room) == null).ToArray();
             Background = Brushes.Transparent;
@@ -57,18 +64,11 @@ namespace MphRead.Mods.Launcher.Gui
             var back = new PrimeButton("CANCEL", () => Cancelled?.Invoke(this, EventArgs.Empty));
             _use = new PrimeButton("USE MAP", () =>
             {
-                if (!String.IsNullOrWhiteSpace(_selected) && Incompatibility(_selected) == null) Done?.Invoke(this, _selected);
+                _ = ConfirmSelectionAsync();
             }, primary: true);
             _use.SetValue(ControllerNav.NavIdProperty, "map-picker.use");
             _search.SetValue(ControllerNav.NavIdProperty, "map-picker.search");
-            _search.TextChanged += (_, _) =>
-            {
-                string query = _search.Text?.Trim() ?? "";
-                foreach (Control child in _grid.Children)
-                    if (child is DeckTile tile)
-                        tile.IsVisible = tile.RoomKey.Contains(query, StringComparison.OrdinalIgnoreCase)
-                            || tile.Blurb.Contains(query, StringComparison.OrdinalIgnoreCase);
-            };
+            _search.TextChanged += (_, _) => FilterCards();
 
             var scroll = new ScrollViewer
             {
@@ -79,7 +79,16 @@ namespace MphRead.Mods.Launcher.Gui
             };
 
             var gallery = new Grid { RowDefinitions = new("Auto,*"), RowSpacing = PrimeMetrics.PanelGap };
-            gallery.Children.Add(_search); Grid.SetRow(scroll, 1); gallery.Children.Add(scroll);
+            var searchPanel = PrimeChrome.Stack(_search);
+            if (_includeCommunity)
+            {
+                _communityStatus.Text = "Loading Community maps…";
+                var refresh = new PrimeButton("REFRESH COMMUNITY", () => _ = LoadCommunityAsync());
+                refresh.SetValue(ControllerNav.NavIdProperty, "map-picker.refresh-community");
+                searchPanel.Children.Add(_communityStatus);
+                searchPanel.Children.Add(refresh);
+            }
+            gallery.Children.Add(searchPanel); Grid.SetRow(scroll, 1); gallery.Children.Add(scroll);
             var inspector = new PrimePanel(PrimeChrome.Stack(new PrimeBadge("DEPLOYMENT PREVIEW"),
                 _preview, _name, _note, PrimeChrome.Text("Select an arena, then confirm to update the match.",
                     PrimeTypography.BodySmall, PrimeTheme.TextSecondaryBrush)));
@@ -115,6 +124,7 @@ namespace MphRead.Mods.Launcher.Gui
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             base.OnAttachedToVisualTree(e);
+            if (_includeCommunity && !_communityStarted) { _communityStarted = true; _ = LoadCommunityAsync(); }
             foreach (Control child in _grid.Children)
             {
                 if (child is DeckTile tile && tile.Chosen)
@@ -140,6 +150,8 @@ namespace MphRead.Mods.Launcher.Gui
 
         private void Select(DeckTile selected)
         {
+            if (_installing) return;
+            _selectedCommunity = _communityCards.GetValueOrDefault(selected);
             _selected = selected.RoomKey;
             foreach (Control child in _grid.Children)
                 if (child is DeckTile tile)
@@ -150,7 +162,17 @@ namespace MphRead.Mods.Launcher.Gui
         private void RefreshSelection()
         {
             string? reason = _selected == null ? null : Incompatibility(_selected);
-            _use.IsEnabled = !String.IsNullOrWhiteSpace(_selected) && reason == null;
+            if (_selectedCommunity is { } community)
+            {
+                _use.IsEnabled = !_installing;
+                _name.Text = (community.DisplayName ?? community.Name).ToUpperInvariant();
+                _note.Text = $"Community · {community.Author ?? "Unknown author"} · v{community.Version ?? "1"}\n"
+                    + "Use Map downloads and prepares this version before selecting it.";
+                _note.Foreground = GuiTheme.TextDimBrush;
+                _preview.Source = MapShot.For(community.Name);
+                return;
+            }
+            _use.IsEnabled = !_installing && !String.IsNullOrWhiteSpace(_selected) && reason == null;
             _note.Text = String.IsNullOrWhiteSpace(_selected)
                 ? "Choose a map."
                 : $"Selected: {Metadata.GetRoomByName(_selected).Item1?.InGameName ?? _selected}";

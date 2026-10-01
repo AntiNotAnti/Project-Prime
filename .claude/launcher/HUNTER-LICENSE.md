@@ -128,3 +128,19 @@ career.
 
 The reporter registry stores only SHA-256 hashes of server keys. Plain reporter
 keys live only in the server's private `career.env`.
+
+
+### Account feedback and guest publishing
+
+Account progress/errors appear above the form. Email verification can start before
+entering a password; finishing still requires matching passwords of at least eight
+characters and a verified email. Email/password/provider-link actions and Refresh
+can retry when profile loading failed. Recovery still requires a loaded, empty
+career because it switches identities. Form values survive status updates, with
+password confirmation retained independently.
+
+Map publication accepts the automatically created guest identity. It mints a narrow
+Community ticket directly and does not depend on career/profile synchronization.
+Linking a registered account is optional for publishing and useful for recovering
+ownership on another installation. Supabase Manual Linking must be enabled for
+social identity linking; a disabled setting cannot be repaired by a client rebuild.

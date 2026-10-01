@@ -21,9 +21,9 @@ available through the inspector and command palette.
 
 1. Open **Online → Community maps** and refresh. The default library address is
    `https://maps.rebooty.xyz/`; a different address can be entered and is remembered.
-   Publishing identity comes from Hunter License, so there is no creator secret to copy into Map Studio.
+   Publishing works with the automatically created guest identity; no registered account or creator secret is required. Link an account if you want to recover map ownership on another device.
 2. Authors choose **Upload current**. Project Prime obtains a short-lived Community
-   publishing ticket from the author's Hunter License automatically; no creator
+   publishing ticket from the author's guest or registered identity automatically; no creator
    token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
    including referenced assets before upload.
 3. Players can browse Community maps from Forge or directly from **Create Lobby →
@@ -36,6 +36,18 @@ available through the inspector and command palette.
 5. Joining players do not need to pre-install a published map. The lobby advertises
    the exact package identity and Community source; clients download, verify, build,
    prewarm and report Ready before the server's normal start barrier releases.
+
+The existing lobby's **Choose deployment zone** card picker also loads public
+Community maps alongside local arenas. Community cards have a COMMUNITY badge;
+search matches their name or author. **Use Map** downloads, verifies and builds the
+selected immutable package, then checks the lobby's mode/player compatibility.
+Cancel closes the picker and cancels pending preparation; service failures leave
+local cards available and **Refresh Community** retries the listing.
+
+Changing maps in an already-running dedicated lobby still requires that server to
+have the selected package/version installed. For a new directory-hosted lobby,
+choose the Community map in its initial rotation so host preparation downloads it
+before starting the server process.
 
 Map installation is unavailable while a conflicting map runtime is active. Remote
 hosts only trust their operator-configured Community service rather than arbitrary

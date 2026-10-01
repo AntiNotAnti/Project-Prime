@@ -50,6 +50,7 @@ namespace MphRead.Mods.Launcher.Gui
         private CancellationTokenSource? _load;
         private string _pendingEmail = "";
         private string _pendingPassword = "";
+        private string _pendingConfirmation = "";
         private string _securityMessage = "";
         private bool _securityBusy;
 
@@ -284,6 +285,23 @@ namespace MphRead.Mods.Launcher.Gui
         {
             HunterLicenseAccount account = _snapshot.Account;
             var root = new StackPanel { Spacing = 10 };
+            if (_securityBusy || _securityMessage.Length > 0 || !_snapshot.Connected)
+            {
+                root.Children.Add(new TextBlock
+                {
+                    Name = "license-account-status",
+                    Text = _securityBusy ? "Contacting account service…"
+                        : _securityMessage.Length > 0 ? _securityMessage
+                        : "Profile is offline. Account actions can still retry the connection.",
+                    FontFamily = HubTheme.Data,
+                    FontSize = 9,
+                    Foreground = _securityMessage.StartsWith("License secured", StringComparison.OrdinalIgnoreCase)
+                        || _securityMessage.StartsWith("Recovered", StringComparison.OrdinalIgnoreCase)
+                        ? HubTheme.GoodBrush : HubTheme.WarmBrush,
+                    TextWrapping = TextWrapping.Wrap
+                });
+            }
+
             root.Children.Add(SectionTitle(
                 account.IsSecure ? "SECURED HUNTER LICENSE" : "GUEST HUNTER LICENSE",
                 account.IsSecure
@@ -328,9 +346,14 @@ namespace MphRead.Mods.Launcher.Gui
             var password = new FieldRow("Password", _pendingPassword, boxWidth: 280);
             password.Box.PasswordChar = '*';
             password.Box.MaxLength = 128;
-            var confirm = new FieldRow("Confirm", _pendingPassword, boxWidth: 280);
+            var confirm = new FieldRow("Confirm", _pendingConfirmation, boxWidth: 280);
             confirm.Box.PasswordChar = '*';
             confirm.Box.MaxLength = 128;
+            // Preserve each input independently when status/busy state rebuilds
+            // the account page. Never silently make confirmation match password.
+            email.Box.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) _pendingEmail = email.Value; };
+            password.Box.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) _pendingPassword = password.Value; };
+            confirm.Box.PropertyChanged += (_, change) => { if (change.Property == TextBox.TextProperty) _pendingConfirmation = confirm.Value; };
 
             var emailBlock = new StackPanel { Spacing = 7 };
             emailBlock.Children.Add(HubChrome.Kicker(
@@ -357,21 +380,12 @@ namespace MphRead.Mods.Launcher.Gui
             var send = new HubNavButton(
                 account.Email.Length > 0 ? "SEND EMAIL CHANGE" : "SEND VERIFICATION",
                 compact: true, accent: HubTheme.Accent);
-            send.IsEnabled = _snapshot.Connected && !_securityBusy;
+            send.IsEnabled = !_securityBusy;
             send.Click += async (_, _) =>
             {
                 if (_securityBusy) return;
                 string candidateEmail = email.Value.Trim();
-                string candidatePassword = password.Value;
-                if (candidatePassword.Length < 8 || candidatePassword != confirm.Value)
-                {
-                    SetSecurityMessage("Password must be at least 8 characters and both password fields must match.");
-                    Show(Face.Account);
-                    return;
-                }
-
                 _pendingEmail = candidateEmail;
-                _pendingPassword = candidatePassword;
                 _securityBusy = true;
                 Show(Face.Account);
                 HunterLicenseActionResult result = await HunterLicenseClient.BeginEmailLinkAsync(
@@ -385,7 +399,7 @@ namespace MphRead.Mods.Launcher.Gui
             var finish = new HubNavButton(
                 account.IsSecure ? "SET / CHANGE PASSWORD" : "I VERIFIED // FINISH",
                 compact: true, accent: account.IsSecure ? HubTheme.Good : HubTheme.Warm);
-            finish.IsEnabled = _snapshot.Connected && !_securityBusy;
+            finish.IsEnabled = !_securityBusy;
             finish.Click += async (_, _) =>
             {
                 if (_securityBusy) return;
@@ -406,6 +420,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if (result.Success)
                 {
                     _pendingPassword = "";
+                    _pendingConfirmation = "";
                     await RefreshAsync(CancellationToken.None);
                 }
                 else Show(Face.Account);
@@ -446,7 +461,7 @@ namespace MphRead.Mods.Launcher.Gui
                 var button = new HubNavButton(
                     linked ? provider.ToUpperInvariant() + "  LINKED" : "LINK " + provider.ToUpperInvariant(),
                     compact: true, accent: linked ? HubTheme.Good : HubTheme.Accent);
-                button.IsEnabled = _snapshot.Connected && !_securityBusy && !linked;
+                button.IsEnabled = !_securityBusy && !linked;
                 button.Click += async (_, _) =>
                 {
                     if (_securityBusy) return;
@@ -463,7 +478,7 @@ namespace MphRead.Mods.Launcher.Gui
             }
             providerBlock.Children.Add(providers);
             var refreshLinks = new HubNavButton("REFRESH LINK STATUS", compact: true);
-            refreshLinks.IsEnabled = _snapshot.Connected && !_securityBusy;
+            refreshLinks.IsEnabled = !_securityBusy;
             refreshLinks.Click += async (_, _) =>
             {
                 if (_securityBusy) return;
@@ -473,6 +488,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _securityBusy = false;
                 SetSecurityMessage(_snapshot.Account.IsSecure
                     ? "Identity status refreshed. This license is recoverable."
+                    : !_snapshot.Connected ? _snapshot.Status
                     : "Still a guest license. Complete the email/provider verification, then refresh again.");
                 Show(Face.Account);
             };
@@ -503,6 +519,8 @@ namespace MphRead.Mods.Launcher.Gui
                 });
                 var recover = new HubNavButton("SIGN IN // RECOVER LICENSE",
                     compact: true, accent: HubTheme.Good);
+                // Recovery switches identities; require a loaded career before
+                // deciding that this guest has no history to preserve.
                 recover.IsEnabled = _snapshot.Connected && !_securityBusy
                     && _snapshot.Stats.GamesPlayed == 0;
                 recover.Click += async (_, _) =>
@@ -526,6 +544,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if (result.Success)
                     {
                         _pendingPassword = "";
+                        _pendingConfirmation = "";
                         await RefreshAsync(CancellationToken.None);
                     }
                     else Show(Face.Account);
@@ -538,20 +557,6 @@ namespace MphRead.Mods.Launcher.Gui
                     BorderThickness = new Thickness(1),
                     Padding = new Thickness(12, 10),
                     Child = recovery
-                });
-            }
-
-            if (_securityMessage.Length > 0)
-            {
-                root.Children.Add(new TextBlock
-                {
-                    Text = _securityMessage,
-                    FontFamily = HubTheme.Data,
-                    FontSize = 9,
-                    Foreground = _securityMessage.StartsWith("License secured", StringComparison.OrdinalIgnoreCase)
-                        || _securityMessage.StartsWith("Recovered", StringComparison.OrdinalIgnoreCase)
-                        ? HubTheme.GoodBrush : HubTheme.WarmBrush,
-                    TextWrapping = TextWrapping.Wrap
                 });
             }
 

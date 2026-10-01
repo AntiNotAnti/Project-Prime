@@ -109,6 +109,122 @@ namespace MphRead.Mods.Launcher.Gui
             finally { window.Close(); }
         }
 
+        private static void CheckLicenseAccountFeedback()
+        {
+            var license = new LicenseWorkspace(loadProfile: false);
+            var window = new Window { Width = 1280, Height = 720, Content = license, ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000), WindowStartupLocation = WindowStartupLocation.Manual };
+            var flags = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic;
+            var face = typeof(LicenseWorkspace).GetNestedType("Face", System.Reflection.BindingFlags.NonPublic)!;
+            void OpenAccount()
+            {
+                typeof(LicenseWorkspace).GetMethod("Show", flags)!.Invoke(license,
+                    new[] { Enum.Parse(face, "Account") });
+                Drain(window);
+            }
+            try
+            {
+                window.Show(); OpenAccount();
+                HubNavButton Button(string label) => license.GetVisualDescendants().OfType<HubNavButton>()
+                    .Single(button => button.Label == label);
+                Check(Button("SEND VERIFICATION").IsEnabled,
+                    "offline profile does not disable email linking retries");
+                Check(Button("REFRESH LINK STATUS").IsEnabled,
+                    "offline account can refresh its connection");
+                Check(!Button("SIGN IN // RECOVER LICENSE").IsEnabled,
+                    "offline career cannot authorize replacing the current guest identity");
+                var send = Button("SEND VERIFICATION");
+                send.Focus(); FocusNavigator.Key(send, Key.Enter); Drain(window);
+                Check(license.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Enter a valid email address."),
+                    "email verification validates email without requiring a password");
+                var fields = license.GetVisualDescendants().OfType<FieldRow>().ToArray();
+                fields[0].Box.Text = "creator@example.com";
+                fields[1].Box.Text = "short";
+                fields[2].Box.Text = "different";
+                var finish = Button("I VERIFIED // FINISH");
+                finish.Focus(); FocusNavigator.Key(finish, Key.Enter); Drain(window);
+                var status = license.GetVisualDescendants().OfType<TextBlock>()
+                    .Single(block => block.Name == "license-account-status");
+                Check(status.Text!.Contains("both password fields must match"),
+                    "registration validation displays actionable feedback");
+                Check(status.TranslatePoint(default, window) is { } point && point.Y >= 0 && point.Y < 350,
+                    "account feedback is visible above the form");
+                fields = license.GetVisualDescendants().OfType<FieldRow>().ToArray();
+                Check(fields[0].Value == "creator@example.com" && fields[1].Value == "short"
+                    && fields[2].Value == "different", "account validation preserves distinct input values");
+                typeof(LicenseWorkspace).GetField("_securityBusy", flags)!.SetValue(license, true);
+                OpenAccount();
+                Check(!Button("SEND VERIFICATION").IsEnabled
+                    && license.GetVisualDescendants().OfType<TextBlock>().Any(t => t.Text == "Contacting account service…"),
+                    "busy account shows progress and prevents duplicate submission");
+            }
+            finally { window.Close(); }
+        }
+
+        private static void CheckCommunityMapPicker()
+        {
+            var map = new MapGen.CommunityMap(new string('a', 64), Guid.NewGuid(), new string('b', 64),
+                "COMMUNITY FIXTURE", "Community Test Arena", "Test Creator", "1.0", 100);
+            var download = new System.Threading.Tasks.TaskCompletionSource<string>();
+            int installs = 0;
+            System.Threading.CancellationToken installToken = default;
+            string? picked = null;
+            var picker = new MapCardPicker(new[] { "MP1 SANCTORUS" }, null, includeCommunity: true,
+                browseCommunity: _ => System.Threading.Tasks.Task.FromResult(new[] { map }),
+                installCommunity: (_, token) => { installs++; installToken = token; return download.Task; });
+            var window = new Window { Width = 1280, Height = 720, Content = picker, ShowInTaskbar = false,
+                Position = new PixelPoint(-4000, -4000), WindowStartupLocation = WindowStartupLocation.Manual };
+            picker.Done += (_, room) => picked = room;
+            void Click(Control control) { control.Focus(); FocusNavigator.Key(control, Key.Enter); Drain(window); }
+            try
+            {
+                window.Show(); Drain(window);
+                Check(picker.GetVisualDescendants().OfType<DeckTile>().Count() == 2,
+                    "community cards appear alongside local maps");
+                var search = (TextBox)ControllerNav.Find(picker, "map-picker.search")!;
+                search.Text = "Test Creator"; Drain(window);
+                var visible = picker.GetVisualDescendants().OfType<DeckTile>().Where(t => t.IsVisible).ToArray();
+                Check(visible.Length == 1 && visible[0].RoomKey == map.Name,
+                    "community maps can be searched by author");
+                Click(visible[0]);
+                var use = ControllerNav.Find(picker, "map-picker.use")!;
+                Click(use);
+                Check(installs == 1 && picked == null && !use.IsEnabled,
+                    "community selection waits for preparation before changing the lobby");
+                download.SetResult(map.Name); Drain(window);
+                Check(picked == map.Name, "prepared community map confirms the selected room");
+                window.Content = null; Drain(window);
+                Check(installToken.IsCancellationRequested, "closing picker cancels its community lifetime");
+
+                var failure = new MapCardPicker(new[] { "MP1 SANCTORUS" }, "MP1 SANCTORUS", includeCommunity: true,
+                    browseCommunity: _ => System.Threading.Tasks.Task.FromException<MapGen.CommunityMap[]>(new IOException("test outage")));
+                window.Content = failure; Drain(window);
+                Check(ControllerNav.Find(failure, "map-picker.use")!.IsEnabled,
+                    "community outage leaves local selection available");
+                window.Content = null; Drain(window);
+
+                var blocked = new MapCardPicker(Array.Empty<string>(), null, _ => "Unsupported test mode", includeCommunity: true,
+                    browseCommunity: _ => System.Threading.Tasks.Task.FromResult(new[] { map }),
+                    installCommunity: (_, _) => System.Threading.Tasks.Task.FromResult(map.Name));
+                string? rejected = null; blocked.Done += (_, room) => rejected = room;
+                window.Content = blocked; Drain(window);
+                Click(blocked.GetVisualDescendants().OfType<DeckTile>().Single());
+                Click(ControllerNav.Find(blocked, "map-picker.use")!);
+                Check(rejected == null, "community selection rechecks mode compatibility after installation");
+                window.Content = null; Drain(window);
+
+                var late = new System.Threading.Tasks.TaskCompletionSource<MapGen.CommunityMap[]>();
+                var closed = new MapCardPicker(Array.Empty<string>(), null, includeCommunity: true,
+                    browseCommunity: _ => late.Task);
+                window.Content = closed; Drain(window);
+                window.Content = null; Drain(window);
+                late.SetResult(new[] { map }); Drain(window);
+                Check(!closed.GetLogicalDescendants().OfType<DeckTile>().Any(),
+                    "late community results do not populate a dismissed picker");
+            }
+            finally { window.Close(); }
+        }
+
         private static void CheckSavedLobbyLimits()
         {
             GameMode previousMode = LauncherPrefs.LastLobbyMode;
@@ -224,6 +340,8 @@ namespace MphRead.Mods.Launcher.Gui
                         "legacy borderless preferences remain valid");
                     CheckCosmeticThumbnailReentry();
                     CheckCosmeticPreviewModes();
+                    CheckLicenseAccountFeedback();
+                    CheckCommunityMapPicker();
                     CheckSavedLobbyLimits();
                     CheckAdvancedRules();
                     CheckInProgressAdmission();
