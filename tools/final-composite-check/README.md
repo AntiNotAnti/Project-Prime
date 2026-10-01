@@ -19,3 +19,9 @@ not establish Android physical readback or cross-platform visual acceptance.
 The animated shell script does not freeze state for pixel equivalence. Its
 successful completion proves capture and lifecycle execution, not universal
 parity, leak freedom, hardware performance, or device-recovery acceptance.
+
+The focused native `-renderwindowcheck -renderer metal` also passed injected
+device reconstruction with resource restoration, fresh OpenGL fallback after
+repeated failure, texture/HDR updates, and 120 warm-cache resize/resource cycles
+on the same adapter. Its no-growth check includes bind groups. This bounded
+synthetic loop does not replace the full gameplay/replay/editor transition matrix.
