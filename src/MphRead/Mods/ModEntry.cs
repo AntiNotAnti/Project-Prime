@@ -34,6 +34,11 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            if (HasFlag(args, "settingsarchive"))
+            {
+                Environment.ExitCode = Settings.SettingsArchiveCommand.Run(args);
+                return true;
+            }
             // Renderer probes return before the normal client logging setup.
             // Honor explicit logging here so native startup failures in those
             // probes retain the same checkpoints as the launcher.
