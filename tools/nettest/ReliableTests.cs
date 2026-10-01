@@ -15,6 +15,7 @@ internal static class ReliableTests
         try
         {
             FullStateStartupBurst();
+            BackgroundInboxRetry();
             var endpoint = new IPEndPoint(IPAddress.Loopback, 42);
             NetConnection sender = new NetConnection(endpoint, 12), receiver = new NetConnection(endpoint, 12);
             var queue = new NetFaultQueue<Wire>(42, 160, 80, .05, .03, .01);
@@ -88,6 +89,46 @@ internal static class ReliableTests
             Console.WriteLine("PASS: reliability under 5% loss / 80ms jitter / 3% reorder / 1% duplicate; capacity, dedup span and expiry"); return 0;
         }
         catch (Exception ex) { Console.Error.WriteLine(ex); return 1; }
+    }
+
+    private static void BackgroundInboxRetry()
+    {
+        using var transport = new NetTransport(0);
+        using var wire = new UdpClient(0);
+        wire.Client.ReceiveTimeout = 2000;
+        var remote = new IPEndPoint(IPAddress.Loopback, ((IPEndPoint)wire.Client.LocalEndPoint!).Port);
+        var server = new IPEndPoint(IPAddress.Loopback, transport.LocalPort);
+        transport.Send(remote, PacketType.Welcome, new byte[17]);
+        var from = new IPEndPoint(IPAddress.Any, 0);
+        byte[] welcome = wire.Receive(ref from);
+        NetArchitectureTests.Check(NetHeader.TryRead(welcome, out var header), "real transport bootstrap header");
+        var sender = new NetConnection(server, header.ConnectionId);
+        sender.Receive(header, 0);
+        var queue = (NetPacketQueue)typeof(NetTransport).GetField("_liveInbox",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(transport)!;
+        byte[] intent = { (byte)PacketType.Intent };
+        while (queue.CanAccept(PacketType.Intent)) queue.TryEnqueue(new(remote, intent, 1));
+        NetArchitectureTests.Check(queue.CanAcceptCritical, "normal saturation retains critical reserve");
+        void SendFact()
+        {
+            byte[] packet = new byte[NetHeader.Size + 5];
+            sender.Send(PacketType.MatchSemanticEvent, 0, NetHeaderFlags.Reliable, 1).Write(packet);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(packet.AsSpan(NetHeader.Size), 1);
+            packet[^1] = 42;
+            wire.Send(packet, server);
+        }
+        long drops = transport.Telemetry.Capture().QueueDrops;
+        SendFact();
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() => transport.Telemetry.Capture().QueueDrops > drops, 2000),
+            "first background reliable attempt deferred at normal inbox limit");
+        while (queue.TryDequeue(NetPacketPriority.Realtime, out _)) { }
+        SendFact();
+        bool applied = false;
+        NetArchitectureTests.Check(SpinWait.SpinUntil(() =>
+        {
+            foreach (var packet in transport.Drain()) applied |= packet.Type == PacketType.MatchSemanticEvent && packet.Payload[0] == 42;
+            return applied;
+        }, 2000), "same reliable event survives inbox saturation and applies on retry");
     }
 
     private static void FullStateStartupBurst()

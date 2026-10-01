@@ -8,6 +8,23 @@ internal static class MatchSemanticWireChecks
 {
     internal static void Run(Action<bool, string> require)
     {
+        var delivery = new NetRetainedDelivery(4);
+        var cursor = delivery.Join();
+        byte[] source = { 1 };
+        delivery.Append(PacketType.MatchSemanticEvent, source); source[0] = 99;
+        require(delivery.Pump(cursor, _ => false) && cursor.Next == 1, "backpressure retains cursor");
+        int accepted = 0;
+        require(delivery.Pump(cursor, value => { require(value.Payload[0] == 1, "retained payload owns copy"); accepted++; return true; })
+            && accepted == 1 && cursor.Next == 2, "retry delivers exactly once");
+        require(delivery.Pump(cursor, _ => { accepted++; return true; }) && accepted == 1, "accepted facts not republished");
+        var lateJoin = delivery.Join();
+        require(delivery.Pump(lateJoin, _ => { accepted++; return true; }) && accepted == 1, "late join skips historical announcements");
+        var slow = delivery.Join();
+        for (int i = 0; i < 4; i++) delivery.Append(PacketType.MatchAward, new byte[] { (byte)i });
+        require(delivery.Pump(lateJoin, _ => true, 2) && lateJoin.Next == 4, "bounded pump work");
+        delivery.Append(PacketType.MatchAward, new byte[] { 4 });
+        require(!delivery.Pump(slow, _ => throw new Exception("must fail before delivering suffix")), "history overrun fails closed");
+        require(delivery.Pump(lateJoin, _ => true) && lateJoin.Next == 7, "slow peer does not block healthy peer");
         var fact = new MatchSemanticEventPacket(1, 2, 3, 4, MatchSemanticEventType.PlayerKilled,
             0, 1, 2, 1, 2, 3, 6, 1, 9, 10);
         byte[] bytes = new byte[MatchSemanticEventPacket.Size]; fact.Write(bytes);

@@ -15,6 +15,9 @@ internal static class QueueBudgetTests
             byte[] intent = { (byte)PacketType.Intent }, loaded = { (byte)PacketType.MatchLoaded }, chat = { (byte)PacketType.Chat };
             for (int i = 0; i < 10000; i++) queue.TryEnqueue(new(endpoint, intent, intent.Length));
             NetArchitectureTests.Check(queue.Count == 1920 && queue.Drops == 8080, "realtime flood cannot consume reserve");
+            NetArchitectureTests.Check(!queue.CanAccept(PacketType.MatchSemanticEvent)
+                && !queue.CanAccept(PacketType.MatchAward) && queue.CanAccept(PacketType.MatchLoaded),
+                "reliable admission follows actual priority before acknowledging delivery");
             for (int i = 0; i < 128; i++) NetArchitectureTests.Check(queue.TryEnqueue(new(endpoint, loaded, 1)), "critical reserve survives flood");
             NetArchitectureTests.Check(!queue.TryEnqueue(new(endpoint, loaded, 1)) && !queue.TryEnqueue(new(endpoint, chat, 1))
                 && queue.HighWater == 2048, "absolute capacity");

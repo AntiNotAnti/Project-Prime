@@ -453,6 +453,15 @@ namespace MphRead.Mods.Network
 
         private bool AcceptDatagram(IPEndPoint sender, byte[] data, int length)
         {
+            // Admission and reliable acknowledgement are one transaction. A concurrent
+            // socket/lag arrival must not consume the preflighted inbox slot.
+            long stamp = EnterConnectionLock();
+            try { return AcceptDatagramLocked(sender, data, length); }
+            finally { ExitConnectionLock(stamp); }
+        }
+
+        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, int length)
+        {
             NetHeader.TryRead(data.AsSpan(0, length), out var header);
             if (!Unwrap(sender, data, ref length)) return false;
             if (_autoPong && (PacketType)data[0] == PacketType.Ping)
@@ -582,7 +591,7 @@ namespace MphRead.Mods.Network
         /// <param name="immediateCopies">One to three independent datagrams for
         /// a reliable event. Extra copies preserve the event's dedup identity
         /// and are reserved for latency-sensitive startup publication.</param>
-        internal bool TrySendSemanticDiagnostic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
+        internal bool TrySendSemantic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
         {
             if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward)) return false;
             long stamp = EnterConnectionLock();
@@ -748,7 +757,7 @@ namespace MphRead.Mods.Network
                     eventId = BinaryPrimitives.ReadUInt32LittleEndian(data.AsSpan(NetHeader.Size));
                     // Do not ACK delivery unless a first application can enter
                     // the bounded inbox. A new attempt will retry with a new sequence.
-                    if (!connection.Reliable.AlreadyReceived(eventId) && !_liveInbox.CanAcceptCritical)
+                    if (!connection.Reliable.AlreadyReceived(eventId) && !_liveInbox.CanAccept(header.Type))
                     { Telemetry.Drop(); return false; }
                 }
                 var result = connection.Receive(header, NowMilliseconds);

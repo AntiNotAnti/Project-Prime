@@ -31,6 +31,7 @@ namespace MphRead.Mods.Network
         private int _studyAdmissionHead;
         private sealed class Peer
         {
+            internal NetRetainedDelivery.Cursor? SemanticCursor;
             public readonly NetPeerTelemetry Telemetry = new();
             public IPEndPoint EndPoint = null!;
             public int SlotIndex = -1;
@@ -204,9 +205,9 @@ namespace MphRead.Mods.Network
         private readonly byte[] _lastSnapshot = new byte[NetConfig.MaxSnapshotSize];
         private int _lastSnapshotLength;
         private volatile bool _running;
-        private readonly bool _semanticWireEnabled = Environment.GetEnvironmentVariable("PP_SEMANTIC_EVENT_WIRE") == "1";
-        private long _semanticWireDrops;
-        internal long SemanticWireDrops => _semanticWireDrops;
+        private readonly NetRetainedDelivery _semanticDelivery = new();
+        private long _semanticSlowPeerDisconnects;
+        internal long SemanticSlowPeerDisconnects => _semanticSlowPeerDisconnects;
         private double _matchStarted;
         /// <summary>
         /// When the match ended, or -1 while one is being played.
@@ -456,12 +457,14 @@ namespace MphRead.Mods.Network
                     // to the steps this pass owes, exactly as a client applies
                     // what arrived before it steps.
                     CheckLoadBarrier(now);
+                    PumpSemanticDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
                     EnsureCareerMatchStarted(now);
                     foreach (ReceivedPacket packet in _transport.Drain(NetPumpBudget.AfterSimulation)) Handle(packet, now);
                     // Pongs and load-progress heartbeats are background control.
                     // After a long synchronous room build they may already be in
                     // the inbox; consume them before deciding a peer was silent.
+                    PumpSemanticDelivery();
                     DropTimedOut(now);
 
                     // The server owns the match clock, not the authority client:
@@ -950,15 +953,7 @@ namespace MphRead.Mods.Network
             {
                 foreach (var peer in _peers) _transport?.Send(peer.EndPoint, PacketType.ReplayWorld, payload);
             };
-            NetSession.MatchSemanticSink = (type, payload) =>
-            {
-                // Opt-in diagnostic wire until semantic parity and consumer migration gates pass.
-                // Its ordinary reliable budget never exhausts critical gameplay control capacity.
-                if (!_semanticWireEnabled) return;
-                foreach (var peer in _peers)
-                    if (_transport?.TrySendSemanticDiagnostic(peer.EndPoint, type, payload) != true)
-                        _semanticWireDrops++;
-            };
+            NetSession.MatchSemanticSink = (type, payload) => _semanticDelivery.Append(type, payload);
             // Keep the bounded one-room prewarm cache for same-map rematches.
             // It is replaced automatically if the lobby selects another room.
             // This server arbitrates its clients' hit claims for as long as it
@@ -2364,6 +2359,23 @@ namespace MphRead.Mods.Network
             if (peer != null)
             {
                 Remove(peer, "left");
+            }
+        }
+
+        private void PumpSemanticDelivery()
+        {
+            for (int i = _peers.Count - 1; i >= 0; i--)
+            {
+                var peer = _peers[i];
+                if (!peer.AdmissionReady) { peer.SemanticCursor = null; continue; }
+                peer.SemanticCursor ??= _semanticDelivery.Join();
+                if (!_semanticDelivery.Pump(peer.SemanticCursor,
+                    fact => _transport?.TrySendSemantic(peer.EndPoint, fact.Type, fact.Payload) == true))
+                {
+                    _semanticSlowPeerDisconnects++;
+                    _transport?.Send(peer.EndPoint, PacketType.Bye, ReadOnlySpan<byte>.Empty);
+                    Remove(peer, "semantic history overrun");
+                }
             }
         }
 

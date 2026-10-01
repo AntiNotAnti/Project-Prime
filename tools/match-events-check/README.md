@@ -65,7 +65,7 @@ write unmatched observations through Debug. Snapshot coalescing, unavailable
 exact identities and capture gaps can produce real mismatches. A passing domain
 check does **not** establish production parity. Asset-backed all-weapon/all-mode
 sessions must inspect these diagnostics before any Stage C–G consumer migration.
-No consumer migration or wire extension is included here.
+Player-facing consumer migration remains gated on the broader parity evidence below.
 
 ## Protocol 35 staged recording and receiving
 
@@ -86,14 +86,14 @@ is now 256 KiB to accommodate those bounded histories. This is recent history,
 not an unbounded full-match event archive; complete recordings retain the full
 sequential fact stream separately.
 
-Live network fanout is diagnostic opt-in on the dedicated server:
-`PP_SEMANTIC_EVENT_WIRE=1`. Both packet types use ordinary reliable delivery and
-background processing. `TrySendSemanticDiagnostic` refuses additional facts while
-16 reliable entries are outstanding and never marks a connection failed on queue
-refusal. DedicatedServer.SemanticWireDrops and scene.SemanticPublisher.HistoryGaps
-are explicit diagnostics. The opt-in stream is **not guaranteed complete under
-budget pressure**, so it cannot replace score, replay authority or player-facing
-consumers. Normal canonical server recording is independent of that wire budget.
+Live network fanout is mandatory on the dedicated server. Both packet types use
+ordinary reliable delivery and background processing. `TrySendSemantic` refuses additional facts while
+16 reliable entries are outstanding. The server retains 4096 source facts and
+tracks each ready peer's cursor, retries eight facts per pump within the ordinary
+reliable budget, and disconnects a peer whose cursor falls behind retained history.
+Late join starts at the current tail. The mandatory passive stream never consumes
+critical reserve. Inbox admission checks actual priority atomically before ACK.
+Scene.SemanticPublisher.HistoryGaps remains an explicit producer diagnostic.
 
 `ProjectPrime -replayformatcheck` includes generated packet golden bytes,
 malformed-wire boundaries, reordered delivery, bounded history eviction, semantic
@@ -110,12 +110,14 @@ This F2 check starts the real ServerSim, uses real players and the production
 accepted-damage path, and independently compares exact replay kill/headshot markers
 against semantic facts. It covers health/score invariance, assists, all nine beam
 types and respawn lives. It does not claim projectile trajectory/collision,
-all-mode objective parity, F4 real UDP saturation/reconnect, or F5 WAN evidence.
+F4 reconnect, or F5 WAN evidence. The game-mode scene check now uses real
+spawned lives and compares accepted pickups/captures, node contest/capture and
+Prime changes to independent production counters across 2/4/8 players (891
+checks). The reliable test exercises real UDP inbox saturation and retries the
+same semantic event after capacity becomes available.
 
-Remaining Stage C–G migration gates: test all-mode objective/Prime transitions,
-source-claim corrections and delayed/coalesced snapshot parity; measure reliable
-bandwidth under load and define lossless admission/backpressure before enabling
-mandatory delivery; migrate kill feed, announcer, telemetry and post-match
+Remaining Stage C–G migration gates: source-claim corrections and delayed/coalesced snapshot parity; measure reliable
+bandwidth under load; migrate kill feed, announcer, telemetry and post-match
 consumers only once those checks pass. Existing player-facing consumers and their
 legacy replay translation continue unchanged. Overtime still needs an actual
 authorized gameplay rule before an authoritative producer can exist.

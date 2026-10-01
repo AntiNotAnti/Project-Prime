@@ -1,7 +1,7 @@
 using System;
 using MphRead.Mods.Network;
 namespace MphRead.Mods.MatchEvents;
-/// <summary>Scene-owned passive recording. Network fanout is separately opt-in and budgeted.</summary>
+/// <summary>Scene-owned passive recording. Network fanout uses separately retained, budgeted delivery.</summary>
 internal sealed class MatchSemanticPublisher
 {
     private ushort _match;

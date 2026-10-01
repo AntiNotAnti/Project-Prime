@@ -29,6 +29,10 @@ public sealed class NetPacketQueue
     public int HighWater { get { lock (_lock) return _high; } }
     public long Drops { get { lock (_lock) return _drops; } }
     public bool CanAcceptCritical { get { lock (_lock) return _count < _capacity; } }
+    public bool CanAccept(PacketType type)
+    {
+        lock (_lock) return _count < (Priority(type) == NetPacketPriority.Critical ? _capacity : _normalLimit);
+    }
     public static NetPacketPriority Priority(PacketType type) => type switch
     {
         PacketType.MatchSemanticEvent or PacketType.MatchAward => NetPacketPriority.Background,
