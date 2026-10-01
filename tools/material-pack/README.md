@@ -98,3 +98,10 @@ Use `--pixels vulkan /tmp/material-vulkan.json` and the same comparison command;
 install the native runtime in both the output root and `runtimes/osx-arm64/native`
 after building, with the MoltenVK loader and ICD beside the output DLL.
 Windows DirectX/Vulkan and physical Android pixel acceptance remain unverified.
+
+Observed inventories retain up to eight distinct model and map labels per material
+(256 characters per label), and persist a deterministic bounded subset below 2 MiB.
+They describe observed usage, not a complete installed-content census: omitted or
+unobserved materials are never labeled unused. Legacy single-model inventories
+remain readable. Map Studio counts effective mesh-face assignments and imported
+model sources; Select usages frames those actual objects.

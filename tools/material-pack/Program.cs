@@ -67,11 +67,52 @@ try
     Check(new MaterialResolver(root).Resolve("Samus", 3, 0, 0).Albedo == null, "explicit empty entry overrides legacy");
     string inventory = Path.Combine(root, "inventory.json");
     MaterialInventory.Write(inventory, new[] { new MaterialObservation(key.Value, 16, 32, "Samus") });
+    Check(MaterialInventory.Read(inventory).Single().Models.Length == 0, "legacy inventory remains readable");
+    MaterialInventory.Write(inventory, new[] { new MaterialObservation(key.Value.ToUpperInvariant(), 16, 32, "Samus") });
+    Check(MaterialInventory.Read(inventory).Single().Key == key.Value, "inventory keys normalized on import");
+    MaterialInventory.Observe(key, 16, 32, "Samus", "Map One");
+    MaterialInventory.Observe(key, 16, 32, "Samus", "Map Two");
+    MaterialInventory.Observe(key, 16, 32, "Samus alternate", "Map Two");
+    MaterialInventory.SaveObserved(inventory);
+    var observation = MaterialInventory.Read(inventory).Single();
+    Check(observation.Models.SequenceEqual(new[] { "Samus", "Samus alternate" })
+        && observation.Maps.SequenceEqual(new[] { "Map One", "Map Two" }), "observed models and maps accumulate uniquely");
+    foreach (var invalid in new[]
+    {
+        observation with { OriginalWidth = int.MaxValue },
+        observation with { Model = new string('x', 257) },
+        observation with { Maps = new[] { "bad\nlabel" } },
+        observation with { Models = Enumerable.Repeat("model", 9).ToArray() }
+    })
+    {
+        MaterialInventory.Write(inventory, new[] { invalid });
+        Reject(() => MaterialInventory.Read(inventory), "inventory dimensions and usage labels bounded");
+    }
+    MaterialInventory.Write(inventory, new[] { observation });
     string starter = Path.Combine(root, "starter");
     Check(MaterialPackCommand.Run(new[] { "starter", inventory, starter }) == 0, "starter command");
     var starterPack = MaterialPack.Load(starter);
     Check(starterPack.Manifest.Materials.Single().Albedo == "" && starterPack.Issues.Count == 0, "starter does not guess filenames");
     Check(MaterialPackCommand.Run(new[] { "starter", inventory, starter }) != 0, "starter refuses overwrite");
+    for (int i = 0; i < 600; i++)
+        for (int usage = 0; usage < 10; usage++)
+            MaterialInventory.Observe(MaterialAssetKey.Model("bounded-" + i, 0, 0, 0), 1, 1,
+                usage + new string('m', 250), usage + new string('r', 250));
+    MaterialInventory.SaveObserved(inventory);
+    var boundedInventory = MaterialInventory.Read(inventory);
+    Check(new FileInfo(inventory).Length <= MaterialPack.MaximumManifestBytes && boundedInventory.Length < 601
+        && boundedInventory.All(o => o.Models.Length <= MaterialInventory.MaximumUsageLabels
+            && o.Maps.Length <= MaterialInventory.MaximumUsageLabels), "saved observation snapshot respects reader and usage limits");
+    var usageDefinition = new MphRead.Mods.MapGen.MapDefinition();
+    var usageMesh = new MphRead.Mods.MapGen.MapMesh { Material = 0,
+        Faces = new() { new[] { 0, 1, 2 }, new[] { 0, 2, 3 } }, FaceMaterials = new() { 1, 1 } };
+    usageDefinition.Geometry.Add(usageMesh);
+    Check(MphRead.Mods.MapEditor.MapMaterialEditing.Usages(usageDefinition, 0).Length == 0
+        && MphRead.Mods.MapEditor.MapMaterialEditing.Usages(usageDefinition, 1).SequenceEqual(new[] { usageMesh.Id }),
+        "usage focus follows effective faces rather than overridden fallback");
+    usageMesh.FaceMaterials.RemoveAt(1);
+    Check(MphRead.Mods.MapEditor.MapMaterialEditing.Usages(usageDefinition, 0).SequenceEqual(new[] { usageMesh.Id }),
+        "unassigned faces retain fallback usage");
     string authoring = Path.Combine(root, "authoring");
     MaterialPackAuthoring.Assign(authoring, key, "albedo", Path.Combine(root, "pixel.png"));
     var authored = MaterialPack.Load(authoring);

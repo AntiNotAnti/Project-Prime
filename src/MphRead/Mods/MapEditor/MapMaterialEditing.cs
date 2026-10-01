@@ -8,7 +8,8 @@ namespace MphRead.Mods.MapEditor;
 public static class MapMaterialEditing
 {
     public static Guid[] Usages(MapDefinition definition, int material) => definition.Geometry
-        .Where(g => g.Material == material || g is MapMesh m && m.FaceMaterials.Contains(material)).Select(g => g.Id)
+        .Where(g => g is MapMesh m ? Enumerable.Range(0, m.Faces.Count).Any(f =>
+            (f < m.FaceMaterials.Count ? m.FaceMaterials[f] : m.Material) == material) : g.Material == material).Select(g => g.Id)
         .Concat(definition.Brushes.Where(b => b.Material == material).Select(b => b.Id)).ToArray();
 
     private static void Remap(MapDefinition definition, Func<int, int> map)

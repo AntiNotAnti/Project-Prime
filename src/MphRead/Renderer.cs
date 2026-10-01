@@ -1482,7 +1482,7 @@ namespace MphRead
                 {
                     var key = new Mods.Render.Materials.MaterialAssetKey(scope + "/recolor/" + recolor);
                     var texture = model.Recolors[recolor].Textures[material.TextureId];
-                    Mods.Render.Materials.MaterialInventory.Observe(key, texture.Width, texture.Height, model.Name);
+                    Mods.Render.Materials.MaterialInventory.Observe(key, texture.Width, texture.Height, model.Name, _room?.Meta.Name);
                     var slot = (index, material.TextureId, material.PaletteId, recolor);
                     // Default/legacy users keep the original shared texture allocation.
                     // Explicit empty entries still need their own binding to suppress a
@@ -1579,7 +1579,7 @@ namespace MphRead
             Texture texture = model.Recolors[recolorId].Textures[textureId];
             Mods.Render.Materials.MaterialInventory.Observe(
                 authoredKey ?? Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
-                texture.Width, texture.Height, model.Name);
+                texture.Width, texture.Height, model.Name, _room?.Meta.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
                 textureId, paletteId, recolorId, out _, out _, out Mods.Render.Materials.ResolvedMaterial? replacementMaterial, authoredKey);

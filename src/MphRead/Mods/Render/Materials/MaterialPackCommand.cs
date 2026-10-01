@@ -23,7 +23,7 @@ public static class MaterialPackCommand
                     pack.TryResolve(new(entry.Key), out var material);
                     var observed = observations.FirstOrDefault(o => o.Key == entry.Key);
                     Console.WriteLine(entry.Key + (observed == null ? " · not in observed inventory (usage unknown)"
-                        : $" · original {observed.OriginalWidth}x{observed.OriginalHeight} · model {observed.Model}"));
+                        : $" · original {observed.OriginalWidth}x{observed.OriginalHeight} · models {string.Join(", ", observed.Models.Length == 0 ? new[] { observed.Model } : observed.Models)} · maps {(observed.Maps.Length == 0 ? "not observed" : string.Join(", ", observed.Maps))}"));
                     foreach (var map in new[] { ("albedo", material.Albedo), ("normal", material.Normal),
                         ("specularRoughness", material.SpecularRoughness), ("emissive", material.Emissive) })
                         Console.WriteLine($"  {map.Item1}: " + (map.Item2 is { } image ? $"{image.Width}x{image.Height} {image.Path}" : "absent"));

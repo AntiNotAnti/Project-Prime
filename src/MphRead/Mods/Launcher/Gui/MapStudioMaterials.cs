@@ -44,7 +44,7 @@ internal sealed partial class MapStudioScreen
                 var texture = model.Recolors[0].Textures[original.TextureId];
                 width = texture.Width; height = texture.Height;
             }
-            MaterialInventory.Observe(key, width, height, definition.Name);
+            MaterialInventory.Observe(key, width, height, definition.Name, definition.Name);
             panel.Children.Add(Text("LOCAL MATERIAL PACK · " + key.Value));
             panel.Children.Add(Text("This map/material identity follows the authored surface into compiled and community maps. Assignments stay local; sharing a map does not include this material pack."));
             var resolved = TextureReplacementPack.ResolveExplicit(key);
