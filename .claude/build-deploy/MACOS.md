@@ -31,11 +31,12 @@ The release publish job waits for all platform packages to pass before uploading
 - The resulting tar.gz preserves executable permissions. The script extracts
   it again, verifies the resource seal and executes the extracted apphost.
 
-When present in a publish, `gamecontrollerdb.txt` and `gamecontrollerdb.LICENSE`
-are also moved into `Contents/Resources` before signing. They are data, not
-nested code; controller feature branches must load the database from
-`AppPaths.ResourceDirectory`. The packaging fixture checks both files and
-proves that changing the database invalidates the app's resource seal.
+When present in a publish, `gamecontrollerdb.txt`, `gamecontrollerdb.LICENSE`,
+and the `fidelity-baselines/` directory are also moved into `Contents/Resources`
+before signing. They are data, not nested code. Controller mappings and fidelity
+verification resolve them from `AppPaths.ResourceDirectory`. The packaging
+fixture checks these resources and proves that changing them invalidates the
+app's resource seal.
 
 These are ad-hoc signatures, not Developer ID signatures or notarization.
 Gatekeeper can still require the user's approval for a downloaded archive.
