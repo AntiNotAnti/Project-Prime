@@ -1819,6 +1819,8 @@ namespace MphRead.Mods.Launcher.Gui
                     _stylusOutlineOpacity.Value = (int)MathF.Round(Mods.Input.StylusZone.OutlineOpacity * 100);
                 if (_stylusButtonOpacity != null)
                     _stylusButtonOpacity.Value = (int)MathF.Round(Mods.Input.StylusZone.ButtonOpacity * 100);
+                _stylusGuideColor = Mods.Input.StylusZone.GuideColor;
+                _stylusGuideColorEditor?.Apply(_stylusGuideColor);
                 ShowStylusRows();
                 _scrollAllWeapons.On = InputSettings.ScrollAllWeapons;
                 _gamepadSettings.Reload();
@@ -1870,6 +1872,8 @@ namespace MphRead.Mods.Launcher.Gui
         private SliderRow? _stylusCursorOpacity;
         private SliderRow? _stylusOutlineOpacity;
         private SliderRow? _stylusButtonOpacity;
+        private HudColorEditor? _stylusGuideColorEditor;
+        private string _stylusGuideColor = Mods.Input.StylusZone.DefaultGuideColor;
         private readonly List<Control> _stylusRows = new();
 
         private void ShowStylusRows()
@@ -1922,11 +1926,16 @@ namespace MphRead.Mods.Launcher.Gui
             _stylusButtonOpacity = Add(_stylusAdvanced, new SliderRow("Guide button opacity",
                 (int)MathF.Round(Mods.Input.StylusZone.ButtonOpacity * 100),
                 v => $"{v}%", min: 0, max: 100, keyStep: 5));
+            _stylusGuideColor = Mods.Input.StylusZone.GuideColor;
+            _stylusGuideColorEditor = new HudColorEditor("Guide", _stylusGuideColor,
+                color => _stylusGuideColor = color);
+            _stylusAdvanced.Children.Add(_stylusGuideColorEditor);
             _stylusAdvanced.Children.Add(new Note(
                 "Native UI draws the hunter's original DS lower screen and automatically swaps "
                 + "to the alt-form and weapon-select artwork. The guide rectangle and circular "
                 + "buttons are used only when native art is off or unavailable; placement always "
-                + "keeps a visible guide. Cursor opacity remains independent. Stylus movement "
+                + "keeps a visible guide. Guide color tints the fallback rectangle, buttons and "
+                + "pressed highlight. Cursor opacity remains independent. Stylus movement "
                 + "boost controls pen-motion morph boosts, while reposition filtering ignores "
                 + "tablet jumps after lift/re-contact."));
             _stylusAdvancedButton = new HubNavButton("ADVANCED", compact: true)
@@ -2570,6 +2579,8 @@ namespace MphRead.Mods.Launcher.Gui
                 Mods.Input.StylusZone.OutlineOpacity = Math.Clamp(_stylusOutlineOpacity.Value / 100f, 0, 1);
             if (_stylusButtonOpacity != null)
                 Mods.Input.StylusZone.ButtonOpacity = Math.Clamp(_stylusButtonOpacity.Value / 100f, 0, 1);
+            if (_stylusGuideColorEditor != null)
+                Mods.Input.StylusZone.GuideColor = _stylusGuideColor;
             InputSettings.ScrollAllWeapons = _scrollAllWeapons.On;
             if (_clipPostRollRow != null)
                 Mods.Network.DemoClip.PostRollSeconds = Mods.Network.DemoClip.PostRollLengths[

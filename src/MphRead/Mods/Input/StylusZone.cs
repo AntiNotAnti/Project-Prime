@@ -188,6 +188,56 @@ namespace MphRead.Mods.Input
         public const float DefaultOutlineOpacity = 0.22f;
         public const float DefaultButtonOpacity = 0.11f;
         public const float DefaultCursorOpacity = 1f;
+        public const string DefaultGuideColor = "#D94D4D";
+
+        private static string _guideColor = DefaultGuideColor;
+        private static float _guideRed = 0xD9 / 255f;
+        private static float _guideGreen = 0x4D / 255f;
+        private static float _guideBlue = 0x4D / 255f;
+
+        /// <summary>
+        /// Colour used by the simplified touch-screen guide. Native cartridge
+        /// artwork keeps its authored colours; this tint applies to the
+        /// rectangle, button targets and pressed-state highlight.
+        /// </summary>
+        public static string GuideColor
+        {
+            get => _guideColor;
+            set => TrySetGuideColor(value);
+        }
+
+        public static float GuideRed => _guideRed;
+        public static float GuideGreen => _guideGreen;
+        public static float GuideBlue => _guideBlue;
+
+        /// <summary>
+        /// Accept #RGB or #RRGGBB and keep the previous colour on malformed
+        /// hand-edited settings rather than replacing it with a surprise.
+        /// </summary>
+        public static bool TrySetGuideColor(string? value)
+        {
+            string text = (value ?? "").Trim();
+            if (text.Length > 0 && text[0] == '#')
+            {
+                text = text[1..];
+            }
+            if (text.Length == 3)
+            {
+                text = $"{text[0]}{text[0]}{text[1]}{text[1]}{text[2]}{text[2]}";
+            }
+            if (text.Length != 6 || !UInt32.TryParse(text,
+                System.Globalization.NumberStyles.HexNumber,
+                System.Globalization.CultureInfo.InvariantCulture, out uint rgb))
+            {
+                return false;
+            }
+
+            _guideColor = "#" + text.ToUpperInvariant();
+            _guideRed = ((rgb >> 16) & 0xFF) / 255f;
+            _guideGreen = ((rgb >> 8) & 0xFF) / 255f;
+            _guideBlue = (rgb & 0xFF) / 255f;
+            return true;
+        }
 
         /// <summary>
         /// Draw the cartridge's real hunter-specific bottom-screen art inside
@@ -218,6 +268,7 @@ namespace MphRead.Mods.Input
             OutlineOpacity = DefaultOutlineOpacity;
             ButtonOpacity = DefaultButtonOpacity;
             CursorOpacity = DefaultCursorOpacity;
+            GuideColor = DefaultGuideColor;
         }
 
         public static void SetRect(float left, float top, float width)
