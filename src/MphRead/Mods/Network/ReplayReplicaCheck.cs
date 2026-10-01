@@ -179,8 +179,17 @@ namespace MphRead.Mods.Network
             for (int slot = 0; slot < PlayerEntity.SlotCapacity; slot++)
             {
                 PlayerEntity player = replay.Scene.Players.Items[slot];
+                bool registered = false;
+                foreach (EntityBase entity in replay.Scene.Entities)
+                {
+                    if (ReferenceEquals(entity, player))
+                    {
+                        registered = true;
+                        break;
+                    }
+                }
                 if (!player.LoadFlags.TestFlag(LoadFlags.SlotActive)
-                    || !replay.Scene.Entities.Any(entity => ReferenceEquals(entity, player))
+                    || !registered
                     || player.Halfturret == null)
                     throw new InvalidDataException($"Replay slot {slot} was not fully registered before playback.");
                 if (replay.State.Occupant(slot).IsBot && player.IsBot)
