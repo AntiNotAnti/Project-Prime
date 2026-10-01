@@ -25,10 +25,10 @@ The following real simulation transitions now produce events:
 - Octolith/relic pickup and drop, octolith capture and defense/stop.
 - Node contest transitions and credited node captures.
 - Prime transfer on death and Prime loss on death/disconnection.
-- Assists: any distinct non-killer who dealt positive enemy damage to that victim
+- Assists: any distinct non-killer who dealt positive accepted damage to that victim
   life within the last **300 simulation ticks, inclusive**, receives one assist
-  at death. Repeated hits update one contribution; self/friendly/zero damage is
-  excluded. An earlier-life contribution may qualify, but a different occupant
+  at death. Repeated hits update one contribution; self/zero/rejected damage is
+  excluded; accepted friendly-fire damage qualifies. An earlier-life contribution may qualify, but a different occupant
   reusing that slot cannot receive it. Suicides/environment deaths can still
   award qualifying non-killer contributions. License exclusions remain intact.
 
@@ -77,8 +77,9 @@ unknown enum values and out-of-range fields. Packets carry no display names.
 
 The authority records generated facts and awards into the existing passive replay
 fact stream. Replica decoders retain their own bounded semantic receiver and do
-not recompute awards. Decoder checkpoint version 5 restores facts, authoritative
-awards and reordering/deduplication history; existing checkpoint versions 1–4 and
+not recompute awards. Decoder checkpoint version 6 restores facts, authoritative
+awards, reordering/deduplication history and presentation frontiers (including
+empty history); existing checkpoint versions 1–5 and
 protocol 34 recordings remain readable. The recorder seeds semantic history when
 private world capture starts and includes it in ordinary network restore baselines.
 Histories retain 1024 events and 1024 awards; the detached decoder checkpoint limit
@@ -143,3 +144,12 @@ and award IDs, causal source IDs, objective IDs and values. Fixed 18-event and
 21-award counters feed the match summary without deriving kills from snapshots.
 Transport/claim diagnostics remain separate. The collector accepts bounded
 schema 4/5 summaries through protocol 35 and rejects unknown/private keys.
+
+The replay director now weights canonical kill/objective/headshot/assist facts
+using recorded server ticks and generation fences. Legacy recordings retain their
+annotation adapter; damage/score context stays available without double-weighting
+canonical outcomes. Post-match successful main-weapon shots, lethal headshots and best life streak
+consume canonical facts; damage/accuracy and authoritative gameplay scores retain
+their existing accepted-damage/score owners. The native five-kill fallback also
+consumes the KillingSpree award; wall-clock combat award derivation is retained
+only for legacy playback. Career/license exclusions are unchanged.

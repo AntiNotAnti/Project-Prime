@@ -176,6 +176,16 @@ internal sealed class ReplayRecorder
     private void VisitSemanticBaseline(uint frame, Action<ReplayTimelineRecord> accept)
     {
         Span<byte> bytes = stackalloc byte[Mods.MatchEvents.MatchSemanticEventPacket.Size];
+        if (_semantic.MatchId != 0)
+        {
+            // Cached history belongs to the restored world, not new announcements.
+            var baseline = new Mods.MatchEvents.MatchSemanticEventPacket(_semantic.MatchId, _semantic.Epoch,
+                _semantic.LatestEvent, 0, Mods.MatchEvents.MatchSemanticEventType.MatchStarted,
+                255, 0, 0, 255, 0, 0, -1, 0, -1, 0, true, _semantic.LatestAward);
+            baseline.Write(bytes);
+            var marker = new ReplayTimelineRecord(frame, 0, ReplayFactKind.Presentation, bytes);
+            try { accept(marker); } finally { marker.Release(); }
+        }
         foreach (var fact in _semantic.Events)
         {
             fact.Write(bytes);

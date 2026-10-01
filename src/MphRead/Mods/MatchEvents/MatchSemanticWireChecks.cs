@@ -18,6 +18,10 @@ internal static class MatchSemanticWireChecks
             && MatchDeathDetails.Classify(false, false, false, false, false, true) == MatchDeathKind.Bomb
             && MatchDeathDetails.Classify(true, true, true, true, true, true) == MatchDeathKind.Environment,
             "death precedence agrees with legacy presentation");
+        require(Replay.ReplayDirector.SemanticInterest(MatchSemanticEventType.PlayerKilled) == (70f, 34f, "recent kill", true)
+            && Replay.ReplayDirector.SemanticInterest(MatchSemanticEventType.ObjectiveCaptured).Major
+            && Replay.ReplayDirector.SemanticInterest(MatchSemanticEventType.WeaponFired).Actor == 0,
+            "director consumes canonical combat/objective interest without weapon-shot noise");
         var delivery = new NetRetainedDelivery(4);
         var cursor = delivery.Join();
         byte[] source = { 1 };
@@ -108,6 +112,25 @@ internal static class MatchSemanticWireChecks
         var overrun = new MatchSemanticReceiver(); overrun.Begin(1, 2, requireBaseline: true);
         overrun.Accept(fact with { EventId = 1025 }); overrun.Accept(baseline with { EventId = 0 });
         require(overrun.PresentationOverrun, "baseline cannot silently skip a missing fact outside reorder window");
+        var replayStart = new MatchSemanticReceiver(); replayStart.Begin(1, 2);
+        replayStart.SuppressHistory(); // An initially empty restored world initializes once.
+        replayStart.Accept(fact with { EventId = 1 });
+        int firstLive = 0; replayStart.DrainPresentation(_ => firstLive++, _ => { });
+        require(firstLive == 1, "first future fact after empty replay world is not mistaken for history");
+        require(replayStart.RestorePresentationBaseline(baseline with { EventId = 99 }), "explicit replay history frontier");
+        replayStart.SuppressHistory(); replayStart.Accept(fact with { EventId = 100 });
+        replayStart.DrainPresentation(_ => firstLive++, _ => { });
+        require(firstLive == 2, "first future fact follows explicit nonzero restored frontier");
+        using (var emptyHistoryStorage = new MemoryStream())
+        {
+            var emptyReceiver = new MatchSemanticReceiver(); emptyReceiver.Begin(1, 2);
+            emptyReceiver.RestorePresentationBaseline(baseline with { EventId = 99 });
+            emptyReceiver.WriteCheckpoint(new BinaryWriter(emptyHistoryStorage)); emptyHistoryStorage.Position = 0;
+            emptyReceiver = MatchSemanticReceiver.ReadCheckpoint(new BinaryReader(emptyHistoryStorage), 1, 2);
+            emptyReceiver.Accept(fact with { EventId = 100 });
+            int future = 0; emptyReceiver.DrainPresentation(_ => future++, _ => { });
+            require(future == 1, "checkpoint preserves frontier even with empty semantic history");
+        }
         var receiver = new MatchSemanticReceiver(); receiver.Begin(1, 2);
         require(receiver.Accept(fact) && receiver.Accept(fact with { EventId = 1 }) && receiver.Accept(fact with { EventId = 2 }), "reliable facts can reorder");
         require(!receiver.Accept(fact), "reliable fact duplicate rejected");
@@ -139,13 +162,16 @@ internal static class MatchSemanticWireChecks
         var replica = new ReplayReplicaState(); replica.RestoreCheckpoint(checkpoint);
         require(replica.SemanticEvents.Events.Single() == fact && replica.SemanticEvents.Awards.Single() == award, "replica checkpoint restores semantic facts and awards");
         require(replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "semantic decoder checkpoint exact roundtrip");
-        byte[] malformed = checkpoint.Bytes.ToArray(); malformed[^1] = 255;
+        byte[] malformed = checkpoint.Bytes.ToArray(); malformed[^9] = 255;
         bool rejected = false;
         try { replica.RestoreCheckpoint(new(malformed)); } catch (InvalidDataException) { rejected = true; }
         require(rejected && replica.CaptureCheckpoint().Bytes.SequenceEqual(checkpoint.Bytes), "bad semantic checkpoint is atomic");
         // Version4 protocol34 ends before the new semantic component. Existing layout is unchanged.
         var empty = new ReplayReplicaState(); empty.Accept(matchBytes, 0);
-        byte[] legacy = empty.CaptureCheckpoint().Bytes[..^8].ToArray();
+        byte[] schemaFive = empty.CaptureCheckpoint().Bytes[..^8].ToArray(); schemaFive[4] = 5;
+        var oldFive = new ReplayReplicaState(); oldFive.RestoreCheckpoint(new(schemaFive));
+        require(oldFive.SemanticEvents.Events.Count == 0, "schema 5 checkpoints remain readable without presentation frontier");
+        byte[] legacy = empty.CaptureCheckpoint().Bytes[..^16].ToArray();
         BinaryPrimitives.WriteUInt16LittleEndian(legacy.AsSpan(4), 4); legacy[6] = 34;
         replica.RestoreCheckpoint(new(legacy));
         require(replica.Match?.MatchId == 1 && replica.SemanticEvents.Events.Count == 0, "protocol34 version4 checkpoint remains readable");

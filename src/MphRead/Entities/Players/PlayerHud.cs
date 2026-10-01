@@ -4024,6 +4024,20 @@ namespace MphRead.Entities
         private const float CombatNotificationLowerBottom = 176;
         private long _combatNotificationSerial;
 
+        internal void PresentCanonicalSpree(PlayerEntity attacker)
+        {
+            if (Mods.Headless.Active || Mods.ThumbnailMode.Active || !_scene.Services.AllowsPresentationSideEffects) return;
+            bool customSpree = attacker.IsMainPlayer && !Mods.Sound.CombatFeedbackAudio.GetSelection(
+                Mods.Sound.CombatFeedbackCue.KillingSpree).Equals("off", StringComparison.OrdinalIgnoreCase);
+            if (!customSpree) _soundSource.QueueStream(VoiceId.VOICE_CONSECUTIVE_KILLS, delay: 1);
+            if (attacker.IsMainPlayer && Mods.Launcher.LauncherPrefs.CombatNotificationsVisible) return;
+            string message = attacker.IsMainPlayer ? Strings.GetHudMessage(254)
+                : Strings.GetHudMessage(255).Replace("%s", _scene.GameState.Nicknames[attacker.SlotIndex]);
+            if (attacker.IsMainPlayer && HudProfiles.Runtime.Mode == HudMode.Custom)
+                attacker.QueueCombatNotifications(new[] { message });
+            else QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
+        }
+
         /// <summary>
         /// Queue one combat-award block in its own HUD lane.
         ///

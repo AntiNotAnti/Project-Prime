@@ -14,9 +14,9 @@ internal sealed class MatchAssistTracker
         _victims[victim.Slot] = victim;
         for (int i = 0; i < 8; i++) _actors[victim.Slot, i] = default;
     }
-    internal void Damage(MatchSemanticActor actor, MatchSemanticActor victim, uint tick, uint damage, bool opposing)
+    internal void Damage(MatchSemanticActor actor, MatchSemanticActor victim, uint tick, uint damage)
     {
-        if (!opposing || damage == 0 || !actor.IsPlayer || !victim.IsPlayer || SameOccupant(actor, victim)) return;
+        if (damage == 0 || !actor.IsPlayer || !victim.IsPlayer || SameOccupant(actor, victim)) return;
         if (_victims[victim.Slot] != victim) Spawn(victim);
         _actors[victim.Slot, actor.Slot] = actor;
         _ticks[victim.Slot, actor.Slot] = tick;

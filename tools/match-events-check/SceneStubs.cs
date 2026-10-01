@@ -49,3 +49,12 @@ namespace MphRead.Mods.Network
         internal static ushort Get(int slot) => 1;
     }
 }
+
+namespace MphRead.Mods.Network
+{
+    internal static class MatchReportStats
+    {
+        internal static void AcceptSemantic(MphRead.Scene scene, in MphRead.Mods.MatchEvents.MatchSemanticEvent fact,
+            MphRead.Mods.MatchEvents.MatchAwardEngine awards) { }
+    }
+}

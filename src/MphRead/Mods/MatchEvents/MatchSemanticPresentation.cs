@@ -53,7 +53,12 @@ internal sealed class MatchSemanticPresentation
         }, award =>
         {
             var player = Resolve(scene, new(award.ActorSlot, award.ActorGeneration, award.ActorLife));
-            if (player == null || player != scene.Players.Main) return;
+            if (player == null) return;
+            if (award.Kind == MatchAwardKind.KillingSpree)
+                foreach (var source in receiver.Events)
+                    if (source.EventId == award.SourceEventId)
+                    { Resolve(scene, source.ToFact().Target)?.PresentCanonicalSpree(player); break; }
+            if (player != scene.Players.Main) return;
             string label = Sound.CombatFeedbackAudio.OnCanonicalAward(scene, award.Kind, _lastAwardSource != award.SourceEventId);
             _lastAwardSource = award.SourceEventId;
             if (!_medals.TryGetValue(award.SourceEventId, out var labels)) _medals[award.SourceEventId] = labels = new();
@@ -71,7 +76,7 @@ internal sealed class MatchSemanticPresentation
     {
         if (!_replicaInitialized || seeking)
         {
-            receiver.SuppressHistory(); scene.KillFeed.Clear(); _replicaInitialized = receiver.Events.Count != 0;
+            receiver.SuppressHistory(); scene.KillFeed.Clear(); _replicaInitialized = true;
             return;
         }
         // Replay presentation is visual-only. Audio and live HUD callbacks remain isolated.

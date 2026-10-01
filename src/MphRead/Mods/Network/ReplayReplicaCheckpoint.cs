@@ -21,7 +21,7 @@ internal sealed class ReplayReplicaCheckpoint
 internal sealed partial class ReplayReplicaState
 {
     private const uint CheckpointMagic = 0x43525050; // PPRC, independent of demo/wire formats
-    private const ushort CheckpointVersion = 5;
+    private const ushort CheckpointVersion = 6;
     internal ReplayReplicaCheckpoint CaptureCheckpoint()
     {
         using var stream = new MemoryStream();
@@ -223,7 +223,7 @@ internal sealed partial class ReplayReplicaState
             {
                 if (protocol < 35) throw Malformed();
                 restored.SemanticEvents = Mods.MatchEvents.MatchSemanticReceiver.ReadCheckpoint(reader,
-                    restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
+                    restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0, presentationFrontier: version >= 6);
             }
             else restored.SemanticEvents.Begin(restored.Match?.MatchId ?? 0, restored.Match?.AuthorityEpoch ?? 0);
             if (stream.Position != stream.Length || restored.MatchRecordingFrame > restored.RecordingFrame

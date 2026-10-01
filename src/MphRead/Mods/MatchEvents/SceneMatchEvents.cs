@@ -88,6 +88,7 @@ internal sealed class SceneMatchEvents
     {
         if (!Prepare(scene)) return;
         if (!Bus.TryEmit(Tick(scene), type, Actor(actor), Actor(target), weapon: weapon, flags: flags, entity: entity, value: value)) RejectedEvents++;
+        else MatchReportStats.AcceptSemantic(scene, Bus.LastEvent, Bus.Awards);
     }
     private static uint Tick(Scene scene) => NetSession.Active ? NetSession.NetFrame : checked((uint)scene.FrameCount);
     internal void Spawn(Scene scene, PlayerEntity player)
@@ -106,8 +107,7 @@ internal sealed class SceneMatchEvents
     internal void Damage(Scene scene, PlayerEntity? attacker, PlayerEntity victim, uint damage, ShotKey? launch = null)
     {
         if (!Prepare(scene) || attacker == null || attacker == victim || victim.Health <= 0) return;
-        bool opposing = !scene.GameState.Teams || !Mods.Multiplayer.TeamRules.AreAllies(attacker.TeamIndex, victim.TeamIndex);
-        _assists.Damage(SourceActor(attacker, launch), Actor(victim), Tick(scene), damage, opposing);
+        _assists.Damage(SourceActor(attacker, launch), Actor(victim), Tick(scene), damage);
     }
     internal void Headshot(Scene scene, PlayerEntity? attacker, PlayerEntity victim, BeamType weapon, ShotKey? launch = null)
     {
@@ -140,6 +140,7 @@ internal sealed class SceneMatchEvents
             attacker == victim ? Actor(victim) : SourceActor(attacker, launch), Actor(victim), (int)weapon, flags, value: details.Encode()))
         {
             SemanticDeaths++;
+            MatchReportStats.AcceptSemantic(scene, Bus.LastEvent, Bus.Awards);
             if (NetSession.Active) ParityDiagnostics.Semantic(Bus.LastEvent);
             Span<MatchSemanticActor> contributors = stackalloc MatchSemanticActor[8];
             int count = _assists.Collect(Actor(victim), SourceActor(attacker, launch), Tick(scene), contributors);

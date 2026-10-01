@@ -154,7 +154,7 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.MatchSemanticEvent:
                     if (!Mods.MatchEvents.MatchSemanticEventPacket.TryRead(packet, out var semantic)) throw Malformed();
-                    accepted = SemanticEvents.Accept(semantic);
+                    accepted = semantic.IsBaseline ? SemanticEvents.RestorePresentationBaseline(semantic) : SemanticEvents.Accept(semantic);
                     break;
                 case PacketType.MatchAward:
                     if (!Mods.MatchEvents.MatchAwardPacket.TryRead(packet, out var award)) throw Malformed();

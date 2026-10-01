@@ -70,13 +70,21 @@ namespace MphRead.Mods.Network
             values[slot] = (int)Math.Min(Int32.MaxValue, (long)values[slot] + value);
         }
 
-        public static void NoteShotFired(PlayerEntity shooter)
+        internal static void AcceptSemantic(Scene scene, in MatchEvents.MatchSemanticEvent fact, MatchEvents.MatchAwardEngine awards)
         {
-            if (!CanRecord(shooter))
+            if (scene.AimTrainer != null || scene.Services.IsReplica || !scene.GameState.Multiplayer
+                || NetSession.Active && !NetSession.IsAuthority || !fact.Actor.IsPlayer) return;
+            if (fact.Type == MatchEvents.MatchSemanticEventType.WeaponFired
+                && (fact.Flags & (MatchEvents.MatchSemanticEventFlags.AltForm | MatchEvents.MatchSemanticEventFlags.Turret)) == 0)
+                Increment(scene.GameState.ShotsFired, fact.Actor.Slot);
+            if (fact.Type == MatchEvents.MatchSemanticEventType.PlayerKilled)
             {
-                return;
+                scene.GameState.LongestKillStreak[fact.Actor.Slot] = Math.Max(
+                    scene.GameState.LongestKillStreak[fact.Actor.Slot], awards.Spree(fact.Actor));
+                if ((fact.Flags & (MatchEvents.MatchSemanticEventFlags.Headshot | MatchEvents.MatchSemanticEventFlags.FriendlyFire))
+                    == MatchEvents.MatchSemanticEventFlags.Headshot)
+                    Increment(scene.GameState.HeadshotKills, fact.Actor.Slot);
             }
-            Increment(shooter.OwningScene.GameState.ShotsFired, shooter.SlotIndex);
         }
 
         public static void NoteDamage(PlayerEntity victim, PlayerEntity? attacker,
@@ -126,22 +134,6 @@ namespace MphRead.Mods.Network
             {
                 Increment(state.ShotsHit, attackerSlot);
             }
-        }
-
-        public static void NoteKill(PlayerEntity attacker)
-        {
-            if (!CanRecord(attacker))
-            {
-                return;
-            }
-            SceneGameState state = attacker.OwningScene.GameState;
-            int slot = attacker.SlotIndex;
-            if ((uint)slot >= Slots)
-            {
-                return;
-            }
-            state.LongestKillStreak[slot] = Math.Max(
-                state.LongestKillStreak[slot], state.KillStreak[slot]);
         }
 
         public static int AccuracyPercent(SceneGameState state, int slot)

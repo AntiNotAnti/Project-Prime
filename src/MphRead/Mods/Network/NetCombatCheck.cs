@@ -68,7 +68,14 @@ namespace MphRead.Mods.Network
                 Check(!(bool)fire.Invoke(shooter, null)! && NetDamage.Fired[0] == fired
                     && NetShotDiagnostics.Outcomes[(int)BeamType.Missile, (int)ShotAttemptResult.NoAmmo] > 0,
                     "FiredCounterRequiresActualSpawn/empty missile");
+                shooter.ModArmWeapon(BeamType.PowerBeam);
                 shooter.ModSetAmmo(400, 50);
+                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
+                int reportShots = scene.GameState.ShotsFired[0];
+                int semanticShots = scene.MatchEvents.Bus.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.WeaponFired);
+                Check((bool)fire.Invoke(shooter, null)! && scene.GameState.ShotsFired[0] == reportShots + 1
+                    && scene.MatchEvents.Bus.Events.Count(e => e.Type == Mods.MatchEvents.MatchSemanticEventType.WeaponFired) == semanticShots + 1,
+                    "post-match fired count consumes exactly one canonical successful trigger");
                 // Spawn with the production weapon table, then cross the actual Spawn method.
                 foreach (var shot in new[] { (BeamType.Missile, false), (BeamType.Missile, true), (BeamType.Magmaul, false), (BeamType.Judicator, false) })
                 {

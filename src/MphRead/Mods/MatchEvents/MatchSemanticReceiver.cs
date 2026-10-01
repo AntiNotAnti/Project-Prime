@@ -14,6 +14,8 @@ internal sealed class MatchSemanticReceiver
     private readonly SortedDictionary<uint, MatchAwardPacket> _pendingAwards = new();
     internal bool HasBaseline { get; private set; }
     internal bool PresentationOverrun { get; private set; }
+    internal uint LatestEvent => _latestEvent;
+    internal uint LatestAward => _latestAward;
     internal uint PresentedEvent => _presentedEvent;
     internal uint PresentedAward => _presentedAward;
     internal ushort MatchId { get; private set; }
@@ -66,6 +68,13 @@ internal sealed class MatchSemanticReceiver
         foreach (uint id in new List<uint>(_pendingAwards.Keys)) if (id <= _presentedAward) _pendingAwards.Remove(id);
         return true;
     }
+    internal bool RestorePresentationBaseline(in MatchSemanticEventPacket packet)
+    {
+        if (!packet.IsBaseline || !packet.Validate() || packet.MatchId != MatchId || packet.AuthorityEpoch != Epoch) return false;
+        _presentedEvent = packet.EventId; _presentedAward = packet.AwardFrontier;
+        _pendingEvents.Clear(); _pendingAwards.Clear(); HasBaseline = true; PresentationOverrun = false;
+        return true;
+    }
     internal void DrainPresentation(Action<MatchSemanticEventPacket> fact, Action<MatchAwardPacket> award)
     {
         if (!HasBaseline || PresentationOverrun) return;
@@ -77,7 +86,7 @@ internal sealed class MatchSemanticReceiver
     }
     internal void SuppressHistory()
     {
-        _presentedEvent = _latestEvent; _presentedAward = _latestAward;
+        _presentedEvent = Math.Max(_presentedEvent, _latestEvent); _presentedAward = Math.Max(_presentedAward, _latestAward);
         _pendingEvents.Clear(); _pendingAwards.Clear(); PresentationOverrun = false;
     }
     internal void WriteCheckpoint(BinaryWriter writer)
@@ -87,8 +96,9 @@ internal sealed class MatchSemanticReceiver
         foreach (var fact in _events) { fact.Write(bytes); writer.Write(bytes); }
         writer.Write(_awards.Count);
         foreach (var award in _awards) { award.Write(bytes); writer.Write(bytes[..MatchAwardPacket.Size]); }
+        writer.Write(Math.Max(_presentedEvent, _latestEvent)); writer.Write(Math.Max(_presentedAward, _latestAward));
     }
-    internal static MatchSemanticReceiver ReadCheckpoint(BinaryReader reader, ushort match, ulong epoch)
+    internal static MatchSemanticReceiver ReadCheckpoint(BinaryReader reader, ushort match, ulong epoch, bool presentationFrontier = true)
     {
         var result = new MatchSemanticReceiver(); result.Begin(match, epoch);
         int count = reader.ReadInt32();
@@ -101,6 +111,8 @@ internal sealed class MatchSemanticReceiver
         for (int i = 0; i < count; i++)
             if (!MatchAwardPacket.TryRead(reader.ReadBytes(MatchAwardPacket.Size), out var award) || !result.Accept(award))
                 throw new InvalidDataException("Invalid semantic checkpoint award.");
+        if (presentationFrontier)
+        { result._presentedEvent = reader.ReadUInt32(); result._presentedAward = reader.ReadUInt32(); }
         result.SuppressHistory(); // Checkpoint restoration must not announce historical facts.
         return result;
     }

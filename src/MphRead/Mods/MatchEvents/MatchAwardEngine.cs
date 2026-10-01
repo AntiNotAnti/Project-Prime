@@ -15,6 +15,7 @@ internal sealed class MatchAwardEngine
     private readonly Queue<MatchAward> _awards = new();
     private bool _firstBlood;
     internal IReadOnlyCollection<MatchAward> Awards => _awards;
+    internal int Spree(MatchSemanticActor actor) => _players.TryGetValue(actor, out var state) ? state.Spree : 0;
     internal void Reset() { _players.Clear(); _awards.Clear(); _firstBlood = false; }
     internal void Observe(in MatchSemanticEvent fact)
     {
@@ -36,7 +37,7 @@ internal sealed class MatchAwardEngine
         _players.TryGetValue(fact.Actor, out var previous);
         int chain = previous.Chain > 0 && fact.Tick >= previous.Tick && fact.Tick - previous.Tick <= ChainWindowTicks
             ? Math.Min(previous.Chain + 1, 10) : 1;
-        int spree = Math.Min(previous.Spree + 1, 31);
+        int spree = Math.Min(previous.Spree + 1, 255);
         foreach (var actor in new List<MatchSemanticActor>(_players.Keys))
             if (actor.Slot == fact.Actor.Slot && actor != fact.Actor) _players.Remove(actor);
         _players[fact.Actor] = (fact.Tick, chain, spree);

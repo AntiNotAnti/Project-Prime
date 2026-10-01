@@ -2468,10 +2468,6 @@ namespace MphRead.Entities
                                     string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
                                     QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
                                 }
-                                if (flags.TestFlag(DamageFlags.Headshot))
-                                {
-                                    _scene.GameState.HeadshotKills[attacker.SlotIndex]++;
-                                }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
                                 // todo?: the game also updates another kills stat(?) here
                                 if (attacker.IsPrimeHunter)
@@ -2521,8 +2517,8 @@ namespace MphRead.Entities
                                     }
                                 }
                                 Mods.Network.CareerMatchStats.NoteKill(attacker);
-                                Mods.Network.MatchReportStats.NoteKill(attacker);
-                                if (_scene.GameState.KillStreak[attacker.SlotIndex] == 5)
+                                if (_scene.GameState.KillStreak[attacker.SlotIndex] == 5
+                                    && !Mods.MatchEvents.MatchSemanticPresentation.Enabled(_scene))
                                 {
                                     // Avoid two announcers calling the same local milestone.
                                     // If the Project Prime Killing Spree cue is disabled, preserve

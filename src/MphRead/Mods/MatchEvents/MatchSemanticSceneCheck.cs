@@ -66,6 +66,9 @@ public static class MatchSemanticSceneCheck
                 && Sound.CombatFeedbackAudio.OnCanonicalAward(scene, MatchAwardKind.DoubleKill, true) == "Double Kill"
                 && Sound.CombatFeedbackAudio.OnCanonicalAward(scene, MatchAwardKind.KillingSpree, true) == "Killing Spree",
                 "canonical award identities select existing audio and medal labels");
+            Require(scene.GameState.LongestKillStreak[shooter.SlotIndex] == scene.GameState.KillStreak[shooter.SlotIndex],
+                "canonical post-match best streak equals independent gameplay streak");
+            Require(scene.GameState.HeadshotKills[shooter.SlotIndex] == 2, "post-match headshot kills consume lethal headshot facts only");
             var lastDeath = scene.MatchEvents.Bus.Events.Last(e => e.Type == MatchSemanticEventType.PlayerKilled);
             Require(MatchDeathDetails.TryDecode(lastDeath.Value, out var details) && details.Kind == MatchDeathKind.Weapon,
                 "authority preserves full weapon death classification");
@@ -107,6 +110,21 @@ public static class MatchSemanticSceneCheck
             Require(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PlayerKilled) == priorDeaths + 2
                 && scene.GameState.Kills[shooter.SlotIndex] == priorScore + 2,
                 "two victim lives before snapshot publication retain both facts and exact score outcomes");
+            scene.GameState.Teams = true; scene.GameState.TeamCount = 2; shooter.TeamIndex = 0; helper.TeamIndex = victim.TeamIndex = 1;
+            int assistsBefore = scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PlayerAssisted && e.Actor.Slot == helper.SlotIndex);
+            foreach (bool friendlyFire in new[] { false, true })
+            {
+                scene.GameState.FriendlyFire = friendlyFire;
+                victim.Spawn(victim.Position, OpenTK.Mathematics.Vector3.UnitZ, OpenTK.Mathematics.Vector3.UnitY, victim.NodeRef, respawn: true);
+                victim.Health = 99;
+                victim.TakeDamage(10, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, helper);
+                Require(friendlyFire ? victim.Health is > 0 and < 99 : victim.Health == 99,
+                    $"friendly contribution follows accepted damage rule FF={friendlyFire} health={victim.Health} teams={GameState.Teams}/{scene.GameState.Teams} count={GameState.TeamCount} indices={helper.TeamIndex}/{victim.TeamIndex}");
+                victim.TakeDamage(0, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, helper);
+                victim.TakeDamage(500, DamageFlags.IgnoreInvuln | DamageFlags.NoDmgInvuln, null, shooter);
+                Require(scene.MatchEvents.Bus.Events.Count(e => e.Type == MatchSemanticEventType.PlayerAssisted && e.Actor.Slot == helper.SlotIndex)
+                    == assistsBefore + (friendlyFire ? 1 : 0), "accepted teammate contributes once; rejected teammate damage contributes nothing");
+            }
             Require(scene.SemanticPublisher.HistoryGaps == 0 && sim.StepFailures == 0, "recording pipeline has no gaps or simulation failures");
             Console.WriteLine($"SEMANTIC F2 PASS {checks} real-authority damage/parity checks");
             return 0;
