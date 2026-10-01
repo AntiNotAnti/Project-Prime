@@ -1,0 +1,71 @@
+{
+  "format": 1,
+  "scenario": {
+    "id": "identity.disconnect-resume",
+    "version": 1,
+    "ticks": 6,
+    "seed": 0,
+    "content": "none",
+    "captureInterval": 1,
+    "tier": "F1",
+    "description": "Production session reset and resumed authoritative roster/life admission; socket-free, real UDP reconnect remains F4."
+  },
+  "engineRevision": "e80098f4",
+  "canonicalHash": "42bc1c8a60090725890c215eeae4c493f7395a3bbebdad7a529a9af4d5c4b5a1",
+  "checkpoints": [
+    {
+      "tick": 1,
+      "values": {
+        "accepted": 1,
+        "active": 1,
+        "generation": 9,
+        "life": 1
+      }
+    },
+    {
+      "tick": 2,
+      "values": {
+        "accepted": 0,
+        "active": 0,
+        "generation": 0,
+        "life": 0
+      }
+    },
+    {
+      "tick": 3,
+      "values": {
+        "accepted": 0,
+        "active": 1,
+        "generation": 10,
+        "life": 0
+      }
+    },
+    {
+      "tick": 4,
+      "values": {
+        "accepted": 0,
+        "active": 1,
+        "generation": 10,
+        "life": 0
+      }
+    },
+    {
+      "tick": 5,
+      "values": {
+        "accepted": 1,
+        "active": 1,
+        "generation": 10,
+        "life": 7
+      }
+    },
+    {
+      "tick": 6,
+      "values": {
+        "accepted": 0,
+        "active": 1,
+        "generation": 10,
+        "life": 7
+      }
+    }
+  ]
+}

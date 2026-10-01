@@ -14,6 +14,7 @@ internal static class FidelityScenarios
         new("simulation.pause-resume", 1, 8, 0, "none", 1, FidelityTier.F1, "Production clock reset, stalled-frame and catch-up policies; no player simulation."),
         new("identity.spawn-life", 1, 5, 0, "none", 1, FidelityTier.F1, "Production lifecycle tracker rejects resurrection and previous lives."),
         new("identity.slot-reuse", 1, 5, 0, "none", 1, FidelityTier.F1, "Production lifecycle tracker fences occupants and wraps nonzero generations."),
+        new("identity.disconnect-resume", 1, 6, 0, "none", 1, FidelityTier.F1, "Production session reset and resumed authoritative roster/life admission; socket-free, real UDP reconnect remains F4."),
         new("identity.match-epoch", 1, 7, 0, "none", 1, FidelityTier.F1, "Production match control fences stale epochs, serial match wrap and ended-round reopening; socket-free playback admission."),
         new("weapon.continuous-phase", 1, 12, 0, "none", 1, FidelityTier.F1, "Production continuous firing clock under delayed/repeated intent; not projectile or damage validation.")
     };
@@ -79,6 +80,33 @@ internal static class FidelityScenarios
                 if (scenario.Id == "identity.slot-reuse") tracker.SetOccupant(NetLifecycleTracker.Next(tracker.Generation));
                 tracker.BeginLife(); Identity(4);
                 rejected = tracker.Accept(ushort.MaxValue, 1, NetworkPlayerState.Alive, out changed); Identity(5, rejected, changed);
+                break;
+            case "identity.disconnect-resume":
+                if (NetSession.Active) throw new InvalidOperationException("Identity oracle requires a fresh session.");
+                void Resume(ushort generation)
+                {
+                    NetSession.StartPlayback();
+                    NetSession.ApplyMatchState(new MatchStatePacket { MatchId = 51, AuthorityEpoch = 4 }, false);
+                    var roster = RosterPacket.Create(); roster.MatchId = 51; roster.AuthorityEpoch = 4; roster.Revision = 1; roster.Count = 1;
+                    roster.Slots[0] = 0; roster.Generations[0] = generation; roster.Names[0] = "ORACLE";
+                    NetSession.ApplyRoster(roster);
+                }
+                void SessionPoint(int tick, bool accepted = false) => points.Add(FidelityOracle.Point(tick,
+                    ("active", NetSession.Active ? 1 : 0), ("generation", NetPlayerLifecycle.Generation(0)),
+                    ("life", NetPlayerLifecycle.Get(0)), ("accepted", accepted ? 1 : 0)));
+                try
+                {
+                    Resume(9);
+                    var state = new PlayerState { SlotIndex = 0, SlotGeneration = 9, LifeId = 1,
+                        Flags = PlayerState.FlagSpawned, Health = 99 };
+                    SessionPoint(1, NetPlayerLifecycle.AcceptState(state, 1));
+                    NetSession.Stop(); SessionPoint(2);
+                    Resume(10); SessionPoint(3);
+                    SessionPoint(4, NetPlayerLifecycle.AcceptState(state, 2));
+                    state.SlotGeneration = 10; state.LifeId = 7; SessionPoint(5, NetPlayerLifecycle.AcceptState(state, 3));
+                    state.LifeId = 6; SessionPoint(6, NetPlayerLifecycle.AcceptState(state, 4));
+                }
+                finally { NetSession.Stop(); }
                 break;
             case "identity.match-epoch":
                 if (NetSession.Active) throw new InvalidOperationException("Identity oracle requires a fresh session.");

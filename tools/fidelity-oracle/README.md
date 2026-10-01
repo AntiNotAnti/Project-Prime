@@ -96,11 +96,21 @@ animation durations. This is deterministic state evidence, not rendered pose or
 hit-volume acceptance.
 
 The presentation-rate argument changes clock scheduling without rendering.
-All 43 current scenarios matched at 30, 60, 120, 144, 240 and 997 Hz against the
-proposed normalized `e80098f4` engine references. The 24 F0/F1 framework checks also
+All 47 current scenarios matched at 30, 60, 120, 144, 240 and 997 Hz against the
+proposed normalized `e80098f4` engine references. The 26 F0/F1 framework checks also
 exercise full-width authority epochs, serial match wrap, and ending-state fences.
 No baseline regeneration occurs during verification.
 
-Remaining dedicated oracle packs: slope/platform/corner movement and network
-connection disconnect/resume (existing real UDP lifecycle tests remain separate).
+Slope and corner probes select actual native collision surfaces deterministically.
+The slope must traverse at least ten grounded steps at changing elevation; the
+corner must constrain sustained movement. The platform probe selects a native
+campaign moving platform (entity layer 0), uses the normal collision/physics loop,
+and requires the passive rider to retain its relative position within 2/4096.
+Campaign entities are loaded in the isolated Battle fixture; no campaign save is
+written. Fixture selection fails if suitable native content is unavailable.
+
+`identity.disconnect-resume` drives production session reset and authoritative
+roster/life admission without sockets: stopping must clear identity, and resuming
+must reject the old occupant and old life. Actual transport reconnect remains in
+the separate real UDP suite; this F1 probe does not claim F4 evidence.
 Broader rendered/physical acceptance remains F3–F5; do not infer it from this matrix.

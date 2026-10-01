@@ -9,6 +9,11 @@ catch (InvalidOperationException) { Check(true, "content scenarios require expli
 var reference = FidelityOracle.Run("simulation.fixed-step", "test", 60);
 foreach (int hz in new[] { 30, 60, 120, 144, 240, 500, 997 })
     Check(FidelityOracle.Compare(reference, FidelityOracle.Run("simulation.fixed-step", "different-revision", hz)) == null, $"clock/RNG normalized values at {hz} presentation Hz");
+var resumed = FidelityOracle.Run("identity.disconnect-resume", "test").Checkpoints;
+Check(resumed[0].Values["accepted"] == 1 && resumed[1].Values["generation"] == 0
+    && resumed[2].Values["generation"] == 10 && resumed[2].Values["life"] == 0
+    && resumed[3].Values["accepted"] == 0 && resumed[4].Values["accepted"] == 1
+    && resumed[5].Values["accepted"] == 0, "disconnect clears identity; resumed roster rejects old occupant and life");
 var epoch = FidelityOracle.Run("identity.match-epoch", "test").Checkpoints;
 Check(epoch[1].Values["match"] == ushort.MaxValue && epoch[2].Values["match"] == 1
     && epoch[3].Values["match"] == 1, "actual match admission rejects stale epoch and match while accepting serial wrap");

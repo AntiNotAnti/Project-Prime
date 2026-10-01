@@ -15,10 +15,12 @@ internal static class FidelityContentScenarios
     private static FidelityScenario[] Create()
     {
         var scenarios = new List<FidelityScenario>();
-        foreach (string id in new[] { "movement.walk", "movement.jump", "movement.air-control", "movement.knockback", "weapon.powerbeam", "weapon.missile",
+        foreach (string id in new[] { "movement.walk", "movement.jump", "movement.air-control", "movement.knockback", "movement.slope", "movement.collision-corner", "weapon.powerbeam", "weapon.missile",
             "weapon.imperialist", "weapon.judicator", "weapon.magmaul", "weapon.battlehammer", "weapon.voltdriver", "weapon.shockcoil" })
             scenarios.Add(new(id, 1, 180, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
                 "Real offline engine, Samus slot 1, 120 warmup ticks, fixed native room. Movement/firing/ammo/projectile-state regression; not targeted headshot/splash acceptance."));
+        scenarios.Add(new("movement.platform", 1, 360, 123456, "extracted:AMHE1:first-native-moving-platform:v1", 1, FidelityTier.F2,
+            "Actual moving platform collision and passive player carrying; selected from native entity metadata."));
         foreach (string beam in new[] { "powerbeam", "missile", "imperialist", "judicator", "magmaul", "battlehammer", "voltdriver", "shockcoil" })
             scenarios.Add(new("weapon." + beam + ".hit", 1, 360, 123456, "extracted:AMHE1:MP3 PROVING GROUND", 1, FidelityTier.F2,
                 "Actual engine aimed projectiles and victim damage, stationary close-range target; not exhaustive headshot/splash geometry coverage."));
@@ -57,12 +59,26 @@ internal static class FidelityContentScenarios
             scene.AddPlayer(Hunter.Samus); scene.AddPlayer(hunter);
             scene.Players.PlayerCount = 2; scene.Players.MainPlayerIndex = 0;
             foreach (var player in scene.Players.Items) player.IsBot = false;
-            scene.AddRoom("MP3 PROVING GROUND", GameMode.Battle, playerCount: 2);
+            bool platformProbe = scenario.Id == "movement.platform";
+            string room = platformProbe ? FidelityGeometryFixture.PlatformRoom() : "MP3 PROVING GROUND";
+            scene.AddRoom(room, GameMode.Battle, playerCount: 2, entityLayerId: platformProbe ? 0 : -1,
+                nodeLayerMask: platformProbe ? SceneSetup.GetNodeLayer(GameMode.SinglePlayer, Metadata.GetRoomByName(room).Item1!.NodeLayer, 2) : 0);
             scene.OnLoad(); scene.GameState.MatchTime = -1;
             scene.Random.SetRng1(scenario.Seed); scene.Random.SetRng2(scenario.Seed ^ 0xa5a5a5a5);
             var actor = scene.Players.Items[1]; // slot 0 is the headless host's suppressed local input lane
+            if (platformProbe)
+            {
+                FidelityGeometryFixture.PlaceOnPlatform(scene, actor);
+                actor.Spawn(actor.Position, Vector3.UnitZ, Vector3.UnitY, actor.NodeRef, respawn: true);
+                var observer = scene.Players.Items[0];
+                observer.ModPlaceAt(actor.Position + Vector3.UnitX * 4);
+                observer.Spawn(observer.Position, Vector3.UnitZ, Vector3.UnitY, observer.NodeRef, respawn: true);
+            }
             for (int warmup = 0; warmup < 120; warmup++) { NetTestScript.Rest(actor, wantBiped: true); scene.OnSimulationFrame(); }
             if (!actor.LoadFlags.TestFlag(LoadFlags.Spawned) || actor.Health <= 0) throw new InvalidOperationException("F2 actor failed to spawn.");
+            bool slope = scenario.Id == "movement.slope", corner = scenario.Id == "movement.collision-corner";
+            if (slope || corner) FidelityGeometryFixture.Place(scene, actor, slope);
+            PlatformEntity? platform = platformProbe ? FidelityGeometryFixture.PlaceOnPlatform(scene, actor) : null;
             Vector3 altOrigin = actor.Position;
             if (alternate) actor.Health = 999;
             bool weapon = scenario.Id.StartsWith("weapon.", StringComparison.Ordinal);
@@ -116,8 +132,10 @@ internal static class FidelityContentScenarios
                     }
                     else
                     {
-                        if (scenario.Id is "movement.jump" or "movement.knockback") NetTestScript.Rest(actor, wantBiped: true);
+                        if (scenario.Id is "movement.jump" or "movement.knockback" or "movement.platform") NetTestScript.Rest(actor, wantBiped: true);
                         else NetTestScript.WalkForward(actor);
+                        if (slope && tick % 60 >= 30)
+                        { actor.Controls.MoveUp.IsDown = false; actor.Controls.MoveDown.IsDown = true; }
                         if (scenario.Id == "movement.knockback" && tick == 10)
                             actor.TakeDamage(10, DamageFlags.IgnoreInvuln, new Vector3(0.3f, 0.2f, 0.1f), scene.Players.Items[0]);
                         if (scenario.Id is "movement.jump" or "movement.air-control")
@@ -157,6 +175,12 @@ internal static class FidelityContentScenarios
                         point.Values.Add("deaths", scene.GameState.Deaths[1]);
                         point.Values.Add("kills", scene.GameState.Kills[0]);
                     }
+                    if (platform != null)
+                    {
+                        Vector("platform.position4096", platform.Position); Vector("platform.velocity4096", platform.Velocity);
+                        point.Values.Add("platform.entity", platform.Id); point.Values.Add("platform.room", scene.RoomId);
+                    }
+                    if (slope || corner || platformProbe) point.Values.Add("grounded", actor.Flags1.TestFlag(PlayerFlags1.Grounded) ? 1 : 0);
                     if (hit)
                     {
                         point.Values.Add("victim.health", victim.Health);
@@ -197,6 +221,29 @@ internal static class FidelityContentScenarios
             if (scenario.Id.StartsWith("movement.", StringComparison.Ordinal) && output.TrueForAll(p => p.Values["position4096.x"] == output[0].Values["position4096.x"]
                 && p.Values["position4096.y"] == output[0].Values["position4096.y"] && p.Values["position4096.z"] == output[0].Values["position4096.z"]))
                 throw new InvalidOperationException("F2 movement probe did not move its actor.");
+            if ((slope || corner || platformProbe) && (actor.Health == 0 || !output.Exists(p => p.Values["grounded"] != 0)))
+                throw new InvalidOperationException("Geometry probe failed to contact solid ground alive.");
+            if (platformProbe && !output.Exists(p => p.Values["platform.position4096.x"] != output[0].Values["platform.position4096.x"]
+                || p.Values["platform.position4096.y"] != output[0].Values["platform.position4096.y"]
+                || p.Values["platform.position4096.z"] != output[0].Values["platform.position4096.z"]))
+                throw new InvalidOperationException("Platform fixture did not move.");
+            if (platformProbe)
+                foreach (string axis in new[] { "x", "y", "z" })
+                {
+                    long offset = output[0].Values["position4096." + axis] - output[0].Values["platform.position4096." + axis];
+                    if (output.Exists(p => Math.Abs(p.Values["position4096." + axis] - p.Values["platform.position4096." + axis] - offset) > 2))
+                        throw new InvalidOperationException("Passive rider did not preserve its moving-platform offset.");
+                }
+            if (slope)
+            {
+                int slopedSteps = 0;
+                for (int i = 1; i < output.Count; i++)
+                    if (output[i].Values["grounded"] != 0 && output[i - 1].Values["grounded"] != 0
+                        && Math.Abs(output[i].Values["position4096.y"] - output[i - 1].Values["position4096.y"]) is > 8 and < 2048) slopedSteps++;
+                if (slopedSteps < 10) throw new InvalidOperationException($"Slope probe did not traverse grounded inclined geometry: {slopedSteps} steps.");
+            }
+            if (corner && (actor.Position - altOrigin).Length > 2)
+                throw new InvalidOperationException($"Corner probe escaped its collision boundary: origin={altOrigin}, end={actor.Position}.");
             if (weapon && !output.Exists(p => p.Values["projectiles"] > 0))
                 throw new InvalidOperationException("F2 firing probe did not create a projectile.");
             if (hit && !output.Exists(p => p.Values["victim.health"] < (headshot ? 99 : 999)))
