@@ -44,15 +44,12 @@ namespace MphRead.Mods.Render
         private NativeGeometry PrepareGeometry(float[] vertices, int[] indices, bool cache = true)
         {
             bool persistent = cache && _drawingList;
+            if (!persistent)
+                return PrepareGeometry((ReadOnlySpan<float>)vertices, (ReadOnlySpan<int>)indices);
+
             var key = (vertices, indices);
-            if (persistent && _geometryCache.TryGetValue(key, out NativeGeometry? found)) return found;
-            NativeGeometry geometry;
-            if (persistent) geometry = new();
-            else
-            {
-                if (_transientGeometryCursor == _transientGeometry.Count) _transientGeometry.Add(new());
-                geometry = _transientGeometry[_transientGeometryCursor++];
-            }
+            if (_geometryCache.TryGetValue(key, out NativeGeometry? found)) return found;
+            var geometry = new NativeGeometry();
             ulong vertexBytes = checked((ulong)vertices.Length * sizeof(float));
             ulong indexBytes = checked((ulong)indices.Length * sizeof(int));
             GrowBuffer(ref geometry.Vertex, ref geometry.VertexCapacity, vertexBytes, BufferUsage.Vertex);
@@ -61,7 +58,22 @@ namespace MphRead.Mods.Render
                 _api.QueueWriteBuffer(_queue, geometry.Vertex, 0, ptr, (nuint)vertexBytes);
             fixed (int* ptr = indices)
                 _api.QueueWriteBuffer(_queue, geometry.Index, 0, ptr, (nuint)indexBytes);
-            if (persistent) _geometryCache.Add(key, geometry);
+            _geometryCache.Add(key, geometry);
+            return geometry;
+        }
+
+        private NativeGeometry PrepareGeometry(ReadOnlySpan<float> vertices, ReadOnlySpan<int> indices)
+        {
+            if (_transientGeometryCursor == _transientGeometry.Count) _transientGeometry.Add(new());
+            NativeGeometry geometry = _transientGeometry[_transientGeometryCursor++];
+            ulong vertexBytes = checked((ulong)vertices.Length * sizeof(float));
+            ulong indexBytes = checked((ulong)indices.Length * sizeof(int));
+            GrowBuffer(ref geometry.Vertex, ref geometry.VertexCapacity, vertexBytes, BufferUsage.Vertex);
+            GrowBuffer(ref geometry.Index, ref geometry.IndexCapacity, indexBytes, BufferUsage.Index);
+            fixed (float* ptr = vertices)
+                _api.QueueWriteBuffer(_queue, geometry.Vertex, 0, ptr, (nuint)vertexBytes);
+            fixed (int* ptr = indices)
+                _api.QueueWriteBuffer(_queue, geometry.Index, 0, ptr, (nuint)indexBytes);
             return geometry;
         }
 
