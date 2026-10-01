@@ -16,6 +16,12 @@ namespace MphRead.Mods.Render
 
     internal sealed unsafe partial class ModernGraphicsCompat
     {
+        private sealed class GeneratedBindGroupCacheEntry
+        {
+            internal BindGroup* Group;
+            internal nint[] Resources = Array.Empty<nint>();
+        }
+
         private sealed class GeneratedProgram
         {
             internal ShaderModule* Vertex;
@@ -25,6 +31,8 @@ namespace MphRead.Mods.Render
             internal uint[] Words = Array.Empty<uint>();
             internal ModernUniformLayout[] Members = Array.Empty<ModernUniformLayout>();
             internal int[] Textures = Array.Empty<int>();
+            internal readonly List<GeneratedBindGroupCacheEntry> BindGroups = new();
+            internal int BindGroupCursor;
         }
 
         private readonly Dictionary<ModernProgramKind, GeneratedProgram> _generatedPrograms = new();
@@ -153,6 +161,10 @@ namespace MphRead.Mods.Render
         {
             var generated = GeneratedShader(kind);
             var entries = stackalloc BindGroupEntry[1 + generated.Textures.Length * 2];
+            Span<nint> resources = stackalloc nint[2 + generated.Textures.Length * 2];
+            resources[0] = (nint)layout;
+            resources[1] = (nint)generated.UniformBuffer;
+
             entries[0] = new BindGroupEntry { Binding = 0, Buffer = generated.UniformBuffer,
                 Size = (ulong)generated.Layout.Size };
             uint count = 1;
@@ -160,16 +172,44 @@ namespace MphRead.Mods.Render
             {
                 bool depth = generated.Layout.Samplers[i] is "depth_tex" or "shadow_tex";
                 NativeTexture? texture = generated.Textures[i] == 0 ? null : EnsureTexture(generated.Textures[i]);
-                entries[count++] = new BindGroupEntry { Binding = (uint)(1 + i * 2),
-                    TextureView = texture != null ? texture.SampleView : depth ? FallbackDepthView() : _whiteView };
+                TextureView* view = texture != null ? texture.SampleView
+                    : depth ? FallbackDepthView() : _whiteView;
+                Silk.NET.WebGPU.Sampler* sampler = !depth
+                    ? texture != null ? texture.Sampler : _whiteSampler : null;
+
+                entries[count++] = new BindGroupEntry { Binding = (uint)(1 + i * 2), TextureView = view };
                 if (!depth)
-                    entries[count++] = new BindGroupEntry { Binding = (uint)(2 + i * 2),
-                        Sampler = texture != null ? texture.Sampler : _whiteSampler };
+                    entries[count++] = new BindGroupEntry { Binding = (uint)(2 + i * 2), Sampler = sampler };
+
+                int fingerprint = 2 + i * 2;
+                resources[fingerprint] = (nint)view;
+                resources[fingerprint + 1] = (nint)sampler;
             }
-            return CreateTrackedBindGroup( new BindGroupDescriptor
+
+            int slot = generated.BindGroupCursor++;
+            GeneratedBindGroupCacheEntry? cached = slot < generated.BindGroups.Count
+                ? generated.BindGroups[slot] : null;
+            if (cached != null && cached.Group != null
+                && cached.Resources.AsSpan().SequenceEqual(resources))
+            {
+                return cached.Group;
+            }
+
+            if (cached?.Group != null)
+                ReleaseTrackedBindGroup(cached.Group);
+
+            BindGroup* group = CreateTrackedBindGroup(new BindGroupDescriptor
             {
                 Layout = layout, Entries = entries, EntryCount = count
             });
+            if (cached == null)
+            {
+                cached = new GeneratedBindGroupCacheEntry();
+                generated.BindGroups.Add(cached);
+            }
+            cached.Group = group;
+            cached.Resources = resources.ToArray();
+            return group;
         }
 
         private TextureView* FallbackDepthView()
@@ -192,6 +232,9 @@ namespace MphRead.Mods.Render
         {
             foreach (var program in _generatedPrograms.Values)
             {
+                foreach (var cached in program.BindGroups)
+                    if (cached.Group != null) ReleaseTrackedBindGroup(cached.Group);
+                program.BindGroups.Clear();
                 if (program.Vertex != null) _api.ShaderModuleRelease(program.Vertex);
                 if (program.Fragment != null) _api.ShaderModuleRelease(program.Fragment);
             }
