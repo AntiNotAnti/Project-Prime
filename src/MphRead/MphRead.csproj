@@ -382,4 +382,7 @@
   <ItemGroup>
     <EmbeddedResource Include="Mods/Render/Generated/*.wgsl" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+  </ItemGroup>
 </Project>

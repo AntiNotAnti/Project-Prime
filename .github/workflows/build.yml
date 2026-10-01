@@ -173,6 +173,8 @@ jobs:
       - uses: actions/setup-dotnet@v6
         with:
           dotnet-version: '10.0.x'
+      - name: generated packet schema and malformed wire checks
+        run: dotnet run --project tools/protocol-generator-check -c Release
       - name: enhanced rules, state and maximum packet budgets
         run: dotnet run --project tools/nettest -c Release -- --enhanced-hunters
       - name: replication lane round trip
