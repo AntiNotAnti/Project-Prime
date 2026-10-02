@@ -130,7 +130,6 @@ namespace MphRead.Droid
         }
 
         public static void Attach(Activity activity)
-        public static void Attach(Activity activity)
         {
             _activity = new WeakReference<Activity>(activity);
             DisableSustainedPerformanceMode();
@@ -286,7 +285,6 @@ namespace MphRead.Droid
         }
 
         private static void PollThermal(bool force)
-        private static void PollThermal(bool force)
         {
             long now = Environment.TickCount64;
             if (!force && now - _lastThermalPoll < ThermalPollMs)
@@ -311,7 +309,6 @@ namespace MphRead.Droid
             DebugLog.Line("androidperf", $"thermal status {before} -> {status} (diagnostic only)");
         }
 
-        private static int ReadThermalStatus()
         private static int ReadThermalStatus()
         {
             if (!OperatingSystem.IsAndroidVersionAtLeast(29)
