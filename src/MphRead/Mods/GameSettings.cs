@@ -155,13 +155,6 @@ namespace MphRead.Mods
             if (Enum.TryParse(settings.TextureQuality, true, out TextureAssetQuality textureQuality)
                 && Enum.IsDefined(textureQuality))
                 RenderOptions.TextureQuality = textureQuality;
-#if ANDROID
-            // The Android head owns a runtime quality governor. Tell it what
-            // the player actually requested after all shared values have been
-            // applied, so temporary thermal/dynamic reductions never become
-            // the new saved baseline.
-            MphRead.Droid.AndroidPerformance.NoteSettingsApplied(settings);
-#endif
             DebugLog.Line("performance", Maintenance.PerformanceSummary(settings));
         }
 
