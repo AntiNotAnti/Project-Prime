@@ -87,7 +87,7 @@ public sealed class ObjModelImporter : IModelImporter
                                     if (new FileInfo(image).Length > MaxSourceBytes) throw new InvalidDataException("Texture exceeds source byte limit.");
                                     string hash = MapHash256.HashFile(image).ToString();
                                     string sourceExtension = Path.GetExtension(image).ToLowerInvariant();
-                                    string? modernAsset = sourceExtension is ".png" or ".jpg" or ".jpeg"
+                                    string? modernAsset = sourceExtension is ".png" or ".jpg" or ".jpeg" or ".tga"
                                         ? "textures/model-" + hash + (sourceExtension == ".jpeg" ? ".jpg" : sourceExtension) : null;
                                     if (!textures.TryGetValue(hash, out string? asset))
                                     {
