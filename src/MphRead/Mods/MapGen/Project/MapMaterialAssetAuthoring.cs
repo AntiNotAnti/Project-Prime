@@ -31,7 +31,7 @@ internal static class MapMaterialAssetAuthoring
         if (bytes.LongLength > MapPackageReader.MaxEntryBytes) throw new InvalidDataException("HD material image exceeds the map asset limit.");
         _ = ModernTextureAsset.ProbeDimensions(bytes);
         string extension = ModernTextureAsset.PortableEncodedExtension(bytes)
-            ?? throw new InvalidDataException("Packaged HD material images must be PNG or JPEG.");
+            ?? throw new InvalidDataException("Packaged HD material images must be PNG, JPEG or TGA.");
         string hash = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
         string relative = $"textures/material-{materialId:N}-{channel.ToLowerInvariant()}-{hash}{extension}";
         MapPackageReader.CanonicalName(relative);
