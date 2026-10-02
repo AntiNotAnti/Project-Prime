@@ -58,6 +58,15 @@ namespace MphRead.Mods.Render
             TextureAssetChannel channel)
         {
             if (source == null || !source.CanRead) throw new InvalidDataException("Texture source is unreadable.");
+            if (source.CanSeek)
+            {
+                long start = source.Position;
+                Span<byte> header = stackalloc byte[18];
+                int read = source.Read(header);
+                source.Position = start;
+                if (read == header.Length && IsSupportedTga(header))
+                    return DecodeTga(source, key, assetClass, channel);
+            }
 #if ANDROID
             using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
             using var image = Android.Graphics.BitmapFactory.DecodeStream(source, null, options)
@@ -144,7 +153,80 @@ namespace MphRead.Mods.Render
         {
             if (bytes.Length >= 8 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 })) return ".png";
             if (bytes.Length >= 2 && bytes[0] == 255 && bytes[1] == 216) return ".jpg";
+            if (bytes.Length >= 18 && IsSupportedTga(bytes[..18])) return ".tga";
             return null;
+        }
+
+        private static bool IsSupportedTga(ReadOnlySpan<byte> header)
+            => header.Length >= 18 && header[1] == 0 && header[2] is 2 or 10
+                && header[16] is 24 or 32
+                && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[12..14]) > 0
+                && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]) > 0;
+
+        private static ModernTextureAsset DecodeTga(Stream source, string key, TextureAssetClass assetClass,
+            TextureAssetChannel channel)
+        {
+            Span<byte> header = stackalloc byte[18];
+            source.ReadExactly(header);
+            if (!IsSupportedTga(header)) throw new InvalidDataException("Unsupported TGA image.");
+            int idLength = header[0];
+            int type = header[2];
+            int width = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[12..14]);
+            int height = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]);
+            int bytesPerPixel = header[16] / 8;
+            bool rightOrigin = (header[17] & 0x10) != 0;
+            bool topOrigin = (header[17] & 0x20) != 0;
+            ValidateDimensions(width, height);
+            if (idLength > 0)
+            {
+                byte[] id = new byte[idLength];
+                source.ReadExactly(id);
+            }
+            byte[] rgba = new byte[checked(width * height * 4)];
+            Span<byte> pixel = stackalloc byte[4];
+            int written = 0;
+            void WritePixel(ReadOnlySpan<byte> bgra)
+            {
+                if (written >= width * height) throw new InvalidDataException("TGA contains too many pixels.");
+                int rawX = written % width, rawY = written / width;
+                int x = rightOrigin ? width - 1 - rawX : rawX;
+                int y = topOrigin ? rawY : height - 1 - rawY;
+                int target = (y * width + x) * 4;
+                rgba[target] = bgra[2];
+                rgba[target + 1] = bgra[1];
+                rgba[target + 2] = bgra[0];
+                rgba[target + 3] = bytesPerPixel == 4 ? bgra[3] : (byte)255;
+                written++;
+            }
+            void ReadPixel()
+            {
+                source.ReadExactly(pixel[..bytesPerPixel]);
+                WritePixel(pixel[..bytesPerPixel]);
+            }
+            if (type == 2)
+            {
+                while (written < width * height) ReadPixel();
+            }
+            else
+            {
+                while (written < width * height)
+                {
+                    int packet = source.ReadByte();
+                    if (packet < 0) throw new InvalidDataException("Truncated TGA RLE stream.");
+                    int count = (packet & 0x7f) + 1;
+                    if ((packet & 0x80) != 0)
+                    {
+                        source.ReadExactly(pixel[..bytesPerPixel]);
+                        for (int i = 0; i < count; i++) WritePixel(pixel[..bytesPerPixel]);
+                    }
+                    else
+                    {
+                        for (int i = 0; i < count; i++) ReadPixel();
+                    }
+                }
+            }
+            if (written != width * height) throw new InvalidDataException("Truncated TGA image.");
+            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba);
         }
 
         public static ModernTextureAsset FromRgba(string key, TextureAssetClass assetClass,
