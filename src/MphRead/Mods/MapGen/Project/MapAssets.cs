@@ -72,6 +72,7 @@ namespace MphRead.Mods.MapGen
                 if(audio.GameMusic!=null&&(!Enum.TryParse<MusicId>(audio.GameMusic,true,out var music)||!Enum.IsDefined(music)))result.Error("FP-MAP-021","Unknown game music reference.");
             }
             foreach(var material in definition.Materials)
+            {
                 if(material?.Texture is {} texture)
                 {
                     if(!paths.Contains(texture)||!texture.EndsWith(".tex",StringComparison.OrdinalIgnoreCase))result.Error("FP-MAP-001","Custom materials must reference a baked texture asset.",material.Id);
@@ -81,6 +82,20 @@ namespace MphRead.Mods.MapGen
                         catch(Exception ex)when(ex is IOException or InvalidDataException or ProgramException){result.Error("FP-MAP-001",ex.Message,material.Id);}
                     }
                 }
+                foreach(string modern in new[]{material?.Albedo,material?.Normal,material?.SpecularRoughness,material?.Emissive}.Where(path=>!String.IsNullOrEmpty(path)).Select(path=>path!))
+                {
+                    string ext=Path.GetExtension(modern).ToLowerInvariant();
+                    if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
+                        result.Error("FP-MAP-001","HD material channels must reference declared texture assets.",material?.Id);
+                    else if(ext is not(".png" or ".jpg" or ".jpeg"))
+                        result.Error("FP-MAP-001","HD material channels must be PNG or JPEG.",material?.Id);
+                    else if(checkFiles)
+                    {
+                        try{Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern));}
+                        catch(Exception ex)when(ex is IOException or InvalidDataException or ArgumentException){result.Error("FP-MAP-001",ex.Message,material?.Id);}
+                    }
+                }
+            }
         }
     }
     public static class MapModeValidator
