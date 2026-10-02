@@ -44,12 +44,12 @@ internal static class ReplayKillMessagePresenter
         if (frame == _frame) return;
 
         int pov = scene.Players.MainPlayerIndex;
-        if ((uint)pov < (uint)scene.Players.Items.Count)
+        if ((uint)pov < PlayerEntity.SlotCapacity)
         {
             foreach (ReplayEvent kill in DemoPlayback.Events)
             {
                 if (kill.Type != ReplayEventType.Kill || kill.Frame <= _frame || kill.Frame > frame
-                    || kill.ActorSlot != pov || kill.TargetSlot >= scene.Players.Items.Count)
+                    || kill.ActorSlot != pov || kill.TargetSlot >= PlayerEntity.SlotCapacity)
                     continue;
                 Queue(scene, kill);
             }
