@@ -150,7 +150,7 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static TextureAssetClass Classify(Model model)
+        internal static TextureAssetClass Classify(Model model)
         {
             string? scope = model.MaterialAssetScope;
             if (scope != null && scope.StartsWith("effect/model/", StringComparison.Ordinal)) return TextureAssetClass.Effect;

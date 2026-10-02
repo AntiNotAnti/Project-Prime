@@ -291,8 +291,13 @@ namespace MphRead
             GL.UniformMatrix4(_pbrTextureMatrix, false, ref texcoord);
 
             GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D,
-                item.HasTexture && _showTextures ? item.TextureBindingId : 0);
+            int baseBinding = item.HasTexture && _showTextures ? item.TextureBindingId : 0;
+            GL.BindTexture(TextureTarget.Texture2D, baseBinding);
+            if (baseBinding != 0)
+            {
+                ApplyBoundTextureSampling(baseBinding);
+                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+            }
 
             MaterialMapBindings maps = default;
             bool advanced = RenderOptions.AdvancedMaterials && item.HasTexture
@@ -301,12 +306,29 @@ namespace MphRead
             { maps = new(item.CosmeticMaterial.NormalBinding, item.CosmeticMaterial.SpecularBinding, item.CosmeticMaterial.EmissiveBinding); advanced = maps.Any; }
             GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Normal : 0);
+            if (advanced && maps.Normal != 0 && _modernTextureSampling.ContainsKey(maps.Normal))
+            {
+                ApplyBoundTextureSampling(maps.Normal);
+                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+            }
             GL.Uniform1(_pbrUseNormal, advanced && maps.Normal != 0 ? 1 : 0);
+
             GL.ActiveTexture(TextureUnit.Texture2);
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Specular : 0);
+            if (advanced && maps.Specular != 0 && _modernTextureSampling.ContainsKey(maps.Specular))
+            {
+                ApplyBoundTextureSampling(maps.Specular);
+                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+            }
             GL.Uniform1(_pbrUseSpecular, advanced && maps.Specular != 0 ? 1 : 0);
+
             GL.ActiveTexture(TextureUnit.Texture3);
             GL.BindTexture(TextureTarget.Texture2D, advanced ? maps.Emissive : 0);
+            if (advanced && maps.Emissive != 0 && _modernTextureSampling.ContainsKey(maps.Emissive))
+            {
+                ApplyBoundTextureSampling(maps.Emissive);
+                ApplyTextureWrap(item.XRepeat, item.YRepeat);
+            }
             GL.Uniform1(_pbrUseEmissive, advanced && maps.Emissive != 0 ? 1 : 0);
             GL.ActiveTexture(TextureUnit.Texture0);
 

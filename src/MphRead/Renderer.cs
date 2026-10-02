@@ -202,6 +202,8 @@ namespace MphRead
         private readonly Dictionary<int, TextureMap> _texPalMap = new Dictionary<int, TextureMap>();
         private readonly HashSet<int> _mipmappedTextures = new();
         private readonly Dictionary<int, Mods.Render.MaterialMapBindings> _materialMaps = new();
+        private readonly Dictionary<int, (Mods.Render.TextureAssetClass AssetClass, Mods.Render.TextureAssetChannel Channel)>
+            _modernTextureSampling = new();
         private int _maxTextureAnisotropy = -1;
         private const int TextureMaxAnisotropyExt = 0x84FE;
         private const int MaxTextureMaxAnisotropyExt = 0x84FF;
@@ -1524,6 +1526,7 @@ namespace MphRead
         {
             _flatColors.Remove(texture);
             _mipmappedTextures.Remove(texture);
+            _modernTextureSampling.Remove(texture);
             _textureSources.Remove(texture);
             if (_materialMaps.Remove(texture, out Mods.Render.MaterialMapBindings maps))
             {
@@ -1537,13 +1540,16 @@ namespace MphRead
         private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey? Authored)> _textureSources = new();
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
+        private string _uploadedTextureSamplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
+            string samplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
             if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
+                && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
                 && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
                 && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
@@ -1556,6 +1562,7 @@ namespace MphRead
                 if (_texPalMap.TryGetValue(model.Id, out var map)) EnsureAuthoredTextures(model, map);
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
+            _uploadedTextureSamplingKey = samplingKey;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }
@@ -1570,6 +1577,8 @@ namespace MphRead
                 if (previousMaps.Specular != 0) ReleaseTexture(previousMaps.Specular);
                 if (previousMaps.Emissive != 0) ReleaseTexture(previousMaps.Emissive);
             }
+            _modernTextureSampling.Remove(_lastTextureId);
+            _mipmappedTextures.Remove(_lastTextureId);
             bool onlyOpaque = true;
             var pixels = new List<uint>();
             var average = new FlatColor();
@@ -1584,15 +1593,22 @@ namespace MphRead
                 authoredKey ?? Mods.Render.Materials.MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
                 texture.Width, texture.Height, model.Name, _room?.Meta.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
+            Mods.Render.TextureAssetClass replacementClass = Mods.Render.TextureReplacementPack.Classify(model);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
                 textureId, paletteId, recolorId, out int replacementWidth, out int replacementHeight,
                 out Mods.Render.Materials.ResolvedMaterial? replacementMaterial, authoredKey);
             if (replaced)
             {
+                _modernTextureSampling[_lastTextureId] =
+                    (replacementClass, Mods.Render.TextureAssetChannel.Albedo);
+                Mods.Render.TextureSamplerDescriptor sampling = Mods.Render.TextureSamplingPolicy.ResolveModern(
+                    replacementClass, Mods.Render.TextureAssetChannel.Albedo);
+                if (sampling.Mipmaps) _mipmappedTextures.Add(_lastTextureId);
                 Mods.DebugLog.Line("render",
                     $"HD texture {model.Name}:{textureId}/{paletteId}/{recolorId} "
                     + $"{texture.Width}x{texture.Height} -> {replacementWidth}x{replacementHeight} "
-                    + $"backend={Mods.Render.GraphicsBackendPolicy.Resolved}");
+                    + $"backend={Mods.Render.GraphicsBackendPolicy.Resolved} "
+                    + Mods.Render.TextureSamplingPolicy.Describe(sampling));
             }
             if (!replaced)
             {
@@ -1606,20 +1622,35 @@ namespace MphRead
                     uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
                     PixelType.UnsignedByte, uploadPixels);
             }
-            // Mipmaps are generated lazily if/when the player enables them.
-            // The default DS/competitive path therefore pays no extra upload
-            // time or GPU memory simply because the option exists.
-            _mipmappedTextures.Remove(_lastTextureId);
+            // Native cartridge textures keep lazy mip generation so the
+            // legacy path pays nothing when filtering is disabled. Modern
+            // replacements arrive with their mip chain already prepared.
+            if (!replaced) _mipmappedTextures.Remove(_lastTextureId);
             GL.BindTexture(TextureTarget.Texture2D, 0);
             if (replacementMaterial != null)
             {
                 Mods.Render.MaterialMapBindings maps =
                     Mods.Render.TextureReplacementPack.UploadCompanions(
-                        replacementMaterial, AllocateTexture, ReleaseTexture);
-                if (maps.Any) _materialMaps[_lastTextureId] = maps;
+                        replacementMaterial, AllocateTexture, ReleaseTexture, replacementClass);
+                if (maps.Any)
+                {
+                    _materialMaps[_lastTextureId] = maps;
+                    RegisterModernTexture(maps.Normal, replacementClass, Mods.Render.TextureAssetChannel.Normal);
+                    RegisterModernTexture(maps.Specular, replacementClass, Mods.Render.TextureAssetChannel.Material);
+                    RegisterModernTexture(maps.Emissive, replacementClass, Mods.Render.TextureAssetChannel.Emissive);
+                }
             }
             _flatColors[_lastTextureId] = average.Result;
             return onlyOpaque;
+        }
+
+        private void RegisterModernTexture(int bindingId, Mods.Render.TextureAssetClass assetClass,
+            Mods.Render.TextureAssetChannel channel)
+        {
+            if (bindingId == 0) return;
+            _modernTextureSampling[bindingId] = (assetClass, channel);
+            if (Mods.Render.TextureSamplingPolicy.ResolveModern(assetClass, channel).Mipmaps)
+                _mipmappedTextures.Add(bindingId);
         }
 
         /// <summary>
@@ -4969,6 +5000,7 @@ namespace MphRead
             _texPalMap.Clear();
             _textureSources.Clear();
             _mipmappedTextures?.Clear();
+            _modernTextureSampling.Clear();
             _flatColors.Clear();
             _cosmeticTextures.Clear();
             ReleasePreviewItems();
@@ -6306,18 +6338,70 @@ localCenter *= _profileHudScale;
             return _maxTextureAnisotropy;
         }
 
-        private void ApplyTextureAnisotropy()
+        private void ApplyTextureAnisotropy(int requested)
         {
             int max = MaxTextureAnisotropy();
             if (max <= 1)
             {
                 return;
             }
-            int wanted = FilteringOn
-                ? Math.Clamp(Mods.RenderOptions.TextureAnisotropy, 1, max)
-                : 1;
+            int wanted = Math.Clamp(requested, 1, max);
             GL.TexParameter(TextureTarget.Texture2D,
                 (TextureParameterName)TextureMaxAnisotropyExt, wanted);
+        }
+
+        private void ApplyBoundTextureSampling(int bindingId)
+        {
+            Mods.Render.TextureSamplerDescriptor sampling;
+            if (_modernTextureSampling.TryGetValue(bindingId, out var modern))
+            {
+                sampling = Mods.Render.TextureSamplingPolicy.ResolveModern(
+                    modern.AssetClass, modern.Channel);
+            }
+            else
+            {
+                sampling = Mods.Render.TextureSamplingPolicy.ResolveNativeWorld();
+            }
+
+            if (sampling.Mipmaps && _mipmappedTextures.Add(bindingId))
+            {
+                // Native cartridge textures still build lazily. Modern
+                // textures are registered as ready at upload, so this branch
+                // is only a safety net for an untracked/recycled binding.
+                GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            }
+
+            int minParameter = sampling.Mipmaps
+                ? (int)(sampling.LinearMinification
+                    ? TextureMinFilter.LinearMipmapLinear
+                    : TextureMinFilter.NearestMipmapNearest)
+                : (int)(sampling.LinearMinification
+                    ? TextureMinFilter.Linear
+                    : TextureMinFilter.Nearest);
+            int magParameter = (int)(sampling.LinearMagnification
+                ? TextureMagFilter.Linear
+                : TextureMagFilter.Nearest);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
+            ApplyTextureAnisotropy(sampling.Anisotropy);
+        }
+
+        private static TextureWrapMode TextureWrap(RepeatMode mode)
+        {
+            return mode switch
+            {
+                RepeatMode.Repeat => TextureWrapMode.Repeat,
+                RepeatMode.Mirror => TextureWrapMode.MirroredRepeat,
+                _ => TextureWrapMode.ClampToEdge
+            };
+        }
+
+        private static void ApplyTextureWrap(RepeatMode xRepeat, RepeatMode yRepeat)
+        {
+            GL.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapS, (int)TextureWrap(xRepeat));
+            GL.TexParameter(TextureTarget.Texture2D,
+                TextureParameterName.TextureWrapT, (int)TextureWrap(yRepeat));
         }
 
         private void DoTexture(RenderItem item)
@@ -6339,64 +6423,38 @@ localCenter *= _profileHudScale;
                 GL.Uniform1(_shaderLocations.UseNormalMap, materialMaps.Normal != 0 ? 1 : 0);
                 GL.Uniform1(_shaderLocations.UseSpecularMap, materialMaps.Specular != 0 ? 1 : 0);
                 GL.Uniform1(_shaderLocations.UseEmissiveMap, materialMaps.Emissive != 0 ? 1 : 0);
+
                 GL.ActiveTexture(TextureUnit.Texture1);
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Normal);
+                if (materialMaps.Normal != 0 && _modernTextureSampling.ContainsKey(materialMaps.Normal))
+                {
+                    ApplyBoundTextureSampling(materialMaps.Normal);
+                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                }
+
                 GL.ActiveTexture(TextureUnit.Texture2);
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Specular);
+                if (materialMaps.Specular != 0 && _modernTextureSampling.ContainsKey(materialMaps.Specular))
+                {
+                    ApplyBoundTextureSampling(materialMaps.Specular);
+                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                }
+
                 GL.ActiveTexture(TextureUnit.Texture3);
                 GL.BindTexture(TextureTarget.Texture2D, materialMaps.Emissive);
+                if (materialMaps.Emissive != 0 && _modernTextureSampling.ContainsKey(materialMaps.Emissive))
+                {
+                    ApplyBoundTextureSampling(materialMaps.Emissive);
+                    ApplyTextureWrap(item.XRepeat, item.YRepeat);
+                }
             }
             GL.ActiveTexture(TextureUnit.Texture0);
 
             if (item.HasTexture)
             {
                 GL.BindTexture(TextureTarget.Texture2D, item.TextureBindingId);
-                bool mipmapped = FilteringOn && Mods.RenderOptions.TextureMipmaps;
-                if (mipmapped && _mipmappedTextures.Add(item.TextureBindingId))
-                {
-                    GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-                }
-                int minParameter = !FilteringOn
-                    ? (int)TextureMinFilter.Nearest
-                    : mipmapped
-                        ? (int)TextureMinFilter.LinearMipmapLinear
-                        : (int)TextureMinFilter.Linear;
-                int magParameter = FilteringOn
-                    ? (int)TextureMagFilter.Linear
-                    : (int)TextureMagFilter.Nearest;
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, minParameter);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, magParameter);
-                ApplyTextureAnisotropy();
-                switch (item.XRepeat)
-                {
-                case RepeatMode.Clamp:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                    break;
-                case RepeatMode.Repeat:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
-                    break;
-                case RepeatMode.Mirror:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapS, (int)TextureWrapMode.MirroredRepeat);
-                    break;
-                }
-                switch (item.YRepeat)
-                {
-                case RepeatMode.Clamp:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-                    break;
-                case RepeatMode.Repeat:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
-                    break;
-                case RepeatMode.Mirror:
-                    GL.TexParameter(TextureTarget.Texture2D,
-                        TextureParameterName.TextureWrapT, (int)TextureWrapMode.MirroredRepeat);
-                    break;
-                }
+                ApplyBoundTextureSampling(item.TextureBindingId);
+                ApplyTextureWrap(item.XRepeat, item.YRepeat);
                 Matrix4 texcoordMatrix = item.TexcoordMatrix;
                 GL.Uniform1(_shaderLocations.TexgenMode, (int)item.TexgenMode);
                 GL.UniformMatrix4(_shaderLocations.TextureMatrix, transpose: false, ref texcoordMatrix);
