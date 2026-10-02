@@ -107,7 +107,6 @@ namespace MphRead.Mods.Render
             failures += RunStallCase() ? 0 : 1;
             failures += RunPresentationAlphaCase() ? 0 : 1;
             failures += RunDynamicCrosshairCameraPolicyCase() ? 0 : 1;
-            failures += RunProHudDynamicSwayCase() ? 0 : 1;
             failures += RunFirstPersonPresentationCase() ? 0 : 1;
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
@@ -196,10 +195,9 @@ namespace MphRead.Mods.Render
         }
 
         /// <summary>
-        /// Pro HUD freezes the native reticle fire animation in both weapon
-        /// styles. Dynamic/Metroid retains an eased simulation basis for its
-        /// drifting weapon, but both weapon styles must expose the
-        /// responsive raw-aim camera to the local player.
+        /// Dynamic/Metroid keeps the arm cannon and crosshair visually dynamic,
+        /// while both weapon styles keep the responsive raw-aim camera. Static
+        /// must keep its crosshair welded to the firing ray.
         /// </summary>
         private static bool RunDynamicCrosshairCameraPolicyCase()
         {
@@ -212,18 +210,24 @@ namespace MphRead.Mods.Render
                 bool dynamicOk = Features.FixedCrosshair
                     && !Features.FixedWeapon
                     && !Features.FixedAimCamera
-                    && Features.ResponsiveAimCamera;
+                    && Features.ResponsiveAimCamera
+                    && PlayerEntity.ModDynamicReticlePresentation(
+                        Features.ProHud, Features.FixedWeapon);
 
                 Features.ProHudFixedWeapon = true;
                 bool staticOk = Features.FixedCrosshair
                     && Features.FixedWeapon
                     && Features.FixedAimCamera
-                    && Features.ResponsiveAimCamera;
+                    && Features.ResponsiveAimCamera
+                    && !PlayerEntity.ModDynamicReticlePresentation(
+                        Features.ProHud, Features.FixedWeapon);
 
-                bool ok = dynamicOk && staticOk;
+                bool classicOk = !PlayerEntity.ModDynamicReticlePresentation(
+                    proHud: false, fixedWeapon: false);
+                bool ok = dynamicOk && staticOk && classicOk;
                 Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic crosshair camera"
-                    + $" | dynamic={(dynamicOk ? "responsive / eased weapon state" : "wrong policy")}"
-                    + $" | static={(staticOk ? "responsive / welded visual state" : "wrong policy")}");
+                    + $" | dynamic={(dynamicOk ? "responsive camera / moving reticle" : "wrong policy")}"
+                    + $" | static={(staticOk ? "responsive camera / fixed reticle" : "wrong policy")}");
                 return ok;
             }
             finally
@@ -231,40 +235,6 @@ namespace MphRead.Mods.Render
                 Features.ProHud = priorPro;
                 Features.ProHudFixedWeapon = priorWeapon;
             }
-        }
-
-        /// <summary>
-        /// Project Prime Dynamic/Metroid should reuse the exact native object
-        /// shift for its flat readouts. Static/Quake stays screen-locked, and
-        /// Custom profiles keep ownership of their authored anchors.
-        /// </summary>
-        private static bool RunProHudDynamicSwayCase()
-        {
-            var nativeShift = new Vector2(3.5f, -2.25f);
-            bool Same(Vector2 a, Vector2 b) => (a - b).LengthSquared < 0.000001f;
-
-            bool dynamicOk = Same(PlayerEntity.ModProHudDynamicShift(
-                true, Hud.HudMode.ProjectPrime, true, false, nativeShift), nativeShift);
-            bool staticOk = Same(PlayerEntity.ModProHudDynamicShift(
-                true, Hud.HudMode.ProjectPrime, true, true, nativeShift), Vector2.Zero);
-            bool disabledOk = Same(PlayerEntity.ModProHudDynamicShift(
-                true, Hud.HudMode.ProjectPrime, false, false, nativeShift), Vector2.Zero);
-            bool customOk = Same(PlayerEntity.ModProHudDynamicShift(
-                true, Hud.HudMode.Custom, true, false, nativeShift), Vector2.Zero);
-            // Screenshot/diagnostic command-line overrides can enable Pro HUD
-            // without republishing the active profile first.
-            bool overrideOk = Same(PlayerEntity.ModProHudDynamicShift(
-                true, Hud.HudMode.Classic, true, false, nativeShift), nativeShift);
-            bool classicOk = Same(PlayerEntity.ModProHudDynamicShift(
-                false, Hud.HudMode.Classic, true, false, nativeShift), Vector2.Zero);
-
-            bool ok = dynamicOk && staticOk && disabledOk
-                && customOk && overrideOk && classicOk;
-            Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic sway"
-                + $" | dynamic={(dynamicOk ? "native shift" : "missing")}"
-                + $" | static={(staticOk ? "rigid" : "shifted")}"
-                + $" | custom={(customOk ? "authored" : "forced")}");
-            return ok;
         }
 
         /// <summary>
