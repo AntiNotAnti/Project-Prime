@@ -244,25 +244,19 @@ namespace MphRead.Mods.Render
             bool Same(Vector2 a, Vector2 b) => (a - b).LengthSquared < 0.000001f;
 
             bool dynamicOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: true, Hud.HudMode.ProjectPrime, hudSway: true,
-                fixedWeapon: false, nativeShift), nativeShift);
+                true, Hud.HudMode.ProjectPrime, true, false, nativeShift), nativeShift);
             bool staticOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: true, Hud.HudMode.ProjectPrime, hudSway: true,
-                fixedWeapon: true, nativeShift), Vector2.Zero);
+                true, Hud.HudMode.ProjectPrime, true, true, nativeShift), Vector2.Zero);
             bool disabledOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: true, Hud.HudMode.ProjectPrime, hudSway: false,
-                fixedWeapon: false, nativeShift), Vector2.Zero);
+                true, Hud.HudMode.ProjectPrime, false, false, nativeShift), Vector2.Zero);
             bool customOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: true, Hud.HudMode.Custom, hudSway: true,
-                fixedWeapon: false, nativeShift), Vector2.Zero);
+                true, Hud.HudMode.Custom, true, false, nativeShift), Vector2.Zero);
             // Screenshot/diagnostic command-line overrides can enable Pro HUD
             // without republishing the active profile first.
             bool overrideOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: true, Hud.HudMode.Classic, hudSway: true,
-                fixedWeapon: false, nativeShift), nativeShift);
+                true, Hud.HudMode.Classic, true, false, nativeShift), nativeShift);
             bool classicOk = Same(PlayerEntity.ModProHudDynamicShift(
-                proHud: false, Hud.HudMode.Classic, hudSway: true,
-                fixedWeapon: false, nativeShift), Vector2.Zero);
+                false, Hud.HudMode.Classic, true, false, nativeShift), Vector2.Zero);
 
             bool ok = dynamicOk && staticOk && disabledOk
                 && customOk && overrideOk && classicOk;
