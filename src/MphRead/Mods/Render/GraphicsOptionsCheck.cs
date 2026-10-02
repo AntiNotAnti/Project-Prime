@@ -137,11 +137,24 @@ namespace MphRead.Mods.Render
                     && settings.ShadowQuality == "ultra"
                     && settings.TextureUpscale == "scale4x"
                     && settings.TextureQuality == "automatic"
+                    && settings.TextureSampling == "auto"
                     && settings.Gamma == "150"
                     && settings.AdvancedMaterials == "on"
                     && settings.InternalHdr == "on"
                     && summary.Length > 0,
                     "graphics settings migration clamps and normalizes new options");
+
+                var previousHdSettings = new MenuSettings
+                {
+                    SettingsSchemaVersion = 7,
+                    TextureReplacements = "on",
+                    TextureFiltering = "off",
+                    TextureMipmaps = "off",
+                    TextureAnisotropy = "1"
+                };
+                Check(SettingsMigration.Apply(previousHdSettings, out _)
+                    && previousHdSettings.TextureSampling == "custom",
+                    "schema 7 HD users retain their previous manual sampling behavior");
 
                 Check(TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Low, TextureAssetClass.Hunter) == 1024
                     && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Medium, TextureAssetClass.Hunter) == 2048
@@ -149,6 +162,33 @@ namespace MphRead.Mods.Render
                     && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Ultra, TextureAssetClass.Hunter) == 8192
                     && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Ultra, TextureAssetClass.Effect) == 4096,
                     "modern texture policy exposes 1K/2K/4K/8K tiers and a bounded FX tier");
+
+                RenderOptions.TextureSampling = TextureSamplingMode.Auto;
+                TextureSamplerDescriptor autoSampling = TextureSamplingPolicy.ResolveModern(
+                    TextureAssetClass.World, TextureAssetChannel.Albedo);
+                Check(autoSampling.LinearMagnification && autoSampling.LinearMinification
+                    && autoSampling.Mipmaps
+                    && autoSampling.Anisotropy == (OperatingSystem.IsAndroid() ? 4 : 8)
+                    && autoSampling.LodBias == 0,
+                    "auto HD sampling resolves to stable trilinear minification with bounded anisotropy");
+
+                RenderOptions.TextureSampling = TextureSamplingMode.Legacy;
+                TextureSamplerDescriptor legacySampling = TextureSamplingPolicy.ResolveModern(
+                    TextureAssetClass.World, TextureAssetChannel.Albedo);
+                Check(!legacySampling.LinearMagnification && !legacySampling.LinearMinification
+                    && !legacySampling.Mipmaps && legacySampling.Anisotropy == 1,
+                    "legacy HD sampling preserves nearest-neighbour presentation");
+
+                RenderOptions.TextureFiltering = true;
+                RenderOptions.TextureMipmaps = true;
+                RenderOptions.TextureAnisotropy = 16;
+                RenderOptions.TextureSampling = TextureSamplingMode.Custom;
+                TextureSamplerDescriptor customSampling = TextureSamplingPolicy.ResolveModern(
+                    TextureAssetClass.World, TextureAssetChannel.Normal);
+                Check(customSampling.LinearMagnification && customSampling.LinearMinification
+                    && customSampling.Mipmaps && customSampling.Anisotropy == 16,
+                    "custom HD sampling follows the existing filtering controls");
+                RenderOptions.TextureSampling = TextureSamplingMode.Auto;
                 byte[] normalPixels = { 255, 128, 128, 255, 128, 255, 128, 255, 128, 128, 255, 255, 255, 255, 255, 255 };
                 ModernTextureAsset normal = ModernTextureAsset.FromRgba("check", TextureAssetClass.Hunter,
                     TextureAssetChannel.Normal, 2, 2, normalPixels).Fit(1);
