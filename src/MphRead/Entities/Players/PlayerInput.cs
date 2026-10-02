@@ -2624,6 +2624,7 @@ namespace MphRead.Entities
             }
             Vector3 prevC0 = _fieldC0;
             _fieldC0 = Vector3.Zero;
+            ResolveMovementCollision(standingPrev);
             CheckCollision();
             ModUpdateSpireLedgeCrest(spireClimbingPrev);
             if (_field449 > 0 && _field449 < 30 * 2) // todo: FPS stuff

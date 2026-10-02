@@ -364,22 +364,38 @@ namespace MphRead.Formats
         public static int CheckSphereBetweenPoints(IReadOnlyList<CollisionCandidate> candidates, Vector3 point1, Vector3 point2, float radius,
             int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results)
         {
-            return CheckSphereBetweenPoints(candidates, point1, point2, radius, limit, includeOffset, flags, scene, results, hasCandidates: true);
+            return CheckSphereBetweenPoints(candidates, point1, point2, radius, limit, includeOffset, flags, scene, results,
+                hasCandidates: true, robustEdges: false);
         }
 
         public static int CheckSphereBetweenPoints(Vector3 point1, Vector3 point2, float radius, int limit, bool includeOffset,
             TestFlags flags, Scene scene, CollisionResult[] results)
         {
-            return CheckSphereBetweenPoints(null, point1, point2, radius, limit, includeOffset, flags, scene, results, hasCandidates: false);
+            return CheckSphereBetweenPoints(null, point1, point2, radius, limit, includeOffset, flags, scene, results,
+                hasCandidates: false, robustEdges: false);
+        }
+
+        public static int CheckSphereBetweenPointsRobust(IReadOnlyList<CollisionCandidate> candidates,
+            Vector3 point1, Vector3 point2, float radius, int limit, bool includeOffset,
+            TestFlags flags, Scene scene, CollisionResult[] results)
+        {
+            return CheckSphereBetweenPoints(candidates, point1, point2, radius, limit, includeOffset, flags, scene, results,
+                hasCandidates: true, robustEdges: true);
         }
 
         // todo: revisit this approach
         private static readonly HashSet<CollisionFace> _seenData = new HashSet<CollisionFace>(64);
 
         private static int CheckSphereBetweenPoints(IReadOnlyList<CollisionCandidate>? candidates, Vector3 point1, Vector3 point2, float radius,
-            int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results, bool hasCandidates)
+            int limit, bool includeOffset, TestFlags flags, Scene scene, CollisionResult[] results,
+            bool hasCandidates, bool robustEdges)
         {
             _seenData.Clear();
+            limit = Math.Min(limit, results.Length);
+            if (limit <= 0)
+            {
+                return 0;
+            }
             int count = 0;
             ushort mask = 0;
             bool includeEntities = !flags.TestFlag(TestFlags.Scan);
@@ -464,60 +480,141 @@ namespace MphRead.Formats
 
                     Debug.Assert(data.PointIndexCount > 0);
                     bool fullCollision = true;
-                    for (int p1 = 0; p1 < data.PointIndexCount; p1++)
+                    if (!robustEdges)
                     {
-                        float dotDiff = GetEdgeDotDifference(p1);
-                        if (dotDiff < -0.03125f)
+                        for (int p1 = 0; p1 < data.PointIndexCount; p1++)
                         {
-                            fullCollision = false;
-                            // bug? - the first edge that we're outside of by the 0.03 margin may only be partially outside,
-                            // so after the radius check we return this face as collided without testing any of the other edges,
-                            // which we might be way outside of and thus not actually colliding with the face (e.g. High Ground)
-                            // --> this may be compensated for by the some collision handling routines, but not all?
-                            if (includeOffset && dotDiff >= -radius)
+                            float dotDiff = GetEdgeDotDifference(p1);
+                            if (dotDiff < -0.03125f)
                             {
-                                // unimpl-collision: see note below
-                                int epIndex = data.PointStartIndex + p1;
-                                Vector3 edgePoint1 = info.Points[info.RuntimePointIndices[epIndex]];
-                                int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
-                                Vector3 edgePoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
-                                CollisionResult result = results[count];
-                                result.Field0 = 1;
-                                result.EntityCollision = candidate.EntityCollision;
-                                result.Flags = data.Flags;
-                                result.Field14 = dot2;
-                                result.Distance = pct;
-                                if (candidate.EntityCollision != null)
+                                fullCollision = false;
+                                if (includeOffset && dotDiff >= -radius)
                                 {
-                                    Vector3 normal = Matrix.Vec3MultMtx3(plane.Xyz, candidate.EntityCollision.Transform);
-                                    Vector3 wVec = Matrix.Vec3MultMtx4(plane.Xyz * plane.W, candidate.EntityCollision.Transform);
-                                    float w = Vector3.Dot(wVec, normal);
-                                    result.Plane = new Vector4(normal, w);
-                                    result.Position = Matrix.Vec3MultMtx4(vec, candidate.EntityCollision.Transform);
-                                    result.EdgePoint1 = Matrix.Vec3MultMtx4(edgePoint1, candidate.EntityCollision.Transform);
-                                    result.EdgePoint2 = Matrix.Vec3MultMtx4(edgePoint2, candidate.EntityCollision.Transform);
-                                }
-                                else
-                                {
-                                    Vector3 translation = candidate.Collision.Translation;
-                                    if (translation != Vector3.Zero)
+                                    int epIndex = data.PointStartIndex + p1;
+                                    Vector3 edgePoint1 = info.Points[info.RuntimePointIndices[epIndex]];
+                                    int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
+                                    Vector3 edgePoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
+                                    CollisionResult result = results[count];
+                                    result.Field0 = 1;
+                                    result.EntityCollision = candidate.EntityCollision;
+                                    result.Flags = data.Flags;
+                                    result.Field14 = dot2;
+                                    result.Distance = pct;
+                                    if (candidate.EntityCollision != null)
                                     {
-                                        result.Plane = plane.AddW(Vector3.Dot(plane.Xyz, translation));
-                                        result.Position = vec + translation;
-                                        result.EdgePoint1 = edgePoint1 + translation;
-                                        result.EdgePoint2 = edgePoint2 + translation;
+                                        Vector3 normal = Matrix.Vec3MultMtx3(plane.Xyz, candidate.EntityCollision.Transform);
+                                        Vector3 wVec = Matrix.Vec3MultMtx4(plane.Xyz * plane.W, candidate.EntityCollision.Transform);
+                                        float w = Vector3.Dot(wVec, normal);
+                                        result.Plane = new Vector4(normal, w);
+                                        result.Position = Matrix.Vec3MultMtx4(vec, candidate.EntityCollision.Transform);
+                                        result.EdgePoint1 = Matrix.Vec3MultMtx4(edgePoint1, candidate.EntityCollision.Transform);
+                                        result.EdgePoint2 = Matrix.Vec3MultMtx4(edgePoint2, candidate.EntityCollision.Transform);
                                     }
                                     else
                                     {
-                                        result.Plane = plane;
-                                        result.Position = vec;
-                                        result.EdgePoint1 = edgePoint1;
-                                        result.EdgePoint2 = edgePoint2;
+                                        Vector3 translation = candidate.Collision.Translation;
+                                        if (translation != Vector3.Zero)
+                                        {
+                                            result.Plane = plane.AddW(Vector3.Dot(plane.Xyz, translation));
+                                            result.Position = vec + translation;
+                                            result.EdgePoint1 = edgePoint1 + translation;
+                                            result.EdgePoint2 = edgePoint2 + translation;
+                                        }
+                                        else
+                                        {
+                                            result.Plane = plane;
+                                            result.Position = vec;
+                                            result.EdgePoint1 = edgePoint1;
+                                            result.EdgePoint2 = edgePoint2;
+                                        }
                                     }
+                                    results[count++] = result;
                                 }
-                                results[count++] = result;
+                                break;
                             }
-                            break;
+                        }
+                    }
+                    else
+                    {
+                        int closestEdgeIndex = -1;
+                        float closestEdgeDistanceSquared = Single.MaxValue;
+                        Vector3 closestEdgePoint1 = Vector3.Zero;
+                        Vector3 closestEdgePoint2 = Vector3.Zero;
+                        for (int p1 = 0; p1 < data.PointIndexCount; p1++)
+                        {
+                            float dotDiff = GetEdgeDotDifference(p1);
+                            if (dotDiff >= -0.03125f)
+                            {
+                                continue;
+                            }
+
+                            fullCollision = false;
+                            if (!includeOffset)
+                            {
+                                continue;
+                            }
+
+                            int epIndex = data.PointStartIndex + p1;
+                            Vector3 edgePoint1 = info.Points[info.RuntimePointIndices[epIndex]];
+                            int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
+                            Vector3 edgePoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
+                            Vector3 edge = edgePoint2 - edgePoint1;
+                            float edgeLengthSquared = edge.LengthSquared;
+                            if (edgeLengthSquared <= 1e-12f
+                                || IsInternalCoplanarEdge(candidates, candidate, data, plane, edgePoint1, edgePoint2, mask))
+                            {
+                                continue;
+                            }
+
+                            float edgePct = Math.Clamp(Vector3.Dot(vec - edgePoint1, edge) / edgeLengthSquared, 0, 1);
+                            Vector3 nearest = edgePoint1 + edge * edgePct;
+                            float edgeDistanceSquared = Vector3.DistanceSquared(vec, nearest);
+                            if (edgeDistanceSquared < closestEdgeDistanceSquared)
+                            {
+                                closestEdgeDistanceSquared = edgeDistanceSquared;
+                                closestEdgeIndex = p1;
+                                closestEdgePoint1 = edgePoint1;
+                                closestEdgePoint2 = edgePoint2;
+                            }
+                        }
+                        if (!fullCollision && closestEdgeIndex >= 0
+                            && closestEdgeDistanceSquared <= radius * radius)
+                        {
+                            CollisionResult result = results[count];
+                            result.Field0 = 1;
+                            result.EntityCollision = candidate.EntityCollision;
+                            result.Flags = data.Flags;
+                            result.Field14 = dot2;
+                            result.Distance = pct;
+                            if (candidate.EntityCollision != null)
+                            {
+                                Vector3 normal = Matrix.Vec3MultMtx3(plane.Xyz, candidate.EntityCollision.Transform);
+                                Vector3 wVec = Matrix.Vec3MultMtx4(plane.Xyz * plane.W, candidate.EntityCollision.Transform);
+                                float w = Vector3.Dot(wVec, normal);
+                                result.Plane = new Vector4(normal, w);
+                                result.Position = Matrix.Vec3MultMtx4(vec, candidate.EntityCollision.Transform);
+                                result.EdgePoint1 = Matrix.Vec3MultMtx4(closestEdgePoint1, candidate.EntityCollision.Transform);
+                                result.EdgePoint2 = Matrix.Vec3MultMtx4(closestEdgePoint2, candidate.EntityCollision.Transform);
+                            }
+                            else
+                            {
+                                Vector3 translation = candidate.Collision.Translation;
+                                if (translation != Vector3.Zero)
+                                {
+                                    result.Plane = plane.AddW(Vector3.Dot(plane.Xyz, translation));
+                                    result.Position = vec + translation;
+                                    result.EdgePoint1 = closestEdgePoint1 + translation;
+                                    result.EdgePoint2 = closestEdgePoint2 + translation;
+                                }
+                                else
+                                {
+                                    result.Plane = plane;
+                                    result.Position = vec;
+                                    result.EdgePoint1 = closestEdgePoint1;
+                                    result.EdgePoint2 = closestEdgePoint2;
+                                }
+                            }
+                            results[count++] = result;
                         }
                     }
                     if (fullCollision)
@@ -558,6 +655,204 @@ namespace MphRead.Formats
                 if (count == limit)
                 {
                     break;
+                }
+            }
+            return count;
+        }
+
+        private static bool IsInternalCoplanarEdge(IReadOnlyList<CollisionCandidate> candidates,
+            CollisionCandidate sourceCandidate, CollisionFace sourceFace, Vector4 sourcePlane,
+            Vector3 edgePoint1, Vector3 edgePoint2, ushort mask)
+        {
+            for (int candidateIndex = 0; candidateIndex < candidates.Count; candidateIndex++)
+            {
+                CollisionCandidate candidate = candidates[candidateIndex];
+                if (!ReferenceEquals(candidate.Collision, sourceCandidate.Collision)
+                    || candidate.EntityCollision != sourceCandidate.EntityCollision)
+                {
+                    continue;
+                }
+                var info = (MphCollisionInfoBase)candidate.Collision.Info;
+                for (int dataIndex = 0; dataIndex < candidate.Entry.DataCount; dataIndex++)
+                {
+                    CollisionFace face = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + dataIndex]];
+                    if (face.Equals(sourceFace) || ((ushort)face.Flags & mask) != 0)
+                    {
+                        continue;
+                    }
+                    Vector4 plane = info.Planes[face.PlaneIndex];
+                    if (Vector3.Dot(plane.Xyz, sourcePlane.Xyz) < 0.9995f
+                        || MathF.Abs(plane.W - sourcePlane.W) > 1 / 2048f)
+                    {
+                        continue;
+                    }
+                    bool first = false;
+                    bool second = false;
+                    for (int pointIndex = 0; pointIndex < face.PointIndexCount; pointIndex++)
+                    {
+                        Vector3 point = info.Points[info.RuntimePointIndices[face.PointStartIndex + pointIndex]];
+                        first |= point == edgePoint1;
+                        second |= point == edgePoint2;
+                        if (first && second)
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Finds shallow sphere penetrations even when the sphere starts behind
+        /// a collision plane. This is deliberately an overlap query, not a sweep:
+        /// callers use it for bounded depenetration and target-form clearance.
+        /// </summary>
+        public static int CheckSpherePenetration(Vector3 point, float radius, int limit,
+            TestFlags flags, Scene scene, CollisionResult[] results)
+        {
+            _seenData.Clear();
+            limit = Math.Min(limit, results.Length);
+            if (limit <= 0 || radius <= 0)
+            {
+                return 0;
+            }
+
+            ushort mask = 0;
+            if (flags.TestFlag(TestFlags.Players))
+            {
+                mask |= (ushort)CollisionFlags.IgnorePlayers;
+            }
+            if (flags.TestFlag(TestFlags.Beams))
+            {
+                mask |= (ushort)CollisionFlags.IgnoreBeams;
+            }
+
+            IReadOnlyList<CollisionCandidate> candidates = GetCandidatesForLimits(
+                point, point, radius, null, Vector3.Zero, includeEntities: true, scene);
+            int count = 0;
+            for (int candidateIndex = 0; candidateIndex < candidates.Count && count < limit; candidateIndex++)
+            {
+                CollisionCandidate candidate = candidates[candidateIndex];
+                CollisionInstance inst = candidate.Collision;
+                var info = (MphCollisionInfoBase)inst.Info;
+                Vector3 transPoint = point - inst.Translation;
+                if (candidate.EntityCollision != null)
+                {
+                    transPoint = Matrix.Vec3MultMtx4(point, candidate.EntityCollision.Inverse1);
+                }
+
+                for (int dataIndex = 0; dataIndex < candidate.Entry.DataCount && count < limit; dataIndex++)
+                {
+                    CollisionFace data = info.RuntimeData[info.RuntimeDataIndices[candidate.Entry.DataStartIndex + dataIndex]];
+                    if (((ushort)data.Flags & mask) != 0 || _seenData.Contains(data))
+                    {
+                        continue;
+                    }
+                    if (candidate.EntityCollision == null)
+                    {
+                        _seenData.Add(data);
+                    }
+
+                    Vector4 plane = info.Planes[data.PlaneIndex];
+                    float signedDistance = Vector3.Dot(transPoint, plane.Xyz) - plane.W;
+                    if (signedDistance > radius || signedDistance < -radius)
+                    {
+                        continue;
+                    }
+
+                    byte field0 = 0;
+                    Vector3 localClosest = transPoint - plane.Xyz * signedDistance;
+                    Vector3 edgePoint1 = Vector3.Zero;
+                    Vector3 edgePoint2 = Vector3.Zero;
+                    float distance;
+                    Vector3 responseNormal = plane.Xyz;
+                    if (CheckPointOnFace(localClosest, info, data))
+                    {
+                        distance = MathF.Abs(signedDistance);
+                    }
+                    else
+                    {
+                        float bestSquared = Single.MaxValue;
+                        for (int pointIndex = 0; pointIndex < data.PointIndexCount; pointIndex++)
+                        {
+                            int firstIndex = data.PointStartIndex + pointIndex;
+                            int secondIndex = data.PointStartIndex
+                                + (pointIndex + 1 == data.PointIndexCount ? 0 : pointIndex + 1);
+                            Vector3 first = info.Points[info.RuntimePointIndices[firstIndex]];
+                            Vector3 second = info.Points[info.RuntimePointIndices[secondIndex]];
+                            Vector3 edge = second - first;
+                            float edgeLengthSquared = edge.LengthSquared;
+                            if (edgeLengthSquared <= 1e-12f)
+                            {
+                                continue;
+                            }
+                            float pct = Math.Clamp(Vector3.Dot(transPoint - first, edge) / edgeLengthSquared, 0, 1);
+                            Vector3 nearest = first + edge * pct;
+                            float squared = Vector3.DistanceSquared(transPoint, nearest);
+                            if (squared < bestSquared)
+                            {
+                                bestSquared = squared;
+                                localClosest = nearest;
+                                edgePoint1 = first;
+                                edgePoint2 = second;
+                            }
+                        }
+                        if (bestSquared > radius * radius)
+                        {
+                            continue;
+                        }
+                        distance = MathF.Sqrt(MathF.Max(0, bestSquared));
+                        field0 = 1;
+                        // When recovery starts behind a one-sided face, always
+                        // move back toward the face's playable/front side. An
+                        // unconstrained edge normal could otherwise choose the
+                        // shortest route farther through the wall.
+                        Vector3 away = transPoint - localClosest;
+                        if (signedDistance >= 0 && away.LengthSquared > 1e-10f)
+                        {
+                            responseNormal = away.Normalized();
+                        }
+                    }
+
+                    float depth = radius - distance;
+                    if (depth <= 1 / 4096f)
+                    {
+                        continue;
+                    }
+
+                    CollisionResult result = default;
+                    result.Field0 = field0;
+                    result.Flags = data.Flags;
+                    result.Field14 = depth;
+                    result.Distance = 0;
+                    result.EntityCollision = candidate.EntityCollision;
+                    if (candidate.EntityCollision != null)
+                    {
+                        Vector3 worldClosest = Matrix.Vec3MultMtx4(localClosest, candidate.EntityCollision.Transform);
+                        Vector3 worldNormal = Matrix.Vec3MultMtx3(responseNormal, candidate.EntityCollision.Transform).Normalized();
+                        result.Position = worldClosest;
+                        result.Plane = new Vector4(worldNormal, Vector3.Dot(worldClosest, worldNormal));
+                        if (field0 == 1)
+                        {
+                            result.EdgePoint1 = Matrix.Vec3MultMtx4(edgePoint1, candidate.EntityCollision.Transform);
+                            result.EdgePoint2 = Matrix.Vec3MultMtx4(edgePoint2, candidate.EntityCollision.Transform);
+                        }
+                    }
+                    else
+                    {
+                        Vector3 translation = inst.Translation;
+                        Vector3 worldClosest = localClosest + translation;
+                        result.Position = worldClosest;
+                        result.Plane = new Vector4(responseNormal,
+                            Vector3.Dot(worldClosest, responseNormal));
+                        if (field0 == 1)
+                        {
+                            result.EdgePoint1 = edgePoint1 + translation;
+                            result.EdgePoint2 = edgePoint2 + translation;
+                        }
+                    }
+                    results[count++] = result;
                 }
             }
             return count;

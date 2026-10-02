@@ -76,6 +76,52 @@ static class CustomCollisionChecks
             }
         }
 
+        // Adjacent coplanar faces share an internal edge. A sphere just
+        // inside the second face must not receive a fake edge contact from the
+        // first face; only the supporting plane is a real obstruction.
+        var seamFaces = new List<CollisionDataEditor>();
+        foreach (int x in new[] { 0, 4 })
+        {
+            var face = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, 0), LayerMask = 5 };
+            face.Points.AddRange(new[] { new Vector3(x, 0, 0), new Vector3(x, 0, 4),
+                new Vector3(x + 4, 0, 4), new Vector3(x + 4, 0, 0) });
+            seamFaces.Add(face);
+        }
+        byte[] seamBytes = MapCollisionPacker.Pack(seamFaces);
+        var seamHeader = Read.ReadStruct<CollisionHeader>(seamBytes);
+        var seamInfo = Collision.ReadMphCollision(seamHeader, seamBytes, -1);
+        var seamInstance = new CollisionInstance("internal-seam", seamInfo, false);
+        collisions.Clear(); collisions.Add(seamInstance);
+        var seamCandidates = seamInfo.RuntimeEntries.Where(e => e.DataCount > 0)
+            .Select(e => new CollisionCandidate(seamInstance, e)).ToArray();
+        var seamResults = new CollisionResult[16];
+        Vector3 seamPoint = new(4.1f, 0, 2);
+        int seamCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
+            seamPoint + Vector3.UnitY, seamPoint - Vector3.UnitY, 0.5f, seamResults.Length,
+            includeOffset: true, TestFlags.Players, scene, seamResults);
+        check(seamCount > 0 && seamResults.Take(seamCount).All(result => result.Field0 == 0),
+            "coplanar shared edge is suppressed as an internal player seam");
+
+        Array.Clear(seamResults);
+        Vector3 cornerPoint = new(-0.4f, 0, -0.4f);
+        int cornerCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
+            cornerPoint + Vector3.UnitY, cornerPoint - Vector3.UnitY, 0.5f, seamResults.Length,
+            includeOffset: true, TestFlags.Players, scene, seamResults);
+        check(cornerCount == 0,
+            "robust edge query rejects a corner that is outside the true sphere radius");
+
+        // Recovery is a distinct overlap query: unlike a forward sweep it must
+        // detect a shallow start behind a face so the controller can push the
+        // player back to valid space instead of silently accepting penetration.
+        Array.Clear(seamResults);
+        int penetrationCount = CollisionDetection.CheckSpherePenetration(
+            new Vector3(2, -0.1f, 2), 0.5f, seamResults.Length,
+            TestFlags.Players, scene, seamResults);
+        check(penetrationCount > 0
+            && seamResults.Take(penetrationCount).Any(result =>
+                result.Plane.Y > 0.9f && result.Field14 > 0.39f),
+            "bounded overlap query recovers shallow starts behind a collision plane");
+
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)
         {
