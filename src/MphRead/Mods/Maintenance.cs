@@ -119,8 +119,9 @@ namespace MphRead.Mods
                 : $"{scale}% of the current framebuffer";
             return $"render scale={scale}% (target {target}), "
                 + $"fps limit={(cap == Render.FrameTiming.DisplayRate ? "display/vsync" : cap.ToString(CultureInfo.InvariantCulture))}, "
-                + $"filtering={settings.TextureFiltering}, mipmaps={settings.TextureMipmaps}, "
-                + $"anisotropy={settings.TextureAnisotropy}x, cel={settings.CelShading}, "
+                + $"sampling={settings.TextureSampling}, filtering={settings.TextureFiltering}, "
+                + $"mipmaps={settings.TextureMipmaps}, anisotropy={settings.TextureAnisotropy}x, "
+                + $"cel={settings.CelShading}, "
                 + $"debug log={(LauncherPrefs.DebugLogs ? "disk" : "memory/crash only")}";
         }
 
