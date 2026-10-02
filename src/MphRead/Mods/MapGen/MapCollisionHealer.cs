@@ -793,8 +793,9 @@ public static class MapCollisionHealer
             {
                 cancellation.ThrowIfCancellationRequested();
                 float t = MathF.Min(duration, frame);
+                float gravityTime = MathF.Max(0, t - pad.ControlLockTime);
                 Vector3 current = start + velocity * t
-                    - Vector3.UnitY * (.5f * JumpPadGravity * t * t);
+                    - Vector3.UnitY * (.5f * JumpPadGravity * gravityTime * gravityTime);
                 float distance = Vector3.Distance(previous, current);
                 int substeps = Math.Clamp((int)MathF.Ceiling(distance / PlayerSweepStep), 1, 12);
                 for (int substep = 1; substep <= substeps; substep++)
