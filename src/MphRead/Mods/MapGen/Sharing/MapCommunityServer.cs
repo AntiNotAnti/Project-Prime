@@ -138,6 +138,7 @@ public static class MapCommunityServer
                 var creator=catalog.Authenticate(authorization)
                     ?? await identities.AuthenticateAsync(authorization,deadline.Token).ConfigureAwait(false);
                 string[] parts=route[(root.Length+1)..].Split('/');
+                if (parts.Length > 0 && parts[0] == "uploads") deadline.CancelAfter(TimeSpan.FromMinutes(10));
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
 
