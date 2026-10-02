@@ -10,20 +10,24 @@ namespace MphRead
 {
     public partial class Scene
     {
-        private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality), RenderMaterialOverride> _cosmeticTextures = new();
+        private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality, TextureSamplingMode), RenderMaterialOverride> _cosmeticTextures = new();
         private TextureAssetManager? _cosmeticTextureAssets;
         private TextureAssetQuality _cosmeticTextureQuality = RenderOptions.TextureQuality;
+        private TextureSamplingMode _cosmeticTextureSampling = RenderOptions.TextureSampling;
         private TextureAssetManager CosmeticTextureAssets => _cosmeticTextureAssets ??= new TextureAssetManager(AllocateTexture, ReleaseTexture);
         internal RenderMaterialOverride CosmeticMaterialSubmission { get; set; }
 
         internal RenderMaterialOverride GetCosmeticMaterial(SkinDefinition skin, Model model, int material, SkinContext context)
         {
-            if (_cosmeticTextureQuality != RenderOptions.TextureQuality)
+            if (_cosmeticTextureQuality != RenderOptions.TextureQuality
+                || _cosmeticTextureSampling != RenderOptions.TextureSampling)
             {
                 ClearCosmeticTextures();
                 _cosmeticTextureQuality = RenderOptions.TextureQuality;
+                _cosmeticTextureSampling = RenderOptions.TextureSampling;
             }
-            var key = (skin.Key, model.Name, material, context, RenderOptions.TextureQuality);
+            var key = (skin.Key, model.Name, material, context,
+                RenderOptions.TextureQuality, RenderOptions.TextureSampling);
             if (_cosmeticTextures.TryGetValue(key, out var binding)) return binding;
             string? root = context switch { SkinContext.ViewModel => skin.GunAssets,
                 SkinContext.AltForm => skin.AltFormAssets, SkinContext.Halfturret => skin.TurretAssets, _ => skin.AlbedoSet };
