@@ -57,7 +57,7 @@ dotnet run --project tools/material-pack/material-pack.csproj -c Release -- --gp
 
 The GPU check runs 12 success/failure upload cycles plus a partial-allocation fault (38 allocated / 38 released texture handles), and four lit editor refreshes. It asserts all material shader channels are enabled, the editor scope restores, only one mesh is uploaded, old map textures retire, and scene teardown releases the final set. A synthetic runtime model then proves two authored materials sharing texels retain one original binding when disabled, acquire independent red/original-white textures after a manifest reload, and release every owned texture at teardown.
 
-Limits: 2 MiB manifest, 8,192 materials, 32 MiB per image, 8,192 maximum dimension, 16 million pixels per image, 256 MiB pack, 32,768 filesystem entries. PNG chunk checksums and full decode are validated. Absolute/traversal/backslash paths and linked pack assets are rejected. The local pack should not be mutated concurrently while validation or upload is in progress.
+Limits: 2 MiB manifest, 8,192 materials, 256 MiB per image, 8,192 maximum dimension, 64 million pixels per image, 1 GiB pack, 32,768 filesystem entries. PNG chunk checksums and full decode are validated. Absolute/traversal/backslash paths and linked pack assets are rejected. The local pack should not be mutated concurrently while validation or upload is in progress.
 
 
 Synthetic cross-backend pixel checks (no game assets):
