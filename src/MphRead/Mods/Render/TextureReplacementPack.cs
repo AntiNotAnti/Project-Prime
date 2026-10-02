@@ -67,6 +67,8 @@ namespace MphRead.Mods.Render
         public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,
             Func<int> allocateTexture, Action<int> releaseTexture, TextureAssetClass assetClass = TextureAssetClass.World)
         {
+            if (material.Key.Value.StartsWith("effect/model/", StringComparison.Ordinal))
+                assetClass = TextureAssetClass.Effect;
             int normal = 0, specular = 0, emissive = 0;
             try
             {
