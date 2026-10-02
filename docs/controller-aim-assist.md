@@ -1,5 +1,12 @@
 # Controller aim and head tracking
 
+> **Runtime status:** controller aim assistance is disabled. The live controller camera path
+> uses only the player's scoped sensitivity, zoom scaling and inversion. General target
+> following and the Shadow Freeze controller helper are bypassed, retained assist state is
+> reset, and precision/turn-acceleration assist context is forced to zero every simulation
+> step. The implementation documented below remains in the tree for diagnostics and
+> historical reference, but is not reachable from normal gameplay.
+
 Aim assistance is intentionally curated internally. There are no user-facing aim-assist strength or snapping settings.
 
 Assistance runs once per fixed 60 Hz simulation step for the local player. Render
