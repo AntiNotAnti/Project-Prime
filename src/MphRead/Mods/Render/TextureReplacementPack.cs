@@ -34,12 +34,14 @@ namespace MphRead.Mods.Render
             return MapMaterialAssetRegistry.Resolve(portableKey) ?? local;
         }
 
-        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
+        internal static ResolvedMaterial? ResolveLocalExplicit(MaterialAssetKey key)
         {
             EnsureLoaded();
-            ResolvedMaterial? local = _resolver?.ResolveExplicit(key);
-            return local ?? MapMaterialAssetRegistry.Resolve(key);
+            return _resolver?.ResolveExplicit(key);
         }
+
+        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
+            => ResolveLocalExplicit(key) ?? MapMaterialAssetRegistry.Resolve(key);
 
         private static bool HasChannels(ResolvedMaterial material)
             => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null;
