@@ -1,8 +1,8 @@
 # Debugging logs
 
 One switch, in the bottom right corner of the launcher's front card, under the
-version. Off. Switched on, the program writes everything it can say about
-itself to a file.
+version. On by default. While enabled, the program writes everything it can say
+about itself to a file.
 
 It exists for one kind of report, and the report is the design: *"it crashes
 when the map loads"*, from a machine nobody here can plug in, sent by somebody
@@ -202,8 +202,8 @@ usually lost.
 ## Traps
 
 - **It is not free.** A lock on every line the program prints, a file handle,
-  and a directory that grows. That is why it is a switch rather than something
-  on by default, and why the control is the smallest thing on the screen.
+  and a directory that grows. It is enabled by default for diagnosability but
+  remains a switch so players can disable persistent disk logging when needed.
 - **`Console.SetOut` is process-wide.** Turning the switch off puts the
   original writer back; anything that captured `Console.Out` in between keeps
   the tee. Nothing in this build does.

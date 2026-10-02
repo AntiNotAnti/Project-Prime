@@ -207,13 +207,12 @@ namespace MphRead.Mods.Launcher
         /// Whether the program writes a file of everything it can say about
         /// itself. See <see cref="Mods.DebugLog"/>.
         ///
-        /// Off by default for disk I/O. A bounded in-memory diagnostic ring is
-        /// still always available to CrashReport, so ordinary gameplay keeps
-        /// useful failure context without locking and flushing a file for every
-        /// diagnostic line. Turn this on when a persistent session transcript
-        /// is specifically needed.
+        /// On by default so support reports have a complete persistent session
+        /// transcript without requiring the player to reproduce a failure after
+        /// enabling diagnostics. A bounded in-memory diagnostic ring remains
+        /// available when this is disabled.
         /// </summary>
-        public static bool DebugLogs { get; set; } = false;
+        public static bool DebugLogs { get; set; } = true;
 
         /// <summary>Replay library soft limit. Zero means unlimited.</summary>
         public static int ReplayStorageLimitGb { get; set; } = 10;
@@ -558,15 +557,9 @@ namespace MphRead.Mods.Launcher
 
                 if (loadedSchema < CurrentPreferencesSchema)
                 {
-                    // Pre-schema launcher files were written while disk debug
-                    // logging defaulted on. That is exactly the state that
-                    // makes an upgraded install do more steady-state I/O than
-                    // a fresh install, so converge it once. A player who wants
-                    // a persistent transcript can turn it back on afterwards.
-                    if (loadedSchema == 0)
-                    {
-                        DebugLogs = false;
-                    }
+                    // Add the schema marker without changing an explicitly
+                    // persisted debug_logs choice. If the key is absent, the
+                    // current default remains in effect.
                     Save();
                 }
             }
