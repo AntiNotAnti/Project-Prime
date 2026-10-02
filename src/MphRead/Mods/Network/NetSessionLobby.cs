@@ -369,8 +369,10 @@ namespace MphRead.Mods.Network
             _loadedSlot = LocalSlot; _loadedSlotGeneration = generation;
             _loadedStart = identity; _loadedMatch = state.MatchId;
             _lastLoadAck = Clock;
-            new MatchLoadedPacket(state.MatchId, state.AuthorityEpoch, state.StartGeneration).Write(_scratch);
-            _transport?.Send(_hostEndPoint, PacketType.MatchLoaded, _scratch.AsSpan(0, MatchLoadedPacket.Size));
+            new MatchLoadedRolePacket(state.MatchId, state.AuthorityEpoch, state.StartGeneration,
+                SpectatorMode.PreferSpectator).Write(_scratch);
+            _transport?.Send(_hostEndPoint, PacketType.MatchLoaded,
+                _scratch.AsSpan(0, MatchLoadedRolePacket.Size));
         }
 
         public static void ReportMatchLoadFailed(string reason)
