@@ -17,6 +17,7 @@ internal sealed class ReplayPoseStream : IDisposable
     private readonly ReplayTimelineClip? _clip;
     private readonly ReplayReplicaState _decoder = new();
     private readonly List<(uint Frame, PlayerState State)>[] _poses = new List<(uint, PlayerState)>[8];
+    private readonly List<(uint Frame, IntentPacket Intent)>[] _aims = new List<(uint, IntentPacket)>[8];
     private DemoReader? _reader;
     private DemoRecord? _pending;
     private int _index;
@@ -28,7 +29,11 @@ internal sealed class ReplayPoseStream : IDisposable
     private ReplayPoseStream(PassiveReplayScene world)
     {
         _world = world;
-        for (int i = 0; i < 8; i++) _poses[i] = new(24);
+        for (int i = 0; i < 8; i++)
+        {
+            _poses[i] = new(24);
+            _aims[i] = new(24);
+        }
     }
     // Presentation capture can prepare the cursor once per simulation frame so
     // HUD sampling does not perform file decoding or allocate during drawing.
@@ -45,11 +50,17 @@ internal sealed class ReplayPoseStream : IDisposable
 
     internal bool SamplePresented(int slot, float alpha, out Vector3 position, out Vector3 facing)
     {
-        double frame = double.IsFinite(_world.Scene.ReplayPresentationFrame)
-            ? _world.Session.RecordingPresentationFrame(_world.Scene.ReplayPresentationFrame)
-            : Math.Max(0, _world.Session.RecordingFrame - 1d + alpha);
+        double frame = PresentedFrame(alpha);
         return SampleAt(slot, frame, out position, out facing);
     }
+
+    internal bool SamplePresentedAim(int slot, float alpha, out Vector3 aim)
+        => SampleAimAt(slot, PresentedFrame(alpha), out aim);
+
+    private double PresentedFrame(float alpha)
+        => double.IsFinite(_world.Scene.ReplayPresentationFrame)
+            ? _world.Session.RecordingPresentationFrame(_world.Scene.ReplayPresentationFrame)
+            : Math.Max(0, _world.Session.RecordingFrame - 1d + alpha);
 
     internal bool SampleAt(int slot, double frame, out Vector3 position, out Vector3 facing)
     {
@@ -81,6 +92,55 @@ internal sealed class ReplayPoseStream : IDisposable
         position = _world.Scene.PlayerReplication.InFormFor(actor, position, (value.Flags & PlayerState.FlagAltForm) != 0);
         return true;
     }
+    internal bool SampleAimAt(int slot, double frame, out Vector3 aim)
+    {
+        aim = default;
+        if ((uint)slot >= 8 || !Prepare()) return false;
+        frame = Math.Clamp(frame, 0,
+            _world.Session.RecordingPresentationFrame(_world.Session.LastFrame));
+        var samples = _aims[slot];
+        if (samples.Count == 0 || !_world.State.TryGetPlayer(slot, out var current)) return false;
+
+        int left = 0;
+        while (left + 1 < samples.Count && samples[left + 1].Frame <= frame) left++;
+        var a = samples[left];
+        if (!SameLife(a.Intent, current) || !ValidAim(a.Intent.Aim)) return false;
+        aim = a.Intent.Aim.Normalized();
+
+        if (left + 1 < samples.Count)
+        {
+            var b = samples[left + 1];
+            if (b.Frame > a.Frame && b.Frame - a.Frame <= 12
+                && CanBlendAim(a.Intent, b.Intent) && SameLife(b.Intent, current))
+            {
+                float t = (float)Math.Clamp((frame - a.Frame) / (b.Frame - a.Frame), 0, 1);
+                aim = InterpolateAim(a.Intent.Aim, b.Intent.Aim, t);
+            }
+        }
+        return ValidAim(aim);
+    }
+
+    private static bool SameLife(IntentPacket intent, PlayerState state)
+        => intent.SlotGeneration == state.SlotGeneration && intent.LifeId == state.LifeId;
+    internal static bool CanBlendAim(IntentPacket a, IntentPacket b)
+        => a.SlotGeneration != 0 && a.SlotGeneration == b.SlotGeneration
+            && a.LifeId != 0 && a.LifeId == b.LifeId
+            && ValidAim(a.Aim) && ValidAim(b.Aim);
+    internal static Vector3 InterpolateAim(Vector3 a, Vector3 b, float t)
+    {
+        if (!ValidAim(a)) return ValidAim(b) ? b.Normalized() : -Vector3.UnitZ;
+        if (!ValidAim(b)) return a.Normalized();
+        a = a.Normalized();
+        b = b.Normalized();
+        var rotation = Quaternion.Slerp(ReplayCameraTrack.FacingRotation(a),
+            ReplayCameraTrack.FacingRotation(b), Math.Clamp(t, 0, 1));
+        Vector3 result = Vector3.Transform(-Vector3.UnitZ, rotation);
+        return ValidAim(result) ? result.Normalized() : a;
+    }
+    private static bool ValidAim(Vector3 value)
+        => float.IsFinite(value.X) && float.IsFinite(value.Y) && float.IsFinite(value.Z)
+            && value.LengthSquared > 0.000001f;
+
     private static bool SameLife(PlayerState a, PlayerState b) => a.SlotGeneration == b.SlotGeneration
         && a.LifeId == b.LifeId && (a.Health > 0) == (b.Health > 0)
         && (a.Flags & (PlayerState.FlagActive | PlayerState.FlagSpawned | PlayerState.FlagAltForm))
@@ -106,7 +166,8 @@ internal sealed class ReplayPoseStream : IDisposable
             else if (_clip != null)
             {
                 foreach (var baseline in _clip.RestorePoint.Records)
-                    if (baseline.Kind == ReplayFactKind.Snapshot) Accept(baseline.RecordingFrame, baseline.Payload);
+                    if (baseline.Kind is ReplayFactKind.Snapshot or ReplayFactKind.Intent)
+                        Accept(baseline.RecordingFrame, baseline.Payload);
                 while (_index < _clip.Records.Count && _clip.Records[_index].RecordingFrame < from) _index++;
             }
         }
@@ -133,10 +194,18 @@ internal sealed class ReplayPoseStream : IDisposable
         }
         for (int slot = 0; slot < 8; slot++)
         {
-            var list = _poses[slot];
-            if ((list.Count == 0 || list[0].Frame > frame) && _world.State.TryGetPlayer(slot, out var state))
-                list.Insert(0, (frame, state));
-            while (list.Count > 2 && ((ulong)list[1].Frame + 12 < frame || list.Count > 24)) list.RemoveAt(0);
+            var poses = _poses[slot];
+            if ((poses.Count == 0 || poses[0].Frame > frame) && _world.State.TryGetPlayer(slot, out var state))
+                poses.Insert(0, (frame, state));
+            while (poses.Count > 2 && ((ulong)poses[1].Frame + 12 < frame || poses.Count > 24))
+                poses.RemoveAt(0);
+
+            var aims = _aims[slot];
+            if ((aims.Count == 0 || aims[0].Frame > frame)
+                && _world.State.TryGetIntent(slot, out var intent))
+                aims.Insert(0, (frame, intent));
+            while (aims.Count > 2 && ((ulong)aims[1].Frame + 12 < frame || aims.Count > 24))
+                aims.RemoveAt(0);
         }
     }
     private void AcceptRecorded(uint frame, ReadOnlySpan<byte> packet)
@@ -157,15 +226,31 @@ internal sealed class ReplayPoseStream : IDisposable
         if (packet.Length == 0 || packet[0] is 253 or 254 or 255) return;
         long accepted = _decoder.AcceptedPackets;
         _decoder.Accept(packet, frame);
-        if (packet[0] != (byte)PacketType.Snapshot || accepted == _decoder.AcceptedPackets) return;
-        for (int i = 0; i < 8; i++)
-            if (_decoder.TryGetPlayer(i, out var state))
-            {
-                var list = _poses[i];
-                if (list.Count > 0 && list[^1].Frame == frame) list[^1] = (frame, state);
-                else list.Add((frame, state));
-                if (list.Count > 24) list.RemoveAt(0);
-            }
+        if (accepted == _decoder.AcceptedPackets) return;
+
+        if (packet[0] == (byte)PacketType.Snapshot)
+        {
+            for (int i = 0; i < 8; i++)
+                if (_decoder.TryGetPlayer(i, out var state))
+                {
+                    var list = _poses[i];
+                    if (list.Count > 0 && list[^1].Frame == frame) list[^1] = (frame, state);
+                    else list.Add((frame, state));
+                    if (list.Count > 24) list.RemoveAt(0);
+                }
+            return;
+        }
+
+        if (packet[0] == (byte)PacketType.SlotIntent && packet.Length >= 2 + IntentPacket.Size)
+        {
+            int slot = packet[1];
+            if ((uint)slot >= 8) return;
+            IntentPacket intent = IntentPacket.Read(packet[2..]);
+            var list = _aims[slot];
+            if (list.Count > 0 && list[^1].Frame == frame) list[^1] = (frame, intent);
+            else list.Add((frame, intent));
+            if (list.Count > 24) list.RemoveAt(0);
+        }
     }
     public void Dispose() { _reader?.Dispose(); _reader = null; }
 }
