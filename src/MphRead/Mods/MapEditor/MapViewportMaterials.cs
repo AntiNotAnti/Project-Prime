@@ -99,7 +99,7 @@ public static class MapViewportMaterials
                     {
                         try
                         {
-                            byte[] rgba = Render.TextureReplacementPack.ReadRgba(replacement.Path, out int width, out int height);
+                            byte[] rgba = Render.TextureReplacementPack.ReadRgba(replacement, out int width, out int height);
                             var pixels = new ColorRgba[rgba.Length / 4];
                             for (int pixel = 0; pixel < pixels.Length; pixel++)
                                 pixels[pixel] = new(rgba[pixel*4], rgba[pixel*4+1], rgba[pixel*4+2], rgba[pixel*4+3]);
