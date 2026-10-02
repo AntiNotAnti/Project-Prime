@@ -3306,7 +3306,7 @@ namespace MphRead
                 this.Players.Main.DrawHudModels();
                 UnsetHudLayerUniforms();
             }
-            else if (ScoreboardOverFreeCamera)
+            else if (drawGameHud && ScoreboardOverFreeCamera)
             {
                 // Only the filter that dims the scene behind the scoreboard;
                 // PlayerHud draws nothing else on the free camera.
@@ -3356,7 +3356,7 @@ namespace MphRead
                 ReplayPresentationHud(this);
                 return true;
             }
-            if (this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            if (drawGameHud && this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
                 if (this.GameState.MenuPause)
                 {
