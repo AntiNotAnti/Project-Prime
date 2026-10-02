@@ -595,6 +595,29 @@ try
         &&traversalMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.SpawnMoved),
         "collision repair provenance and traversal audit remain available to Map Studio");
 
+    var denseDefinition=new MapDefinition{Name="HEAL_CONTACT_DENSITY",Import=healImport};
+    var denseMap=new BuiltMap(denseDefinition);
+    denseMap.Faces.Add(HealFloor(0,8));
+    for(int i=0;i<45;i++)denseMap.Solid.Add(HealFloor(0,8));
+    MapCollisionHealer.Heal(denseMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(denseMap,denseDefinition);
+    Check(denseMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk),
+        "Forge movement audit surfaces locations capable of saturating the 40-contact player buffer");
+
+    var jumpDefinition=new MapDefinition{Name="HEAL_JUMP_PAD",Import=healImport};
+    jumpDefinition.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{-3f,.05f,0f},Target=new[]{3f,.05f,0f}});
+    var jumpMap=new BuiltMap(jumpDefinition);
+    var jumpFloor=HealFloor(0,8);jumpMap.Faces.Add(jumpFloor);jumpMap.Solid.Add(HealFloor(0,8));
+    var lowCeiling=new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(-4,2.2f,-4),new OpenTK.Mathematics.Vector3(4,2.2f,-4),
+        new OpenTK.Mathematics.Vector3(4,2.2f,4),new OpenTK.Mathematics.Vector3(-4,2.2f,4)},
+        new OpenTK.Mathematics.Vector2[4],-OpenTK.Mathematics.Vector3.UnitY,0,1);
+    jumpMap.Faces.Add(lowCeiling);jumpMap.Solid.Add(lowCeiling);
+    MapCollisionHealer.Heal(jumpMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(jumpMap,jumpDefinition);
+    Check(jumpMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure),
+        "Forge jump-pad audit catches a player-sized launch path that strikes a low ceiling");
+
     foreach (string tool in new[] { "Move", "Rotate", "Scale" })
     {
         var id = layoutIds.First(); var item = MapObjects.Find(layoutDocument.Project.Definition, id)!;
