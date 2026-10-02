@@ -1635,16 +1635,16 @@ namespace MphRead
                 if (maps.Any)
                 {
                     _materialMaps[_lastTextureId] = maps;
-                    RegisterModernCompanion(maps.Normal, replacementClass, Mods.Render.TextureAssetChannel.Normal);
-                    RegisterModernCompanion(maps.Specular, replacementClass, Mods.Render.TextureAssetChannel.Material);
-                    RegisterModernCompanion(maps.Emissive, replacementClass, Mods.Render.TextureAssetChannel.Emissive);
+                    RegisterModernTexture(maps.Normal, replacementClass, Mods.Render.TextureAssetChannel.Normal);
+                    RegisterModernTexture(maps.Specular, replacementClass, Mods.Render.TextureAssetChannel.Material);
+                    RegisterModernTexture(maps.Emissive, replacementClass, Mods.Render.TextureAssetChannel.Emissive);
                 }
             }
             _flatColors[_lastTextureId] = average.Result;
             return onlyOpaque;
         }
 
-        private void RegisterModernCompanion(int bindingId, Mods.Render.TextureAssetClass assetClass,
+        private void RegisterModernTexture(int bindingId, Mods.Render.TextureAssetClass assetClass,
             Mods.Render.TextureAssetChannel channel)
         {
             if (bindingId == 0) return;
