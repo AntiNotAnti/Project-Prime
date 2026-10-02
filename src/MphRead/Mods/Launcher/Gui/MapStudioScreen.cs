@@ -880,7 +880,8 @@ namespace MphRead.Mods.Launcher.Gui
             MapViewportRepair[] repairs=_viewport.Cache.CollisionRepairs.ToArray();
             var filter=new ComboBox
             {
-                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence","Probe failures","Reviewed"},
+                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence",
+                    "Movement risks","Contact density","Jump pads","Reviewed"},
                 SelectedIndex=0
             };
             var list=new ListBox{MaxHeight=360};var radius=new TextBox{Text="2"};
@@ -896,7 +897,11 @@ namespace MphRead.Mods.Launcher.Gui
                     "Restored"=>repair.Kind==MapCollisionRepairKind.BuriedRestored,
                     "Removed"=>repair.Kind==MapCollisionRepairKind.PhantomRemoved&&repair.Confidence>=.9f,
                     "Low confidence"=>repair.Confidence<.9f,
-                    "Probe failures"=>repair.Kind is MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    "Movement risks"=>repair.Kind is MapCollisionRepairKind.ProbeFailure
+                        or MapCollisionRepairKind.MovementSweepFailure or MapCollisionRepairKind.ContactOverflowRisk
+                        or MapCollisionRepairKind.JumpPadFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    "Contact density"=>repair.Kind==MapCollisionRepairKind.ContactOverflowRisk,
+                    "Jump pads"=>repair.Kind==MapCollisionRepairKind.JumpPadFailure,
                     _=>true
                 };
             void Refresh()
@@ -951,11 +956,16 @@ namespace MphRead.Mods.Launcher.Gui
                 _=Validate();
             });
             int excluded=_document.Project.Definition.Import.CollisionHealExclusions.Count;
+            int bodyFailures=repairs.Count(r=>r.Kind==MapCollisionRepairKind.MovementSweepFailure);
+            int overflowRisks=repairs.Count(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk);
+            int jumpPadFailures=repairs.Count(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure);
             var health=_viewport.Cache.CollisionHealth;
             _inspector.Children.Add(Text(
-                $"Repairs: {repairs.Length:N0} · disabled regions: {excluded}\n"
-                +(health==null?"Analyze/validate to populate health."
-                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · {health.SweepFailures}/{health.SweepCount} sweep failures")));
+                $"Repairs/risks: {repairs.Length:N0} · disabled regions: {excluded}\n"
+                +(health==null?"Analyze/validate to populate movement health."
+                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · "
+                    +$"{health.SweepFailures}/{health.SweepCount} movement/launch sweep failures\n"
+                    +$"Body traversal: {bodyFailures} · contact-buffer risks: {overflowRisks} · jump-pad risks: {jumpPadFailures}")));
         }
 
         private void LayerInspector()
