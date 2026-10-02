@@ -42,7 +42,9 @@ namespace MphRead.Mods.Replay
 
         public static void Draw(Scene scene)
         {
-            if (!DemoPlayback.IsActive || ReplayVideoExporter.Rendering || scene.ReplayPreviewBounds.HasValue) return;
+            if (!DemoPlayback.IsActive
+                || ReplayVideoExporter.Rendering && !ReplayVideoExporter.IncludeReplayOverlay
+                || scene.ReplayPreviewBounds.HasValue) return;
             if (_scene != scene)
             {
                 _scene = scene;
