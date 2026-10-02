@@ -43,7 +43,7 @@ namespace MphRead.Mods.Replay
             get
             {
                 EnsureTrack();
-                if (SelectedFrame is not { } frame) return "";
+                if (_selectedFrames.Count != 1 || SelectedFrame is not { } frame) return "";
                 if (!Track.TrySegmentFrom(frame, TrackConstantSpeed, out var segment))
                     return "end key";
                 string speed = segment.Interpolation == ReplayCameraInterpolation.Hold
