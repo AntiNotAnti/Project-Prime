@@ -459,7 +459,13 @@ namespace MphRead.Mods.Network
             Set(c.MoveUp, ((intent.Buttons & IntentButtons.MoveUp) == IntentButtons.MoveUp), ((missed & IntentButtons.MoveUp) == IntentButtons.MoveUp));
             Set(c.MoveDown, ((intent.Buttons & IntentButtons.MoveDown) == IntentButtons.MoveDown), ((missed & IntentButtons.MoveDown) == IntentButtons.MoveDown));
             Set(c.Shoot, ((intent.Buttons & IntentButtons.Shoot) == IntentButtons.Shoot), ((missed & IntentButtons.Shoot) == IntentButtons.Shoot));
-            Set(c.Zoom, ((intent.Buttons & IntentButtons.Zoom) == IntentButtons.Zoom), ((missed & IntentButtons.Zoom) == IntentButtons.Zoom));
+            // Zoom normally converges from ZoomedState, not recovered press
+            // history. Battlehammer is the exception: its secondary input is a
+            // one-shot airburst command, so a lost tap must be replayed exactly
+            // once on the weapon that authored it.
+            Set(c.Zoom, ((intent.Buttons & IntentButtons.Zoom) == IntentButtons.Zoom),
+                intent.WeaponSelect == (byte)BeamType.Battlehammer
+                    && ((missed & IntentButtons.Zoom) == IntentButtons.Zoom));
             Set(c.Jump, ((intent.Buttons & IntentButtons.Jump) == IntentButtons.Jump), ((missed & IntentButtons.Jump) == IntentButtons.Jump));
             Set(c.Morph, ((intent.Buttons & IntentButtons.Morph) == IntentButtons.Morph), ((missed & IntentButtons.Morph) == IntentButtons.Morph));
             if (c.Morph.IsPressed)

@@ -1706,6 +1706,13 @@ namespace MphRead.Mods.Network
                     Math.Max(info.ChargedSplashDamage,
                     Math.Max(info.SplashDamage, info.MinChargeSplashDamage))))))));
             }
+            // Battlehammer keeps canonical metadata for fidelity, while the
+            // multiplayer spawn path promotes its standard direct hit to 14.
+            // The affinity row is already 18 and therefore wins this max.
+            if ((BeamType)beam == BeamType.Battlehammer)
+            {
+                raw = Math.Max(raw, 14);
+            }
             // x2 double damage, x2 the largest effectiveness multiplier,
             // x1.25 the highest damage level.
             return (int)(raw * 5.0f) + 1;
@@ -1733,6 +1740,14 @@ namespace MphRead.Mods.Network
             int raw = Math.Max(Math.Abs(info.UnchargedDmgDirMag),
                 Math.Max(Math.Abs(info.MinChargeDmgDirMag), Math.Abs(info.ChargedDmgDirMag)));
             float max = raw / 4096f + 0.001f; // leave room only for wire quantisation
+            if ((BeamType)beam == BeamType.Battlehammer)
+            {
+                // Manual airburst reaches 0.35 standard / 0.525 affinity.
+                // Use the affinity ceiling for rescue so Prime Hunter's
+                // affinity-row Battlehammer does not lose displacement merely
+                // because its hunter's ordinary affinity is another weapon.
+                max = Math.Max(max, 0.526f);
+            }
             return direction.LengthSquared <= max * max;
         }
 

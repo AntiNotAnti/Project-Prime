@@ -919,6 +919,44 @@ namespace MphRead.Entities
             }
         }
 
+        /// <summary>
+        /// Detonate a live Battlehammer shell in flight. The normal collision
+        /// path owns damage, LOS checks, hit claims, effects and lifetime, so an
+        /// airburst cannot quietly become a second networking/damage model.
+        /// </summary>
+        internal bool TryBattlehammerAirburst(PlayerEntity owner)
+        {
+            const float minFlightTime = 0.12f;
+            if (Beam != BeamType.Battlehammer || Owner != owner || Lifespan <= 0
+                || Flags.TestFlag(BeamFlags.Collided) || Age < minFlightTime)
+            {
+                return false;
+            }
+
+            // The affinity projectile is already distinguishable by its authored
+            // 2.5-unit radius. Read that before replacing the radius for the
+            // airburst. Damage/powerup multipliers were baked into Damage at spawn.
+            bool affinity = SplashRadius >= 2.4f;
+            float baseDirect = affinity ? 18f : 14f;
+            float powerScale = baseDirect > 0 ? Damage / baseDirect : 1f;
+
+            Damage = 0;
+            HeadshotDamage = 0;
+            SplashDamage = 8f * powerScale;
+            SplashRadius = affinity ? 3f : 2.25f;
+            SplashDamageType = 0;
+            DamageDirType = 2;
+            DamageDirMag = affinity ? 0.525f : 0.35f;
+
+            CollisionResult colRes = default;
+            colRes.Position = Position;
+            colRes.Plane = Direction == Vector3.Zero ? Vector4.UnitY : new Vector4(-Direction);
+            SpawnCollisionEffect(colRes, noSplat: true);
+            OnCollision(colRes, colWith: null, enhancedImpact: false);
+            PlayBeamHitSfx();
+            return true;
+        }
+
         public void OnCollision(CollisionResult colRes, EntityBase? colWith, bool enhancedImpact = true)
         {
             if (!Flags.TestFlag(BeamFlags.Collided))
@@ -1630,6 +1668,23 @@ namespace MphRead.Entities
                 damage *= 4;
                 hsDamage *= 4;
                 splashDmg *= 4;
+            }
+            // Project Prime Battlehammer: keep the mortar arc, but move the
+            // weapon away from flat splash spam. Direct hits are the stronger
+            // damage route, ordinary explosions fall off with distance, and
+            // Weavel keeps the larger affinity blast. Derive the powerup scale
+            // from the already-resolved projectile damage so Double Damage,
+            // Prime Hunter and the debug quadruple modifier remain exact.
+            if (scene.GameState.Multiplayer && weapon.Beam == BeamType.Battlehammer)
+            {
+                bool affinity = weapon.UnchargedSplashRadius >= 10240;
+                float baseDamage = affinity ? 18f : 12f;
+                float powerScale = baseDamage > 0 ? damage / baseDamage : 1f;
+                damage = (int)MathF.Round((affinity ? 18f : 14f) * powerScale);
+                hsDamage = damage; // Battlehammer deliberately has no headshot bonus.
+                splashDmg = (int)MathF.Round((affinity ? 10f : 6f) * powerScale);
+                splashRadius = affinity ? 2.5f : 1.75f;
+                splashDmgType = 0; // linear falloff instead of the vanilla binary splash.
             }
             ushort damageInterpolation = weapon.DamageInterpolations[charged ? 1 : 0];
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
