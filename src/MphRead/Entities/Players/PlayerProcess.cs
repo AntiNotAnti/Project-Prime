@@ -1702,6 +1702,14 @@ namespace MphRead.Entities
             {
                 return false;
             }
+            if (!force && !CanOccupyCollisionForm(!IsAltForm))
+            {
+                if (IsMainPlayer && (_scene.CameraSequences.Current == null || !_scene.CameraSequences.Current.BlockInput))
+                {
+                    _soundSource.PlayFreeSfx(SfxId.BEAM_SWITCH_FAIL);
+                }
+                return false;
+            }
 
             void AfterSwitch()
             {

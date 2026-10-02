@@ -17,8 +17,24 @@ namespace MphRead.Entities
     public partial class PlayerEntity
     {
         // Query scratch is not historical simulation state.
-        private readonly CollisionResult[] _collisionScratch = new CollisionResult[40];
+        private const int CollisionContactCapacity = 40;
+        private const int CollisionResolveIterations = 4;
+        private const float CollisionContactMargin = 0.02f;
+        private const float CollisionRecoverySkin = 0.025f;
+        private const float CollisionRecoveryLimit = 0.65f;
+        private const float CollisionGroundSnap = 0.16f;
+        private const float CollisionGroundSnapMaxGap = 0.10f;
+        private readonly CollisionResult[] _collisionScratch = new CollisionResult[CollisionContactCapacity];
+        private readonly CollisionResult[] _movementCollisionScratch = new CollisionResult[CollisionContactCapacity];
+        private readonly CollisionResult[] _penetrationScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _cameraCollisionScratch = new CollisionResult[8];
+        private int _collisionContactOverflows;
+        private int _collisionRecoveryFallbacks;
+
+        internal int ModCollisionContactOverflows => _collisionContactOverflows;
+        internal int ModCollisionRecoveryFallbacks => _collisionRecoveryFallbacks;
+        private bool UseRobustCollisionController
+            => Mods.MapGen.CustomRooms.FirstId >= 0 && _scene.RoomId >= Mods.MapGen.CustomRooms.FirstId;
 
         private EntityCollision? _collidedEntCol = null;
         private EntityCollision? _standingEntCol = null;
@@ -436,6 +452,396 @@ namespace MphRead.Entities
             }
         }
 
+        private void NoteCollisionOverflow(string phase)
+        {
+            _collisionContactOverflows++;
+            if (_collisionContactOverflows <= 4)
+            {
+                string message = $"[collision] slot {SlotIndex} saturated {CollisionContactCapacity} contacts during {phase}; "
+                    + "using the last safe position.";
+                Console.WriteLine(message);
+                if (NetLog.Enabled) NetLog.Event(message);
+            }
+        }
+
+        private void NoteCollisionRecoveryFallback(string phase)
+        {
+            _collisionRecoveryFallbacks++;
+            if (_collisionRecoveryFallbacks <= 4)
+            {
+                string message = $"[collision] slot {SlotIndex} bounded recovery failed during {phase}; "
+                    + "restoring the previous position.";
+                Console.WriteLine(message);
+                if (NetLog.Enabled) NetLog.Event(message);
+            }
+        }
+
+        private int GetMovementSweepShapes(Span<Vector4> shapes)
+        {
+            if (IsAltForm)
+            {
+                shapes[0] = new Vector4(0, Fixed.ToFloat(Values.AltColYPos), 0,
+                    MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f));
+                return 1;
+            }
+
+            float radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
+            float bottom = Fixed.ToFloat(Values.MinPickupHeight) + radius;
+            float top = Fixed.ToFloat(Values.MaxPickupHeight) - radius;
+            if (top < bottom)
+            {
+                float middle = (top + bottom) * .5f;
+                shapes[0] = new Vector4(0, middle, 0, radius);
+                return 1;
+            }
+
+            shapes[0] = new Vector4(0, bottom, 0, radius);
+            if (top - bottom <= 1 / 4096f)
+            {
+                return 1;
+            }
+
+            // Three overlapping spheres form the upright capsule sweep. The
+            // endpoints preserve the rounded caps while the midpoint covers
+            // finite wall/ramp polygons that intersect only the cylinder body.
+            shapes[1] = new Vector4(0, (bottom + top) * .5f, 0, radius);
+            shapes[2] = new Vector4(0, top, 0, radius);
+            return 3;
+        }
+
+        private void ResolveMovementCollision(bool wasStanding)
+        {
+            if (!UseRobustCollisionController || _health == 0 || Flags2.TestFlag(PlayerFlags2.Spectating)
+                || NetSession.Active && NetHooks.IsPuppet(this))
+            {
+                // Remote collision bodies stay at the owner-reported position.
+                // Do not reintroduce the reverted movement-reconciliation path.
+                return;
+            }
+
+            Vector3 requestedMovement = Position - PrevPosition;
+            Position = PrevPosition;
+            if (!RecoverInitialOverlap("pre-sweep"))
+            {
+                return;
+            }
+            Vector3 current = Position;
+            Vector3 target = current + requestedMovement;
+            Span<Vector4> shapes = stackalloc Vector4[3];
+            int shapeCount = GetMovementSweepShapes(shapes);
+            bool completed = false;
+            for (int iteration = 0; iteration < CollisionResolveIterations; iteration++)
+            {
+                Vector3 travel = target - current;
+                float travelLengthSquared = travel.LengthSquared;
+                if (travelLengthSquared <= 1e-10f)
+                {
+                    current = target;
+                    completed = true;
+                    break;
+                }
+
+                bool saturated = false;
+                bool haveHit = false;
+                float earliest = 1;
+                CollisionResult hit = default;
+                for (int shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++)
+                {
+                    Vector3 offset = shapes[shapeIndex].Xyz;
+                    float radius = shapes[shapeIndex].W;
+                    Vector3 startCenter = current + offset;
+                    Vector3 endCenter = target + offset;
+                    IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
+                        startCenter, endCenter, radius + 0.1f, null, Vector3.Zero,
+                        includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
+                    Array.Clear(_movementCollisionScratch);
+                    int count = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, startCenter, endCenter,
+                        radius, _movementCollisionScratch.Length, includeOffset: true,
+                        TestFlags.Players, _scene, _movementCollisionScratch);
+                    if (count == _movementCollisionScratch.Length)
+                    {
+                        saturated = true;
+                        break;
+                    }
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        CollisionResult result = _movementCollisionScratch[i];
+                        if (!Single.IsFinite(result.Distance)
+                            || !Single.IsFinite(result.Plane.X)
+                            || !Single.IsFinite(result.Plane.Y)
+                            || !Single.IsFinite(result.Plane.Z))
+                        {
+                            continue;
+                        }
+                        float distance = Math.Clamp(result.Distance, 0, 1);
+                        if (distance < earliest)
+                        {
+                            earliest = distance;
+                            hit = result;
+                            haveHit = true;
+                        }
+                    }
+                }
+                if (saturated)
+                {
+                    NoteCollisionOverflow("movement sweep");
+                    Position = current;
+                    RecoverInitialOverlap("movement overflow");
+                    return;
+                }
+                if (!haveHit || earliest >= 0.9999f)
+                {
+                    current = target;
+                    completed = true;
+                    break;
+                }
+
+                Vector3 normal = hit.Plane.Xyz;
+                if (normal.LengthSquared <= 1e-10f)
+                {
+                    current = target;
+                    completed = true;
+                    break;
+                }
+                normal.Normalize();
+
+                float travelLength = MathF.Sqrt(travelLengthSquared);
+                float stop = Math.Clamp(earliest - CollisionContactMargin / MathF.Max(travelLength, 0.0001f), 0, 1);
+                current += travel * stop;
+                Vector3 remaining = travel * (1 - stop);
+                float into = Vector3.Dot(remaining, normal);
+                if (into < 0)
+                {
+                    remaining -= normal * into;
+                }
+                current += normal * CollisionContactMargin;
+                target = current + remaining;
+            }
+
+            Position = current;
+            if (!completed && Vector3.DistanceSquared(Position, target) > 0.0004f)
+            {
+                // Iteration exhaustion is a bounded safe stop, not permission
+                // to consume an arbitrary remaining displacement.
+                target = Position;
+            }
+            if (!RecoverInitialOverlap("post-sweep"))
+            {
+                return;
+            }
+            if (wasStanding)
+            {
+                TryGroundSnap();
+            }
+        }
+
+        private bool RecoverInitialOverlap(string phase)
+        {
+            for (int iteration = 0; iteration < CollisionResolveIterations; iteration++)
+            {
+                if (!FindDeepestPenetration(Position, IsAltForm, out CollisionResult deepest, out bool saturated))
+                {
+                    return true;
+                }
+                if (saturated)
+                {
+                    NoteCollisionOverflow(phase + " overlap");
+                    Position = PrevPosition;
+                    return false;
+                }
+                if (deepest.Field14 > CollisionRecoveryLimit)
+                {
+                    NoteCollisionRecoveryFallback(phase + " deep overlap");
+                    Position = PrevPosition;
+                    return false;
+                }
+
+                Vector3 normal = deepest.Plane.Xyz;
+                if (normal.LengthSquared <= 1e-10f)
+                {
+                    NoteCollisionRecoveryFallback(phase + " invalid normal");
+                    Position = PrevPosition;
+                    return false;
+                }
+                normal.Normalize();
+                Position += normal * MathF.Min(deepest.Field14 + CollisionRecoverySkin, CollisionRecoveryLimit);
+            }
+
+            if (FindDeepestPenetration(Position, IsAltForm, out CollisionResult remaining, out bool overflow)
+                && (overflow || remaining.Field14 > CollisionRecoverySkin))
+            {
+                if (overflow) NoteCollisionOverflow(phase + " recovery");
+                else NoteCollisionRecoveryFallback(phase + " iteration budget");
+                Position = PrevPosition;
+                return false;
+            }
+            return true;
+        }
+
+        private bool FindDeepestPenetration(Vector3 position, bool altForm,
+            out CollisionResult deepest, out bool saturated)
+        {
+            deepest = default;
+            saturated = false;
+            float bestDepth = CollisionRecoverySkin;
+
+            void Probe(Vector3 center, float radius)
+            {
+                if (saturated)
+                {
+                    return;
+                }
+                Array.Clear(_penetrationScratch);
+                int count = CollisionDetection.CheckSpherePenetration(center, radius,
+                    _penetrationScratch.Length, TestFlags.Players, _scene, _penetrationScratch);
+                if (count == _penetrationScratch.Length)
+                {
+                    saturated = true;
+                    return;
+                }
+                for (int i = 0; i < count; i++)
+                {
+                    if (_penetrationScratch[i].Field14 > bestDepth)
+                    {
+                        bestDepth = _penetrationScratch[i].Field14;
+                        deepest = _penetrationScratch[i];
+                    }
+                }
+            }
+
+            if (altForm)
+            {
+                float radius = MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f);
+                Probe(position.AddY(Fixed.ToFloat(Values.AltColYPos)), radius);
+            }
+            else
+            {
+                float radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
+                float top = Fixed.ToFloat(Values.MaxPickupHeight) - radius;
+                float bottom = Fixed.ToFloat(Values.MinPickupHeight) + radius;
+                Probe(position.AddY(bottom), radius);
+                if (MathF.Abs(top - bottom) > 1 / 4096f)
+                {
+                    Probe(position.AddY((bottom + top) * .5f), radius);
+                    Probe(position.AddY(top), radius);
+                }
+            }
+            return saturated || bestDepth > CollisionRecoverySkin;
+        }
+
+        private void TryGroundSnap()
+        {
+            if (_jumpPadControlLock > 0 || Flags1.TestFlag(PlayerFlags1.UsedJumpPad)
+                || Speed.Y > 0.01f || Speed.Y < -0.12f)
+            {
+                return;
+            }
+
+            Vector3 center;
+            float radius;
+            if (IsAltForm)
+            {
+                radius = MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f);
+                center = Position.AddY(Fixed.ToFloat(Values.AltColYPos));
+            }
+            else
+            {
+                radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
+                center = Position.AddY(Fixed.ToFloat(Values.MinPickupHeight) + radius);
+            }
+            Vector3 end = center.AddY(-CollisionGroundSnap);
+            IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
+                center, end, radius + 0.05f, null, Vector3.Zero,
+                includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
+            Array.Clear(_movementCollisionScratch);
+            int count = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, center, end, radius,
+                _movementCollisionScratch.Length, includeOffset: true,
+                TestFlags.Players, _scene, _movementCollisionScratch);
+            if (count == _movementCollisionScratch.Length)
+            {
+                NoteCollisionOverflow("ground snap");
+                return;
+            }
+
+            float earliest = Single.MaxValue;
+            for (int i = 0; i < count; i++)
+            {
+                CollisionResult result = _movementCollisionScratch[i];
+                if (result.Field0 == 0 && result.Plane.Y >= 0.45f
+                    && Single.IsFinite(result.Distance))
+                {
+                    earliest = MathF.Min(earliest, Math.Clamp(result.Distance, 0, 1));
+                }
+            }
+            if (earliest == Single.MaxValue || earliest <= 1 / 4096f)
+            {
+                return;
+            }
+
+            float gap = CollisionGroundSnap * earliest;
+            if (gap > CollisionGroundSnapMaxGap)
+            {
+                // A real drop/ledge is not a ramp seam. Ground snapping is only
+                // allowed to bridge a small continuity gap from the previous
+                // grounded frame.
+                return;
+            }
+            Position = Position.AddY(-(MathF.Max(0, gap - CollisionRecoverySkin)));
+            RecoverInitialOverlap("ground snap");
+        }
+
+        private bool CanOccupyCollisionForm(bool targetAltForm)
+        {
+            if (!UseRobustCollisionController)
+            {
+                return true;
+            }
+            CollisionVolume targetVolume = PlayerVolumes[(int)Hunter, targetAltForm ? 2 : 0];
+            Vector3 targetPosition = Position + _volumeUnxf.SpherePosition - targetVolume.SpherePosition;
+            bool penetrating = FindDeepestPenetration(targetPosition, targetAltForm,
+                out CollisionResult deepest, out bool saturated);
+            if (saturated)
+            {
+                NoteCollisionOverflow("form clearance");
+                return false;
+            }
+            if (penetrating && deepest.Field14 > CollisionRecoverySkin)
+            {
+                return false;
+            }
+
+            if (targetAltForm && Hunter == Hunter.Kanden)
+            {
+                float radius = MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f);
+                Vector3 facing = new(_field70, 0, _field74);
+                if (facing.LengthSquared <= 1e-10f) facing = Vector3.UnitZ;
+                else facing.Normalize();
+                Vector3 segment = targetPosition;
+                for (int i = 1; i < _kandenSegPos.Length; i++)
+                {
+                    segment += facing * -KandenAltNodeDistances[i - 1];
+                    Array.Clear(_penetrationScratch);
+                    int count = CollisionDetection.CheckSpherePenetration(
+                        segment.AddY(Fixed.ToFloat(Values.AltColYPos)), radius,
+                        _penetrationScratch.Length, TestFlags.Players, _scene, _penetrationScratch);
+                    if (count == _penetrationScratch.Length)
+                    {
+                        NoteCollisionOverflow("Kanden form clearance");
+                        return false;
+                    }
+                    for (int j = 0; j < count; j++)
+                    {
+                        if (_penetrationScratch[j].Field14 > CollisionRecoverySkin)
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
         private void CheckCollision()
         {
             _standingEntCol = null;
@@ -491,7 +897,13 @@ namespace MphRead.Entities
             {
                 float radius = altVolume.SphereRadius + (Hunter == Hunter.Spire || Hunter == Hunter.Sylux ? 0.5f : 0.35f);
                 int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
-                    limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
+                    limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
+                if (count == results.Length && UseRobustCollisionController)
+                {
+                    NoteCollisionOverflow("alt-form contacts");
+                    Position = PrevPosition;
+                    count = 0;
+                }
                 for (int i = 0; i < count; i++)
                 {
                     HandleCollision(results[i]);
@@ -514,7 +926,12 @@ namespace MphRead.Entities
                     {
                         point2 = _kandenSegPos[i].AddY(Fixed.ToFloat(Values.AltColYPos));
                         count = CollisionDetection.CheckSphereBetweenPoints(candidates, point2, point2, altRadius,
-                            limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
+                            limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
+                        if (count == results.Length && UseRobustCollisionController)
+                        {
+                            NoteCollisionOverflow("Kanden segment contacts");
+                            continue;
+                        }
                         for (int j = 0; j < count; j++)
                         {
                             CollisionResult result = results[j];
@@ -554,7 +971,13 @@ namespace MphRead.Entities
             {
                 float radius = (Fixed.ToFloat(Values.MaxPickupHeight) - Fixed.ToFloat(Values.MinPickupHeight)) / 2;
                 int count = CollisionDetection.CheckSphereBetweenPoints(candidates, point1, point2, radius,
-                    limit: 40, includeOffset: true, TestFlags.Players, _scene, results);
+                    limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
+                if (count == results.Length && UseRobustCollisionController)
+                {
+                    NoteCollisionOverflow("biped contacts");
+                    Position = PrevPosition;
+                    count = 0;
+                }
                 for (int i = 0; i < count; i++)
                 {
                     HandleCollision(results[i]);
