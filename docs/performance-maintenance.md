@@ -58,17 +58,17 @@ The Maintenance page also offers **Reset performance settings**, which restores:
 - FPS counter off
 - native HUD smoothing on
 
-## Diagnostics without steady-state disk I/O
+## Diagnostics and persistent logging
 
-Normal releases keep a bounded in-memory diagnostic ring. Persistent debug logging
-is opt-in. Crash reports include the recent in-memory diagnostics, so ordinary
-gameplay no longer needs a file lock plus immediate disk flush for routine
-diagnostic lines.
+Normal releases keep a bounded in-memory diagnostic ring and enable persistent
+debug logging by default so support reports retain the complete session leading
+up to a failure. Players can disable persistent logging in Settings when they
+prefer to avoid steady-state disk writes; crash reports still include the recent
+in-memory diagnostics.
 
 Launcher preferences are schema-versioned too. The first load of a pre-schema
-`launcher.txt` turns the old default `debug_logs=true` off once and rewrites the
-file. This makes upgraded installs converge with fresh installs instead of carrying
-the historical disk-logging default forever.
+`launcher.txt` adds the schema marker while preserving any explicit
+`debug_logs` choice. If the key is absent, the current default applies.
 
 ## Render performance check
 
