@@ -117,7 +117,9 @@ internal sealed partial class MapStudioScreen
             if (publish)
             {
                 await WithCommunityAuthentication(address, token,
-                    client => client.UploadAsync(path, token, listed));
+                    client => client.UploadAsync(path, token, listed, progress: (sent, total) =>
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            _status.Text = $"Uploading map · {sent / 1048576d:0.0}/{total / 1048576d:0.0} MiB · {(total > 0 ? sent * 100d / total : 0):0}%")));
             }
             else
             {
@@ -224,7 +226,11 @@ internal sealed partial class MapStudioScreen
                 await MapBuildScheduler.Shared.PackageAsync(MapBuildSnapshot.Capture(project),temporary,token);GuardJob(token);
                 var result=await WithCommunityAuthentication(endpoint,token,async client=>
                 {
-                    var published=await client.UploadAsync(temporary,token,listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,draft:visibility.SelectedIndex==3);
+                    var published=await client.UploadAsync(temporary,token,
+                        listed:visibility.SelectedIndex!=2&&visibility.SelectedIndex!=3,
+                        draft:visibility.SelectedIndex==3,
+                        progress:(sent,total)=>Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            message.Text=$"Uploading map… {sent/1048576d:0.0}/{total/1048576d:0.0} MiB · {(total>0?sent*100d/total:0):0}%"));
                     var refreshed=await FetchEntries(client,token);
                     return (Published:published,Entries:refreshed);
                 });
