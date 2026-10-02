@@ -103,6 +103,15 @@ static class CustomCollisionChecks
             "coplanar shared edge is suppressed as an internal player seam");
 
         Array.Clear(seamResults);
+        Vector3 facePoint = new(2, 0, 2);
+        int faceCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
+            facePoint + Vector3.UnitY, facePoint - Vector3.UnitY, 0.5f, seamResults.Length,
+            includeOffset: true, TestFlags.Players, scene, seamResults);
+        check(faceCount > 0 && seamResults.Take(faceCount).Any(result =>
+                result.Field0 == 0 && MathF.Abs(result.Distance - .25f) < .001f),
+            "robust face sweep reports sphere-surface time of impact before center-plane crossing");
+
+        Array.Clear(seamResults);
         Vector3 cornerPoint = new(-0.4f, 0, -0.4f);
         int cornerCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
             cornerPoint + Vector3.UnitY, cornerPoint - Vector3.UnitY, 0.5f, seamResults.Length,

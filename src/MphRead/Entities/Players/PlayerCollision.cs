@@ -514,8 +514,14 @@ namespace MphRead.Entities
                 return;
             }
 
-            Vector3 current = PrevPosition;
-            Vector3 target = Position;
+            Vector3 requestedMovement = Position - PrevPosition;
+            Position = PrevPosition;
+            if (!RecoverInitialOverlap("pre-sweep"))
+            {
+                return;
+            }
+            Vector3 current = Position;
+            Vector3 target = current + requestedMovement;
             Span<Vector4> shapes = stackalloc Vector4[3];
             int shapeCount = GetMovementSweepShapes(shapes);
             bool completed = false;

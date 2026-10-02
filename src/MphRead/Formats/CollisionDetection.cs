@@ -457,12 +457,31 @@ namespace MphRead.Formats
                         // plane is more than radius units ahead of the ending point
                         continue;
                     }
-                    float pct = 1;
+                    float centerPct = 1;
                     if (MathF.Abs(dot1 - dot2) >= 1 / 4096f)
                     {
-                        pct = Math.Clamp(dot1 / (dot1 - dot2), 0, 1);
+                        centerPct = Math.Clamp(dot1 / (dot1 - dot2), 0, 1);
+                    }
+                    float pct = centerPct;
+                    if (robustEdges)
+                    {
+                        // Continuous player movement stops when the sphere
+                        // surface reaches the face, not after its center has
+                        // crossed the plane. Existing callers retain the
+                        // original center-plane timing above.
+                        if (dot1 <= radius)
+                        {
+                            pct = 0;
+                        }
+                        else if (MathF.Abs(dot1 - dot2) >= 1 / 4096f)
+                        {
+                            pct = Math.Clamp((dot1 - radius) / (dot1 - dot2), 0, 1);
+                        }
                     }
                     Vector3 vec = transPoint1 + (transPoint2 - transPoint1) * pct;
+                    Vector3 edgeVec = robustEdges
+                        ? transPoint1 + (transPoint2 - transPoint1) * centerPct
+                        : vec;
 
                     float GetEdgeDotDifference(int pIndex)
                     {
@@ -566,9 +585,9 @@ namespace MphRead.Formats
                                 continue;
                             }
 
-                            float edgePct = Math.Clamp(Vector3.Dot(vec - edgePoint1, edge) / edgeLengthSquared, 0, 1);
+                            float edgePct = Math.Clamp(Vector3.Dot(edgeVec - edgePoint1, edge) / edgeLengthSquared, 0, 1);
                             Vector3 nearest = edgePoint1 + edge * edgePct;
-                            float edgeDistanceSquared = Vector3.DistanceSquared(vec, nearest);
+                            float edgeDistanceSquared = Vector3.DistanceSquared(edgeVec, nearest);
                             if (edgeDistanceSquared < closestEdgeDistanceSquared)
                             {
                                 closestEdgeDistanceSquared = edgeDistanceSquared;
@@ -582,10 +601,10 @@ namespace MphRead.Formats
                         {
                             Vector3 closestEdge = closestEdgePoint2 - closestEdgePoint1;
                             float closestPct = closestEdge.LengthSquared <= 1e-12f ? 0
-                                : Math.Clamp(Vector3.Dot(vec - closestEdgePoint1, closestEdge)
+                                : Math.Clamp(Vector3.Dot(edgeVec - closestEdgePoint1, closestEdge)
                                     / closestEdge.LengthSquared, 0, 1);
                             Vector3 closestPoint = closestEdgePoint1 + closestEdge * closestPct;
-                            Vector3 responseNormal = vec - closestPoint;
+                            Vector3 responseNormal = edgeVec - closestPoint;
                             if (responseNormal.LengthSquared > 1e-10f)
                             {
                                 responseNormal.Normalize();
@@ -600,13 +619,13 @@ namespace MphRead.Formats
                             result.EntityCollision = candidate.EntityCollision;
                             result.Flags = data.Flags;
                             result.Field14 = dot2;
-                            result.Distance = pct;
+                            result.Distance = centerPct;
                             if (candidate.EntityCollision != null)
                             {
                                 Vector3 normal = Matrix.Vec3MultMtx3(responseNormal, candidate.EntityCollision.Transform).Normalized();
                                 Vector3 worldClosest = Matrix.Vec3MultMtx4(closestPoint, candidate.EntityCollision.Transform);
                                 result.Plane = new Vector4(normal, Vector3.Dot(worldClosest, normal));
-                                result.Position = Matrix.Vec3MultMtx4(vec, candidate.EntityCollision.Transform);
+                                result.Position = Matrix.Vec3MultMtx4(edgeVec, candidate.EntityCollision.Transform);
                                 result.EdgePoint1 = Matrix.Vec3MultMtx4(closestEdgePoint1, candidate.EntityCollision.Transform);
                                 result.EdgePoint2 = Matrix.Vec3MultMtx4(closestEdgePoint2, candidate.EntityCollision.Transform);
                             }
@@ -615,7 +634,7 @@ namespace MphRead.Formats
                                 Vector3 translation = candidate.Collision.Translation;
                                 Vector3 worldClosest = closestPoint + translation;
                                 result.Plane = new Vector4(responseNormal, Vector3.Dot(worldClosest, responseNormal));
-                                result.Position = vec + translation;
+                                result.Position = edgeVec + translation;
                                 result.EdgePoint1 = closestEdgePoint1 + translation;
                                 result.EdgePoint2 = closestEdgePoint2 + translation;
                             }
