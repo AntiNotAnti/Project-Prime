@@ -692,7 +692,9 @@ namespace MphRead.Mods.Network
                         throw new InvalidDataException("Invalid chunk packet bounds.");
                     if (Metadata.FormatVersion == 4 && raw[check.BaseStream.Position] == 254)
                     {
-                        if (size is not (16 or 40)) throw new InvalidDataException("Invalid replay semantic fact length.");
+                        // The semantic decoder owns its versioned wire shape. Keeping a
+                        // second hard-coded length whitelist here made valid v2 kill facts
+                        // (which added KillerLifeId) look corrupt to the chunk reader.
                         _ = ReplayTimelineArchive.DecodeMarker(frame, raw.AsSpan((int)check.BaseStream.Position, size).ToArray());
                     }
                     if ((ulong)frame + Metadata.OriginRecordingFrame > uint.MaxValue)
