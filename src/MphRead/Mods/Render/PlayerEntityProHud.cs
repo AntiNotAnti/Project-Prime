@@ -18,11 +18,13 @@ namespace MphRead.Entities
     ///
     /// What the stock HUD does with energy and ammo is draw them into the
     /// helmet -- a tank meter along a moulded panel, a number in the visor's
-    /// green, both swaying with the idle animation. Pro mode has no helmet to
-    /// draw them into, so they are drawn the way a shooter with no helmet
-    /// draws them: flat, still, in the corners, in colours that say something
-    /// on their own. No sprite assets are involved, only boxes and the game's
-    /// own font, so this costs nothing to load and works in any room.
+    /// green, both swaying with the aim-settle animation. Pro mode has no helmet
+    /// to draw them into, so they are drawn flat in the corners. Static/Quake
+    /// keeps those readouts rigid; Dynamic/Metroid carries the native object
+    /// shift into the Pro readouts so the HUD and arm cannon share the same
+    /// visual drift without putting latency back into the camera or firing ray.
+    /// No sprite assets are involved, only boxes and the game's own font, so
+    /// this costs nothing to load and works in any room.
     /// </summary>
     public partial class PlayerEntity
     {
@@ -55,10 +57,32 @@ namespace MphRead.Entities
         private static readonly ColorRgba ProHudDim = new ColorRgba(178, 186, 200, 255);
         private static readonly ColorRgba ProHudShadow = new ColorRgba(0, 0, 0, 255);
 
+        /// <summary>
+        /// Return the native object-HUD shift only for Project Prime's
+        /// Dynamic/Metroid presentation. Custom HUD layouts own their anchors,
+        /// while Static/Quake is intentionally welded to the screen.
+        ///
+        /// <paramref name="mode"/> may still be Classic when a command-line
+        /// -prohud override is active, so <paramref name="proHud"/> is the
+        /// authoritative switch and Custom is the only mode excluded here.
+        /// </summary>
+        internal static Vector2 ModProHudDynamicShift(bool proHud, HudMode mode,
+            bool hudSway, bool fixedWeapon, Vector2 objectShift)
+        {
+            return proHud && mode != HudMode.Custom && hudSway && !fixedWeapon
+                ? objectShift
+                : Vector2.Zero;
+        }
+
+        private Vector2 ProHudDynamicShift => ModProHudDynamicShift(
+            Features.ProHud, HudProfiles.Runtime.Mode, Features.HudSway,
+            Features.FixedWeapon, new Vector2(_objShiftX, _objShiftY));
+
         /// <summary>Energy down the left under the weapon list, ammo down the right, the score up in the corner.</summary>
         private void DrawProHud()
         {
             float aspect = HudAspectFix;
+            Vector2 sway = ProHudDynamicShift;
             if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Health.Native)
             {
                 using var nativeLayout=UseHudLayout(1,_hudObjects.HealthMainPosX+_objShiftX,_hudObjects.HealthMainPosY+_healthbarYOffset+_objShiftY);
@@ -66,7 +90,11 @@ namespace MphRead.Entities
             }
             else if (ModHudHealthVisible)
             {
-                using var layout = UseHudLayout(1, 2 * aspect, 170);
+                float left = 2 * aspect + sway.X;
+                float top = 170 + sway.Y;
+                float right = 46 * aspect + sway.X;
+                float bottom = 190 + sway.Y;
+                using var layout = UseHudLayout(1, left, top);
                 var style = HudProfiles.Runtime.Health;
                 bool custom = HudProfiles.Runtime.Mode == HudMode.Custom;
                 Vector4 health = custom ? MeterColor(style, ProHealthFraction()) : ProHealthColor();
@@ -74,23 +102,23 @@ namespace MphRead.Entities
                 // width as it: score, weapons and energy then read as one column
                 // top to bottom, which is one place to look instead of three
                 // corners.
-                if (!custom || style.Background) _scene.DrawHudFlatBox(2 * aspect, 170, 46 * aspect, 190, ProHudPanel);
+                if (!custom || style.Background) _scene.DrawHudFlatBox(left, top, right, bottom, ProHudPanel);
                 Span<char> healthBuffer = stackalloc char[12];
                 scoped ReadOnlySpan<char> healthText = "?";
                 if (ModHudHealth.TryFormat(healthBuffer, out int healthLength))
                 {
                     healthText = healthBuffer[..healthLength];
                 }
-                if (!custom || style.Number) ProNumber(6 * aspect, 172, Align.Left, healthText, ProInk(health), 1.5f * (custom ? style.NumberScale : 1));
+                if (!custom || style.Number) ProNumber(6 * aspect + sway.X, 172 + sway.Y, Align.Left, healthText, ProInk(health), 1.5f * (custom ? style.NumberScale : 1));
                 if (!custom || style.Gauge)
                 {
-                    using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 12 : -1,4*aspect,186);
-                    ProBar(4 * aspect, 186, 40 * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProHealthFraction(), health, custom && style.Vertical);
+                    using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 12 : -1,4*aspect+sway.X,186+sway.Y);
+                    ProBar(4 * aspect + sway.X, 186 + sway.Y, 40 * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProHealthFraction(), health, custom && style.Vertical);
                 }
             }
-            DrawProAmmo();
-            using (var layout = UseHudLayout(5, 4 * aspect, 12))
-                ProScore(4 * aspect, 12, Align.Left, 1.1f);
+            DrawProAmmo(sway);
+            using (var layout = UseHudLayout(5, 4 * aspect + sway.X, 12 + sway.Y))
+                ProScore(4 * aspect + sway.X, 12 + sway.Y, Align.Left, 1.1f);
         }
 
         /// <summary>
@@ -114,7 +142,7 @@ namespace MphRead.Entities
         private const float ProAmmoPanelWidth = 58;
         private const float ProAmmoNumberScale = 1.5f;
 
-        private void DrawProAmmo()
+        private void DrawProAmmo(Vector2 sway)
         {
             if (IsAltForm || IsMorphing || IsUnmorphing)
             {
@@ -147,16 +175,18 @@ namespace MphRead.Entities
             var style = HudProfiles.Runtime.Ammo;
             bool custom = HudProfiles.Runtime.Mode == HudMode.Custom;
             Vector4 color = custom ? MeterColor(style, ProAmmoFraction()) : ProAmmoColor();
-            float right = 256 - 2 * aspect;
+            float right = 256 - 2 * aspect + sway.X;
             float left = right - ProAmmoPanelWidth * aspect;
-            using var layout = UseHudLayout(2, left, 170);
-            if (!custom || style.Background) _scene.DrawHudFlatBox(left, 170, right, 190, ProHudPanel);
-            if (!custom || style.Icon) DrawProAmmoIcon(left + 2 * aspect, 172);
-            if (!custom || style.Number) ProNumber(right - 4 * aspect, 172, Align.Right, ammo, ProInk(color), ProAmmoNumberScale * (custom ? style.NumberScale : 1));
+            float top = 170 + sway.Y;
+            float bottom = 190 + sway.Y;
+            using var layout = UseHudLayout(2, left, top);
+            if (!custom || style.Background) _scene.DrawHudFlatBox(left, top, right, bottom, ProHudPanel);
+            if (!custom || style.Icon) DrawProAmmoIcon(left + 2 * aspect, 172 + sway.Y);
+            if (!custom || style.Number) ProNumber(right - 4 * aspect, 172 + sway.Y, Align.Right, ammo, ProInk(color), ProAmmoNumberScale * (custom ? style.NumberScale : 1));
             if (!custom || style.Gauge)
             {
-                using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 13 : -1,left+2*aspect,186);
-                ProBar(left + 2 * aspect, 186, (ProAmmoPanelWidth - 4) * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProAmmoFraction(), color, custom && style.Vertical);
+                using var gauge=UseHudLayout(custom && HudProfiles.Runtime.IndependentGauges ? 13 : -1,left+2*aspect,186+sway.Y);
+                ProBar(left + 2 * aspect, 186 + sway.Y, (ProAmmoPanelWidth - 4) * (custom ? style.GaugeScale : 1), custom ? style.GaugeThickness : 3, ProAmmoFraction(), color, custom && style.Vertical);
             }
         }
 
