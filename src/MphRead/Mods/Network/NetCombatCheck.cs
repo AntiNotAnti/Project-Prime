@@ -380,8 +380,8 @@ namespace MphRead.Mods.Network
                     (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
                 NetSession.RemoteIntents[0] = carrier;
                 NetFireEvents.Prepare(shooter, carrier);
-                Check(shooter.EquipInfo.Zoomed,
-                    "recovered Imperialist quick-scope retains shot-time scope");
+                Check(!shooter.EquipInfo.Zoomed,
+                    "recovered Imperialist quick-scope leaves newer carrier zoom state intact");
                 typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
                 Check((bool)fire.Invoke(shooter, null)!,
                     "recovered scoped Imperialist quick-scope actually spawns");
