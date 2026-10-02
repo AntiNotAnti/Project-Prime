@@ -46,7 +46,8 @@ static class Q3ImportChecks
         check(texturedMap.Import.ModernTextures.Count == 1
             && texturedMap.Import.ModernTextures.TryGetValue(0, out string? hdPath)
             && texturedMap.Assets.Any(a => a.Path == hdPath)
-            && MapAssets.Read(texturedMap, hdPath).SequenceEqual(TestPng()),
+            && hdPath.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)
+            && MapAssets.Read(texturedMap, hdPath).SequenceEqual(TestTga()),
             "Q3 import keeps portable source art beside the FPTX fallback");
         string texturedBundle = Path.Combine(root, "q3-textured.ppmap");
         MapPackageBuilder.Build(texturedMap, texturedBundle);
@@ -54,7 +55,7 @@ static class Q3ImportChecks
         check(bundledTexturedMap.Import!.LoadTexturePack()?.Entries.Count == 1,
             "Q3 package carries its baked source texture pack");
         check(bundledTexturedMap.Import.ModernTextures.TryGetValue(0, out string? bundledHd)
-            && MapAssets.Read(bundledTexturedMap, bundledHd).SequenceEqual(TestPng()),
+            && MapAssets.Read(bundledTexturedMap, bundledHd).SequenceEqual(TestTga()),
             "Q3 package carries its portable HD source texture");
 
         string destination = Path.Combine(root, "q3-imported");
@@ -123,8 +124,8 @@ static class Q3ImportChecks
         using var archive=new ZipArchive(stream,ZipArchiveMode.Create);
         var level=archive.CreateEntry("maps/prime-fixture.bsp");
         using(var target=level.Open())target.Write(File.ReadAllBytes(bspPath));
-        var texture=archive.CreateEntry("textures/prime/test.png");
-        using(var target=texture.Open())target.Write(TestPng());
+        var texture=archive.CreateEntry("textures/prime/test.tga");
+        using(var target=texture.Open())target.Write(TestTga());
     }
 
     private static byte[] TestPng()
