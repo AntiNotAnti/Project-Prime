@@ -67,6 +67,15 @@ internal static class LoadLifecycleTests
             for (int size = 0; size < bytes.Length; size++)
                 NetArchitectureTests.Check(!MatchLoadedPacket.TryRead(bytes.AsSpan(0, size), out _), "truncated load rejected");
 
+            var roleBytes = new byte[MatchLoadedRolePacket.Size];
+            new MatchLoadedRolePacket(42, 9, 17, true).Write(roleBytes);
+            NetArchitectureTests.Check(MatchLoadedRolePacket.TryRead(roleBytes, out var roleLoaded)
+                && roleLoaded.Identity == loaded.Identity && roleLoaded.Spectating,
+                "load acknowledgement carries spectator role");
+            roleBytes[^1] = 2;
+            NetArchitectureTests.Check(!MatchLoadedRolePacket.TryRead(roleBytes, out _),
+                "invalid spectator role rejected");
+
             var commitBytes = new byte[MatchStartCommitPacket.Size];
             new MatchStartCommitPacket(42, 9, 17, 1234).Write(commitBytes);
             NetArchitectureTests.Check(MatchStartCommitPacket.TryRead(commitBytes, out var commit)
