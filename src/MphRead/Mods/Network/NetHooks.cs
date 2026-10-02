@@ -318,6 +318,18 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
+            bool authorityRole = NetSession.IsAuthority
+                && (uint)slot < (uint)NetSession.SlotSpectating.Length;
+            if (authorityRole && NetSession.SlotSpectating[slot])
+            {
+                // Admission role is authoritative over gameplay intent. A
+                // reordered/pre-spectate intent must never stand the hunter
+                // back up after Hello/MatchLoaded already made this slot a
+                // spectator.
+                player.Controls.ClearAll();
+                player.ModSetSpectating(true);
+                return true;
+            }
             // A puppet the snapshot owns is placed here as well as after the
             // movement step, and both writes put it in the same place.
             //
@@ -378,6 +390,13 @@ namespace MphRead.Mods.Network
                     NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
                 }
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
+                if (authorityRole)
+                {
+                    // Rejoin is also role-authoritative: an older spectator
+                    // intent may clear controls, but it cannot re-enable the
+                    // spectator flag after the server accepted Rejoin.
+                    player.ModSetSpectating(NetSession.SlotSpectating[slot]);
+                }
             }
             return true;
         }
