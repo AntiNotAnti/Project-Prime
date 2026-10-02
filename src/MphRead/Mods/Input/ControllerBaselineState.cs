@@ -1,6 +1,6 @@
 namespace MphRead.Mods.Input
 {
-    internal static class ControllerBaselineState
+    public static class ControllerBaselineState
     {
         private const string FileName = "controller-baseline.state";
 
