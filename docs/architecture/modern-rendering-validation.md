@@ -45,8 +45,8 @@ are reported as unavailable, not approximated by CPU time.
 are approximately 7–12 ms. These are development measurements, not release-quality
 percentile estimates (especially 0.1% with only 120 samples). Modern rendering
 has not met the performance gate. Native command encoders submit in batches of
-64 operations with distinct pooled uniforms/geometry per draw. Three-pass PBR
-and further CPU submission work remain opportunities for improvement.
+operations with distinct pooled uniforms/geometry per draw. Three-pass PBR at
+native scale and further CPU submission work remain opportunities for improvement.
 
 ## Unverified release requirements
 
@@ -175,3 +175,29 @@ backend startup and opens with OpenGL instead of repeating the crash. Explicit
 diagnostic/command-line renderer selection is not fenced.
 
 Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to exercise the staged 4096-wide mip regression and backend startup path without game assets.
+
+
+## Supersampled modern-graphics optimization (2026-10-02)
+
+High-end custom settings exposed avoidable multiplicative costs above 100%
+render scale. The world is still rendered at the requested supersampled size,
+but the depth-driven post-process stack now resolves once at presentation size
+when temporal history is not active. AO, contact shadows, reflections, bloom,
+HDR tone mapping and the deferred material composite therefore no longer shade
+every supersampled pixel only to be downsampled by the final composite.
+
+Deferred PBR keeps the existing exact forward-depth contract at native scale.
+When the world target is larger than presentation, its three compatibility
+G-buffer replays use a presentation-sized color/depth target instead. The first
+albedo replay builds local visibility depth and the normal/material passes use
+exact depth equality against that local surface. This removes the supersampling
+multiplier from the PBR raster workload without changing simulation or the
+requested world render scale.
+
+TAA history is now allocated and copied only when the temporal resolve can
+actually consume it. HDR or an available deferred PBR buffer previously caused
+the shader to reject TAA while the CPU/GPU still maintained its history texture;
+those combinations now use the existing SMAA resolve and skip the dead history
+copy. These are implementation optimizations, not a new measured performance
+claim; hardware benchmark evidence should be refreshed before closing the
+performance gate.

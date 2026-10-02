@@ -42,3 +42,34 @@ The palette FPTX format is intentionally still accepted unchanged. This system
 is the modern authored layer, not a destructive rewrite of native MPH texture
 data. A future KTX2/Basis source codec can be added behind
 `ModernTextureAsset` without changing renderer, map, cosmetic or FX call sites.
+
+
+## Runtime loading performance
+
+Material-pack discovery validates path containment, byte/dimension limits and the
+PNG header without decoding every referenced image. Strict authoring/import
+validation still checks PNG chunks/CRC and performs a real decode. Runtime pixel
+decode is therefore paid once, when the asset is actually prepared for GPU
+residency, instead of once during manifest discovery and again during upload.
+
+On the modern WebGPU backends, a generated mip chain reuses one staging texture
+for all levels of a source image. This preserves the staged copy path used to
+avoid Vulkan subresource corruption while removing per-mip native texture
+allocation/destruction churn, which is especially costly for 4K/8K assets.
+
+
+### Progressive desktop promotion
+
+File-backed desktop HD replacements no longer block `InitTextures`. The native
+cartridge texture is uploaded first and remains valid at the same binding ID.
+At most two HD channels decode concurrently on worker threads, and the draw
+thread promotes at most one prepared GPU image per frame. Albedo is queued
+first; normal/material/emissive companions follow only after albedo succeeds.
+Quality, sampling, material-revision and binding-version checks discard stale
+work after a setting change, pack reload or texture release. Android keeps the
+existing synchronous path for now.
+
+This is intentionally a bounded streaming path rather than an eager whole-pack
+predecode: an Ultra 8192x8192 RGBA channel can occupy 256 MiB before mipmaps, so
+decoding an entire material pack concurrently would trade startup time for a
+large transient-memory spike.

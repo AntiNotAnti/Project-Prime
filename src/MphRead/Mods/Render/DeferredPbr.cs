@@ -11,9 +11,12 @@ namespace MphRead
     ///
     /// OpenGL 2.1 has no dependable MRT contract on every machine Project Prime
     /// supports, so the same opaque geometry is replayed into three compact
-    /// G-buffer targets (albedo, normal, material) while reusing the finished
-    /// scene depth as the visibility contract. The fullscreen graphics pass then
-    /// performs GGX lighting. Failure is soft and leaves the forward frame intact.
+    /// G-buffer targets (albedo, normal, material). At native scale the finished
+    /// scene depth remains the exact visibility contract. When the world is
+    /// supersampled, the G-buffer resolves at presentation resolution with its own
+    /// depth target so three PBR replays do not also pay the supersampling multiplier.
+    /// The fullscreen graphics pass then performs GGX lighting. Failure is soft and
+    /// leaves the forward frame intact.
     /// </summary>
     public partial class Scene
     {
@@ -24,7 +27,9 @@ namespace MphRead
         private int _pbrNormalTexture;
         private int _pbrMaterialTexture;
         private int _pbrDepthTexture;
+        private int _pbrDepthRenderbuffer;
         private Vector2i _pbrSize;
+        private bool _pbrIndependentDepth;
         private bool _pbrReady;
         private bool _pbrRefused;
 
@@ -58,31 +63,36 @@ namespace MphRead
         private void RenderDeferredPbrGBuffer()
         {
             _pbrReady = false;
-            if (!RenderOptions.DeferredPbr || _pbrRefused || _depthTexture == 0)
+            if (!RenderOptions.DeferredPbr || _pbrRefused)
             {
                 return;
             }
 
             try
             {
-                EnsureDeferredPbrTargets();
+                Vector2i target = ResolveGraphicsProcessingSize(
+                    _targetSize, Size, taaActive: false);
+                // Native-scale PBR still reuses the forward depth exactly.
+                // Reduced PBR owns depth because framebuffer attachments must
+                // have matching dimensions.
+                if (target == _targetSize && _depthTexture == 0) return;
+                EnsureDeferredPbrTargets(target);
                 if (_pbrProgram == 0 || _pbrFramebuffer == 0) return;
 
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _pbrFramebuffer);
-                GL.Viewport(0, 0, _targetSize.X, _targetSize.Y);
+                GL.Viewport(0, 0, target.X, target.Y);
                 GL.UseProgram(_pbrProgram);
                 GL.Disable(EnableCap.Blend);
                 GL.Disable(EnableCap.StencilTest);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.Enable(EnableCap.DepthTest);
-                // Replayed G-buffer geometry must match the depth that the
-                // forward renderer actually accepted. LEQUAL lets a nearer
-                // alpha-tested/discarded triangle paint PBR data over the
-                // visible surface behind it, which shows up as giant pale
-                // polygons. Exact depth equality turns the forward pass into
-                // the G-buffer's visibility mask.
-                GL.DepthFunc(DepthFunction.Equal);
-                GL.DepthMask(false);
+                // At native scale, exact depth equality turns the forward
+                // pass into the G-buffer's visibility mask. A reduced G-buffer
+                // cannot attach the larger forward depth texture, so its first
+                // albedo replay builds an equivalent local depth surface; the
+                // normal/material replays then use exact equality against it.
+                GL.DepthFunc(_pbrIndependentDepth ? DepthFunction.Less : DepthFunction.Equal);
+                GL.DepthMask(_pbrIndependentDepth);
                 GL.ColorMask(true, true, true, true);
                 GL.PolygonMode(TriangleFace.FrontAndBack,
                     OpenTK.Graphics.OpenGL.PolygonMode.Fill);
@@ -102,7 +112,21 @@ namespace MphRead
                         FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                         target, 0);
                     GL.ClearColor(0, 0, 0, 0);
-                    GL.Clear(ClearBufferMask.ColorBufferBit);
+                    if (_pbrIndependentDepth && mode == 1)
+                    {
+                        GL.DepthFunc(DepthFunction.Less);
+                        GL.DepthMask(true);
+                        GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
+                    }
+                    else
+                    {
+                        if (_pbrIndependentDepth)
+                        {
+                            GL.DepthFunc(DepthFunction.Equal);
+                            GL.DepthMask(false);
+                        }
+                        GL.Clear(ClearBufferMask.ColorBufferBit);
+                    }
                     GL.Uniform1(_pbrMode, mode);
 
                     for (int i = 0; i < _nonDecalItems.Count; i++)
@@ -147,7 +171,7 @@ namespace MphRead
             }
         }
 
-        private void EnsureDeferredPbrTargets()
+        private void EnsureDeferredPbrTargets(Vector2i target)
         {
             if (_pbrProgram == 0)
             {
@@ -206,39 +230,61 @@ namespace MphRead
                 _pbrMaterialTexture = GL.GenTexture();
             }
 
-            bool resized = _pbrSize != _targetSize;
-            if (resized)
+            bool independentDepth = target != _targetSize;
+            bool resized = _pbrSize != target;
+            bool depthModeChanged = _pbrIndependentDepth != independentDepth;
+            if (resized || depthModeChanged)
             {
-                AllocateDeferredPbrTexture(_pbrAlbedoTexture);
-                AllocateDeferredPbrTexture(_pbrNormalTexture);
-                AllocateDeferredPbrTexture(_pbrMaterialTexture);
-                _pbrSize = _targetSize;
+                AllocateDeferredPbrTexture(_pbrAlbedoTexture, target, independentDepth);
+                AllocateDeferredPbrTexture(_pbrNormalTexture, target, independentDepth);
+                AllocateDeferredPbrTexture(_pbrMaterialTexture, target, independentDepth);
+                _pbrSize = target;
             }
 
-            if (resized || _pbrDepthTexture != _depthTexture)
+            bool depthChanged = independentDepth
+                ? resized || depthModeChanged || _pbrDepthRenderbuffer == 0
+                : resized || depthModeChanged || _pbrDepthTexture != _depthTexture;
+            if (depthChanged)
             {
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer, _pbrFramebuffer);
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                     _pbrAlbedoTexture, 0);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
-                    FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D,
-                    _depthTexture, 0);
+                if (independentDepth)
+                {
+                    if (_pbrDepthRenderbuffer == 0)
+                        _pbrDepthRenderbuffer = GL.GenRenderbuffer();
+                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, _pbrDepthRenderbuffer);
+                    GL.RenderbufferStorage(RenderbufferTarget.Renderbuffer,
+                        RenderbufferStorage.Depth24Stencil8, target.X, target.Y);
+                    GL.FramebufferRenderbuffer(FramebufferTarget.Framebuffer,
+                        FramebufferAttachment.DepthStencilAttachment,
+                        RenderbufferTarget.Renderbuffer, _pbrDepthRenderbuffer);
+                    GL.BindRenderbuffer(RenderbufferTarget.Renderbuffer, 0);
+                    _pbrDepthTexture = 0;
+                }
+                else
+                {
+                    GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                        FramebufferAttachment.DepthStencilAttachment, TextureTarget.Texture2D,
+                        _depthTexture, 0);
+                    _pbrDepthTexture = _depthTexture;
+                }
                 ValidateFramebuffer("Deferred PBR G-buffer");
-                _pbrDepthTexture = _depthTexture;
             }
+            _pbrIndependentDepth = independentDepth;
         }
 
-        private void AllocateDeferredPbrTexture(int texture)
+        private void AllocateDeferredPbrTexture(int texture, Vector2i target, bool filtered)
         {
             GL.BindTexture(TextureTarget.Texture2D, texture);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
+                target.X, target.Y, 0, PixelFormat.Rgba,
                 PixelType.UnsignedByte, IntPtr.Zero);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                (int)TextureMinFilter.Nearest);
+                (int)(filtered ? TextureMinFilter.Linear : TextureMinFilter.Nearest));
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                (int)TextureMagFilter.Nearest);
+                (int)(filtered ? TextureMagFilter.Linear : TextureMagFilter.Nearest));
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
                 (int)TextureWrapMode.ClampToEdge);
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
@@ -365,6 +411,12 @@ namespace MphRead
             _pbrReady = false;
             _pbrSize = default;
             _pbrDepthTexture = 0;
+            _pbrIndependentDepth = false;
+            if (_pbrDepthRenderbuffer != 0)
+            {
+                GL.DeleteRenderbuffer(_pbrDepthRenderbuffer);
+                _pbrDepthRenderbuffer = 0;
+            }
             if (_pbrFramebuffer != 0)
             {
                 GL.DeleteFramebuffer(_pbrFramebuffer);
