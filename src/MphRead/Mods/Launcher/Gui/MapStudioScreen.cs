@@ -1134,6 +1134,45 @@ namespace MphRead.Mods.Launcher.Gui
                     Field("UV rotation",g.Uv.Rotation,(o,s)=>((MapGeometry)o).Uv.Rotation=Number(s));
                     foreach(var pair in new[]{("Collision",g.Solid),("Damaging",g.Damaging),("Hidden",g.Hidden),("Locked",g.Locked)})
                     {var check=new CheckBox {Content=pair.Item1,IsChecked=pair.Item2};_inspector.Children.Add(check);edits.Add(o=>{var geometry=(MapGeometry)o;switch(pair.Item1){case "Collision":geometry.Solid=check.IsChecked==true;break;case "Damaging":geometry.Damaging=check.IsChecked==true;break;case "Hidden":geometry.Hidden=check.IsChecked==true;break;case "Locked":geometry.Locked=check.IsChecked==true;break;}});}
+                    if(g is MapMesh collisionMesh)
+                    {
+                        _inspector.Children.Add(Text("COLLISION CHANNELS"));
+                        foreach(var pair in new[]{
+                            ("Collision only (invisible in play)",collisionMesh.CollisionOnly),
+                            ("Reflect beams",collisionMesh.ReflectBeams),
+                            ("Ignore players + camera",collisionMesh.IgnorePlayers),
+                            ("Ignore beams / projectiles",collisionMesh.IgnoreBeams),
+                            ("Ignore scan",collisionMesh.IgnoreScan)})
+                        {
+                            var check=new CheckBox{Content=pair.Item1,IsChecked=pair.Item2};_inspector.Children.Add(check);
+                            edits.Add(o=>{var mesh=(MapMesh)o;switch(pair.Item1)
+                            {
+                                case "Collision only (invisible in play)":mesh.CollisionOnly=check.IsChecked==true;mesh.Solid|=mesh.CollisionOnly;break;
+                                case "Reflect beams":mesh.ReflectBeams=check.IsChecked==true;break;
+                                case "Ignore players + camera":mesh.IgnorePlayers=check.IsChecked==true;break;
+                                case "Ignore beams / projectiles":mesh.IgnoreBeams=check.IsChecked==true;break;
+                                case "Ignore scan":mesh.IgnoreScan=check.IsChecked==true;break;
+                            }});
+                        }
+                        Field("Slipperiness",collisionMesh.Slipperiness,(o,s)=>((MapMesh)o).Slipperiness=int.Parse(s,CultureInfo.InvariantCulture));
+                        _inspector.Children.Add(Text("Camera collision currently follows the player collision channel in the MPH runtime format."));
+                    }
+                    else
+                    {
+                        AddButton(_inspector,"Convert to collision proxy",()=>
+                        {
+                            _document.EditObjects("Convert to collision proxy",new[]{id},d=>
+                            {
+                                int index=d.Geometry.FindIndex(item=>item.Id==id);
+                                if(index<0||d.Geometry[index] is MapMesh)return;
+                                MapGeometry source=d.Geometry[index];
+                                var mesh=MapMeshEditing.Convert(source,d.Materials[source.Material].TexScale);
+                                mesh.CollisionOnly=true;mesh.Solid=true;mesh.Layer="Collision";
+                                d.Geometry[index]=mesh;
+                            });
+                            Inspect();
+                        });
+                    }
                     if(g is MapPrism prism)Field("Sides",prism.Sides,(o,s)=>((MapPrism)o).Sides=int.Parse(s,CultureInfo.InvariantCulture));
                     break;
                 case MapSpawn s:Field("Yaw",s.Yaw,(o,v)=>((MapSpawn)o).Yaw=Number(v));Field("Team (-1 = neutral)",s.Team,(o,v)=>((MapSpawn)o).Team=int.Parse(v,CultureInfo.InvariantCulture));break;
