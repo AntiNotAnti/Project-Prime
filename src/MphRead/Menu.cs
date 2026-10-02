@@ -45,6 +45,7 @@ namespace MphRead
         public string TextureFiltering { get; set; } = "off";
         public string TextureMipmaps { get; set; } = "off";
         public string TextureAnisotropy { get; set; } = "1";
+        public string TextureSampling { get; set; } = "auto";
         public string TextureUpscale { get; set; } = "off";
         public string TextureQuality { get; set; } = "automatic";
         public string ShowFps { get; set; } = "off";
