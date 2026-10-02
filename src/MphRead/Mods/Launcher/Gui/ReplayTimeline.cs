@@ -229,7 +229,7 @@ namespace MphRead.Mods.Launcher.Gui
                 context.DrawRectangle(PlayedBrush, null, new Rect(x1, height - 7 - 6d * _density[i] / peak,
                     Math.Max(1, x2 - x1), 6d * _density[i] / peak));
             }
-            const double laneTop = 15;
+            const double laneTop = 24;
             const double laneHeight = 14;
             const double laneGap = 3;
             double killY = laneTop + laneHeight / 2;
@@ -503,7 +503,7 @@ namespace MphRead.Mods.Launcher.Gui
             Focus();
             double x = e.GetPosition(this).X;
             double y = e.GetPosition(this).Y;
-            static double EventY(ReplayEvent marker) => 22 + 17 * (marker.Type switch
+            static double EventY(ReplayEvent marker) => 31 + 17 * (marker.Type switch
             {
                 ReplayEventType.Kill => 0, ReplayEventType.PlayerDeath => 1,
                 ReplayEventType.Damage => 2, ReplayEventType.WeaponFired => 6,
