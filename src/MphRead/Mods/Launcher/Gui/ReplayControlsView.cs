@@ -114,6 +114,7 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 CameraMoved = ReplayCamera.MoveKeyframe,
                 CameraSelected = ReplayCamera.SelectKeyframe,
+                CameraSelectionChanged = ReplayCamera.ModifyKeyframeSelection,
                 CameraDeleted = ReplayCamera.RemoveKeyframe,
                 EventRequested = InspectCombatEvent,
                 RangeRequested = (start, end) =>
@@ -297,7 +298,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddAction("SAVE VIRTUAL CLIP", SaveVirtualSelection, face: Deck.Face.Moss);
 
             body.Children.Add(new Caption("Cinematic camera"));
-            body.Children.Add(new Note("Click a camera key or use PREVIOUS/NEXT KEY to select it. Adjust the camera, FOV and roll, then UPDATE SELECTED to save the changes. REMOVE deletes the selected key without aligning the playhead."));
+            body.Children.Add(new Note("Click a camera key for a single selection. Ctrl/Cmd-click toggles keys and Shift-click selects a contiguous range. Delete/Backspace or REMOVE SELECTED deletes the whole selection in one edit. Adjust a single key, then UPDATE SELECTED to save camera, FOV and roll changes."));
             var cameraGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
             body.Children.Add(cameraGrid);
             int cameraIndex = 0;
@@ -333,7 +334,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddCamera("UPDATE SELECTED", ReplayCamera.UpdateSelectedKeyframe);
             AddCamera("PREVIOUS KEY", () => ReplayCamera.SelectAdjacentKeyframe(-1));
             AddCamera("NEXT KEY", () => ReplayCamera.SelectAdjacentKeyframe(1));
-            AddCamera("REMOVE KEYFRAME", ReplayCamera.RemoveKeyframe);
+            AddCamera("REMOVE SELECTED", ReplayCamera.RemoveKeyframe);
             AddCamera("DUPLICATE KEYFRAME", () => ReportCameraEdit(
                 ReplayCamera.DuplicateKeyframeAtCurrentFrame(), "Keyframe duplicated at playhead."));
             AddCamera("COPY KEYFRAME", () => ReportCameraEdit(
@@ -1246,7 +1247,7 @@ namespace MphRead.Mods.Launcher.Gui
                 + (replayNotice.Length == 0 ? "" : "\n" + replayNotice);
 
             ReplayCamera.EnsureTrack();
-            _timeline.SelectedCameraFrame = ReplayCamera.SelectedFrame;
+            _timeline.SelectedCameraFrames = ReplayCamera.SelectedFrames.ToArray();
             int timelineSlot = _timelinePlayer.Index <= 0
                 ? -1
                 : _timelineSlots[Math.Clamp(_timelinePlayer.Index, 1,
@@ -1265,8 +1266,14 @@ namespace MphRead.Mods.Launcher.Gui
                 : ReplayExportQueue.Status;
             ToolTip.SetTip(_exportQueueStatus, ReplayExportQueue.RecentFailures.Count == 0 ? null : "Recent failures\n" + string.Join("\n", ReplayExportQueue.RecentFailures));
 
+            string cameraSelection = ReplayCamera.SelectedKeyframeCount switch
+            {
+                0 => "none",
+                1 => ReplayCamera.SelectedFrames.First().ToString(),
+                _ => $"{ReplayCamera.SelectedKeyframeCount} keys"
+            };
             _cameraStatus.Text =
-                $"Selected: {ReplayCamera.SelectedFrame?.ToString() ?? "none"} · {ReplayCamera.KeyframeCount} keys · {ReplayCamera.TrackInterpolation} · "
+                $"Selected: {cameraSelection} · {ReplayCamera.KeyframeCount} keys · {ReplayCamera.TrackInterpolation} · "
                 + $"{ReplayCamera.TrackEase} · {(ReplayCamera.TrackConstantSpeed ? "constant" : "timed")} speed · "
                 + $"FOV {ReplayCamera.FieldOfView:0}° · roll {ReplayCamera.Roll:0}° · "
                 + $"look-at {(ReplayCamera.LookAtSlot < 0 ? "off" : $"P{ReplayCamera.LookAtSlot + 1}")} · "
