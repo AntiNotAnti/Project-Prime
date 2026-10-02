@@ -1225,9 +1225,9 @@ namespace MphRead.Entities
 
         /// <summary>
         /// Whether this player is standing in the map rather than waiting at
-        /// the origin to be placed. Spawned is set by Spawn() and never
-        /// cleared, so health is what distinguishes "in the match" from
-        /// "dead, waiting for a respawn point".
+        /// the origin to be placed. Spectator mode deliberately clears
+        /// Spawned and health, so the role is part of this answer as well as
+        /// ordinary alive/dead state.
         /// </summary>
         internal bool ModIsInPlay => LoadFlags.TestFlag(LoadFlags.Spawned) && _health > 0
             && !Flags2.TestFlag(PlayerFlags2.Spectating);
