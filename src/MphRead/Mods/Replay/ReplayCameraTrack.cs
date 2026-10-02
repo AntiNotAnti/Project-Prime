@@ -272,7 +272,7 @@ namespace MphRead.Mods.Replay
         private static float ArcLengthParameter(Vector3 p0, Vector3 p1,
             Vector3 p2, Vector3 p3, float fraction)
         {
-            const int Steps = 16;
+            const int Steps = 32;
             Span<float> lengths = stackalloc float[Steps + 1];
             Vector3 previous = p1;
             float total = 0;
