@@ -51,7 +51,7 @@ Validate/inspect do not require launcher setup for native maps or imports with t
 
 V2 `.ppmap` is a ZIP containing `manifest.json` and `project.json`; import, texture, audio and preview directories are optional. Native maps need no BSP. Legacy one-recipe packages still load. Imported packages carry a trimmed `import/level.bsp` and baked `textures/map.tex`. Packaging copies only declared map assets, never extracted game audio or borrowed cartridge textures.
 
-Entries are sorted, timestamps fixed, and the canonical content hash includes each path, length and bytes except the manifest. A separate archive SHA-256 can verify the exact package file. The reader bounds compressed size to 128 MiB, expanded content to 256 MiB, individual entries to 64 MiB, projects to 8 MiB and entries to 2048. It rejects traversal, rooted/device paths, duplicates, unsupported types, inconsistent identity, missing assets and hash mismatches. Files are read from the archive rather than extracted over the library.
+Entries are sorted, timestamps fixed, and the canonical content hash includes each path, length and bytes except the manifest. A separate archive SHA-256 can verify the exact package file. The reader bounds compressed size to 512 MiB, expanded content to 1 GiB, individual entries to 256 MiB, projects to 8 MiB and entries to 2048. It rejects traversal, rooted/device paths, duplicates, unsupported types, inconsistent identity, missing assets and hash mismatches. Files are read from the archive rather than extracted over the library.
 
 Device-name checks apply before the first dot in each path component on every platform, including multi-extension names such as `CON.backup.tex`.
 
