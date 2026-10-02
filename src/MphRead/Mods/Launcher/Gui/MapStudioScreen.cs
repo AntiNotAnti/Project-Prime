@@ -15,6 +15,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
+using MphRead.Mods.Render;
 
 namespace MphRead.Mods.Launcher.Gui
 {
