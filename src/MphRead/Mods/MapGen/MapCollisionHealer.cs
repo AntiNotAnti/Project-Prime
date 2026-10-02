@@ -18,6 +18,9 @@ public enum MapCollisionRepairKind
     SpawnMoved,
     ItemMoved,
     ProbeFailure,
+    MovementSweepFailure,
+    ContactOverflowRisk,
+    JumpPadFailure,
     ReachabilityWarning
 }
 
@@ -75,6 +78,13 @@ public static class MapCollisionHealer
     private const float PlayerRadius = .45f;
     private const float PlayerHeight = 1.6f;
     private const float RuntimeEdgeMargin = -.03125f;
+    private const int RuntimePlayerContactLimit = 40;
+    private const float PlayerSweepStep = .35f;
+    private const float CapsuleSkin = .025f;
+    // MapBuilder.SolveJumpPad authors launch velocity in the original 30 Hz
+    // movement units, so the Forge predictor deliberately uses that same
+    // gravity instead of inventing a renderer-rate approximation.
+    private const float JumpPadGravity = 77 / 4096f;
 
     public static MapCollisionHealth Heal(BuiltMap map, MapImport import,
         IReadOnlyList<BuiltFace>? buriedCandidates = null,
@@ -496,7 +506,10 @@ public static class MapCollisionHealer
                     $"Navigation has {health.NavigationComponents} components but spawn traversal reaches {health.ReachableComponents}.",
                     definition.Spawns.Select(s => V(s.Position)).ToArray()));
 
-            // Short player-sized walking sweeps across graph edges.
+            // Player-sized movement sweeps across graph edges. Unlike the old
+            // floor-only probe this checks the biped body against walls,
+            // corners and low ceilings, and also surfaces places capable of
+            // saturating the runtime player's fixed 40-result contact buffer.
             for (int a = 0; a < graph.Neighbours.Length; a++)
             {
                 foreach (int b in graph.Neighbours[a])
@@ -504,17 +517,23 @@ public static class MapCollisionHealer
                     if (b <= a) continue;
                     cancellation.ThrowIfCancellationRequested();
                     Vector3 p = graph.Positions[a], q = graph.Positions[b];
-                    Vector3 delta = q - p;
-                    int steps = Math.Clamp((int)MathF.Ceiling(delta.Length / .5f), 1, 12);
-                    bool fail = false;
-                    for (int step = 1; step < steps; step++)
-                    {
-                        Vector3 sample = Vector3.Lerp(p, q, step / (float)steps);
-                        if (!TryFloor(collision, sample + Vector3.UnitY * .4f, 1.1f, .4f, out _))
-                        { fail = true; break; }
-                    }
+                    bool clear = AuditWalkingSegment(collision, p, q,
+                        out Vector3 failurePoint, out int maximumContacts);
                     health.SweepCount++;
-                    if (fail) health.SweepFailures++;
+                    if (maximumContacts >= RuntimePlayerContactLimit)
+                    {
+                        Record(map,new(MapCollisionRepairKind.ContactOverflowRisk, .86f,
+                            $"Player-sized sweep encountered {maximumContacts} simultaneous collision faces; "
+                            + $"the runtime player contact buffer holds {RuntimePlayerContactLimit}. Simplify or weld collision here.",
+                            new[] { p, maximumContacts == 0 ? q : failurePoint, q }));
+                    }
+                    if (!clear)
+                    {
+                        health.SweepFailures++;
+                        Record(map,new(MapCollisionRepairKind.MovementSweepFailure, .82f,
+                            "Player-sized traversal found a floor gap or body obstruction that the navigation edge alone did not expose.",
+                            new[] { p, failurePoint, q }));
+                    }
                     if (health.SweepCount >= 4000) break;
                 }
                 if (health.SweepCount >= 4000) break;
@@ -539,9 +558,200 @@ public static class MapCollisionHealer
                         Record(map,new(MapCollisionRepairKind.ProbeFailure, .55f,
                             "Headless player-sized floor probe still found rendered walkable geometry without support.",
                             new[] { sample }));
+                    continue;
+                }
+                if (TryFloor(collision, sample + Vector3.UnitY * .45f, 1.1f, .45f, out float floor))
+                {
+                    Vector3 feet = new(sample.X, floor + CapsuleSkin, sample.Z);
+                    ProbePlayerCapsule(collision, feet, out int contacts, out _);
+                    if (contacts >= RuntimePlayerContactLimit)
+                        Record(map,new(MapCollisionRepairKind.ContactOverflowRisk, .86f,
+                            $"Player standing probe encountered {contacts} simultaneous collision faces; "
+                            + $"the runtime player contact buffer holds {RuntimePlayerContactLimit}.",
+                            new[] { feet }));
                 }
             }
         }
+
+        AuditJumpPads(map, definition, collision, health, cancellation);
+    }
+
+    private static bool AuditWalkingSegment(FaceIndex collision, Vector3 from, Vector3 to,
+        out Vector3 failurePoint, out int maximumContacts)
+    {
+        failurePoint = to;
+        maximumContacts = 0;
+        Vector3 delta = to - from;
+        int steps = Math.Clamp((int)MathF.Ceiling(delta.Length / PlayerSweepStep), 1, 96);
+        for (int step = 0; step <= steps; step++)
+        {
+            Vector3 sample = Vector3.Lerp(from, to, step / (float)steps);
+            if (!TryFloor(collision, sample + Vector3.UnitY * .6f, 1.2f, .65f, out float floor))
+            {
+                failurePoint = sample;
+                return false;
+            }
+            Vector3 feet = new(sample.X, floor + CapsuleSkin, sample.Z);
+            bool clear = ProbePlayerCapsule(collision, feet, out int contacts, out Vector3 obstruction);
+            maximumContacts = Math.Max(maximumContacts, contacts);
+            if (!clear)
+            {
+                failurePoint = obstruction;
+                return false;
+            }
+            failurePoint = feet;
+        }
+        return true;
+    }
+
+    private static bool ProbePlayerCapsule(FaceIndex collision, Vector3 feet,
+        out int contacts, out Vector3 obstruction)
+    {
+        contacts = 0;
+        obstruction = feet;
+        bool clear = true;
+        Vector3 bottom = feet + Vector3.UnitY * PlayerRadius;
+        Vector3 top = feet + Vector3.UnitY * (PlayerHeight - PlayerRadius);
+        Vector3 middle = (bottom + top) * .5f;
+        float queryRadius = PlayerHeight * .5f + PlayerRadius + .25f;
+        foreach (BuiltFace face in collision.Query(middle, queryRadius))
+        {
+            if (face.IgnorePlayers || face.Points.Length < 3) continue;
+            Vector3 normal = face.Normal;
+            if (normal.LengthSquared < 1e-10f) continue;
+            normal.Normalize();
+            float bottomDistance = Vector3.Dot(normal, bottom - face.Points[0]);
+            float topDistance = Vector3.Dot(normal, top - face.Points[0]);
+            float t;
+            if (bottomDistance * topDistance <= 0 && MathF.Abs(bottomDistance - topDistance) > 1e-6f)
+                t = Math.Clamp(bottomDistance / (bottomDistance - topDistance), 0, 1);
+            else
+                t = MathF.Abs(bottomDistance) <= MathF.Abs(topDistance) ? 0 : 1;
+            Vector3 centre = Vector3.Lerp(bottom, top, t);
+            float signedDistance = Vector3.Dot(normal, centre - face.Points[0]);
+            float distance = MathF.Abs(signedDistance);
+            if (distance > PlayerRadius + .08f) continue;
+            Vector3 projected = centre - normal * signedDistance;
+            if (!Accepts(face, projected)) continue;
+            contacts++;
+            if (PlayerRadius - distance <= CapsuleSkin) continue;
+
+            // A walkable face immediately below the feet is support, not an
+            // obstruction. The generous vertical envelope covers steep legal
+            // ramps while still treating walls and overhead faces as blockers.
+            if (normal.Y >= WalkableY && projected.Y <= feet.Y + .45f) continue;
+            if (clear) obstruction = projected;
+            clear = false;
+        }
+        return clear;
+    }
+
+    private static void AuditJumpPads(BuiltMap map, MapDefinition definition,
+        FaceIndex collision, MapCollisionHealth health, CancellationToken cancellation)
+    {
+        foreach (MapJumpPad pad in definition.JumpPads)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            Vector3 start = V(pad.Position);
+            Vector3 direction;
+            float speed;
+            try { (direction, speed) = MapBuilder.SolveJumpPad(pad); }
+            catch (Exception ex) when (ex is ProgramException or ArgumentException)
+            {
+                health.SweepCount++;
+                health.SweepFailures++;
+                Record(map,new(MapCollisionRepairKind.JumpPadFailure, .98f,
+                    "Jump pad launch cannot be solved: " + ex.Message, new[] { start }));
+                continue;
+            }
+            Vector3 velocity = direction * speed;
+            float duration = JumpPadDuration(pad, start, velocity);
+            bool failed = false;
+            Vector3 failure = start;
+            int maximumContacts = 0;
+            Vector3 previous = start;
+
+            int frames = Math.Clamp((int)MathF.Ceiling(duration), 1, 240);
+            for (int frame = 1; frame <= frames && !failed; frame++)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                float t = MathF.Min(duration, frame);
+                Vector3 current = start + velocity * t
+                    - Vector3.UnitY * (.5f * JumpPadGravity * t * t);
+                float distance = Vector3.Distance(previous, current);
+                int substeps = Math.Clamp((int)MathF.Ceiling(distance / PlayerSweepStep), 1, 16);
+                for (int substep = 1; substep <= substeps; substep++)
+                {
+                    Vector3 sample = Vector3.Lerp(previous, current, substep / (float)substeps);
+                    bool clear = ProbePlayerCapsule(collision, sample, out int contacts, out Vector3 obstruction);
+                    maximumContacts = Math.Max(maximumContacts, contacts);
+                    if (!clear)
+                    {
+                        failed = true;
+                        failure = obstruction;
+                        break;
+                    }
+                    failure = sample;
+                }
+                previous = current;
+            }
+
+            if (!failed && pad.Target is { Length: 3 })
+            {
+                Vector3 target = V(pad.Target);
+                if (!TryFloor(collision, target + Vector3.UnitY * .75f, 2.5f, .75f, out float landingFloor))
+                {
+                    failed = true;
+                    failure = target;
+                }
+                else
+                {
+                    Vector3 landingFeet = new(target.X, landingFloor + CapsuleSkin, target.Z);
+                    if (!ProbePlayerCapsule(collision, landingFeet, out int contacts, out Vector3 obstruction))
+                    {
+                        failed = true;
+                        failure = obstruction;
+                    }
+                    maximumContacts = Math.Max(maximumContacts, contacts);
+                }
+            }
+
+            health.SweepCount++;
+            if (maximumContacts >= RuntimePlayerContactLimit)
+                Record(map,new(MapCollisionRepairKind.ContactOverflowRisk, .9f,
+                    $"Jump-pad path encountered {maximumContacts} simultaneous collision faces; "
+                    + $"the runtime player contact buffer holds {RuntimePlayerContactLimit}.",
+                    pad.Target is { Length: 3 } ? new[] { start, failure, V(pad.Target) } : new[] { start, failure }));
+            if (failed)
+            {
+                health.SweepFailures++;
+                Record(map,new(MapCollisionRepairKind.JumpPadFailure, .9f,
+                    "Jump-pad trajectory intersects player collision or does not end on a usable landing surface.",
+                    pad.Target is { Length: 3 } ? new[] { start, failure, V(pad.Target) } : new[] { start, failure }));
+            }
+        }
+    }
+
+    private static float JumpPadDuration(MapJumpPad pad, Vector3 start, Vector3 velocity)
+    {
+        if (pad.Target is { Length: 3 })
+        {
+            Vector3 delta = V(pad.Target) - start;
+            float horizontalDistance = new Vector3(delta.X, 0, delta.Z).Length;
+            float horizontalSpeed = new Vector3(velocity.X, 0, velocity.Z).Length;
+            if (horizontalSpeed > 1e-5f)
+                return Math.Clamp(horizontalDistance / horizontalSpeed, 1, 240);
+            float discriminant = velocity.Y * velocity.Y - 2 * JumpPadGravity * delta.Y;
+            if (discriminant >= 0)
+            {
+                float root = (velocity.Y + MathF.Sqrt(discriminant)) / JumpPadGravity;
+                if (root > 0) return Math.Clamp(root, 1, 240);
+            }
+        }
+        // Vector pads have no authored landing point. Audit at least their
+        // authored control-lock window, in the same legacy 30 Hz units used by
+        // SolveJumpPad; runtime doubles that timer when running at 60 Hz.
+        return Math.Clamp(Math.Max(30, pad.ControlLockTime), 1, 180);
     }
 
     private static bool Disabled(MapImport import,IReadOnlyList<Vector3> points)
