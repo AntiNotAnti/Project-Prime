@@ -39,6 +39,7 @@ namespace MphRead.Mods.Network
             public double LastSeen;
             public double JoinedAt, LoadStartedAt, FirstBootstrapAt;
             public bool LateJoin, Rejoining, AdmissionReady;
+            public bool Spectating;
             public uint LastIntentFrame;
             public bool HasIntentFrame;
             public string Name = "";
@@ -947,6 +948,11 @@ namespace MphRead.Mods.Network
                 throw new ProgramException($"the server could not load \"{entry.RoomKey}\"");
             }
             _sim = sim;
+            // Spectator admission is known before world bootstrap. Apply it to
+            // the authority scene now so ModBootstrapSpawn leaves those
+            // occupied slots at LifeId 0 instead of constructing a body.
+            foreach (Peer participant in _peers)
+                NetSession.SetAuthoritySpectating(participant.SlotIndex, participant.Spectating);
             NetBotInput.Sink = BroadcastBotIntent;
             _transport?.ResetContentionStats();
             Telemetry.ProductionTelemetry.Begin(entry.RoomKey, entry.Mode.ToString(), _maxPlayers);
@@ -2009,6 +2015,7 @@ namespace MphRead.Mods.Network
             uint clientId = packet.Payload.Length >= 6
                 ? BinaryPrimitives.ReadUInt32LittleEndian(packet.Payload.Slice(2, 4))
                 : 0;
+            bool spectating = packet.Payload.Length >= 23 && packet.Payload[22] != 0;
             Peer? peer = Find(packet.Sender);
             if (peer != null && peer.ClientId != clientId)
             {
@@ -2071,7 +2078,8 @@ namespace MphRead.Mods.Network
                 bool rejoining = clientId != 0 && Array.IndexOf(_studyAdmissions, clientId) >= 0;
                 _studyAdmissions[_studyAdmissionHead++ % _studyAdmissions.Length] = clientId;
                 peer = new Peer { Hunter = (byte)Multiplayer.HunterRules.Sanitize(Hunter.Samus, CurrentDefinition.LowTier), EndPoint = packet.Sender, SlotIndex = slot, ClientId = clientId, TeamIndex = team,
-                    JoinedAt = now, LoadStartedAt = now, FirstBootstrapAt = -1, LateJoin = _phase == SessionPhase.InMatch, Rejoining = rejoining };
+                    JoinedAt = now, LoadStartedAt = now, FirstBootstrapAt = -1, LateJoin = _phase == SessionPhase.InMatch, Rejoining = rejoining,
+                    Spectating = spectating };
                 _peers.Add(peer);
                 CareerPeerJoined(peer);
                 EverOccupied = true;
@@ -2080,6 +2088,9 @@ namespace MphRead.Mods.Network
                     _transport?.Send(peer.EndPoint, PacketType.Snapshot, _lastSnapshot.AsSpan(0, _lastSnapshotLength));
             }
             peer.ClientId = clientId;
+            peer.Spectating = spectating;
+            if (Simulating)
+                NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             ClaimOwner(peer, packet.Payload);
             peer.LastSeen = now;
             // Re-answered on every Hello; the first Welcome may have been lost.
