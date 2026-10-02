@@ -390,7 +390,8 @@ namespace MphRead.Mods.Launcher.Gui
             _exportReplayOverlay = new ToggleRow("Include replay overlay", false);
             _exportPreset.Changed += (_, _) =>
             {
-                ReplayExportPreset preset = SelectedPreset();
+                ReplayExportPreset preset = ReplayExportPresets.All[Math.Clamp(
+                    _exportPreset.Index, 0, ReplayExportPresets.All.Length - 1)];
                 _exportResolution.Index = (int)preset.Resolution;
                 _exportFps.Index = Array.IndexOf(ReplayExportRates.Supported, preset.Fps);
                 _exportGameHud.On = preset.GameHud;
