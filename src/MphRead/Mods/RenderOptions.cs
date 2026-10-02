@@ -52,6 +52,13 @@ namespace MphRead.Mods
         Ultra
     }
 
+    public enum TextureSamplingMode
+    {
+        Auto,
+        Legacy,
+        Custom
+    }
+
     public enum ShadowQuality
     {
         Off,
@@ -285,6 +292,14 @@ namespace MphRead.Mods
         }
 
         private static int _textureAnisotropy = 1;
+
+        /// <summary>
+        /// Sampling policy for authored/HD 3D assets. Auto keeps detailed
+        /// materials stable at distance independently of their source
+        /// resolution; Legacy preserves nearest-neighbour presentation; Custom
+        /// follows the filtering, mipmap and anisotropy controls above.
+        /// </summary>
+        public static TextureSamplingMode TextureSampling { get; set; } = TextureSamplingMode.Auto;
 
         /// <summary>
         /// Optional edge-aware source-texture enlargement before mip generation.
