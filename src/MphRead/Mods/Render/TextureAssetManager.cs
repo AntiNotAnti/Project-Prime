@@ -78,7 +78,7 @@ namespace MphRead.Mods.Render
         private int Upload(string cacheKey, ModernTextureAsset asset, bool repeat, out int width, out int height)
         {
             width = asset.Width; height = asset.Height;
-            bool mipmaps = RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
+            bool mipmaps = RenderOptions.TextureFiltering && RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
             long bytes = asset.EstimateGpuBytes(mipmaps);
             if (_residentBytes + bytes > MemoryBudgetBytes())
             {
@@ -116,7 +116,7 @@ namespace MphRead.Mods.Render
             {
                 ModernTextureAsset asset = ModernTextureAsset.Decode(source, key, assetClass, channel)
                     .Fit(DimensionLimit(assetClass, channel));
-                bool mipmaps = RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
+                bool mipmaps = RenderOptions.TextureFiltering && RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
                 UploadPreparedBound(asset, repeat, mipmaps);
                 if (GL.GetError() != ErrorCode.NoError) return false;
                 width = asset.Width; height = asset.Height;
@@ -145,9 +145,6 @@ namespace MphRead.Mods.Render
                 GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.LinearMipmapLinear);
-                int anisotropy = Math.Clamp(RenderOptions.TextureAnisotropy, 1, 16);
-                if (anisotropy > 1)
-                    GL.TexParameter(TextureTarget.Texture2D, (TextureParameterName)0x84FE, anisotropy);
             }
             else
             {
@@ -157,17 +154,21 @@ namespace MphRead.Mods.Render
 
         public static int DimensionLimit(TextureAssetClass assetClass, TextureAssetChannel channel)
         {
-            TextureAssetQuality quality = EffectiveQuality();
+            _ = channel;
+            return Math.Min(RequestedDimensionLimit(EffectiveQuality(), assetClass), HardwareMaxDimension());
+        }
+
+        internal static int RequestedDimensionLimit(TextureAssetQuality quality, TextureAssetClass assetClass)
+        {
             int limit = quality switch
             {
                 TextureAssetQuality.Low => assetClass == TextureAssetClass.Effect ? 512 : 1024,
                 TextureAssetQuality.Medium => assetClass == TextureAssetClass.Effect ? 1024 : 2048,
                 TextureAssetQuality.High => assetClass == TextureAssetClass.Effect ? 2048 : 4096,
                 TextureAssetQuality.Ultra => assetClass == TextureAssetClass.Effect ? 4096 : 8192,
-                _ => 4096
+                _ => OperatingSystem.IsAndroid() ? 2048 : 4096
             };
-            if (assetClass == TextureAssetClass.Ui) limit = Math.Min(limit, 2048);
-            return Math.Min(limit, HardwareMaxDimension());
+            return assetClass == TextureAssetClass.Ui ? Math.Min(limit, 2048) : limit;
         }
 
         private static TextureAssetQuality EffectiveQuality()
