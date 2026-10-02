@@ -520,16 +520,17 @@ public static class MapCollisionHealer
                     bool clear = AuditWalkingSegment(collision, p, q,
                         out Vector3 failurePoint, out int maximumContacts);
                     health.SweepCount++;
-                    if (maximumContacts >= RuntimePlayerContactLimit)
+                    bool overflow = maximumContacts >= RuntimePlayerContactLimit;
+                    if (overflow)
                     {
                         Record(map,new(MapCollisionRepairKind.ContactOverflowRisk, .86f,
                             $"Player-sized sweep encountered {maximumContacts} simultaneous collision faces; "
                             + $"the runtime player contact buffer holds {RuntimePlayerContactLimit}. Simplify or weld collision here.",
-                            new[] { p, maximumContacts == 0 ? q : failurePoint, q }));
+                            new[] { p, failurePoint, q }));
                     }
+                    if (!clear || overflow) health.SweepFailures++;
                     if (!clear)
                     {
-                        health.SweepFailures++;
                         Record(map,new(MapCollisionRepairKind.MovementSweepFailure, .82f,
                             "Player-sized traversal found a floor gap or body obstruction that the navigation edge alone did not expose.",
                             new[] { p, failurePoint, q }));
@@ -717,14 +718,15 @@ public static class MapCollisionHealer
             }
 
             health.SweepCount++;
-            if (maximumContacts >= RuntimePlayerContactLimit)
+            bool overflow = maximumContacts >= RuntimePlayerContactLimit;
+            if (overflow)
                 Record(map,new(MapCollisionRepairKind.ContactOverflowRisk, .9f,
                     $"Jump-pad path encountered {maximumContacts} simultaneous collision faces; "
                     + $"the runtime player contact buffer holds {RuntimePlayerContactLimit}.",
                     pad.Target is { Length: 3 } ? new[] { start, failure, V(pad.Target) } : new[] { start, failure }));
+            if (failed || overflow) health.SweepFailures++;
             if (failed)
             {
-                health.SweepFailures++;
                 Record(map,new(MapCollisionRepairKind.JumpPadFailure, .9f,
                     "Jump-pad trajectory intersects player collision or does not end on a usable landing surface.",
                     pad.Target is { Length: 3 } ? new[] { start, failure, V(pad.Target) } : new[] { start, failure }));
