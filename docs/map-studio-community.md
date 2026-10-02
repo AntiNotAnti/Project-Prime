@@ -113,8 +113,11 @@ version-conflict, archive-size, entry-size, content-hash and package validation.
 
 The library uses SHA-256 filenames, validates package manifests/assets, rejects
 traversal and unsupported package entries, bounds archive/expanded sizes, limits
-stored maps to 2,000 and published storage to 2 GiB, and serializes publication
-while allowing bounded concurrent reads and resumable chunk transfers.
+stored maps to 2,000 and published storage to 50 GiB by default, and serializes
+publication while allowing bounded concurrent reads and resumable chunk transfers.
+Operators can set `PROJECT_PRIME_MAP_STORAGE_GIB` to an integer from 1 through
+1024 to choose a different published-map budget. The separate 2 GiB partial-upload
+pool remains bounded independently.
 Operators can remove packages from storage while stopped, then restart to rebuild
 the listing. Identical uploads are idempotent. Names/authors are user-supplied
 metadata, not verified identities. Do not distribute extracted base-game assets.
@@ -146,6 +149,9 @@ but that full deployment restarts game services.
 - Administrator token: `PROJECT_PRIME_MAP_UPLOAD_TOKEN` in root-only
   `/etc/project-prime/maps.env`. Generated on first installation and retained on
   upgrades. Do not distribute it to creators. Normal publishing uses Hunter License.
+- Published-map storage budget: `PROJECT_PRIME_MAP_STORAGE_GIB=50` in the same
+  root-only environment file. Existing installations receive the 50 GiB default on
+  the next map-service deployment; operators may raise or lower it before restart.
 - Deploy the `community-map-ticket` Supabase Edge Function with JWT gateway
   verification disabled for that function. The function performs its own session
   validation for minting and exposes only ticket verification to the map service.
