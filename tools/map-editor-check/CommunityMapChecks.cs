@@ -27,6 +27,8 @@ internal static class CommunityMapChecks
         using var client = new MapCommunityClient(address, secret);
         using var http = new HttpClient { BaseAddress = new Uri(address) };
         Guid id = Guid.NewGuid();
+        string? resumablePath = null, resumableHash = null;
+        long resumableOffset = 0;
         string Package(string version, string name = "COMMUNITY_TEST")
         {
             string path = Path.Combine(root, Guid.NewGuid().ToString("N") + ".ppmap");
@@ -90,11 +92,52 @@ internal static class CommunityMapChecks
             try { using var prepared = await client.PrepareExactAsync(new(id, v1.Name, default, MapHash256.Parse(v1.Hash), true), default); }
             catch (InvalidDataException) { mismatch = true; }
             check(mismatch, "invalid exact identity rejected before installation");
+
+            // Leave a valid archive half-uploaded, stop the service, and let the
+            // normal client continue it after restart. This exercises persistence
+            // rather than merely retrying another request in the same process.
+            resumablePath = Package("6");
+            resumableHash = MapBuildFingerprint.HashFile(resumablePath);
+            byte[] resumableBytes = File.ReadAllBytes(resumablePath);
+            resumableOffset = Math.Max(1, resumableBytes.LongLength / 2);
+            using (var begin = new HttpRequestMessage(HttpMethod.Post, "uploads/" + resumableHash)
+            {
+                Content = new StringContent(JsonSerializer.Serialize(
+                    new MapUploadStartRequest(resumableBytes.LongLength, Listed: false, Draft: false), MapPackageReader.JsonOptions),
+                    Encoding.UTF8, "application/json")
+            })
+            {
+                begin.Headers.Authorization = new("Bearer", secret);
+                using var response = await http.SendAsync(begin);
+                check(response.IsSuccessStatusCode, "resumable upload session begins");
+            }
+            using (var chunk = new HttpRequestMessage(HttpMethod.Put,
+                "uploads/" + resumableHash + "?offset=0")
+            {
+                Content = new ByteArrayContent(resumableBytes.AsSpan(0, checked((int)resumableOffset)).ToArray())
+            })
+            {
+                chunk.Headers.Authorization = new("Bearer", secret);
+                using var response = await http.SendAsync(chunk);
+                var state = JsonSerializer.Deserialize<MapUploadState>(
+                    await response.Content.ReadAsByteArrayAsync(), MapPackageReader.JsonOptions)!;
+                check(response.IsSuccessStatusCode && state.Offset == resumableOffset && !state.Complete,
+                    "partial map upload records an exact resumable offset");
+            }
         }
         finally { stop.Cancel(); try { await service; } catch (OperationCanceledException) { } }
         using var restarted = new CancellationTokenSource();
         service = MapCommunityServer.ServeAsync(address, storage, secret, restarted.Token);
-        try { check((await client.BrowseAsync(default)).Length == 2, "unlisted visibility persists across service restart"); }
+        try
+        {
+            var resumed = await client.UploadAsync(resumablePath!, default, listed: false);
+            check(resumed.Hash == resumableHash && resumed.Bytes == new FileInfo(resumablePath!).Length,
+                "client resumes a persisted partial upload after service restart");
+            check(!Directory.EnumerateFiles(storage, "upload-*.json").Any()
+                && !Directory.EnumerateFiles(storage, "upload-*.part").Any(),
+                "completed resumable upload removes partial session files");
+            check((await client.BrowseAsync(default)).Length == 2, "unlisted visibility persists across service restart");
+        }
         finally { restarted.Cancel(); try { await service; } catch (OperationCanceledException) { } }
     }
 }
