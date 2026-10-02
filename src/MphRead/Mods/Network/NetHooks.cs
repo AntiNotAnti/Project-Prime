@@ -397,9 +397,18 @@ namespace MphRead.Mods.Network
         /// machine's own included -- the local player is normally spawned by
         /// holding fire, and a joiner should not have to.
         /// </summary>
+        public static bool SuppressSpawn(PlayerEntity player)
+        {
+            if (!NetSession.Active || player.SceneServices.IsReplica) return false;
+            if (player.Flags2.TestFlag(PlayerFlags2.Spectating)) return true;
+            int slot = player.SlotIndex;
+            return NetSession.IsAuthority && (uint)slot < (uint)NetSession.SlotSpectating.Length
+                && NetSession.SlotSpectating[slot];
+        }
+
         public static bool ForceSpawn(PlayerEntity player)
         {
-            if (player.SceneServices.IsReplica) return false;
+            if (player.SceneServices.IsReplica || SuppressSpawn(player)) return false;
             if (MapAudit.ForceEveryone)
             {
                 return true;
