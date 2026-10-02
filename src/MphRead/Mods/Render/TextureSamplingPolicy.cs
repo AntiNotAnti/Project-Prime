@@ -52,9 +52,11 @@ namespace MphRead.Mods.Render
         {
             _ = channel;
 
-            // HUD/fonts and intentionally sprite-like FX are not world
-            // materials and must not inherit an HD-world rule blindly.
-            if (assetClass is TextureAssetClass.Ui or TextureAssetClass.Effect)
+            // UI stays outside the authored 3D-material policy. Effect/model
+            // replacements are still 3D materials and use Auto; intentionally
+            // pixel-styled sprites should remain on their dedicated native/UI
+            // paths rather than being classified as modern material assets.
+            if (assetClass == TextureAssetClass.Ui)
                 return ResolveNativeWorld();
 
             return RenderOptions.TextureSampling switch
