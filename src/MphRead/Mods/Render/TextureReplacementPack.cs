@@ -61,7 +61,7 @@ namespace MphRead.Mods.Render
                 MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId));
             if (material?.Albedo is not { } albedo) return false;
             TextureAssetClass assetClass = Classify(model);
-            return TryUploadBound(albedo.Path, assetClass, TextureAssetChannel.Albedo, out width, out height);
+            return TryUploadBound(albedo, assetClass, TextureAssetChannel.Albedo, out width, out height);
         }
 
         public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,
@@ -95,7 +95,7 @@ namespace MphRead.Mods.Render
             {
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, texture);
-                if (!TryUploadBound(image.Path, assetClass, channel, out int width, out int height))
+                if (!TryUploadBound(image, assetClass, channel, out int width, out int height))
                 {
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     releaseTexture(texture);
@@ -115,29 +115,28 @@ namespace MphRead.Mods.Render
         }
 
         internal static byte[] ReadRgba(string path, out int width, out int height)
+            => ReadRgba(MaterialPack.ValidateImage(path), out width, out height);
+
+        internal static byte[] ReadRgba(MaterialImage image, out int width, out int height)
         {
-            MaterialPack.ContainedPath(Root, Path.GetRelativePath(Root, path).Replace(Path.DirectorySeparatorChar, '/'));
-            MaterialPack.ValidateImage(path);
-            using FileStream stream = File.OpenRead(path);
-            ModernTextureAsset asset = ModernTextureAsset.Decode(stream, path, TextureAssetClass.World, TextureAssetChannel.Albedo);
+            using Stream stream = image.OpenRead();
+            ModernTextureAsset asset = ModernTextureAsset.Decode(stream, image.Path, TextureAssetClass.World, TextureAssetChannel.Albedo);
             width = asset.Width; height = asset.Height;
             return asset.Pixels;
         }
 
-        private static bool TryUploadBound(string path, TextureAssetClass assetClass, TextureAssetChannel channel,
+        private static bool TryUploadBound(MaterialImage image, TextureAssetClass assetClass, TextureAssetChannel channel,
             out int width, out int height)
         {
             width = height = 0;
             try
             {
-                MaterialPack.ContainedPath(Root, Path.GetRelativePath(Root, path).Replace(Path.DirectorySeparatorChar, '/'));
-                MaterialPack.ValidateImage(path);
-                using FileStream stream = File.OpenRead(path);
-                return TextureAssetManager.TryUploadBound(stream, path, assetClass, channel, repeat: true, out width, out height);
+                using Stream stream = image.OpenRead();
+                return TextureAssetManager.TryUploadBound(stream, image.Path, assetClass, channel, repeat: true, out width, out height);
             }
             catch (Exception ex)
             {
-                DebugLog.Line("render", "texture pack image ignored " + path + ": " + ex.Message);
+                DebugLog.Line("render", "texture image ignored " + image.Path + ": " + ex.Message);
                 return false;
             }
         }
