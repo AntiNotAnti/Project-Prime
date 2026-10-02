@@ -693,13 +693,22 @@ namespace MphRead.Mods.Replay
         string SuggestedOutput,
         string FfmpegArguments,
         IReadOnlyList<ReplayVideoSegment>? Segments = null,
-        string PresetName = "");
+        string PresetName = "",
+        bool? GameHud = null,
+        bool? ReplayOverlay = null)
+    {
+        // Version 2 manifests only knew CleanHud. Preserve that meaning:
+        // game HUD followed !CleanHud and replay presentation UI was never exported.
+        internal bool IncludeGameHud => GameHud ?? !CleanHud;
+        internal bool IncludeReplayOverlay => ReplayOverlay ?? false;
+    }
 
     internal static partial class ReplayVideoExport
     {
         public static ReplayVideoExportManifest CreateManifest(string replay, uint startFrame, uint endFrame,
             ReplayVideoResolution resolution = ReplayVideoResolution.P1080, int fps = 60,
-            bool cleanHud = true, bool director = false, bool cameraTrack = true)
+            bool cleanHud = true, bool director = false, bool cameraTrack = true,
+            bool? gameHud = null, bool replayOverlay = false)
         {
             if (startFrame >= endFrame) throw new ArgumentOutOfRangeException(nameof(endFrame));
             if (!ReplayExportRates.IsSupported(fps))
@@ -722,8 +731,10 @@ namespace MphRead.Mods.Replay
             string ffmpeg = $"-y -framerate {sourceFps} -i \"{frames}\" "
                 + $"-vf \"{filters}\" -c:v libx264 -preset slow -crf 18 "
                 + $"-pix_fmt yuv420p -movflags +faststart \"{output}\"";
-            var manifest = new ReplayVideoExportManifest(2, Path.GetFullPath(replay), startFrame, endFrame,
-                width, height, fps, cleanHud, director, cameraTrack, frames, output, ffmpeg);
+            bool includeGameHud = gameHud ?? !cleanHud;
+            var manifest = new ReplayVideoExportManifest(3, Path.GetFullPath(replay), startFrame, endFrame,
+                width, height, fps, !includeGameHud, director, cameraTrack, frames, output, ffmpeg,
+                GameHud: includeGameHud, ReplayOverlay: replayOverlay);
             File.WriteAllText(Path.Combine(root, "render.json"),
                 JsonSerializer.Serialize(manifest, new JsonSerializerOptions { WriteIndented = true }));
             File.WriteAllText(Path.Combine(root, "encode.txt"), "ffmpeg " + ffmpeg + Environment.NewLine);
