@@ -83,7 +83,18 @@ public sealed class MaterialPackEntry
     public string? SpecularRoughness { get; set; }
     public string? Emissive { get; set; }
 }
-public sealed record MaterialImage(string Path, int Width, int Height);
+public sealed class MaterialImage
+{
+    private readonly Func<Stream>? _open;
+    public string Path { get; }
+    public int Width { get; }
+    public int Height { get; }
+    public bool IsFileBacked => _open == null;
+    public MaterialImage(string path, int width, int height) : this(path, width, height, null) { }
+    internal MaterialImage(string path, int width, int height, Func<Stream>? open)
+    { Path = path; Width = width; Height = height; _open = open; }
+    public Stream OpenRead() => _open?.Invoke() ?? File.OpenRead(Path);
+}
 /// <summary>Backend-independent map semantics: normal XYZ, specular R / roughness G, emissive RGB.</summary>
 public sealed record ResolvedMaterial(MaterialAssetKey Key, MaterialImage? Albedo,
     MaterialImage? Normal, MaterialImage? SpecularRoughness, MaterialImage? Emissive);
