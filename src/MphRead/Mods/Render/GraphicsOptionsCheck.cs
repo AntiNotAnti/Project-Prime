@@ -125,6 +125,7 @@ namespace MphRead.Mods.Render
                     AntiAliasing = "not-a-mode",
                     ShadowQuality = "ultra",
                     TextureUpscale = "scale4x",
+                    TextureQuality = "impossible",
                     Gamma = "999",
                     AdvancedMaterials = "yes",
                     InternalHdr = "true"
@@ -135,13 +136,28 @@ namespace MphRead.Mods.Render
                     && settings.AntiAliasing == "off"
                     && settings.ShadowQuality == "ultra"
                     && settings.TextureUpscale == "scale4x"
+                    && settings.TextureQuality == "automatic"
                     && settings.Gamma == "150"
                     && settings.AdvancedMaterials == "on"
                     && settings.InternalHdr == "on"
                     && summary.Length > 0,
                     "graphics settings migration clamps and normalizes new options");
 
-                Console.WriteLine("[graphicscheck] presets, migration and texture upscaling passed");
+                Check(TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Low, TextureAssetClass.Hunter) == 1024
+                    && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Medium, TextureAssetClass.Hunter) == 2048
+                    && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.High, TextureAssetClass.Hunter) == 4096
+                    && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Ultra, TextureAssetClass.Hunter) == 8192
+                    && TextureAssetManager.RequestedDimensionLimit(TextureAssetQuality.Ultra, TextureAssetClass.Effect) == 4096,
+                    "modern texture policy exposes 1K/2K/4K/8K tiers and a bounded FX tier");
+                byte[] normalPixels = { 255, 128, 128, 255, 128, 255, 128, 255, 128, 128, 255, 255, 255, 255, 255, 255 };
+                ModernTextureAsset normal = ModernTextureAsset.FromRgba("check", TextureAssetClass.Hunter,
+                    TextureAssetChannel.Normal, 2, 2, normalPixels).Fit(1);
+                Check(normal.Width == 1 && normal.Height == 1 && normal.Pixels.Length == 4,
+                    "modern texture downscale preserves a valid RGBA surface");
+                Check(normal.EstimateGpuBytes(false) == 4 && normal.EstimateGpuBytes(true) == 5,
+                    "modern texture residency estimate includes mip overhead");
+
+                Console.WriteLine("[graphicscheck] presets, migration and modern texture policy passed");
                 return 0;
             }
             catch (Exception ex)
