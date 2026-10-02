@@ -79,12 +79,18 @@ namespace MphRead.Mods.Render
             }
             return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
 #else
-            using StbImage image = StbImage.Load(source, StbiImageFormat.Rgba);
+            StbImage image;
+            try { image = StbImage.Load(source, StbiImageFormat.Rgba); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            { throw new InvalidDataException("Texture image could not be decoded.", ex); }
+            using (image)
+            {
             ValidateDimensions(image.Width, image.Height);
             if (image.ImagePointer == IntPtr.Zero) throw new InvalidDataException("Texture decoder returned no pixels.");
             byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
             Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
             return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
+            }
 #endif
         }
 
