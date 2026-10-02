@@ -172,6 +172,12 @@ namespace MphRead.Mods.Render
                     && autoSampling.LodBias == 0,
                     "auto HD sampling resolves to stable trilinear minification with bounded anisotropy");
 
+                string autoKey = TextureSamplingPolicy.RuntimeKey;
+                RenderOptions.TextureFiltering = !RenderOptions.TextureFiltering;
+                string autoKeyAfterNativeChange = TextureSamplingPolicy.RuntimeKey;
+                Check(autoKey == autoKeyAfterNativeChange,
+                    "Auto HD residency is independent from native cartridge filtering");
+
                 TextureSamplerDescriptor effectSampling = TextureSamplingPolicy.ResolveModern(
                     TextureAssetClass.Effect, TextureAssetChannel.Emissive);
                 Check(effectSampling.Mipmaps && effectSampling.LinearMinification,
@@ -197,6 +203,10 @@ namespace MphRead.Mods.Render
                 Check(customSampling.LinearMagnification && customSampling.LinearMinification
                     && customSampling.Mipmaps && customSampling.Anisotropy == 16,
                     "custom HD sampling follows the existing filtering controls");
+                string customKey = TextureSamplingPolicy.RuntimeKey;
+                RenderOptions.TextureAnisotropy = 4;
+                Check(customKey != TextureSamplingPolicy.RuntimeKey,
+                    "Custom HD residency key changes when its effective sampling changes");
                 RenderOptions.TextureSampling = TextureSamplingMode.Auto;
                 byte[] normalPixels = { 255, 128, 128, 255, 128, 255, 128, 255, 128, 128, 255, 255, 255, 255, 255, 255 };
                 ModernTextureAsset normal = ModernTextureAsset.FromRgba("check", TextureAssetClass.Hunter,
