@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using MphRead.Entities;
 using MphRead.Formats;
@@ -32,15 +33,35 @@ namespace MphRead.Mods.Replay
         public static string? TrackError => Track.LastError;
         public static string EditStatus { get; private set; } = "";
         public static int KeyframeCount => Track.Keys.Count;
+        private static readonly SortedSet<uint> _selectedFrames = new();
+        private static uint? _selectionAnchor;
+        public static IReadOnlyCollection<uint> SelectedFrames => _selectedFrames;
+        public static int SelectedKeyframeCount => _selectedFrames.Count;
         public static uint? SelectedFrame { get; private set; }
         private static uint EditFrame => SelectedFrame ?? ReplayController.CurrentFrame;
         private static ReplayCameraKeyframe? _restoreKey;
+
+        private static void SetSingleSelection(uint frame)
+        {
+            _selectedFrames.Clear();
+            _selectedFrames.Add(frame);
+            _selectionAnchor = frame;
+            SelectedFrame = frame;
+        }
+
+        private static void ClearSelection()
+        {
+            _selectedFrames.Clear();
+            _selectionAnchor = null;
+            SelectedFrame = null;
+        }
         public static void SelectKeyframe(uint frame)
         {
             EnsureTrack();
             var key = Track.Keys.Where(k => k.Frame == frame).Select(k => (ReplayCameraKeyframe?)k).FirstOrDefault();
             if (key is not { } saved) return;
-            SelectedFrame = frame; EditStatus = $"Editing keyframe {frame}. Use UPDATE SELECTED to save changes.";
+            SetSingleSelection(frame);
+            EditStatus = $"Editing keyframe {frame}. Use UPDATE SELECTED to save changes.";
             FieldOfView = MathHelper.RadiansToDegrees(saved.Fov);
             Roll = MathHelper.RadiansToDegrees(saved.Roll);
             LookAtSlot = saved.LookAtSlot;
@@ -57,6 +78,48 @@ namespace MphRead.Mods.Replay
             int index = Track.Keys.ToList().FindIndex(k => k.Frame == EditFrame);
             SelectKeyframe(Track.Keys[Math.Clamp(index + direction, 0, Track.Keys.Count - 1)].Frame);
         }
+
+        internal static void ModifyKeyframeSelection(uint frame, bool toggle, bool range)
+        {
+            EnsureTrack();
+            if (!Track.Keys.Any(key => key.Frame == frame)) return;
+            if (!toggle && !range)
+            {
+                SelectKeyframe(frame);
+                return;
+            }
+            if (_selectedFrames.Count == 0 || !_selectionAnchor.HasValue)
+            {
+                SelectKeyframe(frame);
+                return;
+            }
+
+            if (range)
+            {
+                uint start = Math.Min(_selectionAnchor.Value, frame);
+                uint end = Math.Max(_selectionAnchor.Value, frame);
+                _selectedFrames.Clear();
+                foreach (var key in Track.Keys)
+                    if (key.Frame >= start && key.Frame <= end) _selectedFrames.Add(key.Frame);
+                if (SelectedFrame.HasValue && !_selectedFrames.Contains(SelectedFrame.Value))
+                    SelectedFrame = null;
+            }
+            else if (!_selectedFrames.Add(frame))
+            {
+                _selectedFrames.Remove(frame);
+                if (SelectedFrame == frame) SelectedFrame = null;
+                if (_selectionAnchor == frame)
+                    _selectionAnchor = _selectedFrames.Count == 0 ? null : _selectedFrames.First();
+            }
+
+            EditStatus = _selectedFrames.Count switch
+            {
+                0 => "No camera keyframes selected.",
+                1 => "1 camera keyframe selected.",
+                _ => $"{_selectedFrames.Count} camera keyframes selected. Delete removes all selected."
+            };
+            ReplayController.NoteInput();
+        }
         public static void AdjustLens(float fov, float roll)
         {
             Director = false;
@@ -67,6 +130,11 @@ namespace MphRead.Mods.Replay
         }
         public static void UpdateSelectedKeyframe()
         {
+            if (_selectedFrames.Count > 1)
+            {
+                EditStatus = "Select one keyframe before updating it.";
+                return;
+            }
             if (SelectedFrame.HasValue) { _updateSelected = true; Bookmark(); }
             else EditStatus = "Select a keyframe before updating it.";
         }
@@ -109,7 +177,7 @@ namespace MphRead.Mods.Replay
         {
             Track.Clear(); _trackPath = null; _bookmarkIndex = 0;
             EditStatus = "";
-            _copiedKeyframe = null; SelectedFrame = null; _restoreKey = null; _updateSelected = false;
+            _copiedKeyframe = null; ClearSelection(); _restoreKey = null; _updateSelected = false;
             Profile = ReplayPresentationProfile.Faithful; PlayTrack = false; LookAtSlot = -1;
         }
         internal static void EnsureTrack()
@@ -118,6 +186,7 @@ namespace MphRead.Mods.Replay
             string? path = DemoPlayback.LogicalPath;
             if (path == null || ReplayPathComparer.Comparer.Equals(path, _trackPath)) return;
             _trackPath = path;
+            ClearSelection();
             // New sidecars belong to the durable replay identity. Read an old
             // cache-owned v1/v2 sidecar when no logical sidecar exists, then
             // save the next edit beside the logical replay.
@@ -141,7 +210,7 @@ namespace MphRead.Mods.Replay
                 _updateSelected ? EditFrame : ReplayController.CurrentFrame, position, ReplayCameraTrack.FacingRotation(facing),
                 fov, (sbyte)Math.Clamp(LookAtSlot, -1, 7),
                 MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase)));
-            if (saved) SelectedFrame = _updateSelected ? EditFrame : ReplayController.CurrentFrame;
+            if (saved) SetSingleSelection(_updateSelected ? EditFrame : ReplayController.CurrentFrame);
             _updateSelected = false;
             EditStatus = saved ? "Camera keyframe saved." : "Camera track: " + (Track.LastError ?? "No replay is open.");
             Chat.ChatBox.System(EditStatus);
@@ -158,6 +227,7 @@ namespace MphRead.Mods.Replay
         internal static bool CopyKeyframeAtCurrentFrame()
         {
             EnsureTrack();
+            if (_selectedFrames.Count > 1) return false;
             _copiedKeyframe = Track.Keys.Where(key => key.Frame == EditFrame)
                 .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
             return _copiedKeyframe.HasValue;
@@ -175,7 +245,7 @@ namespace MphRead.Mods.Replay
             return target is { } marker && SnapCurrentKeyframe(marker.Frame);
         }
         internal static bool SnapCurrentKeyframe(uint frame)
-            => MoveKeyframeTo(EditFrame, frame);
+            => _selectedFrames.Count <= 1 && MoveKeyframeTo(EditFrame, frame);
 
         private static bool MoveKeyframeTo(uint from, uint to)
         {
@@ -185,16 +255,31 @@ namespace MphRead.Mods.Replay
                 .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
             bool moved = key is { } current && EditTrack(track =>
                 track.Remove(from) && track.Put(current with { Frame = to }));
-            if (moved) SelectedFrame = to;
+            if (moved)
+            {
+                if (_selectedFrames.Remove(from)) _selectedFrames.Add(to);
+                if (SelectedFrame == from) SelectedFrame = to;
+                if (_selectionAnchor == from) _selectionAnchor = to;
+            }
             return moved;
         }
         internal static void MoveKeyframe(uint from, uint to) => MoveKeyframeTo(from, to);
         public static void RemoveKeyframe()
         {
-            bool saved = EditTrack(track => track.Remove(EditFrame));
-            if (saved) SelectedFrame = null;
-            EditStatus = saved ? "Camera keyframe removed."
-                : "Camera track: " + (Track.LastError ?? "Select a keyframe to remove it.");
+            EnsureTrack();
+            uint[] frames = _selectedFrames.Count > 0
+                ? _selectedFrames.ToArray()
+                : Track.Keys.Where(key => key.Frame == ReplayController.CurrentFrame)
+                    .Select(key => key.Frame).ToArray();
+            bool saved = frames.Length > 0 && EditTrack(track => track.RemoveMany(frames));
+            if (saved)
+            {
+                if (_restoreKey is { } restore && frames.Contains(restore.Frame)) _restoreKey = null;
+                ClearSelection();
+            }
+            EditStatus = saved
+                ? frames.Length == 1 ? "Camera keyframe removed." : $"{frames.Length} camera keyframes removed."
+                : "Camera track: " + (Track.LastError ?? "Select one or more keyframes to remove.");
             Chat.ChatBox.System(EditStatus);
         }
         internal static bool NextKeyframe(out ReplayCameraKeyframe key)
