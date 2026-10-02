@@ -13,6 +13,8 @@ namespace MphRead.Mods.Render
     internal sealed class TextureAssetManager : IDisposable
     {
         private readonly record struct Resident(int Binding, long Bytes, int Width, int Height);
+        private const int TextureMaxAnisotropyExt = 0x84FE;
+        private const int MaxTextureMaxAnisotropyExt = 0x84FF;
         private readonly Dictionary<string, Resident> _resident = new(StringComparer.Ordinal);
         private readonly Func<int> _allocateTexture;
         private readonly Action<int> _releaseTexture;
@@ -166,6 +168,28 @@ namespace MphRead.Mods.Render
             {
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)(sampling.LinearMinification ? TextureMinFilter.Linear : TextureMinFilter.Nearest));
+            }
+            ApplyBoundAnisotropy(sampling.Anisotropy);
+        }
+
+        private static void ApplyBoundAnisotropy(int requested)
+        {
+            if (requested <= 1) return;
+            try
+            {
+                string extensions = GL.GetString(StringName.Extensions) ?? "";
+                if (!extensions.Contains("GL_EXT_texture_filter_anisotropic", StringComparison.Ordinal)
+                    && !extensions.Contains("GL_ARB_texture_filter_anisotropic", StringComparison.Ordinal))
+                    return;
+                int max = GL.GetInteger((GetPName)MaxTextureMaxAnisotropyExt);
+                if (max <= 1) return;
+                GL.TexParameter(TextureTarget.Texture2D,
+                    (TextureParameterName)TextureMaxAnisotropyExt, Math.Clamp(requested, 1, Math.Min(max, 16)));
+            }
+            catch
+            {
+                // Unsupported anisotropy is an allowed fallback; trilinear mips
+                // remain the stability requirement.
             }
         }
 
