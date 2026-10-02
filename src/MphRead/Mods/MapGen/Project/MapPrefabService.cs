@@ -80,8 +80,10 @@ public static class MapPrefabService
         {
             MapMaterial material = prefab.Materials[i];
             int existing = -1;
-            if (material.Texture == null)
-                existing = destination.Materials.FindIndex(m => m.Texture == null
+            if (material.Texture == null && material.Albedo == null && material.Normal == null
+                && material.SpecularRoughness == null && material.Emissive == null)
+                existing = destination.Materials.FindIndex(m => m.Texture == null && m.Albedo == null
+                    && m.Normal == null && m.SpecularRoughness == null && m.Emissive == null
                     && m.SourceMaterial == material.SourceMaterial
                     && Math.Abs(m.TexScale - material.TexScale) < .0001f
                     && m.Name.Equals(material.Name, StringComparison.OrdinalIgnoreCase));
