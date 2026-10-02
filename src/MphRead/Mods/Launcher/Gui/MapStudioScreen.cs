@@ -1929,7 +1929,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string StoreAsset(string kind,string extension,byte[] bytes)
         {
             if(_document==null)throw new InvalidOperationException("Open a project first.");
-            if(bytes.Length>32*1024*1024)throw new IOException("Assets must be no larger than 32 MiB.");
+            if(bytes.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Asset exceeds the 256 MiB package entry limit.");
             string root=_document.Project.Definition.BaseDirectory??CustomRooms.MapDirectory;
             string relative=kind+"/"+Guid.NewGuid().ToString("N")+extension;
             AtomicFile.Write(Path.Combine(root,relative),bytes);
