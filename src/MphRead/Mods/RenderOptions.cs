@@ -43,6 +43,15 @@ namespace MphRead.Mods
         Scale4x
     }
 
+    public enum TextureAssetQuality
+    {
+        Automatic,
+        Low,
+        Medium,
+        High,
+        Ultra
+    }
+
     public enum ShadowQuality
     {
         Off,
@@ -357,6 +366,13 @@ namespace MphRead.Mods
         /// texture-packs/default/&lt;model&gt;/. Missing files fall back to cartridge pixels.
         /// </summary>
         public static bool TextureReplacements { get; set; }
+
+        /// <summary>
+        /// Resolution/residency tier for authored HD assets. Automatic is conservative
+        /// on Android and uses the 4K tier on desktop; the GPU's own maximum dimension
+        /// is always a hard ceiling.
+        /// </summary>
+        public static TextureAssetQuality TextureQuality { get; set; } = TextureAssetQuality.Automatic;
 
         public static bool NeedsReadableDepth => AntiAliasing == AntiAliasingMode.Taa || DynamicGlow
             || Shadows != ShadowQuality.Off

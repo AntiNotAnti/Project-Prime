@@ -1,117 +1,97 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using OpenTK.Graphics.OpenGL;
-using ReFuel.Stb;
+using MphRead.Mods;
 using MphRead.Mods.Cosmetics;
 using MphRead.Mods.Cosmetics.Skins;
+using MphRead.Mods.Render;
+
 namespace MphRead
 {
     public partial class Scene
     {
-        private readonly Dictionary<(string, string, int, SkinContext), RenderMaterialOverride> _cosmeticTextures = new();
+        private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality), RenderMaterialOverride> _cosmeticTextures = new();
+        private TextureAssetManager? _cosmeticTextureAssets;
+        private TextureAssetManager CosmeticTextureAssets => _cosmeticTextureAssets ??= new TextureAssetManager(AllocateTexture, ReleaseTexture);
         internal RenderMaterialOverride CosmeticMaterialSubmission { get; set; }
+
         internal RenderMaterialOverride GetCosmeticMaterial(SkinDefinition skin, Model model, int material, SkinContext context)
         {
-            var key = (skin.Key, model.Name, material, context);
+            var key = (skin.Key, model.Name, material, context, RenderOptions.TextureQuality);
             if (_cosmeticTextures.TryGetValue(key, out var binding)) return binding;
             string? root = context switch { SkinContext.ViewModel => skin.GunAssets,
                 SkinContext.AltForm => skin.AltFormAssets, SkinContext.Halfturret => skin.TurretAssets, _ => skin.AlbedoSet };
             if (root == null) return default;
-            // Paths originate only in the compiled catalog, never the network.
             string stem = root + "/" + model.Name + "/" + material;
             string Channel(string? channelRoot, string suffix) =>
                 (context == SkinContext.Biped && channelRoot != null
                     ? channelRoot + "/" + model.Name + "/" + material : stem) + suffix;
-            int albedo = UploadCosmetic(stem + "_albedo.png");
-            if (albedo == 0 && skin.DecalAsset != null) albedo = UploadDecal(skin.DecalAsset, model, material);
-            binding = new(albedo, UploadCosmetic(Channel(skin.NormalSet, "_normal.png")),
-                UploadCosmetic(Channel(skin.SpecularSet, "_specular.png")), UploadCosmetic(Channel(skin.EmissiveSet, "_emissive.png")));
+            TextureAssetClass assetClass = context switch
+            {
+                SkinContext.ViewModel => TextureAssetClass.Weapon,
+                SkinContext.AltForm => TextureAssetClass.AlternateForm,
+                SkinContext.Halfturret => TextureAssetClass.Turret,
+                _ => TextureAssetClass.Hunter
+            };
+            int albedo = UploadCosmetic(stem + "_albedo.png", assetClass, TextureAssetChannel.Albedo);
+            if (albedo == 0 && skin.DecalAsset != null) albedo = UploadDecal(skin.DecalAsset, model, material, assetClass);
+            binding = new(albedo,
+                UploadCosmetic(Channel(skin.NormalSet, "_normal.png"), assetClass, TextureAssetChannel.Normal),
+                UploadCosmetic(Channel(skin.SpecularSet, "_specular.png"), assetClass, TextureAssetChannel.Material),
+                UploadCosmetic(Channel(skin.EmissiveSet, "_emissive.png"), assetClass, TextureAssetChannel.Emissive));
             _cosmeticTextures[key] = binding;
             return binding;
         }
-        private int UploadDecal(string path, Model model, int materialIndex)
+
+        private int UploadDecal(string path, Model model, int materialIndex, TextureAssetClass assetClass)
         {
-            int texture = 0;
             try
             {
                 var material = model.Materials[materialIndex];
                 if (material.TextureId < 0 || material.Alpha < 31) return 0;
                 using Stream? stream = CosmeticAsset.Open(path);
                 if (stream == null) return 0;
-                using StbImage decal = StbImage.Load(stream, StbiImageFormat.Rgba);
-                if (decal.Width <= 0 || decal.Height <= 0 || decal.Width > 512 || decal.Height > 512 || decal.ImagePointer == IntPtr.Zero) return 0;
-                byte[] ink = new byte[decal.Width * decal.Height * 4];
-                System.Runtime.InteropServices.Marshal.Copy(decal.ImagePointer, ink, 0, ink.Length);
+                ModernTextureAsset decal = ModernTextureAsset.Decode(stream, path, assetClass, TextureAssetChannel.Albedo)
+                    .Fit(TextureAssetManager.DimensionLimit(assetClass, TextureAssetChannel.Albedo));
                 var native = model.Recolors[0].Textures[material.TextureId];
                 var pixels = model.GetPixels(material.TextureId, material.PaletteId, 0);
-                int width = Math.Min(512, Math.Max(native.Width, decal.Width));
-                int height = Math.Min(512, Math.Max(native.Height, decal.Height));
-                byte[] output = new byte[width * height * 4];
+                int width = Math.Max(native.Width, decal.Width);
+                int height = Math.Max(native.Height, decal.Height);
+                byte[] output = new byte[checked(width * height * 4)];
                 for (int y = 0; y < height; y++)
                 for (int x = 0; x < width; x++)
                 {
                     var basis = pixels[(y * native.Height / height) * native.Width + x * native.Width / width];
                     int source = ((y * decal.Height / height) * decal.Width + x * decal.Width / width) * 4;
                     int target = (y * width + x) * 4;
-                    float opacity = ink[source + 3] / 255f;
-                    output[target] = (byte)(basis.Red * (1 - opacity) + ink[source] * opacity);
-                    output[target + 1] = (byte)(basis.Green * (1 - opacity) + ink[source + 1] * opacity);
-                    output[target + 2] = (byte)(basis.Blue * (1 - opacity) + ink[source + 2] * opacity);
+                    float opacity = decal.Pixels[source + 3] / 255f;
+                    output[target] = (byte)(basis.Red * (1 - opacity) + decal.Pixels[source] * opacity);
+                    output[target + 1] = (byte)(basis.Green * (1 - opacity) + decal.Pixels[source + 1] * opacity);
+                    output[target + 2] = (byte)(basis.Blue * (1 - opacity) + decal.Pixels[source + 2] * opacity);
                     output[target + 3] = basis.Alpha;
                 }
-                texture = AllocateTexture();
-                GL.ActiveTexture(TextureUnit.Texture0); GL.BindTexture(TextureTarget.Texture2D, texture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, width, height, 0,
-                    PixelFormat.Rgba, PixelType.UnsignedByte, output);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-                return texture;
+                string cacheKey = "cosmetic-decal/" + path + "/" + model.Name + "/" + materialIndex;
+                return CosmeticTextureAssets.UploadRgba(cacheKey, assetClass, TextureAssetChannel.Albedo,
+                    width, height, output, repeat: false, out _, out _);
             }
             catch (Exception ex)
             {
-                if (texture != 0) ReleaseTexture(texture);
-                Mods.DebugLog.Line("cosmetics", $"Authored decal unavailable: {path}: {ex.Message}");
+                Mods.DebugLog.Line("cosmetics", "Authored decal unavailable: " + path + ": " + ex.Message);
                 return 0;
             }
-            finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
         }
 
-        private int UploadCosmetic(string path)
+        private int UploadCosmetic(string path, TextureAssetClass assetClass, TextureAssetChannel channel)
         {
-            using Stream? stream = CosmeticAsset.Open(path);
-            if (stream == null) return 0;
-            int texture = 0;
-            try
-            {
-                using StbImage image = StbImage.Load(stream, StbiImageFormat.Rgba);
-                if (image.Width <= 0 || image.Height <= 0 || image.Width > 2048 || image.Height > 2048 || image.ImagePointer == IntPtr.Zero) return 0;
-                texture = AllocateTexture();
-                GL.ActiveTexture(TextureUnit.Texture0); GL.BindTexture(TextureTarget.Texture2D, texture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, image.Width, image.Height, 0,
-                    PixelFormat.Rgba, PixelType.UnsignedByte, image.ImagePointer);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-                return texture;
-            }
-            catch (Exception ex)
-            {
-                if (texture != 0) ReleaseTexture(texture);
-                Mods.DebugLog.Line("cosmetics", $"Optional material unavailable: {path}: {ex.Message}");
-                return 0;
-            }
-            finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
+            return CosmeticTextureAssets.Upload("cosmetic/" + path, () => CosmeticAsset.Open(path),
+                assetClass, channel, repeat: false, out _, out _);
         }
+
         internal void ClearCosmeticTextures()
         {
-            foreach (var material in _cosmeticTextures.Values)
-            {
-                if (material.AlbedoBinding != 0) ReleaseTexture(material.AlbedoBinding);
-                if (material.NormalBinding != 0) ReleaseTexture(material.NormalBinding);
-                if (material.SpecularBinding != 0) ReleaseTexture(material.SpecularBinding);
-                if (material.EmissiveBinding != 0) ReleaseTexture(material.EmissiveBinding);
-            }
             _cosmeticTextures.Clear();
+            _cosmeticTextureAssets?.Dispose();
+            _cosmeticTextureAssets = null;
         }
     }
 }

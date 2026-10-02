@@ -309,8 +309,8 @@ public sealed class ObjModelImporter : IModelImporter
             width=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(12));
             height=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(14));
         }
-        if (width is < 1 or > 4096 || height is < 1 or > 4096)
-            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 4096×4096.");
+        if (width is < 1 or > 8192 || height is < 1 or > 8192)
+            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 8192×8192.");
     }
 
     internal static byte[] Solid(float r, float g, float b)

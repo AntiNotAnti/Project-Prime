@@ -92,10 +92,10 @@ public sealed record MaterialPackIssue(string Key, string Channel, string Messag
 public sealed class MaterialPack
 {
     public const int MaximumManifestBytes = 2 * 1024 * 1024;
-    public const int MaximumImageBytes = 32 * 1024 * 1024;
-    public const long MaximumPackBytes = 256L * 1024 * 1024;
+    public const int MaximumImageBytes = 256 * 1024 * 1024;
+    public const long MaximumPackBytes = 1024L * 1024 * 1024;
     public const int MaximumDimension = 8192;
-    public const long MaximumPixels = 16L * 1024 * 1024;
+    public const long MaximumPixels = 64L * 1024 * 1024;
     public const int MaximumMaterials = 8192;
     public static readonly JsonSerializerOptions Json = new()
     {

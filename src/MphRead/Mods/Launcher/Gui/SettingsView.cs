@@ -110,6 +110,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _mipmapRow = null!;
         private ChoiceRow _anisotropyRow = null!;
         private ChoiceRow _textureUpscaleRow = null!;
+        private ChoiceRow _textureQualityRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
         private ChoiceRow _rendererRow = null!;
         private readonly GraphicsBackend[] _rendererChoices = GraphicsBackendPolicy.RendererChoices();
@@ -1162,7 +1163,10 @@ namespace MphRead.Mods.Launcher.Gui
                 (int)RenderOptions.TextureUpscale));
             _textureReplacementsRow = Add(page, new ToggleRow("HD texture replacements",
                 RenderOptions.TextureReplacements));
-            Explain(page, "Scale2x/4x enlarges the original cartridge textures with an edge-aware pixel-art filter before mip generation. HD replacements take priority when present and always fall back safely to the original texture.");
+            _textureQualityRow = Add(page, new ChoiceRow("HD asset resolution",
+                new[] { "Automatic", "Low (1K)", "Medium (2K)", "High (4K)", "Ultra (8K)" },
+                (int)RenderOptions.TextureQuality));
+            Explain(page, "Scale2x/4x enlarges cartridge art. HD asset resolution controls authored map/material, hunter, weapon, alternate-form, turret and effect textures; the runtime still clamps to the GPU and memory budget.");
             _filteringRow.Changed += (_, _) => ShowTextureQualityRows();
             ShowTextureQualityRows();
 
@@ -2517,6 +2521,8 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.TextureReplacements = RenderOptions.OnOff(_textureReplacementsRow.On);
             _settings.TextureUpscale = ((TextureUpscaleMode)Math.Clamp(_textureUpscaleRow.Index, 0, 2))
                 .ToString().ToLowerInvariant();
+            RenderOptions.TextureQuality = (TextureAssetQuality)Math.Clamp(_textureQualityRow.Index, 0, 4);
+            _settings.TextureQuality = RenderOptions.TextureQuality.ToString().ToLowerInvariant();
             RenderOptions.BrightSkins = _brightSkinsRow.Index != 0;
             if (RenderOptions.BrightSkins)
             {
