@@ -40,6 +40,36 @@ internal sealed class AndroidFramePacer(int maximumRate)
         return elapsed;
     }
 
+    /// <summary>
+    /// True when an explicit numeric cap maps to a refresh mode the panel can
+    /// natively present. In that case SurfaceFlinger/presentation owns cadence;
+    /// adding a managed timer would double-pace the frame.
+    /// </summary>
+    internal static bool MatchesNativeRefresh(int requestedCap, double maximumRefreshRate,
+        ReadOnlySpan<float> supportedRefreshRates)
+    {
+        if (requestedCap >= maximumRefreshRate - 0.5)
+        {
+            return true;
+        }
+        foreach (float rate in supportedRefreshRates)
+        {
+            if (Math.Abs(rate - requestedCap) <= 0.5)
+            {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// A blocking modern present mode (FIFO fallback) is a presentation clock
+    /// even when a non-native numeric cap originally asked for software pacing.
+    /// Never sleep to one cadence and then block on another.
+    /// </summary>
+    internal static bool PresentationOwnsCadence(bool displayPaced, bool modernPresentationBlocks) =>
+        displayPaced || modernPresentationBlocks;
+
     internal static double BudgetRate(int cap, double activeRefreshRate) =>
         cap <= 0 ? activeRefreshRate : Math.Min(cap, activeRefreshRate);
 
