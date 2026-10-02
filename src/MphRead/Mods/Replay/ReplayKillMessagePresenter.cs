@@ -26,7 +26,9 @@ internal static class ReplayKillMessagePresenter
 
     internal static void Update(Scene scene)
     {
-        if (!DemoPlayback.IsActive || DemoPlayback.Session.Transport.IsSeeking)
+        if (!DemoPlayback.IsActive || DemoPlayback.Session.Transport.IsSeeking
+            || ReplayCamera.Mode != ReplayCameraMode.FirstPerson
+            || ReplayCamera.Director || ReplayCamera.PlayTrack)
         {
             Sync(scene);
             return;
