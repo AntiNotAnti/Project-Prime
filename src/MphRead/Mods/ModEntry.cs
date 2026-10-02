@@ -207,6 +207,7 @@ namespace MphRead.Mods
             // on for a single run without the setting, for the case where the
             // launcher itself is what will not start.
             Launcher.LauncherPrefs.Load();
+            Input.ControllerBaselineState.Load();
             Input.AltFormMoveDebug.Enabled = HasFlag(args, "altmovecheck");
             if (HasFlag(args, "debuglog") || HasFlag(args, "respawnrendercheck")
                 || Input.AltFormMoveDebug.Enabled)
@@ -238,7 +239,8 @@ namespace MphRead.Mods
 
 
             Input.AimAssist.AimAssistDebug.Enabled = HasFlag(args, "gamepadassistdebug");
-            Input.AimAssist.AimAssistDebug.UnassistedArm = HasFlag(args, "gamepadassistbaseline");
+            Input.AimAssist.AimAssistDebug.UnassistedArm = Input.ControllerBaselineState.Enabled
+                || HasFlag(args, "gamepadassistbaseline");
             Input.AimAssist.AimAssistTelemetry.Configure(ValueAfter(args, "gamepadassisttelemetry"));
 
 #if MPHREAD_SHELL
