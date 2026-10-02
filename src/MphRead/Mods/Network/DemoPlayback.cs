@@ -50,7 +50,11 @@ public static class DemoPlayback
         _prepared = new(new PassiveReplaySessionHost());
         _failed = false; _presentationFailed = false;
         bool opened = _prepared.Join(path, timeoutMs);
-        if (opened) { ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset(); ReplayHud.Reset(); ReplayStudio.ResetCache(); }
+        if (opened)
+        {
+            ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset();
+            ReplayHud.Reset(); ReplayStudio.ResetCache(); ReplayKillMessagePresenter.Reset();
+        }
         return opened;
     }
     internal static int CheckpointCount => _player?.CheckpointCount ?? 0;
@@ -116,7 +120,8 @@ public static class DemoPlayback
                 ReplayAudioOwner.Release(_audio); _audio = 0;
                 replacement.Scene.CopyReplayView(previous); replacement.Scene.UseReplayInput(_shell);
                 replacement.Session.FactRead += ReplayNetworkDiagnostics.OnPacketArray;
-                ReplayHud.Reset(); ReplayNetworkDiagnostics.Reset(); ReplayVerification.SeekTo(CurrentFrame);
+                ReplayHud.Reset(); ReplayKillMessagePresenter.Reset();
+                ReplayNetworkDiagnostics.Reset(); ReplayVerification.SeekTo(CurrentFrame);
             };
             ReplayVerification.Reset(); ReplayNetworkDiagnostics.Reset();
             _player.Transport.CopyPreferences(transport);
@@ -140,6 +145,7 @@ public static class DemoPlayback
                 SpectatorMode.Start(watchSomeone: true);
                 var main = current.Players.Main;
                 if (!Headless.Active && main.LoadFlags.TestFlag(LoadFlags.Active) && !main.HudReady) main.SetUpHud();
+                if (!Headless.Active && main.HudReady) ReplayKillMessagePresenter.Update(current);
                 if (!Headless.Active && !silent) MphRead.Sound.Sfx.Update(1f / 60);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -180,6 +186,7 @@ public static class DemoPlayback
     {
         ReplayInput.CancelScrub();
         ReplayAudioOwner.Release(_audio); _audio = 0;
+        ReplayKillMessagePresenter.Reset();
         _player?.Dispose(); _player = null;
         Scene? lab = _lab; _lab = null;
         lab?.DoCleanup(); lab?.UnloadGl(); _shell = null;
