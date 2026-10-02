@@ -231,6 +231,11 @@ public static class MapCommunityServer
                             long maximum = Math.Min(MapCommunityClient.UploadChunkBytes, remaining);
                             if (context.Request.ContentLength64 > maximum)
                             { context.Response.StatusCode = 413; return; }
+                            long incoming = context.Request.ContentLength64 >= 0 ? context.Request.ContentLength64 : maximum;
+                            long partialBytes = Directory.EnumerateFiles(storage, "upload-*.part")
+                                .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
+                            if (partialBytes + incoming > MaxPartialUploadBytes)
+                            { context.Response.StatusCode = 507; return; }
 
                             string partial = UploadPartPath(key);
                             await using (var file = new FileStream(partial, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
