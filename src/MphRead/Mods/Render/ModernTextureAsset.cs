@@ -55,52 +55,77 @@ namespace MphRead.Mods.Render
         }
 
         public static ModernTextureAsset Decode(Stream source, string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel)
+            TextureAssetChannel channel, int maximumDimension = MaximumDimension)
         {
             if (source == null || !source.CanRead) throw new InvalidDataException("Texture source is unreadable.");
-            if (source.CanSeek)
+            maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
+            MemoryStream? owned = null;
+            if (!source.CanSeek)
+            {
+                owned = new MemoryStream();
+                source.CopyTo(owned);
+                owned.Position = 0;
+                source = owned;
+            }
+            try
             {
                 long start = source.Position;
                 Span<byte> header = stackalloc byte[18];
                 int read = source.Read(header);
                 source.Position = start;
                 if (read == header.Length && IsSupportedTga(header))
-                    return DecodeTga(source, key, assetClass, channel);
-            }
+                    return DecodeTga(source, key, assetClass, channel, maximumDimension);
 #if ANDROID
-            using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
-            using var image = Android.Graphics.BitmapFactory.DecodeStream(source, null, options)
-                ?? throw new InvalidDataException("Android could not decode the texture image.");
-            ValidateDimensions(image.Width, image.Height);
-            byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
-            int[] row = new int[image.Width];
-            for (int y = 0; y < image.Height; y++)
-            {
-                image.GetPixels(row, 0, image.Width, 0, y, image.Width, 1);
-                for (int x = 0; x < image.Width; x++)
+                using var bounds = new Android.Graphics.BitmapFactory.Options
                 {
-                    int pixel = row[x], offset = (y * image.Width + x) * 4;
-                    rgba[offset] = (byte)(pixel >> 16);
-                    rgba[offset + 1] = (byte)(pixel >> 8);
-                    rgba[offset + 2] = (byte)pixel;
-                    rgba[offset + 3] = (byte)(pixel >> 24);
+                    InScaled = false, InPremultiplied = false, InJustDecodeBounds = true
+                };
+                _ = Android.Graphics.BitmapFactory.DecodeStream(source, null, bounds);
+                source.Position = start;
+                ValidateDimensions(bounds.OutWidth, bounds.OutHeight);
+                int sample = 1;
+                while (Math.Max(bounds.OutWidth, bounds.OutHeight) / (sample * 2) >= maximumDimension)
+                    sample *= 2;
+                using var options = new Android.Graphics.BitmapFactory.Options
+                {
+                    InScaled = false, InPremultiplied = false, InSampleSize = sample
+                };
+                using var image = Android.Graphics.BitmapFactory.DecodeStream(source, null, options)
+                    ?? throw new InvalidDataException("Android could not decode the texture image.");
+                ValidateDimensions(image.Width, image.Height);
+                byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
+                int[] row = new int[image.Width];
+                for (int y = 0; y < image.Height; y++)
+                {
+                    image.GetPixels(row, 0, image.Width, 0, y, image.Width, 1);
+                    for (int x = 0; x < image.Width; x++)
+                    {
+                        int pixel = row[x], offset = (y * image.Width + x) * 4;
+                        rgba[offset] = (byte)(pixel >> 16);
+                        rgba[offset + 1] = (byte)(pixel >> 8);
+                        rgba[offset + 2] = (byte)pixel;
+                        rgba[offset + 3] = (byte)(pixel >> 24);
+                    }
                 }
-            }
-            return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
+                return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba)
+                    .Fit(maximumDimension);
 #else
-            StbImage image;
-            try { image = StbImage.Load(source, StbiImageFormat.Rgba); }
-            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
-            { throw new InvalidDataException("Texture image could not be decoded.", ex); }
-            using (image)
-            {
-            ValidateDimensions(image.Width, image.Height);
-            if (image.ImagePointer == IntPtr.Zero) throw new InvalidDataException("Texture decoder returned no pixels.");
-            byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
-            Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
-            return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba);
-            }
+                StbImage image;
+                try { image = StbImage.Load(source, StbiImageFormat.Rgba); }
+                catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+                { throw new InvalidDataException("Texture image could not be decoded.", ex); }
+                using (image)
+                {
+                    ValidateDimensions(image.Width, image.Height);
+                    if (image.ImagePointer == IntPtr.Zero) throw new InvalidDataException("Texture decoder returned no pixels.");
+                    byte[] rgba = new byte[checked(image.Width * image.Height * 4)];
+                    Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
+                    return new ModernTextureAsset(key, assetClass, channel, image.Width, image.Height, rgba)
+                        .Fit(maximumDimension);
+                }
 #endif
+            }
+            finally { owned?.Dispose(); }
         }
 
         internal static (int Width, int Height) ProbeDimensions(ReadOnlySpan<byte> bytes)
@@ -164,7 +189,7 @@ namespace MphRead.Mods.Render
                 && System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(header[14..16]) > 0;
 
         private static ModernTextureAsset DecodeTga(Stream source, string key, TextureAssetClass assetClass,
-            TextureAssetChannel channel)
+            TextureAssetChannel channel, int maximumDimension)
         {
             Span<byte> header = stackalloc byte[18];
             source.ReadExactly(header);
@@ -182,7 +207,8 @@ namespace MphRead.Mods.Render
                 byte[] id = new byte[idLength];
                 source.ReadExactly(id);
             }
-            byte[] rgba = new byte[checked(width * height * 4)];
+            (int targetWidth, int targetHeight) = FitDimensions(width, height, maximumDimension);
+            byte[] rgba = new byte[checked(targetWidth * targetHeight * 4)];
             byte[] pixel = new byte[4];
             int written = 0;
             void WritePixel(byte[] bgra)
@@ -191,7 +217,9 @@ namespace MphRead.Mods.Render
                 int rawX = written % width, rawY = written / width;
                 int x = rightOrigin ? width - 1 - rawX : rawX;
                 int y = topOrigin ? rawY : height - 1 - rawY;
-                int target = (y * width + x) * 4;
+                int targetX = Math.Min(targetWidth - 1, x * targetWidth / width);
+                int targetY = Math.Min(targetHeight - 1, y * targetHeight / height);
+                int target = (targetY * targetWidth + targetX) * 4;
                 rgba[target] = bgra[2];
                 rgba[target + 1] = bgra[1];
                 rgba[target + 2] = bgra[0];
@@ -226,7 +254,8 @@ namespace MphRead.Mods.Render
                 }
             }
             if (written != width * height) throw new InvalidDataException("Truncated TGA image.");
-            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba);
+            if (channel == TextureAssetChannel.Normal) RenormalizeNormals(rgba);
+            return new ModernTextureAsset(key, assetClass, channel, targetWidth, targetHeight, rgba);
         }
 
         public static ModernTextureAsset FromRgba(string key, TextureAssetClass assetClass,
@@ -242,11 +271,33 @@ namespace MphRead.Mods.Render
         {
             maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
             if (Width <= maximumDimension && Height <= maximumDimension) return this;
-            double scale = Math.Min((double)maximumDimension / Width, (double)maximumDimension / Height);
-            int width = Math.Max(1, (int)Math.Round(Width * scale));
-            int height = Math.Max(1, (int)Math.Round(Height * scale));
+            (int width, int height) = FitDimensions(Width, Height, maximumDimension);
             byte[] pixels = Resample(Pixels, Width, Height, width, height, Channel == TextureAssetChannel.Normal);
             return new ModernTextureAsset(Key, AssetClass, Channel, width, height, pixels);
+        }
+
+        private static (int Width, int Height) FitDimensions(int width, int height, int maximumDimension)
+        {
+            maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
+            if (width <= maximumDimension && height <= maximumDimension) return (width, height);
+            double scale = Math.Min((double)maximumDimension / width, (double)maximumDimension / height);
+            return (Math.Max(1, (int)Math.Round(width * scale)),
+                Math.Max(1, (int)Math.Round(height * scale)));
+        }
+
+        private static void RenormalizeNormals(byte[] pixels)
+        {
+            for (int target = 0; target < pixels.Length; target += 4)
+            {
+                float nx = pixels[target] / 127.5f - 1f;
+                float ny = pixels[target + 1] / 127.5f - 1f;
+                float nz = pixels[target + 2] / 127.5f - 1f;
+                float length = MathF.Sqrt(nx * nx + ny * ny + nz * nz);
+                if (length > 0.0001f) { nx /= length; ny /= length; nz /= length; }
+                pixels[target] = (byte)Math.Clamp((int)MathF.Round((nx * 0.5f + 0.5f) * 255), 0, 255);
+                pixels[target + 1] = (byte)Math.Clamp((int)MathF.Round((ny * 0.5f + 0.5f) * 255), 0, 255);
+                pixels[target + 2] = (byte)Math.Clamp((int)MathF.Round((nz * 0.5f + 0.5f) * 255), 0, 255);
+            }
         }
 
         public long EstimateGpuBytes(bool mipmaps)
