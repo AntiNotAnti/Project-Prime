@@ -18,6 +18,7 @@ public static class MapCommunityServer
     private sealed record MapUploadMetadata(string CreatorId, string PackageHash, long Bytes, bool Listed, bool Draft);
     private const int MaxPartialUploads = 16;
     private const long MaxPartialUploadBytes = 2L * 1024 * 1024 * 1024;
+    private const long DefaultPublishedStorageBytes = 50L * 1024 * 1024 * 1024;
     private static readonly TimeSpan PartialUploadRetention = TimeSpan.FromHours(24);
 
     public static void Run(string prefix, string storage)
@@ -36,6 +37,7 @@ public static class MapCommunityServer
         if (secret.Length < 24) throw new ArgumentException("Upload token must have at least 24 characters.");
         Directory.CreateDirectory(storage);
         CleanupStaleUploads(storage);
+        long publishedStorageLimit = PublishedStorageLimit();
         var catalog = new MapCreatorCatalog(storage,secret);
         using var identities = new MapCommunityIdentityVerifier();
         var maps = new System.Collections.Concurrent.ConcurrentDictionary<string, CommunityMap>(StringComparer.Ordinal);
@@ -115,7 +117,7 @@ public static class MapCommunityServer
             if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.Hash != entry.Hash))
                 return (409, null);
             if (!maps.ContainsKey(entry.Hash) && (maps.Count >= 2000
-                || maps.Values.Sum(m => m.Bytes) + entry.Bytes > 2L * 1024 * 1024 * 1024))
+                || maps.Values.Sum(m => m.Bytes) + entry.Bytes > publishedStorageLimit))
                 return (507, null);
             string destination = Path.Combine(storage, entry.Hash + ".ppmap");
             // Persist visibility before exposing the archive, so a crash cannot publish an unlisted upload.
@@ -326,7 +328,12 @@ public static class MapCommunityServer
                     else context.Response.StatusCode=404;return;
                 }
                 if (route == root + "/health" && context.Request.HttpMethod == "GET")
-                    await Json(context.Response, new { Status="ok", Service="prime-maps", Maps=maps.Count }, deadline.Token);
+                    await Json(context.Response, new
+                    {
+                        Status="ok", Service="prime-maps", Maps=maps.Count,
+                        PublishedBytes=maps.Values.Sum(m => m.Bytes),
+                        StorageLimitBytes=publishedStorageLimit
+                    }, deadline.Token);
                 else if (route == root + "/maps" && context.Request.HttpMethod == "GET")
                     {
                     var query = context.Request.QueryString;
@@ -425,6 +432,16 @@ public static class MapCommunityServer
             if (File.Exists(metadata) || File.GetLastWriteTimeUtc(part) >= cutoff) continue;
             try { File.Delete(part); } catch { }
         }
+    }
+
+    private static long PublishedStorageLimit()
+    {
+        string? configured = Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_STORAGE_GIB");
+        if (string.IsNullOrWhiteSpace(configured)) return DefaultPublishedStorageBytes;
+        if (!long.TryParse(configured, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out long gib) || gib is < 1 or > 1024)
+            throw new InvalidOperationException("PROJECT_PRIME_MAP_STORAGE_GIB must be an integer from 1 through 1024.");
+        return checked(gib * 1024L * 1024 * 1024);
     }
 
     private static CommunityMap Inspect(string path)
