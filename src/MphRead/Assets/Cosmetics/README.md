@@ -18,3 +18,13 @@ Only compiled catalog paths are eligible; no packet or saved selection is a path
 Armor and death visuals use deterministic procedural primitives and the scene's
 bounded particle pool. Optional future masks/audio/icons belong under
 `ArmorEffects/<Effect>/` and `DeathEffects/<Effect>/`.
+
+
+## Modern texture residency
+
+Authored skin channels use the shared `ModernTextureAsset` / `TextureAssetManager`
+path. Source images may be up to 8192×8192. Runtime quality provides
+Automatic/1K/2K/4K/8K ceilings, clamps to the GPU maximum, resamples normal maps
+with renormalization, and builds mipmaps only when texture filtering enables
+them. The same policy is used by HD material replacements and effect-model
+assets. Missing or rejected authored assets retain the native-material fallback.
