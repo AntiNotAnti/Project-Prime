@@ -10,24 +10,25 @@ namespace MphRead
 {
     public partial class Scene
     {
-        private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality, TextureSamplingMode), RenderMaterialOverride> _cosmeticTextures = new();
+        private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality, string), RenderMaterialOverride> _cosmeticTextures = new();
         private TextureAssetManager? _cosmeticTextureAssets;
         private TextureAssetQuality _cosmeticTextureQuality = RenderOptions.TextureQuality;
-        private TextureSamplingMode _cosmeticTextureSampling = RenderOptions.TextureSampling;
+        private string _cosmeticTextureSamplingKey = TextureSamplingPolicy.RuntimeKey;
         private TextureAssetManager CosmeticTextureAssets => _cosmeticTextureAssets ??= new TextureAssetManager(AllocateTexture, ReleaseTexture);
         internal RenderMaterialOverride CosmeticMaterialSubmission { get; set; }
 
         internal RenderMaterialOverride GetCosmeticMaterial(SkinDefinition skin, Model model, int material, SkinContext context)
         {
+            string samplingKey = TextureSamplingPolicy.RuntimeKey;
             if (_cosmeticTextureQuality != RenderOptions.TextureQuality
-                || _cosmeticTextureSampling != RenderOptions.TextureSampling)
+                || _cosmeticTextureSamplingKey != samplingKey)
             {
                 ClearCosmeticTextures();
                 _cosmeticTextureQuality = RenderOptions.TextureQuality;
-                _cosmeticTextureSampling = RenderOptions.TextureSampling;
+                _cosmeticTextureSamplingKey = samplingKey;
             }
             var key = (skin.Key, model.Name, material, context,
-                RenderOptions.TextureQuality, RenderOptions.TextureSampling);
+                RenderOptions.TextureQuality, samplingKey);
             if (_cosmeticTextures.TryGetValue(key, out var binding)) return binding;
             string? root = context switch { SkinContext.ViewModel => skin.GunAssets,
                 SkinContext.AltForm => skin.AltFormAssets, SkinContext.Halfturret => skin.TurretAssets, _ => skin.AlbedoSet };
@@ -81,8 +82,10 @@ namespace MphRead
                     output[target + 3] = basis.Alpha;
                 }
                 string cacheKey = "cosmetic-decal/" + path + "/" + model.Name + "/" + materialIndex;
-                return CosmeticTextureAssets.UploadRgba(cacheKey, assetClass, TextureAssetChannel.Albedo,
+                int binding = CosmeticTextureAssets.UploadRgba(cacheKey, assetClass, TextureAssetChannel.Albedo,
                     width, height, output, repeat: false, out _, out _);
+                RegisterModernTexture(binding, assetClass, TextureAssetChannel.Albedo);
+                return binding;
             }
             catch (Exception ex)
             {
@@ -93,8 +96,10 @@ namespace MphRead
 
         private int UploadCosmetic(string path, TextureAssetClass assetClass, TextureAssetChannel channel)
         {
-            return CosmeticTextureAssets.Upload("cosmetic/" + path, () => CosmeticAsset.Open(path),
+            int binding = CosmeticTextureAssets.Upload("cosmetic/" + path, () => CosmeticAsset.Open(path),
                 assetClass, channel, repeat: false, out _, out _);
+            RegisterModernTexture(binding, assetClass, channel);
+            return binding;
         }
 
         internal void ClearCosmeticTextures()
