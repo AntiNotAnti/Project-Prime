@@ -151,6 +151,14 @@ static class CustomCollisionChecks
                 result.Plane.Y > 0.9f && result.Field14 > 0.39f),
             "bounded overlap query recovers shallow starts behind a collision plane");
 
+        Array.Clear(seamResults);
+        int seamPenetrationCount = CollisionDetection.CheckSpherePenetration(
+            new Vector3(4.1f,.2f,2),.5f,seamResults.Length,
+            TestFlags.Players,scene,seamResults);
+        check(seamPenetrationCount > 0
+            && seamResults.Take(seamPenetrationCount).All(result => result.Plane.Y > .9f),
+            "depenetration suppresses lateral contacts on shared coplanar floor edges");
+
         var denseFaces = new List<CollisionDataEditor>();
         for (int i = 0; i < 48; i++)
         {
