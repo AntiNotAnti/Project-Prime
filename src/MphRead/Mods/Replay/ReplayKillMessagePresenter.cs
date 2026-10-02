@@ -26,31 +26,36 @@ internal static class ReplayKillMessagePresenter
 
     internal static void Update(Scene scene)
     {
-        if (!DemoPlayback.IsActive || DemoPlayback.Session.Transport.IsSeeking
-            || ReplayCamera.Mode != ReplayCameraMode.FirstPerson
-            || ReplayCamera.Director || ReplayCamera.PlayTrack)
-        {
-            Sync(scene);
-            return;
-        }
-
         uint frame = DemoPlayback.CurrentFrame;
         long generation = DemoPlayback.Session.Transport.SeekGeneration;
-        if (!ReferenceEquals(_scene, scene) || generation != _seekGeneration || frame < _frame)
+        bool timelineReset = !ReferenceEquals(_scene, scene)
+            || generation != _seekGeneration || frame < _frame;
+        if (timelineReset)
         {
             _scene = scene;
             _frame = frame;
             _seekGeneration = generation;
+        }
+
+        // Use the camera the replica is actually presenting. ReplayCamera.Mode is
+        // editor intent and can briefly disagree with the scene during seeks/export
+        // segment setup, which caused valid POV kill notices to be skipped.
+        bool firstPersonPov = scene.CameraMode == CameraMode.Player
+            && !scene.IsFreeCam && !SpectatorMode.FreeCamera;
+        if (!DemoPlayback.IsActive || DemoPlayback.Session.Transport.IsSeeking || !firstPersonPov)
+        {
+            _frame = frame;
+            _seekGeneration = generation;
             return;
         }
-        if (frame == _frame) return;
 
         int pov = scene.Players.MainPlayerIndex;
         if ((uint)pov < PlayerEntity.SlotCapacity)
         {
+            uint start = timelineReset ? (frame > 0 ? frame - 1 : 0) : _frame + 1;
             foreach (ReplayEvent kill in DemoPlayback.Events)
             {
-                if (kill.Type != ReplayEventType.Kill || kill.Frame <= _frame || kill.Frame > frame
+                if (kill.Type != ReplayEventType.Kill || kill.Frame < start || kill.Frame > frame
                     || kill.ActorSlot != pov || kill.TargetSlot >= PlayerEntity.SlotCapacity)
                     continue;
                 Queue(scene, kill);
@@ -59,13 +64,6 @@ internal static class ReplayKillMessagePresenter
 
         _frame = frame;
         _seekGeneration = generation;
-    }
-
-    private static void Sync(Scene scene)
-    {
-        _scene = scene;
-        _frame = DemoPlayback.CurrentFrame;
-        _seekGeneration = DemoPlayback.Session.Transport.SeekGeneration;
     }
 
     private static void Queue(Scene scene, ReplayEvent kill)
