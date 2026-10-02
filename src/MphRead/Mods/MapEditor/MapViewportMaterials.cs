@@ -47,7 +47,37 @@ public static class MapViewportMaterials
                         var entry = pack.Entries[i];
                         // Key the decoded result by its actual content, not its mutable source path.
                         byte[] data = entry.Pixels.Concat(entry.Palette.SelectMany(BitConverter.GetBytes)).ToArray();
-                        result[(true, i)] = Packed(entry, Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)) + $"/{entry.Width}/{entry.Height}");
+                        MapViewportMaterial texture = Packed(entry,
+                            Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(data)) + $"/{entry.Width}/{entry.Height}");
+                        if (definition.MapId != Guid.Empty)
+                        {
+                            var key = Render.Materials.MaterialAssetKey.Scoped(
+                                "map/" + definition.MapId.ToString("N"), i, i, 0);
+                            var local = Render.TextureReplacementPack.ResolveLocalExplicit(key);
+                            var packaged = Render.Materials.MapMaterialAssetRegistry.Resolve(definition, key);
+                            var enhanced = local ?? packaged;
+                            if (enhanced?.Albedo is { } replacement)
+                            {
+                                try
+                                {
+                                    byte[] rgba = Render.TextureReplacementPack.ReadRgba(replacement, out int width, out int height);
+                                    var pixels = new ColorRgba[rgba.Length / 4];
+                                    for (int pixel = 0; pixel < pixels.Length; pixel++)
+                                        pixels[pixel] = new(rgba[pixel*4], rgba[pixel*4+1], rgba[pixel*4+2], rgba[pixel*4+3]);
+                                    texture = new("material-pack/"
+                                        + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(rgba))
+                                        + $"/{width}/{height}", width, height, pixels, texture.Width, texture.Height);
+                                }
+                                catch (Exception ex) when (ex is System.IO.IOException or System.IO.InvalidDataException
+                                    or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+                                { /* Preserve the FPTX fallback if HD art is unavailable while editing. */ }
+                            }
+                            if (enhanced != null && (enhanced.Albedo != null || enhanced.Normal != null
+                                || enhanced.SpecularRoughness != null || enhanced.Emissive != null))
+                                texture = texture with { Enhanced = enhanced,
+                                    Key = texture.Key + "/material/" + enhanced.Key.Value + "/pack/" + Render.TextureReplacementPack.Revision };
+                        }
+                        result[(true, i)] = texture;
                     }
                 }
             }
