@@ -113,7 +113,8 @@ version-conflict, archive-size, entry-size, content-hash and package validation.
 
 The library uses SHA-256 filenames, validates package manifests/assets, rejects
 traversal and unsupported package entries, bounds archive/expanded sizes, limits
-stored maps to 2,000 and storage to 2 GiB, and processes one request at a time.
+stored maps to 2,000 and published storage to 2 GiB, and serializes publication
+while allowing bounded concurrent reads and resumable chunk transfers.
 Operators can remove packages from storage while stopped, then restart to rebuild
 the listing. Identical uploads are idempotent. Names/authors are user-supplied
 metadata, not verified identities. Do not distribute extracted base-game assets.
