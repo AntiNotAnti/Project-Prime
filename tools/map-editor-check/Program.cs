@@ -618,6 +618,22 @@ try
     layoutDocument.History.Redo(); Check(layoutDocument.Project.Definition.Assets.Single().Path==previewNew,"preview redo");
     string orphan="preview/orphan.png";File.WriteAllText(Path.Combine(root,orphan),"orphan");layoutDocument.RegisterGeneratedAsset(orphan,root);
     Check(layoutDocument.CleanupGeneratedAssets()==1&&!File.Exists(Path.Combine(root,orphan)),"cleanup deletes only registered orphan");
+    var modelSourceDefinition = new MapDefinition { Name = "MODEL_SOURCE_SNAPSHOT" };
+    var modelDependency = new MapSourceDependency("fixture.obj", "source-hash");
+    var modelSettings = new ModelImportSettings(2, true, false, true, false, ModelCollisionMode.Simplified);
+    modelSourceDefinition.ModelSources.Add(new MapModelSource
+    {
+        Source = "fixture.obj",
+        Dependencies = new() { modelDependency },
+        Settings = modelSettings
+    });
+    var modelSourceSnapshot = MapBuildSnapshot.Capture(modelSourceDefinition).CreateDefinition().ModelSources.Single();
+    Check(modelSourceSnapshot.Dependencies.Single() == modelDependency
+        && !ReferenceEquals(modelSourceSnapshot.Dependencies.Single(), modelDependency)
+        && modelSourceSnapshot.Settings == modelSettings
+        && !ReferenceEquals(modelSourceSnapshot.Settings, modelSettings),
+        "snapshot copies constructor-only model import records");
+
     var original = MapBuildSnapshot.Capture(doc.Project);
     Check(original.CreateDefinition().Serialize() == doc.Project.Definition.Serialize(), "snapshot preserves all serialized DTO values");
     Check(ReferenceEquals(doc.CaptureBuildSnapshot(), doc.CaptureBuildSnapshot()), "unchanged snapshot reused");
