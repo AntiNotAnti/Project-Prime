@@ -27,7 +27,6 @@ namespace MphRead.Droid
         private const int DefaultRenderScale = 90;
         private const int SampleCapacity = 600;
         private const long ReportEveryMs = 5000;
-        private const long ThermalPollMs = 1000;
 
         private static readonly double[] _limiterMs = new double[SampleCapacity];
         private static readonly int[] _lastGcCounts = new int[3];
@@ -43,7 +42,6 @@ namespace MphRead.Droid
         private static int _sampleIndex;
         private static int _sampleCount;
         private static long _lastReport;
-        private static long _lastThermalPoll;
         private static long _allocatedBytes;
         private static int _thermalStatus;
         private static bool _matchActive;
@@ -205,7 +203,7 @@ namespace MphRead.Droid
             if (foreground)
             {
                 RefreshDisplayRate();
-                PollThermal(force: true);
+                PollThermal();
             }
         }
 
@@ -224,7 +222,6 @@ namespace MphRead.Droid
                 _lastGcCounts[generation] = GC.CollectionCount(generation);
             }
             _lastReport = Environment.TickCount64;
-            _lastThermalPoll = 0;
 
             DisableSustainedPerformanceMode();
             if (!active)
@@ -234,7 +231,7 @@ namespace MphRead.Droid
             else
             {
                 RefreshDisplayRate();
-                PollThermal(force: true);
+                PollThermal();
             }
         }
 
@@ -246,7 +243,7 @@ namespace MphRead.Droid
             }
 
             // Diagnostic only. The requested scale and cap remain untouched.
-            PollThermal(force: true);
+            PollThermal();
         }
 
         /// <summary>
@@ -274,24 +271,19 @@ namespace MphRead.Droid
             _sampleIndex = (index + 1) % SampleCapacity;
             _sampleCount = Math.Min(_sampleCount + 1, SampleCapacity);
 
-            PollThermal(force: false);
-
             long now = Environment.TickCount64;
             if (now - _lastReport >= ReportEveryMs)
             {
                 _lastReport = now;
+                // Thermal/display probes can cross Binder. Keep them off the
+                // ordinary frame path now that they are diagnostics-only.
+                PollThermal();
                 Report(width, height);
             }
         }
 
-        private static void PollThermal(bool force)
+        private static void PollThermal()
         {
-            long now = Environment.TickCount64;
-            if (!force && now - _lastThermalPoll < ThermalPollMs)
-            {
-                return;
-            }
-            _lastThermalPoll = now;
             // Surface.SetFrameRate is a request. Battery policy/thermal state
             // can leave the panel at a lower rate or switch it during a match.
             RefreshDisplayRate(refreshModes: false);
