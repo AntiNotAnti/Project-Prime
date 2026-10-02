@@ -273,8 +273,8 @@ internal sealed class KillcamController : IDisposable
     {
         if (!ReferenceEquals(scene, Presentation) || _playing is not { Kill: { } kill } marker) return;
         _hud ??= new KillcamHud(scene);
-        string killer = (_killerName ?? "ATTACKER").ToUpperInvariant();
-        string victim = scene.GameState.Nicknames[kill.VictimSlot].ToUpperInvariant();
+        string killer = PlayerNameCodec.Clamp(_killerName ?? "ATTACKER");
+        string victim = PlayerNameCodec.Clamp(scene.GameState.Nicknames[kill.VictimSlot]);
         string weapon = KillCam.WeaponName(marker.Weapon);
         bool headshot = ((DamageFlags)marker.DamageFlags & DamageFlags.Headshot) != 0;
         int killerHealth = scene.Services is ReplaySceneServices services
