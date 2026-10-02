@@ -1634,10 +1634,12 @@ namespace MphRead
             bool streamReplacement = !OperatingSystem.IsAndroid()
                 && replacementMaterial?.Albedo != null
                 && Mods.Render.TextureReplacementPack.CanDecodeOffThread(replacementMaterial);
+            int replacementWidth = 0;
+            int replacementHeight = 0;
             bool replaced = !streamReplacement
                 && Mods.Render.TextureReplacementPack.TryUpload(
                     replacementMaterial, replacementClass,
-                    out int replacementWidth, out int replacementHeight);
+                    out replacementWidth, out replacementHeight);
             if (replaced)
             {
                 _modernTextureSampling[_lastTextureId] =

@@ -106,11 +106,11 @@ namespace MphRead
 
                 for (int mode = 1; mode <= 3; mode++)
                 {
-                    int target = mode == 1 ? _pbrAlbedoTexture
+                    int attachmentTexture = mode == 1 ? _pbrAlbedoTexture
                         : mode == 2 ? _pbrNormalTexture : _pbrMaterialTexture;
                     GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                         FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
-                        target, 0);
+                        attachmentTexture, 0);
                     GL.ClearColor(0, 0, 0, 0);
                     if (_pbrIndependentDepth && mode == 1)
                     {
