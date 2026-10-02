@@ -78,13 +78,11 @@ internal sealed partial class MapStudioScreen
                 AddButton(panel, "Clear " + kind, () => Assign(null));
                 if (channel.Item2 is { } image)
                 {
-                    string cacheKey = "material-pack/" + image.Path + "/" + File.GetLastWriteTimeUtc(image.Path).Ticks;
+                    long stamp = image.IsFileBacked && File.Exists(image.Path) ? File.GetLastWriteTimeUtc(image.Path).Ticks : 0;
+                    string cacheKey = "material-pack/" + image.Path + "/" + stamp;
                     if (!_materialPreviewCache.TryGetValue(cacheKey, out var preview))
                     {
-                        MaterialPack.ContainedPath(TextureReplacementPack.Root,
-                            Path.GetRelativePath(TextureReplacementPack.Root, image.Path).Replace(Path.DirectorySeparatorChar, '/'));
-                        MaterialPack.ValidateImage(image.Path);
-                        using var stream = File.OpenRead(image.Path);
+                        using var stream = image.OpenRead();
                         preview = (image.Width >= image.Height
                             ? Bitmap.DecodeToWidth(stream, Math.Min(image.Width, 96))
                             : Bitmap.DecodeToHeight(stream, Math.Min(image.Height, 96)), kind); _materialPreviewCache[cacheKey] = preview;
