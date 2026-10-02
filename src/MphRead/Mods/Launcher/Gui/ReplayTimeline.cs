@@ -195,7 +195,11 @@ namespace MphRead.Mods.Launcher.Gui
                         seconds = stepSeconds * 2;
                     }
                     speeds[step] = seconds > 0 ? distance / seconds : 0;
-                    _cameraPeakSpeed = Math.Max(_cameraPeakSpeed, speeds[step]);
+                    // Hold is a deliberate teleport at the segment boundary.
+                    // Draw its spike at full height, but do not let that
+                    // effectively-infinite velocity flatten every moving segment.
+                    if (left.Interpolation != ReplayCameraInterpolation.Hold)
+                        _cameraPeakSpeed = Math.Max(_cameraPeakSpeed, speeds[step]);
                 }
 
                 if (!ReplayCamera.Track.TrySegmentFrom(left.Frame,
@@ -332,20 +336,22 @@ namespace MphRead.Mods.Launcher.Gui
                 if (key < first || key > last)
                     continue;
                 double x = X(key, first, span, width);
-                context.DrawLine(CameraPen, new Point(x, 8), new Point(x, 12));
+                IBrush keyBrush = CameraBrushFor(original.Interpolation);
+                var keyPen = new Pen(keyBrush, 2);
+                context.DrawLine(keyPen, new Point(x, 8), new Point(x, 12));
                 switch (original.Interpolation)
                 {
                     case ReplayCameraInterpolation.Linear:
-                        context.DrawRectangle(CameraBrush, null, new Rect(x - 3, 2, 6, 6));
+                        context.DrawRectangle(keyBrush, null, new Rect(x - 3, 2, 6, 6));
                         break;
                     case ReplayCameraInterpolation.Smooth:
-                        context.DrawRectangle(null, CameraPen, new Rect(x - 3.5, 1.5, 7, 7));
+                        context.DrawRectangle(null, keyPen, new Rect(x - 3.5, 1.5, 7, 7));
                         break;
                     case ReplayCameraInterpolation.Hold:
-                        context.DrawRectangle(CameraBrush, null, new Rect(x - 4, 4, 8, 2.5));
+                        context.DrawRectangle(keyBrush, null, new Rect(x - 4, 4, 8, 2.5));
                         break;
                     default:
-                        context.DrawEllipse(CameraBrush, null, new Point(x, 5), 3.5, 3.5);
+                        context.DrawEllipse(keyBrush, null, new Point(x, 5), 3.5, 3.5);
                         break;
                 }
                 if (SelectedCameraFrames.Contains(original.Frame))
@@ -385,13 +391,7 @@ namespace MphRead.Mods.Launcher.Gui
             foreach (CameraSegmentVisual segment in _cameraSegments)
             {
                 if (segment.EndFrame < first || segment.StartFrame > last) continue;
-                IBrush brush = segment.Interpolation switch
-                {
-                    ReplayCameraInterpolation.Linear => CameraLinearBrush,
-                    ReplayCameraInterpolation.Smooth => CameraSmoothBrush,
-                    ReplayCameraInterpolation.Hold => CameraHoldBrush,
-                    _ => CameraSplineBrush
-                };
+                IBrush brush = CameraBrushFor(segment.Interpolation);
                 var pen = new Pen(brush, 1.5);
 
                 uint visibleStart = Math.Max(first, segment.StartFrame);
@@ -434,6 +434,15 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
         }
+
+        private static IBrush CameraBrushFor(ReplayCameraInterpolation interpolation)
+            => interpolation switch
+            {
+                ReplayCameraInterpolation.Linear => CameraLinearBrush,
+                ReplayCameraInterpolation.Smooth => CameraSmoothBrush,
+                ReplayCameraInterpolation.Hold => CameraHoldBrush,
+                _ => CameraSplineBrush
+            };
 
         private static void DrawLane(DrawingContext context, double width,
             double y, IBrush brush)
