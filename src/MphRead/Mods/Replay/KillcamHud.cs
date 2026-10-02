@@ -1,6 +1,8 @@
 using System;
 using MphRead.Hud;
 using MphRead.Mods.Chat;
+using MphRead.Mods.Network;
+using MphRead.Text;
 using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Replay;
@@ -10,6 +12,7 @@ internal sealed class KillcamHud
 {
     private readonly Scene _scene;
     private readonly HudObjectInstance _font;
+    private readonly HudObjectInstance? _playerNameFont;
 #if MPHREAD_AVALONIA
     private readonly KillcamText? _text;
 #endif
@@ -20,6 +23,15 @@ internal sealed class KillcamHud
         _scene = scene; _font = new(ChatFont.Cell, ChatFont.Cell);
         _font.SetPaletteData(new ColorRgba[] { new(), new(255, 255, 255, 255) }, scene);
         _font.SetCharacterData(ChatFont.Pixels, scene); _font.Enabled = true;
+        if (Font.Normal.CharacterData != null && Font.Normal.Widths != null && Font.Normal.Offsets != null)
+        {
+            _playerNameFont = new HudObjectInstance(width: 8, height: 8);
+            var palette = new ColorRgba[16];
+            for (int i = 1; i < palette.Length; i++) palette[i] = new ColorRgba(255, 255, 255, 255);
+            _playerNameFont.SetPaletteData(palette, scene);
+            _playerNameFont.SetCharacterData(Font.Normal.CharacterData, scene);
+            _playerNameFont.Enabled = true;
+        }
 #if MPHREAD_AVALONIA
         try { _text = new KillcamText(scene); }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -40,10 +52,10 @@ internal sealed class KillcamHud
         Card(10, 148, 170, 181, accent);
         Card(174, 148, 246, 181, accent);
         Text(17, 151, final ? "FINAL KILL" : "KILLED BY", .53f, Muted, 164);
-        Text(17, 159, killer, 1.12f, White, 164);
+        PlayerNameText(17, 159, killer, 1.12f, White, 164);
         Text(17, 173, weapon + (headshot ? "  /  HEADSHOT" : ""), .57f, White, 164);
         Text(181, 152, "ELIMINATED", .48f, Muted, 240);
-        Text(181, 160, victim, .8f, White, 240);
+        PlayerNameText(181, 160, victim, .8f, White, 240);
         Text(181, 173, $"ATTACKER HP  {health}", .43f, Muted, 240);
         Box(10, 183, 246, 184, new(.55f, .72f, .85f, .22f));
         Box(10, 183, 10 + 236 * Math.Clamp(progress, 0, 1), 184, accent);
@@ -69,6 +81,42 @@ internal sealed class KillcamHud
     }
     private void Box(float x, float y, float right, float bottom, Vector4 color)
         => _scene.DrawHudFlatBox(x, y, right, bottom, color);
+    private void PlayerNameText(float x, float y, string text, float scale, ColorRgba color, float right)
+    {
+        Font font = Font.Normal;
+        string name = PlayerNameCodec.Clamp(text);
+        if (_playerNameFont == null || font.CharacterData == null || font.Widths == null || font.Offsets == null)
+        {
+            Text(x, y, name, scale, color, right);
+            return;
+        }
+
+        // Match the smooth killcam type's roughly 12-unit cap height while using
+        // the exact native glyph atlas that defines the accepted player-name repertoire.
+        float nativeScale = scale * 1.5f;
+        _playerNameFont.Alpha = 1;
+        foreach (var rune in name.EnumerateRunes())
+        {
+            if (!PlayerNameCodec.TryMapUnicodeToGlyph(rune, out ushort code)) continue;
+            int index = code - font.MinCharacter;
+            if (index < 0 || index >= font.Widths.Count || index >= font.Offsets.Count
+                || (index + 1) * 64 > font.CharacterData.Count)
+            {
+                continue;
+            }
+            float width = font.Widths[index] * nativeScale;
+            if (x + width > right) break;
+            if (code != ' ')
+            {
+                _playerNameFont.PositionX = x / 256f;
+                _playerNameFont.PositionY = (y - 1 + font.Offsets[index] * nativeScale) / 192f;
+                _playerNameFont.SetData(index, color, _scene);
+                _scene.DrawHudObject(_playerNameFont, mode: 1, scale: nativeScale);
+            }
+            x += width;
+        }
+    }
+
     private void Text(float x, float y, string text, float scale, ColorRgba color, float right)
     {
 #if MPHREAD_AVALONIA
