@@ -86,7 +86,7 @@ internal sealed partial class MapStudioScreen
                 }
 
                 AddButton(panel, "Package " + kind + "…",
-                    () => Browse("Choose packaged " + kind, false, p => AssignPackaged(p), ".png", ".jpg", ".jpeg"));
+                    () => Browse("Choose packaged " + kind, false, p => AssignPackaged(p), ".png", ".jpg", ".jpeg", ".tga"));
                 if (relative != null) AddButton(panel, "Clear packaged " + kind, () => AssignPackaged(null));
                 if (image != null) AddMaterialPreview(panel, image, "packaged-" + kind);
             }
