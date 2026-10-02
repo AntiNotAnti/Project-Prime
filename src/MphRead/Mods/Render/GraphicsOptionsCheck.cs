@@ -172,6 +172,15 @@ namespace MphRead.Mods.Render
                     && autoSampling.LodBias == 0,
                     "auto HD sampling resolves to stable trilinear minification with bounded anisotropy");
 
+                TextureSamplerDescriptor effectSampling = TextureSamplingPolicy.ResolveModern(
+                    TextureAssetClass.Effect, TextureAssetChannel.Emissive);
+                Check(effectSampling.Mipmaps && effectSampling.LinearMinification,
+                    "authored effect models share the stable HD material policy");
+                TextureSamplerDescriptor uiSampling = TextureSamplingPolicy.ResolveModern(
+                    TextureAssetClass.Ui, TextureAssetChannel.Albedo);
+                Check(!uiSampling.Mipmaps && !uiSampling.LinearMinification,
+                    "UI assets stay outside the HD world-material policy");
+
                 RenderOptions.TextureSampling = TextureSamplingMode.Legacy;
                 TextureSamplerDescriptor legacySampling = TextureSamplingPolicy.ResolveModern(
                     TextureAssetClass.World, TextureAssetChannel.Albedo);
