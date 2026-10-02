@@ -202,11 +202,11 @@ Use the editor's texture import path to keep two layers: a **single-texture `.te
 }
 ```
 
-This is a fragment, not a complete map. Every referenced file must exist and be declared as a texture asset. Assigning PNG/JPEG directly to `material.texture` is still invalid: that field is the native baked fallback. HD channels accept PNG/JPEG up to 8192×8192. Q3 imports additionally maintain `import.modernTextures`, mapping source shader indices to portable PNG/JPEG art while `import.textures` remains the FPTX fallback.
+This is a fragment, not a complete map. Every referenced file must exist and be declared as a texture asset. Assigning PNG/JPEG directly to `material.texture` is still invalid: that field is the native baked fallback. HD channels accept PNG/JPEG/TGA up to 8192×8192. Q3 imports additionally maintain `import.modernTextures`, mapping source shader indices to portable PNG/JPEG/TGA art while `import.textures` remains the FPTX fallback.
 
 `assets` entries have `path`, `kind`, optional `name` and optional `sourcePath`. Runtime asset paths must be safe project-relative paths, unique without case collisions. `sourcePath` is authoring provenance, not a substitute for a missing runtime asset. Use the editor/exporter to materialize files.
 
-Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tex`), audio (`.wav`, `.ogg`, `.mp3`) and preview (`.png`, at most 4096×4096). Do not reference files outside the portable project using `../` or absolute runtime paths.
+Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tga`, `.tex`), audio (`.wav`, `.ogg`, `.mp3`) and preview (`.png`, at most 4096×4096). Do not reference files outside the portable project using `../` or absolute runtime paths.
 
 ### UV behavior
 
