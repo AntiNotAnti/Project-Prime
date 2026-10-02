@@ -64,6 +64,35 @@ namespace MphRead.Mods.MapGen
                 }
                 catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException){result.Error("FP-MAP-021",ex.Message);}
             }
+            if(definition.Import is { ModernTextures.Count: > 0 } import)
+            {
+                MapTexturePack? pack = null;
+                if(checkFiles)
+                {
+                    try { pack = import.LoadTexturePack(); }
+                    catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException)
+                    { result.Error("FP-MAP-001","Q3 fallback texture pack is invalid: "+ex.Message); }
+                }
+                foreach(var pair in import.ModernTextures)
+                {
+                    string modern = pair.Value;
+                    string ext = Path.GetExtension(modern).ToLowerInvariant();
+                    if(pair.Key < 0) result.Error("FP-MAP-001","Q3 HD texture shader index cannot be negative.");
+                    if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
+                        result.Error("FP-MAP-001","Q3 HD textures must reference declared texture assets.");
+                    else if(ext is not(".png" or ".jpg" or ".jpeg"))
+                        result.Error("FP-MAP-001","Q3 HD textures must be PNG or JPEG.");
+                    else if(checkFiles)
+                    {
+                        try { Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern)); }
+                        catch(Exception ex) when(ex is IOException or InvalidDataException or ArgumentException)
+                        { result.Error("FP-MAP-001",ex.Message); }
+                    }
+                    if(pack!=null&&!pack.BySourceIndex.ContainsKey(pair.Key))
+                        result.Warning("FP-MAP-006",$"Q3 HD texture shader {pair.Key} is no longer present in the fallback texture pack.");
+                }
+            }
+
             if(definition.Audio is {} audio)
             {
                 if(!float.IsFinite(audio.Volume)||audio.Volume is <0 or >1)result.Error("FP-MAP-021","Music volume must be 0–1.");
