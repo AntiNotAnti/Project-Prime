@@ -21,6 +21,10 @@ public enum MapCollisionRepairKind
     MovementSweepFailure,
     ContactOverflowRisk,
     JumpPadFailure,
+    DegenerateRemoved,
+    OverlappingSurface,
+    WindingWarning,
+    OpenBoundary,
     ReachabilityWarning
 }
 
@@ -51,6 +55,10 @@ public sealed class MapCollisionHealth
     public int ProbeFailures { get; set; }
     public int SweepCount { get; set; }
     public int SweepFailures { get; set; }
+    public int DegenerateFacesRemoved { get; set; }
+    public int OverlappingFaces { get; set; }
+    public int WindingWarnings { get; set; }
+    public int OpenBoundaryEdges { get; set; }
 
     public float Confidence
     {
@@ -96,6 +104,7 @@ public static class MapCollisionHealer
         {
             health.OutputFaces = map.Solid.Count;
             map.CollisionHealth = health;
+            AuditTopology(map, health, cancellation);
             return health;
         }
 
@@ -126,6 +135,7 @@ public static class MapCollisionHealer
         map.Solid.AddRange(final);
         health.OutputFaces = final.Count;
         map.CollisionHealth = health;
+        AuditTopology(map, health, cancellation);
         return health;
     }
 
@@ -180,12 +190,25 @@ public static class MapCollisionHealer
     {
         Vector3[] points = source.Points.Select(Snap).ToArray();
         points = Simplify(points);
-        if (points.Length < 3) yield break;
+        if (points.Length < 3)
+        {
+            if (health != null) health.DegenerateFacesRemoved++;
+            Record(map,new(MapCollisionRepairKind.DegenerateRemoved,.995f,
+                "Degenerate collision face collapsed below three unique runtime vertices and was removed.",
+                source.Points));
+            yield break;
+        }
 
         Vector3 originalNormal = source.Normal.LengthSquared > 1e-10f
             ? source.Normal.Normalized() : Vector3.UnitY;
         Vector3 normal = Newell(points);
-        if (normal.LengthSquared < 1e-10f) yield break;
+        if (normal.LengthSquared < 1e-10f)
+        {
+            if (health != null) health.DegenerateFacesRemoved++;
+            Record(map,new(MapCollisionRepairKind.DegenerateRemoved,.995f,
+                "Zero-area collision face was removed before runtime packing.", points));
+            yield break;
+        }
         normal.Normalize();
         if (Vector3.Dot(normal, originalNormal) < 0)
         {
@@ -847,6 +870,86 @@ public static class MapCollisionHealer
         // authored control-lock window, in the same legacy 30 Hz units used by
         // SolveJumpPad; runtime doubles that timer when running at 60 Hz.
         return Math.Clamp(Math.Max(30, (int)pad.ControlLockTime), 1, 180);
+    }
+
+    private static void AuditTopology(BuiltMap map, MapCollisionHealth health,
+        CancellationToken cancellation)
+    {
+        BuiltFace[] faces = map.Solid.SelectMany(MapPacker.CollisionParts).ToArray();
+        if (faces.Length == 0) return;
+
+        foreach (var group in faces.GroupBy(FaceKey).Where(group => group.Count() > 1))
+        {
+            cancellation.ThrowIfCancellationRequested();
+            BuiltFace first = group.First();
+            int extra = group.Count() - 1;
+            health.OverlappingFaces += extra;
+            Record(map,new(MapCollisionRepairKind.OverlappingSurface,.94f,
+                $"{extra + 1} runtime collision faces occupy the same polygon. Remove duplicate/overlapping collision.",
+                first.Points));
+        }
+
+        static (int X,int Y,int Z) PointKey(Vector3 point)
+            => (Fixed.ToInt(point.X),Fixed.ToInt(point.Y),Fixed.ToInt(point.Z));
+        static int Compare((int X,int Y,int Z) a,(int X,int Y,int Z) b)
+        {
+            int x=a.X.CompareTo(b.X);if(x!=0)return x;
+            int y=a.Y.CompareTo(b.Y);return y!=0?y:a.Z.CompareTo(b.Z);
+        }
+
+        var edges = new Dictionary<((int X,int Y,int Z) A,(int X,int Y,int Z) B),
+            List<(BuiltFace Face,bool Forward,Vector3 P1,Vector3 P2)>>();
+        foreach (BuiltFace face in faces)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            for (int i = 0; i < face.Points.Length; i++)
+            {
+                Vector3 p1=face.Points[i],p2=face.Points[(i+1)%face.Points.Length];
+                var a=PointKey(p1);var b=PointKey(p2);
+                if(a==b)continue;
+                bool forward=Compare(a,b)<0;
+                var key=forward?(a,b):(b,a);
+                if(!edges.TryGetValue(key,out var list))edges.Add(key,list=new());
+                list.Add((face,forward,p1,p2));
+            }
+        }
+
+        int openRecorded=0,windingRecorded=0;
+        foreach (var pair in edges)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            List<(BuiltFace Face,bool Forward,Vector3 P1,Vector3 P2)> refs=pair.Value;
+            if(refs.Count==1)
+            {
+                BuiltFace face=refs[0].Face;
+                if(face.PlayerClip || face.CollisionSource is "AutoFloor" or "BuriedRestored")continue;
+                health.OpenBoundaryEdges++;
+                if(openRecorded++<96)
+                    Record(map,new(MapCollisionRepairKind.OpenBoundary,.45f,
+                        "Open collision boundary. This can be intentional trim/ledge geometry; review if it borders playable floor or a wall.",
+                        new[]{refs[0].P1,refs[0].P2}));
+                continue;
+            }
+
+            for(int i=0;i<refs.Count;i++)
+            for(int j=i+1;j<refs.Count;j++)
+            {
+                BuiltFace a=refs[i].Face,b=refs[j].Face;
+                if(FaceKey(a)==FaceKey(b))continue; // duplicate audit already owns this case
+                float dot=Vector3.Dot(a.Normal,b.Normal);
+                float planeA=Vector3.Dot(a.Normal,a.Points[0]);
+                float planeB=Vector3.Dot(a.Normal,b.Points[0]);
+                if(dot>0.995f&&MathF.Abs(planeA-planeB)<1/1024f
+                    &&refs[i].Forward==refs[j].Forward)
+                {
+                    health.WindingWarnings++;
+                    if(windingRecorded++<96)
+                        Record(map,new(MapCollisionRepairKind.WindingWarning,.88f,
+                            "Coplanar faces traverse a shared edge in the same direction; inspect winding/face direction.",
+                            new[]{refs[i].P1,refs[i].P2}));
+                }
+            }
+        }
     }
 
     private static bool Disabled(MapImport import,IReadOnlyList<Vector3> points)
