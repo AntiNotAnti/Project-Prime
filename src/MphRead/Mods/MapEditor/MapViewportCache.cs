@@ -98,7 +98,8 @@ public sealed class MapViewportCache
             ? new MapCollisionHealthSnapshot(h.InputFaces,h.OutputFaces,h.CanonicalizedFaces,h.ConvexifiedFaces,
                 h.StitchedVertices,h.TJunctions,h.RestoredBuriedFaces,h.FloorProxies,h.PhantomFacesRemoved,
                 h.SpawnsMoved,h.ItemsMoved,h.NavigationNodes,h.ReachableNodes,h.NavigationComponents,
-                h.ReachableComponents,h.ProbeCount,h.ProbeFailures,h.SweepCount,h.SweepFailures,h.Confidence)
+                h.ReachableComponents,h.ProbeCount,h.ProbeFailures,h.SweepCount,h.SweepFailures,
+                h.DegenerateFacesRemoved,h.OverlappingFaces,h.WindingWarnings,h.OpenBoundaryEdges,h.Confidence)
             : null;
         RebuildImported();
     }
