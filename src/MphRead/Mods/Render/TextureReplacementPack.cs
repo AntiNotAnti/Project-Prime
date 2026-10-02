@@ -68,9 +68,69 @@ namespace MphRead.Mods.Render
             material = Resolve(model.Name, textureId, paletteId, recolorId,
                 authoredKey ?? MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
                 MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId));
-            if (material?.Albedo is not { } albedo) return false;
             TextureAssetClass assetClass = Classify(model);
+            return TryUpload(material, assetClass, out width, out height);
+        }
+
+        internal static bool TryUpload(ResolvedMaterial? material, TextureAssetClass assetClass,
+            out int width, out int height)
+        {
+            width = height = 0;
+            if (material?.Albedo is not { } albedo) return false;
             return TryUploadBound(albedo, assetClass, TextureAssetChannel.Albedo, out width, out height);
+        }
+
+        /// <summary>
+        /// Desktop file-backed replacement channels are safe to decode away from
+        /// the graphics thread. GPU object creation/upload still happens on the
+        /// Scene draw thread.
+        /// </summary>
+        internal static bool CanDecodeOffThread(ResolvedMaterial material)
+            => material.Albedo?.IsFileBacked == true
+                && (material.Normal?.IsFileBacked ?? true)
+                && (material.SpecularRoughness?.IsFileBacked ?? true)
+                && (material.Emissive?.IsFileBacked ?? true);
+
+        internal static ModernTextureAsset? DecodePrepared(MaterialImage image,
+            TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
+        {
+            try
+            {
+                using Stream stream = image.OpenRead();
+                return ModernTextureAsset.Decode(stream, image.Path, assetClass, channel, maximumDimension);
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
+                or OverflowException or InvalidOperationException or UnauthorizedAccessException)
+            {
+                DebugLog.Line("render", "background texture decode ignored " + image.Path + ": " + ex.Message);
+                return null;
+            }
+        }
+
+        internal static bool TryUploadPreparedBound(ModernTextureAsset asset, bool repeat,
+            out int width, out int height)
+        {
+            width = height = 0;
+            try
+            {
+                TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(
+                    asset.AssetClass, asset.Channel);
+                sampling = sampling with
+                {
+                    Mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1)
+                };
+                TextureAssetManager.UploadPreparedBound(asset, repeat, sampling);
+                if (GL.GetError() != ErrorCode.NoError) return false;
+                width = asset.Width;
+                height = asset.Height;
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
+                or OverflowException or InvalidOperationException or UnauthorizedAccessException)
+            {
+                DebugLog.Line("render", "prepared texture upload ignored " + asset.Key + ": " + ex.Message);
+                return false;
+            }
         }
 
         public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,

@@ -141,7 +141,7 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static void UploadPreparedBound(ModernTextureAsset asset, bool repeat,
+        internal static void UploadPreparedBound(ModernTextureAsset asset, bool repeat,
             TextureSamplerDescriptor sampling)
         {
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
