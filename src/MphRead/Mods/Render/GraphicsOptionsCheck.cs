@@ -92,6 +92,25 @@ namespace MphRead.Mods.Render
                 Check(RenderOptions.PostProcessingEnabled,
                     "TAA remains available as an explicit temporal reprojection mode");
 
+                Check(MphRead.Scene.ResolvePostProcessAntiAliasing(
+                        AntiAliasingMode.Taa, hdrRequested: false, pbrAvailable: false)
+                        == AntiAliasingMode.Taa
+                    && MphRead.Scene.ResolvePostProcessAntiAliasing(
+                        AntiAliasingMode.Taa, hdrRequested: true, pbrAvailable: false)
+                        == AntiAliasingMode.Smaa
+                    && MphRead.Scene.ResolvePostProcessAntiAliasing(
+                        AntiAliasingMode.Taa, hdrRequested: false, pbrAvailable: true)
+                        == AntiAliasingMode.Smaa,
+                    "TAA avoids allocating rejected history for HDR/PBR and falls back to SMAA");
+
+                var supersampled = new OpenTK.Mathematics.Vector2i(5760, 3240);
+                var presentation = new OpenTK.Mathematics.Vector2i(3840, 2160);
+                Check(MphRead.Scene.ResolveGraphicsProcessingSize(
+                        supersampled, presentation, taaActive: false) == presentation
+                    && MphRead.Scene.ResolveGraphicsProcessingSize(
+                        supersampled, presentation, taaActive: true) == supersampled,
+                    "supersampled worlds resolve expensive post processing at presentation size unless TAA needs full history");
+
                 // Exercise individual on -> off transitions independently of presets.
                 foreach (string toggle in new[] { "Bloom", "EnhancedLighting", "DeferredPbr", "ContactShadows",
                     "EnhancedFog", "VolumetricFog", "InternalHdr", "Reflections", "DynamicGlow" })
