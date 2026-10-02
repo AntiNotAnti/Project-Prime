@@ -477,6 +477,15 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
+            if (_sections.Count > 0
+                && _tabs.Index >= 0 && _tabs.Index < _sections.Count
+                && String.Equals(_sections[_tabs.Index].Name, "Credits", StringComparison.OrdinalIgnoreCase)
+                && e.Key == Key.K)
+            {
+                MphRead.Mods.Input.ControllerBaselineState.Toggle();
+                e.Handled = true;
+                return;
+            }
             if (e.Key == Key.Escape)
             {
                 Close();
