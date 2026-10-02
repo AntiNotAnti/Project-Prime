@@ -25,7 +25,11 @@ available through the inspector and command palette.
 2. Authors choose **Upload current**. Project Prime obtains a short-lived Community
    publishing ticket from the author's guest or registered identity automatically; no creator
    token is copied or stored in Map Studio. Map Studio builds a portable `.ppmap`
-   including referenced assets before upload.
+   including referenced assets before upload. Current clients upload in resumable chunks of
+   at most 50 MiB. The service records the exact byte offset on disk, so retrying after a
+   dropped connection or service restart continues the same immutable package instead of
+   starting it over. Clients also reduce the chunk size automatically if a reverse proxy
+   advertises a lower request-body limit.
 3. Players can browse Community maps from Forge or directly from **Create Lobby →
    Map Rotation → Source: Community**. Selecting a remote map downloads, validates,
    installs, builds and registers that exact immutable version.
@@ -79,9 +83,11 @@ The map library is a self-hosted HTTP service included in desktop and server bui
 ProjectPrime -maphub http://127.0.0.1:8091/ -maphubstorage /srv/prime/community
 ```
 
-Use an HTTPS reverse proxy for public access. Configure its request/body timeouts
-and upload limit (at most 512 MiB). HTTP clients are allowed only for loopback
-addresses. Normal authors authenticate with Hunter License. Map Studio exchanges the Supabase
+Use an HTTPS reverse proxy for public access. The package hard limit remains 512 MiB,
+but current clients send no individual upload request larger than 50 MiB. Configure the
+proxy request-body limit above 50 MiB and give upload requests enough body/read time;
+the shipped Caddy/nginx templates at 128 MB are sufficient. HTTP clients are allowed
+only for loopback addresses. Normal authors authenticate with Hunter License. Map Studio exchanges the Supabase
 session for a short-lived `ppm1` Community ticket, and the map service verifies that
 ticket through the `community-map-ticket` Edge Function. The Supabase access token
 never reaches the map service. The legacy upload token remains an administrator /
@@ -92,13 +98,26 @@ Routes beneath the configured prefix:
 
 - `GET health`: service status and map count, no credentials required.
 - `GET maps`: JSON listing, no credentials required.
-- `POST maps`: raw `.ppmap` body, Hunter License Community bearer ticket required
-  (the service-owner token remains accepted for administration).
+- `POST uploads/<sha256>`: create or resume a package upload session.
+- `GET uploads/<sha256>`: read the persisted byte offset for the authenticated creator.
+- `PUT uploads/<sha256>?offset=<bytes>`: append one bounded package chunk.
+- `POST uploads/<sha256>/complete`: verify SHA-256/package metadata and atomically publish.
+- `DELETE uploads/<sha256>`: discard the authenticated creator's partial upload.
+- `POST maps`: legacy one-request raw `.ppmap` upload retained for older clients.
 - `GET maps/<sha256>`: immutable package bytes, no credentials required.
+
+Upload session metadata and partial bytes survive service restarts and expire after
+24 hours if abandoned. At most 16 partial sessions and 2 GiB of partial upload data
+are retained at once. Completion still passes through the existing ownership,
+version-conflict, archive-size, entry-size, content-hash and package validation.
 
 The library uses SHA-256 filenames, validates package manifests/assets, rejects
 traversal and unsupported package entries, bounds archive/expanded sizes, limits
-stored maps to 2,000 and storage to 2 GiB, and processes one request at a time.
+stored maps to 2,000 and published storage to 50 GiB by default, and serializes
+publication while allowing bounded concurrent reads and resumable chunk transfers.
+Operators can set `PROJECT_PRIME_MAP_STORAGE_GIB` to an integer from 1 through
+1024 to choose a different published-map budget. The separate 2 GiB partial-upload
+pool remains bounded independently.
 Operators can remove packages from storage while stopped, then restart to rebuild
 the listing. Identical uploads are idempotent. Names/authors are user-supplied
 metadata, not verified identities. Do not distribute extracted base-game assets.
@@ -130,6 +149,9 @@ but that full deployment restarts game services.
 - Administrator token: `PROJECT_PRIME_MAP_UPLOAD_TOKEN` in root-only
   `/etc/project-prime/maps.env`. Generated on first installation and retained on
   upgrades. Do not distribute it to creators. Normal publishing uses Hunter License.
+- Published-map storage budget: `PROJECT_PRIME_MAP_STORAGE_GIB=50` in the same
+  root-only environment file. Existing installations receive the 50 GiB default on
+  the next map-service deployment; operators may raise or lower it before restart.
 - Deploy the `community-map-ticket` Supabase Edge Function with JWT gateway
   verification disabled for that function. The function performs its own session
   validation for minting and exposes only ticket verification to the map service.
@@ -151,6 +173,7 @@ dotnet run --project src/MphRead -- -mapstudioshot /tmp/map-studio-shots
 
 The community harness exercises authenticated upload, exact-byte downloads,
 idempotency, malformed archives, invalid identifiers/sizes, bounded streams,
-installed-map discovery and service restart persistence. Map Studio capture emits
+installed-map discovery, partial-upload persistence, exact-offset resume after a
+service restart, and cleanup after successful assembly. Map Studio capture emits
 large, small and four-view layouts. Full TrenchBroom compatibility (including its
 brush CSG kernel, Quake `.map`/FGD support and UV editor) is outside this change.

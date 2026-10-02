@@ -15,6 +15,12 @@ namespace MphRead.Mods.MapGen;
 /// Upload credentials come from the environment, never from command-line arguments.</summary>
 public static class MapCommunityServer
 {
+    private sealed record MapUploadMetadata(string CreatorId, string PackageHash, long Bytes, bool Listed, bool Draft);
+    private const int MaxPartialUploads = 16;
+    private const long MaxPartialUploadBytes = 2L * 1024 * 1024 * 1024;
+    private const long DefaultPublishedStorageBytes = 50L * 1024 * 1024 * 1024;
+    private static readonly TimeSpan PartialUploadRetention = TimeSpan.FromHours(24);
+
     public static void Run(string prefix, string storage)
     {
         string secret = Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_UPLOAD_TOKEN") ?? "";
@@ -30,6 +36,8 @@ public static class MapCommunityServer
     {
         if (secret.Length < 24) throw new ArgumentException("Upload token must have at least 24 characters.");
         Directory.CreateDirectory(storage);
+        CleanupStaleUploads(storage);
+        long publishedStorageLimit = PublishedStorageLimit();
         var catalog = new MapCreatorCatalog(storage,secret);
         using var identities = new MapCommunityIdentityVerifier();
         var maps = new System.Collections.Concurrent.ConcurrentDictionary<string, CommunityMap>(StringComparer.Ordinal);
@@ -50,6 +58,7 @@ public static class MapCommunityServer
         Console.WriteLine("[maphub] Listening at " + prefix);
         using var slots = new SemaphoreSlim(8);
         using var publication = new SemaphoreSlim(1);
+        var uploadLocks = new System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim>(StringComparer.Ordinal);
         var running = new List<Task>();
         try
         {
@@ -65,6 +74,60 @@ public static class MapCommunityServer
         }
         finally { await Task.WhenAll(running); }
 
+        string UploadKey(string creatorId, string hash)
+            => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(creatorId + "\n" + hash))).ToLowerInvariant();
+        string UploadMetadataPath(string key) => Path.Combine(storage, "upload-" + key + ".json");
+        string UploadPartPath(string key) => Path.Combine(storage, "upload-" + key + ".part");
+        MapUploadMetadata? LoadUpload(string key)
+        {
+            string path = UploadMetadataPath(key);
+            if (!File.Exists(path) || new FileInfo(path).Length > 65536) return null;
+            return JsonSerializer.Deserialize<MapUploadMetadata>(File.ReadAllText(path), MapPackageReader.JsonOptions);
+        }
+        void SaveUpload(string key, MapUploadMetadata upload)
+            => AtomicFile.Write(UploadMetadataPath(key), JsonSerializer.SerializeToUtf8Bytes(upload, MapPackageReader.JsonOptions));
+        void DeleteUpload(string key)
+        {
+            string metadata = UploadMetadataPath(key), part = UploadPartPath(key);
+            if (File.Exists(metadata)) File.Delete(metadata);
+            if (File.Exists(part)) File.Delete(part);
+        }
+        MapUploadState UploadState(string key, MapUploadMetadata upload)
+        {
+            string part = UploadPartPath(key);
+            long offset = File.Exists(part) ? new FileInfo(part).Length : 0;
+            if (offset < 0 || offset > upload.Bytes) throw new InvalidDataException("Partial upload has an invalid size.");
+            return new(upload.PackageHash, upload.Bytes, offset, MapCommunityClient.UploadChunkBytes, false);
+        }
+        (int Status, CommunityMap? Entry) PublishTemporary(string temporary, MapCreatorCredential creator,
+            bool listed, bool draft, Guid? expectedMapId = null)
+        {
+            var entry = Inspect(temporary) with
+            {
+                Listed = listed && !draft,
+                Draft = draft,
+                OwnerId = creator.CreatorId,
+                PublishedAt = DateTimeOffset.UtcNow
+            };
+            if (expectedMapId is Guid required && required != entry.MapId) return (400, null);
+            var owner = maps.Values.FirstOrDefault(m => m.MapId == entry.MapId);
+            if (owner != null && !catalog.CanPublish(creator.CreatorId, owner)) return (403, null);
+            if (owner != null) entry = entry with { OwnerId = owner.OwnerId };
+            if (maps.TryGetValue(entry.Hash, out var existing)) entry = existing;
+            if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.Hash != entry.Hash))
+                return (409, null);
+            if (!maps.ContainsKey(entry.Hash) && (maps.Count >= 2000
+                || maps.Values.Sum(m => m.Bytes) + entry.Bytes > publishedStorageLimit))
+                return (507, null);
+            string destination = Path.Combine(storage, entry.Hash + ".ppmap");
+            // Persist visibility before exposing the archive, so a crash cannot publish an unlisted upload.
+            AtomicFile.Write(Path.Combine(storage, entry.Hash + ".catalog.json"),
+                JsonSerializer.SerializeToUtf8Bytes(entry, MapPackageReader.JsonOptions));
+            if (!File.Exists(destination)) File.Move(temporary, destination);
+            maps[entry.Hash] = entry;
+            return (201, entry);
+        }
+
         async Task Handle(HttpListenerContext context)
         {
             using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -77,8 +140,160 @@ public static class MapCommunityServer
                 var creator=catalog.Authenticate(authorization)
                     ?? await identities.AuthenticateAsync(authorization,deadline.Token).ConfigureAwait(false);
                 string[] parts=route[(root.Length+1)..].Split('/');
+                if (parts.Length > 0 && parts[0] == "uploads") deadline.CancelAfter(TimeSpan.FromMinutes(10));
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
+
+                if (parts.Length >= 2 && parts[0] == "uploads")
+                {
+                    if (creator == null) { context.Response.StatusCode = 401; return; }
+                    string hash = parts[1];
+                    if (!MapCommunityClient.ValidHash(hash)) { context.Response.StatusCode = 400; return; }
+
+                    if (maps.TryGetValue(hash, out var completed))
+                    {
+                        if (!catalog.CanPublish(creator.CreatorId, completed)) { context.Response.StatusCode = 403; return; }
+                        if (parts.Length == 2 && context.Request.HttpMethod is "GET" or "POST")
+                        {
+                            await Json(context.Response, new MapUploadState(hash, completed.Bytes, completed.Bytes,
+                                MapCommunityClient.UploadChunkBytes, true), deadline.Token);
+                            return;
+                        }
+                    }
+
+                    string key = UploadKey(creator.CreatorId, hash);
+                    var gate = uploadLocks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+                    await gate.WaitAsync(deadline.Token);
+                    try
+                    {
+                        if (parts.Length == 2 && context.Request.HttpMethod == "POST")
+                        {
+                            var start = await Body<MapUploadStartRequest>();
+                            if (start.Bytes <= 0 || start.Bytes > MapPackageReader.MaxArchiveBytes)
+                            { context.Response.StatusCode = 413; return; }
+
+                            var upload = LoadUpload(key);
+                            if (upload == null || upload.CreatorId != creator.CreatorId || upload.PackageHash != hash || upload.Bytes != start.Bytes)
+                            {
+                                DeleteUpload(key);
+                                int sessions = Directory.EnumerateFiles(storage, "upload-*.json").Take(MaxPartialUploads).Count();
+                                long partialBytes = Directory.EnumerateFiles(storage, "upload-*.part")
+                                    .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
+                                if (sessions >= MaxPartialUploads) { context.Response.StatusCode = 429; return; }
+                                if (partialBytes + start.Bytes > MaxPartialUploadBytes) { context.Response.StatusCode = 507; return; }
+                                upload = new(creator.CreatorId, hash, start.Bytes, start.Listed, start.Draft);
+                                SaveUpload(key, upload);
+                            }
+                            else if (upload.Listed != start.Listed || upload.Draft != start.Draft)
+                            {
+                                upload = upload with { Listed = start.Listed, Draft = start.Draft };
+                                SaveUpload(key, upload);
+                            }
+
+                            var state = UploadState(key, upload);
+                            await Json(context.Response, state, deadline.Token);
+                            return;
+                        }
+
+                        var current = LoadUpload(key);
+                        if (current == null || current.CreatorId != creator.CreatorId || current.PackageHash != hash)
+                        { context.Response.StatusCode = 404; return; }
+
+                        if (parts.Length == 2 && context.Request.HttpMethod == "GET")
+                        {
+                            await Json(context.Response, UploadState(key, current), deadline.Token);
+                            return;
+                        }
+
+                        if (parts.Length == 2 && context.Request.HttpMethod == "DELETE")
+                        {
+                            DeleteUpload(key);
+                            context.Response.StatusCode = 204;
+                            return;
+                        }
+
+                        if (parts.Length == 2 && context.Request.HttpMethod == "PUT")
+                        {
+                            if (!long.TryParse(context.Request.QueryString["offset"],
+                                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out long offset))
+                            { context.Response.StatusCode = 400; return; }
+                            var state = UploadState(key, current);
+                            if (offset != state.Offset)
+                            {
+                                context.Response.StatusCode = 409;
+                                await Json(context.Response, state, deadline.Token);
+                                return;
+                            }
+                            long remaining = current.Bytes - state.Offset;
+                            if (remaining <= 0)
+                            {
+                                await Json(context.Response, state, deadline.Token);
+                                return;
+                            }
+                            long maximum = Math.Min(MapCommunityClient.UploadChunkBytes, remaining);
+                            if (context.Request.ContentLength64 > maximum)
+                            { context.Response.StatusCode = 413; return; }
+                            long incoming = context.Request.ContentLength64 >= 0 ? context.Request.ContentLength64 : maximum;
+                            long partialBytes = Directory.EnumerateFiles(storage, "upload-*.part")
+                                .Select(p => { try { return new FileInfo(p).Length; } catch { return 0L; } }).Sum();
+                            if (partialBytes + incoming > MaxPartialUploadBytes)
+                            { context.Response.StatusCode = 507; return; }
+
+                            string partial = UploadPartPath(key);
+                            await using (var file = new FileStream(partial, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
+                                65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                            {
+                                if (file.Length != state.Offset) throw new InvalidDataException("Partial upload changed during append.");
+                                file.Position = file.Length;
+                                long before = file.Length;
+                                await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream, file, maximum, deadline.Token);
+                                await file.FlushAsync(deadline.Token);
+                                long written = file.Length - before;
+                                if (context.Request.ContentLength64 >= 0 && written != context.Request.ContentLength64)
+                                    throw new InvalidDataException("Incomplete upload chunk.");
+                            }
+                            await Json(context.Response, UploadState(key, current), deadline.Token);
+                            return;
+                        }
+
+                        if (parts.Length == 3 && parts[2] == "complete" && context.Request.HttpMethod == "POST")
+                        {
+                            var state = UploadState(key, current);
+                            if (state.Offset != current.Bytes)
+                            {
+                                context.Response.StatusCode = 409;
+                                await Json(context.Response, state, deadline.Token);
+                                return;
+                            }
+                            string partial = UploadPartPath(key);
+                            if (!MapBuildFingerprint.HashFile(partial).Equals(hash, StringComparison.Ordinal))
+                            {
+                                DeleteUpload(key);
+                                context.Response.StatusCode = 400;
+                                return;
+                            }
+
+                            await publication.WaitAsync(deadline.Token);
+                            try
+                            {
+                                var result = PublishTemporary(partial, creator, current.Listed, current.Draft);
+                                context.Response.StatusCode = result.Status;
+                                if (result.Entry != null)
+                                {
+                                    if (File.Exists(UploadMetadataPath(key))) File.Delete(UploadMetadataPath(key));
+                                    if (File.Exists(partial)) File.Delete(partial);
+                                    await Json(context.Response, result.Entry, deadline.Token);
+                                }
+                            }
+                            finally { publication.Release(); }
+                            return;
+                        }
+
+                        context.Response.StatusCode = 405;
+                        return;
+                    }
+                    finally { gate.Release(); }
+                }
                 if (parts.Length==3&&parts[0]=="maps"&&Guid.TryParse(parts[1],out Guid target)&&parts[2] is "favorite" or "reports" or "collaborators")
                 {
                     if(creator==null){context.Response.StatusCode=401;return;}
@@ -113,7 +328,12 @@ public static class MapCommunityServer
                     else context.Response.StatusCode=404;return;
                 }
                 if (route == root + "/health" && context.Request.HttpMethod == "GET")
-                    await Json(context.Response, new { Status="ok", Service="prime-maps", Maps=maps.Count }, deadline.Token);
+                    await Json(context.Response, new
+                    {
+                        Status="ok", Service="prime-maps", Maps=maps.Count,
+                        PublishedBytes=maps.Values.Sum(m => m.Bytes),
+                        StorageLimitBytes=publishedStorageLimit
+                    }, deadline.Token);
                 else if (route == root + "/maps" && context.Request.HttpMethod == "GET")
                     {
                     var query = context.Request.QueryString;
@@ -169,24 +389,18 @@ public static class MapCommunityServer
                     {
                         await using (var file = File.Create(temporary))
                             await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream, file, MapPackageReader.MaxArchiveBytes, deadline.Token);
-                        var entry = Inspect(temporary) with { Listed = context.Request.QueryString["listed"] != "false" && context.Request.QueryString["draft"] != "true", Draft = context.Request.QueryString["draft"] == "true", OwnerId = creator.CreatorId, PublishedAt = DateTimeOffset.UtcNow };
-                        if (route != root + "/maps" && (!Guid.TryParse(route[(root.Length + 6)..^9], out Guid mapId) || mapId != entry.MapId))
-                        { context.Response.StatusCode=400; return; }
-                        var owner=maps.Values.FirstOrDefault(m=>m.MapId==entry.MapId);
-                        if(owner!=null&&!catalog.CanPublish(creator.CreatorId,owner)){context.Response.StatusCode=403;return;}
-                        if(owner!=null)entry=entry with{OwnerId=owner.OwnerId};
-                        if (maps.TryGetValue(entry.Hash, out var existing)) entry = existing;
-                        if (maps.Values.Any(m => m.MapId == entry.MapId && m.Version == entry.Version && m.Hash != entry.Hash))
-                        { context.Response.StatusCode = 409; return; }
-                        if (!maps.ContainsKey(entry.Hash) && (maps.Count >= 2000 || maps.Values.Sum(m => m.Bytes) + entry.Bytes > 2L * 1024 * 1024 * 1024))
-                        { context.Response.StatusCode=507; return; }
-                        string destination = Path.Combine(storage, entry.Hash + ".ppmap");
-                        // Persist visibility before exposing the archive, so a crash cannot publish an unlisted upload.
-                        AtomicFile.Write(Path.Combine(storage, entry.Hash + ".catalog.json"), JsonSerializer.SerializeToUtf8Bytes(entry, MapPackageReader.JsonOptions));
-                        if (!File.Exists(destination)) File.Move(temporary, destination);
-                        maps[entry.Hash] = entry;
-                        context.Response.StatusCode = 201;
-                        await Json(context.Response, entry, deadline.Token);
+                        Guid? expected = null;
+                        if (route != root + "/maps")
+                        {
+                            if (!Guid.TryParse(route[(root.Length + 6)..^9], out Guid mapId))
+                            { context.Response.StatusCode = 400; return; }
+                            expected = mapId;
+                        }
+                        var result = PublishTemporary(temporary, creator,
+                            context.Request.QueryString["listed"] != "false",
+                            context.Request.QueryString["draft"] == "true", expected);
+                        context.Response.StatusCode = result.Status;
+                        if (result.Entry != null) await Json(context.Response, result.Entry, deadline.Token);
                     }
                     finally { if (File.Exists(temporary)) File.Delete(temporary); publication.Release(); }
                 }
@@ -200,6 +414,36 @@ public static class MapCommunityServer
             finally { try { context.Response.Close(); } catch (ObjectDisposedException) { } }
         }
     }
+    private static void CleanupStaleUploads(string storage)
+    {
+        DateTime cutoff = DateTime.UtcNow - PartialUploadRetention;
+        foreach (string metadata in Directory.EnumerateFiles(storage, "upload-*.json"))
+        {
+            string part = Path.ChangeExtension(metadata, ".part");
+            DateTime newest = File.GetLastWriteTimeUtc(metadata);
+            if (File.Exists(part) && File.GetLastWriteTimeUtc(part) > newest) newest = File.GetLastWriteTimeUtc(part);
+            if (newest >= cutoff) continue;
+            try { File.Delete(metadata); } catch { }
+            try { if (File.Exists(part)) File.Delete(part); } catch { }
+        }
+        foreach (string part in Directory.EnumerateFiles(storage, "upload-*.part"))
+        {
+            string metadata = Path.ChangeExtension(part, ".json");
+            if (File.Exists(metadata) || File.GetLastWriteTimeUtc(part) >= cutoff) continue;
+            try { File.Delete(part); } catch { }
+        }
+    }
+
+    private static long PublishedStorageLimit()
+    {
+        string? configured = Environment.GetEnvironmentVariable("PROJECT_PRIME_MAP_STORAGE_GIB");
+        if (string.IsNullOrWhiteSpace(configured)) return DefaultPublishedStorageBytes;
+        if (!long.TryParse(configured, System.Globalization.NumberStyles.None,
+            System.Globalization.CultureInfo.InvariantCulture, out long gib) || gib is < 1 or > 1024)
+            throw new InvalidOperationException("PROJECT_PRIME_MAP_STORAGE_GIB must be an integer from 1 through 1024.");
+        return checked(gib * 1024L * 1024 * 1024);
+    }
+
     private static CommunityMap Inspect(string path)
     {
         using var package = new MapPackageReader(path);
