@@ -427,7 +427,7 @@ In the editor, use Build → Validate, Build runtime, Export .ppmap, Playtest, a
 - **Extended 32-bit collision indexing is implemented.** Old documentation describing 65,535 collision references as an absolute current ceiling is outdated. Larger counts produce an informational extended-indexing diagnostic and still have memory/grid constraints.
 - Render partitions, meshes, command bytes, materials and textures have separate reported budgets. Inspect the report rather than using triangle count as the only cost metric.
 - Reported bounded budgets warn at 70%, add a stronger warning at 90%, and fail at 100%.
-- Package limits: 128 MiB compressed, 256 MiB expanded, 64 MiB per entry, 8 MiB project JSON, 2048 entries. These are limits, not size targets.
+- Package limits: 512 MiB compressed, 1 GiB expanded, 256 MiB per entry, 8 MiB project JSON, 2048 entries. These are limits, not size targets.
 
 | Diagnostic | Typical next action |
 | --- | --- |
