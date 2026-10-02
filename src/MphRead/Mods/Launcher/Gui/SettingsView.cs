@@ -109,6 +109,7 @@ namespace MphRead.Mods.Launcher.Gui
         private ToggleRow _filteringRow = null!;
         private ToggleRow _mipmapRow = null!;
         private ChoiceRow _anisotropyRow = null!;
+        private ChoiceRow _textureSamplingRow = null!;
         private ChoiceRow _textureUpscaleRow = null!;
         private ChoiceRow _textureQualityRow = null!;
         private ChoiceRow _graphicsPresetRow = null!;
@@ -835,6 +836,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _filteringRow.On = false;
                 _mipmapRow.On = false;
                 _anisotropyRow.Index = 0;
+                _textureSamplingRow.Index = (int)TextureSamplingMode.Auto;
                 _textureQualityRow.Index = (int)TextureAssetQuality.Automatic;
                 _fpsRow.On = false;
                 _smoothNativeHud.On = true;
@@ -1165,6 +1167,12 @@ namespace MphRead.Mods.Launcher.Gui
                 RenderOptions.SharpenStrength, v => $"{v}%", min: 0, max: 100, keyStep: 5));
 
             Heading(page, "Textures");
+            _textureSamplingRow = Add(page, new ChoiceRow("HD texture sampling",
+                new[] { "Auto (stable)", "Legacy pixel", "Custom" },
+                (int)RenderOptions.TextureSampling));
+            Explain(page, OperatingSystem.IsAndroid()
+                ? "Auto gives authored 3D/HD materials complete trilinear mipmaps with up to 4x anisotropy on Android. Legacy keeps nearest sampling. Custom follows the filtering controls below. HUD, fonts and sprite-like effects stay outside this policy."
+                : "Auto gives authored 3D/HD materials complete trilinear mipmaps with up to 8x anisotropy. Legacy keeps nearest sampling. Custom follows the filtering controls below. HUD, fonts and sprite-like effects stay outside this policy.");
             _filteringRow = Add(page, new ToggleRow("Bilinear texture filtering",
                 RenderOptions.TextureFiltering));
             _mipmapRow = Add(page, new ToggleRow("Trilinear mipmaps",
@@ -2487,6 +2495,8 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.FieldOfView = _fovRow.Value.ToString(CultureInfo.InvariantCulture);
             _settings.Lighting = RenderOptions.OnOff(_lightingRow.On);
             _settings.Fog = RenderOptions.OnOff(_fogRow.On);
+            RenderOptions.TextureSampling = (TextureSamplingMode)Math.Clamp(_textureSamplingRow.Index, 0, 2);
+            _settings.TextureSampling = RenderOptions.TextureSampling.ToString().ToLowerInvariant();
             _settings.TextureFiltering = RenderOptions.OnOff(_filteringRow.On);
             _settings.TextureMipmaps = RenderOptions.OnOff(_mipmapRow.On);
             _settings.TextureAnisotropy = _anisotropyStops[
