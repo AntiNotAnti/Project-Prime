@@ -578,6 +578,38 @@ try
     Check(phantomHealth.PhantomFacesRemoved>0&&phantomMap.Solid.Count==0,
         "high-confidence hidden collision with no render support is pruned");
 
+    var degenerateMap=new BuiltMap(new MapDefinition{Name="HEAL_DEGENERATE",Import=healImport});
+    degenerateMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(2,0,0)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    var degenerateHealth=MapCollisionHealer.Heal(degenerateMap,healImport);
+    Check(degenerateHealth.DegenerateFacesRemoved>0
+        &&degenerateMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.DegenerateRemoved),
+        "collision topology audit records zero-area faces removed before packing");
+
+    var overlapMap=new BuiltMap(new MapDefinition{Name="HEAL_OVERLAP",Import=healImport});
+    overlapMap.Solid.Add(HealFloor());overlapMap.Solid.Add(HealFloor());
+    var overlapHealth=MapCollisionHealer.Heal(overlapMap,healImport);
+    Check(overlapHealth.OverlappingFaces>0
+        &&overlapMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.OverlappingSurface),
+        "collision topology audit flags exact overlapping runtime surfaces");
+
+    var windingMap=new BuiltMap(new MapDefinition{Name="HEAL_WINDING",Import=healImport});
+    windingMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(0,0,-1)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    windingMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(1,0,-1)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    var windingHealth=MapCollisionHealer.Heal(windingMap,healImport);
+    Check(windingHealth.WindingWarnings>0
+        &&windingMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.WindingWarning)
+        &&windingHealth.OpenBoundaryEdges>0,
+        "collision topology audit exposes suspicious shared-edge winding and reviewable open boundaries");
+
     var traversalDefinition=new MapDefinition{Name="HEAL_TRAVERSAL",Import=healImport};
     traversalDefinition.Spawns.Add(new(){Id=Guid.NewGuid(),Position=new[]{0f,3f,0f}});
     traversalDefinition.Items.Add(new(){Id=Guid.NewGuid(),Position=new[]{1f,2f,0f},Type="HealthBig"});
