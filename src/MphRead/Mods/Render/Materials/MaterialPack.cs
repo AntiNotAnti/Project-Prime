@@ -215,7 +215,7 @@ public sealed class MaterialPack
     /// </summary>
     public static MaterialImage ValidateImage(string path)
     {
-        MaterialImage image = ValidateImageMetadata(path);
+        MaterialImage image = ValidateImageMetadata(path, validateChunks: true);
         using var stream = File.OpenRead(path);
 #if ANDROID
         using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
@@ -230,7 +230,7 @@ public sealed class MaterialPack
         return image;
     }
 
-    private static MaterialImage ValidateImageMetadata(string path)
+    private static MaterialImage ValidateImageMetadata(string path, bool validateChunks = false)
     {
         using var stream = File.OpenRead(path);
         if (stream.Length > MaximumImageBytes) throw new InvalidDataException("Image exceeds byte limit.");
@@ -243,7 +243,11 @@ public sealed class MaterialPack
         int height = BinaryPrimitives.ReadInt32BigEndian(header[20..24]);
         if (width <= 0 || height <= 0 || width > MaximumDimension || height > MaximumDimension
             || (long)width * height > MaximumPixels) throw new InvalidDataException("Image dimensions exceed limits.");
-        ValidatePngChunks(stream);
+        // Runtime manifest discovery only needs a bounded, trustworthy header.
+        // CRC-walking an 8K PNG byte-by-byte before decoding it later can dwarf
+        // the actual renderer startup cost. Authoring/import validation still
+        // requests the strict chunk/CRC pass before accepting an asset.
+        if (validateChunks) ValidatePngChunks(stream);
         return new(path, width, height);
     }
 
