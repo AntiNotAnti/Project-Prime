@@ -636,6 +636,17 @@ try
     Check(denseMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk),
         "Forge movement audit surfaces locations capable of saturating the 40-contact player buffer");
 
+    var solvedPad=new MapJumpPad{Position=new[]{0f,0f,0f},Target=new[]{10f,1.5f,0f},ControlLockTime=30};
+    var (solvedDirection,solvedSpeed)=MapBuilder.SolveJumpPad(solvedPad);
+    var solvedVelocity=solvedDirection*solvedSpeed;
+    float solvedFrames=10f/MathF.Max(.0001f,new OpenTK.Mathematics.Vector3(solvedVelocity.X,0,solvedVelocity.Z).Length);
+    float solvedGravityTime=MathF.Max(0,solvedFrames-solvedPad.ControlLockTime);
+    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Entities.Hunter.Samus].BipedGravity);
+    var solvedLanding=new OpenTK.Mathematics.Vector3(0,0,0)+solvedVelocity*solvedFrames
+        -OpenTK.Mathematics.Vector3.UnitY*(.5f*solvedGravity*solvedGravityTime*solvedGravityTime);
+    Check(OpenTK.Mathematics.Vector3.Distance(solvedLanding,new OpenTK.Mathematics.Vector3(10,1.5f,0))<.002f,
+        "targeted jump-pad solver includes the runtime control-lock interval before gravity");
+
     var jumpDefinition=new MapDefinition{Name="HEAL_JUMP_PAD",Import=healImport};
     jumpDefinition.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{-3f,.05f,0f},Target=new[]{3f,.05f,0f}});
     var jumpMap=new BuiltMap(jumpDefinition);
