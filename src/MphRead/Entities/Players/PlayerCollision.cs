@@ -471,20 +471,37 @@ namespace MphRead.Entities
             }
         }
 
-        private void GetMovementSweepShape(Vector3 position, out Vector3 center, out float radius)
+        private int GetMovementSweepShapes(Span<Vector4> shapes)
         {
             if (IsAltForm)
             {
-                CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
-                center = position + altVolume.SpherePosition;
-                radius = altVolume.SphereRadius
-                    + (Hunter == Hunter.Spire || Hunter == Hunter.Sylux ? 0.5f : 0.35f);
-                return;
+                shapes[0] = new Vector4(0, Fixed.ToFloat(Values.AltColYPos), 0,
+                    MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f));
+                return 1;
             }
-            float max = Fixed.ToFloat(Values.MaxPickupHeight);
-            float min = Fixed.ToFloat(Values.MinPickupHeight);
-            center = position.AddY((max + min) / 2);
-            radius = (max - min) / 2;
+
+            float radius = MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f);
+            float bottom = Fixed.ToFloat(Values.MinPickupHeight) + radius;
+            float top = Fixed.ToFloat(Values.MaxPickupHeight) - radius;
+            if (top < bottom)
+            {
+                float middle = (top + bottom) * .5f;
+                shapes[0] = new Vector4(0, middle, 0, radius);
+                return 1;
+            }
+
+            shapes[0] = new Vector4(0, bottom, 0, radius);
+            if (top - bottom <= 1 / 4096f)
+            {
+                return 1;
+            }
+
+            // Three overlapping spheres form the upright capsule sweep. The
+            // endpoints preserve the rounded caps while the midpoint covers
+            // finite wall/ramp polygons that intersect only the cylinder body.
+            shapes[1] = new Vector4(0, (bottom + top) * .5f, 0, radius);
+            shapes[2] = new Vector4(0, top, 0, radius);
+            return 3;
         }
 
         private void ResolveMovementCollision(bool wasStanding)
@@ -499,6 +516,8 @@ namespace MphRead.Entities
 
             Vector3 current = PrevPosition;
             Vector3 target = Position;
+            Span<Vector4> shapes = stackalloc Vector4[3];
+            int shapeCount = GetMovementSweepShapes(shapes);
             bool completed = false;
             for (int iteration = 0; iteration < CollisionResolveIterations; iteration++)
             {
@@ -511,50 +530,62 @@ namespace MphRead.Entities
                     break;
                 }
 
-                GetMovementSweepShape(current, out Vector3 startCenter, out float radius);
-                GetMovementSweepShape(target, out Vector3 endCenter, out _);
-                IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
-                    startCenter, endCenter, radius + 0.4f, null, Vector3.Zero,
-                    includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
-                Array.Clear(_movementCollisionScratch);
-                int count = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, startCenter, endCenter,
-                    radius, _movementCollisionScratch.Length, includeOffset: true,
-                    TestFlags.Players, _scene, _movementCollisionScratch);
-                if (count == _movementCollisionScratch.Length)
+                bool saturated = false;
+                bool haveHit = false;
+                float earliest = 1;
+                CollisionResult hit = default;
+                for (int shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++)
+                {
+                    Vector3 offset = shapes[shapeIndex].Xyz;
+                    float radius = shapes[shapeIndex].W;
+                    Vector3 startCenter = current + offset;
+                    Vector3 endCenter = target + offset;
+                    IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
+                        startCenter, endCenter, radius + 0.1f, null, Vector3.Zero,
+                        includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
+                    Array.Clear(_movementCollisionScratch);
+                    int count = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, startCenter, endCenter,
+                        radius, _movementCollisionScratch.Length, includeOffset: true,
+                        TestFlags.Players, _scene, _movementCollisionScratch);
+                    if (count == _movementCollisionScratch.Length)
+                    {
+                        saturated = true;
+                        break;
+                    }
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        CollisionResult result = _movementCollisionScratch[i];
+                        if (!Single.IsFinite(result.Distance)
+                            || !Single.IsFinite(result.Plane.X)
+                            || !Single.IsFinite(result.Plane.Y)
+                            || !Single.IsFinite(result.Plane.Z))
+                        {
+                            continue;
+                        }
+                        float distance = Math.Clamp(result.Distance, 0, 1);
+                        if (distance < earliest)
+                        {
+                            earliest = distance;
+                            hit = result;
+                            haveHit = true;
+                        }
+                    }
+                }
+                if (saturated)
                 {
                     NoteCollisionOverflow("movement sweep");
                     Position = current;
                     RecoverInitialOverlap("movement overflow");
                     return;
                 }
-
-                int earliestIndex = -1;
-                float earliest = 1;
-                for (int i = 0; i < count; i++)
-                {
-                    CollisionResult result = _movementCollisionScratch[i];
-                    if (!Single.IsFinite(result.Distance)
-                        || !Single.IsFinite(result.Plane.X)
-                        || !Single.IsFinite(result.Plane.Y)
-                        || !Single.IsFinite(result.Plane.Z))
-                    {
-                        continue;
-                    }
-                    float distance = Math.Clamp(result.Distance, 0, 1);
-                    if (distance < earliest)
-                    {
-                        earliest = distance;
-                        earliestIndex = i;
-                    }
-                }
-                if (earliestIndex < 0 || earliest >= 0.9999f)
+                if (!haveHit || earliest >= 0.9999f)
                 {
                     current = target;
                     completed = true;
                     break;
                 }
 
-                CollisionResult hit = _movementCollisionScratch[earliestIndex];
                 Vector3 normal = hit.Plane.Xyz;
                 if (normal.LengthSquared <= 1e-10f)
                 {
@@ -681,6 +712,7 @@ namespace MphRead.Entities
                 Probe(position.AddY(bottom), radius);
                 if (MathF.Abs(top - bottom) > 1 / 4096f)
                 {
+                    Probe(position.AddY((bottom + top) * .5f), radius);
                     Probe(position.AddY(top), radius);
                 }
             }

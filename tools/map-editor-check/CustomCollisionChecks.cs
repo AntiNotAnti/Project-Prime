@@ -110,6 +110,15 @@ static class CustomCollisionChecks
         check(cornerCount == 0,
             "robust edge query rejects a corner that is outside the true sphere radius");
 
+        Array.Clear(seamResults);
+        Vector3 outerEdgePoint = new(-0.3f, 0, 2);
+        int outerEdgeCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
+            outerEdgePoint + Vector3.UnitY, outerEdgePoint - Vector3.UnitY, 0.5f, seamResults.Length,
+            includeOffset: true, TestFlags.Players, scene, seamResults);
+        check(outerEdgeCount > 0 && seamResults.Take(outerEdgeCount).Any(result =>
+                result.Field0 == 1 && result.Plane.X < -0.9f && MathF.Abs(result.Plane.Y) < 0.1f),
+            "robust outer-edge contact exposes a radial slide normal");
+
         // Recovery is a distinct overlap query: unlike a forward sweep it must
         // detect a shallow start behind a face so the controller can push the
         // player back to valid space instead of silently accepting penetration.
@@ -121,6 +130,25 @@ static class CustomCollisionChecks
             && seamResults.Take(penetrationCount).Any(result =>
                 result.Plane.Y > 0.9f && result.Field14 > 0.39f),
             "bounded overlap query recovers shallow starts behind a collision plane");
+
+        var denseFaces = new List<CollisionDataEditor>();
+        for (int i = 0; i < 48; i++)
+        {
+            float y = -0.2f + i * 0.008f;
+            var face = new CollisionDataEditor { Plane = new Vector4(Vector3.UnitY, y), LayerMask = 5 };
+            face.Points.AddRange(new[] { new Vector3(-2, y, -2), new Vector3(-2, y, 2),
+                new Vector3(2, y, 2), new Vector3(2, y, -2) });
+            denseFaces.Add(face);
+        }
+        byte[] denseBytes = MapCollisionPacker.Pack(denseFaces);
+        var denseHeader = Read.ReadStruct<CollisionHeader>(denseBytes);
+        var denseInfo = Collision.ReadMphCollision(denseHeader, denseBytes, -1);
+        collisions.Clear(); collisions.Add(new CollisionInstance("dense-overlap", denseInfo, false));
+        var boundedResults = new CollisionResult[40];
+        int boundedCount = CollisionDetection.CheckSpherePenetration(Vector3.Zero, 0.5f,
+            boundedResults.Length, TestFlags.Players, scene, boundedResults);
+        check(boundedCount == boundedResults.Length,
+            "penetration query stops at the runtime contact budget for conservative overflow fallback");
 
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)

@@ -580,6 +580,21 @@ namespace MphRead.Formats
                         if (!fullCollision && closestEdgeIndex >= 0
                             && closestEdgeDistanceSquared <= radius * radius)
                         {
+                            Vector3 closestEdge = closestEdgePoint2 - closestEdgePoint1;
+                            float closestPct = closestEdge.LengthSquared <= 1e-12f ? 0
+                                : Math.Clamp(Vector3.Dot(vec - closestEdgePoint1, closestEdge)
+                                    / closestEdge.LengthSquared, 0, 1);
+                            Vector3 closestPoint = closestEdgePoint1 + closestEdge * closestPct;
+                            Vector3 responseNormal = vec - closestPoint;
+                            if (responseNormal.LengthSquared > 1e-10f)
+                            {
+                                responseNormal.Normalize();
+                            }
+                            else
+                            {
+                                responseNormal = plane.Xyz;
+                            }
+
                             CollisionResult result = results[count];
                             result.Field0 = 1;
                             result.EntityCollision = candidate.EntityCollision;
@@ -588,10 +603,9 @@ namespace MphRead.Formats
                             result.Distance = pct;
                             if (candidate.EntityCollision != null)
                             {
-                                Vector3 normal = Matrix.Vec3MultMtx3(plane.Xyz, candidate.EntityCollision.Transform);
-                                Vector3 wVec = Matrix.Vec3MultMtx4(plane.Xyz * plane.W, candidate.EntityCollision.Transform);
-                                float w = Vector3.Dot(wVec, normal);
-                                result.Plane = new Vector4(normal, w);
+                                Vector3 normal = Matrix.Vec3MultMtx3(responseNormal, candidate.EntityCollision.Transform).Normalized();
+                                Vector3 worldClosest = Matrix.Vec3MultMtx4(closestPoint, candidate.EntityCollision.Transform);
+                                result.Plane = new Vector4(normal, Vector3.Dot(worldClosest, normal));
                                 result.Position = Matrix.Vec3MultMtx4(vec, candidate.EntityCollision.Transform);
                                 result.EdgePoint1 = Matrix.Vec3MultMtx4(closestEdgePoint1, candidate.EntityCollision.Transform);
                                 result.EdgePoint2 = Matrix.Vec3MultMtx4(closestEdgePoint2, candidate.EntityCollision.Transform);
@@ -599,20 +613,11 @@ namespace MphRead.Formats
                             else
                             {
                                 Vector3 translation = candidate.Collision.Translation;
-                                if (translation != Vector3.Zero)
-                                {
-                                    result.Plane = plane.AddW(Vector3.Dot(plane.Xyz, translation));
-                                    result.Position = vec + translation;
-                                    result.EdgePoint1 = closestEdgePoint1 + translation;
-                                    result.EdgePoint2 = closestEdgePoint2 + translation;
-                                }
-                                else
-                                {
-                                    result.Plane = plane;
-                                    result.Position = vec;
-                                    result.EdgePoint1 = closestEdgePoint1;
-                                    result.EdgePoint2 = closestEdgePoint2;
-                                }
+                                Vector3 worldClosest = closestPoint + translation;
+                                result.Plane = new Vector4(responseNormal, Vector3.Dot(worldClosest, responseNormal));
+                                result.Position = vec + translation;
+                                result.EdgePoint1 = closestEdgePoint1 + translation;
+                                result.EdgePoint2 = closestEdgePoint2 + translation;
                             }
                             results[count++] = result;
                         }
