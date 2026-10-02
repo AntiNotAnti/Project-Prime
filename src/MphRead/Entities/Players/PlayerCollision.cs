@@ -682,13 +682,16 @@ namespace MphRead.Entities
         private bool FindDeepestPenetration(Vector3 position, bool altForm,
             out CollisionResult deepest, out bool saturated)
         {
-            deepest = default;
-            saturated = false;
+            CollisionResult best = default;
+            bool overflow = false;
             float bestDepth = CollisionRecoverySkin;
 
             void Probe(Vector3 center, float radius)
             {
-                if (saturated)
+                // C# does not allow a local function to capture out parameters.
+                // Keep the probe state local, then copy it to the out values once
+                // all probes have completed.
+                if (overflow)
                 {
                     return;
                 }
@@ -697,7 +700,7 @@ namespace MphRead.Entities
                     _penetrationScratch.Length, TestFlags.Players, _scene, _penetrationScratch);
                 if (count == _penetrationScratch.Length)
                 {
-                    saturated = true;
+                    overflow = true;
                     return;
                 }
                 for (int i = 0; i < count; i++)
@@ -705,7 +708,7 @@ namespace MphRead.Entities
                     if (_penetrationScratch[i].Field14 > bestDepth)
                     {
                         bestDepth = _penetrationScratch[i].Field14;
-                        deepest = _penetrationScratch[i];
+                        best = _penetrationScratch[i];
                     }
                 }
             }
@@ -727,7 +730,10 @@ namespace MphRead.Entities
                     Probe(position.AddY(top), radius);
                 }
             }
-            return saturated || bestDepth > CollisionRecoverySkin;
+
+            deepest = best;
+            saturated = overflow;
+            return overflow || bestDepth > CollisionRecoverySkin;
         }
 
         private void TryGroundSnap()

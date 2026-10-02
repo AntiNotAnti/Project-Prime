@@ -10,6 +10,12 @@ public readonly record struct FireEvent(uint ShotId, uint SourceFrame, uint AckF
     FireEventKind Kind, byte Weapon, byte Charge, uint ContinuousPhase)
 {
     public const int Size = 20;
+    // Non-continuous Imperialist events do not use ContinuousPhase. Preserve
+    // shot-time scope in its high bit so a repeated/recovered fire event cannot
+    // inherit the scope state of a later carrier packet.
+    internal const uint ScopedStateBit = 1u << 31;
+    internal bool ScopedAtFire => Weapon == (byte)BeamType.Imperialist
+        && (ContinuousPhase & ScopedStateBit) != 0;
     public void Write(Span<byte> bytes)
     {
         BinaryPrimitives.WriteUInt32LittleEndian(bytes, ShotId);
@@ -81,6 +87,21 @@ public static class NetFireEvents
     internal static bool CanFireTurret(PlayerEntity player) => !UsesEvents(player)
         || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
     internal static bool CanFire(PlayerEntity player) => !UsesEvents(player) || HasPending(player);
+    /// <summary>
+    /// Scope belongs to the authored Imperialist shot, not necessarily to the
+    /// newer intent packet that happened to deliver a recovered fire event.
+    /// Keep that historical answer local to projectile damage so the puppet's
+    /// current presentation state still follows the newest ZoomedState.
+    /// </summary>
+    internal static bool TryScopedAtFire(PlayerEntity player, out bool scoped)
+    {
+        scoped = false;
+        if (!UsesEvents(player)) return false;
+        FireEvent fire = For(player.SlotIndex).Active;
+        if (fire.ShotId == 0 || fire.Weapon != (byte)BeamType.Imperialist) return false;
+        scoped = fire.ScopedAtFire;
+        return true;
+    }
     internal static void Prepare(PlayerEntity player, in IntentPacket intent)
     {
         if (!UsesEvents(player)) return;
@@ -126,8 +147,10 @@ public static class NetFireEvents
             : player.Controls.Shoot.IsPressed ? FireEventKind.PressFire : FireEventKind.AutomaticFire;
         uint ack = NetUnlagged.LaunchFrameFor(player); byte sub = 0;
         if (NetSmoothing.AckPoint(out uint read, out byte fraction)) { ack = read; sub = fraction; }
+        uint shotState = player.CurrentWeapon == BeamType.Imperialist && player.EquipInfo.Zoomed
+            ? FireEvent.ScopedStateBit : 0;
         state.Active = new(id, NetSession.NetFrame, ack, sub, kind, (byte)player.CurrentWeapon,
-            (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), 0);
+            (byte)Math.Clamp((int)player.EquipInfo.ChargeLevel, 0, 255), shotState);
     }
     internal static void Commit(PlayerEntity player)
     {
@@ -135,7 +158,9 @@ public static class NetFireEvents
         var state = For(player.SlotIndex);
         if (state.Active.ShotId == 0) return;
         if (state.Count == Capacity) { Array.Copy(state.Events, 1, state.Events, 0, Capacity - 1); state.Count--; }
-        state.Events[state.Count++] = state.Active with { ContinuousPhase = player.ModContinuousFireTick };
+        uint phaseOrState = state.Active.Kind == FireEventKind.ContinuousTick
+            ? player.ModContinuousFireTick : state.Active.ContinuousPhase;
+        state.Events[state.Count++] = state.Active with { ContinuousPhase = phaseOrState };
     }
     internal static void Fill(ref IntentPacket intent, int slot)
     {
