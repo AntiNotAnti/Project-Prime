@@ -372,7 +372,11 @@ namespace MphRead.Mods.Launcher.Gui
                     bool range = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
                     if (toggle || range)
                     {
+                        _dragTarget = DragTarget.None;
+                        _dragWindow = null;
+                        _scrubFrame = null;
                         CameraSelectionChanged?.Invoke(key!.Value, toggle, range);
+                        InvalidateVisual();
                         e.Handled = true;
                         return;
                     }
