@@ -457,6 +457,14 @@ namespace MphRead.Formats
                         // plane is more than radius units ahead of the ending point
                         continue;
                     }
+                    if (robustEdges && dot1 >= radius - 1 / 4096f
+                        && dot1 <= radius + 1 / 4096f && dot2 >= dot1 - 1 / 4096f)
+                    {
+                        // Resting/tangent contact is not a new obstruction. This
+                        // keeps a grounded capsule from being nudged upward on
+                        // every horizontal movement step.
+                        continue;
+                    }
                     float centerPct = 1;
                     if (MathF.Abs(dot1 - dot2) >= 1 / 4096f)
                     {
@@ -555,10 +563,11 @@ namespace MphRead.Formats
                     }
                     else
                     {
-                        int closestEdgeIndex = -1;
-                        float closestEdgeDistanceSquared = Single.MaxValue;
+                        float closestImpact = Single.MaxValue;
                         Vector3 closestEdgePoint1 = Vector3.Zero;
                         Vector3 closestEdgePoint2 = Vector3.Zero;
+                        Vector3 closestPoint = Vector3.Zero;
+                        Vector3 responseNormal = Vector3.Zero;
                         for (int p1 = 0; p1 < data.PointIndexCount; p1++)
                         {
                             float dotDiff = GetEdgeDotDifference(p1);
@@ -578,54 +587,38 @@ namespace MphRead.Formats
                             int nextIndex = data.PointStartIndex + (p1 + 1 == data.PointIndexCount ? 0 : p1 + 1);
                             Vector3 edgePoint2 = info.Points[info.RuntimePointIndices[nextIndex]];
                             Vector3 edge = edgePoint2 - edgePoint1;
-                            float edgeLengthSquared = edge.LengthSquared;
-                            if (edgeLengthSquared <= 1e-12f
+                            if (edge.LengthSquared <= 1e-12f
                                 || IsInternalCoplanarEdge(candidates, candidate, data, plane, edgePoint1, edgePoint2, mask))
                             {
                                 continue;
                             }
 
-                            float edgePct = Math.Clamp(Vector3.Dot(edgeVec - edgePoint1, edge) / edgeLengthSquared, 0, 1);
-                            Vector3 nearest = edgePoint1 + edge * edgePct;
-                            float edgeDistanceSquared = Vector3.DistanceSquared(edgeVec, nearest);
-                            if (edgeDistanceSquared < closestEdgeDistanceSquared)
+                            if (TrySweptSphereEdge(transPoint1, transPoint2, edgePoint1, edgePoint2,
+                                radius, out float impact, out Vector3 edgeClosest, out Vector3 radial)
+                                && impact < closestImpact)
                             {
-                                closestEdgeDistanceSquared = edgeDistanceSquared;
-                                closestEdgeIndex = p1;
+                                closestImpact = impact;
                                 closestEdgePoint1 = edgePoint1;
                                 closestEdgePoint2 = edgePoint2;
+                                closestPoint = edgeClosest;
+                                responseNormal = radial;
                             }
                         }
-                        if (!fullCollision && closestEdgeIndex >= 0
-                            && closestEdgeDistanceSquared <= radius * radius)
+                        if (!fullCollision && closestImpact < Single.MaxValue)
                         {
-                            Vector3 closestEdge = closestEdgePoint2 - closestEdgePoint1;
-                            float closestPct = closestEdge.LengthSquared <= 1e-12f ? 0
-                                : Math.Clamp(Vector3.Dot(edgeVec - closestEdgePoint1, closestEdge)
-                                    / closestEdge.LengthSquared, 0, 1);
-                            Vector3 closestPoint = closestEdgePoint1 + closestEdge * closestPct;
-                            Vector3 responseNormal = edgeVec - closestPoint;
-                            if (responseNormal.LengthSquared > 1e-10f)
-                            {
-                                responseNormal.Normalize();
-                            }
-                            else
-                            {
-                                responseNormal = plane.Xyz;
-                            }
-
                             CollisionResult result = results[count];
                             result.Field0 = 1;
                             result.EntityCollision = candidate.EntityCollision;
                             result.Flags = data.Flags;
                             result.Field14 = dot2;
-                            result.Distance = centerPct;
+                            result.Distance = closestImpact;
+                            Vector3 impactCenter = Vector3.Lerp(transPoint1, transPoint2, closestImpact);
                             if (candidate.EntityCollision != null)
                             {
                                 Vector3 normal = Matrix.Vec3MultMtx3(responseNormal, candidate.EntityCollision.Transform).Normalized();
                                 Vector3 worldClosest = Matrix.Vec3MultMtx4(closestPoint, candidate.EntityCollision.Transform);
                                 result.Plane = new Vector4(normal, Vector3.Dot(worldClosest, normal));
-                                result.Position = Matrix.Vec3MultMtx4(edgeVec, candidate.EntityCollision.Transform);
+                                result.Position = Matrix.Vec3MultMtx4(impactCenter, candidate.EntityCollision.Transform);
                                 result.EdgePoint1 = Matrix.Vec3MultMtx4(closestEdgePoint1, candidate.EntityCollision.Transform);
                                 result.EdgePoint2 = Matrix.Vec3MultMtx4(closestEdgePoint2, candidate.EntityCollision.Transform);
                             }
@@ -634,7 +627,7 @@ namespace MphRead.Formats
                                 Vector3 translation = candidate.Collision.Translation;
                                 Vector3 worldClosest = closestPoint + translation;
                                 result.Plane = new Vector4(responseNormal, Vector3.Dot(worldClosest, responseNormal));
-                                result.Position = edgeVec + translation;
+                                result.Position = impactCenter + translation;
                                 result.EdgePoint1 = closestEdgePoint1 + translation;
                                 result.EdgePoint2 = closestEdgePoint2 + translation;
                             }
@@ -682,6 +675,143 @@ namespace MphRead.Formats
                 }
             }
             return count;
+        }
+
+        private static bool TrySweptSphereEdge(Vector3 start, Vector3 end,
+            Vector3 edgePoint1, Vector3 edgePoint2, float radius,
+            out float impact, out Vector3 closestPoint, out Vector3 responseNormal)
+        {
+            const float epsilon = 1e-8f;
+            float radiusSq = radius * radius;
+            Vector3 startClosest = ClosestPointOnSegment(start, edgePoint1, edgePoint2);
+            float startSq = Vector3.DistanceSquared(start, startClosest);
+            Vector3 endClosest = ClosestPointOnSegment(end, edgePoint1, edgePoint2);
+            float endSq = Vector3.DistanceSquared(end, endClosest);
+
+            if (startSq <= radiusSq + epsilon)
+            {
+                float touchingSq = MathF.Max(0, radius - 1 / 4096f);
+                touchingSq *= touchingSq;
+                if (startSq >= touchingSq && endSq >= startSq - epsilon)
+                {
+                    impact = 0;
+                    closestPoint = default;
+                    responseNormal = default;
+                    return false;
+                }
+                impact = 0;
+                closestPoint = startClosest;
+            }
+            else
+            {
+                float sweptSq = SegmentSegmentDistanceSquared(start, end,
+                    edgePoint1, edgePoint2, out float minimumT);
+                if (sweptSq > radiusSq + epsilon)
+                {
+                    impact = 0;
+                    closestPoint = default;
+                    responseNormal = default;
+                    return false;
+                }
+
+                float low = 0;
+                float high = Math.Clamp(minimumT, 0, 1);
+                for (int i = 0; i < 12; i++)
+                {
+                    float mid = (low + high) * .5f;
+                    Vector3 center = Vector3.Lerp(start, end, mid);
+                    Vector3 edgeClosest = ClosestPointOnSegment(center, edgePoint1, edgePoint2);
+                    if (Vector3.DistanceSquared(center, edgeClosest) <= radiusSq)
+                        high = mid;
+                    else
+                        low = mid;
+                }
+                impact = high;
+                Vector3 impactCenter = Vector3.Lerp(start, end, impact);
+                closestPoint = ClosestPointOnSegment(impactCenter, edgePoint1, edgePoint2);
+            }
+
+            responseNormal = Vector3.Lerp(start, end, impact) - closestPoint;
+            if (responseNormal.LengthSquared <= epsilon)
+            {
+                responseNormal = Vector3.UnitY;
+            }
+            else
+            {
+                responseNormal.Normalize();
+            }
+            return true;
+        }
+
+        private static Vector3 ClosestPointOnSegment(Vector3 point, Vector3 a, Vector3 b)
+        {
+            Vector3 edge = b - a;
+            float lengthSq = edge.LengthSquared;
+            if (lengthSq <= 1e-12f) return a;
+            float t = Math.Clamp(Vector3.Dot(point - a, edge) / lengthSq, 0, 1);
+            return a + edge * t;
+        }
+
+        private static float SegmentSegmentDistanceSquared(Vector3 p1, Vector3 q1,
+            Vector3 p2, Vector3 q2, out float firstT)
+        {
+            const float epsilon = 1e-8f;
+            Vector3 d1 = q1 - p1;
+            Vector3 d2 = q2 - p2;
+            Vector3 r = p1 - p2;
+            float a = Vector3.Dot(d1, d1);
+            float e = Vector3.Dot(d2, d2);
+            float f = Vector3.Dot(d2, r);
+            float s;
+            float t;
+
+            if (a <= epsilon && e <= epsilon)
+            {
+                firstT = 0;
+                return Vector3.DistanceSquared(p1, p2);
+            }
+            if (a <= epsilon)
+            {
+                s = 0;
+                t = Math.Clamp(f / e, 0, 1);
+            }
+            else
+            {
+                float c = Vector3.Dot(d1, r);
+                if (e <= epsilon)
+                {
+                    t = 0;
+                    s = Math.Clamp(-c / a, 0, 1);
+                }
+                else
+                {
+                    float b = Vector3.Dot(d1, d2);
+                    float denominator = a * e - b * b;
+                    s = MathF.Abs(denominator) > epsilon
+                        ? Math.Clamp((b * f - c * e) / denominator, 0, 1)
+                        : 0;
+                    float tNumerator = b * s + f;
+                    if (tNumerator < 0)
+                    {
+                        t = 0;
+                        s = Math.Clamp(-c / a, 0, 1);
+                    }
+                    else if (tNumerator > e)
+                    {
+                        t = 1;
+                        s = Math.Clamp((b - c) / a, 0, 1);
+                    }
+                    else
+                    {
+                        t = tNumerator / e;
+                    }
+                }
+            }
+
+            firstT = s;
+            Vector3 c1 = p1 + d1 * s;
+            Vector3 c2 = p2 + d2 * t;
+            return Vector3.DistanceSquared(c1, c2);
         }
 
         private static bool IsInternalCoplanarEdge(IReadOnlyList<CollisionCandidate> candidates,
