@@ -302,7 +302,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddAction("SAVE VIRTUAL CLIP", SaveVirtualSelection, face: Deck.Face.Moss);
 
             body.Children.Add(new Caption("Cinematic camera"));
-            body.Children.Add(new Note("Camera keys: filled square = Linear, outlined square = Smooth, circle = Spline, bar = Hold. Hover a key to see easing, segment time, path length, average speed and peak speed. Click for a single selection; Ctrl/Cmd-click toggles keys; Shift-click selects a range. Delete/Backspace or REMOVE SELECTED deletes the selection. The playhead snaps to nearby camera keys."));
+            body.Children.Add(new Note("Camera track: cyan = Linear, green = Smooth, purple = Spline, gold = Hold. The line between keys is the segment that actually uses that interpolation; graph height shows sampled camera speed across the segment. Key shapes remain draggable handles. Hover for easing, duration, distance, average speed and peak speed. Ctrl/Cmd-click toggles keys; Shift-click selects a range; the playhead snaps to nearby keys."));
             var cameraGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
             body.Children.Add(cameraGrid);
             int cameraIndex = 0;
