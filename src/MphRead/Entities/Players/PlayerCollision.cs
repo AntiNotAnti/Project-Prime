@@ -457,8 +457,10 @@ namespace MphRead.Entities
             _collisionContactOverflows++;
             if (_collisionContactOverflows <= 4)
             {
-                Console.WriteLine($"[collision] slot {SlotIndex} saturated {CollisionContactCapacity} contacts during {phase}; "
-                    + "using the last safe position.");
+                string message = $"[collision] slot {SlotIndex} saturated {CollisionContactCapacity} contacts during {phase}; "
+                    + "using the last safe position.";
+                Console.WriteLine(message);
+                if (NetLog.Enabled) NetLog.Event(message);
             }
         }
 
@@ -467,8 +469,10 @@ namespace MphRead.Entities
             _collisionRecoveryFallbacks++;
             if (_collisionRecoveryFallbacks <= 4)
             {
-                Console.WriteLine($"[collision] slot {SlotIndex} bounded recovery failed during {phase}; "
-                    + "restoring the previous position.");
+                string message = $"[collision] slot {SlotIndex} bounded recovery failed during {phase}; "
+                    + "restoring the previous position.";
+                Console.WriteLine(message);
+                if (NetLog.Enabled) NetLog.Event(message);
             }
         }
 
