@@ -30,8 +30,7 @@ namespace MphRead.Mods.Render
     internal static class TextureSamplingPolicy
     {
         public static string RuntimeKey =>
-            RenderOptions.TextureSampling + "|surface="
-            + ResolveModern(TextureAssetClass.World, TextureAssetChannel.Albedo).CacheKey
+            "surface=" + ResolveModern(TextureAssetClass.World, TextureAssetChannel.Albedo).CacheKey
             + "|effect=" + ResolveModern(TextureAssetClass.Effect, TextureAssetChannel.Effect).CacheKey;
 
         public static TextureSamplerDescriptor ResolveNativeWorld()
