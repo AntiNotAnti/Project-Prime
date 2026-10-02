@@ -846,7 +846,7 @@ public static class MapCollisionHealer
         // Vector pads have no authored landing point. Audit at least their
         // authored control-lock window, in the same legacy 30 Hz units used by
         // SolveJumpPad; runtime doubles that timer when running at 60 Hz.
-        return Math.Clamp(Math.Max(30, pad.ControlLockTime), 1, 180);
+        return Math.Clamp(Math.Max(30, (int)pad.ControlLockTime), 1, 180);
     }
 
     private static bool Disabled(MapImport import,IReadOnlyList<Vector3> points)
