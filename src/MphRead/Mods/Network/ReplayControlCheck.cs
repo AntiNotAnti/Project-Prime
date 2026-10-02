@@ -171,6 +171,16 @@ namespace MphRead.Mods.Network
                 try { Replay.ReplayVideoExport.CreateManifest("unused.ppdemo", 0, 1, fps: 45); }
                 catch (ArgumentOutOfRangeException) { invalidExportRejected = true; }
                 Require(invalidExportRejected, "manifest creation clamped unsupported export FPS");
+                var legacyClean = new Replay.ReplayVideoExportManifest(2, "fixture", 0, 1, 1280, 720, 60,
+                    true, false, false, "frames", "output", "ffmpeg");
+                var legacyHud = legacyClean with { CleanHud = false };
+                var gameHudOnly = legacyClean with { Version = 3, GameHud = true, ReplayOverlay = false };
+                var overlayOnly = legacyClean with { Version = 3, GameHud = false, ReplayOverlay = true };
+                Require(!legacyClean.IncludeGameHud && !legacyClean.IncludeReplayOverlay
+                    && legacyHud.IncludeGameHud && !legacyHud.IncludeReplayOverlay
+                    && gameHudOnly.IncludeGameHud && !gameHudOnly.IncludeReplayOverlay
+                    && !overlayOnly.IncludeGameHud && overlayOnly.IncludeReplayOverlay,
+                    "export HUD visibility did not preserve v2 CleanHud compatibility or independent v3 layers");
                 if (OperatingSystem.IsLinux())
                     Require(!ReplayPathComparer.Same("/tmp/ReplayCase.ppdemo", "/tmp/replaycase.ppdemo"),
                         "Linux replay paths were compared case-insensitively");
