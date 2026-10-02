@@ -84,7 +84,13 @@ namespace MphRead.Mods.MapGen
                         result.Error("FP-MAP-001","Q3 HD textures must be PNG, JPEG or TGA.");
                     else if(checkFiles)
                     {
-                        try { Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern)); }
+                        try
+                        {
+                            byte[] bytes=Read(definition,modern);
+                            if(Mods.Render.ModernTextureAsset.PortableEncodedExtension(bytes)==null)
+                                throw new InvalidDataException("Unsupported portable HD texture encoding.");
+                            Mods.Render.ModernTextureAsset.ProbeDimensions(bytes);
+                        }
                         catch(Exception ex) when(ex is IOException or InvalidDataException or ArgumentException)
                         { result.Error("FP-MAP-001",ex.Message); }
                     }
@@ -120,7 +126,13 @@ namespace MphRead.Mods.MapGen
                         result.Error("FP-MAP-001","HD material channels must be PNG, JPEG or TGA.",material?.Id);
                     else if(checkFiles)
                     {
-                        try{Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern));}
+                        try
+                        {
+                            byte[] bytes=Read(definition,modern);
+                            if(Mods.Render.ModernTextureAsset.PortableEncodedExtension(bytes)==null)
+                                throw new InvalidDataException("Unsupported portable HD texture encoding.");
+                            Mods.Render.ModernTextureAsset.ProbeDimensions(bytes);
+                        }
                         catch(Exception ex)when(ex is IOException or InvalidDataException or ArgumentException){result.Error("FP-MAP-001",ex.Message,material?.Id);}
                     }
                 }
