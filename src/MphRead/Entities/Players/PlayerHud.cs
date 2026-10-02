@@ -1,5 +1,6 @@
 using System;
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
 using MphRead.Mods.Render;
 using MphRead.Mods.Render.Hud;
 using System.Collections.Generic;
@@ -4047,7 +4048,8 @@ namespace MphRead.Entities
             if (!customSpree) _soundSource.QueueStream(VoiceId.VOICE_CONSECUTIVE_KILLS, delay: 1);
             if (attacker.IsMainPlayer && Mods.Launcher.LauncherPrefs.CombatNotificationsVisible) return;
             string message = attacker.IsMainPlayer ? Strings.GetHudMessage(254)
-                : Strings.GetHudMessage(255).Replace("%s", _scene.GameState.Nicknames[attacker.SlotIndex]);
+                : Strings.GetHudMessage(255).Replace("%s",
+                    PlayerNameCodec.ToNative(_scene.GameState.Nicknames[attacker.SlotIndex]));
             if (attacker.IsMainPlayer && HudProfiles.Runtime.Mode == HudMode.Custom)
                 attacker.QueueCombatNotifications(new[] { message });
             else QueueHudMessage(128, 70, 140, 90 / 30f, 2, message);
@@ -4442,15 +4444,14 @@ namespace MphRead.Entities
                     }
                     if (ch >= ' ')
                     {
-                        int index = ch;
-                        if ((ch & 0x80) != 0)
+                        int glyphStart = i;
+                        PlayerNameLayout.TryReadNativeGlyph(text, ref i, text.Length,
+                            out int glyph, out _);
+                        for (int copy = glyphStart + 1; copy <= i; copy++)
                         {
-                            char next = text[++i];
-                            dest[++c] = next;
-                            index = next & 0x3F | ((ch & 0x1F) << 6);
+                            dest[++c] = text[copy];
                         }
-                        index -= font.MinCharacter;
-                        int width = font.Widths[index];
+                        int width = font.Widths[GlyphIndex(font, glyph)];
                         lineWidth += width;
                         if (ch != ' ')
                         {
