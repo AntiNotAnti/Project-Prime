@@ -50,7 +50,7 @@ namespace MphRead.Mods.MapGen
                     if(!paths.Add(asset.Path))throw new InvalidDataException("Duplicate map asset path.");
                     string ext=Path.GetExtension(asset.Path).ToLowerInvariant();
                     if(asset.Kind=="audio"&&ext is not(".wav" or ".ogg" or ".mp3"))throw new InvalidDataException("Music must be WAV, OGG or MP3.");
-                    if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
+                    if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tga" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
                     if(asset.Kind=="preview"&&ext!=".png")throw new InvalidDataException("Preview must be PNG.");
                     if(asset.Kind is not("audio" or "texture" or "preview"))throw new InvalidDataException("Unknown asset kind.");
                     if(checkFiles)
@@ -80,8 +80,8 @@ namespace MphRead.Mods.MapGen
                     if(pair.Key < 0) result.Error("FP-MAP-001","Q3 HD texture shader index cannot be negative.");
                     if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
                         result.Error("FP-MAP-001","Q3 HD textures must reference declared texture assets.");
-                    else if(ext is not(".png" or ".jpg" or ".jpeg"))
-                        result.Error("FP-MAP-001","Q3 HD textures must be PNG or JPEG.");
+                    else if(ext is not(".png" or ".jpg" or ".jpeg" or ".tga"))
+                        result.Error("FP-MAP-001","Q3 HD textures must be PNG, JPEG or TGA.");
                     else if(checkFiles)
                     {
                         try { Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern)); }
@@ -116,8 +116,8 @@ namespace MphRead.Mods.MapGen
                     string ext=Path.GetExtension(modern).ToLowerInvariant();
                     if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
                         result.Error("FP-MAP-001","HD material channels must reference declared texture assets.",material?.Id);
-                    else if(ext is not(".png" or ".jpg" or ".jpeg"))
-                        result.Error("FP-MAP-001","HD material channels must be PNG or JPEG.",material?.Id);
+                    else if(ext is not(".png" or ".jpg" or ".jpeg" or ".tga"))
+                        result.Error("FP-MAP-001","HD material channels must be PNG, JPEG or TGA.",material?.Id);
                     else if(checkFiles)
                     {
                         try{Mods.Render.ModernTextureAsset.ProbeDimensions(Read(definition,modern));}
