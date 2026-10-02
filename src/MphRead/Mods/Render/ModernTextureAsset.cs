@@ -183,9 +183,9 @@ namespace MphRead.Mods.Render
                 source.ReadExactly(id);
             }
             byte[] rgba = new byte[checked(width * height * 4)];
-            Span<byte> pixel = stackalloc byte[4];
+            byte[] pixel = new byte[4];
             int written = 0;
-            void WritePixel(ReadOnlySpan<byte> bgra)
+            void WritePixel(byte[] bgra)
             {
                 if (written >= width * height) throw new InvalidDataException("TGA contains too many pixels.");
                 int rawX = written % width, rawY = written / width;
@@ -200,8 +200,8 @@ namespace MphRead.Mods.Render
             }
             void ReadPixel()
             {
-                source.ReadExactly(pixel[..bytesPerPixel]);
-                WritePixel(pixel[..bytesPerPixel]);
+                source.ReadExactly(pixel.AsSpan(0, bytesPerPixel));
+                WritePixel(pixel);
             }
             if (type == 2)
             {
@@ -216,8 +216,8 @@ namespace MphRead.Mods.Render
                     int count = (packet & 0x7f) + 1;
                     if ((packet & 0x80) != 0)
                     {
-                        source.ReadExactly(pixel[..bytesPerPixel]);
-                        for (int i = 0; i < count; i++) WritePixel(pixel[..bytesPerPixel]);
+                        source.ReadExactly(pixel.AsSpan(0, bytesPerPixel));
+                        for (int i = 0; i < count; i++) WritePixel(pixel);
                     }
                     else
                     {
