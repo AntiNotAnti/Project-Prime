@@ -114,7 +114,11 @@ namespace MphRead.Mods.Launcher.Gui
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 CameraMoved = ReplayCamera.MoveKeyframe,
                 CameraSelected = ReplayCamera.SelectKeyframe,
-                CameraSelectionChanged = ReplayCamera.ModifyKeyframeSelection,
+                CameraSelectionChanged = (frame, toggle, range) =>
+                {
+                    ReplayCamera.ModifyKeyframeSelection(frame, toggle, range);
+                    Refresh();
+                },
                 CameraDeleted = ReplayCamera.RemoveKeyframe,
                 EventRequested = InspectCombatEvent,
                 RangeRequested = (start, end) =>
