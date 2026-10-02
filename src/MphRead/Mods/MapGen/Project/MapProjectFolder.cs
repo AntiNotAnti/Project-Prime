@@ -59,6 +59,8 @@ public static class MapProjectFolder
                 if(material.SpecularRoughness is {} specular)material.SpecularRoughness=paths[specular];
                 if(material.Emissive is {} emissive)material.Emissive=paths[emissive];
             }
+            if(copy.Import is { } imported && imported.ModernTextures.Count > 0)
+                imported.ModernTextures = imported.ModernTextures.ToDictionary(p=>p.Key,p=>paths[p.Value]);
             foreach(var asset in copy.Assets)asset.Path=paths[asset.Path];if(copy.Audio?.Music is {} music)copy.Audio.Music=paths[music];
             var external=new Dictionary<string,string>(StringComparer.Ordinal);
             foreach(var model in copy.ModelSources)
