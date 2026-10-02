@@ -1102,6 +1102,14 @@ namespace MphRead.Entities
             _smallReticleTimer = 0;
         }
 
+        /// <summary>
+        /// Dynamic/Metroid keeps the crosshair's native camera-to-aim drift as
+        /// presentation only. The responsive render camera and the shot ray do
+        /// not inherit that easing.
+        /// </summary>
+        internal static bool ModDynamicReticlePresentation(bool proHud, bool fixedWeapon)
+            => proHud && !fixedWeapon;
+
         private void RebaseReticlePresentation(Vector2 position)
         {
             if (!Single.IsFinite(position.X) || !Single.IsFinite(position.Y))
@@ -1156,11 +1164,12 @@ namespace MphRead.Entities
             float alpha = (float)Math.Clamp(Mods.Render.FrameTiming.Alpha, 0.0, 1.0);
             Vector2 step = _reticleCurrentPosition - _reticlePreviousPosition;
 
-            // Only a genuinely legacy/eased camera needs its moving reticle on
-            // the same previous/current timeline. Responsive local aiming keeps
-            // the reticle on the real firing ray instead of manufacturing
-            // visible latency for presentation.
-            if (!Features.ResponsiveAimCamera)
+            // Classic native aiming and Pro Dynamic/Metroid both use the
+            // previous/current reticle timeline. Pro Dynamic is presentation
+            // only: the rendered camera still follows raw aim immediately, but
+            // the crosshair keeps the cartridge-style camera-to-aim drift.
+            if (!Features.ResponsiveAimCamera
+                || ModDynamicReticlePresentation(Features.ProHud, Features.FixedWeapon))
             {
                 return _reticlePreviousPosition + step * alpha;
             }
@@ -1208,14 +1217,15 @@ namespace MphRead.Entities
                 }
             }
             Vector2 reticlePosition;
-            if (Features.FixedWeapon || Features.ResponsiveAimCamera)
+            bool dynamicProReticle = ModDynamicReticlePresentation(
+                Features.ProHud, Features.FixedWeapon);
+            if (Features.FixedWeapon || Features.ResponsiveAimCamera && !dynamicProReticle)
             {
-                // A responsive first-person camera points where the firing ray
-                // points, so its crosshair belongs dead centre even when the
-                // weapon model uses Dynamic/Metroid drift. Keeping the old
-                // off-centre reticle here would make presentation disagree with
-                // actual shot direction. Classic/eased aiming below retains the
-                // original moving-reticle behavior.
+                // Static/Quake and other responsive fixed-crosshair modes keep
+                // the reticle welded to the real firing ray. Pro Dynamic is
+                // the exception: it projects the native camera-to-aim delta
+                // below as a visual-only moving crosshair while shots still
+                // follow the responsive raw-aim camera.
                 reticlePosition = new Vector2(0.5f, 0.5f);
             }
             else
@@ -2268,8 +2278,7 @@ namespace MphRead.Entities
 
         private void DrawWeaponList()
         {
-            Vector2 sway = ProHudDynamicShift;
-            using var layout = UseHudLayout(3, 2 * HudAspectFix + sway.X, 46 + sway.Y);
+            using var layout = UseHudLayout(3, 2 * HudAspectFix, 46);
             if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Inventory.Native)
             {
                 _weaponIconInst.PositionX=2*HudAspectFix/256;
@@ -2308,7 +2317,7 @@ namespace MphRead.Entities
             // Against the left edge, not inset. The reference has no margin
             // worth the name and the panel reads as part of the frame because
             // of it.
-            float panelX = 2 * aspectFix + sway.X;
+            float panelX = 2 * aspectFix;
             float rowHeight = 8f * scale;
             float panelWidth = 26f * scale * aspectFix;
             // The icon sits in a square block of the row's own height at the
@@ -2319,7 +2328,7 @@ namespace MphRead.Entities
             float iconBox = rowHeight - 1f * scale;
             float iconBoxX = iconBox * aspectFix;
             float ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
-            float y = 46 + sway.Y;
+            float y = 46;
             // Reuse one stack buffer for every numeric ammo readout. Pro HUD
             // can be drawn several times per 60 Hz simulation step, so creating
             // one managed string per weapon per picture causes needless GC
