@@ -87,6 +87,21 @@ public static class NetFireEvents
     internal static bool CanFireTurret(PlayerEntity player) => !UsesEvents(player)
         || For(player.SlotIndex).Selected && For(player.SlotIndex).Active.Kind == FireEventKind.TurretFire;
     internal static bool CanFire(PlayerEntity player) => !UsesEvents(player) || HasPending(player);
+    /// <summary>
+    /// Scope belongs to the authored Imperialist shot, not necessarily to the
+    /// newer intent packet that happened to deliver a recovered fire event.
+    /// Keep that historical answer local to projectile damage so the puppet's
+    /// current presentation state still follows the newest ZoomedState.
+    /// </summary>
+    internal static bool TryScopedAtFire(PlayerEntity player, out bool scoped)
+    {
+        scoped = false;
+        if (!UsesEvents(player)) return false;
+        FireEvent fire = For(player.SlotIndex).Active;
+        if (fire.ShotId == 0 || fire.Weapon != (byte)BeamType.Imperialist) return false;
+        scoped = fire.ScopedAtFire;
+        return true;
+    }
     internal static void Prepare(PlayerEntity player, in IntentPacket intent)
     {
         if (!UsesEvents(player)) return;
@@ -105,14 +120,6 @@ public static class NetFireEvents
             if (e.Kind == FireEventKind.TurretFire) return;
             player.ModSetWeapon((BeamType)e.Weapon);
             player.EquipInfo.ChargeLevel = e.Charge;
-            // The carrier may be newer than this fire event. For quick scopes,
-            // its absolute ZoomedState can already be false by the time a lost
-            // shot is recovered. Imperialist damage must use the state stamped
-            // on the shot itself, not the state of the packet that resent it.
-            if (e.Weapon == (byte)BeamType.Imperialist)
-            {
-                player.ModSetZoom(e.ScopedAtFire);
-            }
             if (e.Kind != FireEventKind.ContinuousTick)
             {
                 bool release = e.Kind == FireEventKind.ReleaseFire;
