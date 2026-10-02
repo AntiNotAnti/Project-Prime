@@ -184,7 +184,7 @@ namespace MphRead.Mods.Render
                     "authored effect models share the stable HD material policy");
                 TextureSamplerDescriptor uiSampling = TextureSamplingPolicy.ResolveModern(
                     TextureAssetClass.Ui, TextureAssetChannel.Albedo);
-                Check(!uiSampling.Mipmaps && !uiSampling.LinearMinification,
+                Check(uiSampling == TextureSamplingPolicy.ResolveNativeWorld(),
                     "UI assets stay outside the HD world-material policy");
 
                 RenderOptions.TextureSampling = TextureSamplingMode.Legacy;
