@@ -15,13 +15,13 @@ internal sealed class AndroidFramePacer(int maximumRate)
         _interval = 0;
     }
 
-    internal double Deadline(double now, int cap, bool displayPaced = false)
+    internal double Deadline(double now, int cap, bool presentationPaced = false)
     {
         // Display-paced modes already wait in the presentation driver. This is
         // true for Display and for explicit caps that map to a native panel
         // refresh (for example 120 on a 120 Hz phone). Only impose the runaway
         // safety floor in that case, never a second software display clock.
-        double interval = 1.0 / (displayPaced || cap <= 0
+        double interval = 1.0 / (presentationPaced || cap <= 0
             ? maximumRate : Math.Clamp(cap, 1, maximumRate));
         if (interval != _interval)
         {
@@ -70,14 +70,4 @@ internal sealed class AndroidFramePacer(int maximumRate)
     internal static bool PresentationOwnsCadence(bool displayPaced, bool modernPresentationBlocks) =>
         displayPaced || modernPresentationBlocks;
 
-    internal static double BudgetRate(int cap, double activeRefreshRate) =>
-        cap <= 0 ? activeRefreshRate : Math.Min(cap, activeRefreshRate);
-
-    internal static bool Behind(double frameMs, double activeWorkMs, double budgetMs) =>
-        frameMs > budgetMs * 1.12 || activeWorkMs > budgetMs * 0.96;
-
-    // Present can include GPU back-pressure as well as idle vsync wait. Treat
-    // it conservatively for upscaling, but never as proof of overload alone.
-    internal static bool HasHeadroom(double frameMs, double activeWorkMs, double presentMs, double budgetMs) =>
-        frameMs <= budgetMs * 1.08 && activeWorkMs + presentMs < budgetMs * 0.72;
 }
