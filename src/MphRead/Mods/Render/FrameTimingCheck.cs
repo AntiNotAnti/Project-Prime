@@ -107,6 +107,7 @@ namespace MphRead.Mods.Render
             failures += RunStallCase() ? 0 : 1;
             failures += RunPresentationAlphaCase() ? 0 : 1;
             failures += RunDynamicCrosshairCameraPolicyCase() ? 0 : 1;
+            failures += RunProHudDynamicSwayCase() ? 0 : 1;
             failures += RunFirstPersonPresentationCase() ? 0 : 1;
             failures += HitReactionPresentationCheck.Run() ? 0 : 1;
             failures += RunFixedCameraTranslationCase() ? 0 : 1;
@@ -230,6 +231,40 @@ namespace MphRead.Mods.Render
                 Features.ProHud = priorPro;
                 Features.ProHudFixedWeapon = priorWeapon;
             }
+        }
+
+        /// <summary>
+        /// Project Prime Dynamic/Metroid should reuse the exact native object
+        /// shift for its flat readouts. Static/Quake stays screen-locked, and
+        /// Custom profiles keep ownership of their authored anchors.
+        /// </summary>
+        private static bool RunProHudDynamicSwayCase()
+        {
+            var nativeShift = new Vector2(3.5f, -2.25f);
+            bool Same(Vector2 a, Vector2 b) => (a - b).LengthSquared < 0.000001f;
+
+            bool dynamicOk = Same(PlayerEntity.ModProHudDynamicShift(
+                true, Hud.HudMode.ProjectPrime, true, false, nativeShift), nativeShift);
+            bool staticOk = Same(PlayerEntity.ModProHudDynamicShift(
+                true, Hud.HudMode.ProjectPrime, true, true, nativeShift), Vector2.Zero);
+            bool disabledOk = Same(PlayerEntity.ModProHudDynamicShift(
+                true, Hud.HudMode.ProjectPrime, false, false, nativeShift), Vector2.Zero);
+            bool customOk = Same(PlayerEntity.ModProHudDynamicShift(
+                true, Hud.HudMode.Custom, true, false, nativeShift), Vector2.Zero);
+            // Screenshot/diagnostic command-line overrides can enable Pro HUD
+            // without republishing the active profile first.
+            bool overrideOk = Same(PlayerEntity.ModProHudDynamicShift(
+                true, Hud.HudMode.Classic, true, false, nativeShift), nativeShift);
+            bool classicOk = Same(PlayerEntity.ModProHudDynamicShift(
+                false, Hud.HudMode.Classic, true, false, nativeShift), Vector2.Zero);
+
+            bool ok = dynamicOk && staticOk && disabledOk
+                && customOk && overrideOk && classicOk;
+            Console.WriteLine($"FRAMETIMING {(ok ? "ok  " : "FAIL")} Pro HUD dynamic sway"
+                + $" | dynamic={(dynamicOk ? "native shift" : "missing")}"
+                + $" | static={(staticOk ? "rigid" : "shifted")}"
+                + $" | custom={(customOk ? "authored" : "forced")}");
+            return ok;
         }
 
         /// <summary>

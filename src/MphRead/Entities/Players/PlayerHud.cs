@@ -2268,7 +2268,8 @@ namespace MphRead.Entities
 
         private void DrawWeaponList()
         {
-            using var layout = UseHudLayout(3, 2 * HudAspectFix, 46);
+            Vector2 sway = ProHudDynamicShift;
+            using var layout = UseHudLayout(3, 2 * HudAspectFix + sway.X, 46 + sway.Y);
             if(HudProfiles.Runtime.Mode==HudMode.Custom && HudProfiles.Runtime.Inventory.Native)
             {
                 _weaponIconInst.PositionX=2*HudAspectFix/256;
@@ -2307,7 +2308,7 @@ namespace MphRead.Entities
             // Against the left edge, not inset. The reference has no margin
             // worth the name and the panel reads as part of the frame because
             // of it.
-            float panelX = 2 * aspectFix;
+            float panelX = 2 * aspectFix + sway.X;
             float rowHeight = 8f * scale;
             float panelWidth = 26f * scale * aspectFix;
             // The icon sits in a square block of the row's own height at the
@@ -2318,7 +2319,7 @@ namespace MphRead.Entities
             float iconBox = rowHeight - 1f * scale;
             float iconBoxX = iconBox * aspectFix;
             float ammoRightX = panelX + panelWidth - 1.5f * scale * aspectFix;
-            float y = 46;
+            float y = 46 + sway.Y;
             // Reuse one stack buffer for every numeric ammo readout. Pro HUD
             // can be drawn several times per 60 Hz simulation step, so creating
             // one managed string per weapon per picture causes needless GC

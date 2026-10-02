@@ -1077,11 +1077,11 @@ namespace MphRead.Mods.Launcher.Gui
             // Where the gun sits, which is the one Pro-mode question with two
             // real answers rather than a right one. Static is Quake's: the
             // weapon is welded to the camera. Dynamic keeps the DS-style
-            // drifting weapon pose and settle motion, but not the DS camera
-            // latency: both styles use the same responsive raw-aim camera and
-            // keep the crosshair on the actual firing ray. Pro mode has always
-            // drawn Static by default; Dynamic remains an optional presentation
-            // choice without changing mouse/controller response.
+            // drifting weapon pose plus the native readout sway/settle motion,
+            // but not the DS camera latency: both styles use the same responsive
+            // raw-aim camera and keep the crosshair on the actual firing ray.
+            // Pro mode has always drawn Static by default; Dynamic remains an
+            // optional presentation choice without changing mouse/controller response.
             _weaponStyleRow = Add(page, new ChoiceRow("Weapon",
                 new[] { "Static (Quake)", "Dynamic (Metroid)" },
                 Features.ProHudFixedWeapon ? 0 : 1));
