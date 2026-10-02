@@ -38,7 +38,10 @@ namespace MphRead.Mods.Launcher.Gui
             var player = _player = new TextBlock
             {
                 Text = name,
-                FontFamily = GuiTheme.Display,
+                // Player names use the platform fallback chain instead of the tactical
+                // display face. The accepted network repertoire includes accented Latin,
+                // symbols and kana that Rajdhani does not cover.
+                FontFamily = FontFamily.Default,
                 FontSize = 12,
                 Foreground = GuiTheme.TextBrush,
                 TextTrimming = TextTrimming.CharacterEllipsis,
