@@ -127,6 +127,17 @@ static class CustomCollisionChecks
         check(outerEdgeCount > 0 && seamResults.Take(outerEdgeCount).Any(result =>
                 result.Field0 == 1 && result.Plane.X < -0.9f && MathF.Abs(result.Plane.Y) < 0.1f),
             "robust outer-edge contact exposes a radial slide normal");
+        float outerEdgeImpact = seamResults.Take(outerEdgeCount)
+            .Where(result => result.Field0 == 1).Min(result => result.Distance);
+        check(outerEdgeImpact > .27f && outerEdgeImpact < .33f,
+            "outer-edge sweep reports first sphere contact instead of center-plane crossing");
+
+        Array.Clear(seamResults);
+        int tangentCount = CollisionDetection.CheckSphereBetweenPointsRobust(seamCandidates,
+            new Vector3(2,.5f,2),new Vector3(3,.5f,2),.5f,seamResults.Length,
+            includeOffset:true,TestFlags.Players,scene,seamResults);
+        check(tangentCount==0,
+            "resting horizontal movement does not treat an existing floor contact as a fresh obstruction");
 
         // Recovery is a distinct overlap query: unlike a forward sweep it must
         // detect a shallow start behind a face so the controller can push the
