@@ -83,8 +83,10 @@ public static class MapCollisionHealer
     private const float WalkableY = .45f;
     private const float CoverBehind = 1f;
     private const float CoverFront = .25f;
-    private const float PlayerRadius = .45f;
+    private const float PlayerRadius = .5f;
     private const float PlayerHeight = 1.6f;
+    private static readonly float MaxAltCoreRadius = Metadata.PlayerValues
+        .Max(values => Fixed.ToFloat(values.AltColRadius));
     private const float RuntimeEdgeMargin = -.03125f;
     private const int RuntimePlayerContactLimit = 40;
     private const float PlayerSweepStep = .45f;
@@ -763,6 +765,30 @@ public static class MapCollisionHealer
         return Vector3.DistanceSquared(c1, c2);
     }
 
+    private static bool ProbeLargestAltCore(FaceIndex collision, Vector3 center,
+        out int contacts, out Vector3 obstruction)
+    {
+        contacts=0;obstruction=center;bool clear=true;
+        foreach(BuiltFace face in collision.Query(center,MaxAltCoreRadius+.25f))
+        {
+            if(face.IgnorePlayers||face.Points.Length<3)continue;
+            Vector3 normal=face.Normal;
+            if(normal.LengthSquared<1e-10f)continue;
+            normal.Normalize();
+            float distance=CapsuleFaceDistance(face,normal,center,center,out Vector3 closest);
+            if(distance>MaxAltCoreRadius+.08f)continue;
+            contacts++;
+            if(MaxAltCoreRadius-distance<=CapsuleSkin)continue;
+            // Landing floors are allowed here; the biped/floor probe owns
+            // support validation. This alt-core pass is specifically for the
+            // larger hunter balls clipping walls, roofs and side geometry.
+            if(normal.Y>=WalkableY)continue;
+            if(clear)obstruction=closest;
+            clear=false;
+        }
+        return clear;
+    }
+
     private static void AuditJumpPads(BuiltMap map, MapDefinition definition,
         FaceIndex collision, MapCollisionHealth health, CancellationToken cancellation)
     {
@@ -809,6 +835,14 @@ public static class MapCollisionHealer
                         failure = obstruction;
                         break;
                     }
+                    clear=ProbeLargestAltCore(collision,sample,out int altContacts,out obstruction);
+                    maximumContacts=Math.Max(maximumContacts,altContacts);
+                    if(!clear)
+                    {
+                        failed=true;
+                        failure=obstruction;
+                        break;
+                    }
                     failure = sample;
                 }
                 previous = current;
@@ -831,6 +865,12 @@ public static class MapCollisionHealer
                         failure = obstruction;
                     }
                     maximumContacts = Math.Max(maximumContacts, contacts);
+                    if(!failed&&!ProbeLargestAltCore(collision,target,out int altContacts,out obstruction))
+                    {
+                        failed=true;
+                        failure=obstruction;
+                        maximumContacts=Math.Max(maximumContacts,altContacts);
+                    }
                 }
             }
 
@@ -845,7 +885,7 @@ public static class MapCollisionHealer
             if (failed)
             {
                 Record(map,new(MapCollisionRepairKind.JumpPadFailure, .9f,
-                    "Jump-pad trajectory intersects player collision or does not end on a usable landing surface.",
+                    $"Jump-pad trajectory intersects biped/alt-form collision or does not end on a usable landing surface (largest alt core radius {MaxAltCoreRadius:0.###}).",
                     pad.Target is { Length: 3 } ? new[] { start, failure, V(pad.Target) } : new[] { start, failure }));
             }
         }
