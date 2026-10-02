@@ -937,7 +937,8 @@ namespace MphRead.Formats
                             Vector3 second = info.Points[info.RuntimePointIndices[secondIndex]];
                             Vector3 edge = second - first;
                             float edgeLengthSquared = edge.LengthSquared;
-                            if (edgeLengthSquared <= 1e-12f)
+                            if (edgeLengthSquared <= 1e-12f
+                                || IsInternalCoplanarEdge(candidates, candidate, data, plane, first, second, mask))
                             {
                                 continue;
                             }
