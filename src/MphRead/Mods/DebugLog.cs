@@ -30,7 +30,7 @@ namespace MphRead.Mods
     /// what the driver calls itself, and the stack of anything that killed the
     /// process.
     ///
-    /// A small in-memory ring is always kept for crash reports. Persistent disk\n    /// logging is opt-in: normal gameplay does not synchronously write every\n    /// diagnostic line. See\n    /// <see cref="Launcher.LauncherPrefs.DebugLogs"/>.
+    /// A small in-memory ring is always kept for crash reports. Persistent disk\n    /// logging is enabled by default and can be disabled through\n    /// <see cref="Launcher.LauncherPrefs.DebugLogs"/>.
     /// </summary>
     public static class DebugLog
     {
