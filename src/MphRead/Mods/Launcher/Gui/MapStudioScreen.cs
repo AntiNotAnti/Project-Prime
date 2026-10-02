@@ -2016,7 +2016,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch(OperationCanceledException){throw;}
                 catch(Exception ex){GuardJob(token);Failure(ex);}
-            }),".png",".jpg",".jpeg"));
+            }),".png",".jpg",".jpeg",".tga"));
             AddButton(_inspector,"Choose custom music",()=>Browse("Choose map music",false,path=>
             {
                 try
