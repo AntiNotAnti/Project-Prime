@@ -42,7 +42,7 @@ public sealed class MapCommunityClient : IDisposable
         if (!string.IsNullOrEmpty(uri.UserInfo) || !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment))
             throw new ArgumentException("Use a community base address without credentials, query, or fragment.");
         _http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false })
-        { BaseAddress = uri, Timeout = TimeSpan.FromMinutes(3) };
+        { BaseAddress = uri, Timeout = TimeSpan.FromMinutes(10) };
         if (!string.IsNullOrWhiteSpace(uploadToken)) _http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", uploadToken.Trim());
     }
     public async Task<CommunityMap[]> BrowseAsync(CancellationToken token, bool mine = false, bool favorites = false, string? sort = null)
