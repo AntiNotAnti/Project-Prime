@@ -1645,7 +1645,16 @@ namespace MphRead.Entities
                 hsDamage = 150 * hsDamage / 100;
                 splashDmg = 150 * splashDmg / 100;
             }
-            if (Features.HalfDamageUnscoped && weapon.Beam == BeamType.Imperialist && !equip.Zoomed)
+            bool scopedImperialist = equip.Zoomed;
+            if (weapon.Beam == BeamType.Imperialist && owner is PlayerEntity playerOwner
+                && NetFireEvents.TryScopedAtFire(playerOwner, out bool scopedAtFire))
+            {
+                // A recovered fire event can arrive in a newer carrier after the
+                // owner has already unscoped. Damage follows the state authored
+                // with the shot; the puppet's current zoom/presentation does not.
+                scopedImperialist = scopedAtFire;
+            }
+            if (Features.HalfDamageUnscoped && weapon.Beam == BeamType.Imperialist && !scopedImperialist)
             {
                 // Vanilla Imperialist: firing without the scope halves both
                 // ordinary and headshot damage. Zoomed shots keep the weapon's
