@@ -599,7 +599,16 @@ namespace MphRead.Mods.MapGen
     public class MapMaterial
     {
         public Guid Id { get; set; }
+        /// <summary>Legacy/native single-texture FPTX fallback used by every client.</summary>
         public string? Texture { get; set; }
+        /// <summary>Optional portable HD albedo packaged with the map.</summary>
+        public string? Albedo { get; set; }
+        /// <summary>Optional tangent-space normal map packaged with the map.</summary>
+        public string? Normal { get; set; }
+        /// <summary>Optional packed red-specular / green-roughness map.</summary>
+        public string? SpecularRoughness { get; set; }
+        /// <summary>Optional RGB emissive map.</summary>
+        public string? Emissive { get; set; }
         public string Name { get; set; } = "mat";
         /// <summary>Index of the material in the source room to take the texture and palette from.</summary>
         public int SourceMaterial { get; set; }
