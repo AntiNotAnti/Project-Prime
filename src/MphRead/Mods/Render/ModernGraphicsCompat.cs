@@ -1002,6 +1002,12 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (!_surfaceAcquired) return;
             _api.SurfacePresent(_device.Surface);
             ReleaseSurfaceTexture();
+#if !ANDROID
+            // Startup is only considered healthy once a modern frame reaches
+            // the presentation surface. This also covers failures that occur
+            // after device creation but before the first visible frame.
+            GraphicsBackendPolicy.CompleteStartupAttempt(_device.Backend);
+#endif
         }
 
         private void ReleaseSurfaceTexture()
