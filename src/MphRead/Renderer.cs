@@ -1585,7 +1585,15 @@ namespace MphRead
                 texture.Width, texture.Height, model.Name, _room?.Meta.Name);
             GL.BindTexture(TextureTarget.Texture2D, _lastTextureId);
             bool replaced = Mods.Render.TextureReplacementPack.TryUpload(model,
-                textureId, paletteId, recolorId, out _, out _, out Mods.Render.Materials.ResolvedMaterial? replacementMaterial, authoredKey);
+                textureId, paletteId, recolorId, out int replacementWidth, out int replacementHeight,
+                out Mods.Render.Materials.ResolvedMaterial? replacementMaterial, authoredKey);
+            if (replaced)
+            {
+                Mods.DebugLog.Line("render",
+                    $"HD texture {model.Name}:{textureId}/{paletteId}/{recolorId} "
+                    + $"{texture.Width}x{texture.Height} -> {replacementWidth}x{replacementHeight} "
+                    + $"backend={Mods.Render.GraphicsBackendPolicy.Resolved}");
+            }
             if (!replaced)
             {
                 uint[] uploadPixels = pixels.ToArray();
@@ -7827,9 +7835,21 @@ localCenter *= _profileHudScale;
 
         public static RenderWindow Create(bool shell = false)
         {
-            try { return new RenderWindow(shell); }
+            Mods.Render.GraphicsBackendPolicy.LoadPreference();
+            Mods.Render.GraphicsBackend attempted = Mods.Render.GraphicsBackendPolicy.Resolved;
+            bool guarded = Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested;
+            if (guarded) Mods.Render.GraphicsBackendPolicy.BeginStartupAttempt(attempted);
+            try
+            {
+                var window = new RenderWindow(shell);
+                if (guarded) Mods.Render.GraphicsBackendPolicy.CompleteStartupAttempt(attempted);
+                return window;
+            }
             catch (Exception ex) when (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
             {
+                // Keep the guard on disk. A managed failure can recover this
+                // process immediately; the same fence also protects the next
+                // launch if the driver failure was actually native/abrupt.
                 Mods.Render.GraphicsBackendPolicy.UseCompatibilityFallback(ex.Message);
                 return new RenderWindow(shell);
             }

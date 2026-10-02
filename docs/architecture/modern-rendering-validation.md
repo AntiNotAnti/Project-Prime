@@ -156,3 +156,22 @@ The full check deliberately forces device loss and OpenGL recovery. Its native
 log can therefore contain "forced repeated device loss acceptance check" and,
 with these new checks, an intentional GLFW NoContext error. Judge that test by
 its final PASS and exit code; those injected failures are not game-launch crashes.
+
+
+## Large authored texture / startup recovery hardening (2026-10-02)
+
+A user report on Windows/RTX 4070 showed a 4K map replacement rendering normally
+on OpenGL but becoming horizontally corrupted on Vulkan, while selecting DX12
+could prevent the next launcher window from opening. Modern mip generation now
+uses a transient render target followed by a texture-to-texture copy for each mip
+level instead of sampling and rendering different subresources of the same native
+texture in one pass. The asset-free window check now exercises a 4096-wide,
+high-frequency texture through the full trilinear mip chain.
+
+Preference-driven modern startup also writes a small crash fence before the NoAPI
+window/device path. A managed failure still falls back immediately; if a native
+driver abort prevents managed recovery, the next launch detects the unfinished
+backend startup and opens with OpenGL instead of repeating the crash. Explicit
+diagnostic/command-line renderer selection is not fenced.
+
+Run `ProjectPrime -renderwindowcheck -renderer vulkan` or `-renderer dx12` to exercise the staged 4096-wide mip regression and backend startup path without game assets.

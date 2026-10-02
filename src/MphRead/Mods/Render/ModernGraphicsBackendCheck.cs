@@ -34,6 +34,11 @@ namespace MphRead.Mods.Render
             CheckAlias("moltenvk", GraphicsBackend.Vulkan, ref failures);
             CheckAlias("metal", GraphicsBackend.Metal, ref failures);
             CheckAlias("opengl", GraphicsBackend.OpenGL, ref failures);
+            Check(GraphicsBackendPolicy.StartupGuardMatches("DirectX12", GraphicsBackend.DirectX12)
+                && GraphicsBackendPolicy.StartupGuardMatches("vulkan", GraphicsBackend.Vulkan)
+                && !GraphicsBackendPolicy.StartupGuardMatches("OpenGL", GraphicsBackend.DirectX12)
+                && !GraphicsBackendPolicy.StartupGuardMatches("broken", GraphicsBackend.DirectX12),
+                "startup recovery fence matches only the failed modern backend", ref failures);
             CheckGeometry(ref failures);
 #if !MPHREAD_SERVER
             CheckUniformCompatibility(ref failures);

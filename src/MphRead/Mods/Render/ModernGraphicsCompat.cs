@@ -1287,21 +1287,59 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             for (int level = 1; level < native.MipCount; level++)
             {
                 TextureView* source = CreateMipView(native, level - 1);
-                TextureView* destination = CreateMipView(native, level);
+                WgpuTexture* scratch = null;
+                TextureView* scratchView = null;
                 try
                 {
                     int sw = Math.Max(1, native.Width >> (level - 1));
                     int sh = Math.Max(1, native.Height >> (level - 1));
                     int dw = Math.Max(1, native.Width >> level);
                     int dh = Math.Max(1, native.Height >> level);
-                    // Disjoint mip subresources are legal in the same pass.
+
+                    // Do not sample and render different mips of the same native
+                    // texture in one render pass. WebGPU permits disjoint
+                    // subresources, but this path is intentionally stricter for
+                    // large authored textures because Vulkan drivers have shown
+                    // corruption under heavy minification. A transient target
+                    // makes the synchronization/layout transition unambiguous.
+                    var scratchDescriptor = new TextureDescriptor
+                    {
+                        Size = new Extent3D((uint)dw, (uint)dh, 1),
+                        Format = native.Format,
+                        Usage = TextureUsage.RenderAttachment | TextureUsage.TextureBinding
+                            | TextureUsage.CopySrc,
+                        MipLevelCount = 1,
+                        SampleCount = 1,
+                        Dimension = TextureDimension.Dimension2D
+                    };
+                    scratch = _api.DeviceCreateTexture(_device.Device, scratchDescriptor);
+                    if (scratch == null)
+                        throw new InvalidOperationException("Could not allocate staged mip target.");
+                    scratchView = _api.TextureCreateView(scratch, null);
+                    if (scratchView == null)
+                        throw new InvalidOperationException("Could not create staged mip view.");
+
                     BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
-                        new CoreTarget(native.Texture, destination, native.Format, null, dw, dh),
+                        new CoreTarget(scratch, scratchView, native.Format, null, dw, dh),
                         0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
+
+                    var from = new ImageCopyTexture
+                    {
+                        Texture = scratch, MipLevel = 0, Aspect = TextureAspect.All
+                    };
+                    var to = new ImageCopyTexture
+                    {
+                        Texture = native.Texture, MipLevel = (uint)level, Aspect = TextureAspect.All
+                    };
+                    var extent = new Extent3D((uint)dw, (uint)dh, 1);
+                    _api.CommandEncoderCopyTextureToTexture(
+                        BeginCommands(), &from, &to, &extent);
+                    EndCommands();
                 }
                 finally
                 {
-                    _api.TextureViewRelease(destination);
+                    if (scratchView != null) _api.TextureViewRelease(scratchView);
+                    if (scratch != null) _api.TextureRelease(scratch);
                     _api.TextureViewRelease(source);
                 }
             }
