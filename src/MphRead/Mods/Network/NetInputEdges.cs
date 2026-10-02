@@ -54,9 +54,12 @@ public sealed class NetInputEdgeSender
     private readonly uint[] _frames = new uint[16];
     private int _count;
     private byte _sequence;
-    // Movement/boost are held; zoom and weapon choice are absolute. Roll edges
-    // are needed by the engine to establish its camera-relative roll basis.
-    public const IntentButtons Actions = IntentButtons.Shoot | IntentButtons.Jump | IntentButtons.Morph
+    // Movement/boost are held and weapon choice/zoom state are absolute, but
+    // Battlehammer uses the physical Zoom press as a one-shot airburst command.
+    // Retain that edge so a quick secondary tap survives a lost intent packet.
+    // Imperialist still converges from ZoomedState; ApplyIntent ignores recovered
+    // Zoom edges for its state reconstruction.
+    public const IntentButtons Actions = IntentButtons.Shoot | IntentButtons.Zoom | IntentButtons.Jump | IntentButtons.Morph
         | IntentButtons.AltAttack | IntentButtons.ScanVisor | IntentButtons.RollLeft | IntentButtons.RollRight
         | IntentButtons.RollUp | IntentButtons.RollDown;
     public void Reset() { _count = 0; _sequence = 0; }
