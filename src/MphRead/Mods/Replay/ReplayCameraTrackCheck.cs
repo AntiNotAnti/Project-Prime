@@ -47,10 +47,13 @@ namespace MphRead.Mods.Replay
                 var c0 = new ReplayCameraKeyframe(0, Vector3.Zero, Quaternion.Identity, 1);
                 var c1 = c0 with { Frame = 60, Position = new Vector3(10, 0, 0) };
                 var c2 = c0 with { Frame = 120, Position = new Vector3(20, 0, 0) };
+                ReplayCameraKeyframe beforeKey = default;
+                ReplayCameraKeyframe atKey = default;
+                ReplayCameraKeyframe afterKey = default;
                 Require(continuous.Put(c0) && continuous.Put(c1) && continuous.Put(c2)
-                    && continuous.Sample(59, out var beforeKey, constantSpeed: true)
-                    && continuous.Sample(60, out var atKey, constantSpeed: true)
-                    && continuous.Sample(61, out var afterKey, constantSpeed: true),
+                    && continuous.Sample(59, out beforeKey, constantSpeed: true)
+                    && continuous.Sample(60, out atKey, constantSpeed: true)
+                    && continuous.Sample(61, out afterKey, constantSpeed: true),
                     "continuous spline fixture");
                 float intoKey = (atKey.Position - beforeKey.Position).Length;
                 float outOfKey = (afterKey.Position - atKey.Position).Length;
