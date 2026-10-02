@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using MphRead.Mods.Network;
 using MphRead.Mods.Replay;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -45,6 +46,10 @@ namespace MphRead.Mods.Launcher.Gui
         private static readonly IBrush PlayheadBrush = new SolidColorBrush(Deck.Rgb(0xf0efe8));
         private static readonly IBrush MarkBrush = new SolidColorBrush(Deck.Rgb(0xd8b45d));
         private static readonly IBrush CameraBrush = new SolidColorBrush(Deck.Rgb(0x6fb7c8));
+        private static readonly IBrush CameraLinearBrush = new SolidColorBrush(Deck.Rgb(0x6fb7c8));
+        private static readonly IBrush CameraSmoothBrush = new SolidColorBrush(Deck.Rgb(0x78b878));
+        private static readonly IBrush CameraSplineBrush = new SolidColorBrush(Deck.Rgb(0xb78ce8));
+        private static readonly IBrush CameraHoldBrush = new SolidColorBrush(Deck.Rgb(0xd8b45d));
         private static readonly IBrush SpawnBrush = new SolidColorBrush(Deck.Rgb(0x78b878));
         private static readonly Pen EventPen = new(EventBrush, 1);
         private static readonly Pen KillPen = new(KillBrush, 2);
@@ -76,6 +81,17 @@ namespace MphRead.Mods.Launcher.Gui
         private IReadOnlyList<ReplayEvent> _events = Array.Empty<ReplayEvent>();
         private IReadOnlyList<ReplayHighlight> _highlights = Array.Empty<ReplayHighlight>();
         private IReadOnlyList<ReplayCameraKeyframe> _cameraKeys = Array.Empty<ReplayCameraKeyframe>();
+        private readonly List<CameraSegmentVisual> _cameraSegments = new();
+        private float _cameraPeakSpeed;
+        private const int CameraSpeedSamples = 16;
+        private sealed record CameraSegmentVisual(
+            uint StartFrame,
+            uint EndFrame,
+            ReplayCameraInterpolation Interpolation,
+            ReplayCameraEase Ease,
+            float AverageSpeed,
+            float PeakSpeed,
+            float[] Speeds);
         private IReadOnlyList<uint> _bookmarks = Array.Empty<uint>();
         private IReadOnlyList<ReplayNamedHighlight> _namedHighlights =
             Array.Empty<ReplayNamedHighlight>();
@@ -123,11 +139,75 @@ namespace MphRead.Mods.Launcher.Gui
             _events = events;
             _highlights = highlights;
             _cameraKeys = cameraKeys ?? Array.Empty<ReplayCameraKeyframe>();
+            BuildCameraSegments();
             _bookmarks = bookmarks ?? Array.Empty<uint>();
             _namedHighlights = namedHighlights ?? Array.Empty<ReplayNamedHighlight>();
             _playerFilter = playerFilter;
             _filter = filter;
             InvalidateVisual();
+        }
+
+        private void BuildCameraSegments()
+        {
+            _cameraSegments.Clear();
+            _cameraPeakSpeed = 0;
+            if (_cameraKeys.Count < 2) return;
+
+            for (int i = 0; i + 1 < _cameraKeys.Count; i++)
+            {
+                ReplayCameraKeyframe left = _cameraKeys[i];
+                ReplayCameraKeyframe right = _cameraKeys[i + 1];
+                uint span = Math.Max(1u, right.Frame - left.Frame);
+                float stepSeconds = span / 60f / CameraSpeedSamples;
+                Span<Vector3> positions = stackalloc Vector3[CameraSpeedSamples + 1];
+                bool valid = true;
+                for (int step = 0; step <= CameraSpeedSamples; step++)
+                {
+                    double frame = left.Frame + span * (step / (double)CameraSpeedSamples);
+                    if (!ReplayCamera.Track.Sample(frame, out ReplayCameraKeyframe sample,
+                        ReplayCamera.TrackConstantSpeed))
+                    {
+                        valid = false;
+                        break;
+                    }
+                    positions[step] = sample.Position;
+                }
+                if (!valid) continue;
+
+                float[] speeds = new float[CameraSpeedSamples + 1];
+                for (int step = 0; step <= CameraSpeedSamples; step++)
+                {
+                    float distance;
+                    float seconds;
+                    if (step == 0)
+                    {
+                        distance = (positions[1] - positions[0]).Length;
+                        seconds = stepSeconds;
+                    }
+                    else if (step == CameraSpeedSamples)
+                    {
+                        distance = (positions[step] - positions[step - 1]).Length;
+                        seconds = stepSeconds;
+                    }
+                    else
+                    {
+                        distance = (positions[step + 1] - positions[step - 1]).Length;
+                        seconds = stepSeconds * 2;
+                    }
+                    speeds[step] = seconds > 0 ? distance / seconds : 0;
+                    // Hold is a deliberate teleport at the segment boundary.
+                    // Draw its spike at full height, but do not let that
+                    // effectively-infinite velocity flatten every moving segment.
+                    if (left.Interpolation != ReplayCameraInterpolation.Hold)
+                        _cameraPeakSpeed = Math.Max(_cameraPeakSpeed, speeds[step]);
+                }
+
+                if (!ReplayCamera.Track.TrySegmentFrom(left.Frame,
+                    ReplayCamera.TrackConstantSpeed, out ReplayCameraSegmentInfo info))
+                    continue;
+                _cameraSegments.Add(new(left.Frame, right.Frame, left.Interpolation,
+                    left.Ease, info.AverageSpeed, info.PeakSpeed, speeds));
+            }
         }
 
         public override void Render(DrawingContext context)
@@ -149,7 +229,7 @@ namespace MphRead.Mods.Launcher.Gui
                 context.DrawRectangle(PlayedBrush, null, new Rect(x1, height - 7 - 6d * _density[i] / peak,
                     Math.Max(1, x2 - x1), 6d * _density[i] / peak));
             }
-            const double laneTop = 15;
+            const double laneTop = 24;
             const double laneHeight = 14;
             const double laneGap = 3;
             double killY = laneTop + laneHeight / 2;
@@ -247,6 +327,8 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
+            DrawCameraSpeedGraph(context, first, last, span, width);
+
             foreach (ReplayCameraKeyframe original in _cameraKeys)
             {
                 uint key = _dragTarget == DragTarget.Camera && original.Frame == _cameraFrame
@@ -254,20 +336,22 @@ namespace MphRead.Mods.Launcher.Gui
                 if (key < first || key > last)
                     continue;
                 double x = X(key, first, span, width);
-                context.DrawLine(CameraPen, new Point(x, 8), new Point(x, 12));
+                IBrush keyBrush = CameraBrushFor(original.Interpolation);
+                var keyPen = new Pen(keyBrush, 2);
+                context.DrawLine(keyPen, new Point(x, 8), new Point(x, 12));
                 switch (original.Interpolation)
                 {
                     case ReplayCameraInterpolation.Linear:
-                        context.DrawRectangle(CameraBrush, null, new Rect(x - 3, 2, 6, 6));
+                        context.DrawRectangle(keyBrush, null, new Rect(x - 3, 2, 6, 6));
                         break;
                     case ReplayCameraInterpolation.Smooth:
-                        context.DrawRectangle(null, CameraPen, new Rect(x - 3.5, 1.5, 7, 7));
+                        context.DrawRectangle(null, keyPen, new Rect(x - 3.5, 1.5, 7, 7));
                         break;
                     case ReplayCameraInterpolation.Hold:
-                        context.DrawRectangle(CameraBrush, null, new Rect(x - 4, 4, 8, 2.5));
+                        context.DrawRectangle(keyBrush, null, new Rect(x - 4, 4, 8, 2.5));
                         break;
                     default:
-                        context.DrawEllipse(CameraBrush, null, new Point(x, 5), 3.5, 3.5);
+                        context.DrawEllipse(keyBrush, null, new Point(x, 5), 3.5, 3.5);
                         break;
                 }
                 if (SelectedCameraFrames.Contains(original.Frame))
@@ -295,6 +379,70 @@ namespace MphRead.Mods.Launcher.Gui
                 context.DrawEllipse(PlayheadBrush, null, new Point(x, trackY), 5, 5);
             }
         }
+
+        private void DrawCameraSpeedGraph(DrawingContext context,
+            uint first, uint last, uint span, double width)
+        {
+            if (_cameraSegments.Count == 0) return;
+            const double baseY = 19;
+            const double graphHeight = 8;
+            float peak = Math.Max(0.0001f, _cameraPeakSpeed);
+
+            foreach (CameraSegmentVisual segment in _cameraSegments)
+            {
+                if (segment.EndFrame < first || segment.StartFrame > last) continue;
+                IBrush brush = CameraBrushFor(segment.Interpolation);
+                var pen = new Pen(brush, 1.5);
+
+                uint visibleStart = Math.Max(first, segment.StartFrame);
+                uint visibleEnd = Math.Min(last, segment.EndFrame);
+                double x1 = X(visibleStart, first, span, width);
+                double x2 = X(visibleEnd, first, span, width);
+                context.DrawLine(new Pen(brush, 1), new Point(x1, baseY), new Point(x2, baseY));
+
+                Point? previous = null;
+                for (int step = 0; step <= CameraSpeedSamples; step++)
+                {
+                    double t = step / (double)CameraSpeedSamples;
+                    double frame = segment.StartFrame
+                        + (segment.EndFrame - segment.StartFrame) * t;
+                    if (frame < first || frame > last) continue;
+                    double x = (frame - first) / Math.Max(1d, span) * width;
+                    double normalized = Math.Clamp(segment.Speeds[step] / peak, 0, 1);
+                    double y = baseY - normalized * graphHeight;
+                    var point = new Point(x, y);
+                    if (previous.HasValue) context.DrawLine(pen, previous.Value, point);
+                    previous = point;
+                }
+
+                // The graph is velocity; these extra glyphs make the interpolation
+                // rule itself readable even when two segments happen to have similar speed.
+                double mid = (x1 + x2) / 2;
+                switch (segment.Interpolation)
+                {
+                    case ReplayCameraInterpolation.Smooth:
+                        context.DrawEllipse(brush, null, new Point(mid, baseY), 2, 2);
+                        break;
+                    case ReplayCameraInterpolation.Spline:
+                        context.DrawEllipse(null, pen, new Point(mid, baseY), 2.5, 2.5);
+                        break;
+                    case ReplayCameraInterpolation.Hold:
+                        context.DrawLine(new Pen(brush, 2.5),
+                            new Point(Math.Max(x1, x2 - 2), baseY),
+                            new Point(x2, baseY - graphHeight));
+                        break;
+                }
+            }
+        }
+
+        private static IBrush CameraBrushFor(ReplayCameraInterpolation interpolation)
+            => interpolation switch
+            {
+                ReplayCameraInterpolation.Linear => CameraLinearBrush,
+                ReplayCameraInterpolation.Smooth => CameraSmoothBrush,
+                ReplayCameraInterpolation.Hold => CameraHoldBrush,
+                _ => CameraSplineBrush
+            };
 
         private static void DrawLane(DrawingContext context, double width,
             double y, IBrush brush)
@@ -355,14 +503,14 @@ namespace MphRead.Mods.Launcher.Gui
             Focus();
             double x = e.GetPosition(this).X;
             double y = e.GetPosition(this).Y;
-            static double EventY(ReplayEvent marker) => 22 + 17 * (marker.Type switch
+            static double EventY(ReplayEvent marker) => 31 + 17 * (marker.Type switch
             {
                 ReplayEventType.Kill => 0, ReplayEventType.PlayerDeath => 1,
                 ReplayEventType.Damage => 2, ReplayEventType.WeaponFired => 6,
                 ReplayEventType.PlayerSpawn or ReplayEventType.PlayerJoined or ReplayEventType.PlayerLeft => 5,
                 _ => 3
             });
-            if (e.KeyModifiers == KeyModifiers.None && y >= 14 && y < Bounds.Height - 22)
+            if (e.KeyModifiers == KeyModifiers.None && y >= 22 && y < Bounds.Height - 22)
             {
                 var marker = _events.Where(EventVisible)
                     .Where(item => Math.Abs(y - EventY(item)) <= 6 && DistanceTo(item.Frame, x) <= 6)
@@ -378,7 +526,7 @@ namespace MphRead.Mods.Launcher.Gui
             _rangeIn = _markIn ?? 0; _rangeOut = _markOut ?? 0;
             _dragTarget = e.GetPosition(this).Y >= Bounds.Height - 22
                 ? PickDragTarget(x) : DragTarget.Playhead;
-            if (e.GetPosition(this).Y < 14)
+            if (e.GetPosition(this).Y < 21)
             {
                 ReplayCameraKeyframe? picked = _cameraKeys
                     .OrderBy(key => DistanceTo(key.Frame, x))
@@ -613,7 +761,8 @@ namespace MphRead.Mods.Launcher.Gui
                         ? $"jump {segment.Distance:0.0}u"
                         : $"{segment.AverageSpeed:0.0}u/s avg · {segment.PeakSpeed:0.0}u/s peak";
                     camera = $"\nCAM KEY {ReplayHud.Time(key.Frame)} · {key.Interpolation}/{key.Ease}"
-                        + $" · {segment.Seconds:0.00}s · {segment.Distance:0.0}u · {speed}";
+                        + $" · {segment.Seconds:0.00}s · {segment.Distance:0.0}u · {speed}"
+                        + "\nCamera strip graph height = sampled movement speed";
                 }
                 else camera = $"\nCAM KEY {ReplayHud.Time(key.Frame)} · {key.Interpolation}/{key.Ease} · end key";
             }

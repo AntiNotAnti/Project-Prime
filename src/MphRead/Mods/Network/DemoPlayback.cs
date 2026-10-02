@@ -18,6 +18,9 @@ public static class DemoPlayback
     private static ulong _audio;
     private static bool _failed;
     private static bool _presentationFailed;
+    private static Scene? _presentationHudScene;
+    private static uint _presentationHudFrame = uint.MaxValue;
+    private static int _presentationHudSlot = -1;
     internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
     internal static Scene? ReplicaScene => _player?.Current.Scene;
     // A failed private replay remains alive long enough to accept restart controls,
@@ -54,6 +57,7 @@ public static class DemoPlayback
         {
             ReplayInput.CancelScrub(); ReplayCamera.ClearBookmarks(); ReplayCamera.Reset();
             ReplayHud.Reset(); ReplayStudio.ResetCache(); ReplayKillMessagePresenter.Reset();
+            ResetPresentationHudTick();
         }
         return opened;
     }
@@ -120,7 +124,7 @@ public static class DemoPlayback
                 ReplayAudioOwner.Release(_audio); _audio = 0;
                 replacement.Scene.CopyReplayView(previous); replacement.Scene.UseReplayInput(_shell);
                 replacement.Session.FactRead += ReplayNetworkDiagnostics.OnPacketArray;
-                ReplayHud.Reset(); ReplayKillMessagePresenter.Reset();
+                ReplayHud.Reset(); ReplayKillMessagePresenter.Reset(); ResetPresentationHudTick();
                 ReplayNetworkDiagnostics.Reset(); ReplayVerification.SeekTo(CurrentFrame);
             };
             ReplayVerification.Reset(); ReplayNetworkDiagnostics.Reset();
@@ -145,7 +149,11 @@ public static class DemoPlayback
                 SpectatorMode.Start(watchSomeone: true);
                 var main = current.Players.Main;
                 if (!Headless.Active && main.LoadFlags.TestFlag(LoadFlags.Active) && !main.HudReady) main.SetUpHud();
-                if (!Headless.Active && main.HudReady) ReplayKillMessagePresenter.Update(current);
+                if (!Headless.Active && main.HudReady)
+                {
+                    UpdatePresentationHud(current, main, silent);
+                    ReplayKillMessagePresenter.Update(current);
+                }
                 if (!Headless.Active && !silent) MphRead.Sound.Sfx.Update(1f / 60);
             }
             catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
@@ -157,6 +165,33 @@ public static class DemoPlayback
             }
         }
     }
+    private static void ResetPresentationHudTick()
+    {
+        _presentationHudScene = null;
+        _presentationHudFrame = uint.MaxValue;
+        _presentationHudSlot = -1;
+    }
+
+    private static void UpdatePresentationHud(Scene scene, PlayerEntity main, bool silent)
+    {
+        uint frame = CurrentFrame;
+        int slot = scene.Players.MainPlayerIndex;
+        if (ReferenceEquals(_presentationHudScene, scene)
+            && _presentationHudFrame == frame && _presentationHudSlot == slot)
+            return;
+
+        // Replica stepping deliberately keeps Main fixed so spectating cannot
+        // affect gameplay/RNG. The normal UpdateScene path therefore never
+        // refreshes the watched hunter's visor/reticle. Do that once per
+        // presented replay frame here, after simulation is complete.
+        main.UpdateHud();
+        if (!silent) main.ProcessHudMessageQueue();
+
+        _presentationHudScene = scene;
+        _presentationHudFrame = frame;
+        _presentationHudSlot = slot;
+    }
+
     internal static Scene? PreparePresentation(Scene shell)
     {
         if (!ReferenceEquals(_shell, shell) && !Owns(shell)) return null;
@@ -186,7 +221,7 @@ public static class DemoPlayback
     {
         ReplayInput.CancelScrub();
         ReplayAudioOwner.Release(_audio); _audio = 0;
-        ReplayKillMessagePresenter.Reset();
+        ReplayKillMessagePresenter.Reset(); ResetPresentationHudTick();
         _player?.Dispose(); _player = null;
         Scene? lab = _lab; _lab = null;
         lab?.DoCleanup(); lab?.UnloadGl(); _shell = null;

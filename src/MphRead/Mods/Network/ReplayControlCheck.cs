@@ -101,6 +101,23 @@ namespace MphRead.Mods.Network
                 poseB = poseA; poseB.Flags |= PlayerState.FlagAltForm; Require(!ReplayPoseStream.CanBlend(poseA, poseB), "interpolated across form change");
                 poseB = poseA; poseB.Position = OpenTK.Mathematics.Vector3.UnitX * 20;
                 Require(!ReplayPoseStream.CanBlend(poseA, poseB), "interpolated across teleport");
+                var aimA = new IntentPacket
+                {
+                    SlotGeneration = 1, LifeId = 1,
+                    Aim = -OpenTK.Mathematics.Vector3.UnitZ
+                };
+                var aimB = aimA;
+                aimB.Aim = OpenTK.Mathematics.Vector3.UnitX;
+                Require(ReplayPoseStream.CanBlendAim(aimA, aimB),
+                    "same-life recorded aim cannot interpolate");
+                var aimMid = ReplayPoseStream.InterpolateAim(aimA.Aim, aimB.Aim, .5f);
+                Require(float.IsFinite(aimMid.X) && float.IsFinite(aimMid.Y) && float.IsFinite(aimMid.Z)
+                    && Math.Abs(aimMid.Length - 1) < .0001f
+                    && aimMid.X > .5f && aimMid.Z < -.5f,
+                    "recorded aim interpolation lost the player's angular path");
+                aimB.LifeId++;
+                Require(!ReplayPoseStream.CanBlendAim(aimA, aimB),
+                    "recorded aim interpolated across a respawn");
                 var fractional = new Replay.ReplayCameraTrack();
                 fractional.Put(new(0, OpenTK.Mathematics.Vector3.Zero, OpenTK.Mathematics.Quaternion.Identity, 1,
                     Interpolation: Replay.ReplayCameraInterpolation.Linear, Ease: Replay.ReplayCameraEase.None));
