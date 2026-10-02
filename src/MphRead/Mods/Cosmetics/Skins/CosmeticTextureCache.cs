@@ -12,11 +12,17 @@ namespace MphRead
     {
         private readonly Dictionary<(string, string, int, SkinContext, TextureAssetQuality), RenderMaterialOverride> _cosmeticTextures = new();
         private TextureAssetManager? _cosmeticTextureAssets;
+        private TextureAssetQuality _cosmeticTextureQuality = RenderOptions.TextureQuality;
         private TextureAssetManager CosmeticTextureAssets => _cosmeticTextureAssets ??= new TextureAssetManager(AllocateTexture, ReleaseTexture);
         internal RenderMaterialOverride CosmeticMaterialSubmission { get; set; }
 
         internal RenderMaterialOverride GetCosmeticMaterial(SkinDefinition skin, Model model, int material, SkinContext context)
         {
+            if (_cosmeticTextureQuality != RenderOptions.TextureQuality)
+            {
+                ClearCosmeticTextures();
+                _cosmeticTextureQuality = RenderOptions.TextureQuality;
+            }
             var key = (skin.Key, model.Name, material, context, RenderOptions.TextureQuality);
             if (_cosmeticTextures.TryGetValue(key, out var binding)) return binding;
             string? root = context switch { SkinContext.ViewModel => skin.GunAssets,
