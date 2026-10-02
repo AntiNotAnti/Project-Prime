@@ -7841,9 +7841,7 @@ localCenter *= _profileHudScale;
             if (guarded) Mods.Render.GraphicsBackendPolicy.BeginStartupAttempt(attempted);
             try
             {
-                var window = new RenderWindow(shell);
-                if (guarded) Mods.Render.GraphicsBackendPolicy.CompleteStartupAttempt(attempted);
-                return window;
+                return new RenderWindow(shell);
             }
             catch (Exception ex) when (Mods.Render.GraphicsBackendPolicy.ModernGameplayRequested)
             {
