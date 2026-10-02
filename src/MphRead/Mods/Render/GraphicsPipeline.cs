@@ -66,13 +66,18 @@ namespace MphRead
             }
             try
             {
-                EnsureGraphicsPipeline();
+                bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;
+                AntiAliasingMode effectiveAa = ResolvePostProcessAntiAliasing(
+                    RenderOptions.AntiAliasing, RenderOptions.InternalHdr, pbrAvailable);
+                bool taa = effectiveAa == AntiAliasingMode.Taa;
+                Vector2i target = ResolveGraphicsProcessingSize(_targetSize, Size, taa);
+
+                EnsureGraphicsPipeline(target);
                 if (_graphicsProgram == 0 || _graphicsOutputFramebuffer == 0)
                 {
                     return;
                 }
 
-                Vector2i target = _targetSize;
                 bool hdrActive = RenderOptions.InternalHdr && _graphicsOutputHdr
                     && !_graphicsHdrRefused && _graphicsHdrFramebuffer != 0;
                 GL.BindFramebuffer(FramebufferTarget.Framebuffer,
@@ -110,8 +115,7 @@ namespace MphRead
                     GL.Uniform3(_gfxShadowLightDir, shadowDirection.Normalized());
                 }
 
-                bool taa = RenderOptions.AntiAliasing == AntiAliasingMode.Taa;
-                EnsureGraphicsHistory(target);
+                EnsureGraphicsHistory(_targetSize, taa);
                 GL.ActiveTexture(TextureUnit.Texture3);
                 GL.BindTexture(TextureTarget.Texture2D,
                     taa && _graphicsHistoryValid ? _graphicsHistoryTexture : 0);
@@ -120,7 +124,6 @@ namespace MphRead
                 Matrix4 previousViewProjection = _graphicsPreviousViewProjection;
                 GL.UniformMatrix4(_gfxPreviousViewProjection, false, ref previousViewProjection);
 
-                bool pbrAvailable = RenderOptions.DeferredPbr && DeferredPbrReady;
                 GL.ActiveTexture(TextureUnit.Texture4);
                 GL.BindTexture(TextureTarget.Texture2D, pbrAvailable ? DeferredPbrAlbedo : 0);
                 GL.Uniform1(_gfxPbrAlbedo, 4);
@@ -137,10 +140,13 @@ namespace MphRead
                 GL.Uniform3(_gfxPbrLight2Color, _light2Color);
                 GL.ActiveTexture(TextureUnit.Texture0);
 
-                GL.Uniform2(_gfxTexel, 1f / Math.Max(1, target.X), 1f / Math.Max(1, target.Y));
+                // Sampling offsets describe the full-resolution world/depth
+                // sources, even when the expensive post-process pass is resolved
+                // directly at the final presentation size.
+                GL.Uniform2(_gfxTexel, 1f / Math.Max(1, _targetSize.X), 1f / Math.Max(1, _targetSize.Y));
                 GL.Uniform1(_gfxNear, _nearClip);
                 GL.Uniform1(_gfxFar, _useClip ? Math.Max(_farClip, _nearClip + 1f) : 10000f);
-                GL.Uniform1(_gfxAa, (int)RenderOptions.AntiAliasing);
+                GL.Uniform1(_gfxAa, (int)effectiveAa);
                 GL.Uniform1(_gfxSharpen, RenderOptions.SharpenStrength / 100f);
                 GL.Uniform1(_gfxBloom, RenderOptions.Bloom && RenderOptions.BloomIntensity > 0 ? 1 : 0);
                 GL.Uniform1(_gfxBloomIntensity, RenderOptions.BloomIntensity / 100f);
@@ -174,7 +180,7 @@ namespace MphRead
                 {
                     ResolveGraphicsHdr(target);
                 }
-                UpdateGraphicsHistory(target);
+                UpdateGraphicsHistory(_targetSize, taa);
                 _graphicsOutputReady = true;
                 RenderPostProcessCount++;
                 CheckGlError("GraphicsPostProcess");
@@ -206,13 +212,44 @@ namespace MphRead
             }
         }
 
+        internal static AntiAliasingMode ResolvePostProcessAntiAliasing(
+            AntiAliasingMode requested, bool hdrRequested, bool pbrAvailable)
+        {
+            // The temporal shader cannot safely consume HDR or the deferred
+            // material buffer yet. Do not maintain a history texture that the
+            // shader will reject; use the existing morphological resolve instead.
+            return requested == AntiAliasingMode.Taa && (hdrRequested || pbrAvailable)
+                ? AntiAliasingMode.Smaa : requested;
+        }
+
+        internal static Vector2i ResolveGraphicsProcessingSize(
+            Vector2i sceneTarget, Vector2i outputSize, bool taaActive)
+        {
+            if (taaActive || sceneTarget.X <= 0 || sceneTarget.Y <= 0
+                || outputSize.X <= 0 || outputSize.Y <= 0
+                || (sceneTarget.X <= outputSize.X && sceneTarget.Y <= outputSize.Y))
+            {
+                return sceneTarget;
+            }
+
+            // Supersampling is valuable for world geometry and source texture
+            // detail, but AO/SSR/bloom/HDR need not shade every supersampled
+            // pixel only to be downsampled by the composite pass. Resolve those
+            // effects once at the presentation size, preserving aspect ratio.
+            double scale = Math.Min((double)outputSize.X / sceneTarget.X,
+                (double)outputSize.Y / sceneTarget.Y);
+            return new Vector2i(
+                Math.Max(1, (int)Math.Round(sceneTarget.X * scale)),
+                Math.Max(1, (int)Math.Round(sceneTarget.Y * scale)));
+        }
+
         private int GraphicsCompositeTexture()
             => _graphicsOutputReady ? _graphicsOutputTexture : _screenTexture;
 
         private int GraphicsReadFramebuffer()
             => _graphicsOutputReady ? _graphicsOutputFramebuffer : _frameBuffer;
 
-        private void EnsureGraphicsPipeline()
+        private void EnsureGraphicsPipeline(Vector2i target)
         {
             if (_graphicsProgram == 0)
             {
@@ -334,12 +371,12 @@ namespace MphRead
                 _graphicsOutputTexture = GL.GenTexture();
             }
 
-            bool sizeChanged = _graphicsOutputSize != _targetSize;
+            bool sizeChanged = _graphicsOutputSize != target;
             if (sizeChanged)
             {
                 GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                    _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
+                    target.X, target.Y, 0, PixelFormat.Rgba,
                     PixelType.UnsignedByte, IntPtr.Zero);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                     (int)TextureMinFilter.Linear);
@@ -370,7 +407,7 @@ namespace MphRead
                 {
                     GL.BindTexture(TextureTarget.Texture2D, _graphicsHdrTexture);
                     GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
-                        _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba,
+                        target.X, target.Y, 0, PixelFormat.Rgba,
                         PixelType.Float, IntPtr.Zero);
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
                         (int)TextureMinFilter.Linear);
@@ -404,7 +441,7 @@ namespace MphRead
                 _graphicsOutputHdr = false;
             }
 
-            _graphicsOutputSize = _targetSize;
+            _graphicsOutputSize = target;
         }
 
         private void ResolveGraphicsHdr(Vector2i target)
@@ -420,9 +457,9 @@ namespace MphRead
             DrawGraphicsFullscreenQuad();
         }
 
-        private void EnsureGraphicsHistory(Vector2i target)
+        private void EnsureGraphicsHistory(Vector2i target, bool active)
         {
-            if (RenderOptions.AntiAliasing != AntiAliasingMode.Taa)
+            if (!active)
             {
                 _graphicsHistoryValid = false;
                 return;
@@ -454,10 +491,9 @@ namespace MphRead
             _graphicsHistoryValid = false;
         }
 
-        private void UpdateGraphicsHistory(Vector2i target)
+        private void UpdateGraphicsHistory(Vector2i target, bool active)
         {
-            if (RenderOptions.AntiAliasing != AntiAliasingMode.Taa
-                || _graphicsHistoryTexture == 0)
+            if (!active || _graphicsHistoryTexture == 0)
             {
                 _graphicsHistoryValid = false;
                 return;
