@@ -60,7 +60,8 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly ChoiceRow _exportPreset;
         private readonly ChoiceRow _exportResolution;
         private readonly ChoiceRow _exportFps;
-        private readonly ToggleRow _exportHud;
+        private readonly ToggleRow _exportGameHud;
+        private readonly ToggleRow _exportReplayOverlay;
         private readonly TextBlock _exportQueueStatus;
         private readonly ChoiceRow _exportEncoder = new("Encoder", new[] { "libx264" }, 0);
         private readonly DispatcherTimer _timer;
@@ -385,20 +386,24 @@ namespace MphRead.Mods.Launcher.Gui
                 new[] { "720p", "1080p", "1440p", "4K" }, 1);
             _exportFps = new ChoiceRow("Export FPS", ReplayExportRates.Supported.Select(rate => rate.ToString()).ToArray(),
                 Array.IndexOf(ReplayExportRates.Supported, 60));
-            _exportHud = new ToggleRow("Include game/replay HUD", false);
+            _exportGameHud = new ToggleRow("Include game HUD", false);
+            _exportReplayOverlay = new ToggleRow("Include replay overlay", false);
             _exportPreset.Changed += (_, _) =>
             {
                 ReplayExportPreset preset = SelectedPreset();
                 _exportResolution.Index = (int)preset.Resolution;
                 _exportFps.Index = Array.IndexOf(ReplayExportRates.Supported, preset.Fps);
-                _exportHud.On = !preset.CleanHud;
+                _exportGameHud.On = preset.GameHud;
+                _exportReplayOverlay.On = preset.ReplayOverlay;
             };
             body.Children.Add(_exportPreset);
             body.Children.Add(_exportResolution);
             body.Children.Add(_exportEncoder);
             _ = LoadEncoders();
             body.Children.Add(_exportFps);
-            body.Children.Add(_exportHud);
+            body.Children.Add(_exportGameHud);
+            body.Children.Add(_exportReplayOverlay);
+            body.Children.Add(new Note("Game HUD keeps the hunter HUD, crosshair and native kill/headshot notices. Replay overlay adds the replay transport/timeline/status layer. Replay Studio editor panels are never baked into video exports."));
 
             var outputGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
             body.Children.Add(outputGrid);
@@ -1093,7 +1098,8 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 Resolution = resolution,
                 Fps = fps,
-                CleanHud = !_exportHud.On
+                GameHud = _exportGameHud.On,
+                ReplayOverlay = _exportReplayOverlay.On
             };
         }
 
