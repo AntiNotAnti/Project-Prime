@@ -601,10 +601,10 @@ namespace MphRead.Mods.Network
             // as a different player would swap two people's scores, names and
             // hunters mid-match.
             _scratch[1] = LocalSlot >= 0 && LocalSlot < 0xFF ? (byte)LocalSlot : (byte)0xFF;
-            // Appended rather than inserted: a server built before this
-            // reads the first two bytes and ignores the rest, so a new
-            // client still joins an old server -- it simply gets the old
-            // behaviour when its connection drops.
+            // Connection identity remains in the established prefix. New
+            // handshake semantics are protected by ProtocolVersion, so peers
+            // that disagree about the spectator-role tail are refused rather
+            // than silently interpreting different admission state.
             BinaryPrimitives.WriteUInt32LittleEndian(_scratch.AsSpan(2, 4), ClientId);
             _ownerToken.TryWriteBytes(_scratch.AsSpan(6, 16));
             // Protocol 36: admission role. This is deliberately part of Hello,
