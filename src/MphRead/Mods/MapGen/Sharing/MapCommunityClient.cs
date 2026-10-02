@@ -84,7 +84,8 @@ public sealed class MapCommunityClient : IDisposable
     public const int UploadChunkBytes = 50 * 1024 * 1024;
     private const int MinimumAdaptiveChunkBytes = 1024 * 1024;
 
-    public async Task<CommunityMap> UploadAsync(string path, CancellationToken token, bool listed = true, bool draft = false)
+    public async Task<CommunityMap> UploadAsync(string path, CancellationToken token, bool listed = true, bool draft = false,
+        Action<long, long>? progress = null)
     {
         using var package = new MapPackageReader(path);
         if (package.Manifest == null) throw new InvalidDataException("Build a current .ppmap package before sharing.");
@@ -100,9 +101,10 @@ public sealed class MapCommunityClient : IDisposable
 
         MapUploadState? state = await BeginChunkedUploadAsync(hash, bytes, listed, draft, token).ConfigureAwait(false);
         if (state == null)
-            return await UploadLegacyAsync(path, listed, draft, token).ConfigureAwait(false);
+            return await UploadLegacyAsync(path, listed, draft, token, progress).ConfigureAwait(false);
 
         ValidateUploadState(state, hash, bytes);
+        progress?.Invoke(state.Offset, bytes);
         int recoveries = 0;
         while (!state.Complete && state.Offset < bytes)
         {
@@ -123,6 +125,7 @@ public sealed class MapCommunityClient : IDisposable
                 {
                     state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
                     ValidateUploadState(state, hash, bytes);
+                    progress?.Invoke(state.Offset, bytes);
                     break;
                 }
                 catch (TaskCanceledException) when (!token.IsCancellationRequested && recoveries++ < 3)
@@ -131,6 +134,7 @@ public sealed class MapCommunityClient : IDisposable
                     // service may already have persisted a prefix of this chunk.
                     state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
                     ValidateUploadState(state, hash, bytes);
+                    progress?.Invoke(state.Offset, bytes);
                     break;
                 }
                 using (response)
@@ -156,6 +160,7 @@ public sealed class MapCommunityClient : IDisposable
                         if (recovered.Offset > offset)
                         {
                             state = recovered;
+                            progress?.Invoke(state.Offset, bytes);
                             break;
                         }
                     }
@@ -164,6 +169,7 @@ public sealed class MapCommunityClient : IDisposable
                     ValidateUploadState(state, hash, bytes);
                     if (state.Offset <= offset && !state.Complete)
                         throw new InvalidDataException("Community upload did not advance.");
+                    progress?.Invoke(state.Offset, bytes);
                     recoveries = 0;
                     break;
                 }
@@ -181,11 +187,13 @@ public sealed class MapCommunityClient : IDisposable
             await CopyBoundedAsync(await complete.Content.ReadAsStreamAsync(token), data, 64 * 1024, token).ConfigureAwait(false);
             var published = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(), MapPackageReader.JsonOptions)
                 ?? throw new InvalidDataException("The community returned no map identity.");
+            progress?.Invoke(bytes, bytes);
             return ConfirmUpload(path, published);
         }
 
         var existing = await GetPackageAsync(hash, token).ConfigureAwait(false)
             ?? throw new InvalidDataException("The community reported a completed upload without package metadata.");
+        progress?.Invoke(bytes, bytes);
         return ConfirmUpload(path, existing);
     }
 
@@ -222,9 +230,11 @@ public sealed class MapCommunityClient : IDisposable
             throw new InvalidDataException("The community returned an invalid upload state.");
     }
 
-    private async Task<CommunityMap> UploadLegacyAsync(string path, bool listed, bool draft, CancellationToken token)
+    private async Task<CommunityMap> UploadLegacyAsync(string path, bool listed, bool draft, CancellationToken token,
+        Action<long, long>? progress)
     {
         using var stream = File.OpenRead(path);
+        progress?.Invoke(0, stream.Length);
         using var content = new StreamContent(stream);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
         HttpResponseMessage uploaded;
@@ -246,6 +256,7 @@ public sealed class MapCommunityClient : IDisposable
         await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), data, 64 * 1024, token).ConfigureAwait(false);
         var published = JsonSerializer.Deserialize<CommunityMap>(data.ToArray(), MapPackageReader.JsonOptions)
             ?? throw new InvalidDataException("The community returned no map identity.");
+        progress?.Invoke(stream.Length, stream.Length);
         return ConfirmUpload(path, published);
     }
 
