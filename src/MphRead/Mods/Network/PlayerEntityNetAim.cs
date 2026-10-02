@@ -2313,6 +2313,7 @@ namespace MphRead.Entities
             {
                 _controllerAssist.Reset();
                 ModResetShadowFreezeControllerAssist();
+                Mods.Input.GamepadInput.SetAimPrecisionContext(0, 0);
                 return;
             }
             float scopeBlend = AimScopeBlend();
