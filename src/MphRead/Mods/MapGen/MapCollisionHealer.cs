@@ -79,7 +79,7 @@ public static class MapCollisionHealer
     private const float PlayerHeight = 1.6f;
     private const float RuntimeEdgeMargin = -.03125f;
     private const int RuntimePlayerContactLimit = 40;
-    private const float PlayerSweepStep = .35f;
+    private const float PlayerSweepStep = .45f;
     private const float CapsuleSkin = .025f;
     // MapBuilder.SolveJumpPad authors launch velocity in the original 30 Hz
     // movement units, so the Forge predictor deliberately uses that same
@@ -546,6 +546,7 @@ public static class MapCollisionHealer
         // Render-driven probes catch floor holes navigation cannot see because a
         // missing floor never produces a node in the first place.
         int stride = Math.Max(1, map.Faces.Count / 10000);
+        int densityProbeCount = 0;
         for (int i = 0; i < map.Faces.Count; i += stride)
         {
             cancellation.ThrowIfCancellationRequested();
@@ -563,8 +564,10 @@ public static class MapCollisionHealer
                             new[] { sample }));
                     continue;
                 }
-                if (TryFloor(collision, sample + Vector3.UnitY * .45f, 1.1f, .45f, out float floor))
+                if (densityProbeCount < 1024 && health.ProbeCount % 8 == 1
+                    && TryFloor(collision, sample + Vector3.UnitY * .45f, 1.1f, .45f, out float floor))
                 {
+                    densityProbeCount++;
                     Vector3 feet = new(sample.X, floor + CapsuleSkin, sample.Z);
                     ProbePlayerCapsule(collision, feet, out int contacts, out _);
                     if (contacts >= RuntimePlayerContactLimit)
@@ -585,7 +588,7 @@ public static class MapCollisionHealer
         failurePoint = to;
         maximumContacts = 0;
         Vector3 delta = to - from;
-        int steps = Math.Clamp((int)MathF.Ceiling(delta.Length / PlayerSweepStep), 1, 96);
+        int steps = Math.Clamp((int)MathF.Ceiling(delta.Length / PlayerSweepStep), 1, 48);
         for (int step = 0; step <= steps; step++)
         {
             Vector3 sample = Vector3.Lerp(from, to, step / (float)steps);
@@ -623,30 +626,118 @@ public static class MapCollisionHealer
             Vector3 normal = face.Normal;
             if (normal.LengthSquared < 1e-10f) continue;
             normal.Normalize();
-            float bottomDistance = Vector3.Dot(normal, bottom - face.Points[0]);
-            float topDistance = Vector3.Dot(normal, top - face.Points[0]);
-            float t;
-            if (bottomDistance * topDistance <= 0 && MathF.Abs(bottomDistance - topDistance) > 1e-6f)
-                t = Math.Clamp(bottomDistance / (bottomDistance - topDistance), 0, 1);
-            else
-                t = MathF.Abs(bottomDistance) <= MathF.Abs(topDistance) ? 0 : 1;
-            Vector3 centre = Vector3.Lerp(bottom, top, t);
-            float signedDistance = Vector3.Dot(normal, centre - face.Points[0]);
-            float distance = MathF.Abs(signedDistance);
+
+            float distance = CapsuleFaceDistance(face, normal, bottom, top, out Vector3 closest);
             if (distance > PlayerRadius + .08f) continue;
-            Vector3 projected = centre - normal * signedDistance;
-            if (!Accepts(face, projected)) continue;
             contacts++;
             if (PlayerRadius - distance <= CapsuleSkin) continue;
 
             // A walkable face immediately below the feet is support, not an
             // obstruction. The generous vertical envelope covers steep legal
             // ramps while still treating walls and overhead faces as blockers.
-            if (normal.Y >= WalkableY && projected.Y <= feet.Y + .45f) continue;
-            if (clear) obstruction = projected;
+            if (normal.Y >= WalkableY && closest.Y <= feet.Y + .45f) continue;
+            if (clear) obstruction = closest;
             clear = false;
         }
         return clear;
+    }
+
+    private static float CapsuleFaceDistance(BuiltFace face, Vector3 normal,
+        Vector3 bottom, Vector3 top, out Vector3 closest)
+    {
+        float bottomDistance = Vector3.Dot(normal, bottom - face.Points[0]);
+        float topDistance = Vector3.Dot(normal, top - face.Points[0]);
+        float t;
+        if (bottomDistance * topDistance <= 0 && MathF.Abs(bottomDistance - topDistance) > 1e-6f)
+            t = Math.Clamp(bottomDistance / (bottomDistance - topDistance), 0, 1);
+        else
+            t = MathF.Abs(bottomDistance) <= MathF.Abs(topDistance) ? 0 : 1;
+        Vector3 centre = Vector3.Lerp(bottom, top, t);
+        float signedDistance = Vector3.Dot(normal, centre - face.Points[0]);
+        Vector3 projected = centre - normal * signedDistance;
+        if (Accepts(face, projected))
+        {
+            closest = projected;
+            return MathF.Abs(signedDistance);
+        }
+
+        float bestSquared = float.MaxValue;
+        closest = projected;
+        for (int i = 0; i < face.Points.Length; i++)
+        {
+            Vector3 edgeStart = face.Points[i];
+            Vector3 edgeEnd = face.Points[(i + 1) % face.Points.Length];
+            float squared = SegmentSegmentDistanceSquared(bottom, top, edgeStart, edgeEnd,
+                out _, out Vector3 edgePoint);
+            if (squared < bestSquared)
+            {
+                bestSquared = squared;
+                closest = edgePoint;
+            }
+        }
+        return bestSquared == float.MaxValue ? float.MaxValue : MathF.Sqrt(bestSquared);
+    }
+
+    private static float SegmentSegmentDistanceSquared(Vector3 p1, Vector3 q1,
+        Vector3 p2, Vector3 q2, out Vector3 c1, out Vector3 c2)
+    {
+        const float epsilon = 1e-8f;
+        Vector3 d1 = q1 - p1;
+        Vector3 d2 = q2 - p2;
+        Vector3 r = p1 - p2;
+        float a = Vector3.Dot(d1, d1);
+        float e = Vector3.Dot(d2, d2);
+        float f = Vector3.Dot(d2, r);
+        float s;
+        float t;
+
+        if (a <= epsilon && e <= epsilon)
+        {
+            c1 = p1;
+            c2 = p2;
+            return Vector3.DistanceSquared(c1, c2);
+        }
+        if (a <= epsilon)
+        {
+            s = 0;
+            t = Math.Clamp(f / e, 0, 1);
+        }
+        else
+        {
+            float c = Vector3.Dot(d1, r);
+            if (e <= epsilon)
+            {
+                t = 0;
+                s = Math.Clamp(-c / a, 0, 1);
+            }
+            else
+            {
+                float b = Vector3.Dot(d1, d2);
+                float denominator = a * e - b * b;
+                s = MathF.Abs(denominator) > epsilon
+                    ? Math.Clamp((b * f - c * e) / denominator, 0, 1)
+                    : 0;
+                float tNumerator = b * s + f;
+                if (tNumerator < 0)
+                {
+                    t = 0;
+                    s = Math.Clamp(-c / a, 0, 1);
+                }
+                else if (tNumerator > e)
+                {
+                    t = 1;
+                    s = Math.Clamp((b - c) / a, 0, 1);
+                }
+                else
+                {
+                    t = tNumerator / e;
+                }
+            }
+        }
+
+        c1 = p1 + d1 * s;
+        c2 = p2 + d2 * t;
+        return Vector3.DistanceSquared(c1, c2);
     }
 
     private static void AuditJumpPads(BuiltMap map, MapDefinition definition,
@@ -682,7 +773,7 @@ public static class MapCollisionHealer
                 Vector3 current = start + velocity * t
                     - Vector3.UnitY * (.5f * JumpPadGravity * t * t);
                 float distance = Vector3.Distance(previous, current);
-                int substeps = Math.Clamp((int)MathF.Ceiling(distance / PlayerSweepStep), 1, 16);
+                int substeps = Math.Clamp((int)MathF.Ceiling(distance / PlayerSweepStep), 1, 12);
                 for (int substep = 1; substep <= substeps; substep++)
                 {
                     Vector3 sample = Vector3.Lerp(previous, current, substep / (float)substeps);
