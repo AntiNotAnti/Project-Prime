@@ -93,6 +93,9 @@ namespace MphRead.Mods
             RenderOptions.TextureAnisotropy = Math.Clamp(
                 RenderOptions.ParseInt(settings.TextureAnisotropy,
                     RenderOptions.TextureAnisotropy), 1, 16);
+            if (Enum.TryParse(settings.TextureSampling, true, out TextureSamplingMode textureSampling)
+                && Enum.IsDefined(textureSampling))
+                RenderOptions.TextureSampling = textureSampling;
             RenderOptions.ShowFps = RenderOptions.ParseOnOff(settings.ShowFps, RenderOptions.ShowFps);
             RenderOptions.SmoothNativeHud = RenderOptions.ParseOnOff(settings.SmoothNativeHud,
                 RenderOptions.SmoothNativeHud);
