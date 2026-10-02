@@ -156,6 +156,23 @@ namespace MphRead.Mods.Render
                     "modern texture downscale preserves a valid RGBA surface");
                 Check(normal.EstimateGpuBytes(false) == 4 && normal.EstimateGpuBytes(true) == 5,
                     "modern texture residency estimate includes mip overhead");
+                using var tga = new System.IO.MemoryStream();
+                using (var writer = new System.IO.BinaryWriter(tga, System.Text.Encoding.UTF8, leaveOpen: true))
+                {
+                    writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)2);
+                    writer.Write((ushort)0); writer.Write((ushort)0); writer.Write((byte)0);
+                    writer.Write((ushort)0); writer.Write((ushort)0);
+                    writer.Write((ushort)2); writer.Write((ushort)1);
+                    writer.Write((byte)24); writer.Write((byte)0x20);
+                    writer.Write(new byte[] { 30, 20, 10, 90, 80, 70 });
+                }
+                tga.Position = 0;
+                ModernTextureAsset tgaAsset = ModernTextureAsset.Decode(tga, "check.tga",
+                    TextureAssetClass.World, TextureAssetChannel.Albedo);
+                Check(tgaAsset.Width == 2 && tgaAsset.Height == 1
+                    && tgaAsset.Pixels[0] == 10 && tgaAsset.Pixels[1] == 20 && tgaAsset.Pixels[2] == 30
+                    && tgaAsset.Pixels[4] == 70 && tgaAsset.Pixels[5] == 80 && tgaAsset.Pixels[6] == 90,
+                    "managed TGA decode preserves BGR ordering and dimensions");
 
                 Console.WriteLine("[graphicscheck] presets, migration and modern texture policy passed");
                 return 0;
