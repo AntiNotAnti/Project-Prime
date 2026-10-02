@@ -2352,12 +2352,38 @@ namespace MphRead.Mods.Launcher.Gui
             var bsp=await Task.Run(()=>Q3Bsp.Load(level,import.MapName,token),token);
             var archives=MapTextureBake.DiscoverArchives(level,provenance?.DependencyArchives());
             var result=await Task.Run(()=>MapTextureBake.Bake(bsp,archives,target,MapTextureBake.DefaultSize,cancellation:token),token);
+            var modern=await Task.Run(()=>MapTextureBake.ExtractModern(bsp,archives,cancellation:token),token);
             GuardJob(token);
+            var modernPaths=new Dictionary<int,string>();
+            string textureRoot=import.BaseDirectory??definition.BaseDirectory??CustomRooms.MapDirectory;
+            foreach(var source in modern)
+            {
+                string hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source.Bytes)).ToLowerInvariant();
+                string relative="textures/q3-"+hash+source.Extension;
+                string output=Path.GetFullPath(Path.Combine(textureRoot,relative));
+                string prefix=Path.GetFullPath(textureRoot)+Path.DirectorySeparatorChar;
+                if(!output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Rebaked HD texture escapes the map project.");
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                if(!File.Exists(output))AtomicFile.Write(output,source.Bytes);
+                modernPaths[source.SourceIndex]=relative;
+            }
             if(provenance!=null){provenance.UpdateTextureBake(result);provenance.Save(provenanceRoot);}
-            if(String.IsNullOrWhiteSpace(import.Textures))
-                _document.Edit("Set Q3 texture pack",d=>d.Import!.Textures=textureName,MapChangeDomain.Import);
+            _document.Edit("Rebake Q3 textures",d=>
+            {
+                if(String.IsNullOrWhiteSpace(d.Import!.Textures))d.Import.Textures=textureName;
+                var stale=d.Import.ModernTextures.Values.Except(modernPaths.Values,StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                d.Import.ModernTextures=new Dictionary<int,string>(modernPaths);
+                foreach(string relative in modernPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+                    if(!d.Assets.Any(a=>a.Path.Equals(relative,StringComparison.OrdinalIgnoreCase)))
+                        d.Assets.Add(new MapAsset{Path=relative,Kind="texture",Name="Q3 HD source"});
+                d.Assets.RemoveAll(a=>stale.Contains(a.Path)
+                    && !d.Materials.Any(m=>new[]{m.Texture,m.Albedo,m.Normal,m.SpecularRoughness,m.Emissive}
+                        .Any(p=>String.Equals(p,a.Path,StringComparison.OrdinalIgnoreCase))));
+            },MapChangeDomain.Import|MapChangeDomain.Material);
+            foreach(string relative in modernPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+                _document.RegisterGeneratedAsset(relative,textureRoot);
             _validatedState=null;
-            _status.Text=$"Rebaked {result.Baked} Q3 textures · {result.Resolved} resolved · {result.Fallbacks} fallback · {result.Archives.Count} archive(s)";
+            _status.Text=$"Rebaked {result.Baked} Q3 textures · {modern.Count} HD source images · {result.Resolved} resolved · {result.Fallbacks} fallback · {result.Archives.Count} archive(s)";
         });
 
         private async Task PickReimportSource()
