@@ -168,12 +168,13 @@ namespace MphRead.Mods.Launcher.Gui
                 };
             });
             Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>{if(name!="Add object")AddObject(name);});
-            Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
+            Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision normals","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
             {
                 if(_viewport==null)return;
                 if(name=="Navigation"){_=Navigation();return;}
                 _viewport.Wireframe=name=="Wireframe";
-                _viewport.Collision=name is "Collision" or "Collision heat" or "Collision repairs";
+                _viewport.Collision=name is "Collision" or "Collision normals" or "Collision heat" or "Collision repairs";
+                _viewport.CollisionNormalsOverlay=name=="Collision normals";
                 _viewport.CollisionHeatmap=name=="Collision heat";
                 _viewport.CollisionRepairsOverlay=name=="Collision repairs";
                 _viewport.PartitionOverlay=name=="Partitions";_viewport.KillPlane=name=="Kill plane";_viewport.InvalidateVisual();
@@ -881,7 +882,7 @@ namespace MphRead.Mods.Launcher.Gui
             var filter=new ComboBox
             {
                 ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence",
-                    "Movement risks","Contact density","Jump pads","Reviewed"},
+                    "Movement risks","Contact density","Jump pads","Topology","Reviewed"},
                 SelectedIndex=0
             };
             var list=new ListBox{MaxHeight=360};var radius=new TextBox{Text="2"};
@@ -902,6 +903,9 @@ namespace MphRead.Mods.Launcher.Gui
                         or MapCollisionRepairKind.JumpPadFailure or MapCollisionRepairKind.ReachabilityWarning,
                     "Contact density"=>repair.Kind==MapCollisionRepairKind.ContactOverflowRisk,
                     "Jump pads"=>repair.Kind==MapCollisionRepairKind.JumpPadFailure,
+                    "Topology"=>repair.Kind is MapCollisionRepairKind.DegenerateRemoved
+                        or MapCollisionRepairKind.OverlappingSurface or MapCollisionRepairKind.WindingWarning
+                        or MapCollisionRepairKind.OpenBoundary,
                     _=>true
                 };
             void Refresh()
@@ -962,10 +966,12 @@ namespace MphRead.Mods.Launcher.Gui
             var health=_viewport.Cache.CollisionHealth;
             _inspector.Children.Add(Text(
                 $"Repairs/risks: {repairs.Length:N0} · disabled regions: {excluded}\n"
-                +(health==null?"Analyze/validate to populate movement health."
-                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · "
-                    +$"{health.SweepFailures}/{health.SweepCount} movement/launch sweep failures\n"
-                    +$"Body traversal: {bodyFailures} · contact-buffer risks: {overflowRisks} · jump-pad risks: {jumpPadFailures}")));
+                +(health==null?"Analyze/validate to populate movement and topology health."
+                    :$"Gameplay: health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probes · "
+                    +$"{health.SweepFailures}/{health.SweepCount} movement/launch sweeps\n"
+                    +$"Movement: body {bodyFailures} · contact-buffer {overflowRisks} · jump-pad {jumpPadFailures}\n"
+                    +$"Topology: degenerate removed {health.DegenerateFacesRemoved} · overlaps {health.OverlappingFaces} · "
+                    +$"winding {health.WindingWarnings} · open edges {health.OpenBoundaryEdges} (open edges may be intentional)")));
         }
 
         private void LayerInspector()
