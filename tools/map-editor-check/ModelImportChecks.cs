@@ -80,7 +80,7 @@ internal static class ModelImportChecks
         var tgaTextured=ModelImportService.Import(path,new());
         check(tgaTextured.Assets.Count==1&&MapTexturePack.Load(tgaTextured.Assets.Single().Value,"tga").Entries.Single().Width==64,
             "OBJ imports TGA diffuse textures while tolerating standard map_Kd options");
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 5000);
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 9000);
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/tile.png\n");
         bool oversizedImage = false;
