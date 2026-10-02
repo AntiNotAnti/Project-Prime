@@ -1540,15 +1540,16 @@ namespace MphRead
         private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey? Authored)> _textureSources = new();
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
         private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
-        private Mods.TextureSamplingMode _uploadedTextureSampling = Mods.RenderOptions.TextureSampling;
+        private string _uploadedTextureSamplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
+            string samplingKey = Mods.Render.TextureSamplingPolicy.RuntimeKey;
             if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
-                && _uploadedTextureSampling == Mods.RenderOptions.TextureSampling
+                && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
                 && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
                 && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
@@ -1561,7 +1562,7 @@ namespace MphRead
                 if (_texPalMap.TryGetValue(model.Id, out var map)) EnsureAuthoredTextures(model, map);
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
             _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
-            _uploadedTextureSampling = Mods.RenderOptions.TextureSampling;
+            _uploadedTextureSamplingKey = samplingKey;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }
