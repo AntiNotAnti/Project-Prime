@@ -57,8 +57,8 @@ namespace MphRead
                 if (material.TextureId < 0 || material.Alpha < 31) return 0;
                 using Stream? stream = CosmeticAsset.Open(path);
                 if (stream == null) return 0;
-                ModernTextureAsset decal = ModernTextureAsset.Decode(stream, path, assetClass, TextureAssetChannel.Albedo)
-                    .Fit(TextureAssetManager.DimensionLimit(assetClass, TextureAssetChannel.Albedo));
+                int cap = TextureAssetManager.DimensionLimit(assetClass, TextureAssetChannel.Albedo);
+                ModernTextureAsset decal = ModernTextureAsset.Decode(stream, path, assetClass, TextureAssetChannel.Albedo, cap);
                 var native = model.Recolors[0].Textures[material.TextureId];
                 var pixels = model.GetPixels(material.TextureId, material.PaletteId, 0);
                 int width = Math.Max(native.Width, decal.Width);
