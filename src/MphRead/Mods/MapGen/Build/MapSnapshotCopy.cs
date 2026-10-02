@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace MphRead.Mods.MapGen;
 
@@ -38,7 +39,8 @@ internal static class MapSnapshotCopy
         }
         if (type.Namespace != typeof(MapDefinition).Namespace)
             throw new InvalidOperationException("Unsupported map snapshot data: " + type.FullName);
-        object copy = Activator.CreateInstance(type)!;
+        object copy = type.GetConstructor(Type.EmptyTypes)?.Invoke(null)
+            ?? RuntimeHelpers.GetUninitializedObject(type);
         foreach (PropertyInfo property in Properties.GetOrAdd(type, t => t.GetProperties(BindingFlags.Instance | BindingFlags.Public)
             .Where(p => p.CanRead && p.SetMethod?.IsPublic == true && p.GetIndexParameters().Length == 0).ToArray()))
             property.SetValue(copy, CopyValue(property.GetValue(value)));
