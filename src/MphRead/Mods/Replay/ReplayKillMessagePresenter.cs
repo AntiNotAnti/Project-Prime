@@ -16,18 +16,12 @@ internal static class ReplayKillMessagePresenter
     private static Scene? _scene;
     private static uint _frame;
     private static long _seekGeneration = -1;
-    private static uint? _presentedKillFrame;
-    private static byte _presentedKiller = byte.MaxValue;
-    private static byte _presentedVictim = byte.MaxValue;
 
     internal static void Reset()
     {
         _scene = null;
         _frame = 0;
         _seekGeneration = -1;
-        _presentedKillFrame = null;
-        _presentedKiller = byte.MaxValue;
-        _presentedVictim = byte.MaxValue;
     }
 
     internal static void Update(Scene scene)
@@ -41,9 +35,6 @@ internal static class ReplayKillMessagePresenter
             _scene = scene;
             _frame = frame;
             _seekGeneration = generation;
-            _presentedKillFrame = null;
-            _presentedKiller = byte.MaxValue;
-            _presentedVictim = byte.MaxValue;
         }
 
         // Use the camera the replica is actually presenting. ReplayCamera.Mode is
@@ -61,20 +52,13 @@ internal static class ReplayKillMessagePresenter
         int pov = scene.Players.MainPlayerIndex;
         if ((uint)pov < PlayerEntity.SlotCapacity)
         {
-            uint start = timelineReset ? (frame > 0 ? frame - 1 : 0) : _frame;
+            uint start = timelineReset ? (frame > 0 ? frame - 1 : 0) : _frame + 1;
             foreach (ReplayEvent kill in DemoPlayback.Events)
             {
                 if (kill.Type != ReplayEventType.Kill || kill.Frame < start || kill.Frame > frame
                     || kill.ActorSlot != pov || kill.TargetSlot >= PlayerEntity.SlotCapacity)
                     continue;
-                if (_presentedKillFrame == kill.Frame
-                    && _presentedKiller == kill.ActorSlot
-                    && _presentedVictim == kill.TargetSlot)
-                    continue;
                 Queue(scene, kill);
-                _presentedKillFrame = kill.Frame;
-                _presentedKiller = kill.ActorSlot;
-                _presentedVictim = kill.TargetSlot;
             }
         }
 
