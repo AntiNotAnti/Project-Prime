@@ -567,10 +567,21 @@ namespace MphRead.Mods.Network
                 Require(ReplayArchive.Validate(v4Range) == ReplayOpenResult.Success, "world range CRC validation");
                 var exactKill = new ReplayMarker(ReplayMarkerKind.Kill, 2, 3, Kill:
                     new ReplayKillIdentity(4, 5, 987, 22, 2, 10, 3, 11, 12, 13), Weapon: 6, DamageFlags: 7);
-                var semantic = ReplayTimelineArchive.DecodeMarker(123, ReplayTimelineArchive.EncodeMarker(987, exactKill));
+                byte[] semanticBytes = ReplayTimelineArchive.EncodeMarker(987, exactKill);
+                var semantic = ReplayTimelineArchive.DecodeMarker(123, semanticBytes);
                 Require(semantic.RecordingFrame == 123 && semantic.ServerTick == 987 && semantic.Marker == exactKill,
                     "durable semantic kill retains epoch, server tick, both actor lives, weapon and classification");
-                byte[] legacySemantic = ReplayTimelineArchive.EncodeMarker(987, exactKill);
+                string semanticReplay = Path.Combine(directory, "semantic-v2-kill.ppdemo");
+                using (var writer = new ReplayWriterV3(semanticReplay, new ReplayMetadata
+                {
+                    FormatVersion = 4, RoomKey = match.RoomKey, Mode = GameMode.Battle
+                }))
+                {
+                    writer.WriteRecord(123, semanticBytes);
+                }
+                Require(ReplayArchive.Validate(semanticReplay) == ReplayOpenResult.Success,
+                    "v4 chunk validation accepts the current versioned semantic kill record");
+                byte[] legacySemantic = (byte[])semanticBytes.Clone();
                 Array.Resize(ref legacySemantic, legacySemantic.Length - sizeof(ushort));
                 legacySemantic[1] = 1;
                 var legacyKill = ReplayTimelineArchive.DecodeMarker(123, legacySemantic).Marker!.Value.Kill!.Value;
