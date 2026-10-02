@@ -14,9 +14,18 @@ and save to adopt these recipes in an existing installation.
 | Extreme | 200% | SMAA | 0% | 20% | Low | Ultra |
 
 All tiers retain original lighting, fog and neutral color controls. Performance
-uses filtered mipmaps and 4x anisotropy; Enhanced and above use 16x anisotropy
-and support optional material maps. Texture replacement selection is preserved,
-except Original disables replacements. Original keeps unfiltered source pixels.
+uses filtered mipmaps and 4x anisotropy for native cartridge textures; Enhanced
+and above use 16x there and support optional material maps. Texture replacement
+selection is preserved, except Original disables replacements. Original keeps
+unfiltered source pixels.
+
+HD/authored 3D assets have a separate sampling policy so selecting a 4K/8K source
+cannot silently leave distant detail undersampled. **Auto** is the default and
+uses linear magnification, trilinear minification, a complete mip chain, LOD
+bias 0 and bounded anisotropy (8x desktop, 4x Android, clamped by the device).
+**Legacy pixel** preserves nearest-neighbour HD sampling. **Custom** makes HD
+assets follow the existing filtering, mipmap and anisotropy controls. UI/fonts
+stay outside this HD material policy; authored effect models use it.
 
 The stronger presets spend their budget on sampling and shadow detail instead
 of increasing effect strength. 200% is twice each dimension (four times the
@@ -40,10 +49,14 @@ draft isolation, migration and texture upscaling.
 ## Runtime changes and cost
 
 Press Apply Changes to update the current renderer. Source texture upscale and
-HD replacement changes now reupload loaded model textures in place, retaining
-binding IDs; turning them off restores cartridge pixels and releases replacement
-companion maps. This can cause a one-time upload hitch. Filtering/mipmaps/anisotropy
-and post-process settings apply on subsequent draws without a restart.
+HD replacement or HD sampling-policy changes reupload loaded model textures in
+place, retaining binding IDs; turning replacements off restores cartridge pixels
+and releases replacement companion maps. Modern replacement mip chains are built
+during upload instead of the first frame that sees the material, avoiding a
+first-look mip-generation spike. Native cartridge textures retain lazy mip
+generation so the legacy path pays no extra upload cost. Filtering/mipmaps/
+anisotropy for native textures and post-process settings apply on subsequent
+draws without a restart.
 
 At 500 FPS the frame budget is 2 ms; at 250 FPS it is 4 ms. An extra 2 ms pass can
 therefore halve the FPS counter. Render scale is per dimension: 150% costs 2.25x
