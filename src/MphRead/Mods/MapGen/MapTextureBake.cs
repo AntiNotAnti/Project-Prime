@@ -469,7 +469,12 @@ namespace MphRead.Mods.MapGen
         {
             cancellation.ThrowIfCancellationRequested();
             using var source = new MemoryStream(raw);
-            using StbImage image = StbImage.Load(source, StbiImageFormat.Rgb);
+            StbImage image;
+            try { image = StbImage.Load(source, StbiImageFormat.Rgb); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            { throw new InvalidDataException("Texture image could not be decoded.", ex); }
+            using (image)
+            {
             int width = image.Width;
             int height = image.Height;
             long sourceLength = (long)width * height * 3;
@@ -516,6 +521,7 @@ namespace MphRead.Mods.MapGen
                 }
             }
             return result;
+            }
         }
 
         /// <summary>
