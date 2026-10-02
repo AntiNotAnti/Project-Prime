@@ -20,7 +20,11 @@ public static class DemoPlayback
     private static bool _presentationFailed;
     internal static ReplayPlaybackSession Session => _player?.Current.Session ?? _prepared;
     internal static Scene? ReplicaScene => _player?.Current.Scene;
-    internal static Scene? PresentationScene => _lab ?? (_player?.Ready == true ? _player.Current.Scene : null);
+    // A failed private replay remains alive long enough to accept restart controls,
+    // but must not stay attached to foreground rendering. It may have faulted before
+    // HUD/presentation setup completed, so drawing it can turn the original replay
+    // error into a second NullReferenceException in PlayerHud.
+    internal static Scene? PresentationScene => _lab ?? (_player?.Ready == true && !_failed ? _player.Current.Scene : null);
     internal static bool Owns(Scene scene) => ReferenceEquals(_player?.Current.Scene, scene);
     internal static Scene? Presentation(Scene shell) => ReferenceEquals(_shell, shell) ? PresentationScene : null;
     public static bool IsActive => Session.IsActive;
