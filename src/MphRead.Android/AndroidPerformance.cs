@@ -11,26 +11,23 @@ using MphRead.Mods.Render;
 namespace MphRead.Droid
 {
     /// <summary>
-    /// Android-only performance policy and diagnostics.
+    /// Android-only display pacing and diagnostics.
     ///
-    /// The game simulation stays at 60 Hz. This class only controls the picture:
-    /// the Android default, dynamic world render scale, thermal fallback and
-    /// low-overhead frame telemetry. HUD rendering remains at the native window
-    /// size because <see cref="RenderOptions.ResolutionScale"/> only sizes the
-    /// scene target.
+    /// The game simulation stays at 60 Hz. Android may still apply hardware/OS
+    /// DVFS and thermal protection, but Project Prime does not impose a second
+    /// runtime governor: this class never rewrites the player's FPS cap or render
+    /// scale in response to load or thermal state. It only applies the one-time
+    /// mobile startup default, negotiates display pacing, and records telemetry.
     /// </summary>
     internal static class AndroidPerformance
     {
         private const string BalancedProfile = "balanced-v2-display";
         private const string LegacyBalancedProfile = "balanced-v1";
         private const string CustomProfile = "custom-v1";
-        private const int DefaultFrameRate = FrameTiming.DisplayRate;
         private const int DefaultRenderScale = 90;
         private const int SampleCapacity = 600;
         private const long ReportEveryMs = 5000;
         private const long ThermalPollMs = 1000;
-        private const long ScaleDownCooldownMs = 1500;
-        private const long ScaleUpCooldownMs = 7000;
 
         private static readonly double[] _limiterMs = new double[SampleCapacity];
         private static readonly int[] _lastGcCounts = new int[3];
@@ -47,19 +44,10 @@ namespace MphRead.Droid
         private static int _sampleCount;
         private static long _lastReport;
         private static long _lastThermalPoll;
-        private static long _lastScaleChange;
         private static long _allocatedBytes;
         private static int _thermalStatus;
-        private static int _requestedScale = DefaultRenderScale;
-        private static int _currentScale = DefaultRenderScale;
-        private static int _requestedCap = DefaultFrameRate;
-        private static int _badFrames;
-        private static int _goodFrames;
         private static bool _matchActive;
-        private static bool _adaptive;
-        private static bool _pixelBudgetApplied;
-        private static int _budgetWidth;
-        private static int _budgetHeight;
+        private static bool _sustainedPerformanceModeCleared;
 
         /// <summary>Highest refresh mode reported by the current Android display.</summary>
         public static float DisplayRefreshRate { get; private set; } = 60f;
@@ -141,28 +129,11 @@ namespace MphRead.Droid
             return untouched || legacyBalanced;
         }
 
-        /// <summary>Called by shared GameSettings after it applies the user's values.</summary>
-        public static void NoteSettingsApplied(MenuSettings settings)
-        {
-            _requestedScale = RenderOptions.ParseScale(settings.ResolutionScale,
-                RenderOptions.ResolutionScale);
-            _requestedCap = FrameTiming.ParseCap(settings.FrameRateCap,
-                FrameTiming.FrameRateCap);
-            _adaptive = String.Equals(settings.AndroidPerformanceProfile,
-                BalancedProfile, StringComparison.OrdinalIgnoreCase);
-            _currentScale = _requestedScale;
-            _pixelBudgetApplied = false;
-            _budgetWidth = 0;
-            _budgetHeight = 0;
-            _badFrames = 0;
-            _goodFrames = 0;
-
-            ApplyThermalLimits(forceScale: true);
-        }
-
+        public static void Attach(Activity activity)
         public static void Attach(Activity activity)
         {
             _activity = new WeakReference<Activity>(activity);
+            DisableSustainedPerformanceMode();
             RefreshDisplayRate();
             DebugLog.Line("androidperf",
                 $"device {Build.Manufacturer} {Build.Model}, display max {DisplayRefreshRate:0.#} Hz");
@@ -219,39 +190,23 @@ namespace MphRead.Droid
                 return true;
             }
 
-            float requested = Math.Clamp(cap, FrameTiming.MinCap, FrameTiming.MaxCap);
-            if (requested >= DisplayRefreshRate - 0.5f)
-            {
-                return true;
-            }
-            foreach (float rate in _supportedRefreshRates)
-            {
-                if (Math.Abs(rate - requested) <= 0.5f)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        private static bool HighRefreshRequested()
-        {
-            int cap = EffectiveCap();
-            double requested = cap == FrameTiming.DisplayRate
-                ? DisplayRefreshRate : Math.Min(cap, DisplayRefreshRate);
-            return requested > FrameTiming.SimulationHz + 0.5;
+            int requested = Math.Clamp(cap, FrameTiming.MinCap, FrameTiming.MaxCap);
+            return AndroidFramePacer.MatchesNativeRefresh(
+                requested, DisplayRefreshRate, _supportedRefreshRates);
         }
 
         public static void SetForeground(bool foreground)
         {
-            if (_matchActive)
+            if (!_matchActive)
             {
-                SetSustainedPerformanceMode(foreground && !HighRefreshRequested());
-                if (foreground)
-                {
-                    RefreshDisplayRate();
-                    PollThermal(force: true);
-                }
+                return;
+            }
+
+            DisableSustainedPerformanceMode();
+            if (foreground)
+            {
+                RefreshDisplayRate();
+                PollThermal(force: true);
             }
         }
 
@@ -265,30 +220,22 @@ namespace MphRead.Droid
             _sampleIndex = 0;
             _sampleCount = 0;
             _allocatedBytes = 0;
-            _badFrames = 0;
-            _goodFrames = 0;
-            _pixelBudgetApplied = false;
-            _budgetWidth = 0;
-            _budgetHeight = 0;
             for (int generation = 0; generation < 3; generation++)
+            {
                 _lastGcCounts[generation] = GC.CollectionCount(generation);
+            }
             _lastReport = Environment.TickCount64;
             _lastThermalPoll = 0;
-            _lastScaleChange = 0;
 
-            SetSustainedPerformanceMode(active && !HighRefreshRequested());
+            DisableSustainedPerformanceMode();
             if (!active)
             {
                 _thermalStatus = 0;
-                FrameTiming.FrameRateCap = _requestedCap;
-                RenderOptions.ResolutionScale = _requestedScale;
-                _currentScale = _requestedScale;
             }
             else
             {
                 RefreshDisplayRate();
                 PollThermal(force: true);
-                ApplyThermalLimits(forceScale: true);
             }
         }
 
@@ -298,9 +245,9 @@ namespace MphRead.Droid
             {
                 return;
             }
+
+            // Diagnostic only. The requested scale and cap remain untouched.
             PollThermal(force: true);
-            ApplyThermalLimits(forceScale: true);
-            ApplyPixelBudget(width, height);
         }
 
         /// <summary>
@@ -329,8 +276,6 @@ namespace MphRead.Droid
             _sampleCount = Math.Min(_sampleCount + 1, SampleCapacity);
 
             PollThermal(force: false);
-            ApplyPixelBudget(width, height);
-            UpdateGovernor(frameMs, simulationMs + renderMs + uiMs, swapMs);
 
             long now = Environment.TickCount64;
             if (now - _lastReport >= ReportEveryMs)
@@ -340,112 +285,7 @@ namespace MphRead.Droid
             }
         }
 
-        private static void ApplyPixelBudget(int width, int height)
-        {
-            if (!_adaptive || width <= 0 || height <= 0)
-            {
-                return;
-            }
-            if (width != _budgetWidth || height != _budgetHeight)
-            {
-                _pixelBudgetApplied = false;
-                _budgetWidth = width;
-                _budgetHeight = height;
-            }
-            if (_pixelBudgetApplied)
-            {
-                return;
-            }
-            _pixelBudgetApplied = true;
-
-            double hz = EffectiveRefreshRate();
-            double targetPixels = hz <= 45 ? 3_200_000
-                : hz <= 60 ? 2_300_000
-                : hz <= 90 ? 1_700_000
-                : 1_300_000;
-            double nativePixels = (double)width * height;
-            int budgetScale = nativePixels <= targetPixels
-                ? _requestedScale
-                : (int)Math.Floor(Math.Sqrt(targetPixels / nativePixels) * 100.0);
-
-            int minimum = Math.Min(_requestedScale, 60);
-            int thermalMax = ThermalScaleCeiling();
-            int wanted = Math.Clamp(Math.Min(_requestedScale, budgetScale),
-                Math.Min(minimum, thermalMax), thermalMax);
-            ApplyScale(wanted, "pixel budget");
-        }
-
-        private static void UpdateGovernor(double frameMs, double workMs, double presentMs)
-        {
-            // The one-time pixel budget is applied before scene construction.
-            // Do not resize live render targets while a high-refresh match is
-            // running: target reallocation itself creates the hitch the governor
-            // is trying to cure. Thermal ceilings may still make rare emergency
-            // reductions.
-            if (!_adaptive || HighRefreshRequested())
-            {
-                return;
-            }
-
-            double budgetMs = 1000.0 / EffectiveRefreshRate();
-            bool missed = AndroidFramePacer.Behind(frameMs, workMs, budgetMs);
-            bool comfortable = AndroidFramePacer.HasHeadroom(frameMs, workMs, presentMs, budgetMs);
-
-            if (missed)
-            {
-                _badFrames++;
-                _goodFrames = 0;
-            }
-            else if (comfortable)
-            {
-                _goodFrames++;
-                _badFrames = Math.Max(0, _badFrames - 1);
-            }
-            else
-            {
-                _badFrames = Math.Max(0, _badFrames - 1);
-                _goodFrames = Math.Max(0, _goodFrames - 1);
-            }
-
-            long now = Environment.TickCount64;
-            int minimum = Math.Min(_requestedScale, 60);
-            int maximum = ThermalScaleCeiling();
-
-            if (_currentScale > maximum)
-            {
-                ApplyScale(maximum, "thermal ceiling");
-                return;
-            }
-
-            if (_badFrames >= 12 && now - _lastScaleChange >= ScaleDownCooldownMs
-                && _currentScale > minimum)
-            {
-                _badFrames = 0;
-                ApplyScale(Math.Max(minimum, _currentScale - 5), "missed frame budget");
-            }
-            else if (_goodFrames >= 300 && now - _lastScaleChange >= ScaleUpCooldownMs
-                && _currentScale < maximum)
-            {
-                _goodFrames = 0;
-                ApplyScale(Math.Min(maximum, _currentScale + 5), "sustained headroom");
-            }
-        }
-
-        private static void ApplyScale(int scale, string reason)
-        {
-            scale = Math.Clamp(scale, RenderOptions.MinScale, RenderOptions.MaxScale);
-            if (scale == _currentScale)
-            {
-                return;
-            }
-
-            int before = _currentScale;
-            _currentScale = scale;
-            RenderOptions.ResolutionScale = scale;
-            _lastScaleChange = Environment.TickCount64;
-            DebugLog.Line("androidperf", $"render scale {before}% -> {scale}% ({reason})");
-        }
-
+        private static void PollThermal(bool force)
         private static void PollThermal(bool force)
         {
             long now = Environment.TickCount64;
@@ -466,64 +306,12 @@ namespace MphRead.Droid
 
             int before = _thermalStatus;
             _thermalStatus = status;
-            DebugLog.Line("androidperf", $"thermal status {before} -> {status}");
-            ApplyThermalLimits(forceScale: true);
+            // Observation only. Android can thermally downclock the hardware,
+            // but the game no longer compounds that by changing FPS or scale.
+            DebugLog.Line("androidperf", $"thermal status {before} -> {status} (diagnostic only)");
         }
 
-        private static void ApplyThermalLimits(bool forceScale)
-        {
-            int effectiveCap = EffectiveCap();
-            if (FrameTiming.FrameRateCap != effectiveCap)
-            {
-                DebugLog.Line("androidperf",
-                    $"frame cap {FrameTiming.FrameRateCap} -> {effectiveCap} for thermal state {_thermalStatus}");
-                FrameTiming.FrameRateCap = effectiveCap;
-            }
-
-            int ceiling = ThermalScaleCeiling();
-            if (forceScale && (_currentScale > ceiling
-                || (!_adaptive && _currentScale != ceiling)))
-            {
-                ApplyScale(ceiling, _currentScale > ceiling
-                    ? "thermal pressure" : "thermal recovery");
-            }
-        }
-
-        private static int EffectiveCap()
-        {
-            // Java thermal states: NONE 0, LIGHT 1, MODERATE 2, SEVERE 3,
-            // CRITICAL 4, EMERGENCY 5, SHUTDOWN 6.
-            if (_thermalStatus >= 3)
-            {
-                if (_requestedCap == FrameTiming.DisplayRate)
-                {
-                    return 60;
-                }
-                return Math.Min(_requestedCap, 60);
-            }
-            return _requestedCap;
-        }
-
-        private static int ThermalScaleCeiling()
-        {
-            int reduction = _thermalStatus switch
-            {
-                >= 4 => 25,
-                3 => 15,
-                2 => 5,
-                _ => 0
-            };
-            return Math.Clamp(_requestedScale - reduction,
-                RenderOptions.MinScale, RenderOptions.MaxScale);
-        }
-
-        private static double EffectiveRefreshRate()
-        {
-            int cap = EffectiveCap();
-            double hz = AndroidFramePacer.BudgetRate(cap, ActiveDisplayRefreshRate);
-            return Math.Clamp(hz, FrameTiming.MinCap, FrameTiming.MaxCap);
-        }
-
+        private static int ReadThermalStatus()
         private static int ReadThermalStatus()
         {
             if (!OperatingSystem.IsAndroidVersionAtLeast(29)
@@ -548,9 +336,10 @@ namespace MphRead.Droid
             return 0;
         }
 
-        private static void SetSustainedPerformanceMode(bool enabled)
+        private static void DisableSustainedPerformanceMode()
         {
-            if (!OperatingSystem.IsAndroidVersionAtLeast(24)
+            if (_sustainedPerformanceModeCleared
+                || !OperatingSystem.IsAndroidVersionAtLeast(24)
                 || _activity == null || !_activity.TryGetTarget(out Activity? activity)
                 || activity.Window == null)
             {
@@ -562,16 +351,21 @@ namespace MphRead.Droid
                 if (activity.GetSystemService(Context.PowerService) is not PowerManager manager
                     || !manager.IsSustainedPerformanceModeSupported)
                 {
+                    _sustainedPerformanceModeCleared = true;
                     return;
                 }
-                activity.Window.SetSustainedPerformanceMode(enabled);
+
+                // Sustained-performance mode trades peak clocks for a lower,
+                // steadier operating point. Leave normal Android DVFS available.
+                activity.Window.SetSustainedPerformanceMode(false);
+                _sustainedPerformanceModeCleared = true;
                 DebugLog.Line("androidperf",
-                    $"sustained performance mode {(enabled ? "enabled" : "disabled")}");
+                    "sustained performance mode disabled; app-side runtime throttling is off");
             }
             catch (Exception ex)
             {
                 DebugLog.Line("androidperf",
-                    $"sustained performance mode unavailable: {ex.GetBaseException().Message}");
+                    $"could not disable sustained performance mode: {ex.GetBaseException().Message}");
             }
         }
 
@@ -608,9 +402,10 @@ namespace MphRead.Droid
                 + $"limiter p95 {limiter95:0.00}; GC delta {gc0 - _lastGcCounts[0]}/{gc1 - _lastGcCounts[1]}/{gc2 - _lastGcCounts[2]}; "
                 + $">20/33/50 {over20}/{over33}/{over50} of {count}; "
                 + $"alloc {_allocatedBytes / 1024.0:0.0} KiB; "
-                + $"{width}x{height} world {_currentScale}% cap "
+                + $"{width}x{height} world {RenderOptions.ResolutionScale}% cap "
                 + $"{(FrameTiming.FrameRateCap == FrameTiming.DisplayRate ? "display" : FrameTiming.FrameRateCap.ToString())} "
-                + $"display active/max {ActiveDisplayRefreshRate:0.#}/{DisplayRefreshRate:0.#} Hz thermal {_thermalStatus}");
+                + $"display active/max {ActiveDisplayRefreshRate:0.#}/{DisplayRefreshRate:0.#} Hz "
+                + $"thermal {_thermalStatus} app-governor off");
             _lastGcCounts[0] = gc0; _lastGcCounts[1] = gc1; _lastGcCounts[2] = gc2;
             _allocatedBytes = 0;
         }
