@@ -1945,7 +1945,9 @@ namespace MphRead.Mods.Launcher.Gui
                 var entry = asset;
                 string root = _document.Project.Definition.BaseDirectory ?? CustomRooms.MapDirectory;
                 string file = Path.GetFullPath(Path.Combine(root, entry.Path));
-                int uses = _document.Project.Definition.Materials.Count(m => m.Texture == entry.Path)
+                int uses = _document.Project.Definition.Materials.Sum(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                        .Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                    + (_document.Project.Definition.Import?.ModernTextures.Values.Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) ?? 0)
                     + (_document.Project.Definition.Audio?.Music == entry.Path ? 1 : 0)
                     + (entry.Kind == "preview" ? 1 : 0);
                 string size = File.Exists(file) ? $"{new FileInfo(file).Length / 1024d:0.0} KiB" : "MISSING";
@@ -1972,8 +1974,17 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     try {AtomicFile.Write(path,MapAssets.Read(_document.Project.Definition,entry.Path));_status.Text="Asset exported.";}catch(Exception ex){Failure(ex);}
                 },Path.GetExtension(entry.Path)));
-                AddButton(_inspector, "Find usages", () => _status.Text = string.Join(" · ", _document.Project.Definition.Materials.Where(m => m.Texture == entry.Path).Select(m => m.Name))
-                    + (_document.Project.Definition.Audio?.Music == entry.Path ? " · Map music" : ""));
+                AddButton(_inspector, "Find usages", () =>
+                {
+                    var usesText = _document.Project.Definition.Materials
+                        .Where(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                            .Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                        .Select(m => m.Name).ToList();
+                    if (_document.Project.Definition.Import?.ModernTextures.Values.Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) == true)
+                        usesText.Add("Q3 imported surface");
+                    if (_document.Project.Definition.Audio?.Music == entry.Path) usesText.Add("Map music");
+                    _status.Text = string.Join(" · ", usesText);
+                });
                 var logicalName = new TextBox { Text = entry.Name ?? Path.GetFileNameWithoutExtension(entry.Path) };
                 _inspector.Children.Add(logicalName);
                 AddButton(_inspector, "Rename asset", () => { _document.Edit("Rename asset", d =>
@@ -1991,11 +2002,16 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 try
                 {
-                    if(new FileInfo(path).Length>16*1024*1024)throw new IOException("Texture image exceeds 16 MiB.");
-                    byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(File.ReadAllBytes(path), token));
+                    byte[] source=await Task.Run(()=>File.ReadAllBytes(path),token);
+                    if(source.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Texture image exceeds the 256 MiB asset limit.");
+                    _=ModernTextureAsset.ProbeDimensions(source);
+                    string extension=ModernTextureAsset.PortableEncodedExtension(source)
+                        ?? throw new InvalidDataException("HD map textures must be PNG or JPEG.");
+                    byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(source, token),token);
                     GuardJob(token);
-                    string asset=StoreAsset("textures",".tex",baked);
-                    _document.Edit("Add custom material",d=>d.Materials.Add(new(){Id=Guid.NewGuid(),Name=Path.GetFileNameWithoutExtension(path),Texture=asset,TexScale=16}));
+                    string fallback=StoreAsset("textures",".tex",baked);
+                    string albedo=StoreAsset("textures",extension,source);
+                    _document.Edit("Add custom HD material",d=>d.Materials.Add(new(){Id=Guid.NewGuid(),Name=Path.GetFileNameWithoutExtension(path),Texture=fallback,Albedo=albedo,TexScale=16}));
                     MaterialInspector();
                 }
                 catch(OperationCanceledException){throw;}
