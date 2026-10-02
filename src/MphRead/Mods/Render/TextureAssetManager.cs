@@ -31,7 +31,8 @@ namespace MphRead.Mods.Render
             TextureAssetChannel channel, bool repeat, out int width, out int height)
         {
             int cap = DimensionLimit(assetClass, channel);
-            string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|mip=" + RenderOptions.TextureMipmaps;
+            TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
+            string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|sample=" + sampling.CacheKey;
             if (_resident.TryGetValue(cacheKey, out Resident resident))
             {
                 width = resident.Width; height = resident.Height; return resident.Binding;
@@ -42,7 +43,7 @@ namespace MphRead.Mods.Render
                 using Stream? stream = open();
                 if (stream == null) return 0;
                 ModernTextureAsset asset = ModernTextureAsset.Decode(stream, key, assetClass, channel, cap);
-                return Upload(cacheKey, asset, repeat, out width, out height);
+                return Upload(cacheKey, asset, repeat, sampling, out width, out height);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                 or OverflowException or InvalidOperationException or UnauthorizedAccessException)
@@ -56,7 +57,8 @@ namespace MphRead.Mods.Render
             int width, int height, byte[] rgba, bool repeat, out int uploadedWidth, out int uploadedHeight)
         {
             int cap = DimensionLimit(assetClass, channel);
-            string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|mip=" + RenderOptions.TextureMipmaps;
+            TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
+            string cacheKey = key + "|" + assetClass + "|" + channel + "|" + cap + "|sample=" + sampling.CacheKey;
             if (_resident.TryGetValue(cacheKey, out Resident resident))
             {
                 uploadedWidth = resident.Width; uploadedHeight = resident.Height; return resident.Binding;
@@ -64,7 +66,7 @@ namespace MphRead.Mods.Render
             try
             {
                 ModernTextureAsset asset = ModernTextureAsset.FromRgba(key, assetClass, channel, width, height, rgba).Fit(cap);
-                return Upload(cacheKey, asset, repeat, out uploadedWidth, out uploadedHeight);
+                return Upload(cacheKey, asset, repeat, sampling, out uploadedWidth, out uploadedHeight);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                 or OverflowException or InvalidOperationException)
@@ -75,10 +77,12 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private int Upload(string cacheKey, ModernTextureAsset asset, bool repeat, out int width, out int height)
+        private int Upload(string cacheKey, ModernTextureAsset asset, bool repeat,
+            TextureSamplerDescriptor sampling, out int width, out int height)
         {
             width = asset.Width; height = asset.Height;
-            bool mipmaps = RenderOptions.TextureFiltering && RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
+            bool mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1);
+            sampling = sampling with { Mipmaps = mipmaps };
             long bytes = asset.EstimateGpuBytes(mipmaps);
             if (_residentBytes + bytes > MemoryBudgetBytes())
             {
@@ -91,12 +95,13 @@ namespace MphRead.Mods.Render
             {
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, texture);
-                UploadPreparedBound(asset, repeat, mipmaps);
+                UploadPreparedBound(asset, repeat, sampling);
                 if (GL.GetError() != ErrorCode.NoError) throw new InvalidOperationException("GPU texture upload failed.");
                 _resident.Add(cacheKey, new(texture, bytes, width, height));
                 _residentBytes += bytes;
                 DebugLog.Line("render", "modern texture " + asset.Key + " " + width + "x" + height
-                    + " resident=" + (_residentBytes / (1024.0 * 1024.0)).ToString("0.0") + " MiB");
+                    + " resident=" + (_residentBytes / (1024.0 * 1024.0)).ToString("0.0") + " MiB"
+                    + " " + TextureSamplingPolicy.Describe(sampling));
                 return texture;
             }
             catch
@@ -116,8 +121,12 @@ namespace MphRead.Mods.Render
             {
                 int cap = DimensionLimit(assetClass, channel);
                 ModernTextureAsset asset = ModernTextureAsset.Decode(source, key, assetClass, channel, cap);
-                bool mipmaps = RenderOptions.TextureFiltering && RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
-                UploadPreparedBound(asset, repeat, mipmaps);
+                TextureSamplerDescriptor sampling = TextureSamplingPolicy.ResolveModern(assetClass, channel);
+                sampling = sampling with
+                {
+                    Mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1)
+                };
+                UploadPreparedBound(asset, repeat, sampling);
                 if (GL.GetError() != ErrorCode.NoError) return false;
                 width = asset.Width; height = asset.Height;
                 return true;
@@ -130,7 +139,8 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static void UploadPreparedBound(ModernTextureAsset asset, bool repeat, bool mipmaps)
+        private static void UploadPreparedBound(ModernTextureAsset asset, bool repeat,
+            TextureSamplerDescriptor sampling)
         {
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
@@ -139,16 +149,23 @@ namespace MphRead.Mods.Render
                 (int)(repeat ? TextureWrapMode.Repeat : TextureWrapMode.ClampToEdge));
             GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
                 (int)(repeat ? TextureWrapMode.Repeat : TextureWrapMode.ClampToEdge));
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-            if (mipmaps)
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
+                (int)(sampling.LinearMagnification ? TextureMagFilter.Linear : TextureMagFilter.Nearest));
+            if (sampling.Mipmaps)
             {
+                // Modern assets build their complete mip chain while the
+                // texture is prepared, not on the first frame that happens to
+                // look at the material.
                 GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
                 GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                    (int)TextureMinFilter.LinearMipmapLinear);
+                    (int)(sampling.LinearMinification
+                        ? TextureMinFilter.LinearMipmapLinear
+                        : TextureMinFilter.NearestMipmapNearest));
             }
             else
             {
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
+                    (int)(sampling.LinearMinification ? TextureMinFilter.Linear : TextureMinFilter.Nearest));
             }
         }
 
