@@ -5,6 +5,7 @@ namespace MphRead.Entities
         internal void ModBootstrapSpawn()
         {
             if (!Mods.Network.NetSession.IsAuthority || !LoadFlags.TestFlag(LoadFlags.Active)
+                || Mods.Network.NetHooks.SuppressSpawn(this)
                 || Mods.Network.NetPlayerLifecycle.Get(SlotIndex) != 0) return;
             var point = GetRespawnPoint();
             if (point != null) Spawn(ForcedSpawnPos ?? point.Position, point.FacingVector,
