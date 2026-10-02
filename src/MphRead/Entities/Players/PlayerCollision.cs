@@ -23,6 +23,7 @@ namespace MphRead.Entities
         private const float CollisionRecoverySkin = 0.025f;
         private const float CollisionRecoveryLimit = 0.65f;
         private const float CollisionGroundSnap = 0.16f;
+        private const float CollisionGroundSnapMaxGap = 0.10f;
         private readonly CollisionResult[] _collisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _movementCollisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _penetrationScratch = new CollisionResult[CollisionContactCapacity];
@@ -727,7 +728,8 @@ namespace MphRead.Entities
 
         private void TryGroundSnap()
         {
-            if (_jumpPadControlLock > 0 || Speed.Y > 0.01f || Speed.Y < -0.12f)
+            if (_jumpPadControlLock > 0 || Flags1.TestFlag(PlayerFlags1.UsedJumpPad)
+                || Speed.Y > 0.01f || Speed.Y < -0.12f)
             {
                 return;
             }
@@ -757,21 +759,31 @@ namespace MphRead.Entities
                 NoteCollisionOverflow("ground snap");
                 return;
             }
-            bool support = false;
+
+            float earliest = Single.MaxValue;
             for (int i = 0; i < count; i++)
             {
-                if (_movementCollisionScratch[i].Plane.Y >= 0.45f)
+                CollisionResult result = _movementCollisionScratch[i];
+                if (result.Field0 == 0 && result.Plane.Y >= 0.45f
+                    && Single.IsFinite(result.Distance))
                 {
-                    support = true;
-                    break;
+                    earliest = MathF.Min(earliest, Math.Clamp(result.Distance, 0, 1));
                 }
             }
-            if (!support)
+            if (earliest == Single.MaxValue || earliest <= 1 / 4096f)
             {
                 return;
             }
 
-            Position = Position.AddY(-CollisionGroundSnap);
+            float gap = CollisionGroundSnap * earliest;
+            if (gap > CollisionGroundSnapMaxGap)
+            {
+                // A real drop/ledge is not a ramp seam. Ground snapping is only
+                // allowed to bridge a small continuity gap from the previous
+                // grounded frame.
+                return;
+            }
+            Position = Position.AddY(-(MathF.Max(0, gap - CollisionRecoverySkin)));
             RecoverInitialOverlap("ground snap");
         }
 
@@ -790,7 +802,40 @@ namespace MphRead.Entities
                 NoteCollisionOverflow("form clearance");
                 return false;
             }
-            return !penetrating || deepest.Field14 <= CollisionRecoverySkin;
+            if (penetrating && deepest.Field14 > CollisionRecoverySkin)
+            {
+                return false;
+            }
+
+            if (targetAltForm && Hunter == Hunter.Kanden)
+            {
+                float radius = MathF.Max(Fixed.ToFloat(Values.AltColRadius), 0.01f);
+                Vector3 facing = new(_field70, 0, _field74);
+                if (facing.LengthSquared <= 1e-10f) facing = Vector3.UnitZ;
+                else facing.Normalize();
+                Vector3 segment = targetPosition;
+                for (int i = 1; i < _kandenSegPos.Length; i++)
+                {
+                    segment += facing * -KandenAltNodeDistances[i - 1];
+                    Array.Clear(_penetrationScratch);
+                    int count = CollisionDetection.CheckSpherePenetration(
+                        segment.AddY(Fixed.ToFloat(Values.AltColYPos)), radius,
+                        _penetrationScratch.Length, TestFlags.Players, _scene, _penetrationScratch);
+                    if (count == _penetrationScratch.Length)
+                    {
+                        NoteCollisionOverflow("Kanden form clearance");
+                        return false;
+                    }
+                    for (int j = 0; j < count; j++)
+                    {
+                        if (_penetrationScratch[j].Field14 > CollisionRecoverySkin)
+                        {
+                            return false;
+                        }
+                    }
+                }
+            }
+            return true;
         }
 
         private void CheckCollision()
