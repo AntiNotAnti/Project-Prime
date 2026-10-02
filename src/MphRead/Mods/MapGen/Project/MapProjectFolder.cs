@@ -51,7 +51,14 @@ public static class MapProjectFolder
                 string target=folder+"/"+Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant()+Path.GetExtension(asset).ToLowerInvariant();
                 AtomicFile.Write(Path.Combine(stage,target),bytes);paths[asset]=target;
             }
-            foreach(var material in copy.Materials)if(material.Texture is {} texture)material.Texture=paths[texture];
+            foreach(var material in copy.Materials)
+            {
+                if(material.Texture is {} texture)material.Texture=paths[texture];
+                if(material.Albedo is {} albedo)material.Albedo=paths[albedo];
+                if(material.Normal is {} normal)material.Normal=paths[normal];
+                if(material.SpecularRoughness is {} specular)material.SpecularRoughness=paths[specular];
+                if(material.Emissive is {} emissive)material.Emissive=paths[emissive];
+            }
             foreach(var asset in copy.Assets)asset.Path=paths[asset.Path];if(copy.Audio?.Music is {} music)copy.Audio.Music=paths[music];
             var external=new Dictionary<string,string>(StringComparer.Ordinal);
             foreach(var model in copy.ModelSources)
