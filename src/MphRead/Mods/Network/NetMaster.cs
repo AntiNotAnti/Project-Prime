@@ -1299,7 +1299,7 @@ namespace MphRead.Mods.Network
                     // learned the truth from an eight-second join timeout.
                     // StatusQuery proves the actual game endpoint is answering.
                     var readyClock = System.Diagnostics.Stopwatch.StartNew();
-                    int readyTimeoutMs = request.RequiresMapPreparation ? 120_000 : 8_000;
+                    int readyTimeoutMs = request.RequiresMapPreparation ? 120_000 : 30_000;
                     while (readyClock.ElapsedMilliseconds < readyTimeoutMs)
                     {
                         int remaining = readyTimeoutMs - (int)readyClock.ElapsedMilliseconds;

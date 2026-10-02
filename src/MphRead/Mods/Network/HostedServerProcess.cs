@@ -98,6 +98,10 @@ namespace MphRead.Mods.Network
                 maps = new[] { (request.RoomKey, mode) };
             }
 
+            // Built-in-only rotations need the same private library as custom
+            // rotations. A null preparation makes LocalServer inherit the host's
+            // entire map catalog and validate unrelated packages during startup.
+            hostedMaps ??= new HostedMapPreparation(Array.Empty<HostedMapArchive>());
             int started = LocalServer.Start(name, maps,
                 Math.Clamp((int)request.MaxPlayers, 2, MphRead.Entities.PlayerEntity.SlotCapacity),
                 request.TimeLimit, request.PointGoal,
