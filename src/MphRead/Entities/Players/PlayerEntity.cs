@@ -1,4 +1,5 @@
 using MphRead.Mods.Multiplayer;
+using MphRead.Mods.Network;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -2386,7 +2387,7 @@ namespace MphRead.Entities
                                 string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
                                 // %s's HEADSHOT KILLED YOU! / %s KILLED YOU!
                                 string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 236 : 237);
-                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
+                                QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                             }
                             string? killedBy = null;
                             if (flags.TestFlag(DamageFlags.Deathalt))
@@ -2455,7 +2456,7 @@ namespace MphRead.Entities
                                 {
                                     string nickname = _scene.GameState.Nicknames[SlotIndex];
                                     string message = Strings.GetHudMessage(240); // YOU KILLED A TEAMMATE, (%s)!
-                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                                 }
                             }
                             else
@@ -2466,7 +2467,7 @@ namespace MphRead.Entities
                                     string nickname = _scene.GameState.Nicknames[SlotIndex];
                                     // YOUR HEADSHOT KILLED %s! / YOU KILLED %s!
                                     string message = Strings.GetHudMessage(flags.TestFlag(DamageFlags.Headshot) ? 239 : 238);
-                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", nickname));
+                                    QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                                 }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
                                 // todo?: the game also updates another kills stat(?) here
@@ -2549,7 +2550,7 @@ namespace MphRead.Entities
                                         {
                                             string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
                                             message = Strings.GetHudMessage(255); // %s KILLED 5 IN A ROW!
-                                            message = message.Replace("%s", nickname);
+                                            message = message.Replace("%s", PlayerNameCodec.ToNative(nickname));
                                         }
                                         if (attacker.IsMainPlayer
                                             && Mods.Render.Hud.HudProfiles.Runtime.Mode == Mods.Render.Hud.HudMode.Custom)
@@ -2584,7 +2585,7 @@ namespace MphRead.Entities
                                         }
                                         string nickname = _scene.GameState.Nicknames[attacker.SlotIndex];
                                         string message = Strings.GetHudMessage(241); // %s is the new prime hunter!
-                                        QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", nickname));
+                                        QueueHudMessage(128, 70, 140, 90 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                                     }
                                 }
                                 else if (_scene.GameState.Mode == GameMode.GunGame)
