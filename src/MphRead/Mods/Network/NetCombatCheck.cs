@@ -365,6 +365,35 @@ namespace MphRead.Mods.Network
                 Check(victim.Health == before - 2 && NetHitClaims.DuplicateHere == 2 && NetHitClaims.AppliedHere == 0,
                     "distinct ShotIds at the same launch frame both pay exactly once");
                 NetHitClaims.ValidateLedgerCounters();
+
+                // Quick-scope regression: the carrier that finally delivers a
+                // lost shot may already say "unscoped". The fire event must
+                // restore the scope state from the frame the shot was authored.
+                shooter.ModArmWeapon(BeamType.Imperialist);
+                shooter.ModSetZoom(false);
+                carrier.Frame++;
+                carrier.FireEventCount++;
+                uint scopedId = (uint)(40 + carrier.FireEventCount);
+                carrier.Buttons &= ~IntentButtons.ZoomedState;
+                carrier.FireEvents[carrier.FireEventCount - 1] = new(scopedId, carrier.Frame,
+                    source.AckFrame, source.AckSubFrame, FireEventKind.PressFire,
+                    (byte)BeamType.Imperialist, 0, FireEvent.ScopedStateBit);
+                NetSession.RemoteIntents[0] = carrier;
+                NetFireEvents.Prepare(shooter, carrier);
+                Check(shooter.EquipInfo.Zoomed,
+                    "recovered Imperialist quick-scope retains shot-time scope");
+                typeof(PlayerEntity).GetField("_timeSinceShot", BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(shooter, (ushort)1000);
+                Check((bool)fire.Invoke(shooter, null)!,
+                    "recovered scoped Imperialist quick-scope actually spawns");
+                BeamProjectileEntity? scopedBeam = null;
+                foreach (var candidate in shooter.EquipInfo.Beams)
+                    if (candidate.ModShotId == scopedId) scopedBeam = candidate;
+                Check(scopedBeam != null && scopedBeam.HeadshotDamage == shooter.EquipInfo.HeadshotDamage,
+                    "recovered scoped Imperialist keeps full headshot damage");
+                NetFireEvents.Prepare(shooter, carrier);
+                Check(!NetFireEvents.CanFire(shooter),
+                    "repeated scoped Imperialist carrier cannot fire twice");
+
                 foreach (var kind in new[] { FireEventKind.ReleaseFire, FireEventKind.AutomaticFire })
                 {
                     shooter.ModArmWeapon(BeamType.PowerBeam);
