@@ -2414,7 +2414,11 @@ namespace MphRead.Mods.Network
         // 41 bytes and misread the policy/identity block, so mixed builds are refused.
         // Protocol 35 adds semantic events/awards and endpoint-bound queue-only reserved-seat admission.
         // Gameplay packet layouts remain compatible with recorded protocol 34.
-        public const int ProtocolVersion = 35;
+        // Protocol 36 adds the requested spectator role to the client Hello handshake.
+        // A spectator can therefore be admitted as an occupied network slot without
+        // ever creating an in-world player life. Mixed v35/v36 peers are refused so
+        // an older authority cannot silently spawn a spectator body.
+        public const int ProtocolVersion = 36;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///
