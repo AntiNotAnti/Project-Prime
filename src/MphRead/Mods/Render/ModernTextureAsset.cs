@@ -94,6 +94,59 @@ namespace MphRead.Mods.Render
 #endif
         }
 
+        internal static (int Width, int Height) ProbeDimensions(ReadOnlySpan<byte> bytes)
+        {
+            int width = 0, height = 0;
+            if (bytes.Length >= 24 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 }))
+            {
+                width = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes[16..20]);
+                height = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes[20..24]);
+            }
+            else if (bytes.Length >= 4 && bytes[0] == 255 && bytes[1] == 216)
+            {
+                int at = 2;
+                while (at + 3 < bytes.Length)
+                {
+                    if (bytes[at++] != 255) break;
+                    while (at < bytes.Length && bytes[at] == 255) at++;
+                    if (at >= bytes.Length) break;
+                    int marker = bytes[at++];
+                    if (marker is 216 or 217 or 218) break;
+                    if (at + 2 > bytes.Length) break;
+                    int length = (bytes[at] << 8) | bytes[at + 1];
+                    if (length < 2 || at + length > bytes.Length) break;
+                    if (marker is 192 or 193 or 194 or 195 or 197 or 198 or 199 or 201 or 202 or 203 or 205 or 206 or 207
+                        && length >= 8)
+                    {
+                        height = (bytes[at + 3] << 8) | bytes[at + 4];
+                        width = (bytes[at + 5] << 8) | bytes[at + 6];
+                        break;
+                    }
+                    at += length;
+                }
+            }
+            else if (bytes.Length >= 26 && bytes[0] == (byte)'B' && bytes[1] == (byte)'M')
+            {
+                width = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(bytes[18..22]);
+                int rawHeight = System.Buffers.Binary.BinaryPrimitives.ReadInt32LittleEndian(bytes[22..26]);
+                height = rawHeight == int.MinValue ? 0 : Math.Abs(rawHeight);
+            }
+            else if (bytes.Length >= 18 && bytes[2] is 1 or 2 or 3 or 9 or 10 or 11)
+            {
+                width = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes[12..14]);
+                height = System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(bytes[14..16]);
+            }
+            ValidateDimensions(width, height);
+            return (width, height);
+        }
+
+        internal static string? PortableEncodedExtension(ReadOnlySpan<byte> bytes)
+        {
+            if (bytes.Length >= 8 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 })) return ".png";
+            if (bytes.Length >= 2 && bytes[0] == 255 && bytes[1] == 216) return ".jpg";
+            return null;
+        }
+
         public static ModernTextureAsset FromRgba(string key, TextureAssetClass assetClass,
             TextureAssetChannel channel, int width, int height, byte[] pixels)
         {
