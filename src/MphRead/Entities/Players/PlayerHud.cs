@@ -3901,7 +3901,8 @@ namespace MphRead.Entities
                     // byte and then immediately step back onto the same lead
                     // byte forever. Measure forward, place the pen, then draw
                     // forward exactly like the other alignments.
-                    x = startX - width * aspectFix;
+                    float lineStartX = startX - width * aspectFix;
+                    x = lineStartX;
                     for (int i = start; i < end; i++)
                     {
                         PlayerNameLayout.TryReadNativeGlyph(text, ref i, end,
@@ -3924,6 +3925,10 @@ namespace MphRead.Entities
                         }
                         x += font.Widths[index] * scale * aspectFix;
                     }
+                    // Preserve the old Align.Right return contract: callers get the
+                    // left edge of the final line, not the right-side anchor. DrawFps
+                    // uses that edge to place the number immediately left of "fps".
+                    x = lineStartX;
                     if (end != length)
                     {
                         do
