@@ -106,23 +106,57 @@ public sealed class GltfModelImporter : IModelImporter
             return values;
         }
         var assets=new Dictionary<string,byte[]>();var assetSources=new Dictionary<string,string>();var materials=new List<MapMaterial>();var images=Array(root,"images");var textures=Array(root,"textures");
+        var imageCache=new Dictionary<int,byte[]>();
+        byte[] TextureImage(JsonElement reference)
+        {
+            int texture=Int(reference,"index",-1);if((uint)texture>=textures.Length)throw new InvalidDataException("Missing glTF texture.");
+            int image=Int(textures[texture],"source",-1);if((uint)image>=images.Length)throw new InvalidDataException("Missing glTF image.");
+            if(imageCache.TryGetValue(image,out byte[]? cached))return cached;
+            byte[] data=images[image].TryGetProperty("uri",out var uri)?UriBytes(uri.GetString()!):View(Int(images[image],"bufferView",-1)).ToArray();
+            ObjModelImporter.ValidateImage(data);imageCache.Add(image,data);return data;
+        }
+        string? Portable(byte[] data,string label)
+        {
+            string? extension=Mods.Render.ModernTextureAsset.PortableEncodedExtension(data);
+            if(extension==null){warnings.Add(label+" uses an image format that cannot travel as an HD runtime texture; native fallback retained.");return null;}
+            string modern="textures/gltf-"+Convert.ToHexString(SHA256.HashData(data)).ToLowerInvariant()+extension;
+            assets.TryAdd(modern,data);return modern;
+        }
         var sourceMaterials=Array(root,"materials");if(sourceMaterials.Length>255)throw new InvalidDataException("glTF exceeds material budget.");
         foreach(var material in sourceMaterials)
         {
-            var color=new[]{1f,1f,1f,1f};byte[]? textureBytes=null;
+            var color=new[]{1f,1f,1f,1f};byte[]? textureBytes=null;string? albedo=null,normal=null,emissive=null;
             if(material.TryGetProperty("pbrMetallicRoughness",out var pbr))
             {
                 if(pbr.TryGetProperty("baseColorFactor",out var factor)){color=factor.EnumerateArray().Select(v=>v.GetSingle()).ToArray();if(color.Length!=4||color.Any(v=>!float.IsFinite(v)||v<0||v>1))throw new InvalidDataException("Invalid base color factor.");}
                 if(pbr.TryGetProperty("baseColorTexture",out var reference))
                 {
-                    int texture=Int(reference,"index",-1);if((uint)texture>=textures.Length)throw new InvalidDataException("Missing glTF texture.");int image=Int(textures[texture],"source",-1);if((uint)image>=images.Length)throw new InvalidDataException("Missing glTF image.");
-                    try{textureBytes=images[image].TryGetProperty("uri",out var uri)?UriBytes(uri.GetString()!):View(Int(images[image],"bufferView",-1)).ToArray();ObjModelImporter.ValidateImage(textureBytes);}
+                    try{textureBytes=TextureImage(reference);}
                     catch(FileNotFoundException){warnings.Add("Missing base-color texture; imported its base color instead.");}
                     if(Int(reference,"texCoord")!=0)warnings.Add("Only UV0 is imported; a material requested another UV channel.");
+                    else if(textureBytes!=null&&color.Take(3).All(v=>MathF.Abs(v-1)<.0001f)&&MathF.Abs(color[3]-1)<.0001f)
+                        albedo=Portable(textureBytes,"Base-color texture");
+                    else if(textureBytes!=null)warnings.Add("Base-color factor is baked into the native fallback; HD albedo is omitted to preserve appearance.");
                 }
                 if(pbr.TryGetProperty("metallicRoughnessTexture",out _)||(!pbr.TryGetProperty("metallicFactor",out var metallic)||metallic.GetSingle()!=0))warnings.Add("Metallic/roughness shading is not imported.");
             }
-            if(material.TryGetProperty("normalTexture",out _))warnings.Add("Normal maps are not imported.");
+            if(material.TryGetProperty("normalTexture",out var normalReference))
+            {
+                if(Int(normalReference,"texCoord")!=0||normalReference.TryGetProperty("scale",out var scale)&&MathF.Abs(scale.GetSingle()-1)>.0001f)
+                    warnings.Add("Normal texture UV/scale modifiers are unsupported; HD normal omitted.");
+                else try{normal=Portable(TextureImage(normalReference),"Normal texture");}
+                    catch(FileNotFoundException){warnings.Add("Missing normal texture.");}
+            }
+            if(material.TryGetProperty("emissiveTexture",out var emissiveReference))
+            {
+                float[] factor=material.TryGetProperty("emissiveFactor",out var emissiveFactor)
+                    ?emissiveFactor.EnumerateArray().Select(v=>v.GetSingle()).ToArray():new[]{0f,0f,0f};
+                if(factor.Length!=3||factor.Any(v=>!float.IsFinite(v)||v<0))throw new InvalidDataException("Invalid emissive factor.");
+                if(Int(emissiveReference,"texCoord")!=0||!factor.All(v=>MathF.Abs(v-1)<.0001f))
+                    warnings.Add("Emissive texture UV/factor modifiers are unsupported; HD emissive omitted.");
+                else try{emissive=Portable(TextureImage(emissiveReference),"Emissive texture");}
+                    catch(FileNotFoundException){warnings.Add("Missing emissive texture.");}
+            }
             if(color[3]<1||material.TryGetProperty("alphaMode",out var alpha)&&alpha.GetString()!="OPAQUE")warnings.Add("Transparent materials are imported as opaque.");
             byte[] baked=textureBytes==null?ObjModelImporter.Solid(color[0],color[1],color[2]):MapTextureBake.BakeImage(textureBytes,cancellation);
             if(textureBytes!=null)
@@ -131,7 +165,7 @@ public sealed class GltfModelImporter : IModelImporter
                 for(int i=0;i<count;i++){int offset=18+nameLength+i*2;ushort rgb=BinaryPrimitives.ReadUInt16LittleEndian(baked.AsSpan(offset));int tinted=0;for(int c=0;c<3;c++)tinted|=(int)Math.Clamp(Math.Round(((rgb>>(c*5))&31)*MathF.Pow(color[c],1/2.2f)),0,31)<<(c*5);BinaryPrimitives.WriteUInt16LittleEndian(baked.AsSpan(offset),(ushort)tinted);}
             }
             string assetPath="textures/gltf-"+Convert.ToHexString(SHA256.HashData(baked)).ToLowerInvariant()+".tex";assets.TryAdd(assetPath,baked);assetSources[assetPath]=path;
-            materials.Add(new(){Name=Name(material,"Material "+materials.Count),Texture=assetPath});
+            materials.Add(new(){Name=Name(material,"Material "+materials.Count),Texture=assetPath,Albedo=albedo,Normal=normal,Emissive=emissive});
         }
         int defaultMaterial=-1;
         int DefaultMaterial()
