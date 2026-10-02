@@ -28,14 +28,21 @@ namespace MphRead.Mods.Render
             MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null)
         {
             EnsureLoaded();
-            return _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
+            ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
+            if (local != null && HasChannels(local)) return local;
+            MaterialAssetKey portableKey = key ?? MaterialAssetKey.Model(model, texture, palette, recolor);
+            return MapMaterialAssetRegistry.Resolve(portableKey) ?? local;
         }
 
         internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
         {
             EnsureLoaded();
-            return _resolver?.ResolveExplicit(key);
+            ResolvedMaterial? local = _resolver?.ResolveExplicit(key);
+            return local ?? MapMaterialAssetRegistry.Resolve(key);
         }
+
+        private static bool HasChannels(ResolvedMaterial material)
+            => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null;
 
         private static void EnsureLoaded()
         {
