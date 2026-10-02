@@ -661,6 +661,21 @@ try
     Check(jumpMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure),
         "Forge jump-pad audit catches a player-sized launch path that strikes a low ceiling");
 
+    var altPadDefinition=new MapDefinition{Name="HEAL_JUMP_PAD_ALT_SIZE",Import=healImport};
+    altPadDefinition.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{-3f,.05f,0f},Target=new[]{3f,.05f,0f}});
+    var altPadMap=new BuiltMap(altPadDefinition);
+    altPadMap.Faces.Add(HealFloor(0,8));altPadMap.Solid.Add(HealFloor(0,8));
+    var sideWall=new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(-4,-1,.57f),new OpenTK.Mathematics.Vector3(4,-1,.57f),
+        new OpenTK.Mathematics.Vector3(4,4,.57f),new OpenTK.Mathematics.Vector3(-4,4,.57f)},
+        new OpenTK.Mathematics.Vector2[4],OpenTK.Mathematics.Vector3.UnitZ,0,1);
+    altPadMap.Faces.Add(sideWall);altPadMap.Solid.Add(sideWall);
+    MapCollisionHealer.Heal(altPadMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(altPadMap,altPadDefinition);
+    Check(altPadMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure
+        &&r.Points.Any(p=>MathF.Abs(p.Z-.57f)<.08f)),
+        "Forge jump-pad audit catches wall clearance that fits the biped core but clips a larger alt-form core");
+
     foreach (string tool in new[] { "Move", "Rotate", "Scale" })
     {
         var id = layoutIds.First(); var item = MapObjects.Find(layoutDocument.Project.Definition, id)!;
