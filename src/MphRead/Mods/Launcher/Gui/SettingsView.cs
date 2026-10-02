@@ -2496,7 +2496,8 @@ namespace MphRead.Mods.Launcher.Gui
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
             string renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
-            if (!String.Equals(_settings.Renderer, renderer, StringComparison.OrdinalIgnoreCase))
+            if (GraphicsBackendPolicy.StartupFallbackActive
+                || !String.Equals(_settings.Renderer, renderer, StringComparison.OrdinalIgnoreCase))
                 GraphicsBackendPolicy.ClearStartupGuardForRendererChange();
             _settings.Renderer = renderer;
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
