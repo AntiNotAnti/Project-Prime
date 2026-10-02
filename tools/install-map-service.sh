@@ -77,6 +77,9 @@ sudo -n sh -c 'if [ ! -e /etc/project-prime/maps.env ]; then
   token=$(openssl rand -hex 32) || exit 1
   printf "PROJECT_PRIME_MAP_UPLOAD_TOKEN=%s\n" "$token" > /etc/project-prime/maps.env
 fi
+if ! grep -q "^PROJECT_PRIME_MAP_STORAGE_GIB=" /etc/project-prime/maps.env; then
+  printf "PROJECT_PRIME_MAP_STORAGE_GIB=50\n" >> /etc/project-prime/maps.env
+fi
 chmod 600 /etc/project-prime/maps.env'
 SWITCHED=1
 ln -s "$RELEASE" "$MAP_DIR/current.new"
