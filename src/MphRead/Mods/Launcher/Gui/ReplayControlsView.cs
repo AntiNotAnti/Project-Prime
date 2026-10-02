@@ -302,7 +302,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddAction("SAVE VIRTUAL CLIP", SaveVirtualSelection, face: Deck.Face.Moss);
 
             body.Children.Add(new Caption("Cinematic camera"));
-            body.Children.Add(new Note("Click a camera key for a single selection. Ctrl/Cmd-click toggles keys and Shift-click selects a contiguous range. Delete/Backspace or REMOVE SELECTED deletes the whole selection in one edit. Adjust a single key, then UPDATE SELECTED to save camera, FOV and roll changes."));
+            body.Children.Add(new Note("Camera keys: filled square = Linear, outlined square = Smooth, circle = Spline, bar = Hold. Hover a key to see easing, segment time, path length, average speed and peak speed. Click for a single selection; Ctrl/Cmd-click toggles keys; Shift-click selects a range. Delete/Backspace or REMOVE SELECTED deletes the selection. The playhead snaps to nearby camera keys."));
             var cameraGrid = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*") };
             body.Children.Add(cameraGrid);
             int cameraIndex = 0;
@@ -338,6 +338,7 @@ namespace MphRead.Mods.Launcher.Gui
             AddCamera("UPDATE SELECTED", ReplayCamera.UpdateSelectedKeyframe);
             AddCamera("PREVIOUS KEY", () => ReplayCamera.SelectAdjacentKeyframe(-1));
             AddCamera("NEXT KEY", () => ReplayCamera.SelectAdjacentKeyframe(1));
+            AddCamera("SNAP TO NEAREST KEY", ReplayCamera.SnapToNearestKeyframe);
             AddCamera("REMOVE SELECTED", ReplayCamera.RemoveKeyframe);
             AddCamera("DUPLICATE KEYFRAME", () => ReportCameraEdit(
                 ReplayCamera.DuplicateKeyframeAtCurrentFrame(), "Keyframe duplicated at playhead."));
@@ -1260,7 +1261,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _timelineEvents.Index, 0, Enum.GetValues<ReplayTimelineFilter>().Length - 1);
             _timeline.Update(ReplayController.DurationFrames, ReplayController.TimelineFrame,
                 ReplayController.ClipIn, ReplayController.ClipOut, DemoPlayback.Events, _highlights,
-                ReplayCamera.Track.Keys.Select(key => key.Frame).ToArray(),
+                ReplayCamera.Track.Keys.ToArray(),
                 _bookmarks.Select(bookmark => bookmark.Frame).ToArray(), _namedHighlights,
                 timelineSlot, timelineFilter);
             _shortcuts.Text = ShortcutText();
@@ -1283,7 +1284,9 @@ namespace MphRead.Mods.Launcher.Gui
                 + $"look-at {(ReplayCamera.LookAtSlot < 0 ? "off" : $"P{ReplayCamera.LookAtSlot + 1}")} · "
                 + $"names {(LauncherPrefs.SpectatorNameTags ? "on" : "off")} · "
                 + $"director {ReplayDirector.Reason} ({ReplayDirector.CurrentScore:0}) · "
-                + $"{DemoPlayback.CheckpointCount} world checkpoints\n{ReplayCamera.EditStatus}";
+                + $"{DemoPlayback.CheckpointCount} world checkpoints"
+                + (ReplayCamera.SelectedMotionStatus.Length == 0 ? "" : $"\nMotion: {ReplayCamera.SelectedMotionStatus}")
+                + $"\n{ReplayCamera.EditStatus}";
 
             ReplayAnalyticsSnapshot analytics = ReplayStudio.Analytics();
             var names = DemoPlayback.Metadata?.Players.ToDictionary(p => p.Slot, p => p.Name);

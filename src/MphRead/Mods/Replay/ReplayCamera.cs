@@ -38,6 +38,21 @@ namespace MphRead.Mods.Replay
         public static IReadOnlyCollection<uint> SelectedFrames => _selectedFrames;
         public static int SelectedKeyframeCount => _selectedFrames.Count;
         public static uint? SelectedFrame { get; private set; }
+        public static string SelectedMotionStatus
+        {
+            get
+            {
+                EnsureTrack();
+                if (_selectedFrames.Count != 1 || SelectedFrame is not { } frame) return "";
+                if (!Track.TrySegmentFrom(frame, TrackConstantSpeed, out var segment))
+                    return "end key";
+                string speed = segment.Interpolation == ReplayCameraInterpolation.Hold
+                    ? $"jump {segment.Distance:0.0}u"
+                    : $"{segment.AverageSpeed:0.0}u/s avg · {segment.PeakSpeed:0.0}u/s peak";
+                return $"{segment.Interpolation}/{segment.Ease} · {segment.Seconds:0.00}s · "
+                    + $"{segment.Distance:0.0}u · {speed}";
+            }
+        }
         private static uint EditFrame => SelectedFrame ?? ReplayController.CurrentFrame;
         private static ReplayCameraKeyframe? _restoreKey;
 
@@ -77,6 +92,21 @@ namespace MphRead.Mods.Replay
             if (Track.Keys.Count == 0) return;
             int index = Track.Keys.ToList().FindIndex(k => k.Frame == EditFrame);
             SelectKeyframe(Track.Keys[Math.Clamp(index + direction, 0, Track.Keys.Count - 1)].Frame);
+        }
+
+        public static void SnapToNearestKeyframe()
+        {
+            EnsureTrack();
+            if (Track.Keys.Count == 0)
+            {
+                EditStatus = "Camera track has no keyframes to snap to.";
+                return;
+            }
+            uint frame = ReplayController.CurrentFrame;
+            ReplayCameraKeyframe nearest = Track.Keys
+                .OrderBy(key => Math.Abs((long)key.Frame - frame)).First();
+            SelectKeyframe(nearest.Frame);
+            EditStatus = $"Snapped to camera keyframe {nearest.Frame}.";
         }
 
         internal static void ModifyKeyframeSelection(uint frame, bool toggle, bool range)
@@ -210,9 +240,15 @@ namespace MphRead.Mods.Replay
                 _updateSelected ? EditFrame : ReplayController.CurrentFrame, position, ReplayCameraTrack.FacingRotation(facing),
                 fov, (sbyte)Math.Clamp(LookAtSlot, -1, 7),
                 MathHelper.DegreesToRadians(Math.Clamp(Roll, -360, 360)), TrackInterpolation, TrackEase)));
-            if (saved) SetSingleSelection(_updateSelected ? EditFrame : ReplayController.CurrentFrame);
+            if (saved)
+            {
+                SetSingleSelection(_updateSelected ? EditFrame : ReplayController.CurrentFrame);
+                Director = false;
+                SetMode(ReplayCameraMode.Free);
+            }
             _updateSelected = false;
-            EditStatus = saved ? "Camera keyframe saved." : "Camera track: " + (Track.LastError ?? "No replay is open.");
+            EditStatus = saved ? "Camera keyframe saved. Free camera remains active for fine adjustment."
+                : "Camera track: " + (Track.LastError ?? "No replay is open.");
             Chat.ChatBox.System(EditStatus);
         }
         internal static bool DuplicateKeyframeAtCurrentFrame()

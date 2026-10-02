@@ -75,7 +75,7 @@ namespace MphRead.Mods.Launcher.Gui
         private uint? _markOut;
         private IReadOnlyList<ReplayEvent> _events = Array.Empty<ReplayEvent>();
         private IReadOnlyList<ReplayHighlight> _highlights = Array.Empty<ReplayHighlight>();
-        private IReadOnlyList<uint> _cameraKeys = Array.Empty<uint>();
+        private IReadOnlyList<ReplayCameraKeyframe> _cameraKeys = Array.Empty<ReplayCameraKeyframe>();
         private IReadOnlyList<uint> _bookmarks = Array.Empty<uint>();
         private IReadOnlyList<ReplayNamedHighlight> _namedHighlights =
             Array.Empty<ReplayNamedHighlight>();
@@ -103,7 +103,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         public void Update(uint duration, uint current, uint? markIn, uint? markOut,
             IReadOnlyList<ReplayEvent> events, IReadOnlyList<ReplayHighlight> highlights,
-            IReadOnlyList<uint>? cameraKeys = null, IReadOnlyList<uint>? bookmarks = null,
+            IReadOnlyList<ReplayCameraKeyframe>? cameraKeys = null, IReadOnlyList<uint>? bookmarks = null,
             IReadOnlyList<ReplayNamedHighlight>? namedHighlights = null,
             int playerFilter = -1, ReplayTimelineFilter filter = ReplayTimelineFilter.All)
         {
@@ -122,7 +122,7 @@ namespace MphRead.Mods.Launcher.Gui
             _markOut = markOut;
             _events = events;
             _highlights = highlights;
-            _cameraKeys = cameraKeys ?? Array.Empty<uint>();
+            _cameraKeys = cameraKeys ?? Array.Empty<ReplayCameraKeyframe>();
             _bookmarks = bookmarks ?? Array.Empty<uint>();
             _namedHighlights = namedHighlights ?? Array.Empty<ReplayNamedHighlight>();
             _playerFilter = playerFilter;
@@ -247,14 +247,30 @@ namespace MphRead.Mods.Launcher.Gui
                 }
             }
 
-            foreach (uint original in _cameraKeys)
+            foreach (ReplayCameraKeyframe original in _cameraKeys)
             {
-                uint key = _dragTarget == DragTarget.Camera && original == _cameraFrame ? _cameraDestination : original;
+                uint key = _dragTarget == DragTarget.Camera && original.Frame == _cameraFrame
+                    ? _cameraDestination : original.Frame;
                 if (key < first || key > last)
                     continue;
                 double x = X(key, first, span, width);
-                context.DrawLine(CameraPen, new Point(x, 2), new Point(x, 10));
-                if (SelectedCameraFrames.Contains(original))
+                context.DrawLine(CameraPen, new Point(x, 8), new Point(x, 12));
+                switch (original.Interpolation)
+                {
+                    case ReplayCameraInterpolation.Linear:
+                        context.DrawRectangle(CameraBrush, null, new Rect(x - 3, 2, 6, 6));
+                        break;
+                    case ReplayCameraInterpolation.Smooth:
+                        context.DrawRectangle(null, CameraPen, new Rect(x - 3.5, 1.5, 7, 7));
+                        break;
+                    case ReplayCameraInterpolation.Hold:
+                        context.DrawRectangle(CameraBrush, null, new Rect(x - 4, 4, 8, 2.5));
+                        break;
+                    default:
+                        context.DrawEllipse(CameraBrush, null, new Point(x, 5), 3.5, 3.5);
+                        break;
+                }
+                if (SelectedCameraFrames.Contains(original.Frame))
                     context.DrawRectangle(CameraPen, new Rect(x - 5, 0, 10, 13));
             }
 
@@ -364,8 +380,10 @@ namespace MphRead.Mods.Launcher.Gui
                 ? PickDragTarget(x) : DragTarget.Playhead;
             if (e.GetPosition(this).Y < 14)
             {
-                uint? key = _cameraKeys.Cast<uint?>().OrderBy(k => DistanceTo(k, x)).FirstOrDefault();
-                if (DistanceTo(key, x) <= 10)
+                ReplayCameraKeyframe? picked = _cameraKeys
+                    .OrderBy(key => DistanceTo(key.Frame, x))
+                    .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
+                if (picked is { } key && DistanceTo(key.Frame, x) <= 10)
                 {
                     bool toggle = e.KeyModifiers.HasFlag(KeyModifiers.Control)
                         || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
@@ -375,12 +393,12 @@ namespace MphRead.Mods.Launcher.Gui
                         _dragTarget = DragTarget.None;
                         _dragWindow = null;
                         _scrubFrame = null;
-                        CameraSelectionChanged?.Invoke(key!.Value, toggle, range);
+                        CameraSelectionChanged?.Invoke(key.Frame, toggle, range);
                         InvalidateVisual();
                         e.Handled = true;
                         return;
                     }
-                    _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key!.Value;
+                    _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key.Frame;
                     _cameraPressX = x; _cameraDragging = false;
                 }
             }
@@ -397,8 +415,9 @@ namespace MphRead.Mods.Launcher.Gui
             base.OnPointerMoved(e);
             if (_dragTarget == DragTarget.None)
             {
-                uint hover = FrameAt(e.GetPosition(this).X);
-                ShowHover(hover);
+                double x = e.GetPosition(this).X;
+                uint hover = FrameAt(x);
+                ShowHover(hover, x);
                 return;
             }
             if (_dragTarget == DragTarget.Camera && !_cameraDragging)
@@ -502,11 +521,19 @@ namespace MphRead.Mods.Launcher.Gui
         private void Request(DragTarget target, double x)
         {
             uint frame = FrameAt(x);
-            ShowHover(frame);
-            // Editing handles snap to events; the playhead always keeps exact frame precision.
-            if (target != DragTarget.Playhead)
+            ShowHover(frame, x);
+            // The playhead snaps to camera keys for authoring; clip/edit handles keep
+            // their existing event snapping. Dragged camera keys never stack.
+            if (target == DragTarget.Playhead)
+            {
+                foreach (var key in _cameraKeys)
+                    if (DistanceTo(key.Frame, x) <= 6) { frame = key.Frame; break; }
+            }
+            else
+            {
                 foreach (var marker in _events)
                     if (EventVisible(marker) && DistanceTo(marker.Frame, x) <= 6) { frame = marker.Frame; break; }
+            }
             switch (target)
             {
                 case DragTarget.Range:
@@ -514,7 +541,7 @@ namespace MphRead.Mods.Launcher.Gui
                     RangeRequested?.Invoke((uint)(_rangeIn + delta), (uint)(_rangeOut + delta));
                     break;
                 case DragTarget.Camera:
-                    if (frame == _cameraFrame || !_cameraKeys.Contains(frame)) _cameraDestination = frame;
+                    if (frame == _cameraFrame || !_cameraKeys.Any(key => key.Frame == frame)) _cameraDestination = frame;
                     break;
                 case DragTarget.MarkIn:
                     MarkInRequested?.Invoke(frame);
@@ -569,13 +596,31 @@ namespace MphRead.Mods.Launcher.Gui
             _scrubThumbnails.Clear(); ToolTip.SetIsOpen(this, false);
             base.OnDetachedFromVisualTree(e);
         }
-        private void ShowHover(uint frame)
+        private void ShowHover(uint frame, double x)
         {
             _hoverPanel ??= new StackPanel { Spacing = 5, Children = { _hoverImage, _hoverText } };
             var nearby = _events.Where(marker => EventVisible(marker) && Math.Abs((long)marker.Frame - frame) <= 60)
                 .Take(3).Select(marker => marker.Type.ToString());
+            string camera = "";
+            ReplayCameraKeyframe? nearest = _cameraKeys
+                .OrderBy(key => DistanceTo(key.Frame, x))
+                .Select(key => (ReplayCameraKeyframe?)key).FirstOrDefault();
+            if (nearest is { } key && DistanceTo(key.Frame, x) <= 10)
+            {
+                if (ReplayCamera.Track.TrySegmentFrom(key.Frame, ReplayCamera.TrackConstantSpeed, out var segment))
+                {
+                    string speed = segment.Interpolation == ReplayCameraInterpolation.Hold
+                        ? $"jump {segment.Distance:0.0}u"
+                        : $"{segment.AverageSpeed:0.0}u/s avg · {segment.PeakSpeed:0.0}u/s peak";
+                    camera = $"\nCAM KEY {ReplayHud.Time(key.Frame)} · {key.Interpolation}/{key.Ease}"
+                        + $" · {segment.Seconds:0.00}s · {segment.Distance:0.0}u · {speed}";
+                }
+                else camera = $"\nCAM KEY {ReplayHud.Time(key.Frame)} · {key.Interpolation}/{key.Ease} · end key";
+            }
             _hoverText.Text = ReplayHud.Time(frame) + "  " + string.Join(" / ", nearby)
-                + (_scrubThumbnails.Count > 0 ? "\nCached scene preview" : "") + "\nShift-drag to move a clip range";
+                + camera
+                + (_scrubThumbnails.Count > 0 ? "\nCached scene preview" : "")
+                + "\nPlayhead snaps to camera keys · Shift-drag moves a clip range";
             _hoverImage.IsVisible = _scrubThumbnails.Count > 0;
             if (_scrubThumbnails.Count > 0)
                 _hoverImage.Source = _scrubThumbnails.MinBy(image => Math.Abs((long)image.Frame - frame)).Image;

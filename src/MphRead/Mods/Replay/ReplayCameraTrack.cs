@@ -34,6 +34,16 @@ namespace MphRead.Mods.Replay
         ReplayCameraInterpolation Interpolation = ReplayCameraInterpolation.Spline,
         ReplayCameraEase Ease = ReplayCameraEase.InOut);
 
+    internal readonly record struct ReplayCameraSegmentInfo(
+        uint StartFrame,
+        uint EndFrame,
+        ReplayCameraInterpolation Interpolation,
+        ReplayCameraEase Ease,
+        float Seconds,
+        float Distance,
+        float AverageSpeed,
+        float PeakSpeed);
+
     /// <summary>
     /// A bounded, presentation-only track. Version 3 binds authored keys to the
     /// durable replay identity and clip range, while retaining v1/v2 readers.
@@ -134,8 +144,7 @@ namespace MphRead.Mods.Replay
 
                 ReplayCameraKeyframe left = _keys[i - 1];
                 float raw = (float)((frame - left.Frame) / Math.Max(1u, right.Frame - left.Frame));
-                float t = left.Interpolation == ReplayCameraInterpolation.Hold
-                    ? raw >= 1 ? 1 : 0 : ApplyEase(raw, left.Ease);
+                float t = SegmentProgress(raw, left.Interpolation, left.Ease, i - 1, _keys.Count - 1);
                 Vector3 p0 = i >= 2 ? _keys[i - 2].Position : left.Position;
                 Vector3 p3 = i + 1 < _keys.Count ? _keys[i + 1].Position : right.Position;
                 if (constantSpeed && left.Interpolation == ReplayCameraInterpolation.Spline)
@@ -166,6 +175,63 @@ namespace MphRead.Mods.Replay
             sample = _keys[^1] with { Frame = (uint)Math.Clamp(frame, 0, UInt32.MaxValue) };
             return true;
         }
+
+        public bool TrySegmentFrom(uint frame, bool constantSpeed, out ReplayCameraSegmentInfo info)
+        {
+            info = default;
+            int index = _keys.FindIndex(key => key.Frame == frame);
+            if (index < 0 || index + 1 >= _keys.Count) return false;
+
+            ReplayCameraKeyframe left = _keys[index];
+            ReplayCameraKeyframe right = _keys[index + 1];
+            uint frames = Math.Max(1u, right.Frame - left.Frame);
+            float seconds = frames / 60f;
+            const int Steps = 32;
+            Vector3 previous = left.Position;
+            float distance = 0;
+            float peak = 0;
+            float stepSeconds = seconds / Steps;
+            for (int step = 1; step <= Steps; step++)
+            {
+                double sampleFrame = left.Frame + frames * (step / (double)Steps);
+                if (!Sample(sampleFrame, out ReplayCameraKeyframe sample, constantSpeed)) return false;
+                float traveled = (sample.Position - previous).Length;
+                distance += traveled;
+                if (stepSeconds > 0) peak = Math.Max(peak, traveled / stepSeconds);
+                previous = sample.Position;
+            }
+            info = new(left.Frame, right.Frame, left.Interpolation, left.Ease,
+                seconds, distance, seconds > 0 ? distance / seconds : 0, peak);
+            return true;
+        }
+
+        private static float SegmentProgress(float raw, ReplayCameraInterpolation interpolation,
+            ReplayCameraEase ease, int segmentIndex, int segmentCount)
+        {
+            raw = Math.Clamp(raw, 0, 1);
+            if (interpolation == ReplayCameraInterpolation.Hold) return raw >= 1 ? 1 : 0;
+            if (interpolation != ReplayCameraInterpolation.Spline || segmentCount <= 1)
+                return ApplyEase(raw, ease);
+
+            // Applying a normal ease-in/out independently to every spline segment
+            // forces velocity to zero at every interior key. Treat spline easing as
+            // track entrance/exit easing so Catmull-Rom keeps C1 motion through keys.
+            bool first = segmentIndex == 0;
+            bool last = segmentIndex == segmentCount - 1;
+            return ease switch
+            {
+                ReplayCameraEase.In when first => EaseIntoSpline(raw),
+                ReplayCameraEase.Out when last => EaseOutOfSpline(raw),
+                ReplayCameraEase.InOut when first => EaseIntoSpline(raw),
+                ReplayCameraEase.InOut when last => EaseOutOfSpline(raw),
+                _ => raw
+            };
+        }
+
+        private static float EaseIntoSpline(float t)
+            => t * t * (2 - t); // derivative 0 -> 1
+        private static float EaseOutOfSpline(float t)
+            => t + t * t - t * t * t; // derivative 1 -> 0
 
         public static Quaternion FacingRotation(Vector3 facing)
         {
@@ -206,7 +272,7 @@ namespace MphRead.Mods.Replay
         private static float ArcLengthParameter(Vector3 p0, Vector3 p1,
             Vector3 p2, Vector3 p3, float fraction)
         {
-            const int Steps = 16;
+            const int Steps = 32;
             Span<float> lengths = stackalloc float[Steps + 1];
             Vector3 previous = p1;
             float total = 0;
