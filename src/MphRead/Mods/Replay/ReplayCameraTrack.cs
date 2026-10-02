@@ -87,6 +87,15 @@ namespace MphRead.Mods.Replay
             return true;
         }
 
+        public bool RemoveMany(IEnumerable<uint> frames)
+        {
+            var targets = new HashSet<uint>(frames);
+            if (targets.Count == 0 || targets.Any(frame => !_keys.Any(key => key.Frame == frame)))
+                return false;
+            _keys.RemoveAll(key => targets.Contains(key.Frame));
+            return true;
+        }
+
         internal bool EditAndSave(string replay, Func<ReplayCameraTrack, bool> edit)
         {
             ReplayCameraKeyframe[] before = _keys.ToArray();
