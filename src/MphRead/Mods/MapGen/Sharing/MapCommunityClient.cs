@@ -125,6 +125,14 @@ public sealed class MapCommunityClient : IDisposable
                     ValidateUploadState(state, hash, bytes);
                     break;
                 }
+                catch (TaskCanceledException) when (!token.IsCancellationRequested && recoveries++ < 3)
+                {
+                    // HttpClient timeout rather than caller cancellation. The
+                    // service may already have persisted a prefix of this chunk.
+                    state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
+                    ValidateUploadState(state, hash, bytes);
+                    break;
+                }
                 using (response)
                 {
                     // A deployment may have an older/lower reverse-proxy body
@@ -140,6 +148,16 @@ public sealed class MapCommunityClient : IDisposable
                         state = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
                         ValidateUploadState(state, hash, bytes);
                         break;
+                    }
+                    if (response.StatusCode == HttpStatusCode.BadRequest && recoveries++ < 3)
+                    {
+                        var recovered = await GetUploadStateAsync(hash, token).ConfigureAwait(false);
+                        ValidateUploadState(recovered, hash, bytes);
+                        if (recovered.Offset > offset)
+                        {
+                            state = recovered;
+                            break;
+                        }
                     }
                     EnsureSuccess(response);
                     state = await ReadUploadStateAsync(response, token).ConfigureAwait(false);
