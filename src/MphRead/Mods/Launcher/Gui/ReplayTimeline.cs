@@ -88,8 +88,9 @@ namespace MphRead.Mods.Launcher.Gui
         public Action<uint>? MarkOutRequested { get; set; }
         public Action<uint, uint>? RangeRequested { get; set; }
         public Action<uint>? CameraSelected { get; set; }
+        public Action<uint, bool, bool>? CameraSelectionChanged { get; set; }
         public Action? CameraDeleted { get; set; }
-        public uint? SelectedCameraFrame { get; set; }
+        public IReadOnlyCollection<uint> SelectedCameraFrames { get; set; } = Array.Empty<uint>();
         public Action<uint, uint>? CameraMoved { get; set; }
         public double Zoom { get; private set; } = 1;
 
@@ -253,7 +254,8 @@ namespace MphRead.Mods.Launcher.Gui
                     continue;
                 double x = X(key, first, span, width);
                 context.DrawLine(CameraPen, new Point(x, 2), new Point(x, 10));
-                if (SelectedCameraFrame == original) context.DrawRectangle(CameraPen, new Rect(x - 5, 0, 10, 13));
+                if (SelectedCameraFrames.Contains(original))
+                    context.DrawRectangle(CameraPen, new Rect(x - 5, 0, 10, 13));
             }
 
             var track = new Rect(0, trackY - 3, width, 6);
@@ -363,7 +365,24 @@ namespace MphRead.Mods.Launcher.Gui
             if (e.GetPosition(this).Y < 14)
             {
                 uint? key = _cameraKeys.Cast<uint?>().OrderBy(k => DistanceTo(k, x)).FirstOrDefault();
-                if (DistanceTo(key, x) <= 10) { _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key!.Value; _cameraPressX = x; _cameraDragging = false; }
+                if (DistanceTo(key, x) <= 10)
+                {
+                    bool toggle = e.KeyModifiers.HasFlag(KeyModifiers.Control)
+                        || e.KeyModifiers.HasFlag(KeyModifiers.Meta);
+                    bool range = e.KeyModifiers.HasFlag(KeyModifiers.Shift);
+                    if (toggle || range)
+                    {
+                        _dragTarget = DragTarget.None;
+                        _dragWindow = null;
+                        _scrubFrame = null;
+                        CameraSelectionChanged?.Invoke(key!.Value, toggle, range);
+                        InvalidateVisual();
+                        e.Handled = true;
+                        return;
+                    }
+                    _dragTarget = DragTarget.Camera; _cameraFrame = _cameraDestination = key!.Value;
+                    _cameraPressX = x; _cameraDragging = false;
+                }
             }
             else if (_dragTarget == DragTarget.Playhead && e.KeyModifiers.HasFlag(KeyModifiers.Shift)
                 && _markIn.HasValue && _markOut.HasValue && _dragAnchor >= _rangeIn && _dragAnchor <= _rangeOut)
@@ -434,7 +453,7 @@ namespace MphRead.Mods.Launcher.Gui
 
         protected override void OnKeyDown(KeyEventArgs e)
         {
-            if (e.Key is Key.Delete or Key.Back && SelectedCameraFrame.HasValue)
+            if (e.Key is Key.Delete or Key.Back && SelectedCameraFrames.Count > 0)
             { CameraDeleted?.Invoke(); e.Handled = true; return; }
             if (e.Key is Key.Left or Key.Right)
             {

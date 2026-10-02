@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using MphRead.Mods.Network;
 using OpenTK.Mathematics;
@@ -84,6 +85,15 @@ namespace MphRead.Mods.Replay
             int index = _keys.FindIndex(k => k.Frame == frame);
             if (index < 0) return false;
             _keys.RemoveAt(index);
+            return true;
+        }
+
+        public bool RemoveMany(IEnumerable<uint> frames)
+        {
+            var targets = new HashSet<uint>(frames);
+            if (targets.Count == 0 || targets.Any(frame => !_keys.Any(key => key.Frame == frame)))
+                return false;
+            _keys.RemoveAll(key => targets.Contains(key.Frame));
             return true;
         }
 

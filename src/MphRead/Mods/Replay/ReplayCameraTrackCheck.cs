@@ -50,6 +50,13 @@ namespace MphRead.Mods.Replay
                 Require(File.ReadAllBytes(replay).SequenceEqual(source), "replay unchanged");
                 Require(loaded.Put(start with { Position = Vector3.UnitX }) && loaded.Keys.Count == 2, "replace frame");
                 Require(!loaded.Put(start with { Fov = float.NaN }) && !loaded.Put(start with { Rotation = default }), "finite normalized validation");
+                var bulk = new ReplayCameraTrack();
+                Require(bulk.Put(start) && bulk.Put(start with { Frame = 20 }) && bulk.Put(end),
+                    "bulk removal fixture");
+                Require(bulk.RemoveMany(new uint[] { 10, 30 }) && bulk.Keys.Count == 1 && bulk.Keys[0].Frame == 20,
+                    "bulk removal deletes every selected key");
+                Require(!bulk.RemoveMany(new uint[] { 20, 99 }) && bulk.Keys.Count == 1 && bulk.Keys[0].Frame == 20,
+                    "bulk removal is all-or-nothing when a selected frame is missing");
                 loaded.Clear();
                 for (uint i = 0; i < ReplayCameraTrack.MaxKeys; i++) Require(loaded.Put(start with { Frame = i }), "capacity insert");
                 Require(!loaded.Put(start with { Frame = 100 }) && loaded.Put(start), "capacity and replacement");
