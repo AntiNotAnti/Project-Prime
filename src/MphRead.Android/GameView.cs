@@ -627,7 +627,12 @@ namespace MphRead.Droid
                         GL.Viewport(0, 0, wanted.X, wanted.Y);
                         if (Scene != null) { Scene.Size = wanted; Scene.OnResize(); }
                     }
-                    ModernGraphicsCompat.SetVSync(FrameTiming.FrameRateCap == FrameTiming.DisplayRate);
+                    // Presentation policy has exactly one owner: ApplySwapInterval below.
+                    // This used to force every numeric cap to un-vsynced modern
+                    // presentation here, even when 60/90/120/144 matched a native
+                    // panel mode. ApplySwapInterval then believed it had already
+                    // restored display pacing, so the next BindSurface could leave
+                    // Vulkan in Immediate/Mailbox while WaitForTick assumed FIFO.
                     return true;
                 }
                 if (_display == null && !CreateContext())
@@ -1267,7 +1272,10 @@ namespace MphRead.Droid
                 double now = _clock.Elapsed.TotalSeconds;
                 int cap = FrameTiming.FrameRateCap;
                 bool displayPaced = AndroidPerformance.UseDisplayPacing(cap);
-                double deadline = _framePacer.Deadline(now, cap, displayPaced);
+                bool modernPresentationBlocks = _modern && ModernGraphicsCompat.PresentationBlocks;
+                bool presentationPaced = AndroidFramePacer.PresentationOwnsCadence(
+                    displayPaced, modernPresentationBlocks);
+                double deadline = _framePacer.Deadline(now, cap, presentationPaced);
                 double wait = deadline - now;
                 if (wait > 0)
                 {

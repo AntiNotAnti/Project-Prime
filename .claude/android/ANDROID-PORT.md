@@ -197,11 +197,14 @@ Three things are specific to this head:
 - **Input goes inside the step loop**, not beside it. `ApplyInput` works out
   this step's rising edges from the touch state, so running it once per
   *picture* would turn one tap on FIRE into two presses at 120 Hz.
-- **Display mode uses presentation-driven pacing.** `AndroidFramePacer`
-  applies only a 500 Hz safety ceiling for nonblocking drivers, rather than
-  adding a second display-rate timer to VSync. Numeric caps retain their
-  software deadline with swap interval zero. Cap changes reset the render
-  deadline; surface resume resets elapsed time before simulation resumes.
+- **Display mode and native numeric caps use presentation-driven pacing.**
+  `AndroidFramePacer` applies only a 500 Hz safety ceiling when the compositor
+  or a blocking present mode already owns cadence, rather than adding a second
+  timer to VSync. Only non-native numeric caps use a software deadline with
+  nonblocking presentation. If Vulkan/modern presentation falls back to FIFO,
+  FIFO becomes the clock instead of stacking two pacing loops. Cap changes
+  reset the render deadline; surface resume resets elapsed time before
+  simulation resumes.
 - **`Surface.SetFrameRate`** (API 30+, guarded and caught) tells SurfaceFlinger
   what the surface intends, because a 120 Hz phone often sits at 60 until
   something asks. Below API 30 the FPS limit still caps the loop; it just
@@ -218,26 +221,30 @@ instead of calling the Android binding's `GetSupportedModes()` method.
 All three are corrected. These are plausible contributors to reported
 choppiness, not a reproduced explanation for every affected phone.
 
-The governor now uses the active panel rate (refreshed once per second), capped
-by a lower numeric FPS limit. The maximum supported mode remains a separate
-request to `Surface.SetFrameRate`; a request is not proof the panel switched.
-Present wait alone no longer triggers quality reductions. Present time still
-counts conservatively when deciding whether to increase quality, because it
-can also contain GPU back-pressure. Simulation stays fixed at 60 Hz.
+As of 2026-10-02 Project Prime has no app-side runtime quality/thermal
+governor. Thermal status and active refresh are still sampled for diagnostics,
+but they no longer rewrite `FrameTiming.FrameRateCap`, resize the world target,
+or lower resolution after missed frames. Sustained Performance Mode is
+explicitly disabled so the app does not opt into Android's lower peak-frequency
+envelope. The OS and device firmware can still apply their own DVFS and thermal
+protection; an ordinary app cannot disable those safety mechanisms.
 
 `androidperf` reports include limiter wait p95, GC collection deltas and active
 versus maximum display rate alongside simulation/render/UI/swap times, scale,
-thermal state and allocation totals. Use these to separate timer/compositor
-issues from CPU work, GC and thermal throttling on affected devices.
+thermal state and allocation totals. The report ends with `app-governor off`
+so device logs make this policy explicit.
 
 `dotnet run --project tools/android-pacing-check -c Release` exercises the
-production pacing/governor policy at 59.94–144 Hz, numeric 30–500 FPS limits,
-early presentation returns, stalls, cap changes and resume. CI runs this without
-an Android SDK. Physical-device frame traces and sustained match testing remain
-required; emulator timing does not establish phone frame-pacing quality.
+production pacing policy at 59.94–144 Hz, numeric 30–500 FPS limits, native
+refresh matching, modern FIFO fallback, early presentation returns, stalls,
+cap changes and resume. CI runs this without an Android SDK. Physical-device
+frame traces and sustained match testing remain required; emulator timing does
+not establish phone frame-pacing quality.
 
-Numeric caps still use a software timer and are not phase-locked to the
-compositor. Android's [Frame Pacing library](https://developer.android.com/games/sdk/frame-pacing)
+Only non-native numeric caps use a software timer, and only while presentation
+is actually nonblocking. Native caps are compositor-paced; modern FIFO fallback
+is treated as blocking so it cannot be double-paced. Android's
+[Frame Pacing library](https://developer.android.com/games/sdk/frame-pacing)
 addresses presentation timestamps, fences and buffer stuffing; integrating it
 is a separate follow-up if device traces show remaining compositor jitter.
 
