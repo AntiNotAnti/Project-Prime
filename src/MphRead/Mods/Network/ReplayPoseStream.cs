@@ -185,7 +185,8 @@ internal sealed class ReplayPoseStream : IDisposable
             {
                 var record = _clip.Records[_index]; next = record.RecordingFrame;
                 if (next > (ulong)frame + 6) break;
-                if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster or ReplayFactKind.Snapshot)
+                if (record.Kind is ReplayFactKind.Match or ReplayFactKind.Roster
+                    or ReplayFactKind.Snapshot or ReplayFactKind.Intent)
                     Accept(next, record.Payload);
                 _index++;
             }
