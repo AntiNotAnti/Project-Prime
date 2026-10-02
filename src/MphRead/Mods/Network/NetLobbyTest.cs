@@ -218,7 +218,7 @@ namespace MphRead.Mods.Network
             finally { NetSession.Stop(); }
         }
 
-        public static void CustomMapDownloadScenario()
+        public static void CustomMapDownloadScenario(bool lobbySelectionOnly = false)
         {
             string root = Path.Combine(Path.GetTempPath(),"prime-map-download-"+Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(root);
@@ -268,6 +268,51 @@ namespace MphRead.Mods.Network
                 {
                     community.UploadAsync(package,default).GetAwaiter().GetResult();
                     community.UploadAsync(secondPackage,default).GetAwaiter().GetResult();
+                }
+                if (lobbySelectionOnly)
+                {
+                    var lobbyDefinition = new MapDefinition { FormatVersion=2, MapId=Guid.NewGuid(),
+                        Name="SYNC_LOBBY_DOWNLOAD", Version="1", BaseDirectory=root };
+                    lobbyDefinition.Materials.AddRange(secondDefinition.Materials);
+                    lobbyDefinition.Assets.AddRange(secondDefinition.Assets);
+                    lobbyDefinition.Geometry.AddRange(secondDefinition.Geometry);
+                    lobbyDefinition.Spawns.AddRange(secondDefinition.Spawns);
+                    string lobbyPackage = MapPackageBuilder.Build(lobbyDefinition,Path.Combine(root,"lobby.ppmap"));
+                    var lobbyIdentity = MapContentIdentity.FromPackage(lobbyPackage);
+                    using(var community = new MapCommunityClient(address,secret))
+                        community.UploadAsync(lobbyPackage,default).GetAwaiter().GetResult();
+                    Check(Metadata.GetRoomByName(lobbyDefinition.Name).Item1 == null,
+                        "community lobby selection starts without server metadata");
+                    using(var lobbyRig = new Rig())
+                    {
+                        lobbyRig.Server.MapDownloadSource=address;
+                        Client owner=lobbyRig.Add(910), guest=lobbyRig.Add(911);
+                        var config=owner.State!.Value;
+                        config.MapDownloadSource="https://untrusted.invalid/";
+                        config.Match=config.Match with { RoomKey=lobbyDefinition.Name,
+                            MapIdentity=new(lobbyIdentity.MapId,lobbyIdentity.ContentHash,lobbyIdentity.PackageHash,NetworkMapFlags.Custom) };
+                        lobbyRig.Expect(guest,guest.Command(LobbyCommandType.UpdateMatch,config:config),LobbyResultCode.NotOwner);
+                        var select=owner.Command(LobbyCommandType.UpdateMatch,config:config);
+                        owner.Resend(select);
+                        lobbyRig.Wait(()=>owner.Results.ContainsKey(select.CommandId),"server prepares community lobby selection",20000);
+                        Check(owner.Results[select.CommandId].ResultCode==LobbyResultCode.Ok,
+                            "server accepts downloaded selection: "+owner.Results[select.CommandId].Reason);
+                        lobbyRig.Wait(()=>owner.State!.Value.Match.RoomKey==lobbyDefinition.Name
+                            && guest.State!.Value.Match.RoomKey==lobbyDefinition.Name,"prepared lobby map reaches every peer");
+                        Check(CustomRooms.Installed.HasExact(lobbyIdentity),"server installed exact selected package");
+                        Check(owner.State!.Value.MapDownloadSource==address,"server uses its trusted community source");
+                        ushort revision=owner.State.Value.Revision;
+                        owner.Resend(select); lobbyRig.Stable();
+                        Check(owner.State.Value.Revision==revision,"repeated selection does not apply twice");
+                        config=owner.State.Value;
+                        config.Match=config.Match with { RoomKey="MISSING_COMMUNITY_MAP",
+                            MapIdentity=new(Guid.NewGuid(),lobbyIdentity.ContentHash,MapHash256.Parse(new string('d',64)),NetworkMapFlags.Custom) };
+                        lobbyRig.Expect(owner,owner.Command(LobbyCommandType.UpdateMatch,config:config),LobbyResultCode.MapUnavailable);
+                        Check(owner.State.Value.Match.RoomKey==lobbyDefinition.Name,
+                            "failed preparation keeps the previous lobby map");
+                    }
+                    Console.WriteLine("Community lobby selection passed: missing-map preparation, exact identity, owner checks, trusted source, and duplicate commands.");
+                    return;
                 }
                 Check(CustomRooms.Installed.HasExact(identity)
                     && CustomRooms.Installed.HasExact(secondIdentity),

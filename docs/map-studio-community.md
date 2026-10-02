@@ -44,10 +44,21 @@ selected immutable package, then checks the lobby's mode/player compatibility.
 Cancel closes the picker and cancels pending preparation; service failures leave
 local cards available and **Refresh Community** retries the listing.
 
-Changing maps in an already-running dedicated lobby still requires that server to
-have the selected package/version installed. For a new directory-hosted lobby,
-choose the Community map in its initial rotation so host preparation downloads it
-before starting the server process.
+When an owner selects a Community map in an existing lobby, the game server
+fetches and builds the exact package from its configured Community service before
+applying the change. The lobby stays responsive during preparation. Ownership,
+lobby phase, and revision are checked again before installation; stale requests
+are cancelled. This requires the updated game server and client (the client waits
+up to three minutes for preparation). New directory-hosted lobbies still prepare
+their initial rotation before the server process starts.
+
+To remove an old version from public discovery, open **Online → Community maps**,
+choose **My Maps**, press **Refresh**, select the version, and press **Set Unlisted**.
+Refresh/reopen the lobby picker afterward. Unlisted packages remain available by
+exact package link for existing lobbies. Already installed local maps still have
+local cards: remove their local package through the map library, then restart the
+app to rebuild its runtime map list. Service-owned legacy listings must be
+unlisted by the server operator.
 
 Map installation is unavailable while a conflicting map runtime is active. Remote
 hosts only trust their operator-configured Community service rather than arbitrary

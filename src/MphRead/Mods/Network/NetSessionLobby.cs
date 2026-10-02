@@ -112,7 +112,8 @@ namespace MphRead.Mods.Network
                 Configuration = configuration ?? ServerSession.Value };
             var pending = new PendingLobbyCommand { Packet = command, SentAt = Clock, Attempts = 0 };
             _pendingLobby.Add(id, pending);
-            LobbyMessage = "Waiting for server...";
+            LobbyMessage = type == LobbyCommandType.UpdateMatch && command.Configuration.Match.MapIdentity.IsCustom
+                ? "Waiting for server to prepare the Community map…" : "Waiting for server...";
             SendLobbyPacket(command);
             return true;
         }
@@ -131,7 +132,9 @@ namespace MphRead.Mods.Network
             {
                 var pending = pair.Value;
                 if (now - pending.SentAt < Math.Min(1, 0.25 * (pending.Attempts + 1))) continue;
-                if (pending.Attempts >= 4)
+                int maximumAttempts = pending.Packet.Type == LobbyCommandType.UpdateMatch
+                    && pending.Packet.Configuration.Match.MapIdentity.IsCustom ? 180 : 4;
+                if (pending.Attempts >= maximumAttempts)
                 {
                     LobbyMessage = "The server did not acknowledge the command. Check the current lobby and try again.";
                     _pendingLobby.Remove(pair.Key);

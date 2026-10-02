@@ -142,15 +142,27 @@ namespace MphRead.Mods.Network
             peer.LastSeen = now;
             if (!peer.Commands.TryGetValue(command.CommandId, out var result))
             {
+                if (TryPrepareLobbyMap(peer, command)) return;
                 var code = ExecuteLobbyCommand(peer, command, now, out string reason);
-                result = new LobbyCommandResultPacket { CommandId = command.CommandId,
-                    ResultCode = code, CurrentRevision = _sessionRevision, Reason = reason };
-                // Cache is attached to ClientId's peer, so socket rebinding does not repeat a command.
-                if (peer.Commands.Count >= 64) peer.Commands.Remove(peer.CommandOrder.Dequeue());
-                peer.Commands.Add(command.CommandId, result);
-                peer.CommandOrder.Enqueue(command.CommandId);
-                if (code != LobbyResultCode.Ok) Log($"[lobby] slot {peer.SlotIndex} {command.Type} denied: {reason}");
+                result = CacheLobbyResult(peer, command, code, reason);
             }
+            ReplyLobbyCommand(peer, command, result);
+        }
+
+        private LobbyCommandResultPacket CacheLobbyResult(Peer peer, LobbyCommandPacket command,
+            LobbyResultCode code, string reason)
+        {
+            var result = new LobbyCommandResultPacket { CommandId = command.CommandId,
+                ResultCode = code, CurrentRevision = _sessionRevision, Reason = reason };
+            if (peer.Commands.Count >= 64) peer.Commands.Remove(peer.CommandOrder.Dequeue());
+            peer.Commands.Add(command.CommandId, result);
+            peer.CommandOrder.Enqueue(command.CommandId);
+            if (code != LobbyResultCode.Ok) Log($"[lobby] slot {peer.SlotIndex} {command.Type} denied: {reason}");
+            return result;
+        }
+
+        private void ReplyLobbyCommand(Peer peer, LobbyCommandPacket command, LobbyCommandResultPacket result)
+        {
             result.Write(_scratch);
             _transport?.Send(peer.EndPoint, PacketType.LobbyCommandResult, _scratch.AsSpan(0, LobbyCommandResultPacket.Size));
             if (result.ResultCode == LobbyResultCode.Ok && command.Type == LobbyCommandType.CloseLobby)
@@ -165,7 +177,7 @@ namespace MphRead.Mods.Network
             BroadcastRoster();
         }
 
-        private LobbyResultCode ExecuteLobbyCommand(Peer peer, LobbyCommandPacket command, double now, out string reason)
+        private LobbyResultCode ValidateLobbyCommandAccess(Peer peer, LobbyCommandPacket command, out string reason)
         {
             reason = "";
             bool botCommand = command.Type is LobbyCommandType.AddBot or LobbyCommandType.RemoveBot or LobbyCommandType.UpdateBot;
@@ -180,6 +192,14 @@ namespace MphRead.Mods.Network
             { reason = "Only the lobby owner can do that."; return LobbyResultCode.NotOwner; }
             if (command.ExpectedRevision != _sessionRevision)
             { reason = "The lobby changed. Review the updated settings and try again."; return LobbyResultCode.StaleRevision; }
+            return LobbyResultCode.Ok;
+        }
+
+        private LobbyResultCode ExecuteLobbyCommand(Peer peer, LobbyCommandPacket command, double now, out string reason)
+        {
+            var access = ValidateLobbyCommandAccess(peer, command, out reason);
+            if (access != LobbyResultCode.Ok) return access;
+            bool owner = peer.ClientId == _lobbyOwnerClientId && peer.ClientId != 0;
             switch (command.Type)
             {
                 case LobbyCommandType.AddBot:

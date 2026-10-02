@@ -93,6 +93,7 @@ namespace MphRead.NetTest
             if (args.Length > 0 && args[0] == "--claim-stress") return ClaimStressTests.Run();
             if (args.Length > 0 && args[0] == "--health-shots") return HealthShotTests.Run();
             if (args.Length > 0 && args[0] == "--lifecycle") return LifecycleTests.Run();
+            if (args.Length > 0 && args[0] == "--lobby-community-selection") { NetLobbyTest.CustomMapDownloadScenario(lobbySelectionOnly: true); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map-download") { NetLobbyTest.CustomMapDownloadScenario(); return 0; }
             if (args.Length > 0 && args[0] == "--custom-map") { NetLobbyTest.CustomMapReadinessScenario(); Console.WriteLine("Custom map readiness passed."); return 0; }
             if (args.Length > 1 && args[0] == "--bots-online")

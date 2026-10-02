@@ -457,6 +457,7 @@ namespace MphRead.Mods.Network
                     // world: the intents that arrived this pass are the input
                     // to the steps this pass owes, exactly as a client applies
                     // what arrived before it steps.
+                    PumpLobbyMapPreparation(now);
                     CheckLoadBarrier(now);
                     PumpSemanticDelivery();
                     if (_phase is SessionPhase.InMatch or SessionPhase.PostMatch) _sim?.Advance(now);
@@ -683,6 +684,7 @@ namespace MphRead.Mods.Network
             _queuePeers.Clear();
             Telemetry.ProductionTelemetry.Shutdown();
             Log("shutting down");
+            CancelLobbyMapPreparation();
             _hostMapRequests.Dispose();
             Hosts.StopAll("the server is shutting down");
             _running = false;

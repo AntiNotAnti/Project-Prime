@@ -81,10 +81,26 @@ public sealed class MapCommunityClient : IDisposable
     {
         using var package = new MapPackageReader(path);
         if (package.Manifest == null) throw new InvalidDataException("Build a current .ppmap package before sharing.");
+        // Resolve expired credentials before streaming a body. An early 401 can
+        // otherwise close the socket mid-write and hide the status needed by
+        // the launcher's credential-refresh retry.
+        using (var authorization = await _http.GetAsync("maps?mine=true&pageSize=1",
+            HttpCompletionOption.ResponseHeadersRead, token)) EnsureSuccess(authorization);
         using var stream = File.OpenRead(path);
         using var content = new StreamContent(stream);
         content.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-        using var response = await _http.PostAsync("maps?listed="+listed.ToString().ToLowerInvariant()+"&draft="+draft.ToString().ToLowerInvariant(), content, token);
+        HttpResponseMessage uploaded;
+        try
+        {
+            uploaded = await _http.PostAsync("maps?listed="+listed.ToString().ToLowerInvariant()+"&draft="+draft.ToString().ToLowerInvariant(), content, token);
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == null && !token.IsCancellationRequested)
+        {
+            throw new HttpRequestException($"Upload interrupted while sending {stream.Length / 1048576.0:N1} MiB. "
+                + "Refresh My Maps to check whether it arrived, then retry if missing. "
+                + ex.GetBaseException().Message, ex);
+        }
+        using var response = uploaded;
         if (response.StatusCode == System.Net.HttpStatusCode.Conflict)
             throw new HttpRequestException("This map version already has different published contents. Increase the project's Version before publishing.",null,response.StatusCode);
         EnsureSuccess(response);
@@ -182,6 +198,8 @@ public sealed class MapCommunityClient : IDisposable
             throw new HttpRequestException("The Community service is busy. Wait a moment and try again.", null, response.StatusCode);
         if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
             throw new HttpRequestException("Community identity verification is temporarily unavailable.", null, response.StatusCode);
+        if (response.StatusCode == System.Net.HttpStatusCode.RequestEntityTooLarge)
+            throw new HttpRequestException("The map exceeds this service or HTTPS proxy's upload size limit. Reduce packaged assets or ask the server operator to increase the limit.", null, response.StatusCode);
         response.EnsureSuccessStatusCode();
     }
 
