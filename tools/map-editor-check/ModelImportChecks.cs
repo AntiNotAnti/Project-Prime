@@ -69,10 +69,16 @@ internal static class ModelImportChecks
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd -s 1 1 1 textures/TILE.png\nnewmtl other\nmap_Kd textures/TILE.png\n");
         File.WriteAllText(path, source + "usemtl other\nf 1/1 2/2 4/4\n");
         var textured = ModelImportService.Import(path, new());
-        check(textured.Assets.Count == 1 && textured.Materials.Single(m => m.Name == "red").Texture == textured.Materials.Single(m => m.Name == "other").Texture,
-            "PNG texture import resolves case-insensitive names and deduplicates source content");
-        check(MapTexturePack.Load(textured.Assets.Single().Value, "image").Entries.Single().Width == 64,
-            "source image bakes to runtime texture");
+        string fallbackPath = textured.Materials.Single(m => m.Name == "red").Texture!;
+        string modernPath = textured.Materials.Single(m => m.Name == "red").Albedo!;
+        check(textured.Assets.Count == 2
+            && fallbackPath == textured.Materials.Single(m => m.Name == "other").Texture
+            && modernPath == textured.Materials.Single(m => m.Name == "other").Albedo
+            && modernPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase),
+            "PNG texture import deduplicates fallback and portable HD source");
+        check(MapTexturePack.Load(textured.Assets[fallbackPath], "image").Entries.Single().Width == 64
+            && textured.Assets[modernPath].SequenceEqual(png),
+            "source image keeps 64px native fallback plus original HD albedo");
         File.WriteAllText(path, source);
         byte[] tga=TestTga();
         File.WriteAllBytes(Path.Combine(root,"textures","tile.tga"),tga);
