@@ -67,7 +67,8 @@ namespace MphRead.Mods.MapGen
                 if(health.ProbeFailures+health.SweepFailures>0)
                     result.Warning("FP-MAP-018",
                         $"Imported collision auto-heal completed with {health.ProbeFailures:N0} unsupported floor probes and "
-                        +$"{health.SweepFailures:N0} short-walk sweep failures. Review the Collision repairs overlay.");
+                        +$"{health.SweepFailures:N0} player-movement, jump-pad, or contact-density sweep risks. "
+                        +"Review the Collision repairs overlay before export/playtest.");
                 if(health.NavigationComponents>health.ReachableComponents&&health.ReachableComponents>0)
                     result.Warning("FP-MAP-007",
                         $"Imported traversal has {health.NavigationComponents} navigation regions; "
