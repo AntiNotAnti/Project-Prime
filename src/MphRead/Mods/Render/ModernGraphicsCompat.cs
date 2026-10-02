@@ -1290,64 +1290,76 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void GenerateNativeMipmaps(NativeTexture native)
         {
-            for (int level = 1; level < native.MipCount; level++)
+            if (native.MipCount <= 1) return;
+
+            // One staging surface per source texture is enough for the entire
+            // chain. The old path allocated and destroyed a native texture for
+            // every mip level, which made 4K/8K material startup dominated by
+            // driver allocation and synchronization rather than downsampling.
+            int scratchWidth = Math.Max(1, native.Width >> 1);
+            int scratchHeight = Math.Max(1, native.Height >> 1);
+            WgpuTexture* scratch = null;
+            TextureView* scratchView = null;
+            try
             {
-                TextureView* source = CreateMipView(native, level - 1);
-                WgpuTexture* scratch = null;
-                TextureView* scratchView = null;
-                try
+                var scratchDescriptor = new TextureDescriptor
                 {
-                    int sw = Math.Max(1, native.Width >> (level - 1));
-                    int sh = Math.Max(1, native.Height >> (level - 1));
-                    int dw = Math.Max(1, native.Width >> level);
-                    int dh = Math.Max(1, native.Height >> level);
+                    Size = new Extent3D((uint)scratchWidth, (uint)scratchHeight, 1),
+                    Format = native.Format,
+                    Usage = TextureUsage.RenderAttachment | TextureUsage.TextureBinding
+                        | TextureUsage.CopySrc,
+                    MipLevelCount = 1,
+                    SampleCount = 1,
+                    Dimension = TextureDimension.Dimension2D
+                };
+                scratch = _api.DeviceCreateTexture(_device.Device, scratchDescriptor);
+                if (scratch == null)
+                    throw new InvalidOperationException("Could not allocate staged mip target.");
+                scratchView = _api.TextureCreateView(scratch, null);
+                if (scratchView == null)
+                    throw new InvalidOperationException("Could not create staged mip view.");
 
-                    // Do not sample and render different mips of the same native
-                    // texture in one render pass. WebGPU permits disjoint
-                    // subresources, but this path is intentionally stricter for
-                    // large authored textures because Vulkan drivers have shown
-                    // corruption under heavy minification. A transient target
-                    // makes the synchronization/layout transition unambiguous.
-                    var scratchDescriptor = new TextureDescriptor
-                    {
-                        Size = new Extent3D((uint)dw, (uint)dh, 1),
-                        Format = native.Format,
-                        Usage = TextureUsage.RenderAttachment | TextureUsage.TextureBinding
-                            | TextureUsage.CopySrc,
-                        MipLevelCount = 1,
-                        SampleCount = 1,
-                        Dimension = TextureDimension.Dimension2D
-                    };
-                    scratch = _api.DeviceCreateTexture(_device.Device, scratchDescriptor);
-                    if (scratch == null)
-                        throw new InvalidOperationException("Could not allocate staged mip target.");
-                    scratchView = _api.TextureCreateView(scratch, null);
-                    if (scratchView == null)
-                        throw new InvalidOperationException("Could not create staged mip view.");
-
-                    BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
-                        new CoreTarget(scratch, scratchView, native.Format, null, dw, dh),
-                        0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
-
-                    var from = new ImageCopyTexture
-                    {
-                        Texture = scratch, MipLevel = 0, Aspect = TextureAspect.All
-                    };
-                    var to = new ImageCopyTexture
-                    {
-                        Texture = native.Texture, MipLevel = (uint)level, Aspect = TextureAspect.All
-                    };
-                    var extent = new Extent3D((uint)dw, (uint)dh, 1);
-                    _api.CommandEncoderCopyTextureToTexture(
-                        BeginCommands(), &from, &to, &extent);
-                    EndCommands();
-                }
-                finally
+                for (int level = 1; level < native.MipCount; level++)
                 {
-                    if (scratchView != null) _api.TextureViewRelease(scratchView);
-                    if (scratch != null) _api.TextureRelease(scratch);
-                    _api.TextureViewRelease(source);
+                    TextureView* source = CreateMipView(native, level - 1);
+                    try
+                    {
+                        int sw = Math.Max(1, native.Width >> (level - 1));
+                        int sh = Math.Max(1, native.Height >> (level - 1));
+                        int dw = Math.Max(1, native.Width >> level);
+                        int dh = Math.Max(1, native.Height >> level);
+
+                        // Use the reusable surface's upper-left dw x dh region.
+                        // BlitTargets receives the logical destination extent,
+                        // so the viewport and sampling remain identical to the
+                        // previous one-texture-per-level implementation.
+                        BlitTargets(new CoreTarget(native.Texture, source, native.Format, null, sw, sh),
+                            new CoreTarget(scratch, scratchView, native.Format, null, dw, dh),
+                            0, 0, sw, sh, 0, 0, dw, dh, BlitFramebufferFilter.Linear);
+
+                        var from = new ImageCopyTexture
+                        {
+                            Texture = scratch, MipLevel = 0, Aspect = TextureAspect.All
+                        };
+                        var to = new ImageCopyTexture
+                        {
+                            Texture = native.Texture, MipLevel = (uint)level, Aspect = TextureAspect.All
+                        };
+                        var extent = new Extent3D((uint)dw, (uint)dh, 1);
+                        _api.CommandEncoderCopyTextureToTexture(
+                            BeginCommands(), &from, &to, &extent);
+                        EndCommands();
+                    }
+                    finally
+                    {
+                        _api.TextureViewRelease(source);
+                    }
                 }
+            }
+            finally
+            {
+                if (scratchView != null) _api.TextureViewRelease(scratchView);
+                if (scratch != null) _api.TextureRelease(scratch);
             }
         }
 
