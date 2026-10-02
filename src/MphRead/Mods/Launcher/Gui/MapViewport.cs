@@ -30,6 +30,7 @@ namespace MphRead.Mods.Launcher.Gui
         public bool Collision { get; set; }
         public bool CollisionHeatmap { get; set; }
         public bool CollisionRepairsOverlay { get; set; }
+        public bool CollisionNormalsOverlay { get; set; }
         public bool PartitionOverlay { get; set; }
         public float PartitionCellSize { get; set; } = 64f;
         public bool KillPlane { get; set; }
@@ -300,6 +301,23 @@ namespace MphRead.Mods.Launcher.Gui
             context.DrawRectangle(new SolidColorBrush(Color.FromArgb(180, 18, 30, 42)), null, bounds);
             context.DrawText(label, point);
         }
+        private static Vector CollisionFaceNormal(MapViewportFace face)
+        {
+            if(face.Points.Length<3)return Vector.Zero;
+            Vector normal=Vector.Zero;
+            for(int i=0;i<face.Points.Length;i++)
+            {
+                Vector a=face.Points[i],b=face.Points[(i+1)%face.Points.Length];
+                normal.X+=(a.Y-b.Y)*(a.Z+b.Z);
+                normal.Y+=(a.Z-b.Z)*(a.X+b.X);
+                normal.Z+=(a.X-b.X)*(a.Y+b.Y);
+            }
+            return normal.LengthSquared()<1e-10f?Vector.Zero:Vector.Normalize(normal);
+        }
+
+        private static Vector FaceCenter(MapViewportFace face)
+            => face.Points.Length==0?Vector.Zero:face.Points.Aggregate(Vector.Zero,(a,b)=>a+b)/face.Points.Length;
+
         private float VisibleGridStep => Math.Max(Snap > 0 ? Snap : .25f, MathF.Pow(2,MathF.Floor(MathF.Log2(Math.Max(1,Vector.Distance(CameraPosition,CameraTarget))/32))));
 
         public override void Render(DrawingContext context)
@@ -366,6 +384,26 @@ namespace MphRead.Mods.Launcher.Gui
                 if(item.Face.ObjectId!=Guid.Empty)_pick.Add((item.Face.ObjectId,item.Points,item.Depth));
             }
             }
+            if(CollisionNormalsOverlay)
+            {
+                int shown=0;
+                foreach(MapViewportFace face in VisibleFaces.Where(f=>f.Solid))
+                {
+                    if(shown>=320)break;
+                    Vector normal=CollisionFaceNormal(face);
+                    if(normal==Vector.Zero)continue;
+                    Vector center=FaceCenter(face);
+                    float scale=Math.Clamp(MathF.Sqrt(face.Points
+                        .Select(p=>Vector.DistanceSquared(p,center)).DefaultIfEmpty(1).Average())*.28f,.25f,1.5f);
+                    IBrush brush=normal.Y<-.25f?Brushes.OrangeRed:normal.Y>.45f?Brushes.LimeGreen:Brushes.Cyan;
+                    Line(context,center,center+normal*scale,brush,2);
+                    var tip=Project(center+normal*scale);
+                    if(tip!=null)context.DrawEllipse(brush,null,tip.Value.Point,2.5,2.5);
+                    if(shown<32)Label(context,Guid.Empty,
+                        $"n {normal.X:0.00},{normal.Y:0.00},{normal.Z:0.00}",center+normal*scale);
+                    shown++;
+                }
+            }
             if(CollisionRepairsOverlay)
             {
                 int shown=0;
@@ -379,7 +417,9 @@ namespace MphRead.Mods.Launcher.Gui
                         MapCollisionRepairKind.BuriedRestored => Brushes.Cyan,
                         MapCollisionRepairKind.PhantomRemoved => repair.Confidence>=.9f?Brushes.OrangeRed:Brushes.Orange,
                         MapCollisionRepairKind.SpawnMoved or MapCollisionRepairKind.ItemMoved => Brushes.Gold,
-                        MapCollisionRepairKind.ContactOverflowRisk => Brushes.OrangeRed,
+                        MapCollisionRepairKind.ContactOverflowRisk or MapCollisionRepairKind.OverlappingSurface => Brushes.OrangeRed,
+                        MapCollisionRepairKind.WindingWarning or MapCollisionRepairKind.OpenBoundary
+                            or MapCollisionRepairKind.DegenerateRemoved => Brushes.Orange,
                         MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.MovementSweepFailure
                             or MapCollisionRepairKind.JumpPadFailure or MapCollisionRepairKind.ReachabilityWarning => Brushes.Magenta,
                         MapCollisionRepairKind.SeamStitched or MapCollisionRepairKind.TJunctionStitched => Brushes.DeepSkyBlue,
@@ -392,8 +432,22 @@ namespace MphRead.Mods.Launcher.Gui
                     }
                     else
                     {
-                        for(int i=0;i<repair.Points.Length;i++)
+                        int limit=repair.Kind is MapCollisionRepairKind.MovementSweepFailure
+                            or MapCollisionRepairKind.ContactOverflowRisk or MapCollisionRepairKind.JumpPadFailure
+                            ? repair.Points.Length-1 : repair.Points.Length;
+                        for(int i=0;i<limit;i++)
                             Line(context,repair.Points[i],repair.Points[(i+1)%repair.Points.Length],color,2);
+                        if(repair.Kind is MapCollisionRepairKind.MovementSweepFailure
+                            or MapCollisionRepairKind.ContactOverflowRisk or MapCollisionRepairKind.JumpPadFailure)
+                        {
+                            foreach(Vector p in repair.Points.Take(8))
+                            {
+                                // The validator's upright body reference. It is a
+                                // spatial cue for sweep/contact locations, not a
+                                // replacement for each hunter's runtime shape.
+                                Line(context,p,p+Vector.UnitY*1.6f,color,1);
+                            }
+                        }
                     }
                     if(shown<24)
                     {
