@@ -435,6 +435,12 @@ namespace MphRead.Mods.MapGen
         /// </summary>
         public string? Textures { get; set; }
 
+        /// <summary>
+        /// Optional portable HD albedo per source shader index. The FPTX pack
+        /// remains authoritative fallback and supplies material ordering/UV scale.
+        /// </summary>
+        public Dictionary<int, string> ModernTextures { get; set; } = new();
+
         /// <summary>Where the texture pack is, or null if there is none here.</summary>
         /// <summary>
         /// The baked texture pack out of the bundle, or null when this map
