@@ -826,6 +826,7 @@ namespace MphRead.Mods.Launcher.Gui
                 _filteringRow.On = false;
                 _mipmapRow.On = false;
                 _anisotropyRow.Index = 0;
+                _textureQualityRow.Index = (int)TextureAssetQuality.Automatic;
                 _fpsRow.On = false;
                 _smoothNativeHud.On = true;
                 _fpsLimitRow.Value = FpsLimitStopIndex(FrameTiming.DisplayRate);
