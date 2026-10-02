@@ -205,3 +205,15 @@ Metal renderer window checks including six material-buffer readbacks, and 252
 catalog captures / 63 model-mode captures / 600 looping death frames on each of
 OpenGL and Metal. Orbital, Inferno and Circuit captures were inspected. Vulkan,
 DX12, physical Android and gameplay performance were not measured for this change.
+
+
+## Unified modern texture assets (2026-10-01)
+
+Authored biped, first-person weapon, alternate-form and Halfturret skin channels
+now use `ModernTextureAsset` and a scene-owned `TextureAssetManager` cache.
+Existing material keys already identify authored map materials and
+`effect/model/...` particle models, so HD world and FX replacements use the
+same resolution policy without changing cosmetic, network or replay IDs. Quality
+is Automatic, Low (1K), Medium (2K), High (4K) or Ultra (8K); transparent effect
+assets deliberately top out one tier lower. Existing native assets remain the
+fallback on missing, corrupt, unsupported or over-budget authored content.

@@ -29,9 +29,9 @@ namespace MphRead.Mods.MapGen
 
     public sealed class MapPackageReader : IDisposable
     {
-        public const long MaxArchiveBytes = 128 * 1024 * 1024;
-        public const long MaxExpandedBytes = 256 * 1024 * 1024;
-        public const long MaxEntryBytes = 64 * 1024 * 1024;
+        public const long MaxArchiveBytes = 512L * 1024 * 1024;
+        public const long MaxExpandedBytes = 1024L * 1024 * 1024;
+        public const long MaxEntryBytes = 256L * 1024 * 1024;
         public const int MaxEntries = 2048;
         public static readonly JsonSerializerOptions JsonOptions = new()
         { PropertyNameCaseInsensitive = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
@@ -42,7 +42,7 @@ namespace MphRead.Mods.MapGen
 
         public MapPackageReader(string path)
         {
-            if (new FileInfo(path).Length > MaxArchiveBytes) throw new InvalidDataException("Package exceeds the 128 MiB limit.");
+            if (new FileInfo(path).Length > MaxArchiveBytes) throw new InvalidDataException("Package exceeds the 512 MiB limit.");
             _archive = ZipFile.OpenRead(path);
             try
             {
@@ -55,7 +55,7 @@ namespace MphRead.Mods.MapGen
                     if (entry.Length < 0 || entry.Length > MaxEntryBytes || (total += entry.Length) > MaxExpandedBytes)
                         throw new InvalidDataException("Package expanded size exceeds the limit.");
                     string ext = Path.GetExtension(name).ToLowerInvariant();
-                    if (ext is not (".json" or ".bsp" or ".obj" or ".tex" or ".png" or ".jpg" or ".jpeg" or ".ogg" or ".wav" or ".mp3"))
+                    if (ext is not (".json" or ".bsp" or ".obj" or ".tex" or ".png" or ".jpg" or ".jpeg" or ".tga" or ".ogg" or ".wav" or ".mp3"))
                         throw new InvalidDataException("Unsupported package asset: " + name);
                 }
                 if (_entries.ContainsKey("manifest.json"))

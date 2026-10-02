@@ -15,7 +15,8 @@ public static class MapDependencyAnalyzer
     /// Cartridge references are intentionally excluded.</summary>
     public static IReadOnlyList<string> PackageAssets(MapDefinition definition) => Array.AsReadOnly(
         definition.Assets.Select(a => a.Path)
-            .Concat(definition.Materials.Where(m => m.Texture != null).Select(m => m.Texture!))
+            .Concat(definition.Materials.SelectMany(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                .Where(path => !String.IsNullOrEmpty(path)).Select(path => path!)))
             .Concat(definition.Audio?.Music is { } music ? new[] { music } : Array.Empty<string>())
             .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray());
 

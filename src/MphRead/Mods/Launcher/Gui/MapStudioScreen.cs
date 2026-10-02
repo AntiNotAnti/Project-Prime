@@ -15,6 +15,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using MphRead.Mods.MapEditor;
 using MphRead.Mods.MapGen;
+using MphRead.Mods.Render;
 
 namespace MphRead.Mods.Launcher.Gui
 {
@@ -283,7 +284,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch(Exception){ }
             }
-            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.SourceMaterial}|{material.TexScale:R}{stamp}";
+            return $"{definition.SourcePath}|{definition.BundlePath}|{definition.TextureSource}|{material.Texture}|{material.Albedo}|{material.Normal}|{material.SpecularRoughness}|{material.Emissive}|{material.SourceMaterial}|{material.TexScale:R}{stamp}";
         }
         internal void ShowStatus(string message)=>_status.Text=message;
         private static TextBlock Text(string text)=>new(){Text=text,Foreground=GuiTheme.TextBrush,TextWrapping=TextWrapping.Wrap};
@@ -1929,7 +1930,7 @@ namespace MphRead.Mods.Launcher.Gui
         private string StoreAsset(string kind,string extension,byte[] bytes)
         {
             if(_document==null)throw new InvalidOperationException("Open a project first.");
-            if(bytes.Length>32*1024*1024)throw new IOException("Assets must be no larger than 32 MiB.");
+            if(bytes.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Asset exceeds the 256 MiB package entry limit.");
             string root=_document.Project.Definition.BaseDirectory??CustomRooms.MapDirectory;
             string relative=kind+"/"+Guid.NewGuid().ToString("N")+extension;
             AtomicFile.Write(Path.Combine(root,relative),bytes);
@@ -1945,7 +1946,9 @@ namespace MphRead.Mods.Launcher.Gui
                 var entry = asset;
                 string root = _document.Project.Definition.BaseDirectory ?? CustomRooms.MapDirectory;
                 string file = Path.GetFullPath(Path.Combine(root, entry.Path));
-                int uses = _document.Project.Definition.Materials.Count(m => m.Texture == entry.Path)
+                int uses = _document.Project.Definition.Materials.Sum(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                        .Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                    + (_document.Project.Definition.Import?.ModernTextures.Values.Count(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) ?? 0)
                     + (_document.Project.Definition.Audio?.Music == entry.Path ? 1 : 0)
                     + (entry.Kind == "preview" ? 1 : 0);
                 string size = File.Exists(file) ? $"{new FileInfo(file).Length / 1024d:0.0} KiB" : "MISSING";
@@ -1972,8 +1975,17 @@ namespace MphRead.Mods.Launcher.Gui
                 {
                     try {AtomicFile.Write(path,MapAssets.Read(_document.Project.Definition,entry.Path));_status.Text="Asset exported.";}catch(Exception ex){Failure(ex);}
                 },Path.GetExtension(entry.Path)));
-                AddButton(_inspector, "Find usages", () => _status.Text = string.Join(" · ", _document.Project.Definition.Materials.Where(m => m.Texture == entry.Path).Select(m => m.Name))
-                    + (_document.Project.Definition.Audio?.Music == entry.Path ? " · Map music" : ""));
+                AddButton(_inspector, "Find usages", () =>
+                {
+                    var usesText = _document.Project.Definition.Materials
+                        .Where(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                            .Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)))
+                        .Select(m => m.Name).ToList();
+                    if (_document.Project.Definition.Import?.ModernTextures.Values.Any(p => String.Equals(p, entry.Path, StringComparison.OrdinalIgnoreCase)) == true)
+                        usesText.Add("Q3 imported surface");
+                    if (_document.Project.Definition.Audio?.Music == entry.Path) usesText.Add("Map music");
+                    _status.Text = string.Join(" · ", usesText);
+                });
                 var logicalName = new TextBox { Text = entry.Name ?? Path.GetFileNameWithoutExtension(entry.Path) };
                 _inspector.Children.Add(logicalName);
                 AddButton(_inspector, "Rename asset", () => { _document.Edit("Rename asset", d =>
@@ -1991,16 +2003,21 @@ namespace MphRead.Mods.Launcher.Gui
             {
                 try
                 {
-                    if(new FileInfo(path).Length>16*1024*1024)throw new IOException("Texture image exceeds 16 MiB.");
-                    byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(File.ReadAllBytes(path), token));
+                    byte[] source=await Task.Run(()=>File.ReadAllBytes(path),token);
+                    if(source.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Texture image exceeds the 256 MiB asset limit.");
+                    _=ModernTextureAsset.ProbeDimensions(source);
+                    string extension=ModernTextureAsset.PortableEncodedExtension(source)
+                        ?? throw new InvalidDataException("HD map textures must be PNG or JPEG.");
+                    byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(source, token),token);
                     GuardJob(token);
-                    string asset=StoreAsset("textures",".tex",baked);
-                    _document.Edit("Add custom material",d=>d.Materials.Add(new(){Id=Guid.NewGuid(),Name=Path.GetFileNameWithoutExtension(path),Texture=asset,TexScale=16}));
+                    string fallback=StoreAsset("textures",".tex",baked);
+                    string albedo=StoreAsset("textures",extension,source);
+                    _document.Edit("Add custom HD material",d=>d.Materials.Add(new(){Id=Guid.NewGuid(),Name=Path.GetFileNameWithoutExtension(path),Texture=fallback,Albedo=albedo,TexScale=16}));
                     MaterialInspector();
                 }
                 catch(OperationCanceledException){throw;}
                 catch(Exception ex){GuardJob(token);Failure(ex);}
-            }),".png",".jpg",".jpeg"));
+            }),".png",".jpg",".jpeg",".tga"));
             AddButton(_inspector,"Choose custom music",()=>Browse("Choose map music",false,path=>
             {
                 try
@@ -2352,12 +2369,38 @@ namespace MphRead.Mods.Launcher.Gui
             var bsp=await Task.Run(()=>Q3Bsp.Load(level,import.MapName,token),token);
             var archives=MapTextureBake.DiscoverArchives(level,provenance?.DependencyArchives());
             var result=await Task.Run(()=>MapTextureBake.Bake(bsp,archives,target,MapTextureBake.DefaultSize,cancellation:token),token);
+            var modern=await Task.Run(()=>MapTextureBake.ExtractModern(bsp,archives,cancellation:token),token);
             GuardJob(token);
+            var modernPaths=new Dictionary<int,string>();
+            string textureRoot=import.BaseDirectory??definition.BaseDirectory??CustomRooms.MapDirectory;
+            foreach(var source in modern)
+            {
+                string hash=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(source.Bytes)).ToLowerInvariant();
+                string relative="textures/q3-"+hash+source.Extension;
+                string output=Path.GetFullPath(Path.Combine(textureRoot,relative));
+                string prefix=Path.GetFullPath(textureRoot)+Path.DirectorySeparatorChar;
+                if(!output.StartsWith(prefix,StringComparison.OrdinalIgnoreCase))throw new InvalidDataException("Rebaked HD texture escapes the map project.");
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                if(!File.Exists(output))AtomicFile.Write(output,source.Bytes);
+                modernPaths[source.SourceIndex]=relative;
+            }
             if(provenance!=null){provenance.UpdateTextureBake(result);provenance.Save(provenanceRoot);}
-            if(String.IsNullOrWhiteSpace(import.Textures))
-                _document.Edit("Set Q3 texture pack",d=>d.Import!.Textures=textureName,MapChangeDomain.Import);
+            _document.Edit("Rebake Q3 textures",d=>
+            {
+                if(String.IsNullOrWhiteSpace(d.Import!.Textures))d.Import.Textures=textureName;
+                var stale=d.Import.ModernTextures.Values.Except(modernPaths.Values,StringComparer.OrdinalIgnoreCase).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                d.Import.ModernTextures=new Dictionary<int,string>(modernPaths);
+                foreach(string relative in modernPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+                    if(!d.Assets.Any(a=>a.Path.Equals(relative,StringComparison.OrdinalIgnoreCase)))
+                        d.Assets.Add(new MapAsset{Path=relative,Kind="texture",Name="Q3 HD source"});
+                d.Assets.RemoveAll(a=>stale.Contains(a.Path)
+                    && !d.Materials.Any(m=>new[]{m.Texture,m.Albedo,m.Normal,m.SpecularRoughness,m.Emissive}
+                        .Any(p=>String.Equals(p,a.Path,StringComparison.OrdinalIgnoreCase))));
+            },MapChangeDomain.Import|MapChangeDomain.Material);
+            foreach(string relative in modernPaths.Values.Distinct(StringComparer.OrdinalIgnoreCase))
+                _document.RegisterGeneratedAsset(relative,textureRoot);
             _validatedState=null;
-            _status.Text=$"Rebaked {result.Baked} Q3 textures · {result.Resolved} resolved · {result.Fallbacks} fallback · {result.Archives.Count} archive(s)";
+            _status.Text=$"Rebaked {result.Baked} Q3 textures · {modern.Count} HD source images · {result.Resolved} resolved · {result.Fallbacks} fallback · {result.Archives.Count} archive(s)";
         });
 
         private async Task PickReimportSource()

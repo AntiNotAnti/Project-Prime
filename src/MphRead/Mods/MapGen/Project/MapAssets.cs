@@ -50,7 +50,7 @@ namespace MphRead.Mods.MapGen
                     if(!paths.Add(asset.Path))throw new InvalidDataException("Duplicate map asset path.");
                     string ext=Path.GetExtension(asset.Path).ToLowerInvariant();
                     if(asset.Kind=="audio"&&ext is not(".wav" or ".ogg" or ".mp3"))throw new InvalidDataException("Music must be WAV, OGG or MP3.");
-                    if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
+                    if(asset.Kind=="texture"&&ext is not(".png" or ".jpg" or ".jpeg" or ".tga" or ".tex"))throw new InvalidDataException("Unsupported map texture format.");
                     if(asset.Kind=="preview"&&ext!=".png")throw new InvalidDataException("Preview must be PNG.");
                     if(asset.Kind is not("audio" or "texture" or "preview"))throw new InvalidDataException("Unknown asset kind.");
                     if(checkFiles)
@@ -64,6 +64,41 @@ namespace MphRead.Mods.MapGen
                 }
                 catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException){result.Error("FP-MAP-021",ex.Message);}
             }
+            if(definition.Import is { ModernTextures.Count: > 0 } import)
+            {
+                MapTexturePack? pack = null;
+                if(checkFiles)
+                {
+                    try { pack = import.LoadTexturePack(); }
+                    catch(Exception ex) when(ex is IOException or InvalidDataException or ProgramException)
+                    { result.Error("FP-MAP-001","Q3 fallback texture pack is invalid: "+ex.Message); }
+                }
+                foreach(var pair in import.ModernTextures)
+                {
+                    string modern = pair.Value;
+                    string ext = Path.GetExtension(modern).ToLowerInvariant();
+                    if(pair.Key < 0) result.Error("FP-MAP-001","Q3 HD texture shader index cannot be negative.");
+                    if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
+                        result.Error("FP-MAP-001","Q3 HD textures must reference declared texture assets.");
+                    else if(ext is not(".png" or ".jpg" or ".jpeg" or ".tga"))
+                        result.Error("FP-MAP-001","Q3 HD textures must be PNG, JPEG or TGA.");
+                    else if(checkFiles)
+                    {
+                        try
+                        {
+                            byte[] bytes=Read(definition,modern);
+                            if(Mods.Render.ModernTextureAsset.PortableEncodedExtension(bytes)==null)
+                                throw new InvalidDataException("Unsupported portable HD texture encoding.");
+                            Mods.Render.ModernTextureAsset.ProbeDimensions(bytes);
+                        }
+                        catch(Exception ex) when(ex is IOException or InvalidDataException or ArgumentException)
+                        { result.Error("FP-MAP-001",ex.Message); }
+                    }
+                    if(pack!=null&&!pack.BySourceIndex.ContainsKey(pair.Key))
+                        result.Warning("FP-MAP-006",$"Q3 HD texture shader {pair.Key} is no longer present in the fallback texture pack.");
+                }
+            }
+
             if(definition.Audio is {} audio)
             {
                 if(!float.IsFinite(audio.Volume)||audio.Volume is <0 or >1)result.Error("FP-MAP-021","Music volume must be 0–1.");
@@ -72,6 +107,7 @@ namespace MphRead.Mods.MapGen
                 if(audio.GameMusic!=null&&(!Enum.TryParse<MusicId>(audio.GameMusic,true,out var music)||!Enum.IsDefined(music)))result.Error("FP-MAP-021","Unknown game music reference.");
             }
             foreach(var material in definition.Materials)
+            {
                 if(material?.Texture is {} texture)
                 {
                     if(!paths.Contains(texture)||!texture.EndsWith(".tex",StringComparison.OrdinalIgnoreCase))result.Error("FP-MAP-001","Custom materials must reference a baked texture asset.",material.Id);
@@ -81,6 +117,26 @@ namespace MphRead.Mods.MapGen
                         catch(Exception ex)when(ex is IOException or InvalidDataException or ProgramException){result.Error("FP-MAP-001",ex.Message,material.Id);}
                     }
                 }
+                foreach(string modern in new[]{material?.Albedo,material?.Normal,material?.SpecularRoughness,material?.Emissive}.Where(path=>!String.IsNullOrEmpty(path)).Select(path=>path!))
+                {
+                    string ext=Path.GetExtension(modern).ToLowerInvariant();
+                    if(!paths.Contains(modern)||!definition.Assets.Any(a=>a?.Path==modern&&a.Kind=="texture"))
+                        result.Error("FP-MAP-001","HD material channels must reference declared texture assets.",material?.Id);
+                    else if(ext is not(".png" or ".jpg" or ".jpeg" or ".tga"))
+                        result.Error("FP-MAP-001","HD material channels must be PNG, JPEG or TGA.",material?.Id);
+                    else if(checkFiles)
+                    {
+                        try
+                        {
+                            byte[] bytes=Read(definition,modern);
+                            if(Mods.Render.ModernTextureAsset.PortableEncodedExtension(bytes)==null)
+                                throw new InvalidDataException("Unsupported portable HD texture encoding.");
+                            Mods.Render.ModernTextureAsset.ProbeDimensions(bytes);
+                        }
+                        catch(Exception ex)when(ex is IOException or InvalidDataException or ArgumentException){result.Error("FP-MAP-001",ex.Message,material?.Id);}
+                    }
+                }
+            }
         }
     }
     public static class MapModeValidator

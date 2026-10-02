@@ -169,7 +169,7 @@ A legacy brush uses `id`, `label`, `min`, `max`, `material`, `shade`, `solid`, `
 
 The complete local material inventory is included in [Section 19](#19-complete-locally-available-map-texture-catalog), with a matching [machine-readable catalog](texture-catalog.json).
 
-A material is `{id, name, sourceMaterial, texScale, texture?}`. `sourceMaterial` defaults to 0; `texScale` defaults to 16 texels per world unit.
+A material is `{id, name, sourceMaterial, texScale, texture?, albedo?, normal?, specularRoughness?, emissive?}`. `sourceMaterial` defaults to 0; `texScale` defaults to 16 texels per world unit. `texture` is the native FPTX fallback. The four HD fields are optional PNG/JPEG channels that travel with the project/package and are resolved at the client-selected 1K/2K/4K/8K quality tier.
 
 ### Borrowed game textures
 
@@ -183,20 +183,30 @@ Do not assume indices from one source room apply to another. Borrowed textures r
 
 ### Custom textures
 
-Use the editor's texture import/bake path to produce a **single-texture `.tex`** asset. Declare it in `assets` and reference that path in `material.texture`:
+Use the editor's texture import path to keep two layers: a **single-texture `.tex` fallback** plus the original portable HD image. Declare both in `assets`; reference the fallback with `material.texture` and the HD image with `material.albedo` (plus optional `normal`, `specularRoughness`, and `emissive`):
 
 ```json
 {
-  "assets": [{"path":"textures/wall.tex","kind":"texture","name":"Wall"}],
-  "materials": [{"id":"469dc077-a65b-40c0-8045-a7a9b6eb8c4b","name":"Wall","sourceMaterial":0,"texScale":16,"texture":"textures/wall.tex"}]
+  "assets": [
+    {"path":"textures/wall.tex","kind":"texture","name":"Wall fallback"},
+    {"path":"textures/wall.png","kind":"texture","name":"Wall HD"}
+  ],
+  "materials": [{
+    "id":"469dc077-a65b-40c0-8045-a7a9b6eb8c4b",
+    "name":"Wall",
+    "sourceMaterial":0,
+    "texScale":16,
+    "texture":"textures/wall.tex",
+    "albedo":"textures/wall.png"
+  }]
 }
 ```
 
-This is a fragment, not a complete map. The referenced file must actually exist. PNG/JPEG may be declared texture assets, but assigning a PNG directly to `material.texture` is invalid: native material references require the baked `.tex` form with one texture entry.
+This is a fragment, not a complete map. Every referenced file must exist and be declared as a texture asset. Assigning PNG/JPEG directly to `material.texture` is still invalid: that field is the native baked fallback. HD channels accept PNG/JPEG/TGA up to 8192×8192. Q3 imports additionally maintain `import.modernTextures`, mapping source shader indices to portable PNG/JPEG/TGA art while `import.textures` remains the FPTX fallback.
 
 `assets` entries have `path`, `kind`, optional `name` and optional `sourcePath`. Runtime asset paths must be safe project-relative paths, unique without case collisions. `sourcePath` is authoring provenance, not a substitute for a missing runtime asset. Use the editor/exporter to materialize files.
 
-Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tex`), audio (`.wav`, `.ogg`, `.mp3`) and preview (`.png`, at most 4096×4096). Do not reference files outside the portable project using `../` or absolute runtime paths.
+Supported asset kinds/extensions are texture (`.png`, `.jpg`, `.jpeg`, `.tga`, `.tex`), audio (`.wav`, `.ogg`, `.mp3`) and preview (`.png`, at most 4096×4096). Do not reference files outside the portable project using `../` or absolute runtime paths.
 
 ### UV behavior
 
@@ -427,7 +437,7 @@ In the editor, use Build → Validate, Build runtime, Export .ppmap, Playtest, a
 - **Extended 32-bit collision indexing is implemented.** Old documentation describing 65,535 collision references as an absolute current ceiling is outdated. Larger counts produce an informational extended-indexing diagnostic and still have memory/grid constraints.
 - Render partitions, meshes, command bytes, materials and textures have separate reported budgets. Inspect the report rather than using triangle count as the only cost metric.
 - Reported bounded budgets warn at 70%, add a stronger warning at 90%, and fail at 100%.
-- Package limits: 128 MiB compressed, 256 MiB expanded, 64 MiB per entry, 8 MiB project JSON, 2048 entries. These are limits, not size targets.
+- Package limits: 512 MiB compressed, 1 GiB expanded, 256 MiB per entry, 8 MiB project JSON, 2048 entries. These are limits, not size targets.
 
 | Diagnostic | Typical next action |
 | --- | --- |

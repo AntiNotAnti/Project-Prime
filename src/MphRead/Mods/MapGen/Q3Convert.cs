@@ -151,6 +151,22 @@ namespace MphRead.Mods.MapGen
                     KeepSpawns = true
                 }
             };
+            var modernSources = MapTextureBake.ExtractModern(bsp, archives, cancellation: cancellation);
+            foreach (var modern in modernSources)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(modern.Bytes)).ToLowerInvariant();
+                string relative = "textures/q3-" + hash + modern.Extension;
+                string output = Path.Combine(directory, relative.Replace('/', Path.DirectorySeparatorChar));
+                Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+                if (!File.Exists(output)) AtomicFile.Write(output, modern.Bytes);
+                definition.Import!.ModernTextures[modern.SourceIndex] = relative;
+                if (!definition.Assets.Any(a => a.Path.Equals(relative, StringComparison.OrdinalIgnoreCase)))
+                    definition.Assets.Add(new MapAsset { Path = relative, Kind = "texture", Name = modern.Image });
+            }
+            if (modernSources.Count > 0)
+                Log($"  {modernSources.Count} source textures retained for 1K/2K/4K/8K runtime quality");
+
             int clipBrushes = bsp.Brushes.Count(b =>
                 (bsp.Textures[b.Texture].Contents & Q3Bsp.ContentsSolid) == 0
                 && (bsp.Textures[b.Texture].Contents & Q3Bsp.ContentsPlayerClip) != 0);

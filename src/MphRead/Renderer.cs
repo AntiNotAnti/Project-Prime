@@ -1536,12 +1536,14 @@ namespace MphRead
 
         private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey? Authored)> _textureSources = new();
         private Mods.TextureUpscaleMode _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
+        private Mods.TextureAssetQuality _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
         private bool _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
         private int _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
 
         private void RefreshTextureQuality()
         {
             if (Mods.Headless.Active || (_uploadedTextureUpscale == Mods.RenderOptions.TextureUpscale
+                && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
                 && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
                 && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
@@ -1553,6 +1555,7 @@ namespace MphRead
             foreach (var model in _textureSources.Values.Select(source => source.Model).Distinct().ToArray())
                 if (_texPalMap.TryGetValue(model.Id, out var map)) EnsureAuthoredTextures(model, map);
             _uploadedTextureUpscale = Mods.RenderOptions.TextureUpscale;
+            _uploadedTextureAssetQuality = Mods.RenderOptions.TextureQuality;
             _uploadedTextureReplacements = Mods.RenderOptions.TextureReplacements;
             _uploadedMaterialRevision = Mods.Render.TextureReplacementPack.Revision;
         }

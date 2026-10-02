@@ -22,7 +22,9 @@ namespace MphRead.Mods.MapGen
                 var render=MapPacker.EstimateRenderLayout(map);
                 Add(result,"Render partitions",render.Partitions,Int16.MaxValue-1);
                 Add(result,"Render meshes",render.Meshes,UInt16.MaxValue/2);
-                Add(result,"Render command bytes",render.CommandBytes,MapPackageReader.MaxEntryBytes);
+                // Geometry runtime budgeting is independent from the larger package-entry
+                // allowance used by encoded 4K/8K texture assets.
+                Add(result,"Render command bytes",render.CommandBytes,64L*1024*1024);
                 if(map.Definition.Partitioning?.PortalCulling==true)
                 {
                     Add(result,"Portal room parts",render.Partitions,MapRuntimePartitioner.MaxPortalParts+1);

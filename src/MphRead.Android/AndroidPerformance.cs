@@ -84,7 +84,8 @@ namespace MphRead.Droid
                 && String.Equals(settings.DeferredPbr, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.Reflections, "off", StringComparison.OrdinalIgnoreCase)
                 && String.Equals(settings.VolumetricFog, "off", StringComparison.OrdinalIgnoreCase)
-                && String.Equals(settings.TextureUpscale, "off", StringComparison.OrdinalIgnoreCase);
+                && String.Equals(settings.TextureUpscale, "off", StringComparison.OrdinalIgnoreCase)
+                && String.Equals(settings.TextureQuality, "automatic", StringComparison.OrdinalIgnoreCase);
 
             int savedCap = FrameTiming.ParseCap(settings.FrameRateCap, FrameTiming.DisplayRate);
             int savedScale = RenderOptions.ParseScale(settings.ResolutionScale, 100);

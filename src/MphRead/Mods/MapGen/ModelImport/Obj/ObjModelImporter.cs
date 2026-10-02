@@ -86,6 +86,9 @@ public sealed class ObjModelImporter : IModelImporter
                                     if (!File.Exists(image)) { Warn("Missing texture: " + imageName); break; }
                                     if (new FileInfo(image).Length > MaxSourceBytes) throw new InvalidDataException("Texture exceeds source byte limit.");
                                     string hash = MapHash256.HashFile(image).ToString();
+                                    string sourceExtension = Path.GetExtension(image).ToLowerInvariant();
+                                    string? modernAsset = sourceExtension is ".png" or ".jpg" or ".jpeg" or ".tga"
+                                        ? "textures/model-" + hash + (sourceExtension == ".jpeg" ? ".jpg" : sourceExtension) : null;
                                     if (!textures.TryGetValue(hash, out string? asset))
                                     {
                                         if (textures.Count >= 128) throw new InvalidDataException("Model exceeds 128 textures.");
@@ -93,10 +96,15 @@ public sealed class ObjModelImporter : IModelImporter
                                         byte[] imageBytes = File.ReadAllBytes(image);
                                         if ((textureBytes += imageBytes.Length) > 128 * 1024 * 1024) throw new InvalidDataException("Model textures exceed byte budget.");
                                         ValidateImage(imageBytes);
-                                        assets.Add(asset, MapTextureBake.BakeImage(imageBytes, cancellation)); textures.Add(hash, asset);
+                                        assets.Add(asset, MapTextureBake.BakeImage(imageBytes, cancellation));
+                                        if (modernAsset != null) assets.TryAdd(modernAsset, imageBytes);
+                                        textures.Add(hash, asset);
                                     }
                                     assetSources.TryAdd(asset,image);
-                                    materials[current].Texture = asset; break;
+                                    if (modernAsset != null) assetSources.TryAdd(modernAsset,image);
+                                    materials[current].Texture = asset;
+                                    materials[current].Albedo = modernAsset;
+                                    break;
                                 case "Kd" when current >= 0:
                                     Require(f, 4);
                                     byte[] color = Solid(Number(f[1]), Number(f[2]), Number(f[3]));
@@ -309,8 +317,8 @@ public sealed class ObjModelImporter : IModelImporter
             width=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(12));
             height=BinaryPrimitives.ReadUInt16LittleEndian(bytes.AsSpan(14));
         }
-        if (width is < 1 or > 4096 || height is < 1 or > 4096)
-            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 4096×4096.");
+        if (width is < 1 or > 8192 || height is < 1 or > 8192)
+            throw new InvalidDataException("Model textures must be PNG, JPEG, TGA or BMP with dimensions at most 8192×8192.");
     }
 
     internal static byte[] Solid(float r, float g, float b)

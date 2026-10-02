@@ -1,8 +1,6 @@
 using System;
 using System.IO;
-using System.Linq;
 using OpenTK.Graphics.OpenGL;
-using ReFuel.Stb;
 using MphRead.Mods.Render.Materials;
 
 namespace MphRead.Mods.Render
@@ -13,9 +11,9 @@ namespace MphRead.Mods.Render
     }
 
     /// <summary>
-    /// Optional user-owned high-resolution albedo and material maps.
-    /// _n = tangent-space normal, _s = red specular / green roughness,
-    /// _e = RGB emissive. Missing/bad files disable only that map.
+    /// Optional high-resolution albedo and material maps. Decoding, resolution caps,
+    /// mip generation and upload policy are shared with cosmetics and effect assets
+    /// through <see cref="TextureAssetManager"/>.
     /// </summary>
     internal static class TextureReplacementPack
     {
@@ -25,27 +23,39 @@ namespace MphRead.Mods.Render
             ? Launcher.LauncherPrefs.Directory : AppContext.BaseDirectory, "texture-packs", "default");
         public static int Revision { get; private set; }
         public static void Reload() { _loaded = false; _resolver = null; Revision++; }
-        public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor, MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null)
+
+        public static ResolvedMaterial? Resolve(string model, int texture, int palette, int recolor,
+            MaterialAssetKey? key = null, MaterialAssetKey? fallbackKey = null)
         {
             EnsureLoaded();
-            return _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
+            ResolvedMaterial? local = _resolver?.Resolve(model, texture, palette, recolor, key, fallbackKey);
+            if (local != null && HasChannels(local)) return local;
+            MaterialAssetKey portableKey = key ?? MaterialAssetKey.Model(model, texture, palette, recolor);
+            return MapMaterialAssetRegistry.Resolve(portableKey) ?? local;
         }
-        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
+
+        internal static ResolvedMaterial? ResolveLocalExplicit(MaterialAssetKey key)
         {
             EnsureLoaded();
             return _resolver?.ResolveExplicit(key);
         }
+
+        internal static ResolvedMaterial? ResolveExplicit(MaterialAssetKey key)
+            => ResolveLocalExplicit(key) ?? MapMaterialAssetRegistry.Resolve(key);
+
+        private static bool HasChannels(ResolvedMaterial material)
+            => material.Albedo != null || material.Normal != null || material.SpecularRoughness != null || material.Emissive != null;
+
         private static void EnsureLoaded()
         {
-            if (!_loaded)
+            if (_loaded) return;
+            _loaded = true;
+            try { _resolver = new MaterialResolver(Root); }
+            catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
+                or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
             {
-                _loaded = true;
-                try { _resolver = new MaterialResolver(Root); }
-                catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or System.Text.Json.JsonException or InvalidOperationException)
-                {
-                    DebugLog.Line("render", "Material manifest ignored; preserving legacy lookup: " + ex.Message);
-                    _resolver = new MaterialResolver(Root, useManifest: false);
-                }
+                DebugLog.Line("render", "Material manifest ignored; preserving legacy lookup: " + ex.Message);
+                _resolver = new MaterialResolver(Root, useManifest: false);
             }
         }
 
@@ -55,25 +65,29 @@ namespace MphRead.Mods.Render
             width = height = 0;
             material = null;
             if (!RenderOptions.TextureReplacements) return false;
-            material = Resolve(model.Name, textureId, paletteId, recolorId, authoredKey ?? MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
+            material = Resolve(model.Name, textureId, paletteId, recolorId,
+                authoredKey ?? MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId),
                 MaterialAssetKey.ForModel(model, textureId, paletteId, recolorId));
-            return material?.Albedo is { } albedo && TryUploadBound(albedo.Path, out width, out height);
+            if (material?.Albedo is not { } albedo) return false;
+            TextureAssetClass assetClass = Classify(model);
+            return TryUploadBound(albedo, assetClass, TextureAssetChannel.Albedo, out width, out height);
         }
 
         public static MaterialMapBindings UploadCompanions(ResolvedMaterial material,
-            Func<int> allocateTexture, Action<int> releaseTexture)
+            Func<int> allocateTexture, Action<int> releaseTexture, TextureAssetClass assetClass = TextureAssetClass.World)
         {
+            if (material.Key.Value.StartsWith("effect/model/", StringComparison.Ordinal))
+                assetClass = TextureAssetClass.Effect;
             int normal = 0, specular = 0, emissive = 0;
             try
             {
-                normal = UploadCompanion(material.Normal, allocateTexture, releaseTexture);
-                specular = UploadCompanion(material.SpecularRoughness, allocateTexture, releaseTexture);
-                emissive = UploadCompanion(material.Emissive, allocateTexture, releaseTexture);
+                normal = UploadCompanion(material.Normal, TextureAssetChannel.Normal, assetClass, allocateTexture, releaseTexture);
+                specular = UploadCompanion(material.SpecularRoughness, TextureAssetChannel.Material, assetClass, allocateTexture, releaseTexture);
+                emissive = UploadCompanion(material.Emissive, TextureAssetChannel.Emissive, assetClass, allocateTexture, releaseTexture);
                 return new(normal, specular, emissive);
             }
             catch
             {
-                // A later allocation may fail after earlier channels succeeded.
                 if (normal != 0) releaseTexture(normal);
                 if (specular != 0) releaseTexture(specular);
                 if (emissive != 0) releaseTexture(emissive);
@@ -81,98 +95,69 @@ namespace MphRead.Mods.Render
             }
         }
 
-        private static int UploadCompanion(MaterialImage? image,
-            Func<int> allocateTexture, Action<int> releaseTexture)
+        private static int UploadCompanion(MaterialImage? image, TextureAssetChannel channel,
+            TextureAssetClass assetClass, Func<int> allocateTexture, Action<int> releaseTexture)
         {
             if (image == null) return 0;
-            string path = image.Path;
             int texture = allocateTexture();
             try
             {
                 GL.ActiveTexture(TextureUnit.Texture0);
                 GL.BindTexture(TextureTarget.Texture2D, texture);
-                if (!TryUploadBound(path, out int width, out int height))
+                if (!TryUploadBound(image, assetClass, channel, out int width, out int height))
                 {
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     releaseTexture(texture);
                     return 0;
                 }
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                    (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                    (int)TextureMagFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
-                    (int)TextureWrapMode.Repeat);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
-                    (int)TextureWrapMode.Repeat);
-                DebugLog.Line("render", $"material map {Path.GetFileName(path)} ({width}x{height})");
+                DebugLog.Line("render", "material map " + Path.GetFileName(image.Path) + " (" + width + "x" + height + ")");
                 return texture;
             }
             catch (Exception ex)
             {
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 releaseTexture(texture);
-                DebugLog.Line("render", $"material map ignored {path}: {ex.Message}");
+                DebugLog.Line("render", "material map ignored " + image.Path + ": " + ex.Message);
                 return 0;
             }
             finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
         }
 
         internal static byte[] ReadRgba(string path, out int width, out int height)
+            => ReadRgba(MaterialPack.ValidateImage(path), out width, out height);
+
+        internal static byte[] ReadRgba(MaterialImage image, out int width, out int height)
         {
-            MaterialPack.ContainedPath(Root, Path.GetRelativePath(Root, path).Replace(Path.DirectorySeparatorChar, '/'));
-            MaterialPack.ValidateImage(path);
-            using FileStream stream = File.OpenRead(path);
-#if ANDROID
-            using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
-            using var image = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options)
-                ?? throw new InvalidDataException("Android could not decode the material image.");
-            width = image.Width; height = image.Height;
-            if (width <= 0 || height <= 0 || width > MaterialPack.MaximumDimension || height > MaterialPack.MaximumDimension
-                || (long)width * height > MaterialPack.MaximumPixels) throw new InvalidDataException("Material image exceeds bounds.");
-            byte[] rgba = new byte[checked(width * height * 4)];
-            int[] row = new int[width];
-            for (int y = 0; y < height; y++)
-            {
-                image.GetPixels(row, 0, width, 0, y, width, 1);
-                for (int x = 0; x < width; x++)
-                {
-                    int pixel = row[x], offset = (y * width + x) * 4;
-                    rgba[offset] = (byte)(pixel >> 16); rgba[offset + 1] = (byte)(pixel >> 8);
-                    rgba[offset + 2] = (byte)pixel; rgba[offset + 3] = (byte)(pixel >> 24);
-                }
-            }
-#else
-            using StbImage image = StbImage.Load(stream, StbiImageFormat.Rgba);
-            width = image.Width; height = image.Height;
-            if (width <= 0 || height <= 0 || width > MaterialPack.MaximumDimension || height > MaterialPack.MaximumDimension
-                || (long)width * height > MaterialPack.MaximumPixels || image.ImagePointer == IntPtr.Zero) throw new InvalidDataException("Invalid material pixels.");
-            byte[] rgba = new byte[checked(width * height * 4)];
-            System.Runtime.InteropServices.Marshal.Copy(image.ImagePointer, rgba, 0, rgba.Length);
-#endif
-            return rgba;
+            using Stream stream = image.OpenRead();
+            ModernTextureAsset asset = ModernTextureAsset.Decode(stream, image.Path, TextureAssetClass.World, TextureAssetChannel.Albedo);
+            width = asset.Width; height = asset.Height;
+            return asset.Pixels;
         }
 
-        private static bool TryUploadBound(string path, out int width, out int height)
+        private static bool TryUploadBound(MaterialImage image, TextureAssetClass assetClass, TextureAssetChannel channel,
+            out int width, out int height)
         {
             width = height = 0;
             try
             {
-                byte[] rgba = ReadRgba(path, out width, out height);
-                GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
-                    width, height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, rgba);
-                return GL.GetError() == ErrorCode.NoError;
+                using Stream stream = image.OpenRead();
+                return TextureAssetManager.TryUploadBound(stream, image.Path, assetClass, channel, repeat: true, out width, out height);
             }
             catch (Exception ex)
             {
-                DebugLog.Line("render", $"texture pack image ignored {path}: {ex.Message}");
+                DebugLog.Line("render", "texture image ignored " + image.Path + ": " + ex.Message);
                 return false;
             }
         }
 
+        private static TextureAssetClass Classify(Model model)
+        {
+            string? scope = model.MaterialAssetScope;
+            if (scope != null && scope.StartsWith("effect/model/", StringComparison.Ordinal)) return TextureAssetClass.Effect;
+            return TextureAssetClass.World;
+        }
+
         public static string CompanionPath(string albedoPath, char kind)
-            => Path.Combine(Path.GetDirectoryName(albedoPath) ?? "",
-                Path.GetFileNameWithoutExtension(albedoPath) + "_" + kind + ".png");
+            => Path.Combine(Path.GetDirectoryName(albedoPath) ?? "", Path.GetFileNameWithoutExtension(albedoPath) + "_" + kind + ".png");
     }
 }

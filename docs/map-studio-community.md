@@ -69,7 +69,7 @@ ProjectPrime -maphub http://127.0.0.1:8091/ -maphubstorage /srv/prime/community
 ```
 
 Use an HTTPS reverse proxy for public access. Configure its request/body timeouts
-and upload limit (at most 128 MiB). HTTP clients are allowed only for loopback
+and upload limit (at most 512 MiB). HTTP clients are allowed only for loopback
 addresses. Normal authors authenticate with Hunter License. Map Studio exchanges the Supabase
 session for a short-lived `ppm1` Community ticket, and the map service verifies that
 ticket through the `community-map-ticket` Edge Function. The Supabase access token

@@ -67,6 +67,7 @@ namespace MphRead.Mods.MapGen
 
         public sealed record Coverage(int Total, int Resolved, IReadOnlyList<string> Missing,
             IReadOnlyList<string> Archives,IReadOnlyList<Resolution> Resolutions);
+        public sealed record ModernSource(int SourceIndex, string Image, string Extension, byte[] Bytes);
 
         /// <summary>
         /// Texture archives for a Q3 source, in deterministic precedence order:
@@ -124,6 +125,52 @@ namespace MphRead.Mods.MapGen
                 return new(total, resolved, missing.AsReadOnly(),
                     archivePaths.Where(File.Exists).Select(Path.GetFullPath)
                         .Distinct(StringComparer.OrdinalIgnoreCase).ToArray(),resolutions.AsReadOnly());
+            }
+            finally
+            {
+                foreach (var archive in archives) archive.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Keeps portable source art beside the palette fallback. PNG/JPEG bytes stay
+        /// encoded until the runtime quality tier chooses their resident size.
+        /// Unsupported source encodings (commonly TGA) simply retain FPTX fallback.
+        /// </summary>
+        public static IReadOnlyList<ModernSource> ExtractModern(Q3Bsp bsp,
+            IReadOnlyList<string> archivePaths, bool sky = true, CancellationToken cancellation = default)
+        {
+            var archives = OpenArchives(archivePaths);
+            try
+            {
+                var files = Index(archives);
+                var aliases = ParseShaderAliases(files);
+                var result = new List<ModernSource>();
+                foreach ((int sourceIndex, string name) in UsedTextures(bsp, sky))
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    ResolvedEntry? found = FindEntry(files, aliases, name);
+                    if (found == null || found.Entry.Length <= 0
+                        || found.Entry.Length > MapPackageReader.MaxEntryBytes) continue;
+                    using Stream input = found.Entry.Open();
+                    using var memory = new MemoryStream();
+                    byte[] buffer = new byte[65536];
+                    int read;
+                    while ((read = input.Read(buffer)) > 0)
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        if (memory.Length + read > MapPackageReader.MaxEntryBytes)
+                            throw new InvalidDataException("Texture image exceeds the map asset limit.");
+                        memory.Write(buffer, 0, read);
+                    }
+                    byte[] bytes = memory.ToArray();
+                    string? extension = Mods.Render.ModernTextureAsset.PortableEncodedExtension(bytes);
+                    if (extension == null) continue;
+                    try { _ = Mods.Render.ModernTextureAsset.ProbeDimensions(bytes); }
+                    catch (InvalidDataException) { continue; }
+                    result.Add(new(sourceIndex, found.Image, extension, bytes));
+                }
+                return result.AsReadOnly();
             }
             finally
             {
@@ -469,7 +516,12 @@ namespace MphRead.Mods.MapGen
         {
             cancellation.ThrowIfCancellationRequested();
             using var source = new MemoryStream(raw);
-            using StbImage image = StbImage.Load(source, StbiImageFormat.Rgb);
+            StbImage image;
+            try { image = StbImage.Load(source, StbiImageFormat.Rgb); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            { throw new InvalidDataException("Texture image could not be decoded.", ex); }
+            using (image)
+            {
             int width = image.Width;
             int height = image.Height;
             long sourceLength = (long)width * height * 3;
@@ -516,6 +568,7 @@ namespace MphRead.Mods.MapGen
                 }
             }
             return result;
+            }
         }
 
         /// <summary>

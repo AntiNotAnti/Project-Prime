@@ -43,11 +43,20 @@ static class Q3ImportChecks
         check(texturedPack != null && texturedPack.Entries.Count == 1
             && texturedPack.BySourceIndex.ContainsKey(0),
             "Q3 imported project persists its baked source texture pack");
+        check(texturedMap.Import.ModernTextures.Count == 1
+            && texturedMap.Import.ModernTextures.TryGetValue(0, out string? hdPath)
+            && texturedMap.Assets.Any(a => a.Path == hdPath)
+            && hdPath.EndsWith(".tga", StringComparison.OrdinalIgnoreCase)
+            && MapAssets.Read(texturedMap, hdPath).SequenceEqual(TestTga()),
+            "Q3 import keeps portable source art beside the FPTX fallback");
         string texturedBundle = Path.Combine(root, "q3-textured.ppmap");
         MapPackageBuilder.Build(texturedMap, texturedBundle);
         var bundledTexturedMap = MapDefinition.Load(texturedBundle);
         check(bundledTexturedMap.Import!.LoadTexturePack()?.Entries.Count == 1,
             "Q3 package carries its baked source texture pack");
+        check(bundledTexturedMap.Import.ModernTextures.TryGetValue(0, out string? bundledHd)
+            && MapAssets.Read(bundledTexturedMap, bundledHd).SequenceEqual(TestTga()),
+            "Q3 package carries its portable HD source texture");
 
         string destination = Path.Combine(root, "q3-imported");
         var imported = Q3ImportService.Import(new(source, null, "Q3_RELIABLE", destination,
@@ -118,6 +127,9 @@ static class Q3ImportChecks
         var texture=archive.CreateEntry("textures/prime/test.tga");
         using(var target=texture.Open())target.Write(TestTga());
     }
+
+    private static byte[] TestPng()
+        => Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jM1sAAAAASUVORK5CYII=");
 
     private static byte[] TestTga()
     {

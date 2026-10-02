@@ -69,18 +69,29 @@ internal static class ModelImportChecks
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd -s 1 1 1 textures/TILE.png\nnewmtl other\nmap_Kd textures/TILE.png\n");
         File.WriteAllText(path, source + "usemtl other\nf 1/1 2/2 4/4\n");
         var textured = ModelImportService.Import(path, new());
-        check(textured.Assets.Count == 1 && textured.Materials.Single(m => m.Name == "red").Texture == textured.Materials.Single(m => m.Name == "other").Texture,
-            "PNG texture import resolves case-insensitive names and deduplicates source content");
-        check(MapTexturePack.Load(textured.Assets.Single().Value, "image").Entries.Single().Width == 64,
-            "source image bakes to runtime texture");
+        string fallbackPath = textured.Materials.Single(m => m.Name == "red").Texture!;
+        string modernPath = textured.Materials.Single(m => m.Name == "red").Albedo!;
+        check(textured.Assets.Count == 2
+            && fallbackPath == textured.Materials.Single(m => m.Name == "other").Texture
+            && modernPath == textured.Materials.Single(m => m.Name == "other").Albedo
+            && modernPath.EndsWith(".png", StringComparison.OrdinalIgnoreCase),
+            "PNG texture import deduplicates fallback and portable HD source");
+        check(MapTexturePack.Load(textured.Assets[fallbackPath], "image").Entries.Single().Width == 64
+            && textured.Assets[modernPath].SequenceEqual(png),
+            "source image keeps 64px native fallback plus original HD albedo");
         File.WriteAllText(path, source);
         byte[] tga=TestTga();
         File.WriteAllBytes(Path.Combine(root,"textures","tile.tga"),tga);
         File.WriteAllText(Path.Combine(root,"model.mtl"),"newmtl red\nmap_Kd -o 0 0 0 textures/tile.tga\n");
         var tgaTextured=ModelImportService.Import(path,new());
-        check(tgaTextured.Assets.Count==1&&MapTexturePack.Load(tgaTextured.Assets.Single().Value,"tga").Entries.Single().Width==64,
-            "OBJ imports TGA diffuse textures while tolerating standard map_Kd options");
-        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 5000);
+        string tgaFallback=tgaTextured.Materials.Single(m=>m.Name=="red").Texture!;
+        string tgaModern=tgaTextured.Materials.Single(m=>m.Name=="red").Albedo!;
+        check(tgaTextured.Assets.Count==2
+            &&MapTexturePack.Load(tgaTextured.Assets[tgaFallback],"tga").Entries.Single().Width==64
+            &&tgaModern.EndsWith(".tga",StringComparison.OrdinalIgnoreCase)
+            &&tgaTextured.Assets[tgaModern].SequenceEqual(tga),
+            "OBJ imports TGA fallback plus portable HD source while tolerating standard map_Kd options");
+        System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 9000);
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/tile.png\n");
         bool oversizedImage = false;

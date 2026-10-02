@@ -34,7 +34,7 @@ public static class ModelReimport
         return new(added,changed.ToArray(),removed,transforms,materials,paint,uv);
     }
     private static string Hash(object? value) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(value))));
-    private static string MaterialHash(MapMaterial material) => Hash(new { material.Name, material.Texture, material.SourceMaterial, material.TexScale });
+    private static string MaterialHash(MapMaterial material) => Hash(new { material.Name, material.Texture, material.Albedo, material.Normal, material.SpecularRoughness, material.Emissive, material.SourceMaterial, material.TexScale });
     public static string NormalizedHash(ImportedModel model) => Hash(new
     {
         Meshes = model.Meshes.Select(m => new { m.Label, m.Vertices, m.Faces, m.FaceMaterials, m.FaceTexcoords, m.Material, m.Solid, m.CollisionOnly, m.Terrain, m.Damaging, m.Slipperiness, m.ReflectBeams, m.IgnorePlayers, m.IgnoreBeams, m.IgnoreScan }),

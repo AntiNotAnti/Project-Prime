@@ -285,6 +285,25 @@ public static class Q3ImportService
                     AtomicFile.Write(target, File.ReadAllBytes(textures));
                     merged.Import!.Textures = Path.GetFileName(target);
                 }
+                var oldModern = previousImport?.ModernTextures.Values.ToHashSet(StringComparer.OrdinalIgnoreCase)
+                    ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                var newModern = fresh.Import.ModernTextures.Values.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                foreach (string relative in newModern)
+                {
+                    byte[] bytes = MapAssets.Read(fresh, relative);
+                    string target = Path.GetFullPath(Path.Combine(root, relative));
+                    string prefix = Path.GetFullPath(root) + Path.DirectorySeparatorChar;
+                    if (!target.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidDataException("Reimported HD texture escapes the map project.");
+                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                    AtomicFile.Write(target, bytes);
+                    if (!merged.Assets.Any(a => a.Path.Equals(relative, StringComparison.OrdinalIgnoreCase)))
+                        merged.Assets.Add(new MapAsset { Path = relative, Kind = "texture", Name = "Q3 HD source" });
+                }
+                foreach (string stale in oldModern.Except(newModern, StringComparer.OrdinalIgnoreCase))
+                    merged.Assets.RemoveAll(a => a.Path.Equals(stale, StringComparison.OrdinalIgnoreCase)
+                        && !merged.Materials.Any(m => new[] { m.Texture, m.Albedo, m.Normal, m.SpecularRoughness, m.Emissive }
+                            .Any(p => String.Equals(p, stale, StringComparison.OrdinalIgnoreCase))));
                 merged.Import!.BaseDirectory = root;
                 merged.Import.BundlePath = null;
             }
