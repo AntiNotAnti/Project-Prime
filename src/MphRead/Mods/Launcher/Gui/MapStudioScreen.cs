@@ -965,9 +965,12 @@ namespace MphRead.Mods.Launcher.Gui
             int overflowRisks=repairs.Count(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk);
             int jumpPadFailures=repairs.Count(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure);
             var health=_viewport.Cache.CollisionHealth;
+            int blockers=_document.Diagnostics.Diagnostics.Count(d=>d.Severity==MapDiagnosticSeverity.Error);
+            int warnings=_document.Diagnostics.Diagnostics.Count(d=>d.Severity==MapDiagnosticSeverity.Warning);
             _inspector.Children.Add(Text(
                 $"Repairs/risks: {repairs.Length:N0} · disabled regions: {excluded}\n"
-                +(health==null?"Analyze/validate to populate movement and topology health."
+                +$"Compile/package: {(blockers==0?"no current blockers":$"{blockers} blocker(s)")} · {warnings} warning(s)\n"
+                +(health==null?"Topology/gameplay: run Validate to populate compiled collision health."
                     :$"Gameplay: health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probes · "
                     +$"{health.SweepFailures}/{health.SweepCount} movement/launch sweeps\n"
                     +$"Movement: body {bodyFailures} · contact-buffer {overflowRisks} · jump-pad {jumpPadFailures}\n"
