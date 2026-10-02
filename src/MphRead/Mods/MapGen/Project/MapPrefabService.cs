@@ -45,16 +45,24 @@ public static class MapPrefabService
 
         prefab.Assets.Clear();
         string assetRoot = Path.Combine(root, Path.GetFileNameWithoutExtension(full) + ".assets");
-        foreach (var material in prefab.Materials.Where(m => !String.IsNullOrEmpty(m.Texture)))
+        foreach (var material in prefab.Materials)
         {
-            string original = material.Texture!;
-            byte[] bytes = MapAssets.Read(source, original);
-            Directory.CreateDirectory(assetRoot);
-            string relative = Path.Combine(Path.GetFileName(assetRoot), Guid.NewGuid().ToString("N") + ".tex")
-                .Replace('\\', '/');
-            AtomicFile.Write(Path.Combine(root, relative), bytes);
-            material.Texture = relative;
-            prefab.Assets.Add(new() { Path = relative, Kind = "texture", Name = material.Name });
+            void CopyChannel(string? original, Action<string> assign)
+            {
+                if (String.IsNullOrEmpty(original)) return;
+                byte[] bytes = MapAssets.Read(source, original);
+                Directory.CreateDirectory(assetRoot);
+                string relative = Path.Combine(Path.GetFileName(assetRoot), Guid.NewGuid().ToString("N") + Path.GetExtension(original))
+                    .Replace('\\', '/');
+                AtomicFile.Write(Path.Combine(root, relative), bytes);
+                assign(relative);
+                prefab.Assets.Add(new() { Path = relative, Kind = "texture", Name = material.Name });
+            }
+            CopyChannel(material.Texture, value => material.Texture = value);
+            CopyChannel(material.Albedo, value => material.Albedo = value);
+            CopyChannel(material.Normal, value => material.Normal = value);
+            CopyChannel(material.SpecularRoughness, value => material.SpecularRoughness = value);
+            CopyChannel(material.Emissive, value => material.Emissive = value);
         }
         prefab.BaseDirectory = root;
         prefab.SourcePath = full;
@@ -82,15 +90,21 @@ public static class MapPrefabService
             var copy = MapSnapshotCopy.Copy(material) as MapMaterial
                 ?? throw new InvalidDataException("Prefab material could not be copied.");
             copy.Id = Guid.NewGuid();
-            if (copy.Texture != null)
+            void CopyChannel(string? original, Action<string> assign)
             {
-                byte[] bytes = MapAssets.Read(prefab, copy.Texture);
-                string relative = Path.Combine("prefab-assets", Guid.NewGuid().ToString("N") + ".tex").Replace('\\', '/');
+                if (String.IsNullOrEmpty(original)) return;
+                byte[] bytes = MapAssets.Read(prefab, original);
+                string relative = Path.Combine("prefab-assets", Guid.NewGuid().ToString("N") + Path.GetExtension(original)).Replace('\\', '/');
                 AtomicFile.Write(Path.Combine(destinationRoot, relative), bytes);
                 destination.Assets.Add(new() { Path = relative, Kind = "texture", Name = copy.Name });
                 generated.Add(relative);
-                copy.Texture = relative;
+                assign(relative);
             }
+            CopyChannel(copy.Texture, value => copy.Texture = value);
+            CopyChannel(copy.Albedo, value => copy.Albedo = value);
+            CopyChannel(copy.Normal, value => copy.Normal = value);
+            CopyChannel(copy.SpecularRoughness, value => copy.SpecularRoughness = value);
+            CopyChannel(copy.Emissive, value => copy.Emissive = value);
             materialMap[i] = destination.Materials.Count;
             destination.Materials.Add(copy);
         }
