@@ -42,3 +42,17 @@ The palette FPTX format is intentionally still accepted unchanged. This system
 is the modern authored layer, not a destructive rewrite of native MPH texture
 data. A future KTX2/Basis source codec can be added behind
 `ModernTextureAsset` without changing renderer, map, cosmetic or FX call sites.
+
+
+## Runtime loading performance
+
+Material-pack discovery validates path containment, byte/dimension limits and the
+PNG header without decoding every referenced image. Strict authoring/import
+validation still checks PNG chunks/CRC and performs a real decode. Runtime pixel
+decode is therefore paid once, when the asset is actually prepared for GPU
+residency, instead of once during manifest discovery and again during upload.
+
+On the modern WebGPU backends, a generated mip chain reuses one staging texture
+for all levels of a source image. This preserves the staged copy path used to
+avoid Vulkan subresource corruption while removing per-mip native texture
+allocation/destruction churn, which is especially costly for 4K/8K assets.
