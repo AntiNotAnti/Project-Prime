@@ -86,6 +86,7 @@ namespace MphRead.Droid
         private static StartScreen BuildHome()
         {
             LauncherPrefs.Load();
+            Mods.Input.ControllerBaselineState.Load();
             // Keys, mouse feel, pad bindings and the touch layout. The
             // desktop reads these from ModEntry.TryHandleHeadless, which the
             // head never runs -- so nothing here ever loaded them, and every
