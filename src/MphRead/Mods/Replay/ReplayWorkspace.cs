@@ -220,18 +220,19 @@ namespace MphRead.Mods.Replay
         string Name,
         ReplayVideoResolution Resolution,
         int Fps,
-        bool CleanHud);
+        bool GameHud,
+        bool ReplayOverlay = false);
 
     internal static class ReplayExportPresets
     {
         public static readonly ReplayExportPreset[] All =
         {
-            new("Balanced 1080p60", ReplayVideoResolution.P1080, 60, true),
-            new("Cinema 1080p24", ReplayVideoResolution.P1080, 24, true),
-            new("Smooth 1080p120", ReplayVideoResolution.P1080, 120, true),
-            new("Broadcast 1440p60", ReplayVideoResolution.P1440, 60, true),
-            new("Archive 4K60", ReplayVideoResolution.P2160, 60, true),
-            new("HUD 1080p60", ReplayVideoResolution.P1080, 60, false)
+            new("Balanced 1080p60", ReplayVideoResolution.P1080, 60, false),
+            new("Cinema 1080p24", ReplayVideoResolution.P1080, 24, false),
+            new("Smooth 1080p120", ReplayVideoResolution.P1080, 120, false),
+            new("Broadcast 1440p60", ReplayVideoResolution.P1440, 60, false),
+            new("Archive 4K60", ReplayVideoResolution.P2160, 60, false),
+            new("HUD 1080p60", ReplayVideoResolution.P1080, 60, true)
         };
     }
 
@@ -328,26 +329,34 @@ namespace MphRead.Mods.Replay
         public static ReplayVideoExportManifest CreatePresetManifest(
             string replay, uint startFrame, uint endFrame,
             ReplayExportPreset preset, bool? cleanHud = null,
-            bool director = false, bool cameraTrack = true)
+            bool director = false, bool cameraTrack = true,
+            bool? gameHud = null, bool? replayOverlay = null)
         {
+            bool includeGameHud = gameHud ?? (cleanHud.HasValue ? !cleanHud.Value : preset.GameHud);
+            bool includeReplayOverlay = replayOverlay ?? preset.ReplayOverlay;
             ReplayVideoExportManifest manifest = CreateManifest(replay,
                 startFrame, endFrame, preset.Resolution, preset.Fps,
-                cleanHud ?? preset.CleanHud, director, cameraTrack);
+                cleanHud: !includeGameHud, director, cameraTrack,
+                gameHud: includeGameHud, replayOverlay: includeReplayOverlay);
             return manifest with { PresetName = preset.Name };
         }
 
         public static ReplayVideoExportManifest CreateReelManifest(
             string replay, IReadOnlyList<ReplayReelSegment> segments,
-            ReplayExportPreset preset, bool? cleanHud = null)
+            ReplayExportPreset preset, bool? cleanHud = null,
+            bool? gameHud = null, bool? replayOverlay = null)
         {
             if (segments.Count == 0)
                 throw new ArgumentException("The highlight reel is empty.", nameof(segments));
 
+            bool includeGameHud = gameHud ?? (cleanHud.HasValue ? !cleanHud.Value : preset.GameHud);
+            bool includeReplayOverlay = replayOverlay ?? preset.ReplayOverlay;
             ReplayReelSegment first = segments[0];
             uint maxEnd = segments.Max(segment => segment.EndFrame);
             ReplayVideoExportManifest manifest = CreateManifest(replay,
                 first.StartFrame, maxEnd, preset.Resolution, preset.Fps,
-                cleanHud ?? preset.CleanHud, director: false, cameraTrack: false);
+                cleanHud: !includeGameHud, director: false, cameraTrack: false,
+                gameHud: includeGameHud, replayOverlay: includeReplayOverlay);
             ReplayVideoSegment[] ranges = segments.Select(segment =>
                 new ReplayVideoSegment(segment.StartFrame, segment.EndFrame,
                     segment.Name, segment.Camera)).ToArray();
