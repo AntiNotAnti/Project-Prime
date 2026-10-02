@@ -336,7 +336,7 @@ namespace MphRead.Mods.Replay
             bool includeReplayOverlay = replayOverlay ?? preset.ReplayOverlay;
             ReplayVideoExportManifest manifest = CreateManifest(replay,
                 startFrame, endFrame, preset.Resolution, preset.Fps,
-                cleanHud: !includeGameHud, director, cameraTrack,
+                cleanHud: !includeGameHud, director: director, cameraTrack: cameraTrack,
                 gameHud: includeGameHud, replayOverlay: includeReplayOverlay);
             return manifest with { PresetName = preset.Name };
         }
