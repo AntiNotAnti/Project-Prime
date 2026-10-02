@@ -125,7 +125,7 @@ namespace MphRead.Mods.Network
         private void ClaimOwner(Peer peer, ReadOnlySpan<byte> hello)
         {
             if (SessionPolicy != ServerSessionPolicy.Lobby || _lobbyOwnerClientId != 0 || peer.ClientId == 0) return;
-            bool tokenMatches = OwnerToken != Guid.Empty && hello.Length == 22
+            bool tokenMatches = OwnerToken != Guid.Empty && hello.Length >= 22
                 && new Guid(hello.Slice(6, 16)) == OwnerToken;
             if (OwnerToken != Guid.Empty && !tokenMatches) return;
             _lobbyOwnerClientId = peer.ClientId;
