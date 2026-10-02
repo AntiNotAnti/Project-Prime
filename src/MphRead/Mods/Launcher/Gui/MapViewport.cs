@@ -379,7 +379,9 @@ namespace MphRead.Mods.Launcher.Gui
                         MapCollisionRepairKind.BuriedRestored => Brushes.Cyan,
                         MapCollisionRepairKind.PhantomRemoved => repair.Confidence>=.9f?Brushes.OrangeRed:Brushes.Orange,
                         MapCollisionRepairKind.SpawnMoved or MapCollisionRepairKind.ItemMoved => Brushes.Gold,
-                        MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.ReachabilityWarning => Brushes.Magenta,
+                        MapCollisionRepairKind.ContactOverflowRisk => Brushes.OrangeRed,
+                        MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.MovementSweepFailure
+                            or MapCollisionRepairKind.JumpPadFailure or MapCollisionRepairKind.ReachabilityWarning => Brushes.Magenta,
                         MapCollisionRepairKind.SeamStitched or MapCollisionRepairKind.TJunctionStitched => Brushes.DeepSkyBlue,
                         _ => Brushes.LightGreen
                     };
