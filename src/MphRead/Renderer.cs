@@ -3299,7 +3299,8 @@ namespace MphRead
             // of the scene target with its own camera in it, so the HUD's own
             // panel is drawn over it afterwards with a hole where this lands.
             if (!Services.IsReplica) ModDrawPreview();
-            if (this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
+            bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
+            if (drawGameHud && this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
             {
                 SetHudLayerUniforms();
                 this.Players.Main.DrawHudModels();
@@ -3380,7 +3381,7 @@ namespace MphRead
                     this.Players.Main.DrawPauseMenuForeground();
                 }
             }
-            else if (ScoreboardOverFreeCamera || NameTagsOverFreeCamera)
+            else if (drawGameHud && (ScoreboardOverFreeCamera || NameTagsOverFreeCamera))
             {
                 // Free-camera overlays are presentation UI, not a hunter visor.
                 // The scoreboard may add its dim layer above; name tags need only
@@ -3392,9 +3393,9 @@ namespace MphRead
             // and free-camera modes as well as first-person playback.
             if (!Services.IsReplica || Mods.Network.DemoPlayback.Owns(this))
             {
-                AimTrainer?.DrawHud();
+                if (drawGameHud) AimTrainer?.DrawHud();
                 Mods.Replay.ReplayHud.Draw(this);
-                Mods.Input.AimAssist.AimAssistDebug.Draw(this);
+                if (drawGameHud) Mods.Input.AimAssist.AimAssistDebug.Draw(this);
             }
             if (_movieFrameIndex != -1)
             {
