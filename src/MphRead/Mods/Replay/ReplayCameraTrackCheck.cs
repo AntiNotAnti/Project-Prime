@@ -38,6 +38,25 @@ namespace MphRead.Mods.Replay
                     && float.IsFinite(constantMid.Position.Y)
                     && float.IsFinite(constantMid.Position.Z),
                     "constant-speed spline sample finite");
+                Require(track.TrySegmentFrom(10, constantSpeed: true, out var segment)
+                    && segment.EndFrame == 30 && segment.Seconds > 0
+                    && segment.Distance > 0 && segment.AverageSpeed > 0 && segment.PeakSpeed > 0,
+                    "camera segment diagnostics expose duration, distance and speed");
+
+                var continuous = new ReplayCameraTrack();
+                var c0 = new ReplayCameraKeyframe(0, Vector3.Zero, Quaternion.Identity, 1);
+                var c1 = c0 with { Frame = 60, Position = new Vector3(10, 0, 0) };
+                var c2 = c0 with { Frame = 120, Position = new Vector3(20, 0, 0) };
+                Require(continuous.Put(c0) && continuous.Put(c1) && continuous.Put(c2)
+                    && continuous.Sample(59, out var beforeKey, constantSpeed: true)
+                    && continuous.Sample(60, out var atKey, constantSpeed: true)
+                    && continuous.Sample(61, out var afterKey, constantSpeed: true),
+                    "continuous spline fixture");
+                float intoKey = (atKey.Position - beforeKey.Position).Length;
+                float outOfKey = (afterKey.Position - atKey.Position).Length;
+                Require(intoKey > 0.01f && outOfKey > 0.01f
+                    && Math.Abs(intoKey - outOfKey) / Math.Max(intoKey, outOfKey) < 0.35f,
+                    "spline easing preserves velocity through interior keyframes");
                 Require(track.Sample(0, out var first) && first == start with { Frame = 0 }
                     && track.Sample(uint.MaxValue, out last) && last == end with { Frame = uint.MaxValue },
                     "endpoint pose clamps while retaining requested presentation frame");
