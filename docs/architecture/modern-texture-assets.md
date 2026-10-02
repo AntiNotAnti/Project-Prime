@@ -33,8 +33,10 @@ quality changes, so animation and material references remain valid.
 
 No new network or replay texture payload exists. Existing stable cosmetic IDs,
 authored map material GUIDs and `effect/model/...` material identities resolve
-the local best-quality representation. A client without authored HD art renders
-the native texture.
+the local best-quality representation. Authored map channels and Q3 PNG/JPEG
+source art can travel inside `.ppmap`; the package still carries FPTX/native
+fallback data, so clients without HD art or with HD replacements disabled retain
+the original material path.
 
 The palette FPTX format is intentionally still accepted unchanged. This system
 is the modern authored layer, not a destructive rewrite of native MPH texture
