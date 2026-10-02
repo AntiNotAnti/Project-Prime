@@ -158,7 +158,7 @@ public sealed class MaterialPack
                     total = checked(total + new FileInfo(path).Length);
                     if (total > MaximumPackBytes) throw new InvalidDataException("Pack exceeds byte limit.");
                 }
-                try { return ValidateImage(path); }
+                try { return ValidateImageMetadata(path); }
                 catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
                 {
                     pack._issues.Add(new(key.Value, channel, ex.Message, channel == "albedo"));
@@ -208,7 +208,29 @@ public sealed class MaterialPack
         return path;
     }
 
+    /// <summary>
+    /// Validate a PNG for authoring/import. Runtime manifest loading uses the
+    /// metadata-only path below so large HD assets are not decoded twice before
+    /// their first GPU upload.
+    /// </summary>
     public static MaterialImage ValidateImage(string path)
+    {
+        MaterialImage image = ValidateImageMetadata(path);
+        using var stream = File.OpenRead(path);
+#if ANDROID
+        using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
+        using var decoded = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options);
+        if (decoded == null || decoded.Width != image.Width || decoded.Height != image.Height)
+            throw new InvalidDataException("Malformed PNG image.");
+#else
+        using StbImage decoded = StbImage.Load(stream, StbiImageFormat.Rgba);
+        if (decoded.Width != image.Width || decoded.Height != image.Height || decoded.ImagePointer == IntPtr.Zero)
+            throw new InvalidDataException("Malformed PNG image.");
+#endif
+        return image;
+    }
+
+    private static MaterialImage ValidateImageMetadata(string path)
     {
         using var stream = File.OpenRead(path);
         if (stream.Length > MaximumImageBytes) throw new InvalidDataException("Image exceeds byte limit.");
@@ -222,17 +244,6 @@ public sealed class MaterialPack
         if (width <= 0 || height <= 0 || width > MaximumDimension || height > MaximumDimension
             || (long)width * height > MaximumPixels) throw new InvalidDataException("Image dimensions exceed limits.");
         ValidatePngChunks(stream);
-        stream.Position = 0;
-#if ANDROID
-        using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
-        using var decoded = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options);
-        if (decoded == null || decoded.Width != width || decoded.Height != height)
-            throw new InvalidDataException("Malformed PNG image.");
-#else
-        using StbImage decoded = StbImage.Load(stream, StbiImageFormat.Rgba);
-        if (decoded.Width != width || decoded.Height != height || decoded.ImagePointer == IntPtr.Zero)
-            throw new InvalidDataException("Malformed PNG image.");
-#endif
         return new(path, width, height);
     }
 
