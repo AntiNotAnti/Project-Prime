@@ -38,6 +38,9 @@ namespace MphRead.Mods.Replay
         public static ReplayExportState State { get { PollEncoder(); return _state; } }
         public static bool Active { get { PollEncoder(); return _job != null || _encoder != null; } }
         public static bool Rendering => _job != null;
+        internal static bool IncludeGameHud => _job?.IncludeGameHud ?? true;
+        internal static bool IncludeReplayOverlay => _job?.IncludeReplayOverlay ?? false;
+        internal static bool SuppressGameHud => Rendering && !IncludeGameHud;
         public static string? LastError { get; private set; }
         public static float EncodeProgress => _encoder == null ? (_state == ReplayExportState.Completed ? 1 : 0)
             : Math.Clamp(_encoder.Frames / (float)Math.Max(1, _totalFrames), 0, 1);
@@ -185,9 +188,12 @@ namespace MphRead.Mods.Replay
                 return;
 
             string path = Path.Combine(_directory!, $"frame_{_written:D8}.png");
-            bool saved = job.CleanHud
-                ? MphRead.Mods.ScreenCapture.Save(scene, path)
-                : MphRead.Mods.ScreenCapture.SaveWindow(scene, path);
+            // Scene-target capture is only sufficient when every HUD layer is
+            // intentionally absent. Any requested HUD/overlay uses the finished
+            // window composite, which is captured before launcher/editor chrome.
+            bool saved = job.IncludeGameHud || job.IncludeReplayOverlay
+                ? MphRead.Mods.ScreenCapture.SaveWindow(scene, path)
+                : MphRead.Mods.ScreenCapture.Save(scene, path);
             if (!saved)
             {
                 Fail($"Frame {sample.Frame:0.###} could not be captured; export stopped.");
