@@ -41,7 +41,7 @@ namespace MphRead.Mods.Render
             {
                 using Stream? stream = open();
                 if (stream == null) return 0;
-                ModernTextureAsset asset = ModernTextureAsset.Decode(stream, key, assetClass, channel).Fit(cap);
+                ModernTextureAsset asset = ModernTextureAsset.Decode(stream, key, assetClass, channel, cap);
                 return Upload(cacheKey, asset, repeat, out width, out height);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
@@ -114,8 +114,8 @@ namespace MphRead.Mods.Render
             width = height = 0;
             try
             {
-                ModernTextureAsset asset = ModernTextureAsset.Decode(source, key, assetClass, channel)
-                    .Fit(DimensionLimit(assetClass, channel));
+                int cap = DimensionLimit(assetClass, channel);
+                ModernTextureAsset asset = ModernTextureAsset.Decode(source, key, assetClass, channel, cap);
                 bool mipmaps = RenderOptions.TextureFiltering && RenderOptions.TextureMipmaps && (asset.Width > 1 || asset.Height > 1);
                 UploadPreparedBound(asset, repeat, mipmaps);
                 if (GL.GetError() != ErrorCode.NoError) return false;
