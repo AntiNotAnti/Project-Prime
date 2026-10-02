@@ -134,7 +134,9 @@ public static class MapCollisionHealer
     {
         MapCollisionHealth health = map.CollisionHealth ??= new();
         if (map.Solid.Count == 0) return;
-        var index = new FaceIndex(map.Solid, 4f);
+        // Audit the same <=10-vertex collision parts the runtime packer emits,
+        // rather than the pre-pack authoring polygons.
+        var index = new FaceIndex(map.Solid.SelectMany(MapPacker.CollisionParts), 4f);
 
         foreach (MapSpawn spawn in definition.Spawns)
         {
