@@ -177,6 +177,14 @@ static class CustomCollisionChecks
             boundedResults.Length, TestFlags.Players, scene, boundedResults);
         check(boundedCount == boundedResults.Length,
             "penetration query stops at the runtime contact budget for conservative overflow fallback");
+        var denseCandidates = denseInfo.RuntimeEntries.Where(e => e.DataCount > 0)
+            .Select(e => new CollisionCandidate(collisions[0], e)).ToArray();
+        Array.Clear(boundedResults);
+        int denseSweepCount = CollisionDetection.CheckSphereBetweenPointsRobust(
+            denseCandidates,new Vector3(0,1,0),new Vector3(0,-1,0),.5f,
+            boundedResults.Length,includeOffset:true,TestFlags.Players,scene,boundedResults);
+        check(denseSweepCount == boundedResults.Length,
+            "continuous player sweep exposes a full contact buffer so movement can fail conservatively");
 
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)
