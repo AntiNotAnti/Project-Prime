@@ -185,7 +185,8 @@ namespace MphRead.Entities
             }
             if (_health == 0)
             {
-                if (_respawnTimer == 0 && EnemySpawner == null)
+                if (!Mods.Network.NetHooks.SuppressSpawn(this)
+                    && _respawnTimer == 0 && EnemySpawner == null)
                 {
                     if (_scene.Room?.LoadEntityId >= 0)
                     {

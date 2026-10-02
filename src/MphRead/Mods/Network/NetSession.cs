@@ -213,6 +213,7 @@ namespace MphRead.Mods.Network
         public static void StartServerAuthority(SnapshotSink sink, Action matchEnded)
         {
             StopMatchRuntime();
+            Array.Clear(SlotSpectating);
             Role = NetRole.Server;
             _snapshotSink = sink;
             _serverMatchEnded = matchEnded;
@@ -244,7 +245,8 @@ namespace MphRead.Mods.Network
             NetSmoothing.Reset();
         }
 
-        public static void StartClient(string address, int port = NetConfig.DefaultPort, Guid ownerToken = default)
+        public static void StartClient(string address, int port = NetConfig.DefaultPort, Guid ownerToken = default,
+            bool spectate = false)
         {
             Stop();
             try
@@ -266,6 +268,7 @@ namespace MphRead.Mods.Network
                 LocalSlot = -1; // assigned by the host's Welcome
                 NetFrame = 0;
                 LastError = null;
+                SpectatorMode.SetSessionPreference(spectate, announce: false);
                 NetLog.Open(PlayerName);
                 NetLog.Event($"joining {address}:{port} as \"{PlayerName}\"");
                 SendHello();
@@ -598,13 +601,23 @@ namespace MphRead.Mods.Network
             // as a different player would swap two people's scores, names and
             // hunters mid-match.
             _scratch[1] = LocalSlot >= 0 && LocalSlot < 0xFF ? (byte)LocalSlot : (byte)0xFF;
-            // Appended rather than inserted: a server built before this
-            // reads the first two bytes and ignores the rest, so a new
-            // client still joins an old server -- it simply gets the old
-            // behaviour when its connection drops.
+            // Connection identity remains in the established prefix. New
+            // handshake semantics are protected by ProtocolVersion, so peers
+            // that disagree about the spectator-role tail are refused rather
+            // than silently interpreting different admission state.
             BinaryPrimitives.WriteUInt32LittleEndian(_scratch.AsSpan(2, 4), ClientId);
             _ownerToken.TryWriteBytes(_scratch.AsSpan(6, 16));
-            _transport.Send(_hostEndPoint, PacketType.Hello, _scratch.AsSpan(0, 22));
+            // Protocol 36: admission role. This is deliberately part of Hello,
+            // before any life exists, so an initial spectator can reach world
+            // bootstrap with LifeId 0 instead of spawning once just to disappear.
+            _scratch[22] = SpectatorMode.PreferSpectator ? (byte)1 : (byte)0;
+            _transport.Send(_hostEndPoint, PacketType.Hello, _scratch.AsSpan(0, 23));
+        }
+
+        internal static void AnnounceSpectatorRole()
+        {
+            if (Role == NetRole.Client && _transport != null && _hostEndPoint != null)
+                SendHello();
         }
 
         /// <summary>
@@ -1392,6 +1405,21 @@ namespace MphRead.Mods.Network
         public static readonly byte[] SlotBotLevel = new byte[PlayerEntity.SlotCapacity];
         public static bool MatchContainsBots { get; private set; }
         public static readonly bool[] SlotOccupied = new bool[PlayerEntity.SlotCapacity];
+
+        /// <summary>
+        /// Authority-only requested spectator roles. These are admission state,
+        /// not player lives: a true slot remains occupied in the roster while
+        /// its player entity stays unspawned until the peer explicitly rejoins.
+        /// </summary>
+        public static readonly bool[] SlotSpectating = new bool[PlayerEntity.SlotCapacity];
+
+        internal static void SetAuthoritySpectating(int slot, bool spectating)
+        {
+            if (!IsAuthority || (uint)slot >= (uint)SlotSpectating.Length) return;
+            SlotSpectating[slot] = spectating;
+            if (slot < PlayerEntity.Players.Count)
+                PlayerEntity.Players[slot].ModSetSpectating(spectating);
+        }
 
         private static void HandleRoster(ReceivedPacket packet)
         {

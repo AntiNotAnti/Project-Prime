@@ -125,7 +125,7 @@ namespace MphRead.Mods.Network
         private void ClaimOwner(Peer peer, ReadOnlySpan<byte> hello)
         {
             if (SessionPolicy != ServerSessionPolicy.Lobby || _lobbyOwnerClientId != 0 || peer.ClientId == 0) return;
-            bool tokenMatches = OwnerToken != Guid.Empty && hello.Length == 22
+            bool tokenMatches = OwnerToken != Guid.Empty && hello.Length >= 22
                 && new Guid(hello.Slice(6, 16)) == OwnerToken;
             if (OwnerToken != Guid.Empty && !tokenMatches) return;
             _lobbyOwnerClientId = peer.ClientId;
@@ -521,11 +521,27 @@ namespace MphRead.Mods.Network
         private void HandleMatchLoaded(ReceivedPacket packet, double now)
         {
             Peer? peer = Find(packet.Sender);
-            if (peer == null || !MatchLoadedPacket.TryRead(packet.Payload, out var loaded)
-                || loaded.Identity != CurrentStartIdentity || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
+            MatchStartIdentity identity;
+            bool spectating = false;
+            if (MatchLoadedRolePacket.TryRead(packet.Payload, out var roleLoaded))
+            {
+                identity = roleLoaded.Identity;
+                spectating = roleLoaded.Spectating;
+            }
+            else if (MatchLoadedPacket.TryRead(packet.Payload, out var legacyLoaded))
+            {
+                // Asset-free harnesses may still emit the bare identity. A
+                // protocol-36 game client always uses MatchLoadedRolePacket.
+                identity = legacyLoaded.Identity;
+            }
+            else return;
+            if (peer == null || identity != CurrentStartIdentity
+                || _phase is not (SessionPhase.Starting or SessionPhase.InMatch)) return;
             if (CurrentDefinition.MapIdentity.IsCustom && (peer.PreparedMap != CurrentDefinition.MapIdentity || peer.MapAvailability != MapAvailabilityState.Ready)) return;
+            peer.Spectating = spectating;
+            if (Simulating) NetSession.SetAuthoritySpectating(peer.SlotIndex, spectating);
             peer.LastSeen = now; peer.SceneLoaded = true;
-            if (_phase == SessionPhase.Starting) _start.MarkLoaded(peer.SlotIndex, loaded.Identity);
+            if (_phase == SessionPhase.Starting) _start.MarkLoaded(peer.SlotIndex, identity);
             SendBootstrap(peer, now);
             TouchLobbyRevision($"slot {peer.SlotIndex} synchronizing");
             CheckLoadBarrier(now);

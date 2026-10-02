@@ -712,8 +712,13 @@ namespace MphRead.Mods.Network
             player.ModSetFrozen(false);
             player.ModSetBurning(false);
             player.ModSetDisrupted(false);
-            if (state.LifeId != 0)
+            if (state.LifeId != 0
+                && (state.Flags & PlayerState.FlagSpectating) == 0)
             {
+                // A fresh dead life is still materialized and replayed as dead,
+                // but a spectator life is not a corpse or hidden hunter. A
+                // late join/replay that first observes somebody spectating
+                // must remain bodyless from its very first accepted state.
                 _host.Spawn(player, state);
                 Move(player, state.Position);
                 player.ModSetSpawnFacing(state.Facing);

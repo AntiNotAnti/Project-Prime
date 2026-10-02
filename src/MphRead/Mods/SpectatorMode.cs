@@ -35,9 +35,12 @@ namespace MphRead.Mods
         /// </summary>
         public static bool PreferSpectator { get; private set; }
 
-        public static void SetSessionPreference(bool spectate)
+        public static void SetSessionPreference(bool spectate, bool announce = true)
         {
+            if (PreferSpectator == spectate) return;
             PreferSpectator = spectate;
+            if (announce && !Network.DemoPlayback.IsActive)
+                Network.NetSession.AnnounceSpectatorRole();
         }
 
         /// <summary>
@@ -86,7 +89,7 @@ namespace MphRead.Mods
             IsSpectating = true;
             if (!Network.DemoPlayback.IsActive && Network.NetSession.Active)
             {
-                PreferSpectator = true;
+                SetSessionPreference(true);
             }
             // Hidden and non-solid on every client, like Quake 3's
             // spectator -- not just a body left standing still. Set on the
@@ -292,7 +295,7 @@ namespace MphRead.Mods
             int localSlot = Network.NetHooks.LocalSlot;
             Registry.MainPlayerIndex = localSlot;
             IsSpectating = false;
-            PreferSpectator = false;
+            SetSessionPreference(false);
             ShowScoreboard = false;
             // Back behind your own eyes, whichever of the two spectator
             // cameras was up.

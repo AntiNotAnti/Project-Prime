@@ -1196,6 +1196,13 @@ namespace MphRead.Entities
             if (value)
             {
                 Flags2 |= PlayerFlags2.Spectating;
+                // Spectating is a role, not an invisible living hunter. Keep
+                // the occupied network slot but remove its current world body.
+                // Write the backing health field directly so entering spectator
+                // mode is not scored as a combat death.
+                LoadFlags &= ~LoadFlags.Spawned;
+                _health = 0;
+                Controls.ClearAll();
             }
             else
             {
@@ -1218,11 +1225,12 @@ namespace MphRead.Entities
 
         /// <summary>
         /// Whether this player is standing in the map rather than waiting at
-        /// the origin to be placed. Spawned is set by Spawn() and never
-        /// cleared, so health is what distinguishes "in the match" from
-        /// "dead, waiting for a respawn point".
+        /// the origin to be placed. Spectator mode deliberately clears
+        /// Spawned and health, so the role is part of this answer as well as
+        /// ordinary alive/dead state.
         /// </summary>
-        internal bool ModIsInPlay => LoadFlags.TestFlag(LoadFlags.Spawned) && _health > 0;
+        internal bool ModIsInPlay => LoadFlags.TestFlag(LoadFlags.Spawned) && _health > 0
+            && !Flags2.TestFlag(PlayerFlags2.Spectating);
 
         /// <summary>
         /// Put a puppet on the map where the authority put the real player.

@@ -62,7 +62,12 @@ namespace MphRead.Mods.Network
 
                 // The final team roster can arrive after the match starts.
                 // Correct active players as well as newly activated slots.
-                if (occupied && _activated[slot]) SyncTeam(player, slot);
+                if (occupied && _activated[slot])
+                {
+                    SyncTeam(player, slot);
+                    if (NetSession.IsAuthority)
+                        player.ModSetSpectating(NetSession.SlotSpectating[slot]);
+                }
 
                 if (occupied && !_activated[slot])
                 {
@@ -145,6 +150,8 @@ namespace MphRead.Mods.Network
             // rebuilds the models and equipment while preserving position,
             // facing and health.
             player.Initialize();
+            if (NetSession.IsAuthority)
+                player.ModSetSpectating(NetSession.SlotSpectating[slot]);
             if (player.IsBot)
             {
                 Formats.AiPersonality.Load(player, player.OwningScene.GameState.Mode);

@@ -248,6 +248,32 @@ namespace MphRead.Mods.Network
         }
     }
 
+    /// <summary>
+    /// Scene-loaded acknowledgement plus the player's requested role. Kept
+    /// separate from MatchLoadedPacket because that 14-byte identity is also
+    /// embedded in bootstrap/start-control packets.
+    /// </summary>
+    public readonly record struct MatchLoadedRolePacket(ushort MatchId, ulong AuthorityEpoch,
+        uint StartGeneration, bool Spectating)
+    {
+        public const int Size = MatchLoadedPacket.Size + 1;
+        public MatchStartIdentity Identity => new(MatchId, AuthorityEpoch, StartGeneration);
+        public void Write(Span<byte> dest)
+        {
+            new MatchLoadedPacket(MatchId, AuthorityEpoch, StartGeneration).Write(dest);
+            dest[MatchLoadedPacket.Size] = Spectating ? (byte)1 : (byte)0;
+        }
+        public static bool TryRead(ReadOnlySpan<byte> src, out MatchLoadedRolePacket packet)
+        {
+            packet = default;
+            if (src.Length != Size || src[MatchLoadedPacket.Size] > 1
+                || !MatchLoadedPacket.TryRead(src[..MatchLoadedPacket.Size], out var identity)) return false;
+            packet = new(identity.MatchId, identity.AuthorityEpoch, identity.StartGeneration,
+                src[MatchLoadedPacket.Size] != 0);
+            return true;
+        }
+    }
+
     public readonly record struct MatchStartCommitPacket(ushort MatchId, ulong AuthorityEpoch,
         uint StartGeneration, ushort RemainingMilliseconds)
     {

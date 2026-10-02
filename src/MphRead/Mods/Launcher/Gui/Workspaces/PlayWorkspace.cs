@@ -484,7 +484,7 @@ namespace MphRead.Mods.Launcher.Gui
             CancelDiscovery();
 
             OnlineJoinResult result = await ServerBrowserService.JoinAsync(
-                host, port, player, hunter, suit, _connect.Token);
+                host, port, player, hunter, suit, _connect.Token, spectate: spectate);
 
             if (!result.Joined && !_connect.IsCancellationRequested && Overlays != null && !spectate)
             {

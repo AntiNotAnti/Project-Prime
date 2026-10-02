@@ -318,6 +318,18 @@ namespace MphRead.Mods.Network
             {
                 return false;
             }
+            bool authorityRole = NetSession.IsAuthority
+                && (uint)slot < (uint)NetSession.SlotSpectating.Length;
+            if (authorityRole && NetSession.SlotSpectating[slot])
+            {
+                // Admission role is authoritative over gameplay intent. A
+                // reordered/pre-spectate intent must never stand the hunter
+                // back up after Hello/MatchLoaded already made this slot a
+                // spectator.
+                player.Controls.ClearAll();
+                player.ModSetSpectating(true);
+                return true;
+            }
             // A puppet the snapshot owns is placed here as well as after the
             // movement step, and both writes put it in the same place.
             //
@@ -378,6 +390,13 @@ namespace MphRead.Mods.Network
                     NetPlayerBridge.ApplyReportedPosition(player, NetSession.RemoteIntents[slot]);
                 }
                 NetPlayerBridge.ApplyIntent(player, NetSession.RemoteIntents[slot]);
+                if (authorityRole)
+                {
+                    // Rejoin is also role-authoritative: an older spectator
+                    // intent may clear controls, but it cannot re-enable the
+                    // spectator flag after the server accepted Rejoin.
+                    player.ModSetSpectating(NetSession.SlotSpectating[slot]);
+                }
             }
             return true;
         }
@@ -397,9 +416,21 @@ namespace MphRead.Mods.Network
         /// machine's own included -- the local player is normally spawned by
         /// holding fire, and a joiner should not have to.
         /// </summary>
+        public static bool SuppressSpawn(PlayerEntity player)
+        {
+            // The role itself is enough to suppress a body, including passive
+            // replicas. Live authority state below covers the bootstrap window
+            // before a player flag has necessarily been applied.
+            if (player.Flags2.TestFlag(PlayerFlags2.Spectating)) return true;
+            if (!NetSession.Active) return false;
+            int slot = player.SlotIndex;
+            return NetSession.IsAuthority && (uint)slot < (uint)NetSession.SlotSpectating.Length
+                && NetSession.SlotSpectating[slot];
+        }
+
         public static bool ForceSpawn(PlayerEntity player)
         {
-            if (player.SceneServices.IsReplica) return false;
+            if (player.SceneServices.IsReplica || SuppressSpawn(player)) return false;
             if (MapAudit.ForceEveryone)
             {
                 return true;
@@ -503,15 +534,11 @@ namespace MphRead.Mods.Network
                 // scripted player's keys reach both the local simulation and
                 // the wire -- the same order a person's keys travel in.
                 //
-                // Re-asserted every frame, because PlayerEntity.Spawn
-                // clears Flags2 wholesale (`Flags2 = PlayerFlags2.NoShotsFired`)
-                // and a spectator's body still respawns on its timer. The
-                // flag went with it: the spectator stayed on its free camera
-                // while its hunter came back solid, visible and shootable on
-                // every machine including its own, and the authority
-                // published FlagSpectating = 0 for it from then on. Measured
-                // against the Pi: 6001 frames spectating, of which the
-                // observers saw 189 -- one respawn's worth.
+                // Defensive local re-assertion. Hunter initialization and
+                // lifecycle transitions can rewrite Flags2; spawn suppression
+                // now keeps the spectator bodyless, while this keeps local
+                // input/collision state in the spectator role until authority
+                // state echoes the same answer to every replica.
                 if (Mods.SpectatorMode.IsSpectating)
                 {
                     player.ModSetSpectating(true);
