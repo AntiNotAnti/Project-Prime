@@ -15,7 +15,7 @@ namespace MphRead.Mods
     /// </summary>
     public static class SettingsMigration
     {
-        public const int CurrentSchema = 7;
+        public const int CurrentSchema = 8;
 
         public static bool Apply(MenuSettings settings, out string summary)
         {
@@ -34,6 +34,19 @@ namespace MphRead.Mods
             settings.Fog = Normalize(settings.Fog,
                 RenderOptions.OnOff(RenderOptions.ParseOnOff(settings.Fog, true)),
                 "fog", changed);
+            if (from < 8)
+            {
+                // Existing HD users already made a concrete filtering/mipmap/
+                // anisotropy choice. Preserve that behavior as Custom instead
+                // of silently turning a previous preference into Auto. Users
+                // who had replacements disabled receive the new stable Auto
+                // policy only if they opt into HD assets later.
+                string migratedSampling = RenderOptions.ParseOnOff(settings.TextureReplacements, false)
+                    ? "custom" : "auto";
+                settings.TextureSampling = Normalize(settings.TextureSampling, migratedSampling,
+                    "HD texture sampling", changed);
+            }
+
             settings.TextureFiltering = Normalize(settings.TextureFiltering,
                 RenderOptions.OnOff(RenderOptions.ParseOnOff(settings.TextureFiltering, false)),
                 "texture filtering", changed);
@@ -45,6 +58,8 @@ namespace MphRead.Mods
             aniso = aniso >= 16 ? 16 : aniso >= 8 ? 8 : aniso >= 4 ? 4 : aniso >= 2 ? 2 : 1;
             settings.TextureAnisotropy = Normalize(settings.TextureAnisotropy, aniso.ToString(CultureInfo.InvariantCulture),
                 "anisotropy", changed);
+            settings.TextureSampling = NormalizeEnum(settings.TextureSampling,
+                TextureSamplingMode.Auto, "HD texture sampling", changed);
 
             settings.ShowFps = Normalize(settings.ShowFps,
                 RenderOptions.OnOff(RenderOptions.ParseOnOff(settings.ShowFps, false)),
@@ -145,6 +160,7 @@ namespace MphRead.Mods
             settings.TextureFiltering = "off";
             settings.TextureMipmaps = "off";
             settings.TextureAnisotropy = "1";
+            settings.TextureSampling = "auto";
             settings.ShowFps = "off";
             settings.SmoothNativeHud = "on";
             settings.FrameRateCap = "display";
