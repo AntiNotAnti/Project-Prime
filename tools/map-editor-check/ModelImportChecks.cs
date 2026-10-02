@@ -84,8 +84,13 @@ internal static class ModelImportChecks
         File.WriteAllBytes(Path.Combine(root,"textures","tile.tga"),tga);
         File.WriteAllText(Path.Combine(root,"model.mtl"),"newmtl red\nmap_Kd -o 0 0 0 textures/tile.tga\n");
         var tgaTextured=ModelImportService.Import(path,new());
-        check(tgaTextured.Assets.Count==1&&MapTexturePack.Load(tgaTextured.Assets.Single().Value,"tga").Entries.Single().Width==64,
-            "OBJ imports TGA diffuse textures while tolerating standard map_Kd options");
+        string tgaFallback=tgaTextured.Materials.Single(m=>m.Name=="red").Texture!;
+        string tgaModern=tgaTextured.Materials.Single(m=>m.Name=="red").Albedo!;
+        check(tgaTextured.Assets.Count==2
+            &&MapTexturePack.Load(tgaTextured.Assets[tgaFallback],"tga").Entries.Single().Width==64
+            &&tgaModern.EndsWith(".tga",StringComparison.OrdinalIgnoreCase)
+            &&tgaTextured.Assets[tgaModern].SequenceEqual(tga),
+            "OBJ imports TGA fallback plus portable HD source while tolerating standard map_Kd options");
         System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(png.AsSpan(16), 9000);
         File.WriteAllBytes(Path.Combine(root, "textures", "tile.png"), png);
         File.WriteAllText(Path.Combine(root, "model.mtl"), "newmtl red\nmap_Kd textures/tile.png\n");
