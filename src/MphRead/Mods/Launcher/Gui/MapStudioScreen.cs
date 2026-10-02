@@ -168,12 +168,13 @@ namespace MphRead.Mods.Launcher.Gui
                 };
             });
             Choice(new[]{"Add object","Box","Wedge","Prism","Convex","Mesh","Spawn","Pickup","Jump pad","Navigation link"},name=>{if(name!="Add object")AddObject(name);});
-            Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
+            Choice(new[]{"Overlays","Rendered","Wireframe","Collision","Collision normals","Collision heat","Collision repairs","Partitions","Kill plane","Navigation"},name=>
             {
                 if(_viewport==null)return;
                 if(name=="Navigation"){_=Navigation();return;}
                 _viewport.Wireframe=name=="Wireframe";
-                _viewport.Collision=name is "Collision" or "Collision heat" or "Collision repairs";
+                _viewport.Collision=name is "Collision" or "Collision normals" or "Collision heat" or "Collision repairs";
+                _viewport.CollisionNormalsOverlay=name=="Collision normals";
                 _viewport.CollisionHeatmap=name=="Collision heat";
                 _viewport.CollisionRepairsOverlay=name=="Collision repairs";
                 _viewport.PartitionOverlay=name=="Partitions";_viewport.KillPlane=name=="Kill plane";_viewport.InvalidateVisual();
@@ -581,11 +582,12 @@ namespace MphRead.Mods.Launcher.Gui
                 new("Show Layers","panel layers",()=>ShowInspectorPage("Layers")),
                 new("Show Map Health","panel statistics budgets",()=>ShowInspectorPage("Map health")),
                 new("Show Navigation Path","panel navigation",()=>ShowInspectorPage("Navigation path")),
-                new("Overlay: Rendered","view render",()=>{if(_viewport!=null){_viewport.Wireframe=false;_viewport.Collision=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
-                new("Overlay: Wireframe","view wire",()=>{if(_viewport!=null){_viewport.Wireframe=true;_viewport.Collision=false;_viewport.InvalidateVisual();}}),
-                new("Overlay: Collision","view collision",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
-                new("Overlay: Collision Heat","view collision heat budget",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionHeatmap=true;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
-                new("Overlay: Collision Repairs","view collision repairs heal",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();}}),
+                new("Overlay: Rendered","view render",()=>{if(_viewport!=null){_viewport.Wireframe=false;_viewport.Collision=false;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Wireframe","view wire",()=>{if(_viewport!=null){_viewport.Wireframe=true;_viewport.Collision=false;_viewport.CollisionNormalsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision","view collision",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision Normals","view collision normals face direction",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=true;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision Heat","view collision heat budget",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=true;_viewport.CollisionRepairsOverlay=false;_viewport.InvalidateVisual();}}),
+                new("Overlay: Collision Repairs","view collision repairs heal topology movement",()=>{if(_viewport!=null){_viewport.Collision=true;_viewport.CollisionNormalsOverlay=false;_viewport.CollisionHeatmap=false;_viewport.CollisionRepairsOverlay=true;_viewport.InvalidateVisual();}}),
                 new("New map / template gallery","new template",NewMap),
                 new("Import Q3 BSP / PK3","import bsp pk3",Import),
                 new("Clone built-in map","native remix clone",CloneBuiltIn)
@@ -880,7 +882,8 @@ namespace MphRead.Mods.Launcher.Gui
             MapViewportRepair[] repairs=_viewport.Cache.CollisionRepairs.ToArray();
             var filter=new ComboBox
             {
-                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence","Probe failures","Reviewed"},
+                ItemsSource=new[]{"Unreviewed","All","Added","Restored","Removed","Low confidence",
+                    "Movement risks","Contact density","Jump pads","Topology","Reviewed"},
                 SelectedIndex=0
             };
             var list=new ListBox{MaxHeight=360};var radius=new TextBox{Text="2"};
@@ -896,7 +899,14 @@ namespace MphRead.Mods.Launcher.Gui
                     "Restored"=>repair.Kind==MapCollisionRepairKind.BuriedRestored,
                     "Removed"=>repair.Kind==MapCollisionRepairKind.PhantomRemoved&&repair.Confidence>=.9f,
                     "Low confidence"=>repair.Confidence<.9f,
-                    "Probe failures"=>repair.Kind is MapCollisionRepairKind.ProbeFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    "Movement risks"=>repair.Kind is MapCollisionRepairKind.ProbeFailure
+                        or MapCollisionRepairKind.MovementSweepFailure or MapCollisionRepairKind.ContactOverflowRisk
+                        or MapCollisionRepairKind.JumpPadFailure or MapCollisionRepairKind.ReachabilityWarning,
+                    "Contact density"=>repair.Kind==MapCollisionRepairKind.ContactOverflowRisk,
+                    "Jump pads"=>repair.Kind==MapCollisionRepairKind.JumpPadFailure,
+                    "Topology"=>repair.Kind is MapCollisionRepairKind.DegenerateRemoved
+                        or MapCollisionRepairKind.OverlappingSurface or MapCollisionRepairKind.WindingWarning
+                        or MapCollisionRepairKind.OpenBoundary,
                     _=>true
                 };
             void Refresh()
@@ -951,11 +961,21 @@ namespace MphRead.Mods.Launcher.Gui
                 _=Validate();
             });
             int excluded=_document.Project.Definition.Import.CollisionHealExclusions.Count;
+            int bodyFailures=repairs.Count(r=>r.Kind==MapCollisionRepairKind.MovementSweepFailure);
+            int overflowRisks=repairs.Count(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk);
+            int jumpPadFailures=repairs.Count(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure);
             var health=_viewport.Cache.CollisionHealth;
+            int blockers=_document.Diagnostics.Diagnostics.Count(d=>d.Severity==MapDiagnosticSeverity.Error);
+            int warnings=_document.Diagnostics.Diagnostics.Count(d=>d.Severity==MapDiagnosticSeverity.Warning);
             _inspector.Children.Add(Text(
-                $"Repairs: {repairs.Length:N0} · disabled regions: {excluded}\n"
-                +(health==null?"Analyze/validate to populate health."
-                    :$"Health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probe failures · {health.SweepFailures}/{health.SweepCount} sweep failures")));
+                $"Repairs/risks: {repairs.Length:N0} · disabled regions: {excluded}\n"
+                +$"Compile/package: {(blockers==0?"no current blockers":$"{blockers} blocker(s)")} · {warnings} warning(s)\n"
+                +(health==null?"Topology/gameplay: run Validate to populate compiled collision health."
+                    :$"Gameplay: health {health.Confidence*100:0.0}% · {health.ProbeFailures}/{health.ProbeCount} floor probes · "
+                    +$"{health.SweepFailures}/{health.SweepCount} movement/launch sweeps\n"
+                    +$"Movement: body {bodyFailures} · contact-buffer {overflowRisks} · jump-pad {jumpPadFailures}\n"
+                    +$"Topology: degenerate removed {health.DegenerateFacesRemoved} · overlaps {health.OverlappingFaces} · "
+                    +$"winding {health.WindingWarnings} · open edges {health.OpenBoundaryEdges} (open edges may be intentional)")));
         }
 
         private void LayerInspector()
@@ -1117,6 +1137,45 @@ namespace MphRead.Mods.Launcher.Gui
                     Field("UV rotation",g.Uv.Rotation,(o,s)=>((MapGeometry)o).Uv.Rotation=Number(s));
                     foreach(var pair in new[]{("Collision",g.Solid),("Damaging",g.Damaging),("Hidden",g.Hidden),("Locked",g.Locked)})
                     {var check=new CheckBox {Content=pair.Item1,IsChecked=pair.Item2};_inspector.Children.Add(check);edits.Add(o=>{var geometry=(MapGeometry)o;switch(pair.Item1){case "Collision":geometry.Solid=check.IsChecked==true;break;case "Damaging":geometry.Damaging=check.IsChecked==true;break;case "Hidden":geometry.Hidden=check.IsChecked==true;break;case "Locked":geometry.Locked=check.IsChecked==true;break;}});}
+                    if(g is MapMesh collisionMesh)
+                    {
+                        _inspector.Children.Add(Text("COLLISION CHANNELS"));
+                        foreach(var pair in new[]{
+                            ("Collision only (invisible in play)",collisionMesh.CollisionOnly),
+                            ("Reflect beams",collisionMesh.ReflectBeams),
+                            ("Ignore players + camera",collisionMesh.IgnorePlayers),
+                            ("Ignore beams / projectiles",collisionMesh.IgnoreBeams),
+                            ("Ignore scan",collisionMesh.IgnoreScan)})
+                        {
+                            var check=new CheckBox{Content=pair.Item1,IsChecked=pair.Item2};_inspector.Children.Add(check);
+                            edits.Add(o=>{var mesh=(MapMesh)o;switch(pair.Item1)
+                            {
+                                case "Collision only (invisible in play)":mesh.CollisionOnly=check.IsChecked==true;mesh.Solid|=mesh.CollisionOnly;break;
+                                case "Reflect beams":mesh.ReflectBeams=check.IsChecked==true;break;
+                                case "Ignore players + camera":mesh.IgnorePlayers=check.IsChecked==true;break;
+                                case "Ignore beams / projectiles":mesh.IgnoreBeams=check.IsChecked==true;break;
+                                case "Ignore scan":mesh.IgnoreScan=check.IsChecked==true;break;
+                            }});
+                        }
+                        Field("Slipperiness",collisionMesh.Slipperiness,(o,s)=>((MapMesh)o).Slipperiness=int.Parse(s,CultureInfo.InvariantCulture));
+                        _inspector.Children.Add(Text("Camera collision currently follows the player collision channel in the MPH runtime format."));
+                    }
+                    else
+                    {
+                        AddButton(_inspector,"Convert to collision proxy",()=>
+                        {
+                            _document.EditObjects("Convert to collision proxy",new[]{id},d=>
+                            {
+                                int index=d.Geometry.FindIndex(item=>item.Id==id);
+                                if(index<0||d.Geometry[index] is MapMesh)return;
+                                MapGeometry source=d.Geometry[index];
+                                var mesh=MapMeshEditing.Convert(source,d.Materials[source.Material].TexScale);
+                                mesh.CollisionOnly=true;mesh.Solid=true;mesh.Layer="Collision";
+                                d.Geometry[index]=mesh;
+                            });
+                            Inspect();
+                        });
+                    }
                     if(g is MapPrism prism)Field("Sides",prism.Sides,(o,s)=>((MapPrism)o).Sides=int.Parse(s,CultureInfo.InvariantCulture));
                     break;
                 case MapSpawn s:Field("Yaw",s.Yaw,(o,v)=>((MapSpawn)o).Yaw=Number(v));Field("Team (-1 = neutral)",s.Team,(o,v)=>((MapSpawn)o).Team=int.Parse(v,CultureInfo.InvariantCulture));break;

@@ -223,14 +223,20 @@ namespace MphRead.Mods.MapGen
 
         /// <summary>
         /// Works out a jump pad's launch velocity. Given a target, solve the
-        /// ballistic arc under the biped gravity the hunters actually use;
-        /// given an explicit vector and speed, take them as written.
+        /// ballistic arc under the biped gravity the hunters actually use and
+        /// the authored control-lock interval during which player movement
+        /// deliberately suppresses gravity; given an explicit vector and speed,
+        /// take them as written.
         /// </summary>
         public static (Vector3, float) SolveJumpPad(MapJumpPad pad)
         {
             if (pad.Vector != null)
             {
-                return (ToVector(pad.Vector).Normalized(), pad.Speed);
+                Vector3 authored = ToVector(pad.Vector);
+                if (authored.LengthSquared <= 1e-12f || !float.IsFinite(authored.LengthSquared)
+                    || !float.IsFinite(pad.Speed) || pad.Speed <= 0)
+                    throw new ProgramException("A vector jump pad needs a finite non-zero direction and positive speed.");
+                return (authored.Normalized(), pad.Speed);
             }
             if (pad.Target == null)
             {
@@ -240,16 +246,32 @@ namespace MphRead.Mods.MapGen
             Vector3 to = ToVector(pad.Target);
             Vector3 delta = to - from;
             float horizontal = new Vector3(delta.X, 0, delta.Z).Length;
-            // Samus's biped gravity, in units per frame squared, at the 30 fps
-            // the game's own values were written for
-            float gravity = 77 / 4096f;
-            // clear the target by a little, and never by less than a jump
+            // Samus's biped gravity magnitude, in the original 30 Hz movement
+            // units the player constants use. Runtime 60 Hz applies half of
+            // this per simulation step.
+            float gravity = -Fixed.ToFloat(Metadata.PlayerValues[(int)Hunter.Samus].BipedGravity);
+            float lockFrames = pad.ControlLockTime;
+
+            // Clear the target by a little, and never by less than a jump.
+            // During control lock Y advances linearly; after lock gravity starts.
             float rise = MathF.Max(delta.Y, 0) + MathF.Max(2f, horizontal * 0.22f);
-            float up = MathF.Sqrt(2 * gravity * rise);
-            float fall = MathF.Sqrt(2 * gravity * MathF.Max(rise - delta.Y, 0.01f));
-            float frames = (up + fall) / gravity;
+            float up = -gravity * lockFrames
+                + MathF.Sqrt(gravity * gravity * lockFrames * lockFrames + 2 * gravity * rise);
+
+            // Solve the descending root after the lock interval:
+            // deltaY = up*(lock + fall) - .5*g*fall^2.
+            float discriminant = up * up - 2 * gravity * (delta.Y - up * lockFrames);
+            if (discriminant < 0 || !float.IsFinite(discriminant))
+                throw new ProgramException("Jump pad target cannot be reached with the authored control lock.");
+            float fall = (up + MathF.Sqrt(discriminant)) / gravity;
+            float frames = lockFrames + fall;
+            if (!float.IsFinite(frames) || frames <= 0)
+                throw new ProgramException("Jump pad target produced an invalid flight time.");
+
             var velocity = new Vector3(delta.X / frames, up, delta.Z / frames);
             float speed = velocity.Length;
+            if (!float.IsFinite(speed) || speed <= 0)
+                throw new ProgramException("Jump pad target produced an invalid launch speed.");
             return (velocity / speed, speed);
         }
 

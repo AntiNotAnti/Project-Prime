@@ -64,10 +64,18 @@ namespace MphRead.Mods.MapGen
                 Add(result,"Collision auto-heal repairs",map.CollisionRepairs.Count);
                 Add(result,"Collision probes",health.ProbeCount+health.SweepCount);
                 Add(result,"Collision probe failures",health.ProbeFailures+health.SweepFailures);
+                Add(result,"Collision topology findings",
+                    health.DegenerateFacesRemoved+health.OverlappingFaces+health.WindingWarnings);
+                if(health.DegenerateFacesRemoved+health.OverlappingFaces+health.WindingWarnings>0)
+                    result.Warning("FP-MAP-018",
+                        $"Collision topology review found {health.DegenerateFacesRemoved:N0} degenerate faces removed, "
+                        +$"{health.OverlappingFaces:N0} overlapping faces, and {health.WindingWarnings:N0} winding warnings. "
+                        +$"{health.OpenBoundaryEdges:N0} open boundary edges are listed separately because they may be intentional.");
                 if(health.ProbeFailures+health.SweepFailures>0)
                     result.Warning("FP-MAP-018",
-                        $"Imported collision auto-heal completed with {health.ProbeFailures:N0} unsupported floor probes and "
-                        +$"{health.SweepFailures:N0} short-walk sweep failures. Review the Collision repairs overlay.");
+                        $"Gameplay collision validation completed with {health.ProbeFailures:N0} unsupported floor probes and "
+                        +$"{health.SweepFailures:N0} player-movement, jump-pad, or contact-density sweep risks. "
+                        +"Review the Collision repairs overlay before export/playtest.");
                 if(health.NavigationComponents>health.ReachableComponents&&health.ReachableComponents>0)
                     result.Warning("FP-MAP-007",
                         $"Imported traversal has {health.NavigationComponents} navigation regions; "

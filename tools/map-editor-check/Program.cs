@@ -578,6 +578,38 @@ try
     Check(phantomHealth.PhantomFacesRemoved>0&&phantomMap.Solid.Count==0,
         "high-confidence hidden collision with no render support is pruned");
 
+    var degenerateMap=new BuiltMap(new MapDefinition{Name="HEAL_DEGENERATE",Import=healImport});
+    degenerateMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(2,0,0)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    var degenerateHealth=MapCollisionHealer.Heal(degenerateMap,healImport);
+    Check(degenerateHealth.DegenerateFacesRemoved>0
+        &&degenerateMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.DegenerateRemoved),
+        "collision topology audit records zero-area faces removed before packing");
+
+    var overlapMap=new BuiltMap(new MapDefinition{Name="HEAL_OVERLAP",Import=healImport});
+    overlapMap.Solid.Add(HealFloor());overlapMap.Solid.Add(HealFloor());
+    var overlapHealth=MapCollisionHealer.Heal(overlapMap,healImport);
+    Check(overlapHealth.OverlappingFaces>0
+        &&overlapMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.OverlappingSurface),
+        "collision topology audit flags exact overlapping runtime surfaces");
+
+    var windingMap=new BuiltMap(new MapDefinition{Name="HEAL_WINDING",Import=healImport});
+    windingMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(0,0,-1)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    windingMap.Solid.Add(new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(0,0,0),new OpenTK.Mathematics.Vector3(1,0,0),
+        new OpenTK.Mathematics.Vector3(1,0,-1)},new OpenTK.Mathematics.Vector2[3],
+        OpenTK.Mathematics.Vector3.UnitY,0,1){CollisionSource="Brush"});
+    var windingHealth=MapCollisionHealer.Heal(windingMap,healImport);
+    Check(windingHealth.WindingWarnings>0
+        &&windingMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.WindingWarning)
+        &&windingHealth.OpenBoundaryEdges>0,
+        "collision topology audit exposes suspicious shared-edge winding and reviewable open boundaries");
+
     var traversalDefinition=new MapDefinition{Name="HEAL_TRAVERSAL",Import=healImport};
     traversalDefinition.Spawns.Add(new(){Id=Guid.NewGuid(),Position=new[]{0f,3f,0f}});
     traversalDefinition.Items.Add(new(){Id=Guid.NewGuid(),Position=new[]{1f,2f,0f},Type="HealthBig"});
@@ -594,6 +626,55 @@ try
     Check(traversalMap.CollisionHealth.NavigationNodes>=0
         &&traversalMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.SpawnMoved),
         "collision repair provenance and traversal audit remain available to Map Studio");
+
+    var denseDefinition=new MapDefinition{Name="HEAL_CONTACT_DENSITY",Import=healImport};
+    var denseMap=new BuiltMap(denseDefinition);
+    denseMap.Faces.Add(HealFloor(0,8));
+    for(int i=0;i<45;i++)denseMap.Solid.Add(HealFloor(0,8));
+    MapCollisionHealer.Heal(denseMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(denseMap,denseDefinition);
+    Check(denseMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.ContactOverflowRisk),
+        "Forge movement audit surfaces locations capable of saturating the 40-contact player buffer");
+
+    var solvedPad=new MapJumpPad{Position=new[]{0f,0f,0f},Target=new[]{10f,1.5f,0f},ControlLockTime=30};
+    var (solvedDirection,solvedSpeed)=MapBuilder.SolveJumpPad(solvedPad);
+    var solvedVelocity=solvedDirection*solvedSpeed;
+    float solvedFrames=10f/MathF.Max(.0001f,new OpenTK.Mathematics.Vector3(solvedVelocity.X,0,solvedVelocity.Z).Length);
+    float solvedGravityTime=MathF.Max(0,solvedFrames-solvedPad.ControlLockTime);
+    float solvedGravity=-MphRead.Fixed.ToFloat(MphRead.Metadata.PlayerValues[(int)MphRead.Entities.Hunter.Samus].BipedGravity);
+    var solvedLanding=new OpenTK.Mathematics.Vector3(0,0,0)+solvedVelocity*solvedFrames
+        -OpenTK.Mathematics.Vector3.UnitY*(.5f*solvedGravity*solvedGravityTime*solvedGravityTime);
+    Check(OpenTK.Mathematics.Vector3.Distance(solvedLanding,new OpenTK.Mathematics.Vector3(10,1.5f,0))<.002f,
+        "targeted jump-pad solver includes the runtime control-lock interval before gravity");
+
+    var jumpDefinition=new MapDefinition{Name="HEAL_JUMP_PAD",Import=healImport};
+    jumpDefinition.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{-3f,.05f,0f},Target=new[]{3f,.05f,0f}});
+    var jumpMap=new BuiltMap(jumpDefinition);
+    var jumpFloor=HealFloor(0,8);jumpMap.Faces.Add(jumpFloor);jumpMap.Solid.Add(HealFloor(0,8));
+    var lowCeiling=new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(-4,2.2f,-4),new OpenTK.Mathematics.Vector3(4,2.2f,-4),
+        new OpenTK.Mathematics.Vector3(4,2.2f,4),new OpenTK.Mathematics.Vector3(-4,2.2f,4)},
+        new OpenTK.Mathematics.Vector2[4],-OpenTK.Mathematics.Vector3.UnitY,0,1);
+    jumpMap.Faces.Add(lowCeiling);jumpMap.Solid.Add(lowCeiling);
+    MapCollisionHealer.Heal(jumpMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(jumpMap,jumpDefinition);
+    Check(jumpMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure),
+        "Forge jump-pad audit catches a player-sized launch path that strikes a low ceiling");
+
+    var altPadDefinition=new MapDefinition{Name="HEAL_JUMP_PAD_ALT_SIZE",Import=healImport};
+    altPadDefinition.JumpPads.Add(new(){Id=Guid.NewGuid(),Position=new[]{-3f,.05f,0f},Target=new[]{3f,.05f,0f}});
+    var altPadMap=new BuiltMap(altPadDefinition);
+    altPadMap.Faces.Add(HealFloor(0,8));altPadMap.Solid.Add(HealFloor(0,8));
+    var sideWall=new BuiltFace(new[]{
+        new OpenTK.Mathematics.Vector3(-4,-1,.57f),new OpenTK.Mathematics.Vector3(4,-1,.57f),
+        new OpenTK.Mathematics.Vector3(4,4,.57f),new OpenTK.Mathematics.Vector3(-4,4,.57f)},
+        new OpenTK.Mathematics.Vector2[4],OpenTK.Mathematics.Vector3.UnitZ,0,1);
+    altPadMap.Faces.Add(sideWall);altPadMap.Solid.Add(sideWall);
+    MapCollisionHealer.Heal(altPadMap,healImport);
+    MapCollisionHealer.RepairGameplayObjects(altPadMap,altPadDefinition);
+    Check(altPadMap.CollisionRepairs.Any(r=>r.Kind==MapCollisionRepairKind.JumpPadFailure
+        &&r.Points.Any(p=>MathF.Abs(p.Z-.57f)<.08f)),
+        "Forge jump-pad audit catches wall clearance that fits the biped core but clips a larger alt-form core");
 
     foreach (string tool in new[] { "Move", "Rotate", "Scale" })
     {

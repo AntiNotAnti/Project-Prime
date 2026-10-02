@@ -15,7 +15,8 @@ public sealed record MapCollisionHealthSnapshot(int InputFaces,int OutputFaces,i
     int ConvexifiedFaces,int StitchedVertices,int TJunctions,int RestoredBuriedFaces,int FloorProxies,
     int PhantomFacesRemoved,int SpawnsMoved,int ItemsMoved,int NavigationNodes,int ReachableNodes,
     int NavigationComponents,int ReachableComponents,int ProbeCount,int ProbeFailures,int SweepCount,
-    int SweepFailures,float Confidence);
+    int SweepFailures,int DegenerateFacesRemoved,int OverlappingFaces,int WindingWarnings,
+    int OpenBoundaryEdges,float Confidence);
 
 /// <summary>Immutable analysis shared between waiters. Mutable navigation views are copied.</summary>
 public sealed class MapAnalysisResult
@@ -51,7 +52,9 @@ public sealed class MapAnalysisResult
                 health.ConvexifiedFaces,health.StitchedVertices,health.TJunctions,health.RestoredBuriedFaces,
                 health.FloorProxies,health.PhantomFacesRemoved,health.SpawnsMoved,health.ItemsMoved,
                 health.NavigationNodes,health.ReachableNodes,health.NavigationComponents,health.ReachableComponents,
-                health.ProbeCount,health.ProbeFailures,health.SweepCount,health.SweepFailures,health.Confidence)
+                health.ProbeCount,health.ProbeFailures,health.SweepCount,health.SweepFailures,
+                health.DegenerateFacesRemoved,health.OverlappingFaces,health.WindingWarnings,
+                health.OpenBoundaryEdges,health.Confidence)
             : null;
         if (navigation && compilation.Map is BuiltMap map)
         {
