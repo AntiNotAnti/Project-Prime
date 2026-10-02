@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using MphRead.Hud;
 using MphRead.Mods.Chat;
 using MphRead.Mods.Network;
