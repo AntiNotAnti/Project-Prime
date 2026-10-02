@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 using MphRead.Mods.Network;
 using MphRead.Mods.Replay;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Launcher.Gui
 {
