@@ -2322,25 +2322,20 @@ namespace MphRead.Entities
             float y = Mods.Input.GamepadInput.AimDeltaY * scopedY;
             var cameraDelta = Mods.Input.AimAssist.AimAssistMath.CameraDelta(new(x, y), AimZoomScale(),
                 Controls.InvertAimX, Controls.InvertAimY);
-            if (ModApplyShadowFreezeControllerAssist(cameraDelta.X, cameraDelta.Y,
-                out float shadowX, out float shadowY))
-            {
-                // The technique assist is pitch-oriented and deliberately does not
-                // inherit a body/head target from the general aim follower.
-                _controllerAssist.Reset();
-                x = shadowX;
-                y = shadowY;
-            }
-            else
-            {
-                var assisted = ApplyControllerAssist(cameraDelta.X, cameraDelta.Y);
-                x = assisted.X;
-                y = assisted.Y;
-            }
+
+            // Controller aim assistance is intentionally disabled. Keep the ordinary
+            // controller response/scope/inversion path, but never run target selection,
+            // friction, tracking, snap correction or the Shadow Freeze technique helper.
+            // Clear retained state and precision context every simulation step so no
+            // previous assisted frame can influence stick filtering or acceleration.
+            _controllerAssist.Reset();
+            ModResetShadowFreezeControllerAssist();
+            Mods.Input.GamepadInput.SetAimPrecisionContext(0, 0);
+            x = cameraDelta.X;
+            y = cameraDelta.Y;
             if (x == 0 && y == 0)
             {
                 Mods.Input.GamepadInput.RecordCameraAim(0, 0);
-                ModUpdateShadowFreezeFeedback();
                 return;
             }
             ModNoteInput();
@@ -2353,7 +2348,6 @@ namespace MphRead.Entities
             // must subtract the camera movement that actually happened.
             _controllerAssist.PreviousOutput = -AssistAngles(CameraInfo.Position + previousDirection);
             Mods.Input.GamepadInput.RecordCameraAim(_controllerAssist.PreviousOutput.X, _controllerAssist.PreviousOutput.Y);
-            ModUpdateShadowFreezeFeedback();
         }
 
         /// <summary>
