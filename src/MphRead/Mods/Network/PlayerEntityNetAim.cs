@@ -68,15 +68,30 @@ namespace MphRead.Entities
             }
 
             if (_scene.Services.IsReplica
-                && _scene.ReplayPoses?.Sample(SlotIndex, (float)alpha,
+                && _scene.ReplayPoses?.SamplePresented(SlotIndex, (float)alpha,
                     out Vector3 actorPosition, out _) == true)
             {
-                // Pose lookahead corrects where the actor is rendered. Shift the
-                // whole camera pose by the same amount, preserving its authored
-                // pitch/yaw/up instead of replacing it with PlayerState.Facing.
+                // Use the exact presentation clock for both the rendered body and
+                // the watched camera. Export samples can sit between simulation
+                // frames and must not fall back to the ordinary 60 Hz cursor.
                 Vector3 translation = actorPosition - SimulationDrawPosition;
                 replicaPosition += translation;
                 replicaTarget += translation;
+
+                // Snapshot Facing is body orientation. The owner's recorded
+                // IntentPacket.Aim is the actual gun direction used for firing.
+                // Rebuild first-person POV from that stream so flicks, tracking
+                // and shot alignment survive replay instead of being flattened
+                // into the puppet body's reconstructed camera.
+                if (CameraType == CameraType.First
+                    && _scene.ReplayPoses.SamplePresentedAim(SlotIndex, (float)alpha,
+                        out Vector3 recordedAim)
+                    && ModPresentationBasis(recordedAim, replicaUp,
+                        out _, out Vector3 recordedUp, out Vector3 recordedForward))
+                {
+                    replicaTarget = replicaPosition + recordedForward;
+                    replicaUp = recordedUp;
+                }
             }
 
             else if (!_scene.Services.IsReplica && NetSession.Active
