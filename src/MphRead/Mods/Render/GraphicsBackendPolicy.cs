@@ -60,6 +60,13 @@ namespace MphRead.Mods.Render
         }
 
         private static bool _preferenceRead;
+        private static bool _preferenceDriven;
+        private static string? _startupFallbackReason;
+        private static string StartupGuardPath => System.IO.Path.Combine("Savedata", "renderer-startup.pending");
+
+        internal static bool StartupFallbackActive => _startupFallbackReason != null;
+        internal static string? StartupFallbackReason => _startupFallbackReason;
+
         public static void LoadPreference()
         {
             if (Configured || _preferenceRead) return;
@@ -72,7 +79,11 @@ namespace MphRead.Mods.Render
                 if (document.RootElement.TryGetProperty("MenuSettings", out var menu)
                     && menu.TryGetProperty("Renderer", out var renderer)
                     && renderer.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
                     Configure(renderer.GetString());
+                    _preferenceDriven = true;
+                    ApplyPendingStartupGuard();
+                }
             }
             catch (Exception ex) when (ex is System.IO.IOException or System.Text.Json.JsonException
                 or ArgumentException or PlatformNotSupportedException)
@@ -85,9 +96,88 @@ namespace MphRead.Mods.Render
         public static void UseCompatibilityFallback(string reason)
         {
             Console.Error.WriteLine($"[render] {DisplayName(Resolved)} failed; using OpenGL compatibility: {reason}");
+            _startupFallbackReason = reason;
             Requested = GraphicsBackend.OpenGL;
             Configured = true;
         }
+
+        /// <summary>
+        /// Arm before the first native modern-renderer window/device call. If the
+        /// process dies in a driver/native frame, the file survives and the next
+        /// preference-driven launch uses OpenGL instead of crash-looping.
+        /// Explicit diagnostic/command-line renderer selections never arm it.
+        /// </summary>
+        internal static void BeginStartupAttempt(GraphicsBackend backend)
+        {
+            if (!_preferenceDriven || !IsModern(backend)) return;
+            try
+            {
+                System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(StartupGuardPath)!);
+                System.IO.File.WriteAllText(StartupGuardPath, backend.ToString());
+                Mods.DebugLog.Checkpoint("render", $"armed {DisplayName(backend)} startup recovery");
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("[render] Could not arm renderer startup recovery: " + ex.Message);
+            }
+        }
+
+        internal static void CompleteStartupAttempt(GraphicsBackend backend)
+        {
+            if (!_preferenceDriven || !IsModern(backend)) return;
+            try
+            {
+                if (System.IO.File.Exists(StartupGuardPath)) System.IO.File.Delete(StartupGuardPath);
+                Mods.DebugLog.Checkpoint("render", $"{DisplayName(backend)} startup recovery cleared");
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("[render] Could not clear renderer startup recovery: " + ex.Message);
+            }
+        }
+
+        internal static void ClearStartupGuardForRendererChange()
+        {
+            _startupFallbackReason = null;
+            try
+            {
+                if (System.IO.File.Exists(StartupGuardPath)) System.IO.File.Delete(StartupGuardPath);
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                Console.Error.WriteLine("[render] Could not clear previous renderer failure: " + ex.Message);
+            }
+        }
+
+        private static void ApplyPendingStartupGuard()
+        {
+            if (!IsModern(Resolved) || !System.IO.File.Exists(StartupGuardPath)) return;
+            try
+            {
+                string value = System.IO.File.ReadAllText(StartupGuardPath).Trim();
+                if (!TryParse(value, out GraphicsBackend failed) || !IsModern(failed))
+                {
+                    UseCompatibilityFallback("the previous modern renderer startup did not complete");
+                    return;
+                }
+                if (failed == Resolved)
+                {
+                    UseCompatibilityFallback(
+                        $"the previous {DisplayName(failed)} startup did not complete; choose it again in Settings to retry");
+                    return;
+                }
+                // The user changed renderer after the failure. The old fence no
+                // longer applies to this selection.
+                System.IO.File.Delete(StartupGuardPath);
+            }
+            catch (Exception ex) when (ex is System.IO.IOException or UnauthorizedAccessException)
+            {
+                UseCompatibilityFallback("renderer startup recovery could not be read: " + ex.Message);
+            }
+        }
+
+        internal static bool StartupGuardMatches(string value, GraphicsBackend backend)
+            => TryParse(value, out GraphicsBackend failed) && IsModern(failed) && failed == backend;
 
         public static GraphicsBackend Resolved => Resolve(CurrentPlatform, Requested);
 
@@ -100,6 +190,10 @@ namespace MphRead.Mods.Render
 
         public static void Configure(string? value)
         {
+            // An explicit selection (command line/diagnostic) is independent
+            // from a crash fence created by the persisted launcher preference.
+            _preferenceDriven = false;
+            _startupFallbackReason = null;
             Configured = true;
             if (string.IsNullOrWhiteSpace(value))
             {

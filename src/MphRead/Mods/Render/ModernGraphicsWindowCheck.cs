@@ -92,6 +92,7 @@ namespace MphRead.Mods.Render
                     RunCopyFormatCheck();
                     RunDeviceRecoveryCheck();
                     RunMipmapCheck();
+                    RunLargeTextureMipmapCheck();
                     RunReadbackOrientationCheck();
                     ModernGraphicsCompat.BeginPerformanceSample();
                     TextureUpdateCheck.Verify();
@@ -589,6 +590,75 @@ namespace MphRead.Mods.Render
                 throw new InvalidOperationException($"Mipmap minification failed: {string.Join(",", pixel)}.");
             ModernGraphicsCompat.Present();
             GraphicsApi.DeleteTexture(texture);
+        }
+
+        private static void RunLargeTextureMipmapCheck()
+        {
+            const int width = 4096, height = 256;
+            int texture = GraphicsApi.GenTexture();
+            try
+            {
+                byte[] pixels = new byte[width * height * 4];
+                for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    int at = (y * width + x) * 4;
+                    bool red = (((x >> 4) + (y >> 4)) & 1) == 0;
+                    pixels[at] = red ? (byte)255 : (byte)0;
+                    pixels[at + 2] = red ? (byte)0 : (byte)255;
+                    pixels[at + 3] = 255;
+                }
+
+                GraphicsApi.BindFramebuffer(FramebufferTarget.Framebuffer, 0);
+                GraphicsApi.Viewport(0, 0, 96, 64);
+                GraphicsApi.UseProgram(0);
+                GraphicsApi.ActiveTexture(TextureUnit.Texture0);
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, texture);
+                GraphicsApi.TexImage2D(TextureTarget.Texture2D, 0,
+                    PixelInternalFormat.Rgba8, width, height, 0,
+                    PixelFormat.Rgba, PixelType.UnsignedByte, pixels);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMinFilter, (int)TextureMinFilter.LinearMipmapLinear);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapS, (int)TextureWrapMode.Repeat);
+                GraphicsApi.TexParameter(TextureTarget.Texture2D,
+                    TextureParameterName.TextureWrapT, (int)TextureWrapMode.Repeat);
+                GraphicsApi.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+
+                GraphicsApi.ClearColor(0, 0, 0, 1);
+                GraphicsApi.Clear(ClearBufferMask.ColorBufferBit);
+                GraphicsApi.Enable(EnableCap.Texture2D);
+                GraphicsApi.Disable(EnableCap.DepthTest);
+                GraphicsApi.Disable(EnableCap.CullFace);
+                GraphicsApi.Disable(EnableCap.Blend);
+                GraphicsApi.Color4(1f, 1f, 1f, 1f);
+                GraphicsApi.Begin(PrimitiveType.TriangleStrip);
+                GraphicsApi.TexCoord2(256, 0); GraphicsApi.Vertex3( 1,  1, 0);
+                GraphicsApi.TexCoord2(0, 0); GraphicsApi.Vertex3(-1,  1, 0);
+                GraphicsApi.TexCoord2(256, 16); GraphicsApi.Vertex3( 1, -1, 0);
+                GraphicsApi.TexCoord2(0, 16); GraphicsApi.Vertex3(-1, -1, 0);
+                GraphicsApi.End();
+
+                foreach ((int x, int y) in new[] { (24,16), (48,32), (72,48) })
+                {
+                    byte[] pixel = new byte[4];
+                    GraphicsApi.ReadPixels(x, y, 1, 1,
+                        PixelFormat.Rgba, PixelType.UnsignedByte, pixel);
+                    if (Math.Abs(pixel[0] - 128) > 18 || pixel[1] > 10
+                        || Math.Abs(pixel[2] - 128) > 18 || pixel[3] < 245)
+                        throw new InvalidOperationException(
+                            $"4K mip minification failed at {x},{y}: {string.Join(",", pixel)}.");
+                }
+                ModernGraphicsCompat.Present();
+                Console.WriteLine("[renderwindowcheck] 4096-wide staged mip chain PASS");
+            }
+            finally
+            {
+                GraphicsApi.BindTexture(TextureTarget.Texture2D, 0);
+                GraphicsApi.DeleteTexture(texture);
+            }
         }
 
         private static byte[] RunWorldCompositeCheck()

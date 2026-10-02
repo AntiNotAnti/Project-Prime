@@ -1125,11 +1125,15 @@ namespace MphRead.Mods.Launcher.Gui
         {
             Heading(page, "Renderer");
             GraphicsBackendPolicy.TryParse(_settings.Renderer, out var selectedRenderer);
+            if (GraphicsBackendPolicy.StartupFallbackActive)
+                selectedRenderer = GraphicsBackend.OpenGL;
             _rendererRow = Add(page, new ChoiceRow("Renderer", _rendererChoices.Select(backend =>
                 backend == GraphicsBackend.OpenGL && OperatingSystem.IsAndroid() ? "OpenGL ES"
                 : GraphicsBackendPolicy.DisplayName(backend)).ToArray(),
                 Math.Max(0, Array.IndexOf(_rendererChoices, selectedRenderer))));
-            Explain(page, "Renderer changes take effect after restarting Project Prime. Modern backends are experimental; OpenGL remains the compatibility default.");
+            Explain(page, GraphicsBackendPolicy.StartupFallbackActive
+                ? "OpenGL recovery is active because the previous modern renderer did not finish startup. Choose a renderer here to clear the recovery fence and retry on the next restart."
+                : "Renderer changes take effect after restarting Project Prime. Modern backends are experimental; OpenGL remains the compatibility default.");
             Heading(page, "Quality preset");
             _graphicsPresetRow = Add(page, new ChoiceRow("Preset",
                 new[] { "Original", "Performance", "Enhanced", "Ultra", "Extreme", "Custom" },
@@ -2491,7 +2495,11 @@ namespace MphRead.Mods.Launcher.Gui
                 .ToString(CultureInfo.InvariantCulture);
             _settings.CelEdge = Math.Clamp(_celEdgeRow.Value, 0, 100)
                 .ToString(CultureInfo.InvariantCulture);
-            _settings.Renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
+            string renderer = _rendererChoices[Math.Clamp(_rendererRow.Index, 0, _rendererChoices.Length - 1)].ToString();
+            if (GraphicsBackendPolicy.StartupFallbackActive
+                || !String.Equals(_settings.Renderer, renderer, StringComparison.OrdinalIgnoreCase))
+                GraphicsBackendPolicy.ClearStartupGuardForRendererChange();
+            _settings.Renderer = renderer;
             _settings.GraphicsPreset = ((GraphicsPreset)Math.Clamp(_graphicsPresetRow.Index, 0, 5))
                 .ToString().ToLowerInvariant();
             _settings.AntiAliasing = ((AntiAliasingMode)Math.Clamp(_antiAliasingRow.Index, 0, 4))
