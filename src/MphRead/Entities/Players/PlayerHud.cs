@@ -1156,6 +1156,13 @@ namespace MphRead.Entities
 
         private Vector2 GetReticlePresentationPosition()
         {
+            // Replay POV is rebuilt from the owner's recorded absolute aim.
+            // The recording does not contain the owner's transient screen-space
+            // reticle animation, so center the reticle on that exact shot ray
+            // instead of projecting stale replica _aimPosition state.
+            if (_scene.Services.IsReplica && Mods.Network.DemoPlayback.IsActive && IsMainPlayer)
+                return new Vector2(0.5f, 0.5f);
+
             if (!_reticlePresentationValid || _reticleHistoryFixedWeapon
                 || !Mods.Render.FrameTiming.HighRefreshPresentation)
             {
