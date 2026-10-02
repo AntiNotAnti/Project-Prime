@@ -94,7 +94,9 @@ public static class MapViewportMaterials
                 if (definition.MapId != Guid.Empty && material.Id != Guid.Empty)
                 {
                     var key = Render.Materials.MaterialAssetKey.Authored(definition.MapId, material.Id);
-                    var enhanced = Render.TextureReplacementPack.ResolveExplicit(key) ?? sourceEnhanced;
+                    var local = Render.TextureReplacementPack.ResolveLocalExplicit(key);
+                    var packaged = Render.Materials.MapMaterialAssetRegistry.Resolve(definition, key);
+                    var enhanced = local ?? packaged ?? sourceEnhanced;
                     if (enhanced?.Albedo is { } replacement)
                     {
                         try
