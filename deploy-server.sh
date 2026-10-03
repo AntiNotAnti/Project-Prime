@@ -95,7 +95,7 @@ install_unit() {
     if [ "$name" = "$MASTER_SERVICE" ]; then
       if ! ssh_run "grep -q -- '-public ' /etc/systemd/system/$name.service"; then
         echo "==> adding public hosted-lobby address to $name.service"
-        ssh_run "sudo sed -i '/^ExecStart=/ s|$| -public $HOST|' /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
+        ssh_run "sudo sed -i '/^ExecStart=/ s|$| -public $PUBLIC_HOST|' /etc/systemd/system/$name.service && sudo systemctl daemon-reload"
       fi
       if ! ssh_run "grep -q -- '-hostports ' /etc/systemd/system/$name.service"; then
         echo "==> adding hosted-lobby port pool to $name.service"
