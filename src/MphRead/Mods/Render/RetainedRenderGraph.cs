@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using OpenTK.Graphics.OpenGL;
+using OpenTK.Mathematics;
 
 namespace MphRead.Mods.Render
 {
@@ -24,21 +25,108 @@ namespace MphRead.Mods.Render
     }
 
     /// <summary>
-    /// Immutable frame-local submission record. The RenderItem remains pooled by Scene;
-    /// packets only retain a reference for the lifetime of the current picture.
-    /// Sequence is deliberately preserved so the first retained-renderer slice cannot
-    /// perturb the cartridge renderer's ordering-sensitive decal/translucency behavior.
+    /// Immutable geometry/raster identity retained across frames. It deliberately
+    /// excludes animated material values and transforms: those remain frame-local.
+    /// </summary>
+    internal readonly record struct RetainedMeshDescriptorKey(
+        RenderItemType Type,
+        int ListId,
+        CullingMode CullingMode,
+        BillboardMode BillboardMode,
+        bool Wireframe,
+        bool ViewModel);
+
+    internal sealed class RetainedMeshDescriptor
+    {
+        internal RetainedMeshDescriptorKey Key { get; }
+        internal RenderItemType Type => Key.Type;
+        internal int ListId => Key.ListId;
+        internal CullingMode CullingMode => Key.CullingMode;
+        internal BillboardMode BillboardMode => Key.BillboardMode;
+        internal bool Wireframe => Key.Wireframe;
+        internal bool ViewModel => Key.ViewModel;
+
+        internal RetainedMeshDescriptor(RetainedMeshDescriptorKey key)
+        {
+            Key = key;
+        }
+
+        internal static RetainedMeshDescriptorKey KeyOf(RenderItem item) =>
+            new(item.Type, item.ListId, item.CullingMode, item.BillboardMode,
+                item.Wireframe, item.ViewModel);
+    }
+
+    /// <summary>
+    /// Exact frame-local material state consumed by DoMaterial/DoTexture. This
+    /// stays immutable once captured so adjacent packets can prove that sharing
+    /// a material-state application is safe without relying on a hash.
+    /// </summary>
+    internal readonly record struct RetainedMaterialDescriptor(
+        PolygonMode PolygonMode,
+        bool Lighting,
+        Vector3 Diffuse,
+        Vector3 Ambient,
+        Vector3 Specular,
+        Vector3 Emission,
+        float Alpha,
+        TexgenMode TexgenMode,
+        RepeatMode XRepeat,
+        RepeatMode YRepeat,
+        bool HasTexture,
+        int TextureBindingId,
+        Matrix4 TexcoordMatrix,
+        Mods.Cosmetics.CosmeticSurface Cosmetics,
+        Mods.Cosmetics.Skins.RenderMaterialOverride CosmeticMaterial,
+        bool TexturedPlayerSkin,
+        Vector4? OverrideColor,
+        Vector4? PaletteOverride)
+    {
+        internal static RetainedMaterialDescriptor From(RenderItem item) =>
+            new(item.PolygonMode, item.Lighting, item.Diffuse, item.Ambient,
+                item.Specular, item.Emission, item.Alpha, item.TexgenMode,
+                item.XRepeat, item.YRepeat, item.HasTexture, item.TextureBindingId,
+                item.TexcoordMatrix, item.Cosmetics, item.CosmeticMaterial,
+                item.TexturedPlayerSkin, item.OverrideColor, item.PaletteOverride);
+    }
+
+    internal readonly record struct RetainedBatchState(
+        CullingMode CullingMode,
+        bool Wireframe,
+        RetainedMaterialDescriptor Material);
+
+    /// <summary>
+    /// Frame-local submission referencing an interned immutable mesh descriptor.
+    /// Sequence is never changed; batching in this slice only joins adjacent
+    /// compatible packets and therefore cannot perturb cartridge draw ordering.
     /// </summary>
     internal readonly struct RetainedDrawPacket
     {
         internal RenderItem Item { get; }
         internal int Sequence { get; }
         internal ulong StateKey { get; }
+        internal RetainedMeshDescriptor Mesh { get; }
+        internal RetainedMaterialDescriptor Material { get; }
+        internal bool Batchable { get; }
+        internal RetainedBatchState BatchState { get; }
 
-        internal RetainedDrawPacket(RenderItem item, int sequence)
+        internal RetainedDrawPacket(RenderItem item, int sequence,
+            RetainedMeshDescriptor mesh)
         {
             Item = item;
             Sequence = sequence;
+            Mesh = mesh;
+            Material = RetainedMaterialDescriptor.From(item);
+            Batchable = item.Type == RenderItemType.Mesh
+                && !item.ViewModel
+                && item.BillboardMode == BillboardMode.None
+                && item.Cosmetics == default
+                && item.CosmeticMaterial == default
+                && item.OverrideColor == null
+                && item.PaletteOverride == null
+                && !item.TexturedPlayerSkin
+                && item.PlayerOutlineColor == null;
+            BatchState = new RetainedBatchState(item.CullingMode, item.Wireframe,
+                Material);
             StateKey = BuildStateKey(item);
         }
 
@@ -46,8 +134,6 @@ namespace MphRead.Mods.Render
         {
             unchecked
             {
-                // Stable enough for diagnostics and future state sorting, but unused
-                // for ordering until parity gates explicitly permit reordering.
                 ulong key = (uint)item.ListId;
                 key = key * 1099511628211UL ^ (uint)item.TextureBindingId;
                 key = key * 1099511628211UL ^ (uint)item.RenderMode;
@@ -60,33 +146,48 @@ namespace MphRead.Mods.Render
         }
     }
 
+    internal readonly record struct RetainedDrawBatch(
+        int Start,
+        int Count,
+        RetainedBatchState State);
+
     /// <summary>
-    /// Reusable retained view of the frame's draw submissions. Lists keep their
-    /// capacity between pictures, so once a scene reaches steady state this layer
-    /// adds no per-frame packet-object allocation.
-    ///
-    /// This is intentionally a bridge: entities still build RenderItems today.
-    /// Later slices can retain static room packets across frames without changing
-    /// the render graph or pass executor introduced here.
+    /// Reusable retained view of the frame's visible submissions. Mesh
+    /// descriptors are interned for the scene lifetime; frame packets and
+    /// adjacent batches retain list capacity and add no packet-object
+    /// allocations after warmup.
     /// </summary>
     internal sealed class RetainedRenderWorld
     {
+        private readonly Dictionary<RetainedMeshDescriptorKey, RetainedMeshDescriptor>
+            _meshDescriptors = new();
         private readonly List<RetainedDrawPacket> _opaque = new(256);
         private readonly List<RetainedDrawPacket> _decals = new(64);
         private readonly List<RetainedDrawPacket> _translucent = new(128);
+        private readonly List<RetainedDrawBatch> _opaqueBatches = new(128);
+        private readonly List<RetainedDrawBatch> _decalBatches = new(32);
+        private readonly List<RetainedDrawBatch> _translucentBatches = new(64);
 
         internal IReadOnlyList<RetainedDrawPacket> Opaque => _opaque;
         internal IReadOnlyList<RetainedDrawPacket> Decals => _decals;
         internal IReadOnlyList<RetainedDrawPacket> Translucent => _translucent;
+        internal IReadOnlyList<RetainedDrawBatch> OpaqueBatches => _opaqueBatches;
+        internal IReadOnlyList<RetainedDrawBatch> DecalBatches => _decalBatches;
+        internal IReadOnlyList<RetainedDrawBatch> TranslucentBatches => _translucentBatches;
         internal int PacketCount => _opaque.Count + _decals.Count + _translucent.Count;
+        internal int BatchCount => _opaqueBatches.Count + _decalBatches.Count
+            + _translucentBatches.Count;
+        internal int StateReuseCount => Reuses(_opaqueBatches)
+            + Reuses(_decalBatches) + Reuses(_translucentBatches);
+        internal int MeshDescriptorCount => _meshDescriptors.Count;
         internal ulong FrameRevision { get; private set; }
 
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
             IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
         {
-            CaptureList(_opaque, nonDecal);
-            CaptureList(_decals, decals);
-            CaptureList(_translucent, translucent);
+            CaptureList(_opaque, _opaqueBatches, nonDecal);
+            CaptureList(_decals, _decalBatches, decals);
+            CaptureList(_translucent, _translucentBatches, translucent);
             FrameRevision++;
         }
 
@@ -95,16 +196,62 @@ namespace MphRead.Mods.Render
             _opaque.Clear();
             _decals.Clear();
             _translucent.Clear();
+            _opaqueBatches.Clear();
+            _decalBatches.Clear();
+            _translucentBatches.Clear();
         }
 
-        private static void CaptureList(List<RetainedDrawPacket> destination,
-            IReadOnlyList<RenderItem> source)
+        private void CaptureList(List<RetainedDrawPacket> destination,
+            List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source)
         {
             destination.Clear();
+            batches.Clear();
             if (destination.Capacity < source.Count)
                 destination.Capacity = source.Count;
             for (int i = 0; i < source.Count; i++)
-                destination.Add(new RetainedDrawPacket(source[i], i));
+            {
+                RenderItem item = source[i];
+                RetainedMeshDescriptorKey key = RetainedMeshDescriptor.KeyOf(item);
+                if (!_meshDescriptors.TryGetValue(key, out RetainedMeshDescriptor? mesh))
+                {
+                    mesh = new RetainedMeshDescriptor(key);
+                    _meshDescriptors.Add(key, mesh);
+                }
+                destination.Add(new RetainedDrawPacket(item, i, mesh));
+            }
+            BuildAdjacentBatches(destination, batches);
+        }
+
+        private static void BuildAdjacentBatches(
+            IReadOnlyList<RetainedDrawPacket> packets,
+            List<RetainedDrawBatch> batches)
+        {
+            int start = 0;
+            while (start < packets.Count)
+            {
+                RetainedDrawPacket first = packets[start];
+                int count = 1;
+                if (first.Batchable)
+                {
+                    while (start + count < packets.Count)
+                    {
+                        RetainedDrawPacket next = packets[start + count];
+                        if (!next.Batchable || next.BatchState != first.BatchState)
+                            break;
+                        count++;
+                    }
+                }
+                batches.Add(new RetainedDrawBatch(start, count, first.BatchState));
+                start += count;
+            }
+        }
+
+        private static int Reuses(IReadOnlyList<RetainedDrawBatch> batches)
+        {
+            int count = 0;
+            for (int i = 0; i < batches.Count; i++)
+                count += Math.Max(0, batches[i].Count - 1);
+            return count;
         }
     }
 
@@ -115,10 +262,7 @@ namespace MphRead.Mods.Render
         WorldRenderResource Writes);
 
     /// <summary>
-    /// Explicit graph for the ordering-sensitive MPH world passes. Resource
-    /// declarations are descriptive in this first slice; subsequent native
-    /// render-graph work can use the same graph to allocate/alias attachments
-    /// and schedule backend-native passes.
+    /// Explicit graph for the ordering-sensitive MPH world passes.
     /// </summary>
     internal sealed class WorldRenderGraph
     {
@@ -196,6 +340,10 @@ namespace MphRead
         private readonly Mods.Render.WorldRenderGraph _worldRenderGraph = new();
 
         internal int RetainedRenderPacketCount => _retainedRenderWorld.PacketCount;
+        internal int RetainedVisiblePacketCount => _retainedRenderWorld.PacketCount;
+        internal int RetainedRenderBatchCount => _retainedRenderWorld.BatchCount;
+        internal int RetainedRenderStateReuseCount => _retainedRenderWorld.StateReuseCount;
+        internal int RetainedMeshDescriptorCount => _retainedRenderWorld.MeshDescriptorCount;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
 
         private void CaptureRetainedRenderWorld()
@@ -213,26 +361,49 @@ namespace MphRead
             _ => _retainedRenderWorld.Opaque
         };
 
+        private IReadOnlyList<Mods.Render.RetainedDrawBatch> BatchesFor(
+            Mods.Render.WorldRenderPassKind kind) => kind switch
+        {
+            Mods.Render.WorldRenderPassKind.Decal => _retainedRenderWorld.DecalBatches,
+            Mods.Render.WorldRenderPassKind.MarkTranslucent
+                or Mods.Render.WorldRenderPassKind.TranslucentBehind
+                or Mods.Render.WorldRenderPassKind.TranslucentFront =>
+                    _retainedRenderWorld.TranslucentBatches,
+            _ => _retainedRenderWorld.OpaqueBatches
+        };
+
         private void DrawRenderGraphPackets(Mods.Render.WorldRenderPassKind kind)
         {
             IReadOnlyList<Mods.Render.RetainedDrawPacket> packets = PacketsFor(kind);
-            for (int i = 0; i < packets.Count; i++)
+            IReadOnlyList<Mods.Render.RetainedDrawBatch> batches = BatchesFor(kind);
+            for (int batchIndex = 0; batchIndex < batches.Count; batchIndex++)
             {
-                RenderItem item = packets[i].Item;
-                if (kind == Mods.Render.WorldRenderPassKind.MarkTranslucent)
-                    GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
-                else if (kind == Mods.Render.WorldRenderPassKind.TranslucentBehind)
-                    GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
-                else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
-                    GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
-                RenderItem(item);
+                Mods.Render.RetainedDrawBatch batch = batches[batchIndex];
+                for (int offset = 0; offset < batch.Count; offset++)
+                {
+                    Mods.Render.RetainedDrawPacket packet =
+                        packets[batch.Start + offset];
+                    RenderItem item = packet.Item;
+                    if (kind == Mods.Render.WorldRenderPassKind.MarkTranslucent)
+                        GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
+                    else if (kind == Mods.Render.WorldRenderPassKind.TranslucentBehind)
+                        GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
+                    else if (kind == Mods.Render.WorldRenderPassKind.TranslucentFront)
+                        GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
+
+                    // A batch never reorders packets. Only the first packet emits
+                    // shared material/texture/raster state; transforms, lighting,
+                    // matrix stacks, current vertex colour and stencil reference
+                    // remain per draw.
+                    RenderItem(item, applySharedState: offset == 0);
+                }
             }
         }
 
         /// <summary>
         /// Execute the established six-pass MPH world renderer through an explicit
         /// graph. State transitions intentionally match the prior inline code.
-        /// No sorting or pass merging is allowed in this migration slice.
+        /// Adjacent compatible mesh packets may share state, but are never sorted.
         /// </summary>
         private void ExecuteWorldRenderGraph()
         {
@@ -257,8 +428,6 @@ namespace MphRead
                 case Mods.Render.WorldRenderPassKind.Decal:
                     GL.Enable(EnableCap.PolygonOffsetFill);
                     GL.PolygonOffset(-1, -1);
-                    // Preserve cartridge ordering until a later parity-gated
-                    // material sort proves decals can be reordered safely.
                     GL.DepthFunc(DepthFunction.Lequal);
                     GL.Enable(EnableCap.Blend);
                     GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
