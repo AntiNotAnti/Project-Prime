@@ -86,7 +86,7 @@ internal sealed partial class MapStudioScreen
                 }
 
                 AddButton(panel, "Package " + kind + "…",
-                    () => Browse("Choose packaged " + kind, false, p => AssignPackaged(p), ".png", ".jpg", ".jpeg", ".tga"));
+                    () => Browse("Choose packaged " + kind, false, p => AssignPackaged(p), ".png", ".jpg", ".jpeg", ".tga", ".ktx2"));
                 if (relative != null) AddButton(panel, "Clear packaged " + kind, () => AssignPackaged(null));
                 if (image != null) AddMaterialPreview(panel, image, "packaged-" + kind);
             }
@@ -115,7 +115,7 @@ internal sealed partial class MapStudioScreen
                 }
 
                 AddButton(panel, "Browse local " + kind,
-                    () => Browse("Choose local " + kind + " PNG", false, p => AssignLocal(p), ".png"));
+                    () => Browse("Choose local " + kind + " image", false, p => AssignLocal(p), ".png", ".ktx2"));
                 if (image != null) AddButton(panel, "Clear local " + kind, () => AssignLocal(null));
                 if (image != null) AddMaterialPreview(panel, image, "local-" + kind);
             }
