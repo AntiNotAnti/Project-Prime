@@ -29,6 +29,14 @@ namespace MphRead.Entities
 
         private int _lastBombCountReport = -1;
 
+        internal const AiFlags3 BotScriptedLifecycleFlags =
+            AiFlags3.Bit1 | AiFlags3.Bit2 | AiFlags3.Despawned | AiFlags3.Invulnerable | AiFlags3.Bit5;
+
+        internal static bool BotScriptedLifecycleAllowed(bool singlePlayer) => singlePlayer;
+
+        internal static AiFlags3 FilterBotLifecycleFlags(AiFlags3 flags, bool singlePlayer)
+            => BotScriptedLifecycleAllowed(singlePlayer) ? flags : flags & ~BotScriptedLifecycleFlags;
+
         private void CheckSyluxBombCount()
         {
             int placed = 0;
@@ -95,58 +103,71 @@ namespace MphRead.Entities
             }
             if (IsBot)
             {
-                if (AiData.Flags3.TestFlag(AiFlags3.Bit5))
+                bool scriptedLifecycle = BotScriptedLifecycleAllowed(_scene.GameState.SinglePlayer);
+                if (!scriptedLifecycle)
                 {
-                    foreach (PlayerEntity other in _scene.GetPlayerEntities())
+                    // The retail personality data contains encounter-only actions that
+                    // destroy/fade/despawn hunter actors and grant encounter invulnerability.
+                    // Persistent multiplayer/practice bots share parts of those trees, so
+                    // reaching one of those actions after a kill must not end the bot's life.
+                    AiData.Flags3 = FilterBotLifecycleFlags(AiData.Flags3, singlePlayer: false);
+                    AiData.Flags2 &= ~AiFlags2.Bit13;
+                }
+                else
+                {
+                    if (AiData.Flags3.TestFlag(AiFlags3.Bit5))
                     {
-                        if (!other.IsBot || other == this)
+                        foreach (PlayerEntity other in _scene.GetPlayerEntities())
                         {
-                            continue;
+                            if (!other.IsBot || other == this)
+                            {
+                                continue;
+                            }
+                            _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
+                            if (other.EnemySpawner != null)
+                            {
+                                _scene.SendMessage(Message.Destroyed, this, other.EnemySpawner, 0, 0);
+                            }
+                            other.AiData.Flags2 |= AiFlags2.Bit13;
                         }
+                        AiData.Flags3 &= ~AiFlags3.Bit5;
+                    }
+                    if (AiData.Flags3.TestFlag(AiFlags3.Invulnerable))
+                    {
+                        // not multiplying by 2 since this is meant to reset every frame, and run out as soon as it's not
+                        _spawnInvulnTimer = 2;
+                        AiData.Flags3 &= ~AiFlags3.Invulnerable;
+                    }
+                    if (AiData.Flags3.TestFlag(AiFlags3.Bit1))
+                    {
+                        // spawnEffectMP or spawnEffect
+                        int effectId = _scene.GameState.Multiplayer && _scene.Players.PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
+                        _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
+                        PlayHunterSfx(HunterSfx.Spawn);
+                        AiData.Flags3 &= ~AiFlags3.Bit1;
+                        AiData.Flags3 |= AiFlags3.Bit2;
+                    }
+                    else if (AiData.Flags3.TestFlag(AiFlags3.Bit2) && _curAlpha <= 1 / 31f)
+                    {
+                        _health = 0;
+                        Flags2 |= PlayerFlags2.HideModel;
+                        AiData.Flags3 &= ~AiFlags3.Bit2;
+                        AiData.Flags1 = false;
+                        _soundSource.StopAllSfx(force: true);
+                    }
+                    if (AiData.Flags3.TestFlag(AiFlags3.Despawned))
+                    {
                         _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
-                        if (other.EnemySpawner != null)
+                        if (EnemySpawner != null)
                         {
-                            _scene.SendMessage(Message.Destroyed, this, other.EnemySpawner, 0, 0);
+                            _scene.SendMessage(Message.Destroyed, this, EnemySpawner, 0, 0);
                         }
-                        other.AiData.Flags2 |= AiFlags2.Bit13;
+                        _health = 0;
+                        Flags2 |= PlayerFlags2.HideModel;
+                        AiData.Flags3 &= ~AiFlags3.Despawned;
+                        AiData.Flags1 = false;
+                        _soundSource.StopAllSfx(force: true);
                     }
-                    AiData.Flags3 &= ~AiFlags3.Bit5;
-                }
-                if (AiData.Flags3.TestFlag(AiFlags3.Invulnerable))
-                {
-                    // not multiplying by 2 since this is meant to reset every frame, and run out as soon as it's not
-                    _spawnInvulnTimer = 2;
-                    AiData.Flags3 &= ~AiFlags3.Invulnerable;
-                }
-                if (AiData.Flags3.TestFlag(AiFlags3.Bit1))
-                {
-                    // spawnEffectMP or spawnEffect
-                    int effectId = _scene.GameState.Multiplayer && _scene.Players.PlayerCount > 2 && !Features.MaxPlayerDetail ? 33 : 31;
-                    _scene.SpawnEffect(effectId, Vector3.UnitX, Vector3.UnitY, Position);
-                    PlayHunterSfx(HunterSfx.Spawn);
-                    AiData.Flags3 &= ~AiFlags3.Bit1;
-                    AiData.Flags3 |= AiFlags3.Bit2;
-                }
-                else if (AiData.Flags3.TestFlag(AiFlags3.Bit2) && _curAlpha <= 1 / 31f)
-                {
-                    _health = 0;
-                    Flags2 |= PlayerFlags2.HideModel;
-                    AiData.Flags3 &= ~AiFlags3.Bit2;
-                    AiData.Flags1 = false;
-                    _soundSource.StopAllSfx(force: true);
-                }
-                if (AiData.Flags3.TestFlag(AiFlags3.Despawned))
-                {
-                    _scene.SendMessage(Message.Destroyed, this, null, 0, 0, delay: 1);
-                    if (EnemySpawner != null)
-                    {
-                        _scene.SendMessage(Message.Destroyed, this, EnemySpawner, 0, 0);
-                    }
-                    _health = 0;
-                    Flags2 |= PlayerFlags2.HideModel;
-                    AiData.Flags3 &= ~AiFlags3.Despawned;
-                    AiData.Flags1 = false;
-                    _soundSource.StopAllSfx(force: true);
                 }
                 Debug.Assert(LoadFlags.TestFlag(LoadFlags.Active));
             }

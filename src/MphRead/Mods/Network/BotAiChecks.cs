@@ -23,11 +23,25 @@ public static class BotAiChecks
             checks++;Console.WriteLine("[bot-ai] PASS "+name);
         }
 
+        AiFlags3 scripted = AiFlags3.Bit1 | AiFlags3.Bit2 | AiFlags3.Despawned
+            | AiFlags3.Invulnerable | AiFlags3.Bit5 | AiFlags3.NoInput;
+        AiFlags3 persistent = PlayerEntity.FilterBotLifecycleFlags(scripted, singlePlayer: false);
+        Check((persistent & PlayerEntity.BotScriptedLifecycleFlags) == 0
+            && persistent.TestFlag(AiFlags3.NoInput),
+            "persistent bots ignore story destroy, fade, despawn and invulnerability actions");
+        Check(PlayerEntity.FilterBotLifecycleFlags(scripted, singlePlayer: true) == scripted,
+            "single-player scripted hunters retain native lifecycle actions");
+
         Check(PlayerEntity.PlayerAiData.TacticalViewportContainsForTest(new(.5f,.5f)),
             "viewport accepts center");
         Check(!PlayerEntity.PlayerAiData.TacticalViewportContainsForTest(new(-.01f,.5f))
             && !PlayerEntity.PlayerAiData.TacticalViewportContainsForTest(new(.5f,1.01f)),
             "viewport rejects negative and overflow coordinates");
+
+        Check(!PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(2.5f,2f,false)
+            && !PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(12f,2f,true)
+            && PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(12f,2f,false),
+            "self-damage weapons require target and wall blast clearance");
 
         float closeShock=PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
             BeamType.ShockCoil,6,false,false,false,false,1,true);
