@@ -132,6 +132,7 @@ namespace MphRead.Mods.Render
         private WgpuBuffer* _uniformBuffer;
         private ulong _uniformBufferOffset;
         private RenderPassEncoder* _activeCorePass;
+        private RenderPipeline* _activeCorePipeline;
         private TextureView* _activeCoreColorView;
         private TextureView* _activeCoreColorView1;
         private TextureView* _activeCoreColorView2;
@@ -267,6 +268,7 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderEnd(_activeCorePass);
             _api.RenderPassEncoderRelease(_activeCorePass);
             _activeCorePass = null;
+            _activeCorePipeline = null;
             _activeCoreColorView = null;
             _activeCoreColorView1 = null;
             _activeCoreColorView2 = null;
@@ -274,7 +276,8 @@ namespace MphRead.Mods.Render
             _activeCoreColorTargetCount = 0;
         }
 
-        private RenderPassEncoder* CoreRenderPass(CoreTarget target, int colorTargetCount)
+        private RenderPassEncoder* CoreRenderPass(CoreTarget target, int colorTargetCount,
+            RenderPipeline* pipeline)
         {
             if (colorTargetCount < 1 || target.ColorTargetCount < colorTargetCount)
                 throw new InvalidOperationException(
@@ -282,13 +285,23 @@ namespace MphRead.Mods.Render
 
             TextureView* colorView1 = colorTargetCount > 1 ? target.ColorView1 : null;
             TextureView* colorView2 = colorTargetCount > 2 ? target.ColorView2 : null;
-            // v0.1.44 hotfix: keep compatibility draws isolated. PR #240 started
-            // retaining one WebGPU render pass across consecutive GL-style draws.
-            // That makes dynamic compatibility state persist beyond the draw that
-            // authored it and can corrupt world transforms/viewmodels on modern
-            // backends. Keep the command encoder batching and arena allocations,
-            // but end the previous pass before every draw just as the validated
-            // pre-#240 path did.
+
+            // Recover the useful part of PR #240 without restoring its broad
+            // cross-state pass lifetime. A pass may span consecutive draws only
+            // when the exact native pipeline and attachments are unchanged.
+            // Pipeline transitions (depth/blend/cull/program state) therefore
+            // remain hard pass boundaries.
+            if (_activeCorePass != null
+                && _activeCorePipeline == pipeline
+                && _activeCoreColorTargetCount == colorTargetCount
+                && _activeCoreColorView == target.ColorView
+                && _activeCoreColorView1 == colorView1
+                && _activeCoreColorView2 == colorView2
+                && _activeCoreDepthView == target.DepthView)
+            {
+                return _activeCorePass;
+            }
+
             EndActiveCorePass();
             CommandEncoder* encoder = BeginCommandEncoder();
             var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
@@ -328,7 +341,8 @@ namespace MphRead.Mods.Render
             _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
             if (_measurePerformance) _coreRenderPasses++;
             if (_activeCorePass == null)
-                throw new InvalidOperationException("Could not begin isolated WebGPU render pass.");
+                throw new InvalidOperationException("Could not begin state-compatible WebGPU render pass.");
+            _activeCorePipeline = pipeline;
             _activeCoreColorView = target.ColorView;
             _activeCoreColorView1 = colorView1;
             _activeCoreColorView2 = colorView2;
@@ -648,7 +662,7 @@ namespace MphRead.Mods.Render
             }
 
             int colorTargetCount = effective == ModernProgramKind.DeferredPbrMrt ? 3 : 1;
-            RenderPassEncoder* pass = CoreRenderPass(target, colorTargetCount);
+            RenderPassEncoder* pass = CoreRenderPass(target, colorTargetCount, pipeline.Pipeline);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex,
