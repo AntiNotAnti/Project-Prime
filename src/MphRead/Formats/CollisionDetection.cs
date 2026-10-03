@@ -54,6 +54,9 @@ namespace MphRead.Formats
 
     public static class CollisionDetection
     {
+        private static bool FiniteVector(Vector3 value)
+            => Single.IsFinite(value.X) && Single.IsFinite(value.Y) && Single.IsFinite(value.Z);
+
         private static readonly List<CollisionCandidate> _activeItems = new List<CollisionCandidate>(2048);
         private static readonly Queue<CollisionCandidate> _inactiveItems = new Queue<CollisionCandidate>(2048);
         // due to using linked lists, the game checks collision with room candidates in the reverse order as they were found,
@@ -741,6 +744,13 @@ namespace MphRead.Formats
                 responseNormal.Normalize();
             }
             return true;
+        }
+
+        private static Vector3 SpatialFallbackNormal(Vector3 travel)
+        {
+            if (FiniteVector(travel) && travel.LengthSquared > 1e-12f)
+                return -travel.Normalized();
+            return Vector3.UnitX;
         }
 
         private static Vector3 ClosestPointOnSegment(Vector3 point, Vector3 a, Vector3 b)
@@ -1769,6 +1779,15 @@ namespace MphRead.Formats
         public static bool CheckCylinderOverlapVolume(CollisionVolume other, Vector3 bottom, Vector3 top,
             float radius, ref CollisionResult result)
         {
+            if (!FiniteVector(bottom) || !FiniteVector(top)
+                || !Single.IsFinite(radius) || radius < 0)
+            {
+                // Collision must fail closed for invalid projectile geometry.
+                // NaN comparisons otherwise bypass several historical
+                // "outside" branches and can report overlaps against unrelated
+                // actors across the room.
+                return false;
+            }
             if (other.Type == VolumeType.Cylinder)
             {
                 return CheckCylindersOverlap(bottom, top, other.CylinderPosition, other.CylinderVector, other.CylinderDot,
@@ -1784,6 +1803,12 @@ namespace MphRead.Formats
         public static bool CheckCylindersOverlap(Vector3 oneBottom, Vector3 oneTop, Vector3 twoBottom, Vector3 twoVector,
             float twoDot, float radii, ref CollisionResult result)
         {
+            if (!FiniteVector(oneBottom) || !FiniteVector(oneTop)
+                || !FiniteVector(twoBottom) || !FiniteVector(twoVector)
+                || !Single.IsFinite(twoDot) || !Single.IsFinite(radii) || radii < 0)
+            {
+                return false;
+            }
             float v9 = 0;
             float v10 = 1;
             Vector3 a = oneBottom - twoBottom;
@@ -1850,6 +1875,30 @@ namespace MphRead.Formats
             c = d - c;
             Vector3 e = twoBottom + twoVector * v11;
             float v15 = Vector3.Dot(c, c);
+            if (!Single.IsFinite(v15) || v15 <= 1e-12f)
+            {
+                // Parallel or zero-length segments make the cartridge algebra
+                // divide by zero below. That yielded NaN, and the later
+                // distance rejection then failed open. Use the already-tested
+                // closest-segment helper for this degenerate geometry.
+                Vector3 twoTop = twoBottom + twoVector * twoDot;
+                float distanceSquared = SegmentSegmentDistanceSquared(
+                    oneBottom, oneTop, twoBottom, twoTop, out float firstT);
+                if (!Single.IsFinite(distanceSquared)
+                    || distanceSquared > radii * radii)
+                {
+                    return false;
+                }
+                Vector3 travel = oneTop - oneBottom;
+                result.Field0 = 0;
+                result.EntityCollision = null;
+                result.Flags = CollisionFlags.None;
+                result.Distance = Math.Clamp(firstT, 0, 1);
+                result.Position = oneBottom + travel * result.Distance;
+                Vector3 planeNormal = SpatialFallbackNormal(travel);
+                result.Plane = new Vector4(planeNormal);
+                return true;
+            }
             Vector3 f = e - oneBottom;
             float v16 = Vector3.Dot(c, f);
             float v17 = v16 / v15;
@@ -1993,6 +2042,11 @@ namespace MphRead.Formats
         public static bool CheckCylinderOverlapSphere(Vector3 cylBot, Vector3 cylTop, Vector3 spherePos,
             float radii, ref CollisionResult result)
         {
+            if (!FiniteVector(cylBot) || !FiniteVector(cylTop) || !FiniteVector(spherePos)
+                || !Single.IsFinite(radii) || radii < 0)
+            {
+                return false;
+            }
             Vector3 a = cylTop - cylBot;
             float v7 = a.Length;
             Vector3 b = spherePos - cylBot;
