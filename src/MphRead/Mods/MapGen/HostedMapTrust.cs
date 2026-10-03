@@ -78,7 +78,7 @@ internal static class HostedMapTrust
     }
 
     internal static void Write(string directory,
-        IEnumerable<Network.HostedMapArchive> archives)
+        IEnumerable<MphRead.Mods.Network.HostedMapArchive> archives)
     {
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, FileName);
