@@ -165,8 +165,11 @@ namespace MphRead.Mods.Network
         private readonly NetPacketQueue _liveInbox = new(2048 - 9, 128);
         private readonly ConcurrentQueue<ReceivedPacket> _connectionFailures = new();
         private NetTokenBucket _discoveryBudget;
-        private readonly CancellationTokenSource _cancel = new();
         private volatile bool _running;
+        private long _nextConnectionService;
+        private int _connectionServiceInProgress;
+        private static readonly long ConnectionServiceIntervalTicks =
+            Math.Max(1, Stopwatch.Frequency / 100); // 10 ms; reliable RTO floor is 75 ms.
         private int _inboxCount;
         private int _playbackBytes;
 
@@ -317,9 +320,6 @@ namespace MphRead.Mods.Network
                 // A system that refuses the size keeps its default; the
                 // session still works, it just tolerates less of a stall.
             }
-            // Only so the worker notices _running going false; nothing waits
-            // on this in normal operation.
-            _socket.Client.ReceiveTimeout = 50;
             _socket.Client.Bind(new IPEndPoint(IPAddress.Any, port));
             LocalPort = ((IPEndPoint)_socket.Client.LocalEndPoint!).Port;
             _running = true;
@@ -375,42 +375,25 @@ namespace MphRead.Mods.Network
         private void ReceiveLoop()
         {
             var any = new IPEndPoint(IPAddress.Any, 0);
-            double lastMaintenance = 0;
             while (_running)
             {
                 try
                 {
-                    double now = NowMilliseconds;
-                    if (now - lastMaintenance >= 50) { lastMaintenance = now; ServiceConnections(); }
-                    // Blocking, with a timeout only so shutdown is prompt.
-                    //
-                    // This used to poll Available and Thread.Sleep(1) between
-                    // passes, which put an arrival delay on the front of every
-                    // packet the session ever received -- a millisecond at
-                    // best, and Sleep(1) is not a millisecond on Windows,
-                    // where the scheduler's tick is 15.6 ms unless something
-                    // in the process has raised the timer resolution. The
-                    // cost showed up as ping: the number on the scoreboard is
-                    // a round trip through two of these loops, so a server
-                    // one millisecond away by ICMP was reported at rather
-                    // more. Blocking costs nothing -- the thread exists for
-                    // this and does nothing else -- and hands the packet over
-                    // the moment the kernel has it.
+                    ServiceConnections();
+                    // Poll sleeps in the kernel until a datagram arrives or the
+                    // maintenance interval expires. It wakes immediately for
+                    // traffic without using timeout exceptions as an idle timer.
+                    if (!_socket!.Client.Poll(50_000, SelectMode.SelectRead))
+                    {
+                        continue;
+                    }
                     byte[] data = ArrayPool<byte>.Shared.Rent(NetConfig.MaxPacketSize + 1);
                     bool handedOff = false;
                     try
                     {
                         EndPoint remote = any;
-                        int length;
-                        try
-                        {
-                            length = _socket!.Client.ReceiveFrom(data, 0, NetConfig.MaxPacketSize + 1,
-                                SocketFlags.None, ref remote);
-                        }
-                        catch (SocketException ex) when (ex.SocketErrorCode == SocketError.TimedOut)
-                        {
-                            continue;
-                        }
+                        int length = _socket.Client.ReceiveFrom(data, 0,
+                            NetConfig.MaxPacketSize + 1, SocketFlags.None, ref remote);
                         Telemetry.Received(length);
                         if (length == 0 || length > NetConfig.MaxPacketSize
                             || remote is not IPEndPoint sender)
@@ -424,18 +407,15 @@ namespace MphRead.Mods.Network
                             // processing. Duplicate entries share only immutable bytes.
                             byte[] heldCopy = data.AsSpan(0, length).ToArray();
                             lock (_heldLock) _heldIn.Enqueue(NowMilliseconds,
-                                new ReceivedPacket(sender, heldCopy, heldCopy.Length), lossOverride: NetLag.LossPercent / 100);
+                                new ReceivedPacket(sender, heldCopy, heldCopy.Length),
+                                lossOverride: NetLag.LossPercent / 100);
                             continue;
                         }
                         handedOff = AcceptDatagram(sender, data, length);
-
                     }
                     finally
                     {
-                        if (!handedOff)
-                        {
-                            ArrayPool<byte>.Shared.Return(data);
-                        }
+                        if (!handedOff) ArrayPool<byte>.Shared.Return(data);
                     }
                 }
                 catch (SocketException)
@@ -455,17 +435,26 @@ namespace MphRead.Mods.Network
         {
             // Admission and reliable acknowledgement are one transaction. A concurrent
             // socket/lag arrival must not consume the preflighted inbox slot.
+            bool autoPong = false;
+            bool accepted;
             long stamp = EnterConnectionLock();
-            try { return AcceptDatagramLocked(sender, data, length); }
+            try { accepted = AcceptDatagramLocked(sender, data, length, out autoPong); }
             finally { ExitConnectionLock(stamp); }
+            // Never enter Socket.SendTo while the connection monitor is owned.
+            if (autoPong) Send(sender, PacketType.Pong, data.AsSpan(1, length - 1));
+            return accepted;
         }
 
-        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, int length)
+        private bool AcceptDatagramLocked(IPEndPoint sender, byte[] data, int length,
+            out bool autoPong)
         {
-            NetHeader.TryRead(data.AsSpan(0, length), out var header);
-            if (!Unwrap(sender, data, ref length)) return false;
+            autoPong = false;
+            if (!UnwrapLocked(sender, data, ref length, out NetHeader header)) return false;
             if (_autoPong && (PacketType)data[0] == PacketType.Ping)
-            { Send(sender, PacketType.Pong, data.AsSpan(1, length - 1)); return false; }
+            {
+                autoPong = true;
+                return false;
+            }
             var packet = new ReceivedPacket(sender, data, length, pooled: true,
                 connectionId: header.ConnectionId, sequence: header.Sequence);
             if (TryCoalesceRealtimeState(packet)) return true;
@@ -693,11 +682,9 @@ namespace MphRead.Mods.Network
             SendNow(target, buffer);
         }
 
-        private bool Unwrap(IPEndPoint sender, byte[] data, ref int length)
+        private bool UnwrapLocked(IPEndPoint sender, byte[] data, ref int length, out NetHeader header)
         {
-            long lockStamp = EnterConnectionLock();
-            try
-            {
+            header = default;
                 if (data[0] != NetHeader.Marker)
                 {
                     var type = (PacketType)data[0];
@@ -709,7 +696,7 @@ namespace MphRead.Mods.Network
                     }
                     Telemetry.Invalid(); return false;
                 }
-                if (!NetHeader.TryRead(data.AsSpan(0, length), out var header)) { Telemetry.Invalid(); return false; }
+                if (!NetHeader.TryRead(data.AsSpan(0, length), out header)) { Telemetry.Invalid(); return false; }
                 _connections.TryGetValue(sender, out var connection);
                 if (connection == null || connection.Id != header.ConnectionId)
                 {
@@ -770,8 +757,6 @@ namespace MphRead.Mods.Network
                 data.AsSpan(offset, length - offset).CopyTo(data.AsSpan(1));
                 data[0] = (byte)header.Type; length -= offset - 1;
                 return true;
-            }
-            finally { ExitConnectionLock(lockStamp); }
         }
 
         private void FlushReliable(NetConnection connection, double now, uint burstEventId = 0, int copies = 1)
@@ -880,7 +865,6 @@ namespace MphRead.Mods.Network
             UnacknowledgedCloseEvents = PendingCloseEvents();
             if (UnacknowledgedCloseEvents > 0) NetLog.Event("graceful close deadline expired; remote timeout will finish removal");
             _running = false;
-            _cancel.Cancel();
             _socket?.Dispose();
             if (_worker != null && !_worker.Join(TimeSpan.FromSeconds(1)))
             {
@@ -903,7 +887,6 @@ namespace MphRead.Mods.Network
                 }
             }
             _lagWorker?.Join(TimeSpan.FromSeconds(1));
-            _cancel.Dispose();
         }
     }
 }
