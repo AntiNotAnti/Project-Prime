@@ -182,7 +182,7 @@ namespace MphRead.Mods.Render
             item.Type == RenderItemType.Mesh
             && item.RenderMode == RenderMode.Normal
             && item.Alpha >= 0.999f
-            && item.BillboardMode == BillboardMode.None
+            && (uint)item.BillboardMode <= (uint)BillboardMode.Cylinder
             && !item.Wireframe
             && item.MatrixStackCount >= 0
             && item.MatrixStackCount <= Math.Min(
@@ -197,17 +197,18 @@ namespace MphRead.Mods.Render
         internal static bool TryDrawRetainedWorld(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling,
-            Matrix4? projectionOverride)
+            Matrix4? projectionOverride, Matrix4 viewInverse)
         {
             if (_current == null || !RetainedWorldPacketEligible(item)) return false;
             return Current.TryDrawRetainedWorldCore(item, mesh, textures,
-                showTextures, useLighting, faceCulling, projectionOverride);
+                showTextures, useLighting, faceCulling,
+                projectionOverride, viewInverse);
         }
 
         private bool TryDrawRetainedWorldCore(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling,
-            Matrix4? projectionOverride)
+            Matrix4? projectionOverride, Matrix4 viewInverse)
         {
             if (CurrentProgramKind() != ModernProgramKind.World
                 || _wireframe
@@ -280,7 +281,7 @@ namespace MphRead.Mods.Render
                 generated.Words.Length);
             PatchRetainedWorldUniformWords(
                 generated, target, item, textures, showTextures, useLighting,
-                projectionOverride);
+                projectionOverride, viewInverse);
             UploadGeneratedUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
@@ -381,7 +382,7 @@ namespace MphRead.Mods.Render
             GeneratedProgram generated, CoreTarget target, RenderItem item,
             RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting,
-            Matrix4? projectionOverride)
+            Matrix4? projectionOverride, Matrix4 viewInverse)
         {
             uint[] words = generated.Words;
             RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
@@ -400,7 +401,7 @@ namespace MphRead.Mods.Render
             RetainedVec3(words, o.Emission, item.Emission);
             if (projectionOverride.HasValue)
                 RetainedMatrix(words, o.Projection, projectionOverride.Value);
-            RetainedMatrix(words, o.ViewInverse, Matrix4.Identity);
+            RetainedMatrix(words, o.ViewInverse, viewInverse);
             RetainedMatrix(words, o.TextureMatrix, item.TexcoordMatrix);
             RetainedInt(words, o.TexgenMode, (int)item.TexgenMode);
             if (item.MatrixStackCount > 0)
