@@ -323,7 +323,8 @@ namespace MphRead.Mods.Render
 
             return new CoreTarget(color.Texture, color.View, colorFormat, depth,
                 Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat,
-                color1?.Texture, color1?.View, color2?.Texture, color2?.View);
+                color1 == null ? null : color1.Texture, color1 == null ? null : color1.View,
+                color2 == null ? null : color2.Texture, color2 == null ? null : color2.View);
         }
 
         private NativeRenderbuffer EnsureRenderbuffer(int id)
