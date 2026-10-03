@@ -99,6 +99,12 @@ namespace MphRead
                 // switch so the two live settings cannot regress independently.
                 RenderOptions.AdvancedMaterials = true;
                 RefreshTextureQuality();
+                if (_materialMaps.Remove(binding, out previous))
+                {
+                    if (previous.Normal != 0) ReleaseTexture(previous.Normal);
+                    if (previous.Specular != 0) ReleaseTexture(previous.Specular);
+                    if (previous.Emissive != 0) ReleaseTexture(previous.Emissive);
+                }
                 companion = AllocateTexture();
                 GL.BindTexture(TextureTarget.Texture2D, companion);
                 _materialMaps[binding] = new(companion, 0, 0);
