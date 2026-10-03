@@ -337,13 +337,17 @@ internal sealed class HostedMapRequests : IDisposable
         {
             if (pending.Reply != null || !pending.Download.IsCompleted)
                 continue;
+            HostedMapPreparation? prepared = null;
             try
             {
-                pending.Reply = start(pending.Request, pending.Sender, now,
-                    pending.Download.GetAwaiter().GetResult());
+                prepared = pending.Download.GetAwaiter().GetResult();
+                pending.Reply = start(pending.Request, pending.Sender, now, prepared);
+                if (pending.Reply is { Started: false })
+                    TryDeleteDirectory(prepared.LibraryPath);
             }
             catch (Exception ex)
             {
+                if (prepared != null) TryDeleteDirectory(prepared.LibraryPath);
                 pending.Reply = new HostReplyPacket
                 { Reason = "Map preparation failed: " + ex.GetBaseException().Message };
             }
