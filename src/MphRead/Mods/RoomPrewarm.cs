@@ -34,7 +34,7 @@ namespace MphRead.Mods
             public HostPrewarmLease()
             {
                 _mutex = new Mutex(false, HostPrewarmMutexName);
-                try { _owned = _mutex.WaitOne(TimeSpan.FromSeconds(30)); }
+                try { _owned = _mutex.WaitOne(TimeSpan.FromMilliseconds(100)); }
                 catch (AbandonedMutexException) { _owned = true; }
             }
             public void Dispose()
