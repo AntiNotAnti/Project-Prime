@@ -926,21 +926,26 @@ namespace MphRead.Mods.Render
             bool clearStencil = (mask & ClearBufferMask.StencilBufferBit) != 0;
 
             CommandEncoder* encoder = BeginCommands();
-            var color = new RenderPassColorAttachment
+            int colorTargetCount = target.ColorTargetCount;
+            var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
-                StoreOp = StoreOp.Store,
-                ClearValue = new WgpuColor
+                colors[colorIndex] = new RenderPassColorAttachment
                 {
-                    R = _clearColor.X,
-                    G = _clearColor.Y,
-                    B = _clearColor.Z,
-                    A = _clearColor.W
-                }
-            };
+                    DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
+                    View = target.ColorViewAt(colorIndex),
+                    ResolveTarget = null,
+                    LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
+                    StoreOp = StoreOp.Store,
+                    ClearValue = new WgpuColor
+                    {
+                        R = _clearColor.X,
+                        G = _clearColor.Y,
+                        B = _clearColor.Z,
+                        A = _clearColor.W
+                    }
+                };
+            }
             RenderPassDepthStencilAttachment depth = default;
             RenderPassDepthStencilAttachment* depthPtr = null;
             if (target.HasDepth)
@@ -961,8 +966,8 @@ namespace MphRead.Mods.Render
             }
             var descriptor = new RenderPassDescriptor
             {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
+                ColorAttachments = colors,
+                ColorAttachmentCount = (uint)colorTargetCount,
                 DepthStencilAttachment = depthPtr
             };
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
