@@ -73,8 +73,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
         }
         foreach (var geometry in s._geometryCache.Values)
             bufferBytes += (long)(geometry.VertexCapacity + geometry.IndexCapacity);
-        foreach (var geometry in s._transientGeometry)
-            bufferBytes += (long)(geometry.VertexCapacity + geometry.IndexCapacity);
+        foreach (var page in s._geometryArena)
+            bufferBytes += (long)(page.VertexCapacity + page.IndexCapacity);
         foreach (var page in s._uniformArena)
             bufferBytes += (long)page.Capacity;
         foreach (var upload in s._uploadBuffers)
