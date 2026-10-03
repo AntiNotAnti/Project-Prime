@@ -149,6 +149,7 @@ namespace MphRead.Mods.Render
         internal static void UploadPreparedBound(ModernTextureAsset asset, bool repeat,
             TextureSamplerDescriptor sampling)
         {
+            ClearPriorUploadErrors();
             GL.PixelStore(PixelStoreParameter.UnpackAlignment, 4);
             GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
                 asset.Width, asset.Height, 0, PixelFormat.Rgba, PixelType.UnsignedByte, asset.Pixels);
@@ -175,6 +176,20 @@ namespace MphRead.Mods.Render
                     (int)(sampling.LinearMinification ? TextureMinFilter.Linear : TextureMinFilter.Nearest));
             }
             ApplyBoundAnisotropy(sampling.Anisotropy);
+        }
+
+        private static void ClearPriorUploadErrors()
+        {
+            // glGetError reports process/context state, not the operation that
+            // happened to query it. Establish a clean scope so a stale error
+            // from an earlier render command cannot make a valid HD upload look
+            // like the failing operation and force an unnecessary native fallback.
+            for (int i = 0; i < 16; i++)
+            {
+                ErrorCode error = GL.GetError();
+                if (error == ErrorCode.NoError) return;
+                DebugLog.Line("render", "pre-existing GL error before texture upload: " + error);
+            }
         }
 
         private static void ApplyBoundAnisotropy(int requested)
