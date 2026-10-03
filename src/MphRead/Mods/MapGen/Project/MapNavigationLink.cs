@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace MphRead.Mods.MapGen
 {
@@ -28,7 +29,9 @@ namespace MphRead.Mods.MapGen
         public float[] From { get; set; } = new float[3];
         public float[] To { get; set; } = new float[3];
         public bool Bidirectional { get; set; }
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public MapNavigationAnchorKind FromNodeKind { get; set; } = MapNavigationAnchorKind.Auto;
+        [JsonConverter(typeof(JsonStringEnumConverter))]
         public MapNavigationAnchorKind ToNodeKind { get; set; } = MapNavigationAnchorKind.Auto;
     }
 }
