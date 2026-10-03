@@ -2470,6 +2470,10 @@ namespace MphRead.Entities
                                     QueueHudMessage(128, 70, 140, 60 / 30f, 2, message.Replace("%s", PlayerNameCodec.ToNative(nickname)));
                                 }
                                 _scene.GameState.Kills[attacker.SlotIndex]++;
+                                if (attacker.IsBot)
+                                {
+                                    attacker.AiData.OnTacticalKill(this);
+                                }
                                 // todo?: the game also updates another kills stat(?) here
                                 if (attacker.IsPrimeHunter)
                                 {
