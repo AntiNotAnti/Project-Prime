@@ -698,6 +698,259 @@
     "flipOffset": 2704
   },
   {
+    "kind": "DeferredPbrMrt",
+    "uniforms": [
+      {
+        "name": "proj_mtx",
+        "offset": 0,
+        "components": 16,
+        "count": 1,
+        "stride": 64,
+        "integer": false
+      },
+      {
+        "name": "view_mtx",
+        "offset": 64,
+        "components": 16,
+        "count": 1,
+        "stride": 64,
+        "integer": false
+      },
+      {
+        "name": "view_inv_mtx",
+        "offset": 128,
+        "components": 16,
+        "count": 1,
+        "stride": 64,
+        "integer": false
+      },
+      {
+        "name": "tex_mtx",
+        "offset": 192,
+        "components": 16,
+        "count": 1,
+        "stride": 64,
+        "integer": false
+      },
+      {
+        "name": "texgen_mode",
+        "offset": 256,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "mtx_stack",
+        "offset": 272,
+        "components": 16,
+        "count": 32,
+        "stride": 64,
+        "integer": false
+      },
+      {
+        "name": "gbuffer_mode",
+        "offset": 2320,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "use_texture",
+        "offset": 2336,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "use_normal_map",
+        "offset": 2352,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "use_specular_map",
+        "offset": 2368,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "use_emissive_map",
+        "offset": 2384,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "use_override",
+        "offset": 2400,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "override_color",
+        "offset": 2416,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "use_pal_override",
+        "offset": 2432,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "pal_override_color",
+        "offset": 2448,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "material_specular",
+        "offset": 2464,
+        "components": 3,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "material_emission",
+        "offset": 2480,
+        "components": 3,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_skin",
+        "offset": 2496,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "cosmetic_preserve_palette",
+        "offset": 2512,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "cosmetic_effect",
+        "offset": 2528,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": true
+      },
+      {
+        "name": "cosmetic_time",
+        "offset": 2544,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_primary",
+        "offset": 2560,
+        "components": 3,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_secondary",
+        "offset": 2576,
+        "components": 3,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_intensity",
+        "offset": 2592,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_pulse",
+        "offset": 2608,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_scroll",
+        "offset": 2624,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "cosmetic_dissolve",
+        "offset": 2640,
+        "components": 1,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "prime_viewport",
+        "offset": 2656,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "prime_imm_color",
+        "offset": 2672,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      },
+      {
+        "name": "prime_imm_normal",
+        "offset": 2688,
+        "components": 4,
+        "count": 1,
+        "stride": 16,
+        "integer": false
+      }
+    ],
+    "samplers": [
+      "tex",
+      "normal_tex",
+      "specular_tex",
+      "emissive_tex"
+    ],
+    "size": 2768,
+    "flipOffset": 2704
+  },
+  {
     "kind": "PostProcess",
     "uniforms": [
       {
