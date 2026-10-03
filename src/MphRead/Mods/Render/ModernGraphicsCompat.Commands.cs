@@ -83,15 +83,61 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private ulong _retainedUniformSlotSize;
     private int _retainedUniformSlotHighWater;
 
+    // Deferred PBR has a different generated uniform size than World, so it
+    // gets its own deterministic arena rather than perturbing World slot
+    // identity. PBR slot N is likewise stable across completed frames.
+    private readonly List<RetainedUniformArenaPage> _retainedPbrUniformArena = new();
+    private int _retainedPbrUniformSlotCursor;
+    private ulong _retainedPbrUniformSlotSize;
+    private int _retainedPbrUniformSlotHighWater;
+
     private readonly List<UploadBuffer> _uploadBuffers = new();
     private int _uploadBufferCursor;
 
-    // A complete frame is normally well below this count. Keeping the encoder
-    // alive longer matters on Metal/Vulkan/DX12 because each QueueSubmit carries
-    // native driver scheduling overhead. Real ordering hazards still flush
-    // explicitly at readback/present/recovery boundaries.
-    private const int CommandBatchOperations = 1024;
-    private const ulong MaximumStagedTextureUploadBytes = 4UL * 1024 * 1024;
+    // Backend-aware submission budgets. Desktop native backends amortize driver
+    // scheduling better with longer-lived encoders, especially Metal where the
+    // frozen Extreme benchmark is submission-bound. Android keeps a smaller
+    // command/upload window to avoid large bursts on tiled GPUs and shared memory.
+    private int CommandBatchOperationLimit
+    {
+        get
+        {
+#if ANDROID
+            return 768;
+#else
+            return _device.Backend switch
+            {
+                GraphicsBackend.Metal => 2048,
+                GraphicsBackend.DirectX12 => 2048,
+                GraphicsBackend.Vulkan => 1536,
+                _ => 1024
+            };
+#endif
+        }
+    }
+
+    private ulong MaximumStagedTextureUploadBytes
+    {
+        get
+        {
+#if ANDROID
+            return 2UL * 1024 * 1024;
+#else
+            return _device.Backend switch
+            {
+                GraphicsBackend.Metal => 8UL * 1024 * 1024,
+                GraphicsBackend.DirectX12 => 4UL * 1024 * 1024,
+                GraphicsBackend.Vulkan => 4UL * 1024 * 1024,
+                _ => 4UL * 1024 * 1024
+            };
+#endif
+        }
+    }
+
+    internal static int ActiveCommandBatchOperationLimit =>
+        _current?.CommandBatchOperationLimit ?? 0;
+    internal static ulong ActiveStagedTextureUploadLimitBytes =>
+        _current?.MaximumStagedTextureUploadBytes ?? 0;
 
     private CommandEncoder* _commandEncoder;
     private int _commandOperations;
@@ -199,6 +245,65 @@ internal sealed unsafe partial class ModernGraphicsCompat
             page.DirtyEnd, allocation.Offset + (ulong)size);
     }
 
+    private RetainedUniformAllocation RentRetainedPbrUniformSlot(ulong size)
+    {
+        ulong reserved = AlignUniform(Math.Max(4UL, size));
+        if (_retainedPbrUniformSlotSize == 0)
+            _retainedPbrUniformSlotSize = reserved;
+        else if (_retainedPbrUniformSlotSize != reserved)
+            throw new InvalidOperationException(
+                $"Retained PBR uniform size changed from {_retainedPbrUniformSlotSize} to {reserved} bytes.");
+
+        int slotsPerPage = checked((int)Math.Max(
+            1UL, UniformArenaPageBytes / reserved));
+        int slot = _retainedPbrUniformSlotCursor++;
+        _retainedPbrUniformSlotHighWater = Math.Max(
+            _retainedPbrUniformSlotHighWater, _retainedPbrUniformSlotCursor);
+        int pageIndex = slot / slotsPerPage;
+        int slotInPage = slot % slotsPerPage;
+        while (_retainedPbrUniformArena.Count <= pageIndex)
+            _retainedPbrUniformArena.Add(new RetainedUniformArenaPage());
+
+        RetainedUniformArenaPage page = _retainedPbrUniformArena[pageIndex];
+        if (page.Buffer == 0)
+        {
+            page.Capacity = Math.Max(UniformArenaPageBytes,
+                checked((ulong)slotsPerPage * reserved));
+            WgpuBuffer* buffer = _api.DeviceCreateBuffer(_device.Device,
+                new BufferDescriptor
+                {
+                    Size = page.Capacity,
+                    Usage = BufferUsage.Uniform | BufferUsage.CopyDst
+                });
+            if (buffer == null)
+                throw new InvalidOperationException(
+                    $"Could not allocate {page.Capacity} byte retained PBR uniform arena.");
+            page.Buffer = (nint)buffer;
+            page.Staging = new byte[checked((int)page.Capacity)];
+        }
+
+        ulong offset = checked((ulong)slotInPage * reserved);
+        return new RetainedUniformAllocation(
+            slot, pageIndex, page.Buffer, offset, size);
+    }
+
+    private void WriteRetainedPbrUniformBuffer(
+        in RetainedUniformAllocation allocation, void* data, nuint size)
+    {
+        if ((ulong)size > allocation.Size)
+            throw new ArgumentOutOfRangeException(nameof(size),
+                "Retained PBR uniform write exceeds its stable slot.");
+        RetainedUniformArenaPage page =
+            _retainedPbrUniformArena[allocation.Page];
+        int offset = checked((int)allocation.Offset);
+        int count = checked((int)size);
+        new ReadOnlySpan<byte>(data, count).CopyTo(
+            page.Staging.AsSpan(offset, count));
+        page.DirtyStart = Math.Min(page.DirtyStart, allocation.Offset);
+        page.DirtyEnd = Math.Max(
+            page.DirtyEnd, allocation.Offset + (ulong)size);
+    }
+
     private void WriteUniformBuffer(in UniformAllocation allocation, void* data, nuint size)
     {
         if ((ulong)size > allocation.Size)
@@ -239,6 +344,29 @@ internal sealed unsafe partial class ModernGraphicsCompat
         for (int i = 0; i < _retainedUniformArena.Count; i++)
         {
             RetainedUniformArenaPage page = _retainedUniformArena[i];
+            if (page.Buffer == 0 || page.DirtyStart == ulong.MaxValue
+                || page.DirtyEnd <= page.DirtyStart)
+            {
+                continue;
+            }
+
+            ulong start = page.DirtyStart;
+            ulong size = page.DirtyEnd - start;
+            fixed (byte* basePtr = page.Staging)
+            {
+                WriteProfiledBuffer((WgpuBuffer*)page.Buffer, start,
+                    basePtr + checked((int)start), checked((nuint)size));
+            }
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
+    }
+
+    private void FlushRetainedPbrUniformWrites()
+    {
+        for (int i = 0; i < _retainedPbrUniformArena.Count; i++)
+        {
+            RetainedUniformArenaPage page = _retainedPbrUniformArena[i];
             if (page.Buffer == 0 || page.DirtyStart == ulong.MaxValue
                 || page.DirtyEnd <= page.DirtyStart)
             {
@@ -367,7 +495,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void RecordCommandOperation()
     {
-        if (++_commandOperations >= CommandBatchOperations) FlushCommands();
+        if (++_commandOperations >= CommandBatchOperationLimit) FlushCommands();
     }
 
     private void EndCommands() => RecordCommandOperation();
@@ -385,6 +513,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             FlushGeometryWrites();
             FlushUniformWrites();
             FlushRetainedUniformWrites();
+            FlushRetainedPbrUniformWrites();
+            FlushRetainedIndirectWrites();
             long start = PerformanceStart();
             _api.QueueSubmit(_queue, 1, &commands);
             if (start != 0)
@@ -426,6 +556,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
             page.DirtyEnd = 0;
         }
         _retainedUniformSlotCursor = 0;
+        foreach (RetainedUniformArenaPage page in _retainedPbrUniformArena)
+        {
+            page.DirtyStart = ulong.MaxValue;
+            page.DirtyEnd = 0;
+        }
+        _retainedPbrUniformSlotCursor = 0;
+        ResetRetainedIndirectArena();
         foreach (var program in _generatedPrograms.Values) program.BindGroupCursor = 0;
         ResetGeometryArena();
         _uploadBufferCursor = 0;
@@ -443,6 +580,13 @@ internal sealed unsafe partial class ModernGraphicsCompat
         _retainedUniformSlotSize = 0;
         _retainedUniformSlotCursor = 0;
         _retainedUniformSlotHighWater = 0;
+        foreach (RetainedUniformArenaPage page in _retainedPbrUniformArena)
+            if (page.Buffer != 0) _api.BufferRelease((WgpuBuffer*)page.Buffer);
+        _retainedPbrUniformArena.Clear();
+        _retainedPbrUniformSlotSize = 0;
+        _retainedPbrUniformSlotCursor = 0;
+        _retainedPbrUniformSlotHighWater = 0;
+        DisposeRetainedIndirectArena();
         foreach (UploadBuffer upload in _uploadBuffers)
             if (upload.Buffer != 0) _api.BufferRelease((WgpuBuffer*)upload.Buffer);
         _uploadBuffers.Clear();

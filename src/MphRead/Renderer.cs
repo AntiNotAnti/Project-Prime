@@ -4667,6 +4667,7 @@ namespace MphRead
             item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
+            item.RetainedRoomOwned = false;
             return item;
         }
 
@@ -4795,6 +4796,7 @@ namespace MphRead
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = material.Lighting != 0;
             item.ViewModel = false;
+            item.RetainedRoomOwned = true;
             item.NoLines = false;
             item.Diffuse = material.CurrentDiffuse;
             item.Ambient = material.CurrentAmbient;
@@ -5415,6 +5417,7 @@ namespace MphRead
             DisposeGraphicsPipeline();
             DisposeDeferredPbr();
             DisposeShadowMap();
+            DisposeFrameTransientTextures();
             // The cel target also owns a reference to _screenTexture. Release
             // it before deleting that texture in the shell's persistent context.
             if (_celFrameBuffer != 0)

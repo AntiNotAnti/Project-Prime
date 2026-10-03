@@ -96,8 +96,9 @@ namespace MphRead.Mods.Render
 
     /// <summary>
     /// Frame-local submission referencing an interned immutable mesh descriptor.
-    /// Sequence is never changed; batching in this slice only joins adjacent
-    /// compatible packets and therefore cannot perturb cartridge draw ordering.
+    /// Sequence preserves cartridge submission order. Only explicitly safe,
+    /// room-owned opaque runs may be reordered; decals, translucency, dynamic
+    /// entities and every packet carrying presentation overrides remain barriers.
     /// </summary>
     internal readonly struct RetainedDrawPacket
     {
@@ -107,6 +108,7 @@ namespace MphRead.Mods.Render
         internal RetainedMeshDescriptor Mesh { get; }
         internal RetainedMaterialDescriptor Material { get; }
         internal bool Batchable { get; }
+        internal bool ReorderableOpaque { get; }
         internal RetainedBatchState BatchState { get; }
 
         internal RetainedDrawPacket(RenderItem item, int sequence,
@@ -125,6 +127,13 @@ namespace MphRead.Mods.Render
                 && item.PaletteOverride == null
                 && !item.TexturedPlayerSkin
                 && item.PlayerOutlineColor == null;
+            ReorderableOpaque = item.RetainedRoomOwned
+                && Batchable
+                && item.PolygonId == 0
+                && item.PolygonMode == PolygonMode.Modulate
+                && item.RenderMode == RenderMode.Normal
+                && item.Alpha >= 0.999f
+                && !item.Wireframe;
             BatchState = new RetainedBatchState(item.CullingMode, item.Wireframe,
                 Material);
             StateKey = BuildStateKey(item);
@@ -132,15 +141,60 @@ namespace MphRead.Mods.Render
 
         private static ulong BuildStateKey(RenderItem item)
         {
+            // This is deliberately a render-state key, not a geometry key.
+            // Different room meshes with identical pipeline/material state must
+            // compare equal so sorting can make them adjacent and let the batch
+            // executor reuse that state. Mesh identity remains outside the key.
             unchecked
             {
-                ulong key = (uint)item.ListId;
-                key = key * 1099511628211UL ^ (uint)item.TextureBindingId;
-                key = key * 1099511628211UL ^ (uint)item.RenderMode;
-                key = key * 1099511628211UL ^ (uint)item.CullingMode;
-                key = key * 1099511628211UL ^ (item.HasTexture ? 1UL : 0UL);
-                key = key * 1099511628211UL ^ (item.Lighting ? 1UL : 0UL);
-                key = key * 1099511628211UL ^ (item.ViewModel ? 1UL : 0UL);
+                const ulong offsetBasis = 14695981039346656037UL;
+                const ulong prime = 1099511628211UL;
+                ulong key = offsetBasis;
+
+                void Mix(uint value)
+                {
+                    key ^= value;
+                    key *= prime;
+                }
+
+                void MixFloat(float value) =>
+                    Mix(BitConverter.SingleToUInt32Bits(value));
+
+                void MixVector3(Vector3 value)
+                {
+                    MixFloat(value.X);
+                    MixFloat(value.Y);
+                    MixFloat(value.Z);
+                }
+
+                void MixMatrix(Matrix4 value)
+                {
+                    MixFloat(value.M11); MixFloat(value.M12);
+                    MixFloat(value.M13); MixFloat(value.M14);
+                    MixFloat(value.M21); MixFloat(value.M22);
+                    MixFloat(value.M23); MixFloat(value.M24);
+                    MixFloat(value.M31); MixFloat(value.M32);
+                    MixFloat(value.M33); MixFloat(value.M34);
+                    MixFloat(value.M41); MixFloat(value.M42);
+                    MixFloat(value.M43); MixFloat(value.M44);
+                }
+
+                Mix((uint)item.PolygonMode);
+                Mix((uint)item.RenderMode);
+                Mix((uint)item.CullingMode);
+                Mix(item.Wireframe ? 1u : 0u);
+                Mix(item.Lighting ? 1u : 0u);
+                MixVector3(item.Diffuse);
+                MixVector3(item.Ambient);
+                MixVector3(item.Specular);
+                MixVector3(item.Emission);
+                MixFloat(item.Alpha);
+                Mix((uint)item.TexgenMode);
+                Mix((uint)item.XRepeat);
+                Mix((uint)item.YRepeat);
+                Mix(item.HasTexture ? 1u : 0u);
+                Mix(unchecked((uint)item.TextureBindingId));
+                MixMatrix(item.TexcoordMatrix);
                 return key;
             }
         }
@@ -161,6 +215,8 @@ namespace MphRead.Mods.Render
     {
         private readonly Dictionary<RetainedMeshDescriptorKey, RetainedMeshDescriptor>
             _meshDescriptors = new();
+        private readonly Dictionary<RenderItem, RetainedDrawPacket>
+            _packetByItem = new();
         private readonly List<RetainedDrawPacket> _opaque = new(256);
         private readonly List<RetainedDrawPacket> _decals = new(64);
         private readonly List<RetainedDrawPacket> _translucent = new(128);
@@ -186,14 +242,22 @@ namespace MphRead.Mods.Render
         internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
             + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
+        internal bool TryGetPacket(RenderItem item, out RetainedDrawPacket packet) =>
+            _packetByItem.TryGetValue(item, out packet);
+        internal int OpaqueSortRunCount { get; private set; }
+        internal int OpaqueReorderedPacketCount { get; private set; }
         internal ulong FrameRevision { get; private set; }
 
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
             IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
         {
-            CaptureList(_opaque, _opaqueBatches, nonDecal);
-            CaptureList(_decals, _decalBatches, decals);
-            CaptureList(_translucent, _translucentBatches, translucent);
+            _packetByItem.Clear();
+            OpaqueSortRunCount = 0;
+            OpaqueReorderedPacketCount = 0;
+            CaptureList(_opaque, _opaqueBatches, nonDecal, sortOpaque: true);
+            CaptureList(_decals, _decalBatches, decals, sortOpaque: false);
+            CaptureList(_translucent, _translucentBatches, translucent,
+                sortOpaque: false);
             FrameRevision++;
         }
 
@@ -205,10 +269,12 @@ namespace MphRead.Mods.Render
             _opaqueBatches.Clear();
             _decalBatches.Clear();
             _translucentBatches.Clear();
+            _packetByItem.Clear();
         }
 
         private void CaptureList(List<RetainedDrawPacket> destination,
-            List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source)
+            List<RetainedDrawBatch> batches, IReadOnlyList<RenderItem> source,
+            bool sortOpaque)
         {
             destination.Clear();
             batches.Clear();
@@ -223,9 +289,56 @@ namespace MphRead.Mods.Render
                     mesh = new RetainedMeshDescriptor(key);
                     _meshDescriptors.Add(key, mesh);
                 }
-                destination.Add(new RetainedDrawPacket(item, i, mesh));
+                var packet = new RetainedDrawPacket(item, i, mesh);
+                destination.Add(packet);
+                _packetByItem.TryAdd(item, packet);
             }
+            if (sortOpaque)
+                SortSafeOpaqueRuns(destination);
             BuildAdjacentBatches(destination, batches);
+        }
+
+        private sealed class OpaquePacketComparer : IComparer<RetainedDrawPacket>
+        {
+            internal static readonly OpaquePacketComparer Instance = new();
+
+            public int Compare(RetainedDrawPacket x, RetainedDrawPacket y)
+            {
+                int state = x.StateKey.CompareTo(y.StateKey);
+                return state != 0 ? state : x.Sequence.CompareTo(y.Sequence);
+            }
+        }
+
+        private void SortSafeOpaqueRuns(List<RetainedDrawPacket> packets)
+        {
+            int start = 0;
+            while (start < packets.Count)
+            {
+                while (start < packets.Count
+                    && !packets[start].ReorderableOpaque)
+                {
+                    start++;
+                }
+                if (start >= packets.Count)
+                    break;
+
+                int end = start + 1;
+                while (end < packets.Count && packets[end].ReorderableOpaque)
+                    end++;
+
+                int count = end - start;
+                if (count > 1)
+                {
+                    packets.Sort(start, count, OpaquePacketComparer.Instance);
+                    OpaqueSortRunCount++;
+                    for (int i = start; i < end; i++)
+                    {
+                        if (packets[i].Sequence != i)
+                            OpaqueReorderedPacketCount++;
+                    }
+                }
+                start = end;
+            }
         }
 
         private static void BuildAdjacentBatches(
@@ -358,9 +471,18 @@ namespace MphRead
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         internal long RetainedRoomPacketSubmissions =>
             _room?.RetainedRoomPacketSubmissions ?? 0;
-        internal long RetainedDirectShadowDraws => _retainedDirectShadowDraws;
-        internal long RetainedCompatibilityShadowDraws =>
-            _retainedCompatibilityShadowDraws;
+        internal long RetainedRoomClusterBuilds =>
+            _room?.RetainedRoomClusterBuilds ?? 0;
+        internal long RetainedRoomClusterTests =>
+            _room?.RetainedRoomClusterTests ?? 0;
+        internal long RetainedRoomClusterRejects =>
+            _room?.RetainedRoomClusterRejects ?? 0;
+        internal long RetainedRoomNodeVisibilityTests =>
+            _room?.RetainedRoomNodeVisibilityTests ?? 0;
+        internal int RetainedOpaqueSortRunCount =>
+            _retainedRenderWorld.OpaqueSortRunCount;
+        internal int RetainedOpaqueReorderedPacketCount =>
+            _retainedRenderWorld.OpaqueReorderedPacketCount;
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;

@@ -4,6 +4,7 @@ using MphRead;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Mathematics;
 using Silk.NET.WebGPU;
+using WgpuBuffer = Silk.NET.WebGPU.Buffer;
 
 namespace MphRead.Mods.Render
 {
@@ -78,11 +79,21 @@ namespace MphRead.Mods.Render
         private bool _retainedPbrFrameReady;
         private long _retainedPbrTemplateBuilds;
         private long _retainedPbrUniformPatches;
+        private readonly System.Collections.Generic.List<GeneratedBindGroupCacheEntry>
+            _retainedPbrBindGroups = new();
+        private long _retainedPbrBindGroupHits;
+        private long _retainedPbrBindGroupMisses;
 
         internal static long RetainedPbrTemplateBuilds =>
             _current?._retainedPbrTemplateBuilds ?? 0;
         internal static long RetainedPbrUniformPatches =>
             _current?._retainedPbrUniformPatches ?? 0;
+        internal static long RetainedPbrBindGroupHits =>
+            _current?._retainedPbrBindGroupHits ?? 0;
+        internal static long RetainedPbrBindGroupMisses =>
+            _current?._retainedPbrBindGroupMisses ?? 0;
+        internal static int RetainedPbrUniformSlotHighWater =>
+            _current?._retainedPbrUniformSlotHighWater ?? 0;
 
         internal static bool ValidateRetainedDeferredPbrLayout(out string error)
         {
@@ -256,13 +267,13 @@ namespace MphRead.Mods.Render
             PatchRetainedDeferredPbrWords(
                 generated, target, item, textures, showTextures,
                 projection, viewInverse);
-            UploadGeneratedUniformWords(generated);
+            int retainedSlot = UploadRetainedPbrUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
                 ModernProgramKind.DeferredPbrMrt,
                 PrimitiveTopology.TriangleList, target);
-            BindGroup* bindGroup = GeneratedBindGroup(
-                ModernProgramKind.DeferredPbrMrt, pipeline.Layout);
+            BindGroup* bindGroup = RetainedPbrBindGroup(
+                generated, pipeline.Layout, retainedSlot);
 
             ulong vertexBytes = checked(
                 (ulong)geometry.Vertices.Length * sizeof(float));
@@ -281,8 +292,13 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetViewport(
                 pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);
-            _api.RenderPassEncoderDrawIndexed(
-                pass, (uint)geometry.Triangles.Length, 1, 0, 0, 0);
+            uint retainedIndexCount = (uint)geometry.Triangles.Length;
+            if (!TryDrawRetainedIndexedIndirect(
+                pass, retainedIndexCount, item.RetainedRoomOwned))
+            {
+                _api.RenderPassEncoderDrawIndexed(
+                    pass, retainedIndexCount, 1, 0, 0, 0);
+            }
             if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
 
@@ -291,6 +307,99 @@ namespace MphRead.Mods.Render
             if (geometry.EndColor is Vector4 color)
                 _currentColor = color;
             return true;
+        }
+
+        private int UploadRetainedPbrUniformWords(
+            GeneratedProgram generated)
+        {
+            RetainedUniformAllocation allocation =
+                RentRetainedPbrUniformSlot((ulong)generated.Layout.Size);
+            generated.UniformBuffer = (WgpuBuffer*)allocation.Buffer;
+            generated.UniformOffset = allocation.Offset;
+            fixed (uint* words = generated.Words)
+            {
+                WriteRetainedPbrUniformBuffer(
+                    allocation, words, (nuint)generated.Layout.Size);
+            }
+            return allocation.Slot;
+        }
+
+        private BindGroup* RetainedPbrBindGroup(
+            GeneratedProgram generated, BindGroupLayout* layout, int slot)
+        {
+            var entries =
+                stackalloc BindGroupEntry[1 + generated.Textures.Length * 2];
+            Span<nint> resources =
+                stackalloc nint[3 + generated.Textures.Length * 2];
+            resources[0] = (nint)layout;
+            resources[1] = (nint)generated.UniformBuffer;
+            resources[2] = (nint)generated.UniformOffset;
+
+            entries[0] = new BindGroupEntry
+            {
+                Binding = 0,
+                Buffer = generated.UniformBuffer,
+                Offset = generated.UniformOffset,
+                Size = (ulong)generated.Layout.Size
+            };
+            uint count = 1;
+            for (int i = 0; i < generated.Textures.Length; i++)
+            {
+                NativeTexture? texture = generated.Textures[i] == 0
+                    ? null : EnsureTexture(generated.Textures[i]);
+                TextureView* view =
+                    texture != null ? texture.SampleView : _whiteView;
+                Silk.NET.WebGPU.Sampler* sampler =
+                    texture != null ? texture.Sampler : _whiteSampler;
+                entries[count++] = new BindGroupEntry
+                {
+                    Binding = (uint)(1 + i * 2),
+                    TextureView = view
+                };
+                entries[count++] = new BindGroupEntry
+                {
+                    Binding = (uint)(2 + i * 2),
+                    Sampler = sampler
+                };
+
+                int fingerprint = 3 + i * 2;
+                resources[fingerprint] = (nint)view;
+                resources[fingerprint + 1] = (nint)sampler;
+            }
+
+            while (_retainedPbrBindGroups.Count <= slot)
+                _retainedPbrBindGroups.Add(new GeneratedBindGroupCacheEntry());
+            GeneratedBindGroupCacheEntry cached =
+                _retainedPbrBindGroups[slot];
+            if (cached.Group != null
+                && cached.Resources.AsSpan().SequenceEqual(resources))
+            {
+                _retainedPbrBindGroupHits++;
+                return cached.Group;
+            }
+
+            if (cached.Group != null)
+                ReleaseTrackedBindGroup(cached.Group);
+            cached.Group = CreateTrackedBindGroup(new BindGroupDescriptor
+            {
+                Layout = layout,
+                Entries = entries,
+                EntryCount = count
+            });
+            cached.Resources = resources.ToArray();
+            _retainedPbrBindGroupMisses++;
+            return cached.Group;
+        }
+
+        private void DisposeRetainedPbrBindGroups()
+        {
+            foreach (GeneratedBindGroupCacheEntry cached
+                in _retainedPbrBindGroups)
+            {
+                if (cached.Group != null)
+                    ReleaseTrackedBindGroup(cached.Group);
+            }
+            _retainedPbrBindGroups.Clear();
         }
 
         private void PatchRetainedDeferredPbrWords(

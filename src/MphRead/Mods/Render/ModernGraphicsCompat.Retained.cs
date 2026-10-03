@@ -35,6 +35,7 @@ namespace MphRead.Mods.Render
             internal readonly int OverrideColor;
             internal readonly int TexturedPlayerSkin;
             internal readonly int PlayerOutlineMask;
+            internal readonly int PlayerOutlineColor;
             internal readonly int UsePaletteOverride;
             internal readonly int PaletteOverrideColor;
             internal readonly int MaterialAlpha;
@@ -73,6 +74,7 @@ namespace MphRead.Mods.Render
                 OverrideColor = Word(layout, "override_color");
                 TexturedPlayerSkin = Word(layout, "textured_player_skin");
                 PlayerOutlineMask = Word(layout, "player_outline_mask");
+                PlayerOutlineColor = Word(layout, "player_outline_color");
                 UsePaletteOverride = Word(layout, "use_pal_override");
                 PaletteOverrideColor = Word(layout, "pal_override_color");
                 MaterialAlpha = Word(layout, "mat_alpha");
@@ -244,10 +246,28 @@ namespace MphRead.Mods.Render
                 projectionOverride, viewInverse);
         }
 
-        private bool TryDrawRetainedWorldCore(RenderItem item,
+        internal static bool TryDrawRetainedOutlineMask(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting, bool faceCulling,
             Matrix4? projectionOverride, Matrix4 viewInverse)
+        {
+            if (_current == null
+                || !item.PlayerOutlineColor.HasValue
+                || !RetainedWorldPacketEligibleForPass(
+                    item, WorldRenderPassKind.Opaque))
+            {
+                return false;
+            }
+            return Current.TryDrawRetainedWorldCore(item, mesh, textures,
+                showTextures, useLighting, faceCulling,
+                projectionOverride, viewInverse, outlineMask: true);
+        }
+
+        private bool TryDrawRetainedWorldCore(RenderItem item,
+            RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,
+            bool showTextures, bool useLighting, bool faceCulling,
+            Matrix4? projectionOverride, Matrix4 viewInverse,
+            bool outlineMask = false)
         {
             if (CurrentProgramKind() != ModernProgramKind.World
                 || _wireframe
@@ -320,7 +340,7 @@ namespace MphRead.Mods.Render
                 generated.Words.Length);
             PatchRetainedWorldUniformWords(
                 generated, target, item, textures, showTextures, useLighting,
-                projectionOverride, viewInverse);
+                projectionOverride, viewInverse, outlineMask);
             int retainedSlot = UploadRetainedWorldUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
@@ -342,8 +362,13 @@ namespace MphRead.Mods.Render
             ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
-            _api.RenderPassEncoderDrawIndexed(pass,
-                (uint)geometry.Triangles.Length, 1, 0, 0, 0);
+            uint retainedIndexCount = (uint)geometry.Triangles.Length;
+            if (!TryDrawRetainedIndexedIndirect(
+                pass, retainedIndexCount, item.RetainedRoomOwned))
+            {
+                _api.RenderPassEncoderDrawIndexed(
+                    pass, retainedIndexCount, 1, 0, 0, 0);
+            }
             if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
 
@@ -421,7 +446,8 @@ namespace MphRead.Mods.Render
             GeneratedProgram generated, CoreTarget target, RenderItem item,
             RetainedWorldTextureSet textures,
             bool showTextures, bool useLighting,
-            Matrix4? projectionOverride, Matrix4 viewInverse)
+            Matrix4? projectionOverride, Matrix4 viewInverse,
+            bool outlineMask)
         {
             uint[] words = generated.Words;
             RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
@@ -477,7 +503,9 @@ namespace MphRead.Mods.Render
                     ? RenderOptions.BrightSkinStyle
                         == PlayerSkinStyle.HighContrastTextured ? 2 : 1
                     : 0);
-            RetainedInt(words, o.PlayerOutlineMask, 0);
+            RetainedInt(words, o.PlayerOutlineMask, outlineMask ? 1 : 0);
+            if (outlineMask && item.PlayerOutlineColor is Vector4 outline)
+                RetainedVec3(words, o.PlayerOutlineColor, outline.Xyz);
             if (item.PaletteOverride.HasValue)
             {
                 RetainedInt(words, o.UsePaletteOverride, 1);

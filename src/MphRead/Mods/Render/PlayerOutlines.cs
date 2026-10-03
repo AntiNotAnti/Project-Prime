@@ -20,6 +20,10 @@ namespace MphRead
         private int _playerOutlineDepth = -1;
         private Vector2i _playerOutlineSize;
         private bool _playerOutlineRefused;
+        private long _retainedDirectOutlineMaskDraws;
+
+        internal long RetainedDirectOutlineMaskDraws =>
+            _retainedDirectOutlineMaskDraws;
 
         private void DrawWorldOutlines()
         {
@@ -66,15 +70,51 @@ namespace MphRead
                 GL.UseProgram(_shaderProgramId);
                 GL.Uniform1(_playerOutlineMaskUniform, 1);
                 _drawingPlayerOutlineMask = true;
-                // Reuse submitted geometry and the world depth attachment. No inflated shell:
-                // every mask pixel must pass the same depth/culling/cutout tests as its body.
+#if !MPHREAD_SERVER
+                bool directOutlineMask =
+                    Mods.Render.ModernGraphicsCompat.Active
+                    && !_editorMaterialPreview
+                    && _wireframeLevel == 0
+                    && !RenderOptions.CelShading;
+                if (directOutlineMask)
+                    Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+#endif
+                // Reuse submitted geometry and the world depth attachment. No
+                // inflated shell: every mask pixel must pass the same
+                // depth/culling/cutout tests as its body.
                 foreach (RenderItem item in _usedRenderItems)
                 {
-                    if (item.PlayerOutlineColor is Vector4 color)
+                    if (item.PlayerOutlineColor is not Vector4 color)
+                        continue;
+
+                    GL.Uniform3(_playerOutlineColorUniform, color.Xyz);
+#if !MPHREAD_SERVER
+                    if (directOutlineMask
+                        && _retainedRenderWorld.TryGetPacket(
+                            item, out Mods.Render.RetainedDrawPacket packet))
                     {
-                        GL.Uniform3(_playerOutlineColorUniform, color.Xyz);
-                        RenderItem(item);
+                        SetViewModelRenderState(item.ViewModel);
+                        Matrix4? projectionOverride = item.ViewModel
+                            ? _viewModelPerspectiveMatrix : null;
+                        Matrix4 viewInverse = item.BillboardMode switch
+                        {
+                            BillboardMode.Sphere => _viewInvRotMatrix,
+                            BillboardMode.Cylinder => _viewInvRotYMatrix,
+                            _ => Matrix4.Identity
+                        };
+                        Mods.Render.RetainedWorldTextureSet textures =
+                            RetainedWorldTextures(item);
+                        if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedOutlineMask(
+                            item, packet.Mesh, textures, _showTextures,
+                            LightingOn, _faceCulling,
+                            projectionOverride, viewInverse))
+                        {
+                            _retainedDirectOutlineMaskDraws++;
+                            continue;
+                        }
                     }
+#endif
+                    RenderItem(item);
                 }
                 FinishViewModelRenderRun();
                 _drawingPlayerOutlineMask = false;
@@ -95,12 +135,18 @@ namespace MphRead
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
                 GL.Enable(EnableCap.Blend);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.OneMinusSrcAlpha);
-                GL.Begin(PrimitiveType.TriangleStrip);
-                GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
-                GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);
-                GL.TexCoord3(1f, 0f, 0f); GL.Vertex3(1f, -1f, 0f);
-                GL.TexCoord3(0f, 0f, 0f); GL.Vertex3(-1f, -1f, 0f);
-                GL.End();
+#if !MPHREAD_SERVER
+                if (!Mods.Render.ModernGraphicsCompat.Active
+                    || !Mods.Render.ModernGraphicsCompat.TryDrawRetainedFullscreenQuad())
+#endif
+                {
+                    GL.Begin(PrimitiveType.TriangleStrip);
+                    GL.TexCoord3(1f, 1f, 0f); GL.Vertex3(1f, 1f, 0f);
+                    GL.TexCoord3(0f, 1f, 0f); GL.Vertex3(-1f, 1f, 0f);
+                    GL.TexCoord3(1f, 0f, 0f); GL.Vertex3(1f, -1f, 0f);
+                    GL.TexCoord3(0f, 0f, 0f); GL.Vertex3(-1f, -1f, 0f);
+                    GL.End();
+                }
             }
             catch (ProgramException ex)
             {
@@ -132,6 +178,9 @@ namespace MphRead
                 GL.Disable(EnableCap.StencilTest);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _playerOutlineTexture, _playerOutlineFramebuffer,
+                    _frameBuffer);
             }
         }
 
@@ -167,25 +216,29 @@ namespace MphRead
                 }
             }
             if (_playerOutlineFramebuffer == 0)
-            {
                 _playerOutlineFramebuffer = GL.GenFramebuffer();
-                _playerOutlineTexture = GL.GenTexture();
 
-            }
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _playerOutlineFramebuffer);
-            bool targetChanged = _playerOutlineSize != _targetSize || _playerOutlineDepth != _depthTexture;
-            if (_playerOutlineSize != _targetSize)
+            bool colorChanged = _playerOutlineTexture == 0
+                || _playerOutlineSize != _targetSize;
+            if (colorChanged)
             {
-                GL.BindTexture(TextureTarget.Texture2D, _playerOutlineTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                    _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-                    TextureTarget.Texture2D, _playerOutlineTexture, 0);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _playerOutlineTexture, _playerOutlineFramebuffer,
+                    _frameBuffer);
+                _playerOutlineTexture = AcquireFrameTransientTexture(
+                    _targetSize, PixelInternalFormat.Rgba8,
+                    TextureMinFilter.Nearest, TextureMagFilter.Nearest);
                 _playerOutlineSize = _targetSize;
+            }
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _playerOutlineFramebuffer);
+            bool targetChanged = colorChanged
+                || _playerOutlineDepth != _depthTexture;
+            if (colorChanged)
+            {
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, _playerOutlineTexture, 0);
             }
             if (_playerOutlineDepth != _depthTexture)
             {
@@ -234,10 +287,7 @@ namespace MphRead
                 GL.DeleteFramebuffer(_playerOutlineFramebuffer);
                 _playerOutlineFramebuffer = 0;
             }
-            if (_playerOutlineTexture != 0)
-            {
-                DeleteTexture(ref _playerOutlineTexture);
-            }
+            ReleaseFrameTransientTexture(ref _playerOutlineTexture);
             DeleteProgram(ref _playerOutlineProgram);
             _playerOutlineSize = default;
             _playerOutlineDepth = -1;

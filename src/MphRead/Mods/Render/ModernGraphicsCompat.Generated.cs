@@ -279,6 +279,7 @@ namespace MphRead.Mods.Render
         private void DisposeGeneratedShaders()
         {
             DisposeRetainedWorldBindGroups();
+            DisposeRetainedPbrBindGroups();
             foreach (var program in _generatedPrograms.Values)
             {
                 foreach (var cached in program.BindGroups)
