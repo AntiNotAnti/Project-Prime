@@ -75,9 +75,12 @@ namespace MphRead.Mods.Network
         private SessionStatePacket BuildSessionState()
         {
             var availability = new MapAvailabilityState[8];
+            byte ownerSlot = byte.MaxValue;
             NetworkMapIdentity required = CurrentDefinition.MapIdentity;
             foreach (Peer peer in _peers)
             {
+                if (peer.ClientId != 0 && peer.ClientId == _lobbyOwnerClientId)
+                    ownerSlot = (byte)peer.SlotIndex;
                 if ((uint)peer.SlotIndex < availability.Length
                     && peer.PreparedMap == required)
                     availability[peer.SlotIndex] = peer.MapAvailability;
@@ -88,8 +91,7 @@ namespace MphRead.Mods.Network
                 Phase = _phase, Policy = SessionPolicy, Revision = _sessionRevision,
                 MatchId = _matchId, AuthorityEpoch = _authorityEpoch,
                 MapGeneration = _mapGeneration,
-                OwnerSlot = _lobbyOwnerClientId == 0 ? (byte)255
-                    : (byte)(_peers.Find(p => p.ClientId == _lobbyOwnerClientId)?.SlotIndex ?? 255),
+                OwnerSlot = _lobbyOwnerClientId == 0 ? byte.MaxValue : ownerSlot,
                 MaxPlayers = (byte)_maxPlayers, Match = CurrentDefinition,
                 MapDownloadSource = CurrentDefinition.MapIdentity.IsCustom ? MapDownloadSource : "",
                 MapAvailability = availability,
