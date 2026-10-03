@@ -338,12 +338,19 @@ namespace MphRead.Mods
                     relaunch);
                 return true;
             }
-            // Whatever the last update left behind. The headless diagnostics
-            // are read-only and must leave an update staged beside the
-            // executable alone; ordinary startup still clears it.
-            if (!HasFlag(args, "spireposecheck") && !HasFlag(args, "formcheck"))
+            // Housekeeping is synchronous for command-line/server paths, but
+            // the graphical shell defers it until after its first presented
+            // frame. That keeps cache scans and stale update cleanup out of the
+            // window-creation critical path.
+            bool deferStartupMaintenance = false;
+#if MPHREAD_SHELL
+            deferStartupMaintenance = !HasFlag(args, "text")
+                && (args.Length == 0 || HasFlag(args, "launcher")
+                    || HasFlag(args, "mapstudio"));
+#endif
+            if (!HasFlag(args, "spireposecheck") && !HasFlag(args, "formcheck")
+                && !deferStartupMaintenance)
             {
-                Update.DesktopUpdate.Clean();
                 Maintenance.RunStartup();
             }
             // And the desktop's own installer, unless a platform head has
@@ -584,11 +591,14 @@ namespace MphRead.Mods
             if (HasFlag(args, "mapstudio"))
             {
 #if MPHREAD_SHELL
+                MapGen.CustomRooms.DeferInitialRegistration = true;
                 Launcher.Gui.Shell.OpenStudioOnStart = true;
                 Launcher.Gui.Shell.StudioWindow = true;
                 WindowMode.ForceStartup(WindowStartMode.Windowed);
                 Launcher.Gui.Shell.StudioProjectPath = ValueAfter(args, "studioproject");
-                Launcher.Gui.Shell.Run();
+                if (Launcher.ClientInstanceGuard.TryAcquireForProcess(
+                    TimeSpan.FromSeconds(5)))
+                    Launcher.Gui.Shell.Run();
 #else
                 Console.WriteLine("[mapeditor] Map Studio requires a desktop game build.");
                 Environment.ExitCode = 1;
@@ -824,6 +834,9 @@ namespace MphRead.Mods
                     Mods.ConsoleWindow.Show();
                 }
 #endif
+                // No graphical first frame will arrive to run the deferred
+                // work, so the text fallback owns ordinary startup cleanup.
+                if (deferStartupMaintenance) Maintenance.RunStartup();
                 Launcher.TextLauncher.Run();
                 return true;
             }

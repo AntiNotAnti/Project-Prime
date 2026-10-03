@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text;
+using System.Threading;
 
 namespace MphRead.Mods
 {
@@ -173,15 +175,45 @@ namespace MphRead.Mods
         /// only the ones that are missing are rendered, so the usual cost of
         /// this is nothing at all.
         /// </summary>
-        public static void EnsureCustomPreviews(Action<string>? report = null)
+        public static void EnsureCustomPreviews(Action<string>? report = null,
+            CancellationToken cancel = default)
         {
-            foreach(var definition in MapGen.CustomRooms.Definitions)
+            foreach (var definition in MapGen.CustomRooms.Definitions)
             {
-                var preview=definition.Assets.FirstOrDefault(a=>a.Kind=="preview");
-                if(preview==null)continue;
-                try{MapGen.AtomicFile.Write(PathFor(definition.Name),MapGen.MapAssets.Read(definition,preview.Path));}
-                catch(Exception ex)when(ex is IOException or InvalidDataException or UnauthorizedAccessException)
-                {Console.WriteLine("[map] Preview unavailable: "+ex.Message);}
+                cancel.ThrowIfCancellationRequested();
+                var preview = definition.Assets.FirstOrDefault(a => a.Kind == "preview");
+                if (preview == null) continue;
+                try
+                {
+                    string destination = PathFor(definition.Name);
+                    if (definition.BundlePath != null)
+                    {
+                        string marker = destination + ".source";
+                        string fingerprint = PreviewFingerprint(definition.BundlePath, preview.Path);
+                        if (Exists(definition.Name) && File.Exists(marker)
+                            && String.Equals(File.ReadAllText(marker), fingerprint,
+                                StringComparison.Ordinal))
+                            continue;
+
+                        byte[] bytes = MapGen.MapPackageReader.ReadCatalogEntry(
+                            definition.BundlePath, preview.Path, 32L * 1024 * 1024)
+                            ?? throw new InvalidDataException("Packaged preview is missing.");
+                        ValidatePreview(bytes);
+                        MapGen.AtomicFile.Write(destination, bytes);
+                        MapGen.AtomicFile.Write(marker, Encoding.UTF8.GetBytes(fingerprint));
+                    }
+                    else
+                    {
+                        byte[] bytes = MapGen.MapAssets.Read(definition, preview.Path);
+                        ValidatePreview(bytes);
+                        MapGen.AtomicFile.Write(destination, bytes);
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or InvalidDataException
+                    or UnauthorizedAccessException)
+                {
+                    Console.WriteLine("[map] Preview unavailable: " + ex.Message);
+                }
             }
             if (!Launcher.GameFiles.Ready || !ThumbnailBatch.CanRun)
             {
@@ -201,12 +233,18 @@ namespace MphRead.Mods
             {
                 return;
             }
+            cancel.ThrowIfCancellationRequested();
             report ??= line => Console.WriteLine($"  {line}");
             report($"Rendering {missing.Count} custom map preview(s)...");
             try
             {
                 ThumbnailBatch.Run(missing, ThumbnailBatch.DefaultParallelism,
-                    ThumbnailWidth, ThumbnailHeight, report);
+                    ThumbnailWidth, ThumbnailHeight, report, cancel: cancel);
+            }
+            catch (OperationCanceledException)
+            {
+                report("preview generation cancelled during shutdown");
+                throw;
             }
             catch (Exception ex)
             {
@@ -214,6 +252,26 @@ namespace MphRead.Mods
                 // stand between the player and the front screen
                 report($"could not render: {ex.Message}");
             }
+        }
+
+        private static string PreviewFingerprint(string package, string entry)
+        {
+            var info = new FileInfo(package);
+            return $"{Path.GetFullPath(package)}\n{info.Length}\n"
+                + $"{info.LastWriteTimeUtc.Ticks}\n{entry}";
+        }
+
+        private static void ValidatePreview(byte[] bytes)
+        {
+            if (bytes.Length < 24
+                || !bytes.AsSpan(0, 8).SequenceEqual(
+                    new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 })
+                || System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(
+                    bytes.AsSpan(16)) is < 1 or > 4096
+                || System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(
+                    bytes.AsSpan(20)) is < 1 or > 4096)
+                throw new InvalidDataException(
+                    "Preview must be a PNG no larger than 4096×4096.");
         }
 
         public static void EnsureCacheDirectory()

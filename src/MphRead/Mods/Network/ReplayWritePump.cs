@@ -12,15 +12,37 @@ internal sealed class ReplayWritePump
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<ReplayWritePump, byte> Active = new();
     private static int _activeCount;
+    private static int _shutdownSignaled;
     static ReplayWritePump()
     {
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            // Only process shutdown may wait for storage. Match transitions never do.
+            LifecycleTiming.BeginShutdown("process exit");
+            BeginProcessShutdown();
             var tasks = new System.Collections.Generic.List<Task>();
-            foreach (var pump in Active.Keys) { pump.Complete(); tasks.Add(pump.Completion); }
-            try { Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(10)); } catch (AggregateException) { }
+            foreach (var pump in Active.Keys) tasks.Add(pump.Completion);
+            try
+            {
+                if (tasks.Count > 0
+                    && !Task.WaitAll(tasks.ToArray(), TimeSpan.FromSeconds(2)))
+                    DebugLog.Line("shutdown",
+                        $"{tasks.Count} replay writer(s) left recoverable .part data at exit");
+            }
+            catch (AggregateException) { }
+            LifecycleTiming.Shutdown("replay storage flush complete");
         };
+    }
+
+    /// <summary>
+    /// Stop accepting new replay commands and let already-queued chunks drain.
+    /// Called as soon as the user commits to quitting so most of the storage
+    /// work finishes while the native window/audio teardown is still running.
+    /// </summary>
+    internal static void BeginProcessShutdown()
+    {
+        if (Interlocked.Exchange(ref _shutdownSignaled, 1) != 0) return;
+        foreach (var pump in Active.Keys) pump.Complete();
+        LifecycleTiming.Shutdown("replay writers signaled");
     }
     internal const int MaximumCommands = 4096;
     internal const long MaximumBytes = 32L * 1024 * 1024;
@@ -44,6 +66,8 @@ internal sealed class ReplayWritePump
         int capacity = MaximumCommands, long maximumBytes = MaximumBytes,
         Action? beforeWrite = null, Action? finalized = null)
     {
+        if (Volatile.Read(ref _shutdownSignaled) != 0)
+            throw new IOException("The process is shutting down; no new replay writer can start.");
         _origin = origin; _maximumBytes = maximumBytes;
         _queue = Channel.CreateBounded<Command>(new BoundedChannelOptions(capacity)
         { SingleReader = true, SingleWriter = true, FullMode = BoundedChannelFullMode.Wait, AllowSynchronousContinuations = false });
@@ -93,6 +117,7 @@ internal sealed class ReplayWritePump
     private bool Enqueue(Command command)
     {
         using var perf = ReplayPerfTelemetry.Measure(ReplayPerfOperation.Enqueue);
+        if (Volatile.Read(ref _shutdownSignaled) != 0) return false;
         if (Error != null) return false;
         long cost = command.Bytes;
         if (Interlocked.Add(ref _bytes, cost) > _maximumBytes)

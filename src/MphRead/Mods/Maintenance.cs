@@ -33,6 +33,10 @@ namespace MphRead.Mods
         {
             try
             {
+                // Update staging cannot remove itself, so every ordinary startup
+                // gets one cheap delete attempt. The versioned cache sweep below
+                // must not call the same cleanup a second time.
+                DesktopUpdate.Clean();
                 Directory.CreateDirectory(LauncherPrefs.Directory);
                 string marker = Path.Combine(LauncherPrefs.Directory, MarkerName);
                 string current = BuildVersion.Display;
@@ -42,7 +46,7 @@ namespace MphRead.Mods
                     return default;
                 }
 
-                MaintenanceReport report = CleanReproducibleData();
+                MaintenanceReport report = CleanReproducibleDataCore(cleanUpdate: false);
                 File.WriteAllText(marker, current);
                 DebugLog.Line("maintenance",
                     $"upgrade/startup sweep {(previous.Length == 0 ? "(first)" : previous)} -> {current}: {report.Summary}");
@@ -56,18 +60,19 @@ namespace MphRead.Mods
         }
 
         public static MaintenanceReport CleanReproducibleData()
+            => CleanReproducibleDataCore(cleanUpdate: true);
+
+        private static MaintenanceReport CleanReproducibleDataCore(bool cleanUpdate)
         {
-            long before = SafeCacheBytes();
             int files = 0, directories = 0;
+            long freed = 0;
 
-            DesktopUpdate.Clean();
-            PruneMapCache(ref files, ref directories);
-            CleanReplayTemps(ref files, ref directories);
-            CleanThumbnails(ref files);
-            CleanThumbnailLog(ref files);
+            if (cleanUpdate) DesktopUpdate.Clean();
+            PruneMapCache(ref files, ref directories, ref freed);
+            CleanReplayTemps(ref files, ref directories, ref freed);
+            CleanThumbnails(ref files, ref freed);
+            CleanThumbnailLog(ref files, ref freed);
 
-            long after = SafeCacheBytes();
-            long freed = Math.Max(0, before - after);
             string summary = $"{FormatBytes(freed)} freed; {files} file(s), {directories} folder(s) removed";
             return new MaintenanceReport(freed, files, directories, summary);
         }
@@ -125,7 +130,7 @@ namespace MphRead.Mods
                 + $"debug log={(LauncherPrefs.DebugLogs ? "disk" : "memory/crash only")}";
         }
 
-        private static void PruneMapCache(ref int files, ref int directories)
+        private static void PruneMapCache(ref int files, ref int directories, ref long freed)
         {
             string root = MapCacheRoot();
             if (!Directory.Exists(root)) return;
@@ -142,12 +147,13 @@ namespace MphRead.Mods
                 if (TryDeleteDirectory(entry.Info.FullName, ref files))
                 {
                     total = Math.Max(0, total - bytes);
+                    freed += bytes;
                     directories++;
                 }
             }
         }
 
-        private static void CleanReplayTemps(ref int files, ref int directories)
+        private static void CleanReplayTemps(ref int files, ref int directories, ref long freed)
         {
             string root;
             try { root = DemoLibrary.Directory; }
@@ -157,7 +163,7 @@ namespace MphRead.Mods
             DateTime partCutoff = DateTime.UtcNow - TempReplayAge;
             foreach (string part in Directory.EnumerateFiles(root, "*.part", SearchOption.TopDirectoryOnly))
             {
-                TryDeleteOldFile(part, partCutoff, ref files);
+                TryDeleteOldFile(part, partCutoff, ref files, ref freed);
             }
 
             string cache = Path.Combine(root, ".virtual-cache");
@@ -170,7 +176,7 @@ namespace MphRead.Mods
                         Path.GetFileNameWithoutExtension(materialized) + ReplayVirtualClips.Extension);
                     if (!File.Exists(descriptor))
                     {
-                        TryDeleteOldFile(materialized, partCutoff, ref files);
+                        TryDeleteOldFile(materialized, partCutoff, ref files, ref freed);
                     }
                 }
             }
@@ -184,16 +190,20 @@ namespace MphRead.Mods
                 {
                     string movie = Path.Combine(directory, "replay.mp4");
                     var info = new DirectoryInfo(directory);
-                    if (!File.Exists(movie) && info.LastWriteTimeUtc < exportCutoff
-                        && TryDeleteDirectory(directory, ref files))
+                    if (!File.Exists(movie) && info.LastWriteTimeUtc < exportCutoff)
                     {
-                        directories++;
+                        long bytes = DirectoryBytes(directory);
+                        if (TryDeleteDirectory(directory, ref files))
+                        {
+                            freed += bytes;
+                            directories++;
+                        }
                     }
                 }
             }
         }
 
-        private static void CleanThumbnails(ref int files)
+        private static void CleanThumbnails(ref int files, ref long freed)
         {
             string root = SafeThumbnailRoot();
             if (root.Length == 0 || !Directory.Exists(root)) return;
@@ -216,24 +226,32 @@ namespace MphRead.Mods
                 var info = new FileInfo(path);
                 if (info.Length == 0 || !expected.Contains(Path.GetFullPath(path)))
                 {
-                    TryDeleteFile(path, ref files);
+                    TryDeleteFile(path, ref files, ref freed);
                 }
+            }
+            foreach (string source in Directory.EnumerateFiles(root, "*.png.source",
+                SearchOption.TopDirectoryOnly))
+            {
+                string png = source[..^".source".Length];
+                if (!File.Exists(png) || !expected.Contains(Path.GetFullPath(png)))
+                    TryDeleteFile(source, ref files, ref freed);
             }
             foreach (string marker in Directory.EnumerateFiles(root, ".worker*.done",
                 SearchOption.TopDirectoryOnly))
             {
-                TryDeleteFile(marker, ref files);
+                TryDeleteFile(marker, ref files, ref freed);
             }
         }
 
-        private static void CleanThumbnailLog(ref int files)
+        private static void CleanThumbnailLog(ref int files, ref long freed)
         {
             try
             {
                 string path = ThumbnailLog.Path;
-                if (File.Exists(path) && File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-30))
+                if (File.Exists(path)
+                    && File.GetLastWriteTimeUtc(path) < DateTime.UtcNow.AddDays(-30))
                 {
-                    TryDeleteFile(path, ref files);
+                    TryDeleteFile(path, ref files, ref freed);
                 }
             }
             catch { }
@@ -253,16 +271,6 @@ namespace MphRead.Mods
         {
             try { return Path.Combine(DemoLibrary.Directory, ".virtual-cache"); }
             catch { return ""; }
-        }
-
-        private static long SafeCacheBytes()
-        {
-            long total = DirectoryBytes(MapCacheRoot());
-            string thumbs = SafeThumbnailRoot();
-            string replay = SafeReplayCacheRoot();
-            if (thumbs.Length > 0) total += DirectoryBytes(thumbs);
-            if (replay.Length > 0) total += DirectoryBytes(replay);
-            return total;
         }
 
         private static long DirectoryBytes(string path)
@@ -292,21 +300,26 @@ namespace MphRead.Mods
             catch { return false; }
         }
 
-        private static void TryDeleteOldFile(string path, DateTime cutoff, ref int files)
+        private static void TryDeleteOldFile(string path, DateTime cutoff,
+            ref int files, ref long freed)
         {
             try
             {
-                if (File.GetLastWriteTimeUtc(path) < cutoff) TryDeleteFile(path, ref files);
+                if (File.GetLastWriteTimeUtc(path) < cutoff)
+                    TryDeleteFile(path, ref files, ref freed);
             }
             catch { }
         }
 
-        private static void TryDeleteFile(string path, ref int files)
+        private static void TryDeleteFile(string path, ref int files, ref long freed)
         {
             try
             {
+                long bytes = 0;
+                try { bytes = new FileInfo(path).Length; } catch { }
                 File.Delete(path);
                 files++;
+                freed += Math.Max(0, bytes);
             }
             catch { }
         }

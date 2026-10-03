@@ -793,6 +793,7 @@ namespace MphRead
                 _audioEngine = new MiniAudioEngine();
                 _playbackDevice = _audioEngine.InitializePlaybackDevice(deviceInfo: null, _format);
                 Available = true;
+                Sound.AudioLifetime.RequestMusicShutdown = RequestShutdown;
                 Sound.AudioLifetime.StopMusic = Shutdown;
             }
             catch (Exception ex)
@@ -810,21 +811,38 @@ namespace MphRead
         private static Task _loadTask = Task.CompletedTask;
         private static volatile bool _shutdownRequested;
 
-        private static void Shutdown()
+        internal static void RequestShutdown()
         {
             _shutdownRequested = true;
-            // A load can still be creating a player on the worker. Do not
-            // dispose its native engine underneath that work.
+            StopLoading = true;
+        }
+
+        private static void Shutdown()
+        {
+            RequestShutdown();
+            // A load can still be constructing an NCSF stream on a worker. It
+            // is unsafe to dispose the native engine underneath that constructor,
+            // but it is equally wrong to keep the whole process alive for many
+            // seconds after the window has gone. Give cancellation a short
+            // bounded drain; if third-party decoding ignores it, the OS will
+            // reclaim that process-local device at exit.
+            bool loaderStopped = false;
             try
             {
-                if (!_loadTask.Wait(TimeSpan.FromSeconds(5)))
-                    throw new TimeoutException("Music loader did not stop within 5 seconds.");
+                loaderStopped = _loadTask.Wait(TimeSpan.FromSeconds(2));
             }
             catch (AggregateException ex)
             {
-                // A failed loader is finished too; its device still needs cleanup.
+                loaderStopped = true;
                 Console.Error.WriteLine($"[shutdown] music load failed: {ex.GetBaseException().Message}");
             }
+            if (!loaderStopped)
+            {
+                Console.Error.WriteLine(
+                    "[shutdown] music loader exceeded 2 seconds; skipping racing native disposal.");
+                return;
+            }
+
             try
             {
                 Mods.MapGen.CustomMapMusic.Stop();

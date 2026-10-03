@@ -62,7 +62,18 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
 #if MPHREAD_SHELL
-                return Shell.Run();
+                if (!ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5)))
+                {
+                    // A same-install client that is actually exiting usually
+                    // releases the lease during the bounded wait above. If it
+                    // is still alive, suppress this duplicate rather than
+                    // creating competing renderer/audio/cache lifetimes.
+                    return true;
+                }
+                MapGen.CustomRooms.DeferInitialRegistration = true;
+                bool ran = Shell.Run();
+                if (!ran) MapGen.CustomRooms.RestoreDeferredRegistration();
+                return ran;
 #else
                 // Android reaches its screens through the activity, not
                 // through here; this class only stands the toolkit up there.
@@ -71,6 +82,9 @@ namespace MphRead.Mods.Launcher.Gui
             }
             catch (Exception ex)
             {
+#if MPHREAD_SHELL
+                MapGen.CustomRooms.RestoreDeferredRegistration();
+#endif
                 Console.WriteLine($"[launcher] the window could not be opened: {ex.Message}");
                 Console.WriteLine("[launcher] falling back to the text launcher");
                 Mods.Diagnostics.PlatformDiagnostics.Report("libglfw.3.dylib", ex);

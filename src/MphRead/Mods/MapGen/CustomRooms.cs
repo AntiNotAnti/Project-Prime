@@ -23,6 +23,12 @@ namespace MphRead.Mods.MapGen
         private static IReadOnlyList<MapDefinition>? _definitions;
         private static int _firstId = -1;
         private static InstalledMapRegistry? _installed;
+        /// <summary>
+        /// The graphical shell can present its built-in room list before touching
+        /// the custom-map catalog. Headless/server/tool paths leave this false and
+        /// retain the historical eager registration semantics.
+        /// </summary>
+        internal static bool DeferInitialRegistration { get; set; }
         public static InstalledMapRegistry Installed
         {
             get { lock (_lock) return _installed ??= InstalledMapRegistry.Create(Definitions); }
@@ -83,6 +89,49 @@ namespace MphRead.Mods.MapGen
                 .Select(e => e.Definition!).ToArray();
         }
 
+        internal static IReadOnlyList<MapDefinition> DeferredDefinitions(
+            IReadOnlyCollection<string> builtInNames)
+        {
+            lock (_lock)
+            {
+                _definitions ??= LoadDefinitions();
+                _definitions = _definitions
+                    .Where(d => !builtInNames.Contains(d.Name,
+                        StringComparer.OrdinalIgnoreCase))
+                    .ToArray();
+                return _definitions;
+            }
+        }
+
+        /// <summary>
+        /// A graphical launcher can fail after asking Metadata to initialize with
+        /// custom registration deferred. The text fallback continues in the same
+        /// process, so restore the historical eager snapshot before handing over.
+        /// </summary>
+        internal static void RestoreDeferredRegistration()
+        {
+            if (!DeferInitialRegistration) return;
+            try
+            {
+                string[] builtIn = Metadata.RoomList.Select(room => room.Name).ToArray();
+                MapDefinition[] deferred = DeferredDefinitions(builtIn).ToArray();
+                DeferInitialRegistration = false;
+                foreach (MapDefinition definition in deferred)
+                {
+                    try { Metadata.RegisterDownloadedMap(definition); }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Line("startup",
+                            $"could not restore custom map {definition.Name} for text fallback: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                DeferInitialRegistration = false;
+            }
+        }
+
         // Runtime IDs are a process snapshot. Refreshing the editor/catalog must
         // never replace that snapshot beneath a loaded match or a room vote.
         public static IReadOnlyList<MapCatalogEntry> Reload()
@@ -108,15 +157,25 @@ namespace MphRead.Mods.MapGen
         /// <summary>Called from the room ID table, which fixes each room's ID as its index.</summary>
         public static IReadOnlyList<string> AppendIds(List<string> ids)
         {
-            _definitions=Definitions.Where(d=>!ids.Contains(d.Name,StringComparer.OrdinalIgnoreCase)).ToArray();
             _firstId = ids.Count;
-            ids.AddRange(Definitions.Select(d => d.Name));
+            if (DeferInitialRegistration)
+            {
+                return ids;
+            }
+            _definitions = Definitions
+                .Where(d => !ids.Contains(d.Name, StringComparer.OrdinalIgnoreCase))
+                .ToArray();
+            ids.AddRange(_definitions.Select(d => d.Name));
             return ids;
         }
 
         /// <summary>Called from the room table, after the IDs have been assigned.</summary>
         public static IReadOnlyList<RoomMetadata> AppendRooms(List<RoomMetadata> rooms)
         {
+            if (DeferInitialRegistration)
+            {
+                return rooms;
+            }
             for (int i = 0; i < Definitions.Count; i++)
             {
                 rooms.Add(MakeMetadata(Definitions[i], _firstId + i));

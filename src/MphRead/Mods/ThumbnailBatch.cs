@@ -66,12 +66,14 @@ namespace MphRead.Mods
 
         public static int Run(IReadOnlyList<string> rooms, int parallelism,
                               int width, int height, Action<string>? report = null,
-                              TimeSpan? workerTimeout = null)
+                              TimeSpan? workerTimeout = null,
+                              CancellationToken cancel = default)
         {
             // Setup and the front screen can request previews concurrently.
             // Recheck the cache after waiting rather than starting duplicate workers.
             lock (_batchLock)
             {
+                cancel.ThrowIfCancellationRequested();
                 if (_workerFailed)
                 {
                     report?.Invoke("Preview generation stopped after a worker failure; restart the app to retry.");
@@ -79,7 +81,10 @@ namespace MphRead.Mods
                 }
                 var missing = new List<string>();
                 foreach (string room in rooms)
+                {
+                    cancel.ThrowIfCancellationRequested();
                     if (!ThumbnailGenerator.Exists(room)) missing.Add(room);
+                }
                 if (missing.Count == 0) return 0;
                 ThumbnailLog.Begin(missing.Count);
                 parallelism = OperatingSystem.IsMacOS() ? 1 : Math.Clamp(parallelism, 1, 16);
@@ -87,9 +92,9 @@ namespace MphRead.Mods
                 if (timeout <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(workerTimeout));
                 string? exePath = Environment.ProcessPath;
                 if (exePath == null)
-                    return RunSerial(missing, width, height, report);
+                    return RunSerial(missing, width, height, report, cancel);
                 int written = RunWorkers(missing, parallelism, width, height, exePath,
-                    timeout, report, out List<string> failed, out bool abnormalExit);
+                    timeout, report, cancel, out List<string> failed, out bool abnormalExit);
                 if (abnormalExit)
                 {
                     _workerFailed = true;
@@ -105,7 +110,7 @@ namespace MphRead.Mods
                     report?.Invoke(note);
                     ThumbnailLog.Write(note);
                     written += RunWorkers(failed, 1, width, height, exePath, timeout,
-                        report, out _, out _workerFailed);
+                        report, cancel, out _, out _workerFailed);
                 }
                 return written;
             }
@@ -113,8 +118,8 @@ namespace MphRead.Mods
 
         private static int RunWorkers(IReadOnlyList<string> rooms, int parallelism,
                                       int width, int height, string exePath, TimeSpan timeout,
-                                      Action<string>? report, out List<string> failedRooms,
-                                      out bool abnormalExit)
+                                      Action<string>? report, CancellationToken cancel,
+                                      out List<string> failedRooms, out bool abnormalExit)
         {
             failedRooms = new List<string>();
             abnormalExit = false;
@@ -126,12 +131,14 @@ namespace MphRead.Mods
             {
                 foreach (IReadOnlyList<string> share in Shares(rooms, parallelism))
                 {
+                    cancel.ThrowIfCancellationRequested();
                     Process? proc = StartWorker(exePath, share, width, height);
                     if (proc == null) { abnormalExit = true; break; }
                     running.Add(proc);
                 }
                 while (!abnormalExit)
                 {
+                    cancel.ThrowIfCancellationRequested();
                     bool allExited = true;
                     foreach (Process proc in running)
                     {
@@ -185,8 +192,9 @@ namespace MphRead.Mods
             try
             {
                 if (!proc.HasExited) proc.Kill(entireProcessTree: true);
-                // The asynchronous readers drain both pipes while it exits.
-                if (proc.WaitForExit(5000)) proc.WaitForExit();
+                // Killed preview workers must never hold application shutdown
+                // hostage. Their output is disposable cache data.
+                if (proc.WaitForExit(250)) proc.WaitForExit();
             }
             catch (InvalidOperationException) { }
             catch (System.ComponentModel.Win32Exception ex)
@@ -300,11 +308,12 @@ namespace MphRead.Mods
         }
 
         private static int RunSerial(IReadOnlyList<string> rooms, int width, int height,
-                                      Action<string>? report)
+                                      Action<string>? report, CancellationToken cancel)
         {
             int written = 0;
             for (int i = 0; i < rooms.Count; i++)
             {
+                cancel.ThrowIfCancellationRequested();
                 if (ThumbnailGenerator.Exists(rooms[i]))
                 {
                     continue;
