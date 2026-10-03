@@ -221,7 +221,10 @@ namespace MphRead
                     }
                     GL.BindTexture(TextureTarget.Texture2D, 0);
                     if (_graphicsOutputReady)
-                        ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
+                        ReleaseFrameTransientFramebufferTexture(
+                            ref _graphicsOutputTexture,
+                            _graphicsOutputFramebuffer,
+                            ReplayOutputFramebuffer());
                     break;
                 }
             }
