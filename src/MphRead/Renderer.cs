@@ -1629,8 +1629,11 @@ namespace MphRead
                     .ToArray();
                 _streamingTextureQueue.Clear();
                 foreach (var request in keep) _streamingTextureQueue.Enqueue(request);
-                _streamingTextureDecodes.RemoveAll(pending =>
-                    pending.Request.Channel != Mods.Render.TextureAssetChannel.Albedo);
+                // Do not drop active decode tasks from the scheduler: STB work
+                // cannot be cancelled once started, so forgetting the task would
+                // only let another giant decode overlap it. Pumping discards its
+                // result while maps are off, or reuses it if the player turns
+                // them back on before it finishes.
 
                 foreach (int binding in _materialMaps.Keys.ToArray())
                 {
@@ -1821,6 +1824,16 @@ namespace MphRead
             Mods.Render.TextureAssetChannel channel,
             Mods.Render.Materials.MaterialImage image)
         {
+            if (_streamingTextureQueue.Any(request =>
+                    request.Binding == bindingId && request.Version == version
+                    && request.Channel == channel)
+                || _streamingTextureDecodes.Any(pending =>
+                    pending.Request.Binding == bindingId && pending.Request.Version == version
+                    && pending.Request.Channel == channel))
+            {
+                return;
+            }
+
             int cap = Mods.Render.TextureAssetManager.DimensionLimit(assetClass, channel);
             string samplingKey = Mods.Render.TextureSamplingPolicy.ResolveModern(
                 assetClass, channel).CacheKey;
