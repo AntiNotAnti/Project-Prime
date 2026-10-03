@@ -53,6 +53,14 @@ namespace MphRead.Mods
             if (String.IsNullOrWhiteSpace(roomName))
                 return false;
 
+            // The persistent shell polls preparation once per frame. Make the
+            // already-in-flight case a cheap lookup before metadata/SFX work.
+            lock (Gate)
+            {
+                if (String.Equals(_room, roomName, StringComparison.OrdinalIgnoreCase))
+                    return _prepared != null;
+            }
+
             RoomMetadata? metadata;
             try
             {
