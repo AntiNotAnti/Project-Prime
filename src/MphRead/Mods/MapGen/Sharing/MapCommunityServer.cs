@@ -141,6 +141,8 @@ public static class MapCommunityServer
                     ?? await identities.AuthenticateAsync(authorization,deadline.Token).ConfigureAwait(false);
                 string[] parts=route[(root.Length+1)..].Split('/');
                 if (parts.Length > 0 && parts[0] == "uploads") deadline.CancelAfter(TimeSpan.FromMinutes(10));
+                else if (context.Request.HttpMethod == "GET" && parts.Length > 1
+                    && parts[0] is "maps" or "packages") deadline.CancelAfter(TimeSpan.FromMinutes(15));
                 async Task<T> Body<T>()
                 {using var data=new MemoryStream();await MapCommunityClient.CopyBoundedAsync(context.Request.InputStream,data,16384,deadline.Token);return JsonSerializer.Deserialize<T>(data.ToArray(),MapPackageReader.JsonOptions)??throw new InvalidDataException("Missing request body.");}
 
@@ -373,10 +375,34 @@ public static class MapCommunityServer
                     }
                     if (!MapCommunityClient.ValidHash(hash) || !maps.ContainsKey(hash)) { context.Response.StatusCode = 404; return; }
                     if(maps[hash].Draft&&(creator==null||!catalog.CanPublish(creator.CreatorId,maps[hash]))){context.Response.StatusCode=403;return;}
+                    long total = maps[hash].Bytes, start = 0;
+                    context.Response.Headers["Accept-Ranges"] = "bytes";
+                    if (context.Request.Headers["Range"] is { Length: > 0 } range)
+                    {
+                        const string prefix = "bytes=";
+                        if (!range.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                            || range.Contains(',') || !range.EndsWith("-", StringComparison.Ordinal)
+                            || !long.TryParse(range.AsSpan(prefix.Length, range.Length - prefix.Length - 1),
+                                System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out start)
+                            || start < 0)
+                        { context.Response.StatusCode = 400; return; }
+                        if (start >= total)
+                        {
+                            context.Response.StatusCode = 416;
+                            context.Response.Headers["Content-Range"] = "bytes */" + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                            return;
+                        }
+                        context.Response.StatusCode = 206;
+                        context.Response.Headers["Content-Range"] = "bytes "
+                            + start.ToString(System.Globalization.CultureInfo.InvariantCulture) + "-"
+                            + (total - 1).ToString(System.Globalization.CultureInfo.InvariantCulture) + "/"
+                            + total.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                    }
                     context.Response.ContentType = "application/octet-stream";
-                    context.Response.ContentLength64 = maps[hash].Bytes;
+                    context.Response.ContentLength64 = total - start;
                     await using var file = File.OpenRead(Path.Combine(storage, hash + ".ppmap"));
-                    await file.CopyToAsync(context.Response.OutputStream, deadline.Token);
+                    if (start > 0) file.Position = start;
+                    await file.CopyToAsync(context.Response.OutputStream, 65536, deadline.Token);
                 }
                 else if (context.Request.HttpMethod == "POST" && (route == root + "/maps"
                     || route.StartsWith(root + "/maps/", StringComparison.Ordinal) && route.EndsWith("/versions", StringComparison.Ordinal)))

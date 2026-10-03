@@ -105,6 +105,9 @@ Routes beneath the configured prefix:
 - `DELETE uploads/<sha256>`: discard the authenticated creator's partial upload.
 - `POST maps`: legacy one-request raw `.ppmap` upload retained for older clients.
 - `GET maps/<sha256>`: immutable package bytes, no credentials required.
+  Package downloads advertise `Accept-Ranges: bytes`; interrupted client and
+  dedicated-server downloads retry with `Range` and continue from the verified
+  temporary-file offset instead of restarting the archive.
 
 Upload session metadata and partial bytes survive service restarts and expire after
 24 hours if abandoned. At most 16 partial sessions and 2 GiB of partial upload data
@@ -173,7 +176,7 @@ dotnet run --project src/MphRead -- -mapstudioshot /tmp/map-studio-shots
 
 The community harness exercises authenticated upload, exact-byte downloads,
 idempotency, malformed archives, invalid identifiers/sizes, bounded streams,
-installed-map discovery, partial-upload persistence, exact-offset resume after a
-service restart, and cleanup after successful assembly. Map Studio capture emits
+installed-map discovery, package byte-range responses, partial-upload persistence,
+exact-offset upload resume after a service restart, and cleanup after successful assembly. Map Studio capture emits
 large, small and four-view layouts. Full TrenchBroom compatibility (including its
 brush CSG kernel, Quake `.map`/FGD support and UV editor) is outside this change.
