@@ -469,6 +469,10 @@ namespace MphRead
         /// </summary>
         private void ExecuteWorldRenderGraph()
         {
+#if !MPHREAD_SERVER
+            if (Mods.Render.ModernGraphicsCompat.Active)
+                Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+#endif
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
                 switch (pass.Kind)
