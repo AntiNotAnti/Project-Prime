@@ -1,9 +1,8 @@
-# The server directory: what the launcher's server browser asks.
+# The always-on directory and lobby allocator.
 #
-# It keeps a list of the servers that have announced themselves in the last
-# minute and hands it out. It relays no gameplay and stores nothing on disk,
-# so it can share a box with the game server it lists -- which is the
-# arrangement it was written for.
+# It keeps the browser list in memory and owns a bounded host-port pool. Player
+# Create Lobby requests cause isolated authoritative lobby children to be
+# started only when needed; the allocator itself runs no gameplay simulation.
 #
 # Point 51.161.113.128 at this machine and open UDP 27889 to it.
 #
@@ -19,7 +18,7 @@ User=__USER__
 WorkingDirectory=__DIR__
 # Hosted child game servers inherit the private career reporter credential.
 EnvironmentFile=-__DIR__/career.env
-ExecStart=__DIR__/ProjectPrime -masterserver -port 27889
+ExecStart=__DIR__/ProjectPrime -masterserver -port 27889 -public __PUBLIC__ -hostports 27900-27919
 Restart=always
 RestartSec=5
 NoNewPrivileges=true
