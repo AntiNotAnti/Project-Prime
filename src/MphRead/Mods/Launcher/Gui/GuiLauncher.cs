@@ -62,6 +62,16 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
 #if MPHREAD_SHELL
+                using ClientInstanceGuard.Lease? instance =
+                    ClientInstanceGuard.TryAcquire(TimeSpan.FromSeconds(3));
+                if (instance == null)
+                {
+                    // A same-install client that is actually exiting usually
+                    // releases the lease during the bounded wait above. If it
+                    // is still alive, suppress this duplicate rather than
+                    // creating competing renderer/audio/cache lifetimes.
+                    return true;
+                }
                 return Shell.Run();
 #else
                 // Android reaches its screens through the activity, not
