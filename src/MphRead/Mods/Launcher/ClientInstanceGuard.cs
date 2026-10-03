@@ -16,55 +16,73 @@ internal static class ClientInstanceGuard
     internal sealed class Lease : IDisposable
     {
         private Mutex? _mutex;
-        private readonly bool _owned;
-        internal Lease(Mutex? mutex, bool owned = true)
-        {
-            _mutex = mutex;
-            _owned = owned;
-        }
+        internal Lease(Mutex mutex) => _mutex = mutex;
         public void Dispose()
         {
             Mutex? mutex = Interlocked.Exchange(ref _mutex, null);
             if (mutex == null) return;
-            if (_owned)
-            {
-                try { mutex.ReleaseMutex(); }
-                catch (ApplicationException) { }
-            }
+            try { mutex.ReleaseMutex(); }
+            catch (ApplicationException) { }
             mutex.Dispose();
         }
     }
 
-    internal static Lease? TryAcquire(TimeSpan timeout)
+    private static readonly object Gate = new();
+    private static Lease? _processLease;
+
+    /// <summary>
+    /// Acquire once for the interactive process and keep ownership through
+    /// Program's native audio cleanup. Releasing when the shell window vanished
+    /// was too early: a rapid relaunch could still collide with the old audio
+    /// backend for the last few seconds of process teardown.
+    /// </summary>
+    internal static bool TryAcquireForProcess(TimeSpan timeout)
     {
-        try
+        lock (Gate)
         {
-            using var sha = SHA256.Create();
-            string root = Path.GetFullPath(AppContext.BaseDirectory)
-                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                .ToUpperInvariant();
-            string suffix = Convert.ToHexString(
-                sha.ComputeHash(Encoding.UTF8.GetBytes(root))).Substring(0, 16);
-            var mutex = new Mutex(false, "ProjectPrime.InteractiveClient." + suffix);
-            bool owned;
-            try { owned = mutex.WaitOne(timeout); }
-            catch (AbandonedMutexException) { owned = true; }
-            if (!owned)
+            if (_processLease != null) return true;
+            try
             {
-                mutex.Dispose();
-                DebugLog.Line("startup",
-                    "another interactive Project Prime client is still running; duplicate launch suppressed");
-                return null;
+                using var sha = SHA256.Create();
+                string root = Path.GetFullPath(AppContext.BaseDirectory)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    .ToUpperInvariant();
+                string suffix = Convert.ToHexString(
+                    sha.ComputeHash(Encoding.UTF8.GetBytes(root))).Substring(0, 16);
+                var mutex = new Mutex(false, "ProjectPrime.InteractiveClient." + suffix);
+                bool owned;
+                try { owned = mutex.WaitOne(timeout); }
+                catch (AbandonedMutexException) { owned = true; }
+                if (!owned)
+                {
+                    mutex.Dispose();
+                    DebugLog.Line("startup",
+                        "another interactive Project Prime client is still running; duplicate launch suppressed");
+                    return false;
+                }
+                _processLease = new Lease(mutex);
+                return true;
             }
-            return new Lease(mutex);
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+                or PlatformNotSupportedException)
+            {
+                // Instance coordination is an optimization and safety rail, not a
+                // reason to make an otherwise valid platform unable to launch.
+                DebugLog.Line("startup",
+                    "single-client coordination unavailable: " + ex.Message);
+                return true;
+            }
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or PlatformNotSupportedException)
+    }
+
+    internal static void ReleaseProcess()
+    {
+        Lease? lease;
+        lock (Gate)
         {
-            // Instance coordination is an optimization and safety rail, not a
-            // reason to make an otherwise valid platform unable to launch.
-            DebugLog.Line("startup", "single-client coordination unavailable: " + ex.Message);
-            return new Lease(null, owned: false);
+            lease = _processLease;
+            _processLease = null;
         }
+        lease?.Dispose();
     }
 }
