@@ -61,6 +61,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     internal static void SubmitPending() => Current.FlushCommands();
 
+    // End only the current compatibility render pass, keeping the command
+    // encoder alive so callers can establish a hard state/viewmodel boundary
+    // without paying for an additional QueueSubmit.
+    internal static void BreakDrawPass() => Current.EndActiveCorePass();
+
     private static ulong AlignUniform(ulong value) =>
         checked((value + UniformAlignment - 1) & ~(UniformAlignment - 1));
 
