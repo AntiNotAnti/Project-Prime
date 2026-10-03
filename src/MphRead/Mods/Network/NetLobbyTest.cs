@@ -531,11 +531,12 @@ namespace MphRead.Mods.Network
                 "match state carries default-off spawn protection without ambiguity");
             Check(NetConfig.ProtocolVersion == 37 && (byte)PacketType.SessionState == 36
                 && (byte)PacketType.MapOffer == 32 && (byte)PacketType.MapDone == 35
-                && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45,
+                && (byte)PacketType.MatchStartCommit == 44 && (byte)PacketType.MatchLoadProgress == 45
+                && (byte)PacketType.HostChallenge == 65 && (byte)PacketType.HostChallengeReply == 66,
                 "combined protocol and non-overlapping map/lobby/start IDs");
             Check(1 + HostRequestPacket.Size + 1
                 + HostRequestPacket.MaxRotation * HostRequestPacket.RotationEntrySize
-                + 4 + NetworkMapIdentity.Size <= NetConfig.MaxPacketSize,
+                + 4 + NetworkMapIdentity.Size + 16 <= NetConfig.MaxPacketSize,
                 "full exact-identity hosted rotation fits one UDP datagram");
             var state = new SessionStatePacket { Phase = SessionPhase.Starting, Policy = ServerSessionPolicy.Lobby,
                 OwnerSlot = 7, MaxPlayers = 8, Revision = ushort.MaxValue, MatchId = 19,
@@ -645,9 +646,23 @@ namespace MphRead.Mods.Network
             for (int length = 0; length < rosterBytes.Length; length++) Check(!RosterPacket.TryRead(rosterBytes.AsSpan(0, length), out _), "truncated roster");
             Check(!new HostRequestPacket().RequireReady, "host requests default ready off");
             var host = new HostRequestPacket { Protocol = NetConfig.ProtocolVersion, MaxPlayers = 8, RoomKey = "room", ServerName = "test",
-                Policy = ServerSessionPolicy.Lobby, RequireReady = true, AllowJoinInProgress = true, Format = MatchFormat.FourVsFour };
+                Policy = ServerSessionPolicy.Lobby, RequireReady = true, AllowJoinInProgress = true, Format = MatchFormat.FourVsFour,
+                HostNonce = 12345, HostCookie = 67890 };
             byte[] hostBytes = new byte[host.Length]; host.Write(hostBytes); var hr = HostRequestPacket.Read(hostBytes);
-            Check(hr.Policy == host.Policy && hr.Format == host.Format && hr.RequireReady && hr.AllowJoinInProgress, "host options appended without rotation");
+            Check(hr.Policy == host.Policy && hr.Format == host.Format && hr.RequireReady && hr.AllowJoinInProgress
+                && hr.HostNonce == host.HostNonce && hr.HostCookie == host.HostCookie,
+                "host options and protected allocation proof round trip");
+            var hostSender = new IPEndPoint(IPAddress.Loopback, 30123);
+            HostChallengeReplyPacket proof = HostRequestGuard.Challenge(hostSender,
+                new HostChallengePacket((byte)NetConfig.ProtocolVersion, 555), 30);
+            host.HostNonce = proof.Nonce; host.HostCookie = proof.Cookie;
+            Check(HostRequestGuard.Validate(hostSender, host, 31, out _),
+                "fresh endpoint-bound host challenge authorizes allocation");
+            Check(HostRequestGuard.Validate(hostSender, host, 32, out _),
+                "identical host-request retry is idempotent");
+            var changedHost = host; changedHost.ServerName = "different";
+            Check(!HostRequestGuard.Validate(hostSender, changedHost, 32, out _),
+                "one host cookie cannot authorize a different lobby request");
             var reply = new HostReplyPacket { Started = true, Port = 123, OwnerToken = Guid.NewGuid() };
             byte[] replyBytes = new byte[HostReplyPacket.Size]; reply.Write(replyBytes);
             Check(HostReplyPacket.Read(replyBytes).OwnerToken == reply.OwnerToken, "owner token round trip");
