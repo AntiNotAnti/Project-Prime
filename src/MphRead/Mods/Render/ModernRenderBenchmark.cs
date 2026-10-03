@@ -73,6 +73,8 @@ internal static class ModernRenderBenchmark
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
+                    long retainedBindHitsStart = ModernGraphicsCompat.RetainedWorldBindGroupHits;
+                    long retainedBindMissesStart = ModernGraphicsCompat.RetainedWorldBindGroupMisses;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -93,6 +95,8 @@ internal static class ModernRenderBenchmark
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
+                            retainedBindHitsStart = ModernGraphicsCompat.RetainedWorldBindGroupHits;
+                            retainedBindMissesStart = ModernGraphicsCompat.RetainedWorldBindGroupMisses;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -137,6 +141,9 @@ internal static class ModernRenderBenchmark
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,
+                        retainedWorldBindGroupHits = ModernGraphicsCompat.RetainedWorldBindGroupHits - retainedBindHitsStart,
+                        retainedWorldBindGroupMisses = ModernGraphicsCompat.RetainedWorldBindGroupMisses - retainedBindMissesStart,
+                        retainedWorldUniformSlotHighWater = ModernGraphicsCompat.RetainedWorldUniformSlotHighWater,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0

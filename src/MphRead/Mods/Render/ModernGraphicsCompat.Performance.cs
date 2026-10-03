@@ -94,6 +94,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             bufferBytes += (long)(page.VertexCapacity + page.IndexCapacity);
         foreach (var page in s._uniformArena)
             bufferBytes += (long)page.Capacity;
+        foreach (var page in s._retainedUniformArena)
+            bufferBytes += (long)page.Capacity;
         foreach (var upload in s._uploadBuffers)
             bufferBytes += (long)upload.Capacity;
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,

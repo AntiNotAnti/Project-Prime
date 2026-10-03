@@ -107,11 +107,21 @@ namespace MphRead.Mods.Render
         private bool _retainedWorldFrameReady;
         private long _retainedWorldUniformTemplateBuilds;
         private long _retainedWorldUniformPatches;
+        private readonly System.Collections.Generic.List<GeneratedBindGroupCacheEntry>
+            _retainedWorldBindGroups = new();
+        private long _retainedWorldBindGroupHits;
+        private long _retainedWorldBindGroupMisses;
 
         internal static long RetainedWorldUniformTemplateBuilds =>
             _current?._retainedWorldUniformTemplateBuilds ?? 0;
         internal static long RetainedWorldUniformPatches =>
             _current?._retainedWorldUniformPatches ?? 0;
+        internal static long RetainedWorldBindGroupHits =>
+            _current?._retainedWorldBindGroupHits ?? 0;
+        internal static long RetainedWorldBindGroupMisses =>
+            _current?._retainedWorldBindGroupMisses ?? 0;
+        internal static int RetainedWorldUniformSlotHighWater =>
+            _current?._retainedUniformSlotHighWater ?? 0;
 
         internal static void BeginRetainedWorldFrame()
         {
@@ -282,12 +292,12 @@ namespace MphRead.Mods.Render
             PatchRetainedWorldUniformWords(
                 generated, target, item, textures, showTextures, useLighting,
                 projectionOverride, viewInverse);
-            UploadGeneratedUniformWords(generated);
+            int retainedSlot = UploadRetainedWorldUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
                 ModernProgramKind.World, PrimitiveTopology.TriangleList, target);
-            BindGroup* bindGroup = GeneratedBindGroup(
-                ModernProgramKind.World, pipeline.Layout);
+            BindGroup* bindGroup = RetainedWorldBindGroup(
+                generated, pipeline.Layout, retainedSlot);
 
             ulong vertexBytes = checked((ulong)geometry.Vertices.Length * sizeof(float));
             ulong indexBytes = checked((ulong)geometry.Triangles.Length * sizeof(int));
@@ -480,6 +490,98 @@ namespace MphRead.Mods.Render
             }
 
             _retainedWorldUniformPatches++;
+        }
+
+        private int UploadRetainedWorldUniformWords(GeneratedProgram generated)
+        {
+            RetainedUniformAllocation allocation =
+                RentRetainedUniformSlot((ulong)generated.Layout.Size);
+            generated.UniformBuffer = (WgpuBuffer*)allocation.Buffer;
+            generated.UniformOffset = allocation.Offset;
+            fixed (uint* words = generated.Words)
+            {
+                WriteRetainedUniformBuffer(
+                    allocation, words, (nuint)generated.Layout.Size);
+            }
+            return allocation.Slot;
+        }
+
+        private BindGroup* RetainedWorldBindGroup(
+            GeneratedProgram generated, BindGroupLayout* layout, int slot)
+        {
+            var entries =
+                stackalloc BindGroupEntry[1 + generated.Textures.Length * 2];
+            Span<nint> resources =
+                stackalloc nint[3 + generated.Textures.Length * 2];
+            resources[0] = (nint)layout;
+            resources[1] = (nint)generated.UniformBuffer;
+            resources[2] = (nint)generated.UniformOffset;
+
+            entries[0] = new BindGroupEntry
+            {
+                Binding = 0,
+                Buffer = generated.UniformBuffer,
+                Offset = generated.UniformOffset,
+                Size = (ulong)generated.Layout.Size
+            };
+            uint count = 1;
+            for (int i = 0; i < generated.Textures.Length; i++)
+            {
+                NativeTexture? texture = generated.Textures[i] == 0
+                    ? null : EnsureTexture(generated.Textures[i]);
+                TextureView* view =
+                    texture != null ? texture.SampleView : _whiteView;
+                Silk.NET.WebGPU.Sampler* sampler =
+                    texture != null ? texture.Sampler : _whiteSampler;
+                entries[count++] = new BindGroupEntry
+                {
+                    Binding = (uint)(1 + i * 2),
+                    TextureView = view
+                };
+                entries[count++] = new BindGroupEntry
+                {
+                    Binding = (uint)(2 + i * 2),
+                    Sampler = sampler
+                };
+
+                int fingerprint = 3 + i * 2;
+                resources[fingerprint] = (nint)view;
+                resources[fingerprint + 1] = (nint)sampler;
+            }
+
+            while (_retainedWorldBindGroups.Count <= slot)
+                _retainedWorldBindGroups.Add(new GeneratedBindGroupCacheEntry());
+            GeneratedBindGroupCacheEntry cached =
+                _retainedWorldBindGroups[slot];
+            if (cached.Group != null
+                && cached.Resources.AsSpan().SequenceEqual(resources))
+            {
+                _retainedWorldBindGroupHits++;
+                return cached.Group;
+            }
+
+            if (cached.Group != null)
+                ReleaseTrackedBindGroup(cached.Group);
+            cached.Group = CreateTrackedBindGroup(new BindGroupDescriptor
+            {
+                Layout = layout,
+                Entries = entries,
+                EntryCount = count
+            });
+            cached.Resources = resources.ToArray();
+            _retainedWorldBindGroupMisses++;
+            return cached.Group;
+        }
+
+        private void DisposeRetainedWorldBindGroups()
+        {
+            foreach (GeneratedBindGroupCacheEntry cached
+                in _retainedWorldBindGroups)
+            {
+                if (cached.Group != null)
+                    ReleaseTrackedBindGroup(cached.Group);
+            }
+            _retainedWorldBindGroups.Clear();
         }
 
         private static void RetainedInt(uint[] words, int at, int value) =>
