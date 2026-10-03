@@ -48,28 +48,28 @@ namespace MphRead.Mods
             }
         }
 
-        public static void Begin(string roomName)
+        public static bool Begin(string roomName)
         {
             if (String.IsNullOrWhiteSpace(roomName))
-                return;
+                return false;
 
             RoomMetadata? metadata;
             try
             {
                 (metadata, _) = Metadata.GetRoomByName(roomName);
                 if (metadata == null)
-                    return;
+                    return false;
 
                 string root = metadata.FirstHunt || metadata.Hybrid
                     ? Paths.FhFileSystem
                     : Paths.FileSystem;
                 if (!Directory.Exists(root))
-                    return;
+                    return false;
             }
             catch
             {
                 // Asset-free tests and an unconfigured launcher have nothing to warm.
-                return;
+                return false;
             }
 
             if (!Headless.Active)
@@ -80,7 +80,7 @@ namespace MphRead.Mods
             lock (Gate)
             {
                 if (String.Equals(_room, metadata.Name, StringComparison.OrdinalIgnoreCase))
-                    return;
+                    return _prepared != null;
                 _prepared?.TrySetResult(false);
                 _room = metadata.Name;
                 generation = ++_generation;
@@ -92,6 +92,7 @@ namespace MphRead.Mods
             }
 
             _ = Task.Run(() => Warm(metadata, generation, prepared));
+            return true;
         }
 
         public static void Release(string roomName)
@@ -115,6 +116,36 @@ namespace MphRead.Mods
         /// Join an in-flight lobby prewarm once custom-map generation is complete
         /// and the shared lazy file/model sources have been published.
         /// </summary>
+        /// <summary>
+        /// Non-blocking readiness probe for the persistent shell. Returns false
+        /// while no matching preparation exists or the worker is still running.
+        /// Once it returns true, <paramref name="ready"/> is the worker result.
+        /// </summary>
+        public static bool TryGetPreparationResult(string roomName, out bool ready)
+        {
+            Task<bool>? task;
+            lock (Gate)
+            {
+                task = String.Equals(_room, roomName, StringComparison.OrdinalIgnoreCase)
+                    ? _prepared?.Task
+                    : null;
+            }
+            if (task == null || !task.IsCompleted)
+            {
+                ready = false;
+                return false;
+            }
+            try
+            {
+                ready = task.GetAwaiter().GetResult();
+            }
+            catch
+            {
+                ready = false;
+            }
+            return true;
+        }
+
         public static bool JoinForLoad(string roomName)
         {
             Task<bool>? task;
@@ -252,10 +283,10 @@ namespace MphRead.Mods
                     _files = files;
                     _roomModel = model;
                 }
-                // The real loader may start now and consume these same Lazy
-                // instances while this worker continues forcing the rest.
-                prepared.TrySetResult(true);
-
+                // Keep preparation pending until the heavy file reads and
+                // model decode are actually complete. Publishing "ready" here used
+                // to let the render thread immediately block on model.Value for a
+                // large custom map, making the entire window look frozen.
                 long bytes = 0;
                 int count = 0;
                 foreach (KeyValuePair<string, Lazy<byte[]>> pair in files)
@@ -283,8 +314,12 @@ namespace MphRead.Mods
                 lock (Gate)
                 {
                     if (generation != _generation)
+                    {
+                        prepared.TrySetResult(false);
                         return;
+                    }
                 }
+                prepared.TrySetResult(true);
                 Console.WriteLine($"[prewarm] {metadata.Name}: {count} files, "
                     + $"{bytes / (1024.0 * 1024.0):0.0} MiB in {clock.Elapsed.TotalSeconds:0.00}s");
             }
