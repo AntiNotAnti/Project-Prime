@@ -426,6 +426,18 @@ namespace MphRead
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         internal long RetainedRoomPacketSubmissions =>
             _room?.RetainedRoomPacketSubmissions ?? 0;
+        internal long RetainedRoomClusterBuilds =>
+            _room?.RetainedRoomClusterBuilds ?? 0;
+        internal long RetainedRoomClusterTests =>
+            _room?.RetainedRoomClusterTests ?? 0;
+        internal long RetainedRoomClusterRejects =>
+            _room?.RetainedRoomClusterRejects ?? 0;
+        internal long RetainedRoomNodeVisibilityTests =>
+            _room?.RetainedRoomNodeVisibilityTests ?? 0;
+        internal int RetainedOpaqueSortRunCount =>
+            _retainedRenderWorld.OpaqueSortRunCount;
+        internal int RetainedOpaqueReorderedPacketCount =>
+            _retainedRenderWorld.OpaqueReorderedPacketCount;
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;
