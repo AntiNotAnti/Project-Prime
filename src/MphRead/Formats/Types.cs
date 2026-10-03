@@ -58,6 +58,11 @@ namespace MphRead
         /// so a wide world FOV cannot stretch the arm cannon.
         /// </summary>
         public bool ViewModel { get; set; }
+        /// <summary>
+        /// True only for the persistent packets owned by RoomEntity's retained
+        /// mesh templates. It is renderer metadata, not gameplay state.
+        /// </summary>
+        internal bool RetainedRoomOwned { get; set; }
         public bool NoLines { get; set; }
         public Vector3 Diffuse { get; set; }
         public Vector3 Ambient { get; set; }
