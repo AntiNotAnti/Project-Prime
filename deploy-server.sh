@@ -11,6 +11,7 @@
 set -euo pipefail
 
 HOST="${MPH_SERVER_HOST:-51.161.113.128}"
+PUBLIC_HOST="${MPH_PUBLIC_HOST:-$HOST}"
 USER="${MPH_SERVER_USER:-ubuntu}"
 REMOTE_DIR="${MPH_SERVER_DIR:-/home/$USER/fruityprime-server/current}"
 SERVICE="mphread-server"
@@ -105,7 +106,7 @@ install_unit() {
   fi
   echo "==> installing $name.service"
   sed -e "s|__USER__|$USER|g" -e "s|__DIR__|$REMOTE_DIR|g" \
-      -e "s|__PUBLIC__|$HOST|g" "$template" \
+      -e "s|__PUBLIC__|$PUBLIC_HOST|g" "$template" \
     | ssh_run "cat > /tmp/$name.service"
   ssh_run "sudo mv /tmp/$name.service /etc/systemd/system/$name.service && sudo systemctl daemon-reload && sudo systemctl enable $name"
 }
@@ -171,7 +172,7 @@ fi
 echo "==> done"
 echo
 echo "The browser and Create Lobby flow ask 51.161.113.128:27889 by default."
-echo "UDP 27889 plus the hosted range 27900-27919 must reach this machine."
+echo "UDP 27889 plus the hosted range 27900-27919 must reach $PUBLIC_HOST."
 echo "Set MPH_DEPLOY_GAME_SERVER=1 only when you also want the permanent"
 echo "Continuous official/rated server on UDP 27888."
 
