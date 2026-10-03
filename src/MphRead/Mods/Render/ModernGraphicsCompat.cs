@@ -513,7 +513,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             self._recording = false;
             self.ReleaseListGeometry(self._recordingList);
-            self._lists[self._recordingList] = new GeometryList
+            var geometry = new GeometryList
             {
                 Vertices = self._batch.Vertices.ToArray(),
                 Triangles = self._batch.TriIndices.ToArray(),
@@ -521,6 +521,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 EndNormal = self._normalSet ? self._currentNormal : null,
                 EndColor = self._colorSet ? self._currentColor : null
             };
+            self._lists[self._recordingList] = geometry;
+            self.PrepareRetainedListGeometry(geometry);
             self._currentNormal = self._listInitialNormal;
             self._currentColor = self._listInitialColor;
             self._currentTexcoord = self._listInitialTexcoord;
