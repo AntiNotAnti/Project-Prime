@@ -380,6 +380,7 @@ namespace MphRead.Mods.Render
 
         private void ReleaseNativeRenderbuffer(NativeRenderbuffer renderbuffer)
         {
+            EndActiveCorePass();
             if (renderbuffer.View != null) _api.TextureViewRelease(renderbuffer.View);
             if (renderbuffer.Texture != null) _api.TextureRelease(renderbuffer.Texture);
         }
