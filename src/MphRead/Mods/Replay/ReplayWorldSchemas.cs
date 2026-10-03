@@ -416,6 +416,7 @@ internal static class ReplayWorldSchemas
         ],
         ["MphRead.Entities.BeamProjectileEntity"] = [
             "EnhancedBounceCount", "EnhancedMicroSeeker", "EnhancedFullCharge", "EnhancedSiegeRound",
+            "BattlehammerClusterChild",
             "<Flags>k__BackingField",
             "<ModLaunchFrame>k__BackingField",
             "<ModShotId>k__BackingField",
