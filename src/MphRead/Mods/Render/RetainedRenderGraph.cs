@@ -170,6 +170,8 @@ namespace MphRead.Mods.Render
     {
         private readonly Dictionary<RetainedMeshDescriptorKey, RetainedMeshDescriptor>
             _meshDescriptors = new();
+        private readonly Dictionary<RenderItem, RetainedDrawPacket>
+            _packetByItem = new();
         private readonly List<RetainedDrawPacket> _opaque = new(256);
         private readonly List<RetainedDrawPacket> _decals = new(64);
         private readonly List<RetainedDrawPacket> _translucent = new(128);
@@ -195,6 +197,8 @@ namespace MphRead.Mods.Render
         internal int GraphStateReuseCount => Reuses(_opaqueBatches) * 2
             + Reuses(_decalBatches) + Reuses(_translucentBatches) * 3;
         internal int MeshDescriptorCount => _meshDescriptors.Count;
+        internal bool TryGetPacket(RenderItem item, out RetainedDrawPacket packet) =>
+            _packetByItem.TryGetValue(item, out packet);
         internal int OpaqueSortRunCount { get; private set; }
         internal int OpaqueReorderedPacketCount { get; private set; }
         internal ulong FrameRevision { get; private set; }
@@ -202,6 +206,7 @@ namespace MphRead.Mods.Render
         internal void Capture(IReadOnlyList<RenderItem> nonDecal,
             IReadOnlyList<RenderItem> decals, IReadOnlyList<RenderItem> translucent)
         {
+            _packetByItem.Clear();
             OpaqueSortRunCount = 0;
             OpaqueReorderedPacketCount = 0;
             CaptureList(_opaque, _opaqueBatches, nonDecal, sortOpaque: true);
@@ -219,6 +224,7 @@ namespace MphRead.Mods.Render
             _opaqueBatches.Clear();
             _decalBatches.Clear();
             _translucentBatches.Clear();
+            _packetByItem.Clear();
         }
 
         private void CaptureList(List<RetainedDrawPacket> destination,
@@ -238,7 +244,9 @@ namespace MphRead.Mods.Render
                     mesh = new RetainedMeshDescriptor(key);
                     _meshDescriptors.Add(key, mesh);
                 }
-                destination.Add(new RetainedDrawPacket(item, i, mesh));
+                var packet = new RetainedDrawPacket(item, i, mesh);
+                destination.Add(packet);
+                _packetByItem.TryAdd(item, packet);
             }
             if (sortOpaque)
                 SortSafeOpaqueRuns(destination);
