@@ -76,6 +76,13 @@ namespace MphRead.Mods
                 return true;
             }
 #if !MPHREAD_SERVER
+            if (HasFlag(args, "rendergraphcheck"))
+            {
+                Environment.ExitCode = Render.RetainedRenderGraphCheck.Run();
+                return true;
+            }
+#endif
+#if !MPHREAD_SERVER
             if (HasFlag(args, "renderbackendprobe"))
             {
                 Environment.ExitCode = Render.ModernGraphicsBackendProbe.Run(ValueAfter(args, "renderer"));
