@@ -10,13 +10,13 @@ namespace MphRead.Mods.Render.Materials;
 /// </summary>
 internal static class MapMaterialAssetRegistry
 {
-    public static ResolvedMaterial? Resolve(MaterialAssetKey key)
+    public static ResolvedMaterial? Resolve(MaterialAssetKey key, bool includeCompanions = true)
     {
         if (!key.Value.StartsWith("map/", StringComparison.Ordinal)) return null;
         try
         {
             foreach (MapDefinition definition in CustomRooms.Definitions)
-                if (Resolve(definition, key) is { } resolved) return resolved;
+                if (Resolve(definition, key, includeCompanions) is { } resolved) return resolved;
         }
         catch (Exception ex) when (ex is IOException or InvalidDataException or UnauthorizedAccessException
             or ArgumentException or InvalidOperationException)
@@ -26,7 +26,8 @@ internal static class MapMaterialAssetRegistry
         return null;
     }
 
-    internal static ResolvedMaterial? Resolve(MapDefinition definition, MaterialAssetKey key)
+    internal static ResolvedMaterial? Resolve(MapDefinition definition, MaterialAssetKey key,
+        bool includeCompanions = true)
     {
         if (definition.MapId == Guid.Empty || !key.Value.StartsWith($"map/{definition.MapId:N}/", StringComparison.Ordinal))
             return null;
@@ -37,8 +38,11 @@ internal static class MapMaterialAssetRegistry
             byte[] bytes = MapAssets.Read(definition, relative);
             (int width, int height) = ModernTextureAsset.ProbeDimensions(bytes);
             string identity = $"ppmap/{definition.MapId:N}/{relative}";
+            // The encoded package bytes are immutable for this resolved material.
+            // Reuse them for worker decode instead of reopening/revalidating the
+            // package a second time for the same channel.
             return new MaterialImage(identity, width, height,
-                () => new MemoryStream(MapAssets.Read(definition, relative), writable: false));
+                () => new MemoryStream(bytes, writable: false), canDecodeOffThread: true);
         }
 
         foreach (MapMaterial material in definition.Materials)
@@ -48,8 +52,10 @@ internal static class MapMaterialAssetRegistry
             if (!key.Value.StartsWith(prefix, StringComparison.Ordinal)) continue;
             string recolorText = key.Value[prefix.Length..];
             if (!Int32.TryParse(recolorText, out int recolor) || recolor < 0) return null;
-            var resolved = new ResolvedMaterial(key, Image(material.Albedo), Image(material.Normal),
-                Image(material.SpecularRoughness), Image(material.Emissive));
+            var resolved = new ResolvedMaterial(key, Image(material.Albedo),
+                includeCompanions ? Image(material.Normal) : null,
+                includeCompanions ? Image(material.SpecularRoughness) : null,
+                includeCompanions ? Image(material.Emissive) : null);
             return resolved.Albedo != null || resolved.Normal != null
                 || resolved.SpecularRoughness != null || resolved.Emissive != null ? resolved : null;
         }
