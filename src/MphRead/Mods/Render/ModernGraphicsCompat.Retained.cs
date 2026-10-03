@@ -148,8 +148,24 @@ namespace MphRead.Mods.Render
         {
             try
             {
-                _ = new RetainedWorldUniformOffsets(
-                    GeneratedShaderLayouts.Get(ModernProgramKind.World));
+                ModernShaderLayout layout =
+                    GeneratedShaderLayouts.Get(ModernProgramKind.World);
+                _ = new RetainedWorldUniformOffsets(layout);
+                string[] expectedSamplers =
+                    { "tex", "normal_tex", "specular_tex", "emissive_tex" };
+                if (layout.Samplers.Length != expectedSamplers.Length)
+                {
+                    error = $"generated World sampler count is {layout.Samplers.Length}, expected {expectedSamplers.Length}";
+                    return false;
+                }
+                for (int i = 0; i < expectedSamplers.Length; i++)
+                {
+                    if (layout.Samplers[i] != expectedSamplers[i])
+                    {
+                        error = $"generated World sampler {i} is '{layout.Samplers[i]}', expected '{expectedSamplers[i]}'";
+                        return false;
+                    }
+                }
                 error = "";
                 return true;
             }
