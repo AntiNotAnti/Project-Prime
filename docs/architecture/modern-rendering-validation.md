@@ -186,10 +186,6 @@ in-flight companion promotions; turning it back on rebuilds them from the same
 material source. When advanced maps are disabled, a file-backed albedo no longer
 has to wait for companion sources to qualify for background decode.
 
-The HD texture path also caches the device's maximum texture dimension and
-anisotropy capability after the first successful query instead of polling
-immutable driver limits for every authored channel.
-
 Packaged `.ppmap` materials now reuse the package validation performed when the
 map definition is loaded. Subsequent asset reads use a bounded single-entry ZIP
 path while the archive length/timestamp remain unchanged; a changed package
