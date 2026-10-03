@@ -35,14 +35,15 @@ internal static class MapMaterialAssetRegistry
         MaterialImage? Image(string? relative)
         {
             if (String.IsNullOrWhiteSpace(relative)) return null;
-            byte[] bytes = MapAssets.Read(definition, relative);
-            (int width, int height) = ModernTextureAsset.ProbeDimensions(bytes);
+            byte[] probe = MapAssets.Read(definition, relative);
+            (int width, int height) = ModernTextureAsset.ProbeDimensions(probe);
             string identity = $"ppmap/{definition.MapId:N}/{relative}";
-            // The encoded package bytes are immutable for this resolved material.
-            // Reuse them for worker decode instead of reopening/revalidating the
-            // package a second time for the same channel.
+            // Keep the streaming queue bounded: retain dimensions/identity, not
+            // every encoded image in the package. The worker reopens only this
+            // already-validated entry when it is ready to decode it.
             return new MaterialImage(identity, width, height,
-                () => new MemoryStream(bytes, writable: false), canDecodeOffThread: true);
+                () => new MemoryStream(MapAssets.Read(definition, relative), writable: false),
+                canDecodeOffThread: true);
         }
 
         foreach (MapMaterial material in definition.Materials)
