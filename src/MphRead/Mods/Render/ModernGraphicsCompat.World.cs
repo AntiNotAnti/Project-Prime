@@ -24,6 +24,7 @@ namespace MphRead.Mods.Render
             ModernProgramKind Program,
             PrimitiveTopology Topology,
             WgpuTextureFormat ColorFormat,
+            int ColorTargetCount,
             bool HasDepth,
             WgpuTextureFormat DepthFormat,
             bool DepthTest,
@@ -59,10 +60,16 @@ namespace MphRead.Mods.Render
         {
             internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
                 WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
-                WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8)
+                WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8,
+                WgpuTexture* colorTexture1 = null, TextureView* colorView1 = null,
+                WgpuTexture* colorTexture2 = null, TextureView* colorView2 = null)
             {
                 ColorTexture = colorTexture;
                 ColorView = colorView;
+                ColorTexture1 = colorTexture1;
+                ColorView1 = colorView1;
+                ColorTexture2 = colorTexture2;
+                ColorView2 = colorView2;
                 ColorFormat = colorFormat;
                 DepthView = depthView;
                 DepthFormat = depthFormat;
@@ -72,6 +79,10 @@ namespace MphRead.Mods.Render
 
             internal WgpuTexture* ColorTexture { get; }
             internal TextureView* ColorView { get; }
+            internal WgpuTexture* ColorTexture1 { get; }
+            internal TextureView* ColorView1 { get; }
+            internal WgpuTexture* ColorTexture2 { get; }
+            internal TextureView* ColorView2 { get; }
             internal WgpuTextureFormat ColorFormat { get; }
             internal TextureView* DepthView { get; }
             internal WgpuTextureFormat DepthFormat { get; }
@@ -79,6 +90,23 @@ namespace MphRead.Mods.Render
             internal int Width { get; }
             internal int Height { get; }
             internal bool HasDepth => DepthView != null;
+            internal int ColorTargetCount => ColorView2 != null ? 3 : ColorView1 != null ? 2 : 1;
+
+            internal WgpuTexture* ColorTextureAt(int index) => index switch
+            {
+                0 => ColorTexture,
+                1 => ColorTexture1,
+                2 => ColorTexture2,
+                _ => null
+            };
+
+            internal TextureView* ColorViewAt(int index) => index switch
+            {
+                0 => ColorView,
+                1 => ColorView1,
+                2 => ColorView2,
+                _ => null
+            };
         }
 
         private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
@@ -251,6 +279,27 @@ namespace MphRead.Mods.Render
 
             NativeTexture color = EnsureTexture(framebuffer.ColorTexture);
             ModernGraphicsResourceState.TextureRecord colorRecord = _resources.Texture(framebuffer.ColorTexture);
+            WgpuTextureFormat colorFormat = ColorFormat(colorRecord);
+            NativeTexture? color1 = null;
+            NativeTexture? color2 = null;
+            if (framebuffer.ColorTexture1 != 0)
+            {
+                color1 = EnsureTexture(framebuffer.ColorTexture1);
+                ModernGraphicsResourceState.TextureRecord record1 = _resources.Texture(framebuffer.ColorTexture1);
+                if (record1.Width != colorRecord.Width || record1.Height != colorRecord.Height
+                    || ColorFormat(record1) != colorFormat)
+                    throw new InvalidOperationException("Framebuffer color attachment 1 does not match attachment 0.");
+            }
+            if (framebuffer.ColorTexture2 != 0)
+            {
+                if (color1 == null)
+                    throw new InvalidOperationException("Framebuffer color attachment 2 requires attachment 1.");
+                color2 = EnsureTexture(framebuffer.ColorTexture2);
+                ModernGraphicsResourceState.TextureRecord record2 = _resources.Texture(framebuffer.ColorTexture2);
+                if (record2.Width != colorRecord.Width || record2.Height != colorRecord.Height
+                    || ColorFormat(record2) != colorFormat)
+                    throw new InvalidOperationException("Framebuffer color attachment 2 does not match attachment 0.");
+            }
             TextureView* depth = null;
             WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8;
 
@@ -272,8 +321,9 @@ namespace MphRead.Mods.Render
                 }
             }
 
-            return new CoreTarget(color.Texture, color.View, ColorFormat(colorRecord), depth,
-                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat);
+            return new CoreTarget(color.Texture, color.View, colorFormat, depth,
+                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat,
+                color1?.Texture, color1?.View, color2?.Texture, color2?.View);
         }
 
         private NativeRenderbuffer EnsureRenderbuffer(int id)
@@ -334,7 +384,9 @@ namespace MphRead.Mods.Render
             int id = required ? _resources.BoundTexture(unit) : 0;
             if (id == 0) return 0;
             NativeTexture texture = EnsureTexture(id);
-            string? attachment = texture.Texture == target.ColorTexture ? "ColorAttachment" : null;
+            string? attachment = texture.Texture == target.ColorTexture
+                || texture.Texture == target.ColorTexture1
+                || texture.Texture == target.ColorTexture2 ? "ColorAttachment" : null;
             if (_resources.DrawFramebuffer != 0)
             {
                 var framebuffer = _resources.Framebuffer(_resources.DrawFramebuffer);
