@@ -21,6 +21,8 @@ namespace MphRead.Mods.Render
             internal PixelFormat Format;
             internal PixelType Type;
             internal byte[]? Pixels;
+            internal GpuTextureCompressionFormat CompressionFormat;
+            internal CompressedTextureMip[]? CompressedMips;
             internal int MinFilter = (int)TextureMinFilter.Nearest;
             internal int MagFilter = (int)TextureMagFilter.Nearest;
             internal int WrapS = (int)TextureWrapMode.Repeat;
@@ -73,7 +75,8 @@ namespace MphRead.Mods.Render
             foreach (var texture in _textures.Values)
             {
                 texture.Dirty = texture.SamplerDirty = true;
-                texture.MipmapsDirty = texture.HasMipmaps;
+                texture.MipmapsDirty = texture.CompressionFormat == GpuTextureCompressionFormat.None
+                    && texture.HasMipmaps;
             }
             foreach (var renderbuffer in _renderbuffers.Values) renderbuffer.Dirty = true;
         }
@@ -165,6 +168,13 @@ namespace MphRead.Mods.Render
             if ((int)target != (int)TextureTarget.Texture2D)
                 throw new NotSupportedException($"Mipmap target {target} is not supported.");
             TextureRecord record = BoundTextureRecord(TextureTarget.Texture2D);
+            if (record.CompressionFormat != GpuTextureCompressionFormat.None)
+            {
+                record.HasMipmaps = (record.CompressedMips?.Length ?? 0) > 1;
+                record.MipmapsDirty = false;
+                record.SamplerDirty = true;
+                return;
+            }
             record.HasMipmaps = true;
             record.MipmapsDirty = true;
             record.SamplerDirty = true;
@@ -199,6 +209,29 @@ namespace MphRead.Mods.Render
             TextureRecord record = BoundTextureRecord(target);
             SetImageMetadata(record, internalFormat, width, height, format, type);
             record.Pixels = CopyStructArray(pixels);
+        }
+
+        internal void CompressedTexImage2D(TextureTarget target, int width, int height,
+            GpuTextureCompressionFormat compressionFormat, CompressedTextureMip[] mips)
+        {
+            RequireTexture2D(target);
+            if (compressionFormat == GpuTextureCompressionFormat.None || mips == null || mips.Length == 0)
+                throw new ArgumentException("A compressed texture requires a format and at least one mip.");
+            TextureRecord record = BoundTextureRecord(target);
+            record.Width = Math.Max(0, width);
+            record.Height = Math.Max(0, height);
+            record.InternalFormat = PixelInternalFormat.Rgba8;
+            record.Format = PixelFormat.Rgba;
+            record.Type = PixelType.UnsignedByte;
+            record.Pixels = null;
+            record.CompressionFormat = compressionFormat;
+            record.CompressedMips = (CompressedTextureMip[])mips.Clone();
+            record.FramebufferOrigin = false;
+            record.HasMipmaps = mips.Length > 1;
+            record.NativeMipCount = mips.Length;
+            record.MipmapsDirty = false;
+            record.SamplerDirty = true;
+            record.Dirty = true;
         }
 
         internal void TexSubImage2D(TextureTarget target, int x, int y, int width, int height,
@@ -473,8 +506,12 @@ namespace MphRead.Mods.Render
             record.InternalFormat = internalFormat;
             record.Format = format;
             record.Type = type;
+            record.CompressionFormat = GpuTextureCompressionFormat.None;
+            record.CompressedMips = null;
             record.FramebufferOrigin = false;
             record.HasMipmaps = false;
+            record.NativeMipCount = 1;
+            record.MipmapsDirty = false;
             record.Dirty = true;
         }
 
@@ -482,6 +519,8 @@ namespace MphRead.Mods.Render
             PixelFormat format, PixelType type, byte[] source)
         {
             TextureRecord record = BoundTextureRecord(target);
+            if (record.CompressionFormat != GpuTextureCompressionFormat.None)
+                throw new NotSupportedException("Sub-image updates are not supported for block-compressed authored textures.");
             if (record.Format != format || record.Type != type)
             {
                 // OpenGL allows conversion. The current Project Prime update

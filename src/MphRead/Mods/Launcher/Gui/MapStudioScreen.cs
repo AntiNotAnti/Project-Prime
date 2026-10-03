@@ -2018,7 +2018,7 @@ namespace MphRead.Mods.Launcher.Gui
                 if(entry.SourcePath is { } sourcePath)
                 {
                     _inspector.Children.Add(Text("Source: "+sourcePath));
-                    if(Path.GetExtension(sourcePath).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg")
+                    if(Path.GetExtension(sourcePath).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".tga" or ".ktx2")
                         AddButton(_inspector,"Reload source texture",()=>_=ReplaceAsset(entry.Path,sourcePath));
                 }
                 if(entry.Kind=="texture")
@@ -2069,7 +2069,7 @@ namespace MphRead.Mods.Launcher.Gui
                     if(source.LongLength>MapPackageReader.MaxEntryBytes)throw new IOException("Texture image exceeds the 256 MiB asset limit.");
                     _=ModernTextureAsset.ProbeDimensions(source);
                     string extension=ModernTextureAsset.PortableEncodedExtension(source)
-                        ?? throw new InvalidDataException("HD map textures must be PNG or JPEG.");
+                        ?? throw new InvalidDataException("HD map textures must be PNG, JPEG, TGA or KTX2.");
                     byte[] baked=await Task.Run(()=>MapTextureBake.BakeImage(source, token),token);
                     GuardJob(token);
                     string fallback=StoreAsset("textures",".tex",baked);
@@ -2079,7 +2079,7 @@ namespace MphRead.Mods.Launcher.Gui
                 }
                 catch(OperationCanceledException){throw;}
                 catch(Exception ex){GuardJob(token);Failure(ex);}
-            }),".png",".jpg",".jpeg",".tga"));
+            }),".png",".jpg",".jpeg",".tga",".ktx2"));
             AddButton(_inspector,"Choose custom music",()=>Browse("Choose map music",false,path=>
             {
                 try

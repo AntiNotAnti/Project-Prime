@@ -515,6 +515,25 @@ namespace MphRead.Mods.MapGen
         private static byte[] Decode(byte[] raw, int size, CancellationToken cancellation)
         {
             cancellation.ThrowIfCancellationRequested();
+            if (Mods.Render.ModernTextureAsset.PortableEncodedExtension(raw) == ".ktx2")
+            {
+                using var ktx = new MemoryStream(raw, writable: false);
+                Mods.Render.ModernTextureAsset asset = Mods.Render.PreparedTextureCodec.DecodeRgba(
+                    ktx, "map-bake", Mods.Render.TextureAssetClass.World,
+                    Mods.Render.TextureAssetChannel.Albedo, maximumDimension: size);
+                long rgbLength = checked((long)asset.Width * asset.Height * 3);
+                if (rgbLength > Int32.MaxValue)
+                    throw new InvalidDataException("Texture image has invalid dimensions.");
+                var rgb = new byte[(int)rgbLength];
+                for (int i = 0, p = 0; i < asset.Pixels.Length; i += 4)
+                {
+                    rgb[p++] = asset.Pixels[i];
+                    rgb[p++] = asset.Pixels[i + 1];
+                    rgb[p++] = asset.Pixels[i + 2];
+                }
+                return DownsampleRgb(rgb, asset.Width, asset.Height, size, cancellation);
+            }
+
             using var source = new MemoryStream(raw);
             StbImage image;
             try { image = StbImage.Load(source, StbiImageFormat.Rgb); }
@@ -522,20 +541,26 @@ namespace MphRead.Mods.MapGen
             { throw new InvalidDataException("Texture image could not be decoded.", ex); }
             using (image)
             {
-            int width = image.Width;
-            int height = image.Height;
-            long sourceLength = (long)width * height * 3;
-            if (width <= 0 || height <= 0 || image.ImagePointer == IntPtr.Zero
-                || sourceLength <= 0 || sourceLength > Int32.MaxValue)
-                throw new InvalidDataException("Texture image has invalid dimensions.");
+                int width = image.Width;
+                int height = image.Height;
+                long sourceLength = (long)width * height * 3;
+                if (width <= 0 || height <= 0 || image.ImagePointer == IntPtr.Zero
+                    || sourceLength <= 0 || sourceLength > Int32.MaxValue)
+                    throw new InvalidDataException("Texture image has invalid dimensions.");
 
-            // ReFuel.Stb's managed span length uses the file's original channel
-            // count, not the requested output format. Grayscale Q3 art loaded
-            // as RGB therefore exposes too short a span even though STB
-            // allocated a full RGB buffer. Copy the requested buffer directly.
-            var sourcePixels = new byte[(int)sourceLength];
-            Marshal.Copy(image.ImagePointer, sourcePixels, 0, sourcePixels.Length);
-            ReadOnlySpan<byte> pixels = sourcePixels;
+                // ReFuel.Stb's managed span length uses the file's original channel
+                // count, not the requested output format. Grayscale Q3 art loaded
+                // as RGB therefore exposes too short a span even though STB
+                // allocated a full RGB buffer. Copy the requested buffer directly.
+                var sourcePixels = new byte[(int)sourceLength];
+                Marshal.Copy(image.ImagePointer, sourcePixels, 0, sourcePixels.Length);
+                return DownsampleRgb(sourcePixels, width, height, size, cancellation);
+            }
+        }
+
+        private static byte[] DownsampleRgb(byte[] pixels, int width, int height,
+            int size, CancellationToken cancellation)
+        {
             var result = new byte[size * size * 3];
             for (int y = 0; y < size; y++)
             {
@@ -546,10 +571,7 @@ namespace MphRead.Mods.MapGen
                 {
                     int x0 = x * width / size;
                     int x1 = Math.Max(x0 + 1, (x + 1) * width / size);
-                    int r = 0;
-                    int g = 0;
-                    int b = 0;
-                    int count = 0;
+                    int r = 0, g = 0, b = 0, count = 0;
                     for (int sy = y0; sy < y1 && sy < height; sy++)
                     {
                         for (int sx = x0; sx < x1 && sx < width; sx++)
@@ -568,7 +590,6 @@ namespace MphRead.Mods.MapGen
                 }
             }
             return result;
-            }
         }
 
         /// <summary>

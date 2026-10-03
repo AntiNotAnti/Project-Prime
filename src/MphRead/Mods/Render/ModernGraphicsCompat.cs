@@ -906,7 +906,10 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 + $"surface={_surfaceFormat} maxTexture2D={limits.Limits.MaxTextureDimension2D} "
                 + $"anisotropy=16 presentModes={string.Join(',', _presentModes)} "
                 + $"internalHdr=RGBA16Float outputHdr=false depth=Depth24Plus,Depth24PlusStencil8 "
-                + $"adapterTimestampQuery={timestamp} gpuTimingEnabled=false";
+                + $"adapterTimestampQuery={timestamp} gpuTimingEnabled=false "
+                + $"textureCompression=BC:{_device.SupportsTextureCompressionBc},"
+                + $"ETC2:{_device.SupportsTextureCompressionEtc2},"
+                + $"ASTC:{_device.SupportsTextureCompressionAstc}";
             Console.WriteLine("[render] " + capabilities);
             Mods.DebugLog.Line("render", capabilities);
         }
@@ -1100,31 +1103,44 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsResourceState.TextureRecord record = _resources.Texture(id);
             _nativeTextures.TryGetValue(id, out NativeTexture? existing);
             WgpuTextureFormat format = NativeTextureFormat(record);
-            byte[] data = record.Dirty ? ConvertPixels(record, ref format) : Array.Empty<byte>();
+            bool compressed = record.CompressionFormat != GpuTextureCompressionFormat.None;
+            byte[] data = record.Dirty && !compressed
+                ? ConvertPixels(record, ref format) : Array.Empty<byte>();
             int width = Math.Max(1, record.Width);
             int height = Math.Max(1, record.Height);
             bool depth = format == WgpuTextureFormat.Depth24Plus || format == WgpuTextureFormat.Depth24PlusStencil8;
-            int mipCount = record.HasMipmaps && !depth
-                ? 1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))) : 1;
+            int mipCount = compressed
+                ? Math.Max(1, record.CompressedMips?.Length ?? 1)
+                : record.HasMipmaps && !depth
+                    ? 1 + (int)Math.Floor(Math.Log2(Math.Max(width, height))) : 1;
             if (existing != null && existing.Width == width && existing.Height == height
                 && existing.Format == format && existing.MipCount == mipCount)
             {
-                if (record.Dirty && data.Length > 0) UploadTexture(existing, data);
+                if (record.Dirty)
+                {
+                    if (compressed && record.CompressedMips != null)
+                        UploadCompressedTexture(existing, record.CompressedMips, mipCount);
+                    else if (data.Length > 0)
+                        UploadTexture(existing, data);
+                }
                 if (record.SamplerDirty) UpdateSampler(existing, record);
-                if (mipCount > 1 && (record.Dirty || record.MipmapsDirty)) GenerateNativeMipmaps(existing);
+                if (!compressed && mipCount > 1 && (record.Dirty || record.MipmapsDirty))
+                    GenerateNativeMipmaps(existing);
                 record.Dirty = record.MipmapsDirty = false;
                 return existing;
             }
             // Expanding a render target's mip chain must preserve its GPU base
             // level; the CPU image may be absent or older than the rendered image.
-            bool preserveBase = existing != null && !record.Dirty
+            bool preserveBase = !compressed && existing != null && !record.Dirty
                 && existing.Width == width && existing.Height == height && existing.Format == format;
             var descriptor = new TextureDescriptor
             {
                 Size = new Extent3D((uint)width, (uint)height, 1),
                 Format = format,
-                Usage = TextureUsage.CopyDst | TextureUsage.TextureBinding
-                    | TextureUsage.RenderAttachment | TextureUsage.CopySrc,
+                Usage = compressed
+                    ? TextureUsage.CopyDst | TextureUsage.TextureBinding
+                    : TextureUsage.CopyDst | TextureUsage.TextureBinding
+                        | TextureUsage.RenderAttachment | TextureUsage.CopySrc,
                 MipLevelCount = (uint)mipCount,
                 SampleCount = 1,
                 Dimension = TextureDimension.Dimension2D
@@ -1176,8 +1192,10 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 EndCommands();
 
             }
+            else if (compressed && record.CompressedMips != null)
+                UploadCompressedTexture(native, record.CompressedMips, mipCount);
             else if (data.Length > 0) UploadTexture(native, data);
-            if (mipCount > 1) GenerateNativeMipmaps(native);
+            if (!compressed && mipCount > 1) GenerateNativeMipmaps(native);
             if (depth && record.MipmapsDirty)
                 Mods.DebugLog.Line("render", $"Texture {id}: mipmaps unavailable for {format}; using base level.");
             if (existing != null) ReleaseNativeTexture(existing);
@@ -1380,6 +1398,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private static WgpuTextureFormat NativeTextureFormat(
             ModernGraphicsResourceState.TextureRecord record)
         {
+            if (record.CompressionFormat != GpuTextureCompressionFormat.None)
+                return CompressedNativeTextureFormat(record.CompressionFormat);
             return record.InternalFormat switch
             {
                 PixelInternalFormat.Depth24Stencil8 => WgpuTextureFormat.Depth24PlusStencil8,

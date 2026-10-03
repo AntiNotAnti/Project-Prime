@@ -136,6 +136,7 @@
          desktop feature, preview capture goes through AndroidPng, and material
          PNG decoding uses the platform BitmapFactory with unscaled straight RGBA. -->
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" ExcludeAssets="native" />
+    <PackageReference Include="Ktx2.NET" Version="1.0.5" ExcludeAssets="native" />
     <!-- The custom maps. The room binaries they describe are built on the
          device from the player's own extracted files and never travel in the
          package. AndroidAsset rather than a content file because nothing in an
@@ -194,6 +195,15 @@
   <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so')">
     <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-android\lib\x86_64\libwgpu_native.so"
                           Link="lib\x86_64\libwgpu_native.so" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-android\lib\arm64-v8a\libktx.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-android\lib\arm64-v8a\libktx.so"
+                          Link="lib\arm64-v8a\libktx.so" />
+  </ItemGroup>
+  <ItemGroup Condition="Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-android\lib\x86_64\libktx.so')">
+    <AndroidNativeLibrary Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-android\lib\x86_64\libktx.so"
+                          Link="lib\x86_64\libktx.so" />
   </ItemGroup>
 
   <ItemGroup>

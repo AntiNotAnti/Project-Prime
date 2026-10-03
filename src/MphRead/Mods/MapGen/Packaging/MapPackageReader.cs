@@ -179,7 +179,7 @@ namespace MphRead.Mods.MapGen
                     throw new InvalidDataException("Package expanded size exceeds the limit.");
                 string ext = Path.GetExtension(name).ToLowerInvariant();
                 if (ext is not (".json" or ".bsp" or ".obj" or ".tex" or ".png"
-                    or ".jpg" or ".jpeg" or ".tga" or ".ogg" or ".wav" or ".mp3"))
+                    or ".jpg" or ".jpeg" or ".tga" or ".ktx2" or ".ogg" or ".wav" or ".mp3"))
                     throw new InvalidDataException("Unsupported package asset: " + name);
             }
             return entries;
