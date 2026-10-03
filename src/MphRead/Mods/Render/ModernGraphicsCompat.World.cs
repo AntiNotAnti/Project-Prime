@@ -24,6 +24,7 @@ namespace MphRead.Mods.Render
             ModernProgramKind Program,
             PrimitiveTopology Topology,
             WgpuTextureFormat ColorFormat,
+            int ColorTargetCount,
             bool HasDepth,
             WgpuTextureFormat DepthFormat,
             bool DepthTest,
@@ -60,9 +61,23 @@ namespace MphRead.Mods.Render
             internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
                 WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
                 WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8)
+                : this(colorTexture, colorView, colorFormat, depthView, width, height,
+                    depthFormat, null, null, null, null)
+            {
+            }
+
+            internal CoreTarget(WgpuTexture* colorTexture, TextureView* colorView,
+                WgpuTextureFormat colorFormat, TextureView* depthView, int width, int height,
+                WgpuTextureFormat depthFormat,
+                WgpuTexture* colorTexture1, TextureView* colorView1,
+                WgpuTexture* colorTexture2, TextureView* colorView2)
             {
                 ColorTexture = colorTexture;
                 ColorView = colorView;
+                ColorTexture1 = colorTexture1;
+                ColorView1 = colorView1;
+                ColorTexture2 = colorTexture2;
+                ColorView2 = colorView2;
                 ColorFormat = colorFormat;
                 DepthView = depthView;
                 DepthFormat = depthFormat;
@@ -72,6 +87,10 @@ namespace MphRead.Mods.Render
 
             internal WgpuTexture* ColorTexture { get; }
             internal TextureView* ColorView { get; }
+            internal WgpuTexture* ColorTexture1 { get; }
+            internal TextureView* ColorView1 { get; }
+            internal WgpuTexture* ColorTexture2 { get; }
+            internal TextureView* ColorView2 { get; }
             internal WgpuTextureFormat ColorFormat { get; }
             internal TextureView* DepthView { get; }
             internal WgpuTextureFormat DepthFormat { get; }
@@ -79,6 +98,23 @@ namespace MphRead.Mods.Render
             internal int Width { get; }
             internal int Height { get; }
             internal bool HasDepth => DepthView != null;
+            internal int ColorTargetCount => ColorView2 != null ? 3 : ColorView1 != null ? 2 : 1;
+
+            internal WgpuTexture* ColorTextureAt(int index) => index switch
+            {
+                0 => ColorTexture,
+                1 => ColorTexture1,
+                2 => ColorTexture2,
+                _ => null
+            };
+
+            internal TextureView* ColorViewAt(int index) => index switch
+            {
+                0 => ColorView,
+                1 => ColorView1,
+                2 => ColorView2,
+                _ => null
+            };
         }
 
         private readonly Dictionary<int, NativeRenderbuffer> _nativeRenderbuffers = new();
@@ -315,6 +351,27 @@ namespace MphRead.Mods.Render
 
             NativeTexture color = EnsureTexture(framebuffer.ColorTexture);
             ModernGraphicsResourceState.TextureRecord colorRecord = _resources.Texture(framebuffer.ColorTexture);
+            WgpuTextureFormat colorFormat = ColorFormat(colorRecord);
+            NativeTexture? color1 = null;
+            NativeTexture? color2 = null;
+            if (framebuffer.ColorTexture1 != 0)
+            {
+                color1 = EnsureTexture(framebuffer.ColorTexture1);
+                ModernGraphicsResourceState.TextureRecord record1 = _resources.Texture(framebuffer.ColorTexture1);
+                if (record1.Width != colorRecord.Width || record1.Height != colorRecord.Height
+                    || ColorFormat(record1) != colorFormat)
+                    throw new InvalidOperationException("Framebuffer color attachment 1 does not match attachment 0.");
+            }
+            if (framebuffer.ColorTexture2 != 0)
+            {
+                if (color1 == null)
+                    throw new InvalidOperationException("Framebuffer color attachment 2 requires attachment 1.");
+                color2 = EnsureTexture(framebuffer.ColorTexture2);
+                ModernGraphicsResourceState.TextureRecord record2 = _resources.Texture(framebuffer.ColorTexture2);
+                if (record2.Width != colorRecord.Width || record2.Height != colorRecord.Height
+                    || ColorFormat(record2) != colorFormat)
+                    throw new InvalidOperationException("Framebuffer color attachment 2 does not match attachment 0.");
+            }
             TextureView* depth = null;
             WgpuTextureFormat depthFormat = WgpuTextureFormat.Depth24PlusStencil8;
 
@@ -336,8 +393,10 @@ namespace MphRead.Mods.Render
                 }
             }
 
-            return new CoreTarget(color.Texture, color.View, ColorFormat(colorRecord), depth,
-                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat);
+            return new CoreTarget(color.Texture, color.View, colorFormat, depth,
+                Math.Max(1, colorRecord.Width), Math.Max(1, colorRecord.Height), depthFormat,
+                color1 == null ? null : color1.Texture, color1 == null ? null : color1.View,
+                color2 == null ? null : color2.Texture, color2 == null ? null : color2.View);
         }
 
         private NativeRenderbuffer EnsureRenderbuffer(int id)
@@ -399,7 +458,9 @@ namespace MphRead.Mods.Render
             int id = required ? _resources.BoundTexture(unit) : 0;
             if (id == 0) return 0;
             NativeTexture texture = EnsureTexture(id);
-            string? attachment = texture.Texture == target.ColorTexture ? "ColorAttachment" : null;
+            string? attachment = texture.Texture == target.ColorTexture
+                || texture.Texture == target.ColorTexture1
+                || texture.Texture == target.ColorTexture2 ? "ColorAttachment" : null;
             if (_resources.DrawFramebuffer != 0)
             {
                 var framebuffer = _resources.Framebuffer(_resources.DrawFramebuffer);
@@ -428,6 +489,7 @@ namespace MphRead.Mods.Render
             {
                 ModernProgramKind.Clear => ModernProgramKind.Clear,
                 ModernProgramKind.DeferredPbr => ModernProgramKind.DeferredPbr,
+                ModernProgramKind.DeferredPbrMrt => ModernProgramKind.DeferredPbrMrt,
                 ModernProgramKind.PostProcess => ModernProgramKind.PostProcess,
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
@@ -439,9 +501,14 @@ namespace MphRead.Mods.Render
                     ? ModernProgramKind.FixedFunction : ModernProgramKind.Rtt
             };
 
+            var program = _programs.CurrentProgram == 0 ? null : _programs.Program(_programs.CurrentProgram);
+            if (effective == ModernProgramKind.DeferredPbr
+                && program != null && Int(program, "gbuffer_mode") == 0)
+            {
+                effective = ModernProgramKind.DeferredPbrMrt;
+            }
             bool generated = UsesGeneratedShader(effective);
             if (generated) PrepareGeneratedResources(effective, target);
-            var program = _programs.CurrentProgram == 0 ? null : _programs.Program(_programs.CurrentProgram);
             int texture0 = ValidateRenderPassResources(0,
                 !generated && effective != ModernProgramKind.Clear
                     && (effective == ModernProgramKind.FixedFunction ? _enabled.Contains(EnableCap.Texture2D)
@@ -580,7 +647,12 @@ namespace MphRead.Mods.Render
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
             PrimitiveTopology topology, CoreTarget target)
         {
-            var key = new CorePipelineKey(program, topology, target.ColorFormat, target.HasDepth, target.DepthFormat,
+            int colorTargetCount = program == ModernProgramKind.DeferredPbrMrt ? 3 : 1;
+            if (target.ColorTargetCount < colorTargetCount)
+                throw new InvalidOperationException(
+                    $"Program {program} requires {colorTargetCount} color targets; framebuffer has {target.ColorTargetCount}.");
+            var key = new CorePipelineKey(program, topology, target.ColorFormat, colorTargetCount,
+                target.HasDepth, target.DepthFormat,
                 _enabled.Contains(EnableCap.DepthTest), _depthWrite, _depthFunction,
                 _enabled.Contains(EnableCap.StencilTest), _stencilFunction,
                 _stencilFail, _stencilDepthFail, _stencilPass, _stencilReadMask, _stencilWriteMask,
@@ -639,12 +711,16 @@ namespace MphRead.Mods.Render
                 blendPtr = &blend;
             }
 
-            var targetState = new ColorTargetState
+            var targetStates = stackalloc ColorTargetState[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                Format = target.ColorFormat,
-                Blend = blendPtr,
-                WriteMask = key.WriteMask
-            };
+                targetStates[colorIndex] = new ColorTargetState
+                {
+                    Format = target.ColorFormat,
+                    Blend = blendPtr,
+                    WriteMask = key.WriteMask
+                };
+            }
 
             DepthStencilState depthStencil = default;
             DepthStencilState* depthPtr = null;
@@ -681,8 +757,8 @@ namespace MphRead.Mods.Render
                 {
                     Module = generated != null ? generated.Fragment : shader,
                     EntryPoint = (byte*)fs,
-                    Targets = &targetState,
-                    TargetCount = 1
+                    Targets = targetStates,
+                    TargetCount = (uint)colorTargetCount
                 };
                 var descriptor = new RenderPipelineDescriptor
                 {
@@ -898,21 +974,26 @@ namespace MphRead.Mods.Render
             bool clearStencil = (mask & ClearBufferMask.StencilBufferBit) != 0;
 
             CommandEncoder* encoder = BeginCommands();
-            var color = new RenderPassColorAttachment
+            int colorTargetCount = target.ColorTargetCount;
+            var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
-                StoreOp = StoreOp.Store,
-                ClearValue = new WgpuColor
+                colors[colorIndex] = new RenderPassColorAttachment
                 {
-                    R = _clearColor.X,
-                    G = _clearColor.Y,
-                    B = _clearColor.Z,
-                    A = _clearColor.W
-                }
-            };
+                    DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
+                    View = target.ColorViewAt(colorIndex),
+                    ResolveTarget = null,
+                    LoadOp = clearColor ? LoadOp.Clear : LoadOp.Load,
+                    StoreOp = StoreOp.Store,
+                    ClearValue = new WgpuColor
+                    {
+                        R = _clearColor.X,
+                        G = _clearColor.Y,
+                        B = _clearColor.Z,
+                        A = _clearColor.W
+                    }
+                };
+            }
             RenderPassDepthStencilAttachment depth = default;
             RenderPassDepthStencilAttachment* depthPtr = null;
             if (target.HasDepth)
@@ -933,8 +1014,8 @@ namespace MphRead.Mods.Render
             }
             var descriptor = new RenderPassDescriptor
             {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
+                ColorAttachments = colors,
+                ColorAttachmentCount = (uint)colorTargetCount,
                 DepthStencilAttachment = depthPtr
             };
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
