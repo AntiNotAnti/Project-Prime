@@ -194,7 +194,7 @@ namespace MphRead.Mods
                 if (!proc.HasExited) proc.Kill(entireProcessTree: true);
                 // Killed preview workers must never hold application shutdown
                 // hostage. Their output is disposable cache data.
-                if (proc.WaitForExit(1000)) proc.WaitForExit();
+                if (proc.WaitForExit(250)) proc.WaitForExit();
             }
             catch (InvalidOperationException) { }
             catch (System.ComponentModel.Win32Exception ex)
