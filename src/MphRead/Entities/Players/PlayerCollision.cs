@@ -515,157 +515,33 @@ namespace MphRead.Entities
 
         private void ResolveMovementCollision(bool wasStanding)
         {
-            if (!UseRobustCollisionController || _health == 0 || Flags2.TestFlag(PlayerFlags2.Spectating)
-                || NetSession.Active && NetHooks.IsPuppet(this))
-            {
-                // Remote collision bodies stay at the owner-reported position.
-                // Do not reintroduce the reverted movement-reconciliation path.
-                return;
-            }
-
-            Vector3 requestedMovement = Position - PrevPosition;
-
-            // The engine's normal CheckCollision() immediately follows this
-            // method and already performs the canonical swept player collision.
-            // PR #227 added a second three-sphere sweep for every custom-map
-            // biped step. Dense imported meshes can saturate its 40-contact
-            // budget, at which point the safety fallback pins Position to the
-            // previous frame. That shows up as sliding, jumps that never leave
-            // the floor, and a large per-frame CPU tax unique to custom maps.
+            _ = wasStanding;
+            // Custom rooms already pass through the same canonical swept
+            // CheckCollision() immediately after this hook. The extra controller
+            // added by PR #227 duplicated that movement solve and used a
+            // different depenetration policy for alt forms. That split is what
+            // made morphing on authored floors behave differently from native
+            // rooms, including wrong-side recovery through a floor.
             //
-            // Native rooms already rely on CheckCollision() for every biped
-            // displacement, including jumps, falls and knockback. It is itself
-            // a swept query from PrevPosition to Position, so a second custom
-            // biped sweep is redundant rather than extra tunnelling protection.
-            // Keeping it enabled only after vertical speed grows large is also
-            // what made frame time spike intermittently during falls.
-            if (!IsAltForm)
-            {
-                return;
-            }
+            // Keep the robust overlap query for the one place it is useful:
+            // checking whether an alt form can expand back into the taller biped
+            // under a ceiling. Actual movement, in either form, stays on the
+            // native collision path.
+        }
 
-            Vector3 requestedPosition = Position;
-            Position = PrevPosition;
-            if (!RecoverInitialOverlap("pre-sweep"))
-            {
-                // Bounded recovery is a hardening layer, not permission to
-                // freeze gameplay. Fall back to the native collision pass on
-                // pathological/dense custom collision.
-                Position = requestedPosition;
-                return;
-            }
-            Vector3 current = Position;
-            Vector3 target = current + requestedMovement;
-            Span<Vector4> shapes = stackalloc Vector4[3];
-            int shapeCount = GetMovementSweepShapes(shapes);
-            bool completed = false;
-            for (int iteration = 0; iteration < CollisionResolveIterations; iteration++)
-            {
-                Vector3 travel = target - current;
-                float travelLengthSquared = travel.LengthSquared;
-                if (travelLengthSquared <= 1e-10f)
-                {
-                    current = target;
-                    completed = true;
-                    break;
-                }
-
-                bool saturated = false;
-                bool haveHit = false;
-                float earliest = 1;
-                CollisionResult hit = default;
-                for (int shapeIndex = 0; shapeIndex < shapeCount; shapeIndex++)
-                {
-                    Vector3 offset = shapes[shapeIndex].Xyz;
-                    float radius = shapes[shapeIndex].W;
-                    Vector3 startCenter = current + offset;
-                    Vector3 endCenter = target + offset;
-                    IReadOnlyList<CollisionCandidate> candidates = CollisionDetection.GetCandidatesForLimits(
-                        startCenter, endCenter, radius + 0.1f, null, Vector3.Zero,
-                        includeEntities: _scene.GameState.TransitionState == TransitionState.None, _scene);
-                    Array.Clear(_movementCollisionScratch);
-                    int count = CollisionDetection.CheckSphereBetweenPointsRobust(candidates, startCenter, endCenter,
-                        radius, _movementCollisionScratch.Length, includeOffset: true,
-                        TestFlags.Players, _scene, _movementCollisionScratch);
-                    if (count == _movementCollisionScratch.Length)
-                    {
-                        saturated = true;
-                        break;
-                    }
-
-                    for (int i = 0; i < count; i++)
-                    {
-                        CollisionResult result = _movementCollisionScratch[i];
-                        if (!Single.IsFinite(result.Distance)
-                            || !Single.IsFinite(result.Plane.X)
-                            || !Single.IsFinite(result.Plane.Y)
-                            || !Single.IsFinite(result.Plane.Z))
-                        {
-                            continue;
-                        }
-                        float distance = Math.Clamp(result.Distance, 0, 1);
-                        if (distance < earliest)
-                        {
-                            earliest = distance;
-                            hit = result;
-                            haveHit = true;
-                        }
-                    }
-                }
-                if (saturated)
-                {
-                    NoteCollisionOverflow("movement sweep");
-                    // Do not turn collision density into a movement lock. The
-                    // canonical collision pass below still checks the requested
-                    // displacement and is the same path used by native maps.
-                    Position = requestedPosition;
-                    return;
-                }
-                if (!haveHit || earliest >= 0.9999f)
-                {
-                    current = target;
-                    completed = true;
-                    break;
-                }
-
-                Vector3 normal = hit.Plane.Xyz;
-                if (normal.LengthSquared <= 1e-10f)
-                {
-                    current = target;
-                    completed = true;
-                    break;
-                }
-                normal.Normalize();
-
-                float travelLength = MathF.Sqrt(travelLengthSquared);
-                float stop = Math.Clamp(earliest - CollisionContactMargin / MathF.Max(travelLength, 0.0001f), 0, 1);
-                current += travel * stop;
-                Vector3 remaining = travel * (1 - stop);
-                float into = Vector3.Dot(remaining, normal);
-                if (into < 0)
-                {
-                    remaining -= normal * into;
-                }
-                current += normal * CollisionContactMargin;
-                target = current + remaining;
-            }
-
-            Position = current;
-            if (!completed && Vector3.DistanceSquared(Position, target) > 0.0004f)
-            {
-                // Iteration exhaustion is a bounded safe stop, not permission
-                // to consume an arbitrary remaining displacement.
-                target = Position;
-            }
-            if (!RecoverInitialOverlap("post-sweep"))
-            {
-                Position = requestedPosition;
-                return;
-            }
-            if (wasStanding)
-            {
-                TryGroundSnap();
-            }
+        internal static float ModGroundedAltFormLift(
+            CollisionVolume currentVolume, CollisionVolume targetVolume)
+        {
+            // UpdateForm preserves collision-volume center as retail does.
+            // If the target sphere is larger/lower, that can place its bottom
+            // below the floor before the next collision frame (Trace/Sylux are
+            // the obvious cases). Grounded custom rooms may only add the amount
+            // needed to preserve the old bottom; never lower a form that retail
+            // already positions safely.
+            float currentBottom = currentVolume.SpherePosition.Y - currentVolume.SphereRadius;
+            float targetBottomAfterCenterShift =
+                currentVolume.SpherePosition.Y - targetVolume.SphereRadius;
+            return MathF.Max(0, currentBottom - targetBottomAfterCenterShift);
         }
 
         private bool RecoverInitialOverlap(string phase)
