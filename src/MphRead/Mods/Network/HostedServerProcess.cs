@@ -128,14 +128,15 @@ namespace MphRead.Mods.Network
                 requireReady: request.RequireReady,
                 allowJoinInProgress: request.AllowJoinInProgress,
                 waitUntilReady: false, requiredMap: request.MapIdentity, hostedMaps: hostedMaps);
-            if (started < 0 || LocalServer.Running == null)
+            Process? process = started < 0 ? null : LocalServer.DetachRunning();
+            if (started < 0 || process == null)
             {
                 LocalServer.CleanupHostedLibrary(LocalServer.HostedLibrary);
                 reason = LocalServer.LastError ?? $"could not start server on port {port}";
                 return null;
             }
             reason = "";
-            return new HostedServerProcess(LocalServer.Running, started);
+            return new HostedServerProcess(process, started);
         }
 
         /// <summary>
