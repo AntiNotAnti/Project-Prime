@@ -214,6 +214,8 @@ namespace MphRead
                     GL.Vertex3(-1f, -1f, 0f);
                     GL.End();
                     GL.BindTexture(TextureTarget.Texture2D, 0);
+                    if (_graphicsOutputReady)
+                        ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
                     break;
                 }
             }
