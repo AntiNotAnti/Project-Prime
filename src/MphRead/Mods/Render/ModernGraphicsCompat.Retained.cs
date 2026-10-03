@@ -242,7 +242,7 @@ namespace MphRead.Mods.Render
             Array.Copy(_retainedWorldFrameTemplate, generated.Words,
                 generated.Words.Length);
             PatchRetainedWorldUniformWords(
-                generated, item, baseTexture, showTextures, useLighting);
+                generated, target, item, baseTexture, showTextures, useLighting);
             UploadGeneratedUniformWords(generated);
 
             CorePipelineRecord pipeline = CorePipeline(
@@ -343,8 +343,8 @@ namespace MphRead.Mods.Render
         };
 
         private void PatchRetainedWorldUniformWords(
-            GeneratedProgram generated, RenderItem item, int baseTexture,
-            bool showTextures, bool useLighting)
+            GeneratedProgram generated, CoreTarget target, RenderItem item,
+            int baseTexture, bool showTextures, bool useLighting)
         {
             uint[] words = generated.Words;
             RetainedWorldUniformOffsets o = _retainedWorldOffsets!;
@@ -404,7 +404,7 @@ namespace MphRead.Mods.Render
             if (generated.Textures.Length > 0 && baseTexture != 0)
             {
                 generated.Textures[0] = ValidateRenderPassResources(
-                    0, required: true, ResolveDrawTarget());
+                    0, required: true, target);
             }
 
             _retainedWorldUniformPatches++;
