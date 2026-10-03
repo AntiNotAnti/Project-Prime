@@ -415,6 +415,7 @@ namespace MphRead.Mods.Render
             {
                 ModernProgramKind.Clear => ModernProgramKind.Clear,
                 ModernProgramKind.DeferredPbr => ModernProgramKind.DeferredPbr,
+                ModernProgramKind.DeferredPbrMrt => ModernProgramKind.DeferredPbrMrt,
                 ModernProgramKind.PostProcess => ModernProgramKind.PostProcess,
                 ModernProgramKind.World => ModernProgramKind.World,
                 ModernProgramKind.Shift => ModernProgramKind.Shift,
@@ -426,9 +427,14 @@ namespace MphRead.Mods.Render
                     ? ModernProgramKind.FixedFunction : ModernProgramKind.Rtt
             };
 
+            var program = _programs.CurrentProgram == 0 ? null : _programs.Program(_programs.CurrentProgram);
+            if (effective == ModernProgramKind.DeferredPbr
+                && program != null && Int(program, "gbuffer_mode") == 0)
+            {
+                effective = ModernProgramKind.DeferredPbrMrt;
+            }
             bool generated = UsesGeneratedShader(effective);
             if (generated) PrepareGeneratedResources(effective, target);
-            var program = _programs.CurrentProgram == 0 ? null : _programs.Program(_programs.CurrentProgram);
             int texture0 = ValidateRenderPassResources(0,
                 !generated && effective != ModernProgramKind.Clear
                     && (effective == ModernProgramKind.FixedFunction ? _enabled.Contains(EnableCap.Texture2D)
@@ -534,14 +540,22 @@ namespace MphRead.Mods.Render
             }
 
             CommandEncoder* encoder = BeginCommands();
-            var color = new RenderPassColorAttachment
+            int colorTargetCount = effective == ModernProgramKind.DeferredPbrMrt ? 3 : 1;
+            if (target.ColorTargetCount < colorTargetCount)
+                throw new InvalidOperationException(
+                    $"Program {effective} requires {colorTargetCount} color targets; framebuffer has {target.ColorTargetCount}.");
+            var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = LoadOp.Load,
-                StoreOp = StoreOp.Store
-            };
+                colors[colorIndex] = new RenderPassColorAttachment
+                {
+                    DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
+                    View = target.ColorViewAt(colorIndex),
+                    ResolveTarget = null,
+                    LoadOp = LoadOp.Load,
+                    StoreOp = StoreOp.Store
+                };
+            }
             RenderPassDepthStencilAttachment depth = default;
             RenderPassDepthStencilAttachment* depthPtr = null;
             if (target.HasDepth)
@@ -560,8 +574,8 @@ namespace MphRead.Mods.Render
             }
             var passDescriptor = new RenderPassDescriptor
             {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
+                ColorAttachments = colors,
+                ColorAttachmentCount = (uint)colorTargetCount,
                 DepthStencilAttachment = depthPtr
             };
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
@@ -586,7 +600,12 @@ namespace MphRead.Mods.Render
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
             PrimitiveTopology topology, CoreTarget target)
         {
-            var key = new CorePipelineKey(program, topology, target.ColorFormat, target.HasDepth, target.DepthFormat,
+            int colorTargetCount = program == ModernProgramKind.DeferredPbrMrt ? 3 : 1;
+            if (target.ColorTargetCount < colorTargetCount)
+                throw new InvalidOperationException(
+                    $"Program {program} requires {colorTargetCount} color targets; framebuffer has {target.ColorTargetCount}.");
+            var key = new CorePipelineKey(program, topology, target.ColorFormat, colorTargetCount,
+                target.HasDepth, target.DepthFormat,
                 _enabled.Contains(EnableCap.DepthTest), _depthWrite, _depthFunction,
                 _enabled.Contains(EnableCap.StencilTest), _stencilFunction,
                 _stencilFail, _stencilDepthFail, _stencilPass, _stencilReadMask, _stencilWriteMask,
@@ -645,12 +664,16 @@ namespace MphRead.Mods.Render
                 blendPtr = &blend;
             }
 
-            var targetState = new ColorTargetState
+            var targetStates = stackalloc ColorTargetState[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                Format = target.ColorFormat,
-                Blend = blendPtr,
-                WriteMask = key.WriteMask
-            };
+                targetStates[colorIndex] = new ColorTargetState
+                {
+                    Format = target.ColorFormat,
+                    Blend = blendPtr,
+                    WriteMask = key.WriteMask
+                };
+            }
 
             DepthStencilState depthStencil = default;
             DepthStencilState* depthPtr = null;
@@ -687,8 +710,8 @@ namespace MphRead.Mods.Render
                 {
                     Module = generated != null ? generated.Fragment : shader,
                     EntryPoint = (byte*)fs,
-                    Targets = &targetState,
-                    TargetCount = 1
+                    Targets = targetStates,
+                    TargetCount = (uint)colorTargetCount
                 };
                 var descriptor = new RenderPipelineDescriptor
                 {
