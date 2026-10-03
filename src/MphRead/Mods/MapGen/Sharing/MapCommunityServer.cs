@@ -381,7 +381,7 @@ public static class MapCommunityServer
                     {
                         const string prefix = "bytes=";
                         if (!range.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
-                            || range.Contains(',') || !range.EndsWith('-', StringComparison.Ordinal)
+                            || range.Contains(',') || !range.EndsWith("-", StringComparison.Ordinal)
                             || !long.TryParse(range.AsSpan(prefix.Length, range.Length - prefix.Length - 1),
                                 System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out start)
                             || start < 0)
