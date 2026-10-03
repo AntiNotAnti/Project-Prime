@@ -164,6 +164,7 @@ namespace MphRead.Mods.Network
         private readonly ConcurrentQueue<ReceivedPacket> _inbox = new();
         private readonly NetPacketQueue _liveInbox = new(MaxQueuedPackets - 9, 128);
         private readonly ConcurrentQueue<ReceivedPacket> _connectionFailures = new();
+        private readonly AutoResetEvent _activity = new(false);
         private NetTokenBucket _discoveryBudget;
         private volatile bool _running;
         private long _nextConnectionService;
@@ -409,6 +410,7 @@ namespace MphRead.Mods.Network
                             lock (_heldLock) _heldIn.Enqueue(NowMilliseconds,
                                 new ReceivedPacket(sender, heldCopy, heldCopy.Length),
                                 lossOverride: NetLag.LossPercent / 100);
+                            _activity.Set();
                             continue;
                         }
                         handedOff = AcceptDatagram(sender, data, length);
@@ -459,10 +461,15 @@ namespace MphRead.Mods.Network
             }
             var packet = new ReceivedPacket(sender, data, length, pooled: true,
                 connectionId: header.ConnectionId, sequence: header.Sequence);
-            if (TryCoalesceRealtimeState(packet)) return true;
+            if (TryCoalesceRealtimeState(packet))
+            {
+                _activity.Set();
+                return true;
+            }
             if (!_liveInbox.TryEnqueue(packet))
             { Telemetry.Drop(); PacketsDropped++; Interlocked.Increment(ref TotalPacketsDropped); return false; }
             Telemetry.Queue(_liveInbox.Count);
+            _activity.Set();
             return true;
         }
 
@@ -573,7 +580,16 @@ namespace MphRead.Mods.Network
             Interlocked.Increment(ref _inboxCount);
             _inbox.Enqueue(new ReceivedPacket(_playbackSender, data, length,
                 arrivedAt: arrivedAt));
+            _activity.Set();
         }
+
+        /// <summary>
+        /// Sleep an idle owner loop until receive work arrives or a maintenance
+        /// deadline expires. The socket worker owns UDP blocking; this event is
+        /// only the handoff edge between that worker and the session owner.
+        /// </summary>
+        public bool WaitForActivity(int timeoutMs)
+            => _activity.WaitOne(Math.Clamp(timeoutMs, 0, 1000));
 
         /// <param name="extraHoldTicks">
         /// More simulated line to hold this datagram behind, on top of the
@@ -920,6 +936,7 @@ namespace MphRead.Mods.Network
                             $"[net] reliable control failed for {endpoint}; disconnecting");
                         _connectionFailures.Enqueue(new ReceivedPacket(endpoint,
                             new byte[] { (byte)PacketType.Bye }, 1));
+                        _activity.Set();
                     }
                     if (sendAck) Dispatch(endpoint, ack);
                 }
@@ -983,6 +1000,7 @@ namespace MphRead.Mods.Network
             UnacknowledgedCloseEvents = PendingCloseEvents();
             if (UnacknowledgedCloseEvents > 0) NetLog.Event("graceful close deadline expired; remote timeout will finish removal");
             _running = false;
+            _activity.Set();
             _socket?.Dispose();
             if (_worker != null && !_worker.Join(TimeSpan.FromSeconds(1)))
             {
@@ -1005,6 +1023,7 @@ namespace MphRead.Mods.Network
                 }
             }
             _lagWorker?.Join(TimeSpan.FromSeconds(1));
+            _activity.Dispose();
         }
     }
 }
