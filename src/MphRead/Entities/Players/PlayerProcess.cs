@@ -1723,7 +1723,12 @@ namespace MphRead.Entities
             {
                 return false;
             }
-            if (!force && !CanOccupyCollisionForm(!IsAltForm))
+            // Entering alt form is a contraction in the retail movement
+            // model and native rooms never gate it on a pre-transform overlap
+            // query. PR #227 made that custom-map-only, so a normal supporting
+            // floor could reject morphing unless the player jumped first.
+            // Keep clearance only when expanding back to the taller biped.
+            if (!force && IsAltForm && !CanOccupyCollisionForm(targetAltForm: false))
             {
                 if (IsMainPlayer && (_scene.CameraSequences.Current == null || !_scene.CameraSequences.Current.BlockInput))
                 {
@@ -2165,7 +2170,15 @@ namespace MphRead.Entities
             if (altForm)
             {
                 CollisionVolume altVolume = PlayerVolumes[(int)Hunter, 2];
+                float groundedLift = UseRobustCollisionController
+                    && Flags1.TestFlag(PlayerFlags1.Standing)
+                    ? ModGroundedAltFormLift(_volumeUnxf, altVolume)
+                    : 0;
                 Position += _volumeUnxf.SpherePosition - altVolume.SpherePosition;
+                if (groundedLift > 0)
+                {
+                    Position = Position.AddY(groundedLift);
+                }
                 _volumeUnxf = altVolume;
                 InitAltTransform();
                 _field80 = _field70;
