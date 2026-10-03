@@ -16,13 +16,21 @@ internal static class ClientInstanceGuard
     internal sealed class Lease : IDisposable
     {
         private Mutex? _mutex;
-        internal Lease(Mutex mutex) => _mutex = mutex;
+        private readonly bool _owned;
+        internal Lease(Mutex? mutex, bool owned = true)
+        {
+            _mutex = mutex;
+            _owned = owned;
+        }
         public void Dispose()
         {
             Mutex? mutex = Interlocked.Exchange(ref _mutex, null);
             if (mutex == null) return;
-            try { mutex.ReleaseMutex(); }
-            catch (ApplicationException) { }
+            if (_owned)
+            {
+                try { mutex.ReleaseMutex(); }
+                catch (ApplicationException) { }
+            }
             mutex.Dispose();
         }
     }
@@ -56,7 +64,7 @@ internal static class ClientInstanceGuard
             // Instance coordination is an optimization and safety rail, not a
             // reason to make an otherwise valid platform unable to launch.
             DebugLog.Line("startup", "single-client coordination unavailable: " + ex.Message);
-            return new Lease(new Mutex());
+            return new Lease(null, owned: false);
         }
     }
 }
