@@ -243,6 +243,7 @@ namespace MphRead.Mods.Render
 
         private void ReleaseListGeometry(int list)
         {
+            EndActiveCorePass();
             if (!_lists.TryGetValue(list, out GeometryList? geometry)) return;
             if (_wireframeIndices.Remove(geometry.Triangles, out var edges)
                 && _geometryCache.Remove((geometry.Vertices, edges), out var wireframe))
