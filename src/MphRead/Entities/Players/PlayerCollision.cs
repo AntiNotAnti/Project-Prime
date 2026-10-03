@@ -24,6 +24,11 @@ namespace MphRead.Entities
         private const float CollisionRecoveryLimit = 0.65f;
         private const float CollisionGroundSnap = 0.16f;
         private const float CollisionGroundSnapMaxGap = 0.10f;
+        // Ordinary biped movement is already swept by the native collision pass
+        // later in the frame. The custom-map controller only needs its more
+        // expensive capsule sweep for genuinely large displacements where
+        // tunnelling is plausible. Samus' normal walk/jump steps are below this.
+        private const float CollisionContinuousSweepMinStep = 0.25f;
         private readonly CollisionResult[] _collisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _movementCollisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _penetrationScratch = new CollisionResult[CollisionContactCapacity];
@@ -520,9 +525,34 @@ namespace MphRead.Entities
             }
 
             Vector3 requestedMovement = Position - PrevPosition;
+
+            // The engine's normal CheckCollision() immediately follows this
+            // method and already performs the canonical swept player collision.
+            // PR #227 added a second three-sphere sweep for every custom-map
+            // biped step. Dense imported meshes can saturate its 40-contact
+            // budget, at which point the safety fallback pins Position to the
+            // previous frame. That shows up as sliding, jumps that never leave
+            // the floor, and a large per-frame CPU tax unique to custom maps.
+            //
+            // Keep the robust controller for alt forms and large displacements
+            // (boosts, launchers, strong knockback), but let ordinary biped
+            // walking/jumping use the same proven path as native rooms.
+            float continuousThreshold = MathF.Max(CollisionContinuousSweepMinStep,
+                MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f) * 0.5f);
+            if (!IsAltForm
+                && requestedMovement.LengthSquared <= continuousThreshold * continuousThreshold)
+            {
+                return;
+            }
+
+            Vector3 requestedPosition = Position;
             Position = PrevPosition;
             if (!RecoverInitialOverlap("pre-sweep"))
             {
+                // Bounded recovery is a hardening layer, not permission to
+                // freeze gameplay. Fall back to the native collision pass on
+                // pathological/dense custom collision.
+                Position = requestedPosition;
                 return;
             }
             Vector3 current = Position;
@@ -586,8 +616,10 @@ namespace MphRead.Entities
                 if (saturated)
                 {
                     NoteCollisionOverflow("movement sweep");
-                    Position = current;
-                    RecoverInitialOverlap("movement overflow");
+                    // Do not turn collision density into a movement lock. The
+                    // canonical collision pass below still checks the requested
+                    // displacement and is the same path used by native maps.
+                    Position = requestedPosition;
                     return;
                 }
                 if (!haveHit || earliest >= 0.9999f)
@@ -628,6 +660,7 @@ namespace MphRead.Entities
             }
             if (!RecoverInitialOverlap("post-sweep"))
             {
+                Position = requestedPosition;
                 return;
             }
             if (wasStanding)
