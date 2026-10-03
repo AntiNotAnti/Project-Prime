@@ -83,6 +83,18 @@ internal static class ModernRenderBenchmark
                     long pbrPatchesStart = ModernGraphicsCompat.RetainedPbrUniformPatches;
                     long directShadowStart = scene.RetainedDirectShadowDraws;
                     long compatibilityShadowStart = scene.RetainedCompatibilityShadowDraws;
+                    long pbrBindHitsStart = ModernGraphicsCompat.RetainedPbrBindGroupHits;
+                    long pbrBindMissesStart = ModernGraphicsCompat.RetainedPbrBindGroupMisses;
+                    long indirectDrawsStart = ModernGraphicsCompat.RetainedIndirectDraws;
+                    long fullscreenDrawsStart = ModernGraphicsCompat.RetainedFullscreenDraws;
+                    long directOutlineMaskStart = scene.RetainedDirectOutlineMaskDraws;
+                    long clusterBuildsStart = scene.RetainedRoomClusterBuilds;
+                    long clusterTestsStart = scene.RetainedRoomClusterTests;
+                    long clusterRejectsStart = scene.RetainedRoomClusterRejects;
+                    long nodeVisibilityTestsStart = scene.RetainedRoomNodeVisibilityTests;
+                    long transientHitsStart = scene.FrameTransientTextureHits;
+                    long transientMissesStart = scene.FrameTransientTextureMisses;
+                    long transientAliasesStart = scene.FrameTransientTextureAliases;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -113,6 +125,18 @@ internal static class ModernRenderBenchmark
                             pbrPatchesStart = ModernGraphicsCompat.RetainedPbrUniformPatches;
                             directShadowStart = scene.RetainedDirectShadowDraws;
                             compatibilityShadowStart = scene.RetainedCompatibilityShadowDraws;
+                            pbrBindHitsStart = ModernGraphicsCompat.RetainedPbrBindGroupHits;
+                            pbrBindMissesStart = ModernGraphicsCompat.RetainedPbrBindGroupMisses;
+                            indirectDrawsStart = ModernGraphicsCompat.RetainedIndirectDraws;
+                            fullscreenDrawsStart = ModernGraphicsCompat.RetainedFullscreenDraws;
+                            directOutlineMaskStart = scene.RetainedDirectOutlineMaskDraws;
+                            clusterBuildsStart = scene.RetainedRoomClusterBuilds;
+                            clusterTestsStart = scene.RetainedRoomClusterTests;
+                            clusterRejectsStart = scene.RetainedRoomClusterRejects;
+                            nodeVisibilityTestsStart = scene.RetainedRoomNodeVisibilityTests;
+                            transientHitsStart = scene.FrameTransientTextureHits;
+                            transientMissesStart = scene.FrameTransientTextureMisses;
+                            transientAliasesStart = scene.FrameTransientTextureAliases;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -144,6 +168,12 @@ internal static class ModernRenderBenchmark
                         retainedRoomTemplateBuilds = scene.RetainedRoomTemplateBuilds,
                         retainedRoomTemplateHits = scene.RetainedRoomTemplateHits,
                         retainedRoomPacketSubmissions = scene.RetainedRoomPacketSubmissions,
+                        retainedRoomClusterBuilds = scene.RetainedRoomClusterBuilds - clusterBuildsStart,
+                        retainedRoomClusterTests = scene.RetainedRoomClusterTests - clusterTestsStart,
+                        retainedRoomClusterRejects = scene.RetainedRoomClusterRejects - clusterRejectsStart,
+                        retainedRoomNodeVisibilityTests = scene.RetainedRoomNodeVisibilityTests - nodeVisibilityTestsStart,
+                        retainedOpaqueSortRunsPerFrame = scene.RetainedOpaqueSortRunCount,
+                        retainedOpaqueReorderedPacketsPerFrame = scene.RetainedOpaqueReorderedPacketCount,
                         retainedFrameRevision = scene.RetainedRenderFrameRevision,
                         samplerStateApplications = scene.TextureSamplerStateApplications - samplerApplicationsStart,
                         samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,
@@ -167,8 +197,21 @@ internal static class ModernRenderBenchmark
                         retainedCompatibilityPbrDraws = scene.RetainedCompatibilityPbrDraws - compatibilityPbrStart,
                         retainedPbrTemplateBuilds = ModernGraphicsCompat.RetainedPbrTemplateBuilds - pbrTemplateStart,
                         retainedPbrUniformPatches = ModernGraphicsCompat.RetainedPbrUniformPatches - pbrPatchesStart,
+                        retainedPbrBindGroupHits = ModernGraphicsCompat.RetainedPbrBindGroupHits - pbrBindHitsStart,
+                        retainedPbrBindGroupMisses = ModernGraphicsCompat.RetainedPbrBindGroupMisses - pbrBindMissesStart,
+                        retainedPbrUniformSlotHighWater = ModernGraphicsCompat.RetainedPbrUniformSlotHighWater,
                         retainedDirectShadowDraws = scene.RetainedDirectShadowDraws - directShadowStart,
                         retainedCompatibilityShadowDraws = scene.RetainedCompatibilityShadowDraws - compatibilityShadowStart,
+                        retainedDirectOutlineMaskDraws = scene.RetainedDirectOutlineMaskDraws - directOutlineMaskStart,
+                        retainedIndirectDraws = ModernGraphicsCompat.RetainedIndirectDraws - indirectDrawsStart,
+                        retainedIndirectHighWater = ModernGraphicsCompat.RetainedIndirectHighWater,
+                        retainedIndirectEnabled = ModernGraphicsCompat.RetainedIndirectEnabled,
+                        retainedFullscreenDraws = ModernGraphicsCompat.RetainedFullscreenDraws - fullscreenDrawsStart,
+                        frameTransientTextureHits = scene.FrameTransientTextureHits - transientHitsStart,
+                        frameTransientTextureMisses = scene.FrameTransientTextureMisses - transientMissesStart,
+                        frameTransientTextureAliases = scene.FrameTransientTextureAliases - transientAliasesStart,
+                        commandBatchOperationLimit = ModernGraphicsCompat.ActiveCommandBatchOperationLimit,
+                        stagedTextureUploadLimitBytes = ModernGraphicsCompat.ActiveStagedTextureUploadLimitBytes,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
