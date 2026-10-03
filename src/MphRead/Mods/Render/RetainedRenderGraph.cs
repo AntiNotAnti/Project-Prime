@@ -358,10 +358,13 @@ namespace MphRead
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
+        private long _retainedDirectMatrixStackWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
             _retainedDirectAdvancedWorldDraws;
+        internal long RetainedDirectMatrixStackWorldDraws =>
+            _retainedDirectMatrixStackWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -431,6 +434,8 @@ namespace MphRead
                             _retainedDirectWorldDraws++;
                             if (textures.Advanced)
                                 _retainedDirectAdvancedWorldDraws++;
+                            if (item.MatrixStackCount > 0)
+                                _retainedDirectMatrixStackWorldDraws++;
                             compatibilitySharedStateValid = false;
                             NoteRetainedTextureSampling(
                                 textures, item.XRepeat, item.YRepeat);

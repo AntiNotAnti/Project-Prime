@@ -183,7 +183,9 @@ namespace MphRead.Mods.Render
             && !item.ViewModel
             && item.BillboardMode == BillboardMode.None
             && !item.Wireframe
-            && item.MatrixStackCount == 0
+            && item.MatrixStackCount >= 0
+            && item.MatrixStackCount <= Math.Min(
+                32, item.MatrixStack.Length / 16)
             && item.Cosmetics == default
             && item.CosmeticMaterial == default
             && item.OverrideColor == null
@@ -394,7 +396,15 @@ namespace MphRead.Mods.Render
             RetainedMatrix(words, o.ViewInverse, Matrix4.Identity);
             RetainedMatrix(words, o.TextureMatrix, item.TexcoordMatrix);
             RetainedInt(words, o.TexgenMode, (int)item.TexgenMode);
-            RetainedMatrix(words, o.MatrixStack, item.Transform);
+            if (item.MatrixStackCount > 0)
+            {
+                RetainedMatrices(words, o.MatrixStack,
+                    item.MatrixStack, item.MatrixStackCount);
+            }
+            else
+            {
+                RetainedMatrix(words, o.MatrixStack, item.Transform);
+            }
             RetainedFloat(words, o.MaterialAlpha, item.Alpha);
             RetainedInt(words, o.MaterialMode, (int)item.PolygonMode);
 
@@ -462,6 +472,16 @@ namespace MphRead.Mods.Render
             RetainedFloat(words, at + 1, value.Y);
             RetainedFloat(words, at + 2, value.Z);
             RetainedFloat(words, at + 3, value.W);
+        }
+
+        private static void RetainedMatrices(
+            uint[] words, int at, float[] values, int matrixCount)
+        {
+            int count = Math.Min(
+                matrixCount * 16,
+                Math.Min(values.Length, words.Length - at));
+            for (int i = 0; i < count; i++)
+                RetainedFloat(words, at + i, values[i]);
         }
 
         private static void RetainedMatrix(uint[] words, int at, Matrix4 value)
