@@ -275,21 +275,48 @@ namespace MphRead.Entities
                             continue;
                         }
 
-                        Vector3 pos1 = player1.CameraInfo.Position;
-                        Vector3 pos2 = player2.CameraInfo.Position;
-                        if (pos1 == pos2)
+                        // Visibility is directional now. A crouched/alt-form target may expose
+                        // a different amount of body from each side of cover, and a single
+                        // camera-to-camera ray made bots treat partial cover as fully opaque.
+                        if (player1.IsBot)
                         {
-                            pos1 = player1.Position;
-                            pos2 = player2.Position;
+                            _playerVisibility[j, i] = HasBotLineOfSight(player1, player2, scene);
                         }
-                        CollisionResult discard = default;
-                        if (!CollisionDetection.CheckBetweenPoints(pos1, pos2, TestFlags.None, scene, ref discard))
+                        if (player2.IsBot)
                         {
-                            _playerVisibility[i, j] = true;
-                            _playerVisibility[j, i] = true;
+                            _playerVisibility[i, j] = HasBotLineOfSight(player2, player1, scene);
                         }
                     }
                 }
+            }
+
+            private static bool HasBotLineOfSight(PlayerEntity observer, PlayerEntity target, Scene scene)
+            {
+                Vector3 start = observer.CameraInfo.Position;
+                if (start == Vector3.Zero)
+                {
+                    start = observer.Position.AddY(observer.IsAltForm ? 0.5f : 1f);
+                }
+
+                float targetHeight = target.IsAltForm
+                    ? Math.Max(0.35f, Fixed.ToFloat(target.Values.AltColYPos))
+                    : 1f;
+                Span<Vector3> samples = stackalloc Vector3[3];
+                samples[0] = target.CameraInfo.Position == Vector3.Zero
+                    ? target.Position.AddY(targetHeight)
+                    : target.CameraInfo.Position;
+                samples[1] = target.Position.AddY(targetHeight * 0.60f);
+                samples[2] = target.Position.AddY(Math.Min(0.30f, targetHeight * 0.30f));
+
+                for (int i = 0; i < samples.Length; i++)
+                {
+                    CollisionResult discard = default;
+                    if (!CollisionDetection.CheckBetweenPoints(start, samples[i], TestFlags.None, scene, ref discard))
+                    {
+                        return true;
+                    }
+                }
+                return false;
             }
 
             private static void UpdateGlobals(Scene scene)
