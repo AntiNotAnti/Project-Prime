@@ -66,6 +66,9 @@ public static class BotAiChecks
             &&PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
                 GameMode.Hardpoint,0,false,false,false)==0,
             "Hardpoint prioritizes enemies occupying the active objective");
+        Check(PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
+                GameMode.Relic,0,false,true,false)>0,
+            "Relic prioritizes the current carrier");
 
         Check(MapNodePacker.NavigationAnchorTypeForTest(MapNavigationLinkKind.Jump,
             MapNavigationAnchorKind.Auto,false,4)==NodeType.Aerial,
