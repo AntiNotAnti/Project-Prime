@@ -199,6 +199,48 @@ public partial class PlayerEntity
             if (visible)
             {
                 ApplyTacticalMovement(_tacticalTarget, tuning);
+                ApplyTacticalWeaponDecision();
+            }
+        }
+
+        private void ApplyTacticalWeaponDecision()
+        {
+            if (_tacticalWeapon == BeamType.None || _player.IsAltForm
+                || _player.IsMorphing || _player.IsUnmorphing)
+            {
+                return;
+            }
+
+            // Execute() already ran this frame, so make the tactical result authoritative
+            // for the final combat input instead of merely leaving _weapon1 for the legacy
+            // tree to potentially replace on the next frame.
+            _weapon1 = GetWeaponIndex(_tacticalWeapon);
+            if (_player.CurrentWeapon != _tacticalWeapon)
+            {
+                switch (_tacticalWeapon)
+                {
+                    case BeamType.PowerBeam: _touchButtons.PowerBeam.IsDown = true; break;
+                    case BeamType.Missile: _touchButtons.Missile.IsDown = true; break;
+                    case BeamType.VoltDriver: _touchButtons.VoltDriver.IsDown = true; break;
+                    case BeamType.Battlehammer: _touchButtons.Battlehammer.IsDown = true; break;
+                    case BeamType.Imperialist: _touchButtons.Imperialist.IsDown = true; break;
+                    case BeamType.Judicator: _touchButtons.Judicator.IsDown = true; break;
+                    case BeamType.Magmaul: _touchButtons.Magmaul.IsDown = true; break;
+                    case BeamType.ShockCoil: _touchButtons.ShockCoil.IsDown = true; break;
+                    case BeamType.OmegaCannon: _touchButtons.OmegaCannon.IsDown = true; break;
+                }
+                return;
+            }
+
+            Func2144B88();
+            if (Flags2.TestFlag(AiFlags2.Bit8))
+            {
+                Func2143A40();
+            }
+            else if (Flags4.TestFlag(AiFlags4.Bit1))
+            {
+                // Preserve useful charge while the reticle is still settling.
+                Func214380C();
             }
         }
 
