@@ -13,13 +13,15 @@ internal sealed unsafe partial class ModernGraphicsCompat
         int SurfaceAcquisitions, double SurfaceAcquireMs, double LongestSurfaceAcquireMs,
         bool RequestedVSync, string PresentMode,
         int QueueSubmissions, double QueueSubmitMs, int BufferWrites, long BufferWriteBytes, double BufferWriteMs,
-        int BindGroupsCreated, double BindGroupCreationMs);
+        int BindGroupsCreated, double BindGroupCreationMs,
+        int CoreDraws, int CoreRenderPasses, int StagedTextureUploads);
 
     private bool _measurePerformance;
     private int _createdPipelines;
     private double _pipelineCreationMs, _longestPipelineCreationMs, _textureUploadMs;
     private long _textureUploadBytes;
     private int _surfaceAcquisitions, _queueSubmissions, _bufferWrites, _bindGroupsCreated;
+    private int _coreDraws, _coreRenderPasses, _stagedTextureUploads;
     private long _bufferWriteBytes;
     private double _queueSubmitMs, _bufferWriteMs, _bindGroupCreationMs;
     private double _surfaceAcquireMs, _longestSurfaceAcquireMs;
@@ -32,6 +34,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         s._pipelineCreationMs = s._longestPipelineCreationMs = s._textureUploadMs = 0;
         s._textureUploadBytes = 0;
         s._queueSubmissions = s._bufferWrites = s._bindGroupsCreated = 0;
+        s._coreDraws = s._coreRenderPasses = s._stagedTextureUploads = 0;
         s._bufferWriteBytes = 0; s._queueSubmitMs = s._bufferWriteMs = s._bindGroupCreationMs = 0;
         s._surfaceAcquisitions = 0; s._surfaceAcquireMs = s._longestSurfaceAcquireMs = 0;
     }
@@ -83,7 +86,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             s._textureUploadBytes, s._textureUploadMs, textureBytes, bufferBytes,
             s._surfaceAcquisitions, s._surfaceAcquireMs, s._longestSurfaceAcquireMs, s._vsync, s._presentMode.ToString(),
             s._queueSubmissions, s._queueSubmitMs, s._bufferWrites, s._bufferWriteBytes, s._bufferWriteMs,
-            s._bindGroupsCreated, s._bindGroupCreationMs);
+            s._bindGroupsCreated, s._bindGroupCreationMs,
+            s._coreDraws, s._coreRenderPasses, s._stagedTextureUploads);
     }
 }
 #endif
