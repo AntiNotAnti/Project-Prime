@@ -360,6 +360,7 @@ namespace MphRead
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;
         private long _retainedDirectViewModelWorldDraws;
+        private long _retainedDirectBillboardWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
@@ -368,6 +369,8 @@ namespace MphRead
             _retainedDirectMatrixStackWorldDraws;
         internal long RetainedDirectViewModelWorldDraws =>
             _retainedDirectViewModelWorldDraws;
+        internal long RetainedDirectBillboardWorldDraws =>
+            _retainedDirectBillboardWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -431,11 +434,18 @@ namespace MphRead
                         SetViewModelRenderState(item.ViewModel);
                         Matrix4? projectionOverride = item.ViewModel
                             ? _viewModelPerspectiveMatrix : null;
+                        Matrix4 viewInverse = item.BillboardMode switch
+                        {
+                            BillboardMode.Sphere => _viewInvRotMatrix,
+                            BillboardMode.Cylinder => _viewInvRotYMatrix,
+                            _ => Matrix4.Identity
+                        };
                         Mods.Render.RetainedWorldTextureSet textures =
                             RetainedWorldTextures(item);
                         if (Mods.Render.ModernGraphicsCompat.TryDrawRetainedWorld(
                             item, packet.Mesh, textures, _showTextures,
-                            LightingOn, _faceCulling, projectionOverride))
+                            LightingOn, _faceCulling,
+                            projectionOverride, viewInverse))
                         {
                             _retainedDirectWorldDraws++;
                             if (textures.Advanced)
@@ -444,6 +454,8 @@ namespace MphRead
                                 _retainedDirectMatrixStackWorldDraws++;
                             if (item.ViewModel)
                                 _retainedDirectViewModelWorldDraws++;
+                            if (item.BillboardMode != BillboardMode.None)
+                                _retainedDirectBillboardWorldDraws++;
                             compatibilitySharedStateValid = false;
                             NoteRetainedTextureSampling(
                                 textures, item.XRepeat, item.YRepeat);
