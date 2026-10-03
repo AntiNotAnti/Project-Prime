@@ -363,6 +363,7 @@ namespace MphRead
         private long _retainedDirectBillboardWorldDraws;
         private long _retainedDirectOverrideWorldDraws;
         private long _retainedDirectTexturedSkinWorldDraws;
+        private long _retainedDirectOutlinedWorldDraws;
         private long _retainedCompatibilityWorldDraws;
         internal long RetainedDirectWorldDraws => _retainedDirectWorldDraws;
         internal long RetainedDirectAdvancedWorldDraws =>
@@ -377,6 +378,8 @@ namespace MphRead
             _retainedDirectOverrideWorldDraws;
         internal long RetainedDirectTexturedSkinWorldDraws =>
             _retainedDirectTexturedSkinWorldDraws;
+        internal long RetainedDirectOutlinedWorldDraws =>
+            _retainedDirectOutlinedWorldDraws;
         internal long RetainedCompatibilityWorldDraws =>
             _retainedCompatibilityWorldDraws;
         internal ulong RetainedRenderFrameRevision => _retainedRenderWorld.FrameRevision;
@@ -469,6 +472,8 @@ namespace MphRead
                             }
                             if (item.TexturedPlayerSkin)
                                 _retainedDirectTexturedSkinWorldDraws++;
+                            if (item.PlayerOutlineColor.HasValue)
+                                _retainedDirectOutlinedWorldDraws++;
                             compatibilitySharedStateValid = false;
                             NoteRetainedTextureSampling(
                                 textures, item.XRepeat, item.YRepeat);
