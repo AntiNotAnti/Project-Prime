@@ -162,7 +162,7 @@ namespace MphRead.Mods.Network
         // Playback remains lossless and ordered. Live queue reserves 128 control
         // slots plus nine bounded coalescing cells within the 2048 packet ceiling.
         private readonly ConcurrentQueue<ReceivedPacket> _inbox = new();
-        private readonly NetPacketQueue _liveInbox = new(2048 - 9, 128);
+        private readonly NetPacketQueue _liveInbox = new(MaxQueuedPackets - 9, 128);
         private readonly ConcurrentQueue<ReceivedPacket> _connectionFailures = new();
         private NetTokenBucket _discoveryBudget;
         private volatile bool _running;
