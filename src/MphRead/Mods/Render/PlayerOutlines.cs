@@ -178,7 +178,9 @@ namespace MphRead
                 GL.Disable(EnableCap.StencilTest);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
-                ReleaseFrameTransientTexture(ref _playerOutlineTexture);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _playerOutlineTexture, _playerOutlineFramebuffer,
+                    _frameBuffer);
             }
         }
 
@@ -220,7 +222,9 @@ namespace MphRead
                 || _playerOutlineSize != _targetSize;
             if (colorChanged)
             {
-                ReleaseFrameTransientTexture(ref _playerOutlineTexture);
+                ReleaseFrameTransientFramebufferTexture(
+                    ref _playerOutlineTexture, _playerOutlineFramebuffer,
+                    _frameBuffer);
                 _playerOutlineTexture = AcquireFrameTransientTexture(
                     _targetSize, PixelInternalFormat.Rgba8,
                     TextureMinFilter.Nearest, TextureMagFilter.Nearest);
