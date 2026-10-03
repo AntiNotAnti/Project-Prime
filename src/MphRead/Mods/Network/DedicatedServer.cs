@@ -2148,15 +2148,8 @@ namespace MphRead.Mods.Network
                 if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous)
                 {
                     AbandonCareerMatch();
-                    // Restart the match clock for the first arrival. The clock
-                    // runs whether or not anybody is connected, so a server
-                    // left alone overnight greets its next player with a round
-                    // that has no time left on it -- which the client adopts,
-                    // ending the match before it has drawn a frame.
-                    _matchStarted = now;
-                    // And it is not mid-results either: an intermission that
-                    // was running when the last player left has nobody to show
-                    // it to.
+                    // An empty Continuous server keeps only its control plane
+                    // and warm room cache. Its first real Hello wakes authority.
                     _matchEndedAt = -1;
                     _phase = SessionPhase.InMatch;
                     CloseBallot();
@@ -2164,6 +2157,7 @@ namespace MphRead.Mods.Network
                     _lastSnapshotLength = 0;
                     if (!Simulating)
                     {
+                        double wakeStarted = NetSession.Clock;
                         try
                         {
                             StartSimulation();
@@ -2174,7 +2168,16 @@ namespace MphRead.Mods.Network
                             SendRefusal(packet.Sender, RefusedPacket.ReasonServerBusy);
                             return;
                         }
+                        // The main loop was synchronously building the world,
+                        // so its sampled 'now' did not move. Advance this
+                        // admission by exactly that self-inflicted pause so the
+                        // new player does not lose match time or immediately
+                        // time out for silence the server caused.
+                        double wakeSeconds = Math.Max(0, NetSession.Clock - wakeStarted);
+                        now += wakeSeconds;
+                        _now = Math.Max(_now, now);
                     }
+                    _matchStarted = now;
                 }
                 if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
                     && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
