@@ -192,8 +192,7 @@ namespace MphRead.Mods.Render
             && item.MatrixStackCount <= Math.Min(
                 32, item.MatrixStack.Length / 16)
             && item.Cosmetics == default
-            && item.CosmeticMaterial == default
-            && item.PlayerOutlineColor == null;
+            && item.CosmeticMaterial == default;
 
         internal static bool TryDrawRetainedWorld(RenderItem item,
             RetainedMeshDescriptor mesh, RetainedWorldTextureSet textures,

@@ -148,6 +148,10 @@ namespace MphRead.Mods.Render
             Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "textured-player skin is eligible for direct submission");
             direct.TexturedPlayerSkin = false;
+            direct.PlayerOutlineColor = new Vector4(0, 1, 1, 1);
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "outlined player's normal world draw is direct eligible");
+            direct.PlayerOutlineColor = null;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "translucent mesh stays on compatibility executor");
