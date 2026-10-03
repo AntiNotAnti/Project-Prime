@@ -132,6 +132,7 @@ namespace MphRead
                 GL.Disable(EnableCap.StencilTest);
                 GL.Disable(EnableCap.AlphaTest);
                 GL.PolygonMode(TriangleFace.FrontAndBack, OpenTK.Graphics.OpenGL.PolygonMode.Fill);
+                ReleaseFrameTransientTexture(ref _playerOutlineTexture);
             }
         }
 
@@ -167,25 +168,27 @@ namespace MphRead
                 }
             }
             if (_playerOutlineFramebuffer == 0)
-            {
                 _playerOutlineFramebuffer = GL.GenFramebuffer();
-                _playerOutlineTexture = GL.GenTexture();
 
-            }
-            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _playerOutlineFramebuffer);
-            bool targetChanged = _playerOutlineSize != _targetSize || _playerOutlineDepth != _depthTexture;
-            if (_playerOutlineSize != _targetSize)
+            bool colorChanged = _playerOutlineTexture == 0
+                || _playerOutlineSize != _targetSize;
+            if (colorChanged)
             {
-                GL.BindTexture(TextureTarget.Texture2D, _playerOutlineTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                    _targetSize.X, _targetSize.Y, 0, PixelFormat.Rgba, PixelType.UnsignedByte, IntPtr.Zero);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Nearest);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)TextureWrapMode.ClampToEdge);
-                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer, FramebufferAttachment.ColorAttachment0,
-                    TextureTarget.Texture2D, _playerOutlineTexture, 0);
+                ReleaseFrameTransientTexture(ref _playerOutlineTexture);
+                _playerOutlineTexture = AcquireFrameTransientTexture(
+                    _targetSize, PixelInternalFormat.Rgba8,
+                    TextureMinFilter.Nearest, TextureMagFilter.Nearest);
                 _playerOutlineSize = _targetSize;
+            }
+
+            GL.BindFramebuffer(FramebufferTarget.Framebuffer, _playerOutlineFramebuffer);
+            bool targetChanged = colorChanged
+                || _playerOutlineDepth != _depthTexture;
+            if (colorChanged)
+            {
+                GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, _playerOutlineTexture, 0);
             }
             if (_playerOutlineDepth != _depthTexture)
             {
@@ -234,10 +237,7 @@ namespace MphRead
                 GL.DeleteFramebuffer(_playerOutlineFramebuffer);
                 _playerOutlineFramebuffer = 0;
             }
-            if (_playerOutlineTexture != 0)
-            {
-                DeleteTexture(ref _playerOutlineTexture);
-            }
+            ReleaseFrameTransientTexture(ref _playerOutlineTexture);
             DeleteProgram(ref _playerOutlineProgram);
             _playerOutlineSize = default;
             _playerOutlineDepth = -1;
