@@ -55,6 +55,9 @@ namespace MphRead.Mods.Launcher.Gui
         /// </summary>
         public static bool TryRun()
         {
+#if MPHREAD_SHELL
+            MapGen.CustomRooms.DeferInitialRegistration = true;
+#endif
             if (!EnsureSetup())
             {
                 return false;
