@@ -1885,10 +1885,16 @@ namespace MphRead.Entities
                 else if (pnode.RoomPartId >= 0)
                 {
                     int nodeIndex = pnode.ChildIndex;
+                    bool frustumCullCustomPartitions = !connector
+                        && _portals.Count == 0
+                        && Mods.MapGen.CustomRooms.FirstId >= 0
+                        && RoomId >= Mods.MapGen.CustomRooms.FirstId;
                     while (nodeIndex != -1)
                     {
                         Node node = nodes[nodeIndex];
-                        if (!_excludedNodes.Contains(node))
+                        bool visible = !frustumCullCustomPartitions
+                            || IsNodeVisible(_scene.FrustumInfo, node, 0x8FFF, Vector3.Zero);
+                        if (visible && !_excludedNodes.Contains(node))
                         {
                             GetItems(inst, node);
                             if (_nodePairs.TryGetValue(node, out Node? exclude))

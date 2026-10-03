@@ -24,11 +24,10 @@ namespace MphRead.Entities
         private const float CollisionRecoveryLimit = 0.65f;
         private const float CollisionGroundSnap = 0.16f;
         private const float CollisionGroundSnapMaxGap = 0.10f;
-        // Ordinary biped movement is already swept by the native collision pass
-        // later in the frame. The custom-map controller only needs its more
-        // expensive capsule sweep for genuinely large displacements where
-        // tunnelling is plausible. Samus' normal walk/jump steps are below this.
-        private const float CollisionContinuousSweepMinStep = 0.25f;
+        // Upright bipeds already use the engine's canonical swept collision
+        // pass later in the frame. Keep the custom robust movement controller
+        // for alt forms only; running both passes for a biped adds cost and can
+        // produce conflicting safety fallbacks on dense imported collision.
         private readonly CollisionResult[] _collisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _movementCollisionScratch = new CollisionResult[CollisionContactCapacity];
         private readonly CollisionResult[] _penetrationScratch = new CollisionResult[CollisionContactCapacity];
@@ -534,13 +533,13 @@ namespace MphRead.Entities
             // previous frame. That shows up as sliding, jumps that never leave
             // the floor, and a large per-frame CPU tax unique to custom maps.
             //
-            // Keep the robust controller for alt forms and large displacements
-            // (boosts, launchers, strong knockback), but let ordinary biped
-            // walking/jumping use the same proven path as native rooms.
-            float continuousThreshold = MathF.Max(CollisionContinuousSweepMinStep,
-                MathF.Max(Fixed.ToFloat(Values.BipedColRadius), 0.01f) * 0.5f);
-            if (!IsAltForm
-                && requestedMovement.LengthSquared <= continuousThreshold * continuousThreshold)
+            // Native rooms already rely on CheckCollision() for every biped
+            // displacement, including jumps, falls and knockback. It is itself
+            // a swept query from PrevPosition to Position, so a second custom
+            // biped sweep is redundant rather than extra tunnelling protection.
+            // Keeping it enabled only after vertical speed grows large is also
+            // what made frame time spike intermittently during falls.
+            if (!IsAltForm)
             {
                 return;
             }
@@ -939,9 +938,10 @@ namespace MphRead.Entities
                     limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
                 if (count == results.Length && UseRobustCollisionController)
                 {
+                    // Match the native collision policy: a full result buffer is
+                    // truncation, not a reason to teleport back a frame. Process
+                    // the contacts we did collect and let the next frame continue.
                     NoteCollisionOverflow("alt-form contacts");
-                    Position = PrevPosition;
-                    count = 0;
                 }
                 for (int i = 0; i < count; i++)
                 {
@@ -969,7 +969,6 @@ namespace MphRead.Entities
                         if (count == results.Length && UseRobustCollisionController)
                         {
                             NoteCollisionOverflow("Kanden segment contacts");
-                            continue;
                         }
                         for (int j = 0; j < count; j++)
                         {
@@ -1013,9 +1012,11 @@ namespace MphRead.Entities
                     limit: results.Length, includeOffset: true, TestFlags.Players, _scene, results);
                 if (count == results.Length && UseRobustCollisionController)
                 {
+                    // This was the remaining custom-map movement trap. Dense
+                    // collision reaching the fixed result budget used to erase
+                    // the entire movement step. Native maps simply process the
+                    // collected contacts, so custom bipeds now do the same.
                     NoteCollisionOverflow("biped contacts");
-                    Position = PrevPosition;
-                    count = 0;
                 }
                 for (int i = 0; i < count; i++)
                 {
