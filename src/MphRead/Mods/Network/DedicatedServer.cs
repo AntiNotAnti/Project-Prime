@@ -391,9 +391,9 @@ namespace MphRead.Mods.Network
                 // A game this server opens announces itself the way this
                 // server does, to the same directory: a hosted match nobody
                 // can find is a match nobody joins.
-                ReporterFactory = () => Reporter == null
+                ListingTarget = () => Reporter == null
                     ? null
-                    : new MasterReporter(Reporter.Host, Reporter.Port),
+                    : (Reporter.Host, Reporter.Port),
                 // A hosted child normally says goodbye itself, but that is one
                 // best-effort UDP datagram from a process that is disappearing.
                 // The parent also owns the host-pool lifecycle, so reinforce the
@@ -418,7 +418,7 @@ namespace MphRead.Mods.Network
                 CareerReportOutbox.Start();
             }
             if (!_controlPlaneOnlyForTests)
-                foreach (var entry in _rotation.Entries) NetworkMapIdentity.StageRoom(entry.RoomKey);
+                NetworkMapIdentity.StageRoom(_rotation.Current.RoomKey);
             _lobbyMatch = DefinitionFor(_rotation.Current);
             if (LobbyRules.ValidateDefinition(_lobbyMatch, out string ruleError) != LobbyResultCode.Ok)
                 throw new InvalidOperationException(ruleError);
