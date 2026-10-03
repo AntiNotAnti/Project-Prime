@@ -250,7 +250,9 @@ internal sealed partial class MapStudioScreen
                 {
                     if(!GameFiles.Ready)throw new IOException("Set up game files before installing playable maps.");
                     EnsureMapInstallationAllowed();GameFiles.ApplyPaths();using var client=await Client(map.Draft,token);
-                    var installed=await client.InstallAsync(map,UserMapLibrary,token);GuardJob(token);
+                    var installed=await client.InstallAsync(map,UserMapLibrary,token,
+                        progress:(received,total)=>Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            message.Text=$"Downloading map… {received/1048576d:0.0}/{total/1048576d:0.0} MiB · {(total>0?received*100d/total:0):0}%"));GuardJob(token);
                     Metadata.RegisterDownloadedMap(installed);message.Text="Installed. This map is available in the map picker.";
                     if(host){Dismiss();HostRequested?.Invoke(this,installed);}
                 }
