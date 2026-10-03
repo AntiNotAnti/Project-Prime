@@ -390,6 +390,7 @@ namespace MphRead.Droid
             private ISurfaceHolder? _boundTo;
             private Vector2i _size;
             private readonly AndroidFramePacer _framePacer = new(FrameTiming.MaxCap);
+            private AndroidPerformanceHints? _performanceHints;
             private int _requestedFrameRate = -1;
             private int _appliedSwapInterval = -1;
 
@@ -508,6 +509,8 @@ namespace MphRead.Droid
                 }
                 finally
                 {
+                    _performanceHints?.Dispose();
+                    _performanceHints = null;
                     try { ReleaseSurface(); }
                     finally { DestroyContext(); }
                 }
@@ -515,6 +518,9 @@ namespace MphRead.Droid
 
             private void Loop()
             {
+                // Created here, on the long-lived render thread, so ADPF gets
+                // the correct Linux TID rather than the Activity/UI thread.
+                _performanceHints = AndroidPerformanceHints.TryCreate();
                 while (true)
                 {
                     ISurfaceHolder holder;
@@ -1055,6 +1061,10 @@ namespace MphRead.Droid
                     ReleaseSurface();
                 }
                 long swapEnd = Stopwatch.GetTimestamp();
+                // Report CPU-side frame work only. Presentation can block on
+                // SurfaceFlinger/FIFO and is not CPU load the scheduler should
+                // try to "fix" by boosting clocks.
+                _performanceHints?.ReportFrame(workStart, uiEnd, FrameTiming.FrameRateCap);
                 AndroidPerformance.RecordFrame(elapsed, Milliseconds(limiterStart, workStart),
                     Milliseconds(workStart, simulationEnd),
                     Milliseconds(simulationEnd, renderEnd),
