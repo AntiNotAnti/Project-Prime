@@ -300,6 +300,111 @@ public sealed class MapCommunityClient : IDisposable
         }
     }
 
+    private async Task<long> DownloadPackageAsync(string resource, string temporary, long? expectedBytes,
+        CancellationToken token, Action<long, long>? progress = null)
+    {
+        const int maximumRetries = 4;
+        long expected = expectedBytes ?? -1;
+        int failures = 0;
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            long offset = File.Exists(temporary) ? new FileInfo(temporary).Length : 0;
+            if (offset < 0 || offset > MapPackageReader.MaxArchiveBytes || expected >= 0 && offset > expected)
+            {
+                if (File.Exists(temporary)) File.Delete(temporary);
+                offset = 0;
+            }
+            if (expected >= 0 && offset == expected)
+            {
+                progress?.Invoke(offset, expected);
+                return expected;
+            }
+
+            try
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, resource);
+                if (offset > 0) request.Headers.Range = new RangeHeaderValue(offset, null);
+                using var response = await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
+
+                if (offset > 0 && response.StatusCode == HttpStatusCode.RequestedRangeNotSatisfiable)
+                {
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                    expected = expectedBytes ?? -1;
+                    if (++failures > maximumRetries) EnsureSuccess(response);
+                    continue;
+                }
+
+                if (offset > 0 && response.StatusCode == HttpStatusCode.OK)
+                {
+                    // Older Community services do not understand Range. Restart
+                    // from byte zero using this full response rather than appending
+                    // it to a partial archive.
+                    if (File.Exists(temporary)) File.Delete(temporary);
+                    offset = 0;
+                }
+                else
+                {
+                    EnsureSuccess(response);
+                    if (offset > 0 && response.StatusCode != HttpStatusCode.PartialContent)
+                        throw new InvalidDataException("Community did not honor the requested download range.");
+                }
+
+                long total = expected;
+                if (response.StatusCode == HttpStatusCode.PartialContent)
+                {
+                    var range = response.Content.Headers.ContentRange
+                        ?? throw new InvalidDataException("Community returned a ranged package without Content-Range.");
+                    if (!range.HasRange || range.From != offset || !range.HasLength)
+                        throw new InvalidDataException("Community returned an invalid package range.");
+                    total = range.Length!.Value;
+                }
+                else if (response.Content.Headers.ContentLength is long length)
+                {
+                    total = length;
+                }
+
+                if (total <= 0 || total > MapPackageReader.MaxArchiveBytes)
+                    throw new InvalidDataException("Package exceeds size limit.");
+                if (expectedBytes is long exact && total != exact)
+                    throw new InvalidDataException("Community package size does not match its listing.");
+                expected = total;
+
+                long maximum = expected - offset;
+                await using (var output = new FileStream(temporary,
+                    offset == 0 ? FileMode.Create : FileMode.OpenOrCreate, FileAccess.Write, FileShare.None,
+                    65536, FileOptions.Asynchronous | FileOptions.SequentialScan))
+                {
+                    if (offset > 0)
+                    {
+                        if (output.Length != offset) throw new InvalidDataException("Partial map download changed unexpectedly.");
+                        output.Position = offset;
+                    }
+                    progress?.Invoke(offset, expected);
+                    await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), output,
+                        maximum, token, received => progress?.Invoke(offset + received, expected)).ConfigureAwait(false);
+                    await output.FlushAsync(token).ConfigureAwait(false);
+                }
+
+                long completed = new FileInfo(temporary).Length;
+                if (completed == expected)
+                {
+                    progress?.Invoke(completed, expected);
+                    return expected;
+                }
+                if (completed > expected) throw new InvalidDataException("Downloaded package exceeds its declared size.");
+                throw new EndOfStreamException($"Map download ended at {completed:N0} of {expected:N0} bytes.");
+            }
+            catch (Exception ex) when (!token.IsCancellationRequested && failures < maximumRetries
+                && (ex is HttpRequestException || ex is TaskCanceledException
+                    || ex is IOException && ex is not InvalidDataException))
+            {
+                failures++;
+                await Task.Delay(TimeSpan.FromMilliseconds(200 * failures), token).ConfigureAwait(false);
+            }
+        }
+    }
+
     public async Task<MapDefinition> InstallAsync(CommunityMap map, string library, CancellationToken token)
     {
         if (map.MinimumProtocol > Network.NetConfig.ProtocolVersion) throw new InvalidDataException("Update Project Prime before installing this map.");
@@ -309,13 +414,7 @@ public sealed class MapCommunityClient : IDisposable
         string temporary = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N") + ".ppmap");
         try
         {
-            using (var response = await _http.GetAsync("maps/" + map.Hash, HttpCompletionOption.ResponseHeadersRead, token))
-            {
-                EnsureSuccess(response);
-                await using var output = File.Create(temporary);
-                await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), output, map.Bytes, token);
-                if (output.Length != map.Bytes) throw new InvalidDataException("Incomplete map download.");
-            }
+            await DownloadPackageAsync("packages/" + map.Hash, temporary, map.Bytes, token).ConfigureAwait(false);
             token.ThrowIfCancellationRequested();
             using (var package = new MapPackageReader(temporary))
                 if (package.Manifest?.Name != map.Name) throw new InvalidDataException("Map name does not match the listing.");
@@ -324,6 +423,7 @@ public sealed class MapCommunityClient : IDisposable
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
+
     public async Task<PreparedMapInstallation> PrepareExactAsync(MapContentIdentity required, CancellationToken token,
         Action<string>? stage = null, Action<float>? progress = null)
     {
@@ -333,15 +433,8 @@ public sealed class MapCommunityClient : IDisposable
         try
         {
             stage?.Invoke("Downloading");
-            using (var response = await _http.GetAsync("maps/" + required.PackageHash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false))
-            {
-                EnsureSuccess(response);
-                if (response.Content.Headers.ContentLength > MapPackageReader.MaxArchiveBytes) throw new InvalidDataException("Package exceeds size limit.");
-                await using var output = File.Create(temporary);
-                await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token).ConfigureAwait(false), output, MapPackageReader.MaxArchiveBytes, token,
-                    bytes => progress?.Invoke(response.Content.Headers.ContentLength is long size && size > 0 ? Math.Clamp((float)bytes / size, 0, 1) : 0)).ConfigureAwait(false);
-                if (response.Content.Headers.ContentLength is { } length && output.Length != length) throw new InvalidDataException("Incomplete map download.");
-            }
+            await DownloadPackageAsync("packages/" + required.PackageHash, temporary, null, token,
+                (received, total) => progress?.Invoke(total > 0 ? Math.Clamp((float)received / total, 0, 1) : 0)).ConfigureAwait(false);
             stage?.Invoke("Verifying");
             if (!MapContentIdentity.FromPackage(temporary).Matches(required)) throw new InvalidDataException("The community returned a different map package.");
             stage?.Invoke("Building");
@@ -358,14 +451,7 @@ public sealed class MapCommunityClient : IDisposable
         string temporary = destination + "." + Guid.NewGuid().ToString("N") + ".download";
         try
         {
-            using var response = await _http.GetAsync("packages/" + required.PackageHash, HttpCompletionOption.ResponseHeadersRead, token).ConfigureAwait(false);
-            EnsureSuccess(response);
-            if (response.Content.Headers.ContentLength > MapPackageReader.MaxArchiveBytes) throw new InvalidDataException("Package exceeds size limit.");
-            await using (var output = File.Create(temporary))
-            {
-                await CopyBoundedAsync(await response.Content.ReadAsStreamAsync(token), output, MapPackageReader.MaxArchiveBytes, token).ConfigureAwait(false);
-                if (response.Content.Headers.ContentLength is long length && output.Length != length) throw new InvalidDataException("Incomplete map download.");
-            }
+            await DownloadPackageAsync("packages/" + required.PackageHash, temporary, null, token).ConfigureAwait(false);
             if (!MapContentIdentity.FromPackage(temporary).Matches(required)) throw new InvalidDataException("Community returned a different map package.");
             token.ThrowIfCancellationRequested();
             File.Move(temporary, destination, overwrite: true);
