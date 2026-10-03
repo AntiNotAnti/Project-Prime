@@ -133,7 +133,10 @@ namespace MphRead.Mods.Render
         private ulong _uniformBufferOffset;
         private RenderPassEncoder* _activeCorePass;
         private TextureView* _activeCoreColorView;
+        private TextureView* _activeCoreColorView1;
+        private TextureView* _activeCoreColorView2;
         private TextureView* _activeCoreDepthView;
+        private int _activeCoreColorTargetCount;
 
         private bool _depthWrite = true;
         private DepthFunction _depthFunction = DepthFunction.Less;
@@ -265,13 +268,25 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderRelease(_activeCorePass);
             _activeCorePass = null;
             _activeCoreColorView = null;
+            _activeCoreColorView1 = null;
+            _activeCoreColorView2 = null;
             _activeCoreDepthView = null;
+            _activeCoreColorTargetCount = 0;
         }
 
-        private RenderPassEncoder* CoreRenderPass(CoreTarget target)
+        private RenderPassEncoder* CoreRenderPass(CoreTarget target, int colorTargetCount)
         {
+            if (colorTargetCount < 1 || target.ColorTargetCount < colorTargetCount)
+                throw new InvalidOperationException(
+                    $"Render pass requires {colorTargetCount} color targets; framebuffer has {target.ColorTargetCount}.");
+
+            TextureView* colorView1 = colorTargetCount > 1 ? target.ColorView1 : null;
+            TextureView* colorView2 = colorTargetCount > 2 ? target.ColorView2 : null;
             if (_activeCorePass != null
+                && _activeCoreColorTargetCount == colorTargetCount
                 && _activeCoreColorView == target.ColorView
+                && _activeCoreColorView1 == colorView1
+                && _activeCoreColorView2 == colorView2
                 && _activeCoreDepthView == target.DepthView)
             {
                 return _activeCorePass;
@@ -279,14 +294,18 @@ namespace MphRead.Mods.Render
 
             EndActiveCorePass();
             CommandEncoder* encoder = BeginCommandEncoder();
-            var color = new RenderPassColorAttachment
+            var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
+            for (int colorIndex = 0; colorIndex < colorTargetCount; colorIndex++)
             {
-                DepthSlice = uint.MaxValue,
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = LoadOp.Load,
-                StoreOp = StoreOp.Store
-            };
+                colors[colorIndex] = new RenderPassColorAttachment
+                {
+                    DepthSlice = uint.MaxValue,
+                    View = target.ColorViewAt(colorIndex),
+                    ResolveTarget = null,
+                    LoadOp = LoadOp.Load,
+                    StoreOp = StoreOp.Store
+                };
+            }
             RenderPassDepthStencilAttachment depth = default;
             RenderPassDepthStencilAttachment* depthPtr = null;
             if (target.HasDepth)
@@ -305,8 +324,8 @@ namespace MphRead.Mods.Render
             }
             var descriptor = new RenderPassDescriptor
             {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
+                ColorAttachments = colors,
+                ColorAttachmentCount = (uint)colorTargetCount,
                 DepthStencilAttachment = depthPtr
             };
             _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
@@ -314,7 +333,10 @@ namespace MphRead.Mods.Render
             if (_activeCorePass == null)
                 throw new InvalidOperationException("Could not begin coalesced WebGPU render pass.");
             _activeCoreColorView = target.ColorView;
+            _activeCoreColorView1 = colorView1;
+            _activeCoreColorView2 = colorView2;
             _activeCoreDepthView = target.DepthView;
+            _activeCoreColorTargetCount = colorTargetCount;
             return _activeCorePass;
         }
 
@@ -628,7 +650,8 @@ namespace MphRead.Mods.Render
                 }, resources);
             }
 
-            RenderPassEncoder* pass = CoreRenderPass(target);
+            int colorTargetCount = effective == ModernProgramKind.DeferredPbrMrt ? 3 : 1;
+            RenderPassEncoder* pass = CoreRenderPass(target, colorTargetCount);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
             _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex,
