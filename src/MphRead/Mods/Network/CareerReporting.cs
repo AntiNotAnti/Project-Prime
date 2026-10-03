@@ -191,6 +191,24 @@ namespace MphRead.Mods.Network
                 {
                     return;
                 }
+
+                // Holding the cross-process drain lock proves no live sender
+                // owns an old .sending-* claim. Recover any file left behind
+                // by a child/process crash before enumerating normal reports.
+                foreach (string stale in Directory.EnumerateFiles(
+                    DirectoryPath, "*.json.sending-*"))
+                {
+                    int marker = stale.LastIndexOf(".sending-", StringComparison.Ordinal);
+                    if (marker <= 0) continue;
+                    string original = stale[..marker];
+                    try
+                    {
+                        if (!File.Exists(original)) File.Move(stale, original);
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+
                 foreach (string path in System.IO.Directory.EnumerateFiles(
                     DirectoryPath, "*.json").OrderBy(p => p, StringComparer.Ordinal))
                 {
