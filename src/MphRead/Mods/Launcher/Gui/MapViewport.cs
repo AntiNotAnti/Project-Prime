@@ -564,7 +564,7 @@ namespace MphRead.Mods.Launcher.Gui
                     IBrush color=Navigation.Components[i]%2==0?Brushes.Cyan:Brushes.Orange;
                     if(i<Navigation.Types.Length)color=Navigation.Types[i] switch
                     {
-                        Formats.NodeType.Special=>Brushes.Lime,
+                        MphRead.Formats.NodeType.Special=>Brushes.Lime,
                         Formats.NodeType.Aerial=>Brushes.DeepSkyBlue,
                         Formats.NodeType.Vantage=>Brushes.White,
                         Formats.NodeType.AltForm=>Brushes.Magenta,
