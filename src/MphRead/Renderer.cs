@@ -4667,6 +4667,7 @@ namespace MphRead
             item.CosmeticMaterial = default;
             item.TexturedPlayerSkin = false;
             item.PlayerOutlineColor = null;
+            item.RetainedRoomOwned = false;
             return item;
         }
 
@@ -4795,6 +4796,7 @@ namespace MphRead
             item.Wireframe = material.Wireframe != 0;
             item.Lighting = material.Lighting != 0;
             item.ViewModel = false;
+            item.RetainedRoomOwned = true;
             item.NoLines = false;
             item.Diffuse = material.CurrentDiffuse;
             item.Ambient = material.CurrentAmbient;
