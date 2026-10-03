@@ -79,10 +79,20 @@ namespace MphRead.Mods.Render
 
         private void PrepareGeneratedResources(ModernProgramKind kind, CoreTarget target)
         {
-            var generated = GeneratedShader(kind);
-            var program = _programs.Program(_programs.CurrentProgram);
+            GeneratedProgram generated = GeneratedShader(kind);
+            ModernGraphicsCompatState.ProgramRecord program =
+                _programs.Program(_programs.CurrentProgram);
+            PopulateGeneratedUniformWords(kind, target, generated, program);
+            PopulateGeneratedTextureBindings(kind, target, generated, program);
+            UploadGeneratedUniformWords(generated);
+        }
+
+        private void PopulateGeneratedUniformWords(ModernProgramKind kind,
+            CoreTarget target, GeneratedProgram generated,
+            ModernGraphicsCompatState.ProgramRecord program)
+        {
             Array.Clear(generated.Words);
-            foreach (var uniform in generated.Members)
+            foreach (ModernUniformLayout uniform in generated.Members)
             {
                 int at = uniform.Offset / 4;
                 if (uniform.Name == "prime_viewport")
@@ -111,17 +121,23 @@ namespace MphRead.Mods.Render
                 }
                 if (uniform.Name == "prime_alpha_func")
                 {
-                    generated.Words[at] = (uint)(_enabled.Contains(OpenTK.Graphics.OpenGL.EnableCap.AlphaTest)
+                    generated.Words[at] = (uint)(_enabled.Contains(
+                        OpenTK.Graphics.OpenGL.EnableCap.AlphaTest)
                         ? _alphaFunction : OpenTK.Graphics.OpenGL.AlphaFunction.Always);
                     continue;
                 }
                 if (uniform.Name == "prime_alpha_ref")
                 {
-                    generated.Words[at] = BitConverter.SingleToUInt32Bits(_alphaReference);
+                    generated.Words[at] =
+                        BitConverter.SingleToUInt32Bits(_alphaReference);
                     continue;
                 }
-                if (!program.Uniforms.TryGetValue(uniform.Name, out var value)) continue;
-                if (uniform.Integer) generated.Words[at] = unchecked((uint)value.IntValue);
+                if (!program.Uniforms.TryGetValue(uniform.Name, out var value))
+                    continue;
+                if (uniform.Integer)
+                {
+                    generated.Words[at] = unchecked((uint)value.IntValue);
+                }
                 else if (value.Data != null)
                 {
                     for (int element = 0; element < uniform.Count; element++)
@@ -129,18 +145,27 @@ namespace MphRead.Mods.Render
                     {
                         int source = element * uniform.Components + component;
                         if (source >= value.Data.Length) break;
-                        generated.Words[at + element * uniform.Stride / 4 + component] =
-                            unchecked((uint)BitConverter.SingleToInt32Bits(value.Data[source]));
+                        generated.Words[
+                            at + element * uniform.Stride / 4 + component] =
+                            unchecked((uint)BitConverter.SingleToInt32Bits(
+                                value.Data[source]));
                     }
                 }
             }
+        }
+
+        private void PopulateGeneratedTextureBindings(ModernProgramKind kind,
+            CoreTarget target, GeneratedProgram generated,
+            ModernGraphicsCompatState.ProgramRecord program)
+        {
             for (int i = 0; i < generated.Layout.Samplers.Length; i++)
             {
                 string name = generated.Layout.Samplers[i];
                 string? flag = name switch
                 {
                     "tex" when kind is ModernProgramKind.DeferredPbr
-                        or ModernProgramKind.DeferredPbrMrt or ModernProgramKind.World => "use_texture",
+                        or ModernProgramKind.DeferredPbrMrt
+                        or ModernProgramKind.World => "use_texture",
                     "normal_tex" => "use_normal_map",
                     "specular_tex" => "use_specular_map",
                     "emissive_tex" => "use_emissive_map",
@@ -151,16 +176,24 @@ namespace MphRead.Mods.Render
                     _ => null
                 };
                 int unit = Int(program, name);
-                int id = ValidateRenderPassResources(unit, flag == null || Int(program, flag) != 0, target);
+                int id = ValidateRenderPassResources(unit,
+                    flag == null || Int(program, flag) != 0, target);
                 generated.Textures[i] = id;
                 generated.Words[generated.Layout.FlipOffset / 4 + i * 4] =
-                    unchecked((uint)BitConverter.SingleToInt32Bits(_resources.IsFramebufferTexture(id) ? 1f : 0f));
+                    unchecked((uint)BitConverter.SingleToInt32Bits(
+                        _resources.IsFramebufferTexture(id) ? 1f : 0f));
             }
-            UniformAllocation allocation = RentUniformBuffer((ulong)generated.Layout.Size);
+        }
+
+        private void UploadGeneratedUniformWords(GeneratedProgram generated)
+        {
+            UniformAllocation allocation =
+                RentUniformBuffer((ulong)generated.Layout.Size);
             generated.UniformBuffer = (WgpuBuffer*)allocation.Buffer;
             generated.UniformOffset = allocation.Offset;
             fixed (uint* words = generated.Words)
-                WriteUniformBuffer(allocation, words, (nuint)generated.Layout.Size);
+                WriteUniformBuffer(allocation, words,
+                    (nuint)generated.Layout.Size);
         }
 
         private BindGroup* GeneratedBindGroup(ModernProgramKind kind, BindGroupLayout* layout)
