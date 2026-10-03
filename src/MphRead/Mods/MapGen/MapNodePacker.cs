@@ -78,6 +78,26 @@ namespace MphRead.Mods.MapGen
             public readonly List<int> Neighbours = new List<int>();
         }
 
+        public static IReadOnlyList<MapNavigationLink> EffectiveLinks(MapDefinition definition)
+        {
+            var result=new List<MapNavigationLink>(definition.NavigationLinks);
+            foreach(MapJumpPad pad in definition.JumpPads)
+            {
+                if(pad.Target==null||pad.Position.Length!=3||pad.Target.Length!=3)continue;
+                result.Add(new MapNavigationLink
+                {
+                    Id=pad.Id,
+                    Kind=MapNavigationLinkKind.JumpPad,
+                    From=(float[])pad.Position.Clone(),
+                    To=(float[])pad.Target.Clone(),
+                    Bidirectional=false,
+                    FromNodeKind=MapNavigationAnchorKind.Auto,
+                    ToNodeKind=MapNavigationAnchorKind.Aerial
+                });
+            }
+            return result;
+        }
+
         public static (byte[] Bytes, int Nodes, int Edges) Pack(IReadOnlyList<BuiltFace> solid, IReadOnlyList<MapNavigationLink>? links = null, CancellationToken cancellation = default)
         {
             var graph = Analyze(solid,links,cancellation);
