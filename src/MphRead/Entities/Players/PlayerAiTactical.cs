@@ -253,6 +253,27 @@ public partial class PlayerEntity
             return TacticalOccupiesObjective(_player);
         }
 
+        internal void OnTacticalKill(PlayerEntity victim)
+        {
+            if (_tacticalTarget == victim)
+            {
+                _tacticalTarget = null;
+            }
+            if (_targetPlayer == victim)
+            {
+                _targetPlayer = null;
+                Flags2 &= ~AiFlags2.TargetPlayer;
+            }
+            _tacticalDecisionTimer = 0;
+            _tacticalStrafeTimer = 0;
+            _combatStrafeTimer = 0;
+            _tacticalEscapeFrames = 0;
+            _tacticalMovementActive = false;
+            Flags2 &= ~AiFlags2.Bit8;
+            // Do not carry a fire/charge request into the frame after the target died.
+            _buttons.R.IsDown = false;
+        }
+
         private void ApplyTacticalWeaponDecision()
         {
             if (_tacticalWeapon == BeamType.None || _player.IsAltForm
@@ -283,7 +304,7 @@ public partial class PlayerEntity
             }
 
             Func2144B88();
-            if (Flags2.TestFlag(AiFlags2.Bit8))
+            if (Flags2.TestFlag(AiFlags2.Bit8) && TacticalShotSafe(_tacticalTarget))
             {
                 Func2143A40();
             }
@@ -292,6 +313,45 @@ public partial class PlayerEntity
                 // Preserve useful charge while the reticle is still settling.
                 Func214380C();
             }
+        }
+
+        private bool TacticalShotSafe(PlayerEntity target)
+        {
+            WeaponInfo weapon = _player.EquipWeapon;
+            bool selfDamage = weapon.Flags.TestAny(WeaponFlags.SelfDamageUncharged | WeaponFlags.SelfDamageCharged);
+            if (!selfDamage)
+            {
+                return true;
+            }
+
+            float splashRadius = Math.Max(Fixed.ToFloat(weapon.UnchargedSplashRadius),
+                Math.Max(Fixed.ToFloat(weapon.MinChargeSplashRadius), Fixed.ToFloat(weapon.ChargedSplashRadius)));
+            splashRadius = Math.Max(0.75f, splashRadius);
+            float targetDistance = Vector3.Distance(_player.Position, target.Position);
+            if (!TacticalSplashClearanceForTest(targetDistance, splashRadius, nearbyObstacle: false))
+            {
+                return false;
+            }
+
+            Vector3 start = _player._muzzlePos;
+            Vector3 direction = target.Position.AddY(target.IsAltForm
+                    ? Math.Max(0.25f, Fixed.ToFloat(target.Values.AltColYPos)) : 0.5f) - start;
+            if (direction.LengthSquared <= 0.001f)
+            {
+                return false;
+            }
+            direction.Normalize();
+            CollisionResult hit = default;
+            bool nearbyObstacle = CollisionDetection.CheckBetweenPoints(start,
+                start + direction * (splashRadius + 0.75f), TestFlags.None, _scene, ref hit);
+            return TacticalSplashClearanceForTest(targetDistance, splashRadius, nearbyObstacle);
+        }
+
+        public static bool TacticalSplashClearanceForTest(float targetDistance, float splashRadius,
+            bool nearbyObstacle)
+        {
+            splashRadius = Math.Max(0, splashRadius);
+            return !nearbyObstacle && targetDistance > splashRadius + 1.0f;
         }
 
         private void UpdateTacticalHearing(BotTacticalTuning tuning)
@@ -785,9 +845,22 @@ public partial class PlayerEntity
             {
                 return false;
             }
+            Vector3 headStart = _player.Position.AddY(1.35f);
+            CollisionResult headWall = default;
+            if (CollisionDetection.CheckBetweenPoints(headStart, headStart + direction * 1.5f,
+                TestFlags.None, _scene, ref headWall))
+            {
+                return false;
+            }
 
-            Vector3 floorStart = end.AddY(0.75f);
-            Vector3 floorEnd = end.AddY(-2.75f);
+            Vector3 side = new Vector3(direction.Z, 0, -direction.X) * 0.30f;
+            return TacticalFloorSafe(end) && TacticalFloorSafe(end + side) && TacticalFloorSafe(end - side);
+        }
+
+        private bool TacticalFloorSafe(Vector3 position)
+        {
+            Vector3 floorStart = position.AddY(0.75f);
+            Vector3 floorEnd = position.AddY(-2.75f);
             CollisionResult floor = default;
             if (!CollisionDetection.CheckBetweenPoints(floorStart, floorEnd, TestFlags.None, _scene, ref floor))
             {
