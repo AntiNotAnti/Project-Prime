@@ -5499,10 +5499,11 @@ namespace MphRead
 
         private void RenderItem(RenderItem item)
         {
-            RenderItem(item, applySharedState: true);
+            RenderItem(item, applySharedState: true, retainedMesh: null);
         }
 
-        private void RenderItem(RenderItem item, bool applySharedState)
+        private void RenderItem(RenderItem item, bool applySharedState,
+            Mods.Render.RetainedMeshDescriptor? retainedMesh = null)
         {
             if (item.ViewModel)
             {
@@ -5548,7 +5549,7 @@ namespace MphRead
             // behind. Reassert it per draw even when material/texture state is
             // shared by an adjacent retained batch.
             GL.Color3(item.Diffuse);
-            DrawRenderItemGeometry(item);
+            DrawRenderItemGeometry(item, retainedMesh);
 
             if (item.ViewModel)
             {
@@ -5581,11 +5582,12 @@ namespace MphRead
             GL.LineWidth(wireframe ? Math.Max(1, _wireframeLevel) : 1);
         }
 
-        private void DrawRenderItemGeometry(RenderItem item)
+        private void DrawRenderItemGeometry(RenderItem item,
+            Mods.Render.RetainedMeshDescriptor? retainedMesh)
         {
             if (item.Type == RenderItemType.Mesh)
             {
-                GL.CallList(item.ListId);
+                GL.CallList(retainedMesh?.ListId ?? item.ListId);
             }
             else if (item.Type == RenderItemType.Box)
             {
