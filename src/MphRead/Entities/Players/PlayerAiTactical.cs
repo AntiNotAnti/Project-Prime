@@ -294,6 +294,17 @@ public partial class PlayerEntity
                     score += _tacticalThreatWeight;
                 }
 
+                if (!objective)
+                {
+                    int alliesOnTarget=0;
+                    foreach(PlayerEntity ally in _scene.GetPlayerEntities())
+                    {
+                        if(ally!=_player&&ally.IsBot&&ally.TeamIndex==_player.TeamIndex
+                            && ally.AiData._targetPlayer==candidate)alliesOnTarget++;
+                    }
+                    score-=Math.Min(18,alliesOnTarget*(3+Math.Clamp(_player.BotLevel,0,3)));
+                }
+
                 if (score > bestScore)
                 {
                     bestScore = score;
