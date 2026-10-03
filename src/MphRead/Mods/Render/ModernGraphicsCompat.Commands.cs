@@ -222,6 +222,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         var extent = new Extent3D((uint)width, (uint)height, 1);
         _api.CommandEncoderCopyBufferToTexture(BeginCommands(), &sourceCopy, &destination, &extent);
         EndCommands();
+        if (_measurePerformance) _stagedTextureUploads++;
         return true;
     }
 
