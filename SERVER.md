@@ -1,12 +1,18 @@
 # Running a Project Prime server
 
-You do not need any of this to play online. **Host → Where: Online** in the launcher asks a public
-machine to run the match and joins you to it, with nothing to open on your router. This page is for
-running a machine of your own that is always up.
+You do not need any of this to play online. **Create Lobby → Hosted lobby** asks
+an always-on allocator to start one isolated authoritative lobby process only
+when it is needed. That child stays alive through Lobby → Match → Results →
+Lobby and exits when the hosted lobby is abandoned.
 
-A server **runs the match itself**, so it needs the game files. It also records
-canonical match replays by default, with bounded retention, and a Raspberry Pi
-is still enough.
+The normal public deployment therefore keeps the lightweight **master/allocator**
+running and does not keep an empty gameplay world simulating all day. A
+permanent Continuous game server is optional for an always-visible official or
+rated lane.
+
+Every child/game server **runs the match itself**, so the host machine still
+needs the game files. Authoritative servers record canonical match replays by
+default, with bounded retention.
 
 ```bash
 # Linux
@@ -102,11 +108,16 @@ Example for a smaller public server:
 
 ## Ports
 
-UDP only. Forward **27888** to the machine. The server list uses **27889**.
+UDP only.
 
-Your server is listed on `51.161.113.128` automatically, so people find it in **Join → Find a
-server**. Check it arrived with `ProjectPrime -servers`, which prints the list the browser shows.
-`-nomaster` keeps it private.
+- **27889** — always-on master/directory + lobby allocation requests.
+- **27900-27919** — default on-demand hosted lobby pool.
+- **27888** — optional permanent Continuous game server.
+
+The allocator must be started with its public address, for example
+`-public 51.161.113.128`, because hosted children report back over loopback and
+the browser must be given the internet-reachable address instead of
+`127.0.0.1`.
 
 ## Map rotation
 
@@ -124,12 +135,22 @@ files to do that, so run it on a machine that has them, not necessarily on the s
 
 ## As a service
 
-systemd units are in `tools/systemd/`:
+`deploy-server.sh` now deploys the **master/allocator only by default**. It
+keeps UDP 27889 resident and creates lobby children in the configured host-port
+range when players ask.
+
+Set `MPH_DEPLOY_GAME_SERVER=1` only when the machine should also run the
+permanent Continuous official/rated server on UDP 27888.
+
+systemd templates remain in `tools/systemd/`. For a manual allocator install,
+replace all three placeholders:
 
 ```bash
-sed -e 's|__USER__|youruser|' -e 's|__DIR__|/home/youruser/projectprime-server|' \
-    tools/systemd/mphread-server.service | sudo tee /etc/systemd/system/mphread-server.service
-sudo systemctl enable --now mphread-server
+sed -e 's|__USER__|youruser|' \
+    -e 's|__DIR__|/home/youruser/projectprime-server|' \
+    -e 's|__PUBLIC__|51.161.113.128|' \
+    tools/systemd/mphread-master.service | sudo tee /etc/systemd/system/mphread-master.service
+sudo systemctl enable --now mphread-master
 ```
 
 Stop the service before replacing the binary — systemd holds the file open, and .NET maps it into
