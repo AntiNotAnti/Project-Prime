@@ -75,19 +75,41 @@ internal static class HostRequestGuard
         double now, out string reason)
     {
         reason = "";
-        long bucket = (long)Math.Floor(now / CookieBucketSeconds);
-        ulong current = Cookie(sender, request.HostNonce, bucket);
-        ulong prior = Cookie(sender, request.HostNonce, bucket - 1);
-        if (request.HostNonce == 0
-            || request.HostCookie != current && request.HostCookie != prior)
+        if (request.HostNonce == 0)
         {
             reason = "hosting challenge expired; retry lobby creation";
             return false;
         }
+
         int fingerprint = Fingerprint(request);
         string proofKey = sender.Address + ":" + sender.Port.ToString(
             System.Globalization.CultureInfo.InvariantCulture) + ":" + request.HostNonce.ToString(
             System.Globalization.CultureInfo.InvariantCulture);
+
+        // Once a fresh cookie authorized this exact request, its bounded
+        // retransmissions remain valid while Community preparation runs. This
+        // check happens before the short cookie window so a two-minute map
+        // download does not fail on its own retry cadence.
+        lock (Gate)
+        {
+            if (Accepted.TryGetValue(proofKey, out var accepted)
+                && accepted.Expires >= now)
+            {
+                if (accepted.Fingerprint == fingerprint) return true;
+                reason = "hosting challenge was already used for a different request";
+                return false;
+            }
+        }
+
+        long bucket = (long)Math.Floor(now / CookieBucketSeconds);
+        ulong current = Cookie(sender, request.HostNonce, bucket);
+        ulong prior = Cookie(sender, request.HostNonce, bucket - 1);
+        if (request.HostCookie != current && request.HostCookie != prior)
+        {
+            reason = "hosting challenge expired; retry lobby creation";
+            return false;
+        }
+
         lock (Gate)
         {
             if (Accepted.TryGetValue(proofKey, out var accepted)
