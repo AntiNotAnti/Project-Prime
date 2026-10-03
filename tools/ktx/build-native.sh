@@ -2,15 +2,21 @@
 set -euo pipefail
 
 target="${1:?usage: tools/ktx/build-native.sh <osx-arm64|osx-x64|android-arm64|android-x64>}"
-version="v4.4.2"
+revision="6b3d8bf15788f604c6b91dd95fafabb6c59cd723"
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="${root}/artifacts/ktx-source"
-source_dir="${work}/KTX-Software-${version}"
+source_dir="${work}/KTX-Software"
 build_dir="${work}/build-${target}"
 
 if [ ! -d "${source_dir}/.git" ]; then
   rm -rf "${source_dir}"
-  git clone --depth 1 --branch "${version}" --recurse-submodules --shallow-submodules     https://github.com/KhronosGroup/KTX-Software.git "${source_dir}"
+  git clone --depth 1 --recurse-submodules --shallow-submodules     https://github.com/BoyBaykiller/KTX-Software.git "${source_dir}"
+fi
+
+if [ "$(git -C "${source_dir}" rev-parse HEAD)" != "${revision}" ]; then
+  git -C "${source_dir}" fetch --depth 1 origin "${revision}"
+  git -C "${source_dir}" checkout --detach "${revision}"
+  git -C "${source_dir}" submodule update --init --recursive --depth 1
 fi
 
 common=(
@@ -62,4 +68,4 @@ case "${target}" in
     ;;
 esac
 
-echo "KTX ${version} runtime ready for ${target}"
+echo "KTX runtime ${revision} ready for ${target}"
