@@ -94,12 +94,50 @@ internal sealed unsafe partial class ModernGraphicsCompat
     private readonly List<UploadBuffer> _uploadBuffers = new();
     private int _uploadBufferCursor;
 
-    // A complete frame is normally well below this count. Keeping the encoder
-    // alive longer matters on Metal/Vulkan/DX12 because each QueueSubmit carries
-    // native driver scheduling overhead. Real ordering hazards still flush
-    // explicitly at readback/present/recovery boundaries.
-    private const int CommandBatchOperations = 1024;
-    private const ulong MaximumStagedTextureUploadBytes = 4UL * 1024 * 1024;
+    // Backend-aware submission budgets. Desktop native backends amortize driver
+    // scheduling better with longer-lived encoders, especially Metal where the
+    // frozen Extreme benchmark is submission-bound. Android keeps a smaller
+    // command/upload window to avoid large bursts on tiled GPUs and shared memory.
+    private int CommandBatchOperationLimit
+    {
+        get
+        {
+#if ANDROID
+            return 768;
+#else
+            return _device.Backend switch
+            {
+                GraphicsBackend.Metal => 2048,
+                GraphicsBackend.DirectX12 => 2048,
+                GraphicsBackend.Vulkan => 1536,
+                _ => 1024
+            };
+#endif
+        }
+    }
+
+    private ulong MaximumStagedTextureUploadBytes
+    {
+        get
+        {
+#if ANDROID
+            return 2UL * 1024 * 1024;
+#else
+            return _device.Backend switch
+            {
+                GraphicsBackend.Metal => 8UL * 1024 * 1024,
+                GraphicsBackend.DirectX12 => 4UL * 1024 * 1024,
+                GraphicsBackend.Vulkan => 4UL * 1024 * 1024,
+                _ => 4UL * 1024 * 1024
+            };
+#endif
+        }
+    }
+
+    internal static int ActiveCommandBatchOperationLimit =>
+        _current?.CommandBatchOperationLimit ?? 0;
+    internal static ulong ActiveStagedTextureUploadLimitBytes =>
+        _current?.MaximumStagedTextureUploadBytes ?? 0;
 
     private CommandEncoder* _commandEncoder;
     private int _commandOperations;
@@ -457,7 +495,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void RecordCommandOperation()
     {
-        if (++_commandOperations >= CommandBatchOperations) FlushCommands();
+        if (++_commandOperations >= CommandBatchOperationLimit) FlushCommands();
     }
 
     private void EndCommands() => RecordCommandOperation();
