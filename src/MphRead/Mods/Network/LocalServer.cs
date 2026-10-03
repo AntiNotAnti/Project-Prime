@@ -62,6 +62,19 @@ namespace MphRead.Mods.Network
         public static Process? Running { get; private set; }
 
         /// <summary>
+        /// Transfer ownership of the most recently started process to a hosted
+        /// child wrapper. Hosted pools own their children directly; leaving the
+        /// handle in this singleton made an unrelated later Start overwrite the
+        /// only way to identify the process that had just been created.
+        /// </summary>
+        internal static Process? DetachRunning()
+        {
+            Process? process = Running;
+            Running = null;
+            return process;
+        }
+
+        /// <summary>
         /// What would be started, or null when nothing here can start a
         /// server.
         ///
