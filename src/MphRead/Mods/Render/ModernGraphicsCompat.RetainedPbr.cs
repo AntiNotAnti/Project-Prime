@@ -292,8 +292,13 @@ namespace MphRead.Mods.Render
             _api.RenderPassEncoderSetViewport(
                 pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);
-            _api.RenderPassEncoderDrawIndexed(
-                pass, (uint)geometry.Triangles.Length, 1, 0, 0, 0);
+            uint retainedIndexCount = (uint)geometry.Triangles.Length;
+            if (!TryDrawRetainedIndexedIndirect(
+                pass, retainedIndexCount, item.RetainedRoomOwned))
+            {
+                _api.RenderPassEncoderDrawIndexed(
+                    pass, retainedIndexCount, 1, 0, 0, 0);
+            }
             if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
 
