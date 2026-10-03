@@ -190,6 +190,8 @@ namespace MphRead.Mods.Launcher.Gui
             finally
             {
                 LifecycleTiming.BeginShutdown("shell session ending");
+                ReplayWritePump.BeginProcessShutdown();
+                MphRead.Sound.AudioLifetime.BeginShutdown();
                 CancellationTokenSource? startupCancel = _startupWorkCancel;
                 _startupWorkCancel = null;
                 startupCancel?.Cancel();
@@ -654,7 +656,7 @@ namespace MphRead.Mods.Launcher.Gui
             LifecycleTiming.BeginShutdown("quit requested");
             _startupWorkCancel?.Cancel();
             ReplayWritePump.BeginProcessShutdown();
-            Sound.AudioLifetime.BeginShutdown();
+            MphRead.Sound.AudioLifetime.BeginShutdown();
             _quit = true;
         }
 
