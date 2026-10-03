@@ -67,6 +67,8 @@ namespace MphRead.Mods.Render
             internal float[] Vertices = Array.Empty<float>();
             internal int[] Triangles = Array.Empty<int>();
             internal int[] Lines = Array.Empty<int>();
+            internal NativeGeometry? TriangleGeometry;
+            internal NativeGeometry? LineGeometry;
             internal Vector3? EndNormal;
             internal Vector4? EndColor;
         }
@@ -543,7 +545,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             ModernGraphicsCompat self = Current;
             self._recording = false;
             self.ReleaseListGeometry(self._recordingList);
-            self._lists[self._recordingList] = new GeometryList
+            var geometry = new GeometryList
             {
                 Vertices = self._batch.Vertices.ToArray(),
                 Triangles = self._batch.TriIndices.ToArray(),
@@ -551,6 +553,8 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 EndNormal = self._normalSet ? self._currentNormal : null,
                 EndColor = self._colorSet ? self._currentColor : null
             };
+            self._lists[self._recordingList] = geometry;
+            self.PrepareRetainedListGeometry(geometry);
             self._currentNormal = self._listInitialNormal;
             self._currentColor = self._listInitialColor;
             self._currentTexcoord = self._listInitialTexcoord;
@@ -563,7 +567,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (self._lists.TryGetValue(list, out GeometryList? geometry))
             {
                 self._drawingList = true;
-                try { self.DrawBatch(geometry.Vertices, geometry.Triangles, geometry.Lines); }
+                try { self.DrawRetainedList(geometry); }
                 finally { self._drawingList = false; }
                 if (geometry.EndNormal is Vector3 normal) self._currentNormal = normal;
                 if (geometry.EndColor is Vector4 color) self._currentColor = color;
@@ -1548,6 +1552,62 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
         private void DrawBatch(float[] vertices, int[] triangles, int[] lines) =>
             DrawBatch(vertices, triangles, lines, vertices, triangles, lines);
 
+        private void DrawRetainedList(GeometryList geometry)
+        {
+            if (geometry.Vertices.Length == 0) return;
+            ModernProgramKind kind = CurrentProgramKind();
+            bool core = _resources.DrawFramebuffer != 0
+                || UsesGeneratedShader(kind)
+                || kind == ModernProgramKind.World
+                || kind == ModernProgramKind.Rtt
+                || kind == ModernProgramKind.Shift
+                || kind == ModernProgramKind.Cel
+                || kind == ModernProgramKind.PlayerOutline
+                || kind == ModernProgramKind.ToneMap;
+
+            if (geometry.Triangles.Length > 0)
+            {
+                ReadOnlySpan<int> indices = geometry.Triangles;
+                NativeGeometry? retained = geometry.TriangleGeometry;
+                if (_wireframe)
+                {
+                    int[] edges = WireframeIndices(geometry.Triangles);
+                    indices = edges;
+                    retained = PrepareGeometry(geometry.Vertices, edges);
+                }
+                else if (retained == null || retained.Vertex == null || retained.Index == null)
+                {
+                    retained = PrepareGeometry(geometry.Vertices, geometry.Triangles);
+                    geometry.TriangleGeometry = retained;
+                }
+
+                PrimitiveTopology topology = _wireframe
+                    ? PrimitiveTopology.LineList : PrimitiveTopology.TriangleList;
+                if (core)
+                    DrawCoreIndexed(geometry.Vertices, indices, topology, kind,
+                        retainedGeometry: retained);
+                else
+                    DrawIndexed(geometry.Vertices, indices, topology,
+                        retainedGeometry: retained);
+            }
+
+            if (geometry.Lines.Length > 0)
+            {
+                NativeGeometry? retained = geometry.LineGeometry;
+                if (retained == null || retained.Vertex == null || retained.Index == null)
+                {
+                    retained = PrepareGeometry(geometry.Vertices, geometry.Lines);
+                    geometry.LineGeometry = retained;
+                }
+                if (core)
+                    DrawCoreIndexed(geometry.Vertices, geometry.Lines,
+                        PrimitiveTopology.LineList, kind, retainedGeometry: retained);
+                else
+                    DrawIndexed(geometry.Vertices, geometry.Lines,
+                        PrimitiveTopology.LineList, retainedGeometry: retained);
+            }
+        }
+
         private void DrawBatch(ReadOnlySpan<float> vertices, ReadOnlySpan<int> triangles,
             ReadOnlySpan<int> lines, float[]? persistentVertices, int[]? persistentTriangles,
             int[]? persistentLines)
@@ -1593,16 +1653,17 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 
         private void DrawIndexed(ReadOnlySpan<float> vertices, ReadOnlySpan<int> indices,
             PrimitiveTopology topology, float[]? persistentVertices = null,
-            int[]? persistentIndices = null)
+            int[]? persistentIndices = null, NativeGeometry? retainedGeometry = null)
         {
             if (!AcquireSurfaceTexture()) return;
             PipelineRecord pipeline = Pipeline(topology);
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = persistentVertices != null && persistentIndices != null
-                ? PrepareGeometry(persistentVertices, persistentIndices)
-                : PrepareGeometry(vertices, indices);
+            NativeGeometry geometryBuffers = retainedGeometry
+                ?? (persistentVertices != null && persistentIndices != null
+                    ? PrepareGeometry(persistentVertices, persistentIndices)
+                    : PrepareGeometry(vertices, indices));
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 

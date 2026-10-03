@@ -13,6 +13,17 @@ wgpu-native. The backend policy is deliberately explicit:
 OpenGL/OpenGL ES remains the compatibility fallback while the shared renderer is moved
 off legacy GL state.
 
+## Retained renderer migration
+
+The compatibility renderer is now being peeled away behind an explicit retained-world
+seam. Immutable display-list geometry is promoted into persistent native GPU buffers
+at list finalization, frame submissions are captured as reusable draw packets, and the
+six ordering-sensitive world passes execute through `WorldRenderGraph`.
+
+This first slice intentionally preserves RenderItem ordering and the existing material
+executor. See [retained renderer and render graph migration](retained-renderer.md) for
+the staged path from compatibility submission to direct backend-native packets.
+
 ## Why one WebGPU renderer
 
 The current renderer is heavily OpenGL-oriented and Android already has a compatibility

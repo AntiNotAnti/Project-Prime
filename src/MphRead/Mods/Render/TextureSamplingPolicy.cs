@@ -21,6 +21,11 @@ namespace MphRead.Mods.Render
             + Anisotropy + "x-" + LodBias.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
     }
 
+    internal readonly record struct AppliedTextureSamplingState(
+        TextureSamplerDescriptor Sampling,
+        RepeatMode XRepeat,
+        RepeatMode YRepeat);
+
     /// <summary>
     /// Resolves authored/HD texture sampling independently from source
     /// resolution. Auto intentionally stabilizes detailed 3D materials at

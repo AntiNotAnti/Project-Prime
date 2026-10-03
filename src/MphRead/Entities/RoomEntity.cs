@@ -1934,32 +1934,48 @@ namespace MphRead.Entities
             {
                 return;
             }
+
             Model model = inst.Model;
-            int start = node.MeshId / 2;
-            for (int k = 0; k < node.MeshCount; k++)
+            ReadOnlySpan<RetainedRoomMeshTemplate> templates = RetainedMeshes(model, node);
+            LightInfo lightInfo = GetLightInfo();
+            int matrixStackCount = model.NodeMatrixIds.Count;
+            IReadOnlyList<float> matrixStack = model.MatrixStackValues;
+            bool portalDraw = portal != null;
+            float portalAlpha = portalDraw
+                ? GetPortalAlpha(portal!.Position, _scene.CameraPosition)
+                : 1.0f;
+
+            for (int k = 0; k < templates.Length; k++)
             {
-                int polygonId = 0;
-                Mesh mesh = model.Meshes[start + k];
+                ref readonly RetainedRoomMeshTemplate template = ref templates[k];
+                Mesh mesh = template.Mesh;
                 if (!mesh.Visible)
                 {
                     continue;
                 }
-                Material material = model.Materials[mesh.MaterialId];
+
+                Material material = template.Material;
+                int polygonId = 0;
                 float alpha = 1.0f;
-                if (portal != null)
+                if (portalDraw)
                 {
                     polygonId = _scene.GetNextPolygonId();
-                    alpha = GetPortalAlpha(portal.Position, _scene.CameraPosition);
+                    alpha = portalAlpha;
                 }
                 else if (material.RenderMode == RenderMode.Translucent)
                 {
                     polygonId = _scene.GetNextPolygonId();
                 }
-                Matrix4 texcoordMatrix = GetTexcoordMatrix(inst, material, mesh.MaterialId, node);
-                SelectionType selectionType = Selection.CheckSelection(this, inst, node, mesh);
-                _scene.AddRenderItem(material, polygonId, alpha, emission: Vector3.Zero, GetLightInfo(),
-                    texcoordMatrix, node.Animation, mesh.ListId, model.NodeMatrixIds.Count, model.MatrixStackValues,
-                    overrideColor: null, paletteOverride: null, selectionType, node.BillboardMode);
+
+                Matrix4 texcoordMatrix = GetTexcoordMatrix(
+                    inst, material, template.MaterialId, node);
+                SelectionType selectionType = Selection.CheckSelection(
+                    this, inst, node, mesh);
+                _scene.AddRenderItem(material, polygonId, alpha,
+                    emission: Vector3.Zero, lightInfo, texcoordMatrix,
+                    node.Animation, template.ListId, matrixStackCount, matrixStack,
+                    overrideColor: null, paletteOverride: null, selectionType,
+                    node.BillboardMode);
             }
         }
 
