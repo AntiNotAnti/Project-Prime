@@ -461,14 +461,18 @@ namespace MphRead.Mods.Launcher.Gui
             context.FillRectangle(active ? PrimeTheme.PanelHighlightBrush : PrimeTheme.PanelBrush, rect);
             context.DrawRectangle(new Pen(active ? PrimeTheme.HighlightBrush : PrimeTheme.BorderBrush, 1), rect.Deflate(.5));
             context.FillRectangle(active ? PrimeTheme.PrimaryBrush : PrimeTheme.BorderBrush, new Rect(1, 8, 5, Math.Max(0, Bounds.Height - 16)));
-            void Text(string value, double x, double y, double width, double size, IBrush ink, bool mono = false)
+            void Text(string value, double x, double y, double width, double size, IBrush ink,
+                bool mono = false, bool unicode = false)
             {
                 if (width <= 0) return;
-                var laid = DeckText.Run(value, mono ? Deck.Body(bold: true) : Deck.Label(strong: true), size, ink, width);
+                Typeface face = unicode
+                    ? new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.SemiBold)
+                    : mono ? Deck.Body(bold: true) : Deck.Label(strong: true);
+                var laid = DeckText.Run(value, face, size, ink, width);
                 using (context.PushClip(new Rect(x, y, width, 24))) context.DrawText(laid, new Point(x, y));
             }
             double main = Math.Max(0, Bounds.Width - 200);
-            Text(_name.ToUpperInvariant(), 20, 11, main, 20, PrimeTheme.TextBrush);
+            Text(_name.ToUpperInvariant(), 20, 11, main, 20, PrimeTheme.TextBrush, unicode: true);
             Text((_map + "  //  " + _mode).ToUpperInvariant(), 20, 43, main, 11, PrimeTheme.TextSecondaryBrush, true);
             Text(_players + " PLAYERS", Bounds.Width - 164, 11, 150, 12, PrimeTheme.TextBrush, true);
             Text(_ping + " MS // " + _availability, Bounds.Width - 190, 43, 178, 10,

@@ -471,12 +471,14 @@ namespace MphRead.Mods.Network
     }
 
     /// <summary>
-    /// Fixed-width ASCII in a packet, written and read the same way
+    /// Fixed-width UTF-8 text in a packet, written and read the same way
     /// everywhere.
     ///
-    /// Every name on the wire had its own private copy of this and they had
-    /// started to disagree about what to do with a byte the in-game font
-    /// cannot draw. One copy, one answer.
+    /// ASCII remains byte-for-byte compatible, while display text such as
+    /// hosted lobby/server names can keep accented characters, symbols and
+    /// kana instead of collapsing them to '?'. Writes stop before a complete
+    /// Unicode scalar would cross the fixed field boundary, so truncation can
+    /// never leave an invalid UTF-8 tail on the wire.
     /// </summary>
     public static class NetText
     {
@@ -487,12 +489,30 @@ namespace MphRead.Mods.Network
             {
                 return;
             }
-            int count = Math.Min(value.Length, dest.Length);
-            for (int i = 0; i < count; i++)
+
+            int offset = 0;
+            foreach (Rune source in value.EnumerateRunes())
             {
-                char c = value[i];
-                dest[i] = (byte)(c < 32 || c > 126 ? '?' : c);
+                Rune rune = Safe(source);
+                int required = rune.Utf8SequenceLength;
+                if (offset + required > dest.Length)
+                {
+                    break;
+                }
+                offset += rune.EncodeToUtf8(dest[offset..]);
             }
+        }
+
+        private static Rune Safe(Rune rune)
+        {
+            var category = Rune.GetUnicodeCategory(rune);
+            return rune == Rune.ReplacementChar
+                || category is System.Globalization.UnicodeCategory.Control
+                    or System.Globalization.UnicodeCategory.Format
+                    or System.Globalization.UnicodeCategory.LineSeparator
+                    or System.Globalization.UnicodeCategory.ParagraphSeparator
+                ? new Rune('?')
+                : rune;
         }
 
         public static string Read(ReadOnlySpan<byte> src)
@@ -502,7 +522,7 @@ namespace MphRead.Mods.Network
             {
                 length++;
             }
-            return length == 0 ? String.Empty : Encoding.ASCII.GetString(src[..length]);
+            return length == 0 ? String.Empty : Encoding.UTF8.GetString(src[..length]);
         }
     }
 
