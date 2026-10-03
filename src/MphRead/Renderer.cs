@@ -4769,6 +4769,69 @@ namespace MphRead
             AddRenderItem(item);
         }
 
+        /// <summary>
+        /// Refresh and submit a room-owned persistent mesh packet. Unlike the
+        /// generic render-item pool, this object stays with its retained room
+        /// mesh template across frames; every value that can animate or change
+        /// with visibility/selection is still overwritten on each submission.
+        /// </summary>
+        internal void AddRetainedRoomRenderItem(RenderItem item,
+            Material material, int polygonId, float alphaScale,
+            Vector3 emission, LightInfo lightInfo, Matrix4 texcoordMatrix,
+            Matrix4 transform, int listId, int matrixStackCount,
+            IReadOnlyList<float> matrixStack, SelectionType selectionType,
+            BillboardMode billboardMode)
+        {
+            Debug.Assert(!_collectingPreview && !_collectingViewModelItems);
+            item.Type = RenderItemType.Mesh;
+            item.Cosmetics = default;
+            item.CosmeticMaterial = default;
+            item.PolygonId = polygonId;
+            item.Alpha = material.CurrentAlpha * alphaScale;
+            item.PolygonMode = material.PolygonMode;
+            item.RenderMode = material.RenderMode;
+            item.CullingMode = material.Culling;
+            item.BillboardMode = billboardMode;
+            item.Wireframe = material.Wireframe != 0;
+            item.Lighting = material.Lighting != 0;
+            item.ViewModel = false;
+            item.NoLines = false;
+            item.Diffuse = material.CurrentDiffuse;
+            item.Ambient = material.CurrentAmbient;
+            item.Specular = material.CurrentSpecular;
+            item.Emission = emission;
+            item.LightInfo = lightInfo;
+            item.TexgenMode = material.TexgenMode;
+            item.XRepeat = material.XRepeat;
+            item.YRepeat = material.YRepeat;
+            item.HasTexture = material.TextureId != -1;
+            item.TextureBindingId = material.TextureBindingId;
+            item.TexcoordMatrix = texcoordMatrix;
+            item.Transform = transform;
+            item.ListId = listId;
+            Debug.Assert(matrixStack.Count == 16 * matrixStackCount);
+            item.MatrixStackCount = matrixStackCount;
+            for (int i = 0; i < matrixStack.Count; i++)
+                item.MatrixStack[i] = matrixStack[i];
+            item.OverrideColor = null;
+            item.PaletteOverride = null;
+            item.TexturedPlayerSkin = false;
+            item.PlayerOutlineColor = null;
+            item.Points = Array.Empty<Vector3>();
+            item.ItemCount = 0;
+            item.ScaleS = 1;
+            item.ScaleT = 1;
+
+            if (selectionType != SelectionType.None)
+            {
+                Vector4? selection = Selection.GetSelectionColor(selectionType);
+                if (selection != null)
+                    item.OverrideColor = selection;
+            }
+
+            SubmitRenderItem(item, pooled: false, setViewModel: false);
+        }
+
         // for volumes/planes
         public void AddRenderItem(CullingMode cullingMode, int polygonId, Vector4 overrideColor, RenderItemType type,
             Vector3[] vertices, int vertexCount = 0, bool noLines = false)
@@ -4890,33 +4953,34 @@ namespace MphRead
             AddRenderItem(item);
         }
 
-        private void AddRenderItem(RenderItem item)
+        private void AddRenderItem(RenderItem item) =>
+            SubmitRenderItem(item, pooled: true, setViewModel: true);
+
+        private void SubmitRenderItem(
+            RenderItem item, bool pooled, bool setViewModel)
         {
-            // RenderItem instances are pooled. Always overwrite this flag so a
-            // recycled gun item cannot turn ordinary world geometry into a
-            // viewmodel on a later frame.
-            item.ViewModel = _collectingViewModelItems;
-            // The results screen's hunter preview is drawn in a pass of its
-            // own, with its own camera and its own depth buffer, so its items
-            // must not join the world's three lists. See ModCollectPreview.
+            // Pooled items inherit the collection scope. Persistent room items
+            // explicitly own world geometry and therefore keep ViewModel false.
+            if (setViewModel)
+                item.ViewModel = _collectingViewModelItems;
+
             if (_collectingPreview)
             {
+                Debug.Assert(pooled,
+                    "Persistent room packets cannot enter preview collection.");
                 _previewItems.Add(item);
                 return;
             }
             if (item.RenderMode == RenderMode.Decal)
-            {
                 _decalItems.Add(item);
-            }
             else
-            {
                 _nonDecalItems.Add(item);
-            }
+
             if (item.RenderMode == RenderMode.Translucent || item.Alpha < 1)
-            {
                 _translucentItems.Add(item);
-            }
-            _usedRenderItems.Enqueue(item);
+
+            if (pooled)
+                _usedRenderItems.Enqueue(item);
         }
 
         private int _nextPolygonId = 1;

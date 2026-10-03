@@ -430,6 +430,36 @@ retained 3D scene.
 `-rendergraphcheck` validates both the six-pass world graph and the top-level
 frame graph ordering/resource contract.
 
+## Slice 17: persistent room render packets
+
+Static room mesh topology now owns persistent `RenderItem` packet objects instead
+of renting and returning one generic packet per visible mesh every picture.
+
+A retained room mesh template owns:
+
+- mesh/material/list identity;
+- one persistent room render packet.
+
+The packet is **not frozen**. Each visible submission overwrites every dynamic
+field that can change:
+
+- current material alpha/diffuse/ambient/specular;
+- texture binding and texgen/repeat state;
+- texture-coordinate animation matrix;
+- node transform and matrix stack;
+- billboard mode and lighting;
+- portal alpha/polygon ID;
+- editor selection override;
+- mesh visibility remains checked before submission.
+
+Persistent room packets bypass `_usedRenderItems`, so they can never be returned
+to the generic player/effect pool. Dynamic entities, effects, trails, volumes and
+viewmodels continue using the existing pool unchanged.
+
+This removes steady-state room `RenderItem` rent/fill/recycle churn while keeping
+portal/frustum and material animation fully live. Benchmarks expose persistent
+room packet submissions alongside template builds/hits.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

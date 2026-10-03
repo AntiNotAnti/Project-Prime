@@ -139,6 +139,7 @@ internal static class ModernRenderBenchmark
                         retainedMeshDescriptors = scene.RetainedMeshDescriptorCount,
                         retainedRoomTemplateBuilds = scene.RetainedRoomTemplateBuilds,
                         retainedRoomTemplateHits = scene.RetainedRoomTemplateHits,
+                        retainedRoomPacketSubmissions = scene.RetainedRoomPacketSubmissions,
                         retainedFrameRevision = scene.RetainedRenderFrameRevision,
                         samplerStateApplications = scene.TextureSamplerStateApplications - samplerApplicationsStart,
                         samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,

@@ -356,6 +356,8 @@ namespace MphRead
         internal int RetainedMeshDescriptorCount => _retainedRenderWorld.MeshDescriptorCount;
         internal long RetainedRoomTemplateBuilds => _room?.RetainedRoomTemplateBuilds ?? 0;
         internal long RetainedRoomTemplateHits => _room?.RetainedRoomTemplateHits ?? 0;
+        internal long RetainedRoomPacketSubmissions =>
+            _room?.RetainedRoomPacketSubmissions ?? 0;
         private long _retainedDirectWorldDraws;
         private long _retainedDirectAdvancedWorldDraws;
         private long _retainedDirectMatrixStackWorldDraws;
