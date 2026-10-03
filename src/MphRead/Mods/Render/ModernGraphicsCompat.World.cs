@@ -95,6 +95,9 @@ namespace MphRead.Mods.Render
         private ShaderModule* _toneMapShader;
         private WgpuBuffer* _uniformBuffer;
         private ulong _uniformBufferOffset;
+        private RenderPassEncoder* _activeCorePass;
+        private TextureView* _activeCoreColorView;
+        private TextureView* _activeCoreDepthView;
 
         private bool _depthWrite = true;
         private DepthFunction _depthFunction = DepthFunction.Less;
@@ -217,6 +220,65 @@ namespace MphRead.Mods.Render
             {
                 SilkMarshal.Free(code);
             }
+        }
+
+        private void EndActiveCorePass()
+        {
+            if (_activeCorePass == null) return;
+            _api.RenderPassEncoderEnd(_activeCorePass);
+            _api.RenderPassEncoderRelease(_activeCorePass);
+            _activeCorePass = null;
+            _activeCoreColorView = null;
+            _activeCoreDepthView = null;
+        }
+
+        private RenderPassEncoder* CoreRenderPass(CoreTarget target)
+        {
+            if (_activeCorePass != null
+                && _activeCoreColorView == target.ColorView
+                && _activeCoreDepthView == target.DepthView)
+            {
+                return _activeCorePass;
+            }
+
+            EndActiveCorePass();
+            CommandEncoder* encoder = BeginCommandEncoder();
+            var color = new RenderPassColorAttachment
+            {
+                DepthSlice = uint.MaxValue,
+                View = target.ColorView,
+                ResolveTarget = null,
+                LoadOp = LoadOp.Load,
+                StoreOp = StoreOp.Store
+            };
+            RenderPassDepthStencilAttachment depth = default;
+            RenderPassDepthStencilAttachment* depthPtr = null;
+            if (target.HasDepth)
+            {
+                depth = new RenderPassDepthStencilAttachment
+                {
+                    View = target.DepthView,
+                    DepthLoadOp = LoadOp.Load,
+                    DepthStoreOp = StoreOp.Store,
+                    DepthReadOnly = false,
+                    StencilLoadOp = target.HasStencil ? LoadOp.Load : LoadOp.Undefined,
+                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
+                    StencilReadOnly = !target.HasStencil
+                };
+                depthPtr = &depth;
+            }
+            var descriptor = new RenderPassDescriptor
+            {
+                ColorAttachments = &color,
+                ColorAttachmentCount = 1,
+                DepthStencilAttachment = depthPtr
+            };
+            _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
+            if (_activeCorePass == null)
+                throw new InvalidOperationException("Could not begin coalesced WebGPU render pass.");
+            _activeCoreColorView = target.ColorView;
+            _activeCoreDepthView = target.DepthView;
+            return _activeCorePass;
         }
 
         private ModernProgramKind CurrentProgramKind()
@@ -497,51 +559,19 @@ namespace MphRead.Mods.Render
                 }, resources);
             }
 
-            CommandEncoder* encoder = BeginCommands();
-            var color = new RenderPassColorAttachment
-            {
-                DepthSlice = uint.MaxValue, // WGPU_DEPTH_SLICE_UNDEFINED: this is a 2D view.
-                View = target.ColorView,
-                ResolveTarget = null,
-                LoadOp = LoadOp.Load,
-                StoreOp = StoreOp.Store
-            };
-            RenderPassDepthStencilAttachment depth = default;
-            RenderPassDepthStencilAttachment* depthPtr = null;
-            if (target.HasDepth)
-            {
-                depth = new RenderPassDepthStencilAttachment
-                {
-                    View = target.DepthView,
-                    DepthLoadOp = LoadOp.Load,
-                    DepthStoreOp = StoreOp.Store,
-                    DepthReadOnly = false,
-                    StencilLoadOp = target.HasStencil ? LoadOp.Load : LoadOp.Undefined,
-                    StencilStoreOp = target.HasStencil ? StoreOp.Store : StoreOp.Undefined,
-                    StencilReadOnly = !target.HasStencil
-                };
-                depthPtr = &depth;
-            }
-            var passDescriptor = new RenderPassDescriptor
-            {
-                ColorAttachments = &color,
-                ColorAttachmentCount = 1,
-                DepthStencilAttachment = depthPtr
-            };
-            RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
+            RenderPassEncoder* pass = CoreRenderPass(target);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex,
+                geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32,
+                geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
-            _api.RenderPassEncoderEnd(pass);
-            EndCommands();
-
-            _api.RenderPassEncoderRelease(pass);
+            RecordCommandOperation();
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
