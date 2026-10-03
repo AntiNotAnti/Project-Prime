@@ -117,6 +117,65 @@ namespace MphRead.Mods.Render
             Check(world.MeshDescriptorCount == descriptorCount,
                 "mesh descriptor table is retained rather than rebuilt per frame");
 
+            var sortableA = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                ListId = 31,
+                HasTexture = true,
+                TextureBindingId = 41,
+                Alpha = 1,
+                Diffuse = Vector3.One,
+                RetainedRoomOwned = true
+            };
+            var sortableB = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                ListId = 32,
+                HasTexture = true,
+                TextureBindingId = 42,
+                Alpha = 1,
+                Diffuse = Vector3.One,
+                RetainedRoomOwned = true
+            };
+            world.Capture(
+                new List<RenderItem> { sortableA, sortableB },
+                Array.Empty<RenderItem>(),
+                Array.Empty<RenderItem>());
+            RenderItem firstByKey = world.Opaque[0].StateKey <= world.Opaque[1].StateKey
+                ? world.Opaque[0].Item : world.Opaque[1].Item;
+            RenderItem secondByKey = ReferenceEquals(firstByKey, sortableA)
+                ? sortableB : sortableA;
+            world.Capture(
+                new List<RenderItem> { secondByKey, firstByKey },
+                Array.Empty<RenderItem>(),
+                Array.Empty<RenderItem>());
+            Check(ReferenceEquals(world.Opaque[0].Item, firstByKey)
+                && ReferenceEquals(world.Opaque[1].Item, secondByKey)
+                && world.OpaqueSortRunCount == 1
+                && world.OpaqueReorderedPacketCount == 2,
+                "room-owned opaque safe run sorts by retained state");
+
+            var opaqueBarrier = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                ListId = 33,
+                HasTexture = true,
+                TextureBindingId = 43,
+                Alpha = 1,
+                Diffuse = Vector3.One,
+                RetainedRoomOwned = false
+            };
+            world.Capture(
+                new List<RenderItem> { secondByKey, opaqueBarrier, firstByKey },
+                Array.Empty<RenderItem>(),
+                Array.Empty<RenderItem>());
+            Check(ReferenceEquals(world.Opaque[0].Item, secondByKey)
+                && ReferenceEquals(world.Opaque[1].Item, opaqueBarrier)
+                && ReferenceEquals(world.Opaque[2].Item, firstByKey)
+                && world.OpaqueSortRunCount == 0
+                && world.OpaqueReorderedPacketCount == 0,
+                "dynamic opaque packet is a hard sorting barrier");
+
             var direct = new RenderItem
             {
                 Type = RenderItemType.Mesh,
