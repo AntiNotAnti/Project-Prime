@@ -1813,34 +1813,63 @@ namespace MphRead.Entities
                     roomPart = roomPart.Next;
                     continue;
                 }
-                while (nodeIndex != -1)
+                ReadOnlySpan<RetainedRoomVisibilityCluster> visibilityClusters =
+                    RetainedVisibilityClusters(partInst.Model, nodeIndex);
+                for (int clusterIndex = 0;
+                    clusterIndex < visibilityClusters.Length; clusterIndex++)
                 {
-                    Node? node = partInst.Model.Nodes[nodeIndex];
-                    Debug.Assert(node.ChildIndex == -1);
-                    if (!node.Enabled || node.MeshCount == 0 || _excludedNodes.Contains(node))
+                    RetainedRoomVisibilityCluster cluster =
+                        visibilityClusters[clusterIndex];
+                    bool clusterVisible = false;
+                    RoomFrustumItem? clusterFrustum = frustumItem;
+                    while (clusterFrustum != null)
                     {
-                        nodeIndex = node.NextIndex;
-                        continue;
-                    }
-                    RoomFrustumItem? frustumLink = frustumItem;
-                    while (frustumLink != null)
-                    {
-                        if (IsNodeVisible(frustumLink.Info, node, 0x8FFF, offset))
+                        if (RetainedClusterVisible(
+                            clusterFrustum.Info, cluster, offset))
                         {
-                            if (offset != Vector3.Zero)
-                            {
-                                node.Animation = transform;
-                            }
-                            GetItems(partInst, node);
-                            if (_nodePairs.TryGetValue(node, out Node? exclude))
-                            {
-                                _excludedNodes.Add(exclude);
-                            }
+                            clusterVisible = true;
                             break;
                         }
-                        frustumLink = frustumLink.Next;
+                        clusterFrustum = clusterFrustum.Next;
                     }
-                    nodeIndex = node.NextIndex;
+                    if (!clusterVisible)
+                    {
+                        continue;
+                    }
+
+                    for (int clusterNodeIndex = 0;
+                        clusterNodeIndex < cluster.Nodes.Length; clusterNodeIndex++)
+                    {
+                        Node node = cluster.Nodes[clusterNodeIndex];
+                        Debug.Assert(node.ChildIndex == -1);
+                        if (!node.Enabled || node.MeshCount == 0
+                            || _excludedNodes.Contains(node))
+                        {
+                            continue;
+                        }
+
+                        RoomFrustumItem? frustumLink = frustumItem;
+                        while (frustumLink != null)
+                        {
+                            _retainedRoomNodeVisibilityTests++;
+                            if (IsNodeVisible(
+                                frustumLink.Info, node, 0x8FFF, offset))
+                            {
+                                if (offset != Vector3.Zero)
+                                {
+                                    node.Animation = transform;
+                                }
+                                GetItems(partInst, node);
+                                if (_nodePairs.TryGetValue(
+                                    node, out Node? exclude))
+                                {
+                                    _excludedNodes.Add(exclude);
+                                }
+                                break;
+                            }
+                            frustumLink = frustumLink.Next;
+                        }
+                    }
                 }
                 roomPart = roomPart.Next;
             }
