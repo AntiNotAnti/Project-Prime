@@ -43,10 +43,20 @@ namespace MphRead
                 FrameTransientTexture candidate = _frameTransientTextures[i];
                 if (!candidate.InUse
                     && candidate.Size == size
-                    && candidate.Format == format
-                    && candidate.MinFilter == minFilter
-                    && candidate.MagFilter == magFilter)
+                    && candidate.Format == format)
                 {
+                    if (candidate.MinFilter != minFilter
+                        || candidate.MagFilter != magFilter)
+                    {
+                        GL.BindTexture(TextureTarget.Texture2D, candidate.Texture);
+                        GL.TexParameter(TextureTarget.Texture2D,
+                            TextureParameterName.TextureMinFilter, (int)minFilter);
+                        GL.TexParameter(TextureTarget.Texture2D,
+                            TextureParameterName.TextureMagFilter, (int)magFilter);
+                        GL.BindTexture(TextureTarget.Texture2D, 0);
+                        candidate.MinFilter = minFilter;
+                        candidate.MagFilter = magFilter;
+                    }
                     candidate.InUse = true;
                     candidate.LastUse = ++_frameTransientTextureSerial;
                     _frameTransientTextureHits++;
