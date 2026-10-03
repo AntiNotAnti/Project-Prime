@@ -361,6 +361,9 @@ namespace MphRead.Mods.Network
             Log(_hosts.Describe());
             _clock.Restart();
             double lastReport = 0;
+            double lastHostReap = double.NegativeInfinity;
+            double lastMapPump = double.NegativeInfinity;
+            double lastUpdateCheck = double.NegativeInfinity;
             while (_running && !cancel.IsCancellationRequested)
             {
                 double now = _clock.Elapsed.TotalSeconds;
@@ -369,20 +372,32 @@ namespace MphRead.Mods.Network
                     Handle(packet, now);
                 }
                 Expire(now);
-                _hosts.Reap(now);
-                _mapRequests.Pump(now,
-                    (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
-                    SendHostReply);
+                if (now - lastHostReap >= 1.0)
+                {
+                    lastHostReap = now;
+                    _hosts.Reap(now);
+                }
+                if (now - lastMapPump >= 0.05)
+                {
+                    lastMapPump = now;
+                    _mapRequests.Pump(now,
+                        (request, sender, time, packages) => _hosts.Start(request, sender, time, packages),
+                        SendHostReply);
+                }
                 // The directory keeps itself current too, and waits on the
                 // matches it is running rather than on the servers it lists:
                 // a listed server re-announces every fifteen seconds, so the
                 // list rebuilds itself within a restart, but a hosted match
                 // lives in this process and a restart ends it.
-                if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                if (now - lastUpdateCheck >= 1.0)
                 {
-                    Log("shutting down to come back on the new build");
-                    _running = false;
-                    break;
+                    lastUpdateCheck = now;
+                    if (Update.ServerUpdate.ShouldRestart(_hosts.Count + _mapRequests.ActiveCount))
+                    {
+                        Log("shutting down to come back on the new build");
+                        _running = false;
+                        break;
+                    }
                 }
                 if (now - lastReport >= 60)
                 {
@@ -411,6 +426,10 @@ namespace MphRead.Mods.Network
             {
                 SendList(packet.Sender);
             }
+            else if (packet.Type == PacketType.HostChallenge)
+            {
+                HandleHostChallenge(packet, now);
+            }
             else if (packet.Type == PacketType.HostRequest)
             {
                 HandleHostRequest(packet, now);
@@ -419,6 +438,18 @@ namespace MphRead.Mods.Network
             {
                 HandleFarewell(packet);
             }
+        }
+
+        private void HandleHostChallenge(ReceivedPacket packet, double now)
+        {
+            if (!HostChallengePacket.TryRead(packet.Payload, out var challenge)
+                || challenge.Protocol != NetConfig.ProtocolVersion)
+                return;
+            HostChallengeReplyPacket reply =
+                HostRequestGuard.Challenge(packet.Sender, challenge, now);
+            reply.Write(_scratch);
+            _transport?.Send(packet.Sender, PacketType.HostChallengeReply,
+                _scratch.AsSpan(0, HostChallengeReplyPacket.Size));
         }
 
         /// <summary>A server saying it is stopping. Take it off the list now.</summary>
@@ -472,6 +503,11 @@ namespace MphRead.Mods.Network
                 else if (!CanHost)
                 {
                     reply.Reason = "this directory does not start games";
+                }
+                else if (!HostRequestGuard.Validate(packet.Sender, request, now,
+                    out string admissionReason))
+                {
+                    reply.Reason = admissionReason;
                 }
                 else
                 {
