@@ -898,10 +898,17 @@ namespace MphRead.Mods.Network
                     });
                     var jobs = new List<Task>();
                     var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                    string masterMachine = Resolve(masterHost);
                     foreach (MasterListing server in listing.Servers
                         ?? Array.Empty<MasterListing>())
                     {
                         if (server.Address.Length == 0
+                            // When the always-on master itself can allocate
+                            // lobbies, probing every dynamic child on that same
+                            // machine only adds work and duplicate picker rows.
+                            || listing.CanHost == true && String.Equals(
+                                Resolve(server.Address), masterMachine,
+                                StringComparison.OrdinalIgnoreCase)
                             || !seen.Add($"{server.Address}:{server.Port}"))
                         {
                             continue;
