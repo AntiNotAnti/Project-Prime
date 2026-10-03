@@ -930,8 +930,8 @@ namespace MphRead.Entities
         internal bool TryBattlehammerAirburst(PlayerEntity owner)
         {
             const float minFlightTime = 0.12f;
-            if (Beam != BeamType.Battlehammer || BattlehammerClusterChild
-                || Owner != owner || Lifespan <= 0
+            if (!_scene.GameState.Multiplayer || Beam != BeamType.Battlehammer
+                || BattlehammerClusterChild || Owner != owner || Lifespan <= 0
                 || Flags.TestFlag(BeamFlags.Collided) || Age < minFlightTime)
             {
                 return false;
