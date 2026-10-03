@@ -213,10 +213,12 @@ public static partial class NetLobbyTest
         Check(!new QueueJoinPacket(0).Validate() && !new QueueAcceptPacket(1,1,1,0).Validate(), "zero nonces and authority identities reject before wire mutation");
         Check(!new QueueStatePacket(1,1,2,1,LobbyQueueWireState.Waiting).Validate(), "impossible queue position rejects at generated boundary");
         Check(new QueueSeatOfferPacket(1,ulong.MaxValue,ulong.MaxValue,ushort.MaxValue,ulong.MaxValue,18000).Validate(), "queue identities preserve complete ulong domain");
-        var status = new ServerStatusPacket { WaitlistSupported = true, WaitlistCount = 256 };
+        const string unicodeServerName = "Rémëlle ー's lobby";
+        var status = new ServerStatusPacket { WaitlistSupported = true, WaitlistCount = 256, ServerName = unicodeServerName };
         byte[] statusBytes = new byte[ServerStatusPacket.SizeWithWaitlist]; status.Write(statusBytes);
         var decoded = ServerStatusPacket.Read(statusBytes);
-        Check(decoded.WaitlistSupported && decoded.WaitlistCount == 256, "bounded discovery queue capability/count round trip");
+        Check(decoded.WaitlistSupported && decoded.WaitlistCount == 256 && decoded.ServerName == unicodeServerName,
+            "bounded discovery queue capability/count and Unicode server name round trip");
         Check(!ServerStatusPacket.Read(statusBytes.AsSpan(0, ServerStatusPacket.SizeWithFlags)).WaitlistSupported, "old discovery reply defaults queue capability off");
     }
 
