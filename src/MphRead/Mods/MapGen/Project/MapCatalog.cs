@@ -212,7 +212,8 @@ namespace MphRead.Mods.MapGen
                 foreach (string path in files)
                 {
                     string file = Path.GetFileName(path);
-                    if (file.Equals("map.build.json", StringComparison.OrdinalIgnoreCase)
+                    if (file.StartsWith('.')
+                        || file.Equals("map.build.json", StringComparison.OrdinalIgnoreCase)
                         || file.Equals("manifest.json", StringComparison.OrdinalIgnoreCase))
                         continue;
                     if (MapBundle.Is(path)
