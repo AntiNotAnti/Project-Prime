@@ -49,11 +49,12 @@ namespace MphRead.Mods.Network
         public Action<string> Log { get; init; } = _ => { };
 
         /// <summary>
-        /// Announce a hosted match to a directory, if this machine reports to
-        /// one. The games a *server* starts have to be findable the same way
-        /// the server itself is.
+        /// Directory endpoint for hosted children, or null to keep them
+        /// private. This is configuration, not a reporter object: constructing
+        /// a temporary MasterReporter just to read its Host/Port duplicated
+        /// ownership and made disposal ambiguous.
         /// </summary>
-        public Func<MasterReporter?>? ReporterFactory { get; init; }
+        public Func<(string Host, int Port)?>? ListingTarget { get; init; }
 
         /// <summary>Told when a game stops, so its listing can be dropped at once.</summary>
         public Action<int>? OnStopped { get; init; }
@@ -110,11 +111,11 @@ namespace MphRead.Mods.Network
             Guid ownerToken = request.Policy == ServerSessionPolicy.Lobby
                 ? new Guid(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16))
                 : Guid.Empty;
-            MasterReporter? reporter = ReporterFactory?.Invoke();
+            (string Host, int Port)? listing = ListingTarget?.Invoke();
             HostedServerProcess? process = HostedServerProcess.Start(port, request, name,
-                reporter?.Host ?? NetMasterConfig.DefaultHost,
-                reporter?.Port ?? NetMasterConfig.DefaultPort,
-                listed: reporter != null, ownerToken, out string reason, hostedMaps);
+                listing?.Host ?? NetMasterConfig.DefaultHost,
+                listing?.Port ?? NetMasterConfig.DefaultPort,
+                listed: listing.HasValue, ownerToken, out string reason, hostedMaps);
             if (process == null)
             {
                 return new HostReplyPacket { Reason = reason };
@@ -197,7 +198,13 @@ namespace MphRead.Mods.Network
                     Stop(entry, "server process exited", now);
                     continue;
                 }
-                if (entry.Process.ProbePlayers(now) > 0)
+                int players = entry.Process.ProbePlayers(now);
+                if (entry.Process.Unresponsive(now))
+                {
+                    Stop(entry, "server stopped answering status probes", now);
+                    continue;
+                }
+                if (players > 0)
                 {
                     entry.LastOccupied = now;
                     continue;
