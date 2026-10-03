@@ -60,8 +60,12 @@ allocation/destruction churn, which is especially costly for 4K/8K assets.
 
 ### Progressive desktop promotion
 
-File-backed desktop HD replacements no longer block `InitTextures`. The native
-cartridge texture is uploaded first and remains valid at the same binding ID.
+File-backed and immutable package-backed desktop HD replacements no longer block
+`InitTextures`. The native cartridge texture is uploaded first and remains
+valid at the same binding ID. Package-backed requests retain only dimensions and
+identity while queued; their encoded entry bytes are read lazily by the decode
+worker, so a large `.ppmap` does not become an in-memory compressed-texture
+cache just because its materials were discovered.
 At most two ordinary HD channels decode concurrently on worker threads, and the
 draw thread promotes at most one prepared GPU image per frame. Source images
 whose raw RGBA decode exceeds 96 MiB are serialized because desktop STB owns its
