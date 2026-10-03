@@ -38,6 +38,11 @@ public static class BotAiChecks
             && !PlayerEntity.PlayerAiData.TacticalViewportContainsForTest(new(.5f,1.01f)),
             "viewport rejects negative and overflow coordinates");
 
+        Check(!PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(2.5f,2f,false)
+            && !PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(12f,2f,true)
+            && PlayerEntity.PlayerAiData.TacticalSplashClearanceForTest(12f,2f,false),
+            "self-damage weapons require target and wall blast clearance");
+
         float closeShock=PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
             BeamType.ShockCoil,6,false,false,false,false,1,true);
         float closeImp=PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
