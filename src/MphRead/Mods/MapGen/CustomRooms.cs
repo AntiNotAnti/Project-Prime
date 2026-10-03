@@ -89,6 +89,20 @@ namespace MphRead.Mods.MapGen
                 .Select(e => e.Definition!).ToArray();
         }
 
+        internal static IReadOnlyList<MapDefinition> DeferredDefinitions(
+            IReadOnlyCollection<string> builtInNames)
+        {
+            lock (_lock)
+            {
+                _definitions ??= LoadDefinitions();
+                _definitions = _definitions
+                    .Where(d => !builtInNames.Contains(d.Name,
+                        StringComparer.OrdinalIgnoreCase))
+                    .ToArray();
+                return _definitions;
+            }
+        }
+
         // Runtime IDs are a process snapshot. Refreshing the editor/catalog must
         // never replace that snapshot beneath a loaded match or a room vote.
         public static IReadOnlyList<MapCatalogEntry> Reload()
