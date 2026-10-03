@@ -304,9 +304,21 @@ public partial class PlayerEntity
             }
 
             Func2144B88();
-            if (Flags2.TestFlag(AiFlags2.Bit8) && TacticalShotSafe(_tacticalTarget))
+            bool shotSafe = TacticalShotSafe(_tacticalTarget);
+            if (Flags2.TestFlag(AiFlags2.Bit8) && shotSafe)
             {
                 Func2143A40();
+            }
+            else if (!shotSafe)
+            {
+                // Execute() runs before the tactical layer and may already have queued
+                // a legacy fire request. Cancel it explicitly. A charge-capable weapon
+                // may keep charging, but it must not release into its own blast radius.
+                _buttons.R.IsDown = false;
+                if (Flags4.TestFlag(AiFlags4.Bit1))
+                {
+                    Func214380C();
+                }
             }
             else if (Flags4.TestFlag(AiFlags4.Bit1))
             {
