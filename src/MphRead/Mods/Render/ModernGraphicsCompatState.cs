@@ -20,6 +20,7 @@ namespace MphRead.Mods.Render
         ToneMap,
         Backdrop,
         DeferredPbr,
+        DeferredPbrMrt,
         PostProcess
     }
 
