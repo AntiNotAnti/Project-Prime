@@ -1,4 +1,3 @@
-#if !MPHREAD_SERVER
 using System;
 using System.Collections.Generic;
 using OpenTK.Graphics.OpenGL;
@@ -307,4 +306,3 @@ namespace MphRead
         }
     }
 }
-#endif
