@@ -74,6 +74,9 @@ work after a setting change, pack reload or texture release. Android keeps the
 existing synchronous path for now.
 
 This is intentionally a bounded streaming path rather than an eager whole-pack
-predecode: an Ultra 8192x8192 RGBA channel can occupy 256 MiB before mipmaps, so
-decoding an entire material pack concurrently would trade startup time for a
-large transient-memory spike.
+predecode. Desktop PNG/JPEG sources that exceed the selected runtime cap now
+resample directly from STB's native decoded surface into the final managed
+texture, avoiding the previous second full-resolution RGBA copy. Large source
+decodes above the scheduler threshold are also serialized. An Ultra 8192x8192
+RGBA channel can still occupy 256 MiB for its final pixels before mipmaps, so
+whole-pack eager decode remains deliberately avoided.
