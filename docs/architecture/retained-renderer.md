@@ -460,6 +460,23 @@ This removes steady-state room `RenderItem` rent/fill/recycle churn while keepin
 portal/frustum and material animation fully live. Benchmarks expose persistent
 room packet submissions alongside template builds/hits.
 
+## Slice 18: direct retained shadow replay
+
+The directional shadow pass now reuses the retained opaque packet list and native
+mesh buffers instead of rebuilding each opaque mesh through `RenderItem`.
+
+The existing shadow pass still owns its stabilized light camera, framebuffer,
+depth target and alpha-cutout state. On modern backends it captures a temporary
+World frame template after installing the shadow view/projection, then eligible
+opaque packets submit directly through the retained World executor.
+
+Viewmodels and translucent/alpha-blended packets remain excluded exactly as
+before. Any ineligible packet falls back to the existing shadow `RenderItem`
+replay in place. The normal world graph rebuilds its own frame template after
+the shadow pass, so shadow matrices cannot leak into the main camera.
+
+Benchmarks report direct versus compatibility shadow replay counts.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

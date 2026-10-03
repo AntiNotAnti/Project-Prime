@@ -19,6 +19,12 @@ namespace MphRead
         private bool _shadowReady;
         private Matrix4 _shadowView = Matrix4.Identity;
         private Matrix4 _shadowProjection = Matrix4.Identity;
+        private long _retainedDirectShadowDraws;
+        private long _retainedCompatibilityShadowDraws;
+
+        internal long RetainedDirectShadowDraws => _retainedDirectShadowDraws;
+        internal long RetainedCompatibilityShadowDraws =>
+            _retainedCompatibilityShadowDraws;
 
         private bool ShadowMapReady => _shadowReady && _shadowDepthTexture != 0;
 
@@ -92,14 +98,52 @@ namespace MphRead
                 GL.Uniform1(_shaderLocations.UseFog, 0);
                 GL.Uniform1(_shaderLocations.CelBands, 0);
 
-                for (int i = 0; i < _nonDecalItems.Count; i++)
+#if !MPHREAD_SERVER
+                bool directShadow = ModernGraphicsCompat.Active
+                    && _wireframeLevel == 0
+                    && !Mods.RenderOptions.CelShading;
+                if (directShadow)
+                    ModernGraphicsCompat.BeginRetainedWorldFrame();
+#else
+                const bool directShadow = false;
+#endif
+                IReadOnlyList<Mods.Render.RetainedDrawPacket> shadowPackets =
+                    _retainedRenderWorld.Opaque;
+                for (int i = 0; i < shadowPackets.Count; i++)
                 {
-                    RenderItem item = _nonDecalItems[i];
+                    Mods.Render.RetainedDrawPacket packet = shadowPackets[i];
+                    RenderItem item = packet.Item;
                     if (item.ViewModel || item.Alpha < .999f
                         || item.RenderMode == RenderMode.Translucent)
                     {
                         continue;
                     }
+
+#if !MPHREAD_SERVER
+                    if (directShadow)
+                    {
+                        Matrix4 viewInverse = item.BillboardMode switch
+                        {
+                            BillboardMode.Sphere => _viewInvRotMatrix,
+                            BillboardMode.Cylinder => _viewInvRotYMatrix,
+                            _ => Matrix4.Identity
+                        };
+                        Mods.Render.RetainedWorldTextureSet textures =
+                            RetainedWorldTextures(item);
+                        if (ModernGraphicsCompat.TryDrawRetainedWorld(
+                            item, packet.Mesh, textures, _showTextures,
+                            useLighting: false, _faceCulling,
+                            projectionOverride: null, viewInverse,
+                            Mods.Render.WorldRenderPassKind.Opaque))
+                        {
+                            _retainedDirectShadowDraws++;
+                            NoteRetainedTextureSampling(
+                                textures, item.XRepeat, item.YRepeat);
+                            continue;
+                        }
+                    }
+#endif
+                    _retainedCompatibilityShadowDraws++;
                     RenderItem(item);
                 }
 
