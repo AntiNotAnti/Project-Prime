@@ -105,6 +105,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
 ";
 
         private WgpuBuffer* _uiViewportBuffer;
+        private ulong _uiViewportOffset;
         private static ModernGraphicsCompat? _current;
         private static BufferMapAsyncStatus _mapStatus = BufferMapAsyncStatus.Unknown;
 
@@ -1516,16 +1517,22 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
                 sampler = texture.Sampler;
             }
 
-            _uiViewportBuffer = RentUniformBuffer(16);
+            UniformAllocation uiUniform = RentUniformBuffer(16);
+            _uiViewportBuffer = (WgpuBuffer*)uiUniform.Buffer;
+            _uiViewportOffset = uiUniform.Offset;
             var viewport = ViewportTransform((int)_width, (int)_height);
-            WriteProfiledBuffer(_uiViewportBuffer, 0, &viewport, 16);
+            WriteUniformBuffer(uiUniform, &viewport, 16);
             var entries = stackalloc BindGroupEntry[3];
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = textureView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
-            entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            Span<nint> resources = stackalloc nint[4]
+            entries[2] = new BindGroupEntry
             {
-                (nint)pipeline.Layout, (nint)textureView, (nint)sampler, (nint)_uiViewportBuffer
+                Binding = 2, Buffer = _uiViewportBuffer, Offset = _uiViewportOffset, Size = 16
+            };
+            Span<nint> resources = stackalloc nint[5]
+            {
+                (nint)pipeline.Layout, (nint)textureView, (nint)sampler,
+                (nint)_uiViewportBuffer, (nint)_uiViewportOffset
             };
             BindGroup* bindGroup = FrameBindGroup(new BindGroupDescriptor
             {
