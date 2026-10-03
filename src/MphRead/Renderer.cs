@@ -1614,7 +1614,7 @@ namespace MphRead
             Mods.Render.TextureAssetClass assetClass)
         {
             if (image == null) return 0;
-            Mods.Render.ModernTextureAsset? asset = DecodeWorldMaterial(image, assetClass, channel);
+            Mods.Render.PreparedTextureAsset? asset = DecodeWorldMaterial(image, assetClass, channel);
             if (asset == null) return 0;
 
             int texture = 0;
@@ -1843,7 +1843,7 @@ namespace MphRead
                     replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
             int replacementWidth = 0;
             int replacementHeight = 0;
-            Mods.Render.ModernTextureAsset? synchronousReplacement = null;
+            Mods.Render.PreparedTextureAsset? synchronousReplacement = null;
             if (!streamReplacement && replacementMaterial?.Albedo is { } synchronousAlbedo)
             {
                 synchronousReplacement = DecodeWorldMaterial(synchronousAlbedo,
