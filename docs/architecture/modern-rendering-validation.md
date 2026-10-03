@@ -190,6 +190,14 @@ The HD texture path also caches the device's maximum texture dimension and
 anisotropy capability after the first successful query instead of polling
 immutable driver limits for every authored channel.
 
+Packaged `.ppmap` materials now reuse the package validation performed when the
+map definition is loaded. Subsequent asset reads use a bounded single-entry ZIP
+path while the archive length/timestamp remain unchanged; a changed package
+invalidates the shortcut and falls back to full validation. Packaged texture
+bytes are reused by the background decoder rather than reopening the package,
+and optional companion channels are not read at all while Advanced Materials is
+disabled. Concurrent package reads use independent archive handles.
+
 ## Supersampled modern-graphics optimization (2026-10-02)
 
 High-end custom settings exposed avoidable multiplicative costs above 100%
