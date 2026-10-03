@@ -864,6 +864,7 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             if (_disposed) return;
             _disposed = true;
             DiscardCommands();
+            DisposeFrameBindGroups();
             ReleaseSurfaceTexture();
             foreach (NativeTexture texture in _nativeTextures.Values) ReleaseNativeTexture(texture);
             _nativeTextures.Clear();
@@ -1245,12 +1246,16 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             int width = 0, int height = 0)
         {
             long uploadStart = PerformanceStart();
-            // Texture updates must follow earlier draws sampling the same image.
-            FlushCommands();
             if (width == 0) width = native.Width;
             if (height == 0) height = native.Height;
-            if (data.Length > 0)
+            if (data.Length > 0 && !TryStageTextureUpload(native, data, x, y, width, height))
             {
+                // No earlier encoded work means QueueWriteTexture is already in
+                // the right queue position. Large mid-frame updates deliberately
+                // keep the conservative flush rather than retaining a huge
+                // staging allocation for a rare asset upload.
+                if (_commandEncoder != null)
+                    FlushCommands();
                 var destination = new ImageCopyTexture
                 {
                     Texture = native.Texture,
@@ -1518,12 +1523,16 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = textureView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
             entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            BindGroup* bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+            Span<nint> resources = stackalloc nint[4]
+            {
+                (nint)pipeline.Layout, (nint)textureView, (nint)sampler, (nint)_uiViewportBuffer
+            };
+            BindGroup* bindGroup = FrameBindGroup(new BindGroupDescriptor
             {
                 Layout = pipeline.Layout,
                 Entries = entries,
                 EntryCount = 3
-            });
+            }, resources);
 
             CommandEncoder* encoder = BeginCommands();
             var attachment = new RenderPassColorAttachment
@@ -1551,8 +1560,6 @@ fn fs_ui_srgb(input: VertexOutput) -> @location(0) vec4<f32> {
             EndCommands();
 
             _api.RenderPassEncoderRelease(pass);
-
-            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private PipelineRecord Pipeline(PrimitiveTopology topology)
