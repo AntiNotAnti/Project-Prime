@@ -282,16 +282,13 @@ namespace MphRead.Mods.Render
 
             TextureView* colorView1 = colorTargetCount > 1 ? target.ColorView1 : null;
             TextureView* colorView2 = colorTargetCount > 2 ? target.ColorView2 : null;
-            if (_activeCorePass != null
-                && _activeCoreColorTargetCount == colorTargetCount
-                && _activeCoreColorView == target.ColorView
-                && _activeCoreColorView1 == colorView1
-                && _activeCoreColorView2 == colorView2
-                && _activeCoreDepthView == target.DepthView)
-            {
-                return _activeCorePass;
-            }
-
+            // v0.1.44 hotfix: keep compatibility draws isolated. PR #240 started
+            // retaining one WebGPU render pass across consecutive GL-style draws.
+            // That makes dynamic compatibility state persist beyond the draw that
+            // authored it and can corrupt world transforms/viewmodels on modern
+            // backends. Keep the command encoder batching and arena allocations,
+            // but end the previous pass before every draw just as the validated
+            // pre-#240 path did.
             EndActiveCorePass();
             CommandEncoder* encoder = BeginCommandEncoder();
             var colors = stackalloc RenderPassColorAttachment[colorTargetCount];
@@ -331,7 +328,7 @@ namespace MphRead.Mods.Render
             _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
             if (_measurePerformance) _coreRenderPasses++;
             if (_activeCorePass == null)
-                throw new InvalidOperationException("Could not begin coalesced WebGPU render pass.");
+                throw new InvalidOperationException("Could not begin isolated WebGPU render pass.");
             _activeCoreColorView = target.ColorView;
             _activeCoreColorView1 = colorView1;
             _activeCoreColorView2 = colorView2;
