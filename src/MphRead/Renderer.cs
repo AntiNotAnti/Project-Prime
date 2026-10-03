@@ -2765,6 +2765,7 @@ namespace MphRead
             _decalItems.Clear();
             _nonDecalItems.Clear();
             _translucentItems.Clear();
+            _renderingViewModelItems = false;
             while (_usedRenderItems.Count > 0)
             {
                 RenderItem item = _usedRenderItems.Dequeue();
@@ -3484,6 +3485,7 @@ namespace MphRead
                 RenderItem item = _nonDecalItems[i];
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             GL.Disable(EnableCap.AlphaTest);
             // pass 2: decal
             GL.Enable(EnableCap.PolygonOffsetFill);
@@ -3498,6 +3500,7 @@ namespace MphRead
                 RenderItem item = _decalItems[i];
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             GL.PolygonOffset(0, 0);
             GL.Disable(EnableCap.PolygonOffsetFill);
             // pass 3: mark transparent faces in stencil
@@ -3511,6 +3514,7 @@ namespace MphRead
                 GL.StencilFunc(StencilFunction.Greater, item.PolygonId, 0xFF);
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             // pass 4: rebuild depth buffer
             GL.Clear(ClearBufferMask.DepthBufferBit);
             GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
@@ -3521,6 +3525,7 @@ namespace MphRead
                 RenderItem item = _nonDecalItems[i];
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             // pass 5: translucent (behind)
             GL.AlphaFunc(AlphaFunction.Less, 1.0f);
             GL.ColorMask(true, true, true, true);
@@ -3533,6 +3538,7 @@ namespace MphRead
                 GL.StencilFunc(StencilFunction.Notequal, item.PolygonId, 0xFF);
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             // pass 6: translucent (before)
             GL.StencilOp(StencilOp.Keep, StencilOp.Keep, StencilOp.Keep);
             for (int i = 0; i < _translucentItems.Count; i++)
@@ -3541,6 +3547,7 @@ namespace MphRead
                 GL.StencilFunc(StencilFunction.Equal, item.PolygonId, 0xFF);
                 RenderItem(item);
             }
+            FinishViewModelRenderRun();
             GL.DepthMask(true);
             GL.Disable(EnableCap.AlphaTest);
             GL.Disable(EnableCap.StencilTest);
@@ -4767,6 +4774,7 @@ namespace MphRead
         private readonly List<RenderItem> _translucentItems = new List<RenderItem>();
 
         private bool _collectingViewModelItems;
+        private bool _renderingViewModelItems;
 
         /// <summary>
         /// Mark render items emitted by the first-person weapon as camera
@@ -5570,21 +5578,37 @@ namespace MphRead
             }
         }
 
+        private void SetViewModelRenderState(bool viewModel)
+        {
+            if (_renderingViewModelItems == viewModel)
+            {
+                return;
+            }
+#if !MPHREAD_SERVER
+            // Projection changes are a hard compatibility boundary, but only
+            // the transition needs one. Keeping every consecutive arm-cannon
+            // mesh inside the same viewmodel run preserves the isolation that
+            // prevents world/viewmodel state bleed without creating a fresh
+            // WebGPU render pass for every material on the weapon.
+            if (Mods.Render.ModernGraphicsCompat.Active)
+                Mods.Render.ModernGraphicsCompat.BreakDrawPass();
+#endif
+            _renderingViewModelItems = viewModel;
+            Matrix4 projection = viewModel ? _viewModelPerspectiveMatrix : _perspectiveMatrix;
+            GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false, ref projection);
+        }
+
+        private void FinishViewModelRenderRun()
+        {
+            if (_renderingViewModelItems)
+            {
+                SetViewModelRenderState(viewModel: false);
+            }
+        }
+
         private void RenderItem(RenderItem item)
         {
-            if (item.ViewModel)
-            {
-#if !MPHREAD_SERVER
-                // First-person geometry changes the authored projection while
-                // often sharing the same world shader/pipeline. Keep that
-                // transition out of a coalesced modern pass so the arm cannon
-                // can never inherit world draw state.
-                if (Mods.Render.ModernGraphicsCompat.Active)
-                    Mods.Render.ModernGraphicsCompat.BreakDrawPass();
-#endif
-                GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
-                    ref _viewModelPerspectiveMatrix);
-            }
+            SetViewModelRenderState(item.ViewModel);
             UseLight1(item.LightInfo.Light1Vector, item.LightInfo.Light1Color);
             UseLight2(item.LightInfo.Light2Vector, item.LightInfo.Light2Color);
 
@@ -5688,18 +5712,6 @@ namespace MphRead
             else if (item.Type == RenderItemType.TrailStack)
             {
                 RenderTrailStack(item);
-            }
-            if (item.ViewModel)
-            {
-#if !MPHREAD_SERVER
-                // End the viewmodel draw before restoring the world projection.
-                // This is a pass boundary only, not a queue submission.
-                if (Mods.Render.ModernGraphicsCompat.Active)
-                    Mods.Render.ModernGraphicsCompat.BreakDrawPass();
-#endif
-                // Nothing after this item should inherit the viewmodel lens.
-                GL.UniformMatrix4(_shaderLocations.ProjectionMatrix, transpose: false,
-                    ref _perspectiveMatrix);
             }
         }
 
