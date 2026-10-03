@@ -179,6 +179,7 @@ namespace MphRead
                 if (hdrActive)
                 {
                     ResolveGraphicsHdr(target);
+                    ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
                 }
                 UpdateGraphicsHistory(_targetSize, taa);
                 _graphicsOutputReady = true;
@@ -366,58 +367,37 @@ namespace MphRead
             }
 
             if (_graphicsOutputFramebuffer == 0)
-            {
                 _graphicsOutputFramebuffer = GL.GenFramebuffer();
-                _graphicsOutputTexture = GL.GenTexture();
-            }
 
             bool sizeChanged = _graphicsOutputSize != target;
-            if (sizeChanged)
+            if (_graphicsOutputTexture == 0 || sizeChanged)
             {
-                GL.BindTexture(TextureTarget.Texture2D, _graphicsOutputTexture);
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba8,
-                    target.X, target.Y, 0, PixelFormat.Rgba,
-                    PixelType.UnsignedByte, IntPtr.Zero);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                    (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                    (int)TextureMagFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
-                    (int)TextureWrapMode.ClampToEdge);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
-                    (int)TextureWrapMode.ClampToEdge);
-                GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsOutputFramebuffer);
+                ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
+                _graphicsOutputTexture = AcquireFrameTransientTexture(
+                    target, PixelInternalFormat.Rgba8,
+                    TextureMinFilter.Linear, TextureMagFilter.Linear);
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer,
+                    _graphicsOutputFramebuffer);
                 GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                     FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                     _graphicsOutputTexture, 0);
                 ValidateFramebuffer("Enhanced graphics output");
-                GL.BindTexture(TextureTarget.Texture2D, 0);
             }
 
             bool wantHdr = RenderOptions.InternalHdr && !_graphicsHdrRefused;
             if (wantHdr)
             {
                 if (_graphicsHdrFramebuffer == 0)
-                {
                     _graphicsHdrFramebuffer = GL.GenFramebuffer();
-                    _graphicsHdrTexture = GL.GenTexture();
-                    sizeChanged = true;
-                }
-                if (sizeChanged || !_graphicsOutputHdr)
+
+                if (_graphicsHdrTexture == 0 || sizeChanged || !_graphicsOutputHdr)
                 {
-                    GL.BindTexture(TextureTarget.Texture2D, _graphicsHdrTexture);
-                    GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba16f,
-                        target.X, target.Y, 0, PixelFormat.Rgba,
-                        PixelType.Float, IntPtr.Zero);
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter,
-                        (int)TextureMinFilter.Linear);
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter,
-                        (int)TextureMagFilter.Linear);
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS,
-                        (int)TextureWrapMode.ClampToEdge);
-                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT,
-                        (int)TextureWrapMode.ClampToEdge);
-                    GL.BindFramebuffer(FramebufferTarget.Framebuffer, _graphicsHdrFramebuffer);
+                    ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
+                    _graphicsHdrTexture = AcquireFrameTransientTexture(
+                        target, PixelInternalFormat.Rgba16f,
+                        TextureMinFilter.Linear, TextureMagFilter.Linear);
+                    GL.BindFramebuffer(FramebufferTarget.Framebuffer,
+                        _graphicsHdrFramebuffer);
                     GL.FramebufferTexture2D(FramebufferTarget.Framebuffer,
                         FramebufferAttachment.ColorAttachment0, TextureTarget.Texture2D,
                         _graphicsHdrTexture, 0);
@@ -427,17 +407,18 @@ namespace MphRead
                     {
                         _graphicsHdrRefused = true;
                         _graphicsOutputHdr = false;
+                        ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
                         Console.WriteLine("[render] half-float HDR target unavailable; using RGBA8.");
                     }
                     else
                     {
                         _graphicsOutputHdr = true;
                     }
-                    GL.BindTexture(TextureTarget.Texture2D, 0);
                 }
             }
             else
             {
+                ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
                 _graphicsOutputHdr = false;
             }
 
@@ -620,8 +601,8 @@ namespace MphRead
                 GL.DeleteFramebuffer(_graphicsHdrFramebuffer);
                 _graphicsHdrFramebuffer = 0;
             }
-            DeleteTexture(ref _graphicsOutputTexture);
-            DeleteTexture(ref _graphicsHdrTexture);
+            ReleaseFrameTransientTexture(ref _graphicsOutputTexture);
+            ReleaseFrameTransientTexture(ref _graphicsHdrTexture);
             DeleteTexture(ref _graphicsHistoryTexture);
             _graphicsHistorySize = default;
             _graphicsHistoryValid = false;
