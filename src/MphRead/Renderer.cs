@@ -1879,7 +1879,7 @@ namespace MphRead
                     continue;
                 }
 
-                Mods.Render.ModernTextureAsset? asset = pending.Task.GetAwaiter().GetResult();
+                Mods.Render.PreparedTextureAsset? asset = pending.Task.GetAwaiter().GetResult();
                 _streamingTextureDecodes.RemoveAt(i);
                 if (asset == null) continue;
                 PromoteModernTextureStream(pending.Request, asset);
