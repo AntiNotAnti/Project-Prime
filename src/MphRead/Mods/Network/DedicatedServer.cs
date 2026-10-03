@@ -1195,6 +1195,9 @@ namespace MphRead.Mods.Network
                 case PacketType.Pong:
                     HandlePong(packet, now);
                     break;
+                case PacketType.HostChallenge:
+                    HandleHostChallenge(packet, now);
+                    break;
                 case PacketType.HostRequest:
                     HandleHostRequest(packet, now);
                     break;
@@ -2030,6 +2033,18 @@ namespace MphRead.Mods.Network
             _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
         }
 
+        private void HandleHostChallenge(ReceivedPacket packet, double now)
+        {
+            if (!HostChallengePacket.TryRead(packet.Payload, out var challenge)
+                || challenge.Protocol != NetConfig.ProtocolVersion)
+                return;
+            HostChallengeReplyPacket reply =
+                HostRequestGuard.Challenge(packet.Sender, challenge, now);
+            reply.Write(_scratch);
+            _transport?.Send(packet.Sender, PacketType.HostChallengeReply,
+                _scratch.AsSpan(0, HostChallengeReplyPacket.Size));
+        }
+
         private void HandleHostRequest(ReceivedPacket packet, double now)
         {
             var reply = new HostReplyPacket();
@@ -2052,6 +2067,11 @@ namespace MphRead.Mods.Network
                 else if (!Hosts.CanHost)
                 {
                     reply.Reason = "this server does not open new games";
+                }
+                else if (!HostRequestGuard.Validate(packet.Sender, request, now,
+                    out string admissionReason))
+                {
+                    reply.Reason = admissionReason;
                 }
                 else
                 {
