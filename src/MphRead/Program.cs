@@ -34,7 +34,9 @@ namespace MphRead
             }
             finally
             {
+                Mods.LifecycleTiming.BeginShutdown("program finalizer");
                 Sound.AudioLifetime.Shutdown();
+                Mods.LifecycleTiming.Shutdown("program cleanup complete");
             }
         }
 
