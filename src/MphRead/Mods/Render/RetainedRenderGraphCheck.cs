@@ -106,6 +106,34 @@ namespace MphRead.Mods.Render
             Check(world.MeshDescriptorCount == descriptorCount,
                 "mesh descriptor table is retained rather than rebuilt per frame");
 
+            var direct = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                RenderMode = RenderMode.Normal,
+                BillboardMode = BillboardMode.None,
+                Alpha = 1,
+                MatrixStackCount = 0,
+                Diffuse = Vector3.One
+            };
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "plain opaque mesh is eligible for direct modern submission");
+
+            direct.ViewModel = true;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "viewmodel mesh stays on compatibility executor");
+            direct.ViewModel = false;
+            direct.OverrideColor = new Vector4(1, 0, 0, 1);
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "override material stays on compatibility executor");
+            direct.OverrideColor = null;
+            direct.RenderMode = RenderMode.Translucent;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "translucent mesh stays on compatibility executor");
+            direct.RenderMode = RenderMode.Normal;
+            direct.MatrixStackCount = 1;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "matrix-stack geometry stays on compatibility executor");
+
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"
                 : $"[rendergraphcheck] FAIL: {failures} check(s)");
