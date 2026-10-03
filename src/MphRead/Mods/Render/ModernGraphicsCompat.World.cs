@@ -432,12 +432,17 @@ namespace MphRead.Mods.Render
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = depthTexture.SampleView };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[5]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView,
+                    (nint)baseSampler, (nint)depthTexture.SampleView
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 4
-                });
+                }, resources);
             }
             else if (pipeline.MaskTexture)
             {
@@ -454,12 +459,17 @@ namespace MphRead.Mods.Render
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
                 entries[3] = new BindGroupEntry { Binding = 3, TextureView = maskView };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[5]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView,
+                    (nint)baseSampler, (nint)maskView
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 4
-                });
+                }, resources);
             }
             else
             {
@@ -473,12 +483,16 @@ namespace MphRead.Mods.Render
                 };
                 entries[1] = new BindGroupEntry { Binding = 1, TextureView = baseView };
                 entries[2] = new BindGroupEntry { Binding = 2, Sampler = baseSampler };
-                bindGroup = CreateTrackedBindGroup( new BindGroupDescriptor
+                Span<nint> resources = stackalloc nint[4]
+                {
+                    (nint)pipeline.Layout, (nint)_uniformBuffer, (nint)baseView, (nint)baseSampler
+                };
+                bindGroup = FrameBindGroup(new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 3
-                });
+                }, resources);
             }
 
             CommandEncoder* encoder = BeginCommands();
@@ -526,9 +540,6 @@ namespace MphRead.Mods.Render
             EndCommands();
 
             _api.RenderPassEncoderRelease(pass);
-
-            if (!generated)
-                ReleaseTrackedBindGroup(bindGroup);
         }
 
         private CorePipelineRecord CorePipeline(ModernProgramKind program,
@@ -1077,13 +1088,17 @@ namespace MphRead.Mods.Render
             entries[0] = new BindGroupEntry { Binding = 0, TextureView = sourceTarget.ColorView };
             entries[1] = new BindGroupEntry { Binding = 1, Sampler = sampler };
             entries[2] = new BindGroupEntry { Binding = 2, Buffer = _uiViewportBuffer, Size = 16 };
-            BindGroup* bindGroup = CreateTrackedBindGroup(
+            Span<nint> resources = stackalloc nint[4]
+            {
+                (nint)pipeline.Layout, (nint)sourceTarget.ColorView, (nint)sampler, (nint)_uiViewportBuffer
+            };
+            BindGroup* bindGroup = FrameBindGroup(
                 new BindGroupDescriptor
                 {
                     Layout = pipeline.Layout,
                     Entries = entries,
                     EntryCount = 3
-                });
+                }, resources);
 
             CommandEncoder* encoder = BeginCommands();
             var color = new RenderPassColorAttachment
@@ -1112,8 +1127,6 @@ namespace MphRead.Mods.Render
             EndCommands();
 
             _api.RenderPassEncoderRelease(pass);
-
-            ReleaseTrackedBindGroup(bindGroup);
         }
 
         private static void WriteBlitVertex(Span<float> vertices, int vertex,
