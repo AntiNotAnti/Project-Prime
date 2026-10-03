@@ -20,6 +20,9 @@ namespace MphRead.Entities
         public byte EnhancedBounceCount;
         public bool EnhancedMicroSeeker;
         public bool EnhancedFullCharge, EnhancedSiegeRound;
+        // True only for the three bomblets created by a Battlehammer airburst.
+        // They are real projectiles, but may not themselves be manually burst.
+        public bool BattlehammerClusterChild;
         /// <summary>
         /// The original fire event's world ACK, used only for historical timing.
         /// ModLaunchKey fences ModShotId by match, epoch and shooter lifecycle.
@@ -927,7 +930,8 @@ namespace MphRead.Entities
         internal bool TryBattlehammerAirburst(PlayerEntity owner)
         {
             const float minFlightTime = 0.12f;
-            if (Beam != BeamType.Battlehammer || Owner != owner || Lifespan <= 0
+            if (Beam != BeamType.Battlehammer || BattlehammerClusterChild
+                || Owner != owner || Lifespan <= 0
                 || Flags.TestFlag(BeamFlags.Collided) || Age < minFlightTime)
             {
                 return false;
@@ -940,13 +944,51 @@ namespace MphRead.Entities
             float baseDirect = affinity ? 18f : 14f;
             float powerScale = baseDirect > 0 ? Damage / baseDirect : 1f;
 
+            // The burst itself is the opening pressure wave; the actual
+            // "three-shot" payoff is three physical Battlehammer bomblets.
+            // Keep the opening blast lighter so landing the whole cluster is
+            // rewarding without stacking four full-strength explosions.
             Damage = 0;
             HeadshotDamage = 0;
-            SplashDamage = 8f * powerScale;
+            SplashDamage = 4f * powerScale;
             SplashRadius = affinity ? 3f : 2.25f;
             SplashDamageType = 0;
             DamageDirType = 2;
             DamageDirMag = affinity ? 0.525f : 0.35f;
+
+            WeaponInfo clusterWeapon = _scene.WeaponRules[(int)BeamType.Battlehammer + (affinity ? 9 : 0)];
+            var clusterEquip = new EquipInfo(clusterWeapon, Equip!.Beams)
+            {
+                InfiniteAmmo = true
+            };
+
+            // Preserve some forward momentum, but pitch the cluster downward.
+            // Left/centre/right fan visibly separates the three rounds and gives
+            // the player a controllable carpet rather than three overlapping dots.
+            Vector3 flatForward = new Vector3(Direction.X, 0, Direction.Z);
+            if (flatForward.LengthSquared <= 0.0001f)
+            {
+                flatForward = Vector3.UnitZ;
+            }
+            else
+            {
+                flatForward = flatForward.Normalized();
+            }
+            Vector3 flatRight = new Vector3(Right.X, 0, Right.Z);
+            if (flatRight.LengthSquared <= 0.0001f)
+            {
+                flatRight = Vector3.Cross(flatForward, Vector3.UnitY);
+            }
+            flatRight = flatRight.Normalized();
+            Vector3 clusterBase = (flatForward * 0.35f - Vector3.UnitY).Normalized();
+            ReadOnlySpan<float> spread = stackalloc float[] { -0.42f, 0f, 0.42f };
+            for (int i = 0; i < spread.Length; i++)
+            {
+                Vector3 childDirection = (clusterBase + flatRight * spread[i]).Normalized();
+                Spawn(owner, clusterEquip, Position, childDirection, BeamSpawnFlags.NoMuzzle,
+                    NodeRef, _scene, parent: this, battlehammerCluster: true,
+                    battlehammerClusterScale: powerScale);
+            }
 
             CollisionResult colRes = default;
             colRes.Position = Position;
@@ -1460,7 +1502,8 @@ namespace MphRead.Entities
         }
 
         public static BeamResultFlags Spawn(EntityBase owner, EquipInfo equip, Vector3 position, Vector3 direction,
-            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null, bool enhancedMicro = false)
+            BeamSpawnFlags spawnFlags, NodeRef nodeRef, Scene scene, BeamProjectileEntity? parent = null,
+            bool enhancedMicro = false, bool battlehammerCluster = false, float battlehammerClusterScale = 1f)
         {
             if (!scene.Services.IsReplica && NetSession.Active && parent != null && !NetPlayerLifecycle.CurrentProjectile(parent))
                 return BeamResultFlags.NoSpawn;
@@ -1694,6 +1737,21 @@ namespace MphRead.Entities
                 splashDmg = (int)MathF.Round((affinity ? 10f : 6f) * powerScale);
                 splashRadius = affinity ? 2.5f : 1.75f;
                 splashDmgType = 0; // linear falloff instead of the vanilla binary splash.
+
+                if (battlehammerCluster)
+                {
+                    // Three real submunitions. Their strength is derived from
+                    // the parent shell's already-authored multiplier so Double
+                    // Damage / Prime Hunter / debug damage stay consistent even
+                    // if the pickup state changes while the parent is in flight.
+                    float scale = Math.Max(0, battlehammerClusterScale);
+                    damage = hsDamage = (int)MathF.Round(4f * scale);
+                    splashDmg = (int)MathF.Round(4f * scale);
+                    splashRadius = affinity ? 1.5f : 1.15f;
+                    splashDmgType = 0;
+                    dmgDirType = 2;
+                    dmgDirMag = affinity ? 0.24f : 0.18f;
+                }
             }
             ushort damageInterpolation = weapon.DamageInterpolations[charged ? 1 : 0];
             float maxDist = GetAmount(weapon.UnchargedDistance, weapon.MinChargeDistance, weapon.ChargedDistance) / 4096f;
@@ -1759,6 +1817,7 @@ namespace MphRead.Entities
                 beam.EnhancedMicroSeeker = enhancedMicro;
                 beam.EnhancedFullCharge = chargePct >= 1;
                 beam.EnhancedSiegeRound = false;
+                beam.BattlehammerClusterChild = battlehammerCluster;
                 beam.ModContinuousPhase = phase;
                 beam.ModHasSharedContinuousPhase = sharedPhase;
                 if (!scene.Services.IsReplica) NetPlayerLifecycle.StampProjectile(beam, parent);
