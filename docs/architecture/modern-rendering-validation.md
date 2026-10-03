@@ -223,3 +223,20 @@ those combinations now use the existing SMAA resolve and skip the dead history
 copy. These are implementation optimizations, not a new measured performance
 claim; hardware benchmark evidence should be refreshed before closing the
 performance gate.
+
+
+## Deferred MRT / submission optimization (2026-10-03)
+
+The modern deferred PBR path now attaches albedo, normal and material targets
+simultaneously and replays opaque geometry once. A generated
+`DeferredPbrMrt` fragment derivative runs the existing mode-specific PBR
+function for modes 1, 2 and 3 within the same fragment invocation and writes the
+three results to locations 0, 1 and 2. This deliberately prioritizes exact
+visual parity over immediately deduplicating shared fragment work.
+
+Compatibility OpenGL/OpenGL ES stays on the established three-pass path.
+Modern command encoders also raise their intermediate batch ceiling from 256 to
+1,024 compatibility operations. The existing performance instrumentation
+continues to report QueueSubmit count/time, buffer writes, bind-group creation
+and pipeline creation so benchmark changes can be attributed rather than
+inferred.
