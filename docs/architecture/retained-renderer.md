@@ -402,6 +402,21 @@ patches, are included in renderer benchmark output. Mixed direct/fallback items
 remain valid inside the same MRT pass because compatibility draws fully restore
 their own per-item uniforms and texture state.
 
+## Slice 15: native world-pass state + direct decals/translucency
+
+Modern backends no longer replay the six world-pass state transitions through
+the GL-style facade. `WorldRenderGraph` configures backend pipeline state
+directly for opaque, decal, translucent-mask, depth rebuild, behind and front
+passes. OpenGL/GLES keep the original switch unchanged.
+
+Direct World eligibility is pass-aware: opaque/depth retain their opaque contract,
+decals submit directly in the decal pass, and translucent/alpha-blended packets
+submit directly through the stencil mask, behind and front passes. Stencil
+comparison is fixed by pass while polygon ID remains a dynamic reference.
+
+Depth/color masks, alpha test, stencil operations, blend state and decal depth
+bias are therefore owned by the native graph state on modern backends.
+
 ## Slice 16: top-level frame render graph
 
 The retained renderer now owns a top-level frame graph rather than relying on an
@@ -477,21 +492,37 @@ the shadow pass, so shadow matrices cannot leak into the main camera.
 
 Benchmarks report direct versus compatibility shadow replay counts.
 
+## Core retained renderer: complete
+
+The core migration is complete at this point:
+
+- immutable geometry is retained in native GPU buffers;
+- room mesh packets persist across frames while dynamic fields stay live;
+- the six-pass World graph owns native pass state on modern backends;
+- opaque, decal and translucent mesh passes use direct retained WebGPU submission
+  whenever their material features are supported;
+- shadow geometry reuses retained packets and native buffers;
+- deferred PBR MRT can replay retained opaque packets directly;
+- stable World uniform slots and bind groups persist across frames;
+- shadow, World, outlines, scene overlays, PBR, post processing and composite are
+  scheduled by the top-level frame graph;
+- OpenGL/GLES remain the compatibility implementation and special unsupported
+  packet classes can still fall back per draw.
+
+The remaining renderer ideas below are optimization/expansion work, not required
+to finish the retained-renderer architecture.
+
 ## Next slices
+The next tier is optional performance work rather than core migration:
 
-The graph and packet seam is intended to support the remaining migration without
-another scene-wide rewrite:
-
-- retain static room packets across frames instead of rebuilding them from entities;
-- retain static room visibility templates so only changing portal/material state is
-  refreshed each frame;
-- move the retained material descriptor directly into the WebGPU uniform/bind-group
-  executor instead of replaying GL-compatible uniform calls;
-- add partition/cluster visibility before packet emission;
-- schedule shadow, PBR and post-processing as graph passes/resources;
-- allow broader pipeline/material sorting only behind visual-parity gates;
-- move modern backends to direct WebGPU packet execution, leaving the GL executor as
-  the compatibility implementation.
+- partition room geometry into bounded render clusters and feed portal/frustum
+  visibility directly into packet emission;
+- add safe opaque pipeline/material sorting beyond adjacent batches;
+- evaluate indirect/multi-draw and GPU-driven visibility;
+- give the retained PBR path its own stable uniform/bind-group slots if profiling
+  shows meaningful churn;
+- migrate specialized outline/full-screen passes off the compatibility facade
+  where measurement justifies the complexity.
 
 The release gate remains visual parity plus measured frame-time improvement on Metal,
 DX12/Vulkan and physical Android Vulkan hardware.
