@@ -531,8 +531,8 @@ namespace MphRead.Mods.Render
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0, target.Width, target.Height, 0, 1);
             ApplyScissor(pass, target.Width, target.Height);
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
@@ -1126,8 +1126,8 @@ namespace MphRead.Mods.Render
             RenderPassEncoder* pass = _api.CommandEncoderBeginRenderPass(encoder, passDescriptor);
             _api.RenderPassEncoderSetPipeline(pass, pipeline.Pipeline);
             _api.RenderPassEncoderSetBindGroup(pass, 0, bindGroup, 0, null);
-            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, 0, vertexBytes);
-            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, 0, indexBytes);
+            _api.RenderPassEncoderSetVertexBuffer(pass, 0, vertex, geometryBuffers.VertexOffset, vertexBytes);
+            _api.RenderPassEncoderSetIndexBuffer(pass, index, IndexFormat.Uint32, geometryBuffers.IndexOffset, indexBytes);
             _api.RenderPassEncoderSetViewport(pass, 0, 0,
                 destinationTarget.Width, destinationTarget.Height, 0, 1);
             if (applyScissor) ApplyScissor(pass, destinationTarget.Width, destinationTarget.Height);
