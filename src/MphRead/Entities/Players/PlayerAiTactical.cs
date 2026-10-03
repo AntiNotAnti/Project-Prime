@@ -318,7 +318,8 @@ public partial class PlayerEntity
         private bool TacticalShotSafe(PlayerEntity target)
         {
             WeaponInfo weapon = _player.EquipWeapon;
-            bool selfDamage = weapon.Flags.TestAny(WeaponFlags.SelfDamageUncharged | WeaponFlags.SelfDamageCharged);
+            bool selfDamage = weapon.Flags.TestFlag(WeaponFlags.SelfDamageUncharged)
+                || weapon.Flags.TestFlag(WeaponFlags.SelfDamageCharged);
             if (!selfDamage)
             {
                 return true;
