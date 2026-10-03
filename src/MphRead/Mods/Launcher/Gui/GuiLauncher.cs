@@ -65,9 +65,7 @@ namespace MphRead.Mods.Launcher.Gui
             try
             {
 #if MPHREAD_SHELL
-                using ClientInstanceGuard.Lease? instance =
-                    ClientInstanceGuard.TryAcquire(TimeSpan.FromSeconds(3));
-                if (instance == null)
+                if (!ClientInstanceGuard.TryAcquireForProcess(TimeSpan.FromSeconds(5)))
                 {
                     // A same-install client that is actually exiting usually
                     // releases the lease during the bounded wait above. If it
