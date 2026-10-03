@@ -391,8 +391,8 @@ namespace MphRead.Mods.Render
             return NativeTextureFormat(record);
         }
 
-        // Every compatibility operation records, ends and submits its own pass.
-        // Validate before allocating draw resources: inactive GL bindings must
+        // Validate before allocating draw resources or joining a coalesced
+        // render pass: inactive GL bindings must
         // never enter a WebGPU usage scope, even behind a uniform shader branch.
         private int ValidateRenderPassResources(int unit, bool required, CoreTarget target)
         {
