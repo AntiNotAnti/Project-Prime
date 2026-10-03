@@ -56,6 +56,16 @@ public static class BotAiChecks
         float threat=PlayerEntity.PlayerAiData.TacticalTargetUtilityForTest(
             14,true,false,false,1,0,true,2);
         Check(objective>ordinary&&threat>ordinary,"objective and recent threat raise target priority");
+        Check(PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
+                GameMode.Headhunter,5,false,false,false)
+            >PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
+                GameMode.Headhunter,1,false,false,false),
+            "Headhunter prioritizes enemies carrying larger token banks");
+        Check(PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
+                GameMode.Hardpoint,0,true,false,false)>0
+            &&PlayerEntity.PlayerAiData.TacticalObjectivePriorityForTest(
+                GameMode.Hardpoint,0,false,false,false)==0,
+            "Hardpoint prioritizes enemies occupying the active objective");
 
         Check(MapNodePacker.NavigationAnchorTypeForTest(MapNavigationLinkKind.Jump,
             MapNavigationAnchorKind.Auto,false,4)==NodeType.Aerial,
