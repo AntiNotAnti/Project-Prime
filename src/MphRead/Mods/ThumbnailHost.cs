@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MphRead.Mods
@@ -32,8 +33,10 @@ namespace MphRead.Mods
         public static bool CanRender => Current != null || ThumbnailBatch.CanRun;
 
         /// <summary>Render whatever is missing, whichever way this platform can.</summary>
-        public static async Task<int> RenderMissingAsync(Action<string> report)
+        public static async Task<int> RenderMissingAsync(Action<string> report,
+            CancellationToken cancel = default)
         {
+            cancel.ThrowIfCancellationRequested();
             IReadOnlyList<string> missing = ThumbnailGenerator.MissingThumbnails();
             if (missing.Count == 0)
             {
@@ -42,7 +45,9 @@ namespace MphRead.Mods
             IThumbnailHost? host = Current;
             if (host != null)
             {
-                return await host.RenderAsync(missing, report);
+                int written = await host.RenderAsync(missing, report);
+                cancel.ThrowIfCancellationRequested();
+                return written;
             }
             if (!ThumbnailBatch.CanRun)
             {
@@ -50,7 +55,7 @@ namespace MphRead.Mods
             }
             return await Task.Run(() => ThumbnailBatch.Run(missing,
                 ThumbnailBatch.DefaultParallelism, ThumbnailGenerator.ThumbnailWidth,
-                ThumbnailGenerator.ThumbnailHeight, report));
+                ThumbnailGenerator.ThumbnailHeight, report, cancel: cancel), cancel);
         }
     }
 }
