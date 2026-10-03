@@ -439,12 +439,19 @@ namespace MphRead.Mods.Network
                 throw new InvalidOperationException(ruleError);
             if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
             _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
-            if (_phase == SessionPhase.InMatch) StartSimulation();
+            if (_phase == SessionPhase.InMatch && !_controlPlaneOnlyForTests)
+            {
+                // A permanent Continuous server remains listed and responsive
+                // while empty, but does not spend 60 Hz on a world nobody is
+                // playing. Warm the room now and construct authority on the
+                // first admitted player instead.
+                Mods.RoomPrewarm.Begin(CurrentDefinition.RoomKey);
+            }
             Log(_controlPlaneOnlyForTests
                 ? "control-plane test mode: gameplay simulation disabled"
                 : _phase == SessionPhase.Lobby
                     ? "authoritative server ready; simulation starts when the lobby starts"
-                    : "this server runs the match itself");
+                    : "authoritative server ready; simulation wakes on first player");
             Log($"rotation: {_rotation.Entries.Count} map(s), starting on {_rotation.Current}");
             Log(Hosts.Describe());
 
@@ -2155,6 +2162,19 @@ namespace MphRead.Mods.Network
                     CloseBallot();
                     _matchId = NetLifecycleTracker.Next(_matchId);
                     _lastSnapshotLength = 0;
+                    if (!Simulating)
+                    {
+                        try
+                        {
+                            StartSimulation();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"could not wake authority for first player: {ex.Message}");
+                            SendRefusal(packet.Sender, RefusedPacket.ReasonServerBusy);
+                            return;
+                        }
+                    }
                 }
                 if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
                     && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
@@ -2522,6 +2542,17 @@ namespace MphRead.Mods.Network
             if (peer.Name.Length > 0)
             {
                 Announce(reason, peer.Name);
+            }
+            if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous
+                && _sim != null)
+            {
+                Log("last player left continuous server; suspending empty world");
+                AbandonCareerMatch();
+                ServerReplayRecorder.Stop(matchEnded: false);
+                _sim.Stop(preserveRoomPrewarm: true);
+                _sim = null;
+                _lastSnapshotLength = 0;
+                NetHitClaims.VerdictSink = null;
             }
         }
 
