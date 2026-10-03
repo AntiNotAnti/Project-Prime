@@ -40,6 +40,14 @@ public static class BotAiChecks
         float longImp=PlayerEntity.PlayerAiData.TacticalWeaponUtilityForTest(
             BeamType.Imperialist,28,false,false,false,false,1,true);
         Check(longImp>longShock,"long range favors Imperialist over Shock Coil");
+        Check(PlayerEntity.PlayerAiData.TacticalHunterWeaponBiasForTest(
+            Hunter.Trace,BeamType.Imperialist,26,false)
+            >PlayerEntity.PlayerAiData.TacticalHunterWeaponBiasForTest(
+                Hunter.Trace,BeamType.Battlehammer,26,false),
+            "Trace strongly prefers long-range Imperialist play");
+        Check(PlayerEntity.PlayerAiData.TacticalHunterWeaponBiasForTest(
+            Hunter.Noxus,BeamType.Imperialist,10,true)>0,
+            "Noxus recognizes frozen-target finish opportunities");
 
         float ordinary=PlayerEntity.PlayerAiData.TacticalTargetUtilityForTest(
             14,true,false,false,1,0,false,2);
