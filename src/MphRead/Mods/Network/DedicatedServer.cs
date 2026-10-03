@@ -430,6 +430,13 @@ namespace MphRead.Mods.Network
                 if (SessionPolicy != ServerSessionPolicy.Lobby)
                     BeginServerHotPathPrewarm(wait: true);
                 ServerReplayRecorder.Configure(ReplayPolicy);
+                string? gameFilesProblem = Mods.Launcher.GameFiles.Problem();
+                if (gameFilesProblem != null)
+                {
+                    throw new ProgramException(
+                        $"cannot run the match: {gameFilesProblem}. "
+                        + "Put the game files on this machine and paths.txt beside the binary; see SERVER.txt.");
+                }
                 CareerReportOutbox.Start();
             }
             if (!_controlPlaneOnlyForTests)
