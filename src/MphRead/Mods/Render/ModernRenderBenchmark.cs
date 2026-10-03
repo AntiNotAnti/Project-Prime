@@ -67,6 +67,7 @@ internal static class ModernRenderBenchmark
                     long directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
                     long directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
                     long directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
+                    long directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -84,6 +85,7 @@ internal static class ModernRenderBenchmark
                             directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
                             directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
                             directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
+                            directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -125,6 +127,7 @@ internal static class ModernRenderBenchmark
                         retainedDirectMatrixStackWorldDraws = scene.RetainedDirectMatrixStackWorldDraws - directMatrixStackDrawsStart,
                         retainedDirectViewModelWorldDraws = scene.RetainedDirectViewModelWorldDraws - directViewModelDrawsStart,
                         retainedDirectBillboardWorldDraws = scene.RetainedDirectBillboardWorldDraws - directBillboardDrawsStart,
+                        retainedDirectOverrideWorldDraws = scene.RetainedDirectOverrideWorldDraws - directOverrideDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,
