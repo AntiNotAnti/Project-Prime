@@ -108,8 +108,14 @@ namespace MphRead.Mods
                 if (!Guid.TryParseExact(runtimeNamespace, "N", out _)) throw new ArgumentException("Invalid custom runtime namespace.");
                 MapGen.CustomRooms.RuntimeNamespace = runtimeNamespace;
             }
-            if (ValueAfter(args, "usermapdirectory") is { } userMapDirectory) MapGen.CustomRooms.UserMapDirectory = System.IO.Path.GetFullPath(userMapDirectory);
-            if (ValueAfter(args, "mapdirectory") is { } mapDirectory) MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
+            if (ValueAfter(args, "usermapdirectory") is { } userMapDirectory)
+            {
+                MapGen.CustomRooms.UserMapDirectory = System.IO.Path.GetFullPath(userMapDirectory);
+                if (hostedChild)
+                    MapGen.HostedMapTrust.Enable(MapGen.CustomRooms.UserMapDirectory);
+            }
+            if (ValueAfter(args, "mapdirectory") is { } mapDirectory)
+                MapGen.CustomRooms.MapDirectory = System.IO.Path.GetFullPath(mapDirectory);
             if (ValueAfter(args, "maphub") is { } hubPrefix)
             {
                 MapGen.MapCommunityServer.Run(hubPrefix, ValueAfter(args, "maphubstorage") ?? System.IO.Path.Combine(Platform.AppPaths.UserDataDirectory, "community"));

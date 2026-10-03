@@ -380,6 +380,12 @@ namespace MphRead.Mods.Network
                         }
                     }
 
+                    // Publish the identities the allocator already verified.
+                    // The child enables this manifest only under -hostedchild,
+                    // allowing it to index these private immutable files
+                    // without hashing the entire package again.
+                    MapGen.HostedMapTrust.Write(childLibrary, hostedMaps.Archives);
+
                     foreach (var entry in rotation)
                     {
                         if (Metadata.IsBuiltInRoom(entry.RoomKey)) continue;
