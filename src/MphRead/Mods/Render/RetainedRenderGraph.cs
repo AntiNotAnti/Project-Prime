@@ -62,7 +62,7 @@ namespace MphRead.Mods.Render
     /// a material-state application is safe without relying on a hash.
     /// </summary>
     internal readonly record struct RetainedMaterialDescriptor(
-        PolygonMode PolygonMode,
+        MphRead.PolygonMode PolygonMode,
         bool Lighting,
         Vector3 Diffuse,
         Vector3 Ambient,
