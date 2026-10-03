@@ -77,6 +77,8 @@ internal sealed unsafe partial class ModernGraphicsCompat
             bufferBytes += (long)(geometry.VertexCapacity + geometry.IndexCapacity);
         foreach (var (size, pool) in s._uniformPools)
             bufferBytes += (long)size * pool.Buffers.Count;
+        foreach (var upload in s._uploadBuffers)
+            bufferBytes += (long)upload.Capacity;
         return new(s._createdPipelines, s._pipelineCreationMs, s._longestPipelineCreationMs,
             s._textureUploadBytes, s._textureUploadMs, textureBytes, bufferBytes,
             s._surfaceAcquisitions, s._surfaceAcquireMs, s._longestSurfaceAcquireMs, s._vsync, s._presentMode.ToString(),
