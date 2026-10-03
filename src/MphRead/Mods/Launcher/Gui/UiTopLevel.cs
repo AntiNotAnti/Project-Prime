@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -84,6 +85,71 @@ namespace MphRead.Mods.Launcher.Gui
         public static void Pump() => Current?.Tick?.Invoke(Current._clock.Elapsed);
     }
 
+#if MPHREAD_SHELL
+    /// <summary>
+    /// Text clipboard for the embedded desktop UI.
+    ///
+    /// The shell is rendered through Avalonia's headless platform, whose
+    /// clipboard is an in-process test clipboard rather than the OS clipboard.
+    /// TextBox routes Copy/Cut/Paste through the top-level's IClipboard feature,
+    /// so exposing GLFW's real window clipboard here gives every text field the
+    /// same clipboard users expect from the rest of the desktop.
+    /// </summary>
+    internal sealed class ShellTextClipboard : IClipboard
+    {
+        public Task ClearAsync()
+        {
+            Write("");
+            return Task.CompletedTask;
+        }
+
+        public async Task SetDataAsync(IAsyncDataTransfer? dataTransfer)
+        {
+            if (dataTransfer == null)
+            {
+                Write("");
+                return;
+            }
+
+            try
+            {
+                Write(await dataTransfer.TryGetTextAsync() ?? "");
+            }
+            finally
+            {
+                dataTransfer.Dispose();
+            }
+        }
+
+        // GLFW commits clipboard text to the platform immediately.
+        public Task FlushAsync() => Task.CompletedTask;
+
+        public Task<IAsyncDataTransfer?> TryGetDataAsync()
+        {
+            string? text = Read();
+            if (String.IsNullOrEmpty(text))
+            {
+                return Task.FromResult<IAsyncDataTransfer?>(null);
+            }
+
+            var transfer = new DataTransfer();
+            transfer.Add(DataTransferItem.CreateText(text));
+            return Task.FromResult<IAsyncDataTransfer?>(transfer);
+        }
+
+        // We materialize OS clipboard text on every read, so there is no exact
+        // in-process transfer object to return.
+        public Task<IAsyncDataTransfer?> TryGetInProcessDataAsync()
+            => Task.FromResult<IAsyncDataTransfer?>(null);
+
+        private static unsafe string? Read()
+            => OpenTK.Windowing.GraphicsLibraryFramework.GLFW.GetClipboardString(null);
+
+        private static unsafe void Write(string text)
+            => OpenTK.Windowing.GraphicsLibraryFramework.GLFW.SetClipboardString(null, text);
+    }
+#endif
+
     /// <summary>
     /// What the screens are drawn into, and where their input comes from.
     ///
@@ -147,6 +213,9 @@ namespace MphRead.Mods.Launcher.Gui
         private readonly MouseDevice _mouse;
         private readonly TouchDevice _touch = new();
         private readonly Surface _surface;
+#if MPHREAD_SHELL
+        private readonly IClipboard _clipboard = new ShellTextClipboard();
+#endif
         private readonly System.Diagnostics.Stopwatch _clock =
             System.Diagnostics.Stopwatch.StartNew();
 
@@ -505,7 +574,11 @@ namespace MphRead.Mods.Launcher.Gui
         {
             if (featureType == typeof(IClipboard))
             {
+#if MPHREAD_SHELL
+                return _clipboard;
+#else
                 return AvaloniaLocator.Current.GetService<IClipboard>();
+#endif
             }
             return null;
         }
