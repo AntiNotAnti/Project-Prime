@@ -576,9 +576,11 @@ namespace MphRead.Entities
                 // Hard
                 new(3849 / 4096f, 20, 0.995f, 5, 3, 0.80f, 2,
                     0.2f, 0.01f, 50, 0.50f, 5, 80, 2.75f, 20, 2, 24, 35, 55, 90, 90),
-                // Insane
-                new(-1, 180, 0.999f, 3, 1, 1, 4,
-                    0, 0, 0, 0.50f, 0, 95, 2.0f, 180, 0, 28, 20, 35, 45, 60)
+                // Insane: smarter/faster decisions, but still human-readable aim.
+                // Tactical AI now supplies the largest difficulty jump, so this tier
+                // no longer needs 180-degree snaps, zero error, and zero shot delay.
+                new(0.90f, 35, 0.998f, 3.5f, 1, 0.95f, 3,
+                    0.08f, 0.005f, 100, 0.50f, 2, 92, 2.25f, 35, 1, 28, 20, 35, 45, 60)
             ];
 
             private BotDifficultyTuning Difficulty =>
