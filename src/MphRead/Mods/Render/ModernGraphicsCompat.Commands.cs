@@ -225,26 +225,32 @@ internal sealed unsafe partial class ModernGraphicsCompat
         return true;
     }
 
-    // Each operation owns a complete pass. A shared encoder batches native
-    // submissions while preserving attachment transitions between those passes.
+    // Non-draw commands cannot be encoded while a render pass is open.
+    // Copies, clears, readback and auxiliary passes therefore close the current
+    // coalesced world pass before using the shared command encoder.
     private CommandEncoder* BeginCommands()
+    {
+        EndActiveCorePass();
+        return BeginCommandEncoder();
+    }
+
+    private CommandEncoder* BeginCommandEncoder()
     {
         if (_commandEncoder == null)
             _commandEncoder = _api.DeviceCreateCommandEncoder(_device.Device, new CommandEncoderDescriptor());
         return _commandEncoder;
     }
 
-    private void EndCommands()
+    private void RecordCommandOperation()
     {
-        // A frame can contain hundreds of tiny compatibility passes. Retaining
-        // more of them in one encoder cuts QueueSubmit/finish churn while each
-        // draw still owns its pass and its arena slices remain distinct until
-        // the frame boundary.
         if (++_commandOperations >= CommandBatchOperations) FlushCommands();
     }
 
+    private void EndCommands() => RecordCommandOperation();
+
     private void FlushCommands()
     {
+        EndActiveCorePass();
         if (_commandEncoder == null) return;
         CommandBuffer* commands = _api.CommandEncoderFinish(_commandEncoder, new CommandBufferDescriptor());
         try
@@ -271,6 +277,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
 
     private void DiscardCommands()
     {
+        EndActiveCorePass();
         if (_commandEncoder != null) _api.CommandEncoderRelease(_commandEncoder);
         _commandEncoder = null;
         _commandOperations = 0;
