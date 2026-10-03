@@ -502,11 +502,10 @@ namespace MphRead.Mods.MapGen
                             {
                                 continue;
                             }
+                            // Add only the direction we just validated. The reverse edge is
+                            // evaluated when the other node is visited, so a legal drop does not
+                            // silently become an impossible climb.
                             node.Neighbours.Add(j);
-                            if (nodes[j].Neighbours.Count < MaxNeighbours && !nodes[j].Neighbours.Contains(i))
-                            {
-                                nodes[j].Neighbours.Add(i);
-                            }
                         }
                     }
                 }
