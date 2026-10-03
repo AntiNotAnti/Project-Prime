@@ -285,6 +285,21 @@ namespace MphRead.Mods.Launcher.Gui
             }
             if (_pending is LaunchPlan plan)
             {
+                // MatchStart is intentionally synchronous because scene/GPU
+                // creation belongs to this thread. Do not make its CPU preflight
+                // synchronous too: large custom maps can spend seconds compiling,
+                // reading and decoding before a Scene exists, which used to stop
+                // window presentation and look like a hard freeze.
+                bool roomLaunch = plan.Kind is LaunchKind.Online or LaunchKind.Offline
+                    or LaunchKind.Host or LaunchKind.AimTrainer;
+                if (roomLaunch && !String.IsNullOrWhiteSpace(plan.RoomKey)
+                    && Mods.RoomPrewarm.Begin(plan.RoomKey)
+                    && !Mods.RoomPrewarm.TryGetPreparationResult(plan.RoomKey, out _))
+                {
+                    // Leave the plan pending and keep drawing/pumping the shell.
+                    return;
+                }
+
                 _pending = null;
                 StartMatch(window, plan);
             }
