@@ -183,16 +183,19 @@ Normal/specular/emissive replacement maps now load only while
 `AdvancedMaterials` is enabled. The live toggle has a companion-only refresh:
 turning it off releases companion GPU objects and invalidates in-flight companion
 promotions without rebinding the resident HD albedo; turning it back on rebuilds
-only the companion channels. When advanced maps are disabled, a file-backed
-albedo no longer has to wait for companion sources to qualify for background decode.
+only the companion channels. When advanced maps are disabled, a file-backed or
+immutable package-backed albedo no longer has to wait for companion sources to
+qualify for background decode.
 
 Packaged `.ppmap` materials now reuse the package validation performed when the
 map definition is loaded. Subsequent asset reads use a bounded single-entry ZIP
 path while the archive length/timestamp remain unchanged; a changed package
-invalidates the shortcut and falls back to full validation. Packaged texture
-bytes are reused by the background decoder rather than reopening the package,
-and optional companion channels are not read at all while Advanced Materials is
-disabled. Concurrent package reads use independent archive handles.
+invalidates the shortcut and falls back to full validation. Queued material
+requests retain only dimensions and identity; encoded entry bytes are reopened
+lazily on the decode worker instead of accumulating a compressed copy of the
+whole texture pack in memory. Optional companion channels are not read at all
+while Advanced Materials is disabled, and concurrent reads use independent
+archive handles.
 
 ## Supersampled modern-graphics optimization (2026-10-02)
 
