@@ -244,6 +244,32 @@ translucency and cel shading remain outside the direct path.
 Benchmarks report matrix-stack direct draws separately from total direct World
 draws and direct Advanced Material draws.
 
+## Slice 8: direct retained first-person viewmodels
+
+Eligible first-person arm-cannon meshes can now use the direct retained World
+executor while preserving the run-based viewmodel isolation introduced by #266.
+
+The Scene still owns the projection transition:
+
+- world -> viewmodel calls `SetViewModelRenderState(true)` and keeps the hard
+  compatibility pass boundary;
+- consecutive eligible viewmodel packets remain inside that run;
+- the direct packet patches `proj_mtx` with the existing
+  `_viewModelPerspectiveMatrix`;
+- viewmodel -> world uses the same #266 transition back to the world projection;
+- each graph pass still closes any open viewmodel run.
+
+A failed direct attempt simply falls through to `RenderItem`; because the
+viewmodel state was already selected, the fallback sees the same projection
+without creating an extra transition.
+
+Billboards, cosmetics, explicit overrides, decals, translucency and cel shading
+remain compatibility-only. Viewmodel projection values and pass boundaries are
+unchanged.
+
+Benchmarks report direct retained viewmodel draws separately so the biped versus
+alt-form CPU submission gap can be measured directly.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
