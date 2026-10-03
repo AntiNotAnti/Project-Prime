@@ -15,11 +15,6 @@ namespace MphRead.Mods.Render
         private readonly record struct Resident(int Binding, long Bytes, int Width, int Height);
         private const int TextureMaxAnisotropyExt = 0x84FE;
         private const int MaxTextureMaxAnisotropyExt = 0x84FF;
-        // GPU limits do not change between texture uploads. Querying them for
-        // every authored channel adds avoidable driver traffic during HD pack
-        // streaming, especially when one material expands into four maps.
-        private static int _cachedHardwareMaxDimension;
-        private static int _cachedMaximumAnisotropy;
         private readonly Dictionary<string, Resident> _resident = new(StringComparer.Ordinal);
         private readonly Func<int> _allocateTexture;
         private readonly Action<int> _releaseTexture;
@@ -195,28 +190,21 @@ namespace MphRead.Mods.Render
         private static void ApplyBoundAnisotropy(int requested)
         {
             if (requested <= 1) return;
-            int max = MaximumAnisotropy();
-            if (max <= 1) return;
-            GL.TexParameter(TextureTarget.Texture2D,
-                (TextureParameterName)TextureMaxAnisotropyExt, Math.Clamp(requested, 1, max));
-        }
-
-        private static int MaximumAnisotropy()
-        {
-            if (_cachedMaximumAnisotropy > 0) return _cachedMaximumAnisotropy;
             try
             {
                 string extensions = GL.GetString(StringName.Extensions) ?? "";
                 if (!extensions.Contains("GL_EXT_texture_filter_anisotropic", StringComparison.Ordinal)
                     && !extensions.Contains("GL_ARB_texture_filter_anisotropic", StringComparison.Ordinal))
-                    return _cachedMaximumAnisotropy = 1;
-                int reported = GL.GetInteger((GetPName)MaxTextureMaxAnisotropyExt);
-                return _cachedMaximumAnisotropy = Math.Clamp(reported <= 1 ? 1 : reported, 1, 16);
+                    return;
+                int max = GL.GetInteger((GetPName)MaxTextureMaxAnisotropyExt);
+                if (max <= 1) return;
+                GL.TexParameter(TextureTarget.Texture2D,
+                    (TextureParameterName)TextureMaxAnisotropyExt, Math.Clamp(requested, 1, Math.Min(max, 16)));
             }
             catch
             {
-                // Do not cache a failed query: a context may still be coming up.
-                return 1;
+                // Unsupported anisotropy is an allowed fallback; trilinear mips
+                // remain the stability requirement.
             }
         }
 
@@ -251,16 +239,11 @@ namespace MphRead.Mods.Render
 
         private static int HardwareMaxDimension()
         {
-            if (_cachedHardwareMaxDimension > 0) return _cachedHardwareMaxDimension;
             try
             {
                 int value = GL.GetInteger(GetPName.MaxTextureSize);
-                int resolved = Math.Clamp(value <= 0 ? ModernTextureAsset.MaximumDimension : value,
+                return Math.Clamp(value <= 0 ? ModernTextureAsset.MaximumDimension : value,
                     256, ModernTextureAsset.MaximumDimension);
-                // A zero/failed value can occur before a context is fully live.
-                // Cache only a real device answer so a later upload can retry.
-                if (value > 0) _cachedHardwareMaxDimension = resolved;
-                return resolved;
             }
             catch { return ModernTextureAsset.MaximumDimension; }
         }
