@@ -1577,7 +1577,8 @@ namespace MphRead
                 && _uploadedTextureAssetQuality == Mods.RenderOptions.TextureQuality
                 && (_uploadedTextureReplacements == false || _uploadedTextureSamplingKey == samplingKey)
                 && _uploadedTextureReplacements == Mods.RenderOptions.TextureReplacements
-                && _uploadedAdvancedMaterials == Mods.RenderOptions.AdvancedMaterials
+                && (_uploadedTextureReplacements == false
+                    || _uploadedAdvancedMaterials == Mods.RenderOptions.AdvancedMaterials)
                 && _uploadedMaterialRevision == Mods.Render.TextureReplacementPack.Revision)) return;
             GL.ActiveTexture(TextureUnit.Texture0);
             // Keep binding IDs: existing materials, animations and render items
