@@ -469,6 +469,15 @@ namespace MphRead
         /// </summary>
         private void ExecuteWorldRenderGraph()
         {
+#if !MPHREAD_SERVER
+            bool directWorldEnabled = Mods.Render.ModernGraphicsCompat.Active
+                && !_editorMaterialPreview
+                && _wireframeLevel == 0
+                && !Mods.RenderOptions.AdvancedMaterials
+                && !Mods.RenderOptions.CelShading;
+            if (directWorldEnabled)
+                Mods.Render.ModernGraphicsCompat.BeginRetainedWorldFrame();
+#endif
             foreach (Mods.Render.WorldRenderGraphPass pass in _worldRenderGraph.Passes)
             {
                 switch (pass.Kind)

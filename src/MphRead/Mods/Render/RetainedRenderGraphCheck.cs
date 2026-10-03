@@ -22,6 +22,10 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
+                    out string layoutError),
+                "retained World generated uniform layout validates"
+                    + (layoutError.Length == 0 ? "" : ": " + layoutError));
 
             var opaqueA = new RenderItem
             {
@@ -133,6 +137,10 @@ namespace MphRead.Mods.Render
             direct.MatrixStackCount = 1;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "matrix-stack geometry stays on compatibility executor");
+            direct.MatrixStackCount = 0;
+            direct.Alpha = 0.5f;
+            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "alpha-blended normal mesh skips the opaque direct path");
 
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"

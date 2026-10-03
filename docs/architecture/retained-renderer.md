@@ -160,6 +160,39 @@ Benchmarks report direct retained World draws versus compatibility fallbacks.
 `-rendergraphcheck` verifies the direct eligibility fence independently of a
 GPU/device.
 
+## Slice 5: frame-global World uniform templates
+
+Direct retained World submission no longer writes packet state into
+`ProgramRecord.Uniforms` and then asks the generated-shader bridge to read the
+same dictionaries back out again.
+
+At the start of each retained world graph:
+
+- the current generated World shader's global scene state is resolved once;
+- projection, view, fog, toon/global switches and viewport values are copied
+  into a retained frame template;
+- the generated layout is resolved to fixed word offsets once.
+
+For each eligible direct packet:
+
+- the frame template is copied into the generated uniform words;
+- only packet-local fields are patched: lights, material values, texture matrix,
+  model transform, alpha/material mode and immediate color/normal;
+- unsupported feature gates are explicitly forced off;
+- texture IDs are written directly into the generated sampler array;
+- the completed block is written to the existing uniform arena.
+
+This removes the per-packet string-keyed `ProgramRecord.Uniforms` update/read
+round-trip while retaining the same generated World WGSL, pipeline cache,
+bind-group cache and fallback behavior.
+
+Benchmark output reports template builds and per-packet uniform patches. One
+template build per rendered frame with many patches indicates the intended path.
+
+Alpha-blended `RenderMode.Normal` items are excluded from the opaque direct
+path because they are replayed in the translucent passes and would otherwise be
+submitted only to fail the opaque alpha test.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without

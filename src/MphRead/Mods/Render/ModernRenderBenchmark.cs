@@ -64,6 +64,8 @@ internal static class ModernRenderBenchmark
                     long samplerHitsStart = scene.TextureSamplerStateCacheHits;
                     long directDrawsStart = scene.RetainedDirectWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
+                    long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
+                    long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -75,6 +77,8 @@ internal static class ModernRenderBenchmark
                             samplerHitsStart = scene.TextureSamplerStateCacheHits;
                             directDrawsStart = scene.RetainedDirectWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
+                            templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
+                            uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -110,6 +114,8 @@ internal static class ModernRenderBenchmark
                         samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,
                         retainedDirectWorldDraws = scene.RetainedDirectWorldDraws - directDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
+                        retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
+                        retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0
