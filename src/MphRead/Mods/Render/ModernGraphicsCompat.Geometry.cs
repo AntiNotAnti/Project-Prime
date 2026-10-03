@@ -78,9 +78,11 @@ namespace MphRead.Mods.Render
             try
             {
                 if (geometry.Triangles.Length > 0)
-                    _ = PrepareGeometry(geometry.Vertices, geometry.Triangles);
+                    geometry.TriangleGeometry = PrepareGeometry(
+                        geometry.Vertices, geometry.Triangles);
                 if (geometry.Lines.Length > 0)
-                    _ = PrepareGeometry(geometry.Vertices, geometry.Lines);
+                    geometry.LineGeometry = PrepareGeometry(
+                        geometry.Vertices, geometry.Lines);
             }
             finally
             {
