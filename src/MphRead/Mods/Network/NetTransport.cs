@@ -583,16 +583,18 @@ namespace MphRead.Mods.Network
         internal bool TrySendSemantic(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload)
         {
             if (type is not (PacketType.MatchSemanticEvent or PacketType.MatchAward)) return false;
+            uint eventId;
+            double now = NowMilliseconds;
             long stamp = EnterConnectionLock();
             try
             {
                 if (!_connections.TryGetValue(target, out var connection) || connection.RetiredAt.HasValue
-                    || connection.Reliable.Capture(NowMilliseconds).Pending >= 16
-                    || !connection.Reliable.TryQueue(type, payload, NowMilliseconds, out uint eventId)) return false;
-                FlushReliable(connection, NowMilliseconds, eventId, 1);
-                return true;
+                    || connection.Reliable.Capture(now).Pending >= 16
+                    || !connection.Reliable.TryQueue(type, payload, now, out eventId)) return false;
             }
             finally { ExitConnectionLock(stamp); }
+            FlushReliable(target, now, eventId, 1);
+            return true;
         }
 
         public void Send(IPEndPoint target, PacketType type, ReadOnlySpan<byte> payload,
@@ -601,69 +603,105 @@ namespace MphRead.Mods.Network
             if (immediateCopies < 1 || immediateCopies > 3
                 || (immediateCopies != 1 && !NetReliableChannel.IsReliable(type)))
                 throw new ArgumentOutOfRangeException(nameof(immediateCopies));
+
             Span<byte> buffer = stackalloc byte[NetConfig.MaxPacketSize];
-            int length;
+            int length = 0;
+            bool reliableQueued = false;
+            uint reliableEventId = 0;
+            double now = NowMilliseconds;
+
             long lockStamp = EnterConnectionLock();
             try
             {
-                if (type == PacketType.QueueHello && QueueHelloPacket.TryRead(payload, out var queueHello) && queueHello.ClientNonce != 0)
+                if (type == PacketType.QueueHello
+                    && QueueHelloPacket.TryRead(payload, out var queueHello)
+                    && queueHello.ClientNonce != 0)
                 {
-                    if (_pendingQueueConnections.Count < 64 || _pendingQueueConnections.ContainsKey(target))
+                    if (_pendingQueueConnections.Count < 64
+                        || _pendingQueueConnections.ContainsKey(target))
                         _pendingQueueConnections[target] = (queueHello.ClientId, queueHello.ClientNonce);
                 }
-                if (type == PacketType.QueueWelcome && QueueWelcomePacket.TryRead(payload, out var queueWelcome) && queueWelcome.ClientNonce != 0)
+                if (type == PacketType.QueueWelcome
+                    && QueueWelcomePacket.TryRead(payload, out var queueWelcome)
+                    && queueWelcome.ClientNonce != 0)
                 {
-                    if (!_connections.TryGetValue(target, out var queueConnection) || queueConnection.RetiredAt.HasValue)
+                    if (!_connections.TryGetValue(target, out var queueConnection)
+                        || queueConnection.RetiredAt.HasValue)
                     {
                         if (_connections.Count >= MaximumConnections) return;
-                        _connections[target] = new NetConnection(target, NetConnection.NewId(), queueWelcome.ClientId)
+                        _connections[target] = new NetConnection(target,
+                            NetConnection.NewId(), queueWelcome.ClientId)
                             { QueueOnly = true, QueueServerSide = true };
                     }
-                    else if (!queueConnection.QueueOnly || !queueConnection.QueueServerSide || queueConnection.ClientId != queueWelcome.ClientId) return;
+                    else if (!queueConnection.QueueOnly || !queueConnection.QueueServerSide
+                        || queueConnection.ClientId != queueWelcome.ClientId) return;
                 }
-                if (type == PacketType.Hello && payload.Length >= 1 && payload[0] == NetConfig.ProtocolVersion)
+                if (type == PacketType.Hello && payload.Length >= 1
+                    && payload[0] == NetConfig.ProtocolVersion)
                 {
-                    uint clientId = payload.Length >= 6 ? BinaryPrimitives.ReadUInt32LittleEndian(payload[2..]) : 0;
-                    if (_pendingConnections.Count < 64 || _pendingConnections.ContainsKey(target)) _pendingConnections[target] = clientId;
+                    uint clientId = payload.Length >= 6
+                        ? BinaryPrimitives.ReadUInt32LittleEndian(payload[2..]) : 0;
+                    if (_pendingConnections.Count < 64 || _pendingConnections.ContainsKey(target))
+                        _pendingConnections[target] = clientId;
                 }
                 if (type == PacketType.Welcome && payload.Length == 17)
                 {
                     uint clientId = BinaryPrimitives.ReadUInt32LittleEndian(payload[1..]);
-                    if (!_connections.TryGetValue(target, out var existing) || existing.ClientId != clientId || existing.RetiredAt.HasValue)
+                    if (!_connections.TryGetValue(target, out var existing)
+                        || existing.ClientId != clientId || existing.RetiredAt.HasValue)
                     {
-                        if (_connections.Count >= MaximumConnections) throw new InvalidOperationException("Connection capacity exceeded");
-                        _connections[target] = new NetConnection(target, NetConnection.NewId(), clientId);
+                        if (_connections.Count >= MaximumConnections)
+                            throw new InvalidOperationException("Connection capacity exceeded");
+                        _connections[target] = new NetConnection(target,
+                            NetConnection.NewId(), clientId);
                     }
                     _connections[target].QueueOnly = false;
                 }
+
                 if (!Unsequenced(type) && _connections.TryGetValue(target, out var connection))
                 {
-                    if (payload.Length > NetConfig.MaxPayloadSize) throw new ArgumentOutOfRangeException(nameof(payload));
+                    if (payload.Length > NetConfig.MaxPayloadSize)
+                        throw new ArgumentOutOfRangeException(nameof(payload));
                     if (NetReliableChannel.IsReliable(type))
                     {
-                        // Send has no backpressure return value. Losing an ordinary
-                        // command/result must surface through the same disconnect
-                        // path as critical exhaustion, rather than silently diverge.
-                        if (!connection.Reliable.TryQueue(type, payload, NowMilliseconds, out uint eventId,
-                            expedite: immediateCopies > 1,
-                            supersedeState: type is PacketType.SessionState or PacketType.Roster or PacketType.QueueState or PacketType.QueueSeatOffer))
+                        // Queue/sequence state is serialized here. The actual
+                        // kernel send happens after this monitor is released.
+                        if (!connection.Reliable.TryQueue(type, payload, now,
+                            out reliableEventId, expedite: immediateCopies > 1,
+                            supersedeState: type is PacketType.SessionState
+                                or PacketType.Roster or PacketType.QueueState
+                                or PacketType.QueueSeatOffer))
                             connection.Reliable.Fail();
-                        FlushReliable(connection, NowMilliseconds, eventId, immediateCopies);
-                        return;
+                        reliableQueued = true;
                     }
-                    connection.Send(type, NowMilliseconds).Write(buffer);
-                    payload.CopyTo(buffer[NetHeader.Size..]); length = NetHeader.Size + payload.Length;
+                    else
+                    {
+                        connection.Send(type, now).Write(buffer);
+                        payload.CopyTo(buffer[NetHeader.Size..]);
+                        length = NetHeader.Size + payload.Length;
+                    }
                 }
                 else
                 {
                     // Before admission only discovery/Hello/refusal and probe pings
                     // are allowed. Established gameplay never has an unbound path.
-                    if (!Unsequenced(type) && type is not (PacketType.Refused or PacketType.Ping or PacketType.Pong)) return;
-                    if (payload.Length > NetConfig.MaxPacketSize - 1) throw new ArgumentOutOfRangeException(nameof(payload));
-                    buffer[0] = (byte)type; payload.CopyTo(buffer[1..]); length = payload.Length + 1;
+                    if (!Unsequenced(type)
+                        && type is not (PacketType.Refused or PacketType.Ping or PacketType.Pong))
+                        return;
+                    if (payload.Length > NetConfig.MaxPacketSize - 1)
+                        throw new ArgumentOutOfRangeException(nameof(payload));
+                    buffer[0] = (byte)type;
+                    payload.CopyTo(buffer[1..]);
+                    length = payload.Length + 1;
                 }
             }
             finally { ExitConnectionLock(lockStamp); }
+
+            if (reliableQueued)
+            {
+                FlushReliable(target, now, reliableEventId, immediateCopies);
+                return;
+            }
             Dispatch(target, buffer[..length], extraHoldTicks);
         }
 
@@ -759,57 +797,135 @@ namespace MphRead.Mods.Network
                 return true;
         }
 
-        private void FlushReliable(NetConnection connection, double now, uint burstEventId = 0, int copies = 1)
+        private void FlushReliable(IPEndPoint endpoint, double now,
+            uint burstEventId = 0, int copies = 1)
         {
-            Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
             int budget = copies > 1 ? NetReliableChannel.Capacity : 4;
-            for (int i = 0; i < budget && connection.Reliable.TrySend(now, out var eventPacket); i++)
+            for (int i = 0; i < budget; i++)
             {
+                ReliableTransmission eventPacket;
+                NetConnection source;
+                long stamp = EnterConnectionLock();
+                try
+                {
+                    if (!_connections.TryGetValue(endpoint, out source!)
+                        || source.RetiredAt.HasValue
+                        || !source.Reliable.TrySend(now, out eventPacket)) return;
+                }
+                finally { ExitConnectionLock(stamp); }
+
                 // One application event, independent datagram sequences. ACKing
                 // any copy completes delivery; the receiver applies it only once.
                 int transmissions = eventPacket.EventId == burstEventId ? copies : 1;
                 for (int copy = 0; copy < transmissions; copy++)
                 {
-                    connection.Send(eventPacket.Type, now, NetHeaderFlags.Reliable, eventPacket.EventId).Write(bytes);
-                    BinaryPrimitives.WriteUInt32LittleEndian(bytes[NetHeader.Size..], eventPacket.EventId);
-                    eventPacket.Payload.Span.CopyTo(bytes[(NetHeader.Size + 4)..]);
-                    Dispatch(connection.Endpoint, bytes[..(NetHeader.Size + 4 + eventPacket.Payload.Length)]);
+                    Span<byte> bytes = stackalloc byte[NetConfig.MaxPacketSize];
+                    stamp = EnterConnectionLock();
+                    try
+                    {
+                        if (!_connections.TryGetValue(endpoint, out var current)
+                            || !ReferenceEquals(current, source)
+                            || current.RetiredAt.HasValue) return;
+                        current.Send(eventPacket.Type, now, NetHeaderFlags.Reliable,
+                            eventPacket.EventId).Write(bytes);
+                        BinaryPrimitives.WriteUInt32LittleEndian(
+                            bytes[NetHeader.Size..], eventPacket.EventId);
+                        eventPacket.Payload.Span.CopyTo(bytes[(NetHeader.Size + 4)..]);
+                    }
+                    finally { ExitConnectionLock(stamp); }
+
+                    Dispatch(endpoint,
+                        bytes[..(NetHeader.Size + 4 + eventPacket.Payload.Length)]);
                 }
             }
         }
 
-        private void ServiceConnections()
+        private void ServiceConnections(bool force = false)
         {
-            long lockStamp = EnterConnectionLock();
+            long ticks = Stopwatch.GetTimestamp();
+            if (!force)
+            {
+                long due = Volatile.Read(ref _nextConnectionService);
+                if (ticks < due) return;
+                if (Interlocked.CompareExchange(ref _nextConnectionService,
+                    ticks + ConnectionServiceIntervalTicks, due) != due) return;
+            }
+            if (Interlocked.Exchange(ref _connectionServiceInProgress, 1) != 0) return;
+
             try
             {
-                double now = NowMilliseconds;
-                Span<byte> ack = stackalloc byte[NetHeader.Size];
-                int expiredCount = 0;
-                foreach (var connection in _connections.Values)
+                double now = ticks * 1000.0 / Stopwatch.Frequency;
+                int count = 0;
+                long stamp = EnterConnectionLock();
+                try
                 {
-                    if (connection.RetiredAt.HasValue && (connection.Reliable.Capture(now).Pending == 0
-                        || now - connection.RetiredAt.Value >= NetReliableChannel.LifetimeMilliseconds))
-                    { _expiredConnections[expiredCount++] = connection.Endpoint; continue; }
-                    FlushReliable(connection, now);
-                    if (connection.Reliable.Failed && !connection.FailureReported && !connection.RetiredAt.HasValue)
+                    foreach (var connection in _connections.Values)
                     {
-                        connection.FailureReported = true;
-                        Console.Error.WriteLine($"[net] reliable control failed for {connection.Endpoint}; disconnecting");
-                        // A local failure is an authoritative disconnect decision,
-                        // delivered on the normal simulation thread, never a socket callback.
-                        _connectionFailures.Enqueue(new ReceivedPacket(connection.Endpoint, new byte[] { (byte)PacketType.Bye }, 1));
-                    }
-                    if (connection.AckPending)
-                    {
-                        connection.Send(0, now, NetHeaderFlags.AckOnly).Write(ack);
-                        Dispatch(connection.Endpoint, ack);
+                        if (count >= _expiredConnections.Length) break;
+                        _expiredConnections[count++] = connection.Endpoint;
                     }
                 }
-                for (int i = 0; i < expiredCount; i++)
-                { _connections.Remove(_expiredConnections[i]!); _expiredConnections[i] = null; }
+                finally { ExitConnectionLock(stamp); }
+
+                for (int i = 0; i < count; i++)
+                {
+                    IPEndPoint endpoint = _expiredConnections[i]!;
+                    _expiredConnections[i] = null;
+
+                    bool expired = false;
+                    stamp = EnterConnectionLock();
+                    try
+                    {
+                        if (!_connections.TryGetValue(endpoint, out var connection)) continue;
+                        if (connection.RetiredAt.HasValue
+                            && (connection.Reliable.Capture(now).Pending == 0
+                                || now - connection.RetiredAt.Value
+                                    >= NetReliableChannel.LifetimeMilliseconds))
+                        {
+                            _connections.Remove(endpoint);
+                            expired = true;
+                        }
+                    }
+                    finally { ExitConnectionLock(stamp); }
+                    if (expired) continue;
+
+                    FlushReliable(endpoint, now);
+
+                    bool failed = false;
+                    bool sendAck = false;
+                    Span<byte> ack = stackalloc byte[NetHeader.Size];
+                    stamp = EnterConnectionLock();
+                    try
+                    {
+                        if (!_connections.TryGetValue(endpoint, out var connection)) continue;
+                        if (connection.Reliable.Failed && !connection.FailureReported
+                            && !connection.RetiredAt.HasValue)
+                        {
+                            connection.FailureReported = true;
+                            failed = true;
+                        }
+                        if (connection.AckPending)
+                        {
+                            connection.Send(0, now, NetHeaderFlags.AckOnly).Write(ack);
+                            sendAck = true;
+                        }
+                    }
+                    finally { ExitConnectionLock(stamp); }
+
+                    if (failed)
+                    {
+                        Console.Error.WriteLine(
+                            $"[net] reliable control failed for {endpoint}; disconnecting");
+                        _connectionFailures.Enqueue(new ReceivedPacket(endpoint,
+                            new byte[] { (byte)PacketType.Bye }, 1));
+                    }
+                    if (sendAck) Dispatch(endpoint, ack);
+                }
             }
-            finally { ExitConnectionLock(lockStamp); }
+            finally
+            {
+                Volatile.Write(ref _connectionServiceInProgress, 0);
+            }
         }
 
         private void SendNow(IPEndPoint target, ReadOnlySpan<byte> datagram)
@@ -858,7 +974,7 @@ namespace MphRead.Mods.Network
             double deadline = NowMilliseconds + 2000;
             while (_running && PendingCloseEvents() > 0 && NowMilliseconds < deadline)
             {
-                ServiceConnections();
+                ServiceConnections(force: true);
                 if (_lagWorker != null) PromoteHeldArrivals();
                 Thread.Sleep(5);
             }
