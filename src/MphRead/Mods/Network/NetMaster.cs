@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -1088,6 +1089,59 @@ namespace MphRead.Mods.Network
             try
             {
                 using var socket = new UdpClient(AddressFamily.InterNetwork);
+                ulong hostNonce;
+                do
+                {
+                    Span<byte> nonceBytes = stackalloc byte[8];
+                    RandomNumberGenerator.Fill(nonceBytes);
+                    hostNonce = System.Buffers.Binary.BinaryPrimitives
+                        .ReadUInt64LittleEndian(nonceBytes);
+                } while (hostNonce == 0);
+
+                var challenge = new HostChallengePacket(
+                    (byte)NetConfig.ProtocolVersion, hostNonce);
+                byte[] challengeWire = new byte[1 + HostChallengePacket.Size];
+                challengeWire[0] = (byte)PacketType.HostChallenge;
+                challenge.Write(challengeWire.AsSpan(1));
+                socket.Send(challengeWire, challengeWire.Length, endPoint);
+
+                var challengeFrom = new IPEndPoint(IPAddress.Any, 0);
+                socket.Client.ReceiveTimeout = Math.Clamp(timeoutMs, 250, 1500);
+                HostChallengeReplyPacket challengeReply = default;
+                bool challenged = false;
+                DateTime challengeDeadline = DateTime.UtcNow.AddMilliseconds(
+                    Math.Clamp(timeoutMs, 250, 1500));
+                while (DateTime.UtcNow < challengeDeadline)
+                {
+                    try
+                    {
+                        byte[] answer = socket.Receive(ref challengeFrom);
+                        if (challengeFrom.Equals(endPoint)
+                            && answer.Length == 1 + HostChallengeReplyPacket.Size
+                            && answer[0] == (byte)PacketType.HostChallengeReply
+                            && HostChallengeReplyPacket.TryRead(answer.AsSpan(1),
+                                out challengeReply)
+                            && challengeReply.Nonce == hostNonce)
+                        {
+                            challenged = true;
+                            break;
+                        }
+                    }
+                    catch (SocketException ex) when (ex.SocketErrorCode
+                        == SocketError.TimedOut)
+                    {
+                        break;
+                    }
+                }
+                if (!challenged)
+                {
+                    return new HostedGame
+                    {
+                        Reason = $"{masterHost}:{masterPort} did not complete the "
+                            + "protected lobby-allocation challenge"
+                    };
+                }
+
                 IReadOnlyList<HostRotationEntry>? hostedRotation = rotation?
                     .Take(HostRequestPacket.MaxRotation)
                     .Select(entry => HostRotationEntry.ForRoom(entry.RoomKey, entry.Mode))
@@ -1103,7 +1157,8 @@ namespace MphRead.Mods.Network
                     RoomKey = roomKey, MapIdentity = NetworkMapIdentity.ForRoom(roomKey),
                     ServerName = serverName,
                     Policy = policy, AllowJoinInProgress = true, RequireReady = false,
-                    Rotation = hostedRotation
+                    Rotation = hostedRotation,
+                    HostNonce = hostNonce, HostCookie = challengeReply.Cookie
                 };
                 var datagram = new byte[1 + request.Length];
                 datagram[0] = (byte)PacketType.HostRequest;
