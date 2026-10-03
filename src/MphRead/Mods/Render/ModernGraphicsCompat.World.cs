@@ -513,7 +513,8 @@ namespace MphRead.Mods.Render
 
         private void DrawCoreIndexed(ReadOnlySpan<float> vertices, ReadOnlySpan<int> indices,
             PrimitiveTopology topology, ModernProgramKind kind,
-            float[]? persistentVertices = null, int[]? persistentIndices = null)
+            float[]? persistentVertices = null, int[]? persistentIndices = null,
+            NativeGeometry? retainedGeometry = null)
         {
             if (_resources.DrawFramebuffer == 0 && !AcquireSurfaceTexture()) return;
             _device.ThrowIfFailed();
@@ -557,9 +558,10 @@ namespace MphRead.Mods.Render
 
             ulong vertexBytes = (ulong)(vertices.Length * sizeof(float));
             ulong indexBytes = (ulong)(indices.Length * sizeof(int));
-            NativeGeometry geometryBuffers = persistentVertices != null && persistentIndices != null
-                ? PrepareGeometry(persistentVertices, persistentIndices)
-                : PrepareGeometry(vertices, indices);
+            NativeGeometry geometryBuffers = retainedGeometry
+                ?? (persistentVertices != null && persistentIndices != null
+                    ? PrepareGeometry(persistentVertices, persistentIndices)
+                    : PrepareGeometry(vertices, indices));
             WgpuBuffer* vertex = geometryBuffers.Vertex;
             WgpuBuffer* index = geometryBuffers.Index;
 
