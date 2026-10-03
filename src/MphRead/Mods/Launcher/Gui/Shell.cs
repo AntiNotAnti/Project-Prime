@@ -852,7 +852,7 @@ namespace MphRead.Mods.Launcher.Gui
         private static unsafe void CheckFullscreen(RenderWindow window, WindowStartMode mode)
         {
             var monitor = OpenTK.Windowing.Desktop.Monitors.GetMonitorFromWindow(window);
-            var video = GLFW.GetVideoMode(monitor.Handle.ToUnsafePtr<Monitor>());
+            var video = GLFW.GetVideoMode(monitor.Handle.ToUnsafePtr<OpenTK.Windowing.GraphicsLibraryFramework.Monitor>());
             bool attached = Mods.WindowMode.HasMonitor(window);
             bool native = mode == WindowStartMode.Fullscreen;
             bool fills = video != null
