@@ -1118,8 +1118,9 @@ namespace MphRead.Entities
             float newestAge = Single.MaxValue;
             foreach (BeamProjectileEntity beam in EquipInfo.Beams)
             {
-                if (beam.Beam != BeamType.Battlehammer || beam.Owner != this
-                    || beam.Lifespan <= 0 || beam.Flags.TestFlag(BeamFlags.Collided))
+                if (beam.Beam != BeamType.Battlehammer || beam.BattlehammerClusterChild
+                    || beam.Owner != this || beam.Lifespan <= 0
+                    || beam.Flags.TestFlag(BeamFlags.Collided))
                 {
                     continue;
                 }
