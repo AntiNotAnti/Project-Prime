@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.Network
 {
@@ -22,6 +23,11 @@ namespace MphRead.Mods.Network
         private int _players;
         private readonly string? _library;
         private double _nextProbe;
+        private Task<ServerStatus>? _probe;
+        private double _lastResponsiveAt;
+        private bool _everResponsive;
+        private const double ProbeIntervalSeconds = 1.0;
+        private const double UnresponsiveSeconds = 8.0;
 
         public int Port { get; }
         public bool EverOccupied { get; private set; }
@@ -33,6 +39,14 @@ namespace MphRead.Mods.Network
                 catch (InvalidOperationException) { return false; }
             }
         }
+
+        /// <summary>
+        /// A child that used to answer status probes but has stopped doing so.
+        /// Startup is deliberately exempt: cold map construction may take much
+        /// longer than a probe timeout before the listener reaches its loop.
+        /// </summary>
+        public bool Unresponsive(double now) =>
+            _everResponsive && now - _lastResponsiveAt >= UnresponsiveSeconds;
 
         private HostedServerProcess(Process process, int port)
         {
@@ -125,10 +139,10 @@ namespace MphRead.Mods.Network
         }
 
         /// <summary>
-        /// Read occupancy from the child's ordinary status endpoint. Probes
-        /// are throttled because Reap runs every server loop; loopback replies
-        /// normally arrive immediately, and a transient timeout keeps the last
-        /// known occupancy instead of ejecting a live match.
+        /// Read occupancy from the child's ordinary status endpoint without
+        /// ever blocking the parent authority loop. One background probe may
+        /// be outstanding at a time; the server thread only consumes completed
+        /// results and starts the next probe.
         /// </summary>
         public int ProbePlayers(double now, bool force = false)
         {
@@ -137,20 +151,35 @@ namespace MphRead.Mods.Network
                 _players = 0;
                 return 0;
             }
-            if (!force && now < _nextProbe)
+
+            Task<ServerStatus>? probe = _probe;
+            if (probe is { IsCompleted: true })
             {
-                return _players;
-            }
-            _nextProbe = now + 1.0;
-            ServerStatus status = NetStatus.Query("127.0.0.1", Port,
-                allowJoinProbe: false, timeoutMs: 150);
-            if (status.Online)
-            {
-                _players = status.Players;
-                if (_players > 0)
+                _probe = null;
+                try
                 {
-                    EverOccupied = true;
+                    ServerStatus status = probe.GetAwaiter().GetResult();
+                    if (status.Online)
+                    {
+                        _players = status.Players;
+                        _lastResponsiveAt = now;
+                        _everResponsive = true;
+                        if (_players > 0) EverOccupied = true;
+                    }
                 }
+                catch (Exception)
+                {
+                    // A failed health probe is not a match failure. Reaping
+                    // uses the bounded unresponsive grace below.
+                }
+            }
+
+            if (_probe == null && (force || now >= _nextProbe))
+            {
+                _nextProbe = now + ProbeIntervalSeconds;
+                int port = Port;
+                _probe = Task.Run(() => NetStatus.Query("127.0.0.1", port,
+                    allowJoinProbe: false, timeoutMs: 150));
             }
             return _players;
         }
