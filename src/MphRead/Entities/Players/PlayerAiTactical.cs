@@ -106,7 +106,7 @@ public partial class PlayerEntity
         private void ApplyTacticalBrain()
         {
             BotTacticalTuning tuning = TacticalTuning;
-            _tacticalMovementActive = false;
+            _tacticalMovementActive = TacticalShouldPreserveLegacyMovement(tuning);
 
             if (_tacticalThreatFrames > 0)
             {
@@ -212,9 +212,44 @@ public partial class PlayerEntity
 
             if (visible)
             {
-                ApplyTacticalMovement(_tacticalTarget, tuning);
+                if (!_tacticalMovementActive)
+                {
+                    ApplyTacticalMovement(_tacticalTarget, tuning);
+                }
                 ApplyTacticalWeaponDecision();
             }
+        }
+
+        private bool TacticalShouldPreserveLegacyMovement(BotTacticalTuning tuning)
+        {
+            float healthFraction = _player.HealthMax <= 0 ? 1
+                : Math.Clamp(_player.Health / (float)_player.HealthMax, 0, 1);
+            if (healthFraction <= tuning.RetreatHealthFraction
+                && ((Flags2.TestFlag(AiFlags2.TargetItem) && _itemC8 != null && IsHealth(_itemC8))
+                    || (_itemSpawnC4 != null && IsHealth(_itemSpawnC4))))
+            {
+                // The native tree already knows how to route to pickups. Do not replace a
+                // valid emergency-health path with duel movement just because an enemy is visible.
+                return true;
+            }
+
+            if (_player.OctolithFlag != null)
+            {
+                // Capture/Bounty carriers need their native return/escape route. They may still
+                // aim and shoot tactically while following it.
+                return true;
+            }
+
+            if (_scene.GameState.IsTokenMode
+                && (uint)_player.SlotIndex < (uint)_scene.GameState.TokenCarried.Length
+                && _scene.GameState.TokenCarried[_player.SlotIndex] > 0)
+            {
+                return true;
+            }
+
+            // A bot already standing on a node/defender/hardpoint objective should defend it
+            // instead of strafing itself outside the scoring volume.
+            return TacticalOccupiesObjective(_player);
         }
 
         private void ApplyTacticalWeaponDecision()
