@@ -27,6 +27,7 @@ namespace MphRead.Mods.Render
             internal ShaderModule* Vertex;
             internal ShaderModule* Fragment;
             internal WgpuBuffer* UniformBuffer;
+            internal ulong UniformOffset;
             internal ModernShaderLayout Layout = null!;
             internal uint[] Words = Array.Empty<uint>();
             internal ModernUniformLayout[] Members = Array.Empty<ModernUniformLayout>();
@@ -152,21 +153,27 @@ namespace MphRead.Mods.Render
                 generated.Words[generated.Layout.FlipOffset / 4 + i * 4] =
                     unchecked((uint)BitConverter.SingleToInt32Bits(_resources.IsFramebufferTexture(id) ? 1f : 0f));
             }
-            generated.UniformBuffer = RentUniformBuffer((ulong)generated.Layout.Size);
+            UniformAllocation allocation = RentUniformBuffer((ulong)generated.Layout.Size);
+            generated.UniformBuffer = (WgpuBuffer*)allocation.Buffer;
+            generated.UniformOffset = allocation.Offset;
             fixed (uint* words = generated.Words)
-                WriteProfiledBuffer(generated.UniformBuffer, 0, words, (nuint)generated.Layout.Size);
+                WriteUniformBuffer(allocation, words, (nuint)generated.Layout.Size);
         }
 
         private BindGroup* GeneratedBindGroup(ModernProgramKind kind, BindGroupLayout* layout)
         {
             var generated = GeneratedShader(kind);
             var entries = stackalloc BindGroupEntry[1 + generated.Textures.Length * 2];
-            Span<nint> resources = stackalloc nint[2 + generated.Textures.Length * 2];
+            Span<nint> resources = stackalloc nint[3 + generated.Textures.Length * 2];
             resources[0] = (nint)layout;
             resources[1] = (nint)generated.UniformBuffer;
+            resources[2] = (nint)generated.UniformOffset;
 
-            entries[0] = new BindGroupEntry { Binding = 0, Buffer = generated.UniformBuffer,
-                Size = (ulong)generated.Layout.Size };
+            entries[0] = new BindGroupEntry
+            {
+                Binding = 0, Buffer = generated.UniformBuffer,
+                Offset = generated.UniformOffset, Size = (ulong)generated.Layout.Size
+            };
             uint count = 1;
             for (int i = 0; i < generated.Textures.Length; i++)
             {
@@ -181,7 +188,7 @@ namespace MphRead.Mods.Render
                 if (!depth)
                     entries[count++] = new BindGroupEntry { Binding = (uint)(2 + i * 2), Sampler = sampler };
 
-                int fingerprint = 2 + i * 2;
+                int fingerprint = 3 + i * 2;
                 resources[fingerprint] = (nint)view;
                 resources[fingerprint + 1] = (nint)sampler;
             }
