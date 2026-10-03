@@ -186,6 +186,33 @@ static class CustomCollisionChecks
         check(denseSweepCount == boundedResults.Length,
             "continuous player sweep exposes a full contact buffer so movement can fail conservatively");
 
+        // Grounded morphing keeps the retail center-preserving form
+        // switch, but a larger alt sphere must not be born below the supporting
+        // floor. Samus has equal radii and needs no correction; Sylux/Trace do.
+        MethodInfo groundedAltLift = typeof(PlayerEntity).GetMethod(
+            "ModGroundedAltFormLift", BindingFlags.Static | BindingFlags.NonPublic)!;
+        float samusLift = (float)groundedAltLift.Invoke(null, new object[]
+        {
+            PlayerEntity.PlayerVolumes[(int)Hunter.Samus, 0],
+            PlayerEntity.PlayerVolumes[(int)Hunter.Samus, 2]
+        })!;
+        float syluxLift = (float)groundedAltLift.Invoke(null, new object[]
+        {
+            PlayerEntity.PlayerVolumes[(int)Hunter.Sylux, 0],
+            PlayerEntity.PlayerVolumes[(int)Hunter.Sylux, 2]
+        })!;
+        float traceLift = (float)groundedAltLift.Invoke(null, new object[]
+        {
+            PlayerEntity.PlayerVolumes[(int)Hunter.Trace, 0],
+            PlayerEntity.PlayerVolumes[(int)Hunter.Trace, 2]
+        })!;
+        check(MathF.Abs(samusLift) < .0001f,
+            "grounded Samus morph keeps the retail collision height");
+        check(syluxLift > .12f && syluxLift < .14f,
+            "grounded Sylux morph preserves the old collision bottom");
+        check(traceLift > .12f && traceLift < .14f,
+            "grounded Trace morph preserves the old collision bottom");
+
         var wideFaces = new List<CollisionDataEditor>(22000);
         for (int i = 0; i < 22000; i++)
         {
