@@ -135,8 +135,11 @@ namespace MphRead.Mods.Render
                 "translucent mesh stays on compatibility executor");
             direct.RenderMode = RenderMode.Normal;
             direct.MatrixStackCount = 1;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "valid matrix-stack geometry is eligible for direct submission");
+            direct.MatrixStackCount = direct.MatrixStack.Length / 16 + 1;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "matrix-stack geometry stays on compatibility executor");
+                "out-of-range matrix stack stays on compatibility executor");
             direct.MatrixStackCount = 0;
             direct.Alpha = 0.5f;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
