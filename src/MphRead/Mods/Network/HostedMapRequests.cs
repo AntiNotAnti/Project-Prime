@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using MphRead.Mods.MapGen;
@@ -293,20 +294,35 @@ internal sealed class HostedMapRequests : IDisposable
         return path;
     }
 
-    private static void LinkOrCopy(string source, string target)
+    internal static void LinkOrCopy(string source, string target)
+    {
+        if (TryCreateHardLink(source, target)) return;
+        File.Copy(source, target, overwrite: false);
+    }
+
+    private static bool TryCreateHardLink(string source, string target)
     {
         try
         {
-            File.CreateHardLink(target, source);
-            return;
+            if (OperatingSystem.IsWindows())
+                return CreateHardLinkWindows(target, source, IntPtr.Zero);
+            return LinkUnix(source, target) == 0;
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
-            or PlatformNotSupportedException or NotSupportedException)
+        catch (Exception ex) when (ex is DllNotFoundException or EntryPointNotFoundException
+            or PlatformNotSupportedException)
         {
-            // Cross-device mounts and some container filesystems cannot link.
+            return false;
         }
-        File.Copy(source, target, overwrite: false);
     }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true,
+        EntryPoint = "CreateHardLinkW")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool CreateHardLinkWindows(
+        string fileName, string existingFileName, IntPtr securityAttributes);
+
+    [DllImport("libc", EntryPoint = "link", SetLastError = true)]
+    private static extern int LinkUnix(string existingPath, string newPath);
 
     internal static void TryDeleteDirectory(string? path)
     {

@@ -1553,7 +1553,7 @@ namespace MphRead
         }
 
         private bool TryReserveWorldMaterialResidency(int texture,
-            Mods.Render.ModernTextureAsset asset)
+            Mods.Render.PreparedTextureAsset asset)
         {
             Mods.Render.TextureSamplerDescriptor sampling =
                 Mods.Render.TextureSamplingPolicy.ResolveModern(asset.AssetClass, asset.Channel);
@@ -1578,7 +1578,7 @@ namespace MphRead
             return true;
         }
 
-        private bool TryUploadWorldMaterialPreparedBound(Mods.Render.ModernTextureAsset asset,
+        private bool TryUploadWorldMaterialPreparedBound(Mods.Render.PreparedTextureAsset asset,
             int texture, bool repeat, out int width, out int height)
         {
             width = height = 0;
@@ -1590,7 +1590,7 @@ namespace MphRead
             return false;
         }
 
-        private Mods.Render.ModernTextureAsset? DecodeWorldMaterial(
+        private Mods.Render.PreparedTextureAsset? DecodeWorldMaterial(
             Mods.Render.Materials.MaterialImage image,
             Mods.Render.TextureAssetClass assetClass,
             Mods.Render.TextureAssetChannel channel)

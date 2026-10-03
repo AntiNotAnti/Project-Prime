@@ -369,14 +369,7 @@ namespace MphRead.Mods.Network
                             string target = Path.Combine(childLibrary,
                                 archive.Identity.MapId.ToString("N") + ".ppmap");
                             if (!File.Exists(target))
-                            {
-                                try { File.CreateHardLink(target, archive.PackagePath); }
-                                catch (Exception ex) when (ex is IOException
-                                    or UnauthorizedAccessException
-                                    or PlatformNotSupportedException
-                                    or NotSupportedException)
-                                { File.Copy(archive.PackagePath, target); }
-                            }
+                                HostedMapRequests.LinkOrCopy(archive.PackagePath, target);
                         }
                     }
 
