@@ -177,9 +177,20 @@ namespace MphRead.Mods.Network
 
         private static async Task DrainAsync()
         {
+            FileStream? drainLease = null;
             try
             {
                 System.IO.Directory.CreateDirectory(DirectoryPath);
+                try
+                {
+                    drainLease = new FileStream(
+                        Path.Combine(DirectoryPath, ".drain-lock"),
+                        FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException)
+                {
+                    return;
+                }
                 foreach (string path in System.IO.Directory.EnumerateFiles(
                     DirectoryPath, "*.json").OrderBy(p => p, StringComparer.Ordinal))
                 {
@@ -247,6 +258,7 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                drainLease?.Dispose();
                 Interlocked.Exchange(ref _draining, 0);
             }
         }
