@@ -331,6 +331,23 @@ and arm-cannon geometry to avoid GL-style state replay.
 
 Benchmarks report direct textured-skin draws separately.
 
+## Slice 12: direct normal draw for outlined players
+
+`PlayerOutlineColor` no longer forces the player's normal world/depth draw onto
+the compatibility executor.
+
+The colored outline itself is unchanged. `DrawPlayerOutlines()` still runs
+after the world graph, binds the outline mask target, enables
+`player_outline_mask`, supplies the per-player outline color, and replays the
+same `RenderItem` through the compatibility path.
+
+Only the earlier normal world/depth draw can now use retained direct WebGPU.
+
+This keeps outline depth/culling/cutout behavior and exception cleanup intact
+while removing unnecessary compatibility replay from the main player draw.
+
+Benchmarks report these outlined normal-world direct draws separately.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
