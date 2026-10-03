@@ -3472,73 +3472,9 @@ namespace MphRead
         private bool RenderFrameContent()
         {
             CountFrame();
-            RenderShadowMap();
-            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit | ClearBufferMask.StencilBufferBit);
-            GL.ClearStencil(0);
-
-            UpdateUniforms();
-            SetPauseMenuUniforms();
-            if (_exiting)
-            {
-                return false;
-            }
-            ExecuteWorldRenderGraph();
-
-            DrawWorldOutlines();
-
-            // After the world and before the window: the preview is a corner
-            // of the scene target with its own camera in it, so the HUD's own
-            // panel is drawn over it afterwards with a hole where this lands.
-            if (!Services.IsReplica) ModDrawPreview();
             bool drawGameHud = !Mods.Replay.ReplayVideoExporter.SuppressGameHud;
-            if (drawGameHud && this.Players.Main.LoadFlags.TestFlag(LoadFlags.Active) && CameraMode == CameraMode.Player)
-            {
-                SetHudLayerUniforms();
-                this.Players.Main.DrawHudModels();
-                UnsetHudLayerUniforms();
-            }
-            else if (drawGameHud && ScoreboardOverFreeCamera)
-            {
-                // Only the filter that dims the scene behind the scoreboard;
-                // PlayerHud draws nothing else on the free camera.
-                SetHudLayerUniforms();
-                this.Players.Main.DrawHudModels();
-                UnsetHudLayerUniforms();
-            }
-
-            RenderDeferredPbrGBuffer();
-
-            // Process the completed scene target before it is presented. The full
-            // visor/HUD is still drawn afterwards at window resolution.
-            ApplyGraphicsPostProcess();
-
-            // After the weapon, so it is drawn around too, and before the
-            // target is put on screen, so the helmet and the HUD are not.
-            CheckGlError("EndWorldPass");
-
-            BeginCompositePass();
-            // Back to the window: everything from here down -- the quad, the
-            // helmet, the HUD and the fade -- is drawn at full size through
-            // the RTT program, not the one the scene was drawn with, so cel
-            // shading is already behind us and there is nothing to turn off.
-            GL.Clear(ClearBufferMask.ColorBufferBit);
-
-            GL.Begin(PrimitiveType.TriangleStrip);
-            // top right
-            GL.TexCoord3(1f, 1f, 0f);
-            GL.Vertex3(1f, 1f, 0f);
-            // top left
-            GL.TexCoord3(0f, 1f, 0f);
-            GL.Vertex3(-1f, 1f, 0f);
-            // bottom right
-            GL.TexCoord3(1f, 0f, 0f);
-            GL.Vertex3(1f, -1f, 0f);
-            // bottom left
-            GL.TexCoord3(0f, 0f, 0f);
-            GL.Vertex3(-1f, -1f, 0f);
-            GL.End();
-
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+            if (!ExecuteCoreFrameRenderGraph(drawGameHud))
+                return false;
 
             BeginHudPass();
             GL.Uniform4(_shaderLocations.FadeColor, _fadeColor, _fadeColor, _fadeColor, 0);

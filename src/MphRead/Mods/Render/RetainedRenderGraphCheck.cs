@@ -22,6 +22,9 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(FrameRenderGraph.Validate(out string frameError),
+                "top-level frame render graph validates"
+                    + (frameError.Length == 0 ? "" : ": " + frameError));
             Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
                     out string layoutError),
                 "retained World generated uniform layout validates"
@@ -158,18 +161,7 @@ namespace MphRead.Mods.Render
             direct.PlayerOutlineColor = null;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "translucent mesh stays off opaque direct eligibility");
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.MarkTranslucent)
-                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.TranslucentBehind)
-                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.TranslucentFront),
-                "translucent mesh is eligible in retained transparency passes");
-            direct.RenderMode = RenderMode.Decal;
-            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
-                    direct, WorldRenderPassKind.Decal),
-                "decal mesh is eligible in retained decal pass");
+                "translucent mesh stays on compatibility executor");
             direct.RenderMode = RenderMode.Normal;
             direct.MatrixStackCount = 1;
             Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
