@@ -60,7 +60,7 @@ public sealed class MapAnalysisResult
         {
             try
             {
-                _navigation = MapNodePacker.Analyze(map.Solid, map.Definition.NavigationLinks, cancellation);
+                _navigation = MapNodePacker.Analyze(map.Solid, MapNodePacker.EffectiveLinks(map.Definition), cancellation);
                 MapBudgetValidator.Add(validation, "Navigation nodes", _navigation.Positions.Length, MapNodePacker.MaxNodes);
                 MapBudgetValidator.Add(validation, "Navigation edges", _navigation.Edges);
                 int regions = _navigation.Components.Distinct().Count();
@@ -78,5 +78,8 @@ public sealed class MapAnalysisResult
     }
     public MapNodePacker.NavigationGraph? CreateNavigation() => _navigation is not { } graph ? null : new(
         (byte[])graph.Bytes.Clone(), (Vector3[])graph.Positions.Clone(),
-        graph.Neighbours.Select(n => (int[])n.Clone()).ToArray(), (int[])graph.Components.Clone(), graph.Edges);
+        graph.Neighbours.Select(n => (int[])n.Clone()).ToArray(), (int[])graph.Components.Clone(), graph.Edges)
+    {
+        Types=(NodeType[])graph.Types.Clone()
+    };
 }
