@@ -103,6 +103,35 @@ namespace MphRead.Mods.MapGen
             }
         }
 
+        /// <summary>
+        /// A graphical launcher can fail after asking Metadata to initialize with
+        /// custom registration deferred. The text fallback continues in the same
+        /// process, so restore the historical eager snapshot before handing over.
+        /// </summary>
+        internal static void RestoreDeferredRegistration()
+        {
+            if (!DeferInitialRegistration) return;
+            try
+            {
+                string[] builtIn = Metadata.RoomList.Select(room => room.Name).ToArray();
+                MapDefinition[] deferred = DeferredDefinitions(builtIn).ToArray();
+                DeferInitialRegistration = false;
+                foreach (MapDefinition definition in deferred)
+                {
+                    try { Metadata.RegisterDownloadedMap(definition); }
+                    catch (Exception ex)
+                    {
+                        DebugLog.Line("startup",
+                            $"could not restore custom map {definition.Name} for text fallback: {ex.Message}");
+                    }
+                }
+            }
+            finally
+            {
+                DeferInitialRegistration = false;
+            }
+        }
+
         // Runtime IDs are a process snapshot. Refreshing the editor/catalog must
         // never replace that snapshot beneath a loaded match or a room vote.
         public static IReadOnlyList<MapCatalogEntry> Reload()
