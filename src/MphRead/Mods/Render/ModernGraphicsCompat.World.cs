@@ -274,6 +274,7 @@ namespace MphRead.Mods.Render
                 DepthStencilAttachment = depthPtr
             };
             _activeCorePass = _api.CommandEncoderBeginRenderPass(encoder, descriptor);
+            if (_measurePerformance) _coreRenderPasses++;
             if (_activeCorePass == null)
                 throw new InvalidOperationException("Could not begin coalesced WebGPU render pass.");
             _activeCoreColorView = target.ColorView;
@@ -572,6 +573,7 @@ namespace MphRead.Mods.Render
             if (_enabled.Contains(EnableCap.StencilTest) && target.HasDepth)
                 _api.RenderPassEncoderSetStencilReference(pass, (uint)_stencilReference);
             _api.RenderPassEncoderDrawIndexed(pass, (uint)indices.Length, 1, 0, 0, 0);
+            if (_measurePerformance) _coreDraws++;
             RecordCommandOperation();
         }
 
