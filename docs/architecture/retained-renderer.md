@@ -193,21 +193,336 @@ Alpha-blended `RenderMode.Normal` items are excluded from the opaque direct
 path because they are replayed in the translucent passes and would otherwise be
 submitted only to fail the opaque alpha test.
 
+## Slice 6: direct advanced material companion maps
+
+The direct retained World path now remains active when Advanced Materials is
+enabled.
+
+Scene resolves a four-slot retained texture set for each packet:
+
+1. albedo
+2. normal
+3. specular/roughness
+4. emissive
+
+Each slot carries its binding ID plus the resolved backend-independent sampler
+policy. Albedo keeps the native fallback sampling behavior; authored companion
+maps use their registered modern channel policy. The direct executor binds all
+four WebGPU resources, patches the generated World flags, and validates each
+binding against the active render target before draw encoding.
+
+Cosmetics and explicit material overrides remain on the compatibility executor;
+this slice only covers ordinary world/material replacement companion maps.
+
+The generated fallback path also gates World companion samplers on the master
+`advanced_materials` switch. This prevents stale `use_normal_map`,
+`use_specular_map` or `use_emissive_map` values from causing unnecessary
+resource binding when advanced materials are disabled.
+
+Benchmarks report how many direct retained draws used companion maps separately
+from the total direct World draw count.
+
+## Slice 7: direct retained matrix-stack meshes
+
+The direct World path now supports retained meshes that use the existing model
+matrix-stack array.
+
+For `MatrixStackCount > 0`, the packet's already-copied
+`RenderItem.MatrixStack` is written directly into the generated World uniform
+block. For `MatrixStackCount == 0`, the packet transform continues to populate
+matrix slot zero.
+
+Eligibility validates the authored matrix count against both the shader's
+32-matrix contract and the packet storage bounds. Invalid/out-of-range stacks
+fall back to the compatibility executor.
+
+This expands direct submission to more animated/dynamic entity geometry without
+changing skinning math, list geometry, draw order, projection handling or the
+generated World shader. Viewmodels, billboards, cosmetics, overrides, decals,
+translucency and cel shading remain outside the direct path.
+
+Benchmarks report matrix-stack direct draws separately from total direct World
+draws and direct Advanced Material draws.
+
+## Slice 8: direct retained first-person viewmodels
+
+Eligible first-person arm-cannon meshes can now use the direct retained World
+executor while preserving the run-based viewmodel isolation introduced by #266.
+
+The Scene still owns the projection transition:
+
+- world -> viewmodel calls `SetViewModelRenderState(true)` and keeps the hard
+  compatibility pass boundary;
+- consecutive eligible viewmodel packets remain inside that run;
+- the direct packet patches `proj_mtx` with the existing
+  `_viewModelPerspectiveMatrix`;
+- viewmodel -> world uses the same #266 transition back to the world projection;
+- each graph pass still closes any open viewmodel run.
+
+A failed direct attempt simply falls through to `RenderItem`; because the
+viewmodel state was already selected, the fallback sees the same projection
+without creating an extra transition.
+
+Billboards, cosmetics, explicit overrides, decals, translucency and cel shading
+remain compatibility-only. Viewmodel projection values and pass boundaries are
+unchanged.
+
+Benchmarks report direct retained viewmodel draws separately so the biped versus
+alt-form CPU submission gap can be measured directly.
+
+## Slice 9: direct retained billboard meshes
+
+Spherical and cylindrical billboard meshes can now use the direct retained World
+executor.
+
+The Scene resolves the same view-inverse matrix used by the compatibility path:
+
+- `BillboardMode.None` -> identity;
+- `BillboardMode.Sphere` -> `_viewInvRotMatrix`;
+- `BillboardMode.Cylinder` -> `_viewInvRotYMatrix`.
+
+That matrix is patched directly into the generated World `view_inv_mtx` slot.
+Geometry, matrix-stack data, materials, projection, draw order and pass state are
+unchanged.
+
+Eligibility accepts only the three defined billboard enum values; unknown values
+fall back to the compatibility executor.
+
+Benchmarks report direct retained billboard draws separately from total,
+advanced-material, matrix-stack and viewmodel direct draws.
+
+## Slice 10: direct retained color and palette overrides
+
+Explicit color and palette overrides no longer force an otherwise eligible World
+packet back through the compatibility executor.
+
+The retained World layout now resolves the generated shader offsets for:
+
+- `use_override` / `override_color`;
+- `use_pal_override` / `pal_override_color`.
+
+Per packet, the direct uniform patch writes the same flag/vector pairs used by
+`DoTexture`. Player-outline replay is outside the world render graph, so this
+path does not need the outline mask's temporary override suppression.
+
+Textured-player-skin and cosmetic material paths remain compatibility-only in
+this slice.
+
+Benchmarks report direct retained override draws separately from the other
+direct submission classes.
+
+## Slice 11: direct retained textured bright skins
+
+Textured player bright-skin meshes can now remain on the direct retained World
+path.
+
+The direct uniform patch mirrors the compatibility encoding:
+
+- textured bright skin -> `textured_player_skin = 1`;
+- high-contrast textured skin -> `textured_player_skin = 2`;
+- ordinary packet -> `0`.
+
+Player-outline replay still runs outside the world graph and continues to force
+the textured-skin uniform off during its mask pass exactly as before.
+
+This combines with direct color/palette overrides, matrix stacks, Advanced
+Materials and viewmodel projection, allowing substantially more ordinary player
+and arm-cannon geometry to avoid GL-style state replay.
+
+Benchmarks report direct textured-skin draws separately.
+
+## Slice 12: direct normal draw for outlined players
+
+`PlayerOutlineColor` no longer forces the player's normal world/depth draw onto
+the compatibility executor.
+
+The colored outline itself is unchanged. `DrawPlayerOutlines()` still runs
+after the world graph, binds the outline mask target, enables
+`player_outline_mask`, supplies the per-player outline color, and replays the
+same `RenderItem` through the compatibility path.
+
+Only the earlier normal world/depth draw can now use retained direct WebGPU.
+
+This keeps outline depth/culling/cutout behavior and exception cleanup intact
+while removing unnecessary compatibility replay from the main player draw.
+
+Benchmarks report these outlined normal-world direct draws separately.
+
+## Slice 13: stable retained uniform slots
+
+The expanded direct World path now uses a dedicated retained uniform arena instead
+of the generic frame arena. Direct draw slot N maps to the same WebGPU buffer and
+aligned offset on every completed public frame.
+
+Because WebGPU bind groups bake the uniform buffer and offset into the binding,
+this removes offset churn caused by unrelated shadow/PBR/UI allocations.
+
+The retained arena:
+
+- uses fixed-size aligned World-uniform slots;
+- never reuses a slot until the completed public-frame boundary;
+- stages writes and flushes them immediately before the QueueSubmit that consumes
+  those offsets;
+- keeps pages alive across frames so buffer identity is stable;
+- grows without relocating earlier slots.
+
+Direct World bind groups use a separate stable-slot cache. A cached group survives
+across frames while its slot, texture views and samplers are unchanged. Advanced
+material companion maps, viewmodels, matrix stacks, billboards, overrides,
+textured skins and outlined normal draws all share the same stable mechanism.
+
+Progressive texture replacement or sampler changes replace only affected cached
+groups. Benchmarks report retained bind-group hits/misses and uniform-slot
+high-water; steady static scenes should trend strongly toward hits after warmup.
+
+## Slice 14: direct retained deferred PBR MRT
+
+Modern backends no longer have to replay every PBR-eligible opaque mesh through
+`DrawDeferredPbrItem()` and GL-style uniform/texture calls after the forward
+World pass.
+
+When MRT PBR is active:
+
+- Scene reuses the retained opaque packet list and immutable mesh descriptors;
+- one `DeferredPbrMrt` frame template captures the global view/viewport state;
+- per packet, the direct executor patches projection, billboard view inverse,
+  matrix-stack/transform, texgen, material specular/emission and overrides;
+- the existing retained four-texture set supplies albedo, normal, specular and
+  emissive bindings with the same sampler/residency policy as the direct World
+  path;
+- the existing retained native geometry buffers are submitted directly into the
+  three-target PBR render pass.
+
+The first slice deliberately leaves cosmetic-surface/material effects on the
+compatibility PBR replay. Viewmodels remain excluded exactly as before. OpenGL
+and GLES still use the compatibility three-pass PBR path unchanged.
+
+Direct and compatibility PBR draw counts, plus MRT template builds and uniform
+patches, are included in renderer benchmark output. Mixed direct/fallback items
+remain valid inside the same MRT pass because compatibility draws fully restore
+their own per-item uniforms and texture state.
+
+## Slice 15: native world-pass state + direct decals/translucency
+
+Modern backends no longer replay the six world-pass state transitions through
+the GL-style facade. `WorldRenderGraph` configures backend pipeline state
+directly for opaque, decal, translucent-mask, depth rebuild, behind and front
+passes. OpenGL/GLES keep the original switch unchanged.
+
+Direct World eligibility is pass-aware: opaque/depth retain their opaque contract,
+decals submit directly in the decal pass, and translucent/alpha-blended packets
+submit directly through the stencil mask, behind and front passes. Stencil
+comparison is fixed by pass while polygon ID remains a dynamic reference.
+
+Depth/color masks, alpha test, stencil operations, blend state and decal depth
+bias are therefore owned by the native graph state on modern backends.
+
+## Slice 16: top-level frame render graph
+
+The retained renderer now owns a top-level frame graph rather than relying on an
+implicit call chain in `RenderFrameContent`.
+
+The graph schedules, in the existing visual order:
+
+1. shadow map;
+2. world target clear/setup;
+3. six-pass retained world graph;
+4. player/world outlines;
+5. scene-space preview and HUD models;
+6. deferred PBR G-buffer;
+7. enhanced post processing;
+8. world-to-output composite.
+
+Each node declares the resources it reads/writes: scene color/depth/stencil,
+shadow depth, PBR albedo/normal/material, processed scene color and final output.
+
+This slice intentionally preserves each pass implementation. The graph is the
+ownership/scheduling boundary that lets backend-native passes replace individual
+nodes without another Renderer.cs rewrite. Full-screen presentation HUD remains
+outside the core frame graph because it is window/UI composition rather than the
+retained 3D scene.
+
+`-rendergraphcheck` validates both the six-pass world graph and the top-level
+frame graph ordering/resource contract.
+
+## Slice 17: persistent room render packets
+
+Static room mesh topology now owns persistent `RenderItem` packet objects instead
+of renting and returning one generic packet per visible mesh every picture.
+
+A retained room mesh template owns:
+
+- mesh/material/list identity;
+- one persistent room render packet.
+
+The packet is **not frozen**. Each visible submission overwrites every dynamic
+field that can change:
+
+- current material alpha/diffuse/ambient/specular;
+- texture binding and texgen/repeat state;
+- texture-coordinate animation matrix;
+- node transform and matrix stack;
+- billboard mode and lighting;
+- portal alpha/polygon ID;
+- editor selection override;
+- mesh visibility remains checked before submission.
+
+Persistent room packets bypass `_usedRenderItems`, so they can never be returned
+to the generic player/effect pool. Dynamic entities, effects, trails, volumes and
+viewmodels continue using the existing pool unchanged.
+
+This removes steady-state room `RenderItem` rent/fill/recycle churn while keeping
+portal/frustum and material animation fully live. Benchmarks expose persistent
+room packet submissions alongside template builds/hits.
+
+## Slice 18: direct retained shadow replay
+
+The directional shadow pass now reuses the retained opaque packet list and native
+mesh buffers instead of rebuilding each opaque mesh through `RenderItem`.
+
+The existing shadow pass still owns its stabilized light camera, framebuffer,
+depth target and alpha-cutout state. On modern backends it captures a temporary
+World frame template after installing the shadow view/projection, then eligible
+opaque packets submit directly through the retained World executor.
+
+Viewmodels and translucent/alpha-blended packets remain excluded exactly as
+before. Any ineligible packet falls back to the existing shadow `RenderItem`
+replay in place. The normal world graph rebuilds its own frame template after
+the shadow pass, so shadow matrices cannot leak into the main camera.
+
+Benchmarks report direct versus compatibility shadow replay counts.
+
+## Core retained renderer: complete
+
+The core migration is complete at this point:
+
+- immutable geometry is retained in native GPU buffers;
+- room mesh packets persist across frames while dynamic fields stay live;
+- the six-pass World graph owns native pass state on modern backends;
+- opaque, decal and translucent mesh passes use direct retained WebGPU submission
+  whenever their material features are supported;
+- shadow geometry reuses retained packets and native buffers;
+- deferred PBR MRT can replay retained opaque packets directly;
+- stable World uniform slots and bind groups persist across frames;
+- shadow, World, outlines, scene overlays, PBR, post processing and composite are
+  scheduled by the top-level frame graph;
+- OpenGL/GLES remain the compatibility implementation and special unsupported
+  packet classes can still fall back per draw.
+
+The remaining renderer ideas below are optimization/expansion work, not required
+to finish the retained-renderer architecture.
+
 ## Next slices
+The next tier is optional performance work rather than core migration:
 
-The graph and packet seam is intended to support the remaining migration without
-another scene-wide rewrite:
-
-- retain static room packets across frames instead of rebuilding them from entities;
-- retain static room visibility templates so only changing portal/material state is
-  refreshed each frame;
-- move the retained material descriptor directly into the WebGPU uniform/bind-group
-  executor instead of replaying GL-compatible uniform calls;
-- add partition/cluster visibility before packet emission;
-- schedule shadow, PBR and post-processing as graph passes/resources;
-- allow broader pipeline/material sorting only behind visual-parity gates;
-- move modern backends to direct WebGPU packet execution, leaving the GL executor as
-  the compatibility implementation.
+- partition room geometry into bounded render clusters and feed portal/frustum
+  visibility directly into packet emission;
+- add safe opaque pipeline/material sorting beyond adjacent batches;
+- evaluate indirect/multi-draw and GPU-driven visibility;
+- give the retained PBR path its own stable uniform/bind-group slots if profiling
+  shows meaningful churn;
+- migrate specialized outline/full-screen passes off the compatibility facade
+  where measurement justifies the complexity.
 
 The release gate remains visual parity plus measured frame-time improvement on Metal,
 DX12/Vulkan and physical Android Vulkan hardware.

@@ -63,9 +63,26 @@ internal static class ModernRenderBenchmark
                     long samplerApplicationsStart = scene.TextureSamplerStateApplications;
                     long samplerHitsStart = scene.TextureSamplerStateCacheHits;
                     long directDrawsStart = scene.RetainedDirectWorldDraws;
+                    long directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
+                    long directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
+                    long directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
+                    long directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
+                    long directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
+                    long directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
+                    long directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
+                    long directDecalDrawsStart = scene.RetainedDirectDecalWorldDraws;
+                    long directTranslucentDrawsStart = scene.RetainedDirectTranslucentWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
+                    long retainedBindHitsStart = ModernGraphicsCompat.RetainedWorldBindGroupHits;
+                    long retainedBindMissesStart = ModernGraphicsCompat.RetainedWorldBindGroupMisses;
+                    long directPbrStart = scene.RetainedDirectPbrMrtDraws;
+                    long compatibilityPbrStart = scene.RetainedCompatibilityPbrDraws;
+                    long pbrTemplateStart = ModernGraphicsCompat.RetainedPbrTemplateBuilds;
+                    long pbrPatchesStart = ModernGraphicsCompat.RetainedPbrUniformPatches;
+                    long directShadowStart = scene.RetainedDirectShadowDraws;
+                    long compatibilityShadowStart = scene.RetainedCompatibilityShadowDraws;
                     if (ModernGraphicsCompat.Active) ModernGraphicsCompat.BeginPerformanceSample();
                     for (int i = 0; i < 20 + sampleCount; i++)
                     {
@@ -76,9 +93,26 @@ internal static class ModernRenderBenchmark
                             samplerApplicationsStart = scene.TextureSamplerStateApplications;
                             samplerHitsStart = scene.TextureSamplerStateCacheHits;
                             directDrawsStart = scene.RetainedDirectWorldDraws;
+                            directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
+                            directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
+                            directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
+                            directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
+                            directOverrideDrawsStart = scene.RetainedDirectOverrideWorldDraws;
+                            directTexturedSkinDrawsStart = scene.RetainedDirectTexturedSkinWorldDraws;
+                            directOutlinedDrawsStart = scene.RetainedDirectOutlinedWorldDraws;
+                            directDecalDrawsStart = scene.RetainedDirectDecalWorldDraws;
+                            directTranslucentDrawsStart = scene.RetainedDirectTranslucentWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
+                            retainedBindHitsStart = ModernGraphicsCompat.RetainedWorldBindGroupHits;
+                            retainedBindMissesStart = ModernGraphicsCompat.RetainedWorldBindGroupMisses;
+                            directPbrStart = scene.RetainedDirectPbrMrtDraws;
+                            compatibilityPbrStart = scene.RetainedCompatibilityPbrDraws;
+                            pbrTemplateStart = ModernGraphicsCompat.RetainedPbrTemplateBuilds;
+                            pbrPatchesStart = ModernGraphicsCompat.RetainedPbrUniformPatches;
+                            directShadowStart = scene.RetainedDirectShadowDraws;
+                            compatibilityShadowStart = scene.RetainedCompatibilityShadowDraws;
                         }
                         NativeWindow.ProcessWindowEvents(false);
                         DesktopGraphicsSession.Resize(window);
@@ -109,13 +143,32 @@ internal static class ModernRenderBenchmark
                         retainedMeshDescriptors = scene.RetainedMeshDescriptorCount,
                         retainedRoomTemplateBuilds = scene.RetainedRoomTemplateBuilds,
                         retainedRoomTemplateHits = scene.RetainedRoomTemplateHits,
+                        retainedRoomPacketSubmissions = scene.RetainedRoomPacketSubmissions,
                         retainedFrameRevision = scene.RetainedRenderFrameRevision,
                         samplerStateApplications = scene.TextureSamplerStateApplications - samplerApplicationsStart,
                         samplerStateCacheHits = scene.TextureSamplerStateCacheHits - samplerHitsStart,
                         retainedDirectWorldDraws = scene.RetainedDirectWorldDraws - directDrawsStart,
+                        retainedDirectAdvancedWorldDraws = scene.RetainedDirectAdvancedWorldDraws - directAdvancedDrawsStart,
+                        retainedDirectMatrixStackWorldDraws = scene.RetainedDirectMatrixStackWorldDraws - directMatrixStackDrawsStart,
+                        retainedDirectViewModelWorldDraws = scene.RetainedDirectViewModelWorldDraws - directViewModelDrawsStart,
+                        retainedDirectBillboardWorldDraws = scene.RetainedDirectBillboardWorldDraws - directBillboardDrawsStart,
+                        retainedDirectOverrideWorldDraws = scene.RetainedDirectOverrideWorldDraws - directOverrideDrawsStart,
+                        retainedDirectTexturedSkinWorldDraws = scene.RetainedDirectTexturedSkinWorldDraws - directTexturedSkinDrawsStart,
+                        retainedDirectOutlinedWorldDraws = scene.RetainedDirectOutlinedWorldDraws - directOutlinedDrawsStart,
+                        retainedDirectDecalWorldDraws = scene.RetainedDirectDecalWorldDraws - directDecalDrawsStart,
+                        retainedDirectTranslucentWorldDraws = scene.RetainedDirectTranslucentWorldDraws - directTranslucentDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,
+                        retainedWorldBindGroupHits = ModernGraphicsCompat.RetainedWorldBindGroupHits - retainedBindHitsStart,
+                        retainedWorldBindGroupMisses = ModernGraphicsCompat.RetainedWorldBindGroupMisses - retainedBindMissesStart,
+                        retainedWorldUniformSlotHighWater = ModernGraphicsCompat.RetainedWorldUniformSlotHighWater,
+                        retainedDirectPbrMrtDraws = scene.RetainedDirectPbrMrtDraws - directPbrStart,
+                        retainedCompatibilityPbrDraws = scene.RetainedCompatibilityPbrDraws - compatibilityPbrStart,
+                        retainedPbrTemplateBuilds = ModernGraphicsCompat.RetainedPbrTemplateBuilds - pbrTemplateStart,
+                        retainedPbrUniformPatches = ModernGraphicsCompat.RetainedPbrUniformPatches - pbrPatchesStart,
+                        retainedDirectShadowDraws = scene.RetainedDirectShadowDraws - directShadowStart,
+                        retainedCompatibilityShadowDraws = scene.RetainedCompatibilityShadowDraws - compatibilityShadowStart,
                         averageCompletedMs = frames.Average(), cpuSubmissionMs = submissions.Average(),
                         averagePresentMs = presents.Average(),
                         averageSurfaceAcquireMs = measurement.HasValue && measurement.Value.SurfaceAcquisitions > 0

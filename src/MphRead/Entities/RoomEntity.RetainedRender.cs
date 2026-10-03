@@ -16,6 +16,7 @@ namespace MphRead.Entities
             internal Material Material { get; }
             internal int MaterialId { get; }
             internal int ListId { get; }
+            internal RenderItem Item { get; }
 
             internal RetainedRoomMeshTemplate(Mesh mesh, Material material)
             {
@@ -23,6 +24,7 @@ namespace MphRead.Entities
                 Material = material;
                 MaterialId = mesh.MaterialId;
                 ListId = mesh.ListId;
+                Item = new RenderItem();
             }
         }
 
@@ -44,9 +46,11 @@ namespace MphRead.Entities
 
         private long _retainedRoomTemplateBuilds;
         private long _retainedRoomTemplateHits;
+        private long _retainedRoomPacketSubmissions;
 
         internal long RetainedRoomTemplateBuilds => _retainedRoomTemplateBuilds;
         internal long RetainedRoomTemplateHits => _retainedRoomTemplateHits;
+        internal long RetainedRoomPacketSubmissions => _retainedRoomPacketSubmissions;
 
         private ReadOnlySpan<RetainedRoomMeshTemplate> RetainedMeshes(Model model, Node node)
         {

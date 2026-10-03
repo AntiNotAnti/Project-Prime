@@ -104,6 +104,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
             }
             int buffers = s._geometryCache.Count * 2;
             foreach (var page in s._uniformArena) if (page.Buffer != 0) buffers++;
+            foreach (var page in s._retainedUniformArena) if (page.Buffer != 0) buffers++;
             foreach (var upload in s._uploadBuffers) if (upload.Buffer != 0) buffers++;
             foreach (var page in s._geometryArena)
             {

@@ -22,10 +22,17 @@ namespace MphRead.Mods.Render
 
             Check(WorldRenderGraph.Validate(out string error),
                 "six-pass graph validates" + (error.Length == 0 ? "" : ": " + error));
+            Check(FrameRenderGraph.Validate(out string frameError),
+                "top-level frame render graph validates"
+                    + (frameError.Length == 0 ? "" : ": " + frameError));
             Check(ModernGraphicsCompat.ValidateRetainedWorldUniformLayout(
                     out string layoutError),
                 "retained World generated uniform layout validates"
                     + (layoutError.Length == 0 ? "" : ": " + layoutError));
+            Check(ModernGraphicsCompat.ValidateRetainedDeferredPbrLayout(
+                    out string pbrLayoutError),
+                "retained DeferredPbrMrt generated uniform layout validates"
+                    + (pbrLayoutError.Length == 0 ? "" : ": " + pbrLayoutError));
 
             var opaqueA = new RenderItem
             {
@@ -123,24 +130,98 @@ namespace MphRead.Mods.Render
                 "plain opaque mesh is eligible for direct modern submission");
 
             direct.ViewModel = true;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "viewmodel mesh stays on compatibility executor");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "plain viewmodel mesh is eligible for direct submission");
             direct.ViewModel = false;
-            direct.OverrideColor = new Vector4(1, 0, 0, 1);
+            direct.BillboardMode = BillboardMode.Sphere;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "spherical billboard is eligible for direct submission");
+            direct.BillboardMode = BillboardMode.Cylinder;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "cylindrical billboard is eligible for direct submission");
+            direct.BillboardMode = (BillboardMode)255;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "override material stays on compatibility executor");
+                "unknown billboard mode stays on compatibility executor");
+            direct.BillboardMode = BillboardMode.None;
+            direct.OverrideColor = new Vector4(1, 0, 0, 1);
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "explicit color override is eligible for direct submission");
             direct.OverrideColor = null;
+            direct.PaletteOverride = new Vector4(0, 1, 0, 1);
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "palette override is eligible for direct submission");
+            direct.PaletteOverride = null;
+            direct.TexturedPlayerSkin = true;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "textured-player skin is eligible for direct submission");
+            direct.TexturedPlayerSkin = false;
+            direct.PlayerOutlineColor = new Vector4(0, 1, 1, 1);
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "outlined player's normal world draw is direct eligible");
+            direct.PlayerOutlineColor = null;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "translucent mesh stays on compatibility executor");
+                "translucent mesh stays off opaque direct eligibility");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.MarkTranslucent)
+                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.TranslucentBehind)
+                && ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.TranslucentFront),
+                "translucent mesh is direct eligible in all retained transparency passes");
+            direct.RenderMode = RenderMode.Decal;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligibleForPass(
+                    direct, WorldRenderPassKind.Decal),
+                "decal mesh is direct eligible in retained decal pass");
             direct.RenderMode = RenderMode.Normal;
             direct.MatrixStackCount = 1;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "valid matrix-stack geometry is eligible for direct submission");
+            direct.MatrixStackCount = direct.MatrixStack.Length / 16 + 1;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "matrix-stack geometry stays on compatibility executor");
+                "out-of-range matrix stack stays on compatibility executor");
             direct.MatrixStackCount = 0;
             direct.Alpha = 0.5f;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
                 "alpha-blended normal mesh skips the opaque direct path");
+
+            var pbrDirect = new RenderItem
+            {
+                Type = RenderItemType.Mesh,
+                RenderMode = RenderMode.Normal,
+                Alpha = 1,
+                BillboardMode = BillboardMode.None
+            };
+            Check(ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "plain opaque mesh is eligible for direct retained PBR MRT");
+            pbrDirect.ViewModel = true;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "viewmodel stays off direct PBR MRT replay");
+            pbrDirect.ViewModel = false;
+            pbrDirect.Cosmetics = new Mods.Cosmetics.CosmeticSurface(
+                1, 0, 0, Vector3.One, Vector3.One, 1, 0, 0);
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "cosmetic surface stays on compatibility PBR replay");
+            pbrDirect.Cosmetics = default;
+            pbrDirect.Alpha = 0.5f;
+            Check(!ModernGraphicsCompat.RetainedDeferredPbrPacketEligible(pbrDirect),
+                "alpha-blended mesh stays off direct PBR MRT replay");
+
+            var baseOnly = new RetainedWorldTextureSet(
+                new RetainedTextureBinding(10, default, true),
+                default, default, default);
+            Check(!baseOnly.Advanced && baseOnly.At(0).Id == 10,
+                "base-only retained texture set stays non-advanced");
+            var advanced = new RetainedWorldTextureSet(
+                new RetainedTextureBinding(10, default, true),
+                new RetainedTextureBinding(11, default, true),
+                new RetainedTextureBinding(12, default, true),
+                new RetainedTextureBinding(13, default, true));
+            Check(advanced.Advanced
+                && advanced.At(1).Id == 11
+                && advanced.At(2).Id == 12
+                && advanced.At(3).Id == 13,
+                "retained texture set preserves companion map units");
 
             Console.WriteLine(failures == 0
                 ? "[rendergraphcheck] PASS"

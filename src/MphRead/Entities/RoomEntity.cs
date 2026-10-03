@@ -1971,11 +1971,12 @@ namespace MphRead.Entities
                     inst, material, template.MaterialId, node);
                 SelectionType selectionType = Selection.CheckSelection(
                     this, inst, node, mesh);
-                _scene.AddRenderItem(material, polygonId, alpha,
+                _scene.AddRetainedRoomRenderItem(
+                    template.Item, material, polygonId, alpha,
                     emission: Vector3.Zero, lightInfo, texcoordMatrix,
-                    node.Animation, template.ListId, matrixStackCount, matrixStack,
-                    overrideColor: null, paletteOverride: null, selectionType,
-                    node.BillboardMode);
+                    node.Animation, template.ListId, matrixStackCount,
+                    matrixStack, selectionType, node.BillboardMode);
+                _retainedRoomPacketSubmissions++;
             }
         }
 
