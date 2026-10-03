@@ -1556,7 +1556,8 @@ namespace MphRead
             StreamingTextureRequest Request,
             Task<Mods.Render.ModernTextureAsset?> Task);
 
-        private const int MaxStreamingTextureDecodes = 2;
+        private const int MaxDesktopStreamingTextureDecodes = 2;
+        private static int StreamingTextureDecodeLimit => OperatingSystem.IsAndroid() ? 1 : MaxDesktopStreamingTextureDecodes;
         // Desktop STB temporarily owns its decoded RGBA image while the
         // managed asset copy/downscale is produced. Serialize sources above
         // this size so two giant authoring images cannot overlap and turn
@@ -1665,8 +1666,7 @@ namespace MphRead
                 Mods.Render.TextureAssetClass assetClass =
                     Mods.Render.TextureReplacementPack.Classify(value.Model);
 
-                bool stream = !OperatingSystem.IsAndroid()
-                    && (material.Normal?.CanDecodeOffThread ?? true)
+                bool stream = (material.Normal?.CanDecodeOffThread ?? true)
                     && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
                     && (material.Emissive?.CanDecodeOffThread ?? true);
                 if (stream && _streamingTextureVersions.TryGetValue(binding, out int version))
@@ -1733,8 +1733,7 @@ namespace MphRead
                     authoredKey ?? modelKey, modelKey);
             }
 
-            bool streamReplacement = !OperatingSystem.IsAndroid()
-                && replacementMaterial?.Albedo != null
+            bool streamReplacement = replacementMaterial?.Albedo != null
                 && Mods.Render.TextureReplacementPack.CanDecodeOffThread(
                     replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
             int replacementWidth = 0;
@@ -1859,12 +1858,12 @@ namespace MphRead
 
         private void PumpModernTextureStreaming()
         {
-            if (Mods.Headless.Active || OperatingSystem.IsAndroid()) return;
+            if (Mods.Headless.Active) return;
 
-            // Promote no more than one large GPU image per frame. CPU decode
-            // stays two-wide, which prevents a pack of 8K channels from
-            // ballooning transient memory while still overlapping disk/decode
-            // with presentation.
+            // Promote no more than one large GPU image per frame. Desktop CPU
+            // decode stays two-wide; Android deliberately runs one worker so
+            // BitmapFactory I/O/decode leaves more CPU and memory headroom for
+            // the render/simulation thread.
             for (int i = 0; i < _streamingTextureDecodes.Count;)
             {
                 StreamingTextureDecode pending = _streamingTextureDecodes[i];
@@ -1899,7 +1898,7 @@ namespace MphRead
                 bool largeQueued = SerializedStreamingDecode(request);
                 bool largeActive = _streamingTextureDecodes.Any(
                     pending => SerializedStreamingDecode(pending.Request));
-                if (_streamingTextureDecodes.Count >= MaxStreamingTextureDecodes
+                if (_streamingTextureDecodes.Count >= StreamingTextureDecodeLimit
                     || largeActive
                     || (largeQueued && _streamingTextureDecodes.Count > 0))
                 {
