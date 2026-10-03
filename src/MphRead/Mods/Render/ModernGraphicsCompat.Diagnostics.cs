@@ -1,5 +1,6 @@
 #if !MPHREAD_SERVER
 using System;
+using System.Collections.Generic;
 using Silk.NET.WebGPU;
 using OpenTK.Graphics.OpenGL;
 using WgpuTextureFormat = Silk.NET.WebGPU.TextureFormat;
