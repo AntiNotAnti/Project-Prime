@@ -109,6 +109,17 @@ namespace MphRead.Mods.Network
             };
         }
 
+        private void BroadcastSessionState(int copies = 1)
+        {
+            copies = Math.Clamp(copies, 1, 3);
+            var state = BuildSessionState();
+            if (_sim != null) NetSession.ApplySessionState(state);
+            state.Write(_scratch);
+            foreach (Peer peer in _peers)
+                _transport?.Send(peer.EndPoint, PacketType.SessionState,
+                    _scratch.AsSpan(0, SessionStatePacket.Size), immediateCopies: copies);
+        }
+
         private sbyte ChooseTeam(MatchDefinition match, Peer? exclude = null)
         {
             TeamLayout layout = LobbyRules.ResolveTeamLayout(match);
