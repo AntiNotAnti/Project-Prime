@@ -62,9 +62,13 @@ allocation/destruction churn, which is especially costly for 4K/8K assets.
 
 File-backed desktop HD replacements no longer block `InitTextures`. The native
 cartridge texture is uploaded first and remains valid at the same binding ID.
-At most two HD channels decode concurrently on worker threads, and the draw
-thread promotes at most one prepared GPU image per frame. Albedo is queued
-first; normal/material/emissive companions follow only after albedo succeeds.
+At most two ordinary HD channels decode concurrently on worker threads, and the
+draw thread promotes at most one prepared GPU image per frame. Source images
+whose raw RGBA decode exceeds 96 MiB are serialized because desktop STB owns its
+native decode while the managed copy/downscale is produced; this prevents two
+large 5K–8K authoring images from overlapping their peak transient allocations.
+Albedo is queued first; normal/material/emissive companions follow only after
+albedo succeeds.
 Quality, sampling, material-revision and binding-version checks discard stale
 work after a setting change, pack reload or texture release. Android keeps the
 existing synchronous path for now.
