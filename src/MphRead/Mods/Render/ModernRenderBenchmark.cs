@@ -66,6 +66,7 @@ internal static class ModernRenderBenchmark
                     long directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                     long directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
                     long directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
+                    long directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
                     long compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                     long templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                     long uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -82,6 +83,7 @@ internal static class ModernRenderBenchmark
                             directAdvancedDrawsStart = scene.RetainedDirectAdvancedWorldDraws;
                             directMatrixStackDrawsStart = scene.RetainedDirectMatrixStackWorldDraws;
                             directViewModelDrawsStart = scene.RetainedDirectViewModelWorldDraws;
+                            directBillboardDrawsStart = scene.RetainedDirectBillboardWorldDraws;
                             compatibilityDrawsStart = scene.RetainedCompatibilityWorldDraws;
                             templateBuildsStart = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds;
                             uniformPatchesStart = ModernGraphicsCompat.RetainedWorldUniformPatches;
@@ -122,6 +124,7 @@ internal static class ModernRenderBenchmark
                         retainedDirectAdvancedWorldDraws = scene.RetainedDirectAdvancedWorldDraws - directAdvancedDrawsStart,
                         retainedDirectMatrixStackWorldDraws = scene.RetainedDirectMatrixStackWorldDraws - directMatrixStackDrawsStart,
                         retainedDirectViewModelWorldDraws = scene.RetainedDirectViewModelWorldDraws - directViewModelDrawsStart,
+                        retainedDirectBillboardWorldDraws = scene.RetainedDirectBillboardWorldDraws - directBillboardDrawsStart,
                         retainedCompatibilityWorldDraws = scene.RetainedCompatibilityWorldDraws - compatibilityDrawsStart,
                         retainedWorldUniformTemplateBuilds = ModernGraphicsCompat.RetainedWorldUniformTemplateBuilds - templateBuildsStart,
                         retainedWorldUniformPatches = ModernGraphicsCompat.RetainedWorldUniformPatches - uniformPatchesStart,

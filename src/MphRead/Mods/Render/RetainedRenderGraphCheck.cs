@@ -127,8 +127,14 @@ namespace MphRead.Mods.Render
                 "plain viewmodel mesh is eligible for direct submission");
             direct.ViewModel = false;
             direct.BillboardMode = BillboardMode.Sphere;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "spherical billboard is eligible for direct submission");
+            direct.BillboardMode = BillboardMode.Cylinder;
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "cylindrical billboard is eligible for direct submission");
+            direct.BillboardMode = (BillboardMode)255;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "billboard mesh stays on compatibility executor");
+                "unknown billboard mode stays on compatibility executor");
             direct.BillboardMode = BillboardMode.None;
             direct.OverrideColor = new Vector4(1, 0, 0, 1);
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
