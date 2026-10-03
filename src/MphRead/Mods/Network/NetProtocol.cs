@@ -26,6 +26,7 @@ namespace MphRead.Mods.Network
         // 55/56 carry canonical semantic events/baselines and authoritative awards.
         QueueHello = 57, QueueWelcome = 58, QueueJoin = 59, QueueLeave = 60,
         QueueState = 61, QueueSeatOffer = 62, QueueAccept = 63, QueueDecline = 64,
+        HostChallenge = 65, HostChallengeReply = 66,
         Hello = 1,          // client -> host, join request
         Welcome = 2,        // host -> client, assigns a slot
         Intent = 3,         // client -> host, one frame of input
@@ -110,6 +111,7 @@ namespace MphRead.Mods.Network
         public const byte ReasonKicked = 3;
         public const byte ReasonInMatch = 4;
         public const byte ReasonLoadTimeout = 5;
+        public const byte ReasonServerBusy = 6;
 
         public byte Reason;
         public byte Players;
@@ -139,6 +141,7 @@ namespace MphRead.Mods.Network
                 ReasonKicked => "You were removed by the lobby owner.",
                 ReasonInMatch => "This server does not allow joining a match in progress.",
                 ReasonLoadTimeout => "The match could not wait any longer for this client to finish loading.",
+                ReasonServerBusy => "The server could not start its authoritative world. Try again shortly.",
                 ReasonFull => $"{where} is full ({Players}/{MaxPlayers} players). "
                     + "Try again when somebody leaves.",
                 ReasonProtocol => $"Network protocol mismatch with {where}; this build uses protocol {NetConfig.ProtocolVersion}. "
@@ -231,8 +234,11 @@ namespace MphRead.Mods.Network
         public bool AllowJoinInProgress = true;
         public bool RequireReady = false;
         public MatchFormat Format;
+        public ulong HostNonce;
+        public ulong HostCookie;
         public HostRequestPacket() { RoomKey = ""; ServerName = ""; }
-        public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation) * RotationEntrySize + 4 + NetworkMapIdentity.Size;
+        public int Length => Size + 1 + Math.Min(Rotation?.Count ?? 0, MaxRotation)
+            * RotationEntrySize + 4 + NetworkMapIdentity.Size + 16;
 
         public void Write(Span<byte> dest)
         {
@@ -259,13 +265,16 @@ namespace MphRead.Mods.Network
             dest[tail + 2] = RequireReady ? (byte)1 : (byte)0;
             dest[tail + 3] = (byte)Format;
             MapIdentity.Write(dest[(tail + 4)..]);
+            int proof = tail + 4 + NetworkMapIdentity.Size;
+            BinaryPrimitives.WriteUInt64LittleEndian(dest[proof..], HostNonce);
+            BinaryPrimitives.WriteUInt64LittleEndian(dest[(proof + 8)..], HostCookie);
         }
 
         public static HostRequestPacket Read(ReadOnlySpan<byte> src)
         {
             if (src.Length < Size + 5 || src[Size] > MaxRotation) return default;
             int tail = Size + 1 + src[Size] * RotationEntrySize;
-            if (src.Length != tail + 4 + NetworkMapIdentity.Size || src[tail] > 1 || src[tail + 1] > 1
+            if (src.Length != tail + 4 + NetworkMapIdentity.Size + 16 || src[tail] > 1 || src[tail + 1] > 1
                 || src[tail + 2] > 1 || src[tail + 3] > (byte)MatchFormat.TwoVsTwoVsTwoVsTwo
                 || !NetworkMapIdentity.TryRead(src[(tail + 4)..], out var mapIdentity)) return default;
             return new HostRequestPacket
@@ -279,7 +288,11 @@ namespace MphRead.Mods.Network
                 ServerName = NetText.Read(src.Slice(7 + MaxRoomBytes, MaxNameBytes)),
                 Policy = (ServerSessionPolicy)src[tail], AllowJoinInProgress = src[tail + 1] != 0,
                 RequireReady = src[tail + 2] != 0, Format = (MatchFormat)src[tail + 3],
-                Rotation = ReadRotation(src)
+                Rotation = ReadRotation(src),
+                HostNonce = BinaryPrimitives.ReadUInt64LittleEndian(
+                    src[(tail + 4 + NetworkMapIdentity.Size)..]),
+                HostCookie = BinaryPrimitives.ReadUInt64LittleEndian(
+                    src[(tail + 12 + NetworkMapIdentity.Size)..])
             };
         }
 
@@ -2418,7 +2431,10 @@ namespace MphRead.Mods.Network
         // A spectator can therefore be admitted as an occupied network slot without
         // ever creating an in-world player life. Mixed v35/v36 peers are refused so
         // an older authority cannot silently spawn a spectator body.
-        public const int ProtocolVersion = 36;
+        // Protocol 37 protects remote lobby allocation with an endpoint-bound
+        // challenge cookie carried on HostRequest. Gameplay/replay packets are
+        // byte-identical to protocol 36.
+        public const int ProtocolVersion = 37;
         /// <summary>
         /// Frames between intent packets. One, so every frame.
         ///

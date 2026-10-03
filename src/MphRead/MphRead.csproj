@@ -165,13 +165,13 @@
     <AvaloniaResource Include="Assets\Backgrounds\launcher-bg.png" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <!-- Original Project Prime combat-feedback stingers. Embedded so single-file
          releases and Android all carry the same defaults without loose assets. -->
     <EmbeddedResource Include="Assets\Sounds\Combat\*.wav" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <!-- The backdrop again, as a plain embedded resource, for the same reason
          the mark is above: on the desktop the photograph is drawn by GL under
          the screens rather than rasterised into them (Mods/Render/
@@ -321,7 +321,7 @@
     <InternalsVisibleTo Include="material-pack" />
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <None Update="gamecontrollerdb.txt;gamecontrollerdb.LICENSE" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 
@@ -385,16 +385,19 @@
     </None>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <EmbeddedResource Include="Assets/Cosmetics/**/*.png">
       <LogicalName>Cosmetics/%(RecursiveDir)%(Filename)%(Extension)</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
-  <ItemGroup>
+  <ItemGroup Condition="'$(MphReadServer)' != 'true'">
     <EmbeddedResource Include="Mods/Render/Generated/*.wgsl" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="../MphRead.Protocol.Generator/MphRead.Protocol.Generator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-    <None Include="../../tools/fidelity-oracle/baselines/*.json" Link="fidelity-baselines/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <None Include="../../tools/fidelity-oracle/baselines/*.json"
+          Condition="'$(MphReadServer)' != 'true'"
+          Link="fidelity-baselines/%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

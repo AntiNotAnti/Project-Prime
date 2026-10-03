@@ -41,6 +41,7 @@ public sealed class NetPacketQueue
             or PacketType.ReplayWorld or PacketType.MatchStartCommit => NetPacketPriority.Realtime,
         PacketType.QueueHello or PacketType.QueueWelcome or PacketType.QueueJoin or PacketType.QueueLeave
             or PacketType.QueueState or PacketType.QueueSeatOffer or PacketType.QueueAccept or PacketType.QueueDecline
+            or PacketType.HostChallenge or PacketType.HostChallengeReply or PacketType.HostRequest or PacketType.HostReply
             or PacketType.Hello or PacketType.Welcome or PacketType.Bye or PacketType.Refused or PacketType.SessionState
             or PacketType.Roster or PacketType.MatchState or PacketType.MapChange or PacketType.Authority
             or PacketType.WorldReady or PacketType.WorldBootstrap or PacketType.MatchLoaded or PacketType.MatchLoadFailed or PacketType.MatchEnd

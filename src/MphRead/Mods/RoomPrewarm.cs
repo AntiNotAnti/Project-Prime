@@ -24,6 +24,29 @@ namespace MphRead.Mods
         private static Dictionary<string, Lazy<byte[]>> _files = new(PathComparer);
         private static Lazy<Model>? _roomModel;
         private static TaskCompletionSource<bool>? _prepared;
+        private const string HostPrewarmMutexName = "ProjectPrime.RoomPrewarm";
+
+        private sealed class HostPrewarmLease : IDisposable
+        {
+            private readonly Mutex _mutex;
+            private bool _owned;
+            public bool Acquired => _owned;
+            public HostPrewarmLease()
+            {
+                _mutex = new Mutex(false, HostPrewarmMutexName);
+                try { _owned = _mutex.WaitOne(TimeSpan.FromMilliseconds(100)); }
+                catch (AbandonedMutexException) { _owned = true; }
+            }
+            public void Dispose()
+            {
+                if (_owned)
+                {
+                    try { _mutex.ReleaseMutex(); } catch (ApplicationException) { }
+                    _owned = false;
+                }
+                _mutex.Dispose();
+            }
+        }
 
         public static void Begin(string roomName)
         {
@@ -183,6 +206,16 @@ namespace MphRead.Mods
             var clock = Stopwatch.StartNew();
             try
             {
+                // Hosted lobbies are separate processes. Serialize their heavy
+                // file/model prewarm across the machine so a burst of lobby
+                // creation cannot make every child decode a room at once.
+                using var hostLease = new HostPrewarmLease();
+                if (!hostLease.Acquired)
+                {
+                    prepared.TrySetResult(false);
+                    Console.WriteLine($"[prewarm] {metadata.Name} skipped: host prewarm lane busy");
+                    return;
+                }
                 using var mapLease = MapGen.MapRuntimeUsage.AcquirePreparation(metadata.Name);
                 lock (Gate)
                 {

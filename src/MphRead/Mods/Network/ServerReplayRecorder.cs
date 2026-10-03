@@ -145,8 +145,21 @@ namespace MphRead.Mods.Network
         {
             try
             {
+                Directory.CreateDirectory(ReplayDirectory);
+                string gatePath = Path.Combine(ReplayDirectory, ".retention-lock");
+                string stampPath = Path.Combine(ReplayDirectory, ".retention-stamp");
+                using FileStream gate = new(gatePath, FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite, FileShare.None);
+                TimeSpan debounce = reason == "startup"
+                    ? TimeSpan.FromMinutes(5) : TimeSpan.FromSeconds(30);
+                if (File.Exists(stampPath)
+                    && DateTime.UtcNow - File.GetLastWriteTimeUtc(stampPath) < debounce)
+                    return;
+
                 ServerReplayRetentionResult result = ServerReplayRetention.Apply(
                     ReplayDirectory, _policy, CurrentPath);
+                File.WriteAllText(stampPath, DateTime.UtcNow.Ticks.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture));
                 if (result.DeletedFiles > 0)
                 {
                     Console.WriteLine($"[replay] retention after {reason}: deleted "

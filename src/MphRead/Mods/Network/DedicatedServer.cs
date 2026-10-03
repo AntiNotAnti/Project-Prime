@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MphRead.Mods.Network
 {
@@ -361,6 +362,17 @@ namespace MphRead.Mods.Network
         public bool AutoUpdate { get; set; }
 
         /// <summary>
+        /// True only for a child allocated on demand by a host pool. These
+        /// processes own one persistent lobby lifetime and may reap themselves
+        /// when abandoned; standalone dedicated daemons never do.
+        /// </summary>
+        public bool HostedChild { get; set; }
+        private int _hotPrewarmStarted;
+        private const double HostedOwnerClaimSeconds = 45;
+        private const double HostedNeverOccupiedSeconds = 90;
+        private const double HostedEmptySeconds = 45;
+
+        /// <summary>
         /// Canonical server replay recording/retention for the authoritative
         /// server simulation. Player clients never record canonical authority state.
         /// </summary>
@@ -412,8 +424,11 @@ namespace MphRead.Mods.Network
             if (!_controlPlaneOnlyForTests)
             {
                 Mods.Headless.Enter();
-                double prewarmMs = ServerHotPathPrewarm.Run();
-                Log($"server hot paths prewarmed in {prewarmMs:0.0} ms");
+                // Continuous servers need combat immediately. Persistent
+                // lobbies defer this work until an owner actually claims the
+                // lobby, so abandoned allocations stay cheap.
+                if (SessionPolicy != ServerSessionPolicy.Lobby)
+                    BeginServerHotPathPrewarm(wait: true);
                 ServerReplayRecorder.Configure(ReplayPolicy);
                 CareerReportOutbox.Start();
             }
@@ -424,14 +439,19 @@ namespace MphRead.Mods.Network
                 throw new InvalidOperationException(ruleError);
             if (_lobbyMatch.MapIdentity.IsCustom) _sessionPolicy = ServerSessionPolicy.Lobby;
             _phase = SessionPolicy == ServerSessionPolicy.Lobby ? SessionPhase.Lobby : SessionPhase.InMatch;
-            if (_phase == SessionPhase.Lobby && !_controlPlaneOnlyForTests)
-                Mods.RoomPrewarm.Begin(_lobbyMatch.RoomKey);
-            if (_phase == SessionPhase.InMatch) StartSimulation();
+            if (_phase == SessionPhase.InMatch && !_controlPlaneOnlyForTests)
+            {
+                // A permanent Continuous server remains listed and responsive
+                // while empty, but does not spend 60 Hz on a world nobody is
+                // playing. Warm the room now and construct authority on the
+                // first admitted player instead.
+                Mods.RoomPrewarm.Begin(CurrentDefinition.RoomKey);
+            }
             Log(_controlPlaneOnlyForTests
                 ? "control-plane test mode: gameplay simulation disabled"
                 : _phase == SessionPhase.Lobby
                     ? "authoritative server ready; simulation starts when the lobby starts"
-                    : "this server runs the match itself");
+                    : "authoritative server ready; simulation wakes on first player");
             Log($"rotation: {_rotation.Entries.Count} map(s), starting on {_rotation.Current}");
             Log(Hosts.Describe());
 
@@ -442,6 +462,10 @@ namespace MphRead.Mods.Network
             var clock = System.Diagnostics.Stopwatch.StartNew();
             double lastReport = 0;
             double lastStateBroadcast = 0;
+            double lastHostReap = double.NegativeInfinity;
+            double lastHostMapPump = double.NegativeInfinity;
+            double lastUpdateCheck = double.NegativeInfinity;
+            double hostedEmptySince = 0;
             _matchStarted = 0;
             try
             {
@@ -555,26 +579,56 @@ namespace MphRead.Mods.Network
                             (byte)_peers.Count, (byte)_maxPlayers,
                             (byte)CurrentDefinition.Mode, CurrentDefinition.RoomKey);
                     }
-                    // The games this server is running for other people,
-                    // reaped here rather than on their own threads: a match
-                    // that ended on Tuesday is a port nobody can use until
-                    // somebody notices.
-                    Hosts.Reap(now);
-                    _hostMapRequests.Pump(now, (request, sender, time, packages) => Hosts.Start(request, sender, time, packages), SendHostReply);
-                    // Newest release, checked on a timer and applied the
-                    // moment there is nobody to interrupt. It says yes at most
-                    // once, and only with an empty server, so a busy one keeps
-                    // playing and swaps when the last person leaves.
-                    //
-                    // Hosted games count as active work too. They run in child
-                    // server processes tracked by Hosts, and restarting this parent
-                    // would tear those children down while people are playing.
-                    if (AutoUpdate
-                        && Update.ServerUpdate.ShouldRestart(_peers.Count + Hosts.Count + _hostMapRequests.ActiveCount))
+                    // Hosted children own their idle lifetime. The parent
+                    // pool is only a watchdog, so it does not need to poll
+                    // every authoritative frame.
+                    if (now - lastHostReap >= 1.0)
                     {
-                        Log("shutting down to come back on the new build");
-                        _running = false;
-                        break;
+                        lastHostReap = now;
+                        Hosts.Reap(now);
+                    }
+                    // Completed Community preparation should still turn into a
+                    // lobby promptly, but 20 Hz is plenty for control-plane work.
+                    if (now - lastHostMapPump >= 0.05)
+                    {
+                        lastHostMapPump = now;
+                        _hostMapRequests.Pump(now,
+                            (request, sender, time, packages) => Hosts.Start(request, sender, time, packages),
+                            SendHostReply);
+                    }
+
+                    if (HostedChild)
+                    {
+                        if (_peers.Count > 0)
+                        {
+                            hostedEmptySince = now;
+                        }
+                        else
+                        {
+                            double grace = SessionPolicy == ServerSessionPolicy.Lobby
+                                    && OwnerToken != Guid.Empty && _processOwnerClientId == 0
+                                ? HostedOwnerClaimSeconds
+                                : EverOccupied ? HostedEmptySeconds : HostedNeverOccupiedSeconds;
+                            if (now - hostedEmptySince >= grace)
+                            {
+                                Log($"hosted child idle for {grace:0}s; shutting down");
+                                _running = false;
+                                break;
+                            }
+                        }
+                    }
+
+                    // Update checks are lifecycle work, not frame work.
+                    if (AutoUpdate && now - lastUpdateCheck >= 1.0)
+                    {
+                        lastUpdateCheck = now;
+                        if (Update.ServerUpdate.ShouldRestart(
+                            _peers.Count + Hosts.Count + _hostMapRequests.ActiveCount))
+                        {
+                            Log("shutting down to come back on the new build");
+                            _running = false;
+                            break;
+                        }
                     }
                     if (now - lastReport >= 30)
                     {
@@ -630,9 +684,14 @@ namespace MphRead.Mods.Network
         /// </summary>
         private void PaceLoop(System.Diagnostics.Stopwatch clock)
         {
-            if (_peers.Count == 0 && !Simulating)
+            if (!Simulating)
             {
-                Thread.Sleep(20);
+                // Receive runs on its own blocking socket thread. An idle lobby
+                // therefore sleeps until that worker queues a packet, with a
+                // short maintenance timeout for heartbeats, waitlists and
+                // hosted-child lifecycle work. Player count no longer turns
+                // an idle lobby into a busy-yield loop.
+                _transport?.WaitForActivity(50);
                 return;
             }
 
@@ -666,6 +725,22 @@ namespace MphRead.Mods.Network
             }
 
             Thread.Yield();
+        }
+
+        private void BeginServerHotPathPrewarm(bool wait = false)
+        {
+            if (Interlocked.Exchange(ref _hotPrewarmStarted, 1) != 0) return;
+            if (wait)
+            {
+                double milliseconds = ServerHotPathPrewarm.Run();
+                Log($"server hot paths prewarmed in {milliseconds:0.0} ms");
+                return;
+            }
+            _ = Task.Run(() =>
+            {
+                double milliseconds = ServerHotPathPrewarm.Run();
+                Log($"server hot paths prewarmed in {milliseconds:0.0} ms");
+            });
         }
 
         /// <summary>
@@ -1126,6 +1201,9 @@ namespace MphRead.Mods.Network
                     break;
                 case PacketType.Pong:
                     HandlePong(packet, now);
+                    break;
+                case PacketType.HostChallenge:
+                    HandleHostChallenge(packet, now);
                     break;
                 case PacketType.HostRequest:
                     HandleHostRequest(packet, now);
@@ -1962,6 +2040,18 @@ namespace MphRead.Mods.Network
             _transport?.Send(sender, PacketType.HostReply, _scratch.AsSpan(0, HostReplyPacket.Size));
         }
 
+        private void HandleHostChallenge(ReceivedPacket packet, double now)
+        {
+            if (!HostChallengePacket.TryRead(packet.Payload, out var challenge)
+                || challenge.Protocol != NetConfig.ProtocolVersion)
+                return;
+            HostChallengeReplyPacket reply =
+                HostRequestGuard.Challenge(packet.Sender, challenge, now);
+            reply.Write(_scratch);
+            _transport?.Send(packet.Sender, PacketType.HostChallengeReply,
+                _scratch.AsSpan(0, HostChallengeReplyPacket.Size));
+        }
+
         private void HandleHostRequest(ReceivedPacket packet, double now)
         {
             var reply = new HostReplyPacket();
@@ -1984,6 +2074,11 @@ namespace MphRead.Mods.Network
                 else if (!Hosts.CanHost)
                 {
                     reply.Reason = "this server does not open new games";
+                }
+                else if (!HostRequestGuard.Validate(packet.Sender, request, now,
+                    out string admissionReason))
+                {
+                    reply.Reason = admissionReason;
                 }
                 else
                 {
@@ -2053,20 +2148,36 @@ namespace MphRead.Mods.Network
                 if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous)
                 {
                     AbandonCareerMatch();
-                    // Restart the match clock for the first arrival. The clock
-                    // runs whether or not anybody is connected, so a server
-                    // left alone overnight greets its next player with a round
-                    // that has no time left on it -- which the client adopts,
-                    // ending the match before it has drawn a frame.
-                    _matchStarted = now;
-                    // And it is not mid-results either: an intermission that
-                    // was running when the last player left has nobody to show
-                    // it to.
+                    // An empty Continuous server keeps only its control plane
+                    // and warm room cache. Its first real Hello wakes authority.
                     _matchEndedAt = -1;
                     _phase = SessionPhase.InMatch;
                     CloseBallot();
                     _matchId = NetLifecycleTracker.Next(_matchId);
                     _lastSnapshotLength = 0;
+                    if (!Simulating)
+                    {
+                        double wakeStarted = NetSession.Clock;
+                        try
+                        {
+                            StartSimulation();
+                        }
+                        catch (Exception ex)
+                        {
+                            Log($"could not wake authority for first player: {ex.Message}");
+                            SendRefusal(packet.Sender, RefusedPacket.ReasonServerBusy);
+                            return;
+                        }
+                        // The main loop was synchronously building the world,
+                        // so its sampled 'now' did not move. Advance this
+                        // admission by exactly that self-inflicted pause so the
+                        // new player does not lose match time or immediately
+                        // time out for silence the server caused.
+                        double wakeSeconds = Math.Max(0, NetSession.Clock - wakeStarted);
+                        now += wakeSeconds;
+                        _now = Math.Max(_now, now);
+                    }
+                    _matchStarted = now;
                 }
                 if (_phase == SessionPhase.InMatch && !AllowJoinInProgress
                     && !(SessionPolicy == ServerSessionPolicy.Continuous && _peers.Count == 0))
@@ -2434,6 +2545,17 @@ namespace MphRead.Mods.Network
             if (peer.Name.Length > 0)
             {
                 Announce(reason, peer.Name);
+            }
+            if (_peers.Count == 0 && SessionPolicy == ServerSessionPolicy.Continuous
+                && _sim != null)
+            {
+                Log("last player left continuous server; suspending empty world");
+                AbandonCareerMatch();
+                ServerReplayRecorder.Stop(matchEnded: false);
+                _sim.Stop(preserveRoomPrewarm: true);
+                _sim = null;
+                _lastSnapshotLength = 0;
+                NetHitClaims.VerdictSink = null;
             }
         }
 

@@ -349,58 +349,54 @@ namespace MphRead.Mods.Network
             {
                 if (hostedMaps != null)
                 {
-                    runtimeNamespace = Guid.NewGuid().ToString("N");
-                    childLibrary = Path.Combine(
-                        HostedMapRequests.CacheDirectory, "lobbies", runtimeNamespace);
+                    runtimeNamespace = hostedMaps.RuntimeNamespace
+                        ?? Guid.NewGuid().ToString("N");
+                    childLibrary = hostedMaps.LibraryPath
+                        ?? Path.Combine(HostedMapRequests.CacheDirectory,
+                            "lobbies", runtimeNamespace);
                     HostedLibrary = childLibrary;
                     System.IO.Directory.CreateDirectory(childLibrary);
 
-                    foreach (HostedMapArchive archive in hostedMaps.Archives)
+                    // A normal hosted preparation already built this private
+                    // library on its worker. The fallback below exists for
+                    // focused tests and built-in-only callers that construct a
+                    // preparation directly.
+                    if (hostedMaps.LibraryPath == null)
                     {
-                        if (!rotation.Any(entry => StringComparer.OrdinalIgnoreCase.Equals(
-                            entry.RoomKey, archive.RoomKey)))
+                        foreach (HostedMapArchive archive in hostedMaps.Archives
+                            .GroupBy(a => a.Identity.MapId).Select(group => group.First()))
                         {
-                            throw new InvalidDataException(
-                                "Prepared package is not part of the requested rotation: "
-                                + archive.RoomKey);
-                        }
-                        MapGen.MapContentIdentity actual =
-                            MapGen.MapContentIdentity.FromPackage(archive.PackagePath);
-                        if (!actual.Matches(archive.Identity))
-                        {
-                            throw new InvalidDataException(
-                                "Prepared package changed before child staging: "
-                                + archive.RoomKey);
-                        }
-
-                        string target = Path.Combine(childLibrary,
-                            archive.Identity.MapId.ToString("N") + ".ppmap");
-                        if (File.Exists(target))
-                        {
-                            if (!MapGen.MapContentIdentity.FromPackage(target)
-                                .Matches(archive.Identity))
+                            string target = Path.Combine(childLibrary,
+                                archive.Identity.MapId.ToString("N") + ".ppmap");
+                            if (!File.Exists(target))
                             {
-                                throw new InvalidDataException(
-                                    "Two rotation packages collide on map identity: "
-                                    + archive.RoomKey);
+                                try { File.CreateHardLink(target, archive.PackagePath); }
+                                catch (Exception ex) when (ex is IOException
+                                    or UnauthorizedAccessException
+                                    or PlatformNotSupportedException
+                                    or NotSupportedException)
+                                { File.Copy(archive.PackagePath, target); }
                             }
-                        }
-                        else
-                        {
-                            File.Copy(archive.PackagePath, target);
                         }
                     }
 
                     foreach (var entry in rotation)
                     {
                         if (Metadata.IsBuiltInRoom(entry.RoomKey)) continue;
-                        if (!hostedMaps.Archives.Any(archive =>
-                            StringComparer.OrdinalIgnoreCase.Equals(
-                                archive.RoomKey, entry.RoomKey)))
+                        HostedMapArchive? archive = hostedMaps.Archives.FirstOrDefault(a =>
+                            StringComparer.OrdinalIgnoreCase.Equals(a.RoomKey, entry.RoomKey));
+                        if (archive == null)
                         {
                             throw new InvalidDataException(
                                 "The host did not stage a requested custom rotation map: "
                                 + entry.RoomKey);
+                        }
+                        string target = Path.Combine(childLibrary,
+                            archive.Identity.MapId.ToString("N") + ".ppmap");
+                        if (!File.Exists(target))
+                        {
+                            throw new InvalidDataException(
+                                "The prepared lobby library is missing " + entry.RoomKey + ".");
                         }
                     }
                 }
@@ -410,11 +406,14 @@ namespace MphRead.Mods.Network
                 if (hostedMaps == null) StageCustomMaps(rotation);
                 if (requiredMap is { IsCustom: true } expected)
                 {
+                    HostedMapArchive? first = hostedMaps?.Find(
+                        rotation.Count > 0 ? rotation[0].RoomKey : "",
+                        expected.PackageHash);
                     string staged = Path.Combine(childLibrary,
                         expected.MapId.ToString("N") + ".ppmap");
-                    if (rotation.Count == 0
-                        || !MapGen.MapContentIdentity.FromPackage(staged)
-                            .Matches(expected.Content(rotation[0].RoomKey)))
+                    if (rotation.Count == 0 || !File.Exists(staged)
+                        || first == null
+                        || !first.Identity.Matches(expected.Content(rotation[0].RoomKey)))
                     {
                         throw new InvalidDataException(
                             "Staged map no longer matches the requested package.");
@@ -450,6 +449,8 @@ namespace MphRead.Mods.Network
                 start.ArgumentList.Add(argument);
             }
             start.ArgumentList.Add("-server");
+            if (hostedMaps != null)
+                start.ArgumentList.Add("-hostedchild");
             start.ArgumentList.Add("-usermapdirectory");
             start.ArgumentList.Add(childLibrary);
             if (runtimeNamespace != null)

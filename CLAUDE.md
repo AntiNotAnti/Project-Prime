@@ -21,7 +21,7 @@ Depth for a given area lives in `.claude/` (indexed in
 
 ## Network modernization
 
-The current wire version is protocol 32. Its transport retains endpoint-bound connection IDs, sequence/ACK
+The current wire version is protocol 37. Its transport retains endpoint-bound connection IDs, sequence/ACK
 windows, selective reliable control, bounded priority queues and a generation-fenced
 load barrier. The entire migration is one unreleased train. Movement remains
 owner-reported; full snapshots never reconcile the local owner's same-life body.

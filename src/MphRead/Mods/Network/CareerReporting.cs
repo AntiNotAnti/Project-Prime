@@ -111,9 +111,43 @@ namespace MphRead.Mods.Network
         private static void Probe()
         {
             if (!Enabled || Interlocked.CompareExchange(ref _probing, 1, 0) != 0)
+                return;
+
+            FileStream? lease = null;
+            try
             {
+                Directory.CreateDirectory(DirectoryPath);
+                string marker = Path.Combine(DirectoryPath, ".probe-stamp");
+                string gate = Path.Combine(DirectoryPath, ".probe-lock");
+                try
+                {
+                    lease = new FileStream(gate, FileMode.OpenOrCreate,
+                        FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException)
+                {
+                    Interlocked.Exchange(ref _probing, 0);
+                    return;
+                }
+
+                if (File.Exists(marker)
+                    && DateTime.UtcNow - File.GetLastWriteTimeUtc(marker)
+                        < TimeSpan.FromMinutes(5))
+                {
+                    lease.Dispose();
+                    Interlocked.Exchange(ref _probing, 0);
+                    return;
+                }
+                File.WriteAllText(marker, DateTime.UtcNow.Ticks.ToString(
+                    CultureInfo.InvariantCulture));
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                lease?.Dispose();
+                Interlocked.Exchange(ref _probing, 0);
                 return;
             }
+
             _ = Task.Run(async () =>
             {
                 try
@@ -135,6 +169,7 @@ namespace MphRead.Mods.Network
                 }
                 finally
                 {
+                    lease?.Dispose();
                     Interlocked.Exchange(ref _probing, 0);
                 }
             });
@@ -142,16 +177,58 @@ namespace MphRead.Mods.Network
 
         private static async Task DrainAsync()
         {
+            FileStream? drainLease = null;
             try
             {
                 System.IO.Directory.CreateDirectory(DirectoryPath);
+                try
+                {
+                    drainLease = new FileStream(
+                        Path.Combine(DirectoryPath, ".drain-lock"),
+                        FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                }
+                catch (IOException)
+                {
+                    return;
+                }
+
+                // Holding the cross-process drain lock proves no live sender
+                // owns an old .sending-* claim. Recover any file left behind
+                // by a child/process crash before enumerating normal reports.
+                foreach (string stale in Directory.EnumerateFiles(
+                    DirectoryPath, "*.json.sending-*"))
+                {
+                    int marker = stale.LastIndexOf(".sending-", StringComparison.Ordinal);
+                    if (marker <= 0) continue;
+                    string original = stale[..marker];
+                    try
+                    {
+                        if (!File.Exists(original)) File.Move(stale, original);
+                    }
+                    catch (IOException) { }
+                    catch (UnauthorizedAccessException) { }
+                }
+
                 foreach (string path in System.IO.Directory.EnumerateFiles(
                     DirectoryPath, "*.json").OrderBy(p => p, StringComparer.Ordinal))
                 {
+                    // Claim by rename before reading. Every hosted child may
+                    // kick the same durable outbox, but only one process can
+                    // successfully move a file out of the enumerable set.
+                    string claim = path + ".sending-" + Environment.ProcessId.ToString(
+                        CultureInfo.InvariantCulture);
+                    try { File.Move(path, claim, overwrite: false); }
+                    catch (IOException) { continue; }
+                    catch (UnauthorizedAccessException) { continue; }
+
                     byte[] bytes;
-                    try { bytes = await File.ReadAllBytesAsync(path).ConfigureAwait(false); }
+                    try
+                    {
+                        bytes = await File.ReadAllBytesAsync(claim).ConfigureAwait(false);
+                    }
                     catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
                     {
+                        RestoreClaim(claim, path);
                         Console.WriteLine($"[career] could not read {Path.GetFileName(path)}: {ex.Message}");
                         continue;
                     }
@@ -170,7 +247,7 @@ namespace MphRead.Mods.Network
                         string body = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
                         if (response.IsSuccessStatusCode)
                         {
-                            File.Delete(path);
+                            File.Delete(claim);
                             Console.WriteLine($"[career] accepted {Path.GetFileNameWithoutExtension(path)}");
                             continue;
                         }
@@ -179,8 +256,11 @@ namespace MphRead.Mods.Network
                         Console.WriteLine($"[career] report refused ({status}): {Trim(body, 240)}");
                         if (status is 400 or 401 or 403 or 409 or 413)
                         {
-                            string rejected = path + ".rejected";
-                            File.Move(path, rejected, overwrite: true);
+                            File.Move(claim, path + ".rejected", overwrite: true);
+                        }
+                        else
+                        {
+                            RestoreClaim(claim, path);
                         }
                         // A configuration/auth error will refuse every file.
                         if (status is 401 or 403) break;
@@ -188,6 +268,7 @@ namespace MphRead.Mods.Network
                     catch (Exception ex) when (ex is HttpRequestException
                         or TaskCanceledException or IOException)
                     {
+                        RestoreClaim(claim, path);
                         Console.WriteLine($"[career] report delivery deferred: {ex.Message}");
                         break;
                     }
@@ -195,8 +276,20 @@ namespace MphRead.Mods.Network
             }
             finally
             {
+                drainLease?.Dispose();
                 Interlocked.Exchange(ref _draining, 0);
             }
+        }
+
+        private static void RestoreClaim(string claim, string original)
+        {
+            try
+            {
+                if (File.Exists(claim) && !File.Exists(original))
+                    File.Move(claim, original);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         private static string Trim(string text, int max)
