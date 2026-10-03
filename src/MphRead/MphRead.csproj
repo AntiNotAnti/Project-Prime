@@ -190,6 +190,8 @@
   <ItemGroup>
     <PackageReference Include="OpenTK" Version="4.9.4" />
     <PackageReference Include="ReFuel.StbImage" Version="2.1.1" />
+    <PackageReference Include="Ktx2.NET" Version="1.0.5"
+                      Condition="'$(MphReadServer)' != 'true'" />
   </ItemGroup>
 
   <!-- Modern renderer bindings. Silk 2.23.0 and wgpu-native commit
@@ -220,6 +222,12 @@
   <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib')">
     <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\wgpu-native-macos\$(RuntimeIdentifier)\libwgpu_native.dylib"
           Link="libwgpu_native.dylib" CopyToOutputDirectory="PreserveNewest"
+          CopyToPublishDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(MphReadServer)' != 'true' and $(RuntimeIdentifier.StartsWith('osx')) and Exists('$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(RuntimeIdentifier)\libktx.dylib')">
+    <None Include="$(MSBuildProjectDirectory)\..\..\artifacts\ktx-native-macos\$(RuntimeIdentifier)\libktx.dylib"
+          Link="libktx.dylib" CopyToOutputDirectory="PreserveNewest"
           CopyToPublishDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 

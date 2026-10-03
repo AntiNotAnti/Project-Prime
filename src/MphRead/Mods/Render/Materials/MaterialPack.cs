@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using ReFuel.Stb;
+using MphRead.Mods.Render;
 
 namespace MphRead.Mods.Render.Materials;
 
@@ -160,8 +161,10 @@ public sealed class MaterialPack
                 if (string.IsNullOrEmpty(relative)) return null;
                 // Unsafe references are manifest errors even for optional channels.
                 string path = ContainedPath(root, relative);
-                if (!Path.GetExtension(path).Equals(".png", StringComparison.OrdinalIgnoreCase))
-                    throw new InvalidDataException("Only PNG material images are supported: " + relative);
+                string extension = Path.GetExtension(path);
+                if (!extension.Equals(".png", StringComparison.OrdinalIgnoreCase)
+                    && !extension.Equals(".ktx2", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("Material images must be PNG or KTX2: " + relative);
                 if (File.Exists(path) && files.Add(path))
                 {
                     total = checked(total + new FileInfo(path).Length);
@@ -218,14 +221,20 @@ public sealed class MaterialPack
     }
 
     /// <summary>
-    /// Validate a PNG for authoring/import. Runtime manifest loading uses the
+    /// Validate a portable authored image. Runtime manifest loading uses the
     /// metadata-only path below so large HD assets are not decoded twice before
     /// their first GPU upload.
     /// </summary>
     public static MaterialImage ValidateImage(string path)
     {
-        MaterialImage image = ValidateImageMetadata(path, validateChunks: true);
+        bool ktx2 = Path.GetExtension(path).Equals(".ktx2", StringComparison.OrdinalIgnoreCase);
+        MaterialImage image = ValidateImageMetadata(path, validateChunks: !ktx2);
         using var stream = File.OpenRead(path);
+        if (ktx2)
+        {
+            PreparedTextureCodec.ValidateKtx2(stream);
+            return image;
+        }
 #if ANDROID
         using var options = new Android.Graphics.BitmapFactory.Options { InScaled = false, InPremultiplied = false };
         using var decoded = Android.Graphics.BitmapFactory.DecodeStream(stream, null, options);
@@ -243,21 +252,35 @@ public sealed class MaterialPack
     {
         using var stream = File.OpenRead(path);
         if (stream.Length > MaximumImageBytes) throw new InvalidDataException("Image exceeds byte limit.");
-        Span<byte> header = stackalloc byte[24];
-        stream.ReadExactly(header);
+
+        if (Path.GetExtension(path).Equals(".ktx2", StringComparison.OrdinalIgnoreCase))
+        {
+            Span<byte> header = stackalloc byte[28];
+            stream.ReadExactly(header);
+            (int width, int height) = ModernTextureAsset.ProbeDimensions(header);
+            if ((long)width * height > MaximumPixels)
+                throw new InvalidDataException("Image dimensions exceed limits.");
+            return new(path, width, height);
+        }
+
+        Span<byte> pngHeader = stackalloc byte[24];
+        stream.ReadExactly(pngHeader);
         ReadOnlySpan<byte> signature = new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 };
-        if (!header[..8].SequenceEqual(signature) || BinaryPrimitives.ReadInt32BigEndian(header[8..12]) != 13
-            || !header[12..16].SequenceEqual("IHDR"u8)) throw new InvalidDataException("Malformed PNG header.");
-        int width = BinaryPrimitives.ReadInt32BigEndian(header[16..20]);
-        int height = BinaryPrimitives.ReadInt32BigEndian(header[20..24]);
-        if (width <= 0 || height <= 0 || width > MaximumDimension || height > MaximumDimension
-            || (long)width * height > MaximumPixels) throw new InvalidDataException("Image dimensions exceed limits.");
+        if (!pngHeader[..8].SequenceEqual(signature)
+            || BinaryPrimitives.ReadInt32BigEndian(pngHeader[8..12]) != 13
+            || !pngHeader[12..16].SequenceEqual("IHDR"u8))
+            throw new InvalidDataException("Malformed PNG header.");
+        int pngWidth = BinaryPrimitives.ReadInt32BigEndian(pngHeader[16..20]);
+        int pngHeight = BinaryPrimitives.ReadInt32BigEndian(pngHeader[20..24]);
+        if (pngWidth <= 0 || pngHeight <= 0 || pngWidth > MaximumDimension || pngHeight > MaximumDimension
+            || (long)pngWidth * pngHeight > MaximumPixels)
+            throw new InvalidDataException("Image dimensions exceed limits.");
         // Runtime manifest discovery only needs a bounded, trustworthy header.
         // CRC-walking an 8K PNG byte-by-byte before decoding it later can dwarf
         // the actual renderer startup cost. Authoring/import validation still
         // requests the strict chunk/CRC pass before accepting an asset.
         if (validateChunks) ValidatePngChunks(stream);
-        return new(path, width, height);
+        return new(path, pngWidth, pngHeight);
     }
 
     private static void ValidatePngChunks(Stream stream)

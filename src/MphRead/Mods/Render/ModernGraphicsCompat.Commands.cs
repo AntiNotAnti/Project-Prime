@@ -174,7 +174,7 @@ internal sealed unsafe partial class ModernGraphicsCompat
         if (_commandEncoder == null || data.Length == 0)
             return false;
 
-        uint pixelBytes = native.Format == TextureFormat.Rgba16float ? 8u : 4u;
+        uint pixelBytes = native.Format == Silk.NET.WebGPU.TextureFormat.Rgba16float ? 8u : 4u;
         uint rowBytes = checked((uint)width * pixelBytes);
         uint paddedRow = (rowBytes + 255u) & ~255u;
         ulong uploadBytes = checked((ulong)paddedRow * (uint)height);

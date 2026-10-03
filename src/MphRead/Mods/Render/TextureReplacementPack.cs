@@ -93,13 +93,14 @@ namespace MphRead.Mods.Render
                         && (material.SpecularRoughness?.CanDecodeOffThread ?? true)
                         && (material.Emissive?.CanDecodeOffThread ?? true)));
 
-        internal static ModernTextureAsset? DecodePrepared(MaterialImage image,
+        internal static PreparedTextureAsset? DecodePrepared(MaterialImage image,
             TextureAssetClass assetClass, TextureAssetChannel channel, int maximumDimension)
         {
             try
             {
                 using Stream stream = image.OpenRead();
-                return ModernTextureAsset.Decode(stream, image.Path, assetClass, channel, maximumDimension);
+                return PreparedTextureCodec.Decode(
+                    stream, image.Path, assetClass, channel, maximumDimension);
             }
             catch (Exception ex) when (ex is IOException or InvalidDataException or ArgumentException
                 or OverflowException or InvalidOperationException or UnauthorizedAccessException)
@@ -109,7 +110,7 @@ namespace MphRead.Mods.Render
             }
         }
 
-        internal static bool TryUploadPreparedBound(ModernTextureAsset asset, bool repeat,
+        internal static bool TryUploadPreparedBound(PreparedTextureAsset asset, bool repeat,
             out int width, out int height)
         {
             width = height = 0;
@@ -191,7 +192,8 @@ namespace MphRead.Mods.Render
         internal static byte[] ReadRgba(MaterialImage image, out int width, out int height)
         {
             using Stream stream = image.OpenRead();
-            ModernTextureAsset asset = ModernTextureAsset.Decode(stream, image.Path, TextureAssetClass.World, TextureAssetChannel.Albedo);
+            ModernTextureAsset asset = PreparedTextureCodec.DecodeRgba(
+                stream, image.Path, TextureAssetClass.World, TextureAssetChannel.Albedo);
             width = asset.Width; height = asset.Height;
             return asset.Pixels;
         }

@@ -67,10 +67,19 @@ internal sealed unsafe partial class ModernGraphicsCompat
         foreach (var texture in s._nativeTextures.Values)
         {
             int width = texture.Width, height = texture.Height;
+            bool blockCompressed = texture.Format is
+                Silk.NET.WebGPU.TextureFormat.BC7RgbaUnorm
+                or Silk.NET.WebGPU.TextureFormat.BC7RgbaUnormSrgb
+                or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8Unorm
+                or Silk.NET.WebGPU.TextureFormat.Etc2Rgba8UnormSrgb
+                or Silk.NET.WebGPU.TextureFormat.Astc4x4Unorm
+                or Silk.NET.WebGPU.TextureFormat.Astc4x4UnormSrgb;
             int pixelBytes = texture.Format == Silk.NET.WebGPU.TextureFormat.Rgba16float ? 8 : 4;
             for (int mip = 0; mip < texture.MipCount; mip++)
             {
-                textureBytes += (long)width * height * pixelBytes;
+                textureBytes += blockCompressed
+                    ? (long)Math.Max(1, (width + 3) / 4) * Math.Max(1, (height + 3) / 4) * 16
+                    : (long)width * height * pixelBytes;
                 width = Math.Max(1, width / 2); height = Math.Max(1, height / 2);
             }
         }

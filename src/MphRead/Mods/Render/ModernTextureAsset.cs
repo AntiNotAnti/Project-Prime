@@ -30,27 +30,18 @@ namespace MphRead.Mods.Render
     /// Backend-independent decoded texture. Authoring formats stop here; GPU upload,
     /// quality policy and residency live in <see cref="TextureAssetManager"/>.
     /// </summary>
-    internal sealed class ModernTextureAsset
+    internal sealed class ModernTextureAsset : PreparedTextureAsset
     {
         public const int MaximumDimension = 8192;
         public const long MaximumPixels = 64L * 1024 * 1024;
         public const long MaximumDecodedBytes = MaximumPixels * 4;
 
-        public string Key { get; }
-        public TextureAssetClass AssetClass { get; }
-        public TextureAssetChannel Channel { get; }
-        public int Width { get; }
-        public int Height { get; }
         public byte[] Pixels { get; }
 
         private ModernTextureAsset(string key, TextureAssetClass assetClass, TextureAssetChannel channel,
             int width, int height, byte[] pixels)
+            : base(key, assetClass, channel, width, height)
         {
-            Key = key;
-            AssetClass = assetClass;
-            Channel = channel;
-            Width = width;
-            Height = height;
             Pixels = pixels;
         }
 
@@ -144,7 +135,16 @@ namespace MphRead.Mods.Render
         internal static (int Width, int Height) ProbeDimensions(ReadOnlySpan<byte> bytes)
         {
             int width = 0, height = 0;
-            if (bytes.Length >= 24 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 }))
+            ReadOnlySpan<byte> ktx2 = new byte[]
+                { 0xAB,0x4B,0x54,0x58,0x20,0x32,0x30,0xBB,0x0D,0x0A,0x1A,0x0A };
+            if (bytes.Length >= 28 && bytes[..12].SequenceEqual(ktx2))
+            {
+                uint encodedWidth = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(bytes[20..24]);
+                uint encodedHeight = System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(bytes[24..28]);
+                width = encodedWidth <= Int32.MaxValue ? (int)encodedWidth : 0;
+                height = encodedHeight <= Int32.MaxValue ? (int)encodedHeight : 0;
+            }
+            else if (bytes.Length >= 24 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 }))
             {
                 width = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes[16..20]);
                 height = System.Buffers.Binary.BinaryPrimitives.ReadInt32BigEndian(bytes[20..24]);
@@ -189,6 +189,8 @@ namespace MphRead.Mods.Render
 
         internal static string? PortableEncodedExtension(ReadOnlySpan<byte> bytes)
         {
+            if (bytes.Length >= 12 && bytes[..12].SequenceEqual(
+                new byte[] { 0xAB,0x4B,0x54,0x58,0x20,0x32,0x30,0xBB,0x0D,0x0A,0x1A,0x0A })) return ".ktx2";
             if (bytes.Length >= 8 && bytes[..8].SequenceEqual(new byte[] { 137,80,78,71,13,10,26,10 })) return ".png";
             if (bytes.Length >= 2 && bytes[0] == 255 && bytes[1] == 216) return ".jpg";
             if (bytes.Length >= 18 && IsSupportedTga(bytes[..18])) return ".tga";
@@ -280,6 +282,28 @@ namespace MphRead.Mods.Render
             return new ModernTextureAsset(key, assetClass, channel, width, height, pixels);
         }
 
+        internal static ModernTextureAsset FromRgbaPointer(string key,
+            TextureAssetClass assetClass, TextureAssetChannel channel,
+            int width, int height, IntPtr pixels, int maximumDimension)
+        {
+            ValidateDimensions(width, height);
+            if (pixels == IntPtr.Zero)
+                throw new InvalidDataException("Texture decoder returned no pixels.");
+            maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
+            (int targetWidth, int targetHeight) = FitDimensions(width, height, maximumDimension);
+            if (targetWidth != width || targetHeight != height)
+            {
+                byte[] fitted = Resample(pixels, width, height, targetWidth, targetHeight,
+                    channel == TextureAssetChannel.Normal);
+                return new ModernTextureAsset(key, assetClass, channel,
+                    targetWidth, targetHeight, fitted);
+            }
+
+            byte[] rgba = new byte[checked(width * height * 4)];
+            Marshal.Copy(pixels, rgba, 0, rgba.Length);
+            return new ModernTextureAsset(key, assetClass, channel, width, height, rgba);
+        }
+
         public ModernTextureAsset Fit(int maximumDimension)
         {
             maximumDimension = Math.Clamp(maximumDimension, 1, MaximumDimension);
@@ -313,7 +337,7 @@ namespace MphRead.Mods.Render
             }
         }
 
-        public long EstimateGpuBytes(bool mipmaps)
+        public override long EstimateGpuBytes(bool mipmaps)
         {
             long baseBytes = checked((long)Width * Height * 4);
             return mipmaps ? baseBytes + baseBytes / 3 : baseBytes;
