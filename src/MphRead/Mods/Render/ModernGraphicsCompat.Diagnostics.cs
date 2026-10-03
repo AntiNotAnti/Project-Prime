@@ -145,6 +145,11 @@ internal sealed unsafe partial class ModernGraphicsCompat
                 s._enabled.Add(EnableCap.CullFace);
                 s.CorePipeline(ModernProgramKind.World, PrimitiveTopology.TriangleList, target);
                 s.CorePipeline(ModernProgramKind.DeferredPbr, PrimitiveTopology.TriangleList, target);
+                var mrtTarget = new CoreTarget(null, s._whiteView, format, s._whiteView, 1, 1,
+                    WgpuTextureFormat.Depth24PlusStencil8,
+                    null, s._whiteView, null, s._whiteView);
+                s.CorePipeline(ModernProgramKind.DeferredPbrMrt,
+                    PrimitiveTopology.TriangleList, mrtTarget);
                 s._enabled.Add(EnableCap.Blend);
                 s.CorePipeline(ModernProgramKind.World, PrimitiveTopology.TriangleList, target);
                 s._enabled.Clear();

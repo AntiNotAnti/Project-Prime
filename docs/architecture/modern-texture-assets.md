@@ -26,11 +26,15 @@ additionally clamped to the graphics-device maximum. UI assets cap at 2048.
 
 The manager uses RGBA8 uploads and accounts for the extra one-third memory of a
 complete mip chain. Cosmetic residency budgets are conservative by platform and
-quality. World/material replacement textures currently share the same quality
-and device-dimension limits but do not yet participate in that cosmetic
-residency budget; a scene-wide world-material VRAM policy remains follow-up
-work. Existing world texture bindings retain their engine-owned IDs during
-quality changes, so animation and material references remain valid.
+quality. World/material replacements use a separate scene-wide admission budget:
+desktop Low/Medium/High/Ultra allow 256/512/1024/3072 MiB, while Android allows
+128/256/384/768 MiB. Automatic resolves to High on desktop and Medium on Android.
+The budget applies only to incremental authored HD residency; native cartridge
+textures remain the stable fallback. The scene never evicts an already-admitted
+world material mid-match: once the budget is full, later HD channels remain on
+their native representation until a quality/replacement refresh releases and
+re-evaluates residency. Existing world texture bindings retain their engine-owned
+IDs during quality changes, so animation and material references remain valid.
 
 ## Identity and compatibility
 
@@ -91,6 +95,19 @@ RGBA channel can still occupy 256 MiB for its final pixels before mipmaps, so
 whole-pack eager decode remains deliberately avoided.
 
 
+### World/material residency admission
+
+The scene accounts albedo, normal, material and emissive authored replacements by
+their actual post-quality RGBA8+mipmap footprint. Admission is tied to texture
+ownership, so disabling Advanced Materials, disabling HD replacements, changing
+quality, reloading material packs or unloading a scene returns the corresponding
+bytes immediately. Progressive worker decodes do not reserve VRAM until their
+prepared image reaches the render thread; if the budget is already full, the
+prepared image is discarded and the binding keeps its native cartridge texture.
+
+This is deliberately admission control rather than LRU eviction. Stable bindings
+and stable presentation take priority over maximizing HD coverage by swapping
+materials in and out during gameplay.
 ## KTX2 / Basis Universal GPU compression
 
 Authored HD textures may also use `.ktx2`. Basis Universal ETC1S/UASTC payloads

@@ -204,6 +204,13 @@ namespace MphRead
         private readonly Dictionary<int, Mods.Render.MaterialMapBindings> _materialMaps = new();
         private readonly Dictionary<int, (Mods.Render.TextureAssetClass AssetClass, Mods.Render.TextureAssetChannel Channel)>
             _modernTextureSampling = new();
+        // Incremental authored world/material residency only. Native cartridge
+        // textures are the permanent fallback and cosmetics have their own
+        // TextureAssetManager budget.
+        private readonly Dictionary<int, long> _worldMaterialTextureBytes = new();
+        private long _worldMaterialResidentBytes;
+        internal long WorldMaterialResidentBytes => _worldMaterialResidentBytes;
+        internal long WorldMaterialBudgetBytes => Mods.Render.TextureAssetManager.WorldMaterialMemoryBudgetBytes();
         private int _maxTextureAnisotropy = -1;
         private const int TextureMaxAnisotropyExt = 0x84FE;
         private const int MaxTextureMaxAnisotropyExt = 0x84FF;
@@ -1524,6 +1531,7 @@ namespace MphRead
 
         private void ReleaseTexture(int texture)
         {
+            ReleaseWorldMaterialResidency(texture);
             _flatColors.Remove(texture);
             _mipmappedTextures.Remove(texture);
             _modernTextureSampling.Remove(texture);
@@ -1536,6 +1544,106 @@ namespace MphRead
                 if (maps.Emissive != 0) ReleaseTexture(maps.Emissive);
             }
             if (_ownedTextures.Remove(texture)) GL.DeleteTexture(texture);
+        }
+
+        private void ReleaseWorldMaterialResidency(int texture)
+        {
+            if (_worldMaterialTextureBytes.Remove(texture, out long bytes))
+                _worldMaterialResidentBytes = Math.Max(0, _worldMaterialResidentBytes - bytes);
+        }
+
+        private bool TryReserveWorldMaterialResidency(int texture,
+            Mods.Render.ModernTextureAsset asset)
+        {
+            Mods.Render.TextureSamplerDescriptor sampling =
+                Mods.Render.TextureSamplingPolicy.ResolveModern(asset.AssetClass, asset.Channel);
+            bool mipmaps = sampling.Mipmaps && (asset.Width > 1 || asset.Height > 1);
+            long bytes = asset.EstimateGpuBytes(mipmaps);
+            _worldMaterialTextureBytes.TryGetValue(texture, out long previous);
+            long next = checked(_worldMaterialResidentBytes - previous + bytes);
+            long budget = Mods.Render.TextureAssetManager.WorldMaterialMemoryBudgetBytes();
+            if (next > budget)
+            {
+                Mods.DebugLog.Line("render",
+                    $"world material VRAM budget reached; native fallback for {asset.Key} "
+                    + $"requested={bytes / (1024.0 * 1024.0):0.0} MiB "
+                    + $"resident={_worldMaterialResidentBytes / (1024.0 * 1024.0):0.0}/"
+                    + $"{budget / (1024.0 * 1024.0):0.0} MiB");
+                return false;
+            }
+
+            if (previous != 0) _worldMaterialResidentBytes -= previous;
+            _worldMaterialTextureBytes[texture] = bytes;
+            _worldMaterialResidentBytes += bytes;
+            return true;
+        }
+
+        private bool TryUploadWorldMaterialPreparedBound(Mods.Render.ModernTextureAsset asset,
+            int texture, bool repeat, out int width, out int height)
+        {
+            width = height = 0;
+            if (!TryReserveWorldMaterialResidency(texture, asset)) return false;
+            if (Mods.Render.TextureReplacementPack.TryUploadPreparedBound(
+                asset, repeat, out width, out height))
+                return true;
+            ReleaseWorldMaterialResidency(texture);
+            return false;
+        }
+
+        private Mods.Render.ModernTextureAsset? DecodeWorldMaterial(
+            Mods.Render.Materials.MaterialImage image,
+            Mods.Render.TextureAssetClass assetClass,
+            Mods.Render.TextureAssetChannel channel)
+            => Mods.Render.TextureReplacementPack.DecodePrepared(
+                image, assetClass, channel,
+                Mods.Render.TextureAssetManager.DimensionLimit(assetClass, channel));
+
+        private Mods.Render.MaterialMapBindings UploadWorldMaterialCompanions(
+            Mods.Render.Materials.ResolvedMaterial material,
+            Mods.Render.TextureAssetClass assetClass)
+            => new(
+                UploadWorldMaterialCompanion(material.Normal,
+                    Mods.Render.TextureAssetChannel.Normal, assetClass),
+                UploadWorldMaterialCompanion(material.SpecularRoughness,
+                    Mods.Render.TextureAssetChannel.Material, assetClass),
+                UploadWorldMaterialCompanion(material.Emissive,
+                    Mods.Render.TextureAssetChannel.Emissive, assetClass));
+
+        private int UploadWorldMaterialCompanion(Mods.Render.Materials.MaterialImage? image,
+            Mods.Render.TextureAssetChannel channel,
+            Mods.Render.TextureAssetClass assetClass)
+        {
+            if (image == null) return 0;
+            Mods.Render.ModernTextureAsset? asset = DecodeWorldMaterial(image, assetClass, channel);
+            if (asset == null) return 0;
+
+            int texture = 0;
+            try
+            {
+                texture = AllocateTexture();
+                GL.ActiveTexture(TextureUnit.Texture0);
+                GL.BindTexture(TextureTarget.Texture2D, texture);
+                if (!TryUploadWorldMaterialPreparedBound(
+                    asset, texture, repeat: true, out int width, out int height))
+                {
+                    GL.BindTexture(TextureTarget.Texture2D, 0);
+                    ReleaseTexture(texture);
+                    return 0;
+                }
+                RegisterModernTexture(texture, assetClass, channel);
+                Mods.DebugLog.Line("render",
+                    $"material map {asset.Key} ({width}x{height}) "
+                    + $"world-resident={_worldMaterialResidentBytes / (1024.0 * 1024.0):0.0}/"
+                    + $"{Mods.Render.TextureAssetManager.WorldMaterialMemoryBudgetBytes() / (1024.0 * 1024.0):0.0} MiB");
+                return texture;
+            }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+            {
+                if (texture != 0) ReleaseTexture(texture);
+                Mods.DebugLog.Line("render", "material map ignored " + image.Path + ": " + ex.Message);
+                return 0;
+            }
+            finally { GL.BindTexture(TextureTarget.Texture2D, 0); }
         }
 
         private readonly Dictionary<int, (Model Model, int Texture, int Palette, int Recolor, Mods.Render.Materials.MaterialAssetKey? Authored)> _textureSources = new();
@@ -1684,13 +1792,9 @@ namespace MphRead
                 }
 
                 Mods.Render.MaterialMapBindings maps =
-                    Mods.Render.TextureReplacementPack.UploadCompanions(
-                        material, AllocateTexture, ReleaseTexture, assetClass);
+                    UploadWorldMaterialCompanions(material, assetClass);
                 if (!maps.Any) continue;
                 _materialMaps[binding] = maps;
-                RegisterModernTexture(maps.Normal, assetClass, Mods.Render.TextureAssetChannel.Normal);
-                RegisterModernTexture(maps.Specular, assetClass, Mods.Render.TextureAssetChannel.Material);
-                RegisterModernTexture(maps.Emissive, assetClass, Mods.Render.TextureAssetChannel.Emissive);
             }
         }
 
@@ -1706,6 +1810,7 @@ namespace MphRead
                 if (previousMaps.Specular != 0) ReleaseTexture(previousMaps.Specular);
                 if (previousMaps.Emissive != 0) ReleaseTexture(previousMaps.Emissive);
             }
+            ReleaseWorldMaterialResidency(_lastTextureId);
             _modernTextureSampling.Remove(_lastTextureId);
             _mipmappedTextures.Remove(_lastTextureId);
             bool onlyOpaque = true;
@@ -1738,9 +1843,15 @@ namespace MphRead
                     replacementMaterial, includeCompanions: Mods.RenderOptions.AdvancedMaterials);
             int replacementWidth = 0;
             int replacementHeight = 0;
-            bool replaced = !streamReplacement
-                && Mods.Render.TextureReplacementPack.TryUpload(
-                    replacementMaterial, replacementClass,
+            Mods.Render.ModernTextureAsset? synchronousReplacement = null;
+            if (!streamReplacement && replacementMaterial?.Albedo is { } synchronousAlbedo)
+            {
+                synchronousReplacement = DecodeWorldMaterial(synchronousAlbedo,
+                    replacementClass, Mods.Render.TextureAssetChannel.Albedo);
+            }
+            bool replaced = synchronousReplacement != null
+                && TryUploadWorldMaterialPreparedBound(
+                    synchronousReplacement, _lastTextureId, repeat: true,
                     out replacementWidth, out replacementHeight);
             if (replaced)
             {
@@ -1781,18 +1892,11 @@ namespace MphRead
                 QueueModernTextureStream(_lastTextureId, streamVersion,
                     replacementMaterial, replacementClass);
             }
-            else if (replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
+            else if (replaced && replacementMaterial != null && Mods.RenderOptions.AdvancedMaterials)
             {
                 Mods.Render.MaterialMapBindings maps =
-                    Mods.Render.TextureReplacementPack.UploadCompanions(
-                        replacementMaterial, AllocateTexture, ReleaseTexture, replacementClass);
-                if (maps.Any)
-                {
-                    _materialMaps[_lastTextureId] = maps;
-                    RegisterModernTexture(maps.Normal, replacementClass, Mods.Render.TextureAssetChannel.Normal);
-                    RegisterModernTexture(maps.Specular, replacementClass, Mods.Render.TextureAssetChannel.Material);
-                    RegisterModernTexture(maps.Emissive, replacementClass, Mods.Render.TextureAssetChannel.Emissive);
-                }
+                    UploadWorldMaterialCompanions(replacementMaterial, replacementClass);
+                if (maps.Any) _materialMaps[_lastTextureId] = maps;
             }
             _flatColors[_lastTextureId] = average.Result;
             return onlyOpaque;
@@ -1926,11 +2030,13 @@ namespace MphRead
             GL.ActiveTexture(TextureUnit.Texture0);
             if (request.Channel == Mods.Render.TextureAssetChannel.Albedo)
             {
+                if (!TryReserveWorldMaterialResidency(request.Binding, asset)) return;
                 GL.BindTexture(TextureTarget.Texture2D, request.Binding);
                 if (!Mods.Render.TextureReplacementPack.TryUploadPreparedBound(
                     asset, repeat: true, out int width, out int height))
                 {
                     GL.BindTexture(TextureTarget.Texture2D, 0);
+                    ReleaseWorldMaterialResidency(request.Binding);
                     return;
                 }
                 _mipmappedTextures.Remove(request.Binding);
@@ -1961,8 +2067,9 @@ namespace MphRead
 
             int companion = AllocateTexture();
             GL.BindTexture(TextureTarget.Texture2D, companion);
-            if (!Mods.Render.TextureReplacementPack.TryUploadPreparedBound(
-                asset, repeat: true, out int companionWidth, out int companionHeight))
+            if (!TryUploadWorldMaterialPreparedBound(
+                asset, companion, repeat: true,
+                out int companionWidth, out int companionHeight))
             {
                 GL.BindTexture(TextureTarget.Texture2D, 0);
                 ReleaseTexture(companion);
@@ -5339,6 +5446,8 @@ namespace MphRead
             _streamingTextureDecodes.Clear();
             _mipmappedTextures?.Clear();
             _modernTextureSampling.Clear();
+            _worldMaterialTextureBytes.Clear();
+            _worldMaterialResidentBytes = 0;
             _flatColors.Clear();
             _cosmeticTextures.Clear();
             ReleasePreviewItems();
