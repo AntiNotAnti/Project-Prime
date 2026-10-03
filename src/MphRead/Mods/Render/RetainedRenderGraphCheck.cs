@@ -145,8 +145,8 @@ namespace MphRead.Mods.Render
                 "palette override is eligible for direct submission");
             direct.PaletteOverride = null;
             direct.TexturedPlayerSkin = true;
-            Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
-                "textured-player skin stays on compatibility executor");
+            Check(ModernGraphicsCompat.RetainedWorldPacketEligible(direct),
+                "textured-player skin is eligible for direct submission");
             direct.TexturedPlayerSkin = false;
             direct.RenderMode = RenderMode.Translucent;
             Check(!ModernGraphicsCompat.RetainedWorldPacketEligible(direct),

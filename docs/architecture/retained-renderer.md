@@ -311,6 +311,26 @@ this slice.
 Benchmarks report direct retained override draws separately from the other
 direct submission classes.
 
+## Slice 11: direct retained textured bright skins
+
+Textured player bright-skin meshes can now remain on the direct retained World
+path.
+
+The direct uniform patch mirrors the compatibility encoding:
+
+- textured bright skin -> `textured_player_skin = 1`;
+- high-contrast textured skin -> `textured_player_skin = 2`;
+- ordinary packet -> `0`.
+
+Player-outline replay still runs outside the world graph and continues to force
+the textured-skin uniform off during its mask pass exactly as before.
+
+This combines with direct color/palette overrides, matrix stacks, Advanced
+Materials and viewmodel projection, allowing substantially more ordinary player
+and arm-cannon geometry to avoid GL-style state replay.
+
+Benchmarks report direct textured-skin draws separately.
+
 ## Next slices
 
 The graph and packet seam is intended to support the remaining migration without
