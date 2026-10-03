@@ -96,6 +96,22 @@ namespace MphRead
             return texture;
         }
 
+        private void ReleaseFrameTransientFramebufferTexture(
+            ref int texture, int framebuffer, int restoreFramebuffer)
+        {
+            if (texture != 0 && framebuffer != 0)
+            {
+                GL.BindFramebuffer(FramebufferTarget.Framebuffer, framebuffer);
+                GL.FramebufferTexture2D(
+                    FramebufferTarget.Framebuffer,
+                    FramebufferAttachment.ColorAttachment0,
+                    TextureTarget.Texture2D, 0, 0);
+                GL.BindFramebuffer(
+                    FramebufferTarget.Framebuffer, restoreFramebuffer);
+            }
+            ReleaseFrameTransientTexture(ref texture);
+        }
+
         private void ReleaseFrameTransientTexture(ref int texture)
         {
             if (texture == 0)
