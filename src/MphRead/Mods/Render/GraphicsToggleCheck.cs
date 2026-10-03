@@ -85,8 +85,14 @@ namespace MphRead
                     if (previous.Specular != 0) ReleaseTexture(previous.Specular);
                     if (previous.Emissive != 0) ReleaseTexture(previous.Emissive);
                 }
+                long residencyBefore = _worldMaterialResidentBytes;
                 int companion = AllocateTexture();
                 GL.BindTexture(TextureTarget.Texture2D, companion);
+                var syntheticCompanion = Mods.Render.ModernTextureAsset.FromRgba(
+                    "graphics-toggle-budget", Mods.Render.TextureAssetClass.World,
+                    Mods.Render.TextureAssetChannel.Normal, 1, 1, new byte[4]);
+                if (!TryReserveWorldMaterialResidency(companion, syntheticCompanion))
+                    throw new InvalidOperationException("Synthetic companion could not enter an empty residency budget");
                 _materialMaps[binding] = new(companion, 0, 0);
                 _flatColors[companion] = OpenTK.Mathematics.Vector3.One;
                 _mipmappedTextures.Add(companion);
@@ -97,6 +103,8 @@ namespace MphRead
                     throw new InvalidOperationException("Advanced material maps Off retained an unused companion texture");
                 if (_streamingTextureVersions[binding] != advancedToggleVersion)
                     throw new InvalidOperationException("Advanced material maps Off unnecessarily rebound base albedo");
+                if (_worldMaterialResidentBytes != residencyBefore)
+                    throw new InvalidOperationException("Advanced material maps Off leaked world-material VRAM budget");
 
                 // Repeat the ownership check for the master HD replacement
                 // switch so the two live settings cannot regress independently.
@@ -112,6 +120,8 @@ namespace MphRead
                 }
                 companion = AllocateTexture();
                 GL.BindTexture(TextureTarget.Texture2D, companion);
+                if (!TryReserveWorldMaterialResidency(companion, syntheticCompanion))
+                    throw new InvalidOperationException("Synthetic companion could not re-enter residency budget");
                 _materialMaps[binding] = new(companion, 0, 0);
                 _flatColors[companion] = OpenTK.Mathematics.Vector3.One;
                 _mipmappedTextures.Add(companion);
@@ -120,7 +130,9 @@ namespace MphRead
                 if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion)
                     || _flatColors.ContainsKey(companion) || _mipmappedTextures.Contains(companion))
                     throw new InvalidOperationException("HD replacements Off retained a companion texture or side-cache entry");
-                Console.WriteLine("[graphicstogglecheck] upscale Off restores native GPU dimensions; advanced maps/HD Off release companions; binding handles remain stable");
+                if (_worldMaterialResidentBytes != residencyBefore)
+                    throw new InvalidOperationException("HD replacements Off leaked world-material VRAM budget");
+                Console.WriteLine("[graphicstogglecheck] upscale Off restores native GPU dimensions; advanced maps/HD Off release companions and VRAM budget; binding handles remain stable");
             }
             finally
             {
