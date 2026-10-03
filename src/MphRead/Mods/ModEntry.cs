@@ -34,6 +34,10 @@ namespace MphRead.Mods
         /// </summary>
         public static bool TryHandleHeadless(string[] args)
         {
+            bool serverInvocation = HasFlag(args, "server")
+                || HasFlag(args, "dedicated") || HasFlag(args, "masterserver");
+            bool hostedChild = HasFlag(args, "hostedchild");
+
             if (HasFlag(args, "settingsarchive"))
             {
                 Environment.ExitCode = Settings.SettingsArchiveCommand.Run(args);
@@ -196,32 +200,39 @@ namespace MphRead.Mods
                 Environment.ExitCode = Diagnostics.FpsConversionAudit.Run(ValueAfter(args, "fpsconvertauditout"));
                 return true;
             }
-            // Keys and mouse feel, before anything creates a player. Called
-            // here because this runs for every invocation, launcher or not.
-            InputSettings.Load();
-            // And the file of everything the program can say about itself, if
-            // the player has asked for one. Read the preferences here rather
-            // than waiting for the launcher to: a crash while a map loads
-            // happens on paths that never open one, and the point of the log
-            // is to be already running when that happens. -debuglog turns it
-            // on for a single run without the setting, for the case where the
-            // launcher itself is what will not start.
-            Launcher.LauncherPrefs.Load();
-            Input.ControllerBaselineState.Load();
-            Input.AltFormMoveDebug.Enabled = HasFlag(args, "altmovecheck");
-            if (HasFlag(args, "debuglog") || HasFlag(args, "respawnrendercheck")
-                || Input.AltFormMoveDebug.Enabled)
+            // Interactive input/presentation state is irrelevant to both the
+            // directory and dedicated server. Hosted children are intentionally
+            // short-lived, so avoiding these loads materially reduces lobby
+            // allocation cold-start work.
+            if (!serverInvocation)
             {
-                DebugLog.Force();
+                InputSettings.Load();
+                Launcher.LauncherPrefs.Load();
+                Input.ControllerBaselineState.Load();
+                Input.AltFormMoveDebug.Enabled = HasFlag(args, "altmovecheck");
+                if (HasFlag(args, "debuglog") || HasFlag(args, "respawnrendercheck")
+                    || Input.AltFormMoveDebug.Enabled)
+                    DebugLog.Force();
+                DebugLog.Attach();
+                if (Input.AltFormMoveDebug.Enabled)
+                    Console.WriteLine("[altmove] live rolling-alt movement trace enabled");
+                if (OperatingSystem.IsMacOS()) Diagnostics.PlatformDiagnostics.Start();
+                Update.Updater.Disabled = HasFlag(args, "noupdate");
+                ApplyRenderOverrides(args);
+                Input.AimAssist.AimAssistDebug.Enabled = HasFlag(args, "gamepadassistdebug");
+                Input.AimAssist.AimAssistDebug.UnassistedArm =
+                    Input.ControllerBaselineState.Enabled
+                    || HasFlag(args, "gamepadassistbaseline");
+                Input.AimAssist.AimAssistTelemetry.Configure(
+                    ValueAfter(args, "gamepadassisttelemetry"));
             }
-            DebugLog.Attach();
-            if (Input.AltFormMoveDebug.Enabled)
+            else
             {
-                Console.WriteLine("[altmove] live rolling-alt movement trace enabled");
+                // Server-side diagnostics still need a log, but no launcher,
+                // controller calibration, renderer override or desktop updater.
+                DebugLog.Attach();
+                Update.Updater.Disabled = HasFlag(args, "noupdate");
             }
-            if (OperatingSystem.IsMacOS()) { Diagnostics.PlatformDiagnostics.Start(); }
-            Update.Updater.Disabled = HasFlag(args, "noupdate");
-            ApplyRenderOverrides(args);
 
             // This diagnostic needs assets, but must not apply/clean updates
             // or enter any of the launcher/network command paths.
@@ -237,11 +248,6 @@ namespace MphRead.Mods
                 return true;
             }
 
-
-            Input.AimAssist.AimAssistDebug.Enabled = HasFlag(args, "gamepadassistdebug");
-            Input.AimAssist.AimAssistDebug.UnassistedArm = Input.ControllerBaselineState.Enabled
-                || HasFlag(args, "gamepadassistbaseline");
-            Input.AimAssist.AimAssistTelemetry.Configure(ValueAfter(args, "gamepadassisttelemetry"));
 
 #if MPHREAD_SHELL
             if (HasFlag(args, "primeuicheck"))
@@ -349,13 +355,13 @@ namespace MphRead.Mods
                     || HasFlag(args, "mapstudio"));
 #endif
             if (!HasFlag(args, "spireposecheck") && !HasFlag(args, "formcheck")
-                && !deferStartupMaintenance)
+                && !deferStartupMaintenance && !hostedChild)
             {
                 Maintenance.RunStartup();
             }
             // And the desktop's own installer, unless a platform head has
             // already put its own in place.
-            Update.UpdateInstall.UseDesktopIfPossible();
+            if (!serverInvocation) Update.UpdateInstall.UseDesktopIfPossible();
 
             // A bad line, asked for. Before anything opens a socket, and for
             // every path that has one -- the game, the harness client and the
@@ -879,7 +885,7 @@ namespace MphRead.Mods
                 {
                     typed.Add(all[i]);
                 }
-                if (Update.ServerUpdate.AtStartup(typed))
+                if (!hostedChild && Update.ServerUpdate.AtStartup(typed))
                 {
                     return true;
                 }
@@ -1100,6 +1106,7 @@ namespace MphRead.Mods
                 // This process is the server, so it is the one that may
                 // replace itself. See DedicatedServer.AutoUpdate.
                 AutoUpdate = true,
+                HostedChild = hostedChild,
                 ReplayPolicy = new Network.ServerReplayPolicy(
                     Enabled: serverReplays,
                     StorageLimitGb: replayStorageGb,
