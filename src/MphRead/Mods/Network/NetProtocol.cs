@@ -111,6 +111,7 @@ namespace MphRead.Mods.Network
         public const byte ReasonKicked = 3;
         public const byte ReasonInMatch = 4;
         public const byte ReasonLoadTimeout = 5;
+        public const byte ReasonServerBusy = 6;
 
         public byte Reason;
         public byte Players;
@@ -140,6 +141,7 @@ namespace MphRead.Mods.Network
                 ReasonKicked => "You were removed by the lobby owner.",
                 ReasonInMatch => "This server does not allow joining a match in progress.",
                 ReasonLoadTimeout => "The match could not wait any longer for this client to finish loading.",
+                ReasonServerBusy => "The server could not start its authoritative world. Try again shortly.",
                 ReasonFull => $"{where} is full ({Players}/{MaxPlayers} players). "
                     + "Try again when somebody leaves.",
                 ReasonProtocol => $"Network protocol mismatch with {where}; this build uses protocol {NetConfig.ProtocolVersion}. "
