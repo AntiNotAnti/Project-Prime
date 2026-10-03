@@ -1881,6 +1881,16 @@ namespace MphRead
                 GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba,
                     uploadWidth, uploadHeight, 0, PixelFormat.Rgba,
                     PixelType.UnsignedByte, uploadPixels);
+#if !MPHREAD_SERVER
+                if (streamReplacement && Mods.Render.ModernGraphicsCompat.Active)
+                {
+                    // Make the tiny cartridge/native fallback real on the GPU
+                    // before an off-thread HD decode can replace the CPU record.
+                    // Large modern promotions can then fill a hidden texture
+                    // over several frames without ever sampling a partial image.
+                    Mods.Render.ModernGraphicsCompat.EnsureBoundTextureResident();
+                }
+#endif
             }
             // Native cartridge textures keep lazy mip generation so the
             // legacy path pays nothing when filtering is disabled. Modern
