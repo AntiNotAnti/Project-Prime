@@ -143,6 +143,23 @@ namespace MphRead.Mods.Render
             _retainedWorldUniformTemplateBuilds++;
         }
 
+        internal static bool ValidateRetainedWorldUniformLayout(
+            out string error)
+        {
+            try
+            {
+                _ = new RetainedWorldUniformOffsets(
+                    GeneratedShaderLayouts.Get(ModernProgramKind.World));
+                error = "";
+                return true;
+            }
+            catch (Exception ex)
+            {
+                error = ex.Message;
+                return false;
+            }
+        }
+
         internal static bool RetainedWorldPacketEligible(RenderItem item) =>
             item.Type == RenderItemType.Mesh
             && item.RenderMode == RenderMode.Normal
