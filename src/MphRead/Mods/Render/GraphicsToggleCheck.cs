@@ -13,6 +13,7 @@ namespace MphRead
         {
             var originalScale = RenderOptions.TextureUpscale;
             bool originalReplacements = RenderOptions.TextureReplacements;
+            bool originalAdvancedMaterials = RenderOptions.AdvancedMaterials;
             try
             {
                 if (_textureSources.Count == 0) throw new InvalidOperationException("No texture sources to test");
@@ -69,10 +70,14 @@ namespace MphRead
                         throw new InvalidOperationException("Texture quality toggle leaked texture handles");
                 }
                 RenderOptions.TextureReplacements = true;
+                RenderOptions.AdvancedMaterials = true;
                 RefreshTextureQuality();
                 int binding = sources[0].Key;
+
                 // Stand in for a replacement companion even on machines without
-                // an installed HD pack, then exercise the real Off refresh path.
+                // an installed HD pack. Turning advanced maps off must free it
+                // immediately instead of leaving unused normal/material/emissive
+                // images resident until the room is destroyed.
                 if (_materialMaps.Remove(binding, out var previous))
                 {
                     if (previous.Normal != 0) ReleaseTexture(previous.Normal);
@@ -84,17 +89,33 @@ namespace MphRead
                 _materialMaps[binding] = new(companion, 0, 0);
                 _flatColors[companion] = OpenTK.Mathematics.Vector3.One;
                 _mipmappedTextures.Add(companion);
+                RenderOptions.AdvancedMaterials = false;
+                RefreshTextureQuality();
+                if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion)
+                    || _flatColors.ContainsKey(companion) || _mipmappedTextures.Contains(companion))
+                    throw new InvalidOperationException("Advanced material maps Off retained an unused companion texture");
+
+                // Repeat the ownership check for the master HD replacement
+                // switch so the two live settings cannot regress independently.
+                RenderOptions.AdvancedMaterials = true;
+                RefreshTextureQuality();
+                companion = AllocateTexture();
+                GL.BindTexture(TextureTarget.Texture2D, companion);
+                _materialMaps[binding] = new(companion, 0, 0);
+                _flatColors[companion] = OpenTK.Mathematics.Vector3.One;
+                _mipmappedTextures.Add(companion);
                 RenderOptions.TextureReplacements = false;
                 RefreshTextureQuality();
                 if (_materialMaps.ContainsKey(binding) || GL.IsTexture(companion)
                     || _flatColors.ContainsKey(companion) || _mipmappedTextures.Contains(companion))
                     throw new InvalidOperationException("HD replacements Off retained a companion texture or side-cache entry");
-                Console.WriteLine("[graphicstogglecheck] upscale Off restores native GPU dimensions; HD Off releases companions; binding handles remain stable");
+                Console.WriteLine("[graphicstogglecheck] upscale Off restores native GPU dimensions; advanced maps/HD Off release companions; binding handles remain stable");
             }
             finally
             {
                 RenderOptions.TextureUpscale = originalScale;
                 RenderOptions.TextureReplacements = originalReplacements;
+                RenderOptions.AdvancedMaterials = originalAdvancedMaterials;
                 RefreshTextureQuality();
                 GL.BindTexture(TextureTarget.Texture2D, 0);
             }
